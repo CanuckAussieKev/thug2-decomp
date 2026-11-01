@@ -317,10 +317,10 @@ CellBox* get_resize_area(CellBox* out, script::Struct* params)
     if (params->fetch_int_value("inc_l", &inc_l, 0))
         l = area.l + inc_l;
     // (the corner moves by half the change, to keep the park centred)
-    area[0] = static_cast<uint8_t>(area[0] - static_cast<uint8_t>(inc_w / 2));
-    area[2] = static_cast<uint8_t>(area[2] - static_cast<uint8_t>(inc_l / 2));
-    area[3] = static_cast<uint8_t>(w);
-    area[5] = static_cast<uint8_t>(l);
+    area.x = static_cast<uint8_t>(area.x - static_cast<uint8_t>(inc_w / 2));
+    area.z = static_cast<uint8_t>(area.z - static_cast<uint8_t>(inc_l / 2));
+    area.w = static_cast<uint8_t>(w);
+    area.l = static_cast<uint8_t>(l);
     *out = area;
     return out;
 }

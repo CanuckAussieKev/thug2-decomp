@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -519,7 +520,7 @@ View get_build(const MenuRead& read, const Policy& policy)
     return view;
 }
 
-void skater_colour(float hue, float sat_percent, float val_percent, float rgb[3])
+void skater_colour(float hue, float sat_percent, float val_percent, std::span<float, 3> rgb)
 {
     const float s = sat_percent * 0.01f;
     const float v = val_percent * 0.01f;
@@ -552,9 +553,9 @@ void skater_colour(float hue, float sat_percent, float val_percent, float rgb[3]
             break;
         }
     }
-    rgb[0] = std::min(1.0f, r * 2.0f);
-    rgb[1] = std::min(1.0f, g * 2.0f);
-    rgb[2] = std::min(1.0f, b * 2.0f);
+    core::at(rgb, 0) = std::min(1.0f, r * 2.0f);
+    core::at(rgb, 1) = std::min(1.0f, g * 2.0f);
+    core::at(rgb, 2) = std::min(1.0f, b * 2.0f);
 }
 
 bool Tracker::tick_frame(const View& now, float dt)

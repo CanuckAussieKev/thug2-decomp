@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -381,37 +382,37 @@ struct TrailVertex {
 static_assert(sizeof(TrailVertex) == 0x10, "layout must match the original");
 
 // A particle's position (`index` in the positions), the emitter's added unless emitterIndependent.
-void place_of(const EmitterInstance* system, int index, float out[3])
+void place_of(const EmitterInstance* system, int index, std::span<float, 3> out)
 {
     const float* p = system->position_array_ + 3 * index;
     if (system->emitter_independent_) {
-        out[0] = p[0], out[1] = p[1], out[2] = p[2];
+        core::at(out, 0) = p[0], core::at(out, 1) = p[1], core::at(out, 2) = p[2];
     } else {
-        out[0] = static_cast<float>(static_cast<double>(system->at_point_.x) + p[0]);
-        out[1] = static_cast<float>(static_cast<double>(p[1]) + system->at_point_.y);
-        out[2] = static_cast<float>(static_cast<double>(p[2]) + system->at_point_.z);
+        core::at(out, 0) = static_cast<float>(static_cast<double>(system->at_point_.x) + p[0]);
+        core::at(out, 1) = static_cast<float>(static_cast<double>(p[1]) + system->at_point_.y);
+        core::at(out, 2) = static_cast<float>(static_cast<double>(p[2]) + system->at_point_.z);
     }
 }
 
 // Across the path from p0 to p1 and the camera's direction (a, b, c): (p1 - p0) x (a, b, c), normalised when it has
 // a length. The ribbon's first segment rounds every component first; the later ones keep z unrounded.
-void get_across(const float p0[3], const float p1[3], double a, double b, double c, bool first, float n[3])
+void get_across(std::span<const float, 3> p0, std::span<const float, 3> p1, double a, double b, double c, bool first, std::span<float, 3> n)
 {
-    const double dx = static_cast<double>(p1[0]) - p0[0];
-    const double dy = static_cast<double>(p1[1]) - p0[1];
-    const double dz = static_cast<double>(p1[2]) - p0[2];
-    n[0] = static_cast<float>(c * dy - b * dz);
-    n[1] = static_cast<float>(a * dz - c * dx);
+    const double dx = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
+    const double dy = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
+    const double dz = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
+    core::at(n, 0) = static_cast<float>(c * dy - b * dz);
+    core::at(n, 1) = static_cast<float>(a * dz - c * dx);
     double z = b * dx - a * dy;
-    n[2] = static_cast<float>(z);
+    core::at(n, 2) = static_cast<float>(z);
     if (first)
-        z = n[2];
-    const double length = std::sqrt(static_cast<double>(n[0]) * n[0] + z * z + static_cast<double>(n[1]) * n[1]);
+        z = core::at(n, 2);
+    const double length = std::sqrt(static_cast<double>(core::at(n, 0)) * core::at(n, 0) + z * z + static_cast<double>(core::at(n, 1)) * core::at(n, 1));
     if (length > 0.0f) {
         const double inverse = 1.0f / length;
-        n[0] = static_cast<float>(n[0] * inverse);
-        n[1] = static_cast<float>(n[1] * inverse);
-        n[2] = static_cast<float>(inverse * z);
+        core::at(n, 0) = static_cast<float>(core::at(n, 0) * inverse);
+        core::at(n, 1) = static_cast<float>(core::at(n, 1) * inverse);
+        core::at(n, 2) = static_cast<float>(inverse * z);
     }
 }
 
@@ -464,9 +465,9 @@ void PcFlatRibbonParticles::render()
                 std::array<float, 3> p0{};
                 std::array<float, 3> p1{};
                 std::array<float, 3> n{};
-                place_of(this, index, p0.data());
-                place_of(this, max_particles_ + index, p1.data());
-                get_across(p0.data(), p1.data(), a, b, c, true, n.data());
+                place_of(this, index, p0);
+                place_of(this, max_particles_ + index, p1);
+                get_across(p0, p1, a, b, c, true, n);
                 auto w =
                     static_cast<float>((static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
                                        core::at(particle->start_size_, 0));
@@ -491,8 +492,8 @@ void PcFlatRibbonParticles::render()
                 for (int k = 1; k < segments_; ++k) {
                     const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
                     if (k > 1) {
-                        place_of(this, max_particles_ * k + index, p1.data());
-                        get_across(p0.data(), p1.data(), a, b, c, false, n.data());
+                        place_of(this, max_particles_ * k + index, p1);
+                        get_across(p0, p1, a, b, c, false, n);
                     }
                     n0w = static_cast<double>(core::at(n, 0)) * w;
                     n1w = static_cast<double>(w) * core::at(n, 1);
@@ -802,8 +803,8 @@ void PcLineParticles::render()
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             std::array<float, 3> p0{};
             std::array<float, 3> p1{};
-            place_of(this, index, p0.data());
-            place_of(this, max_particles_ + index, p1.data());
+            place_of(this, index, p0);
+            place_of(this, max_particles_ + index, p1);
             const ColourSpan span = colour_span(*this, life);
             std::array<uint32_t, 2> colours{};
             for (int k = 0; k < 2; ++k)
@@ -1009,8 +1010,8 @@ void PcRibbonTrailParticles::render()
             std::array<float, 3> p0{};
             std::array<float, 3> p1{};
             std::array<float, 3> n{};
-            place_of(this, index, p0.data());
-            place_of(this, max_particles_ + index, p1.data());
+            place_of(this, index, p0);
+            place_of(this, max_particles_ + index, p1);
             {
                 const double dx = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
                 const double dy = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
@@ -1045,7 +1046,7 @@ void PcRibbonTrailParticles::render()
             for (int k = 1; k < steps_; ++k) {
                 const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
                 if (k > 1) {
-                    place_of(this, max_particles_ * k + index, p1.data());
+                    place_of(this, max_particles_ * k + index, p1);
                     const double dx = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
                     const double dy = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
                     const double dz = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);

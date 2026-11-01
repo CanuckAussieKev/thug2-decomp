@@ -27,14 +27,6 @@ Checks:
   - '-misc-non-private-member-variables-in-classes'
   # No include-what-you-use mapping for the Windows / DirectX / SDL headers: its advice there is wrong.
   - '-misc-include-cleaner'
-  # C APIs (the C runtime's string functions, Win32, Direct3D, SDL) take arrays as pointers.
-  - '-cppcoreguidelines-pro-bounds-array-to-pointer-decay'
-  # Fixed-size members of the original's layouts and C-API buffers; std::array where code is rewritten.
-  - '-cppcoreguidelines-avoid-c-arrays'
-  - '-modernize-avoid-c-arrays'
-  # Both need gsl::at; the project uses no GSL.
-  - '-cppcoreguidelines-pro-bounds-constant-array-index'
-  - '-cppcoreguidelines-pro-bounds-avoid-unchecked-container-access'
   # The game's globals are the original's state (g_ names).
   - '-cppcoreguidelines-avoid-non-const-global-variables'
   # The game's printf-style formatting is kept for its exact output (std::format would change it).
@@ -60,6 +52,9 @@ CheckOptions:
   bugprone-exception-escape.IgnoredExceptions: 'bad_alloc,bad_array_new_length'
   # Only a literal that is exactly the constant's value (the original's own digits otherwise stay).
   modernize-use-std-numbers.DiffThreshold: '0'
+  # The maths types check their own index (Vec4's component, Mat4's row: an index outside them ends the game with a
+  # report), as core::at does for the containers.
+  cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses: '::std::map;::std::unordered_map;::std::flat_map;::maths::Vec4;::maths::Mat4'
   # The rule of five, as the Guidelines' C.21 allows it: a defaulted destructor alone, and classes that only copy
   # (their copies stand in for moves).
   cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true

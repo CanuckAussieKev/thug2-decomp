@@ -593,7 +593,7 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
     if (centre_y < 0.0f)
         centre_y = static_cast<float>((static_cast<double>(height) - 1.0f) * 0.5f);
     std::array<float, 4> m{};
-    maths::create_rotate_2d(m.data(), -angle);
+    maths::create_rotate_2d(m, -angle);
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     const uint32_t bytes = height * width * 4;

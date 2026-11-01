@@ -14,8 +14,8 @@ namespace gfx {
 // A user's place in a cached animation (0x1E4 bytes, from the item pools 0x006F92B8): a key position per bone for
 // the rotations and the translations, and its time.
 struct AnimCacheSlot {
-    std::array<uint32_t, 60> rotation_keys_;    // +0x000
-    std::array<uint32_t, 60> translation_keys_; // +0x0F0
+    std::array<uint8_t*, 60> rotation_keys_;    // +0x000 (the key each bone's search last stopped at; null: none yet)
+    std::array<uint8_t*, 60> translation_keys_; // +0x0F0
     uint16_t clock_;                // +0x1E0 (15 bits, signed; bit 15 kept)
     uint16_t pad1e2_;
 
@@ -68,6 +68,17 @@ struct AnimCacheEntry {
     uint16_t* get_translation_offsets();
     // 0x00480640: called with `arg` when the entry is given back.
     void set_release_callback(void (*callback)(void*), void* arg);
+
+    // The key searches over the decompressed keys (boned_anim_frame_data.cpp, with the keys' readers): the keys of
+    // `bone` around `frame`: `first` / `second` (the same key when there's only one, or past the last), starting
+    // from where slot `slot`'s search stopped when it still fits (-1: no slot) and leaving it there; -2 while the
+    // entry is being filled (kReleasing). Returns `slot`. Each has its own quirks, kept as the original.
+    // 0x00482FB0 / 0x00483210: rotation / translation keys, searching forwards.
+    int find_quat_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
+    int find_trans_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
+    // 0x00483470 / 0x004836C0: the same when the animation runs backwards (a search can step back one key).
+    int find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
+    int find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
 
     uint32_t lookup_key_{0};           // +0x000 the animation (0: free)
     uint32_t last_used_{};             // +0x004

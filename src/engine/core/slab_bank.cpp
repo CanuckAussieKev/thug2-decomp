@@ -106,7 +106,7 @@ void set_up(int index, int count)
     if (index != 0)
         return;
     void* memory = alloc(sizeof(SlabBank));
-    pool_at(0) = memory ? memory::construct_in<SlabBank>(memory, 12, count, "HashItem") : nullptr;
+    pool_at(0) = memory ? memory::construct_in<SlabBank>(memory, 12, count, static_cast<const char*>("HashItem")) : nullptr;
 }
 
 // 0x005BC450

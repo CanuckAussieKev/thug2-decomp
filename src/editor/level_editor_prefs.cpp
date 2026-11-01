@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <span>
 
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8.h"
@@ -28,7 +29,7 @@ Values get_clamped(Values v)
     return v;
 }
 
-void get_accent_rgb(int accent, float rgb[3])
+void get_accent_rgb(int accent, std::span<float, 3> rgb)
 {
     static const std::array<std::array<float, 3>, kAccentCount> kRgb = {{
         {0.82f, 0.34f, 0.11f}, // orange (the plan's mockup: the editor's own until now)
@@ -39,9 +40,9 @@ void get_accent_rgb(int accent, float rgb[3])
         {0.10f, 0.60f, 0.62f}, // teal
     }};
     const float* c = core::at(kRgb, std::clamp(accent, 0, kAccentCount - 1)).data();
-    rgb[0] = c[0];
-    rgb[1] = c[1];
-    rgb[2] = c[2];
+    core::at(rgb, 0) = c[0];
+    core::at(rgb, 1) = c[1];
+    core::at(rgb, 2) = c[2];
 }
 
 const char* accent_name(int accent)
@@ -214,7 +215,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
     ImGui::TextUnformatted("Accent");
     for (int i = 0; i < kAccentCount; ++i) {
         std::array<float, 3> rgb{};
-        get_accent_rgb(i, rgb.data());
+        get_accent_rgb(i, rgb);
         ImGui::SameLine(0.0f, 6.0f * scale);
         ImGui::PushID(i);
         const ImVec4 colour(core::at(rgb, 0), core::at(rgb, 1), core::at(rgb, 2), 1.0f);
@@ -290,25 +291,25 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     if (heading)
         ImGui::PopFont();
     ImGui::Spacing();
-    static const char* const kTips[][2] = {
+    static constexpr auto kTips = std::to_array<std::array<const char*, 2>>({
         {"Right mouse + W A S D", "Fly (Q / E: down / up, Shift: faster)"},
         {"Click, drag", "Select and move (Shift+click: add, Esc: deselect)"},
         {"F", "Frame selection (Alt+drag: orbit)"},
         {"F5", "Play from here; F5 again returns"},
         {"F1", "Keyboard shortcuts (Ctrl+S: save)"},
-    };
+    });
     if (ImGui::BeginTable("##tips", 2, ImGuiTableFlags_SizingFixedFit)) {
         for (const auto& tip : kTips) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             if (mono)
                 ImGui::PushFont(mono);
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", tip[0]);
+            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", core::at(tip, 0));
             if (mono)
                 ImGui::PopFont();
             ImGui::TableNextColumn();
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 300.0f * scale);
-            ImGui::TextUnformatted(tip[1]);
+            ImGui::TextUnformatted(core::at(tip, 1));
             ImGui::PopTextWrapPos();
         }
         ImGui::EndTable();

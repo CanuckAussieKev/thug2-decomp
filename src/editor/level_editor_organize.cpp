@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <utility>
 #include <array>
@@ -471,7 +472,7 @@ std::vector<uint32_t> selectable_sectors()
 bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
 {
     std::array<V3, 8> corners{};
-    box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
+    box_corners(box.origin, box.axes, box.min, box.max, corners);
     bool any = false;
     Rect2 r = {0, 0, 0, 0};
     for (const V3& c : corners) {
@@ -1018,7 +1019,7 @@ std::vector<std::string> snapshots()
         return names;
     do {
         std::string name;
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && snapshot_of(found.cFileName, scene, &name))
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && snapshot_of(std::data(found.cFileName), scene, &name))
             names.push_back(name);
     } while (FindNextFileA(find, &found));
     FindClose(find);

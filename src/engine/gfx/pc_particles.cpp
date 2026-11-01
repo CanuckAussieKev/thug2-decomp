@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -171,25 +172,25 @@ float get_mid_time(const PcParticleSystem* system)
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
 // and u = r x (a, b, c), each normalised when it has a length.
-void camera_axes(float r[3], float u[3])
+void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
 {
     const double a = core::at(g_view_matrix.row, 0).z;
     const double b = core::at(g_view_matrix.row, 1).z;
     const double c = core::at(g_view_matrix.row, 2).z;
     const double b0 = b * 0.0f;
-    r[0] = static_cast<float>(b0 - c);
-    r[1] = static_cast<float>(c * 0.0f - a * 0.0f);
-    r[2] = static_cast<float>(a - b0);
-    u[0] = static_cast<float>(r[1] * c - r[2] * b);
-    u[1] = static_cast<float>(r[2] * a - c * r[0]);
-    u[2] = static_cast<float>(b * r[0] - r[1] * a);
-    for (float* w : {r, u}) {
-        const double length = std::sqrt(static_cast<double>(w[0]) * w[0] + static_cast<double>(w[2]) * w[2] +
-                                        static_cast<double>(w[1]) * w[1]);
+    core::at(r, 0) = static_cast<float>(b0 - c);
+    core::at(r, 1) = static_cast<float>(c * 0.0f - a * 0.0f);
+    core::at(r, 2) = static_cast<float>(a - b0);
+    core::at(u, 0) = static_cast<float>(core::at(r, 1) * c - core::at(r, 2) * b);
+    core::at(u, 1) = static_cast<float>(core::at(r, 2) * a - c * core::at(r, 0));
+    core::at(u, 2) = static_cast<float>(b * core::at(r, 0) - core::at(r, 1) * a);
+    for (const std::span<float, 3> w : {r, u}) {
+        const double length = std::sqrt(static_cast<double>(core::at(w, 0)) * core::at(w, 0) + static_cast<double>(core::at(w, 2)) * core::at(w, 2) +
+                                        static_cast<double>(core::at(w, 1)) * core::at(w, 1));
         if (length > 0.0f) {
             const double inverse = 1.0f / length;
             for (int i = 0; i < 3; ++i)
-                w[i] = static_cast<float>(w[i] * inverse);
+                core::at(w, i) = static_cast<float>(core::at(w, i) * inverse);
         }
     }
 }
@@ -369,7 +370,7 @@ void PcParticleSystem::draw(bool advance)
     change_material_layer(material, 0, 0);
     std::array<float, 3> r{};
     std::array<float, 3> u{};
-    camera_axes(r.data(), u.data());
+    camera_axes(r, u);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader964), nullptr);
     std::array<std::array<float, 4>, 3> colour_table{};

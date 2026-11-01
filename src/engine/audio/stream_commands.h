@@ -4,6 +4,10 @@
 #include <cstdint>
 #include <array>
 
+namespace objects {
+class AudioStreamModule;
+} // namespace objects
+
 // Streams: sounds streamed from data\streams\pcm\pcm.wad (speech, effects) on the three stream channels; the
 // records of what each plays are audio::Stream (music_player.h). Each command does nothing (returns 0 / false) while
 // streamed sound is off: no sound, the null sound platform (0x007CEFA8 == 2), or the stream header not loaded.
@@ -55,7 +59,7 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner);
 // sound manager gives the nearest emitter's position (`dropoff`, `falloffCurve`) - unless it's under 2 and
 // the manager says it isn't audible; else at `volume`. The component becomes the stream's owner (the one before
 // lets go). A volume other than 100 scales the stream's and sets its dropoff. The id, or 0.
-uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff, float volume, float pitch, int option,
+uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t checksum, float dropoff, float volume, float pitch, int option,
                                int priority, int use_pos_info, int falloff_curve, uint32_t id);
 
 // The PC's streams are Bink files (sound only) opened from memory.

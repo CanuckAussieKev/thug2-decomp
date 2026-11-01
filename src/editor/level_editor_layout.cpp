@@ -13,6 +13,8 @@
 #include <cstring>
 #include <fstream>
 #include <initializer_list>
+#include <iterator>
+#include <span>
 #include <sstream>
 #include <type_traits>
 #include <unordered_map>
@@ -65,13 +67,13 @@ int header_version(const std::string& line)
 }
 
 // "x,y,z" (three numbers, commas between).
-bool read_triple(const std::string& text, float out[3])
+bool read_triple(const std::string& text, std::span<float, 3> out)
 {
     const char* at = text.c_str();
     for (int i = 0; i < 3; ++i) {
         char* end = nullptr;
-        out[i] = std::strtof(at, &end);
-        if (end == at || !std::isfinite(out[i]))
+        core::at(out, i) = std::strtof(at, &end);
+        if (end == at || !std::isfinite(core::at(out, i)))
             return false;
         at = end;
         if (i < 2) {
@@ -83,10 +85,10 @@ bool read_triple(const std::string& text, float out[3])
     return *at == '\0';
 }
 
-void triple(std::ostringstream& out, const char* key, const float value[3])
+void triple(std::ostringstream& out, const char* key, std::span<const float, 3> value)
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), " %s=%.9g,%.9g,%.9g", key, value[0], value[1], value[2]);
+    std::snprintf(text.data(), sizeof(text), " %s=%.9g,%.9g,%.9g", key, core::at(value, 0), core::at(value, 1), core::at(value, 2));
     out << text.data();
 }
 
@@ -174,7 +176,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
                 return false;
             spec->type = value;
         } else if (key == "pos" || key == "angles") {
-            if (!read_triple(value, v.data()))
+            if (!read_triple(value, v))
                 return false;
             (key == "pos" ? spec->pos : spec->angles) = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
         } else if (key == "types") {
@@ -186,7 +188,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
                 spec->types.push_back(type);
             }
         } else if (key == "color") {
-            if (!read_triple(value, v.data()))
+            if (!read_triple(value, v))
                 return false;
             for (int i = 0; i < 3; ++i) {
                 if (core::at(v, i) < 0.0f || core::at(v, i) > 255.0f || core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i))))
@@ -264,8 +266,8 @@ std::string emit_out(const FileLoad& file)
             out << " type=" << a.type;
         const std::array<float, 3> pos = {{a.pos.x, a.pos.y, a.pos.z}};
         const std::array<float, 3> angles = {{a.angles.x, a.angles.y, a.angles.z}};
-        triple(out, "pos", pos.data());
-        triple(out, "angles", angles.data());
+        triple(out, "pos", pos);
+        triple(out, "angles", angles);
         if (!a.types.empty()) {
             out << " types=";
             for (size_t i = 0; i < a.types.size(); ++i)
@@ -311,9 +313,9 @@ std::string emit_out(const FileLoad& file)
         out << "set";
         get_hex(out, s.name);
         if (s.has_pos_)
-            triple(out, "pos", s.pos.data());
+            triple(out, "pos", s.pos);
         if (s.has_angles_)
-            triple(out, "angles", s.angles.data());
+            triple(out, "angles", s.angles);
         for (const fields::Edit& edit : s.fields)
             out << ' ' << fields::get_token(edit, fields::get_name_of);
         get_comment(out, s.name);
@@ -428,10 +430,10 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
                 const std::string key = field.substr(0, equals);
                 const std::string value = field.substr(equals + 1);
                 if (key == "pos") {
-                    ok = !s.has_pos_ && read_triple(value, s.pos.data()); // (twice: not a record we wrote)
+                    ok = !s.has_pos_ && read_triple(value, s.pos); // (twice: not a record we wrote)
                     s.has_pos_ = true;
                 } else if (key == "angles") {
-                    ok = !s.has_angles_ && read_triple(value, s.angles.data());
+                    ok = !s.has_angles_ && read_triple(value, s.angles);
                     s.has_angles_ = true;
                 } else if (fields::is_field_key(key)) {
                     // (phase 6: a typed field edit; the same field twice isn't a record we wrote)
@@ -723,23 +725,23 @@ bool write_whole(const char* folder, const char* path, const char* data, size_t 
     return ok;
 }
 
-void rows_of(const maths::Mat4& m, float rows[9])
+void rows_of(const maths::Mat4& m, std::span<float, 9> rows)
 {
     for (int r = 0; r < 3; ++r) {
-        rows[r * 3 + 0] = core::at(m.row, r).x;
-        rows[r * 3 + 1] = core::at(m.row, r).y;
-        rows[r * 3 + 2] = core::at(m.row, r).z;
+        core::at(rows, r * 3 + 0) = core::at(m.row, r).x;
+        core::at(rows, r * 3 + 1) = core::at(m.row, r).y;
+        core::at(rows, r * 3 + 2) = core::at(m.row, r).z;
     }
 }
 
-object_edit::State state_of(uint32_t id, const float pos[3], const float rows[9], V3 scale)
+object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::span<const float, 9> rows, V3 scale)
 {
     object_edit::State state = {};
     state.id = id;
     state.scale = scale;
-    state.pos = {pos[0], pos[1], pos[2], 1.0f};
+    state.pos = {core::at(pos, 0), core::at(pos, 1), core::at(pos, 2), 1.0f};
     for (int r = 0; r < 3; ++r) {
-        core::at(state.matrix.row, r) = {rows[r * 3 + 0], rows[r * 3 + 1], rows[r * 3 + 2], 0.0f};
+        core::at(state.matrix.row, r) = {core::at(rows, r * 3 + 0), core::at(rows, r * 3 + 1), core::at(rows, r * 3 + 2), 0.0f};
         core::at(state.draw_matrix_.row, r) = core::at(state.matrix.row, r);
     }
     core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -786,7 +788,7 @@ bool get_capture(FileLoad* file)
         if (!object)
             continue;
         ObjectRecord record = {id, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
-        rows_of(object->basis_frame_, record.rows.data());
+        rows_of(object->basis_frame_, record.rows);
         record.scale = scale_tool::get_object_scale(object);
         file->objects.push_back(record);
     }
@@ -796,7 +798,7 @@ bool get_capture(FileLoad* file)
             continue;
         CopyRecord record = {
             copy.name, copy.source, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
-        rows_of(object->basis_frame_, record.rows.data());
+        rows_of(object->basis_frame_, record.rows);
         record.scale = scale_tool::get_object_scale(object);
         file->copies.push_back(record);
     }
@@ -891,7 +893,7 @@ std::string get_apply(const FileLoad& file)
     scenery::apply_states(file.sectors, file.rails);
     int objects = 0, copies = 0;
     for (const ObjectRecord& record : file.objects) {
-        if (object_edit::get_restore(state_of(record.id, record.pos.data(), record.rows.data(), record.scale))) {
+        if (object_edit::get_restore(state_of(record.id, record.pos, record.rows, record.scale))) {
             object_edit::touch(record.id);
             ++objects;
         }
@@ -900,7 +902,7 @@ std::string get_apply(const FileLoad& file)
         const bool there = object_edit::is_copy(record.name) && live_object(record.name);
         if ((there ||
              object_edit::make_copy(record.source, {core::at(record.pos, 0), core::at(record.pos, 1), core::at(record.pos, 2)}, record.name)) &&
-            object_edit::get_restore(state_of(record.name, record.pos.data(), record.rows.data(), record.scale)))
+            object_edit::get_restore(state_of(record.name, record.pos, record.rows, record.scale)))
             ++copies;
     }
     // Nodes added (in the overlay, in order: one re-registration), the added crowns' order, the level's nodes hidden.
@@ -1299,7 +1301,7 @@ std::vector<uint32_t> saved_scenes()
         return scenes;
     do {
         uint32_t scene = 0;
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && saved_layout_scene(found.cFileName, &scene))
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && saved_layout_scene(std::data(found.cFileName), &scene))
             scenes.push_back(scene);
     } while (FindNextFileA(find, &found));
     FindClose(find);

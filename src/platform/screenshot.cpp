@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
@@ -121,10 +122,10 @@ objects::GameEntity* local_skater()
     return skate_module() ? skate_module()->get_home_rider() : nullptr;
 }
 
-std::string vec(const float v[3], const char* format = "(%.1f, %.1f, %.1f)")
+std::string vec(std::span<const float, 3> v, const char* format = "(%.1f, %.1f, %.1f)")
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), format, v[0], v[1], v[2]);
+    std::snprintf(text.data(), sizeof(text), format, core::at(v, 0), core::at(v, 1), core::at(v, 2));
     return text.data();
 }
 
@@ -207,7 +208,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     if (in_level && !loading) {
         if (const objects::GameEntity* s = local_skater()) {
             std::array<float, 3> pos = {{s->at_point_.x, s->at_point_.y, s->at_point_.z}};
-            skater.fields.push_back({"position", vec(pos.data())});
+            skater.fields.push_back({"position", vec(pos)});
             const maths::Vec4& at = core::at(s->basis_frame_.row, 2);
             const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
@@ -219,8 +220,8 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
 
     Section camera{"camera", {}};
     if (g_view.noted && frame_loop::frames_run() - g_view.frame < 10) {
-        camera.fields.push_back({"position", vec(g_view.pos.data())});
-        camera.fields.push_back({"looking along", vec(g_view.forward.data(), "(%.3f, %.3f, %.3f)")});
+        camera.fields.push_back({"position", vec(g_view.pos)});
+        camera.fields.push_back({"looking along", vec(g_view.forward, "(%.3f, %.3f, %.3f)")});
     }
     sections.push_back(camera);
 
@@ -667,24 +668,24 @@ bool series_running() { return g_series != nullptr; }
 
 std::string series_result() { return series_result_state(); }
 
-bool last_view(float position[3], float forward[3])
+bool last_view(std::span<float, 3> position, std::span<float, 3> forward)
 {
     if (!g_view.noted || frame_loop::frames_run() - g_view.frame >= 10)
         return false;
     for (int i = 0; i < 3; ++i) {
-        position[i] = core::at(g_view.pos, i);
-        forward[i] = core::at(g_view.forward, i);
+        core::at(position, i) = core::at(g_view.pos, i);
+        core::at(forward, i) = core::at(g_view.forward, i);
     }
     return true;
 }
 
-void note_view(int viewport, const float position[3], const float forward[3])
+void note_view(int viewport, std::span<const float, 3> position, std::span<const float, 3> forward)
 {
     if (viewport != 0)
         return;
     for (int i = 0; i < 3; ++i) {
-        core::at(g_view.pos, i) = position[i];
-        core::at(g_view.forward, i) = forward[i];
+        core::at(g_view.pos, i) = core::at(position, i);
+        core::at(g_view.forward, i) = core::at(forward, i);
     }
     g_view.frame = frame_loop::frames_run();
     g_view.noted = true;

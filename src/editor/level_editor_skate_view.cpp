@@ -256,7 +256,7 @@ void add_overlay(const overlays::Painter& painter)
             }
             std::array<V3, 4> clipped{};
             const int count =
-                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &core::at(c.points, f * 3), clipped.data());
+                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, std::span<const V3>(c.points).subspan(f * 3).first<3>(), clipped);
             if (!count)
                 continue;
             Polygon poly = {};
@@ -268,7 +268,7 @@ void add_overlay(const overlays::Painter& painter)
                 cast_onto(painter.camera, painter.frame, painter.lens, core::at(clipped, k), painter.near_z_ * 0.5f, &nx, &ny);
                 left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
                 above = above && ny > 1.0f;
-                ndc_to_pixel(painter.viewport.data(), nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
+                ndc_to_pixel(painter.viewport, nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
                 depth += -get_dot(core::at(clipped, k) - painter.camera, painter.frame.back);
             }
             if (left || right || below || above)
@@ -295,7 +295,7 @@ void add_overlay(const overlays::Painter& painter)
             continue;
         OrientedBox box = triggers::box_of(a.pos, a.yaw, a.spec.size);
         std::array<V3, 8> corner{};
-        box_corners(box.origin, box.axes.data(), box.min, box.max, corner.data());
+        box_corners(box.origin, box.axes, box.min, box.max, corner);
         const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
         const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;

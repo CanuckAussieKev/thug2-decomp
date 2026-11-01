@@ -134,11 +134,11 @@ constexpr uint32_t kBody = 0x2457F44D;             // body
 // A part's geoms, one model file each.
 constexpr auto kMeshes = std::to_array<uint32_t>({0x1E90C5A9, 0xFECA8BB3, 0x67C3DA09, 0x10C4EA9F, 0x8EA07F3C}); // mesh, mesh1 ... mesh4
 // A part's texture replacements: replace / with / in, then replace1 / with1 / in1 ... replace6.
-const uint32_t kReplacements[][3] = {
+constexpr auto kReplacements = std::to_array<std::array<uint32_t, 3>>({
     {0xF362DBBA, 0x676F1DF1, 0xA01371B1}, {0x7A993873, 0x9B03ADAD, 0xED189051}, {0xE39069C9, 0x020AFC17, 0x7411C1EB},
     {0x9497595F, 0x750DCC81, 0x0316F17D}, {0x0AF3CCFC, 0xEB695922, 0x9D7264DE}, {0x7DF4FC6A, 0x9C6E69B4, 0xEA755448},
     {0xE4FDADD0, 0x0567380E, 0x737C05F2},
-};
+});
 
 // Whether a face texture holds one (0x00487510, called through the game: the tests script it).
 bool face_texture_is_valid(FaceSkin* face) { return face->is_sound(); }
@@ -431,13 +431,13 @@ bool ModelAssembler::swap_texture(uint32_t part)
     if (!option)
         return false;
     const char* with = cell::pointer<const char>(static_cast<uintptr_t>(part));
-    for (const uint32_t* names : kReplacements) {
+    for (const std::array<uint32_t, 3>& names : kReplacements) {
         const char* source = nullptr;
-        if (!option->fetch_text(names[0], &source, 0))
+        if (!option->fetch_text(core::at(names, 0), &source, 0))
             continue;
-        option->fetch_text(names[1], &with, 1);
+        option->fetch_text(core::at(names, 1), &with, 1);
         uint32_t in = part;
-        option->read_hash_value(names[2], &in, 0);
+        option->read_hash_value(core::at(names, 2), &in, 0);
         result = built_model()->swap_texture(in, source, with);
     }
     return result;

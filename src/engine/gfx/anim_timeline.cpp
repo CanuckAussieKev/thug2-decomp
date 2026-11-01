@@ -169,7 +169,7 @@ void AnimTimeline::advance_clock(float frames)
 
 // 0x00481830
 // (the timeline's constructor first, as its base)
-AnimTrack::AnimTrack(objects::GameEntity* object) : owner_object_(object), events_ptr_(nullptr) {}
+AnimTrack::AnimTrack(objects::GameEntity* object) : owner_object_(object) {}
 
 // 0x00481960
 void AnimTrack::get_reset()
@@ -226,8 +226,8 @@ bool AnimTrack::is_fading() { return cur_phase_ == kFading; }
 // 0x004819A0
 void AnimTrack::arm_events()
 {
-    for (uint32_t i = 0; i < event_count_; ++i)
-        events_ptr_[i].change_live(true);
+    for (TimedClipEvent& event : events_)
+        event.change_live(true);
 }
 
 // 0x004819D0

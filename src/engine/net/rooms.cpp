@@ -236,7 +236,7 @@ void RoomManager::init_peer()
     core::at(callbacks, 0x64 / 4) = cell::of(code_address(stubs::do_nothing));
     core::at(callbacks, 0x6C / 4) = cell::of(code_address(online::RoomManager::public_address_callback));
     core::at(callbacks, 0x70 / 4) = cell::of(this); // (their parameter)
-    remote_ = game_spy::peer_initialize(callbacks.data());         // (the peer made)
+    remote_ = game_spy::peer_initialize(callbacks);         // (the peer made)
     in_group_room_ = false;
     drop_is_expected_ = true;
     hosting_ = false;

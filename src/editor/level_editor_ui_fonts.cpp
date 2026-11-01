@@ -5,6 +5,8 @@
 
 #include "editor/level_editor_ui_fonts.h"
 
+#include <iterator>
+
 namespace {
 #include "Inter_Regular.inc"
 #include "Inter_SemiBold.inc"
@@ -13,8 +15,8 @@ namespace {
 
 namespace frontend::level_editor::ui_fonts {
 
-CompressedFont inter() { return {Inter_Regular_compressed_data, Inter_Regular_compressed_size}; }
-CompressedFont inter_semi_bold() { return {Inter_SemiBold_compressed_data, Inter_SemiBold_compressed_size}; }
-CompressedFont get_mono() { return {JetBrainsMono_Regular_compressed_data, JetBrainsMono_Regular_compressed_size}; }
+CompressedFont inter() { return {std::data(Inter_Regular_compressed_data), Inter_Regular_compressed_size}; }
+CompressedFont inter_semi_bold() { return {std::data(Inter_SemiBold_compressed_data), Inter_SemiBold_compressed_size}; }
+CompressedFont get_mono() { return {std::data(JetBrainsMono_Regular_compressed_data), JetBrainsMono_Regular_compressed_size}; }
 
 } // namespace frontend::level_editor::ui_fonts

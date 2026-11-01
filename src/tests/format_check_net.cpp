@@ -318,7 +318,7 @@ bool read_hunt_placements_whole(util::ByteReader& reader, online::HuntPlacements
 {
     online::read_hunt_placements(reader, message);
     for (auto& position : message->positions)
-        online::read_hunt_position(reader, position.data());
+        online::read_hunt_position(reader, position);
     return reader.ok();
 }
 
@@ -335,13 +335,13 @@ void check_play_messages()
         util::ByteReader reader(&ref, sizeof(ref));
         online::HuntPlacements back;
         online::read_hunt_placements(reader, &back);
-        online::read_hunt_position(reader, at.data());
-        online::read_hunt_position(reader, at.data());
+        online::read_hunt_position(reader, at);
+        online::read_hunt_position(reader, at);
         check(reader.ok() && core::at(at, 1) == 5.5f && back.count == 2, "hunt placements 0x8F: the positions read");
         const std::array<float, 4> one = {{7, 8, 9, 1}};
         std::array<uint8_t, 16> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
-        online::write_hunt_position(writer, one.data());
+        online::write_hunt_position(writer, one);
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         check(writer.ok() && std::memcmp(bytes.data(), one.data(), 16) == 0, "hunt placement 0x8F: as the original's vector");
     }

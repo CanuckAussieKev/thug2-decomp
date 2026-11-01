@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <array>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
@@ -89,7 +90,7 @@ bool get_clear(Point a, Point b)
 Kickoff find_start_spot(Point pos, float heading)
 {
     std::array<Point, 4> candidates{};
-    start_spot_candidates(pos, heading, kStartSpotDistance, candidates.data());
+    start_spot_candidates(pos, heading, kStartSpotDistance, candidates);
     for (const Point& c : candidates) {
         Point ground{};
         if (!get_hit({c.x, pos.y + kGroundAbove, c.z}, {c.x, pos.y - kGroundBelow, c.z}, &ground))
@@ -254,16 +255,16 @@ float get_heading_of(float x, float z)
     return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * 180.0 / kPi);
 }
 
-void start_spot_candidates(Point pos, float heading, float distance, Point out[4])
+void start_spot_candidates(Point pos, float heading, float distance, std::span<Point, 4> out)
 {
     const double h = static_cast<double>(heading) * kPi / 180.0;
     auto ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h));  // (at)
     const float rx = az;
     const float rz = -ax; // (right: up x at)
-    out[0] = {pos.x + rx * distance, pos.y, pos.z + rz * distance};
-    out[1] = {pos.x - rx * distance, pos.y, pos.z - rz * distance};
-    out[2] = {pos.x - ax * distance, pos.y, pos.z - az * distance};
-    out[3] = {pos.x + ax * distance, pos.y, pos.z + az * distance};
+    core::at(out, 0) = {pos.x + rx * distance, pos.y, pos.z + rz * distance};
+    core::at(out, 1) = {pos.x - rx * distance, pos.y, pos.z - rz * distance};
+    core::at(out, 2) = {pos.x - ax * distance, pos.y, pos.z - az * distance};
+    core::at(out, 3) = {pos.x + ax * distance, pos.y, pos.z + az * distance};
 }
 
 void register_parked_functions()

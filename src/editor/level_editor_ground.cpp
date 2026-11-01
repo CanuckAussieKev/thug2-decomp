@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <span>
 #include <sstream>
 #include <array>
 
@@ -530,18 +531,18 @@ bool tile_inside(V3 min, V3 max, const Spec& s, float margin)
     return min.x >= s.x0 - margin && max.x <= s.x1 + margin && min.z >= s.z0 - margin && max.z <= s.z1 + margin;
 }
 
-bool ground_face_under(const V3 c[3], const Spec& s, float tolerance)
+bool ground_face_under(std::span<const V3, 3> c, const Spec& s, float tolerance)
 {
-    const V3 n = perpendicular(c[1] - c[0], c[2] - c[0]);
+    const V3 n = perpendicular(core::at(c, 1) - core::at(c, 0), core::at(c, 2) - core::at(c, 0));
     const float length = std::sqrt(get_dot(n, n));
     if (!(length > 0.0f) || std::fabs(n.y) / length < 0.7f)
         return false;
-    const float min_x = std::min({c[0].x, c[1].x, c[2].x});
-    const float max_x = std::max({c[0].x, c[1].x, c[2].x});
-    const float min_z = std::min({c[0].z, c[1].z, c[2].z});
-    const float max_z = std::max({c[0].z, c[1].z, c[2].z});
-    const float min_y = std::min({c[0].y, c[1].y, c[2].y});
-    const float max_y = std::max({c[0].y, c[1].y, c[2].y});
+    const float min_x = std::min({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});
+    const float max_x = std::max({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});
+    const float min_z = std::min({core::at(c, 0).z, core::at(c, 1).z, core::at(c, 2).z});
+    const float max_z = std::max({core::at(c, 0).z, core::at(c, 1).z, core::at(c, 2).z});
+    const float min_y = std::min({core::at(c, 0).y, core::at(c, 1).y, core::at(c, 2).y});
+    const float max_y = std::max({core::at(c, 0).y, core::at(c, 1).y, core::at(c, 2).y});
     if (max_y < s.base - tolerance || min_y > s.base + tolerance)
         return false;
     return max_x > s.x0 + 1.0f && min_x < s.x1 - 1.0f && max_z > s.z0 + 1.0f && min_z < s.z1 - 1.0f;

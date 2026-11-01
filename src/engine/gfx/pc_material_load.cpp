@@ -119,7 +119,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             core::at(m->texture_anim_->keys, pass) = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * 8));
             for (int k = 0; k < keys; ++k) {
                 const scene_format::TextureFrame& frame = core::at(in.texture_keys, static_cast<size_t>(k));
-                TextureKey& key = m->texture_anim_->keys[pass][k];
+                TextureKey& key = core::at(m->texture_anim_->keys, pass)[k];
                 key.time = frame.time;
                 key.texture = find_texture(textures, frame.texture);
             }

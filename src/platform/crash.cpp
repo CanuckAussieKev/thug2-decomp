@@ -267,13 +267,13 @@ int crt_report_hook(int type, char* message, int* return_value)
 // NOLINTNEXTLINE(modernize-avoid-variadic-functions): the C runtime's callback type (_RTC_error_fnW) is variadic
 int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
 {
-    wchar_t text[512] = L"";
+    std::array<wchar_t, 512> text{};
     va_list args = nullptr;
     va_start(args, format);
     if (format)
-        vswprintf(text, 512, format, args);
+        vswprintf(text.data(), text.size(), format, args);
     va_end(args);
-    get_log("RUN-TIME CHECK FAILURE #%d: %ls", type, text);
+    get_log("RUN-TIME CHECK FAILURE #%d: %ls", type, text.data());
     log_backtrace();
     crash_end_process(3);
 }

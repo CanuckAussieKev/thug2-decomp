@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -45,13 +46,13 @@ void update_path_speed(KinematicsModule* motion) { raw::as<MotionPathMembers>(mo
 
 // The velocity of a step from where the object was (`back`: minus that position) to where it is now: x from the
 // unrounded difference and reciprocal, the others from the rounded ones (as the original's x87 code).
-void set_step_velocity(GameEntity* object, const float back[4], float frame_time)
+void set_step_velocity(GameEntity* object, std::span<const float, 4> back, float frame_time)
 {
     const maths::Vec4& pos = object->at_point_;
-    const double x = static_cast<double>(back[0]) + pos.x;
-    auto y = static_cast<float>(static_cast<double>(back[1]) + pos.y);
-    auto z = static_cast<float>(static_cast<double>(back[2]) + pos.z);
-    auto w = static_cast<float>(static_cast<double>(back[3]) + pos.w);
+    const double x = static_cast<double>(core::at(back, 0)) + pos.x;
+    auto y = static_cast<float>(static_cast<double>(core::at(back, 1)) + pos.y);
+    auto z = static_cast<float>(static_cast<double>(core::at(back, 2)) + pos.z);
+    auto w = static_cast<float>(static_cast<double>(core::at(back, 3)) + pos.w);
     const double inverse = 1.0 / static_cast<double>(frame_time);
     auto rounded = static_cast<float>(inverse);
     maths::Vec4& vel = object->vel_;
@@ -62,12 +63,12 @@ void set_step_velocity(GameEntity* object, const float back[4], float frame_time
 }
 
 // Minus the object's position (the start of a step).
-void get_back(const GameEntity* object, float back[4])
+void get_back(const GameEntity* object, std::span<float, 4> back)
 {
-    back[0] = -object->at_point_.x;
-    back[1] = -object->at_point_.y;
-    back[2] = -object->at_point_.z;
-    back[3] = -object->at_point_.w;
+    core::at(back, 0) = -object->at_point_.x;
+    core::at(back, 1) = -object->at_point_.y;
+    core::at(back, 2) = -object->at_point_.z;
+    core::at(back, 3) = -object->at_point_.w;
 }
 
 // The node a path follower is headed for (kMotionFollowingPath and a follower), or 0; and its last node.
@@ -141,7 +142,7 @@ void KinematicsModule::tick_frame()
 bool KinematicsModule::update_move_to()
 {
     std::array<float, 4> back{};
-    get_back(entity_, back.data());
+    get_back(entity_, back);
     if (!(move_acceleration_ == 0.0f)) {
         const double speed = frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_ + move_speed_;
         move_speed_ = static_cast<float>(speed);
@@ -173,7 +174,7 @@ bool KinematicsModule::update_move_to()
     pos.w = static_cast<float>(static_cast<double>(w) + move_start_.w);
     pos.x = static_cast<float>(static_cast<double>(x) + move_start_.x);
     pos.y = static_cast<float>(static_cast<double>(y) + move_start_.y);
-    set_step_velocity(entity_, back.data(), step_seconds_);
+    set_step_velocity(entity_, back, step_seconds_);
     return false;
 }
 
@@ -183,7 +184,7 @@ void KinematicsModule::update_path()
     if (entity_->fetch_module(kPedLogic))
         return;
     std::array<float, 4> back{};
-    get_back(entity_, back.data());
+    get_back(entity_, back);
     update_path_speed(this);
     if (!(path_speed_ == 0.0f)) {
         maths::Mat4& matrix = entity_->basis_frame_;
@@ -214,7 +215,7 @@ void KinematicsModule::update_path()
             entity_->at_point_.y = height;
         }
     }
-    set_step_velocity(entity_, back.data(), step_seconds_);
+    set_step_velocity(entity_, back, step_seconds_);
 }
 
 // 0x004246A0

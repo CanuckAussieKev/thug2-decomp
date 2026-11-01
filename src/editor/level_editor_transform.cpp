@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <array>
+#include <span>
 
 #include "editor/level_editor_prefs.h"
 #include "engine/core/checked_index.h"
@@ -102,22 +103,22 @@ Mode next_mode(Mode mode)
 
 // --- the pure parts ---
 
-void heading_axes(float yaw, V3 out[3])
+void heading_axes(float yaw, std::span<V3, 3> out)
 {
     const float c = std::cos(yaw);
     const float s = std::sin(yaw);
-    out[0] = {c, 0.0f, -s};
-    out[1] = {0.0f, 1.0f, 0.0f};
-    out[2] = {s, 0.0f, c};
+    core::at(out, 0) = {c, 0.0f, -s};
+    core::at(out, 1) = {0.0f, 1.0f, 0.0f};
+    core::at(out, 2) = {s, 0.0f, c};
 }
 
 float get_heading_of(V3 at) { return std::atan2(at.x, at.z); }
 
-void unit_axes(const V3 rows[3], V3 out[3])
+void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out)
 {
     static const std::array<V3, 3> kWorld = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
     for (int i = 0; i < 3; ++i)
-        out[i] = get_dot(rows[i], rows[i]) > 1e-12f ? make_unit(rows[i]) : core::at(kWorld, i);
+        core::at(out, i) = get_dot(core::at(rows, i), core::at(rows, i)) > 1e-12f ? make_unit(core::at(rows, i)) : core::at(kWorld, i);
 }
 
 float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }

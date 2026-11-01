@@ -266,7 +266,7 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
         const std::array<float, 4> at = {{pos.x, pos.y, pos.z, pos.w}};
         std::array<uint8_t, online::kHuntPlacementSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
-        online::write_hunt_position(writer, at.data());
+        online::write_hunt_position(writer, at);
         desc.content_ = data.data();
         desc.ident_ = kMsgObjectPlacements;
         desc.byte_count_ = sizeof(data);

@@ -110,7 +110,7 @@ void set_key_name(unsigned scan_code, const wchar_t* name)
     os_layer::set_key_name(static_cast<int>(scan_code), name);
 }
 
-const char kSettingsKey[] = R"(Software\Activision\Tony Hawk's Underground 2\Settings)";
+constexpr auto kSettingsKey = std::to_array(R"(Software\Activision\Tony Hawk's Underground 2\Settings)");
 
 // The default bindings, written to the settings unless already there: k0_0..k0_23 (the keyboard: DirectInput
 // key codes - W S A D, Z X C V, the number pad 2 6 4 8, none, Tab, the number pad 1 3 7 9 0 and its point, Home,
@@ -329,10 +329,10 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
         for (int i = 0; i < 24; ++i) {
             std::array<char, 8> name = {};
             std::snprintf(name.data(), sizeof(name), "%s%d", core::at(kBindingPrefixes, device), i);
-            write_default_setting(name.data(), kDefaultBindings[device].data()[i]);
+            write_default_setting(name.data(), core::at(core::at(kDefaultBindings, device), i));
         }
     }
-    os_layer::init_input(instance, game_window(), static_cast<int>(cell::of(kSettingsKey)));
+    os_layer::init_input(instance, game_window(), static_cast<int>(cell::of(kSettingsKey.data())));
 
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.

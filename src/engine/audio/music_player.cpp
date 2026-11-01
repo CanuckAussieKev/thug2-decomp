@@ -40,14 +40,14 @@ void* g_sound_device;
 std::array<Playlist, 2> g_playlists; // (the music's two playlists; 0 is the game's, 1 the script's)
 std::array<std::array<char, 100>, 80> g_track_titles;
 std::array<Stream, 3> g_streams;
-std::array<void*, 3> g_stream_owners;
+std::array<objects::AudioStreamModule*, 3> g_stream_owners;
 std::array<int, 600> g_user_order;
 namespace {
 std::array<int, 600> g_track_order; // the shuffled order (the word before it, 0x00696D9C, is read once)
 std::array<char, 44> g_special_track;
 std::array<char, 100> g_soundtrack_name;
 
-Playlist* get_playlists() { return g_playlists.data(); }
+std::array<Playlist, 2>& get_playlists() { return g_playlists; }
 int& current_playlist() { return g_current_playlist; }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
 void* special_track() { return g_special_track.data(); }
@@ -80,8 +80,8 @@ Stream* get_streams() { return g_streams.data(); }
 constexpr int kStreams = 3;
 // Whether the platform's stream `channel` is playing (stream_status: 1 free, 2 playing).
 bool get_playing(const Stream& stream) { return stream_status(stream.channel) != 1; }
-// The objects that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
-uint32_t** stream_owners() { return raw::as<uint32_t*>(g_stream_owners.data()); }
+// The stream components that started each stream (null: none); each notes the stream's id.
+std::array<objects::AudioStreamModule*, 3>& stream_owners() { return g_stream_owners; }
 int& frame_count() { return g_frame_count; }
 
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
@@ -203,7 +203,7 @@ void queue_track(const char* name, int list, const char* title)
 {
     if (!music_on())
         return;
-    Playlist& playlist = get_playlists()[list];
+    Playlist& playlist = core::at(get_playlists(), list);
     if (playlist.count >= 80)
         return;
     char* track = raw::chars(core::at(playlist.tracks, playlist.count).data());
@@ -235,7 +235,7 @@ void empty_queue(int list)
 {
     if (!music_on())
         return;
-    Playlist& playlist = get_playlists()[list];
+    Playlist& playlist = core::at(get_playlists(), list);
     playlist.count = 0;
     playlist.unknownca8_ = 1;
     core::at(playlist.off, 0) = 0;
@@ -264,7 +264,7 @@ void set_random_mode(int mode)
         user_position() = 0;
         user_track() = user_order()[0];
     }
-    Playlist& playlist = get_playlists()[current_playlist()];
+    Playlist& playlist = core::at(get_playlists(), current_playlist());
     core::at(playlist.played, 0) = 0;
     core::at(playlist.played, 1) = 0;
 }
@@ -284,24 +284,24 @@ bool is_track_playing(int list, int track)
 {
     if (!music_on() || music_status() == 1) // 1: no stream playing
         return false;
-    if (track >= get_playlists()[list].count)
+    if (track >= core::at(get_playlists(), list).count)
         return false;
-    const uint32_t name = checksums::hash_from_text(raw::chars(get_playlists()[list].tracks[track].data()));
+    const uint32_t name = checksums::hash_from_text(raw::chars(core::at(core::at(get_playlists(), list).tracks, track).data()));
     return checksums::hash_from_text(static_cast<const char*>(special_track())) == name;
 }
 
 // 0x004514C0
-int track_total(int list) { return music_on() ? get_playlists()[list].count : 0; }
+int track_total(int list) { return music_on() ? core::at(get_playlists(), list).count : 0; }
 
 // 0x00451500
 const char* track_label_at(int track, int list)
 {
     if (!music_on()) {
-        char* first = raw::chars(core::at(get_playlists()[0].tracks, 0).data());
+        char* first = raw::chars(core::at(core::at(get_playlists(), 0).tracks, 0).data());
         std::memcpy(first, "Empty.", 7); // "Empty."
         return first;
     }
-    const char* name = raw::chars(get_playlists()[list].tracks[track].data());
+    const char* name = raw::chars(core::at(core::at(get_playlists(), list).tracks, track).data());
     const char* file = name;
     const int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i)
@@ -334,7 +334,7 @@ void change_track_state(int track, bool off, int list)
 {
     if (!music_on())
         return;
-    Playlist& playlist = get_playlists()[list];
+    Playlist& playlist = core::at(get_playlists(), list);
     reshuffle() = true;
     if (!off) {
         if (track < 64)
@@ -377,7 +377,7 @@ void play_track(const char* name, bool loop)
     if (play_track_by_name(playing, volume) || game_config::g_from_cd) // (the debug checks)
         return;
     // It doesn't play: switch it off.
-    Playlist& playlist = get_playlists()[list];
+    Playlist& playlist = core::at(get_playlists(), list);
     for (int i = 0; i < playlist.count; ++i) {
         const uint32_t crc = checksums::hash_from_text(raw::chars(core::at(playlist.tracks, i).data()));
         if (checksums::hash_from_text(name) == crc) {
@@ -402,7 +402,7 @@ int shuffle_random(int n)
 // 0x00452200
 void play_next_track()
 {
-    Playlist& list = get_playlists()[current_playlist()];
+    Playlist& list = core::at(get_playlists(), current_playlist());
     if (!music_on() || list.unknownca8_)
         return;
     if (music_status() != 1) // 1: no stream playing
@@ -411,8 +411,8 @@ void play_next_track()
     apply_track_volume(); // the music volume
     if (current_playlist() == 1) {
         const int track = script::fetch_int_value(0xF18AB1F9u);
-        if (track < get_playlists()[1].count)
-            play_track(raw::chars(get_playlists()[1].tracks[track].data()), false);
+        if (track < core::at(get_playlists(), 1).count)
+            play_track(raw::chars(core::at(core::at(get_playlists(), 1).tracks, track).data()), false);
         return;
     }
     if (get_looping()) {
@@ -482,7 +482,7 @@ void play_next_track_in_order()
 {
     if (!music_on())
         return;
-    Playlist& list = get_playlists()[current_playlist()];
+    Playlist& list = core::at(get_playlists(), current_playlist());
     if (list.unknownca8_)
         return;
     if (music_status() != 1) // 1: no stream playing
@@ -525,9 +525,9 @@ void tick_frame()
     }
     ++frame_count();
     for (int i = 0; i < kStreams; ++i) {
-        uint32_t*& owner = stream_owners()[i];
+        objects::AudioStreamModule*& owner = core::at(stream_owners(), i);
         if (owner && !update_stream_volume(i)) { // (false: the stream is over)
-            raw::as<objects::AudioStreamModule>(owner)->streams_[i] = 0;
+            core::at(owner->streams_, i) = 0;
             owner = nullptr;
         }
     }
@@ -684,15 +684,15 @@ void set_music_looping(bool loop) { get_looping() = loop; }
 // 0x00450480
 void get_tracks_off(uint64_t* low, uint64_t* high)
 {
-    *low = core::at(get_playlists()[0].off, 0);
-    *high = core::at(get_playlists()[0].off, 1);
+    *low = core::at(core::at(get_playlists(), 0).off, 0);
+    *high = core::at(core::at(get_playlists(), 0).off, 1);
 }
 
 // 0x004504B0
 void set_tracks_off(uint64_t low, uint64_t high)
 {
-    core::at(get_playlists()[0].off, 0) = low;
-    core::at(get_playlists()[0].off, 1) = high;
+    core::at(core::at(get_playlists(), 0).off, 0) = low;
+    core::at(core::at(get_playlists(), 0).off, 1) = high;
 }
 
 // 0x004504E0

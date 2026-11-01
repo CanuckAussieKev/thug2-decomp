@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <iterator>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/assets/resource_entry.h"
@@ -922,11 +923,11 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
         return false;
     int count = 0;
     do {
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(found.cFileName) <= 90) {
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(std::data(found.cFileName)) <= 90) {
             std::array<char, 0x110> file{};
             std::array<char, 0xC8> name{};
-            std::memcpy(file.data(), found.cFileName, std::strlen(found.cFileName) + 1);
-            std::memcpy(name.data(), found.cFileName, std::strlen(found.cFileName) + 1);
+            std::memcpy(file.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
+            std::memcpy(name.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
             if (std::strlen(name.data()) > 4)
                 core::at(name, std::strlen(name.data()) - 4) = '\0';
             script::Struct* item = spawn_param_table();

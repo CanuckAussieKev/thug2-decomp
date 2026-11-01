@@ -169,14 +169,14 @@ void ModelParticles::render()
         maths::Mat4 matrix;
         for (int r = 0; r < 4; ++r)
             for (int c = 0; c < 4; ++c)
-                matrix.row[r][c] = r == c ? 1.0f : 0.0f;
+                core::at(matrix.row, r)[c] = r == c ? 1.0f : 0.0f;
         q.fetch_mat(&matrix);
         const float* position = position_array_ + p * 3;
         core::at(matrix.row, 3) = {position[0], position[1], position[2], 1.0f};
         const double shrink = static_cast<double>(p % 4) * kSizeStep;
         const double size = static_cast<double>(core::at(particle.start_size_, 0)) - shrink;
         for (int k = 0; k < 3; ++k)
-            matrix.row[k][k] = static_cast<float>(size * matrix.row[k][k]);
+            core::at(matrix.row, k)[k] = static_cast<float>(size * core::at(matrix.row, k)[k]);
         model(static_cast<unsigned int>(p))->render(&matrix, true, nullptr);
     }
 }

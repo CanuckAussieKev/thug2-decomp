@@ -4,10 +4,13 @@
 
 #include <cstdio>
 #include <array>
+#include <iterator>
+#include <span>
 
 #include "editor/level_editor_ui_fonts.h"
 #include "editor/level_editor_ui_layout.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui_theme {
 
@@ -22,7 +25,7 @@ ImFont* add_font(ui_fonts::CompressedFont font, float size)
     config.OversampleH = 2;
     config.OversampleV = 1;
     config.PixelSnapH = true;
-    std::snprintf(config.Name, sizeof(config.Name), "%.0fpx", size);
+    std::snprintf(std::data(config.Name), sizeof(config.Name), "%.0fpx", size);
     return ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(font.data, font.size, size, &config, kRanges.data());
 }
 
@@ -42,9 +45,9 @@ Fonts build_fonts(float scale)
     return fonts;
 }
 
-void apply_style(float scale, const float accent_rgb[3])
+void apply_style(float scale, std::span<const float, 3> accent_rgb)
 {
-    auto accent_at = [accent_rgb](float alpha) { return ImVec4(accent_rgb[0], accent_rgb[1], accent_rgb[2], alpha); };
+    auto accent_at = [accent_rgb](float alpha) { return ImVec4(core::at(accent_rgb, 0), core::at(accent_rgb, 1), core::at(accent_rgb, 2), alpha); };
     ImGuiStyle style;
     ImGui::StyleColorsDark(&style);
     style.WindowRounding = 0.0f;
@@ -61,30 +64,30 @@ void apply_style(float scale, const float accent_rgb[3])
     style.IndentSpacing = 14.0f;
     style.ScrollbarSize = 12.0f;
     // A dark neutral with the accent.
-    ImVec4* c = style.Colors;
+    const std::span<ImVec4, ImGuiCol_COUNT> c(style.Colors);
     const ImVec4 accent = accent_at(1.0f), accent_soft = accent_at(0.55f);
-    c[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.115f, 0.125f, 0.94f);
-    c[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    c[ImGuiCol_PopupBg] = ImVec4(0.12f, 0.125f, 0.135f, 0.98f);
-    c[ImGuiCol_MenuBarBg] = ImVec4(0.085f, 0.09f, 0.095f, 1.0f);
-    c[ImGuiCol_Border] = ImVec4(0.25f, 0.26f, 0.28f, 1.0f);
-    c[ImGuiCol_FrameBg] = ImVec4(0.18f, 0.19f, 0.2f, 1.0f);
-    c[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.25f, 0.27f, 1.0f);
-    c[ImGuiCol_FrameBgActive] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
-    c[ImGuiCol_TitleBg] = c[ImGuiCol_TitleBgActive] = ImVec4(0.09f, 0.095f, 0.1f, 1.0f);
-    c[ImGuiCol_Button] = ImVec4(0.2f, 0.21f, 0.225f, 1.0f);
-    c[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
-    c[ImGuiCol_ButtonActive] = accent_soft;
-    c[ImGuiCol_Header] = accent_at(0.35f);
-    c[ImGuiCol_HeaderHovered] = accent_at(0.45f);
-    c[ImGuiCol_HeaderActive] = accent_soft;
-    c[ImGuiCol_CheckMark] = accent;
-    c[ImGuiCol_SliderGrab] = accent;
-    c[ImGuiCol_SliderGrabActive] = accent;
-    c[ImGuiCol_Separator] = c[ImGuiCol_Border];
-    c[ImGuiCol_Text] = ImVec4(0.91f, 0.9f, 0.88f, 1.0f);
-    c[ImGuiCol_TextDisabled] = ImVec4(0.6f, 0.61f, 0.63f, 1.0f);
-    c[ImGuiCol_NavCursor] = accent;
+    core::at(c, ImGuiCol_WindowBg) = ImVec4(0.11f, 0.115f, 0.125f, 0.94f);
+    core::at(c, ImGuiCol_ChildBg) = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    core::at(c, ImGuiCol_PopupBg) = ImVec4(0.12f, 0.125f, 0.135f, 0.98f);
+    core::at(c, ImGuiCol_MenuBarBg) = ImVec4(0.085f, 0.09f, 0.095f, 1.0f);
+    core::at(c, ImGuiCol_Border) = ImVec4(0.25f, 0.26f, 0.28f, 1.0f);
+    core::at(c, ImGuiCol_FrameBg) = ImVec4(0.18f, 0.19f, 0.2f, 1.0f);
+    core::at(c, ImGuiCol_FrameBgHovered) = ImVec4(0.24f, 0.25f, 0.27f, 1.0f);
+    core::at(c, ImGuiCol_FrameBgActive) = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
+    core::at(c, ImGuiCol_TitleBg) = core::at(c, ImGuiCol_TitleBgActive) = ImVec4(0.09f, 0.095f, 0.1f, 1.0f);
+    core::at(c, ImGuiCol_Button) = ImVec4(0.2f, 0.21f, 0.225f, 1.0f);
+    core::at(c, ImGuiCol_ButtonHovered) = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
+    core::at(c, ImGuiCol_ButtonActive) = accent_soft;
+    core::at(c, ImGuiCol_Header) = accent_at(0.35f);
+    core::at(c, ImGuiCol_HeaderHovered) = accent_at(0.45f);
+    core::at(c, ImGuiCol_HeaderActive) = accent_soft;
+    core::at(c, ImGuiCol_CheckMark) = accent;
+    core::at(c, ImGuiCol_SliderGrab) = accent;
+    core::at(c, ImGuiCol_SliderGrabActive) = accent;
+    core::at(c, ImGuiCol_Separator) = core::at(c, ImGuiCol_Border);
+    core::at(c, ImGuiCol_Text) = ImVec4(0.91f, 0.9f, 0.88f, 1.0f);
+    core::at(c, ImGuiCol_TextDisabled) = ImVec4(0.6f, 0.61f, 0.63f, 1.0f);
+    core::at(c, ImGuiCol_NavCursor) = accent;
     style.ScaleAllSizes(scale);
     // The bars are thinner than ImGui's default minimum window size (32 x 32, scaled): at it the menu bar's window grew
     // down over the tool strip.

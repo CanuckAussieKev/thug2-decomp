@@ -267,16 +267,16 @@ void PcPrimitive::set_z(int index, float z) { position_at(vertices_, stride_, in
 // 0x004C5BC0
 void PcPrimitive::set_normal(int index, float x, float y, float z)
 {
-    vertex_at<VertexNormalColourUv>(vertices_, index).normal[0] = x;
-    vertex_at<VertexNormalColourUv>(vertices_, index).normal[1] = y;
-    vertex_at<VertexNormalColourUv>(vertices_, index).normal[2] = z;
+    std::get<0>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = x;
+    std::get<1>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = y;
+    std::get<2>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = z;
 }
 // 0x004C5BF0
-void PcPrimitive::set_normal_x(int index, float x) { vertex_at<VertexNormalColourUv>(vertices_, index).normal[0] = x; }
+void PcPrimitive::set_normal_x(int index, float x) { std::get<0>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = x; }
 // 0x004C5C10
-void PcPrimitive::set_normal_y(int index, float y) { vertex_at<VertexNormalColourUv>(vertices_, index).normal[1] = y; }
+void PcPrimitive::set_normal_y(int index, float y) { std::get<1>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = y; }
 // 0x004C5C30
-void PcPrimitive::set_normal_z(int index, float z) { vertex_at<VertexNormalColourUv>(vertices_, index).normal[2] = z; }
+void PcPrimitive::set_normal_z(int index, float z) { std::get<2>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = z; }
 
 // 0x004C56E0
 void PcPrimitive::set_vertex_colour(int index, uint32_t rgba)
@@ -325,11 +325,11 @@ float PcPrimitive::fetch_pos_y(int index) { return position_at(vertices_, stride
 // 0x004C5C90
 float PcPrimitive::fetch_pos_z(int index) { return position_at(vertices_, stride_, index)[2]; }
 // 0x004C5CB0
-float PcPrimitive::get_normal_x(int index) { return vertex_at<VertexNormalColourUv>(vertices_, index).normal[0]; }
+float PcPrimitive::get_normal_x(int index) { return std::get<0>(vertex_at<VertexNormalColourUv>(vertices_, index).normal); }
 // 0x004C5CD0
-float PcPrimitive::get_normal_y(int index) { return vertex_at<VertexNormalColourUv>(vertices_, index).normal[1]; }
+float PcPrimitive::get_normal_y(int index) { return std::get<1>(vertex_at<VertexNormalColourUv>(vertices_, index).normal); }
 // 0x004C5CF0
-float PcPrimitive::get_normal_z(int index) { return vertex_at<VertexNormalColourUv>(vertices_, index).normal[2]; }
+float PcPrimitive::get_normal_z(int index) { return std::get<2>(vertex_at<VertexNormalColourUv>(vertices_, index).normal); }
 
 // 0x004C5840
 uint32_t PcPrimitive::get_vertex_colour(int index)

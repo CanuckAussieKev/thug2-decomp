@@ -208,11 +208,12 @@ void MoveExecutor::update_buttons()
     const int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
     for (int i = 1; i <= 8; ++i)
         set_button(this, i, direction == i);
-    static const struct {
+    struct ButtonBit {
         int button;
         int bit;
-    } kButtonBits[] = {{9, 9},      {0xA, 0xB},  {0xC, 8},     {0xB, 0xA},   {0xD, 0xC},   {0xE, 0xE},  {0xF, 0x10},
-                       {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}};
+    };
+    static const auto kButtonBits = std::to_array<ButtonBit>({{9, 9},      {0xA, 0xB},  {0xC, 8},     {0xB, 0xA},   {0xD, 0xC},   {0xE, 0xE},  {0xF, 0x10},
+                       {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}});
     for (const auto& b : kButtonBits)
         set_button(this, b.button, bit(b.bit));
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick directions as events while the skater rides the bike

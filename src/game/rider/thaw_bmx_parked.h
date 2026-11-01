@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 namespace modules {
 struct FrontEnd;
@@ -48,7 +49,7 @@ bool turn_toward(float heading, float target, float max_step, float* out);
 float get_heading_of(float x, float z);
 // Where the level's bike may go near a start at `pos` facing `heading`: `distance` to the right, the left, behind,
 // ahead (in that order).
-void start_spot_candidates(Point pos, float heading, float distance, Point out[4]);
+void start_spot_candidates(Point pos, float heading, float distance, std::span<Point, 4> out);
 
 // --- the game ---------------------------------------------------------------------------------------------------
 

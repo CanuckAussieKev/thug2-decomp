@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -189,7 +190,7 @@ void attach_sound(uint32_t emitter, uint32_t sound);
 // The view: objects the level hasn't made shown as ghosts (the Inspector's View: "Show uncreated objects").
 bool& show_uncreated();
 // The ghosts and the previewed path drawn over the view (back buffer pixels).
-void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts);
 
 // The UI (level_editor_entities_ui.cpp, ImGui): the Inspector's sections for the selected node (`node`: Nodes::All()

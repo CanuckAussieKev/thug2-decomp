@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -65,7 +66,7 @@ void add_here_queued();
 // Once a frame while the editor runs: what the UI asked for (queued).
 void tick_frame();
 // The pins over the view (the selected one brighter): a stem from the point up, a head, the text beside it.
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
                  std::vector<ui::Overlay::OverlayText>* texts);
 // The Outliner's Notes section (`search`: the Outliner's search text - rows matching it) and the selected note's window.

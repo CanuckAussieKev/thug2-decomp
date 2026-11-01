@@ -1,9 +1,11 @@
 #include "engine/maths/maths.h"
+#include "engine/core/checked_index.h"
 
 #include <bit>
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <span>
 
 namespace maths {
 
@@ -113,14 +115,14 @@ float keep_within(float value, float target, float distance)
 }
 
 // 0x004058B0
-void create_rotate_2d(float out[4], float angle)
+void create_rotate_2d(std::span<float, 4> out, float angle)
 {
     const float s = std::sin(angle);
     const float c = std::cos(angle);
-    out[0] = c;
-    out[1] = s;
-    out[2] = -s;
-    out[3] = c;
+    core::at(out, 0) = c;
+    core::at(out, 1) = s;
+    core::at(out, 2) = -s;
+    core::at(out, 3) = c;
 }
 
 namespace {

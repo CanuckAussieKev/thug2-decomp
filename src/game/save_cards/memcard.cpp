@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <iterator>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -166,7 +167,7 @@ bool SaveCard::list_save_files(const char* pattern, FileLoad* list)
             continue;
         FileLoad* file = new_file(nullptr, this);
         // (no bounds: a long name runs into the fields after it, as in the original)
-        std::memcpy(file->label_.data(), found.cFileName, std::strlen(found.cFileName) + 1);
+        std::memcpy(file->label_.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
         FILETIME local;
         SYSTEMTIME time;
         FileTimeToLocalFileTime(&found.ftLastWriteTime, &local);

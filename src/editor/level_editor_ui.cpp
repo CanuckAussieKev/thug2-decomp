@@ -90,7 +90,7 @@ void get_ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.pu
 ImVec4 get_accent(float alpha)
 {
     std::array<float, 3> rgb{};
-    prefs::get_accent_rgb(prefs::get_pull().accent, rgb.data());
+    prefs::get_accent_rgb(prefs::get_pull().accent, rgb);
     return {core::at(rgb, 0), core::at(rgb, 1), core::at(rgb, 2), alpha};
 }
 int g_style_generation = -1; // (the preferences' scale / accent the style was built for)
@@ -124,8 +124,8 @@ void update_scale()
     g_heading = fonts.heading;
     ui_backend::invalidate_device_objects(); // (the font texture is made again)
     std::array<float, 3> rgb{};
-    prefs::get_accent_rgb(prefs::get_pull().accent, rgb.data());
-    ui_theme::apply_style(scale, rgb.data());
+    prefs::get_accent_rgb(prefs::get_pull().accent, rgb);
+    ui_theme::apply_style(scale, rgb);
     get_log("level editor UI: scale %.2f for a %dx%d window (Inter %.0f px, JetBrains Mono %.0f px)", scale, width,
             height, sizes.ui, sizes.mono);
 }
@@ -827,13 +827,14 @@ void node_section(const ShapeMesh& model, int index)
         }
         if (node.family == nodes::Family::kSpawn) {
             field_label("Types");
-            static const struct {
+            struct TypeName {
                 uint32_t bit;
                 const char* name;
-            } kTypes[] = {
-                {nodes::kPlayer1, "Player1"},    {nodes::kPlayer2, "Player2"}, {nodes::kMultiplayer, "Multiplayer"},
-                {nodes::kHorse, "Horse"},        {nodes::kCtf, "CTF"},         {nodes::kTeam, "Team"},
-                {nodes::kKing, "KingOfTheHill"}, {nodes::kGeneric, "Generic"}};
+            };
+            static constexpr auto kTypes = std::to_array<TypeName>(
+                {{nodes::kPlayer1, "Player1"},    {nodes::kPlayer2, "Player2"}, {nodes::kMultiplayer, "Multiplayer"},
+                 {nodes::kHorse, "Horse"},        {nodes::kCtf, "CTF"},         {nodes::kTeam, "Team"},
+                 {nodes::kKing, "KingOfTheHill"}, {nodes::kGeneric, "Generic"}});
             ImGui::PushFont(g_small);
             bool any = false;
             for (const auto& t : kTypes) {
@@ -1090,7 +1091,7 @@ void get_inspector(const ShapeMesh& model)
                     if (ImGui::IsItemDeactivated())
                         get_ask(Request::Kind::kScaleDone);
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Local %c scale (%.2f to %.0f)", "XYZ"[axis], scale_tool::kMin,
+                        ImGui::SetTooltip("Local %c scale (%.2f to %.0f)", core::at(kAxisLetters, axis), scale_tool::kMin,
                                           scale_tool::kMax);
                 }
                 ImGui::PopFont();

@@ -129,7 +129,7 @@ void grow_box(V3* min, V3* max, bool have, V3 bounds_low, V3 bounds_high)
 void bounds_of(const OrientedBox& box, V3* min, V3* max)
 {
     std::array<V3, 8> corners{};
-    box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
+    box_corners(box.origin, box.axes, box.min, box.max, corners);
     for (int i = 0; i < 8; ++i)
         grow_box(min, max, i != 0, core::at(corners, i), core::at(corners, i));
 }
@@ -1029,7 +1029,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
             }
-            if (!inside && (!ray_box(origin, unit_dir, box.origin, box.axes.data(), box.min, box.max, &t) || t >= stop))
+            if (!inside && (!ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) || t >= stop))
                 return;
             if (ray_meshes(geom, origin, unit_dir, stop, &t))
                 note(checksum, geom, t, false);

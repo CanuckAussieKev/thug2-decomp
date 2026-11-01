@@ -10,12 +10,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace game_spy {
 
 // The peer SDK's global callbacks (PEERCallbacks: 28 callbacks and their parameter - the same 0x74 bytes, in the same
 // order, in both SDKs). Index = byte offset / 4.
-using PeerCallbacks = uint32_t[0x1D];
+using PeerCallbacks = std::array<uint32_t, 0x1D>;
 
 // A callback given to the SDK: any function (its signature the SDK's) or code address (GAME_CODE), or null.
 struct HookFn {
@@ -75,7 +76,7 @@ void nat_cancel(int cookie);
 void nat_free_negotiations();
 
 // peer (chat lobby, game listing, hosting)
-void* peer_initialize(const PeerCallbacks callbacks);
+void* peer_initialize(const PeerCallbacks& callbacks);
 int peer_set_title(void* peer, const char* title, const char* qr_secret_key, const char* sb_name,
                    const char* sb_secret_key, int sb_game_version, int sb_max_updates, int nat_negotiate,
                    const int* ping_rooms, const int* cross_ping_rooms);

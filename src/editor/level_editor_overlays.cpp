@@ -148,7 +148,7 @@ bool Painter::get_pixel(V3 p, float* x, float* y) const
     float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
         return false;
-    ndc_to_pixel(viewport.data(), nx, ny, x, y);
+    ndc_to_pixel(viewport, nx, ny, x, y);
     return true;
 }
 
@@ -250,7 +250,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
             if (!object || (object->object_flags_ & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
                 continue;
             std::array<V3, 8> corners{};
-            box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
+            box_corners(box.origin, box.axes, box.min, box.max, corners);
             static const std::array<std::array<int, 2>, 12> kEdges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
             for (const auto& e : kEdges)

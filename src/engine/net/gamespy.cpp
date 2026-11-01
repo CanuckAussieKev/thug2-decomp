@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <iterator>
 
 namespace game_spy {
 
@@ -95,7 +96,7 @@ void set_master_server(const char* game_name)
 // Names that depend on the game name (qr2's master, the browsing master): set when a name is given to the SDK.
 void set_game_hosts(const char* game_name)
 {
-    set_host(qr2_hostname, sizeof(qr2_hostname), "%s.master.%s", game_name);
+    set_host(std::data(qr2_hostname), sizeof(qr2_hostname), "%s.master.%s", game_name);
     set_master_server(game_name);
 }
 
@@ -113,7 +114,7 @@ char* game_strdup(const char* text) { return goastrdup(text); }
 void start_available_check(const char* game_name)
 {
     // (the override is a whole host name: made for each check - the online service also checks "mototrax")
-    std::snprintf(GSIACHostname, sizeof(GSIACHostname), "%s.available.%s", game_name, s_domain.data());
+    std::snprintf(std::data(GSIACHostname), sizeof(GSIACHostname), "%s.available.%s", game_name, s_domain.data());
     GSIStartAvailableCheck(game_name);
 }
 int available_check_think() { return static_cast<int>(GSIAvailableCheckThink()); }
@@ -128,13 +129,13 @@ void set_online_domain(const char* domain)
     Matchup1Hostname = s_nat_neg1.data();
     Matchup2Hostname = s_nat_neg2.data();
     Matchup3Hostname = s_nat_neg3.data();
-    std::snprintf(peerChatServerAddress, sizeof(peerChatServerAddress), "peerchat.%s", s_domain.data());
-    std::snprintf(GPConnectionManagerHostname, sizeof(GPConnectionManagerHostname), "gpcm.%s", s_domain.data());
-    std::snprintf(GPSearchManagerHostname, sizeof(GPSearchManagerHostname), "gpsp.%s", s_domain.data());
-    std::snprintf(StatsServerHostname, sizeof(StatsServerHostname), "gamestats.%s", s_domain.data());
+    std::snprintf(std::data(peerChatServerAddress), sizeof(peerChatServerAddress), "peerchat.%s", s_domain.data());
+    std::snprintf(std::data(GPConnectionManagerHostname), sizeof(GPConnectionManagerHostname), "gpcm.%s", s_domain.data());
+    std::snprintf(std::data(GPSearchManagerHostname), sizeof(GPSearchManagerHostname), "gpsp.%s", s_domain.data());
+    std::snprintf(std::data(StatsServerHostname), sizeof(StatsServerHostname), "gamestats.%s", s_domain.data());
     constexpr size_t kPtaUrlSize = 2048; // (PTA_MAX_STRING_SIZE)
-    std::snprintf(gPTAMOTDURL, kPtaUrlSize, "http://motd.%s/motd/motd.asp", s_domain.data());
-    std::snprintf(gPTAVercheckURL, kPtaUrlSize, "http://motd.%s/motd/vercheck.asp", s_domain.data());
+    std::snprintf(&gPTAMOTDURL[0], kPtaUrlSize, "http://motd.%s/motd/motd.asp", s_domain.data());
+    std::snprintf(&gPTAVercheckURL[0], kPtaUrlSize, "http://motd.%s/motd/vercheck.asp", s_domain.data());
     // (gcd_hostname stays the SDK's key.gamespy.com: the game never changed it)
 }
 
@@ -201,10 +202,10 @@ void nat_free_negotiations() { NNFreeNegotiateList(); }
 
 // --- peer ---
 
-void* peer_initialize(const PeerCallbacks callbacks)
+void* peer_initialize(const PeerCallbacks& callbacks)
 {
     PEERCallbacks sdk;
-    std::memcpy(&sdk, callbacks, sizeof(sdk));
+    std::memcpy(&sdk, callbacks.data(), sizeof(sdk));
     return peerInitialize(&sdk);
 }
 int peer_set_title(void* peer, const char* title, const char* qr_secret_key, const char* sb_name,
@@ -427,8 +428,8 @@ int gp_get_buddy_status(void* connection, int index, void* status)
 
 // --- stats ---
 
-char* stats_game_name() { return gcd_gamename; }
-char* stats_secret_key() { return gcd_secret_key; }
+char* stats_game_name() { return std::data(gcd_gamename); }
+char* stats_secret_key() { return std::data(gcd_secret_key); }
 int stats_init_connection(int game_port) { return ::InitStatsConnection(game_port); }
 int stats_is_connected() { return ::IsStatsConnected(); }
 void stats_close_connection() { ::CloseStatsConnection(); }

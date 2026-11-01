@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <string>
 
 // NOT ORIGINAL - the screenshot key (ours, added at the user's request: "to reference to you things that I have
@@ -33,7 +34,7 @@ void prepare_all();
 // is done, logs and shows the result.
 void before_present(bool rendering);
 // The renderer, a viewport's camera as it's drawn (for the sidecar): its position and view direction.
-void note_view(int viewport, const float position[3], const float forward[3]);
+void note_view(int viewport, std::span<const float, 3> position, std::span<const float, 3> forward);
 
 // A picture asked for by our own debugging code (works with the key off too; [debug] collision_event_screenshots -
 // game/rider/collision_events.h): the frame being drawn, taken as the key's, `note` added to the sidecar and the
@@ -43,7 +44,7 @@ bool request_event_shot(const std::string& note); // (false: dropped)
 // carries on) - our debugging aids' notices (collision_events.h). Works with the key off too.
 void show_notice(const std::string& text);
 // Viewport 0's camera as last drawn (note_view), if drawn within the last 10 frames.
-bool last_view(float position[3], float forward[3]);
+bool last_view(std::span<float, 3> position, std::span<float, 3> forward);
 
 // A frame series (the test-automation channel's `capture` - frontend/automation.h; works with the key off too):
 // the next `frames` rendered frames (at most kMaxSeriesFrames), every one, as frame_0001.png ... in `folder`

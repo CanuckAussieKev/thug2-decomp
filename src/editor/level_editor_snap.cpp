@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 #include <array>
 
@@ -53,7 +54,7 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
     return best;
 }
 
-bool align_rows(V3 rows[3], V3 normal)
+bool align_rows(std::span<V3, 3> rows, V3 normal)
 {
     const float n2 = get_dot(normal, normal);
     if (n2 < 1e-8f)
@@ -61,19 +62,19 @@ bool align_rows(V3 rows[3], V3 normal)
     const V3 up = normal * (1.0f / std::sqrt(n2));
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
-        core::at(lengths, i) = std::sqrt(get_dot(rows[i], rows[i]));
+        core::at(lengths, i) = std::sqrt(get_dot(core::at(rows, i), core::at(rows, i)));
     if (core::at(lengths, 2) < 1e-6f)
         return false;
     // (the at row's heading kept: its part across the surface)
-    V3 at = rows[2] * (1.0f / core::at(lengths, 2));
+    V3 at = core::at(rows, 2) * (1.0f / core::at(lengths, 2));
     const V3 flat = at - up * get_dot(at, up);
     if (get_dot(flat, flat) < 1e-6f)
         return false;
     at = make_unit(flat);
     const V3 right = perpendicular(up, at); // (right = up x at, as the game's rows are)
-    rows[0] = right * core::at(lengths, 0);
-    rows[1] = up * core::at(lengths, 1);
-    rows[2] = at * core::at(lengths, 2);
+    core::at(rows, 0) = right * core::at(lengths, 0);
+    core::at(rows, 1) = up * core::at(lengths, 1);
+    core::at(rows, 2) = at * core::at(lengths, 2);
     return true;
 }
 

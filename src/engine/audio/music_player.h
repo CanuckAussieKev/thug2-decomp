@@ -3,6 +3,10 @@
 #include <cstdint>
 #include <array>
 
+namespace objects {
+class AudioStreamModule;
+} // namespace objects
+
 // Music: playlists of streamed tracks.
 namespace audio {
 
@@ -74,7 +78,7 @@ static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 extern std::array<Playlist, 2> g_playlists;
 extern std::array<std::array<char, 100>, 80> g_track_titles;
 extern std::array<Stream, 3> g_streams;
-extern std::array<void*, 3> g_stream_owners;
+extern std::array<objects::AudioStreamModule*, 3> g_stream_owners;
 extern std::array<int, 600> g_user_order;
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 

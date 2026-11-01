@@ -240,7 +240,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
                 // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
-                cells_[x][z].objects[filled[x * kSize + z]++] = &statics[i];
+                core::at(core::at(cells_, x), z).objects[filled[x * kSize + z]++] = &statics[i];
         }
     }
     memory::Hub::get_pull()->dealloc(filled);

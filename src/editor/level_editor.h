@@ -2,7 +2,9 @@
 
 #include <cmath>
 #include <cstdint>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <array>
@@ -154,6 +156,9 @@ class Script;
 // back the old HUD in place of the Dear ImGui panels.
 namespace frontend::level_editor {
 
+// The axes' letters, by index (0 X, 1 Y, 2 Z).
+inline constexpr std::string_view kAxisLetters = "XYZ";
+
 // The setting (read once).
 bool& is_switched_on();
 bool& debug_enabled();
@@ -179,7 +184,7 @@ void tick_frame();
 void place_camera(gfx::ViewCam* camera);
 // Called by the renderer once a viewport is set up: what the view's projection is (for the mouse ray and the
 // outlines). `viewport`: the device viewport (x, y, width, height in back buffer pixels).
-void note_view(gfx::ViewCam* camera, float angle, float aspect, const uint32_t viewport[4]);
+void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const uint32_t, 4> viewport);
 // Called by the renderer for a viewport's camera (render::draw_viewport): its field of view (degrees) and near plane - the
 // game's own, except for the editor's camera in an ortho view (level_editor_camera.h: a long lens from far back).
 float adjust_view_angle(gfx::ViewCam* camera, float angle);
@@ -237,8 +242,8 @@ struct Lens {
 Lens lens_for(float angle_degrees, float aspect);
 // A back buffer pixel within the viewport (x, y, width, height) to normalised device coordinates (x right, y up,
 // -1..1); false outside a zero-sized viewport.
-bool pixel_to_ndc(const uint32_t viewport[4], float px, float py, float* nx, float* ny);
-void ndc_to_pixel(const uint32_t viewport[4], float nx, float ny, float* px, float* py);
+bool pixel_to_ndc(std::span<const uint32_t, 4> viewport, float px, float py, float* nx, float* ny);
+void ndc_to_pixel(std::span<const uint32_t, 4> viewport, float nx, float ny, float* px, float* py);
 // The ray through normalised device coordinates from the camera (direction not normalised: depth 1 along the view).
 V3 ray_direction(const TickCycle& frame, const Lens& lens, float nx, float ny);
 // A world point to normalised device coordinates; false when it isn't in front of the near plane (`nearZ`).
@@ -248,11 +253,11 @@ bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point
 // `axes` - right, up, at - and `origin`; rows needn't be unit). The nearest hit's distance along `dir` (in units of
 // dir), false if none in front.
 bool ray_sphere(V3 origin, V3 dir, V3 centre, float radius, float* t);
-bool ray_box(V3 origin, V3 dir, V3 box_origin, const V3 axes[3], V3 min, V3 max, float* t);
+bool ray_box(V3 origin, V3 dir, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* t);
 // Ray against the plane through `point` with `normal`: false if parallel or behind.
 bool ray_plane(V3 origin, V3 dir, V3 point, V3 normal, float* t);
 // A box's eight corners in world space (bit 0 of the index: max x, bit 1: max y, bit 2: max z).
-void box_corners(V3 box_origin, const V3 axes[3], V3 min, V3 max, V3 out[8]);
+void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, 8> out);
 // Whether a model's bounding box looks like world coordinates rather than the model's own: it holds the object's
 // position but not the model's origin (only told apart when the object is away from the world's origin).
 bool box_looks_world_space(V3 min, V3 max, V3 object_pos);

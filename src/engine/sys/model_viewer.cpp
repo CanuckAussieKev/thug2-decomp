@@ -314,8 +314,8 @@ void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
     m = object->basis_frame_;
     const maths::Vec4& v = *offset;
     auto along = [&](int c) {
-        return static_cast<double>(m.row[2][c]) * v.z + static_cast<double>(m.row[0][c]) * v.x +
-               static_cast<double>(m.row[1][c]) * v.y;
+        return static_cast<double>(core::at(m.row, 2)[c]) * v.z + static_cast<double>(core::at(m.row, 0)[c]) * v.x +
+               static_cast<double>(core::at(m.row, 1)[c]) * v.y;
     };
     const double x = along(0) + object->at_point_.x;
     const double y = along(1) + object->at_point_.y;
@@ -332,10 +332,11 @@ void select_combo_task(ViewerTask* task)
     if (!script::fetch_int_value(kSelectShift))
         return;
     // The buttons pressed with Select held, and their scripts - the first one in this order.
-    static const struct {
+    struct SelectCombo {
         uint32_t button;
         uint32_t script;
-    } kCombos[] = {
+    };
+    static const auto kCombos = std::to_array<SelectCombo>({
         {0x10, 0xCBB91022},   // UserSelectTriangle
         {0x80, 0xE69691FA},   // UserSelectSquare
         {0x20, 0xFFC29C2A},   // UserSelectCircle
@@ -349,7 +350,7 @@ void select_combo_task(ViewerTask* task)
         {0x4000, 0xBBC0E36A}, // UserSelectDown
         {0x8000, 0xDD589439}, // UserSelectLeft
         {0x2000, 0x7A03C488}, // UserSelectRight
-    };
+    });
     const uint32_t makes = viewer->shift_makes_;
     for (const auto& combo : kCombos) {
         if (makes & combo.button) {

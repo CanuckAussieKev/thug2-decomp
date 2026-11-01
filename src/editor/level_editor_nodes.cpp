@@ -114,9 +114,10 @@ Shape shape_of(Family family)
 
 uint32_t restart_type_bit(uint32_t type)
 {
-    static const struct {
+    struct TypeBit {
         uint32_t checksum, bit;
-    } kTypes[] = {
+    };
+    static const auto kTypes = std::to_array<TypeBit>({
         {name_hash("Player1"), kPlayer1},
         {name_hash("Player2"), kPlayer2},
         {name_hash("Multiplayer"), kMultiplayer},
@@ -129,7 +130,7 @@ uint32_t restart_type_bit(uint32_t type)
         {name_hash("Team"), kTeam},
         {name_hash("KingOfTheHill"), kKing},
         {name_hash("Generic"), kGeneric},
-    };
+    });
     for (const auto& t : kTypes) {
         if (t.checksum == type)
             return t.bit;
@@ -663,14 +664,15 @@ bool level_is_shared(const char** game)
     const uint32_t level = skate->level_; // its level's load script
     if (!level)
         return false;
-    static const struct {
+    struct LevelList {
         const char* list;
         const char* game;
-    } kLists[] = {
+    };
+    static constexpr auto kLists = std::to_array<LevelList>({
         {"level_select_menu_thps3_level_info", "THPS3"}, {"level_select_menu_thps4_level_info", "THPS4"},
         {"level_select_menu_thug1_level_info", "THUG1"}, {"level_select_menu_thaw_level_info", "THAW"},
         {"level_select_menu_misc_level_info", nullptr}, // (skate shops, tutorials: the entry's game_tag names the game)
-    };
+    });
     static const uint32_t kLevel = name_hash("level"), kGameTag = name_hash("game_tag");
     for (const auto& entry : kLists) {
         script::Array* levels = script::fetch_list(entry.list);

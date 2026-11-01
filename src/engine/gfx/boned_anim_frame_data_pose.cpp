@@ -192,8 +192,7 @@ void JointClipFrames::build_cache(int format)
     AnimCacheEntry* entry =
         manager->add_row(cell::of(this), static_cast<int16_t>(bone_count_),
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
-    auto* cache = raw::bytes(entry);
-    if (!cache)
+    if (!entry)
         return;
     auto* rot_offsets = entry->get_rotation_offsets();
     auto* trans_offsets = entry->get_translation_offsets();
@@ -288,10 +287,10 @@ void JointClipFrames::build_cache(int format)
             break;
     }
 
-    cache_slot_ = cache;
+    cache_slot_ = entry;
     entry->set_release_callback([](void* data) { JointClipFrames::forget_cache_entry(static_cast<JointClipFrames*>(data)); },
                                 this); // (the entry's owner and its release callback)
-    uint16_t& cache_flags = *raw::field_at<uint16_t>(cache_slot_, 0x164);
+    uint16_t& cache_flags = entry->flag_bits_;
     cache_flags = static_cast<uint16_t>(((flag_bits_ >> 11) & 1) << 13 | (cache_flags & 0xDFFF));
     ++caches_built();
     last_cache_vblank() = frame_clock::fetch_retrace_count();

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 namespace util {
 class ByteReader;
@@ -86,9 +87,9 @@ struct HuntPlacements {
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_hunt_placements(util::ByteReader& reader, HuntPlacements* message);
-bool read_hunt_position(util::ByteReader& reader, float position[4]);
+bool read_hunt_position(util::ByteReader& reader, std::span<float, 4> position);
 bool write_hunt_placements(util::ByteWriter& writer, const HuntPlacements& message);
-bool write_hunt_position(util::ByteWriter& writer, const float position[4]);
+bool write_hunt_position(util::ByteWriter& writer, std::span<const float, 4> position);
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct BoardVehicle {

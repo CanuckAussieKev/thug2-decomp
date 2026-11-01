@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 struct ImFont;
 
@@ -46,7 +47,7 @@ struct Values {
 Values get_clamped(Values v);
 constexpr int kAccentCount = 6;
 // An accent's colour (pure): r, g, b in 0..1; its name.
-void get_accent_rgb(int accent, float rgb[3]);
+void get_accent_rgb(int accent, std::span<float, 3> rgb);
 const char* accent_name(int accent);
 
 // The values now (read from the ini once, the first time).

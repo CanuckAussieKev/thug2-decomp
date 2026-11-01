@@ -343,7 +343,7 @@ namespace {
 bool& menu_active() { return modules::g_menus_active; }
 bool& quit_requested() { return render::g_quit_requested; }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
-int key_binding(int action) { return core::at(os_layer::g_input_map, action); }
+int key_binding(int action) { return core::at(os_layer::g_input_map.front().keys, action); }
 // The platform layer's key names.
 const wchar_t* key_name_w(int code) { return os_layer::get_key_name(code); }
 std::array<char, 256>& name_buffer() { return g_name_buffer; }

@@ -336,10 +336,11 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         get_tip("What a click in the view selects");
         get_note("Pick");
         if (ImGui::BeginPopup("##strippicklist")) {
-            static const struct {
+            struct PickBit {
                 const char* label;
                 uint32_t bit;
-            } kPick[] = {{"Nodes", 1}, {"Objects", 2}, {"Scenery", 4}};
+            };
+            static constexpr auto kPick = std::to_array<PickBit>({{"Nodes", 1}, {"Objects", 2}, {"Scenery", 4}});
             for (const auto& p : kPick) {
                 if (ImGui::MenuItem(p.label, nullptr, (s.pick_filter_ & p.bit) != 0))
                     out->events.push_back({Occurrence::Kind::kPick, static_cast<float>(s.pick_filter_ ^ p.bit)});

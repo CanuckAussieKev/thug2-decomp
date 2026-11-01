@@ -577,7 +577,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                         core::at(c, k) = {p.x, p.y, p.z};
                     }
                 }
-                ground = ok && ground_face_under(c.data(), s, 30.0f);
+                ground = ok && ground_face_under(c, s, 30.0f);
             }
             if (!ground)
                 return;

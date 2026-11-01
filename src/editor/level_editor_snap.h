@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <span>
 #include <vector>
 
 #include "editor/level_editor.h"
@@ -27,7 +28,7 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
                       float y);
 // An object's rows (right, up, at - their lengths kept) stood square to a surface's `normal`: up along it, at keeping
 // its heading as nearly as it can (false: the normal is no direction, or at lies along it - unchanged).
-bool align_rows(V3 rows[3], V3 normal);
+bool align_rows(std::span<V3, 3> rows, V3 normal);
 // The selection's place for its base to lie on `point`: `pos` (where it is) moved so that its base (`base`: its height
 // there) is on the point.
 inline V3 on_surface(V3 pos, float base, V3 point) { return {point.x, point.y + (pos.y - base), point.z}; }

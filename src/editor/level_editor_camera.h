@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 
 #include "editor/level_editor.h"
@@ -71,8 +72,8 @@ struct Bookmark {
     float equivalent = 0.0f;
 };
 constexpr int kBookmarks = 9;
-std::string format_bookmarks(const Bookmark marks[kBookmarks]);
-bool parse_bookmarks(const std::string& text, Bookmark marks[kBookmarks]);
+std::string format_bookmarks(std::span<const Bookmark, kBookmarks> marks);
+bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> marks);
 
 // --- the editor's state (level_editor.cpp calls these) --------------------------------------------------------------
 

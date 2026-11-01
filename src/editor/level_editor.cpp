@@ -14,6 +14,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -150,19 +151,19 @@ Lens lens_for(float angle_degrees, float aspect)
     return {static_cast<float>(tan_x), static_cast<float>(tan_x * height_factor)};
 }
 
-bool pixel_to_ndc(const uint32_t viewport[4], float px, float py, float* nx, float* ny)
+bool pixel_to_ndc(std::span<const uint32_t, 4> viewport, float px, float py, float* nx, float* ny)
 {
-    if (viewport[2] == 0 || viewport[3] == 0)
+    if (core::at(viewport, 2) == 0 || core::at(viewport, 3) == 0)
         return false;
-    *nx = static_cast<float>((static_cast<double>(px) - viewport[0]) / viewport[2] * 2.0 - 1.0);
-    *ny = static_cast<float>(1.0 - (static_cast<double>(py) - viewport[1]) / viewport[3] * 2.0);
+    *nx = static_cast<float>((static_cast<double>(px) - core::at(viewport, 0)) / core::at(viewport, 2) * 2.0 - 1.0);
+    *ny = static_cast<float>(1.0 - (static_cast<double>(py) - core::at(viewport, 1)) / core::at(viewport, 3) * 2.0);
     return true;
 }
 
-void ndc_to_pixel(const uint32_t viewport[4], float nx, float ny, float* px, float* py)
+void ndc_to_pixel(std::span<const uint32_t, 4> viewport, float nx, float ny, float* px, float* py)
 {
-    *px = static_cast<float>(viewport[0] + (static_cast<double>(nx) + 1.0) * 0.5 * viewport[2]);
-    *py = static_cast<float>(viewport[1] + (1.0 - static_cast<double>(ny)) * 0.5 * viewport[3]);
+    *px = static_cast<float>(core::at(viewport, 0) + (static_cast<double>(nx) + 1.0) * 0.5 * core::at(viewport, 2));
+    *py = static_cast<float>(core::at(viewport, 1) + (1.0 - static_cast<double>(ny)) * 0.5 * core::at(viewport, 3));
 }
 
 V3 ray_direction(const TickCycle& frame, const Lens& lens, float nx, float ny)
@@ -201,7 +202,7 @@ bool ray_sphere(V3 origin, V3 dir, V3 centre, float radius, float* t)
     return true;
 }
 
-bool ray_box(V3 origin, V3 dir, V3 box_origin, const V3 axes[3], V3 min, V3 max, float* t)
+bool ray_box(V3 origin, V3 dir, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* t)
 {
     // The ray in the box's own coordinates (p = local.x * axes[0] + local.y * axes[1] + local.z * axes[2] + origin;
     // the rows are taken as orthogonal).
@@ -209,11 +210,11 @@ bool ray_box(V3 origin, V3 dir, V3 box_origin, const V3 axes[3], V3 min, V3 max,
     std::array<double, 3> o{};
     std::array<double, 3> d{};
     for (int i = 0; i < 3; ++i) {
-        const double length_squared = get_dot(axes[i], axes[i]);
+        const double length_squared = get_dot(core::at(axes, i), core::at(axes, i));
         if (length_squared <= 0.0)
             return false;
-        core::at(o, i) = get_dot(rel, axes[i]) / length_squared;
-        core::at(d, i) = get_dot(dir, axes[i]) / length_squared;
+        core::at(o, i) = get_dot(rel, core::at(axes, i)) / length_squared;
+        core::at(d, i) = get_dot(dir, core::at(axes, i)) / length_squared;
     }
     const std::array<double, 3> lo = {{min.x, min.y, min.z}};
     const std::array<double, 3> hi = {{max.x, max.y, max.z}};
@@ -250,13 +251,13 @@ bool ray_plane(V3 origin, V3 dir, V3 point, V3 normal, float* t)
     return true;
 }
 
-void box_corners(V3 box_origin, const V3 axes[3], V3 min, V3 max, V3 out[8])
+void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, 8> out)
 {
     for (int i = 0; i < 8; ++i) {
         const float x = (i & 1) ? max.x : min.x;
         const float y = (i & 2) ? max.y : min.y;
         const float z = (i & 4) ? max.z : min.z;
-        out[i] = box_origin + axes[0] * x + axes[1] * y + axes[2] * z;
+        core::at(out, i) = box_origin + core::at(axes, 0) * x + core::at(axes, 1) * y + core::at(axes, 2) * z;
     }
 }
 
@@ -1109,7 +1110,7 @@ bool scale_objects(const std::vector<objects::GameEntity*>& objects, V3 factor, 
             for (int a = 0; a < 3; ++a) {
                 if (core::at(along, a) == 1.0f)
                     continue;
-                const int axis = scale_tool::nearest_axis(rows.data(), a);
+                const int axis = scale_tool::nearest_axis(rows, a);
                 (axis == 0 ? local.x : axis == 1 ? local.y : local.z) = core::at(along, a);
             }
         }
@@ -1545,7 +1546,7 @@ bool get_to_pixel(const TickCycle& frame, V3 point, float* px, float* py)
     float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(g_pos, frame, g_lens, point, kNearZ, &nx, &ny))
         return false;
-    ndc_to_pixel(g_viewport.data(), nx, ny, px, py);
+    ndc_to_pixel(g_viewport, nx, ny, px, py);
     return true;
 }
 
@@ -1573,17 +1574,17 @@ xform::Mode gizmo_mode()
 }
 // The gizmo's axes: World the world's; Local the first object's own (its matrix's rows), a node's heading, the scenery's
 // quarter turns (its first piece's) - an invisible wall the world's.
-void selection_axes(V3 out[3])
+void selection_axes(std::span<V3, 3> out)
 {
     for (int i = 0; i < 3; ++i)
-        out[i] = core::at(kAxes, i);
+        core::at(out, i) = core::at(kAxes, i);
     if (xform::at_hand().space != xform::Space::kLocal)
         return;
     if (const objects::GameEntity* object = get_primary()) {
         std::array<V3, 3> rows{};
         for (int i = 0; i < 3; ++i)
             core::at(rows, i) = {core::at(object->basis_frame_.row, i).x, core::at(object->basis_frame_.row, i).y, core::at(object->basis_frame_.row, i).z};
-        xform::unit_axes(rows.data(), out);
+        xform::unit_axes(rows, out);
         return;
     }
     node_edit::Values node;
@@ -1594,13 +1595,13 @@ void selection_axes(V3 out[3])
     if (!wall_only() && scenery::has_selection()) {
         const int quarters = scenery::selection_quarters();
         for (int i = 0; i < 3; ++i)
-            out[i] = get_quarter_turn(core::at(kAxes, i), quarters);
+            core::at(out, i) = get_quarter_turn(core::at(kAxes, i), quarters);
     }
 }
 V3 axis_vector(int axis)
 {
     std::array<V3, 3> axes{};
-    selection_axes(axes.data());
+    selection_axes(axes);
     return core::at(axes, axis >= 0 && axis < 3 ? axis : 0);
 }
 // The selection's heading (the repeat of a duplicate): the first object's (its at row), a node's, the scenery's quarter
@@ -1633,7 +1634,7 @@ xform::Gizmo gizmo_now()
     gizmo.pivot = gizmo.mode == xform::Mode::kShiftBy ? selection_pos()
                   : g_dragging                        ? g_transform_pivot
                                                       : transform_pivot(gizmo.mode);
-    selection_axes(gizmo.axes.data());
+    selection_axes(gizmo.axes);
     gizmo.length = arrow_length();
     gizmo.rotates = selection_turns();
     return gizmo;
@@ -1681,8 +1682,8 @@ V3 scale_applied_now()
         for (int i = 0; i < 3; ++i)
             core::at(rows, i) = {core::at(object->basis_frame_.row, i).x, core::at(object->basis_frame_.row, i).y, core::at(object->basis_frame_.row, i).z};
         const std::array<float, 3> own = {{r.x, r.y, r.z}};
-        return {core::at(own, scale_tool::nearest_axis(rows.data(), 0)), core::at(own, scale_tool::nearest_axis(rows.data(), 1)),
-                core::at(own, scale_tool::nearest_axis(rows.data(), 2))};
+        return {core::at(own, scale_tool::nearest_axis(rows, 0)), core::at(own, scale_tool::nearest_axis(rows, 1)),
+                core::at(own, scale_tool::nearest_axis(rows, 2))};
     }
     return turned_scale(r, scenery::selection_quarters());
 }
@@ -1719,7 +1720,7 @@ void apply_scale_to(V3 wanted, bool uniform)
         }
         if (centre) {
             std::array<V3, 3> axes{};
-            selection_axes(axes.data());
+            selection_axes(axes);
             const std::array<float, 3> r = {{ratio.x, ratio.y, ratio.z}};
             for (size_t i = 0; i < objects.size(); ++i) {
                 const V3 d = core::at(before, i) - g_transform_pivot;
@@ -1902,7 +1903,7 @@ std::vector<V3> selection_corners()
     OrientedBox box{};
     std::array<V3, 8> corners{};
     auto add = [&](const OrientedBox& b) {
-        box_corners(b.origin, b.axes.data(), b.min, b.max, corners.data());
+        box_corners(b.origin, b.axes, b.min, b.max, corners);
         out.insert(out.end(), corners.data(), corners.data() + 8);
     };
     const std::vector<objects::GameEntity*> objects = selected_objects();
@@ -1945,7 +1946,7 @@ void surface_drag(V3 origin, V3 dir)
             std::array<V3, 3> rows{};
             for (int i = 0; i < 3; ++i)
                 core::at(rows, i) = {core::at(m->row, i).x, core::at(m->row, i).y, core::at(m->row, i).z};
-            if (!snap::align_rows(rows.data(), hit.normal))
+            if (!snap::align_rows(rows, hit.normal))
                 continue;
             for (int i = 0; i < 3; ++i) {
                 core::at(m->row, i).x = core::at(rows, i).x;
@@ -1981,7 +1982,7 @@ void vertex_drag(V3 origin, V3 dir, const TickCycle& frame)
         OrientedBox box{};
         if (object_edit::model_box(picked.first, &box)) {
             std::array<V3, 8> corners{};
-            box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
+            box_corners(box.origin, box.axes, box.min, box.max, corners);
             targets.assign(corners.data(), corners.data() + 8);
             at = origin + unit * picked.second;
             reach = picked.second;
@@ -2212,7 +2213,7 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
 void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
 {
     std::array<V3, 8> corners{};
-    box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
+    box_corners(box.origin, box.axes, box.min, box.max, corners);
     for (int i = 0; i < 8; ++i) {
         for (int bit = 1; bit < 8; bit <<= 1) {
             if (!(i & bit))
@@ -2896,16 +2897,16 @@ float get_near_plane(gfx::ViewCam* camera)
     return g_active && camera && camera == g_camera ? view_cam::get_near_plane() : 2.0f;
 }
 
-void note_view(gfx::ViewCam* camera, float angle, float aspect, const uint32_t viewport[4])
+void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const uint32_t, 4> viewport)
 {
     if (!g_active || camera != g_camera)
         return;
     const Lens lens = lens_for(angle, aspect);
     if (debug_enabled() && !g_have_view)
-        get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", viewport[0], viewport[1], viewport[2],
-                viewport[3], angle, aspect);
+        get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", core::at(viewport, 0), core::at(viewport, 1), core::at(viewport, 2),
+                core::at(viewport, 3), angle, aspect);
     g_lens = lens;
-    std::memcpy(g_viewport.data(), viewport, sizeof(g_viewport));
+    std::ranges::copy(viewport, g_viewport.begin());
     g_have_view = true;
 }
 
@@ -2943,8 +2944,12 @@ const char* mode_name()
         return "ROTATING";
     if (g_dragging && g_drag_mode == xform::Mode::kScale)
         return "SCALING";
-    if (g_dragging && g_axis >= 0)
-        return g_axis == 0 ? "MOVING ALONG X" : g_axis == 1 ? "MOVING ALONG Y" : "MOVING ALONG Z";
+    if (g_dragging && g_axis == 0)
+        return "MOVING ALONG X";
+    if (g_dragging && g_axis == 1)
+        return "MOVING ALONG Y";
+    if (g_dragging && g_axis >= 2)
+        return "MOVING ALONG Z";
     if (g_dragging)
         return "MOVING";
     if (have_selection() || g_node_selected)
@@ -2973,7 +2978,8 @@ std::string hover_text()
     if (const uint32_t wall = view::hover_wall(); wall && g_hover_axis < 0)
         return "Invisible wall " + object_edit::caption(wall) + " (Shift+click)";
     if (g_hover_handle >= 0 && g_hover_axis < 0)
-        return std::string("the trigger volume's ") + "-+"[g_hover_handle & 1] + "XYZ"[g_hover_handle >> 1] +
+        return std::string("the trigger volume's ") + ((g_hover_handle & 1) != 0 ? '+' : '-') +
+               core::at(kAxisLetters, g_hover_handle >> 1) +
                " face - drag to resize it";
     std::string text = g_hover_axis >= 0   ? handle_hover_text(g_hover_axis)
                        : g_hover_sector    ? scenery::describe_hover(g_hover_sector)
@@ -5926,7 +5932,7 @@ void tick_frame()
         back_x = static_cast<float>(static_cast<double>(input.x) * mapping.back_buffer_width_ / input.window_width_);
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
         float nx = 0.0f, ny = 0.0f;
-        if (pixel_to_ndc(g_viewport.data(), back_x, back_y, &nx, &ny)) {
+        if (pixel_to_ndc(g_viewport, back_x, back_y, &nx, &ny)) {
             dir = ray_direction(frame, g_lens, nx, ny);
             have_ray = true;
         }
@@ -6079,9 +6085,9 @@ void tick_frame()
                     action.factor = scale_tool::along_axis(axis, factor);
                     action.uniform = false;
                     adjust::get_note(action);
-                    const char* axis_name = axis == 0 ? "x" : axis == 1 ? "y" : "z";
-                    hud::get_message(std::string("Stretched along ") + axis_name);
-                    note_action("stretched along %s (Alt+[ / ]): %s", axis_name, describe_selection().c_str());
+                    const std::string axis_name(1, axis == 0 ? 'x' : axis == 1 ? 'y' : 'z');
+                    hud::get_message("Stretched along " + axis_name);
+                    note_action("stretched along %s (Alt+[ / ]): %s", axis_name.c_str(), describe_selection().c_str());
                 }
             } else if (scale_selection_by(scale_tool::get_uniform(factor), true)) {
                 note_action("scaled ([ / ]): %s", describe_selection().c_str());
@@ -6565,27 +6571,27 @@ void blit()
         // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
         preview::tick_cycle(&model);
         add_node_gizmos(frame, model.nodes.selected);
-        view::add_collision(g_pos, frame, g_lens, g_viewport.data(), kNearZ, &g_overlay.under, &g_overlay.lines);
+        view::add_collision(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.under, &g_overlay.lines);
         // (map3: the selected collision faces, the camera nodes' frustums)
-        faces::add_overlay(g_pos, frame, g_lens, g_viewport.data(), kNearZ, &g_overlay.lines);
-        cameras::add_overlay(g_pos, frame, g_lens, g_viewport.data(), kNearZ,
+        faces::add_overlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines);
+        cameras::add_overlay(g_pos, frame, g_lens, g_viewport, kNearZ,
                              model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0,
                              &g_overlay.lines);
         // (UX5: note pins; the problem checker run again a moment after a change)
-        notes::add_overlay(g_pos, frame, g_lens, g_viewport.data(), kNearZ, &g_overlay.lines, &g_overlay.circles,
+        notes::add_overlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.circles,
                            &g_overlay.texts);
         checks::note_model(model.changes, model.marks);
-        triggers::add_overlay(g_pos, frame, g_lens, g_viewport.data(), kNearZ, &g_overlay.lines, &g_overlay.texts);
+        triggers::add_overlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         if (overlays::get_shown(overlays::kFeatureMap)) // (the Overlays menu - level_editor_overlays.h)
             triggers::add_extras(
-                g_pos, frame, g_lens, g_viewport.data(), kNearZ, model.nodes.selected, &g_overlay.lines,
+                g_pos, frame, g_lens, g_viewport, kNearZ, model.nodes.selected, &g_overlay.lines,
                 &g_overlay.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
         triggers::add_handles(&g_overlay.circles); // (the selected trigger volume's resize handles)
-        entities::add_overlay(g_pos, frame, g_lens, g_viewport.data(), kNearZ, &g_overlay.lines, &g_overlay.texts);
+        entities::add_overlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         play_test::add_overlay(
-            g_pos, frame, g_lens, g_viewport.data(), kNearZ, &g_overlay.lines, &g_overlay.circles,
+            g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.circles,
             &g_overlay.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
-        goal_edit::add_overlay(g_pos, frame, g_lens, g_viewport.data(), kNearZ,
+        goal_edit::add_overlay(g_pos, frame, g_lens, g_viewport, kNearZ,
                                model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0,
                                &g_overlay.lines,
                                &g_overlay.texts); // (the goals' points' labels)
@@ -6605,7 +6611,7 @@ void blit()
         }
         // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
         // level_editor_arrange.h)
-        arrange::add_overlay(g_pos, frame, g_lens, g_viewport.data(), kNearZ, &g_overlay);
+        arrange::add_overlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay);
         thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
         ui::tick_cycle(model, g_overlay);
         return;
@@ -6840,7 +6846,7 @@ bool project_to_back(V3 point, float* x, float* y)
     float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(g_pos, frame_from_yaw_pitch(g_yaw, g_pitch), g_lens, point, kNearZ, &nx, &ny))
         return false;
-    ndc_to_pixel(g_viewport.data(), nx, ny, x, y);
+    ndc_to_pixel(g_viewport, nx, ny, x, y);
     return true;
 }
 

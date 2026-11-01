@@ -23,6 +23,8 @@ class Vec4;
 
 namespace gfx {
 
+struct AnimCacheEntry;
+
 class UserClipKey;
 
 // A key as three shorts after the time word (8 bytes).
@@ -82,39 +84,6 @@ void interpolate_float_trans(float* out, const FloatKey* a, const FloatKey* b, f
 // A frame source (made by 0x0048BFC0 for an animation controller; the fields used here): where each bone's key
 // decompression got to, and which bones the skeleton's level of detail leaves out.
 using FrameSource = render::FrameSource; // (its search cursors and bone masks: frame_source.h)
-
-// An entry of the frame cache (0x006F92B0, 50 of them; its code isn't rewritten here - only the key searches): an
-// animation's keys decompressed into float keys, quaternions then translations in one block, with search cursors
-// for the controllers using it.
-class FrameCacheEntry {
-public:
-    // The keys of `bone` around `frame`: `first` / `second` (the same key when there's only one, or past the last),
-    // starting from the cursor `cursor` holds when it still fits (-1: none) and leaving it there; -2 while the
-    // entry is being filled (bit 15 of its flags). Returns `cursor`. Each has its own quirks, kept as the original.
-    // 0x00482FB0 / 0x00483210: quaternion / translation keys, searching forwards.
-    int find_quat_keys(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
-    int find_trans_keys(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
-    // 0x00483470 / 0x004836C0: the same when the animation runs backwards (a cursor can step back one key).
-    int find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
-    int find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
-
-    void* payload_;         // +0x00 the frame data it holds
-    std::array<uint32_t, 4> unknown04_; // (+0x04: the frame it was last used)
-    uint32_t extent_;       // +0x14 the keys' size
-    uint8_t* quat_keys_;    // +0x18
-    uint8_t* trans_keys_;   // +0x1C
-    std::array<uint32_t, 2> unknown20_;
-    std::array<uint8_t**, 18> cursors_;      // +0x28 (each: 60 quaternion cursors, 60 translation cursors, ...)
-    uint8_t quat_stride_;        // +0x70
-    uint8_t trans_stride_;       // +0x71
-    std::array<uint16_t, 60> quat_offsets_;  // +0x72
-    std::array<uint16_t, 60> trans_offsets_; // +0xEA
-    uint16_t bone_count_;        // +0x162
-    uint16_t flag_bits_;         // +0x164 (0x4000 searching, 0x8000 not ready)
-};
-static_assert(offsetof(FrameCacheEntry, cursors_) == 0x28 && offsetof(FrameCacheEntry, quat_offsets_) == 0x72 &&
-                  offsetof(FrameCacheEntry, trans_offsets_) == 0xEA && offsetof(FrameCacheEntry, flag_bits_) == 0x164,
-              "layout must match the original");
 
 class JointClipFrames {
 public:
@@ -191,7 +160,7 @@ public:
     uint8_t* key_counts_{nullptr};            // +0x18
     uint32_t* bone_labels_{nullptr};          // +0x1C
     uint32_t* partial_bones_{nullptr};        // +0x20 (flag 0x80000: a count, then a bit for each bone)
-    uint8_t* cache_slot_{nullptr};            // +0x24 (+4: the frame it was last used)
+    AnimCacheEntry* cache_slot_{nullptr};     // +0x24 its keys in the animation cache (null: not cached)
     gsl::owner<UserClipKey**> events_ptr_{nullptr}; // +0x28 the custom keys (create_custom_anim_key; each owned too)
     uint16_t* quat_sizes_{nullptr};                    // +0x2C (each bone's quaternion keys' size in bytes)
     uint16_t* trans_sizes_{nullptr};                   // +0x30

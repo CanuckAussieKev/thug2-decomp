@@ -12,6 +12,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <map>
+#include <span>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -396,7 +397,7 @@ objects::GameEntity* live_object(uint32_t id)
 void get_corners(const OrientedBox& box, std::vector<V3>* out)
 {
     std::array<V3, 8> c{};
-    box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
+    box_corners(box.origin, box.axes, box.min, box.max, c);
     out->insert(out->end(), c.data(), c.data() + 8);
 }
 
@@ -460,22 +461,22 @@ std::vector<Unit> units_of(const edit::Selected& selection)
 
 // The axes the tools go along: the world's, or (Local) the first piece's own - an object's rows, a sector's quarter
 // turns.
-void axes_of(const std::vector<Unit>& units, bool local, V3 out[3])
+void axes_of(const std::vector<Unit>& units, bool local, std::span<V3, 3> out)
 {
     for (int i = 0; i < 3; ++i)
-        out[i] = core::at(kWorld, i);
+        core::at(out, i) = core::at(kWorld, i);
     if (!local || units.empty())
         return;
     if (const objects::GameEntity* object = units.front().object) {
         for (int i = 0; i < 3; ++i)
-            out[i] = make_unit(
+            core::at(out, i) = make_unit(
                 {core::at(object->basis_frame_.row, i).x, core::at(object->basis_frame_.row, i).y, core::at(object->basis_frame_.row, i).z});
         return;
     }
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
     scenery::placement_now(units.front().sectors.front(), &placement);
     for (int i = 0; i < 3; ++i)
-        out[i] = get_quarter_turn(core::at(kWorld, i), placement.quarters);
+        core::at(out, i) = get_quarter_turn(core::at(kWorld, i), placement.quarters);
 }
 
 // Each unit moved by its own amount along `axis` (one undo step).
@@ -501,7 +502,11 @@ void move_units(const edit::Selected& selection, const std::vector<Unit>& units,
     edit::get_end();
 }
 
-const char* get_axis_name(int axis) { return axis == 0 ? "X" : axis == 1 ? "Y" : "Z"; }
+const char* get_axis_name(int axis)
+{
+    constexpr std::array<const char*, 3> kNames = {"X", "Y", "Z"};
+    return core::at(kNames, axis == 0 || axis == 1 ? axis : 2);
+}
 
 } // namespace
 
@@ -515,7 +520,7 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
     }
     axis = std::clamp(axis, 0, 2);
     std::array<V3, 3> axes{};
-    axes_of(units, local, axes.data());
+    axes_of(units, local, axes);
     std::vector<Span> spans;
     spans.reserve(units.size());
     for (const Unit& unit : units)
@@ -550,7 +555,7 @@ bool distribute(int axis, bool gaps, bool local)
     }
     axis = std::clamp(axis, 0, 2);
     std::array<V3, 3> axes{};
-    axes_of(units, local, axes.data());
+    axes_of(units, local, axes);
     std::vector<Span> spans;
     spans.reserve(units.size());
     for (const Unit& unit : units)
@@ -897,7 +902,7 @@ bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
     float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(view.pos, frame, view.lens, p, view.near_z_, &nx, &ny))
         return false;
-    ndc_to_pixel(view.viewport.data(), nx, ny, x, y);
+    ndc_to_pixel(view.viewport, nx, ny, x, y);
     return true;
 }
 
@@ -1140,12 +1145,12 @@ void tick_frame()
 namespace {
 
 struct Painter {
-    V3 camera;
-    TickCycle frame;
-    Lens lens;
-    const uint32_t* viewport;
-    float near_z_;
-    ui::Overlay* overlay;
+    V3 camera{};
+    TickCycle frame{};
+    Lens lens{};
+    std::span<const uint32_t, 4> viewport;
+    float near_z_{};
+    ui::Overlay* overlay{};
     bool get_pixel(V3 p, float* x, float* y) const
     {
         float nx = 0.0f, ny = 0.0f;
@@ -1165,7 +1170,7 @@ struct Painter {
     void cuboid(const OrientedBox& box, uint32_t argb, uint32_t fill) const
     {
         std::array<V3, 8> c{};
-        box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
+        box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
@@ -1228,7 +1233,7 @@ bool surface_normal(V3* normal)
 void tilt_box(OrientedBox* box, V3 at, V3 normal)
 {
     std::array<V3, 3> rows = {{core::at(box->axes, 0), core::at(box->axes, 1), core::at(box->axes, 2)}};
-    if (!snap::align_rows(rows.data(), normal))
+    if (!snap::align_rows(rows, normal))
         return;
     // (each corner's offset from `at`, in the box's frame, put back along the new rows)
     const V3 origin = box->origin - at;
@@ -1329,7 +1334,7 @@ void add_readout(const Painter& p)
     }
     float x = 0.0f, y = 0.0f;
     edit::get_cursor(&x, &y);
-    const float line = 17.0f * static_cast<float>(p.viewport[3]) / 720.0f;
+    const float line = 17.0f * static_cast<float>(core::at(p.viewport, 3)) / 720.0f;
     std::vector<std::string> lines = readout_lines(r);
     if (!have_box)
         lines.erase(lines.begin()); // (a node: no size)
@@ -1380,7 +1385,7 @@ void add_edges(const Painter& p)
     edit::get_cursor(&x, &y);
     g_edge_hover = run_at(
         runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
-        12.0f * static_cast<float>(p.viewport[3]) / 720.0f);
+        12.0f * static_cast<float>(core::at(p.viewport, 3)) / 720.0f);
     for (size_t r = 0; r < runs.size(); ++r) {
         const bool lit = ints::as_signed(r) == g_edge_hover;
         for (size_t i = 1; i < core::at(runs, r).points.size(); ++i)
@@ -1397,7 +1402,7 @@ void add_edges(const Painter& p)
 
 } // namespace
 
-void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  ui::Overlay* overlay)
 {
     const Painter p = {camera, frame, lens, viewport, near_z, overlay};
@@ -1427,7 +1432,7 @@ bool place_click(bool more)
                 std::array<V3, 3> rows{};
                 for (int i = 0; i < 3; ++i)
                     core::at(rows, i) = {core::at(m->row, i).x, core::at(m->row, i).y, core::at(m->row, i).z};
-                if (!snap::align_rows(rows.data(), normal))
+                if (!snap::align_rows(rows, normal))
                     continue;
                 for (int i = 0; i < 3; ++i) {
                     core::at(m->row, i).x = core::at(rows, i).x;

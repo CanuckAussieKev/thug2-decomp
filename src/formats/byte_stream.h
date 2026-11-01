@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 // NOT ORIGINAL - bounds-checked little-endian readers and writers for the game's file, save and network formats.
 //
@@ -22,6 +23,7 @@ public:
     static constexpr size_t kUnknownSize = ~static_cast<size_t>(0);
 
     ByteReader(const void* data, size_t size) : data_(static_cast<const uint8_t*>(data)), size_(size) {}
+    explicit ByteReader(std::span<const uint8_t> bytes) : data_(bytes.data()), size_(bytes.size()) {}
 
     [[nodiscard]] bool ok() const { return ok_; }
     [[nodiscard]] size_t position() const { return position_; }
@@ -154,6 +156,7 @@ private:
 class ByteWriter {
 public:
     ByteWriter(void* data, size_t capacity) : data_(static_cast<uint8_t*>(data)), capacity_(capacity) {}
+    explicit ByteWriter(std::span<uint8_t> bytes) : data_(bytes.data()), capacity_(bytes.size()) {}
 
     [[nodiscard]] bool ok() const { return ok_; }
     [[nodiscard]] size_t position() const { return position_; }

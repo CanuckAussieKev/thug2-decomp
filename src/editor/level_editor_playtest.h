@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 #include <array>
@@ -186,7 +187,7 @@ void on_editor_stop();
 // default, rebindable) and the UI's requests done here.
 void tick(bool dragging);
 // The trails and markers over the view (the UI's overlay; nothing while hidden).
-void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
                  std::vector<ui::Overlay::OverlayText>* texts);
 

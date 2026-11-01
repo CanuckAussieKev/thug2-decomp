@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "wire/gamenet_messages.h"
 
@@ -62,7 +63,7 @@ constexpr uint32_t kChatHeaderSize = static_cast<uint32_t>(kChatMessageHeaderSiz
 
 // A chat message for the wire, into `out`: `text` cut to THUGPRO's 127 characters, `name` to 15. Returns the length
 // to send.
-uint32_t encode_chat(uint8_t out[kChatMessageSize], uint32_t machine_id, uint8_t obj_id, const char* name,
+uint32_t encode_chat(std::span<uint8_t, kChatMessageSize> out, uint32_t machine_id, uint8_t obj_id, const char* name,
                      const char* text);
 // A received chat message (of either layout: THUGPRO's when `thugpro`, else THUG2's - object id, name, text):
 // false when it's too short, too long, or its name / text don't end inside it (THUGPRO drops those too).
@@ -90,7 +91,7 @@ constexpr uint32_t kChangeLevelSize = static_cast<uint32_t>(kLevelSwitchSize);
 // The name THUGPRO sends for `level`: its own words for the skate shop, the park editor and a created park
 // (with a newline, as THUGPRO has them); else the level select's name (`list_name`, null: "Unknown\n").
 const char* change_level_name(uint32_t level, const char* list_name);
-void extend_change_level(const LevelSwitch& level, const char* name, uint8_t out[kChangeLevelThugproSize]);
+void extend_change_level(const LevelSwitch& level, const char* name, std::span<uint8_t, kChangeLevelThugproSize> out);
 
 // --- What the messages change ---
 

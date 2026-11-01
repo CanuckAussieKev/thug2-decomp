@@ -1,5 +1,7 @@
 #pragma once
 
+#include <span>
+
 namespace maths {
 
 // Limits `value` to [min, max]. The max limit is applied first, so if min > max the result is min.
@@ -20,7 +22,7 @@ float fast_atan2(float y, float x);
 float keep_within(float value, float target, float distance);
 
 // 2D rotation by `angle` radians, stored as {cos, sin, -sin, cos}.
-void create_rotate_2d(float out[4], float angle);
+void create_rotate_2d(std::span<float, 4> out, float angle);
 
 // Fill the sine/cosine lookup table that the engine's fast trig functions read (a quarter circle in 118 steps).
 void fill_sine_table();

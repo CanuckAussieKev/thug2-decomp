@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <iterator>
 
 #include "engine/core/stubs.h"
 #include "engine/gfx/graphics_options.h"
@@ -264,7 +265,7 @@ HRESULT create_device(int width, int height, bool hardware_vertices, bool multis
     // (through the exe's import of DirectSoundEnumerateA)
     DirectSoundEnumerateA(&sound_device_found, nullptr);
     // A Radeon 8500 (0x00786AB5)...
-    g_radeon8500 = std::strstr(id.Description, "8500") != nullptr;
+    g_radeon8500 = std::strstr(std::data(id.Description), "8500") != nullptr;
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
     if (std::memcmp(sound_device_name(), "Realtek HD Audio rear output", 29) == 0 && id.VendorId == 0x8086 &&
         id.DeviceId == 0x2582)

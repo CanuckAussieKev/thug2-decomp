@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -91,7 +92,7 @@ int main_axis(V3 direction);
 // The factor `f` along axis `axis` only.
 V3 along_axis(int axis, float f);
 // Of three axes (an object's rows), the one most along the world's axis `world_axis`.
-int nearest_axis(const V3 axes[3], int world_axis);
+int nearest_axis(std::span<const V3, 3> axes, int world_axis);
 // "1.50x" (uniform) or "1.50 x 1.00 x 2.00".
 std::string describe(V3 scale);
 // A point of the copy (taken with the engine's position at `from`) where it goes for the engine's position `to`, turned

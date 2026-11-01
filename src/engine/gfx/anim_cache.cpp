@@ -117,8 +117,8 @@ void AnimCacheSlot::dealloc(AnimCacheSlot* slot) { slot_pools().dealloc(slot); }
 
 void AnimCacheSlot::get_clear()
 {
-    std::memset(rotation_keys_.data(), 0, sizeof(rotation_keys_));
-    std::memset(translation_keys_.data(), 0, sizeof(translation_keys_));
+    rotation_keys_.fill(nullptr);
+    translation_keys_.fill(nullptr);
     clock_ = 0x8000;
 }
 
@@ -201,8 +201,8 @@ int AnimCacheEntry::new_slot()
             slot->clock_ = 0x8000;
         core::at(slots_ptr_, i) = slot;
         slot->clock_ &= 0x7FFF; // (null: a crash, as the original)
-        std::memset(core::at(slots_ptr_, i)->rotation_keys_.data(), 0, sizeof(slot->rotation_keys_));
-        std::memset(core::at(slots_ptr_, i)->translation_keys_.data(), 0, sizeof(slot->translation_keys_));
+        core::at(slots_ptr_, i)->rotation_keys_.fill(nullptr);
+        core::at(slots_ptr_, i)->translation_keys_.fill(nullptr);
         return i;
     }
     return -1;

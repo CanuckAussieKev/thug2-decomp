@@ -562,7 +562,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
         return 4;
     util::ByteReader reader(context->body_, context->body_size_);
     std::array<float, 4> position{};
-    if (!online::read_hunt_position(reader, position.data())) // NOT ORIGINAL: too short - dropped
+    if (!online::read_hunt_position(reader, position)) // NOT ORIGINAL: too short - dropped
         return 4;
     if (!dropper->is_own_player())
         core::at(dropper->placed_, dropper->num_placed_) = {core::at(position, 0), core::at(position, 1), core::at(position, 2), core::at(position, 3)};

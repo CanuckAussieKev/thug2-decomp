@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -113,7 +114,7 @@ void forget_level();
 // Once a frame while the editor runs: what the Inspector asked for.
 void tick_frame();
 // The selected faces (cyan) and the hovered one (yellow) outlined over the view.
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines);
 // The Inspector's section (the selected faces: their flags as checkboxes, All faces of the piece, Home); `mono` /
 // `small`: the UI's fonts.

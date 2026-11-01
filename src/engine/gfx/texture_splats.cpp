@@ -142,7 +142,7 @@ void kill_texture_splats_in_box(const float* box)
     while (splats) {
         TextureSplats* next = next_splats(get_splats());
         for (int i = 0; i < 0x100; ++i) {
-            const auto* p = raw::as<const float>(splats->vertices[i].data()[0].data());
+            const auto* p = raw::as<const float>(core::at(core::at(splats->vertices, i), 0).data());
             if (p[0] >= box[0] && p[1] >= box[1] && p[2] >= box[2] && p[0] <= box[4] && p[1] <= box[5] &&
                 p[2] <= box[6])
                 core::at(splats->alive, i) = 0;
@@ -545,8 +545,8 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                 const std::array<const float*, 3> t = {{t0.data(), t1.data(), t2.data()}};
                 const std::array<uint8_t*, 3> v = {{v0, v1, v2}};
                 for (int k = 0; k < 3; ++k) {
-                    get_uv(v[k])[0] = static_cast<float>((static_cast<double>(t[k][0]) + 1.0f) * 0.5f);
-                    get_uv(v[k])[1] = static_cast<float>((static_cast<double>(t[k][1]) + 1.0f) * 0.5f);
+                    get_uv(core::at(v, k))[0] = static_cast<float>((static_cast<double>(core::at(t, k)[0]) + 1.0f) * 0.5f);
+                    get_uv(core::at(v, k))[1] = static_cast<float>((static_cast<double>(core::at(t, k)[1]) + 1.0f) * 0.5f);
                 }
                 for (int k = 0; k < 3; ++k) {
                     core::at(core::at(splats->uvs, 3 * slot + k), 0) = get_uv(core::at(v, k))[0];

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <span>
 #include <unordered_map>
 #include <vector>
 #include <utility>
@@ -97,22 +98,22 @@ const char* surface_name(Surface surface)
     }
 }
 
-int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, const V3 in[3], V3 out[4])
+int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, std::span<const V3, 3> in, std::span<V3, 4> out)
 {
     // (Sutherland-Hodgman against one plane: depth = (p - camera) . -back)
     std::array<float, 3> depth{};
     for (int i = 0; i < 3; ++i)
-        core::at(depth, i) = -get_dot(in[i] - camera_pos, frame.back);
+        core::at(depth, i) = -get_dot(core::at(in, i) - camera_pos, frame.back);
     int count = 0;
     for (int i = 0; i < 3; ++i) {
         const int j = (i + 1) % 3;
         const bool in_i = core::at(depth, i) >= near_z;
         const bool in_j = core::at(depth, j) >= near_z;
         if (in_i)
-            out[count++] = in[i];
+            core::at(out, count++) = core::at(in, i);
         if (in_i != in_j) {
             const float s = (near_z - core::at(depth, i)) / (core::at(depth, j) - core::at(depth, i));
-            out[count++] = in[i] + (in[j] - in[i]) * s;
+            core::at(out, count++) = core::at(in, i) + (core::at(in, j) - core::at(in, i)) * s;
         }
     }
     return count >= 3 ? count : 0;
@@ -447,7 +448,7 @@ void set_show_collision(bool on)
         g_drawn.clear();
 }
 
-void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                    std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines)
 {
     g_drawn.clear();
@@ -504,9 +505,9 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
     std::vector<Polygon> polygons;
     const V3 light = make_unit({0.35f, 0.85f, 0.4f});
     // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
-    auto add_face = [&](const V3* p, const FaceFacts& facts) {
+    auto add_face = [&](std::span<const V3, 3> p, const FaceFacts& facts) {
         std::array<V3, 4> clipped{};
-        const int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped.data());
+        const int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped);
         if (!count)
             return false;
         Polygon poly = {};
@@ -531,7 +532,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         const FaceStyle style = style_of(facts);
         const uint32_t argb = style.fill;
         // (shaded by the face's facing: the shape reads through the colour)
-        const V3 normal = perpendicular(p[1] - p[0], p[2] - p[0]);
+        const V3 normal = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(normal, normal));
         const float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
         auto r = static_cast<uint32_t>(static_cast<float>((argb >> 16) & 0xFF) * shade);
@@ -570,7 +571,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         facts.trigger_colour_ = trigger == trigger_colours.end() ? 0 : trigger->second;
         bool any = false;
         for (size_t f = 0; f < cached->flags.size() && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
-            const V3* p = &core::at(cached->points, f * 3);
+            const auto p = std::span<const V3>(cached->points).subspan(f * 3).first<3>();
             facts.flags = core::at(cached->flags, f);
             facts.taken = core::at(cached->taken, f) != 0;
             if (!add_face(p, facts))
@@ -578,7 +579,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
             // nor is a face taken along - its piece's companion is where it is now)
             if ((cached->collision_only_ || !candidate.off) && !facts.taken)
-                g_drawn.push_back({candidate.checksum, cached->collision_only_, p[0], p[1], p[2], core::at(cached->index, f)});
+                g_drawn.push_back({candidate.checksum, cached->collision_only_, core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(cached->index, f)});
             any = true;
             g_stats.taken += facts.taken ? 1 : 0;
             g_stats.triggers += (facts.flags & 0x40) && facts.trigger_colour_ ? 1 : 0;
@@ -619,7 +620,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             FaceFacts facts;
             facts.flags = tri.face_flags(f);
             facts.companion = true;
-            const bool drawn = ok && add_face(p.data(), facts);
+            const bool drawn = ok && add_face(p, facts);
             if (drawn)
                 g_drawn.push_back({entry.first, false, core::at(p, 0), core::at(p, 1), core::at(p, 2), f, true});
             any = drawn || any;

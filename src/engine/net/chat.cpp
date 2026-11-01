@@ -135,7 +135,7 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
     std::array<uint8_t, thugpro::kChatMessageSize> thugpro_bytes{};
     if (thugpro::peer_mode()) {
         desc.byte_count_ = static_cast<uint16_t>(
-            thugpro::encode_chat(thugpro_bytes.data(), thugpro::get_machine_id(), color, packet.name.data(), packet.text.data()));
+            thugpro::encode_chat(thugpro_bytes, thugpro::get_machine_id(), color, packet.name.data(), packet.text.data()));
         desc.content_ = thugpro_bytes.data();
         core::at(packet.text, thugpro::kChatMessageTextSize - 1) = '\0'; // (what was sent, shown below)
     }

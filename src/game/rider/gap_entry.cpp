@@ -44,6 +44,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -384,7 +385,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     // Where the skater starts: its camera's position, and facing back along the camera's at row.
     auto* skater = core::down_cast<Rider>(entity_);
     gap_start_pos(gap) = core::down_cast<GameEntity>(skater->get_skater_camera())->at_point_;
-    const maths::Vec4& at = core::down_cast<GameEntity>(skater->get_skater_camera())->basis_frame_.row[2];
+    const maths::Vec4& at = core::at(core::down_cast<GameEntity>(skater->get_skater_camera())->basis_frame_.row, 2);
     maths::Vec4& dir = gap_start_dir(gap);
     dir.z = -at.z;
     dir.x = -at.x;

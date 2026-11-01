@@ -273,7 +273,7 @@ void FootView::tick_frame()
     }
     viewer_->view_camera_->remember_prev_pos();
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    const float turn = core::down_cast<PadInputModule>(entity_->fetch_module(kInput))->pad_primary_.scaled_stick_[0];
+    const float turn = core::at(core::down_cast<PadInputModule>(entity_->fetch_module(kInput))->pad_primary_.scaled_stick_, 0);
     entity_->basis_frame_ = orientation_;
 
     // Where to look: along the camera's flat facing, swung round to the skater's.

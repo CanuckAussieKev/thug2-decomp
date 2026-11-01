@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <utility>
 #include <array>
@@ -343,13 +344,13 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, float pan, float 
         const float share = x1 / 1280.0f;
         const float u1 = uv.u0 + (uv.u1 - uv.u0) * share;
         const float u_edge = uv.u0 + (uv.u1 - uv.u0) * (kColumn / 1280.0f);
-        static const float kOffsets[][2] = {{0, 0}, {9, 0},   {-9, 0}, {0, 9}, {0, -9},
-                                            {6, 6}, {-6, -6}, {6, -6}, {-6, 6}};
+        static constexpr auto kOffsets = std::to_array<std::array<float, 2>>(
+            {{0, 0}, {9, 0}, {-9, 0}, {0, 9}, {0, -9}, {6, 6}, {-6, -6}, {6, -6}, {-6, 6}});
         dl->PushTextureID(static_cast<ImTextureID>(art.texture));
         dl->PushClipRect(ImVec2(f.get_x(0.0f), f.get_y(0.0f)), ImVec2(f.get_x(x1), f.get_y(720.0f)), true);
         for (int i = 0; i < 9; ++i) {
-            const float dx = f.current_s(core::at(kOffsets, i)[0]);
-            const float dy = f.current_s(core::at(kOffsets, i)[1]);
+            const float dx = f.current_s(core::at(kOffsets, i).front());
+            const float dy = f.current_s(core::at(kOffsets, i).back());
             // (copy i at 1 / (i + 1): the result is the copies' average; across the feather it fades to the art)
             const ImU32 full = get_col(0xFFFFFFFF, alpha / static_cast<float>(i + 1));
             const ImU32 none = get_col(0xFFFFFFFF, 0.0f);
@@ -1316,7 +1317,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
 ImU32 skater_col(float hue, float sat, float val)
 {
     std::array<float, 3> rgb{};
-    mirror::skater_colour(hue, sat, val, rgb.data());
+    mirror::skater_colour(hue, sat, val, rgb);
     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
     return IM_COL32(static_cast<int>(core::at(rgb, 0) * 255.0f + 0.5f), static_cast<int>(core::at(rgb, 1) * 255.0f + 0.5f),
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
@@ -1797,7 +1798,7 @@ bool build_fonts(const FontFiles& files, float scale)
         config.OversampleH = big ? 1 : 2;
         config.OversampleV = 1;
         config.PixelSnapH = big;
-        std::snprintf(config.Name, sizeof(config.Name), "fe %d %.0f", static_cast<int>(core::at(kBakes, i).face), core::at(kBakes, i).css);
+        std::snprintf(std::data(config.Name), sizeof(config.Name), "fe %d %.0f", static_cast<int>(core::at(kBakes, i).face), core::at(kBakes, i).css);
         // (stb_truetype's size is ascent - descent: the em asked for times that)
         const float pixel_height = em * (face.ascent - face.descent);
         ImFont* font =

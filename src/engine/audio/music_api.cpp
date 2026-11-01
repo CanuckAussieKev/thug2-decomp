@@ -79,8 +79,7 @@ StreamFields* stream_at(int index) { return raw::as<StreamFields>(g_streams.data
 constexpr int kStreams = 3;
 // The objects that started each stream (null: none); each notes the ids of the streams it started at
 // +0x18 + 4 * slot.
-uint8_t** get_owners() { return raw::as<uint8_t*>(g_stream_owners.data()); }
-uint32_t* owner_ids(uint8_t* owner) { return raw::as<objects::AudioStreamModule>(owner)->streams_.data(); }
+std::array<objects::AudioStreamModule*, 3>& get_owners() { return g_stream_owners; }
 
 // The user soundtrack (see music_player.cpp).
 int& user_soundtrack() { return g_user_soundtrack; }
@@ -232,13 +231,13 @@ void halt_stream(uint32_t id_or_name)
         id = stream_at(index)->id;
     }
     for (int slot = 0; slot < kStreams; ++slot) {
-        uint8_t* owner = get_owners()[slot];
+        objects::AudioStreamModule* owner = core::at(get_owners(), slot);
         if (!owner)
             continue;
         for (int i = 0; i < kStreams; ++i) {
-            if (owner_ids(owner)[i] == id) {
-                owner_ids(owner)[i] = 0;
-                get_owners()[slot] = nullptr;
+            if (core::at(owner->streams_, i) == id) {
+                core::at(owner->streams_, i) = 0;
+                core::at(get_owners(), slot) = nullptr;
                 return;
             }
         }
@@ -301,7 +300,7 @@ bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
     int index = -1;
     if (owner) {
         for (int i = 0; i < kStreams; ++i) {
-            if (get_owners()[i] == owner && stream_at(i)->name == id_or_name &&
+            if (core::at(get_owners(), i) == owner && stream_at(i)->name == id_or_name &&
                 channel_status(stream_at(i)->channel) != 1) {
                 index = i;
                 break;
@@ -336,8 +335,8 @@ bool update_stream_volume(int slot)
 {
     if (!streams_on())
         return false;
-    uint8_t* owner = get_owners()[slot];
-    const uint32_t id = owner_ids(owner)[slot];
+    objects::AudioStreamModule* owner = core::at(get_owners(), slot);
+    const uint32_t id = core::at(owner->streams_, slot);
     int index = 0;
     while (index < kStreams && stream_at(index)->id != id)
         ++index;
@@ -379,7 +378,7 @@ bool update_stream_volume(int slot)
 // 0x00450D60
 void prepare_all()
 {
-    get_owners()[0] = get_owners()[1] = get_owners()[2] = nullptr;
+    get_owners().fill(nullptr);
     if (sound_available() && (g_music_header_loaded || streams_on())) {
         init_platform();
         initialised() = true;
@@ -402,7 +401,7 @@ void prepare_all()
             stream_at(i)->id = 0;
         }
     }
-    get_owners()[0] = get_owners()[1] = get_owners()[2] = nullptr;
+    get_owners().fill(nullptr);
 }
 
 // 0x00450EB0

@@ -14,6 +14,7 @@
 #include <initializer_list>
 #include <map>
 #include <new>
+#include <span>
 #include <sstream>
 #include <vector>
 #include <utility>
@@ -2129,7 +2130,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
             continue;
         OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
         float t = 0.0f;
-        if (ray_box(origin, unit_dir, box.origin, box.axes.data(), box.min, box.max, &t) && t < best) {
+        if (ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
             best = t;
             *node = nodes::get_find(hash_of_name(a.spec.name));
             *sector = 0;
@@ -2140,7 +2141,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         std::array<V3, 3> axes = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
         const V3 grow = {2.0f, 2.0f, 2.0f};
         float t = 0.0f;
-        if (!ray_box(origin, unit_dir, {0.0f, 0.0f, 0.0f}, axes.data(), l.min - grow, l.max + grow, &t) || t >= best)
+        if (!ray_box(origin, unit_dir, {0.0f, 0.0f, 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
             continue;
         // (the faces themselves when there are few; a big water plane by its box)
         float hit = t;
@@ -2167,12 +2168,12 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
 namespace {
 
 struct Painter {
-    V3 camera;
-    const TickCycle* frame;
-    const Lens* lens;
-    const uint32_t* viewport;
-    float near_z_;
-    std::vector<ui::Seg>* lines;
+    V3 camera{};
+    const TickCycle* frame{};
+    const Lens* lens{};
+    std::span<const uint32_t, 4> viewport;
+    float near_z_{};
+    std::vector<ui::Seg>* lines{};
 
     bool get_to_pixel(V3 p, float* x, float* y) const
     {
@@ -2193,7 +2194,7 @@ struct Painter {
     void cuboid(const OrientedBox& box, uint32_t argb, float thickness) const
     {
         std::array<V3, 8> c{};
-        box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
+        box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < 8; ++i) {
             for (const int bit : {1, 2, 4}) {
                 if (!(i & bit))
@@ -2286,10 +2287,10 @@ bool get_node_pos(uint32_t name, V3* pos)
 } // namespace
 
 namespace {
-void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z);
+void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z);
 } // namespace
 
-void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     remember_view(camera, frame, lens, viewport, near_z); // (the resize handles are drawn and picked with it)
@@ -2381,7 +2382,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     }
 }
 
-void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                 int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     Painter paint = {camera, &frame, &lens, viewport, near_z, lines};
@@ -2554,14 +2555,14 @@ struct ResizeDrag {
     bool proxim = false, sphere = false; // (a proximity node's shape)
 } g_resize;
 
-void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z)
+void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z)
 {
     g_last_view.have = true;
     g_last_view.camera = camera;
     g_last_view.frame = frame;
     g_last_view.lens = lens;
     for (int i = 0; i < 4; ++i)
-        core::at(g_last_view.viewport, i) = viewport[i];
+        core::at(g_last_view.viewport, i) = core::at(viewport, i);
     g_last_view.near_z_ = near_z;
 }
 
@@ -2645,7 +2646,7 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
         float nx = 0.0f, ny = 0.0f, x = 0.0f, y = 0.0f;
         if (!cast_onto(g_last_view.camera, g_last_view.frame, g_last_view.lens, p, g_last_view.near_z_, &nx, &ny))
             continue;
-        ndc_to_pixel(g_last_view.viewport.data(), nx, ny, &x, &y);
+        ndc_to_pixel(g_last_view.viewport, nx, ny, &x, &y);
         const bool lit = h == g_hover_handle || (g_resize.on && h == g_resize.handle);
         const uint32_t colour = lit ? 0xFFFFFF40u : core::at(kHandleColours, h >> 1);
         circles->push_back({x, y, lit ? 7.0f : 5.5f, colour, true, 1.0f});

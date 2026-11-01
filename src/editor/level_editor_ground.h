@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -130,7 +131,7 @@ char ramp_letter(Ramp ramp);
 bool tile_inside(V3 min, V3 max, const Spec& spec, float margin);
 // Whether a triangle is ground under the rectangle: facing up (normal y >= 0.7), within `tolerance` of `base` in height,
 // and its box overlapping the rectangle shrunk by 1.
-bool ground_face_under(const V3 corners[3], const Spec& spec, float tolerance);
+bool ground_face_under(std::span<const V3, 3> corners, const Spec& spec, float tolerance);
 
 // A value on a grid (0: as it is).
 float snap_to(float value, float grid);

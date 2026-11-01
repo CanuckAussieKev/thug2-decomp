@@ -244,7 +244,7 @@ void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb
 {
     OrientedBox box = triggers::box_of(gate.pos, gate.yaw, gate.size);
     std::array<V3, 8> c{};
-    box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
+    box_corners(box.origin, box.axes, box.min, box.max, c);
     const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
     for (const auto& e : edges)

@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <memory>
 #include <array>
+#include <vector>
 
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/custom_anim_key.h"
@@ -115,8 +116,7 @@ public:
     float fade_left_{};                 // +0x5C
     float fade_scale_{};                // +0x60
     objects::GameEntity* owner_object_; // +0x64
-    std::unique_ptr<TimedClipEvent[]> events_ptr_; // +0x68 (an array of event_count_)
-    uint32_t event_count_{0};                      // +0x6C
+    std::vector<TimedClipEvent> events_; // the track's timed events (the original: an array at +0x68, its count at +0x6C)
     bool events_on_{true};                         // +0x70
     std::array<uint8_t, 3> pad71_{};
 };

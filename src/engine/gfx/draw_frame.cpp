@@ -548,12 +548,12 @@ void draw_viewport(int index)
         choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
-        frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, &vp.x);
+        frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, std::array<uint32_t, 4>{vp.x, vp.y, vp.width, vp.height});
         // Not original - the screenshot key's sidecar (platform/screenshot.h): the camera noted.
         const maths::Mat4* frame = cam_orientation(camera);
         const std::array<float, 3> at = {{position->x, position->y, position->z}};
         const std::array<float, 3> forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}};
-        sys::screenshot::note_view(index, at.data(), forward.data());
+        sys::screenshot::note_view(index, at, forward);
     }
     for_each_scene([&](Scene* scene) {
         if (scene->sky)

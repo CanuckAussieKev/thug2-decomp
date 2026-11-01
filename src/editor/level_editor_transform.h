@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <span>
 #include <string>
 #include <vector>
 #include <array>
@@ -69,11 +70,11 @@ Mode next_mode(Mode mode); // (Space: Move -> Rotate -> Scale -> Move)
 
 // The axes of a frame turned by `yaw` about up (heading; positive +z towards +x, as turn_about_up): x (cos, 0, -sin), y
 // up, z (sin, 0, cos) - a node's local axes, an object's when upright.
-void heading_axes(float yaw, V3 out[3]);
+void heading_axes(float yaw, std::span<V3, 3> out);
 // The heading of a direction (its x / z): atan2(x, z) - an object's from its at row.
 float get_heading_of(V3 at);
 // Rows made unit (an object's matrix: its local axes; a zero row becomes the world's).
-void unit_axes(const V3 rows[3], V3 out[3]);
+void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out);
 // The angle of `point` about the vertical line through `pivot` (as get_heading_of).
 float turn_around_axis(V3 pivot, V3 point);
 // An angle brought into (-pi, pi].

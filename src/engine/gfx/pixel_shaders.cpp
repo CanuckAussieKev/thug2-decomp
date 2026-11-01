@@ -70,7 +70,7 @@ uint32_t get_blend_mode(const void* material, uint32_t pass)
 // The fixed shaders' sources.
 constexpr auto kTextureVertexX4 = std::to_array("ps.1.1\ntex t0\nmul r0.rgb,t0,c0\n+mul_x2 r0.a,v0.a,t0.a\nmul_x4\tr0.rgb,v0,r0\n"); // 0x0067EBF0
 constexpr auto kVertexFactor = std::to_array("ps.1.1\nmul_x2\tr0.rgb,v0,c0\n+mov r0.a, v0.a\n");         // 0x0067EC3C
-const char kBloomCutoff[] =                                                             // 0x0067ED60
+constexpr auto kBloomCutoff = std::to_array(                                                             // 0x0067ED60
     "ps.1.1\n"
     "; On entry, C0 contains the 'cutoff' color for the bloom effect (and 0.5 in the alpha component).\n"
     "; Only texels above this color value will be considered.\n"
@@ -80,7 +80,7 @@ const char kBloomCutoff[] =                                                     
     "sub\tr0,t0,c0\t\t\t; r0 now contains the difference - we want to know if this is non zero\n"
     "dp3\tr1,r0,c1\t\t\t; r1.a = ( r0.r * 1 ) + ( r0.g * 1 ) + ( r0.b * 1 )\n"
     "add\tr0.a,r1.a,c0.a\t\t; r0.a = 0.5 + sum of r0.rgb\n"
-    "cnd\tr0,r0.a,t0,c2\t\t; sets r0 = t0 if r1.a > 0.5 (so r0.rgb > 0.0), 0.0 otherwise\n";
+    "cnd\tr0,r0.a,t0,c2\t\t; sets r0 = t0 if r1.a > 0.5 (so r0.rgb > 0.0), 0.0 otherwise\n");
 constexpr auto kVertexAlphaTextureAlpha = std::to_array("ps.1.1\ntex t0\nmul_x2\tr0,v0.a,t0.a\n");  // 0x0067ECC8
 constexpr auto kConstantAlphaTextureAlpha = std::to_array("ps.1.1\ntex t0\nmul_x2 r0,c4.a,t0.a\n"); // 0x0067ECEC
 constexpr auto kTextureConstantAlpha = std::to_array("ps.1.1\ntex t0\nmul r0.rgb,t0,c0\nmul_x4 r0.rgb,v0,r0\n+mul_x2\tr0.a,c4.a,t0.a\n"); // 0x0067ED10
@@ -129,7 +129,7 @@ void compile_pixel_shaders()
         static const auto kFixed = std::to_array<Fixed>({
             {kTextureVertexX4.data(), kPixelShader964},
             {kVertexFactor.data(), kPixelShader95c},
-            {kBloomCutoff, kPixelShader948},
+            {kBloomCutoff.data(), kPixelShader948},
             {kVertexAlphaTextureAlpha.data(), kPixelShader944},
             {kConstantAlphaTextureAlpha.data(), kPixelShader940},
             {kTextureConstantAlpha.data(), kPixelShader960},

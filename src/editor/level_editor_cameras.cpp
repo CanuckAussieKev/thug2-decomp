@@ -13,6 +13,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <span>
 #include <vector>
 #include <array>
 
@@ -110,7 +111,7 @@ int shot_frames(float seconds)
     return static_cast<int>(std::lround(seconds * 60.0f));
 }
 
-void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, V3 out[4])
+void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, std::span<V3, 4> out)
 {
     float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(angles, &yaw, &pitch);
@@ -118,10 +119,10 @@ void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, V
     const V3 centre = pos - f.back * depth;
     const V3 right = f.right * (tan_x * depth);
     const V3 up = f.up * (tan_y * depth);
-    out[0] = centre + right + up;
-    out[1] = centre - right + up;
-    out[2] = centre - right - up;
-    out[3] = centre + right - up;
+    core::at(out, 0) = centre + right + up;
+    core::at(out, 1) = centre - right + up;
+    core::at(out, 2) = centre - right - up;
+    core::at(out, 3) = centre + right - up;
 }
 
 bool get_same(const ViewCam& a, const ViewCam& b)
@@ -568,7 +569,7 @@ void tick_frame()
         keep_offsets(c);
 }
 
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  uint32_t selected, std::vector<ui::Seg>* lines)
 {
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
@@ -591,7 +592,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
         const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
         const float thickness = lit ? 2.0f : 1.25f;
         std::array<V3, 4> corners{};
-        frustum_corners(c.pos, c.angles, lens.tan_x_, lens.tan_y_, 120.0f, corners.data());
+        frustum_corners(c.pos, c.angles, lens.tan_x_, lens.tan_y_, 120.0f, corners);
         for (int i = 0; i < 4; ++i) {
             line(c.pos, core::at(corners, i), colour, thickness);
             line(core::at(corners, i), core::at(corners, (i + 1) % 4), colour, thickness);

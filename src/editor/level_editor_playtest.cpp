@@ -13,6 +13,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <span>
 #include <sstream>
 #include <type_traits>
 #include <vector>
@@ -921,14 +922,14 @@ void tick(bool dragging)
     }
 }
 
-void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
                  std::vector<ui::Overlay::OverlayText>* texts)
 {
     if (g_simulating) {
         texts->push_back(
-            {static_cast<float>(viewport[0]) + static_cast<float>(viewport[2]) * 0.5f - 150.0f,
-             static_cast<float>(viewport[1]) + 36.0f, 0xFFFFD040,
+            {static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * 0.5f - 150.0f,
+             static_cast<float>(core::at(viewport, 1)) + 36.0f, 0xFFFFD040,
              g_keep_simulation ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
     }
     if (!g_show_trails)

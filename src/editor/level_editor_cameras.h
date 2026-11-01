@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -46,7 +47,7 @@ V3 get_forward(V3 angles);
 V3 target_of(V3 pos, V3 angles, float distance);
 V3 position_offset(V3 pos, V3 angles, float distance);
 // The frustum's far corners `depth` ahead (the lens's half-angle tangents): right-up, left-up, left-down, right-down.
-void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, V3 out[4]);
+void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, std::span<V3, 4> out);
 
 struct ViewCam {
     std::string name;
@@ -100,7 +101,7 @@ void forget_level();
 // Once a frame while the editor runs: what the UI asked for; the nodes' offsets kept in step with their places.
 void tick_frame();
 // The frustums (the selected camera - `selected`: its node name, 0 none - brighter) over the view.
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  uint32_t selected, std::vector<ui::Seg>* lines);
 // The Inspector: the selected camera's section (`node`: its name, 0 none), and the Cameras section (new from the
 // view, the list with Look through).

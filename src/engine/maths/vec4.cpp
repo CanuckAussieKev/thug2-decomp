@@ -1,6 +1,7 @@
 #include "engine/maths/vec4.h"
 
 #include <cmath>
+#include <gsl/assert>
 #include <new>
 
 #include "engine/core/dbg.h"
@@ -8,8 +9,22 @@
 
 namespace maths {
 
-// 0x00402310
-float& Vec4::operator[](int index) { return (&x)[index]; }
+// 0x00402310 - the component at `index` (0 x, 1 y, 2 z, 3 w). Not original: an index outside 0-3 ends the game with
+// a report (the original read the memory after the vector).
+float& Vec4::operator[](int index)
+{
+    Expects(index >= 0 && index < 4);
+    switch (index) {
+    case 0:
+        return x;
+    case 1:
+        return y;
+    case 2:
+        return z;
+    default:
+        return w;
+    }
+}
 
 // 0x00402340
 Vec4& Vec4::operator+=(const Vec4& other)

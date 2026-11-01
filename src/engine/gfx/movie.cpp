@@ -13,6 +13,8 @@
 #include <cstring>
 #include <initializer_list>
 #include <array>
+#include <string>
+#include <string_view>
 
 #include "engine/core/dbg.h"
 #include "engine/core/checksums.h"
@@ -348,22 +350,22 @@ void play_movie_file(const char* name)
 
     // data\movies\bik\ + the name after its last backslash + .bik (the original only looks for a backslash
     // from the end down to the second character)
-    char path[256] = R"(data\movies\bik\)";
-    const size_t length = std::strlen(name);
+    // (the original's 256-byte buffer took the name unbounded)
+    const std::string_view text(name);
     size_t start = 0;
-    for (size_t i = length; i != 0; --i) {
-        if (name[i] == '\\') {
+    for (size_t i = text.size(); i != 0; --i) {
+        if (i < text.size() && core::at(text, i) == '\\') {
             start = i + 1;
             break;
         }
     }
-    THUG2_MSVC_WARNING(suppress : 4996) // (unbounded, as in the original: the buffer is zeroed, so terminated)
-    std::strncpy(path + 16, name + start, length - start);
-    std::memcpy(path + std::strlen(path), ".bik", 5);
+    std::string path = R"(data\movies\bik\)";
+    path += text.substr(start);
+    path += ".bik";
 
     audio::stop_music();
     audio::halt_streams(-1); // (all of them)
-    current_movie() = video_open(path, 0);
+    current_movie() = video_open(path.c_str(), 0);
     if (!current_movie()) {
         release_sound_manager();
         return;

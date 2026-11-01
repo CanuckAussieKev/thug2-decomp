@@ -148,7 +148,7 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         float nx = 0.0f, ny = 0.0f, px = 0.0f, py = 0.0f;
         if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny))
             continue;
-        ndc_to_pixel(view.viewport.data(), nx, ny, &px, &py);
+        ndc_to_pixel(view.viewport, nx, ny, &px, &py);
         pixels.emplace_back(px, py);
         shown.push_back(c);
     }

@@ -240,10 +240,11 @@ void expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
 void get_quat(const void* key, float* out, bool floats)
 {
     if (floats) {
-        std::memcpy(out, &static_cast<const FloatKey*>(key)->value[0], 3 * sizeof(float));
+        std::memcpy(out, static_cast<const FloatKey*>(key)->value.data(), 3 * sizeof(float));
     } else {
+        const ShortKey& short_key = *static_cast<const ShortKey*>(key);
         for (int i = 0; i < 3; ++i)
-            out[i] = get_scaled(static_cast<const ShortKey*>(key)->value[i], kQuatUnit);
+            out[i] = get_scaled(core::at(short_key.value, i), kQuatUnit);
     }
     out[3] = quat_w(out[0], out[1], out[2], static_cast<const ShortKey*>(key)->time, true);
 }
@@ -252,10 +253,11 @@ void get_quat(const void* key, float* out, bool floats)
 void get_trans(const void* key, float* out, bool floats)
 {
     if (floats) {
-        std::memcpy(out, &static_cast<const FloatKey*>(key)->value[0], 3 * sizeof(float));
+        std::memcpy(out, static_cast<const FloatKey*>(key)->value.data(), 3 * sizeof(float));
     } else {
+        const ShortKey& short_key = *static_cast<const ShortKey*>(key);
         for (int i = 0; i < 3; ++i)
-            out[i] = get_scaled(static_cast<const ShortKey*>(key)->value[i], kTransUnit);
+            out[i] = get_scaled(core::at(short_key.value, i), kTransUnit);
     }
     out[3] = 1.0f;
 }
@@ -505,47 +507,47 @@ int trans_key_time(const uint8_t* key) { return static_cast<int16_t>(static_cast
 } // namespace
 
 // 0x00482FB0
-int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint8_t** second, int cursor)
+int AnimCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
 {
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
-    const int stride = quat_stride_;
-    uint8_t* start = quat_keys_ + core::at(quat_offsets_, bone);
+    const int stride = rotation_key_size_;
+    uint8_t* start = rotation_keys_ptr_ + core::at(rotation_offsets_, bone);
     const uint8_t* end = nullptr;
-    if (bone == bone_count_ - 1) {
-        if (!(start + stride < trans_keys_)) {
+    if (bone == bones_ - 1) {
+        if (!(start + stride < translation_keys_ptr_)) {
             *second = *first = start;
             flag_bits_ &= ~0x4000;
-            return cursor;
+            return slot;
         }
-        end = trans_keys_;
+        end = translation_keys_ptr_;
     } else {
-        if (!(core::at(quat_offsets_, bone) + stride < core::at(quat_offsets_, bone + 1))) {
+        if (!(core::at(rotation_offsets_, bone) + stride < core::at(rotation_offsets_, bone + 1))) {
             *second = *first = start;
             flag_bits_ &= ~0x4000;
-            return cursor;
+            return slot;
         }
-        end = quat_keys_ + core::at(quat_offsets_, bone + 1);
+        end = rotation_keys_ptr_ + core::at(rotation_offsets_, bone + 1);
     }
-    // From the cursor: its pair still around the frame, or the next one.
-    if (cursor != -1 && cursors_[cursor] && cursors_[cursor][bone]) {
-        uint8_t* key = cursors_[cursor][bone];
+    // From where the slot's search stopped: its pair still around the frame, or the next one.
+    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone)) {
+        uint8_t* key = core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone);
         uint8_t* next = key + stride;
         if (static_cast<float>(quat_key_time(key)) <= frame) {
             if (static_cast<float>(quat_key_time(next)) >= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
             uint8_t* after = next + stride;
             if (after < end && static_cast<float>(quat_key_time(after)) >= frame) {
-                cursors_[cursor][bone] = next;
+                core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = next;
                 *first = next;
                 *second = after;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
         }
     }
@@ -566,53 +568,53 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && core::at(cursors_, cursor))
-        cursors_[cursor][bone] = key;
+    if (slot != -1 && core::at(slots_ptr_, slot))
+        core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = key;
     flag_bits_ &= ~0x4000;
-    return cursor;
+    return slot;
 }
 
 // 0x00483210
-int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uint8_t** second, int cursor)
+int AnimCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
 {
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
-    const int stride = trans_stride_;
-    uint8_t* start = trans_keys_ + core::at(trans_offsets_, bone);
+    const int stride = translation_key_size_;
+    uint8_t* start = translation_keys_ptr_ + core::at(translation_offsets_, bone);
     const uint8_t* end = nullptr;
-    if (bone == bone_count_ - 1) {
-        end = quat_keys_ + extent_;
+    if (bone == bones_ - 1) {
+        end = rotation_keys_ptr_ + extent_;
         if (!(start + stride < end)) {
             *second = *first = start;
             flag_bits_ &= ~0x4000;
-            return cursor;
+            return slot;
         }
     } else {
-        if (!(core::at(trans_offsets_, bone) + stride < core::at(trans_offsets_, bone + 1))) {
+        if (!(core::at(translation_offsets_, bone) + stride < core::at(translation_offsets_, bone + 1))) {
             *second = *first = start;
             flag_bits_ &= ~0x4000;
-            return cursor;
+            return slot;
         }
-        end = trans_keys_ + core::at(trans_offsets_, bone + 1);
+        end = translation_keys_ptr_ + core::at(translation_offsets_, bone + 1);
     }
-    if (cursor != -1 && cursors_[cursor] && cursors_[cursor][60 + bone]) {
-        uint8_t* key = cursors_[cursor][60 + bone];
+    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->translation_keys_, bone)) {
+        uint8_t* key = core::at(core::at(slots_ptr_, slot)->translation_keys_, bone);
         uint8_t* next = key + stride;
         if (static_cast<float>(trans_key_time(key)) <= frame) {
             if (static_cast<float>(trans_key_time(next)) >= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
             uint8_t* after = next + stride;
             if (after < end && static_cast<float>(trans_key_time(after)) >= frame) {
-                cursors_[cursor][60 + bone] = next;
+                core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = next;
                 *first = next;
                 *second = after;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
         }
     }
@@ -623,11 +625,11 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
             key = next;
             next += stride;
             if (next >= end) {
-                // Past the last: the last alone, and (unlike the quaternions') the cursor left as it was.
+                // Past the last: the last alone, and (unlike the rotations') the slot's place left as it was.
                 *first = key;
                 *second = key;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
             if (!(static_cast<float>(trans_key_time(next)) <= frame))
                 break;
@@ -635,63 +637,63 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && core::at(cursors_, cursor))
-        cursors_[cursor][60 + bone] = key;
+    if (slot != -1 && core::at(slots_ptr_, slot))
+        core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = key;
     flag_bits_ &= ~0x4000;
-    return cursor;
+    return slot;
 }
 
 // 0x00483470
-int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor)
+int AnimCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
 {
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
     // (the last bone's keys end where they start here: always one key)
-    const int offset = core::at(quat_offsets_, bone);
-    const int end_offset = core::at(quat_offsets_, bone == bone_count_ - 1 ? bone : bone + 1);
-    const int stride = quat_stride_;
+    const int offset = core::at(rotation_offsets_, bone);
+    const int end_offset = core::at(rotation_offsets_, bone == bones_ - 1 ? bone : bone + 1);
+    const int stride = rotation_key_size_;
     if (!(offset + stride < end_offset)) {
-        *second = *first = quat_keys_ + offset;
+        *second = *first = rotation_keys_ptr_ + offset;
         flag_bits_ &= ~0x4000;
-        return cursor;
+        return slot;
     }
-    // From the cursor: its pair still around the frame, or the one before.
-    if (cursor != -1 && cursors_[cursor] && cursors_[cursor][bone]) {
-        uint8_t* key = cursors_[cursor][bone];
+    // From where the slot's search stopped: its pair still around the frame, or the one before.
+    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone)) {
+        uint8_t* key = core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone);
         uint8_t* next = key + stride;
         if (static_cast<float>(quat_key_time(next)) >= frame) {
             if (static_cast<float>(quat_key_time(key)) <= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
             uint8_t* before = key - stride;
-            if (!(before < quat_keys_ + offset) && static_cast<float>(quat_key_time(before)) <= frame &&
+            if (!(before < rotation_keys_ptr_ + offset) && static_cast<float>(quat_key_time(before)) <= frame &&
                 static_cast<float>(quat_key_time(key)) >= frame) {
-                cursors_[cursor][bone] = before;
+                core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = before;
                 *first = before;
                 *second = key;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
         }
     }
-    uint8_t* key = quat_keys_ + core::at(quat_offsets_, bone);
+    uint8_t* key = rotation_keys_ptr_ + core::at(rotation_offsets_, bone);
     uint8_t* next = key + stride;
     if (static_cast<float>(quat_key_time(next)) <= frame) {
-        const uint8_t* end = quat_keys_ + end_offset;
+        const uint8_t* end = rotation_keys_ptr_ + end_offset;
         for (;;) {
             key = next;
             next += stride;
             if (next >= end) {
                 *first = key;
                 *second = key;
-                if (cursor != -1)
-                    cursors_[cursor][bone] = key; // (no check for a cursor array here, as the original)
+                if (slot != -1)
+                    core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = key; // (no check for a slot here, as the original)
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
             if (!(static_cast<float>(quat_key_time(next)) <= frame))
                 break;
@@ -699,51 +701,51 @@ int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** f
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && core::at(cursors_, cursor))
-        cursors_[cursor][bone] = key;
+    if (slot != -1 && core::at(slots_ptr_, slot))
+        core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = key;
     flag_bits_ &= ~0x4000;
-    return cursor;
+    return slot;
 }
 
 // 0x004836C0
-int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor)
+int AnimCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
 {
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
-    const int offset = core::at(trans_offsets_, bone);
-    const int end_offset = core::at(trans_offsets_, bone == bone_count_ - 1 ? bone : bone + 1);
-    const int stride = trans_stride_;
+    const int offset = core::at(translation_offsets_, bone);
+    const int end_offset = core::at(translation_offsets_, bone == bones_ - 1 ? bone : bone + 1);
+    const int stride = translation_key_size_;
     if (!(offset + stride < end_offset)) {
-        *second = *first = trans_keys_ + offset;
+        *second = *first = translation_keys_ptr_ + offset;
         flag_bits_ &= ~0x4000;
-        return cursor;
+        return slot;
     }
-    if (cursor != -1 && cursors_[cursor] && cursors_[cursor][60 + bone]) {
-        uint8_t* key = cursors_[cursor][60 + bone];
+    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->translation_keys_, bone)) {
+        uint8_t* key = core::at(core::at(slots_ptr_, slot)->translation_keys_, bone);
         uint8_t* next = key + stride;
         if (static_cast<float>(trans_key_time(next)) >= frame) {
             if (static_cast<float>(trans_key_time(key)) <= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
             uint8_t* before = key - stride;
-            if (!(before < trans_keys_ + core::at(trans_offsets_, bone)) && static_cast<float>(trans_key_time(before)) <= frame &&
+            if (!(before < translation_keys_ptr_ + core::at(translation_offsets_, bone)) && static_cast<float>(trans_key_time(before)) <= frame &&
                 static_cast<float>(trans_key_time(key)) >= frame) {
-                cursors_[cursor][60 + bone] = before;
+                core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = before;
                 *first = before;
                 *second = key;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
         }
     }
-    uint8_t* key = trans_keys_ + core::at(trans_offsets_, bone);
+    uint8_t* key = translation_keys_ptr_ + core::at(translation_offsets_, bone);
     uint8_t* next = key + stride;
     if (static_cast<float>(trans_key_time(next)) <= frame) {
-        const uint8_t* end = trans_keys_ + end_offset;
+        const uint8_t* end = translation_keys_ptr_ + end_offset;
         for (;;) {
             key = next;
             next += stride;
@@ -751,7 +753,7 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
                 *first = key;
                 *second = key;
                 flag_bits_ &= ~0x4000;
-                return cursor;
+                return slot;
             }
             if (!(static_cast<float>(trans_key_time(next)) <= frame))
                 break;
@@ -759,10 +761,10 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && core::at(cursors_, cursor))
-        cursors_[cursor][60 + bone] = key;
+    if (slot != -1 && core::at(slots_ptr_, slot))
+        core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = key;
     flag_bits_ &= ~0x4000;
-    return cursor;
+    return slot;
 }
 
 // --- setting up and reading the frame data ------------------------------------------------------------------
@@ -893,10 +895,6 @@ bool JointClipFrames::get_float_key_pose(float* rotations, float* translations, 
 namespace {
 
 // The frame cache's time for a cursor (0x00480590 on the entry): its direction - negative when time went back.
-int16_t cache_direction(uint8_t* entry, int cursor, int time)
-{
-    return raw::as<AnimCacheEntry>(entry)->set_slot_time(cursor, static_cast<int16_t>(time));
-}
 
 } // namespace
 
@@ -914,11 +912,12 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
     const uint32_t mask = source && source->resume_ ? 1u << (source->mask_bit_ & 31) : 0u;
     if (cache_slot_) {
         uint32_t& counter = g_cache_use_counter;
-        *raw::field_at<uint32_t>(cache_slot_, 4) = counter++;
-        if (cursor != -1 && cache_direction(cache_slot_, cursor, static_cast<int>(static_cast<int64_t>(time))) < 0)
+        cache_slot_->last_used_ = counter++;
+        if (cursor != -1 &&
+            cache_slot_->set_slot_time(cursor, static_cast<int16_t>(static_cast<int>(static_cast<int64_t>(time)))) < 0)
             forwards = false;
     }
-    auto* entry = raw::as<FrameCacheEntry>(cache_slot_);
+    AnimCacheEntry* entry = cache_slot_;
     for (int bone = 0; bone < bone_count_; ++bone) {
         bool skip = mask ? (source->bone_masks_[bone] & mask) != 0 : false;
         if (flag_bits_ & 0x80000)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <span>
+
 struct ImFont;
 
 // NOT ORIGINAL - the level editor's fonts and style (ours; see level_editor_ui.h): Inter for the UI, JetBrains Mono for
@@ -16,6 +18,6 @@ struct Fonts {
 // The current context's font atlas cleared and the four fonts added at `scale`, then built.
 Fonts build_fonts(float scale);
 // The current context's style: dark, the accent (RGB 0..1), every size scaled.
-void apply_style(float scale, const float accent_rgb[3]);
+void apply_style(float scale, std::span<const float, 3> accent_rgb);
 
 } // namespace frontend::level_editor::ui_theme

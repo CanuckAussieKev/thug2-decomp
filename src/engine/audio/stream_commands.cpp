@@ -43,11 +43,8 @@ bool streams_blocked() { return g_streams_blocked; }
 Stream* get_streams() { return g_streams.data(); }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id.
-void** get_owners() { return g_stream_owners.data(); }
-uint32_t& owner_id(void* owner, int stream)
-{
-    return static_cast<objects::AudioStreamModule*>(owner)->streams_[stream];
-}
+std::array<objects::AudioStreamModule*, 3>& get_owners() { return g_stream_owners; }
+uint32_t& owner_id(objects::AudioStreamModule* owner, int stream) { return core::at(owner->streams_, stream); }
 // The stream PlayStream started last.
 int& last_stream() { return g_last_stream; }
 
@@ -277,7 +274,7 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner)
     int found = -1;
     if (owner) {
         for (int i = 0; i < kStreams; ++i) {
-            if (get_owners()[i] == owner && get_streams()[i].name == stream &&
+            if (core::at(get_owners(), i) == owner && get_streams()[i].name == stream &&
                 channel_status(get_streams()[i].channel) != 1) {
                 found = i;
                 break;
@@ -298,7 +295,7 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner)
 }
 
 // 0x00451E20
-uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff, float volume, float pitch, int option,
+uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t checksum, float dropoff, float volume, float pitch, int option,
                                int priority, int use_pos_info, int falloff_curve, uint32_t id)
 {
     sound::AudioMixer* manager = sound_manager();
@@ -308,7 +305,7 @@ uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff
     construct_volume(&stream_volume);
     change_muted(&stream_volume);
     if (use_pos_info) {
-        const objects::GameEntity* object = static_cast<objects::ObjectModule*>(component)->entity_;
+        const objects::GameEntity* object = component->entity_;
         void* emitter = nearest_emitter(&object->at_point_.x);
         bool audible = true;
         if (emitter) {
@@ -334,11 +331,11 @@ uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff
     const uint32_t playing = play_stream(checksum, &stream_volume, pitch, option, priority, id);
     if (playing) {
         const int last = last_stream();
-        if (get_owners()[last]) {
-            owner_id(get_owners()[last], last) = 0;
-            get_owners()[last] = nullptr;
+        if (core::at(get_owners(), last)) {
+            owner_id(core::at(get_owners(), last), last) = 0;
+            core::at(get_owners(), last) = nullptr;
         }
-        get_owners()[last] = component;
+        core::at(get_owners(), last) = component;
         owner_id(component, last) = playing;
         if (volume != 100.0f) {
             for (int i = 0; i < kStreams; ++i) {

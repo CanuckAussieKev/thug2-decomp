@@ -179,7 +179,7 @@ void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
 {
     for (int corner = 0; corner < 4; ++corner) {
         for (int i = 0; i < 4; ++i)
-            colors[corner][i] = static_cast<uint8_t>(get_truncated(get_color()[i] * scale));
+            core::at(core::at(colors, corner), i) = static_cast<uint8_t>(get_truncated(get_color()[i] * scale));
     }
 }
 

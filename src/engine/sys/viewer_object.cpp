@@ -438,16 +438,17 @@ void PreviewEntity::own_update()
     if (actions_ & kCommandStepBack)
         step_animation(false);
     // The rest are the viewer's (if there is one).
-    static const struct {
+    struct ViewerCommand {
         uint32_t command;
         uint32_t viewer_command_;
-    } kViewerCommands[] = {
+    };
+    static const auto kViewerCommands = std::to_array<ViewerCommand>({
         {kCommandToggleMode, 0x4000},
         {kCommandCameraUp, modules::Viewer::kCommandShoulderA},
         {kCommandCameraDown, modules::Viewer::kCommandShoulderB},
         {kCommandRollLeft, 0x10000},
         {kCommandRollRight, 0x20000},
-    };
+    });
     for (const auto& c : kViewerCommands) {
         if (actions_ & c.command) {
             if (modules::Viewer* viewer = modules::get_live_viewer())

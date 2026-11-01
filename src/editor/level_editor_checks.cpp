@@ -15,6 +15,7 @@
 #include <initializer_list>
 #include <memory>
 #include <set>
+#include <span>
 #include <sstream>
 #include <type_traits>
 #include <unordered_set>
@@ -125,19 +126,19 @@ void get_sort(std::vector<Issue>* issues)
 
 bool get_behind(const Probe& probe) { return probe.in >= 0.0f && (probe.out < 0.0f || probe.in < probe.out); }
 
-Place get_judge(const Probe probes[6])
+Place get_judge(std::span<const Probe, 6> probes)
 {
     for (int axis = 0; axis < 3; ++axis) {
-        if (get_behind(probes[2 * axis]) && get_behind(probes[2 * axis + 1]))
+        if (get_behind(core::at(probes, 2 * axis)) && get_behind(core::at(probes, 2 * axis + 1)))
             return Place::kInsideSolid;
     }
-    return get_behind(probes[2]) ? Place::kBelowGround : Place::kClear;
+    return get_behind(core::at(probes, 2)) ? Place::kBelowGround : Place::kClear;
 }
 
-bool floating(const Probe probes[6], float near)
+bool floating(std::span<const Probe, 6> probes, float near)
 {
     for (int i = 0; i < 6; ++i) {
-        if ((probes[i].out >= 0.0f && probes[i].out <= near) || (probes[i].in >= 0.0f && probes[i].in <= near))
+        if ((core::at(probes, i).out >= 0.0f && core::at(probes, i).out <= near) || (core::at(probes, i).in >= 0.0f && core::at(probes, i).in <= near))
             return false;
     }
     return true;
@@ -280,20 +281,20 @@ const std::array<V3, 6> kDirections = {{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1
 
 } // namespace
 
-void probe_each(V3 point, const float reach[6], Probe probes[6])
+void probe_each(V3 point, std::span<const float, 6> reach, std::span<Probe, 6> probes)
 {
     for (int i = 0; i < 6; ++i) {
-        const V3 far = point + core::at(kDirections, i) * reach[i];
+        const V3 far = point + core::at(kDirections, i) * core::at(reach, i);
         V3 hit{};
-        probes[i] = {};
+        core::at(probes, i) = {};
         if (get_cast(point, far, &hit))
-            probes[i].out = span_to(hit, point);
+            core::at(probes, i).out = span_to(hit, point);
         // Coming back in: the face facing away nearest to the point - the last met on the way in (cast again from just
         // past each hit; a few at most).
         V3 from = far;
         for (int step = 0; step < 6 && get_cast(from, point, &hit); ++step) {
-            probes[i].in = span_to(hit, point);
-            const V3 on = hit + (point - far) * (0.5f / reach[i]); // (half a unit on, towards the point)
+            core::at(probes, i).in = span_to(hit, point);
+            const V3 on = hit + (point - far) * (0.5f / core::at(reach, i)); // (half a unit on, towards the point)
             if (span_to(on, point) < 0.5f)
                 break;
             from = on;
@@ -301,10 +302,10 @@ void probe_each(V3 point, const float reach[6], Probe probes[6])
     }
 }
 
-void probe_around(V3 point, float reach, Probe probes[6])
+void probe_around(V3 point, float reach, std::span<Probe, 6> probes)
 {
     const std::array<float, 6> reaches = {{reach, reach, reach, reach, reach, reach}};
-    probe_each(point, reaches.data(), probes);
+    probe_each(point, reaches, probes);
 }
 
 namespace {
@@ -429,10 +430,10 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
     // (the sides only kSideReach: a wall's thickness - farther faces belong to other things; up and down kReach)
     const std::array<float, 6> reaches = {{kSideReach, kSideReach, kReach, kReach, kSideReach, kSideReach}};
     std::array<Probe, 6> probes;
-    probe_each(point, reaches.data(), probes.data());
+    probe_each(point, reaches, probes);
     placed.point = point;
     placed.world = world;
-    placed.place = get_judge(probes.data());
+    placed.place = get_judge(probes);
     placed.up_in_ = core::at(probes, 2).in;
     V3 hit{};
     placed.ground = core::at(probes, 3).out >= 0.0f || get_cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
@@ -522,8 +523,8 @@ void check_rails(std::vector<Issue>* out)
         V3 pos = n.pos;
         scenery::get_rail_point(n.name, &pos);
         std::array<Probe, 6> probes;
-        probe_around(pos, kRailNear, probes.data());
-        if (!floating(probes.data(), kRailNear))
+        probe_around(pos, kRailNear, probes);
+        if (!floating(probes, kRailNear))
             continue;
         Issue issue;
         issue.rule = Rule::kFloatingRail;

@@ -123,11 +123,9 @@ void apply_bar_style(bool select)
         std::memcpy(core::at(s_saved_colors, 1).data(), g_progress_to_color.data(), 4);
         std::memcpy(core::at(s_saved_colors, 2).data(), g_progress_edge_color.data(), 4);
         g_progress_width = 300;
-        const uint8_t start[4] = {0xB9, 0xB5, 0xAC, 0x80}, end[4] = {0xF2, 0xE2, 0x05, 0x80},
-                      track[4] = {0x3A, 0x3A, 0x38, 0x80};
-        std::memcpy(g_progress_from_color.data(), start, 4);
-        std::memcpy(g_progress_to_color.data(), end, 4);
-        std::memcpy(g_progress_edge_color.data(), track, 4);
+        g_progress_from_color = {0xB9, 0xB5, 0xAC, 0x80};
+        g_progress_to_color = {0xF2, 0xE2, 0x05, 0x80};
+        g_progress_edge_color = {0x3A, 0x3A, 0x38, 0x80};
     } else {
         g_progress_width = s_saved_bar_width;
         std::memcpy(g_progress_from_color.data(), core::at(s_saved_colors, 0).data(), 4);

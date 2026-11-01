@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -141,7 +142,7 @@ bool place_click(bool more);
 // Once a frame while the editor runs (after the editor's keys): the keys M, Alt+R, Ctrl+Alt+D handled by the editor.
 void tick_frame();
 // What's drawn over the view: the ghost, the readout, the edges met by snapping, the top outline.
-void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  ui::Overlay* overlay);
 // The UI (level_editor_arrange_ui.cpp): the window, and the Add palette's extra row (Replace, Click places).
 void pane(float ui_scale);

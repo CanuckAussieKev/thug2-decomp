@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <span>
 #include <windows.h>
 #include <fstream>
 #include <sstream>
@@ -142,11 +143,11 @@ const char* view_name(View view)
     }
 }
 
-std::string format_bookmarks(const Bookmark marks[kBookmarks])
+std::string format_bookmarks(std::span<const Bookmark, kBookmarks> marks)
 {
     std::string text = "thug2-decomp camera bookmarks 1\n";
     for (int i = 0; i < kBookmarks; ++i) {
-        const Bookmark& m = marks[i];
+        const Bookmark& m = core::at(marks, i);
         if (!m.set)
             continue;
         std::array<char, 256> line{};
@@ -157,10 +158,10 @@ std::string format_bookmarks(const Bookmark marks[kBookmarks])
     return text;
 }
 
-bool parse_bookmarks(const std::string& text, Bookmark marks[kBookmarks])
+bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> marks)
 {
     for (int i = 0; i < kBookmarks; ++i)
-        marks[i] = Bookmark{};
+        core::at(marks, i) = Bookmark{};
     std::istringstream in(text);
     std::string line;
     if (!std::getline(in, line) || !line.starts_with("thug2-decomp camera bookmarks "))
@@ -172,7 +173,7 @@ bool parse_bookmarks(const std::string& text, Bookmark marks[kBookmarks])
             continue;
         if (n < 1 || n > kBookmarks || view < 0 || view > static_cast<int>(View::kDealloc))
             continue;
-        Bookmark& m = marks[n - 1];
+        Bookmark& m = core::at(marks, n - 1);
         m.set = true;
         m.pose = {{x, y, z}, yaw, pitch};
         m.view = static_cast<View>(view);
@@ -238,7 +239,7 @@ void load_bookmarks()
         return;
     std::stringstream text;
     text << file.rdbuf();
-    if (!parse_bookmarks(text.str(), g_marks.data()))
+    if (!parse_bookmarks(text.str(), g_marks))
         get_log("level editor: %s isn't a bookmarks file - not read", bookmarks_path().c_str());
 }
 
@@ -248,7 +249,7 @@ bool save_bookmarks()
     std::ofstream file(bookmarks_path(), std::ios::binary | std::ios::trunc);
     if (!file)
         return false;
-    file << format_bookmarks(g_marks.data());
+    file << format_bookmarks(g_marks);
     return static_cast<bool>(file);
 }
 

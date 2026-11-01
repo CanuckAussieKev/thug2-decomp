@@ -1018,13 +1018,14 @@ void Rider::init_from_profile(RiderIdentity* profile)
         // Its network messages.
         net::AppHost* client = net->fetch_patron(view_slot_);
         net::Router* dispatcher = &client->dispatcher_;
-        const struct {
+        struct HandlerEntry {
             uint8_t id;
             net::HandlerSlotValue code;
-        } handlers[] = {
+        };
+        const auto handlers = std::to_array<HandlerEntry>({
             {0x3B, &modules::PointTally::on_score_msg},        {0x44, &RiderFrameLog::handle_collision_messages},
             {0x43, &RiderFrameLog::handle_collision_messages}, {0x85, &RiderFrameLog::handle_hit_messages},
-            {0x84, &RiderFrameLog::handle_hit_messages},       {0x4B, &RiderHostSync::handle_graffiti_steal}};
+            {0x84, &RiderFrameLog::handle_hit_messages},       {0x4B, &RiderHostSync::handle_graffiti_steal}});
         for (const auto& handler : handlers)
             dispatcher->append_listener(handler.id, handler.code, 0, this, 0x80);
     }

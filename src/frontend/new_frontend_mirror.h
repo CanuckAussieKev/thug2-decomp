@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -155,7 +156,7 @@ struct View {
 // The colour a HSV the game stores (hue degrees, saturation / value percent) shows on the skater: the game's HSV -> RGB
 // (the same sector formula as the texture code's), as the part's vertex colour - which multiplies the texture with 0.5
 // neutral, so shown doubled (clamped) as a colour on a white texture. rgb 0 .. 1.
-void skater_colour(float hue, float sat_percent, float val_percent, float rgb[3]);
+void skater_colour(float hue, float sat_percent, float val_percent, std::span<float, 3> rgb);
 
 // The game's text escapes made plain: \n (a line end: a space, or kept with `newlines`), \c<x> (a colour) dropped,
 // \b<x> / \m<x> (a button) the key's name as the game spells it (ButtonNamer; dropped without one), \_ a space, \\ a

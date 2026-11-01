@@ -2,12 +2,14 @@
 
 #include "platform/platform_input.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
 #include <array>
+#include <span>
 
 #include "engine/pad_input/device.h"
 #include "engine/gfx/settings.h"
@@ -27,7 +29,7 @@ IDirectInput8A* g_direct_input;
 IDirectInputDevice8A* g_keyboard_device;
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
-std::array<int32_t, 0x98> g_input_map;
+std::array<PortControls, kPorts> g_input_map;
 std::array<IDirectInputDevice8A*, kPorts> g_joysticks;
 std::array<IDirectInputEffect*, kPorts> g_effects; // each joystick's constant-force effect (rumble)
 std::array<uint32_t, kPorts> g_force_axis_counts;
@@ -88,13 +90,9 @@ const DIDATAFORMAT* mouse_format() { return &c_dfDIMouse2; }    // c_dfDIMouse2
 const GUID& constant_force_guid() { return GUID_ConstantForce; } // GUID_ConstantForce
 
 // Any of `count` controls set (not -1).
-bool any_binding(const int32_t* controls, int count)
+bool any_binding(std::span<const int32_t, kBindings> controls)
 {
-    for (int i = 0; i < count; ++i) {
-        if (controls[i] != -1)
-            return true;
-    }
-    return false;
+    return std::ranges::any_of(controls, [](int32_t control) { return control != -1; });
 }
 
 // "pad<n>": a GUID as text - XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX - parsed digit group by digit group: the
@@ -227,10 +225,10 @@ DIMOUSESTATE2* read_mouse()
 }
 
 // 0x005F2F80
-bool has_key_bindings(int port) { return any_binding(get_controls()[port].keys.data(), kBindings); }
+bool has_key_bindings(int port) { return any_binding(core::at(get_controls(), port).keys); }
 
 // 0x005F2FC0
-bool has_mouse_bindings(int port) { return any_binding(get_controls()[port].mouse.data(), kBindings); }
+bool has_mouse_bindings(int port) { return any_binding(core::at(get_controls(), port).mouse); }
 
 // 0x005F3000
 int joystick_axis(const DIJOYSTATE2* state, int control)
@@ -319,7 +317,7 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
     if (type == DI8DEVTYPE_GAMEPAD || type == DI8DEVTYPE_JOYSTICK) {
         int port = -1;
         for (int i = 0; i < kPorts; ++i) {
-            if (std::memcmp(&get_controls()[i].joystick, &device->guidInstance, sizeof(GUID)) == 0)
+            if (std::memcmp(&core::at(get_controls(), i).joystick, &device->guidInstance, sizeof(GUID)) == 0)
                 port = i;
         }
         if (port < 0)
@@ -437,11 +435,11 @@ void load_registry_options(const char* key)
     std::array<char, 0x400> text{};
     size = sizeof(text);
     if (RegQueryValueExA(options, "pad0", nullptr, &type, raw::bytes(text.data()), &size) == ERROR_SUCCESS)
-        get_controls()[0].joystick = parse_joystick_guid(text.data(), size);
+        core::at(get_controls(), 0).joystick = parse_joystick_guid(text.data(), size);
     std::memset(text.data(), 0, sizeof(text));
     size = sizeof(text);
     if (RegQueryValueExA(options, "pad1", nullptr, &type, raw::bytes(text.data()), &size) == ERROR_SUCCESS)
-        get_controls()[1].joystick = parse_joystick_guid(text.data(), size);
+        core::at(get_controls(), 1).joystick = parse_joystick_guid(text.data(), size);
 
     // Each port's keys and joystick controls (the ones not there stay as they are).
     for (int port = 0; port < kPorts; ++port) {
@@ -450,7 +448,7 @@ void load_registry_options(const char* key)
             size = 4;
             if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)
-                get_controls()[port].keys[i] = static_cast<int32_t>(value);
+                core::at(core::at(get_controls(), port).keys, i) = static_cast<int32_t>(value);
         }
     }
     for (int port = 0; port < kPorts; ++port) {
@@ -459,7 +457,7 @@ void load_registry_options(const char* key)
             size = 4;
             if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)
-                get_controls()[port].gamepad[i] = static_cast<int32_t>(value);
+                core::at(core::at(get_controls(), port).gamepad, i) = static_cast<int32_t>(value);
         }
     }
     RegCloseKey(options);
@@ -609,7 +607,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
     std::memset(pad->pressure.data(), 0, sizeof(pad->pressure));
     if (!joystick && !has_key_bindings(port) && !has_mouse_bindings(port))
         return 0;
-    const PortControls& controls = get_controls()[port];
+    const PortControls& controls = core::at(get_controls(), port);
 
     if (mouse && pad_mode_setting() == kPadKeyBindings) {
         // The sticks: each mouse axis's movement scaled twice - x 6553.4 within the stick's range, then x 32767 -

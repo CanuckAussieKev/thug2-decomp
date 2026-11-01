@@ -10,6 +10,7 @@
 #include <cstring>
 #include <random>
 #include <array>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/screen.h"
@@ -160,7 +161,7 @@ uint32_t get_machine_id()
 
 // --- Layouts ---
 
-uint32_t encode_chat(uint8_t out[kChatMessageSize], uint32_t machine_id, uint8_t obj_id, const char* name,
+uint32_t encode_chat(std::span<uint8_t, kChatMessageSize> out, uint32_t machine_id, uint8_t obj_id, const char* name,
                      const char* text)
 {
     ChatMessage message;
@@ -168,7 +169,7 @@ uint32_t encode_chat(uint8_t out[kChatMessageSize], uint32_t machine_id, uint8_t
     message.obj_id_ = obj_id;
     copy_field(message.name.data(), sizeof(message.name), name);
     copy_field(message.text.data(), sizeof(message.text), text);
-    util::ByteWriter writer(out, kChatMessageSize);
+    util::ByteWriter writer(out);
     write_chat_message(writer, message);
     return static_cast<uint32_t>(writer.position());
 }
@@ -233,9 +234,9 @@ const char* change_level_name(uint32_t level, const char* list_name)
     }
 }
 
-void extend_change_level(const LevelSwitch& level, const char* name, uint8_t out[kChangeLevelThugproSize])
+void extend_change_level(const LevelSwitch& level, const char* name, std::span<uint8_t, kChangeLevelThugproSize> out)
 {
-    util::ByteWriter writer(out, kChangeLevelThugproSize);
+    util::ByteWriter writer(out);
     write_change_level(writer, level, name);
 }
 
@@ -517,7 +518,7 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
         util::ByteReader reader(desc->content_, desc->byte_count_);
         LevelSwitch change;
         read_level_switch(reader, &change);
-        extend_change_level(change, change_level_name(change.level, Hub::level_list_name(change.level)), message.data());
+        extend_change_level(change, change_level_name(change.level, Hub::level_list_name(change.level)), message);
         net::NetMessageInfo extended = *desc;
         extended.content_ = message.data();
         extended.byte_count_ = kChangeLevelThugproSize;

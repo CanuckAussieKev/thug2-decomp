@@ -180,10 +180,7 @@ double AnimTrack::get_weight()
 // 0x00481BB0
 void AnimTrack::delete_events()
 {
-    if (!event_count_ || !events_ptr_)
-        return;
-    event_count_ = 0;
-    events_ptr_.reset(); // (0x00481DB0, the vector deleting destructor: last to first, then freed)
+    events_.clear(); // (0x00481DB0, the vector deleting destructor)
 }
 
 // 0x00481C00
@@ -202,12 +199,8 @@ void AnimTrack::load_events(uint32_t anim)
     if (!table->fetch_list(anim, &list, 0))
         return;
     const uint32_t count = list->extent_;
-    event_count_ = count;
-    if (!count)
-        return;
-    events_ptr_ = std::make_unique<TimedClipEvent[]>(
-        count); // (default-initialised; the count before the array, as the original's)
-    for (uint32_t i = 0; i < event_count_; ++i) {
+    events_ = std::vector<TimedClipEvent>(count);
+    for (uint32_t i = 0; i < count; ++i) {
         auto* entry = list->struct_at(i);
         int frame = 0;
         if (!entry->fetch_int_value(kFrame, &frame, 0)) {
@@ -219,8 +212,8 @@ void AnimTrack::load_events(uint32_t anim)
         entry->read_hash_value(kEvent, &type, 1);
         Struct* params = nullptr;
         entry->read_sub_struct(kParams, &params, 0);
-        set_up_event(&events_ptr_[i], frame, type, params);
-        arm_event(&events_ptr_[i], true);
+        set_up_event(&core::at(events_, i), frame, type, params);
+        arm_event(&core::at(events_, i), true);
     }
 }
 
@@ -239,10 +232,10 @@ void AnimTrack::fire_events(float from, float to)
         arm_events();
         first_frame = outset_; // (as the original: the start itself, not in frames)
     }
-    for (uint32_t i = 0; i < event_count_; ++i) {
-        arm_event(&events_ptr_[i], true);
-        if (events_ptr_[i].inside_range(first_frame, last_frame, false))
-            fire_event(&events_ptr_[i], owner_object_);
+    for (TimedClipEvent& event : events_) {
+        arm_event(&event, true);
+        if (event.inside_range(first_frame, last_frame, false))
+            fire_event(&event, owner_object_);
     }
 }
 

@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -795,7 +796,7 @@ void handle_input_event(SDL_Event* event)
         s_using_keyboard = false;
         return;
     case SDL_TEXTINPUT:
-        text_typed(event->text.text);
+        text_typed(std::data(event->text.text));
         return;
     default:
         return;
@@ -850,33 +851,33 @@ int32_t direct_input_key(SDL_Scancode scan_code)
 // The bindings in the game's table (0x007D6770, port 0's actions), for the menus' key hints.
 void write_game_key_bindings()
 {
-    int32_t* binds = os_layer::g_input_map.data();
-    binds[0] = direct_input_key(s_keys.up);
-    binds[1] = direct_input_key(s_keys.down);
-    binds[2] = direct_input_key(s_keys.left);
-    binds[3] = direct_input_key(s_keys.right);
+    std::array<int32_t, os_layer::kBindings>& binds = os_layer::g_input_map.front().keys;
+    core::at(binds, 0) = direct_input_key(s_keys.up);
+    core::at(binds, 1) = direct_input_key(s_keys.down);
+    core::at(binds, 2) = direct_input_key(s_keys.left);
+    core::at(binds, 3) = direct_input_key(s_keys.right);
 
-    binds[4] = direct_input_key(s_keys.camera_up_);
-    binds[5] = direct_input_key(s_keys.camera_down_);
-    binds[6] = direct_input_key(s_keys.camera_left_);
-    binds[7] = direct_input_key(s_keys.camera_right_);
+    core::at(binds, 4) = direct_input_key(s_keys.camera_up_);
+    core::at(binds, 5) = direct_input_key(s_keys.camera_down_);
+    core::at(binds, 6) = direct_input_key(s_keys.camera_left_);
+    core::at(binds, 7) = direct_input_key(s_keys.camera_right_);
 
-    binds[8] = direct_input_key(s_keys.ollie);
-    binds[9] = direct_input_key(s_keys.grab);
-    binds[10] = direct_input_key(s_keys.kick);
-    binds[11] = direct_input_key(s_keys.grind);
+    core::at(binds, 8) = direct_input_key(s_keys.ollie);
+    core::at(binds, 9) = direct_input_key(s_keys.grab);
+    core::at(binds, 10) = direct_input_key(s_keys.kick);
+    core::at(binds, 11) = direct_input_key(s_keys.grind);
 
-    binds[13] = direct_input_key(s_keys.camera_toggle_);
-    binds[14] = direct_input_key(s_keys.left_spin_);
-    binds[15] = direct_input_key(s_keys.right_spin_);
-    binds[16] = direct_input_key(s_keys.nollie);
-    binds[17] = direct_input_key(s_keys.switch_revert_);
-    binds[18] = direct_input_key(s_keys.focus);
+    core::at(binds, 13) = direct_input_key(s_keys.camera_toggle_);
+    core::at(binds, 14) = direct_input_key(s_keys.left_spin_);
+    core::at(binds, 15) = direct_input_key(s_keys.right_spin_);
+    core::at(binds, 16) = direct_input_key(s_keys.nollie);
+    core::at(binds, 17) = direct_input_key(s_keys.switch_revert_);
+    core::at(binds, 18) = direct_input_key(s_keys.focus);
 
-    binds[20] = direct_input_key(s_keys.item_up_);
-    binds[21] = direct_input_key(s_keys.item_down_);
-    binds[22] = direct_input_key(s_keys.item_left_);
-    binds[23] = direct_input_key(s_keys.item_right_);
+    core::at(binds, 20) = direct_input_key(s_keys.item_up_);
+    core::at(binds, 21) = direct_input_key(s_keys.item_down_);
+    core::at(binds, 22) = direct_input_key(s_keys.item_left_);
+    core::at(binds, 23) = direct_input_key(s_keys.item_right_);
 }
 
 // --- reading the settings -----------------------------------------------------------------------------------------

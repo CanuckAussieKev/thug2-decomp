@@ -14,6 +14,7 @@
 #include <initializer_list>
 #include <map>
 #include <set>
+#include <span>
 #include <unordered_map>
 #include <vector>
 #include <utility>
@@ -1243,7 +1244,7 @@ void attach_sound(uint32_t emitter, uint32_t sound)
 
 bool& show_uncreated() { return g_show_uncreated; }
 
-void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto to_pixel = [&](V3 p, float* x, float* y) {
@@ -1288,7 +1289,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         const V3 right = make_unit(perpendicular(up, at));
         std::array<V3, 3> axes = {{right * 20.0f, up * 40.0f, at * 20.0f}};
         std::array<V3, 8> corners{};
-        box_corners(n->pos, axes.data(), {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners.data());
+        box_corners(n->pos, axes, {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners);
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))

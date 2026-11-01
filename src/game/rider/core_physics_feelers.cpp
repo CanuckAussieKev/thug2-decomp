@@ -416,11 +416,12 @@ void SkaterPhysicsModule::find_nearest_wall_side()
     feeler.line_.start = entity_->at_point_;
     float nearest = 999.0f;
     // Each end and side of the board: 12 along the forward or side row.
-    static const struct {
+    struct FeelerSide {
         uint32_t side;
         uint32_t axis;
         float distance;
-    } kSides[4] = {{kNose, kAxisZ, 12.0f}, {kTail, kAxisZ, -12.0f}, {kLeft, kAxisX, 12.0f}, {kRight, kAxisX, -12.0f}};
+    };
+    static const auto kSides = std::to_array<FeelerSide>({{kNose, kAxisZ, 12.0f}, {kTail, kAxisZ, -12.0f}, {kLeft, kAxisX, 12.0f}, {kRight, kAxisX, -12.0f}});
     for (const auto& side : kSides) {
         const maths::Vec4& row = side.axis == kAxisX ? core::at(entity_->basis_frame_.row, 0) : core::at(entity_->basis_frame_.row, 2);
         const maths::Vec4& start = feeler.line_.start;

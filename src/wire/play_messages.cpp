@@ -2,6 +2,8 @@
 
 #include "wire/play_messages.h"
 
+#include <span>
+
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
 
@@ -9,15 +11,15 @@ namespace online {
 
 namespace {
 
-void read_floats(util::ByteReader& reader, float* out, int count)
+void read_floats(util::ByteReader& reader, std::span<float> out)
 {
-    for (int i = 0; i < count; ++i)
-        out[i] = reader.f32();
+    for (float& value : out)
+        value = reader.f32();
 }
-void write_floats(util::ByteWriter& writer, const float* values, int count)
+void write_floats(util::ByteWriter& writer, std::span<const float> values)
 {
-    for (int i = 0; i < count; ++i)
-        writer.f32(values[i]);
+    for (const float value : values)
+        writer.f32(value);
 }
 
 } // namespace
@@ -30,9 +32,9 @@ bool read_hunt_placements(util::ByteReader& reader, HuntPlacements* message)
     return reader.ok();
 }
 
-bool read_hunt_position(util::ByteReader& reader, float position[4])
+bool read_hunt_position(util::ByteReader& reader, std::span<float, 4> position)
 {
-    read_floats(reader, position, 4);
+    read_floats(reader, position);
     return reader.ok();
 }
 
@@ -42,13 +44,13 @@ bool write_hunt_placements(util::ByteWriter& writer, const HuntPlacements& messa
     writer.fill(0, 3);
     writer.i32(message.count);
     for (const auto& position : message.positions)
-        write_floats(writer, position.data(), 4);
+        write_floats(writer, position);
     return writer.ok();
 }
 
-bool write_hunt_position(util::ByteWriter& writer, const float position[4])
+bool write_hunt_position(util::ByteWriter& writer, std::span<const float, 4> position)
 {
-    write_floats(writer, position, 4);
+    write_floats(writer, position);
     return writer.ok();
 }
 
@@ -71,8 +73,8 @@ bool write_board_vehicle(util::ByteWriter& writer, const BoardVehicle& message)
 bool read_projectile(util::ByteReader& reader, Projectile* message)
 {
     message->time = reader.u32();
-    read_floats(reader, message->position.data(), 4);
-    read_floats(reader, message->velocity.data(), 4);
+    read_floats(reader, message->position);
+    read_floats(reader, message->velocity);
     message->type = reader.u32();
     message->ammo_type = reader.u32();
     message->radius = reader.i32();
@@ -84,8 +86,8 @@ bool read_projectile(util::ByteReader& reader, Projectile* message)
 bool write_projectile(util::ByteWriter& writer, const Projectile& message)
 {
     writer.u32(message.time);
-    write_floats(writer, message.position.data(), 4);
-    write_floats(writer, message.velocity.data(), 4);
+    write_floats(writer, message.position);
+    write_floats(writer, message.velocity);
     writer.u32(message.type);
     writer.u32(message.ammo_type);
     writer.i32(message.radius);
@@ -100,8 +102,8 @@ bool read_place_tag(util::ByteReader& reader, PlaceTag* message)
     message->object_id = reader.i8();
     message->sticker = reader.u8() != 0;
     reader.skip(2);
-    read_floats(reader, message->start.data(), 4);
-    read_floats(reader, message->end.data(), 4);
+    read_floats(reader, message->start);
+    read_floats(reader, message->end);
     message->size = reader.i32();
     return reader.ok();
 }
@@ -111,8 +113,8 @@ bool write_place_tag(util::ByteWriter& writer, const PlaceTag& message)
     writer.i8(message.object_id);
     writer.u8(message.sticker ? 1 : 0);
     writer.fill(0, 2);
-    write_floats(writer, message.start.data(), 4);
-    write_floats(writer, message.end.data(), 4);
+    write_floats(writer, message.start);
+    write_floats(writer, message.end);
     writer.i32(message.size);
     return writer.ok();
 }
@@ -204,7 +206,7 @@ bool read_ran_into(util::ByteReader& reader, RanInto* message)
 {
     message->object_id = reader.u8();
     reader.skip(3);
-    read_floats(reader, message->push.data(), 4);
+    read_floats(reader, message->push);
     return reader.ok();
 }
 
@@ -212,7 +214,7 @@ bool write_ran_into(util::ByteWriter& writer, const RanInto& message)
 {
     writer.u8(message.object_id);
     writer.fill(0, 3);
-    write_floats(writer, message.push.data(), 4);
+    write_floats(writer, message.push);
     return writer.ok();
 }
 

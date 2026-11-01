@@ -470,7 +470,7 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
     for (int i = 0; i < player->num_placed_; ++i) {
         std::array<float, 4> at{};
         // NOT ORIGINAL: no positions past the message's end (the original read on)
-        if (!online::read_hunt_position(reader, at.data()))
+        if (!online::read_hunt_position(reader, at))
             break;
         const script::VectorValue position = {core::at(at, 0), core::at(at, 1), core::at(at, 2), core::at(at, 3)};
         Struct* params = spawn_param_table();

@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -68,7 +69,7 @@ bool Guest::dial_server(uint32_t ip, uint16_t port)
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
     address.sin_addr.s_addr = ip;
-    std::memset(address.sin_zero, 0, sizeof(address.sin_zero));
+    std::memset(std::data(address.sin_zero), 0, sizeof(address.sin_zero));
     while (connect(sock_, raw::as<sockaddr>(&address), sizeof(address)) == SOCKET_ERROR) {
         if (WSAGetLastError() != WSAEWOULDBLOCK) {
             report_socket_error(this);

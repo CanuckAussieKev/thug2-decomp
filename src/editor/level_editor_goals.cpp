@@ -12,6 +12,7 @@
 #include <cstring>
 #include <functional>
 #include <initializer_list>
+#include <span>
 #include <vector>
 #include <utility>
 #include <array>
@@ -1377,7 +1378,7 @@ std::vector<std::string> get_level_gaps()
     return out;
 }
 
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto project = [&](V3 p, float* x, float* y) {

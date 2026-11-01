@@ -498,10 +498,10 @@ Hub::Hub()
                                  cell::pointer<uint8_t>(cell::address(end) & ~15u))
                            : nullptr;
     void* top = get_clear(sizeof(Arena), kTopDownStorage);
-    top_down_heap_ = top ? memory::construct_in<Arena>(top, primary_zone_, MemSource::kGrowDown, "Top Down") : nullptr;
+    top_down_heap_ = top ? memory::construct_in<Arena>(top, primary_zone_, MemSource::kGrowDown, static_cast<const char*>("Top Down")) : nullptr;
     void* bottom = get_clear(sizeof(Arena), kBottomUpStorage);
     bottom_up_heap_ =
-        bottom ? memory::construct_in<Arena>(bottom, primary_zone_, MemSource::kGrowUp, "BottomUp") : nullptr;
+        bottom ? memory::construct_in<Arena>(bottom, primary_zone_, MemSource::kGrowUp, static_cast<const char*>("BottomUp")) : nullptr;
     core::at(heaps_, 1) = bottom_up_heap_;
     core::at(heaps_, 0) = top_down_heap_;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order

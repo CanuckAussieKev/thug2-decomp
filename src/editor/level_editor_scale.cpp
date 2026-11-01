@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <span>
 #include <vector>
 #include <utility>
 #include <array>
@@ -117,13 +118,13 @@ int main_axis(V3 d)
 
 V3 along_axis(int axis, float f) { return {axis == 0 ? f : 1.0f, axis == 1 ? f : 1.0f, axis == 2 ? f : 1.0f}; }
 
-int nearest_axis(const V3 axes[3], int world_axis)
+int nearest_axis(std::span<const V3, 3> axes, int world_axis)
 {
     int best = world_axis;
     float best_dot = -1.0f;
     for (int i = 0; i < 3; ++i) {
-        const float length = std::sqrt(get_dot(axes[i], axes[i]));
-        const float d = length > 0.0f ? std::fabs(get_axis(axes[i], world_axis)) / length : 0.0f;
+        const float length = std::sqrt(get_dot(core::at(axes, i), core::at(axes, i)));
+        const float d = length > 0.0f ? std::fabs(get_axis(core::at(axes, i), world_axis)) / length : 0.0f;
         if (d > best_dot) {
             best_dot = d;
             best = i;

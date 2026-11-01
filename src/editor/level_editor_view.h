@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -68,7 +69,7 @@ const char* surface_name(Surface surface);
 
 // A triangle clipped to the camera's near plane (depth along the view >= nearZ): `out` gets 0 (all behind), 3 or 4
 // points (a polygon, in order).
-int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, const V3 in[3], V3 out[4]);
+int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, std::span<const V3, 3> in, std::span<V3, 4> out);
 // The distance from a point to an axis-aligned box (0 inside).
 float distance_to_box(V3 point, V3 min, V3 max);
 
@@ -128,7 +129,7 @@ bool show_collision();
 void set_show_collision(bool on);
 // The collision near the camera, as triangles over the view (back buffer pixels, painted far to near) and the
 // selected wall's edges as lines.
-void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                    std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines);
 struct Attributes {
     int triangles = 0, sectors = 0, walls = 0, off = 0; // (off: pieces whose collision is switched off)

@@ -8,6 +8,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -222,7 +223,7 @@ bool emit_out(FaceKey key, uint16_t flags)
 }
 
 // The face's corners where the skater meets it (a taken face: its companion's).
-bool get_corners(FaceKey key, V3 out[3])
+bool get_corners(FaceKey key, std::span<V3, 3> out)
 {
     const render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count_ || !tri->vertices_)
@@ -237,7 +238,7 @@ bool get_corners(FaceKey key, V3 out[3])
             const uint32_t v = companion->get_geometry().face_vertex(index, k);
             if (v >= ints::as_unsigned(companion->get_vertex_count()))
                 return false;
-            out[k] = companion->get_vertex(static_cast<int>(v));
+            core::at(out, k) = companion->get_vertex(static_cast<int>(v));
         }
         return true;
     }
@@ -247,7 +248,7 @@ bool get_corners(FaceKey key, V3 out[3])
             return false;
         maths::Vec4 p{};
         tri->read_stored_vertex(static_cast<int>(v), &p);
-        out[k] = {p.x, p.y, p.z};
+        core::at(out, k) = {p.x, p.y, p.z};
     }
     return true;
 }
@@ -550,12 +551,12 @@ void tick_frame()
     });
 }
 
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines)
 {
     auto outline = [&](FaceKey key, uint32_t argb, float thickness) {
         std::array<V3, 3> p{};
-        if (!get_corners(key, p.data()))
+        if (!get_corners(key, p))
             return;
         for (int k = 0; k < 3; ++k) {
             V3 a = core::at(p, k), b = core::at(p, (k + 1) % 3);

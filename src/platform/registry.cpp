@@ -12,14 +12,14 @@
 namespace sys {
 
 namespace {
-const char kSettingsKey[] = R"(Software\Activision\Tony Hawk's Underground 2\Settings)";
+constexpr auto kSettingsKey = std::to_array(R"(Software\Activision\Tony Hawk's Underground 2\Settings)");
 } // namespace
 
 // 0x004E1810
 void write_default_setting(const char* name, uint32_t value)
 {
     HKEY key = nullptr;
-    if (RegOpenKeyExA(HKEY_CURRENT_USER, kSettingsKey, 0, KEY_WRITE | KEY_QUERY_VALUE, &key) == ERROR_SUCCESS) {
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, kSettingsKey.data(), 0, KEY_WRITE | KEY_QUERY_VALUE, &key) == ERROR_SUCCESS) {
         DWORD type = REG_DWORD;
         DWORD existing = 0;
         DWORD size = sizeof(existing);
@@ -30,7 +30,7 @@ void write_default_setting(const char* name, uint32_t value)
         return;
     }
     std::array<char, 256> path = {};
-    std::snprintf(path.data(), sizeof(path), "%s\\%s", kSettingsKey, name); // (the original's sprintf is unbounded)
+    std::snprintf(path.data(), sizeof(path), "%s\\%s", kSettingsKey.data(), name); // (the original's sprintf is unbounded)
     if (RegCreateKeyExA(HKEY_CURRENT_USER, path.data(), 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
     RegSetValueExA(key, name, 0, REG_DWORD, raw::bytes(&value), sizeof(value));
