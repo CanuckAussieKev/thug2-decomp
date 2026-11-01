@@ -205,6 +205,141 @@ bool write_proceed_info(util::ByteWriter& writer, const ProceedInfo& message)
     return writer.ok();
 }
 
+bool read_player_arrived(util::ByteReader& reader, PlayerArrived* message)
+{
+    message->profile_id = reader.i32();
+    message->rating = reader.i32();
+    message->flags = reader.u32();
+    message->score = reader.i32();
+    message->eliminated_time = reader.u32();
+    message->accumulated_score = reader.u32();
+    message->object_id = reader.i8();
+    message->team = reader.i8();
+    reader.skip(2);
+    message->drive_scheme = reader.i32();
+    reader.fixed_string(message->name, sizeof(message->name), kNameSize);
+    return reader.ok();
+}
+
+bool write_player_arrived(util::ByteWriter& writer, const PlayerArrived& message)
+{
+    writer.i32(message.profile_id);
+    writer.i32(message.rating);
+    writer.u32(message.flags);
+    writer.i32(message.score);
+    writer.u32(message.eliminated_time);
+    writer.u32(message.accumulated_score);
+    writer.i8(message.object_id);
+    writer.i8(message.team);
+    writer.fill(0, 2);
+    writer.i32(message.drive_scheme);
+    writer.fixed_string(message.name, kNameSize);
+    return writer.ok();
+}
+
+bool read_hud_notice(util::ByteReader& reader, HudNotice* message)
+{
+    message->properties = reader.u32();
+    message->text = reader.u32();
+    message->time = reader.i32();
+    reader.fixed_string(message->string1, sizeof(message->string1), kHudNoticeTextSize);
+    reader.fixed_string(message->string2, sizeof(message->string2), kHudNoticeTextSize);
+    return reader.ok();
+}
+
+bool write_hud_notice(util::ByteWriter& writer, const HudNotice& message)
+{
+    writer.u32(message.properties);
+    writer.u32(message.text);
+    writer.i32(message.time);
+    writer.fixed_string(message.string1, kHudNoticeTextSize);
+    writer.fixed_string(message.string2, kHudNoticeTextSize);
+    return writer.ok();
+}
+
+bool read_start_request(util::ByteReader& reader, StartRequest* message)
+{
+    message->game_type = reader.u32();
+    message->time_limit = reader.u32();
+    message->skill_level = reader.u32();
+    message->fireball_level = reader.u32();
+    message->player_collision = reader.u32();
+    message->friendly_fire = reader.u32();
+    reader.skip(4);
+    message->target_score = reader.u32();
+    message->stop_at_zero = reader.u32();
+    message->score_reset = reader.u32();
+    message->ctf_game_type = reader.u32();
+    message->goals = reader.u32();
+    message->team_graffiti_mode = reader.u32();
+    return reader.ok();
+}
+
+bool write_start_request(util::ByteWriter& writer, const StartRequest& message)
+{
+    writer.u32(message.game_type);
+    writer.u32(message.time_limit);
+    writer.u32(message.skill_level);
+    writer.u32(message.fireball_level);
+    writer.u32(message.player_collision);
+    writer.u32(message.friendly_fire);
+    writer.u32(0);
+    writer.u32(message.target_score);
+    writer.u32(message.stop_at_zero);
+    writer.u32(message.score_reset);
+    writer.u32(message.ctf_game_type);
+    writer.u32(message.goals);
+    writer.u32(message.team_graffiti_mode);
+    return writer.ok();
+}
+
+bool read_kick_request(util::ByteReader& reader, KickRequest* message)
+{
+    message->kick = reader.u8();
+    message->index = reader.i8();
+    reader.fixed_string(message->name, sizeof(message->name), kNameSize);
+    return reader.ok();
+}
+
+bool write_kick_request(util::ByteWriter& writer, const KickRequest& message)
+{
+    writer.u8(message.kick);
+    writer.i8(message.index);
+    writer.fixed_string(message.name, kNameSize);
+    return writer.ok();
+}
+
+bool read_goal_message(util::ByteReader& reader, GoalMessage* message)
+{
+    message->id = reader.u8();
+    reader.skip(3);
+    message->goal = reader.u32();
+    return reader.ok();
+}
+
+bool write_goal_message(util::ByteWriter& writer, const GoalMessage& message)
+{
+    writer.u8(message.id);
+    writer.fill(0, 3);
+    writer.u32(message.goal);
+    return writer.ok();
+}
+
+bool read_level_switch(util::ByteReader& reader, LevelSwitch* message)
+{
+    message->level = reader.u32();
+    message->flag = reader.u8();
+    return reader.ok();
+}
+
+bool write_level_switch(util::ByteWriter& writer, const LevelSwitch& message)
+{
+    writer.u32(message.level);
+    writer.u8(message.flag);
+    writer.fill(0, 3);
+    return writer.ok();
+}
+
 namespace thugpro {
 
 bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message)

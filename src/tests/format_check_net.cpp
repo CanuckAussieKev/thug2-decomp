@@ -476,6 +476,128 @@ void check_join_messages()
                   online::thugpro::read_connect_trailer, 29);
 }
 
+// The session's other messages as the original's senders built them (NewPlayerMessage, PanelMessage,
+// StartGameRequest, the kick request, the goal messages, the level switch).
+#pragma pack(push, 1)
+struct ReferencePlayerArrived {
+    int32_t profile_id, rating;
+    uint32_t flags;
+    int32_t score;
+    uint32_t value10, value14;
+    int8_t obj_id, team;
+    uint8_t pad[2];
+    int32_t drive_scheme;
+    char name[16];
+};
+struct ReferenceHudNotice {
+    uint32_t properties, text;
+    int32_t time;
+    char string1[16], string2[16];
+};
+struct ReferenceStartRequest {
+    uint32_t words[13];
+};
+struct ReferenceKickRequest {
+    uint8_t request, index;
+    char name[16];
+};
+struct ReferenceGoalMessage {
+    uint8_t id, pad[3];
+    uint32_t goal;
+};
+struct ReferenceLevelSwitch {
+    uint32_t level;
+    uint8_t flag, pad[3];
+};
+#pragma pack(pop)
+static_assert(sizeof(ReferencePlayerArrived) == online::kPlayerArrivedHeaderSize &&
+              offsetof(ReferencePlayerArrived, obj_id) == 0x18 && offsetof(ReferencePlayerArrived, name) == 0x20 &&
+              sizeof(ReferenceHudNotice) == online::kHudNoticeSize &&
+              sizeof(ReferenceStartRequest) == online::kStartRequestSize &&
+              sizeof(ReferenceKickRequest) == online::kKickRequestSize &&
+              sizeof(ReferenceGoalMessage) == online::kGoalMessageSize &&
+              sizeof(ReferenceLevelSwitch) == online::kLevelSwitchSize &&
+              offsetof(ReferenceLevelSwitch, level) == online::kLevelSwitchLevelAt);
+
+void check_session_others()
+{
+    {
+        ReferencePlayerArrived ref = {4242, 1500, 0x11, 9000, 77, 31337, 3, 1, {}, 2, {}};
+        std::strcpy(ref.name, "player_one");
+        online::PlayerArrived m;
+        m.profile_id = 4242;
+        m.rating = 1500;
+        m.flags = 0x11;
+        m.score = 9000;
+        m.eliminated_time = 77;
+        m.accumulated_score = 31337;
+        m.object_id = 3;
+        m.team = 1;
+        m.drive_scheme = 2;
+        std::strcpy(m.name, "player_one");
+        check_message("player arrived 0x22", m, ref, online::write_player_arrived, online::read_player_arrived);
+    }
+    {
+        ReferenceHudNotice ref = {0x11112222, 0x33334444, 5000, {}, {}};
+        std::strcpy(ref.string1, "Skater 1");
+        std::strcpy(ref.string2, "Team Red");
+        online::HudNotice m;
+        m.properties = 0x11112222;
+        m.text = 0x33334444;
+        m.time = 5000;
+        std::strcpy(m.string1, "Skater 1");
+        std::strcpy(m.string2, "Team Red");
+        check_message("hud notice 0x3F", m, ref, online::write_hud_notice, online::read_hud_notice);
+        // string 1 filling its field (no terminator): cut there, string 2 still read
+        std::memset(ref.string1, 'x', 16);
+        util::ByteReader reader(&ref, sizeof(ref));
+        online::HudNotice back;
+        check(online::read_hud_notice(reader, &back) && std::strlen(back.string1) == 16 &&
+                  std::strcmp(back.string2, "Team Red") == 0,
+              "hud notice 0x3F: an unterminated string ends in its field");
+    }
+    {
+        ReferenceStartRequest ref = {{1, 2, 3, 4, 5, 6, 0, 8, 9, 10, 11, 12, 13}};
+        online::StartRequest m;
+        m.game_type = 1;
+        m.time_limit = 2;
+        m.skill_level = 3;
+        m.fireball_level = 4;
+        m.player_collision = 5;
+        m.friendly_fire = 6;
+        m.target_score = 8;
+        m.stop_at_zero = 9;
+        m.score_reset = 10;
+        m.ctf_game_type = 11;
+        m.goals = 12;
+        m.team_graffiti_mode = 13;
+        check_message("start request 0x60", m, ref, online::write_start_request, online::read_start_request);
+    }
+    {
+        ReferenceKickRequest ref = {1, 2, {}};
+        std::strcpy(ref.name, "griefer");
+        online::KickRequest m;
+        m.kick = 1;
+        m.index = 2;
+        std::strcpy(m.name, "griefer");
+        check_message("kick request 0x61", m, ref, online::write_kick_request, online::read_kick_request);
+    }
+    {
+        ReferenceGoalMessage ref = {7, {}, 0xC0FFEE00};
+        online::GoalMessage m;
+        m.id = 7;
+        m.goal = 0xC0FFEE00;
+        check_message("goal 0x6E / 0x6F", m, ref, online::write_goal_message, online::read_goal_message);
+    }
+    {
+        ReferenceLevelSwitch ref = {0xB664035D, 'F', {}};
+        online::LevelSwitch m;
+        m.level = 0xB664035D;
+        m.flag = 'F';
+        check_message("level switch 0x46 / 0x6B", m, ref, online::write_level_switch, online::read_level_switch, 5);
+    }
+}
+
 } // namespace
 
 int run()
@@ -485,6 +607,7 @@ int run()
     check_graffiti_messages();
     check_play_messages();
     check_join_messages();
+    check_session_others();
     return g_failures;
 }
 

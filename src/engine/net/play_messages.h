@@ -34,7 +34,7 @@ class ByteWriter;
 //   0x49 spawn script (16)     the script's name (u32), the object's id (u32; -1: none), the node (i32), permanent
 //                              (u8), (0) x3
 //   0x2D player gone (2)       the player's object id (i8), the reason (i8)
-//   0x46 level switch (8)      the level (u32), (0) x4
+//   (0x46 level switch: gamenet_messages.h)
 //   0x96 graffiti for (1)      the player's object id (u8); 0x9A graffiti parts (4): which board parts show it (u32)
 namespace online {
 
@@ -50,7 +50,6 @@ constexpr uint8_t kMsgCheats = 0x82;
 constexpr uint8_t kMsgRunScript = 0x48;
 constexpr uint8_t kMsgSpawnScript = 0x49;
 constexpr uint8_t kMsgPlayerGone = 0x2D;
-constexpr uint8_t kMsgLevelSwitch = 0x46;
 
 constexpr int kHuntPlacements = 5;
 constexpr size_t kHuntPlacementsSize = 0x58;
@@ -64,7 +63,6 @@ constexpr int kMaxCheats = 32;
 constexpr size_t kRunScriptHeaderSize = 8;
 constexpr size_t kRunScriptParamsSize = 0x400;
 constexpr size_t kSpawnScriptSize = 16;
-constexpr size_t kLevelSwitchSize = 8;
 // Fields the server rewrites in a projectile it relays (in place, before passing it on).
 constexpr uint32_t kProjectileTimeAt = 0x00;
 constexpr uint32_t kProjectileOwnerAt = 0x34;

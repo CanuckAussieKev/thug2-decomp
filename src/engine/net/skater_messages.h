@@ -47,6 +47,9 @@ constexpr uint8_t kMsgDestroySpecialItem = 0x78;
 constexpr uint8_t kMsgCancelSpins = 0x8C;
 
 constexpr size_t kPlayAnimSize = 14;
+// Fields the THUGPRO guards (net_guards.cpp) check in place.
+constexpr uint32_t kPlayAnimAnimAt = 2;
+constexpr uint32_t kSpecialItemParamsAt = 0;
 constexpr size_t kHideGeomSize = 8;
 constexpr size_t kAnimSpeedSize = 8;
 constexpr size_t kSpinModelSize = 16;

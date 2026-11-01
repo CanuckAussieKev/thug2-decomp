@@ -31,6 +31,8 @@
 #include "engine/core/code_address.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/trick_component.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace goals {
 
@@ -190,17 +192,17 @@ bool GoalManager::complete_objective(uint32_t id)
             net::NetMessageInfo desc;
             desc.make_new();
             net::AppHost* client = net->fetch_patron(0);
-            // The message: the game's id and the chain's first goal (the id's three padding bytes are left as the
-            // original's stack had them: the network manager's address).
-            struct {
-                uint32_t game_id_;
-                uint32_t goal;
-            } message = {reinterpret_cast<uint32_t>(net), 0};
-            message.game_id_ = (message.game_id_ & ~0xFFu) | net->get_game_id();
+            // The message (engine/net/gamenet_messages.h): the game's id and the chain's first goal (the id's three
+            // padding bytes, as the original's stack had them - the network manager's address -, zeros here).
+            online::GoalMessage message;
+            message.id = net->get_game_id();
             message.goal = goal->get_top_objective_key();
-            desc.byte_count_ = sizeof(message);
+            uint8_t bytes[online::kGoalMessageSize];
+            util::ByteWriter writer(bytes, sizeof(bytes));
+            online::write_goal_message(writer, message);
+            desc.byte_count_ = sizeof(bytes);
             desc.group_id_ = kGroupGoals;
-            desc.content_ = &message;
+            desc.content_ = bytes;
             desc.ident_ = kMsgGoalWon;
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
             static_cast<net::Guest*>(client)->send_to_host(&desc);

@@ -35,6 +35,8 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace online {
 
@@ -119,27 +121,35 @@ void cancel_join(Hub* manager, bool notify_first)
 // 0x0052DB80
 int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
 {
-    const uint8_t* msg = get_message(context);
     Hub* manager = manager_of(context);
+    // (the message: gamenet_messages.h; NOT ORIGINAL: one too short for its header is dropped - the original read
+    // past it -, and the appearance is read from a copy as long as the most a message holds)
+    util::ByteReader reader(context->body_, context->body_size_);
+    PlayerArrived arrived;
+    if (!read_player_arrived(reader, &arrived))
+        return kDone;
     JoinerRecord record; // (on the stack)
     JoinerRecord* info = &record;
     info->make_new(); // (its constructor: a skater profile)
-    // (strncpy: 15 characters at most, the rest of the 15 zeroed)
-    size_t length = strnlen(reinterpret_cast<const char*>(msg + 0x20), 15);
-    std::memcpy(info->label_, msg + 0x20, length);
-    std::memset(info->label_ + length, 0, 15 - length);
-    info->label_[0x0F] = 0;
-    info->entity_key_ = msg[0x18];                // the object id
-    info->conn_ = nullptr;                        // the connection
-    info->flag_bits_ = prop<uint32_t>(msg, 0x08); // flags
-    info->team_ = static_cast<int8_t>(msg[0x19]); // the team
-    info->profile_id_ = prop<uint32_t>(msg, 0x00);
-    info->skill_points_ = prop<uint32_t>(msg, 0x04);
-    info->accumulated_score_ = prop<uint32_t>(msg, 0x14);
-    info->drive_control_mode_ = prop<uint32_t>(msg, 0x1C);
-    info->score_ = prop<uint32_t>(msg, 0x0C);
-    if (!(info->flag_bits_ & 5))
-        info->account_->decode_from_bytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
+    // (15 characters at most, the rest zeroed)
+    std::memset(info->label_, 0, sizeof(info->label_));
+    std::memcpy(info->label_, arrived.name, strnlen(arrived.name, 15));
+    info->entity_key_ = static_cast<uint8_t>(arrived.object_id); // the object id
+    info->conn_ = nullptr;                                         // the connection
+    info->flag_bits_ = arrived.flags;                              // flags
+    info->team_ = arrived.team;                                    // the team
+    info->profile_id_ = arrived.profile_id;
+    info->skill_points_ = arrived.rating;
+    info->accumulated_score_ = arrived.accumulated_score;
+    info->drive_control_mode_ = arrived.drive_scheme;
+    info->score_ = arrived.score;
+    if (!(info->flag_bits_ & 5)) {
+        static uint8_t appearance[kAppearanceSize];
+        size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
+        std::memset(appearance, 0, sizeof(appearance));
+        reader.bytes(appearance, size);
+        info->account_->decode_from_bytes(appearance); // the appearance into its profile
+    }
     int delay = 0;
     if (manager->cleared_to_start_) {
         manager->build_net_notice(false, kNetMessageNewPlayer, info->label_, nullptr, nullptr, nullptr, false,
@@ -202,10 +212,13 @@ int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
 int __cdecl handle_fcfs_notice(net::InboundMsgCtx* context)
 {
     PlayerRecord* local = find_own_player_record(manager_of(context));
-    const uint8_t* msg = get_message(context);
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint32_t checksum = reader.u32();
+    if (!reader.ok()) // NOT ORIGINAL: too short - dropped
+        return kDone;
     local->set_host_player(); // (its flag 0x200 set)
     script::Struct* params = new_params();
-    params->put_name_key(kChecksum, prop<uint32_t>(msg, 0));
+    params->put_name_key(kChecksum, checksum);
     get_run(kLaunchFcfsNotification, params);
     delete_params(params);
     return kContinue;
@@ -329,10 +342,11 @@ int __cdecl handle_selected_goals(net::InboundMsgCtx* context)
     const uint8_t* msg = get_message(context);
     uint8_t* goals = objective_board();
     get_call(code_address(&goals::GoalManager::unpick_every_objective), goals);
-    uint8_t show = msg[0];
-    const uint8_t* name = msg + 1;
-    for (uint32_t goal = prop<uint32_t>(name, 0); goal; goal = prop<uint32_t>(name, 0)) {
-        name += 4;
+    // (a byte, then the goals' names up to a 0; NOT ORIGINAL: no further than the message's end - the original read
+    // on until it found a 0)
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint8_t show = reader.u8();
+    for (uint32_t goal = reader.u32(); reader.ok() && goal; goal = reader.u32()) {
         uint8_t* entry = get_goal(goals, goal);
         reinterpret_cast<goals::Objective*>(entry)->un_beat(); // (the original's vtable +0x74)
         reinterpret_cast<goals::Objective*>(entry)->choose_one();
@@ -390,10 +404,14 @@ int __cdecl handle_joined_team(net::InboundMsgCtx* context)
 // 0x00531C80
 int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
 {
-    const uint8_t* msg = get_message(context);
+    util::ByteReader reader(context->body_, context->body_size_);
+    GoalMessage message;
+    if (!read_goal_message(reader, &message)) // NOT ORIGINAL: too short - dropped
+        return kDone;
+    const uint8_t* msg = &message.id; // (the player's object id)
     Hub* manager = manager_of(context);
     uint8_t* goals = objective_board();
-    uint8_t* goal = get_goal(goals, prop<uint32_t>(msg, 4));
+    uint8_t* goal = get_goal(goals, message.goal);
     uint8_t* current = get_call<uint8_t*>(code_address(&goals::GoalManager::get_engaged_objective), goals, 0);
     if (!goal)
         return kContinue;
@@ -458,9 +476,13 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
 // 0x00531F10
 int __cdecl handle_goal_started(net::InboundMsgCtx* context)
 {
-    const uint8_t* msg = get_message(context);
+    util::ByteReader reader(context->body_, context->body_size_);
+    GoalMessage message;
+    if (!read_goal_message(reader, &message)) // NOT ORIGINAL: too short - dropped
+        return kDone;
+    const uint8_t* msg = &message.id; // (the player's object id)
     Hub* manager = manager_of(context);
-    uint8_t* goal = get_goal(objective_board(), prop<uint32_t>(msg, 4));
+    uint8_t* goal = get_goal(objective_board(), message.goal);
     if (!goal)
         return kContinue;
     const char* text = nullptr;

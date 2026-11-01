@@ -36,6 +36,8 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -47,7 +49,6 @@ namespace {
 
 constexpr uint8_t kMsgTookFlag = 0x71;
 constexpr uint8_t kMsgCapturedFlag = 0x72;
-constexpr uint8_t kMsgKickRequest = 0x61; // (a client asks the server to kick or ban)
 
 constexpr uint32_t kPlayer = 0x67E6859A;      // player
 constexpr uint32_t kFlagTeam = 0xD61CFF21;    // flag_team
@@ -108,19 +109,17 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
             get_call(code_address(&modules::Skate::drop_skater_from_roster), get_skate(), skater); // its skater removed
         return;
     }
-    struct {
-        uint8_t request;
-        uint8_t index;
-        char name[kNameSize];
-        uint8_t pad[2];
-    } msg;
+    KickRequest msg; // (a client asks the server to kick or ban: gamenet_messages.h)
     net::NetMessageInfo desc;
     desc.make_new();
-    msg.request = request;
-    msg.index = static_cast<uint8_t>(index);
-    std::strcpy(msg.name, player_name(player));
-    desc.content_ = &msg;
-    desc.byte_count_ = 2 + kNameSize;
+    msg.kick = request;
+    msg.index = static_cast<int8_t>(index);
+    std::strncpy(msg.name, player_name(player), kNameSize - 1);
+    uint8_t bytes[kKickRequestSize];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    write_kick_request(writer, msg);
+    desc.content_ = bytes;
+    desc.byte_count_ = sizeof(bytes);
     desc.ident_ = kMsgKickRequest;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;

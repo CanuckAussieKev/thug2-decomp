@@ -44,6 +44,8 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/sys/mlp.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace online {
 
@@ -185,10 +187,15 @@ int __cdecl handle_kill_team_flags(net::InboundMsgCtx*)
 // 0x0052D950
 int __cdecl on_hud_notice_msg(net::InboundMsgCtx* context)
 {
-    const char* msg = context->body_;
+    // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is dropped and its strings end inside their
+    // fields - the original read them up to a terminator that may not be there)
+    util::ByteReader reader(context->body_, context->body_size_);
+    HudNotice notice;
+    if (!read_hud_notice(reader, &notice))
+        return kDone;
     // 0x005376F0: (broadcast, text, string 1, string 2, object, properties, important, time)
-    manager_of(context)->build_net_notice(false, message_word(context, 4), msg + 0x0C, msg + 0x1C, nullptr, nullptr,
-                                          false, static_cast<int>(message_word(context, 8)));
+    manager_of(context)->build_net_notice(false, notice.text, notice.string1, notice.string2, nullptr, nullptr, false,
+                                          notice.time);
     return kContinue;
 }
 

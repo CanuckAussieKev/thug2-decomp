@@ -53,6 +53,8 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace online {
 
@@ -64,7 +66,6 @@ constexpr uint32_t kSkaterListFirst =
     0x30; // the skate module's skater list's first node (its head at +0x28; the original's +0x34)
 
 // Messages.
-constexpr uint8_t kMsgHudNotice = 0x3F;
 constexpr uint8_t kMsgFlipProSetting = 0x70;
 
 // Checksums.
@@ -79,15 +80,6 @@ constexpr uint32_t kPostRunQueuedScripts = 0xE1BDBE73;  // PostRunQueuedScripts
 
 const char* const kStringSlot = "%s0"; // "%s0"
 
-// The panel message (message 0x3F, 44 bytes).
-struct PanelMessage {
-    uint32_t properties; // +0x00 the CRC of the properties' name
-    uint32_t text;       // +0x04 the global text
-    int time;            // +0x08
-    char string1[16];    // +0x0C (the bytes after its end: the original's stack)
-    char string2[16];    // +0x1C
-};
-static_assert(sizeof(PanelMessage) == 0x2C, "layout must match the original");
 
 memory::ListNode* player_list(Hub* manager) { return &manager->players_; }
 memory::ListNode* new_player_list(Hub* manager) { return &manager->joiners_; }
@@ -345,18 +337,21 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
     if (broadcast) {
         net::NetMessageInfo desc;
         desc.make_new();
-        PanelMessage message;
-        message.string1[0] = 0;
-        message.string2[0] = 0;
+        // (the panel message: gamenet_messages.h - the strings cut to their 16 bytes; the original copied them whole,
+        // the bytes after a terminator as its stack held them)
+        HudNotice message;
         message.text = text;
         message.time = time;
         message.properties = checksums::hash_from_text(properties);
         if (string1)
-            std::strcpy(message.string1, string1);
+            std::strncpy(message.string1, string1, kHudNoticeTextSize);
         if (string2)
-            std::strcpy(message.string2, string2);
-        desc.content_ = &message;
-        desc.byte_count_ = sizeof(PanelMessage);
+            std::strncpy(message.string2, string2, kHudNoticeTextSize);
+        uint8_t bytes[kHudNoticeSize];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        write_hud_notice(writer, message);
+        desc.content_ = bytes;
+        desc.byte_count_ = sizeof(bytes);
         desc.ident_ = kMsgHudNotice;
         if (important) {
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;

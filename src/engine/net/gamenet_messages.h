@@ -165,6 +165,105 @@ struct ProceedInfo {
 bool read_proceed_info(util::ByteReader& reader, ProceedInfo* message);
 bool write_proceed_info(util::ByteWriter& writer, const ProceedInfo& message);
 
+// --- The session's other messages ---
+//
+//   0x22 player arrived (0x30 + the appearance; the server's, read by on_player_added_msg)
+//     +0x00 i32 the GameSpy profile id   +0x04 i32 the rating   +0x08 u32 the flags   +0x0C i32 the score
+//     +0x10 u32 the eliminated time (not read)   +0x14 u32 the accumulated score   +0x18 i8 the object id   +0x19 i8 the team   (0) x2
+//     +0x1C i32 the drive scheme   +0x20 char[16] the name   +0x30 the appearance (RiderIdentity::emit_into_buffer)
+//   0x3F hud notice (0x2C; the server's broadcast panel message, read by on_hud_notice_msg)
+//     +0x00 u32 the properties' name's CRC   +0x04 u32 the text   +0x08 i32 the time   +0x0C char[16] string 1
+//     +0x1C char[16] string 2
+//   0x60 start request (0x34; the first-come-first-served host to the server, read by handle_host_options)
+//     u32 x13: the game type, the time limit, the skill level, the fireball level, player collision, friendly fire,
+//     (0), the target score, stop at zero, score reset, the CTF game type, the goals, the team graffiti mode
+//   0x61 kick request (18): kick (u8: 1, else ban), the player's index (i8), the player's name (char[16])
+//   0x6E / 0x6F goal completed / started (8; a client's to the server, the server's to the players): an id
+//     (u8: the game id from a client, the player's object id from the server), (0) x3, the goal's name (u32)
+//   0x46 level switch / 0x6B request game data (8): the level (u32), a flag (u8: 0x6B's 'F' asks for the level
+//     change too; 0x46's 0 - on_level_switch_msg acts on a non-zero one only), (0) x3
+constexpr uint8_t kMsgPlayerArrived = 0x22;
+constexpr uint8_t kMsgHudNotice = 0x3F;
+constexpr uint8_t kMsgStartRequest = 0x60;
+constexpr uint8_t kMsgKickRequest = 0x61;
+constexpr uint8_t kMsgLevelSwitch = 0x46;
+constexpr uint8_t kMsgRequestGameData = 0x6B;
+constexpr uint8_t kMsgGoalCompleted = 0x6E;
+constexpr uint8_t kMsgGoalStarted = 0x6F;
+constexpr size_t kPlayerArrivedHeaderSize = 0x30;
+constexpr size_t kHudNoticeSize = 0x2C;
+constexpr size_t kHudNoticeTextSize = 16;
+constexpr size_t kStartRequestSize = 0x34;
+constexpr size_t kKickRequestSize = 2 + kNameSize;
+constexpr size_t kGoalMessageSize = 8;
+constexpr size_t kLevelSwitchSize = 8;
+// Fields the THUGPRO guards (net_guards.cpp) check in place.
+constexpr uint32_t kLevelSwitchLevelAt = 0;
+
+struct PlayerArrived {
+    int32_t profile_id = 0;
+    int32_t rating = 0;
+    uint32_t flags = 0;
+    int32_t score = 0;
+    uint32_t eliminated_time = 0;
+    uint32_t accumulated_score = 0;
+    int8_t object_id = 0;
+    int8_t team = 0;
+    int32_t drive_scheme = 0;
+    char name[kNameSize + 1] = {}; // (terminated here)
+};
+bool read_player_arrived(util::ByteReader& reader, PlayerArrived* message);
+bool write_player_arrived(util::ByteWriter& writer, const PlayerArrived& message);
+
+struct HudNotice {
+    uint32_t properties = 0;
+    uint32_t text = 0;
+    int32_t time = 0;
+    char string1[kHudNoticeTextSize + 1] = {}; // (terminated here)
+    char string2[kHudNoticeTextSize + 1] = {};
+};
+bool read_hud_notice(util::ByteReader& reader, HudNotice* message);
+bool write_hud_notice(util::ByteWriter& writer, const HudNotice& message);
+
+struct StartRequest {
+    uint32_t game_type = 0;
+    uint32_t time_limit = 0;
+    uint32_t skill_level = 0;
+    uint32_t fireball_level = 0;
+    uint32_t player_collision = 0;
+    uint32_t friendly_fire = 0;
+    uint32_t target_score = 0;
+    uint32_t stop_at_zero = 0;
+    uint32_t score_reset = 0;
+    uint32_t ctf_game_type = 0;
+    uint32_t goals = 0;
+    uint32_t team_graffiti_mode = 0;
+};
+bool read_start_request(util::ByteReader& reader, StartRequest* message);
+bool write_start_request(util::ByteWriter& writer, const StartRequest& message);
+
+struct KickRequest {
+    uint8_t kick = 0;
+    int8_t index = 0;
+    char name[kNameSize + 1] = {}; // (terminated here)
+};
+bool read_kick_request(util::ByteReader& reader, KickRequest* message);
+bool write_kick_request(util::ByteWriter& writer, const KickRequest& message);
+
+struct GoalMessage {
+    uint8_t id = 0;
+    uint32_t goal = 0;
+};
+bool read_goal_message(util::ByteReader& reader, GoalMessage* message);
+bool write_goal_message(util::ByteWriter& writer, const GoalMessage& message);
+
+struct LevelSwitch {
+    uint32_t level = 0;
+    uint8_t flag = 0;
+};
+bool read_level_switch(util::ByteReader& reader, LevelSwitch* message);
+bool write_level_switch(util::ByteWriter& writer, const LevelSwitch& message);
+
 namespace thugpro {
 
 // NOT ORIGINAL - THUGPRO's connection request trailer (after THUG2's 92 bytes; engine/net/thugpro_join.h, TP-R12):

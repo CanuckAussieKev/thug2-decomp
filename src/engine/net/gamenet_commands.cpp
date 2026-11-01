@@ -35,6 +35,8 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace online {
 
@@ -242,25 +244,27 @@ bool __cdecl cfunc_just_started_net_game(Struct*, Script*)
 // the game is then pending.
 bool __cdecl cfunc_fcfs_request_start_game(Struct*, Script*)
 {
-    StartGameRequest request; // (+0x18 is never set: the original's stack)
+    StartRequest request; // (gamenet_messages.h; +0x18 is never set: the original's stack - zero here)
     Hub* manager = net_link();
     prefs::Preferences* preferences = manager->get_online_settings();
-    request.unused18 = 0;
-    request.skill_level_ = preferences->get_preference_checksum(kSkillLevel, kChecksum);
-    request.fireball_level_ = preferences->get_preference_checksum(kFireballDifficulty, kChecksum);
+    request.skill_level = preferences->get_preference_checksum(kSkillLevel, kChecksum);
+    request.fireball_level = preferences->get_preference_checksum(kFireballDifficulty, kChecksum);
     uint32_t game_type = 0;
     manager->get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &game_type, 1);
-    request.game_type_ = game_type;
-    request.time_limit_ = preferences->get_preference_checksum(kTimeLimit, kChecksum);
-    request.target_score_ = preferences->get_preference_checksum(kTargetScore, kChecksum);
-    request.player_collision_ = preferences->get_preference_checksum(kPlayerCollision, kChecksum);
-    request.friendly_fire_ = preferences->get_preference_checksum(kFriendlyFire, kChecksum);
-    request.stop_at_zero_ = preferences->get_preference_checksum(kStopAtZero, kChecksum);
-    request.score_reset_ = preferences->get_preference_checksum(kScoreReset, kChecksum);
-    request.ctf_game_type_ = preferences->get_preference_checksum(kCtfGameType, kChecksum);
+    request.game_type = game_type;
+    request.time_limit = preferences->get_preference_checksum(kTimeLimit, kChecksum);
+    request.target_score = preferences->get_preference_checksum(kTargetScore, kChecksum);
+    request.player_collision = preferences->get_preference_checksum(kPlayerCollision, kChecksum);
+    request.friendly_fire = preferences->get_preference_checksum(kFriendlyFire, kChecksum);
+    request.stop_at_zero = preferences->get_preference_checksum(kStopAtZero, kChecksum);
+    request.score_reset = preferences->get_preference_checksum(kScoreReset, kChecksum);
+    request.ctf_game_type = preferences->get_preference_checksum(kCtfGameType, kChecksum);
     request.goals = preferences->get_preference_checksum(kGoals, kChecksum);
-    request.team_graffiti_ = preferences->get_preference_checksum(kTeamGraffitiMode, kChecksum);
-    send_request(manager, kMsgBeginMatchAsk, &request, sizeof(request));
+    request.team_graffiti_mode = preferences->get_preference_checksum(kTeamGraffitiMode, kChecksum);
+    uint8_t bytes[kStartRequestSize];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    write_start_request(writer, request);
+    send_request(manager, kMsgBeginMatchAsk, bytes, sizeof(bytes));
     manager->match_being_set_up_ = true;
     return true;
 }

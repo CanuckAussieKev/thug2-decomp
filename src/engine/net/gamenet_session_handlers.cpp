@@ -208,15 +208,19 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
     auto* host = manager->get_host_player(); // (the host's own player)
     if (!host || host->conn_ != context->sender_conn_)
         return kDone;
-    const uint8_t* msg = get_message(context);
-    auto word = [msg](uint32_t offset) { return prop<uint32_t>(msg, offset); };
+    // (the messages: gamenet_messages.h - 0x60 the start request, 0x61 the kick request, 0x62 / 0x64 a name, 0x66 a
+    // byte; NOT ORIGINAL: one too short for what it is read for is dropped - the original read past it)
+    util::ByteReader reader(context->body_, context->body_size_);
     // (the text / a field of the entry with that checksum in a global list)
     auto option_text = [manager](uint32_t list, uint32_t value) { return manager->get_choice_name(list, value); };
     auto option_field = [manager](uint32_t list, uint32_t value, uint32_t field) {
         return manager->get_choice_integer(list, value, field);
     };
     switch (context->type_code_) {
-    case 0x60: {
+    case kMsgStartRequest: {
+        StartRequest request;
+        if (!read_start_request(reader, &request))
+            return kDone;
         // The game's options, each a preference: its text and checksum.
         prefs::Preferences* prefs = net_game_options(manager);
         auto set = [&](uint32_t preference, uint32_t list, uint32_t value, bool fireball = false) {
@@ -229,40 +233,40 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
             prefs->change_setting(preference, params);
             delete_params(params);
         };
-        set(0x9834C4FA, 0x2F94C542, word(0x00));       // game_type: net_game_type_info
-        set(0x403DA0D0, 0x48DAE9CB, word(0x08));       // skill_level: skill_level_info
-        set(0xCE238F5D, 0xD7E42AF4, word(0x0C), true); // fireball_difficulty: fireball_level_info
-        set(0x043EE978, 0x8BA3F08B, word(0x10));       // player_collision: on_off_types
-        set(0xE959C43A, 0x8BA3F08B, word(0x14));       // friendly_fire: on_off_types
-        set(0x48E748B5, 0x7FE33468, word(0x20));       // stop_at_zero: boolean_types
-        set(0x162E8C3A, 0x7FE33468, word(0x24));       // score_reset: boolean_types
-        set(0x15421B73, 0x15EA4F9E, word(0x28));       // ctf_game_type: ctf_type
-        set(0x38DBE1D0, 0x38DBE1D0, word(0x2C));       // goals: goals
-        set(0xA8774BF7, 0xA8774BF7, word(0x30));       // team_graffiti_mode
+        set(0x9834C4FA, 0x2F94C542, request.game_type);            // game_type: net_game_type_info
+        set(0x403DA0D0, 0x48DAE9CB, request.skill_level);          // skill_level: skill_level_info
+        set(0xCE238F5D, 0xD7E42AF4, request.fireball_level, true); // fireball_difficulty: fireball_level_info
+        set(0x043EE978, 0x8BA3F08B, request.player_collision);     // player_collision: on_off_types
+        set(0xE959C43A, 0x8BA3F08B, request.friendly_fire);        // friendly_fire: on_off_types
+        set(0x48E748B5, 0x7FE33468, request.stop_at_zero);         // stop_at_zero: boolean_types
+        set(0x162E8C3A, 0x7FE33468, request.score_reset);          // score_reset: boolean_types
+        set(0x15421B73, 0x15EA4F9E, request.ctf_game_type);        // ctf_game_type: ctf_type
+        set(0x38DBE1D0, 0x38DBE1D0, request.goals);                // goals: goals
+        set(0xA8774BF7, 0xA8774BF7, request.team_graffiti_mode);   // team_graffiti_mode
         {                                              // time_limit: time_limit_options, with its time
             script::Struct* params = new_params();
-            const char* text = option_text(0x834A7C01, word(0x04));
-            int time = option_field(0x834A7C01, word(0x04), kTime);
+            const char* text = option_text(0x834A7C01, request.time_limit);
+            int time = option_field(0x834A7C01, request.time_limit, kTime);
             params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, word(0x04));
+            params->add_component_of_type(kChecksum, script::kQbvalName, request.time_limit);
             params->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
             prefs->change_setting(0xC51BF6E3, params);
             delete_params(params);
         }
         { // target_score: target_score_options, else capture_options, else time_limit_options (its time, in ms)
             script::Struct* params = new_params();
-            const char* text = option_text(0x52CE135D, word(0x1C));
-            int score = option_field(0x52CE135D, word(0x1C), kScore);
+            const char* text = option_text(0x52CE135D, request.target_score);
+            int score = option_field(0x52CE135D, request.target_score, kScore);
             if (!text) {
-                text = option_text(0x5D67D0BE, word(0x1C));
-                score = option_field(0x5D67D0BE, word(0x1C), kScore);
+                text = option_text(0x5D67D0BE, request.target_score);
+                score = option_field(0x5D67D0BE, request.target_score, kScore);
                 if (!text) {
-                    text = option_text(0x834A7C01, word(0x1C));
-                    score = option_field(0x834A7C01, word(0x1C), kTime) * 1000;
+                    text = option_text(0x834A7C01, request.target_score);
+                    score = option_field(0x834A7C01, request.target_score, kTime) * 1000;
                 }
             }
             params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, word(0x1C));
+            params->add_component_of_type(kChecksum, script::kQbvalName, request.target_score);
             if (score > 0)
                 params->add_component_of_type(kScore, script::kQbvalInteger, static_cast<uint32_t>(score));
             prefs->change_setting(kTargetScore, params);
@@ -271,38 +275,48 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
         get_run(kChosenStartGame);
         break;
     }
-    case 0x61: {
-        // Kick (msg[0] = 1) or ban the msg[1]'th player, whose name must be msg + 2.
+    case kMsgKickRequest: {
+        // Kick (1) or ban the index'th player, whose name it must be.
+        KickRequest request;
+        if (!read_kick_request(reader, &request))
+            return kDone;
         PlayerSearch search;
         int index = 0;
         PlayerRecord* player = start_roster_sweep(manager, &search, true);
         for (; player; player = step_roster_sweep(manager, &search, true), ++index) {
-            if (static_cast<int8_t>(msg[1]) == index)
+            if (request.index == index)
                 break;
         }
         if (!player)
             return kDone;
-        if (_stricmp(reinterpret_cast<const char*>(msg + 2), player_name(player)) != 0)
+        if (_stricmp(request.name, player_name(player)) != 0)
             return kDone;
         objects::Entity* skater = player_skater(player);
         bool observer = is_observer(player);
-        manager->evict_player(player, msg[0] == 1 ? 3 : 4);
+        manager->evict_player(player, request.kick == 1 ? 3 : 4);
         if (!observer)
             get_call(code_address(&modules::Skate::drop_skater_from_roster), get_skate(), skater);
         break;
     }
     case 0x62: {
+        uint32_t level = reader.u32();
+        if (!reader.ok())
+            return kDone;
         script::Struct* params = new_params();
-        params->add_component_of_type(kLevel, script::kQbvalName, word(0));
+        params->add_component_of_type(kLevel, script::kQbvalName, level);
         params->put_name_key(kChangeLevelFlag, kChangeLevelFlag);
         params->put_name_key(kShowWarning, kShowWarning);
         get_run(kChangeLevel, params);
         delete_params(params);
         break;
     }
-    case 0x64:
-        get_call(code_address(&goals::GoalManager::flip_objective_pick), objective_board(), word(0));
+    case 0x64: {
+        uint32_t goal = reader.u32();
+        if (!reader.ok())
+            return kDone;
+        get_call(code_address(&goals::GoalManager::flip_objective_pick), objective_board(), goal);
         break;
+    }
     case 0x65: {
         // End the game: everyone else told.
         PlayerSearch search;
@@ -322,7 +336,9 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
     }
     case 0x66: {
         // The number of teams.
-        int teams = static_cast<int8_t>(msg[0]);
+        int teams = reader.i8();
+        if (!reader.ok())
+            return kDone;
         script::Struct* count = new_params();
         count->put_int(0u, teams);
         script::Struct* params = new_params();
@@ -352,20 +368,24 @@ uint32_t g_level_change_time;
 int __cdecl on_level_switch_msg(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    const uint8_t* msg = get_message(context);
+    // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is dropped)
+    util::ByteReader reader(context->body_, context->body_size_);
+    LevelSwitch message;
+    if (!read_level_switch(reader, &message))
+        return kDone;
     manager->clear_queued_scripts();
     manager->match_ended_ = false;
-    if (!msg[4])
+    if (!message.flag)
         return kContinue;
     auto* logic_tasks = (&assets::g_main_loop_manager->logic_tasks_);
     auto* change_task = manager->level_change_job_;
     if (change_task->is_on_task_list()) {
         if (!manager->get_on_server())
-            manager->level_ = prop<uint32_t>(msg, 0);
+            manager->level_ = message.level;
         return kDone;
     }
     uint32_t old_level = manager->level_;
-    manager->level_ = prop<uint32_t>(msg, 0);
+    manager->level_ = message.level;
     g_level_change_time = frame_clock::get_time() + 3000; // when to change
     if (manager->get_on_server()) {
         script::Struct* params = new_params();
