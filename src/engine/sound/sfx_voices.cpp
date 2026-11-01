@@ -38,6 +38,7 @@
 #include "engine/gfx/device.h"
 #include "engine/util/unique_handle.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace sound {
 
@@ -393,7 +394,7 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
         uint8_t extent_data[0x10] = {};
         void* extent = object_sound_extent(object, camera, extent_data) ? extent_data : nullptr;
         const float dropoff = given[2] != 0.0f ? given[2] : entry->dropoff;
-        const int falloff = reinterpret_cast<int*>(params)[3];
+        const int falloff = raw::as<int>(params)[3];
         maths::Vec4 heard{};
         fetch_loudness(&volume, object_sound_position(object, &heard, camera), dropoff, falloff, camera, extent);
     } else {
@@ -681,7 +682,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     uint32_t size = bytes_per_second_;
     bytes_per_second_ = bits_per_sample_ * samples_per_second_ >> 3;
     auto* converted = static_cast<uint8_t*>(memory::alloc(size));
-    os_layer::decode_adpcm(reinterpret_cast<int16_t*>(converted), wave.samples, static_cast<int>(size) >> 1);
+    os_layer::decode_adpcm(raw::as<int16_t>(converted), wave.samples, static_cast<int>(size) >> 1);
     data = converted;
     data_size_ = size;
     desc_size_ = 0;
@@ -716,15 +717,15 @@ bool load_wave(const char* path, uint32_t /*checksum*/, PcWave** slot, int load_
     const bool loaded = wave->read_in(file_name, 0x400E0);
     if (loaded) {
         slot[0] = wave;
-        reinterpret_cast<uint8_t*>(slot)[4] = wave->looping;
-        reinterpret_cast<uint8_t*>(slot)[5] = load_type == 0;
+        raw::bytes(slot)[4] = wave->looping;
+        raw::bytes(slot)[5] = load_type == 0;
         return true;
     }
     OutputDebugStringA(file_name);
     OutputDebugStringA("\n");
     slot[0] = nullptr;
-    reinterpret_cast<uint8_t*>(slot)[4] = 0;
-    reinterpret_cast<uint8_t*>(slot)[5] = 0;
+    raw::bytes(slot)[4] = 0;
+    raw::bytes(slot)[5] = 0;
     if (wave) {
         if (wave->data)
             memory::Hub::get_pull()->dealloc(wave->data);
@@ -846,7 +847,7 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
         wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
         std::memcpy(wave->desc_3d_algorithm_, &g_default_3d_algorithm, 16);
         // (the wave's DSBUFFERDESC is in place at +0x14, sfx.h)
-        const auto* desc = reinterpret_cast<const DSBUFFERDESC*>(&wave->desc_size_);
+        const auto* desc = raw::as<const DSBUFFERDESC>(&wave->desc_size_);
         IDirectSoundBuffer* created = nullptr;
         const HRESULT made = sound_device()->CreateSoundBuffer(desc, &created, nullptr);
         voice.buffer = created;
@@ -872,7 +873,7 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
     apply_voice_settings(index, volume, pitch);
     buffer_of(voice.buffer)->SetCurrentPosition(0);
     const HRESULT result =
-        buffer_of(voice.buffer)->Play(0, 0, reinterpret_cast<uint8_t*>(slot)[4] ? DSBPLAY_LOOPING : 0u);
+        buffer_of(voice.buffer)->Play(0, 0, raw::bytes(slot)[4] ? DSBPLAY_LOOPING : 0u);
     ++playing_voices();
     voice.playing = true;
     return result == 0 ? index : -1;

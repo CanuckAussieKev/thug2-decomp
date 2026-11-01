@@ -43,8 +43,7 @@ float sound_volume() { return sound::fetch_master_loudness(); }
 
 void bink_goto(render::Bink* bink, uint32_t frame, int flags)
 {
-    reinterpret_cast<void(__stdcall*)(render::Bink*, uint32_t, int)>(
-        crt::library_function("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
+    crt::library_function<void(__stdcall*)(render::Bink*, uint32_t, int)>("binkw32.dll", "_BinkGoto@12")(bink, frame, flags);
 }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 // Low-level file access. Every call first offers itself to the .pre archive manager (when one exists);
 // if the file isn't in a loaded archive the call goes to disk, under the game's data\ folder.
@@ -26,7 +27,7 @@ bool is_present(const char* name);
 // The path a game file name means on disk: "data\" + name, with forward slashes turned into backslashes, a
 // leading "c:\xxxxxxxxxxxx\" (the developers' machine) dropped, and the PC file extensions substituted
 // (.tex -> .txx, .pre -> .prx).
-void make_disk_path(char (&path)[256], const char* name);
+void make_disk_path(std::span<char, 256> path, const char* name);
 
 // Open on disk only: "data\" + name, with forward slashes turned into backslashes, a leading
 // "c:\xxxxxxxxxxxx\" dropped, and the PC file extensions substituted (.tex -> .txx, .pre -> .prx).

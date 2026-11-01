@@ -23,6 +23,8 @@
 #include "formats/lzss.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/loading_console.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace pre {
 
@@ -288,7 +290,7 @@ memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_
 void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
 {
     if (event == 3) // finished
-        static_cast<ArchiveManager*>(manager)->finish_load(reinterpret_cast<int>(file), static_cast<uint8_t*>(data),
+        static_cast<ArchiveManager*>(manager)->finish_load(static_cast<int>(cell::of(file)), static_cast<uint8_t*>(data),
                                                            size);
 }
 } // namespace
@@ -315,7 +317,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
             PendingLoad& pending = pending_[queued_archive_count_];
             // The original copies with no limit; the field holds 63 characters.
             strncpy_s(pending.name, name, _TRUNCATE);
-            pending.handle = reinterpret_cast<int>(file);
+            pending.handle = static_cast<int>(cell::of(file));
             ++queued_archive_count_;
             const int size = file::async_get_file_size(file);
             gfx::loading_console::note_file("read (async)", path, size); // (not original: the loading console)
@@ -390,7 +392,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
                 std::memset(data + file_size, 0, allocated - file_size);
             // Not original - bounded by the archive's room and the patch's size (the original wrote each record
             // where it said).
-            if (!pre_format::apply_patch(data, allocated, reinterpret_cast<const uint8_t*>(patch), patch_size))
+            if (!pre_format::apply_patch(data, allocated, raw::bytes(patch), patch_size))
                 debug::printf("%s: a damaged patch\n", path);
             memory::dealloc(patch);
         }
@@ -699,7 +701,7 @@ struct PreFileAdapter {
     }
     pre::ArchiveFile* teardown(unsigned int flags)
     {
-        auto* self = reinterpret_cast<pre::ArchiveFile*>(this);
+        auto* self = raw::as<pre::ArchiveFile>(this);
         self->~ArchiveFile();
         if (flags & 1)
             memory::dealloc(self);

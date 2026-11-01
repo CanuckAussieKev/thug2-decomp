@@ -16,6 +16,7 @@
 #include "platform/winmain.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
+#include "engine/core/raw_view.h"
 
 namespace audio {
 
@@ -25,57 +26,55 @@ namespace {
 using render::Bink;
 Bink* video_open(const void* name, uint32_t flags)
 {
-    return reinterpret_cast<Bink*(__stdcall*)(const void*, uint32_t)>(
-        crt::library_function("binkw32.dll", "_BinkOpen@8"))(name, flags);
+    return crt::library_function<Bink*(__stdcall*)(const void*, uint32_t)>("binkw32.dll", "_BinkOpen@8")(name, flags);
 }
 void video_decode_frame(Bink* bink)
 {
-    reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkDoFrame@4"))(bink);
+    crt::library_function<int(__stdcall*)(Bink*)>("binkw32.dll", "_BinkDoFrame@4")(bink);
 }
 void bink_set_pan(Bink* bink, uint32_t track, int pan)
 {
-    reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetPan@12"))(
+    crt::library_function<void(__stdcall*)(Bink*, uint32_t, int)>("binkw32.dll", "_BinkSetPan@12")(
         bink, track, pan);
 }
 void bink_goto(Bink* bink, uint32_t frame, int flags)
 {
-    reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkGoto@12"))(
+    crt::library_function<void(__stdcall*)(Bink*, uint32_t, int)>("binkw32.dll", "_BinkGoto@12")(
         bink, frame, flags);
 }
 void bink_set_io_size(uint32_t size)
 {
-    reinterpret_cast<void(__stdcall*)(uint32_t)>(crt::library_function("binkw32.dll", "_BinkSetIOSize@4"))(size);
+    crt::library_function<void(__stdcall*)(uint32_t)>("binkw32.dll", "_BinkSetIOSize@4")(size);
 }
 void bink_set_video_on_off(Bink* bink, int on)
 {
-    reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink,
+    crt::library_function<int(__stdcall*)(Bink*, int)>("binkw32.dll", "_BinkSetVideoOnOff@8")(bink,
                                                                                                                 on);
 }
 void* bink_open_direct_sound()
 {
-    return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4"));
+    return crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4");
 } // the function, passed to the next
 int bink_set_sound_system(void* open, void* param)
 {
-    return reinterpret_cast<int(__stdcall*)(void*, void*)>(
-        crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param);
+    return crt::library_function<int(__stdcall*)(void*, void*)>("binkw32.dll", "_BinkSetSoundSystem@8")(open, param);
 }
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
 {
-    reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetVolume@12"))(
+    crt::library_function<void(__stdcall*)(Bink*, uint32_t, int)>("binkw32.dll", "_BinkSetVolume@12")(
         bink, track, sound::output_bink_volume(volume));
 } // (NOT ORIGINAL: mute_audio)
 int video_wait_ready(Bink* bink)
 {
-    return reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkWait@4"))(bink);
+    return crt::library_function<int(__stdcall*)(Bink*)>("binkw32.dll", "_BinkWait@4")(bink);
 }
 void video_close(Bink* bink)
 {
-    reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkClose@4"))(bink);
+    crt::library_function<void(__stdcall*)(Bink*)>("binkw32.dll", "_BinkClose@4")(bink);
 }
 void video_advance_frame(Bink* bink)
 {
-    reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkNextFrame@4"))(bink);
+    crt::library_function<void(__stdcall*)(Bink*)>("binkw32.dll", "_BinkNextFrame@4")(bink);
 }
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
@@ -100,7 +99,7 @@ struct WadFile {
     uint32_t users;
     uint32_t unknownc_;
 };
-WadFile* wad_files() { return reinterpret_cast<WadFile*>(reinterpret_cast<uint8_t*>(g_stream_files) + 4); }
+WadFile* wad_files() { return raw::field_at<WadFile>(g_stream_files, 4); }
 uint32_t use_counter() { return g_stream_file_uses; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.

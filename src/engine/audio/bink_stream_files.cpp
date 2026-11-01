@@ -44,22 +44,20 @@ void get_crt_free(void* block) { crt::dealloc(block); }
 // The Bink SDK (binkw32.dll), through the game's import table.
 int bink_set_sound_system(void* open, void* param)
 {
-    return reinterpret_cast<int(__stdcall*)(void*, void*)>(
-        crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param);
+    return crt::library_function<int(__stdcall*)(void*, void*)>("binkw32.dll", "_BinkSetSoundSystem@8")(open, param);
 }
 // the function, passed to the above
 void* bink_open_direct_sound()
 {
-    return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4"));
+    return crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4");
 }
 void* video_open(const void* source, uint32_t flags)
 {
-    return reinterpret_cast<void*(__stdcall*)(const void*, uint32_t)>(
-        crt::library_function("binkw32.dll", "_BinkOpen@8"))(source, flags);
+    return crt::library_function<void*(__stdcall*)(const void*, uint32_t)>("binkw32.dll", "_BinkOpen@8")(source, flags);
 }
 void bink_set_video_on_off(void* bink, int on)
 {
-    reinterpret_cast<int(__stdcall*)(void*, int)>(crt::library_function("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink,
+    crt::library_function<int(__stdcall*)(void*, int)>("binkw32.dll", "_BinkSetVideoOnOff@8")(bink,
                                                                                                                 on);
 }
 constexpr uint32_t kBinkFromMemory = 0x04000000;

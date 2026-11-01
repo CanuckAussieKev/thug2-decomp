@@ -19,6 +19,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
+#include "engine/core/pointer_cell.h"
 
 namespace file {
 
@@ -471,7 +472,7 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     // Not original - the data overlay: a file of it is opened there.
     // Original behaviour: the data folder's file.
     if (!frontend::data_overlay::get_overlay_path(name, path))
-        make_disk_path(reinterpret_cast<char (&)[256]>(path), name);
+        make_disk_path(std::span<char, 260>(path).first<256>(), name);
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops_ = in_flight_ops_ + 1;
     const bool overlapped = use_overlapped_io();
@@ -482,7 +483,7 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
         return false; // (the busy counts stay raised, as in the original)
     payload_bytes_ = static_cast<int>(::GetFileSize(file_ref_, nullptr));
     payload_bytes_ = (payload_bytes_ + 0x7FF) & ~0x7FF; // whole 2 KB sectors (unbuffered reads)
-    io_done_handler(operation_, false, reinterpret_cast<int>(file_ref_), static_cast<int>(payload_bytes_));
+    io_done_handler(operation_, false, static_cast<int>(cell::of(file_ref_)), static_cast<int>(payload_bytes_));
     return true;
 }
 

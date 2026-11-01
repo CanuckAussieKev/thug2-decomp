@@ -20,6 +20,7 @@
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
 
 namespace surface_kind {
 
@@ -166,15 +167,15 @@ void load_terrain_types()
     for (uint32_t i = 0; i < types->extent_; ++i) {
         auto* item = static_cast<TypeItem*>(memory::alloc(sizeof(TypeItem)));
         item->index = static_cast<uint8_t>(i);
-        reinterpret_cast<Struct*>(types->fetch_part(i))->read_hash_value(kChecksum, &item->checksum, 0);
+        types->struct_at(i)->read_hash_value(kChecksum, &item->checksum, 0);
         terrain_types().store_entry(item->checksum, item);
     }
     Array* actions = script::fetch_list(kTerrainActions);
     for (uint32_t i = 0; i < actions->extent_; ++i) {
         auto* item = static_cast<ActionItem*>(memory::alloc(sizeof(ActionItem)));
         item->index = static_cast<uint8_t>(i);
-        reinterpret_cast<Struct*>(actions->fetch_part(i))->read_hash_value(kType, &item->type, 1);
-        reinterpret_cast<Struct*>(actions->fetch_part(i))->read_hash_value(kAction, &item->action, 1);
+        actions->struct_at(i)->read_hash_value(kType, &item->type, 1);
+        actions->struct_at(i)->read_hash_value(kAction, &item->action, 1);
         get_terrain_actions().store_entry(i, item);
     }
 }
@@ -244,14 +245,14 @@ Struct* pick_sound_action(Struct* entry)
     int total = 0;
     for (uint32_t i = choices->extent_; i != 0;) {
         --i;
-        sound_action = reinterpret_cast<Struct*>(choices->fetch_part(i));
+        sound_action = choices->struct_at(i);
         sound_action->fetch_int_value(kChance, &chance, 1);
         total += chance;
     }
     int pick = maths::rnd(total);
     for (uint32_t i = choices->extent_; i != 0;) {
         --i;
-        sound_action = reinterpret_cast<Struct*>(choices->fetch_part(i));
+        sound_action = choices->struct_at(i);
         sound_action->fetch_int_value(kChance, &chance, 1);
         pick -= chance;
         if (pick < 0)
@@ -270,7 +271,7 @@ Struct* find_sound_action(Struct* sound_actions, uint8_t table, float value)
     Array* entries = nullptr;
     sound_actions->fetch_list(action, &entries, 1);
     for (uint32_t i = 0; i < entries->extent_; ++i) {
-        entry = reinterpret_cast<Struct*>(entries->fetch_part(i));
+        entry = entries->struct_at(i);
         float use_up_to = 0.0f;
         // (a NaN value never fits)
         if (!entry->fetch_float(kUseUpTo, &use_up_to, 0) || value <= use_up_to)
@@ -307,7 +308,7 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
     if (!sound_actions->fetch_list(action, &entries, 0))
         default_actions->fetch_list(action, &entries, 1);
     for (uint32_t i = 0; i < entries->extent_; ++i) {
-        auto* element = reinterpret_cast<Struct*>(entries->fetch_part(i));
+        auto* element = entries->struct_at(i);
         Struct* sound_action = nullptr;
         if (element->read_sub_struct(kSoundAction, &sound_action, 0)) {
             load_sound_action(sound_action);
@@ -317,7 +318,7 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
         element->fetch_list(kSoundAction, &choices, 1);
         for (uint32_t j = 0; j < choices->extent_; ++j) {
             SoundInfo info{};
-            get_sound_info(reinterpret_cast<Struct*>(choices->fetch_part(j)), &info);
+            get_sound_info(choices->struct_at(j), &info);
             ingest_sound(info);
         }
     }
@@ -383,7 +384,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
         sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
-                           static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
+                           static_cast<int>(cell::address(&info)));
     }
 }
 
@@ -399,7 +400,7 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
         sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
-                           static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
+                           static_cast<int>(cell::address(&info)));
     }
 }
 

@@ -18,6 +18,7 @@
 #include "engine/sys/game_config.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/viewport.h"
+#include "engine/core/raw_view.h"
 
 namespace audio {
 
@@ -68,7 +69,7 @@ bool play_on_channel(uint32_t checksum, int channel, const void* volume, float p
 // StreamAmpCurve's load (FamData::ReadIn: data\fam\<checksum>.fam into the slot).
 bool read_amp_curve(StreamAmpCurve* slot, uint32_t checksum)
 {
-    return reinterpret_cast<FamData*>(slot)->read_in(checksum);
+    return raw::as<FamData>(slot)->read_in(checksum);
 }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
@@ -92,7 +93,7 @@ bool loudness_from_position(sound::AudioMixer* manager, Loudness* volume, const 
 // and the stream component's position for it and its emitter's extent.
 void* nearest_emitter(const float* position)
 {
-    return render::fetch_nearest_camera(reinterpret_cast<const maths::Vec4*>(position), nullptr);
+    return render::fetch_nearest_camera(raw::as<const maths::Vec4>(position), nullptr);
 }
 maths::Vec4* sound_position(void* component, maths::Vec4* out, void* emitter)
 {
@@ -224,7 +225,7 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
     stream.channel = channel;
     stream.priority = priority;
     stream.begin_frame_ = static_cast<uint32_t>(frame_clock::get_draw_frame()); // (the low half)
-    stream.listener = reinterpret_cast<uint32_t*>(fetch_stream_amp_curve(checksum));
+    stream.listener = raw::as<uint32_t>(fetch_stream_amp_curve(checksum));
     return channel;
 }
 

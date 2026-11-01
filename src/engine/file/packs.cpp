@@ -18,6 +18,9 @@
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
 #include "engine/gfx/loading_console.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
+#include "platform/code_address.h"
 
 namespace packs {
 
@@ -51,9 +54,9 @@ struct PackLeadIn {
     int num_files_;
 };
 
-PackLeadIn* header_of(char* pre) { return reinterpret_cast<PackLeadIn*>(pre + ((std::strlen(pre) + 0x10) & ~0xFu)); }
+PackLeadIn* header_of(char* pre) { return raw::as<PackLeadIn>(pre + ((std::strlen(pre) + 0x10) & ~0xFu)); }
 
-PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(header + 1); }
+PreEntry* first_entry(PackLeadIn* header) { return raw::as<PreEntry>(header + 1); }
 
 // (Loaded archives are repacked with 16-byte aligned data - see next_entry; the archive format as stored is read
 // through formats/pre_format.h.)
@@ -61,8 +64,8 @@ PreEntry* next_entry(PreEntry* entry)
 {
     auto stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
     const uintptr_t after_name =
-        (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
-    return reinterpret_cast<PreEntry*>(after_name + ((stored + 3) & ~3u));
+        (cell::address(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
+    return cell::pointer<PreEntry>(after_name + ((stored + 3) & ~3u));
 }
 
 } // namespace
@@ -98,8 +101,8 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
     if (PreEntry* entry = overlay ? nullptr : find_pre_entry(checksum)) {
         ++entry->use_count_;
         auto after_name =
-            (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
-        return reinterpret_cast<void*>(after_name);
+            (cell::address(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
+        return cell::pointer<void>(after_name);
     }
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
         LoadedFile& file = loaded_files()[i];
@@ -126,7 +129,7 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
         data = allocate_file_memory(sector_aligned(static_cast<unsigned int>(size)));
         if (callback) {
             file::async_set_callback_mask(file, 1u << file::kOpReadFile); // call back when the read completes
-            file::async_set_callback(file, reinterpret_cast<file::IoCompletionHook>(callback), hook_user_a,
+            file::async_set_callback(file, function_at<file::IoCompletionHook>(callback), hook_user_a,
                                      hook_user_b);
         }
         file::start_background_read(file, data, size);
@@ -293,7 +296,7 @@ void load_pre(const char* name)
         if (allocated > file_size)
             std::memset(data + file_size, 0, allocated - file_size - prefix);
         // Not original - bounded by the block and the patch's size (the original wrote each record where it said).
-        if (!pre_format::apply_patch(data, allocated - prefix, reinterpret_cast<const uint8_t*>(patch), patch_size))
+        if (!pre_format::apply_patch(data, allocated - prefix, raw::bytes(patch), patch_size))
             debug::printf("%s: a damaged patch\n", path);
         memory::dealloc(patch);
     }
@@ -324,7 +327,7 @@ void load_pre(const char* name)
     for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
         repacked[i] = block[i];
 
-    auto* new_header = reinterpret_cast<PackLeadIn*>(repacked + prefix);
+    auto* new_header = raw::as<PackLeadIn>(repacked + prefix);
     new_header->num_files_ = count;
     new_header->version = static_cast<int>(old_header.version);
     auto* to = first_entry(new_header);
@@ -338,7 +341,7 @@ void load_pre(const char* name)
         to->name_size_ = from.name_size;
         std::memcpy(to + 1, from.name, from.name_size);
 
-        auto* target = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) &
+        auto* target = cell::pointer<uint8_t>((cell::address(to) + to->name_size_ + 0x1F) &
                                                   ~static_cast<uintptr_t>(0xF));
         uint8_t* end = nullptr;
         if (from.compressed_size) {
@@ -358,10 +361,10 @@ void load_pre(const char* name)
         }
         to = next_entry(to);
     }
-    new_header->total_size_ = static_cast<int>(reinterpret_cast<uint8_t*>(to) - reinterpret_cast<uint8_t*>(new_header));
+    new_header->total_size_ = static_cast<int>(raw::bytes(to) - raw::bytes(new_header));
     free_file_memory(block);
     // With all 100 slots taken the original writes to slot -1 (the last loaded file's reference count).
-    (&pre_files()[0])[slot] = reinterpret_cast<char*>(repacked);
+    (&pre_files()[0])[slot] = raw::chars(repacked);
 }
 
 // --- script functions -----------------------------------------------------------------------------------
@@ -420,7 +423,7 @@ bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*
         PreEntry* entry = first_entry(header);
         for (int n = header->num_files_; n > 0; --n, entry = next_entry(entry)) {
             if (!only_open || entry->use_count_ != 0) {
-                debug::printf("Usage:%d  File: %s\n", entry->use_count_, reinterpret_cast<const char*>(entry + 1));
+                debug::printf("Usage:%d  File: %s\n", entry->use_count_, raw::chars(entry + 1));
                 for (volatile int wait = 0; wait < 100000; ++wait) {
                     // the original pauses after each line (presumably so the debug output keeps up)
                 }

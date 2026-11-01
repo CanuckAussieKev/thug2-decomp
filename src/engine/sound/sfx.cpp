@@ -16,6 +16,7 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/core/owner.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace sound {
 
@@ -257,7 +258,7 @@ void AudioMixer::init_playback_props(PlaybackProps* props, SoundWaveSlot* entry,
 {
     if (params) {
         // (the parameters: {pitch, volume, dropoff, falloff} in the props' first four words' order)
-        auto* given = reinterpret_cast<uint32_t*>(params);
+        auto* given = raw::as<uint32_t>(params);
         std::memcpy(&props->pitch, &given[0], 4);
         std::memcpy(&props->volume, &given[1], 4);
         float dropoff = 0.0f;

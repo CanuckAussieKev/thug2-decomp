@@ -18,6 +18,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/anim_movies.h"
+#include "engine/core/raw_view.h"
 
 namespace audio {
 
@@ -71,12 +72,12 @@ struct StreamFields {
     } queue[8]; // +0x34
 };
 static_assert(sizeof(StreamFields) == 0x74, "layout must match the original");
-StreamFields* stream_at(int index) { return reinterpret_cast<StreamFields*>(g_streams) + index; }
+StreamFields* stream_at(int index) { return raw::as<StreamFields>(g_streams) + index; }
 constexpr int kStreams = 3;
 // The objects that started each stream (null: none); each notes the ids of the streams it started at
 // +0x18 + 4 * slot.
-uint8_t** get_owners() { return reinterpret_cast<uint8_t**>(g_stream_owners); }
-uint32_t* owner_ids(uint8_t* owner) { return reinterpret_cast<objects::AudioStreamModule*>(owner)->streams_; }
+uint8_t** get_owners() { return raw::as<uint8_t*>(g_stream_owners); }
+uint32_t* owner_ids(uint8_t* owner) { return raw::as<objects::AudioStreamModule>(owner)->streams_; }
 
 // The user soundtrack (see music_player.cpp).
 int& user_soundtrack() { return g_user_soundtrack; }
@@ -348,9 +349,9 @@ bool update_stream_volume(int slot)
     if (stream->positional) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = render::fetch_nearest_camera(
-            &reinterpret_cast<objects::AudioStreamModule*>(owner)->entity_->at_point_, nullptr);
+            &raw::as<objects::AudioStreamModule>(owner)->entity_->at_point_, nullptr);
         if (object) {
-            auto* component = reinterpret_cast<objects::AudioStreamModule*>(owner);
+            auto* component = raw::as<objects::AudioStreamModule>(owner);
             maths::Vec4 extent{};
             maths::Vec4* extent_or_null = nullptr;
             if (component->get_stream_extent(object, &extent))

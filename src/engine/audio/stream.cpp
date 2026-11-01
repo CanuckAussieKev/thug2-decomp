@@ -15,6 +15,7 @@
 #include "formats/byte_stream.h"
 #include "engine/audio/stream_commands.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/raw_view.h"
 
 namespace audio {
 
@@ -388,13 +389,13 @@ int user_soundtrack_count()
 // 0x00454300
 const wchar_t* user_soundtrack_name(int index)
 {
-    return index < soundtrack_count() ? reinterpret_cast<const wchar_t*>(get_soundtrack(index) + 8) : nullptr;
+    return index < soundtrack_count() ? raw::as<const wchar_t>(get_soundtrack(index) + 8) : nullptr;
 }
 
 // 0x00454320
 int user_soundtrack_tracks(int index)
 {
-    return index < soundtrack_count() ? *reinterpret_cast<int*>(get_soundtrack(index)) : 0;
+    return index < soundtrack_count() ? *raw::as<int>(get_soundtrack(index)) : 0;
 }
 
 } // namespace audio

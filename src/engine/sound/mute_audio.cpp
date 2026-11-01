@@ -8,6 +8,7 @@
 
 #include "platform/run_log.h"
 #include "engine/util/com_ptr.h"
+#include "engine/core/raw_view.h"
 
 namespace sound {
 
@@ -37,10 +38,10 @@ bool with_session_volume(F use)
         util::ComPtr<IAudioSessionManager> sessions;
         util::ComPtr<ISimpleAudioVolume> volume;
         if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                       __uuidof(IMMDeviceEnumerator), reinterpret_cast<void**>(devices.put()))) &&
+                                       __uuidof(IMMDeviceEnumerator), raw::as<void*>(devices.put()))) &&
             SUCCEEDED(devices->GetDefaultAudioEndpoint(eRender, eConsole, device.put())) &&
             SUCCEEDED(device->Activate(__uuidof(IAudioSessionManager), CLSCTX_ALL, nullptr,
-                                       reinterpret_cast<void**>(sessions.put()))) &&
+                                       raw::as<void*>(sessions.put()))) &&
             SUCCEEDED(sessions->GetSimpleAudioVolume(nullptr, FALSE, volume.put())))
             ok = use(volume.get());
     }

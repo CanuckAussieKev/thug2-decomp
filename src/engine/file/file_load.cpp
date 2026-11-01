@@ -75,9 +75,9 @@ void note_opened(const char* name, Hdl file, bool archive)
 
 } // namespace
 
-void make_disk_path(char (&path)[256], const char* name)
+void make_disk_path(std::span<char, 256> path, const char* name)
 {
-    std::memcpy(path, "data\\", 6);
+    std::memcpy(path.data(), "data\\", 6);
     // Paths written for the original development machine.
     if (name[0] == 'c' && name[1] == ':')
         name += 15;
@@ -86,7 +86,7 @@ void make_disk_path(char (&path)[256], const char* name)
         path[length++] = *name == '/' ? '\\' : *name;
     path[length] = '\0';
 
-    char* end = path + length;
+    char* end = path.data() + length;
     const char last = end[-1];
     if (last == 'x' && end[-2] == 'e' && end[-3] == 't')
         end[-2] = 'x'; // .tex -> .txx

@@ -23,6 +23,8 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/stream_component.h"
 #include "platform/compiler.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace audio {
 
@@ -77,7 +79,7 @@ constexpr int kStreams = 3;
 // Whether the platform's stream `channel` is playing (stream_status: 1 free, 2 playing).
 bool get_playing(const Stream& stream) { return stream_status(stream.channel) != 1; }
 // The objects that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
-uint32_t** stream_owners() { return reinterpret_cast<uint32_t**>(g_stream_owners); }
+uint32_t** stream_owners() { return raw::as<uint32_t*>(g_stream_owners); }
 int& frame_count() { return g_frame_count; }
 
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
@@ -86,8 +88,8 @@ int& user_soundtrack() { return g_user_soundtrack; }
 bool& custom_soundtrack_active() { return g_custom_playlist_on; }
 int* user_order() { return g_user_order; }
 constexpr int kUserOrderSize = 600;
-int& user_track() { return reinterpret_cast<int&>(g_user_track); }
-int& user_position() { return reinterpret_cast<int&>(g_user_position); }
+int& user_track() { return memory::bits_as<int>(g_user_track); }
+int& user_position() { return memory::bits_as<int>(g_user_position); }
 bool shuffle_user() { return g_shuffle_user; }
 
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.
@@ -104,7 +106,7 @@ bool is_off(const Playlist& list, int track)
 // The track's start: the stream played, and the script told which track it is.
 void start_track(Playlist& list, int track)
 {
-    play_track(reinterpret_cast<const char*>(list.tracks[track]), false);
+    play_track(raw::chars(list.tracks[track]), false);
     current_track() = track;
     script::Struct* params = script::spawn_param_bag();
     params = params ? new (params) script::Struct : nullptr;
@@ -202,7 +204,7 @@ void queue_track(const char* name, int list, const char* title)
     Playlist& playlist = get_playlists()[list];
     if (playlist.count >= 80)
         return;
-    char* track = reinterpret_cast<char*>(playlist.tracks[playlist.count]);
+    char* track = raw::chars(playlist.tracks[playlist.count]);
     THUG2_MSVC_WARNING(suppress : 4996) // (the slot is 40 bytes; names are shorter)
     std::strcpy(track, name);
     for (size_t i = 0; i < std::strlen(track); ++i) {
@@ -282,7 +284,7 @@ bool is_track_playing(int list, int track)
         return false;
     if (track >= get_playlists()[list].count)
         return false;
-    const uint32_t name = checksums::hash_from_text(reinterpret_cast<const char*>(get_playlists()[list].tracks[track]));
+    const uint32_t name = checksums::hash_from_text(raw::chars(get_playlists()[list].tracks[track]));
     return checksums::hash_from_text(static_cast<const char*>(special_track())) == name;
 }
 
@@ -293,11 +295,11 @@ int track_total(int list) { return music_on() ? get_playlists()[list].count : 0;
 const char* track_label_at(int track, int list)
 {
     if (!music_on()) {
-        char* first = reinterpret_cast<char*>(get_playlists()[0].tracks[0]);
+        char* first = raw::chars(get_playlists()[0].tracks[0]);
         std::memcpy(first, "Empty.", 7); // "Empty."
         return first;
     }
-    const char* name = reinterpret_cast<const char*>(get_playlists()[list].tracks[track]);
+    const char* name = raw::chars(get_playlists()[list].tracks[track]);
     const char* file = name;
     const int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i)
@@ -375,7 +377,7 @@ void play_track(const char* name, bool loop)
     // It doesn't play: switch it off.
     Playlist& playlist = get_playlists()[list];
     for (int i = 0; i < playlist.count; ++i) {
-        const uint32_t crc = checksums::hash_from_text(reinterpret_cast<const char*>(playlist.tracks[i]));
+        const uint32_t crc = checksums::hash_from_text(raw::chars(playlist.tracks[i]));
         if (checksums::hash_from_text(name) == crc) {
             change_track_state(i, true, list);
             return;
@@ -408,7 +410,7 @@ void play_next_track()
     if (current_playlist() == 1) {
         const int track = script::fetch_int_value(0xF18AB1F9u);
         if (track < get_playlists()[1].count)
-            play_track(reinterpret_cast<const char*>(get_playlists()[1].tracks[track]), false);
+            play_track(raw::chars(get_playlists()[1].tracks[track]), false);
         return;
     }
     if (get_looping()) {
@@ -523,7 +525,7 @@ void tick_frame()
     for (int i = 0; i < kStreams; ++i) {
         uint32_t*& owner = stream_owners()[i];
         if (owner && !update_stream_volume(i)) { // (false: the stream is over)
-            reinterpret_cast<objects::AudioStreamModule*>(owner)->streams_[i] = 0;
+            raw::as<objects::AudioStreamModule>(owner)->streams_[i] = 0;
             owner = nullptr;
         }
     }
