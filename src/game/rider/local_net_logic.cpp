@@ -19,7 +19,7 @@
 #include "engine/net/thugpro_compat.h"
 #include "engine/script/cscript.h"
 #include "engine/util/byte_stream.h"
-#include "game/skate/skate_net_messages.h"
+#include "engine/net/skater_messages.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
@@ -257,27 +257,28 @@ void RiderHostSync::tick_frame()
 int __cdecl RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
-    skate_net::GraffitiStealMessage message;
+    online::TagStolenMessage message;
     // (NOT ORIGINAL: too short - dropped)
-    if (!skate_net::read_graffiti_steal(reader, &message) || message.run != run_count())
+    if (!online::read_tag_stolen(reader, &message) || message.game_id != run_count())
         return net::kResultConsumed;
-    uint32_t victim_id = message.victim_id;
+    // (the thief first, as the senders write it: score_trick_objects / PointTally::note_tagged_prop)
     uint32_t thief_id = message.thief_id;
+    uint32_t victim_id = message.victim_id;
     auto* skater = static_cast<Rider*>(context->content_);
-    Rider* victim = rider_for_slot(victim_id);
-    if (!victim)
-        return net::kResultPassOn;
     Rider* thief = rider_for_slot(thief_id);
     if (!thief)
         return net::kResultPassOn;
+    Rider* victim = rider_for_slot(victim_id);
+    if (!victim)
+        return net::kResultPassOn;
     uint32_t script;
     Rider* other;
-    if (skater->ident_ == victim_id) {
+    if (skater->ident_ == thief_id) {
         script = kGraffitiStealYou;
-        other = thief;
-    } else if (skater->ident_ == thief_id) {
-        script = kGraffitiStealOther;
         other = victim;
+    } else if (skater->ident_ == victim_id) {
+        script = kGraffitiStealOther;
+        other = thief;
     } else {
         return net::kResultPassOn;
     }

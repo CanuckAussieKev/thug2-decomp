@@ -56,13 +56,4 @@ bool read_graffiti_colors(util::ByteReader& reader, GraffitiColorsMessage* messa
     return reader.bytes(message->counts, sizeof(message->counts));
 }
 
-bool read_graffiti_steal(util::ByteReader& reader, GraffitiStealMessage* message)
-{
-    message->run = reader.u8();
-    reader.skip(3);
-    message->victim_id = reader.u32();
-    message->thief_id = reader.u32();
-    return reader.ok();
-}
-
 } // namespace skate_net

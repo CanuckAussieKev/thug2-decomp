@@ -120,4 +120,106 @@ bool write_special_item(util::ByteWriter& writer, const SpecialItemMessage& mess
     return writer.ok();
 }
 
+namespace {
+
+// The names after a header: `count` of them, all within the message.
+bool read_names(util::ByteReader& reader, TrickObjectsMessage* message)
+{
+    if (!reader.ok() || message->count > kMaxTrickObjects || message->count > reader.remaining() / 4) {
+        message->count = 0;
+        reader.skip(reader.remaining() + 1); // (fails the reader)
+        return false;
+    }
+    for (uint32_t i = 0; i < message->count; ++i)
+        message->objects[i] = reader.u32();
+    return reader.ok();
+}
+
+bool write_names(util::ByteWriter& writer, const TrickObjectsMessage& message)
+{
+    if (message.count > kMaxTrickObjects)
+        return writer.seek(writer.capacity() + 1); // (fails the writer)
+    for (uint32_t i = 0; i < message.count; ++i)
+        writer.u32(message.objects[i]);
+    return writer.ok();
+}
+
+} // namespace
+
+bool read_trick_objects(util::ByteReader& reader, TrickObjectsMessage* message)
+{
+    message->one = reader.i8();
+    reader.skip(9);
+    message->game_id = reader.u8();
+    reader.skip(1);
+    message->player = reader.i32();
+    message->score = reader.u32();
+    message->count = reader.u32();
+    return read_names(reader, message);
+}
+
+bool write_trick_objects(util::ByteWriter& writer, const TrickObjectsMessage& message)
+{
+    writer.i8(message.one);
+    writer.fill(0, 9);
+    writer.u8(message.game_id);
+    writer.u8(0);
+    writer.i32(message.player);
+    writer.u32(message.score);
+    writer.u32(message.count);
+    return write_names(writer, message);
+}
+
+bool read_observed_trick_objects(util::ByteReader& reader, TrickObjectsMessage* message)
+{
+    message->game_id = reader.u8();
+    reader.skip(3);
+    message->player = reader.i32();
+    message->count = reader.u32();
+    return read_names(reader, message);
+}
+
+bool write_observed_trick_objects(util::ByteWriter& writer, const TrickObjectsMessage& message)
+{
+    writer.u8(message.game_id);
+    writer.fill(0, 3);
+    writer.i32(message.player);
+    writer.u32(message.count);
+    return write_names(writer, message);
+}
+
+bool read_tag_stolen(util::ByteReader& reader, TagStolenMessage* message)
+{
+    message->game_id = reader.u8();
+    reader.skip(3);
+    message->thief_id = reader.u32();
+    message->victim_id = reader.u32();
+    return reader.ok();
+}
+
+bool write_tag_stolen(util::ByteWriter& writer, const TagStolenMessage& message)
+{
+    writer.u8(message.game_id);
+    writer.fill(0, 3);
+    writer.u32(message.thief_id);
+    writer.u32(message.victim_id);
+    return writer.ok();
+}
+
+bool read_points(util::ByteReader& reader, PointsMessage* message)
+{
+    message->game_id = reader.u8();
+    reader.skip(3);
+    message->points = reader.i32();
+    return reader.ok();
+}
+
+bool write_points(util::ByteWriter& writer, const PointsMessage& message)
+{
+    writer.u8(message.game_id);
+    writer.fill(0, 3);
+    writer.i32(message.points);
+    return writer.ok();
+}
+
 } // namespace online

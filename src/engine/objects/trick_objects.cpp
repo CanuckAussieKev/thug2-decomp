@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <new>
 
 #include "engine/core/dbg.h"
@@ -26,6 +27,8 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/player_info.h"
+#include "engine/net/skater_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
 #include "engine/sys/game_config.h"
@@ -633,32 +636,38 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
                 continue;
             net::NetMessageInfo stolen_desc;
             stolen_desc.make_new();
-            TagStolenMessage message = {};
-            message.thief = player;
-            message.victim = victim;
-            message.game_id_ = net->get_game_id();
+            online::TagStolenMessage message;
+            message.thief_id = static_cast<uint32_t>(player);
+            message.victim_id = static_cast<uint32_t>(victim);
+            message.game_id = net->get_game_id();
+            uint8_t stolen_data[online::kTagStolenSize];
+            util::ByteWriter stolen_writer(stolen_data, sizeof(stolen_data));
+            online::write_tag_stolen(stolen_writer, message);
             online::PlayerRecord* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
-            stolen_desc.content_ = &message;
-            stolen_desc.byte_count_ = sizeof(message);
-            stolen_desc.ident_ = kMsgTagStolen;
+            stolen_desc.content_ = stolen_data;
+            stolen_desc.byte_count_ = sizeof(stolen_data);
+            stolen_desc.ident_ = online::kMsgTagStolen;
             server->put_on_outbox(thief->get_link_handle(), &stolen_desc);
-            message.thief = player;
-            message.victim = victim;
-            message.game_id_ = net->get_game_id();
             if (online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(victim)))
                 server->put_on_outbox(info->get_link_handle(), &desc); // (not stolen_desc: as the original)
         }
 
-        TrickObjectsMessage all = {};
-        all.one = 1;
-        all.player = player;
-        all.score = score;
-        all.count = count;
-        all.game_id_ = net->get_game_id();
-        std::memcpy(all.objects, objects, count * 4);
-        desc.content_ = &all;
-        desc.byte_count_ = static_cast<uint16_t>(count * 4 + offsetof(TrickObjectsMessage, objects));
-        desc.ident_ = kMsgTrickObjects;
+        // (NOT ORIGINAL: no more names than the message holds - the original copied a remote count on past its
+        // buffer)
+        if (count > online::kMaxTrickObjects)
+            count = online::kMaxTrickObjects;
+        auto all = std::make_unique<online::TrickObjectsMessage>();
+        all->player = player;
+        all->score = score;
+        all->count = count;
+        all->game_id = net->get_game_id();
+        std::memcpy(all->objects, objects, count * 4);
+        uint8_t data[online::kTrickObjectsHeaderSize + sizeof(all->objects)];
+        util::ByteWriter writer(data, sizeof(data));
+        online::write_trick_objects(writer, *all);
+        desc.content_ = data;
+        desc.byte_count_ = static_cast<uint16_t>(writer.position());
+        desc.ident_ = online::kMsgTrickObjects;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
@@ -666,14 +675,11 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
             server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
                                       "TrickObj Buffer", kGroupGame, true, false);
 
-        ObserverTrickObjectsMessage observed = {};
-        observed.count = count;
-        observed.player = player;
-        observed.game_id_ = net->get_game_id();
-        std::memcpy(observed.objects, objects, count * 4);
-        desc.content_ = &observed;
-        desc.byte_count_ = static_cast<uint16_t>(count * 4 + offsetof(ObserverTrickObjectsMessage, objects));
-        desc.ident_ = kMsgObserverTrickObjects;
+        util::ByteWriter observed_writer(data, sizeof(data));
+        online::write_observed_trick_objects(observed_writer, *all);
+        desc.content_ = data;
+        desc.byte_count_ = static_cast<uint16_t>(observed_writer.position());
+        desc.ident_ = online::kMsgObservedTrickObjects;
         for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
              info = net->step_player_walk(&search, true)) {
             if (info->is_observer())

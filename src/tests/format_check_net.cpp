@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -141,12 +142,79 @@ void check_skater_messages()
     }
 }
 
+// The graffiti and score messages as their senders built them (score_trick_objects, PointTally, send_points).
+#pragma pack(push, 1)
+struct ReferenceTrickObjects {
+    uint8_t one, unknown01[9], game_id, pad0b;
+    int32_t player;
+    uint32_t score, count, objects[3];
+};
+struct ReferenceObservedTrickObjects {
+    uint8_t game_id, pad[3];
+    int32_t player;
+    uint32_t count, objects[3];
+};
+struct ReferenceTagStolen {
+    uint8_t game_id, pad[3];
+    int32_t thief, victim;
+};
+struct ReferencePoints {
+    uint8_t game_id, pad[3];
+    int32_t points;
+};
+#pragma pack(pop)
+static_assert(offsetof(ReferenceTrickObjects, objects) == online::kTrickObjectsHeaderSize &&
+              offsetof(ReferenceObservedTrickObjects, objects) == online::kObservedTrickObjectsHeaderSize &&
+              sizeof(ReferenceTagStolen) == online::kTagStolenSize && sizeof(ReferencePoints) == online::kPointsSize);
+
+void check_graffiti_messages()
+{
+    auto message = std::make_unique<online::TrickObjectsMessage>();
+    message->game_id = 9;
+    message->player = 3;
+    message->score = 12345;
+    message->count = 3;
+    message->objects[0] = 0x11111111;
+    message->objects[1] = 0x22222222;
+    message->objects[2] = 0x33333333;
+    ReferenceTrickObjects ref = {1, {}, 9, 0, 3, 12345, 3, {0x11111111, 0x22222222, 0x33333333}};
+    check_message("trick objects 0x3B", *message, ref, online::write_trick_objects, online::read_trick_objects);
+    ReferenceObservedTrickObjects observed = {9, {}, 3, 3, {0x11111111, 0x22222222, 0x33333333}};
+    check_message("observed trick objects 0x5B", *message, observed, online::write_observed_trick_objects,
+                  online::read_observed_trick_objects);
+    // a count past the message's end, or past the senders' buffer: refused
+    ref.count = 4;
+    util::ByteReader reader(&ref, sizeof(ref));
+    check(!online::read_trick_objects(reader, message.get()) && message->count == 0,
+          "trick objects 0x3B: a count past the end refused");
+    std::vector<uint8_t> big(online::kTrickObjectsHeaderSize + 4 * (online::kMaxTrickObjects + 1), 0);
+    big[0] = 1;
+    uint32_t too_many = online::kMaxTrickObjects + 1;
+    std::memcpy(big.data() + 0x14, &too_many, 4);
+    util::ByteReader big_reader(big.data(), big.size());
+    check(!online::read_trick_objects(big_reader, message.get()), "trick objects 0x3B: more than the buffer refused");
+
+    ReferenceTagStolen stolen_ref = {7, {}, 2, 5};
+    online::TagStolenMessage stolen;
+    stolen.game_id = 7;
+    stolen.thief_id = 2;
+    stolen.victim_id = 5;
+    check_message("tag stolen 0x4B", stolen, stolen_ref, online::write_tag_stolen, online::read_tag_stolen);
+
+    ReferencePoints points_ref = {4, {}, -250};
+    online::PointsMessage points;
+    points.game_id = 4;
+    points.points = -250;
+    check_message("points 0x52 / 0x86", points, points_ref, online::write_points, online::read_points);
+}
+
 } // namespace
 
 int run()
 {
     std::printf("game messages (batch 9 on)\n");
     check_skater_messages();
+    check_graffiti_messages();
     return g_failures;
 }
 

@@ -18,6 +18,8 @@
 #include "engine/maths/x87_math.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
+#include "engine/net/skater_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/script/cscript.h"
 #include "game/skate/profile_manager.h"
@@ -59,16 +61,9 @@ constexpr uint32_t kFakieOllie = 0x28C6399C;
 constexpr uint32_t kCabTrick2 = 0x8BF1B0CB;
 constexpr uint32_t kCabTrick3 = 0x428485BB;
 
-constexpr uint8_t kMsgBestCombo = 0x86;   // the best combo to the server
-constexpr uint8_t kMsgLandedScore = 0x52; // a landed combo's points to the server
+using online::kMsgBestCombo;   // the best combo to the server
+using online::kMsgLandedScore; // a landed combo's points to the server
 constexpr uint8_t kGroupGame = 8;
-
-// The message both send: the game id and the points.
-struct PointsMessage {
-    uint8_t game_id_;
-    uint8_t pad01[3];
-    int points;
-};
 
 // The tricks since the last no-spin one (index 0 not looked at).
 int tricks_since_no_spin(PointTally* score)
@@ -94,12 +89,16 @@ void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int point
 {
     net::NetMessageInfo desc;
     desc.make_new();
-    PointsMessage message;
+    // (the message both send: engine/net/skater_messages.h)
+    online::PointsMessage message;
     message.points = points;
-    message.game_id_ = net->get_game_id();
+    message.game_id = net->get_game_id();
+    uint8_t data[online::kPointsSize];
+    util::ByteWriter writer(data, sizeof(data));
+    online::write_points(writer, message);
     desc.ident_ = id;
-    desc.content_ = &message;
-    desc.byte_count_ = sizeof(message);
+    desc.content_ = data;
+    desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
     static_cast<net::Guest*>(net->fetch_patron(skater->view_slot_))->send_to_host(&desc);

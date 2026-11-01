@@ -171,39 +171,9 @@ struct TrickSpotHub : memory::HeapObject {
     uint32_t log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player, uint32_t score);
 };
 
-// The graffiti messages (the receivers' layouts; bytes the original leaves unset are zero here) - sent by
-// score_trick_objects and modules::PointTally (score_net.cpp).
-constexpr uint8_t kMsgTagStolen = 0x4B;
-constexpr uint8_t kMsgTrickObjects = 0x3B;
-constexpr uint8_t kMsgObserverTrickObjects = 0x5B;
+// The graffiti messages' group (their formats: engine/net/skater_messages.h - sent by score_trick_objects and
+// modules::PointTally, score_net.cpp).
 constexpr uint8_t kGroupGame = 8;
-constexpr uint32_t kMaxMessageObjects = HitClusterLog::kCapacity;
-struct TagStolenMessage {
-    uint8_t game_id_;
-    uint8_t pad01[3];
-    int thief;
-    int victim;
-};
-struct TrickObjectsMessage {
-    uint8_t one; // (always 1)
-    uint8_t unknown01[9];
-    uint8_t game_id_; // +0x0A
-    uint8_t pad0b_;
-    int player;     // +0x0C
-    uint32_t score; // +0x10
-    uint32_t count; // +0x14
-    uint32_t objects[kMaxMessageObjects];
-};
-struct ObserverTrickObjectsMessage {
-    uint8_t game_id_;
-    uint8_t pad01[3];
-    int player;
-    uint32_t count;
-    uint32_t objects[kMaxMessageObjects];
-};
-static_assert(sizeof(TagStolenMessage) == 0xC && offsetof(TrickObjectsMessage, objects) == 0x18 &&
-                  offsetof(ObserverTrickObjectsMessage, objects) == 0xC,
-              "layout must match the original");
 
 // The manager's table walks' callbacks (cdecl, the cluster and the walk's state). 0x00588430: a cluster's index (the
 // clusters before it counted until it's found); 0x00588450: the cluster at an index (counted down); 0x005884B0: a

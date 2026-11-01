@@ -298,10 +298,15 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
     if (!player)
         return 4;
     PointTally* score = get_score_of(skater_of(player));
-    auto* data = reinterpret_cast<uint8_t*>(context->body_);
-    if (static_cast<int8_t>(data[0]) == 1 && data[0xA] == net->get_game_id())
-        score->note_tagged_prop(prop<int>(data, 0xC), prop<int>(data, 0x10), prop<uint32_t>(data, 0x14),
-                                reinterpret_cast<uint32_t*>(data + 0x18), true);
+    // (the message: engine/net/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
+    // original read the names on past its end and passed the count on to be copied into a fixed buffer)
+    util::ByteReader reader(context->body_, context->body_size_);
+    auto message = std::make_unique<online::TrickObjectsMessage>();
+    if (!online::read_trick_objects(reader, message.get()))
+        return 4;
+    if (message->one == 1 && message->game_id == net->get_game_id())
+        score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects,
+                                true);
     return 1;
 }
 
@@ -312,10 +317,13 @@ int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
     PlayerRecord* player = by_connection(context->sender_conn_);
     if (!player)
         return 4;
-    auto* data = reinterpret_cast<uint8_t*>(context->body_);
-    if (get_game_mode()->get_name_key() == kNetLobby || net->get_game_id() != data[0])
+    util::ByteReader reader(context->body_, context->body_size_);
+    online::PointsMessage message;
+    if (!online::read_points(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    player->best_combo_ = prop<uint32_t>(data, 4);
+    if (get_game_mode()->get_name_key() == kNetLobby || net->get_game_id() != message.game_id)
+        return 4;
+    player->best_combo_ = static_cast<uint32_t>(message.points);
     return 1;
 }
 
@@ -326,10 +334,13 @@ int SkateNet::handle_combo_score(net::InboundMsgCtx* context)
     PlayerRecord* player = by_connection(context->sender_conn_);
     if (!player || !skater_of(player))
         return 4;
-    auto* data = reinterpret_cast<uint8_t*>(context->body_);
-    if (net->get_game_id() != data[0])
+    util::ByteReader reader(context->body_, context->body_size_);
+    online::PointsMessage message;
+    if (!online::read_points(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    int combo = prop<int>(data, 4);
+    if (net->get_game_id() != message.game_id)
+        return 4;
+    int combo = message.points;
     PointTally* score = get_score_of(skater_of(player));
     if (combo > score->top_chain_)
         score->top_chain_ = combo;
@@ -978,18 +989,26 @@ int SkateNet::handle_server_quit(net::InboundMsgCtx* /*context*/)
 // 0x0056AC90
 int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
 {
-    auto* data = reinterpret_cast<uint8_t*>(context->body_);
+    // (the message: engine/net/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
+    // original read the names on past its end)
+    util::ByteReader reader(context->body_, context->body_size_);
+    auto message = std::make_unique<online::TrickObjectsMessage>();
+    if (!online::read_observed_trick_objects(reader, message.get()))
+        return 4;
     online::Hub* net = net_link();
-    if (data[0] != net->get_game_id())
+    if (message->game_id != net->get_game_id())
         return 4;
     int owner;
-    if (get_game_mode()->is_squad_match())
-        owner = net->find_player_slot_by_obj(prop<uint16_t>(data, 4))->team_;
-    else
-        owner = prop<int>(data, 4);
-    auto* names = reinterpret_cast<const uint32_t*>(data + 0xC);
-    for (uint32_t i = 0; i < prop<uint32_t>(data, 8); ++i)
-        objects::g_trick_spot_hub->set_object_graffiti_color(names[i], owner);
+    if (get_game_mode()->is_squad_match()) {
+        PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(message->player));
+        if (!player) // NOT ORIGINAL: no such player - dropped (the original read through null)
+            return 4;
+        owner = player->team_;
+    } else {
+        owner = message->player;
+    }
+    for (uint32_t i = 0; i < message->count; ++i)
+        objects::g_trick_spot_hub->set_object_graffiti_color(message->objects[i], owner);
     return 1;
 }
 

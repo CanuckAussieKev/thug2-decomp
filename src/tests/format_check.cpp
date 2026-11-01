@@ -768,12 +768,6 @@ void check_skate_messages()
               what + ": cut short keeps the whole entries");
     }
     check_session_messages();
-    const uint8_t steal[] = {7, 0xCC, 0xCC, 0xCC, 2, 0, 0, 0, 5, 0, 0, 0};
-    util::ByteReader reader(steal, sizeof(steal));
-    skate_net::GraffitiStealMessage message;
-    check(skate_net::read_graffiti_steal(reader, &message) && message.run == 7 && message.victim_id == 2 &&
-              message.thief_id == 5,
-          "graffiti steal decoded");
 }
 } // namespace
 

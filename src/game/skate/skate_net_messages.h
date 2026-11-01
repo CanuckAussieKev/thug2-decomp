@@ -18,7 +18,6 @@ class ByteWriter;
 //   0x8F hunt drop        the player's object id (i8), 3 unused bytes, the count (i32), the positions (4 floats
 //                         each)
 //   0x5C graffiti colours 8 counts (u8, one a skater), then that many trick-object cluster indexes (u8)
-//   0x4B graffiti steal   the run's number (u8), 3 unused bytes, the victim's and the thief's object ids (u32)
 //   hunt item removed     the item's id (u32)
 namespace skate_net {
 
@@ -56,12 +55,5 @@ struct GraffitiColorsMessage {
     uint8_t counts[kGraffitiSkaters] = {}; // the cluster indexes follow, count after count
 };
 bool read_graffiti_colors(util::ByteReader& reader, GraffitiColorsMessage* message);
-
-struct GraffitiStealMessage {
-    uint8_t run = 0;
-    uint32_t victim_id = 0;
-    uint32_t thief_id = 0;
-};
-bool read_graffiti_steal(util::ByteReader& reader, GraffitiStealMessage* message);
 
 } // namespace skate_net
