@@ -367,8 +367,9 @@ void PcParticleSystem::draw(bool advance)
 
     set_material_states(material);
     change_material_layer(material, 0, 0);
-    float r[3], u[3];
-    camera_axes(r, u);
+    std::array<float, 3> r{};
+    std::array<float, 3> u{};
+    camera_axes(r.data(), u.data());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader964), nullptr);
     std::array<std::array<float, 4>, 3> colour_table{};
@@ -472,10 +473,10 @@ void PcParticleSystem::draw(bool advance)
                     const double size = static_cast<double>(path_w) + offset_w;
 
                     // The quad: (centre - r - ... ) corners, its texture 0..1.
-                    const double across_x = r[0] * size;
-                    auto across_y = static_cast<float>(r[1] * size), across_z = static_cast<float>(r[2] * size);
-                    auto up_x = static_cast<float>(u[0] * size), up_y = static_cast<float>(u[1] * size),
-                         up_z = static_cast<float>(u[2] * size);
+                    const double across_x = core::at(r, 0) * size;
+                    auto across_y = static_cast<float>(core::at(r, 1) * size), across_z = static_cast<float>(core::at(r, 2) * size);
+                    auto up_x = static_cast<float>(core::at(u, 0) * size), up_y = static_cast<float>(core::at(u, 1) * size),
+                         up_z = static_cast<float>(core::at(u, 2) * size);
                     auto left_x = static_cast<float>(centre_x - across_x);
                     auto left_y = static_cast<float>(static_cast<double>(centre_y) - across_y);
                     auto left_z = static_cast<float>(static_cast<double>(centre_z) - across_z);

@@ -803,12 +803,12 @@ void node_section(const ShapeMesh& model, int index)
             if (moved || turned) {
                 const V3 angles = turned ? node_edit::with_heading(model.nodes.angles, heading) : model.nodes.angles;
                 Request request = {Request::Kind::kNodeSet};
-                request.a[0] = core::at(pos, 0);
-                request.a[1] = core::at(pos, 1);
-                request.a[2] = core::at(pos, 2);
-                request.b[0] = angles.x;
-                request.b[1] = angles.y;
-                request.b[2] = angles.z;
+                core::at(request.a, 0) = core::at(pos, 0);
+                core::at(request.a, 1) = core::at(pos, 1);
+                core::at(request.a, 2) = core::at(pos, 2);
+                core::at(request.b, 0) = angles.x;
+                core::at(request.b, 1) = angles.y;
+                core::at(request.b, 2) = angles.z;
                 g_requests.push_back(request);
             }
             if (done)
@@ -1301,9 +1301,9 @@ void browser_preview(const ShapeMesh& model)
         wheel = io.MouseWheel;
     if (dx != 0.0f || dy != 0.0f || wheel != 0.0f) {
         Request request{Request::Kind::kPreviewOrbit};
-        request.a[0] = dx;
-        request.a[1] = dy;
-        request.a[2] = wheel;
+        core::at(request.a, 0) = dx;
+        core::at(request.a, 1) = dy;
+        core::at(request.a, 2) = wheel;
         g_requests.push_back(request);
     }
     if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture)

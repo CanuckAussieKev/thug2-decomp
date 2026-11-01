@@ -694,15 +694,17 @@ bool handle_chat_command(const char* text)
 {
     if (!peer_mode() || text[0] != '/')
         return false;
-    char command[16] = {}, first[24] = {}, second[8] = {};
-    const int words = sscanf_s(text, "/%15s %23s %7s", command, static_cast<unsigned>(sizeof(command)), first,
-                               static_cast<unsigned>(sizeof(first)), second, static_cast<unsigned>(sizeof(second)));
+    std::array<char, 16> command = {};
+    std::array<char, 24> first = {};
+    std::array<char, 8> second = {};
+    const int words = sscanf_s(text, "/%15s %23s %7s", command.data(), static_cast<unsigned>(sizeof(command)), first.data(),
+                               static_cast<unsigned>(sizeof(first)), second.data(), static_cast<unsigned>(sizeof(second)));
     if (words < 1)
         return false;
     Hub* manager = net_session_slot();
     const bool client = is_client_of_net_game(manager);
     std::array<char, 160> line{};
-    if (_stricmp(command, "thugpro") == 0) {
+    if (_stricmp(command.data(), "thugpro") == 0) {
         const HostListing& info = g_session.info;
         std::snprintf(line.data(), sizeof(line),
                       "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
@@ -714,10 +716,10 @@ bool handle_chat_command(const char* text)
         get_say(line.data());
         return true;
     }
-    const bool tod = _stricmp(command, "tod") == 0;
-    const bool weather = _stricmp(command, "weather") == 0;
-    const bool option = _stricmp(command, "option") == 0;
-    const bool pro_set = _stricmp(command, "proset") == 0;
+    const bool tod = _stricmp(command.data(), "tod") == 0;
+    const bool weather = _stricmp(command.data(), "weather") == 0;
+    const bool option = _stricmp(command.data(), "option") == 0;
+    const bool pro_set = _stricmp(command.data(), "proset") == 0;
     if (!tod && !weather && !option && !pro_set)
         return false;
     if (client) {
@@ -728,7 +730,7 @@ bool handle_chat_command(const char* text)
     if (tod || weather) {
         static const auto kTimes = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
         static const auto kWeathers = std::to_array<const char*>({"default", "clear", "rain", "snow"});
-        const uint32_t state = tod ? state_named(first, kTimes.data(), 4) : state_named(first, kWeathers.data(), 4);
+        const uint32_t state = tod ? state_named(first.data(), kTimes.data(), 4) : state_named(first.data(), kWeathers.data(), 4);
         if (words < 2 || !state) {
             get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
                         : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
@@ -742,16 +744,16 @@ bool handle_chat_command(const char* text)
             effects.set_weather(state);
             get_broadcast(kMsgUpdateWeather, state);
         }
-        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 %s %s%s", command, first,
+        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 %s %s%s", command.data(), first.data(),
                       is_host_of_net_game(manager) ? " (sent to the players)" : "");
         get_say(line.data());
         return true;
     }
     // /option n on|off, /proset n on|off: here now, to the players with the next game's server info (THUGPRO
     // changes them in a game through its own flag broadcast, which THUG2's scripts don't have).
-    const int n = text::to_int(first);
+    const int n = text::to_int(first.data());
     bool on = false;
-    if (words < 3 || n < 1 || n > 8 || !on_off(second, &on)) {
+    if (words < 3 || n < 1 || n > 8 || !on_off(second.data(), &on)) {
         get_say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");
         return true;
     }

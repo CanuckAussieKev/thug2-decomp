@@ -498,7 +498,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         float depth;
         uint32_t argb;
         int count;
-        float x[4], y[4];
+        std::array<float, 4> x;
+        std::array<float, 4> y;
     };
     std::vector<Polygon> polygons;
     const V3 light = make_unit({0.35f, 0.85f, 0.4f});
@@ -521,7 +522,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             right = right && nx > 1.0f;
             below = below && ny < -1.0f;
             above = above && ny > 1.0f;
-            ndc_to_pixel(viewport, nx, ny, &poly.x[k], &poly.y[k]);
+            ndc_to_pixel(viewport, nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
             depth += -get_dot(core::at(clipped, k) - camera_pos, frame.back);
         }
         if (left || right || below || above)
@@ -541,7 +542,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
                 const int n = (k + 1) % count;
-                const ui::Seg line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
+                const ui::Seg line = {core::at(poly.x, k), core::at(poly.y, k), core::at(poly.x, n), core::at(poly.y, n), style.edge, style.thickness};
                 if (style.dashed)
                     add_dashed(lines, line, 6.0f, 5.0f);
                 else
@@ -629,9 +630,9 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     triangles->reserve(triangles->size() + polygons.size() * 2);
     for (const Polygon& p : polygons) {
-        triangles->push_back({p.x[0], p.y[0], p.x[1], p.y[1], p.x[2], p.y[2], p.argb});
+        triangles->push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 1), core::at(p.y, 1), core::at(p.x, 2), core::at(p.y, 2), p.argb});
         if (p.count == 4)
-            triangles->push_back({p.x[0], p.y[0], p.x[2], p.y[2], p.x[3], p.y[3], p.argb});
+            triangles->push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 2), core::at(p.y, 2), core::at(p.x, 3), core::at(p.y, 3), p.argb});
     }
     g_stats.triangles = static_cast<int>(polygons.size());
 }

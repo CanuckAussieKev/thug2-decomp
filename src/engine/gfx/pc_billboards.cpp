@@ -369,15 +369,18 @@ void BillboardBatch::render()
     }
     auto transpose = d3dx::matrix_transpose; // (D3DX)
     auto multiply = d3dx::matrix_multiply;
-    float projection[16], view[16], identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    float view_world[16], all[16];
-    transpose(projection, raw::as<float>(&g_projection_matrix));
-    transpose(view, raw::as<float>(&g_view_matrix));
-    view[12] = view[13] = view[14] = 0.0f; // (its last row cleared)
-    view[15] = 1.0f;
-    multiply(view_world, view, identity);
-    multiply(all, projection, view_world);
-    input_port()->SetVertexShaderConstantF(0, all, 4);
+    std::array<float, 16> projection{};
+    std::array<float, 16> view{};
+    std::array<float, 16> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    std::array<float, 16> view_world{};
+    std::array<float, 16> all{};
+    transpose(projection.data(), raw::as<float>(&g_projection_matrix));
+    transpose(view.data(), raw::as<float>(&g_view_matrix));
+    core::at(view, 12) = core::at(view, 13) = core::at(view, 14) = 0.0f; // (its last row cleared)
+    core::at(view, 15) = 1.0f;
+    multiply(view_world.data(), view.data(), identity.data());
+    multiply(all.data(), projection.data(), view_world.data());
+    input_port()->SetVertexShaderConstantF(0, all.data(), 4);
     auto* manager = &g_billboard_pool;
     float* constants = g_billboard_constants.data(); // c4-c6
     auto set_axes = [&](const float* x, const float* y, const float* z) {
@@ -388,19 +391,23 @@ void BillboardBatch::render()
     set_axes(manager->right.data(), manager->up.data(), manager->view.data());
     input_port()->SetVertexShaderConstantF(4, constants, 3);
     {
-        float x_axis[3], y_axis[3], z_axis[3];
-        std::memcpy(x_axis, constants, 12);
-        std::memcpy(y_axis, constants + 4, 12);
-        std::memcpy(z_axis, constants + 8, 12);
-        draw_list(core::at(lists, 0), y_axis, x_axis, z_axis);
+        std::array<float, 3> x_axis{};
+        std::array<float, 3> y_axis{};
+        std::array<float, 3> z_axis{};
+        std::memcpy(x_axis.data(), constants, 12);
+        std::memcpy(y_axis.data(), constants + 4, 12);
+        std::memcpy(z_axis.data(), constants + 8, 12);
+        draw_list(lists.data()[0], y_axis.data(), x_axis.data(), z_axis.data());
     }
     {
         const std::array<float, 3> flat_up = {{0.0f, 1.0f, 0.0f}};
         set_axes(manager->flat_right_.data(), flat_up.data(), manager->flat_forward_.data());
-        float x_axis[3], y_axis[3] = {0.0f, 1.0f, 0.0f}, z_axis[3];
-        std::memcpy(x_axis, manager->flat_right_.data(), 12);
-        std::memcpy(z_axis, manager->flat_forward_.data(), 12);
-        draw_list(core::at(lists, 1), y_axis, x_axis, z_axis);
+        std::array<float, 3> x_axis{};
+        std::array<float, 3> y_axis = {{0.0f, 1.0f, 0.0f}};
+        std::array<float, 3> z_axis{};
+        std::memcpy(x_axis.data(), manager->flat_right_.data(), 12);
+        std::memcpy(z_axis.data(), manager->flat_forward_.data(), 12);
+        draw_list(lists.data()[1], y_axis.data(), x_axis.data(), z_axis.data());
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
     for (const memory::ListNode* node = head_of_scene_list(core::at(lists, 2)); node;) {

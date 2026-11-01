@@ -68,21 +68,22 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
     if (!mirrored_)
         return true;
     // The pose as it was (rotations past the bone count: no turn), then each bone from its mirror image.
-    float rotations[64][4], translations[64][4];
+    std::array<std::array<float, 4>, 64> rotations{};
+    std::array<std::array<float, 4>, 64> translations{};
     for (auto& r : rotations) {
-        r[0] = r[1] = r[2] = 0.0f;
-        r[3] = 1.0f;
+        core::at(r, 0) = core::at(r, 1) = core::at(r, 2) = 0.0f;
+        core::at(r, 3) = 1.0f;
     }
     const int count = raw::as<gfx::Rig>(skeleton)->get_num_bones();
-    std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
-    std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
+    std::memcpy(rotations.data(), pose, 0x10 * (count > 0 ? count : 0));
+    std::memcpy(translations.data(), pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {
         const int mirror = static_cast<gfx::RigData*>(bones)->fetch_mirror_slot(i);
         const int from = mirror == -1 ? i : mirror;
         auto* rotation = raw::field_at<float>(pose, 0x10 * i);
         auto* translation = raw::field_at<float>(pose, 0x400 + 0x10 * i);
-        std::memcpy(rotation, core::at(rotations, from), 16);
-        std::memcpy(translation, core::at(translations, from), 16);
+        std::memcpy(rotation, rotations.data()[from].data(), 16);
+        std::memcpy(translation, translations.data()[from].data(), 16);
         rotation[0] = -rotation[0];
         rotation[3] = -rotation[3];
         translation[0] = -translation[0];

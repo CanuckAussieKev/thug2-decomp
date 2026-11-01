@@ -575,22 +575,23 @@ float get_at(const Mat4& m, int r, int c) { return (&core::at(m.row, r).x)[c]; }
 // float products are exact).
 double minor(const Mat4& m, int skip_row, int skip_col)
 {
-    int r[3], c[3];
+    std::array<int, 3> r{};
+    std::array<int, 3> c{};
     for (int i = 0, n = 0; i < 4; ++i)
         if (i != skip_row)
             core::at(r, n++) = i;
     for (int i = 0, n = 0; i < 4; ++i)
         if (i != skip_col)
             core::at(c, n++) = i;
-    const double a = get_at(m, r[0], c[0]);
-    const double b = get_at(m, r[0], c[1]);
-    const double cc = get_at(m, r[0], c[2]);
-    const double d = get_at(m, r[1], c[0]);
-    const double e = get_at(m, r[1], c[1]);
-    const double f = get_at(m, r[1], c[2]);
-    const double g = get_at(m, r[2], c[0]);
-    const double h = get_at(m, r[2], c[1]);
-    const double i = get_at(m, r[2], c[2]);
+    const double a = get_at(m, core::at(r, 0), core::at(c, 0));
+    const double b = get_at(m, core::at(r, 0), core::at(c, 1));
+    const double cc = get_at(m, core::at(r, 0), core::at(c, 2));
+    const double d = get_at(m, core::at(r, 1), core::at(c, 0));
+    const double e = get_at(m, core::at(r, 1), core::at(c, 1));
+    const double f = get_at(m, core::at(r, 1), core::at(c, 2));
+    const double g = get_at(m, core::at(r, 2), core::at(c, 0));
+    const double h = get_at(m, core::at(r, 2), core::at(c, 1));
+    const double i = get_at(m, core::at(r, 2), core::at(c, 2));
     return a * (e * i - f * h) - b * (d * i - f * g) + cc * (d * h - e * g);
 }
 

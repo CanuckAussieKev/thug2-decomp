@@ -81,7 +81,7 @@ keep a check carry a `NOLINT` with their reason:
   name their fields as plain data, without the member suffix (`NOLINTBEGIN(readability-identifier-naming)` around
   each record).
 - **Outside names**: forward declarations of SDL, Win32 and Winsock types, the GameSpy SDK's globals, Winsock's
-  `_WINSOCK_DEPRECATED_NO_WARNINGS`; `memory::owner` is named as the Guidelines' `gsl::owner` it stands for.
+  `_WINSOCK_DEPRECATED_NO_WARNINGS`.
 - **The original's behaviour, kept as written**: integer divisions where it divides integers, bitwise compares of
   floats (`memcmp`), repeated branches, assignments and increments inside conditions, switches that ignore other
   values, its random seed and `rand()`.
@@ -102,7 +102,20 @@ keep a check carry a `NOLINT` with their reason:
   `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`engine/core/raw_view.h`: one of the original's in-memory
   layouts read through another type or at a byte offset), `memory::bits_as<T>` (a field's bits as another type of
   its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).
-  New code uses none of them: a field gets its member, a pointer its type.
+  New code uses none of them: a field gets its member, a pointer its type. Byte layouts that stay (file records used
+  in place, vertex buffers) are read through the boundary's accessors instead: `collision_format::FaceTable`
+  (`formats/`), `gpu::VertexView` / `VertexWriter` (`gpu/`).
+- **Downcasts** go through `core::down_cast<Derived>(base)` (`engine/core/down_cast.h`): code that has checked an
+  object's type tag (or asked a manager for an object of a type) converts the base pointer with it; Debug builds
+  assert the object really is a Derived (a class's own `is_instance(const Base&)` if it has one, else `dynamic_cast`).
+  The `static_cast` inside it is the one downcast in `src/` (its NOLINT says so).
+- **Arrays are `std::array`** (or `std::vector` / `std::string` / `std::span`); a pointer to the elements is asked
+  for with `.data()` where a C API or a pointer-taking function wants one - never passed through `...` (printf-style
+  calls take `.data()`). Indexing with anything but a constant goes through `core::at(container, index)`
+  (`engine/core/checked_index.h`: `gsl::at` with any integer or plain-enum index): out of range ends the game with a
+  report instead of reading past the end. Locals of `std::array` type are value-initialised (`{}`).
+- **Ownership**: `gsl::owner<T*>` (Microsoft GSL, the Guidelines' own) marks a raw pointer that owns what it points
+  to where `std::unique_ptr` can't be used yet.
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
 - **Constructor bodies in the original's order**: an assignment stays in the body (not an initialiser) when moving it

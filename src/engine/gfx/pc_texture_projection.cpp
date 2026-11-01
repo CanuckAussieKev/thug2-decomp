@@ -181,13 +181,15 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 if (ia == ib || ia == ic || ib == ic)
                     continue;
                 const uint32_t stride = mesh->stride;
-                float t0[3], t1[3], t2[3];
-                transform_coord(t0, raw::field_at<const float>(vertices, stride * ia), &projection_);
-                transform_coord(t1, raw::field_at<const float>(vertices, stride * ib), &projection_);
-                transform_coord(t2, raw::field_at<const float>(vertices, stride * ic), &projection_);
-                if (t0[2] < -1.0f && t1[2] < -1.0f && t2[2] < -1.0f) // (wholly behind)
+                std::array<float, 3> t0{};
+                std::array<float, 3> t1{};
+                std::array<float, 3> t2{};
+                transform_coord(t0.data(), raw::field_at<const float>(vertices, stride * ia), &projection_);
+                transform_coord(t1.data(), raw::field_at<const float>(vertices, stride * ib), &projection_);
+                transform_coord(t2.data(), raw::field_at<const float>(vertices, stride * ic), &projection_);
+                if (core::at(t0, 2) < -1.0f && core::at(t1, 2) < -1.0f && core::at(t2, 2) < -1.0f) // (wholly behind)
                     continue;
-                if (!triangle_overlaps_screen(t0[0], t0[1], t1[0], t1[1], t2[0], t2[1]))
+                if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
                     continue;
                 if (!batch_vertices) {
                     uint8_t* key = *raw::field_at<uint8_t*>(bitmap_, 0x10);
@@ -205,12 +207,12 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 std::memcpy(v0, vertices + stride * ia, 12);
                 std::memcpy(v1, vertices + stride * ib, 12);
                 std::memcpy(v2, vertices + stride * ic, 12);
-                get_uv(v0)[0] = to_uv(t0[0]);
-                get_uv(v0)[1] = to_uv(t0[1]);
-                get_uv(v1)[0] = to_uv(t1[0]);
-                get_uv(v1)[1] = to_uv(t1[1]);
-                get_uv(v2)[0] = to_uv(t2[0]);
-                get_uv(v2)[1] = to_uv(t2[1]);
+                get_uv(v0)[0] = to_uv(core::at(t0, 0));
+                get_uv(v0)[1] = to_uv(core::at(t0, 1));
+                get_uv(v1)[0] = to_uv(core::at(t1, 0));
+                get_uv(v1)[1] = to_uv(core::at(t1, 1));
+                get_uv(v2)[0] = to_uv(core::at(t2, 0));
+                get_uv(v2)[1] = to_uv(core::at(t2, 1));
                 const uint32_t colour_offset = core::at(mesh->unknown1c_, 0);
                 get_colour(v0) = opaque(*raw::field_at<uint32_t>(vertices, stride * ia + colour_offset));
                 get_colour(v1) = opaque(*raw::field_at<uint32_t>(vertices, stride * ib + colour_offset));

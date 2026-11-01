@@ -461,10 +461,12 @@ void PcFlatRibbonParticles::render()
         if (index < particle_count_) {
             for (uint32_t bytes = particle_bytes; bytes <= 0x7FF; bytes += particle_bytes) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
-                float p0[3], p1[3], n[3];
-                place_of(this, index, p0);
-                place_of(this, max_particles_ + index, p1);
-                get_across(p0, p1, a, b, c, true, n);
+                std::array<float, 3> p0{};
+                std::array<float, 3> p1{};
+                std::array<float, 3> n{};
+                place_of(this, index, p0.data());
+                place_of(this, max_particles_ + index, p1.data());
+                get_across(p0.data(), p1.data(), a, b, c, true, n.data());
                 auto w =
                     static_cast<float>((static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
                                        core::at(particle->start_size_, 0));
@@ -474,36 +476,36 @@ void PcFlatRibbonParticles::render()
                 uint32_t previous_colour = get_colour(*this, *from++, *to++, span.t);
 
                 // The head end's edge points.
-                double n0w = static_cast<double>(n[0]) * w, n1w = static_cast<double>(w) * n[1],
-                       n2w = static_cast<double>(w) * n[2];
+                double n0w = static_cast<double>(core::at(n, 0)) * w, n1w = static_cast<double>(w) * core::at(n, 1),
+                       n2w = static_cast<double>(w) * core::at(n, 2);
                 auto o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
                 auto o1 = static_cast<float>(width * n1w);
-                std::array<float, 3> previous_a = {{static_cast<float>(static_cast<double>(o0) + p0[0]),
-                                       static_cast<float>(static_cast<double>(o1) + p0[1]),
-                                       static_cast<float>(width * n2w + p0[2])}};
+                std::array<float, 3> previous_a = {{static_cast<float>(static_cast<double>(o0) + core::at(p0, 0)),
+                                       static_cast<float>(static_cast<double>(o1) + core::at(p0, 1)),
+                                       static_cast<float>(width * n2w + core::at(p0, 2))}};
                 std::array<float, 3> previous_b = {{
-                    static_cast<float>(static_cast<double>(p0[0]) - o0),
-                    static_cast<float>(static_cast<double>(p0[1]) - o1),
-                    static_cast<float>(p0[2] - width * static_cast<double>(static_cast<float>(n2w)))}};
+                    static_cast<float>(static_cast<double>(core::at(p0, 0)) - o0),
+                    static_cast<float>(static_cast<double>(core::at(p0, 1)) - o1),
+                    static_cast<float>(core::at(p0, 2) - width * static_cast<double>(static_cast<float>(n2w)))}};
 
                 for (int k = 1; k < segments_; ++k) {
                     const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
                     if (k > 1) {
-                        place_of(this, max_particles_ * k + index, p1);
-                        get_across(p0, p1, a, b, c, false, n);
+                        place_of(this, max_particles_ * k + index, p1.data());
+                        get_across(p0.data(), p1.data(), a, b, c, false, n.data());
                     }
-                    n0w = static_cast<double>(n[0]) * w;
-                    n1w = static_cast<double>(w) * n[1];
-                    n2w = static_cast<double>(w) * n[2];
+                    n0w = static_cast<double>(core::at(n, 0)) * w;
+                    n1w = static_cast<double>(w) * core::at(n, 1);
+                    n2w = static_cast<double>(w) * core::at(n, 2);
                     o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
                     o1 = static_cast<float>(width * n1w);
-                    std::array<float, 3> next_b = {{static_cast<float>(static_cast<double>(p1[0]) - o0),
-                                       static_cast<float>(static_cast<double>(p1[1]) - o1),
-                                       static_cast<float>(p1[2] - width * n2w)}};
+                    std::array<float, 3> next_b = {{static_cast<float>(static_cast<double>(core::at(p1, 0)) - o0),
+                                       static_cast<float>(static_cast<double>(core::at(p1, 1)) - o1),
+                                       static_cast<float>(core::at(p1, 2) - width * n2w)}};
                     auto o2 = static_cast<float>(width * static_cast<double>(static_cast<float>(n2w)));
-                    std::array<float, 3> next_a = {{static_cast<float>(static_cast<double>(o0) + p1[0]),
-                                       static_cast<float>(static_cast<double>(o1) + p1[1]),
-                                       static_cast<float>(static_cast<double>(o2) + p1[2])}};
+                    std::array<float, 3> next_a = {{static_cast<float>(static_cast<double>(o0) + core::at(p1, 0)),
+                                       static_cast<float>(static_cast<double>(o1) + core::at(p1, 1)),
+                                       static_cast<float>(static_cast<double>(o2) + core::at(p1, 2))}};
                     vertex[0] = {core::at(previous_a, 0), core::at(previous_a, 1), core::at(previous_a, 2), previous_colour};
                     vertex[1] = {core::at(previous_b, 0), core::at(previous_b, 1), core::at(previous_b, 2), previous_colour};
                     vertex[2] = {core::at(next_a, 0), core::at(next_a, 1), core::at(next_a, 2), colour};
@@ -511,7 +513,7 @@ void PcFlatRibbonParticles::render()
                     vertex += 4;
                     std::memcpy(previous_a.data(), next_a.data(), sizeof(next_a));
                     std::memcpy(previous_b.data(), next_b.data(), sizeof(next_b));
-                    std::memcpy(p0, p1, sizeof(p1));
+                    std::memcpy(p0.data(), p1.data(), sizeof(p1));
                     previous_colour = colour;
                     triangles += 2;
                     vertices += 4;
@@ -689,31 +691,33 @@ void PcGlowParticles::render()
             // The rings' points at angle 0: outer (r sin, u cos, times the width), inner.
             const double s = std::sin(0.0);
             const double c = std::cos(0.0);
-            float outer[3], inner[3];
+            std::array<float, 3> outer{};
+            std::array<float, 3> inner{};
             {
                 const double ry_s = static_cast<float>(ry * s);
                 const double rz_s = static_cast<float>(rz * s);
-                outer[0] = static_cast<float>(rx * s * w + core::at(p, 0));
-                outer[1] = static_cast<float>(ry_s * w + core::at(p, 1));
-                outer[2] = static_cast<float>(static_cast<double>(static_cast<float>(rz_s * w)) + core::at(p, 2));
+                core::at(outer, 0) = static_cast<float>(rx * s * w + core::at(p, 0));
+                core::at(outer, 1) = static_cast<float>(ry_s * w + core::at(p, 1));
+                core::at(outer, 2) = static_cast<float>(static_cast<double>(static_cast<float>(rz_s * w)) + core::at(p, 2));
                 const double uy_c = static_cast<float>(uy * c);
                 const double uz_c = static_cast<float>(uz * c);
-                outer[0] = static_cast<float>(ux * c * w + outer[0]);
-                outer[1] = static_cast<float>(uy_c * w + outer[1]);
-                outer[2] = static_cast<float>(static_cast<double>(static_cast<float>(uz_c * w)) + outer[2]);
-                inner[0] = static_cast<float>(rx * s + core::at(p, 0));
-                inner[1] = static_cast<float>(static_cast<double>(static_cast<float>(ry * s)) + core::at(p, 1));
-                inner[2] = static_cast<float>(static_cast<double>(static_cast<float>(rz * s)) + core::at(p, 2));
-                inner[0] = static_cast<float>(ux * c + inner[0]);
-                inner[1] = static_cast<float>(static_cast<double>(static_cast<float>(uy * c)) + inner[1]);
-                inner[2] = static_cast<float>(static_cast<double>(static_cast<float>(uz * c)) + inner[2]);
+                core::at(outer, 0) = static_cast<float>(ux * c * w + core::at(outer, 0));
+                core::at(outer, 1) = static_cast<float>(uy_c * w + core::at(outer, 1));
+                core::at(outer, 2) = static_cast<float>(static_cast<double>(static_cast<float>(uz_c * w)) + core::at(outer, 2));
+                core::at(inner, 0) = static_cast<float>(rx * s + core::at(p, 0));
+                core::at(inner, 1) = static_cast<float>(static_cast<double>(static_cast<float>(ry * s)) + core::at(p, 1));
+                core::at(inner, 2) = static_cast<float>(static_cast<double>(static_cast<float>(rz * s)) + core::at(p, 2));
+                core::at(inner, 0) = static_cast<float>(ux * c + core::at(inner, 0));
+                core::at(inner, 1) = static_cast<float>(static_cast<double>(static_cast<float>(uy * c)) + core::at(inner, 1));
+                core::at(inner, 2) = static_cast<float>(static_cast<double>(static_cast<float>(uz * c)) + core::at(inner, 2));
             }
             auto step = static_cast<float>(6.28318548f / static_cast<double>(segments_)); // (0x0064545C)
             for (int i = 1; i <= segments_; ++i) {
                 const double angle = static_cast<double>(i) * step;
                 const double si = std::sin(angle);
                 const double ci = std::cos(angle);
-                float next_outer[3], next_inner[3];
+                std::array<float, 3> next_outer{};
+                std::array<float, 3> next_inner{};
                 const double rsw = rx * si * w;
                 const double r1 = static_cast<double>(static_cast<float>(ry * si)) * w;
                 const double r2 =
@@ -723,29 +727,29 @@ void PcGlowParticles::render()
                 const double usw = ux * ci * w;
                 const double u1 = static_cast<double>(static_cast<float>(uy * ci)) * w;
                 auto u2 = static_cast<float>(static_cast<double>(static_cast<float>(uz * ci)) * w);
-                next_outer[0] = static_cast<float>(usw + static_cast<float>(rsw + core::at(p, 0)));
-                next_outer[1] = static_cast<float>(u1 + (r1 + core::at(p, 1)));
-                next_outer[2] = static_cast<float>(u2 + r2);
+                core::at(next_outer, 0) = static_cast<float>(usw + static_cast<float>(rsw + core::at(p, 0)));
+                core::at(next_outer, 1) = static_cast<float>(u1 + (r1 + core::at(p, 1)));
+                core::at(next_outer, 2) = static_cast<float>(u2 + r2);
                 const double x = rx * si + core::at(p, 0);
                 const double y = static_cast<double>(static_cast<float>(ry * si)) + core::at(p, 1);
                 auto z = static_cast<float>(static_cast<double>(static_cast<float>(rz * si)) + core::at(p, 2));
-                next_inner[0] = static_cast<float>(ux * static_cast<double>(cosine) + x);
-                next_inner[1] =
+                core::at(next_inner, 0) = static_cast<float>(ux * static_cast<double>(cosine) + x);
+                core::at(next_inner, 1) =
                     static_cast<float>(static_cast<double>(static_cast<float>(uy * static_cast<double>(cosine))) + y);
-                next_inner[2] =
+                core::at(next_inner, 2) =
                     static_cast<float>(static_cast<double>(static_cast<float>(uz * static_cast<double>(cosine))) + z);
                 vertex[0] = {core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(colours, 0)};
-                vertex[1] = {outer[0], outer[1], outer[2], core::at(colours, 1)};
-                vertex[2] = {next_outer[0], next_outer[1], next_outer[2], core::at(colours, 1)};
-                vertex[3] = {outer[0], outer[1], outer[2], core::at(colours, 1)};
-                vertex[4] = {next_outer[0], next_outer[1], next_outer[2], core::at(colours, 1)};
-                vertex[5] = {inner[0], inner[1], inner[2], core::at(colours, 2)};
-                vertex[6] = {next_outer[0], next_outer[1], next_outer[2], core::at(colours, 1)};
-                vertex[7] = {inner[0], inner[1], inner[2], core::at(colours, 2)};
-                vertex[8] = {next_inner[0], next_inner[1], next_inner[2], core::at(colours, 2)};
+                vertex[1] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(colours, 1)};
+                vertex[2] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(colours, 1)};
+                vertex[3] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(colours, 1)};
+                vertex[4] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(colours, 1)};
+                vertex[5] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(colours, 2)};
+                vertex[6] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(colours, 1)};
+                vertex[7] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(colours, 2)};
+                vertex[8] = {core::at(next_inner, 0), core::at(next_inner, 1), core::at(next_inner, 2), core::at(colours, 2)};
                 vertex += 9;
-                std::memcpy(outer, next_outer, sizeof(outer));
-                std::memcpy(inner, next_inner, sizeof(inner));
+                std::memcpy(outer.data(), next_outer.data(), sizeof(outer));
+                std::memcpy(inner.data(), next_inner.data(), sizeof(inner));
             }
             words += particle_words;
             remaining -= particle_words;
@@ -796,15 +800,16 @@ void PcLineParticles::render()
             os_layer::lock_dynamic_vertices(particle_count_ * 2, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
-            float p0[3], p1[3];
-            place_of(this, index, p0);
-            place_of(this, max_particles_ + index, p1);
+            std::array<float, 3> p0{};
+            std::array<float, 3> p1{};
+            place_of(this, index, p0.data());
+            place_of(this, max_particles_ + index, p1.data());
             const ColourSpan span = colour_span(*this, life);
             std::array<uint32_t, 2> colours{};
             for (int k = 0; k < 2; ++k)
                 core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
-            vertex[0] = {p0[0], p0[1], p0[2], core::at(colours, 0)};
-            vertex[1] = {p1[0], p1[1], p1[2], core::at(colours, 1)};
+            vertex[0] = {core::at(p0, 0), core::at(p0, 1), core::at(p0, 2), core::at(colours, 0)};
+            vertex[1] = {core::at(p1, 0), core::at(p1, 1), core::at(p1, 2), core::at(colours, 1)};
             vertex += 2;
             vertices += 2;
             ++lines;
@@ -871,21 +876,22 @@ void PcRibbonParticles::render()
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double hx = 0.0, hy = 0.0;
-            float hz = 0.0f, t[3];
+            float hz = 0.0f;
+            std::array<float, 3> t{};
             if (emitter_independent_) {
                 hx = head[0], hy = head[1], hz = head[2];
-                t[0] = tail[0], t[1] = tail[1], t[2] = tail[2];
+                core::at(t, 0) = tail[0], core::at(t, 1) = tail[1], core::at(t, 2) = tail[2];
             } else {
                 hx = static_cast<double>(at_point_.x) + head[0];
                 hy = static_cast<double>(head[1]) + at_point_.y;
                 hz = static_cast<float>(static_cast<double>(head[2]) + at_point_.z);
-                t[0] = static_cast<float>(static_cast<double>(at_point_.x) + tail[0]);
-                t[1] = static_cast<float>(static_cast<double>(tail[1]) + at_point_.y);
-                t[2] = static_cast<float>(static_cast<double>(tail[2]) + at_point_.z);
+                core::at(t, 0) = static_cast<float>(static_cast<double>(at_point_.x) + tail[0]);
+                core::at(t, 1) = static_cast<float>(static_cast<double>(tail[1]) + at_point_.y);
+                core::at(t, 2) = static_cast<float>(static_cast<double>(tail[2]) + at_point_.z);
             }
             // Across the ribbon: (tail - head) x the camera's direction, normalised when it has a length.
-            auto dx = static_cast<float>(t[0] - hx), dy = static_cast<float>(t[1] - hy),
-                 dz = static_cast<float>(static_cast<double>(t[2]) - hz);
+            auto dx = static_cast<float>(core::at(t, 0) - hx), dy = static_cast<float>(core::at(t, 1) - hy),
+                 dz = static_cast<float>(static_cast<double>(core::at(t, 2)) - hz);
             double n0 = dy * c - dz * b;
             double n1 = dz * a - c * dx;
             auto n2 = static_cast<float>(b * dx - dy * a);
@@ -907,10 +913,10 @@ void PcRibbonParticles::render()
                 {static_cast<float>(f0 + hx), static_cast<float>(f1 + hy), static_cast<float>(n2w + hz)},
                 {static_cast<float>(hx - f0), static_cast<float>(hy - f1),
                  static_cast<float>(static_cast<double>(hz) - f2)},
-                {static_cast<float>(static_cast<double>(t[0]) - f0), static_cast<float>(static_cast<double>(t[1]) - f1),
-                 static_cast<float>(static_cast<double>(t[2]) - f2)},
-                {static_cast<float>(static_cast<double>(f0) + t[0]), static_cast<float>(static_cast<double>(f1) + t[1]),
-                 static_cast<float>(static_cast<double>(f2) + t[2])}}};
+                {static_cast<float>(static_cast<double>(core::at(t, 0)) - f0), static_cast<float>(static_cast<double>(core::at(t, 1)) - f1),
+                 static_cast<float>(static_cast<double>(core::at(t, 2)) - f2)},
+                {static_cast<float>(static_cast<double>(f0) + core::at(t, 0)), static_cast<float>(static_cast<double>(f1) + core::at(t, 1)),
+                 static_cast<float>(static_cast<double>(f2) + core::at(t, 2))}}};
             const ColourSpan span = colour_span(*this, life);
             std::array<uint32_t, 2> colours{};
             for (int k = 0; k < 2; ++k)
@@ -1000,18 +1006,20 @@ void PcRibbonTrailParticles::render()
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
-            float p0[3], p1[3], n[3];
-            place_of(this, index, p0);
-            place_of(this, max_particles_ + index, p1);
+            std::array<float, 3> p0{};
+            std::array<float, 3> p1{};
+            std::array<float, 3> n{};
+            place_of(this, index, p0.data());
+            place_of(this, max_particles_ + index, p1.data());
             {
-                const double dx = static_cast<double>(p1[0]) - p0[0];
-                const double dy = static_cast<double>(p1[1]) - p0[1];
-                const double dz = static_cast<double>(p1[2]) - p0[2];
-                n[0] = static_cast<float>(dy * c - dz * b);
-                n[1] = static_cast<float>(dz * a - c * dx);
-                n[2] = static_cast<float>(b * dx - dy * a);
-                const double length = std::sqrt(static_cast<double>(n[2]) * n[2] + static_cast<double>(n[1]) * n[1] +
-                                                static_cast<double>(n[0]) * n[0]);
+                const double dx = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
+                const double dy = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
+                const double dz = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
+                core::at(n, 0) = static_cast<float>(dy * c - dz * b);
+                core::at(n, 1) = static_cast<float>(dz * a - c * dx);
+                core::at(n, 2) = static_cast<float>(b * dx - dy * a);
+                const double length = std::sqrt(static_cast<double>(core::at(n, 2)) * core::at(n, 2) + static_cast<double>(core::at(n, 1)) * core::at(n, 1) +
+                                                static_cast<double>(core::at(n, 0)) * core::at(n, 0));
                 if (length > 0.0f) {
                     const double inverse = 1.0f / length;
                     for (float& f : n)
@@ -1025,51 +1033,51 @@ void PcRibbonTrailParticles::render()
             const uint32_t* from = span.from;
             const uint32_t* to = span.to;
             uint32_t previous_colour = head_colour(*from++, *to++, span.t);
-            double n0w = static_cast<double>(n[0]) * w, n1w = static_cast<double>(n[1]) * w,
-                   n2w = static_cast<double>(n[2]) * w;
+            double n0w = static_cast<double>(core::at(n, 0)) * w, n1w = static_cast<double>(core::at(n, 1)) * w,
+                   n2w = static_cast<double>(core::at(n, 2)) * w;
             auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
-            std::array<float, 3> previous_plus = {{static_cast<float>(static_cast<double>(f0) + p0[0]),
-                                      static_cast<float>(static_cast<double>(f1) + p0[1]),
-                                      static_cast<float>(n2w + p0[2])}};
-            std::array<float, 3> previous_minus = {{static_cast<float>(static_cast<double>(p0[0]) - f0),
-                                       static_cast<float>(static_cast<double>(p0[1]) - f1),
-                                       static_cast<float>(static_cast<double>(p0[2]) - f2)}};
+            std::array<float, 3> previous_plus = {{static_cast<float>(static_cast<double>(f0) + core::at(p0, 0)),
+                                      static_cast<float>(static_cast<double>(f1) + core::at(p0, 1)),
+                                      static_cast<float>(n2w + core::at(p0, 2))}};
+            std::array<float, 3> previous_minus = {{static_cast<float>(static_cast<double>(core::at(p0, 0)) - f0),
+                                       static_cast<float>(static_cast<double>(core::at(p0, 1)) - f1),
+                                       static_cast<float>(static_cast<double>(core::at(p0, 2)) - f2)}};
             for (int k = 1; k < steps_; ++k) {
                 const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
                 if (k > 1) {
-                    place_of(this, max_particles_ * k + index, p1);
-                    const double dx = static_cast<double>(p1[0]) - p0[0];
-                    const double dy = static_cast<double>(p1[1]) - p0[1];
-                    const double dz = static_cast<double>(p1[2]) - p0[2];
-                    n[0] = static_cast<float>(dy * c - dz * b);
-                    n[1] = static_cast<float>(dz * a - c * dx);
+                    place_of(this, max_particles_ * k + index, p1.data());
+                    const double dx = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
+                    const double dy = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
+                    const double dz = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
+                    core::at(n, 0) = static_cast<float>(dy * c - dz * b);
+                    core::at(n, 1) = static_cast<float>(dz * a - c * dx);
                     const double z = b * dx - dy * a;
-                    n[2] = static_cast<float>(z);
+                    core::at(n, 2) = static_cast<float>(z);
                     const double length =
-                        std::sqrt(z * z + static_cast<double>(n[1]) * n[1] + static_cast<double>(n[0]) * n[0]);
+                        std::sqrt(z * z + static_cast<double>(core::at(n, 1)) * core::at(n, 1) + static_cast<double>(core::at(n, 0)) * core::at(n, 0));
                     if (length > 0.0f) {
                         const double inverse = 1.0f / length;
-                        n[0] = static_cast<float>(n[0] * inverse);
-                        n[1] = static_cast<float>(n[1] * inverse);
-                        n[2] = static_cast<float>(z * inverse);
+                        core::at(n, 0) = static_cast<float>(core::at(n, 0) * inverse);
+                        core::at(n, 1) = static_cast<float>(core::at(n, 1) * inverse);
+                        core::at(n, 2) = static_cast<float>(z * inverse);
                     }
                 }
-                n0w = static_cast<double>(n[0]) * w;
-                n1w = static_cast<double>(n[1]) * w;
-                n2w = static_cast<double>(n[2]) * w;
+                n0w = static_cast<double>(core::at(n, 0)) * w;
+                n1w = static_cast<double>(core::at(n, 1)) * w;
+                n2w = static_cast<double>(core::at(n, 2)) * w;
                 f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
-                std::array<float, 3> plus = {{static_cast<float>(static_cast<double>(f0) + p1[0]), static_cast<float>(n1w + p1[1]),
-                                 static_cast<float>(n2w + p1[2])}};
-                std::array<float, 3> minus = {{static_cast<float>(static_cast<double>(p1[0]) - f0),
-                                  static_cast<float>(static_cast<double>(p1[1]) - f1),
-                                  static_cast<float>(static_cast<double>(p1[2]) - f2)}};
+                std::array<float, 3> plus = {{static_cast<float>(static_cast<double>(f0) + core::at(p1, 0)), static_cast<float>(n1w + core::at(p1, 1)),
+                                 static_cast<float>(n2w + core::at(p1, 2))}};
+                std::array<float, 3> minus = {{static_cast<float>(static_cast<double>(core::at(p1, 0)) - f0),
+                                  static_cast<float>(static_cast<double>(core::at(p1, 1)) - f1),
+                                  static_cast<float>(static_cast<double>(core::at(p1, 2)) - f2)}};
                 vertex[0] = {core::at(previous_plus, 0), core::at(previous_plus, 1), core::at(previous_plus, 2), previous_colour};
                 vertex[1] = {core::at(previous_minus, 0), core::at(previous_minus, 1), core::at(previous_minus, 2), previous_colour};
                 vertex[2] = {core::at(minus, 0), core::at(minus, 1), core::at(minus, 2), colour};
                 vertex[3] = {core::at(plus, 0), core::at(plus, 1), core::at(plus, 2), colour};
                 vertex += 4;
                 previous_colour = colour;
-                std::memcpy(p0, p1, sizeof(p1));
+                std::memcpy(p0.data(), p1.data(), sizeof(p1));
                 std::memcpy(previous_plus.data(), plus.data(), sizeof(plus));
                 std::memcpy(previous_minus.data(), minus.data(), sizeof(minus));
                 triangles += 2;
@@ -1384,19 +1392,20 @@ void PcSmoothRibbonParticles::render()
         if (index < particle_count_) {
             for (uint32_t bytes = 0x20; bytes <= 0x7FF; bytes += 0x20) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
-                float h[3], t[3];
+                std::array<float, 3> h{};
+                std::array<float, 3> t{};
                 if (emitter_independent_) {
-                    h[0] = head[0], h[1] = head[1], h[2] = head[2];
-                    t[0] = tail[0], t[1] = tail[1], t[2] = tail[2];
+                    core::at(h, 0) = head[0], core::at(h, 1) = head[1], core::at(h, 2) = head[2];
+                    core::at(t, 0) = tail[0], core::at(t, 1) = tail[1], core::at(t, 2) = tail[2];
                 } else {
                     for (int k = 0; k < 3; ++k) {
                         core::at(h, k) = static_cast<float>(static_cast<double>(head[k]) + (&at_point_.x)[k]);
                         core::at(t, k) = static_cast<float>(static_cast<double>(tail[k]) + (&at_point_.x)[k]);
                     }
                 }
-                auto dx = static_cast<float>(static_cast<double>(t[0]) - h[0]),
-                     dy = static_cast<float>(static_cast<double>(t[1]) - h[1]),
-                     dz = static_cast<float>(static_cast<double>(t[2]) - h[2]);
+                auto dx = static_cast<float>(static_cast<double>(core::at(t, 0)) - core::at(h, 0)),
+                     dy = static_cast<float>(static_cast<double>(core::at(t, 1)) - core::at(h, 1)),
+                     dz = static_cast<float>(static_cast<double>(core::at(t, 2)) - core::at(h, 2));
                 double n0 = dy * c - dz * b;
                 double n1 = dz * a - c * dx;
                 auto n2 = static_cast<float>(b * dx - dy * a);
@@ -1414,29 +1423,29 @@ void PcSmoothRibbonParticles::render()
                 const double n1w = n1 * w;
                 const double n2w = static_cast<double>(n2) * w;
                 auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
-                const std::array<float, 3> plus_head = {{static_cast<float>(static_cast<double>(f0) + h[0]),
-                                            static_cast<float>(static_cast<double>(f1) + h[1]),
-                                            static_cast<float>(n2w + h[2])}};
-                const std::array<float, 3> minus_head = {{static_cast<float>(static_cast<double>(h[0]) - f0),
-                                             static_cast<float>(static_cast<double>(h[1]) - f1),
-                                             static_cast<float>(static_cast<double>(h[2]) - f2)}};
-                const std::array<float, 3> minus_tail = {{static_cast<float>(static_cast<double>(t[0]) - f0),
-                                             static_cast<float>(static_cast<double>(t[1]) - f1),
-                                             static_cast<float>(static_cast<double>(t[2]) - f2)}};
-                const std::array<float, 3> plus_tail = {{static_cast<float>(static_cast<double>(f0) + t[0]),
-                                            static_cast<float>(static_cast<double>(f1) + t[1]),
-                                            static_cast<float>(n2w + t[2])}};
+                const std::array<float, 3> plus_head = {{static_cast<float>(static_cast<double>(f0) + core::at(h, 0)),
+                                            static_cast<float>(static_cast<double>(f1) + core::at(h, 1)),
+                                            static_cast<float>(n2w + core::at(h, 2))}};
+                const std::array<float, 3> minus_head = {{static_cast<float>(static_cast<double>(core::at(h, 0)) - f0),
+                                             static_cast<float>(static_cast<double>(core::at(h, 1)) - f1),
+                                             static_cast<float>(static_cast<double>(core::at(h, 2)) - f2)}};
+                const std::array<float, 3> minus_tail = {{static_cast<float>(static_cast<double>(core::at(t, 0)) - f0),
+                                             static_cast<float>(static_cast<double>(core::at(t, 1)) - f1),
+                                             static_cast<float>(static_cast<double>(core::at(t, 2)) - f2)}};
+                const std::array<float, 3> plus_tail = {{static_cast<float>(static_cast<double>(f0) + core::at(t, 0)),
+                                            static_cast<float>(static_cast<double>(f1) + core::at(t, 1)),
+                                            static_cast<float>(n2w + core::at(t, 2))}};
                 const ColourSpan span = colour_span(*this, life);
                 std::array<uint32_t, 4> colours{};
                 for (int k = 0; k < 4; ++k)
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
                 // Two quads along the middle: to the plus side and to the minus side.
-                vertex[0] = {h[0], h[1], h[2], core::at(colours, 0)};
-                vertex[1] = {t[0], t[1], t[2], core::at(colours, 3)};
+                vertex[0] = {core::at(h, 0), core::at(h, 1), core::at(h, 2), core::at(colours, 0)};
+                vertex[1] = {core::at(t, 0), core::at(t, 1), core::at(t, 2), core::at(colours, 3)};
                 vertex[2] = {core::at(plus_tail, 0), core::at(plus_tail, 1), core::at(plus_tail, 2), core::at(colours, 2)};
                 vertex[3] = {core::at(plus_head, 0), core::at(plus_head, 1), core::at(plus_head, 2), core::at(colours, 1)};
-                vertex[4] = {h[0], h[1], h[2], core::at(colours, 0)};
-                vertex[5] = {t[0], t[1], t[2], core::at(colours, 3)};
+                vertex[4] = {core::at(h, 0), core::at(h, 1), core::at(h, 2), core::at(colours, 0)};
+                vertex[5] = {core::at(t, 0), core::at(t, 1), core::at(t, 2), core::at(colours, 3)};
                 vertex[6] = {core::at(minus_tail, 0), core::at(minus_tail, 1), core::at(minus_tail, 2), core::at(colours, 2)};
                 vertex[7] = {core::at(minus_head, 0), core::at(minus_head, 1), core::at(minus_head, 2), core::at(colours, 1)};
                 vertex += 8;
@@ -1846,15 +1855,16 @@ void PcGlowRibbonTrailParticles::render()
         for (; index < particle_count_; ++index, ++particle) {
             const double life = static_cast<double>(particle->age) / particle->lifetime;
             const float* p = position_array_ + 3 * index;
-            float p0[3] = {p[0], p[1], p[2]}, p1[3];
+            std::array<float, 3> p0 = {{p[0], p[1], p[2]}};
+            std::array<float, 3> p1{};
             const float* q = position_array_ + 3 * (max_particles_ + index);
-            p1[0] = q[0], p1[1] = q[1], p1[2] = q[2];
+            core::at(p1, 0) = q[0], core::at(p1, 1) = q[1], core::at(p1, 2) = q[2];
             // Across the trail's first segment, normalised (unrounded).
             std::array<double, 3> n{};
             {
-                auto dx = static_cast<float>(static_cast<double>(p1[0]) - p0[0]),
-                     dy = static_cast<float>(static_cast<double>(p1[1]) - p0[1]),
-                     dz = static_cast<float>(static_cast<double>(p1[2]) - p0[2]);
+                auto dx = static_cast<float>(static_cast<double>(core::at(p1, 0)) - core::at(p0, 0)),
+                     dy = static_cast<float>(static_cast<double>(core::at(p1, 1)) - core::at(p0, 1)),
+                     dz = static_cast<float>(static_cast<double>(core::at(p1, 2)) - core::at(p0, 2));
                 core::at(n, 0) = dy * c - dz * b;
                 core::at(n, 1) = a * dz - dx * c;
                 core::at(n, 2) = dx * b - a * dy;
@@ -1890,28 +1900,29 @@ void PcGlowRibbonTrailParticles::render()
             to += 4;
             const double w = span_;
             // The head end's edge points.
-            float previous_a[3], previous_b[3];
+            std::array<float, 3> previous_a{};
+            std::array<float, 3> previous_b{};
             {
                 const double n0s = core::at(n, 0) * size0;
                 const double n1s = core::at(n, 1) * size0;
                 auto f0 = static_cast<float>(n0s), f2 = static_cast<float>(core::at(n, 2) * size0);
                 auto o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
                      o2 = static_cast<float>(w * static_cast<double>(f2));
-                previous_a[0] = static_cast<float>(static_cast<double>(o0) + p0[0]);
-                previous_a[1] = static_cast<float>(static_cast<double>(o1) + p0[1]);
-                previous_a[2] = static_cast<float>(static_cast<double>(o2) + p0[2]);
-                previous_b[0] = static_cast<float>(static_cast<double>(p0[0]) - o0);
-                previous_b[1] = static_cast<float>(static_cast<double>(p0[1]) - o1);
-                previous_b[2] = static_cast<float>(static_cast<double>(p0[2]) - o2);
+                core::at(previous_a, 0) = static_cast<float>(static_cast<double>(o0) + core::at(p0, 0));
+                core::at(previous_a, 1) = static_cast<float>(static_cast<double>(o1) + core::at(p0, 1));
+                core::at(previous_a, 2) = static_cast<float>(static_cast<double>(o2) + core::at(p0, 2));
+                core::at(previous_b, 0) = static_cast<float>(static_cast<double>(core::at(p0, 0)) - o0);
+                core::at(previous_b, 1) = static_cast<float>(static_cast<double>(core::at(p0, 1)) - o1);
+                core::at(previous_b, 2) = static_cast<float>(static_cast<double>(core::at(p0, 2)) - o2);
             }
             for (int k = 1; k < history_length_; ++k) {
                 const uint32_t colour = fine_colour(*from++, *to++, t);
                 if (k > 1) {
                     const float* next = position_array_ + 3 * (max_particles_ * k + index);
-                    p1[0] = next[0], p1[1] = next[1], p1[2] = next[2];
-                    const double dx = static_cast<double>(p1[0]) - p0[0];
-                    const double dy = static_cast<double>(p1[1]) - p0[1];
-                    const double dz = static_cast<double>(p1[2]) - p0[2];
+                    core::at(p1, 0) = next[0], core::at(p1, 1) = next[1], core::at(p1, 2) = next[2];
+                    const double dx = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
+                    const double dy = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
+                    const double dz = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
                     auto m0 = static_cast<float>(dy * c - dz * b);
                     auto m1 = static_cast<float>(a * dz - dx * c);
                     auto m2 = static_cast<float>(dx * b - a * dy);
@@ -1931,27 +1942,27 @@ void PcGlowRibbonTrailParticles::render()
                 auto f0 = static_cast<float>(n0s), f2 = static_cast<float>(core::at(n, 2) * size0);
                 auto o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
                      o2 = static_cast<float>(w * static_cast<double>(f2));
-                std::array<float, 3> next_c = {{static_cast<float>(static_cast<double>(o0) + p1[0]),
-                                   static_cast<float>(static_cast<double>(o1) + p1[1]),
-                                   static_cast<float>(w * static_cast<double>(f2) + p1[2])}};
-                std::array<float, 3> next_d = {{static_cast<float>(static_cast<double>(p1[0]) - o0),
-                                   static_cast<float>(static_cast<double>(p1[1]) - o1),
-                                   static_cast<float>(static_cast<double>(p1[2]) - o2)}};
-                vertex[0] = {previous_a[0], previous_a[1], previous_a[2], previous_colour};
-                vertex[1] = {previous_b[0], previous_b[1], previous_b[2], previous_colour};
+                std::array<float, 3> next_c = {{static_cast<float>(static_cast<double>(o0) + core::at(p1, 0)),
+                                   static_cast<float>(static_cast<double>(o1) + core::at(p1, 1)),
+                                   static_cast<float>(w * static_cast<double>(f2) + core::at(p1, 2))}};
+                std::array<float, 3> next_d = {{static_cast<float>(static_cast<double>(core::at(p1, 0)) - o0),
+                                   static_cast<float>(static_cast<double>(core::at(p1, 1)) - o1),
+                                   static_cast<float>(static_cast<double>(core::at(p1, 2)) - o2)}};
+                vertex[0] = {core::at(previous_a, 0), core::at(previous_a, 1), core::at(previous_a, 2), previous_colour};
+                vertex[1] = {core::at(previous_b, 0), core::at(previous_b, 1), core::at(previous_b, 2), previous_colour};
                 vertex[2] = {core::at(next_c, 0), core::at(next_c, 1), core::at(next_c, 2), colour};
-                vertex[3] = {previous_b[0], previous_b[1], previous_b[2], previous_colour};
+                vertex[3] = {core::at(previous_b, 0), core::at(previous_b, 1), core::at(previous_b, 2), previous_colour};
                 vertex[4] = {core::at(next_d, 0), core::at(next_d, 1), core::at(next_d, 2), colour};
                 vertex[5] = {core::at(next_c, 0), core::at(next_c, 1), core::at(next_c, 2), colour};
                 vertex += 6;
-                std::memcpy(previous_a, next_c.data(), sizeof(next_c));
-                std::memcpy(previous_b, next_d.data(), sizeof(next_d));
-                std::memcpy(p0, p1, sizeof(p1));
+                std::memcpy(previous_a.data(), next_c.data(), sizeof(next_c));
+                std::memcpy(previous_b.data(), next_d.data(), sizeof(next_d));
+                std::memcpy(p0.data(), p1.data(), sizeof(p1));
                 previous_colour = colour;
             }
 
             // The glow about the head: its colours from the colour fraction gone through the selection again.
-            std::memcpy(p0, p, sizeof(p0));
+            std::memcpy(p0.data(), p, sizeof(p0));
             const std::array<float, 3> rr = {{static_cast<float>(static_cast<double>(core::at(r, 0)) * size0),
                                  static_cast<float>(static_cast<double>(core::at(r, 1)) * size0),
                                  static_cast<float>(static_cast<double>(core::at(r, 2)) * size0)}};
@@ -1972,25 +1983,26 @@ void PcGlowRibbonTrailParticles::render()
             std::array<uint32_t, 3> glow{};
             for (int k = 0; k < 3; ++k)
                 core::at(glow, k) = fine_colour(glow_from[k], glow_to[k], t);
-            float outer[3], inner[3];
+            std::array<float, 3> outer{};
+            std::array<float, 3> inner{};
             {
                 const double r0 = static_cast<double>(core::at(rr, 0)) * 0.0f;
                 const double r1 = static_cast<double>(core::at(rr, 1)) * 0.0f;
                 const double r2 = static_cast<double>(core::at(rr, 2)) * 0.0f;
                 const double x =
-                    static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(r0)) * w)) + p0[0];
-                outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(w * r1)) + p0[1]);
-                outer[2] = static_cast<float>(w * r2 + p0[2]);
-                outer[0] = static_cast<float>(x + static_cast<float>(static_cast<double>(core::at(uu, 0)) * w));
-                outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(core::at(uu, 1)) * w)) +
-                                              outer[1]);
-                outer[2] = static_cast<float>(static_cast<double>(static_cast<float>(w * core::at(uu, 2))) + outer[2]);
-                inner[0] = static_cast<float>(static_cast<double>(p0[0]) + static_cast<float>(r0));
-                inner[1] = static_cast<float>(r1 + p0[1]);
-                const double z = static_cast<double>(static_cast<float>(r2)) + p0[2];
-                inner[0] = static_cast<float>(static_cast<double>(core::at(uu, 0)) + inner[0]);
-                inner[1] = static_cast<float>(static_cast<double>(core::at(uu, 1)) + inner[1]);
-                inner[2] = static_cast<float>(static_cast<double>(core::at(uu, 2)) + z);
+                    static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(r0)) * w)) + core::at(p0, 0);
+                core::at(outer, 1) = static_cast<float>(static_cast<double>(static_cast<float>(w * r1)) + core::at(p0, 1));
+                core::at(outer, 2) = static_cast<float>(w * r2 + core::at(p0, 2));
+                core::at(outer, 0) = static_cast<float>(x + static_cast<float>(static_cast<double>(core::at(uu, 0)) * w));
+                core::at(outer, 1) = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(core::at(uu, 1)) * w)) +
+                                              core::at(outer, 1));
+                core::at(outer, 2) = static_cast<float>(static_cast<double>(static_cast<float>(w * core::at(uu, 2))) + core::at(outer, 2));
+                core::at(inner, 0) = static_cast<float>(static_cast<double>(core::at(p0, 0)) + static_cast<float>(r0));
+                core::at(inner, 1) = static_cast<float>(r1 + core::at(p0, 1));
+                const double z = static_cast<double>(static_cast<float>(r2)) + core::at(p0, 2);
+                core::at(inner, 0) = static_cast<float>(static_cast<double>(core::at(uu, 0)) + core::at(inner, 0));
+                core::at(inner, 1) = static_cast<float>(static_cast<double>(core::at(uu, 1)) + core::at(inner, 1));
+                core::at(inner, 2) = static_cast<float>(static_cast<double>(core::at(uu, 2)) + z);
             }
             for (int i = 1; i <= segments_; ++i) {
                 const double angle = static_cast<double>(i) * glow_step_ * 0.0174532924f;
@@ -1998,36 +2010,37 @@ void PcGlowRibbonTrailParticles::render()
                 const double r0s = static_cast<double>(core::at(rr, 0)) * s;
                 const double r1s = static_cast<double>(s) * core::at(rr, 1);
                 const double r2s = static_cast<double>(s) * core::at(rr, 2);
-                float next_outer[3], next_inner[3];
+                std::array<float, 3> next_outer{};
+                std::array<float, 3> next_inner{};
                 const double x =
-                    static_cast<double>(p0[0]) + static_cast<float>(static_cast<double>(static_cast<float>(r0s)) * w);
-                next_outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(r1s * w)) + p0[1]);
-                next_outer[2] = static_cast<float>(w * r2s + p0[2]);
+                    static_cast<double>(core::at(p0, 0)) + static_cast<float>(static_cast<double>(static_cast<float>(r0s)) * w);
+                core::at(next_outer, 1) = static_cast<float>(static_cast<double>(static_cast<float>(r1s * w)) + core::at(p0, 1));
+                core::at(next_outer, 2) = static_cast<float>(w * r2s + core::at(p0, 2));
                 const double u0c = static_cast<double>(core::at(uu, 0)) * cs;
                 const double u1c = static_cast<double>(cs) * core::at(uu, 1);
                 auto u2c = static_cast<float>(static_cast<double>(cs) * core::at(uu, 2));
-                next_outer[0] = static_cast<float>(x + static_cast<float>(u0c * w));
-                next_outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(u1c * w)) + next_outer[1]);
-                next_outer[2] = static_cast<float>(
-                    static_cast<double>(static_cast<float>(static_cast<double>(u2c) * w)) + next_outer[2]);
-                auto ix = static_cast<float>(static_cast<double>(p0[0]) + static_cast<float>(r0s));
-                auto iy = static_cast<float>(r1s + p0[1]);
-                const double iz = static_cast<double>(static_cast<float>(r2s)) + p0[2];
-                next_inner[0] = static_cast<float>(static_cast<double>(static_cast<float>(u0c)) + ix);
-                next_inner[1] = static_cast<float>(static_cast<double>(static_cast<float>(u1c)) + iy);
-                next_inner[2] = static_cast<float>(static_cast<double>(u2c) + iz);
-                vertex[0] = {p0[0], p0[1], p0[2], core::at(glow, 0)};
-                vertex[1] = {outer[0], outer[1], outer[2], core::at(glow, 1)};
-                vertex[2] = {next_outer[0], next_outer[1], next_outer[2], core::at(glow, 1)};
-                vertex[3] = {outer[0], outer[1], outer[2], core::at(glow, 1)};
-                vertex[4] = {next_outer[0], next_outer[1], next_outer[2], core::at(glow, 1)};
-                vertex[5] = {inner[0], inner[1], inner[2], core::at(glow, 2)};
-                vertex[6] = {next_outer[0], next_outer[1], next_outer[2], core::at(glow, 1)};
-                vertex[7] = {inner[0], inner[1], inner[2], core::at(glow, 2)};
-                vertex[8] = {next_inner[0], next_inner[1], next_inner[2], core::at(glow, 2)};
+                core::at(next_outer, 0) = static_cast<float>(x + static_cast<float>(u0c * w));
+                core::at(next_outer, 1) = static_cast<float>(static_cast<double>(static_cast<float>(u1c * w)) + core::at(next_outer, 1));
+                core::at(next_outer, 2) = static_cast<float>(
+                    static_cast<double>(static_cast<float>(static_cast<double>(u2c) * w)) + core::at(next_outer, 2));
+                auto ix = static_cast<float>(static_cast<double>(core::at(p0, 0)) + static_cast<float>(r0s));
+                auto iy = static_cast<float>(r1s + core::at(p0, 1));
+                const double iz = static_cast<double>(static_cast<float>(r2s)) + core::at(p0, 2);
+                core::at(next_inner, 0) = static_cast<float>(static_cast<double>(static_cast<float>(u0c)) + ix);
+                core::at(next_inner, 1) = static_cast<float>(static_cast<double>(static_cast<float>(u1c)) + iy);
+                core::at(next_inner, 2) = static_cast<float>(static_cast<double>(u2c) + iz);
+                vertex[0] = {core::at(p0, 0), core::at(p0, 1), core::at(p0, 2), core::at(glow, 0)};
+                vertex[1] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(glow, 1)};
+                vertex[2] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(glow, 1)};
+                vertex[3] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(glow, 1)};
+                vertex[4] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(glow, 1)};
+                vertex[5] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(glow, 2)};
+                vertex[6] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(glow, 1)};
+                vertex[7] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(glow, 2)};
+                vertex[8] = {core::at(next_inner, 0), core::at(next_inner, 1), core::at(next_inner, 2), core::at(glow, 2)};
                 vertex += 9;
-                std::memcpy(outer, next_outer, sizeof(outer));
-                std::memcpy(inner, next_inner, sizeof(inner));
+                std::memcpy(outer.data(), next_outer.data(), sizeof(outer));
+                std::memcpy(inner.data(), next_inner.data(), sizeof(inner));
             }
             remaining -= per_particle;
         }

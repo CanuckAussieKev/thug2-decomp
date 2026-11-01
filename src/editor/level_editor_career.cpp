@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_triggers.h"
 #include "engine/maths/vec4.h"
@@ -81,9 +82,10 @@ Checklist get_take_in(goals::GapTally* checklist)
         if (gap.count) {
             maths::Vec4 pos{}, dir{};
             checklist->get_gap_positions(i, &pos, &dir);
-            const float p[4] = {pos.x, pos.y, pos.z, pos.w}, d[4] = {dir.x, dir.y, dir.z, dir.w};
-            std::copy(p, p + 4, gap.pos.begin());
-            std::copy(d, d + 4, gap.dir.begin());
+            const std::array<float, 4> p = {{pos.x, pos.y, pos.z, pos.w}};
+            const std::array<float, 4> d = {{dir.x, dir.y, dir.z, dir.w}};
+            std::ranges::copy(p, gap.pos.begin());
+            std::ranges::copy(d, gap.dir.begin());
         }
         out.gaps.push_back(gap);
     }

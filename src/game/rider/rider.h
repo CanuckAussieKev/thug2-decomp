@@ -202,8 +202,9 @@ public:
         uint32_t name; // projectile_0 ... projectile_4
         bool active;
         std::array<uint8_t, 3> pad5_;
-        maths::Vec4 pos;                  // +0x08 (the projectile component's position; w unused)
-    } projectiles_[5]{};                  // +0x1C0
+        maths::Vec4 pos; // +0x08 (the projectile component's position; w unused)
+    };
+    std::array<Projectile, 5> projectiles_{}; // +0x1C0
     memory::ListNode skater_link_{};      // +0x238 its node in the skate module's skater list (data = itself)
     AnimBlenderComponent* anim_blender_;  // +0x24C
     MeshInstanceModule* model_component_; // +0x250

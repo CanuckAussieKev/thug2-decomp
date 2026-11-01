@@ -74,27 +74,28 @@ gsl::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera)
 float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth)
 {
     std::array<float, 4> v = {{point->x, point->y, point->z, 1.0f}};
-    float view[4], clip[4];
-    xform(view, v.data(), &g_view_matrix);
-    xform(clip, view, &g_projection_matrix);
-    if (clip[3] != 0.0f) {
-        const double inverse = 1.0f / static_cast<double>(clip[3]);
-        clip[0] = static_cast<float>(clip[0] * inverse);
-        clip[1] = static_cast<float>(clip[1] * inverse);
-        clip[2] = static_cast<float>(inverse * clip[2]);
+    std::array<float, 4> view{};
+    std::array<float, 4> clip{};
+    xform(view.data(), v.data(), &g_view_matrix);
+    xform(clip.data(), view.data(), &g_projection_matrix);
+    if (core::at(clip, 3) != 0.0f) {
+        const double inverse = 1.0f / static_cast<double>(core::at(clip, 3));
+        core::at(clip, 0) = static_cast<float>(core::at(clip, 0) * inverse);
+        core::at(clip, 1) = static_cast<float>(core::at(clip, 1) * inverse);
+        core::at(clip, 2) = static_cast<float>(inverse * core::at(clip, 2));
     }
-    *x = static_cast<float>((static_cast<double>(clip[0]) + 1.0f) * 0.5f * g_virtual_screen_width);
-    *y = static_cast<float>((1.0f - static_cast<double>(clip[1])) * 0.5f * g_virtual_screen_height);
-    if (!(clip[2] < 1.0f))
+    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * 0.5f * g_virtual_screen_width);
+    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * 0.5f * g_virtual_screen_height);
+    if (!(core::at(clip, 2) < 1.0f))
         return -1.0f;
     const float most = g_scale_2d_in_3d_max;
     const float least = g_scale_2d_in_3d_min;
-    double factor = view[2] == 0.0f ? most : -1.0f / static_cast<double>(view[2]) * g_scale_2d_in_3d_numerator;
+    double factor = core::at(view, 2) == 0.0f ? most : -1.0f / static_cast<double>(core::at(view, 2)) * g_scale_2d_in_3d_numerator;
     if (factor > most)
         factor = most;
     else if (factor < least)
         factor = least;
-    *depth = static_cast<int>(static_cast<double>(clip[2]) * 65536.0f);
+    *depth = static_cast<int>(static_cast<double>(core::at(clip, 2)) * 65536.0f);
     return static_cast<float>(factor);
 }
 

@@ -589,11 +589,17 @@ static_assert(sizeof(ReferenceScores) == 0x10E, "the wire layout of the original
 // The session messages as the original built them (structs on the stack, sent whole; padding zeroed here).
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceSessionBrief {
-    uint8_t crown_start_slot, not_lan, game_id, pro_option_bits, max_players, pad5[3];
+    uint8_t crown_start_slot;
+    uint8_t not_lan;
+    uint8_t game_id;
+    uint8_t pro_option_bits;
+    uint8_t max_players;
+    std::array<uint8_t, 3> pad5;
     uint32_t time_left, game_type, level, teams, goals, team_graffiti_mode, time_limit, target_score;
     std::array<uint32_t, 8> start_points;
     uint32_t round;
-    uint8_t variant, pad4d[3];
+    uint8_t variant;
+    std::array<uint8_t, 3> pad4d;
 };
 // NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceSessionBrief) == 0x50 && offsetof(ReferenceSessionBrief, start_points) == 0x28 &&
@@ -618,8 +624,11 @@ static_assert(sizeof(ReferenceStartGame) == 0x48 && offsetof(ReferenceStartGame,
 struct ReferenceServerInfo {
     int8_t num_players, max_players, num_observers, max_observers;
     uint8_t password, in_game, host_mode, logged_in;
-    char name[16], level[32], mode[32];
-    uint8_t skill_level, pad59[3];
+    std::array<char, 16> name;
+    std::array<char, 32> level;
+    std::array<char, 32> mode;
+    uint8_t skill_level;
+    std::array<uint8_t, 3> pad59;
     uint32_t time;
     std::array<std::array<char, 16>, 8> players;
 };
@@ -638,11 +647,11 @@ void check_server_info()
     reference.password = 1;
     info.password = true;
     reference.host_mode = info.host_mode = 2;
-    std::snprintf(reference.name, sizeof(reference.name), "%s", "Kevin's park");
+    std::snprintf(reference.name.data(), sizeof(reference.name), "%s", "Kevin's park");
     std::snprintf(info.name.data(), sizeof(info.name), "%s", "Kevin's park");
-    std::snprintf(reference.level, sizeof(reference.level), "%s", "Barcelona");
+    std::snprintf(reference.level.data(), sizeof(reference.level), "%s", "Barcelona");
     std::snprintf(info.level.data(), sizeof(info.level), "%s", "Barcelona");
-    std::snprintf(reference.mode, sizeof(reference.mode), "%s", "Trick Attack");
+    std::snprintf(reference.mode.data(), sizeof(reference.mode), "%s", "Trick Attack");
     std::snprintf(info.mode.data(), sizeof(info.mode), "%s", "Trick Attack");
     reference.skill_level = info.skill_level = 4;
     reference.time = info.time = 123456;

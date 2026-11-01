@@ -173,14 +173,15 @@ void log_hit(const void* feeler, uint32_t caller)
     if (!should_log(object ? cell::address(object) : cell::address(coll_object), face))
         return;
 
-    char what[160], name[96];
+    std::array<char, 160> what{};
+    std::array<char, 96> name{};
     if (object)
-        std::snprintf(what, sizeof(what), "object %s", get_name_of(object_id, name, sizeof(name)));
+        std::snprintf(what.data(), sizeof(what), "object %s", get_name_of(object_id, name.data(), sizeof(name)));
     else if (static_hit && coll_object)
-        std::snprintf(what, sizeof(what), "sector %s obj flags %04X", get_name_of(sector, name, sizeof(name)),
+        std::snprintf(what.data(), sizeof(what), "sector %s obj flags %04X", get_name_of(sector, name.data(), sizeof(name)),
                       coll_object->flag_bits_);
     else
-        std::snprintf(what, sizeof(what), "(nothing recorded)");
+        std::snprintf(what.data(), sizeof(what), "(nothing recorded)");
 
     std::array<char, 64> skater = {""};
     std::array<float, 3> position{};
@@ -189,7 +190,7 @@ void log_hit(const void* feeler, uint32_t caller)
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
             "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",
-            what, face, flags, terrain, point[0], point[1], point[2], normal[0], normal[1], normal[2], start[0],
+            what.data(), face, flags, terrain, point[0], point[1], point[2], normal[0], normal[1], normal[2], start[0],
             start[1], start[2], end[0], end[1], end[2], skater.data(), caller);
 }
 

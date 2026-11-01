@@ -224,49 +224,54 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
         if (!male)
             female = true;
     }
-    char base_difficulty[0x100], base_suffix[0x100], base_difficulty_suffix[0x100];
-    char cam_difficulty[0x100], cam_base[0x100], cam_suffix[0x100], cam_difficulty_suffix[0x100];
-    std::snprintf(base_difficulty, sizeof(base_difficulty), kFormatTwo, base.data(), difficulty);
-    cam_difficulty[0] = cam_base[0] = cam_suffix[0] = cam_difficulty_suffix[0] = 0;
+    std::array<char, 0x100> base_difficulty{};
+    std::array<char, 0x100> base_suffix{};
+    std::array<char, 0x100> base_difficulty_suffix{};
+    std::array<char, 0x100> cam_difficulty{};
+    std::array<char, 0x100> cam_base{};
+    std::array<char, 0x100> cam_suffix{};
+    std::array<char, 0x100> cam_difficulty_suffix{};
+    std::snprintf(base_difficulty.data(), sizeof(base_difficulty), kFormatTwo, base.data(), difficulty);
+    core::at(cam_difficulty, 0) = core::at(cam_base, 0) = core::at(cam_suffix, 0) = core::at(cam_difficulty_suffix, 0) = 0;
     if (index >= 0 && !no_cam_anim) {
-        std::snprintf(cam_difficulty, sizeof(cam_difficulty), kCamAnim, base_difficulty, index);
+        std::snprintf(cam_difficulty.data(), sizeof(cam_difficulty), kCamAnim, base_difficulty.data(), index);
         if (success)
-            append_format(cam_difficulty, sizeof(cam_difficulty), kSuccess);
-        std::snprintf(cam_base, sizeof(cam_base), kCamAnim, base.data(), index);
+            append_format(cam_difficulty.data(), sizeof(cam_difficulty), kSuccess);
+        std::snprintf(cam_base.data(), sizeof(cam_base), kCamAnim, base.data(), index);
         if (success)
-            append_format(cam_base, sizeof(cam_base), kSuccess);
+            append_format(cam_base.data(), sizeof(cam_base), kSuccess);
         if (suffix) {
-            std::snprintf(cam_suffix, sizeof(cam_suffix), kCamAnimSuffix, base.data(), index, suffix);
+            std::snprintf(cam_suffix.data(), sizeof(cam_suffix), kCamAnimSuffix, base.data(), index, suffix);
             if (female)
-                append_format(cam_suffix, sizeof(cam_suffix), kFemale);
-            add_success_suffix(success, cam_suffix, 0x100);
-            std::snprintf(cam_difficulty_suffix, sizeof(cam_difficulty_suffix), kCamAnimSuffix, base_difficulty, index,
+                append_format(cam_suffix.data(), sizeof(cam_suffix), kFemale);
+            add_success_suffix(success, cam_suffix.data(), 0x100);
+            std::snprintf(cam_difficulty_suffix.data(), sizeof(cam_difficulty_suffix), kCamAnimSuffix, base_difficulty.data(), index,
                           suffix);
             if (female)
-                append_format(cam_difficulty_suffix, sizeof(cam_difficulty_suffix), kFemale);
-            add_success_suffix(success, cam_difficulty_suffix, 0x100);
+                append_format(cam_difficulty_suffix.data(), sizeof(cam_difficulty_suffix), kFemale);
+            add_success_suffix(success, cam_difficulty_suffix.data(), 0x100);
         }
     }
-    base_difficulty_suffix[0] = base_suffix[0] = 0;
+    core::at(base_difficulty_suffix, 0) = core::at(base_suffix, 0) = 0;
     if (suffix) {
-        std::snprintf(base_difficulty_suffix, sizeof(base_difficulty_suffix), kFormatTwo, base_difficulty, suffix);
+        std::snprintf(base_difficulty_suffix.data(), sizeof(base_difficulty_suffix), kFormatTwo, base_difficulty.data(), suffix);
         if (female)
-            append_format(base_difficulty_suffix, sizeof(base_difficulty_suffix), kFemale);
+            append_format(base_difficulty_suffix.data(), sizeof(base_difficulty_suffix), kFemale);
         if (success)
-            append_format(base_difficulty_suffix, sizeof(base_difficulty_suffix), kSuccess);
-        std::snprintf(base_suffix, sizeof(base_suffix), kFormatTwo, base.data(), suffix);
+            append_format(base_difficulty_suffix.data(), sizeof(base_difficulty_suffix), kSuccess);
+        std::snprintf(base_suffix.data(), sizeof(base_suffix), kFormatTwo, base.data(), suffix);
         if (female)
-            append_format(base_suffix, sizeof(base_suffix), kFemale);
+            append_format(base_suffix.data(), sizeof(base_suffix), kFemale);
         if (success)
-            append_format(base_suffix, sizeof(base_suffix), kSuccess);
+            append_format(base_suffix.data(), sizeof(base_suffix), kSuccess);
     }
     if (success) {
-        append_format(base_difficulty, sizeof(base_difficulty), kSuccess);
+        append_format(base_difficulty.data(), sizeof(base_difficulty), kSuccess);
         append_format(base.data(), sizeof(base), kSuccess);
     }
     // The candidates in order (the camera animation's first when there's one); for each its _lip version first.
-    const std::array<const char*, 8> candidates = {{base.data(),           base_difficulty, base_suffix, base_difficulty_suffix,
-                                       cam_difficulty, cam_base,        cam_suffix,  cam_difficulty_suffix}};
+    const std::array<const char*, 8> candidates = {{base.data(),           base_difficulty.data(), base_suffix.data(), base_difficulty_suffix.data(),
+                                       cam_difficulty.data(), cam_base.data(),        cam_suffix.data(),  cam_difficulty_suffix.data()}};
     uint32_t found = 0;
     bool lip = false;
     for (int i = index >= 0 ? 4 : 0; i < 8; ++i) {

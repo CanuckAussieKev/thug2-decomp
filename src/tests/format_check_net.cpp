@@ -76,11 +76,14 @@ struct ReferencePlayAnim {
 // NOLINTEND(readability-identifier-naming)
 struct ReferenceHideGeom {
     uint32_t name;
-    uint8_t object, hide, pad[2];
+    uint8_t object;
+    uint8_t hide;
+    std::array<uint8_t, 2> pad;
 };
 struct ReferenceAnimSpeed {
     float speed;
-    uint8_t object, pad[3];
+    uint8_t object;
+    std::array<uint8_t, 3> pad;
 };
 struct ReferenceSpinModel {
     int32_t period, power;
@@ -89,7 +92,9 @@ struct ReferenceSpinModel {
 };
 struct ReferenceSpecialItem {
     uint32_t params, bone;
-    uint8_t object, slot, pad[2];
+    uint8_t object;
+    uint8_t slot;
+    std::array<uint8_t, 2> pad;
 };
 #pragma pack(pop)
 static_assert(sizeof(ReferencePlayAnim) == online::kPlayAnimSize && sizeof(ReferenceHideGeom) == online::kHideGeomSize &&
@@ -160,27 +165,36 @@ void check_skater_messages()
 #pragma pack(push, 1)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceTrickObjects {
-    uint8_t one, unknown01[9], game_id, pad0b;
+    uint8_t one;
+    std::array<uint8_t, 9> unknown01;
+    uint8_t game_id;
+    uint8_t pad0b;
     int32_t player;
-    uint32_t score, count, objects[3];
+    uint32_t score;
+    uint32_t count;
+    std::array<uint32_t, 3> objects;
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceObservedTrickObjects {
-    uint8_t game_id, pad[3];
+    uint8_t game_id;
+    std::array<uint8_t, 3> pad;
     int32_t player;
-    uint32_t count, objects[3];
+    uint32_t count;
+    std::array<uint32_t, 3> objects;
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceTagStolen {
-    uint8_t game_id, pad[3];
+    uint8_t game_id;
+    std::array<uint8_t, 3> pad;
     int32_t thief, victim;
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferencePoints {
-    uint8_t game_id, pad[3];
+    uint8_t game_id;
+    std::array<uint8_t, 3> pad;
     int32_t points;
 };
 // NOLINTEND(readability-identifier-naming)
@@ -234,29 +248,36 @@ void check_graffiti_messages()
 // script manager).
 #pragma pack(push, 1)
 struct ReferenceHuntPlacements {
-    uint8_t id, pad[3];
+    uint8_t id;
+    std::array<uint8_t, 3> pad;
     int32_t count;
     std::array<std::array<float, 4>, 5> positions;
 };
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceBoardVehicle {
-    uint8_t skater, pad[3];
+    uint8_t skater;
+    std::array<uint8_t, 3> pad;
     uint32_t control_type;
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceProjectile {
     uint32_t zero;
-    float pos[4], vel[4];
+    std::array<float, 4> pos;
+    std::array<float, 4> vel;
     uint32_t type, ammo_type;
     int32_t radius;
     float scale;
-    uint8_t id, pad[3];
+    uint8_t id;
+    std::array<uint8_t, 3> pad;
 };
 // NOLINTEND(readability-identifier-naming)
 struct ReferencePlaceTag {
-    uint8_t object, sticker, pad[2];
-    float start[4], end[4];
+    uint8_t object;
+    uint8_t sticker;
+    std::array<uint8_t, 2> pad;
+    std::array<float, 4> start;
+    std::array<float, 4> end;
     int32_t size;
 };
 struct ReferenceTerrainSound {
@@ -265,7 +286,8 @@ struct ReferenceTerrainSound {
 };
 struct ReferenceToggleCheat {
     uint32_t cheat;
-    uint8_t on, pad[3];
+    uint8_t on;
+    std::array<uint8_t, 3> pad;
 };
 struct ReferenceCheats {
     int32_t count;
@@ -277,7 +299,8 @@ struct ReferenceRunScript {
 struct ReferenceSpawnScript {
     uint32_t name, object;
     int32_t node;
-    uint8_t permanent, pad[3];
+    uint8_t permanent;
+    std::array<uint8_t, 3> pad;
 };
 #pragma pack(pop)
 static_assert(sizeof(ReferenceHuntPlacements) == online::kHuntPlacementsSize &&
@@ -332,8 +355,8 @@ void check_play_messages()
     {
         ReferenceProjectile ref = {0, {1, 2, 3, 0}, {4, 5, 6, 0}, 0xD039432C, 0x11223344, 0xF0, 2.5f, 6, {}};
         online::Projectile m;
-        std::memcpy(m.position.data(), ref.pos, 16);
-        std::memcpy(m.velocity.data(), ref.vel, 16);
+        std::memcpy(m.position.data(), ref.pos.data(), 16);
+        std::memcpy(m.velocity.data(), ref.vel.data(), 16);
         m.type = 0xD039432C;
         m.ammo_type = 0x11223344;
         m.radius = 0xF0;
@@ -346,8 +369,8 @@ void check_play_messages()
         online::PlaceTag m;
         m.object_id = 2;
         m.sticker = true;
-        std::memcpy(m.start.data(), ref.start, 16);
-        std::memcpy(m.end.data(), ref.end, 16);
+        std::memcpy(m.start.data(), ref.start.data(), 16);
+        std::memcpy(m.end.data(), ref.end.data(), 16);
         m.size = 64;
         check_message("place tag 0x99", m, ref, online::write_place_tag, online::read_place_tag);
     }
@@ -424,7 +447,8 @@ struct ReferenceProceed {
     int32_t port;
     std::array<char, 16> server_name;
     int8_t max_players;
-    uint8_t broadband, pad[2];
+    uint8_t broadband;
+    std::array<uint8_t, 2> pad;
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
@@ -432,7 +456,8 @@ struct ReferenceTrailer {
     std::array<char, 10> magic;
     std::array<uint8_t, 2> pad;
     uint32_t version, release, scripts_hash, machine_id;
-    uint8_t modified, pad79[3];
+    uint8_t modified;
+    std::array<uint8_t, 3> pad79;
 };
 // NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
@@ -527,7 +552,8 @@ struct ReferencePlayerArrived {
 struct ReferenceHudNotice {
     uint32_t properties, text;
     int32_t time;
-    char string1[16], string2[16];
+    std::array<char, 16> string1;
+    std::array<char, 16> string2;
 };
 struct ReferenceStartRequest {
     std::array<uint32_t, 13> words;
@@ -537,12 +563,14 @@ struct ReferenceKickRequest {
     std::array<char, 16> name;
 };
 struct ReferenceGoalMessage {
-    uint8_t id, pad[3];
+    uint8_t id;
+    std::array<uint8_t, 3> pad;
     uint32_t goal;
 };
 struct ReferenceLevelSwitch {
     uint32_t level;
-    uint8_t flag, pad[3];
+    uint8_t flag;
+    std::array<uint8_t, 3> pad;
 };
 #pragma pack(pop)
 static_assert(sizeof(ReferencePlayerArrived) == online::kPlayerArrivedHeaderSize &&
@@ -574,8 +602,8 @@ void check_session_others()
     }
     {
         ReferenceHudNotice ref = {0x11112222, 0x33334444, 5000, {}, {}};
-        std::strcpy(ref.string1, "Skater 1");
-        std::strcpy(ref.string2, "Team Red");
+        std::strcpy(ref.string1.data(), "Skater 1");
+        std::strcpy(ref.string2.data(), "Team Red");
         online::HudNotice m;
         m.properties = 0x11112222;
         m.text = 0x33334444;
@@ -584,7 +612,7 @@ void check_session_others()
         std::strcpy(m.string2.data(), "Team Red");
         check_message("hud notice 0x3F", m, ref, online::write_hud_notice, online::read_hud_notice);
         // string 1 filling its field (no terminator): cut there, string 2 still read
-        std::memset(ref.string1, 'x', 16);
+        std::memset(ref.string1.data(), 'x', 16);
         util::ByteReader reader(&ref, sizeof(ref));
         online::HudNotice back;
         check(online::read_hud_notice(reader, &back) && std::strlen(back.string1.data()) == 16 &&
@@ -656,7 +684,8 @@ struct ReferenceThugproServerInfo {
 // NOLINTEND(readability-identifier-naming)
 struct ReferenceThugproChangeLevel {
     uint32_t level;
-    uint8_t flag, pad[3];
+    uint8_t flag;
+    std::array<uint8_t, 3> pad;
     std::array<char, 32> name;
 };
 #pragma pack(pop)
@@ -762,11 +791,14 @@ void check_news()
 // The skater collision messages as their senders built them (the projectile's HitMessage, the state history's).
 #pragma pack(push, 1)
 struct ReferenceHit {
-    uint8_t id, fireball, pad[2];
+    uint8_t id;
+    uint8_t fireball;
+    std::array<uint8_t, 2> pad;
     int32_t score;
 };
 struct ReferenceRanInto {
-    uint8_t id, pad[3];
+    uint8_t id;
+    std::array<uint8_t, 3> pad;
     std::array<float, 4> push;
 };
 #pragma pack(pop)

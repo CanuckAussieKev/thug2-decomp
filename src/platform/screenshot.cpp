@@ -66,7 +66,8 @@ std::string g_event_note; // (request_event_shot's: the next picture is an event
 
 // The camera of viewport 0 as last drawn.
 struct View {
-    float pos[3], forward[3];
+    std::array<float, 3> pos;
+    std::array<float, 3> forward;
     uint32_t frame;
     bool noted;
 } g_view;
@@ -218,8 +219,8 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
 
     Section camera{"camera", {}};
     if (g_view.noted && frame_loop::frames_run() - g_view.frame < 10) {
-        camera.fields.push_back({"position", vec(g_view.pos)});
-        camera.fields.push_back({"looking along", vec(g_view.forward, "(%.3f, %.3f, %.3f)")});
+        camera.fields.push_back({"position", vec(g_view.pos.data())});
+        camera.fields.push_back({"looking along", vec(g_view.forward.data(), "(%.3f, %.3f, %.3f)")});
     }
     sections.push_back(camera);
 

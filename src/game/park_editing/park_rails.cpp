@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -197,14 +198,15 @@ void ParkRailSet::prepare_all(int points, int strings, bool in)
         std::memcpy(label_.data(), "In set", sizeof("In set"));
     else
         std::memcpy(label_.data(), "Out set", sizeof("Out set"));
-    char point_name[64], string_name[64];
-    std::snprintf(point_name, sizeof(point_name), "%s RailPoint", label_.data());
-    std::snprintf(string_name, sizeof(string_name), "%s RailString", label_.data());
+    std::array<char, 64> point_name{};
+    std::array<char, 64> string_name{};
+    std::snprintf(point_name.data(), sizeof(point_name), "%s RailPoint", label_.data());
+    std::snprintf(string_name.data(), sizeof(string_name), "%s RailString", label_.data());
     void* memory = memory::alloc(sizeof(memory::SlabBank));
     point_pool_ =
-        memory ? memory::construct_in<memory::SlabBank>(memory, sizeof(ParkRailPoint), points, point_name) : nullptr;
+        memory ? memory::construct_in<memory::SlabBank>(memory, sizeof(ParkRailPoint), points, point_name.data()) : nullptr;
     memory = memory::alloc(sizeof(memory::SlabBank));
-    rail_pool_ = memory ? new (memory) memory::SlabBank(sizeof(ParkRailString), strings, string_name) : nullptr;
+    rail_pool_ = memory ? new (memory) memory::SlabBank(sizeof(ParkRailString), strings, string_name.data()) : nullptr;
 }
 
 // 0x0058B280

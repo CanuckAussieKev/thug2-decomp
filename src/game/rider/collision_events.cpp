@@ -55,7 +55,8 @@ constexpr DWORD kSpotQuietMs = 1000;
 constexpr int kPathRecords = 32;
 
 struct Ray {
-    float start[3], end[3];
+    std::array<float, 3> start;
+    std::array<float, 3> end;
 };
 
 struct Sample {
@@ -123,8 +124,8 @@ void copy3(float* to, const maths::Vec4& from)
 Ray line_of(const render::ProbeRay& feeler)
 {
     Ray ray{};
-    copy3(ray.start, feeler.line_.start);
-    copy3(ray.end, feeler.line_.end);
+    copy3(ray.start.data(), feeler.line_.start);
+    copy3(ray.end.data(), feeler.line_.end);
     return ray;
 }
 
@@ -316,8 +317,8 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
         copy3(core::at(detail->corners, k).data(), world);
     }
     detail->geometry = true;
-    copy3(detail->bounds_low_, geometry->lower_limit_);
-    copy3(detail->bounds_high_, geometry->upper_limit_);
+    copy3(detail->bounds_low_.data(), geometry->lower_limit_);
+    copy3(detail->bounds_high_.data(), geometry->upper_limit_);
     for (int k = 0; k < 3; ++k) {
         const float d = to_segment(spot, core::at(detail->corners, k).data(), core::at(detail->corners, (k + 1) % 3).data());
         if (detail->edge < 0 || d < detail->edge_distance_) {
@@ -404,10 +405,10 @@ void get_emit(int before)
     Detail detail;
     event.frame = now.frame;
     event.frames = static_cast<int>(now.frame - old.frame);
-    std::memcpy(event.pos_before_, old.pos, sizeof(event.pos_before_));
-    std::memcpy(event.pos, now.pos, sizeof(event.pos));
-    std::memcpy(event.vel_before_, old.vel, sizeof(event.vel_before_));
-    std::memcpy(event.vel_after_, now.vel, sizeof(event.vel_after_));
+    std::memcpy(event.pos_before_.data(), old.pos, sizeof(event.pos_before_));
+    std::memcpy(event.pos.data(), now.pos, sizeof(event.pos));
+    std::memcpy(event.vel_before_.data(), old.vel, sizeof(event.vel_before_));
+    std::memcpy(event.vel_after_.data(), now.vel, sizeof(event.vel_after_));
     std::memcpy(event.ground_normal_.data(), now.ground_normal_, sizeof(event.ground_normal_));
     event.heading_before_ = get_heading_of(old.facing);
     event.heading = get_heading_of(now.facing);
@@ -508,7 +509,8 @@ void get_emit(int before)
     core::at(event.probe_dir_, 0) = core::at(direction, 0);
     core::at(event.probe_dir_, 2) = core::at(direction, 1);
     const float* at = event.spot.data();
-    float high[3] = {at[0], at[1] + 48.0f, at[2]}, low[3] = {at[0], at[1] - 200.0f, at[2]};
+    std::array<float, 3> high = {{at[0], at[1] + 48.0f, at[2]}};
+    std::array<float, 3> low = {{at[0], at[1] - 200.0f, at[2]}};
     const std::array<float, 3> beyond = {{at[0] + core::at(direction, 0) * 24.0f, at[1], at[2] + core::at(direction, 1) * 24.0f}};
     float beyond_high[3] = {core::at(beyond, 0), core::at(beyond, 1) + 48.0f, core::at(beyond, 2)},
           beyond_low[3] = {core::at(beyond, 0), core::at(beyond, 1) - 200.0f, core::at(beyond, 2)};
@@ -516,7 +518,7 @@ void get_emit(int before)
     std::array<float, 3> ahead_from = {{old.pos[0], old.pos[1] + lift, old.pos[2]}};
     std::array<float, 3> ahead_to = {{core::at(ahead_from, 0) + core::at(direction, 0) * 120.0f, core::at(ahead_from, 1), core::at(ahead_from, 2) + core::at(direction, 1) * 120.0f}};
     for (int everything = 0; everything < 2; ++everything) {
-        core::at(event.probes, 0 + everything) = get_probe(high, low, everything != 0);
+        core::at(event.probes, 0 + everything) = get_probe(high.data(), low.data(), everything != 0);
         core::at(event.probes, 2 + everything) = get_probe(beyond_high, beyond_low, everything != 0);
         core::at(event.probes, 4 + everything) = get_probe(ahead_from.data(), ahead_to.data(), everything != 0);
     }
@@ -544,8 +546,8 @@ void get_emit(int before)
     core::at(detail.stick, 1) = core::at(now.stick, 1);
     if (ray) {
         detail.ray = true;
-        std::memcpy(detail.probe_origin_, ray->start, sizeof(detail.probe_origin_));
-        std::memcpy(detail.ray_end_, ray->end, sizeof(detail.ray_end_));
+        std::memcpy(detail.probe_origin_.data(), ray->start.data(), sizeof(detail.probe_origin_));
+        std::memcpy(detail.ray_end_.data(), ray->end.data(), sizeof(detail.ray_end_));
     }
     face_geometry(event.face, event.spot.data(), &detail);
     detail.col_file_ = col_file_stamp();
@@ -560,7 +562,7 @@ void get_emit(int before)
                       s.pos[2], state_letter(s.state));
         detail.approach += text.data();
     }
-    detail.camera = sys::screenshot::last_view(detail.camera_pos_, detail.camera_dir_);
+    detail.camera = sys::screenshot::last_view(detail.camera_pos_.data(), detail.camera_dir_.data());
 
     get_log("%s", format_event(event, &get_name_of).c_str());
     get_log("%s", format_detail(detail).c_str());
@@ -651,10 +653,11 @@ int find_reversal(const Motion* frames, int count)
                 ++air;
             else if (s.state != 0)
                 refused = true;
-            float ds[2], dp[2];
-            const float vs = get_horizontal(s.vel.data(), ds);
-            const float vp = get_horizontal(p.vel.data(), dp);
-            if (vs < kStill || vp < kStill || ds[0] * dp[0] + ds[1] * dp[1] < kSudden)
+            std::array<float, 2> ds{};
+            std::array<float, 2> dp{};
+            const float vs = get_horizontal(s.vel.data(), ds.data());
+            const float vp = get_horizontal(p.vel.data(), dp.data());
+            if (vs < kStill || vp < kStill || core::at(ds, 0) * core::at(dp, 0) + core::at(ds, 1) * core::at(dp, 1) < kSudden)
                 sudden = true;
         }
         if (refused || air > kMostAirFrames || !sudden)
@@ -837,10 +840,10 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
                   e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
     std::string line = head.data();
     line += " spot=" + v3(e.spot.data());
-    line += " pos_before=" + v3(e.pos_before_);
-    line += " pos=" + v3(e.pos);
-    line += " vel_before=" + v3(e.vel_before_);
-    line += " vel_after=" + v3(e.vel_after_);
+    line += " pos_before=" + v3(e.pos_before_.data());
+    line += " pos=" + v3(e.pos.data());
+    line += " vel_before=" + v3(e.vel_before_.data());
+    line += " vel_after=" + v3(e.vel_after_.data());
     std::array<char, 96> text{};
     std::snprintf(text.data(), sizeof(text), " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
     line += text.data();
@@ -866,10 +869,10 @@ std::string format_detail(const Detail& d)
                   d.number, d.state, d.physics, d.speed, d.trick ? 1 : 0, d.balance, d.input.c_str(),
                   d.input_window_.c_str(), core::at(d.stick, 0), core::at(d.stick, 1));
     std::string line = text.data();
-    line += " ray=" + (d.ray ? v3(d.probe_origin_) + ">" + v3(d.ray_end_) : std::string("-"));
+    line += " ray=" + (d.ray ? v3(d.probe_origin_.data()) + ">" + v3(d.ray_end_.data()) : std::string("-"));
     if (d.geometry) {
         line += " corners=" + v3(core::at(d.corners, 0).data()) + ";" + v3(core::at(d.corners, 1).data()) + ";" + v3(core::at(d.corners, 2).data());
-        line += " col_box=" + v3(d.bounds_low_) + ">" + v3(d.bounds_high_);
+        line += " col_box=" + v3(d.bounds_low_.data()) + ">" + v3(d.bounds_high_.data());
     } else {
         line += " corners=- col_box=-";
     }
@@ -884,7 +887,7 @@ std::string format_detail(const Detail& d)
     }
     line += " col_file=" + d.col_file_ + " scn_file=" + d.scn_file_;
     line += " approach=" + (d.approach.empty() ? std::string("-") : d.approach);
-    line += " camera=" + (d.camera ? v3(d.camera_pos_) + ">" + v3(d.camera_dir_, "%.3f,%.3f,%.3f") : std::string("-"));
+    line += " camera=" + (d.camera ? v3(d.camera_pos_.data()) + ">" + v3(d.camera_dir_.data(), "%.3f,%.3f,%.3f") : std::string("-"));
     return line;
 }
 

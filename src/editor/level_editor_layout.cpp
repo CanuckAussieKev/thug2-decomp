@@ -262,9 +262,10 @@ std::string emit_out(const FileLoad& file)
         out << "node " << a.name << ' ' << a.cls;
         if (!a.type.empty())
             out << " type=" << a.type;
-        const float pos[3] = {a.pos.x, a.pos.y, a.pos.z}, angles[3] = {a.angles.x, a.angles.y, a.angles.z};
-        triple(out, "pos", pos);
-        triple(out, "angles", angles);
+        const std::array<float, 3> pos = {{a.pos.x, a.pos.y, a.pos.z}};
+        const std::array<float, 3> angles = {{a.angles.x, a.angles.y, a.angles.z}};
+        triple(out, "pos", pos.data());
+        triple(out, "angles", angles.data());
         if (!a.types.empty()) {
             out << " types=";
             for (size_t i = 0; i < a.types.size(); ++i)

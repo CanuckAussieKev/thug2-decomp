@@ -166,19 +166,27 @@ void versine_sine(float angle, double* t, float* s)
 
 // pc_mesh_load.cpp: the bone-scaled position, the memory loader's and the file loader's.
 struct Skin {
-    float e0[4], e1[4], e2[4];
-    float a[4], b[4], c[4], p[4], q[4], r[4], s[3];
+    std::array<float, 4> e0;
+    std::array<float, 4> e1;
+    std::array<float, 4> e2;
+    std::array<float, 4> a;
+    std::array<float, 4> b;
+    std::array<float, 4> c;
+    std::array<float, 4> p;
+    std::array<float, 4> q;
+    std::array<float, 4> r;
+    std::array<float, 3> s;
 };
 // One formula for both: the original's two loaders differ only in which sums and products their x87 code
 // rounded to float.
 void skin(const Skin& v, float* out)
 {
-    const float ax = v.p[0] + v.e0[0] * v.a[0], ay = v.p[1] + v.e0[2] * v.a[1], az = v.p[2] + v.e0[1] * v.a[2];
-    const float bx = v.q[0] + v.e1[0] * v.b[0], by = v.q[1] + v.e1[2] * v.b[1], bz = v.q[2] + v.e1[1] * v.b[2];
-    const float cx = v.r[0] + v.e2[0] * v.c[0], cy = v.r[1] + v.e2[2] * v.c[1], cz = v.r[2] + v.e2[1] * v.c[2];
-    out[0] = ax * v.s[0] + bx * v.s[1] + cx * v.s[2];
-    out[1] = ay * v.s[0] + by * v.s[1] + cy * v.s[2];
-    out[2] = az * v.s[0] + bz * v.s[1] + cz * v.s[2];
+    const float ax = core::at(v.p, 0) + core::at(v.e0, 0) * core::at(v.a, 0), ay = core::at(v.p, 1) + core::at(v.e0, 2) * core::at(v.a, 1), az = core::at(v.p, 2) + core::at(v.e0, 1) * core::at(v.a, 2);
+    const float bx = core::at(v.q, 0) + core::at(v.e1, 0) * core::at(v.b, 0), by = core::at(v.q, 1) + core::at(v.e1, 2) * core::at(v.b, 1), bz = core::at(v.q, 2) + core::at(v.e1, 1) * core::at(v.b, 2);
+    const float cx = core::at(v.r, 0) + core::at(v.e2, 0) * core::at(v.c, 0), cy = core::at(v.r, 1) + core::at(v.e2, 2) * core::at(v.c, 1), cz = core::at(v.r, 2) + core::at(v.e2, 1) * core::at(v.c, 2);
+    out[0] = ax * core::at(v.s, 0) + bx * core::at(v.s, 1) + cx * core::at(v.s, 2);
+    out[1] = ay * core::at(v.s, 0) + by * core::at(v.s, 1) + cy * core::at(v.s, 2);
+    out[2] = az * core::at(v.s, 0) + bz * core::at(v.s, 1) + cz * core::at(v.s, 2);
 }
 
 } // namespace fresh
@@ -910,15 +918,15 @@ void versine_sine(float angle, double* out_t, float* out_s)
 }
 void skin_memory(const fresh::Skin& v, float* out)
 {
-    float e0_0 = v.e0[0], e0_4 = v.e0[1], e0_8 = v.e0[2], e1_0 = v.e1[0], e1_4 = v.e1[1], e1_8 = v.e1[2];
-    float e2_0 = v.e2[0], e2_4 = v.e2[1], e2_8 = v.e2[2];
+    float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1), e1_8 = core::at(v.e1, 2);
+    float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2);
     // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float ax_ = v.a[0], ay = v.a[1], az = v.a[2], bx_ = v.b[0], by = v.b[1], bz = v.b[2];
+    float ax_ = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), bx_ = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2);
     // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float cx_ = v.c[0], cy = v.c[1], cz = v.c[2];
-    float px = v.p[0], py = v.p[1], pz = v.p[2], qx = v.q[0], qy = v.q[1], qz = v.q[2];
-    float rx = v.r[0], ry = v.r[1], rz = v.r[2];
-    float s0 = v.s[0], s1 = v.s[1], s2 = v.s[2];
+    float cx_ = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2);
+    float px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2);
+    float rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2);
+    float s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
     float t0 = 0.0f, t1 = 0.0f, v2 = 0.0f, w1 = 0.0f, w2 = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
           out_y = 0.0f, out_z = 0.0f;
     __asm {
@@ -1028,16 +1036,16 @@ void skin_memory(const fresh::Skin& v, float* out)
 }
 void skin_file(const fresh::Skin& v, float* out)
 {
-    float e0_0 = v.e0[0], e0_4 = v.e0[1], e0_8 = v.e0[2], e0_c = v.e0[3], e1_0 = v.e1[0], e1_4 = v.e1[1],
-          e1_8 = v.e1[2], e1_c = v.e1[3];
-    float e2_0 = v.e2[0], e2_4 = v.e2[1], e2_8 = v.e2[2], e2_c = v.e2[3];
+    float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e0_c = core::at(v.e0, 3), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1),
+          e1_8 = core::at(v.e1, 2), e1_c = core::at(v.e1, 3);
+    float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2), e2_c = core::at(v.e2, 3);
     // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float ax_ = v.a[0], ay = v.a[1], az = v.a[2], aw = v.a[3], bx_ = v.b[0], by = v.b[1], bz = v.b[2], bw = v.b[3];
+    float ax_ = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), aw = core::at(v.a, 3), bx_ = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2), bw = core::at(v.b, 3);
     // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float cx_ = v.c[0], cy = v.c[1], cz = v.c[2], cw = v.c[3];
-    float px = v.p[0], py = v.p[1], pz = v.p[2], pw = v.p[3], qx = v.q[0], qy = v.q[1], qz = v.q[2], qw = v.q[3];
-    float rx = v.r[0], ry = v.r[1], rz = v.r[2], rw = v.r[3];
-    float s0 = v.s[0], s1 = v.s[1], s2 = v.s[2];
+    float cx_ = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2), cw = core::at(v.c, 3);
+    float px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), pw = core::at(v.p, 3), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2), qw = core::at(v.q, 3);
+    float rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2), rw = core::at(v.r, 3);
+    float s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
     float cyw = 0.0f, czw = 0.0f, bzw = 0.0f, ayw = 0.0f, azw = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
           out_y = 0.0f, out_z = 0.0f;
     __asm {
@@ -1317,7 +1325,8 @@ void run(int count, std::mt19937_64& random)
         compare(t_tan_times, fresh::tan_times(fa, fb), ref::tan_times(fa, fb), fa);
         const float y = coordinate(random), x = coordinate(random);
         compare(t_atan2_qt, fresh::atan2_less_quarter_turn(y, x), ref::atan2_less_quarter_turn(y, x), y);
-        uint8_t from[4], to[4];
+        std::array<uint8_t, 4> from{};
+        std::array<uint8_t, 4> to{};
         for (int k = 0; k < 4; ++k) {
             core::at(from, k) = static_cast<uint8_t>(byte(random));
             core::at(to, k) = static_cast<uint8_t>(byte(random));
@@ -1325,8 +1334,8 @@ void run(int count, std::mt19937_64& random)
         const int den = key_time(random) + 1, num = key_time(random) % den;
         {
             // (the largest step any of the four channels differs by)
-            const uint32_t c_fresh = fresh::blend_key_colors(num, den, from, to),
-                           c_ref = ref::blend_key_colors(num, den, from, to);
+            const uint32_t c_fresh = fresh::blend_key_colors(num, den, from.data(), to.data()),
+                           c_ref = ref::blend_key_colors(num, den, from.data(), to.data());
             uint64_t steps = 0;
             for (int k = 0; k < 4; ++k) {
                 const int d =
@@ -1410,16 +1419,17 @@ void run(int count, std::mt19937_64& random)
             core::at(skin.q, k) = small(random) * 50.0f;
             core::at(skin.r, k) = small(random) * 50.0f;
         }
-        skin.s[0] = weight(random);
-        skin.s[1] = weight(random) * (1.0f - skin.s[0]);
-        skin.s[2] = 1.0f - skin.s[0] - skin.s[1];
-        float out_fresh[3], out_ref[3];
-        fresh::skin(skin, out_fresh);
-        ref::skin_memory(skin, out_ref);
+        core::at(skin.s, 0) = weight(random);
+        core::at(skin.s, 1) = weight(random) * (1.0f - core::at(skin.s, 0));
+        core::at(skin.s, 2) = 1.0f - core::at(skin.s, 0) - core::at(skin.s, 1);
+        std::array<float, 3> out_fresh{};
+        std::array<float, 3> out_ref{};
+        fresh::skin(skin, out_fresh.data());
+        ref::skin_memory(skin, out_ref.data());
         for (int k = 0; k < 3; ++k)
             compare(t_skin_m, core::at(out_fresh, k), core::at(out_ref, k), k);
-        fresh::skin(skin, out_fresh);
-        ref::skin_file(skin, out_ref);
+        fresh::skin(skin, out_fresh.data());
+        ref::skin_file(skin, out_ref.data());
         for (int k = 0; k < 3; ++k)
             compare(t_skin_f, core::at(out_fresh, k), core::at(out_ref, k), k);
     }

@@ -30,7 +30,8 @@ namespace {
 // The registry's indices of this module's actions (Init).
 struct Ids {
     int pie_context_ = -1, pie_view_ = -1, walk = -1, follow = -1, teleport = -1, pad = -1;
-    int store[nav::kQuickSets] = {}, recall[nav::kQuickSets] = {};
+    std::array<int, nav::kQuickSets> store = {};
+    std::array<int, nav::kQuickSets> recall = {};
 } g_ids;
 
 bool g_pad_mode;
@@ -190,7 +191,7 @@ void register_actions()
                                     {get_k(SDL_SCANCODE_1 + i, kCtrl | kAlt)}, "Store the selection as Set n");
         core::at(g_ids.recall, i) = append_one(recall_id.c_str(), recall_name.c_str(), "Select", Kind::kPress,
                                      {get_k(SDL_SCANCODE_1 + i, kAlt | kShift)}, "Select Set n");
-        for (const int index : {g_ids.store[i], g_ids.recall[i]}) {
+        for (const int index : {core::at(g_ids.store, i), core::at(g_ids.recall, i)}) {
             if (actions::ActStep* a = actions::get_pull(index)) {
                 const size_t at = a->tip.find("Set n");
                 if (at != std::string::npos)

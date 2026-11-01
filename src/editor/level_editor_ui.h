@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_chains.h"
@@ -332,7 +333,8 @@ struct Request {
     } kind{};
     int value = 0;
     uint32_t id = 0;
-    float a[3] = {}, b[3] = {};
+    std::array<float, 3> a = {};
+    std::array<float, 3> b = {};
     uint32_t node = 0;
     std::string text, label;
     level_props::Props props;

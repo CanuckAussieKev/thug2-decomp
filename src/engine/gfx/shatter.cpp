@@ -153,16 +153,20 @@ void update_shatter(PcShatter* shatter, float step)
         const maths::Vec4& c = shatter->centres[i];
         const maths::Mat4& m = shatter->rotations[i];
         // (the first vertex's offsets stay in registers, the others' are stored)
-        double d0[3], d1[3], d2[3];
+        std::array<double, 3> d0{};
+        std::array<double, 3> d1{};
+        std::array<double, 3> d2{};
         for (int k = 0; k < 3; ++k) {
             core::at(d0, k) = static_cast<double>(get_at(v0)[k]) - (&c.x)[k];
             core::at(d1, k) = static_cast<float>(static_cast<double>(get_at(v1)[k]) - (&c.x)[k]);
             core::at(d2, k) = static_cast<float>(static_cast<double>(get_at(v2)[k]) - (&c.x)[k]);
         }
-        float r0[3], r1[3], r2[3];
-        get_turn(m, d0[0], d0[1], d0[2], r0);
-        get_turn(m, d1[0], d1[1], d1[2], r1);
-        get_turn(m, d2[0], d2[1], d2[2], r2);
+        std::array<float, 3> r0{};
+        std::array<float, 3> r1{};
+        std::array<float, 3> r2{};
+        get_turn(m, core::at(d0, 0), core::at(d0, 1), core::at(d0, 2), r0.data());
+        get_turn(m, core::at(d1, 0), core::at(d1, 1), core::at(d1, 2), r1.data());
+        get_turn(m, core::at(d2, 0), core::at(d2, 1), core::at(d2, 2), r2.data());
         static_cast<Shatter*>(shatter)->Shatter::get_step(i, step); // (the centre moved)
         const maths::Vec4& moved = shatter->centres[i];
         for (int k = 0; k < 3; ++k) {

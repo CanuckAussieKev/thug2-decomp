@@ -298,11 +298,13 @@ void interpolate_quat(float* out, const void* a, const void* b, float t, bool fl
         get_quat(b, out, floats);
         return;
     }
-    float from[4] = {0.0f, 0.0f, 0.0f, 1.0f}, to[4] = {0.0f, 0.0f, 0.0f, 1.0f}, result[4];
-    get_quat(a, from, floats);
-    get_quat(b, to, floats);
-    interpolate_rotation(result, from, to, t);
-    std::memcpy(out, result, sizeof(result));
+    std::array<float, 4> from = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> to = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> result{};
+    get_quat(a, from.data(), floats);
+    get_quat(b, to.data(), floats);
+    interpolate_rotation(result.data(), from.data(), to.data(), t);
+    std::memcpy(out, result.data(), sizeof(result));
 }
 
 // 0x00483C40
@@ -334,11 +336,13 @@ void interpolate_short_quat(float* out, const ShortKey* a, const ShortKey* b, fl
         get_short_quat(b, out);
         return;
     }
-    float from[4] = {0.0f, 0.0f, 0.0f, 1.0f}, to[4] = {0.0f, 0.0f, 0.0f, 1.0f}, result[4];
-    get_short_quat(a, from);
-    get_short_quat(b, to);
-    interpolate_rotation(result, from, to, t);
-    std::memcpy(out, result, sizeof(result));
+    std::array<float, 4> from = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> to = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> result{};
+    get_short_quat(a, from.data());
+    get_short_quat(b, to.data());
+    interpolate_rotation(result.data(), from.data(), to.data(), t);
+    std::memcpy(out, result.data(), sizeof(result));
 }
 
 // 0x00484080

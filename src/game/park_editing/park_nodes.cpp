@@ -598,33 +598,36 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
 
             // the flag: the flag itself, its CTF node and its base
             const char* colour = core::at(kFlagColours, type - RestartPoint::kRedFlag);
-            char flag_type[256], model[256], script[256], flag_name[256];
+            std::array<char, 256> flag_type{};
+            std::array<char, 256> model{};
+            std::array<char, 256> script{};
+            std::array<char, 256> flag_name{};
             auto add_flag_node = [&](bool with_script) {
                 Struct* node = elem(nodes, *index);
                 node->put_vec3(kPos, restart.at_point_.x, restart.at_point_.y, restart.at_point_.z);
                 node->put_vec3(kAngles, 0.0f, restart_angle(restart.quarter_turns_), 0.0f);
-                node->add_component_of_type(kName, script::kQbvalName, checksums::hash_from_text(flag_name));
+                node->add_component_of_type(kName, script::kQbvalName, checksums::hash_from_text(flag_name.data()));
                 node->add_component_of_type(kClass, script::kQbvalName, kGameObject);
-                node->add_component_of_type(kType, script::kQbvalName, checksums::hash_from_text(flag_type));
-                node->append_word(kModel, script::kQbvalString, model);
+                node->add_component_of_type(kType, script::kQbvalName, checksums::hash_from_text(flag_type.data()));
+                node->append_word(kModel, script::kQbvalString, model.data());
                 if (with_script)
-                    node->add_component_of_type(kTriggerScript, script::kQbvalName, checksums::hash_from_text(script));
+                    node->add_component_of_type(kTriggerScript, script::kQbvalName, checksums::hash_from_text(script.data()));
                 node->put_int("nodeIndex", *index);
                 node->put_int("SuspendDistance", 0);
                 node->put_int("lod_dist1", 800);
                 node->put_int("lod_dist2", 801);
                 ++*index;
             };
-            std::snprintf(flag_type, sizeof(flag_type), "Flag_%s", colour);
-            std::snprintf(model, sizeof(model), R"(gameobjects\flags\flag_%s\flag_%s.mdl)", colour, colour);
-            std::snprintf(script, sizeof(script), "TRG_Flag_%sScript_Parked", colour);
-            std::snprintf(flag_name, sizeof(flag_name), "TRG_Flag_%s", colour);
+            std::snprintf(flag_type.data(), sizeof(flag_type), "Flag_%s", colour);
+            std::snprintf(model.data(), sizeof(model), R"(gameobjects\flags\flag_%s\flag_%s.mdl)", colour, colour);
+            std::snprintf(script.data(), sizeof(script), "TRG_Flag_%sScript_Parked", colour);
+            std::snprintf(flag_name.data(), sizeof(flag_name), "TRG_Flag_%s", colour);
             add_flag_node(true);
-            std::snprintf(flag_name, sizeof(flag_name), "TRG_CTF_%s", colour);
+            std::snprintf(flag_name.data(), sizeof(flag_name), "TRG_CTF_%s", colour);
             add_flag_node(true);
-            std::snprintf(flag_name, sizeof(flag_name), "TRG_CTF_%s_Base", colour);
-            std::snprintf(flag_type, sizeof(flag_type), "Flag_%s_Base", colour);
-            std::snprintf(model, sizeof(model), R"(gameobjects\flags\flag_%s_base\flag_%s_base.mdl)", colour, colour);
+            std::snprintf(flag_name.data(), sizeof(flag_name), "TRG_CTF_%s_Base", colour);
+            std::snprintf(flag_type.data(), sizeof(flag_type), "Flag_%s_Base", colour);
+            std::snprintf(model.data(), sizeof(model), R"(gameobjects\flags\flag_%s_base\flag_%s_base.mdl)", colour, colour);
             add_flag_node(false);
         }
     }

@@ -241,8 +241,8 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     geometry->bounds.min = min;
     geometry->bounds.max = max;
     const uint32_t billboard_type = record.billboard_type;
-    const maths::Vec4 pivot = {record.pivot[0], record.pivot[1], -record.pivot[2], 0.0f};
-    const maths::Vec4 axis = {record.axis[0], record.axis[1], record.axis[2], 0.0f};
+    const maths::Vec4 pivot = {core::at(record.pivot, 0), core::at(record.pivot, 1), -core::at(record.pivot, 2), 0.0f};
+    const maths::Vec4 axis = {core::at(record.axis, 0), core::at(record.axis, 1), core::at(record.axis, 2), 0.0f};
     if (!read) {
         debug::printf("scene sector %08x damaged: cut short\n", record.checksum);
         in.fail();
@@ -259,8 +259,8 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         }
         MeshRef* mesh = new_mesh();
         std::memcpy(centre.data(), fields.centre.data(), sizeof(fields.centre));
-        std::memcpy(&min, fields.min, sizeof(fields.min));
-        std::memcpy(&max, fields.max, sizeof(fields.max));
+        std::memcpy(&min, fields.min.data(), sizeof(fields.min));
+        std::memcpy(&max, fields.max.data(), sizeof(fields.max));
         if (fields.flags & 0x400)
             mesh->flags |= 2;
         if (fields.flags & 0x20000)

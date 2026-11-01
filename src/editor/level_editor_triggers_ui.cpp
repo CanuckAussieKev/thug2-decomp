@@ -131,13 +131,14 @@ void proxim_section(uint32_t node)
     ProximEdit e = now ? *now : ProximEdit{};
     e.node = node;
     ImGui::TextDisabled("Scripts run on enter and exit");
-    static char g_enter_buffer[64], g_exit_buffer[64];
+    static std::array<char, 64> g_enter_buffer;
+    static std::array<char, 64> g_exit_buffer;
     static bool g_enter_editing, g_exit_editing;
     bool changed = false;
     changed |= name_combo("On entering", &e.enter, g_scripts);
-    changed |= name_field("Or by name##enter", &e.enter, g_enter_buffer, sizeof(g_enter_buffer), &g_enter_editing);
+    changed |= name_field("Or by name##enter", &e.enter, g_enter_buffer.data(), sizeof(g_enter_buffer), &g_enter_editing);
     changed |= name_combo("On leaving", &e.exit, g_scripts);
-    changed |= name_field("Or by name##exit", &e.exit, g_exit_buffer, sizeof(g_exit_buffer), &g_exit_editing);
+    changed |= name_field("Or by name##exit", &e.exit, g_exit_buffer.data(), sizeof(g_exit_buffer), &g_exit_editing);
     ImGui::TextDisabled("(none: node's own script)");
     int shape = e.shape ? (e.box ? 2 : 1) : 0;
     ImGui::TextUnformatted("Shape");
@@ -399,7 +400,9 @@ void inspector_section(int index)
         get_queue([] { begin_edit(); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Width, height, depth");
-    static char target[64], script[64], text[64];
+    static std::array<char, 64> target;
+    static std::array<char, 64> script;
+    static std::array<char, 64> text;
     static bool g_target_editing, g_script_editing, g_text_editing;
     switch (s.kind) {
     case Kind::kKill:
@@ -408,11 +411,11 @@ void inspector_section(int index)
         break;
     case Kind::kJumpTo:
         changed |= name_combo("To", &s.target, g_restarts);
-        changed |= name_field("Or a node", &s.target, target, sizeof(target), &g_target_editing);
+        changed |= name_field("Or a node", &s.target, target.data(), sizeof(target), &g_target_editing);
         break;
     case Kind::kScripts:
         changed |= name_combo("Script", &s.script, g_scripts);
-        changed |= name_field("Or by name", &s.script, script, sizeof(script), &g_script_editing);
+        changed |= name_field("Or by name", &s.script, script.data(), sizeof(script), &g_script_editing);
         if (!a->problem && (a->calls.kill || a->calls.teleport || a->calls.end_gap_ || a->calls.start_gap_))
             ImGui::TextDisabled("It calls: %s", kind_name(kind_of_calls(a->calls, true)));
         break;
@@ -425,7 +428,7 @@ void inspector_section(int index)
             ImGui::TextColored(landed ? ImVec4(0.25f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.25f, 1.0f), "%s",
                                landed ? "Landed in a test run" : "Not yet landed in a test run");
         }
-        changed |= name_field("Name", &s.text, text, sizeof(text), &g_text_editing);
+        changed |= name_field("Name", &s.text, text.data(), sizeof(text), &g_text_editing);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Gap name");
         int score = s.score;
@@ -467,7 +470,7 @@ void inspector_section(int index)
     case Kind::kViewCam: {
         // (map4) the camera played and for how long
         changed |= name_combo("Camera", &s.target, g_cameras);
-        changed |= name_field("Or a node", &s.target, target, sizeof(target), &g_target_editing);
+        changed |= name_field("Or a node", &s.target, target.data(), sizeof(target), &g_target_editing);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Camera node");
         float seconds = s.seconds;

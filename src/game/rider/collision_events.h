@@ -124,8 +124,10 @@ struct Occurrence {
     const char* reason = "";
     std::string paths;  // the paths that ran, comma-separated ("-": none)
     std::array<float, 3> spot = {}; // where to look: the face's hit point, or the skater
-    float pos_before_[3] = {}, pos[3] = {};
-    float vel_before_[3] = {}, vel_after_[3] = {};
+    std::array<float, 3> pos_before_ = {};
+    std::array<float, 3> pos = {};
+    std::array<float, 3> vel_before_ = {};
+    std::array<float, 3> vel_after_ = {};
     float heading_before_ = 0, heading = 0;
     std::array<float, 3> ground_normal_ = {};
     float ground_min_y_ = 1; // the ground normal's lowest y between the two frames
@@ -149,17 +151,20 @@ struct Detail {
     std::string input_window_ = "-"; // ... at any frame of the window
     std::array<float, 2> stick = {};
     bool ray = false; // the feeler that decided it
-    float probe_origin_[3] = {}, ray_end_[3] = {};
+    std::array<float, 3> probe_origin_ = {};
+    std::array<float, 3> ray_end_ = {};
     bool geometry = false; // the face's corners and object
     std::array<std::array<float, 3>, 3> corners = {};
-    float bounds_low_[3] = {}, bounds_high_[3] = {};
+    std::array<float, 3> bounds_low_ = {};
+    std::array<float, 3> bounds_high_ = {};
     int edge = -1; // the face's edge nearest the spot (corner k to k+1)
     float edge_distance_ = 0;
     int edge_open_ = -1;                          // 1 open, 0 a face across it, -1 not known
     std::string col_file_ = "-", scn_file_ = "-"; // "<size>@<time>"
     std::string approach = "-";                   // positions over the last second: "x,y,z,<state letter>;..."
     bool camera = false;
-    float camera_pos_[3] = {}, camera_dir_[3] = {};
+    std::array<float, 3> camera_pos_ = {};
+    std::array<float, 3> camera_dir_ = {};
 };
 
 // The face flags' names, '|'-joined ("0" for none).

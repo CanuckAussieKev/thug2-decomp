@@ -272,9 +272,10 @@ void render_shadow_textures()
 {
     if (omit_from_draw())
         return;
-    float saved_view[16], saved_projection[16];
-    std::memcpy(saved_view, view_matrix(), sizeof(saved_view));
-    std::memcpy(saved_projection, projection_matrix(), sizeof(saved_projection));
+    std::array<float, 16> saved_view{};
+    std::array<float, 16> saved_projection{};
+    std::memcpy(saved_view.data(), view_matrix(), sizeof(saved_view));
+    std::memcpy(saved_projection.data(), projection_matrix(), sizeof(saved_projection));
     IDirect3DSurface9* render_target = nullptr;
     IDirect3DSurface9* depth = nullptr;
     const uint32_t saved_fog = get_fog();
@@ -324,8 +325,8 @@ void render_shadow_textures()
         input_port()->SetRenderState(D3DRS_FOGENABLE, saved_fog != 0);
     }
     pixel_shader_locked() = 0;
-    std::memcpy(view_matrix(), saved_view, sizeof(saved_view));
-    std::memcpy(projection_matrix(), saved_projection, sizeof(saved_projection));
+    std::memcpy(view_matrix(), saved_view.data(), sizeof(saved_view));
+    std::memcpy(projection_matrix(), saved_projection.data(), sizeof(saved_projection));
     custom_transforms() = 0;
     input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(world_matrix()));
     input_port()->SetTransform(D3DTS_VIEW, raw::as<const D3DMATRIX>(view_matrix()));
@@ -354,14 +355,16 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
     for (ShadowCaster* caster = first_caster(); caster; caster = next_caster()) {
-        float saved_view[16], saved_projection[16];
-        std::memcpy(saved_view, view_matrix(), sizeof(saved_view));
-        std::memcpy(saved_projection, projection_matrix(), sizeof(saved_projection));
+        std::array<float, 16> saved_view{};
+        std::array<float, 16> saved_projection{};
+        std::memcpy(saved_view.data(), view_matrix(), sizeof(saved_view));
+        std::memcpy(saved_projection.data(), projection_matrix(), sizeof(saved_projection));
         // The receivers' vertices -> shadow texture coordinates.
         std::array<float, 16> texture_bias = {{0.5f, 0, 0, 0, 0, -0.5f, 0, 0, 0, 0, 1.0f, 0, 0.5f, 0.5f, 0, 1.0f}};
-        float view_projection[16], to_texture[16];
-        matrix_multiply(view_projection, caster->view.data(), caster->near_projection_.data());
-        matrix_multiply(to_texture, view_projection, texture_bias.data());
+        std::array<float, 16> view_projection{};
+        std::array<float, 16> to_texture{};
+        matrix_multiply(view_projection.data(), caster->view.data(), caster->near_projection_.data());
+        matrix_multiply(to_texture.data(), view_projection.data(), texture_bias.data());
         shadow_texture_matrix(caster->view.data(), caster->projection.data(), caster->texture_matrix_.data(), nullptr);
         set_pixel_shader(nullptr, nullptr);
         input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
@@ -401,7 +404,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
             if (!sphere_in_view(raw::as<const maths::Vec4>(mesh->centre.data()), mesh->radius))
                 continue;
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
-            project_shadow_vertices(mesh->positions, mesh->position_count_, to_texture);
+            project_shadow_vertices(mesh->positions, mesh->position_count_, to_texture.data());
             const int triangles = clip_shadow_triangles(mesh->triangles, mesh->triangle_count_);
             if (triangles) {
                 input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles(),
@@ -410,8 +413,8 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
                 g_drawn_triangles += triangles;
             }
         }
-        std::memcpy(view_matrix(), saved_view, sizeof(saved_view));
-        std::memcpy(projection_matrix(), saved_projection, sizeof(saved_projection));
+        std::memcpy(view_matrix(), saved_view.data(), sizeof(saved_view));
+        std::memcpy(projection_matrix(), saved_projection.data(), sizeof(saved_projection));
         custom_transforms() = 0;
     }
     set_pixel_shader(nullptr, nullptr);

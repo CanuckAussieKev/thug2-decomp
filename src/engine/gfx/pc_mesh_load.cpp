@@ -50,8 +50,12 @@ void* alloc_block(size_t size) { return crt::alloc_block(size); } // the game's 
 struct ScaledVertex {
     std::array<uint32_t, 3> unused;
     std::array<float, 3> weights;
-    float p[4], q[4], r[4];
-    float a[4], b[4], c[4];
+    std::array<float, 4> p;
+    std::array<float, 4> q;
+    std::array<float, 4> r;
+    std::array<float, 4> a;
+    std::array<float, 4> b;
+    std::array<float, 4> c;
     std::array<int, 3> bones;
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
@@ -78,13 +82,15 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
 // they are the same formula.)
 void scaled_position(const ScaledVertex& v, float* out)
 {
-    float e0[4], e1[4], e2[4];
-    bone_scale_terms(core::at(v.bones, 0), e0[0], e0[1], e0[2], e0[3]);
-    bone_scale_terms(core::at(v.bones, 1), e1[0], e1[1], e1[2], e1[3]);
-    bone_scale_terms(core::at(v.bones, 2), e2[0], e2[1], e2[2], e2[3]);
-    const float ax = v.p[0] + e0[0] * v.a[0], ay = v.p[1] + e0[2] * v.a[1], az = v.p[2] + e0[1] * v.a[2];
-    const float bx = v.q[0] + e1[0] * v.b[0], by = v.q[1] + e1[2] * v.b[1], bz = v.q[2] + e1[1] * v.b[2];
-    const float cx = v.r[0] + e2[0] * v.c[0], cy = v.r[1] + e2[2] * v.c[1], cz = v.r[2] + e2[1] * v.c[2];
+    std::array<float, 4> e0{};
+    std::array<float, 4> e1{};
+    std::array<float, 4> e2{};
+    bone_scale_terms(core::at(v.bones, 0), core::at(e0, 0), core::at(e0, 1), core::at(e0, 2), core::at(e0, 3));
+    bone_scale_terms(core::at(v.bones, 1), core::at(e1, 0), core::at(e1, 1), core::at(e1, 2), core::at(e1, 3));
+    bone_scale_terms(core::at(v.bones, 2), core::at(e2, 0), core::at(e2, 1), core::at(e2, 2), core::at(e2, 3));
+    const float ax = core::at(v.p, 0) + core::at(e0, 0) * core::at(v.a, 0), ay = core::at(v.p, 1) + core::at(e0, 2) * core::at(v.a, 1), az = core::at(v.p, 2) + core::at(e0, 1) * core::at(v.a, 2);
+    const float bx = core::at(v.q, 0) + core::at(e1, 0) * core::at(v.b, 0), by = core::at(v.q, 1) + core::at(e1, 2) * core::at(v.b, 1), bz = core::at(v.q, 2) + core::at(e1, 1) * core::at(v.b, 2);
+    const float cx = core::at(v.r, 0) + core::at(e2, 0) * core::at(v.c, 0), cy = core::at(v.r, 1) + core::at(e2, 2) * core::at(v.c, 1), cz = core::at(v.r, 2) + core::at(e2, 1) * core::at(v.c, 2);
     const float* s = v.weights.data();
     out[0] = ax * s[0] + bx * s[1] + cx * s[2];
     out[1] = ay * s[0] + by * s[1] + cy * s[2];

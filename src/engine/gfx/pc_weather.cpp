@@ -198,7 +198,8 @@ void PcWeather::render_rain(float x, float z)
     const int base_x = ftol(static_cast<double>(origin_x_) * 16.0f);
     const int base_z = ftol(static_cast<double>(origin_z_) * 16.0f);
     const int length = ftol(static_cast<double>(rain_length_) * 16.0f);
-    int fall[0x100], spread[0x100];
+    std::array<int, 0x100> fall{};
+    std::array<int, 0x100> spread{};
     {
         const double frames_f = rain_frames_;
         const double height = rain_height_;
@@ -290,7 +291,9 @@ void PcWeather::render_snow(float x, float z)
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     const float base_x = origin_x_;
     const float base_z = origin_z_;
-    float fall[0x100], spread[0x100], sway[0x100];
+    std::array<float, 0x100> fall{};
+    std::array<float, 0x100> spread{};
+    std::array<float, 0x100> sway{};
     {
         const double frames_f = snow_frames_;
         const double height = snow_height_;

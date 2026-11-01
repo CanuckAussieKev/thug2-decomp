@@ -242,7 +242,8 @@ void add_overlay(const overlays::Painter& painter)
         float depth;
         uint32_t argb;
         int count;
-        float x[4], y[4];
+        std::array<float, 4> x;
+        std::array<float, 4> y;
     };
     std::vector<Polygon> polygons;
     for (const Candidate& candidate : walk.found) {
@@ -284,9 +285,9 @@ void add_overlay(const overlays::Painter& painter)
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     auto& under = painter.overlay->under;
     for (const Polygon& p : polygons) {
-        under.push_back({p.x[0], p.y[0], p.x[1], p.y[1], p.x[2], p.y[2], p.argb});
+        under.push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 1), core::at(p.y, 1), core::at(p.x, 2), core::at(p.y, 2), p.argb});
         if (p.count == 4)
-            under.push_back({p.x[0], p.y[0], p.x[2], p.y[2], p.x[3], p.y[3], p.argb});
+            under.push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 2), core::at(p.y, 2), core::at(p.x, 3), core::at(p.y, 3), p.argb});
     }
     // The editor's own kill / water triggers: their boxes outlined.
     for (const triggers::Added& a : triggers::added_triggers()) {

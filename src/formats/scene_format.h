@@ -216,7 +216,9 @@ struct Sector {
     std::array<float, 6> box = {};
     std::array<float, 4> sphere = {};
     uint32_t billboard_type = 0; // with kBillboard
-    float billboard_unused[3] = {}, pivot[3] = {}, axis[3] = {};
+    std::array<float, 3> billboard_unused = {};
+    std::array<float, 3> pivot = {};
+    std::array<float, 3> axis = {};
 };
 // NOLINTEND(readability-identifier-naming)
 // A sector's mesh's own fields (before its body).
@@ -224,7 +226,8 @@ struct Sector {
 struct SectorMesh {
     std::array<float, 3> centre = {};
     float radius = 0.0f;
-    float min[3] = {}, max[3] = {};
+    std::array<float, 3> min = {};
+    std::array<float, 3> max = {};
     uint32_t flags = 0, material = 0, index_lists = 0;
 };
 // NOLINTEND(readability-identifier-naming)
@@ -242,9 +245,9 @@ bool read_sector(Stream& in, Sector* s)
     in.take(s->sphere.data(), sizeof(s->sphere));
     if (s->flags & kBillboard) {
         s->billboard_type = take<uint32_t>(in);
-        in.take(s->billboard_unused, sizeof(s->billboard_unused));
-        in.take(s->pivot, sizeof(s->pivot));
-        in.take(s->axis, sizeof(s->axis));
+        in.take(s->billboard_unused.data(), sizeof(s->billboard_unused));
+        in.take(s->pivot.data(), sizeof(s->pivot));
+        in.take(s->axis.data(), sizeof(s->axis));
     }
     return in.ok() && in.fits(uint64_t{s->mesh_count} * 0x34);
 }
@@ -256,8 +259,8 @@ bool read_sector_mesh(Stream& in, SectorMesh* mesh)
     *mesh = SectorMesh{};
     in.take(mesh->centre.data(), sizeof(mesh->centre));
     mesh->radius = take<float>(in);
-    in.take(mesh->min, sizeof(mesh->min));
-    in.take(mesh->max, sizeof(mesh->max));
+    in.take(mesh->min.data(), sizeof(mesh->min));
+    in.take(mesh->max.data(), sizeof(mesh->max));
     mesh->flags = take<uint32_t>(in);
     mesh->material = take<uint32_t>(in);
     mesh->index_lists = take<uint32_t>(in);

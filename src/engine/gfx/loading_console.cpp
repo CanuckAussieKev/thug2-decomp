@@ -299,21 +299,22 @@ void get_layout(double now)
     rect2(x0, y0, x1, y1, stalled ? 0xC0301000u : 0xB0000000u);
     rect2(x0, y0, x1, y0 + 2.0f, stalled ? 0xFFFF8C1Au : 0xFF5A5A5Au); // (a rule along the top)
 
-    char left[48], right[64];
-    std::snprintf(left, sizeof(left), "LOADING %.1f s", now - started);
+    std::array<char, 48> left{};
+    std::array<char, 64> right{};
+    std::snprintf(left.data(), sizeof(left), "LOADING %.1f s", now - started);
     if (stalled)
-        std::snprintf(right, sizeof(right), "NO ACTIVITY - last %.1f s ago", idle);
+        std::snprintf(right.data(), sizeof(right), "NO ACTIVITY - last %.1f s ago", idle);
     else
-        std::snprintf(right, sizeof(right), "last activity %.1f s ago", idle);
+        std::snprintf(right.data(), sizeof(right), "last activity %.1f s ago", idle);
     float y = y0 + pad;
-    draw_text(x0 + pad, y, left, columns, 0xFFFFFFFFu);
-    const size_t right_length = std::strlen(right);
-    const size_t left_length = std::strlen(left);
+    draw_text(x0 + pad, y, left.data(), columns, 0xFFFFFFFFu);
+    const size_t right_length = std::strlen(right.data());
+    const size_t left_length = std::strlen(left.data());
     if (left_length + 2 + right_length <= columns)
-        draw_text(x1 - pad - static_cast<float>(right_length) * g_advance, y, right, columns,
+        draw_text(x1 - pad - static_cast<float>(right_length) * g_advance, y, right.data(), columns,
                   stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     else
-        draw_text(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right,
+        draw_text(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right.data(),
                   columns - std::min(columns, left_length + 2), stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     y += g_line_height + pad * 0.5f;
     for (size_t i = 0; i < lines.size(); ++i) {

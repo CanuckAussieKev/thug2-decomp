@@ -259,11 +259,12 @@ void CinematicTable::update_object_transforms()
         if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
             void* skeleton = core::down_cast<objects::BoneRigModule>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
-            float bone[4], turned[4];
-            static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, raw::as<maths::Vec4>(bone));
-            *raw::as<maths::Vec4>(turned) =
-                *raw::as<const maths::Vec4>(bone) * parent->display_matrix_;
-            const float* offset = turned;
+            std::array<float, 4> bone{};
+            std::array<float, 4> turned{};
+            static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, raw::as<maths::Vec4>(bone.data()));
+            *raw::as<maths::Vec4>(turned.data()) =
+                *raw::as<const maths::Vec4>(bone.data()) * parent->display_matrix_;
+            const float* offset = turned.data();
             const float* at = &parent->at_point_.x;
             auto* position = &object->at_point_.x;
             position[2] = static_cast<float>(static_cast<double>(at[2]) + offset[2]);

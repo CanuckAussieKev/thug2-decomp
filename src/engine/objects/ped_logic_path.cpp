@@ -7,6 +7,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/maths/random.h"
@@ -168,7 +169,8 @@ void PedestrianBrainModule::choose_node_after()
     } else {
         const maths::Vec4 incoming = {next_node_pos_.x - node_pos_.x, next_node_pos_.y - node_pos_.y,
                                       next_node_pos_.z - node_pos_.z, next_node_pos_.w - node_pos_.w};
-        int lows[20], normals[20];
+        std::array<int, 20> lows{};
+        std::array<int, 20> normals{};
         for (int i = 0; i < count; ++i) {
             core::at(normals, i) = i;
             core::at(lows, i) = i;

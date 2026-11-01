@@ -310,7 +310,8 @@ void draw_screen_blur()
     set_render_state(0x16, 0);
     set_render_state(0x10, 1);
     // Linear filtering on all four samplers (put back at the end).
-    uint32_t min_filter[4], mag_filter[4];
+    std::array<uint32_t, 4> min_filter{};
+    std::array<uint32_t, 4> mag_filter{};
     for (int i = 0; i < 4; ++i) {
         core::at(min_filter, i) = get_sampler_state(i, 6); // D3DSAMP_MINFILTER
         if (core::at(min_filter, i) != 2)                  // D3DTEXF_LINEAR

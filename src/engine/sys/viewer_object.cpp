@@ -391,25 +391,28 @@ void PreviewEntity::update_panel()
         const uint32_t anim = get_animation(this)->get_timeline30();
         if (get_animation(this)->has_value(anim)) {
             script::Struct* params = spawn_param_table();
-            char line1[128], line2[128], line3[128], text_row4[128];
-            std::snprintf(line1, sizeof(line1), "name %s", "Unknown");
-            params->append_word(kLine1, line1);
-            std::snprintf(line2, sizeof(line2), "speed %f", is_halted_ ? 0.0 : static_cast<double>(speed_));
-            params->append_word(kLine2, line2);
+            std::array<char, 128> line1{};
+            std::array<char, 128> line2{};
+            std::array<char, 128> line3{};
+            std::array<char, 128> text_row4{};
+            std::snprintf(line1.data(), sizeof(line1), "name %s", "Unknown");
+            params->append_word(kLine1, line1.data());
+            std::snprintf(line2.data(), sizeof(line2), "speed %f", is_halted_ ? 0.0 : static_cast<double>(speed_));
+            params->append_word(kLine2, line2.data());
             // (Each value looked up again for each line, the length before the time.)
             uint32_t current = get_animation(this)->get_timeline30();
             float length = get_animation(this)->fetch_value(current);
             float time = get_animation(this)->get_timeline18();
-            std::snprintf(line3, sizeof(line3), "time %f of %f", static_cast<double>(time),
+            std::snprintf(line3.data(), sizeof(line3), "time %f of %f", static_cast<double>(time),
                           static_cast<double>(length));
-            params->append_word(kLine3, line3);
+            params->append_word(kLine3, line3.data());
             current = get_animation(this)->get_timeline30();
             length = get_animation(this)->fetch_value(current);
             const int last_frame = static_cast<int>(static_cast<double>(length) * 60.0);
             time = get_animation(this)->get_timeline18();
             const int frame = static_cast<int>(static_cast<double>(time) * 60.0);
-            std::snprintf(text_row4, sizeof(text_row4), "frame %d of %d", frame, last_frame);
-            params->append_word(kLine4, text_row4);
+            std::snprintf(text_row4.data(), sizeof(text_row4), "frame %d of %d", frame, last_frame);
+            params->append_word(kLine4, text_row4.data());
             script::launch_script(kDrawViewerObjectPanel, params, nullptr, false, nullptr);
             delete_structure(params);
         }

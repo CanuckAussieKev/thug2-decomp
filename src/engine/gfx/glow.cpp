@@ -80,14 +80,15 @@ void update_glows(bool queries)
     const double a = core::at(g_view_matrix.row, 0).z;
     const double b = core::at(g_view_matrix.row, 1).z;
     const double c = core::at(g_view_matrix.row, 2).z;
-    float u[3], v[3];
-    u[0] = static_cast<float>(b * 0.0f - c);
-    u[1] = static_cast<float>(c * 0.0f - a * 0.0f);
-    u[2] = static_cast<float>(a - b * 0.0f);
-    v[0] = static_cast<float>(u[1] * c - u[2] * b);
-    v[1] = static_cast<float>(u[2] * a - c * u[0]);
-    v[2] = static_cast<float>(b * u[0] - u[1] * a);
-    for (float* w : {u, v}) {
+    std::array<float, 3> u{};
+    std::array<float, 3> v{};
+    core::at(u, 0) = static_cast<float>(b * 0.0f - c);
+    core::at(u, 1) = static_cast<float>(c * 0.0f - a * 0.0f);
+    core::at(u, 2) = static_cast<float>(a - b * 0.0f);
+    core::at(v, 0) = static_cast<float>(core::at(u, 1) * c - core::at(u, 2) * b);
+    core::at(v, 1) = static_cast<float>(core::at(u, 2) * a - c * core::at(u, 0));
+    core::at(v, 2) = static_cast<float>(b * core::at(u, 0) - core::at(u, 1) * a);
+    for (float* w : {u.data(), v.data()}) {
         const double length = std::sqrt((static_cast<double>(w[2]) * w[2] + static_cast<double>(w[1]) * w[1]) +
                                         static_cast<double>(w[0]) * w[0]);
         if (length > 0.0) {
@@ -125,7 +126,7 @@ void update_glows(bool queries)
                 query = 0x3FF; // (none free: the last, not marked)
             core::at(glow->queries, glow->query_count_++) = query;
             if (query > 0)
-                set_quad(glow, u, v, glow->query_size_, 0xFFFFFFFF);
+                set_quad(glow, u.data(), v.data(), glow->query_size_, 0xFFFFFFFF);
         }
         input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
         input_port()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
@@ -160,7 +161,7 @@ void update_glows(bool queries)
         else
             glow->size = static_cast<float>(glow->size - static_cast<double>(glow->rate) * glow->size);
         if (glow->size > 0.0f)
-            set_quad(glow, u, v, glow->size, 0x40FFFFFF);
+            set_quad(glow, u.data(), v.data(), glow->size, 0x40FFFFFF);
     }
     input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);

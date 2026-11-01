@@ -1178,14 +1178,15 @@ struct Painter {
         static const std::array<std::array<int, 4>, 6> kFaces = {{{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4},
                                          {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}}};
         for (const auto& f : kFaces) {
-            float x[4], y[4];
+            std::array<float, 4> x{};
+            std::array<float, 4> y{};
             bool ok = true;
             for (int k = 0; k < 4 && ok; ++k)
                 ok = get_pixel(core::at(c, core::at(f, k)), &core::at(x, k), &core::at(y, k));
             if (!ok)
                 continue;
-            overlay->triangles.push_back({x[0], y[0], x[1], y[1], x[2], y[2], fill});
-            overlay->triangles.push_back({x[0], y[0], x[2], y[2], x[3], y[3], fill});
+            overlay->triangles.push_back({core::at(x, 0), core::at(y, 0), core::at(x, 1), core::at(y, 1), core::at(x, 2), core::at(y, 2), fill});
+            overlay->triangles.push_back({core::at(x, 0), core::at(y, 0), core::at(x, 2), core::at(y, 2), core::at(x, 3), core::at(y, 3), fill});
         }
     }
     void draw_label(float x, float y, uint32_t argb, const std::string& text) const
@@ -1358,7 +1359,8 @@ void add_contacts(const Painter& p)
         if (v1 < v0)
             v0 = get_component(o.min, v), v1 = get_component(o.max, v);
         std::array<V3, 4> corner{};
-        const float us[4] = {u0, u1, u1, u0}, vs[4] = {v0, v0, v1, v1};
+        const std::array<float, 4> us = {{u0, u1, u1, u0}};
+        const std::array<float, 4> vs = {{v0, v0, v1, v1}};
         for (int k = 0; k < 4; ++k) {
             component_ref(core::at(corner, k), c.axis) = c.at;
             component_ref(core::at(corner, k), u) = core::at(us, k);

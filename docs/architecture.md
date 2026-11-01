@@ -18,7 +18,8 @@ platform/                   Win32, Direct3D, DirectSound, DirectInput, SDL, the 
 everything above it uses the game's own types and may change them freely.
 
 - `formats/` (static library `thug2_formats`): a reader - and, where the game writes the format, a writer - for each
-  file the game loads or saves: PRE archives and their LZSS (`pre_format`, `lzss`), cutscene bundles, texture
+  file the game loads or saves (and, for the files used in place - collision, animation keys - the accessors that read
+  their records, e.g. `collision_format::FaceTable` for a collision object's faces): PRE archives and their LZSS (`pre_format`, `lzss`), cutscene bundles, texture
   dictionaries and images, scenes / models / skins (`scene_format`), collision, skeletons, animations, fonts, sound
   effects, the streamed sounds' index, the park map and its rails, the save file. Each takes a byte span
   (`ByteReader` / `ByteWriter`, `byte_stream.h`: little-endian, unaligned, bounds-checked) and gives plain records.
@@ -28,7 +29,9 @@ everything above it uses the game's own types and may change them freely.
   original's and THUGPRO's peers. Encoders and decoders over the same byte stream; a short or oversized message is
   refused, not read past.
 - `gpu/`: the Direct3D vertex and index buffers (`vertex_buffers`): made, filled through their copies in memory,
-  written again after a device reset, torn down. Game code sees the buffers' API, not the device.
+  written again after a device reset, torn down. Game code sees the buffers' API, not the device; it reads and writes
+  vertices by attribute through `gpu::VertexView` / `VertexWriter` (`vertex_view.h`: a stride and offsets, never the
+  bytes themselves).
 - `platform/`: the operating system and the SDKs - the window and input (SDL, DirectInput), Direct3D's device,
   DirectSound, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`).

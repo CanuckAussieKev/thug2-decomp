@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -111,52 +112,55 @@ void Sparkle::prepare_all(const SparkleConfig* params)
 void Sparkle::update_bounds()
 {
     const SparkleConfig& p = args_;
-    float hb[3][3], hr[3], s[3];
+    std::array<std::array<float, 3>, 3> hb{};
+    std::array<float, 3> hr{};
+    std::array<float, 3> s{};
     for (int i = 0; i < 3; ++i) {
-        core::at(hb, i)[0] = core::at(p.box_, i).x * 0.5f;
-        core::at(hb, i)[1] = core::at(p.box_, i).y * 0.5f;
-        core::at(hb, i)[2] = core::at(p.box_, i).z * 0.5f;
+        core::at(core::at(hb, i), 0) = core::at(p.box_, i).x * 0.5f;
+        core::at(core::at(hb, i), 1) = core::at(p.box_, i).y * 0.5f;
+        core::at(core::at(hb, i), 2) = core::at(p.box_, i).z * 0.5f;
         core::at(hr, i) = core::at(p.radius_, i) * 0.5f;
         core::at(s, i) = core::at(p.extent_, i);
     }
-    maths::Vec4 lo[3], hi[3];
+    std::array<maths::Vec4, 3> lo{};
+    std::array<maths::Vec4, 3> hi{};
     for (int i = 0; i < 3; ++i) {
         const maths::Vec4& at = core::at(p.at_point_, i);
-        core::at(lo, i).x = current_round(current_round(current_round(static_cast<double>(at.x) - core::at(hb, i)[0]) - core::at(s, i)) - core::at(hr, i));
-        core::at(lo, i).y = current_round(current_round(current_round(static_cast<double>(at.y) - core::at(hb, i)[1]) - core::at(s, i)) - core::at(hr, i));
-        core::at(lo, i).z = current_round(current_round(current_round(static_cast<double>(at.z) - core::at(hb, i)[2]) - core::at(s, i)) - core::at(hr, i));
+        core::at(lo, i).x = current_round(current_round(current_round(static_cast<double>(at.x) - core::at(core::at(hb, i), 0)) - core::at(s, i)) - core::at(hr, i));
+        core::at(lo, i).y = current_round(current_round(current_round(static_cast<double>(at.y) - core::at(core::at(hb, i), 1)) - core::at(s, i)) - core::at(hr, i));
+        core::at(lo, i).z = current_round(current_round(current_round(static_cast<double>(at.z) - core::at(core::at(hb, i), 2)) - core::at(s, i)) - core::at(hr, i));
         core::at(lo, i).w = current_round(current_round(current_round(static_cast<double>(core::at(s, i)) - core::at(hr, i)) - core::at(s, i)) - core::at(hr, i));
     }
     {
         const maths::Vec4& at = core::at(p.at_point_, 0);
-        hi[0].x =
-            current_round((static_cast<double>(current_round(static_cast<double>(hb[0][0]) + at.x)) + s[0]) + hr[0]);
-        hi[0].y = current_round(((static_cast<double>(at.y) + hb[0][1]) + s[0]) + hr[0]);
-        hi[0].z = current_round(static_cast<double>(current_round(
-                                    s[0] + static_cast<double>(current_round(static_cast<double>(at.z) + hb[0][2])))) +
-                                hr[0]);
-        hi[0].w = current_round(static_cast<double>(current_round(
-                                    s[0] + static_cast<double>(current_round(static_cast<double>(hr[0]) + s[0])))) +
-                                hr[0]);
+        core::at(hi, 0).x =
+            current_round((static_cast<double>(current_round(static_cast<double>(core::at(core::at(hb, 0), 0)) + at.x)) + core::at(s, 0)) + core::at(hr, 0));
+        core::at(hi, 0).y = current_round(((static_cast<double>(at.y) + core::at(core::at(hb, 0), 1)) + core::at(s, 0)) + core::at(hr, 0));
+        core::at(hi, 0).z = current_round(static_cast<double>(current_round(
+                                    core::at(s, 0) + static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, 0), 2))))) +
+                                core::at(hr, 0));
+        core::at(hi, 0).w = current_round(static_cast<double>(current_round(
+                                    core::at(s, 0) + static_cast<double>(current_round(static_cast<double>(core::at(hr, 0)) + core::at(s, 0))))) +
+                                core::at(hr, 0));
     }
     for (int i = 1; i < 3; ++i) {
         const maths::Vec4& at = core::at(p.at_point_, i);
-        core::at(hi, i).x = current_round(current_round(current_round(static_cast<double>(core::at(hb, i)[0]) + at.x) + core::at(s, i)) + core::at(hr, i));
-        core::at(hi, i).y = current_round(current_round(current_round(static_cast<double>(at.y) + core::at(hb, i)[1]) + core::at(s, i)) + core::at(hr, i));
+        core::at(hi, i).x = current_round(current_round(current_round(static_cast<double>(core::at(core::at(hb, i), 0)) + at.x) + core::at(s, i)) + core::at(hr, i));
+        core::at(hi, i).y = current_round(current_round(current_round(static_cast<double>(at.y) + core::at(core::at(hb, i), 1)) + core::at(s, i)) + core::at(hr, i));
         core::at(hi, i).z =
-            current_round((core::at(s, i) + static_cast<double>(current_round(static_cast<double>(at.z) + core::at(hb, i)[2]))) + core::at(hr, i));
+            current_round((core::at(s, i) + static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, i), 2)))) + core::at(hr, i));
         core::at(hi, i).w = current_round(static_cast<double>(current_round(core::at(s, i) + (static_cast<double>(core::at(hr, i)) + core::at(s, i)))) + core::at(hr, i));
     }
     maths::Vec4 low{}, high{}, curve{};
-    low = *min_of(&lo[0], &lo[2], &curve);
-    high = *max_of(&hi[0], &hi[2], &curve);
+    low = *min_of(&core::at(lo, 0), &core::at(lo, 2), &curve);
+    high = *max_of(&core::at(hi, 0), &core::at(hi, 2), &curve);
     if (p.use_mid_) { // (the paths go through the mid: their extremes on the way)
         const float life = p.lifetime_;
         const float mid_time = current_round(static_cast<double>(life) * p.mid_percent_ * 0.01f);
         maths::Vec4 extreme{};
-        curve_extremes(&extreme, lo[0], lo[1], lo[2], mid_time, life);
+        curve_extremes(&extreme, core::at(lo, 0), core::at(lo, 1), core::at(lo, 2), mid_time, life);
         low = *min_of(&low, &extreme, &curve);
-        curve_extremes(&extreme, hi[0], hi[1], hi[2], mid_time, life);
+        curve_extremes(&extreme, core::at(hi, 0), core::at(hi, 1), core::at(hi, 2), mid_time, life);
         high = *max_of(&high, &extreme, &curve);
     }
     extent_box_.min = low;

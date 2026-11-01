@@ -206,7 +206,8 @@ bool ray_box(V3 origin, V3 dir, V3 box_origin, const V3 axes[3], V3 min, V3 max,
     // The ray in the box's own coordinates (p = local.x * axes[0] + local.y * axes[1] + local.z * axes[2] + origin;
     // the rows are taken as orthogonal).
     const V3 rel = origin - box_origin;
-    double o[3], d[3];
+    std::array<double, 3> o{};
+    std::array<double, 3> d{};
     for (int i = 0; i < 3; ++i) {
         const double length_squared = get_dot(axes[i], axes[i]);
         if (length_squared <= 0.0)
@@ -214,7 +215,8 @@ bool ray_box(V3 origin, V3 dir, V3 box_origin, const V3 axes[3], V3 min, V3 max,
         core::at(o, i) = get_dot(rel, axes[i]) / length_squared;
         core::at(d, i) = get_dot(dir, axes[i]) / length_squared;
     }
-    const double lo[3] = {min.x, min.y, min.z}, hi[3] = {max.x, max.y, max.z};
+    const std::array<double, 3> lo = {{min.x, min.y, min.z}};
+    const std::array<double, 3> hi = {{max.x, max.y, max.z}};
     double enter = -1e30, leave = 1e30;
     for (int i = 0; i < 3; ++i) {
         if (std::fabs(core::at(d, i)) < 1e-12) {
@@ -5165,8 +5167,8 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                     g_field_editing = true;
                 }
                 node_edit::Values values;
-                values.pos = {request.a[0], request.a[1], request.a[2]};
-                values.angles = {request.b[0], request.b[1], request.b[2]};
+                values.pos = {core::at(request.a, 0), core::at(request.a, 1), core::at(request.a, 2)};
+                values.angles = {core::at(request.b, 0), core::at(request.b, 1), core::at(request.b, 2)};
                 set_selected_node(values);
                 note_action("set in the Inspector: %s", describe_selection().c_str());
             }
@@ -5187,7 +5189,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                     g_field_editing = true;
                     g_scale_at_field_start = selection_scale_now();
                 }
-                scale_selection_to({request.a[0], request.a[1], request.a[2]});
+                scale_selection_to({core::at(request.a, 0), core::at(request.a, 1), core::at(request.a, 2)});
                 if (!get_primary())
                     follow_scenery();
             }
@@ -5303,7 +5305,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             g_browser.preview = request.value;
             break;
         case ui::Request::Kind::kPreviewOrbit:
-            preview::intake(request.a[0], request.a[1], request.a[2]);
+            preview::intake(core::at(request.a, 0), core::at(request.a, 1), core::at(request.a, 2));
             break;
         case ui::Request::Kind::kSelectObject:
             if (!g_dragging) {

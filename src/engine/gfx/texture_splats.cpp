@@ -490,13 +490,15 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                 if (ia == ib || ia == ic || ib == ic)
                     continue;
                 const uint32_t stride = mesh->stride;
-                float t0[3], t1[3], t2[3];
-                transform_coord(t0, get_at(vertices + stride * ia), &combined);
-                transform_coord(t1, get_at(vertices + stride * ib), &combined);
-                transform_coord(t2, get_at(vertices + stride * ic), &combined);
-                if ((t0[2] < -1.0f && t1[2] < -1.0f && t2[2] < -1.0f) || (t0[2] > 1.0f && t1[2] > 1.0f && t2[2] > 1.0f))
+                std::array<float, 3> t0{};
+                std::array<float, 3> t1{};
+                std::array<float, 3> t2{};
+                transform_coord(t0.data(), get_at(vertices + stride * ia), &combined);
+                transform_coord(t1.data(), get_at(vertices + stride * ib), &combined);
+                transform_coord(t2.data(), get_at(vertices + stride * ic), &combined);
+                if ((core::at(t0, 2) < -1.0f && core::at(t1, 2) < -1.0f && core::at(t2, 2) < -1.0f) || (core::at(t0, 2) > 1.0f && core::at(t1, 2) > 1.0f && core::at(t2, 2) > 1.0f))
                     continue;
-                if (!triangle_overlaps_screen(t0[0], t0[1], t1[0], t1[1], t2[0], t2[1]))
+                if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
                     continue;
                 if (!splat_vertices) {
                     uint8_t* holder = params->texture;
@@ -540,7 +542,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                                           ? 0x7FFFFFFF
                                           : get_milliseconds(params->lifetime);
                 // texture coordinates from the projection (0-1 over the square)
-                const std::array<const float*, 3> t = {{t0, t1, t2}};
+                const std::array<const float*, 3> t = {{t0.data(), t1.data(), t2.data()}};
                 const std::array<uint8_t*, 3> v = {{v0, v1, v2}};
                 for (int k = 0; k < 3; ++k) {
                     get_uv(v[k])[0] = static_cast<float>((static_cast<double>(t[k][0]) + 1.0f) * 0.5f);
