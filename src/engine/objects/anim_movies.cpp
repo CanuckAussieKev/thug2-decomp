@@ -220,15 +220,15 @@ void CameraAnimMovie::load_target(script::Struct* params)
     has_goal_ = params->read_hash_value(0x531E4D28, &aim_point_, 0);
     if (!has_goal_)
         return;
-    core::at(goal_shift_, 0) = core::at(goal_shift_, 1) = core::at(goal_shift_, 2) = 0.0f;
-    core::at(goal_shift_, 3) = 1.0f;
-    params->fetch_vec(0x906642BF, raw::as<script::VectorValue>(goal_shift_.data()), 0);
+    goal_shift_.x = goal_shift_.y = goal_shift_.z = 0.0f;
+    goal_shift_.w = 1.0f;
+    params->fetch_vec(0x906642BF, &goal_shift_, 0);
     const float zero = g_float_zero;
     // (not equal, or unordered: a NaN counts as set)
-    target_offset_set_ = !(core::at(goal_shift_, 0) == zero) || !(core::at(goal_shift_, 1) == zero) || !(core::at(goal_shift_, 2) == zero);
-    core::at(look_offset_, 0) = core::at(look_offset_, 1) = core::at(look_offset_, 2) = 0.0f;
-    core::at(look_offset_, 3) = 1.0f;
-    look_offset_set_ = params->fetch_vec(0xA00D3D6E, raw::as<script::VectorValue>(look_offset_.data()), 0);
+    target_offset_set_ = !(goal_shift_.x == zero) || !(goal_shift_.y == zero) || !(goal_shift_.z == zero);
+    look_offset_.x = look_offset_.y = look_offset_.z = 0.0f;
+    look_offset_.w = 1.0f;
+    look_offset_set_ = params->fetch_vec(0xA00D3D6E, &look_offset_, 0);
 }
 
 // 0x00587540
@@ -288,7 +288,8 @@ void CameraAnimMovie::tick_frame()
 void CameraAnimMovie::place_camera()
 {
     auto* pos = viewer_->fetch_location()->data();
-    auto* m = viewer_->fetch_mat()->data();
+    maths::Mat4* mat = viewer_->fetch_mat();
+    auto* m = mat->data();
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::g_front_end_instance->pad_listeners_) {
         if (handler->control_data_->makes_ & 0x40)
@@ -316,7 +317,7 @@ void CameraAnimMovie::place_camera()
     }
     if (!has_goal_)
         return;
-    std::array<float, 4> dir{};
+    maths::Vec4 dir{};
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
         auto* object = core::down_cast<GameEntity>(
@@ -324,44 +325,41 @@ void CameraAnimMovie::place_camera()
         if (!object)
             return;
         std::array<float, 4> target = {{object->at_point_.x, object->at_point_.y, object->at_point_.z, 1.0f}};
-        std::array<float, 16> frame{};
-        auto moved = [&](float* offset) {
-            *raw::as<maths::Mat4>(frame.data()) = object->basis_frame_;
-            core::at(frame, 12) = core::at(target, 0);
-            core::at(frame, 13) = core::at(target, 1);
-            core::at(frame, 14) = core::at(target, 2);
-            core::at(frame, 15) = 1.0f;
-            raw::as<maths::Mat4>(frame.data())->offset_local(*raw::as<const maths::Vec4>(offset));
+        maths::Mat4 frame{};
+        auto moved = [&](const maths::Vec4& offset) {
+            frame = object->basis_frame_;
+            frame[3] = {core::at(target, 0), core::at(target, 1), core::at(target, 2), 1.0f};
+            frame.offset_local(offset);
         };
         if (target_offset_set_) {
-            moved(goal_shift_.data());
+            moved(goal_shift_);
             for (int i = 0; i < 4; ++i)
-                core::at(target, i) = core::at(frame, 12 + i);
+                core::at(target, i) = frame[3][i];
         }
         if (look_offset_set_) {
             for (int i = 0; i < 4; ++i)
                 pos[i] = core::at(target, i);
-            moved(look_offset_.data());
+            moved(look_offset_);
             for (int i = 0; i < 4; ++i)
-                pos[i] = core::at(frame, 12 + i);
+                pos[i] = frame[3][i];
         }
         for (int i = 0; i < 4; ++i)
-            core::at(dir, i) = pos[i] - core::at(target, i);
-        raw::as<maths::Vec4>(dir.data())->make_unit();
+            dir[i] = pos[i] - core::at(target, i);
+        dir.make_unit();
         set_identity(m);
         for (int i = 0; i < 4; ++i)
-            m[8 + i] = core::at(dir, i);
+            m[8 + i] = dir[i];
         cross_into(m, m + 4, m + 8); // the right axis: up x at
         m[3] = 0.0f;
-        raw::as<maths::Vec4>(m)->make_unit();
+        (*mat)[0].make_unit();
     } else {
         // A fixed point (the target offset), seen from the look offset.
         for (int i = 0; i < 4; ++i)
-            pos[i] = core::at(look_offset_, i);
+            pos[i] = look_offset_[i];
         // (x and y stay unrounded; z is stored and squared as its unrounded value times the stored one)
-        double x = static_cast<double>(pos[0]) - core::at(goal_shift_, 0);
-        double y = static_cast<double>(pos[1]) - core::at(goal_shift_, 1);
-        const double z_exact = static_cast<double>(pos[2]) - core::at(goal_shift_, 2);
+        double x = static_cast<double>(pos[0]) - goal_shift_.x;
+        double y = static_cast<double>(pos[1]) - goal_shift_.y;
+        const double z_exact = static_cast<double>(pos[2]) - goal_shift_.z;
         auto z = static_cast<float>(z_exact);
         const double length = std::sqrt(z_exact * z + y * y + x * x);
         if (length > g_float_zero) {

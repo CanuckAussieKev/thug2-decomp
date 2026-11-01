@@ -115,7 +115,7 @@ bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* 
                                      const maths::BBox* /*line_box*/)
 {
     maths::Seg local{}; // (its constructor, 0x005902E0, does nothing)
-    box_to_local(raw::as<const maths::BBox>(line), raw::as<maths::BBox>(&local));
+    segment_to_local(line, &local);
     maths::BBox around(local.start);
     around.append_spot(local.end);
     if (!box_.intersects(around))
@@ -159,9 +159,9 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         uz = static_cast<float>(uz * inverse);
     }
     TriMeshSource* geometry = geometry_;
-    const float cx = get_difference(geometry->lower_limit_.x, line->start.x);
-    const float cy = get_difference(geometry->lower_limit_.y, line->start.y);
-    const double cz_exact = static_cast<double>(geometry->lower_limit_.z) - line->start.z;
+    const float cx = get_difference(geometry->bounds_.min.x, line->start.x);
+    const float cy = get_difference(geometry->bounds_.min.y, line->start.y);
+    const double cz_exact = static_cast<double>(geometry->bounds_.min.z) - line->start.z;
     auto cz = static_cast<float>(cz_exact);
     auto along = static_cast<float>((cz_exact * uz + cy * uy) + cx * ux);
     auto px = static_cast<float>(ux * along);
@@ -278,7 +278,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
                                            const maths::BBox* /*line_box*/)
 {
     maths::Seg local{}; // (its constructor, 0x005902E0, does nothing)
-    box_to_local(raw::as<const maths::BBox>(line), raw::as<maths::BBox>(&local));
+    segment_to_local(line, &local);
     const maths::Vec4 way{get_difference(local.end.x, local.start.x), get_difference(local.end.y, local.start.y),
                           get_difference(local.end.z, local.start.z), get_difference(local.end.w, local.start.w)};
     maths::BBox around(local.start);
@@ -288,9 +288,9 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
     if (geometry->small_faces_) {
         maths::Vec4 unit = way;
         unit.make_unit();
-        const double cx = static_cast<double>(geometry->lower_limit_.x) - local.start.x;
-        const double cy = static_cast<double>(geometry->lower_limit_.y) - local.start.y;
-        const float cz = get_difference(geometry->lower_limit_.z, local.start.z);
+        const double cx = static_cast<double>(geometry->bounds_.min.x) - local.start.x;
+        const double cy = static_cast<double>(geometry->bounds_.min.y) - local.start.y;
+        const float cz = get_difference(geometry->bounds_.min.z, local.start.z);
         const double along = (cx * unit.x + static_cast<double>(cz) * unit.z) + cy * unit.y;
         const double px = unit.x * along;
         auto py = static_cast<float>(unit.y * along);

@@ -257,8 +257,8 @@ std::unordered_map<uint32_t, Cached>& cache_state()
 
 const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const render::TriMeshSource* tri)
 {
-    const V3 min = to_v3(tri->lower_limit_);
-    const V3 max = to_v3(tri->upper_limit_);
+    const V3 min = to_v3(tri->bounds_.min);
+    const V3 max = to_v3(tri->bounds_.max);
     V3 first = {}, last = {};
     if (tri->vertices_ && tri->num_vertices_) {
         first = to_v3(tri->read_stored_vertex(0));
@@ -477,8 +477,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             if (!tri || tri->tri_count_ == 0 || hidden_sector(checksum))
                 return;
             const bool wall = geom_of(sector) == nullptr;
-            const V3 min = to_v3(tri->lower_limit_);
-            const V3 max = to_v3(tri->upper_limit_);
+            const V3 min = to_v3(tri->bounds_.min);
+            const V3 max = to_v3(tri->bounds_.max);
             const float distance = distance_to_box(w->camera, min, max);
             if (distance > (wall ? kWallRadius : kRadius) && checksum != g_wall)
                 return;
@@ -599,7 +599,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         [](void* context, uint32_t checksum, const shared_collision::Companion& companion) {
             auto* w = static_cast<CompanionWalk*>(context);
             const render::TriMeshSource& tri = companion.get_geometry();
-            if (distance_to_box(w->camera, to_v3(tri.lower_limit_), to_v3(tri.upper_limit_)) <= kRadius &&
+            if (distance_to_box(w->camera, to_v3(tri.bounds_.min), to_v3(tri.bounds_.max)) <= kRadius &&
                 !hidden_sector(checksum))
                 w->near.emplace_back(checksum, &companion);
         },
@@ -705,9 +705,9 @@ std::string describe_wall(uint32_t checksum)
         text.data(), sizeof(text),
         "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
         "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
-        tri->tri_count_, tri->num_vertices_, tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z,
-        tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z, tri->upper_limit_.x - tri->lower_limit_.x,
-        tri->upper_limit_.y - tri->lower_limit_.y, tri->upper_limit_.z - tri->lower_limit_.z);
+        tri->tri_count_, tri->num_vertices_, tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z,
+        tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z, tri->bounds_.max.x - tri->bounds_.min.x,
+        tri->bounds_.max.y - tri->bounds_.min.y, tri->bounds_.max.z - tri->bounds_.min.z);
     std::string out = text.data();
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
         std::snprintf(text.data(), sizeof(text), " 0x%04X x%d", core::at(counts, i).first, core::at(counts, i).second);

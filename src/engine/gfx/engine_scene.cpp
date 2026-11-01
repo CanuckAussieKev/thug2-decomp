@@ -194,8 +194,8 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, Sta
         object->assign_shape_data(geometry);
         buffer = cell::address(object->take_buffer(cell::pointer<uint8_t>(buffer), geometry));
         if (geometry->tri_count_ > 0) {
-            box->append_spot(geometry->lower_limit_);
-            box->append_spot(geometry->upper_limit_);
+            box->append_spot(geometry->bounds_.min);
+            box->append_spot(geometry->bounds_.max);
             any_vertices = true;
         }
     }

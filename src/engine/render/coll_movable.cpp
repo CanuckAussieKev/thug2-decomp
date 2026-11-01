@@ -76,20 +76,20 @@ maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
 }
 
 // 0x004122C0
-void HitMovingMesh::box_to_local(const maths::BBox* box, maths::BBox* out) const
+void HitMovingMesh::segment_to_local(const maths::Seg* line, maths::Seg* out) const
 {
-    *out = *box;
-    out->min.x -= anchor_point_.x;
-    out->min.y -= anchor_point_.y;
-    out->min.z -= anchor_point_.z;
-    out->min.w -= anchor_point_.w;
-    out->max.x -= anchor_point_.x;
-    out->max.y -= anchor_point_.y;
-    out->max.z -= anchor_point_.z;
-    out->max.w -= anchor_point_.w;
+    *out = *line;
+    out->start.x -= anchor_point_.x;
+    out->start.y -= anchor_point_.y;
+    out->start.z -= anchor_point_.z;
+    out->start.w -= anchor_point_.w;
+    out->end.x -= anchor_point_.x;
+    out->end.y -= anchor_point_.y;
+    out->end.z -= anchor_point_.z;
+    out->end.w -= anchor_point_.w;
     maths::Vec4 turned{};
-    out->min = inverse_.rotate_vector(turned, out->min);
-    out->max = inverse_.rotate_vector(turned, out->max);
+    out->start = inverse_.rotate_vector(turned, out->start);
+    out->end = inverse_.rotate_vector(turned, out->end);
 }
 
 // 0x004120D0
@@ -139,8 +139,8 @@ void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
     geometry_ = geometry;
     if (geometry)
         checksum_ = geometry->checksum_;
-    box_.min = geometry->lower_limit_;
-    box_.max = geometry->upper_limit_;
+    box_.min = geometry->bounds_.min;
+    box_.max = geometry->bounds_.max;
 }
 
 // 0x0040AE60

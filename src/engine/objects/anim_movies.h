@@ -63,8 +63,8 @@ public:
     bool has_goal_{false};  // +0x30
     std::array<uint8_t, 3> pad31{};
     uint32_t aim_point_{0};      // +0x34 the target object's name (0xC588EEBC: a fixed point, goal_shift_)
-    std::array<float, 4> goal_shift_{};      // +0x38 (0x906642BF)
-    std::array<float, 4> look_offset_{};     // +0x48 (0xA00D3D6E)
+    maths::Vec4 goal_shift_{};               // +0x38 (0x906642BF)
+    maths::Vec4 look_offset_{};              // +0x48 (0xA00D3D6E)
     bool target_offset_set_{};   // +0x58 (any of x, y, z not 0)
     bool look_offset_set_{};     // +0x59
     void* anim_{nullptr};        // +0x5C

@@ -134,7 +134,7 @@ bool at_hand(uint32_t checksum, const Track& t)
     const bool wall = geom_of(sector) == nullptr;
     // (a drawn piece's collision box moves with the piece - Scenery's moves: only its pointers checked)
     return t.sector == sector && t.coll == coll && t.tri == tri && t.wall == wall &&
-           (!wall || (same_v(t.min, tri->lower_limit_) && same_v(t.max, tri->upper_limit_)));
+           (!wall || (same_v(t.min, tri->bounds_.min) && same_v(t.max, tri->bounds_.max)));
 }
 
 Track* track_of(uint32_t checksum)
@@ -159,8 +159,8 @@ Track* track_of(uint32_t checksum)
     t.placement = {0, {0.0f, 0.0f, 0.0f}};
     // (a drawn piece hidden - not active - has its collision off with it: that isn't this switch)
     t.off0 = t.off = flag_off(coll) && (wall || geom_active(geom_of(sector)));
-    t.min = tri->lower_limit_;
-    t.max = tri->upper_limit_;
+    t.min = tri->bounds_.min;
+    t.max = tri->bounds_.max;
     return &tracks_state().emplace(checksum, t).first->second;
 }
 
@@ -190,8 +190,8 @@ void get_place(uint32_t checksum, Track* t, const Placement& to)
     target.scale = {1.0f, 1.0f, 1.0f};
     step_collision(t->tri, t->placement, target);
     t->placement = target;
-    t->min = t->tri->lower_limit_;
-    t->max = t->tri->upper_limit_;
+    t->min = t->tri->bounds_.min;
+    t->max = t->tri->bounds_.max;
     scenery::note_collision_moved(checksum);
 }
 
@@ -211,8 +211,8 @@ bool cuboid(uint32_t checksum, V3* min, V3* max)
     const render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return false;
-    *min = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
-    *max = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+    *min = {tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z};
+    *max = {tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z};
     return true;
 }
 

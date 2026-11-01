@@ -214,8 +214,8 @@ void Companion::update_box()
         lo = {std::min(lo.x, v.x), std::min(lo.y, v.y), std::min(lo.z, v.z)};
         hi = {std::max(hi.x, v.x), std::max(hi.y, v.y), std::max(hi.z, v.z)};
     }
-    geometry_.lower_limit_ = {lo.x, lo.y, lo.z, 1.0f};
-    geometry_.upper_limit_ = {hi.x, hi.y, hi.z, 1.0f};
+    geometry_.bounds_.min = {lo.x, lo.y, lo.z, 1.0f};
+    geometry_.bounds_.max = {hi.x, hi.y, hi.z, 1.0f};
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -434,8 +434,8 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 
     for (const auto& source : context.sources) {
         render::TriMeshSource* geometry = get_collision_only(source.second);
-        const maths::Vec4& lo = geometry->lower_limit_;
-        const maths::Vec4& hi = geometry->upper_limit_;
+        const maths::Vec4& lo = geometry->bounds_.min;
+        const maths::Vec4& hi = geometry->bounds_.max;
         if (lo.x > max.x || hi.x < min.x || lo.y > max.y || hi.y < min.y || lo.z > max.z || hi.z < min.z)
             continue;
         const bool named = std::ranges::find(mine, source.first) != mine.end();

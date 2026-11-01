@@ -58,19 +58,18 @@ static_assert(sizeof(HitTreeNode) == 8, "the collision file's BSP node (collisio
 // A collision object's geometry (render::TriMeshSource, from a .col file): its vertices (floats, or 16-bit offsets
 // from its box's minimum in sixteenths when "compressed"), faces and BSP tree.
 struct TriMeshSource {
-    uint32_t checksum_; // +0x00 the sector's name
-    uint16_t unknown04_;
-    uint16_t num_vertices_;   // +0x06
-    uint16_t tri_count_;      // +0x08 (also the size of a sector object's own buffer)
-    bool small_faces_;        // +0x0A faces of 8 bytes (else 10)
-    bool compressed_;         // +0x0B the vertices are 16-bit
-    uint8_t* faces_;          // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)
-    maths::Vec4 lower_limit_; // +0x10 the box (+0x20 its max)
-    maths::Vec4 upper_limit_;
-    void* vertices_;        // +0x30 float[3] each, or uint16_t[3] when compressed
-    HitTreeNode* bsp_;      // +0x34
-    uint8_t* vertex_bytes_; // +0x38 one byte per vertex (copied and freed with the geometry), or null
-    uint32_t unknown3c_;    // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
+    uint32_t checksum_{}; // +0x00 the sector's name
+    uint16_t unknown04_{};
+    uint16_t num_vertices_{};   // +0x06
+    uint16_t tri_count_{};      // +0x08 (also the size of a sector object's own buffer)
+    bool small_faces_{};        // +0x0A faces of 8 bytes (else 10)
+    bool compressed_{};         // +0x0B the vertices are 16-bit
+    uint8_t* faces_{};          // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)
+    maths::BBox bounds_;      // +0x10 the box (min, max)
+    void* vertices_{};        // +0x30 float[3] each, or uint16_t[3] when compressed
+    HitTreeNode* bsp_{};      // +0x34
+    uint8_t* vertex_bytes_{}; // +0x38 one byte per vertex (copied and freed with the geometry), or null
+    uint32_t unknown3c_{};    // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
                             // triangle object keeps a copy)
 
     // 0x0040B230: vertex `index` (w = 0).
@@ -139,7 +138,7 @@ struct TriMeshSource {
 // The collision file's object record, used in place (formats/collision_format.h): its layout is the file's.
 static_assert(offsetof(TriMeshSource, num_vertices_) == 0x06 && offsetof(TriMeshSource, tri_count_) == 0x08 &&
                   offsetof(TriMeshSource, small_faces_) == 0x0A && offsetof(TriMeshSource, compressed_) == 0x0B &&
-                  offsetof(TriMeshSource, faces_) == 0x0C && offsetof(TriMeshSource, lower_limit_) == 0x10 &&
+                  offsetof(TriMeshSource, faces_) == 0x0C && offsetof(TriMeshSource, bounds_) == 0x10 &&
                   offsetof(TriMeshSource, vertices_) == 0x30 && offsetof(TriMeshSource, bsp_) == 0x34 &&
                   offsetof(TriMeshSource, vertex_bytes_) == 0x38 &&
                   sizeof(TriMeshSource) == collision_format::kObjectSize,

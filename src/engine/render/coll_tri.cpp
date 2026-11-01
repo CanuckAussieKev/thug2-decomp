@@ -47,9 +47,9 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
 {
     if (compressed_) {
         const uint16_t* v = static_cast<const uint16_t*>(vertices_) + 3 * index;
-        return {static_cast<float>(v[0]) * 0.0625f + lower_limit_.x,
-                static_cast<float>(v[1]) * 0.0625f + lower_limit_.y,
-                static_cast<float>(v[2]) * 0.0625f + lower_limit_.z, 0.0f};
+        return {static_cast<float>(v[0]) * 0.0625f + bounds_.min.x,
+                static_cast<float>(v[1]) * 0.0625f + bounds_.min.y,
+                static_cast<float>(v[2]) * 0.0625f + bounds_.min.z, 0.0f};
     }
     const float* v = static_cast<const float*>(vertices_) + 3 * index;
     return {v[0], v[1], v[2], 0.0f};
@@ -60,9 +60,9 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 {
     if (compressed_) {
         const uint16_t* v = static_cast<const uint16_t*>(vertices_) + 3 * index;
-        out->x = static_cast<float>(v[0]) * 0.0625f + lower_limit_.x;
-        out->y = static_cast<float>(v[1]) * 0.0625f + lower_limit_.y;
-        out->z = static_cast<float>(v[2]) * 0.0625f + lower_limit_.z;
+        out->x = static_cast<float>(v[0]) * 0.0625f + bounds_.min.x;
+        out->y = static_cast<float>(v[1]) * 0.0625f + bounds_.min.y;
+        out->z = static_cast<float>(v[2]) * 0.0625f + bounds_.min.z;
         out->w = 0.0f;
         return;
     }
@@ -74,9 +74,9 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position)
 {
     if (compressed_) {
-        const double x = static_cast<double>(position->x) - lower_limit_.x;
-        auto y = static_cast<float>(static_cast<double>(position->y) - lower_limit_.y);
-        auto z = static_cast<float>(static_cast<double>(position->z) - lower_limit_.z);
+        const double x = static_cast<double>(position->x) - bounds_.min.x;
+        auto y = static_cast<float>(static_cast<double>(position->y) - bounds_.min.y);
+        auto z = static_cast<float>(static_cast<double>(position->z) - bounds_.min.z);
         uint16_t* v = static_cast<uint16_t*>(vertices_) + 3 * index;
         v[0] = static_cast<uint16_t>(truncate(x * kSixteen));
         v[1] = static_cast<uint16_t>(truncate(static_cast<double>(y) * kSixteen));
@@ -96,7 +96,7 @@ void TriMeshSource::get_stored_vertex_array(maths::Vec4* out) const
 // 0x00415C10
 void TriMeshSource::choose_raw_verts(const maths::Vec4* positions)
 {
-    auto* box = raw::as<maths::BBox>(&lower_limit_);
+    maths::BBox* box = &bounds_;
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
@@ -217,10 +217,10 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
                            static_cast<float>(static_cast<double>(p.z) + delta->z),
                            static_cast<float>(static_cast<double>(p.w) + delta->w)};
     };
-    const maths::Vec4 min = moved(lower_limit_);
-    const maths::Vec4 max = moved(upper_limit_);
-    lower_limit_ = min;
-    upper_limit_ = max;
+    const maths::Vec4 min = moved(bounds_.min);
+    const maths::Vec4 max = moved(bounds_.max);
+    bounds_.min = min;
+    bounds_.max = max;
 }
 
 // 0x004164F0 (a failed allocation of the temporary array crashes - the vertices are read into null - as in the
@@ -251,11 +251,11 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
         stored[1] = v.y;
         stored[2] = v.z;
     }
-    maths::Vec4 min = lower_limit_;
-    maths::Vec4 max = upper_limit_;
+    maths::Vec4 min = bounds_.min;
+    maths::Vec4 max = bounds_.max;
     min.turn_quarter_about_y(quarter_turns);
     max.turn_quarter_about_y(quarter_turns);
-    auto* box = raw::as<maths::BBox>(&lower_limit_);
+    maths::BBox* box = &bounds_;
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     box->append_spot(min);
@@ -289,8 +289,8 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
         v[1] *= scale->y;
         v[2] *= scale->z;
     }
-    lower_limit_ = {lower_limit_.x * scale->x, lower_limit_.y * scale->y, lower_limit_.z * scale->z, lower_limit_.w};
-    upper_limit_ = {upper_limit_.x * scale->x, upper_limit_.y * scale->y, upper_limit_.z * scale->z, upper_limit_.w};
+    bounds_.min = {bounds_.min.x * scale->x, bounds_.min.y * scale->y, bounds_.min.z * scale->z, bounds_.min.w};
+    bounds_.max = {bounds_.max.x * scale->x, bounds_.max.y * scale->y, bounds_.max.z * scale->z, bounds_.max.w};
     if (positions) {
         for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
             write_stored_vertex(i, &positions[i]);

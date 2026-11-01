@@ -209,13 +209,13 @@ void DormancyModule::refresh_shown_state()
             const double lod = core::at(lod_distances_, 1);
             if (distance_squared_ < lod * lod) {
                 // In view: its bounding sphere where the object is.
-                std::array<float, 4> sphere{};
+                maths::Vec4 sphere{};
                 model->fetch_bound_sphere(
-                    raw::as<maths::Vec4>(sphere.data()));
-                maths::Vec4 centre = {core::at(sphere, 0), core::at(sphere, 1), core::at(sphere, 2), 1.0f};
+                    &sphere);
+                maths::Vec4 centre = {sphere[0], sphere[1], sphere[2], 1.0f};
                 centre.multiply_by(entity_->basis_frame_);
                 centre += entity_->at_point_;
-                visible = render::engine::sphere_visible_in_one_viewport(&centre, core::at(sphere, 3)) == 0;
+                visible = render::engine::sphere_visible_in_one_viewport(&centre, sphere[3]) == 0;
             }
         }
     }

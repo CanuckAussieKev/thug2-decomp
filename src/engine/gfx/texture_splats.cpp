@@ -420,26 +420,26 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
     const float cone = std::cos(params->cone_angle_);
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
-    std::array<float, 4> up{};
+    maths::Vec4 up{};
     maths::Mat4 view{}, projection{}, combined{};
     if (params->up) {
         const float* from = params->up;
         const double az = static_cast<double>(start[2]) - from[2];
         const double ay = static_cast<double>(start[1]) - from[1];
-        core::at(up, 0) = static_cast<float>(static_cast<double>(start[0]) - from[0]);
-        core::at(up, 1) = static_cast<float>(ay);
-        core::at(up, 2) = static_cast<float>(az);
-        core::at(up, 3) = 1.0f;
-        auto height = static_cast<float>(std::sqrt(static_cast<double>(core::at(up, 0)) * core::at(up, 0) + ay * ay + az * az));
-        start[0] = static_cast<float>(static_cast<double>(start[0]) - core::at(up, 0));
+        up[0] = static_cast<float>(static_cast<double>(start[0]) - from[0]);
+        up[1] = static_cast<float>(ay);
+        up[2] = static_cast<float>(az);
+        up[3] = 1.0f;
+        auto height = static_cast<float>(std::sqrt(static_cast<double>(up[0]) * up[0] + ay * ay + az * az));
+        start[0] = static_cast<float>(static_cast<double>(start[0]) - up[0]);
         start[1] = static_cast<float>(static_cast<double>(start[1]) - ay);
         start[2] = static_cast<float>(static_cast<double>(start[2]) - az);
         start[3] = static_cast<float>(static_cast<double>(start[3]) - 1.0f);
-        end[0] = static_cast<float>(static_cast<double>(end[0]) - core::at(up, 0));
+        end[0] = static_cast<float>(static_cast<double>(end[0]) - up[0]);
         end[1] = static_cast<float>(static_cast<double>(end[1]) - ay);
         end[2] = static_cast<float>(static_cast<double>(end[2]) - az);
         end[3] = static_cast<float>(static_cast<double>(end[3]) - 1.0f);
-        raw::as<maths::Vec4>(up.data())->make_unit();
+        up.make_unit();
         get_look_at(&view, start, end, up.data());
         ortho(&projection, params->size, height, 0.1f, length);
     } else {
@@ -448,15 +448,15 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
             if (0.0f == params->angle)
                 a = get_rand() * static_cast<double>(std::bit_cast<float>(0x40C90FDBu)) *
                     std::bit_cast<float>(0x38000100u); // (2 pi, 1 / 32767)
-            core::at(up, 0) = static_cast<float>(std::sin(a));
-            core::at(up, 1) = 0.0f;
-            core::at(up, 2) = static_cast<float>(std::cos(a));
+            up[0] = static_cast<float>(std::sin(a));
+            up[1] = 0.0f;
+            up[2] = static_cast<float>(std::cos(a));
         } else {
-            core::at(up, 0) = 0.0f;
-            core::at(up, 1) = 1.0f;
-            core::at(up, 2) = 0.0f;
+            up[0] = 0.0f;
+            up[1] = 1.0f;
+            up[2] = 0.0f;
         }
-        core::at(up, 3) = 1.0f;
+        up[3] = 1.0f;
         get_look_at(&view, start, end, up.data());
         ortho(&projection, params->size, params->size, 0.1f, length);
     }

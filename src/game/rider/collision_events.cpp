@@ -314,8 +314,8 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         copy3(core::at(detail->corners, k), world);
     }
     detail->geometry = true;
-    copy3(detail->bounds_low_, geometry->lower_limit_);
-    copy3(detail->bounds_high_, geometry->upper_limit_);
+    copy3(detail->bounds_low_, geometry->bounds_.min);
+    copy3(detail->bounds_high_, geometry->bounds_.max);
     for (int k = 0; k < 3; ++k) {
         const float d = to_segment(spot, core::at(detail->corners, k), core::at(detail->corners, (k + 1) % 3));
         if (detail->edge < 0 || d < detail->edge_distance_) {

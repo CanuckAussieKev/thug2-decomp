@@ -152,8 +152,8 @@ float game_threshold()
 
 const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int trigger)
 {
-    const V3 min = to_v3(tri->lower_limit_);
-    const V3 max = to_v3(tri->upper_limit_);
+    const V3 min = to_v3(tri->bounds_.min);
+    const V3 max = to_v3(tri->bounds_.max);
     V3 first = {};
     V3 last = {};
     if (tri->vertices_ && tri->num_vertices_) {
@@ -232,7 +232,7 @@ void add_overlay(const overlays::Painter& painter)
             const auto* tri = coll->geometry_;
             if (!tri || !tri->tri_count_ || view::hidden_sector(checksum))
                 return;
-            const float distance = view::distance_to_box(w->camera, to_v3(tri->lower_limit_), to_v3(tri->upper_limit_));
+            const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds_.min), to_v3(tri->bounds_.max));
             if (distance <= kRadius)
                 w->found.push_back({checksum, tri, distance});
         },

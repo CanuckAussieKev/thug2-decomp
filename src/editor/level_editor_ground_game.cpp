@@ -296,8 +296,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     tri->tri_count_ = static_cast<uint16_t>(faces);
     tri->small_faces_ = false;
     tri->compressed_ = false;
-    tri->lower_limit_.x = mesh.min.x, tri->lower_limit_.y = mesh.min.y, tri->lower_limit_.z = mesh.min.z;
-    tri->upper_limit_.x = mesh.max.x, tri->upper_limit_.y = mesh.max.y, tri->upper_limit_.z = mesh.max.z;
+    tri->bounds_.min.x = mesh.min.x, tri->bounds_.min.y = mesh.min.y, tri->bounds_.min.z = mesh.min.z;
+    tri->bounds_.max.x = mesh.max.x, tri->bounds_.max.y = mesh.max.y, tri->bounds_.max.z = mesh.max.z;
     tri->unknown3c_ = 0; // (no face skipped by its distance)
     // (new HitTreeNode[1]: the count, then one leaf - axis bits 3, its face count at +2, its faces at +4)
     node_memory[0] = 1;
@@ -457,8 +457,8 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                     return;
                 const render::TriMeshSource* tri = static_of(sector)->geometry_;
                 const V3 c = {(w->spec->x0 + w->spec->x1) * 0.5f, w->spec->base, (w->spec->z0 + w->spec->z1) * 0.5f};
-                const V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
-                const V3 hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+                const V3 lo = {tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z};
+                const V3 hi = {tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z};
                 const V3 nearest = {std::clamp(c.x, lo.x, hi.x), std::clamp(c.y, lo.y, hi.y),
                                     std::clamp(c.z, lo.z, hi.z)};
                 const V3 d = nearest - c;
@@ -556,9 +556,9 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             if (!tri || !tri->faces_ || !tri->vertices_ || ((coll->flag_bits_ & 4) && !mine))
                 return;
             const Spec& s = *w->spec;
-            if (tri->upper_limit_.x < s.x0 || tri->lower_limit_.x > s.x1 || tri->upper_limit_.z < s.z0 ||
-                tri->lower_limit_.z > s.z1 || tri->upper_limit_.y < s.base - 40.0f ||
-                tri->lower_limit_.y > s.base + 40.0f)
+            if (tri->bounds_.max.x < s.x0 || tri->bounds_.min.x > s.x1 || tri->bounds_.max.z < s.z0 ||
+                tri->bounds_.min.z > s.z1 || tri->bounds_.max.y < s.base - 40.0f ||
+                tri->bounds_.min.y > s.base + 40.0f)
                 return;
             bool ground = false;
             const int faces = std::min<int>(tri->tri_count_, 60000);
@@ -581,8 +581,8 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             }
             if (!ground)
                 return;
-            const V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
-            const V3 hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+            const V3 lo = {tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z};
+            const V3 hi = {tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z};
             if (tile_inside(lo, hi, s, 25.0f)) {
                 w->tiles.push_back(checksum);
                 return;

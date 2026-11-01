@@ -478,7 +478,10 @@ void DrivableModule::configure_from_data(script::Struct* params)
         inv_mass_ = static_cast<float>(static_cast<double>(kGravity) / inv_mass_);
     }
     if (params->has_entry_named(0x8C6473EC)) { // moment_of_inertia (its w into +0x168)
-        params->fetch_vec(0x8C6473EC, raw::as<script::VectorValue>(inv_moments_.data()), 0);
+        maths::Vec4 moments{core::at(inv_moments_, 0), core::at(inv_moments_, 1), core::at(inv_moments_, 2), moment_w_};
+        params->fetch_vec(0x8C6473EC, &moments, 0);
+        inv_moments_ = {{moments.x, moments.y, moments.z}};
+        moment_w_ = moments.w;
         for (float& moment : inv_moments_)
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
     }

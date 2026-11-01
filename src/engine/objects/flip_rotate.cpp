@@ -57,9 +57,9 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
         const int bone = skeleton->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
             auto* rotation = raw::field_at<float>(pose, 0x10 * bone);
-            const std::array<float, 4> turn = {{0.0f, 0.0f, 1.0f, 0.0f}};
-            std::array<float, 4> product{};
-            const auto* result = (quat_product(raw::as<maths::Vec4>(product.data()), raw::as<const maths::Vec4>(turn.data()),
+            const maths::Vec4 turn = {0.0f, 0.0f, 1.0f, 0.0f};
+            maths::Vec4 product{};
+            const auto* result = (quat_product(&product, &turn,
                              raw::as<const maths::Vec4>(rotation)))->data();
             std::memcpy(rotation, result, 16);
             raw::as<maths::QuatRotation>(rotation)->make_unit(1.0f); // (to length 1)

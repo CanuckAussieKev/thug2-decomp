@@ -1176,8 +1176,8 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     t->face_count_ = 0;
     t->all_trigger_ = true;
     t->wall = static_cast<render::PcGeom*>(sector->geom_handle_) == nullptr; // (no geometry: collision only)
-    t->bounds_low_ = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
-    t->bounds_high_ = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+    t->bounds_low_ = {tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z};
+    t->bounds_high_ = {tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z};
     bool any = false;
     for (int f = 0; std::cmp_less(f, tri->tri_count_); ++f) {
         const uint16_t flags = tri->face_flags(f);
@@ -1364,9 +1364,9 @@ void refresh_level()
         if (!tri)
             continue;
         t.off = walls::disengaged(t.sector) || (coll->flag_bits_ & 4) != 0;
-        if (tri->lower_limit_.x != t.bounds_low_.x || tri->lower_limit_.y != t.bounds_low_.y ||
-            tri->lower_limit_.z != t.bounds_low_.z || tri->upper_limit_.x != t.bounds_high_.x ||
-            tri->upper_limit_.y != t.bounds_high_.y || tri->upper_limit_.z != t.bounds_high_.z) {
+        if (tri->bounds_.min.x != t.bounds_low_.x || tri->bounds_.min.y != t.bounds_low_.y ||
+            tri->bounds_.min.z != t.bounds_low_.z || tri->bounds_.max.x != t.bounds_high_.x ||
+            tri->bounds_.max.y != t.bounds_high_.y || tri->bounds_.max.z != t.bounds_high_.z) {
             LevelTrigger now = t;
             if (read_faces(sector, &now)) {
                 t.faces = now.faces;

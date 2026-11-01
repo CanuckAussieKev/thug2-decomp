@@ -30,8 +30,8 @@ public:
     maths::Mat4* fetch_facing() override;
     // 0x00412230 (slot 9): the geometry's vertex `index` rotated and placed (w = the position's).
     [[nodiscard]] maths::Vec4 read_vertex_point(int index) const override;
-    // 0x004122C0: `box` in the object's space (its corners moved back and turned by the inverse).
-    void box_to_local(const maths::BBox* box, maths::BBox* out) const;
+    // 0x004122C0: `line` in the object's space (its ends moved back and turned by the inverse).
+    void segment_to_local(const maths::Seg* line, maths::Seg* out) const;
     // 0x0040AE50 / 0x0040AE40 (slots 10, 11)
     [[nodiscard]] int get_owner() const override { return owner_; }
     void set_owner(int owner) override { owner_ = owner; }

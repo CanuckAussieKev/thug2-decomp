@@ -127,13 +127,13 @@ maths::Vec4 StaticCollider::read_vertex_point(int index) const
 // 0x00410C70
 bool StaticCollider::inside_bounds(const maths::BBox* box)
 {
-    return box->intersects(*raw::as<const maths::BBox>(&geometry_->lower_limit_));
+    return box->intersects(geometry_->bounds_);
 }
 
 // 0x00412750
 const maths::BBox* StaticCollider::get_world_bounds()
 {
-    return raw::as<const maths::BBox>(&geometry_->lower_limit_);
+    return &geometry_->bounds_;
 }
 
 // 0x00412840
@@ -158,8 +158,8 @@ void CollStaticInstance::set_shared_geometry(TriMeshSource* geometry)
 {
     flag_bits_ |= kOwnsGeometry | kSharedGeometry;
     geometry_ = geometry;
-    world_box_.min = geometry->lower_limit_;
-    world_box_.max = geometry->upper_limit_;
+    world_box_.min = geometry->bounds_.min;
+    world_box_.max = geometry->bounds_.max;
     octets_ = nullptr;
 }
 
@@ -346,8 +346,8 @@ HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, 
         if (count >= 1) {
             maths::BBox bounds;
             for (int i = 0; i < count; ++i) {
-                bounds.append_spot(geometries[i].lower_limit_);
-                bounds.append_spot(geometries[i].upper_limit_);
+                bounds.append_spot(geometries[i].bounds_.min);
+                bounds.append_spot(geometries[i].bounds_.max);
             }
             box->box_ = bounds;
         }

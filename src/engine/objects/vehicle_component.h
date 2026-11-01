@@ -332,7 +332,7 @@ public:
     maths::Vec4 balance_point_{}; // +0x148 (body; y from 0x93346B8C)
     float inv_mass_{};            // +0x158 386.4 / mass
     std::array<float, 3> inv_moments_{};      // +0x15C 386.4 / moment_of_inertia
-    uint32_t unknown168_{};
+    float moment_w_{};        // +0x168 moment_of_inertia's w (never read)
     float restitution_{};                  // +0x16C body_restitution (0x79C3B862)
     float drag_factor_{};                  // +0x170 body_friction (0xF476273C)
     float depth_correction_{};             // +0x174 (0x01DD4890) the contacts' depth correction

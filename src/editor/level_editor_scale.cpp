@@ -267,8 +267,8 @@ CollisionCopy copy_collision(render::TriMeshSource* data)
         const auto* bytes = static_cast<const uint8_t*>(data->vertices_);
         copy.vertices.assign(bytes, bytes + get_vertex_bytes(data));
     }
-    copy.min = data->lower_limit_;
-    copy.max = data->upper_limit_;
+    copy.min = data->bounds_.min;
+    copy.max = data->bounds_.max;
     copy.rejection = data->unknown3c_;
     split_nodes(data->bsp_, &copy.nodes, 0);
     return copy;
@@ -287,8 +287,8 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
     if (!data || !data->vertices_)
         return;
     std::memcpy(data->vertices_, copy.vertices.data(), copy.vertices.size());
-    data->lower_limit_ = copy.min;
-    data->upper_limit_ = copy.max;
+    data->bounds_.min = copy.min;
+    data->bounds_.max = copy.max;
     data->unknown3c_ = copy.rejection;
     for (const CollisionCopy::Elem& n : copy.nodes) {
         n.node->axis_tag_ = n.split;
@@ -314,11 +314,11 @@ V3 collision_limit(const render::TriMeshSource* data, V3 scale)
     if (!data || !data->compressed_)
         return limit;
     if (scale.x > 0.0f)
-        limit.x = compressed_limit((data->upper_limit_.x - data->lower_limit_.x) / scale.x);
+        limit.x = compressed_limit((data->bounds_.max.x - data->bounds_.min.x) / scale.x);
     if (scale.y > 0.0f)
-        limit.y = compressed_limit((data->upper_limit_.y - data->lower_limit_.y) / scale.y);
+        limit.y = compressed_limit((data->bounds_.max.y - data->bounds_.min.y) / scale.y);
     if (scale.z > 0.0f)
-        limit.z = compressed_limit((data->upper_limit_.z - data->lower_limit_.z) / scale.z);
+        limit.z = compressed_limit((data->bounds_.max.z - data->bounds_.min.z) / scale.z);
     return limit;
 }
 

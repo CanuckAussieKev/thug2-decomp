@@ -206,11 +206,11 @@ void CinematicTable::update_stand_in(GameEntity* object)
             fade_model(level_model, 0.0f);
             core::down_cast<MeshInstanceModule>(level_component)->get_update_brightness();
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
-            std::array<float, 16> matrix{};
-            *raw::as<maths::Mat4>(matrix.data()) = object->display_matrix_;
+            maths::Mat4 matrix{};
+            matrix = object->display_matrix_;
             std::memcpy(matrix.data() + 12, &object->at_point_, 16);
             static_cast<render::RenderModel*>(level_model)
-                ->render(raw::as<maths::Mat4>(matrix.data()), false,
+                ->render(&matrix, false,
                          core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_);
             std::memcpy(&level->at_point_, &object->at_point_, 16);
         } else {
@@ -248,7 +248,7 @@ void CinematicTable::update_object_transforms()
         if (!object)
             continue;
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        std::array<float, 16> matrix{};
+        maths::Mat4 matrix{};
         quat_to_matrix(get_rotations() + 4 * j, origin.data(), matrix.data());
         set_matrices(object, matrix.data());
         std::memcpy(&object->at_point_, get_translations() + 4 * j, 16);
@@ -259,11 +259,11 @@ void CinematicTable::update_object_transforms()
         if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
             void* skeleton = core::down_cast<objects::BoneRigModule>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
-            std::array<float, 4> bone{};
-            std::array<float, 4> turned{};
-            static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, raw::as<maths::Vec4>(bone.data()));
-            *raw::as<maths::Vec4>(turned.data()) =
-                *raw::as<const maths::Vec4>(bone.data()) * parent->display_matrix_;
+            maths::Vec4 bone{};
+            maths::Vec4 turned{};
+            static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, &bone);
+            turned =
+                bone * parent->display_matrix_;
             const float* offset = turned.data();
             const float* at = &parent->at_point_.x;
             auto* position = &object->at_point_.x;
@@ -272,8 +272,8 @@ void CinematicTable::update_object_transforms()
             position[0] = static_cast<float>(static_cast<double>(offset[0]) + at[0]);
             position[1] = static_cast<float>(static_cast<double>(at[1]) + offset[1]);
             position[3] = 1.0f;
-            std::array<float, 16> joint_mat{};
-            static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, raw::as<maths::Mat4>(joint_mat.data()));
+            maths::Mat4 joint_mat{};
+            static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, &joint_mat);
             std::array<float, 16> owner_mat{};
             std::memcpy(owner_mat.data(), &parent->display_matrix_, 64);
             std::memcpy(owner_mat.data() + 12, at, 16);
@@ -281,17 +281,17 @@ void CinematicTable::update_object_transforms()
             core::at(owner_mat, 7) = 0.0f;
             core::at(owner_mat, 11) = 0.0f;
             d3dx::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
-            std::array<float, 16> matrix{};
+            maths::Mat4 matrix{};
             std::memcpy(matrix.data(), joint_mat.data(), 48);
-            core::at(matrix, 12) = 0.0f;
-            core::at(matrix, 13) = 0.0f;
-            core::at(matrix, 14) = 0.0f;
-            core::at(matrix, 15) = 1.0f;
+            matrix[3][0] = 0.0f;
+            matrix[3][1] = 0.0f;
+            matrix[3][2] = 0.0f;
+            matrix[3][3] = 1.0f;
             set_matrices(object, matrix.data());
             update_stand_in(object);
         } else if (entry.anim_index_ != -1) {
             std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-            std::array<float, 16> matrix{};
+            maths::Mat4 matrix{};
             quat_to_matrix(get_rotations() + 4 * entry.anim_index_, origin.data(), matrix.data());
             set_matrices(object, matrix.data());
             std::memcpy(&object->at_point_, get_translations() + 4 * entry.anim_index_, 16);

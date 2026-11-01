@@ -62,8 +62,8 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
                          static_cast<uint32_t>(layout.faces), static_cast<uint32_t>(layout.nodes),
                          static_cast<uint32_t>(layout.face_lists));
         object->set_up_all_faces();
-        box_.append_spot(object->lower_limit_);
-        box_.append_spot(object->upper_limit_);
+        box_.append_spot(object->bounds_.min);
+        box_.append_spot(object->bounds_.max);
     }
     return true;
 }
