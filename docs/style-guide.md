@@ -89,8 +89,16 @@ keep a check carry a `NOLINT` with their reason:
   tag - the script runtime's own files as a whole, single places elsewhere.
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
-- Checks still being worked through are listed as such in `.clang-tidy` (narrowing conversions, member
-  initialisation in constructors, `const_cast`).
+- **Constructor bodies in the original's order**: an assignment stays in the body (not an initialiser) when moving it
+  could change what the constructor does - set after a heap scope, a registration with `this`, a method call or an
+  allocation made in that order, or set twice (`NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer)` around those
+  statements, the reason given). Everything else is initialised in the list or by a default member initialiser.
+- **Members left unset** by a constructor have a default member initialiser (`{}`), as do locals of plain record
+  types (`Vec4 box{};`): zero where the original left whatever the memory held.
+- **The GameSpy SDK** takes non-const `char*` where it only reads: `const_cast` there with a NOLINT naming the SDK.
+- Narrowing conversions are written as `static_cast` where the original narrows.
+
+No check is "off for now": each one is on with zero warnings or off with its reason.
 
 ## Tools
 
