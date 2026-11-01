@@ -24,9 +24,9 @@ import {
     readScene,
     type Sector,
 } from "thug2-level-converter-core/level_port/thug2_scene.ts";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { resolveInstall } from "thug2-level-converter-core/lib/install.ts";
-import { hex8, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { hex8 } from "thug2-level-converter-core/lib/text.ts";
 
 // level_editor_picking.h
 const kWideSpan = 1500;
@@ -162,9 +162,9 @@ function main(): number {
         allowPositionals: true,
     });
     const level = positionals[0];
-    if (!level) return pyExit("give a level (TR, BO, foun, z_ma ...)");
+    if (!level) return exitWith("give a level (TR, BO, foun, z_ma ...)");
     const dir = findLevel(resolveInstall(values.game as string, "thug2"), level);
-    if (!dir) return pyExit(`no ${level}.scn.xbx under ${values.game}`);
+    if (!dir) return exitWith(`no ${level}.scn.xbx under ${values.game}`);
     const scene = readScene(fs.readFileSync(path.join(dir, `${level}.scn.xbx`)), level);
     const colPath = path.join(dir, `${level}.col.xbx`);
     const withCollision = new Set<number>();

@@ -12,11 +12,11 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { needDecomp } from "thug2-level-converter-core/lib/decomp.ts";
 import { findInstall } from "thug2-level-converter-core/lib/install.ts";
 import { requireNs } from "thug2-level-converter-core/lib/neverscript.ts";
-import { isMain, print, pyExit, pyStrRepr, readTextPy, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { quotedText, readText } from "thug2-level-converter-core/lib/text.ts";
 
 const USAGE = "usage: make_automation_tables.ts [--game GAME] [--ns NS] [--out OUT]";
 
@@ -127,10 +127,10 @@ function decompile(ns: string, qb: string, tmp: string): string {
     const r = spawnSync(ns, ["-d", qb, "-o", out], { encoding: "latin1" });
     if (r.error) throw r.error;
     if (r.status !== 0 || !fs.existsSync(out)) {
-        pyExit(`ns failed on ${qb}: ${(r.stdout + r.stderr).slice(-300)}`);
+        exitWith(`ns failed on ${qb}: ${(r.stdout + r.stderr).slice(-300)}`);
     }
     // (NeverScript writes UTF-8; Python read it with surrogateescape - the patterns only match ASCII)
-    return readTextPy(out, "replace");
+    return readText(out, "replace");
 }
 
 function walkQb(root: string): string[] {
@@ -211,7 +211,7 @@ function main(): number {
             files.push(...walkQb(root));
         const have = new Set(files.map(normcase));
         const missing = [...net].filter((f) => !have.has(f));
-        if (missing.length) pyExit(`missing network scripts: [${missing.map(pyStrRepr).join(", ")}]`);
+        if (missing.length) exitWith(`missing network scripts: [${missing.map(quotedText).join(", ")}]`);
         for (const qb of files) {
             if (path.basename(qb).toLowerCase().startsWith("localtext")) continue;
             const text = decompile(ns, qb, tmp);
@@ -239,7 +239,7 @@ function main(): number {
     }
     const menuLevel = MENU_LEVEL.find((p) => fs.existsSync(p));
     if (menuLevel === undefined) throw new Error(`no ${MENU_LEVEL.join(" / ")}`);
-    const menu = readTextPy(menuLevel);
+    const menu = readText(menuLevel);
     add(known, findall(ID_RE, menu));
     add(offlineIds, findall(ID_RE, menu));
     // (ids the network files share with the offline menus - current_menu, main_menu... - stay allowed)

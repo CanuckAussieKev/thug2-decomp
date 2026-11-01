@@ -111,10 +111,11 @@ import {
     writeCol,
 } from "thug2-level-converter-core/level_port/thug2_col.ts";
 import { readScene, type Scene, type Sector, writeScene } from "thug2-level-converter-core/level_port/thug2_scene.ts";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { NEVER_WRITTEN, WORK } from "thug2-level-converter-core/lib/decomp.ts";
-import { Float, hex8, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { Float } from "thug2-level-converter-core/lib/numbers.ts";
 import { f32 } from "thug2-level-converter-core/lib/struct.ts";
+import { hex8 } from "thug2-level-converter-core/lib/text.ts";
 import { profileFolder } from "thug2-thugpro-compat/profile.ts";
 import { backUp, listBackups, restoreLatest } from "./bake_backup.ts";
 import { resolveGameFolder } from "./edit_level.ts";
@@ -1994,9 +1995,9 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     });
     const game = resolveGameFolder(values.game ?? "C:\\Games\\THUG2");
     if (values.uninstall) {
-        if (!values.level) pyExit("--uninstall needs --level");
+        if (!values.level) exitWith("--uninstall needs --level");
         const refusal = installRefusal(game, values["allow-main"] === true);
-        if (refusal) pyExit(refusal);
+        if (refusal) exitWith(refusal);
         const done = restoreLatest(game, values.level!);
         if (!done) {
             print(`no install backups of ${values.level} in ${game}`);
@@ -2010,25 +2011,25 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     }
     let layoutPath = positionals[0] ?? null;
     let level = values.level ?? null;
-    if (!layoutPath && !level) pyExit("give a layout file or --level");
+    if (!layoutPath && !level) exitWith("give a layout file or --level");
     let scene = 0;
     if (!layoutPath) {
         const found = findLevelDir(game, level, 0);
-        if (!found) pyExit(`no level ${level} in ${game}`);
+        if (!found) exitWith(`no level ${level} in ${game}`);
         level = found!.level;
         scene = checksum(level);
         layoutPath = path.join(game, "thug2-decomp-layouts", `${hex8(scene)}.txt`);
     }
-    if (!fs.existsSync(layoutPath)) pyExit(`no layout file ${layoutPath}`);
+    if (!fs.existsSync(layoutPath)) exitWith(`no layout file ${layoutPath}`);
     let layout: Layout;
     try {
         layout = readLayout(fs.readFileSync(layoutPath!, "latin1"));
     } catch (e) {
         if (!(e instanceof LayoutError)) throw e;
-        return pyExit(`${layoutPath}: ${e.message} - not a layout this reads (the game would refuse it too)`);
+        return exitWith(`${layoutPath}: ${e.message} - not a layout this reads (the game would refuse it too)`);
     }
     const found = findLevelDir(game, level, layout.scene);
-    if (!found) pyExit(`no level for scene ${hex8(layout.scene)} in ${game} (give --level)`);
+    if (!found) exitWith(`no level for scene ${hex8(layout.scene)} in ${game} (give --level)`);
     const { dir, level: name } = found!;
     if (checksum(name) !== layout.scene) {
         print(`warning: the layout is for scene ${hex8(layout.scene)}, not ${name}'s ${hex8(checksum(name))}`);
@@ -2078,7 +2079,7 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     let outDir: string;
     if (values.install) {
         const refusal = installRefusal(game, values["allow-main"] === true);
-        if (refusal) pyExit(refusal);
+        if (refusal) exitWith(refusal);
         outDir = path.join(game, OVERLAY, "levels", name);
         if (own) {
             print(

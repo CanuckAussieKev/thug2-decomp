@@ -18,9 +18,8 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { getCloseMatches } from "thug2-level-converter-core/lib/difflib.ts";
-import { isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 import {
     clearAutomationFiles,
     findLevel,
@@ -95,7 +94,7 @@ export function readList(name: string, file: string = SPOTS): ListedSpot[] {
     const data = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
     const lists = Object.keys(data).filter((k) => !k.startsWith("_"));
     const list = data[name];
-    if (!Array.isArray(list)) pyExit(`no list ${name} in ${file} (lists: ${lists.join(", ")})`);
+    if (!Array.isArray(list)) exitWith(`no list ${name} in ${file} (lists: ${lists.join(", ")})`);
     return list as ListedSpot[];
 }
 
@@ -131,7 +130,8 @@ function main(): number {
         }
         const n = Number(positionals[0]);
         const chosen = Number.isInteger(n) ? spots[n - 1] : undefined;
-        if (positionals.length > 1 || !chosen) pyExit(`--list ${values.list} takes a number from 1 to ${spots.length}`);
+        if (positionals.length > 1 || !chosen)
+            exitWith(`--list ${values.list} takes a number from 1 to ${spots.length}`);
         levelName = chosen.level;
         spotText = chosen.at.join(",");
         print(`${n}. ${chosen.level} ${chosen.name}${chosen.note ? ` - ${chosen.note}` : ""}`);
@@ -145,10 +145,10 @@ function main(): number {
         spotText = positionals.slice(1).join(" ");
     }
     const spot = parseSpot(spotText);
-    if (!spot) pyExit(`"${spotText}" isn't x,y,z or x,y,z,heading`);
+    if (!spot) exitWith(`"${spotText}" isn't x,y,z or x,y,z,heading`);
     const game = resolveGameFolder(values.game);
     const found = launchExeOrError(values.game, game);
-    if ("error" in found) pyExit(found.error);
+    if ("error" in found) exitWith(found.error);
     const { exe } = found;
     const { levels } = readLevels(game);
     const level = findLevel(levels, levelName);
@@ -157,13 +157,13 @@ function main(): number {
             levelName.replace(/^load_/i, "").toLowerCase(),
             levels.filter((l) => l.installed).map((l) => l.load.toLowerCase()),
         );
-        pyExit(`no level ${levelName} in ${game}${close.length ? ` - did you mean ${close.join(", ")}?` : ""}`);
+        exitWith(`no level ${levelName} in ${game}${close.length ? ` - did you mean ${close.join(", ")}?` : ""}`);
     }
-    if (!level.installed) pyExit(`${level.load}: its scene file isn't installed - the game can't load it`);
+    if (!level.installed) exitWith(`${level.load}: its scene file isn't installed - the game can't load it`);
     const here = path.resolve(game).toLowerCase();
     const running = runningGames().filter((p) => p === null || path.dirname(path.resolve(p)).toLowerCase() === here);
     if (running.length) {
-        pyExit(
+        exitWith(
             `THUG2 IS ALREADY RUNNING FROM ${game}${running.includes(null) ? " (or a copy whose folder can't be read)" : ""} - ` +
                 "not started (the user may be playing); close it first",
         );

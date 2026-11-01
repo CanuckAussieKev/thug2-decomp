@@ -26,8 +26,7 @@ import * as path from "node:path";
 import { parseArgs } from "node:util";
 import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
 import * as col from "thug2-level-converter-core/level_port/thug2_col.ts";
-import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
-import { isMain, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { helpFromHeader, isMain, runMain } from "thug2-level-converter-core/lib/cli.ts";
 
 export type Vec3 = [number, number, number];
 

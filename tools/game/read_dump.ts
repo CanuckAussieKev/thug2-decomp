@@ -16,8 +16,7 @@
 // it, and only the stack scan from the thread's recorded stack range is given.
 
 import * as fs from "node:fs";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
-import { isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 
 const USAGE = `usage: read_dump.ts [-h] [--threads] [--modules] [--image FILE] dump
 
@@ -317,13 +316,13 @@ function main(): number {
     });
     const file = positionals[0];
     if (!file || positionals.length > 1)
-        pyExit(`${USAGE}
+        exitWith(`${USAGE}
 error: one dump file`);
     let dump: Minidump;
     try {
         dump = new Minidump(fs.readFileSync(file));
     } catch (e) {
-        pyExit(`${file}: ${(e as Error).message}`);
+        exitWith(`${file}: ${(e as Error).message}`);
     }
     // Each module's own file when it still has the dump's timestamp, then the --image files (e.g. a build's
     // thug2-decomp.exe): with the code mapped, the stack scan keeps only values that follow a CALL.

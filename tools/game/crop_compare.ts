@@ -2,9 +2,8 @@
 // screen pixel stays visible) - what the HD UI checks look at.
 //   node tools/game/crop_compare.ts <before.png> <after.png> <x,y,w,h> <out.png> [--zoom 3]
 import * as fs from "node:fs";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { decodePng, encodePng } from "thug2-level-converter-core/lib/frame_diff.ts";
-import { isMain, print, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 const USAGE = "usage: crop_compare.ts before.png after.png x,y,w,h out.png [--zoom N]";
 

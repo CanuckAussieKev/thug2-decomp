@@ -43,8 +43,8 @@ Node strips the types and runs what is left, so only syntax that erases to plain
 - Node built-ins with the `node:` prefix: `node:fs`, `node:path`, `node:zlib` (`crc32`), `node:util` (`parseArgs` for
   CLIs), `node:child_process`.
 - A CLI ported from Python kept its twin's commands, arguments, defaults and output exactly (users, docs and other tools rely on
-  them). Its entry: `if (isMain(import.meta.url)) await runMain(() => main());` (thug2-level-converter-core/lib/py.ts): `main` returns the
-  exit code; `pyExit("message")` is `sys.exit("message")`.
+  them). Its entry: `if (isMain(import.meta.url)) await runMain(() => main());` (thug2-level-converter-core/lib/cli.ts): `main` returns the
+  exit code; `exitWith("message")` is `sys.exit("message")`.
 - Imports are relative (`import * as qb from "../level_port/qb.ts"`), not Python's `sys.path.insert` + `import qb`.
   Another repository's module is imported by its package name and only if that repository exports it (its
   package.json `exports`, listed in its README: `import * as qb from "thug2-level-converter-core/level_port/qb.ts"`);
@@ -53,13 +53,13 @@ Node strips the types and runs what is left, so only syntax that erases to plain
   Options that were Python keyword arguments become an options object when there are many
   (`new Translator(sources, thug2, translatable, nodeNames, allNodeNames, names, { full: true, objects })`); a Python
   subclass (thug1_port's `Thug1Translator`) is a TypeScript subclass overriding the same methods.
-- `thug2-level-converter-core/lib/` holds what every port needs: `py.ts` (Python's semantics: below), `struct.ts`, `difflib.ts`
+- `thug2-level-converter-core/lib/` holds what every port needs: `numbers.ts` / `text.ts` / `json.ts` (exact formatting: below), `struct.ts`, `difflib.ts`
   (SequenceMatcher, get_close_matches, unified_diff), `re.ts` (search / sub / finditer with Python's match object).
 - Formatting: Biome, 4 spaces, 120 columns, double quotes (`npm run format`).
 
 ## Python -> JavaScript traps
 
-Each of these changed (or would have changed) an output somewhere; `thug2-level-converter-core/lib/py.ts` has the helper.
+Each of these changed (or would have changed) an output somewhere; `thug2-level-converter-core/lib/` has the helper (numbers.ts, text.ts, json.ts).
 
 **Numbers**
 - NaN payload bits: Python keeps a float32 NaN's bits (THPS3's uvs hold 0x7FC0817D); V8 may reset them to
@@ -67,17 +67,17 @@ Each of these changed (or would have changed) an output somewhere; `thug2-level-
   output can even vary between runs. Start such arrays as doubles (`doubleArray` in `thug2-level-converter-core/lib/struct.ts`, which
   `unpackFrom` uses) or build them with `concat`.
 - `round(x)` is banker's rounding (halves to even: `round(2.5) == 2`) - `roundHalfEven`, never `Math.round`.
-  `round(x, n)` rounds the exact binary value (`round(2.675, 2) == 2.67`) - `pyRound`.
-- `repr(float)` / `str(float)`: exponent below 1e-4 and from 1e16 (`1e-05`, `1e+16`), always a `.0` - `pyFloatRepr`.
+  `round(x, n)` rounds the exact binary value (`round(2.675, 2) == 2.67`) - `roundTo` (numbers.ts).
+- `repr(float)` / `str(float)`: exponent below 1e-4 and from 1e16 (`1e-05`, `1e+16`), always a `.0` - `floatText` (numbers.ts).
   JavaScript's `String(n)` switches at 1e-7 / 1e21 and drops `.0`. `"%.6f" % x` rounds the exact value halves-to-even
   (`"%.9f" % 0.0009765625 == "0.000976562"`) and keeps `-0.000` - `formatFixed`; `toFixed` rounds halves up and goes
   exponential from 1e21. `%g` / `{:g}`: not ported yet - write a helper, don't approximate.
 - Python can't tell 1.0 from 1 apart only in JavaScript: where the type shows in the output (qb values: NeverScript
-  writes `1` and `1.0`; json.dump writes `1.0`) a float is a `Float` (py.ts), an int a plain number.
+  writes `1` and `1.0`; json.dump writes `1.0`) a float is a `Float` (numbers.ts), an int a plain number.
 - `sum()` of floats (3.12+) is Neumaier-compensated: `sum([0.1] * 10) == 1.0`, plain addition gives
-  0.9999999999999999 - `pySum`. (`sum` of ints: plain addition.)
+  0.9999999999999999 - `sumOf` (numbers.ts). (`sum` of ints: plain addition.)
 - `math.dist` / `math.hypot` are near-correctly rounded (scaled double-double sums): not `Math.sqrt(dx*dx + ...)`, not
-  `Math.hypot` - `pyDist` / `pyHypot` (CPython's algorithm; checked on 30,000 random cases, all equal).
+  `Math.hypot` - `distanceOf` (numbers.ts) / `hypotOf` (numbers.ts) (CPython's algorithm; checked on 30,000 random cases, all equal).
 - `x ** 2` on Windows is the C library's `pow`, which differs from `x * x` in the last bit for ~1 value in 2,000; the
   ports use `x * x` (the only uses - bounding spheres, nearest restarts - write float32s or compare distances, where
   that bit has never shown; the Python / TypeScript comparisons agreed).
@@ -88,11 +88,11 @@ Each of these changed (or would have changed) an output somewhere; `thug2-level-
   `(a | b) >>> 0` for u32s. Checksums always `>>> 0` (qb.ts `checksum` does). `(point << 2) | axis` with a negative
   point: `point * 4 + axis` (no 32-bit wrap).
 - Integers past 2^53: JavaScript numbers lose them - use `BigInt` (struct.ts refuses `q` / `Q` values past 2^53).
-- `//` and `%` floor (the result takes the divisor's sign: `-7 // 2 == -4`, `-7 % 2 == 1`) - `floorDiv`, `pyMod`.
+- `//` and `%` floor (the result takes the divisor's sign: `-7 // 2 == -4`, `-7 % 2 == 1`) - `floorDiv`, `floorMod` (numbers.ts).
 - `max()` / `min()` keep the first of equals and skip NaN unless it's first; `Math.max(...a)` gives NaN for any NaN and
-  overflows the stack for big arrays - `pyMax`, `pyMin`, `pyMinBy` (`min(items, key=...)`).
+  overflows the stack for big arrays - `maxOf` (numbers.ts), `minOf` (numbers.ts), `minBy` (numbers.ts) (`min(items, key=...)`).
 - `int(text)`, `int(text, 16)`, `float(text)` are strict (no trailing junk, underscores allowed, `float("")` raises);
-  `parseInt` / `Number` aren't - `pyParseInt`, `pyIntHex`, `pyParseFloat`.
+  `parseInt` / `Number` aren't - `parseIntStrict` (numbers.ts), `parseHexInt` (numbers.ts), `parseFloatStrict` (numbers.ts).
 
 **Strings and bytes**
 - `bytes.decode("latin-1")` = `Buffer.toString("latin1")`, but `str.encode("latin-1")` raises past U+00FF where
@@ -101,29 +101,30 @@ Each of these changed (or would have changed) an output somewhere; `thug2-level-
 - `decode("ascii", "replace")` gives U+FFFD per high byte; Buffer's `"ascii"` drops the top bit (0xE9 -> "i") -
   `decodeAsciiReplace`. `"utf-8"` keeps a BOM as U+FEFF; TextDecoder drops it unless `ignoreBOM` - `decodeUtf8`.
 - `str.isalnum()` / `isdigit()` / `isalpha()` are Unicode-aware ("é", "²") - `isAlnumChar` etc.; `\w`, `\d`, `\b` in
-  JavaScript regexes are ASCII. `str.strip()` / `split()` use Python's whitespace (not quite `trim`'s) - `pyStrip`.
-  `str.splitlines()` also splits on `\r`, `\v`, `\f`, `\x1c-\x1e`, `\x85`, U+2028/9 - `pySplitlines`.
+  JavaScript regexes are ASCII. `str.strip()` / `split()` use Python's whitespace (not quite `trim`'s) - `stripSpace` (text.ts).
+  `str.splitlines()` also splits on `\r`, `\v`, `\f`, `\x1c-\x1e`, `\x85`, U+2028/9 - `splitLines` (text.ts).
 - `lower()` / `upper()`: the same as `toLowerCase` / `toUpperCase` for ASCII (both apply Unicode special casing; e.g.
   "ß".upper() is "SS" in both). Compare and sort strings by code point: JavaScript's `<` compares UTF-16 units - the
   same below U+10000.
-- `repr(str)` / printing a dict, list or tuple: `pyRepr` (`{'same': 0}`, `(1, 'b')` - mark tuples with `pyTuple`).
+- `repr(str)` / printing a dict, list or tuple: `valueText` (text.ts) (`{'same': 0}`, `(1, 'b')` - mark tuples with `asTuple` (text.ts)).
 - `"%s" % value` of a float is its repr, `"%d" % 3.7` truncates.
 
 **Files, output, processes**
 - Python's text mode on Windows writes `"\n"` as `"\r\n"` (`open(p, "w")`, `json.dump` to such a file) - write those
-  files with `writeTextPy`. Reading (`open(p).read()`) turns `"\r\n"` and `"\r"` into `"\n"` - `readTextPy`.
-- `print()` on Windows writes `"\r\n"`; `console.log` / `print()` (py.ts) write `"\n"` (no visible difference in a
+  files with `writeText` (text.ts). Reading (`open(p).read()`) turns `"\r\n"` and `"\r"` into `"\n"` - `readText` (text.ts).
+- `print()` on Windows writes `"\r\n"`; `console.log` / `print()` (cli.ts) write `"\n"` (no visible difference in a
   console). Python's stdout to a pipe is cp1252 unless
   `PYTHONIOENCODING` says otherwise - and `python -I` ignores that variable (every `PYTHON*` one); Node writes UTF-8. `console.log("%s")` formats its first argument when more
-  follow - use `print` (py.ts).
+  follow - use `print` (cli.ts).
 - `subprocess.run(..., text=True)` decodes with the locale's code page (cp1252) and universal newlines -
   `common.textOutput` / `decodeCp1252`.
-- `json.dump` / `json.dumps`: `pyJsonDumps` (ASCII escapes, `1.0` for floats, `", "` / `": "`, the `indent` layout).
-  `json.load` reads `NaN` / `Infinity`, JSON.parse doesn't - `pyJsonLoads` (also keeps floats as `Float`).
-- `sys.exit("message")` prints to stderr and exits 1; it is an exception (`SystemExit`) that `except Exception` doesn't
-  catch - `pyExit` throws `SystemExit`; a ported catch-all must rethrow it.
-- `os.path.join` (ntpath) keeps the parts' own slashes (`"C:/x\\levels"`); node:path normalises them - `pyJoin`
-  where a path is printed or compared as text. `os.walk` / `os.listdir` / `glob` order is the file system's: sort
+- `json.dump` / `json.dumps`: `jsonText` (json.ts) (ASCII escapes, `1.0` for floats, `", "` / `": "`, the `indent` layout).
+  `json.load` reads `NaN` / `Infinity`, JSON.parse doesn't - `parseJson` (json.ts) (also keeps floats as `Float`).
+- `sys.exit("message")` prints to stderr and exits 1; it is an exception (`CliExit`, cli.ts) that `except Exception` doesn't
+  catch - `exitWith` (cli.ts) throws `CliExit`; a ported catch-all must rethrow it.
+- Paths: node:path (`path.join`), disk paths written with `/` or as separate parts - Windows accepts `/`, and the
+  tools run on Linux and macOS too. Names inside the game's data (archive entries, script text) keep their `\`;
+  the game treats `/` and `\` alike in them (core's `checksum` too). `os.walk` / `os.listdir` / `glob` order is the file system's: sort
   explicitly (Python's glob on Windows matches case-insensitively and skips names starting with ".").
 - `shutil.copytree` copies file times (`fs.cpSync(..., { preserveTimestamps: true })`) and refuses an existing target.
 
@@ -136,7 +137,7 @@ Each of these changed (or would have changed) an output somewhere; `thug2-level-
   context order) - the TypeScript keeps insertion order; compare such output sorted or in full.
 - `sorted(list_of_numbers)`: `Array.sort()` without a comparator sorts as text (`[10, 9]` stays) - `sortedNumbers` or
   `(a, b) => a - b`. Both sorts are stable. Tuples sort element by element: write the comparator.
-- An empty list / dict / bytes is false in Python, true in JavaScript; NaN the other way round - `pyTruthy` where
+- An empty list / dict / bytes is false in Python, true in JavaScript; NaN the other way round - `truthy` (json.ts) where
   `if x:` / `x or y` meet such values.
 - Negative indexes (`a[-1]`) and out-of-range slices / indexes: Python's `a[i]` raises past the end where JavaScript
   gives `undefined` (and arithmetic on it NaN) - check where the Python relied on the exception.
