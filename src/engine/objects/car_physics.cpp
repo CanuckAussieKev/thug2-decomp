@@ -100,14 +100,7 @@ void AutomobileDynamicsModule::publish_method_table()
 }
 
 // 0x0041BAD0
-AutomobileDynamicsModule::AutomobileDynamicsModule()
-{
-    wheel_spin_ = 0.0f;
-    steer_ = 0.0f;
-    target_steer_ = 0.0f;
-    kind_tag_ = kType;
-    body_shown_ = true;
-}
+AutomobileDynamicsModule::AutomobileDynamicsModule() { kind_tag_ = kType; }
 
 // 0x0041B930 (0x0041BB00 the deleting one)
 AutomobileDynamicsModule::~AutomobileDynamicsModule() = default;

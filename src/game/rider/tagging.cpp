@@ -141,13 +141,7 @@ float tag_setting(uint32_t name) { return FootMovement::get_param(name); }
 memory::owner<ObjectModule*> TaggingComponent::fabricate() { return new TaggingComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-TaggingComponent::TaggingComponent()
-{
-    custom_tag_ = false;
-    graffiti_ = nullptr;
-    sticker_ = nullptr;
-    kind_tag_ = kType;
-}
+TaggingComponent::TaggingComponent() { kind_tag_ = kType; }
 
 // 0x0051D760 (0x0051D860 the deleting one)
 TaggingComponent::~TaggingComponent()
@@ -264,12 +258,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
 memory::owner<ObjectModule*> TaggingControlComponent::fabricate() { return new TaggingControlComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-TaggingControlComponent::TaggingControlComponent()
-{
-    kind_tag_ = kType;
-    pending_ = false;
-    blocked_ = false;
-}
+TaggingControlComponent::TaggingControlComponent() { kind_tag_ = kType; }
 
 // 0x0051DD50 (0x0051DD60 the deleting one)
 TaggingControlComponent::~TaggingControlComponent() = default;

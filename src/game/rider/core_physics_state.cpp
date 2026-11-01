@@ -90,26 +90,7 @@ SkaterPhysicsModule::SkaterPhysicsModule()
     skitch_target_.following_ = nullptr;
     skitch_target_.owner_object_ = nullptr;
     // (+0x3F0: its constructor 0x005902E0 only returns it.)
-    input_ = nullptr;
-    trigger_ = nullptr;
-    sound_ = nullptr;
-    trick_ = nullptr;
-    rotate_ = nullptr;
-    score_ = nullptr;
-    balance_ = nullptr;
-    state_ = nullptr;
-    ride_ = nullptr;
-    physics_control_ = nullptr;
-    walk_ = nullptr;
-    tagging_component_ = nullptr;
-    focus_on_ = 0;
-    powerslide_ = 0;
-    flip_spin_started_ = 0;
-    on_vehicle_ = 0;
-    manual_turnaround_ = 0;
     kind_tag_ = kSkaterCorePhysics;
-    projectile_input_ = -1;
-    slomo_speed_ = 1.0f;
     // Not original - a component made where an old one was starts off THAW's bike (game/rider/thaw_bmx.h).
     if (thaw_bmx::is_switched_on())
         thaw_bmx::get_forget(this);

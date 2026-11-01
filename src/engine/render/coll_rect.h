@@ -73,9 +73,9 @@ public:
     CollRect rect_{};                   // +0x0000
     RectHits hits_{};                   // +0x0030
     RectHit joined_[RectHits::kMost]{}; // +0x0C38
-    int joined_count_;                // +0x1838
+    int joined_count_{0};               // +0x1838
     uint32_t unknown183c_{};          // +0x183C
-    HitMeshCache* hit_cache_;         // +0x1840
+    HitMeshCache* hit_cache_{nullptr}; // +0x1840
 };
 static_assert(offsetof(BoxProbe, joined_) == 0xC38 && offsetof(BoxProbe, hit_cache_) == 0x1840,
               "layout must match the original");

@@ -118,24 +118,12 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
 }
 
 // 0x00452C00
-BinkStream::BinkStream(bool unknown19, int plays)
+BinkStream::BinkStream(bool unknown19, int plays) : unknown19_(unknown19), plays_(plays)
 {
-    wad_entry_ = -1; // the stream file's slot
-    silent_ = false;
-    is_halted_ = false;
-    bink_ = nullptr;
-    unknown1a8_ = 0;
-    memory_ = nullptr;
-    unknown1ac_ = 0;
-    file_ref_ = reinterpret_cast<Hdl>(-1); // (INVALID_HANDLE_VALUE)
-    unknown04_ = 0;
-    unknown19_ = unknown19;
-    unknown6b_ = true;
-    plays_ = plays;
     status_words_[9] = 0; // (+0x58)
-    finished_ = false;
-    pause_requested_ = false;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     async_ctl_ = static_cast<_OVERLAPPED*>(next_stream_buffer());
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00452C60

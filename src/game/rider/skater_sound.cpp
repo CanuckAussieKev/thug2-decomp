@@ -72,13 +72,7 @@ float full_length(const maths::Vec4& v, float full_speed)
 memory::owner<ObjectModule*> RiderSfxPlayer::fabricate() { return new RiderSfxPlayer; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderSfxPlayer::RiderSfxPlayer()
-{
-    full_speed_ = 1.0f;
-    volume_mult_ = 1.0f;
-    kind_tag_ = kSkaterSound;
-    sliding_ = 0;
-}
+RiderSfxPlayer::RiderSfxPlayer() { kind_tag_ = kSkaterSound; }
 
 // 0x00518C80 (0x00518C90 the deleting one)
 RiderSfxPlayer::~RiderSfxPlayer() = default;

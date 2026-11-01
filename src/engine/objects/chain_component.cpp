@@ -121,7 +121,7 @@ float get_rounded(double value) { return static_cast<float>(value); }
 // blend_mode_ written directly.)
 
 // 0x00428280
-ChainLink::ChainLink() { line_ptr_ = nullptr; }
+ChainLink::ChainLink() = default;
 
 // 0x00428250
 void ChainLink::destroy_body()
@@ -134,23 +134,7 @@ void ChainLink::destroy_body()
 
 // 0x00428290
 // (the links made first by their constructors)
-Chain::Chain()
-{
-    ident_ = 0;
-    bone_start_ = 0;
-    start_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    bone_end_ = 0;
-    obj_end_ = 0;
-    links_ = 0;
-    plane_offset_ = 0.0f;
-    collide_first_ = 0;
-    collide_end_ = 0;
-    iterations_ = 0;
-    damping_ = 0.0f;
-    sag_force_ = 0.0f;
-    collide_below_ = false;
-    move_with_object_ = true;
-}
+Chain::Chain() { start_offset_ = {0.0f, 0.0f, 0.0f, 1.0f}; }
 
 // 0x00428300
 void Chain::update_lines()

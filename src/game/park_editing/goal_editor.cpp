@@ -111,8 +111,10 @@ ObjectiveAuthoring::ObjectiveAuthoring()
     kind_tag_ = kGoalEditor;
     clear_level_goals();
     clear_park_goals();
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     input_ptr_ = nullptr;
     view_camera_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004E6FD0 (0x004E7B20 the deleting one)

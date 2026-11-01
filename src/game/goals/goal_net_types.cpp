@@ -140,11 +140,7 @@ void LetterGameObjective::land()
 // --- OnlineObjective -------------------------------------------------------------------------------------------------------
 
 // 0x00560AC0
-OnlineObjective::OnlineObjective(script::Struct* params) : Objective(params)
-{
-    run_ending_ = 1;
-    is_prepared_ = false;
-}
+OnlineObjective::OnlineObjective(script::Struct* params) : Objective(params) { run_ending_ = 1; }
 
 // 0x00560AF0
 OnlineObjective::~OnlineObjective() = default;
@@ -242,9 +238,10 @@ void OnlineObjective::expire()
 // 0x00560E60
 RaceObjective::RaceObjective(script::Struct* params) : Objective(params)
 {
-    laps_ = 1;
     params->fetch_int_value(kRaceTotalLaps, &laps_, 0);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     add_time_ = params->has_entry_named(kRaceAddTime);
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00560EE0

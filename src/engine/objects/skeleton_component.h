@@ -91,7 +91,7 @@ public:
     // rotvel= (all but offset asserted) and object_vel_factor= (1) to spawn_composite_object_at_bone. True.
     bool skeleton_spawn_composite_object(script::Struct* params, script::Script* script);
 
-    uint8_t* bone_rig_; // +0x18 the renderer's skeleton
+    uint8_t* bone_rig_{nullptr}; // +0x18 the renderer's skeleton
 };
 
 } // namespace objects

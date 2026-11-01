@@ -49,7 +49,7 @@ public:
     // manager, an object or a node list; true otherwise - also when there's no such point (`out` untouched).
     bool get_hook_point(maths::Vec4* out, int index);
 
-    bool allowed_; // +0x18
+    bool allowed_{true}; // +0x18
     uint8_t pad19[3]{};
     ObjectModule* hooks_{}; // +0x1C the object's hook manager (0x27443708)
 };

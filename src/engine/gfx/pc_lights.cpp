@@ -65,9 +65,10 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, Dynam
 // 0x004B6270
 PcModelLights::PcModelLights()
 {
-    overrides = 0;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     colors = static_cast<uint32_t*>(memory::alloc(4 * model_light_count()));
     directions = static_cast<maths::Vec4*>(memory::alloc(16 * model_light_count()));
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     switch_ambient_light(false);
     for (uint32_t i = 0; i < model_light_count(); ++i) {
         switch_diffuse_light(static_cast<int>(i), false);

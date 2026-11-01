@@ -107,15 +107,7 @@ maths::Mat4& static_orientation()
 } // namespace
 
 // 0x004B4460
-PcGeom::PcGeom()
-{
-    load_list_ = nullptr;
-    meshes = nullptr;
-    instance = nullptr;
-    visibility = 0xDEADBEEF;
-    scale = {1.0f, 1.0f, 1.0f, 1.0f};
-    active = true;
-}
+PcGeom::PcGeom() { scale = {1.0f, 1.0f, 1.0f, 1.0f}; }
 
 // 0x004B5EE0
 PcGeom::~PcGeom()

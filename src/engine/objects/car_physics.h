@@ -81,9 +81,9 @@ public:
     // 0x0041BA20 [0xC9F0DB4B]: nothing. 1.
     int do_nothing(script::Struct* params, script::Script* script);
 
-    float wheel_spin_;   // +0x18 degrees, 0-360
-    float steer_;        // +0x1C
-    float target_steer_; // +0x20
+    float wheel_spin_{0.0f};   // +0x18 degrees, 0-360
+    float steer_{0.0f};        // +0x1C
+    float target_steer_{0.0f}; // +0x20
     float lean_angle_{}; // +0x24
     float target_tilt_{};  // +0x28
     float wheel_base_{};   // +0x2C
@@ -92,7 +92,7 @@ public:
     float max_tilt_{};     // +0x38 0xFB3464DF
     float tilt_rate_{};    // +0x3C 0xFD8BC8D6
     float tilt_divisor_{}; // +0x40 0xB2C7447B
-    bool body_shown_;    // +0x44
+    bool body_shown_{true}; // +0x44
     uint8_t pad45[3]{};
     void* mesh_instance_{}; // +0x48 the model component's model (+0x208)
     void* bone_rig_{};      // +0x4C the skeleton component's skeleton (+0x18)

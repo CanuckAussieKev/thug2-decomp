@@ -106,13 +106,13 @@ public:
     uint32_t events_{};         // +0x1C this frame's
     PadSnapshot pad_primary_;   // +0x20
     PadSnapshot pad_secondary_; // +0x258
-    Responder* handler_;        // +0x490
+    Responder* handler_{nullptr}; // +0x490
     Responder* handler2_{};     // +0x494
     bool disabled_{};           // +0x498 disable_player_input
     bool net_disabled_{};       // +0x499 net_disable_player_input
     bool input_events_{};       // +0x49A EnableInputEvents
     uint8_t pad49b_{};
-    uint32_t unknown49c_; // +0x49C 0xB9B1E3B6
+    uint32_t unknown49c_{0}; // +0x49C 0xB9B1E3B6
 };
 static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInputModule, pad_secondary_) == 0x258 &&
                   offsetof(PadInputModule, handler_) == 0x490 && offsetof(PadInputModule, disabled_) == 0x498 &&

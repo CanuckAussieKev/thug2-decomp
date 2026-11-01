@@ -84,7 +84,7 @@ public:
 
     NodeSlot slots_[kSlots]{};          // +0x00000
     NodeSlot walk_{};                   // +0x10000 the walk's place (list_link_ -1: no walk)
-    uint32_t num_;                      // +0x10004 node arrays in use
+    uint32_t num_{0};                   // +0x10004 node arrays in use
     NodeArrayEntry arrays_[kMaxArrays]{}; // +0x10008
     void* owner_ptr_{};                   // +0x100F8
 };

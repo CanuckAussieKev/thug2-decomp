@@ -858,9 +858,8 @@ void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, u
 }
 
 // 0x00573620
-CtodManager::CtodManager()
+CtodManager::CtodManager() : unknown4_(spawn_param_table())
 {
-    unknown4_ = spawn_param_table();
     void* table = memory::alloc(sizeof(lists::KeyMap));
     dead_objects_ = table ? new (table) lists::KeyMap(8) : nullptr;
     for (TodSystem& system : systems_)

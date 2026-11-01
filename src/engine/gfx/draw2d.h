@@ -22,11 +22,11 @@ public:
     virtual void draw() = 0;
     virtual void close_sketch() = 0;
 
-    OverlayDraw* next;
+    OverlayDraw* next{nullptr};
     uint8_t hidden; // not in the list (a byte: change_concealed keeps any value it's given)
     uint8_t pad[3]{};
     float priority;
-    float z; // above 0: the next frame's z test on (0x007CC24C)
+    float z{0.0f}; // above 0: the next frame's z test on (0x007CC24C)
 
     // 0x004DF900: into the list: before the first of higher or equal priority.
     void splice();

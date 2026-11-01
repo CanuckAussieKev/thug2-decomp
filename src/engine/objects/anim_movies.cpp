@@ -139,11 +139,7 @@ bool load_anim(Movie* movie, script::Struct* params)
 // --- the object animation movie -------------------------------------------------------------------------------
 
 // 0x005871B0
-ObjectAnimMovie::ObjectAnimMovie()
-{
-    construct_timeline(&timeline_);
-    anim_ = nullptr;
-}
+ObjectAnimMovie::ObjectAnimMovie() { construct_timeline(&timeline_); }
 
 // 0x00587210
 ObjectAnimMovie::~ObjectAnimMovie() { destroy_timeline(&timeline_); }
@@ -190,9 +186,6 @@ bool ObjectAnimMovie::is_held_and_complete() { return flag18_ && is_accomplished
 CameraAnimMovie::CameraAnimMovie()
 {
     construct_timeline(&timeline_);
-    anim_ = nullptr;
-    has_goal_ = false;
-    aim_point_ = 0;
     reinterpret_cast<uint32_t&>(field_of_view_) = 0;
 }
 

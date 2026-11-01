@@ -88,9 +88,9 @@ public:
     CollSphere bound_ball_{};     // +0x000
     SphereHits hits_{};           // +0x014
     uint8_t unknown5b8_[0x598]{}; // +0x5B8
-    uint32_t unknownb50_;       // +0xB50
+    uint32_t unknownb50_{0};      // +0xB50
     uint32_t unknownb54_[2]{};  // +0xB54
-    HitMeshCache* hit_cache_;   // +0xB5C
+    HitMeshCache* hit_cache_{nullptr}; // +0xB5C
 };
 static_assert(offsetof(SphereFeeler, hits_) == 0x14 && offsetof(SphereFeeler, hit_cache_) == 0xB5C,
               "layout must match the original");

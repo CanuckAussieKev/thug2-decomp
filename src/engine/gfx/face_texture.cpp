@@ -244,7 +244,6 @@ bool massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* poi
 // 0x004875C0
 FaceSkin::FaceSkin()
 {
-    is_usable_ = false;
     fetch_stock_face_anchors(&path_vertices_);
     copy_string(overlay_name_, "faces\\CS_NSN_Head_wht_alpha");
 }

@@ -105,15 +105,15 @@ public:
 
     memory::ListNode list_link_{};              // +0x04 in the manager's queue (data = this)
     memory::owner<gfx::ViewCam*> viewer_;       // +0x14
-    bool flag18_;                // +0x18 (0xEB300C29; held at its end)
-    uint8_t flag19_;             // +0x19 (0x8DDE72C0; a flag, any byte: skippable)
+    bool flag18_{false};                        // +0x18 (0xEB300C29; held at its end)
+    uint8_t flag19_{false};                     // +0x19 (0x8DDE72C0; a flag, any byte: skippable)
     bool is_finished_{};         // +0x1A
     uint8_t flag_1b_{};          // +0x1B (a flag, any byte: plays while paused)
-    bool flag_1c_;               // +0x1C (0xB8CA12C5)
+    bool flag_1c_{false};        // +0x1C (0xB8CA12C5)
     uint8_t unknown1d_[3]{};
     uint32_t value20_{};   // +0x20 its name
     uint32_t label_{};     // +0x24 the script run when it ends (0x1A005041)
-    script::Struct* args_; // +0x28 that script's params
+    script::Struct* args_{nullptr}; // +0x28 that script's params
 };
 static_assert(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == 0x14 &&
                   offsetof(VideoEntry, flag_1c_) == 0x1C && offsetof(VideoEntry, label_) == 0x24 &&
@@ -144,11 +144,11 @@ public:
     // 0x00469430: an entry for each node of the class in `nodes` (kept).
     void set_nodes(script::Array* nodes);
 
-    TableRow* entries_; // +0x00
-    bool transformed_;  // +0x04
+    TableRow* entries_{nullptr}; // +0x00
+    bool transformed_{false};    // +0x04
     uint8_t unknown5_[3]{};
     maths::Mat4 placement_mat_{}; // +0x08
-    script::Array* nodes_;      // +0x48
+    script::Array* nodes_{nullptr}; // +0x48
 };
 static_assert(offsetof(ClassNodeList, placement_mat_) == 8 && offsetof(ClassNodeList, nodes_) == 0x48 &&
                   sizeof(ClassNodeList::TableRow) == 0x18,

@@ -190,23 +190,8 @@ HostListing::HostListing() : ListNode()
 {
     make_node(this);
     participants_.make_head();
-    in_menu_ = false;
-    chosen_ = false;
-    ping_ = 0;
     std::sprintf(level_, "None");
     std::sprintf(mode_sel_, "None");
-    num_players_ = 1;
-    max_observers_ = 1;
-    can_reach_ = true;
-    num_observers_ = 0;
-    host_mode_ = 0;
-    ranked_ = false;
-    started_ = false;
-    in_list_ = false;
-    detailed_ = false;
-    sb_server_ = nullptr;
-    max_players_ = 8;
-    skill_level_ = 2;
 }
 
 // 0x00546640

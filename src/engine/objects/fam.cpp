@@ -65,12 +65,7 @@ void delete_params(script::Struct* params)
 memory::owner<ObjectModule*> FamComponent::fabricate() { return new FamComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-FamComponent::FamComponent()
-{
-    kind_tag_ = kType;
-    fam_ = 0;
-    feed_ = 0;
-}
+FamComponent::FamComponent() { kind_tag_ = kType; }
 
 // 0x0041D170
 void FamComponent::publish_method_table()

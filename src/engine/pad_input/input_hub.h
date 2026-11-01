@@ -111,10 +111,10 @@ struct HostEnd {
     tasks::PileUp handlers_;        // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
     uint8_t pad38_[0x08]{};         // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
     Payload content_{};             // +0x40
-    PadFrameRecord* data_in_;       // +0x74: the recording played back (null: none)
-    PadFrameRecord* in_buf_limit_;  // +0x78
-    PadFrameRecord* data_out_;      // +0x7C: the recording made (null: none)
-    PadFrameRecord* out_buf_limit_; // +0x80
+    PadFrameRecord* data_in_{nullptr};       // +0x74: the recording played back (null: none)
+    PadFrameRecord* in_buf_limit_{nullptr};  // +0x78
+    PadFrameRecord* data_out_{nullptr};      // +0x7C: the recording made (null: none)
+    PadFrameRecord* out_buf_limit_{nullptr}; // +0x80
 
     // 0x0044E9E0: the handler list and everything cleared (but dev_, makes_ and breaks_).
     HostEnd();

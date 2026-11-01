@@ -65,11 +65,11 @@ public:
     int set_colors_from_script(script::Struct* params, script::Script* script);
 
     maths::Vec4 colors_[kCycleColorCap]{}; // +0x18 (x, y, z: 0-255)
-    int color_count_;                    // +0x68
-    int ongoing_;                        // +0x6C
+    int color_count_{0};                   // +0x68
+    int ongoing_{0};                       // +0x6C
     float period_{};                     // +0x70 milliseconds
-    float clock_;                        // +0x74 milliseconds on the current colour
-    bool on_;                            // +0x78
+    float clock_{0.0f};                  // +0x74 milliseconds on the current colour
+    bool on_{false};                     // +0x78
     uint8_t pad79[3]{};
 };
 

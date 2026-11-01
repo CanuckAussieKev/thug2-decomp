@@ -236,9 +236,9 @@ public:
     std::unique_ptr<objects::RiderStoryProgress> career_;    // +0x20
     memory::HeapUnique<objects::GrindRailHub> rail_manager_; // +0x24
     lists::Foremost riders_{}; // +0x28 (their nodes' data the skaters, in object id order)
-    bool watch_for_unplug_;  // +0x3C
+    bool watch_for_unplug_{false}; // +0x3C
     uint8_t pad3d_[3]{};
-    int unplugged_frames_;        // +0x40
+    int unplugged_frames_{0};       // +0x40
     bool running_queued_scripts_{}; // +0x44
     bool level_launched_;         // +0x45 (enter_stage)
     bool run_over_{};             // +0x46

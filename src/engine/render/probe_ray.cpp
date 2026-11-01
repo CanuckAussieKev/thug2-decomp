@@ -42,26 +42,22 @@ double get_length_squared(double x, double y, double z) { return (z * z + y * y)
 } // namespace
 
 // 0x00417760
-ProbeRay::ProbeRay()
+ProbeRay::ProbeRay() : callback_(nullptr), hit_cache_(nullptr)
 {
     entity_.preceding_ = nullptr;
     entity_.following_ = nullptr;
     entity_.owner_object_ = nullptr;
-    callback_ = nullptr;
-    hit_cache_ = nullptr;
     reset_hit(hit_);
 }
 
 // 0x00417250 (the original first sets the hit's normal to (1, 1, 1, 1), then to (0, 0, 0, 1))
-ProbeRay::ProbeRay(const maths::Vec4* start, const maths::Vec4* end)
+ProbeRay::ProbeRay(const maths::Vec4* start, const maths::Vec4* end) : callback_(nullptr), hit_cache_(nullptr)
 {
     entity_.preceding_ = nullptr;
     entity_.following_ = nullptr;
     entity_.owner_object_ = nullptr;
     line_.start = *start;
     line_.end = *end;
-    callback_ = nullptr;
-    hit_cache_ = nullptr;
     reset_hit(hit_);
 }
 

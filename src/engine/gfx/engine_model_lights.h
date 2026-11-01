@@ -56,9 +56,9 @@ public:
     bool change_brightness(float brightness);
 
     uint32_t dynamic_radius_;      // +0x04: how far dynamic lights reach it (the instance's lights pass it)
-    float brightness_;             // +0x08
-    float intensity_goal_;         // +0x0C
-    float size_factor_;            // +0x10: the ambient colour's
+    float brightness_{0.0f};       // +0x08
+    float intensity_goal_{0.0f};   // +0x0C
+    float size_factor_{1.0f};      // +0x10: the ambient colour's
     float* intensities_;           // +0x14: each light's
     const maths::Vec4* place_ref_; // +0x18
 };

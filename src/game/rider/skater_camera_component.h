@@ -91,7 +91,7 @@ public:
     void get_zoomed_offsets(float* height, float* distance);
 
     uint8_t unknown18_[0x24 - 0x18]{};
-    int mode_sel_;               // +0x24 the camera mode (an index of Skater_Camera_Array)
+    int mode_sel_{0};            // +0x24 the camera mode (an index of Skater_Camera_Array)
     int instant_frames_{};       // +0x28 frames that jump straight to the target
     float turn_cosine_;          // +0x2C the last turn's cosine (the new facing against the old)
     maths::Vec4 aim_point_{};    // +0x30 the point followed

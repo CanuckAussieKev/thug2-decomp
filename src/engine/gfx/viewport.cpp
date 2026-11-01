@@ -86,11 +86,6 @@ uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
 // 0x004A0DB0
 ViewRegion::ViewRegion(const float* rect, gfx::ViewCam* camera)
 {
-    pos_x_ = 0.0f;
-    y_ = 0.0f;
-    span_ = 1.0f;
-    level_y_ = 1.0f;
-    flag_bits_ = 0;
     if (rect) {
         pos_x_ = rect[0];
         y_ = rect[1];

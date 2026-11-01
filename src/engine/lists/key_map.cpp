@@ -13,9 +13,8 @@ static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10
               "layout must match the original");
 
 // 0x0049FD90
-KeyMap::KeyMap(int bits)
+KeyMap::KeyMap(int bits) : bits_(bits)
 {
-    bits_ = bits;
     int count = 1 << bits;
     auto* buckets = static_cast<Item*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Item)));
     if (buckets) {

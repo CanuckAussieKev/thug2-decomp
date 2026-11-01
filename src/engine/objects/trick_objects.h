@@ -35,7 +35,7 @@ ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter);
 struct HitClusterLog {
     static constexpr uint32_t kCapacity = 0x200;
     uint32_t items_[kCapacity]{};
-    int num_; // +0x800
+    int num_{0}; // +0x800
     HitClusterLog();
     bool get_clear();
     // 0x00588A20: the cluster of trick object `objectName` listed, unless it has none (or no name) or is listed
@@ -77,10 +77,10 @@ struct TrickObjectHead : memory::ListNode {
 struct TrickObjectCluster {
     memory::ListNode list_link_{}; // +0x00 (data itself)
     uint32_t label_;             // +0x14
-    uint32_t record_points_;     // +0x18
+    uint32_t record_points_{0};  // +0x18
     uint32_t scores_[8]{};       // +0x1C
-    int owner_;                  // +0x3C (an object id)
-    bool owned_;                 // +0x40
+    int owner_{0};               // +0x3C (an object id)
+    bool owned_{false};          // +0x40
     uint8_t pad41_[3]{};
     memory::ListNode entities_{}; // +0x44 its CTrickObjects (the head: a sentinel)
 

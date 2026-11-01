@@ -154,6 +154,7 @@ ParkAssembler::ParkAssembler()
     for (RestartPoint& restart : restarts_)
         restart.edit_span_.assign_value(0, 0, 0, 0, 0, 0);
     new (node_array_) assets::NodeTableResource;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_bits_ = 0;
     field_04_ = 0;
     pieces_ = nullptr;
@@ -162,6 +163,7 @@ ParkAssembler::ParkAssembler()
     source_world_ = nullptr;
     next_piece_id_ = 0x20;
     max_players_ = 2;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 void ParkAssembler::move_light_source(const maths::Vec4* position, int index)

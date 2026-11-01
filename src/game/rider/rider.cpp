@@ -1208,8 +1208,10 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     is_local_skater_ = local;
     add_base_components(this);
     kind_tag_ = 0xBAF9B341;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_2c_4_ = false;
     skater_number_ = skater_number;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     ident_ = id;
     if (skater_number == 0)
         get_tracker()->register_nickname(0x5B8AB877, this);

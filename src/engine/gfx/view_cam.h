@@ -53,7 +53,7 @@ public:
     float unknownb4_{};           // +0xB4: tan(half corrected_horiz_fov_) / tan(half the default angle)
     float near_dist_;           // +0xB8: 12 (by its value)
     float far_clip_;            // +0xBC: 12000 (by its value)
-    float unknownc0_;           // +0xC0: 1 (divides the widened angle's tangent)
+    float unknownc0_{1.0f};     // +0xC0: 1 (divides the widened angle's tangent)
 };
 
 extern int g_draw_distance_setting;

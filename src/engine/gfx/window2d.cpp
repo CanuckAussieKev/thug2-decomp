@@ -16,14 +16,7 @@ ScreenWindow*& free_windows() { return g_free_windows; }
 } // namespace
 
 // 0x004A1580
-ScreenWindow::ScreenWindow(int x, int y, int width, int height)
-{
-    pos_x_ = x;
-    y_ = y;
-    span_ = width;
-    level_y_ = height;
-    following_ = nullptr;
-}
+ScreenWindow::ScreenWindow(int x, int y, int width, int height) : pos_x_(x), y_(y), span_(width), level_y_(height) {}
 
 // 0x004A1600
 void ScreenWindow::tick_engine() { debug::printf("STUB: PlatUpdateEngine\n"); }

@@ -48,7 +48,7 @@ struct Buddy {
 // from a buddy and gets the buddy's nick.
 struct FriendNote {
     memory::ListNode list_link_{}; // +0x00 data = this
-    int account_;                // +0x14 the sender
+    int account_{0};               // +0x14 the sender
     char nick_[16]{};            // +0x18
     char text_[64]{};            // +0x28
 

@@ -39,17 +39,17 @@ struct NetMessageInfo {
     // 0x004549F0 (net_descs.cpp)
     NetMessageInfo();
 
-    uint8_t ident_;         // 0x00
-    uint8_t feed_;          // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
-    uint16_t byte_count_;   // 0x02
-    const void* content_;   // 0x04 (copied when the message is queued)
-    int rank_;              // 0x08 (0x80 by default)
-    int queue_;             // 0x0C
-    uint8_t group_id_;      // 0x10 sequenced messages: each group has its own sequence
-    bool singular_;         // 0x11 drop the connection's queued messages with the same id first
-    int delay_;             // 0x14 added to the app's timestamp: when the message may go
-    uint32_t fixed_seq_no_; // 0x18 sequenced: this id instead of the group's next one (0 = the next)
-    uint8_t compression_;   // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
+    uint8_t ident_{0};             // 0x00
+    uint8_t feed_{0};              // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
+    uint16_t byte_count_{0};       // 0x02
+    const void* content_{nullptr}; // 0x04 (copied when the message is queued)
+    int rank_{0x80};               // 0x08 (0x80 by default)
+    int queue_{kLaneNormal};       // 0x0C
+    uint8_t group_id_{0};          // 0x10 sequenced messages: each group has its own sequence
+    bool singular_{false};         // 0x11 drop the connection's queued messages with the same id first
+    int delay_{0};                 // 0x14 added to the app's timestamp: when the message may go
+    uint32_t fixed_seq_no_{0};     // 0x18 sequenced: this id instead of the group's next one (0 = the next)
+    uint8_t compression_{0};       // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
     uint8_t pad1d_[3]{};
 };
 
@@ -63,17 +63,17 @@ struct StreamDesc {
     StreamDesc(const StreamDesc&) = delete;
     StreamDesc& operator=(const StreamDesc&) = delete;
 
-    int extent_;     // 0x00
+    int extent_{0};    // 0x00
     int stream_id_{};  // 0x04
     uint8_t msg_id_{}; // 0x08
     char desc_[32]{};  // 0x09 the sender's description of the data
     uint8_t pad29_[3]{};
-    uint8_t* content_;      // 0x2C
-    uint8_t* succ_;         // 0x30 the first byte not sent yet
-    uint8_t group_id_;      // 0x34
+    uint8_t* content_{nullptr}; // 0x2C
+    uint8_t* succ_{nullptr};    // 0x30 the first byte not sent yet
+    uint8_t group_id_{0};       // 0x34
     uint32_t order_number_{}; // 0x38 the next piece's sequence id (reserved when the stream was queued)
     uint32_t checksum_{};     // 0x3C received streams: the whole message's checksum
-    bool borrowed_payload_; // 0x40 content_ is the caller's (not freed)
+    bool borrowed_payload_{false}; // 0x40 content_ is the caller's (not freed)
     uint8_t pad41_[3]{};
 };
 

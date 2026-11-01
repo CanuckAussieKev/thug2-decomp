@@ -273,9 +273,10 @@ public:
     float ground_above_{};             // +0x38 Obj_StickToGround DistAbove (feet)
     float ground_below_{};             // +0x3C DistBelow
     maths::Vec4 ground_triangle_[3]{}; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
-    bool ground_height_only_; // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
+    bool ground_height_only_{
+        true}; // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
     maths::Vec4 ground_triangles_[3][3]{}; // +0x74 the three feelers' last triangles
-    ObjectGroup* path_group_;             // +0x104 the path's group of objects (path manager)
+    ObjectGroup* path_group_{nullptr};     // +0x104 the path's group of objects (path manager)
     maths::Vec4 move_target_{};           // +0x108
     float move_distance_{};               // +0x118 from the start to the target
     float move_done_{};                   // +0x11C how far it has gone
@@ -289,8 +290,8 @@ public:
     maths::Vec4 rot_acceleration_{};      // +0x16C
     maths::Vec4 rot_deceleration_{};      // +0x17C
     maths::Vec4 move_start_{};            // +0x18C
-    float ground_speed_;                  // +0x19C the ground offset's speed of change
-    float ground_offset_;                 // +0x1A0 how far the height has still to go to the ground
+    float ground_speed_{0.0f};            // +0x19C the ground offset's speed of change
+    float ground_offset_{0.0f};           // +0x1A0 how far the height has still to go to the ground
     float path_speed_1a_4_{};             // +0x1A4 (the path's speed handling: 0x00423530)
     float path_speed_1a_8_{};             // +0x1A8
     float path_min_stop_speed_{};         // +0x1AC Obj_SetPathMinStopVel
@@ -306,7 +307,7 @@ public:
     float step_seconds_{};                       // +0x1E0 this frame's length (seconds, slow motion included)
     uint32_t own_node_name_{};                   // +0x1E4 its own node (Name)
     uint32_t list_link_{};                       // +0x1E8 the node it's at
-    memory::owner<PathFollower*> path_follower_; // +0x1EC
+    memory::owner<PathFollower*> path_follower_{nullptr}; // +0x1EC
     FollowTrail* trail_{};                       // +0x1F0 obj_follow_leader's
     bool leave_y_unaffected_{};                  // +0x1F4 obj_follow_leader's LeaveYUnaffected
     uint8_t pad1f5_[3]{};

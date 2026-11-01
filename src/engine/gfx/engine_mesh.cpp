@@ -18,13 +18,7 @@
 namespace render {
 
 // 0x00490A60
-SubMesh::SubMesh()
-{
-    bone_count_ = 0;
-    hierarchy_ = nullptr;
-    hierarchy_count_ = 0;
-    collision_name_[0] = 0;
-}
+SubMesh::SubMesh() { collision_name_[0] = 0; }
 
 // 0x00490A90
 void SubMesh::detach_hit_mesh()
@@ -104,12 +98,7 @@ int SplatSlots::oldest_slot(uint32_t count)
 }
 
 // 0x00490D20
-VertexStack::VertexStack()
-{
-    used = 0;
-    vertex_size_ = 0;
-    std::memset(data, 3, sizeof(data));
-}
+VertexStack::VertexStack() { std::memset(data, 3, sizeof(data)); }
 
 // 0x00490D50
 void VertexStack::stack_on(const uint8_t* in)

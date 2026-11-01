@@ -129,9 +129,9 @@ void set_prim_state(int state, int value) { render::set_primitive_state(state, v
 // visible pixels (0x004A0F20).
 struct QueryRequest {
     uint32_t slot{};
-    int (*callback)(void*, uint8_t);
-    void* data;
-    bool unknownc_;
+    int (*callback)(void*, uint8_t){nullptr};
+    void* data{nullptr};
+    bool unknownc_{false};
     uint8_t padd_[3]{};
 
     // 0x004426C0
@@ -183,12 +183,7 @@ void corner_colors(uint8_t colors[4][4], double scale)
 } // namespace
 
 // 0x004426C0
-QueryRequest::QueryRequest()
-{
-    callback = nullptr;
-    data = nullptr;
-    unknownc_ = false;
-}
+QueryRequest::QueryRequest() = default;
 
 // 0x00442680
 float clamp_to_range(float value, float min, float max)

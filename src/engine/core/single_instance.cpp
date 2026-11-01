@@ -5,10 +5,7 @@
 namespace single {
 
 // 0x004E1970
-PointerMember::PointerMember(void* pointer)
-{
-    pointer_ = pointer;
-}
+PointerMember::PointerMember(void* pointer) : pointer_(pointer) {}
 
 // 0x00469490
 void* PointerMember::get_pull() { return pointer_; }

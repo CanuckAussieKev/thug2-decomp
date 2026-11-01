@@ -150,13 +150,7 @@ void ParkRailString::delete_points()
 }
 
 // 0x0058AFF0
-ParkRailSet::ParkRailSet()
-{
-    rail_groups_ = nullptr;
-    rail_total_ = 0;
-    point_pool_ = nullptr;
-    rail_pool_ = nullptr;
-}
+ParkRailSet::ParkRailSet() = default;
 
 // 0x0058B010
 void ParkRailSet::add_rail(ParkRailString* string)

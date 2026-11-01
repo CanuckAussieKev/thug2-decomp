@@ -40,7 +40,9 @@ struct LineQuery {
     LineQuery(const maths::Seg* line, HitMeshCache* cache) : box(line->start)
     {
         box.append_spot(line->end);
+        // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): after calls that may see it - the original's order
         use_cache_ = cache && cache->box_.get_holds(box);
+        // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
         maths::Vec4 grown = box.max;
         grown.x += 0.5f;
         grown.y += 0.5f;

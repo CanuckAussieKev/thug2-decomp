@@ -45,9 +45,9 @@ public:
     // +0x18 (a lists::Foremost of the projections; the head's scalar deleting destructor 0x00434670 is
     // memory::ListNode's)
     memory::ListNode projections_{};
-    ObjectModule* suspend_;       // +0x2C
-    ObjectModule* bone_rig_;      // +0x30
-    ObjectModule* mesh_instance_; // +0x34
+    ObjectModule* suspend_{nullptr};       // +0x2C
+    ObjectModule* bone_rig_{nullptr};      // +0x30
+    ObjectModule* mesh_instance_{nullptr}; // +0x34
 };
 
 } // namespace objects

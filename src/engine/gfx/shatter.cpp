@@ -43,12 +43,13 @@ void* mesh_pixel_shader(const MeshRef* mesh) { return mesh->pixel_shader_; }
 } // namespace
 
 // 0x004B8120
-PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own) : Shatter(count)
+PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
+    : Shatter(count), own_material_(own), mesh(source_mesh),
+      vertices(static_cast<uint8_t*>(memory::alloc(3 * source_mesh->stride * count)))
 {
-    mesh = source_mesh;
-    vertices = static_cast<uint8_t*>(memory::alloc(3 * source_mesh->stride * count));
-    own_material_ = own;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     positions = static_cast<float*>(memory::alloc(12 * count));
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (own) {
         void* memory = memory::alloc(0x110);
         material = memory ? reinterpret_cast<uint8_t*>(new (memory) MaterialRef) : nullptr;

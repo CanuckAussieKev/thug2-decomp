@@ -30,8 +30,8 @@ public:
     void set_player_tag(const char* initials);
 
     char* tag_;     // +0x00
-    int val_;       // +0x04
-    int slot_no_;   // +0x08
+    int val_{1000}; // +0x04
+    int slot_no_{0};  // +0x08
     bool is_fresh_{}; // +0x0C
 };
 
@@ -104,7 +104,7 @@ public:
     static BestResults* fabricate(bool create);
     static void get_release();
 
-    int level_count_;        // +0x00
+    int level_count_{0};     // +0x00
     char* default_initials_; // +0x04
     StageBests* levels_{};   // +0x08
 };

@@ -134,7 +134,7 @@ public:
     float distance_squared_{};      // +0x24 from the camera (the suspend component's 0x00433EA0, each update)
     memory::ListNode lanes_{};      // +0x28 the channel list's head (data -1)
     void* observers_;         // +0x3C a std::list of observers (BlendObserver*): its sentinel node (+4 next, +8 prev)
-    uint32_t observer_count_; // +0x40
+    uint32_t observer_count_{0}; // +0x40
 };
 
 // 0x00419CF0 (on a channel): its first timeline's start, current and end times (0x004813B0; 0 without one). (The

@@ -38,9 +38,9 @@ public:
     virtual void start_callback() = 0;
     virtual void stop_callback() = 0;
 
-    int cur_phase_; // +0x04
+    int cur_phase_{kStopped}; // +0x04
     int queued_op_{}; // +0x08 (not set by the constructor)
-    bool locked_;   // +0x0C: the manager neither starts nor stops it
+    bool locked_{false}; // +0x0C: the manager neither starts nor stops it
     uint8_t pad0d_[3]{};
     memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>)
 };

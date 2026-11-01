@@ -235,7 +235,6 @@ void RiderChaseView::save_state(WalkCameraState* state)
 RiderChaseView::RiderChaseView()
 {
     kind_tag_ = kSkaterCamera;
-    mode_sel_ = 0;
     if (!memory::g_manager_ready)
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(0x98, 1, nullptr);

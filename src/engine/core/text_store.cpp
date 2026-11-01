@@ -29,7 +29,9 @@ Chars::Chars(const Chars& other) : serial_(0), octets_(nullptr), capacity_(0)
 {
     // Same as the original's order: copy first, then take a serial number.
     copy_range(other.octets_, 0, last_index(other.octets_));
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     serial_ = live_strings()++;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00401DA0

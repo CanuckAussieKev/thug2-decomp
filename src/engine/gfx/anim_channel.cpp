@@ -226,19 +226,10 @@ int AnimListHead::tally_entries()
 
 // 0x0047F150
 BlendChannel::BlendChannel(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full)
+    : owner_ptr_(reinterpret_cast<uint8_t*>(object)), blender_(blender)
 {
     list_link_.make_node(this);
     timelines_.make_head();
-    events_on_ = true;
-    owner_ptr_ = reinterpret_cast<uint8_t*>(object);
-    blender_ = blender;
-    lookup_key_ = 0;
-    event_table_ = 0;
-    ident_ = 0;
-    rank_ = 0;
-    flag_4c_ = false;
-    period_left_ = 0.0f;
-    period_ = 0.0f;
     uint32_t value = full ? 0x3F800000 : 0;
     ongoing_ = value;
     aim_point_ = value;

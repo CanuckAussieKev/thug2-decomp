@@ -46,7 +46,6 @@ memory::owner<ObjectModule*> PadRumbleModule::fabricate() { return new PadRumble
 PadRumbleModule::PadRumbleModule()
 {
     kind_tag_ = kType;
-    active_ = false;
     for (int i = kActuators - 1; i >= 0; --i)
         timers_[i].running = false;
 }

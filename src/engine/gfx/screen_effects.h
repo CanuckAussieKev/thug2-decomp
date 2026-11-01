@@ -17,7 +17,7 @@ namespace render {
 class ScreenEffects : public memory::HeapObject {
 public:
     // 0x0049E2F0: on.
-    ScreenEffects() { on_ = true; }
+    ScreenEffects() = default;
     // 0x0049E300 (0x0049E330 the scalar deleting destructor, vtable slot 0)
     virtual ~ScreenEffects() = default;
     ScreenEffects(const ScreenEffects&) = delete;
@@ -53,7 +53,7 @@ public:
     // (slot 12), colours 0x0F3BF443 (slot 8) and 0xFC5C7D61 (slot 7). True.
     bool set_dof_params(script::Struct* params, script::Script* script);
 
-    bool on_; // +0x04
+    bool on_{true}; // +0x04
     uint8_t spare_slot5_[3]{};
 };
 static_assert(sizeof(ScreenEffects) == 8, "layout must match the original");

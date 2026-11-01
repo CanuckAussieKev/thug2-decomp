@@ -61,10 +61,10 @@ public:
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     char text_[0x40]{};           // +0x18 string (0 first: none)
-    int tint_;                    // +0x58 color (a font colour index)
-    float y_offset_;              // +0x5C y_offset
-    uint32_t ident_;              // +0x60 the element's id
-    uint32_t end_time_;           // +0x64 the game clock's time to end the text (0: none)
+    int tint_{2};                 // +0x58 color (a font colour index)
+    float y_offset_{120.0f};      // +0x5C y_offset
+    uint32_t ident_{0};           // +0x60 the element's id
+    uint32_t end_time_{0};        // +0x64 the game clock's time to end the text (0: none)
     ObjectModule* mesh_instance_{}; // +0x68 the model component (its +0x208: the model)
 };
 

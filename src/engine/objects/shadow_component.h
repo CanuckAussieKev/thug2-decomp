@@ -31,6 +31,8 @@ namespace objects {
 // 10 the empty 0x005BAB90; 11 the base's member function table entry 0x0045D720; 12 invoke_method_by_name.
 class GroundShadowModule final : public ObjectModule {
 public:
+    static constexpr uint32_t kNoShadow = 0x806FFF30; // ShadowType none
+
     GroundShadowModule(const GroundShadowModule&) = delete;
     GroundShadowModule& operator=(const GroundShadowModule&) = delete;
     static constexpr uint32_t kType = 0x8A897DD2;
@@ -78,9 +80,9 @@ public:
     std::unique_ptr<render::ShadowBase> shadow_handle_; // +0x18 the renderer's shadow object
     maths::Vec4 at_point_{};                            // +0x1C where it is
     maths::Vec4 surface_dir_{};                         // +0x2C the ground's normal under it
-    uint32_t shadow_kind_;                              // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
+    uint32_t shadow_kind_{kNoShadow};                   // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
     ObjectModule* mesh_instance_{};                     // +0x40 the model component (Finalize)
-    bool follow_object_;                                // +0x44 each update puts it at the object's position
+    bool follow_object_{true};                          // +0x44 each update puts it at the object's position
     uint8_t pad45[3]{};
 };
 

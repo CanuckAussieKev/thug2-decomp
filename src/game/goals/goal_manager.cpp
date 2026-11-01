@@ -91,14 +91,6 @@ GoalManager::GoalManager()
     goals_.first_ = nullptr;
     goals_.cursor_ = nullptr;
     active_goals_.list_link_.make_head();
-    previous_objective_ = 0;
-    tagging_style_ = 0;
-    objective_score_ = 0;
-    total_goal_points_ = 0;
-    goals_beaten_ = 0;
-    all_unlocked_ = false;
-    start_allowed_ = true;
-    backer_ = 0;
     for (script::Struct** structure : {&team_, &goal_data_, &args_}) {
         script::Struct* made = script::spawn_param_bag();
         *structure = made ? new (made) script::Struct : nullptr;

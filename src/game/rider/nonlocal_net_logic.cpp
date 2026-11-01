@@ -89,19 +89,9 @@ memory::owner<ObjectModule*> RiderRemoteSync::fabricate() { return new RiderRemo
 // 0x005144E0
 RiderRemoteSync::RiderRemoteSync()
 {
-    past_frames_ = nullptr;
-    pose_ = nullptr;
-    run_over_ = nullptr;
-    anim_blender_ = nullptr;
-    flip_and_rotate_ = nullptr;
-    mesh_set_ = nullptr;
-    shadow_ = nullptr;
-    play_idx_ = 0;
     kind_tag_ = kSkaterNonLocalNetLogic;
     play_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
     last_play_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    updates_ = 0;
-    last_event_time_ = 0;
 }
 
 // 0x005144B0 (0x00514550 the deleting one)

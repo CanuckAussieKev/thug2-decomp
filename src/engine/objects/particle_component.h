@@ -99,12 +99,12 @@ public:
     // name, two floats, its three colours (arrays of four integers), positions, sizes and boxes.
     bool get_particle_params(script::Struct* params, script::Script* script);
 
-    uint32_t emit_target_;           // +0x18 (0xC036F4D0's checksum)
-    render::Sparkle* effect_handle_; // +0x1C its particle system
+    uint32_t emit_target_{0};                 // +0x18 (0xC036F4D0's checksum)
+    render::Sparkle* effect_handle_{nullptr}; // +0x1C its particle system
     ObjectModule* suspend_{};        // +0x20 the object's suspend component
-    ObjectModule* mesh_instance_;    // +0x24 the model it follows (configure_from_data)
+    ObjectModule* mesh_instance_{nullptr}; // +0x24 the model it follows (configure_from_data)
     int start_time_;                 // +0x28 the game clock when made
-    uint32_t lifespan_;              // +0x2C ms (0: for ever)
+    uint32_t lifespan_{0};           // +0x2C ms (0: for ever)
 };
 
 extern memory::owner<render::EffectsDirector*> g_particle_hub;

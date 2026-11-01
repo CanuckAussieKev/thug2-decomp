@@ -47,7 +47,7 @@ public:
     // 0x00518630: the score reset (0x00564A10, then 0x00563370 / 0x00563390 with zeros) - called by the skater.
     void reset_score();
 
-    modules::PointTally* points_held_; // +0x18 the score
+    modules::PointTally* points_held_{nullptr}; // +0x18 the score
 };
 
 } // namespace objects

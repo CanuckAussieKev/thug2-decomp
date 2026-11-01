@@ -41,11 +41,8 @@ void* Zone::operator new(std::size_t size) noexcept { return alloc_zeroed(static
 void Zone::operator delete(void* memory) { memory::dealloc(memory); }
 
 // 0x005BC5F0
-Zone::Zone(uint8_t* start, uint8_t* end)
+Zone::Zone(uint8_t* start, uint8_t* end) : outset_(start), min_available_(static_cast<int>(end - start)), finish_(end)
 {
-    finish_ = end;
-    min_available_ = static_cast<int>(end - start);
-    outset_ = start;
     allocators_[1] = nullptr;
     allocators_[0] = nullptr;
 }
@@ -155,12 +152,10 @@ void MemSource::operator delete(void* memory) { memory::dealloc(memory); }
 
 // 0x005BA260
 MemSource::MemSource(Zone* region, int direction, const char* name)
+    : region_(region), direction_(direction), label_(name)
 {
     used_blocks_ = max_used_blocks_ = free_blocks_ = max_free_blocks_ = 0;
     used_size_ = max_used_size_ = free_size_ = max_free_size_ = 0;
-    region_ = region;
-    direction_ = direction;
-    label_ = name;
     zone_chain_.make_head();
     base_context_.node.make_node(&base_context_);
     base_context_.free_list_ = nullptr;

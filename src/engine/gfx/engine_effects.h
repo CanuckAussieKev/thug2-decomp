@@ -19,8 +19,8 @@ namespace render {
 
 // The vertex stack (0x006FC4A0): how many bytes are on it, a vertex's size, the vertices.
 struct VertexStack {
-    uint32_t used;
-    uint32_t vertex_size_;
+    uint32_t used{0};
+    uint32_t vertex_size_{0};
     uint8_t data[0x4000]{};
 
     // 0x00490D80: the top vertex popped into `out`.

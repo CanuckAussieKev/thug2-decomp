@@ -54,22 +54,9 @@ bool pass_blend_mode(WeatherSystem* weather, script::Struct* params,
 WeatherSystem::WeatherSystem()
 {
     std::memset(rain_bottom_, 0xFF, 4);
-    rain_height_ = 2000.0f;
-    rain_frames_ = 40;
-    rain_length_ = 100.0f;
-    rain_rate_ = 0.0f;
     std::memset(rain_top_, 0, 4);
-    splash_rate_ = 0.0f;
-    splash_life_ = 8;
-    splash_size_ = 16.0f;
     std::memset(splash_colour_, 0x80, 4);
-    snow_height_ = 500.0f;
-    snow_frames_ = 0xFE;
-    snow_size_ = 4.0f;
-    snow_rate_ = 0.0f;
     std::memset(snow_colour_, 0x80, 4);
-    rain_on_ = true;
-    active_ = false;
 }
 
 // 0x004A1020

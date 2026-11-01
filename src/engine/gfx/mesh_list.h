@@ -17,26 +17,26 @@ namespace render {
 struct MeshRef;
 
 struct SceneRef {
-    uint32_t flags; // 0x100 once its meshes are prepared
+    uint32_t flags{0}; // 0x100 once its meshes are prepared
     uint8_t unknown4[0x14]{};
-    lists::KeyMap* materials; // +0x18, by checksum
-    MeshRef** meshes;         // +0x1C
-    int mesh_count_;          // +0x20
-    int transparent_count_;   // +0x24: meshes with a transparent material
-    int filled;               // +0x28: where append_meshes puts the next
-    int first_transparent_;   // +0x2C (meshCount when none)
-    int first_flagged_;       // +0x30: the first whose material has its byte +0xC set
-    int flagged_count_;       // +0x34
+    lists::KeyMap* materials{nullptr}; // +0x18, by checksum
+    MeshRef** meshes{nullptr};         // +0x1C
+    int mesh_count_{0};                // +0x20
+    int transparent_count_{0};         // +0x24: meshes with a transparent material
+    int filled{0};                     // +0x28: where append_meshes puts the next
+    int first_transparent_{-1};        // +0x2C (meshCount when none)
+    int first_flagged_{-1};            // +0x30: the first whose material has its byte +0xC set
+    int flagged_count_{0};             // +0x34
     uint8_t unknown38[8]{};
-    uint8_t unknown40;
+    uint8_t unknown40{0};
     uint8_t pad41[3]{};
     maths::BBox bounds; // +0x44
     float centre[3]{};  // +0x64: the bounds' sphere
     float radius{};     // +0x70
-    uint8_t* extra;     // +0x74: an array of 0x50-byte records (new[]'d: the count before it)
-    uint32_t unknown78;
-    void* com_object_; // +0x7C: released with the scene
-    uint32_t unknown80;
+    uint8_t* extra{nullptr}; // +0x74: an array of 0x50-byte records (new[]'d: the count before it)
+    uint32_t unknown78{0};
+    void* com_object_{nullptr}; // +0x7C: released with the scene
+    uint32_t unknown80{0};
 
     // 0x004DE300: construct empty.
     SceneRef();

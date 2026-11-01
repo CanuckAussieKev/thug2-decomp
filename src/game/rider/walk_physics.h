@@ -439,7 +439,7 @@ public:
     uint8_t pad719_[3]{};
     maths::Vec4
         critical_point_offset_{}; // +0x71C m_critical_point_offset (the game's own message): a ride's / hang's offset
-    float upright_time_;        // +0x72C the time left turning upright (0: the up vector is eased)
+    float upright_time_{0.0f};    // +0x72C the time left turning upright (0: the up vector is eased)
     float upright_angle_{};     // +0x730 the turn upright (radians), over rotate_upright_duration
     maths::Vec4 upright_axis_{};                  // +0x734 its axis
     float facing_y_{};                            // +0x744 the object's at-row y (before the facing is flattened)
@@ -455,14 +455,14 @@ public:
     objects::GrindPoint* hang_node_{};            // +0x1764 the rail held: its node
     objects::GrindPoint* hang_next_node_{};       // +0x1768 ... and the next
     objects::GrindRailHub* rail_manager_{};       // +0x176C whose rail manager
-    objects::PadInputModule* input_;              // +0x1770 the object's components (seal)
-    objects::AnimBlenderComponent* anim_blender_; // +0x1774
-    objects::MeshInstanceModule* model_;          // +0x1778
-    objects::ActivationZoneModule* trigger_;      // +0x177C
-    objects::RiderBoardPhysics* physics_control_; // +0x1780
-    objects::MovingSurfaceModule* ride_;          // +0x1784
-    objects::RiderPoseState* skater_state_;       // +0x1788
-    skater::SkaterPhysicsModule* core_physics_;   // +0x178C
+    objects::PadInputModule* input_{nullptr};     // +0x1770 the object's components (seal)
+    objects::AnimBlenderComponent* anim_blender_{nullptr}; // +0x1774
+    objects::MeshInstanceModule* model_{nullptr};          // +0x1778
+    objects::ActivationZoneModule* trigger_{nullptr};      // +0x177C
+    objects::RiderBoardPhysics* physics_control_{nullptr}; // +0x1780
+    objects::MovingSurfaceModule* ride_{nullptr};          // +0x1784
+    objects::RiderPoseState* skater_state_{nullptr};       // +0x1788
+    skater::SkaterPhysicsModule* core_physics_{nullptr};   // +0x178C
     objects::TaggingControlComponent* tagging_{}; // +0x1790
     maths::Vec4 floor_normal_{};                  // +0x1794 the ground's normal (the feeler's hit)
     bool running_{};                              // +0x17A4
@@ -508,7 +508,7 @@ public:
     maths::Vec4 climb_offset_{};            // +0x1934
     int anim_waiting_{};                    // +0x1944 an animation is playing: the callback waits
     objects::AnimDoneCallback anim_done_{}; // +0x1948 its end's callback
-    bool jump_unsteered_;                 // +0x1958 (cleared each hanging frame)
+    bool jump_unsteered_{false};            // +0x1958 (cleared each hanging frame)
     uint8_t pad1959_[7]{};
 };
 

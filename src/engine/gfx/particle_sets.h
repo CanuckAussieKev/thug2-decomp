@@ -19,7 +19,7 @@ namespace render {
 // component fills is named; names from the script parameters where known.
 struct SparkleConfig {
     uint32_t label_{};      // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
-    uint32_t unknown04_;    // +0x004 (0x7321A8D6)
+    uint32_t unknown04_{0xDEDFC057}; // +0x004 (0x7321A8D6)
     uint32_t group_id_{};   // +0x008 GroupID
     float extent_[3]{};     // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
     float radius_[3]{};     // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)
@@ -46,10 +46,10 @@ struct SparkleConfig {
     int unknown148_;               // +0x148 (0xD7E4AB5D)
     int unknown14c_;               // +0x14C (0xE4279BA2)
     uint8_t unknown150_{};         // +0x150 (0x9D5923D8's low byte)
-    bool use_mid_;                 // +0x151 (0xA7A5BFFB; the paths go through the mid)
-    bool local_positions_;         // +0x152 (0xB7B7240D)
+    bool use_mid_{true};           // +0x151 (0xA7A5BFFB; the paths go through the mid)
+    bool local_positions_{false};  // +0x152 (0xB7B7240D)
     bool colour_use_mid_;          // +0x153 (0x454962EF)
-    bool orient_with_object_;      // +0x154 (0xA2487CC3)
+    bool orient_with_object_{false}; // +0x154 (0xA2487CC3)
     bool hidden_;                  // +0x155 (Hide: nothing drawn or updated)
     bool held_back_;               // +0x156 (nothing drawn or updated)
     bool cull_outside_{};          // +0x157 (0x5446AF14)

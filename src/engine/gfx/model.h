@@ -198,7 +198,7 @@ public:
     int bone_total_;             // +0x08
     uint8_t* skin_palette_;      // +0x0C
     ModelGeomNode* geoms_;       // +0x10: the list's head (a ring of nodes: std::list)
-    uint32_t geom_list_size_;    // +0x14
+    uint32_t geom_list_size_{0}; // +0x14
     uint32_t visible_geoms_{};   // +0x18: a bit per geom (in list order, modulo 32)
     maths::Vec4 size_factor_{};  // +0x1C
     uint8_t* lights_ptr_;        // +0x2C

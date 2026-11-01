@@ -172,12 +172,6 @@ FlexibleParticleComponent::FlexibleParticleComponent()
     kind_tag_ = FlexibleParticleComponent::kType;
     system_.get_release(); // (the original lets go of the null it was just given)
     system_.owner_object_ = nullptr;
-    label_ = 0;
-    unknown28_ = 0;
-    suspend_ = nullptr;
-    brightness_model_ = nullptr;
-    rotate_ = false;
-    clock_ = 0.0f;
 }
 
 // 0x0041DA80 (0x0041E240 the deleting one)

@@ -34,7 +34,8 @@ constexpr uint32_t kAnimTags = 0x5DB4115F, kWalkToSkateTransition = 0x910D77C1, 
 // The terrain sound tables
 constexpr uint32_t kTableWheelroll = 0xDAFD1B8C, kTableGrind = 0x29A21517, kTableSlide = 0x81ECDCE5;
 
-constexpr int kStateGround = 0, kStateAir = 1, kStateRail = 4;
+constexpr int kStateGround = RiderRollingAudio::kStateGround, kStateAir = RiderRollingAudio::kStateAir,
+              kStateRail = RiderRollingAudio::kStateRail;
 
 constexpr float kAirPitchFloor = 45.0f;      // 0x42340000
 constexpr float kAirPitchFall = 18.3333340f; // 0x4192AAAB (a second)
@@ -100,18 +101,7 @@ void RiderRollingAudio::publish_method_table()
 }
 
 // 0x005138E0
-RiderRollingAudio::RiderRollingAudio()
-{
-    sound_changed_ = 1;
-    cur_phase_ = kStateAir;
-    on_ = 1;
-    sliding_ = 0;
-    no_rail_sound_ = 0;
-    have_sound_ = 0;
-    force_update_ = 0;
-    kind_tag_ = kSkaterLoopingSound;
-    volume_mult_ = 1.0f;
-}
+RiderRollingAudio::RiderRollingAudio() { kind_tag_ = kSkaterLoopingSound; }
 
 // 0x00513AB0
 void RiderRollingAudio::stop_sound()

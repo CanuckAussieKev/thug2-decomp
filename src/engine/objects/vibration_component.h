@@ -77,7 +77,7 @@ public:
     // seconds) the motor's run is timed, else its run is cleared. True.
     bool vibrate(script::Struct* params, script::Script* script);
 
-    bool active_; // +0x18
+    bool active_{false}; // +0x18
     uint8_t pad19[3]{};
     Stopwatch timers_[kActuators]{}; // +0x1C
     sio::InputPort* pad_dev_{};      // +0x34

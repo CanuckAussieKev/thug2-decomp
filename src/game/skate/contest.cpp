@@ -219,7 +219,7 @@ void Contest::sort_leaders()
 // 0x005504B0
 // (the leaders made first by their constructors - the compiler's array-constructor helper, 0x0062388B; destroyed by
 // the implicit destructor, 0x0054FFF0, through its array-destructor helper 0x0062382B: last to first)
-Contest::Contest() { args_ = spawn_param_table(); }
+Contest::Contest() : args_(spawn_param_table()) {}
 
 // 0x00550560
 void Contest::kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score, float gold_score,

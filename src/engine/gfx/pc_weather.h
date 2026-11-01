@@ -22,16 +22,16 @@ struct WeatherRow {
 // The PC weather (0x12AC bytes, vtable 0x0064A860).
 class PcWeather final : public WeatherSystem {
 public:
-    void* splash_texture_;      // +0x5C TextureRef* (0x45C7EB0F)
+    void* splash_texture_{nullptr}; // +0x5C TextureRef* (0x45C7EB0F)
     void* snow_texture_{};      // +0x60 TextureRef* (0xC97C5A4C)
-    uint8_t* columns;           // +0x64 the rows' columns' height indices
+    uint8_t* columns{nullptr};  // +0x64 the rows' columns' height indices
     WeatherRow* rows{};         // +0x68
     int heights[0x100]{};       // +0x6C the ground's heights (16ths), by index
     int width{};                // +0x46C the grid's columns
     int depth{};                // +0x470 and rows
     float origin_x_{}, origin_z_{}; // +0x474 its corner
-    float rain_due_;            // +0x47C drops started so far, with the fraction due
-    float splash_due_;          // +0x480
+    float rain_due_{0.0f};          // +0x47C drops started so far, with the fraction due
+    float splash_due_{0.0f};        // +0x480
     float snow_due_{};          // +0x484
     uint8_t unknown488[0x10]{};
     uint8_t stage[0x400]{};     // +0x498 each slot's frame of its fall (0xFF: none)

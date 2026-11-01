@@ -98,14 +98,7 @@ maths::Mat4 bone_space(Rig* skeleton, int index)
 } // namespace
 
 // 0x004A2C20
-RigData::RigData()
-{
-    num_ = 0;
-    flag_bits_ = 0;
-    unknown588_ = 0;
-    inverse_bind_ = nullptr;
-    reinterpret_cast<uint32_t&>(lod_distances_[0]) = 0x7F7FC99E;
-}
+RigData::RigData() { reinterpret_cast<uint32_t&>(lod_distances_[0]) = 0x7F7FC99E; }
 
 // 0x004A3950
 RigData::~RigData()
@@ -201,7 +194,6 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
 // 0x004A3D30
 Rig::Rig(RigData* data)
 {
-    flag_bits_ = 0;
     if (data->flag_bits_ & 1)
         flag_bits_ = kMirrorData;
     bone_array_ = new_bones(data->num_);

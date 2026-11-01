@@ -85,12 +85,12 @@ public:
     uint32_t trick_{}; // +0x18 the balance trick being balanced (0: none)
     bool started_{};   // +0x1C StartBalanceTrick
     uint8_t pad1d_[3]{};
-    script::Struct* call_args_;              // +0x20 DoBalanceTrick's BalanceParams (a copy)
+    script::Struct* call_args_{nullptr};     // +0x20 DoBalanceTrick's BalanceParams (a copy)
     Balance manual_;                         // +0x24 manual / nose manual
     Balance grind_;                          // +0x7C grind / slide
     Balance lip_;                            // +0xD4
     Balance skitch_;                         // +0x12C
-    AnimBlenderComponent* anim_blender_ptr_; // +0x184
+    AnimBlenderComponent* anim_blender_ptr_{nullptr}; // +0x184
 
 private:
     // at_hand's choice, for both constnesses

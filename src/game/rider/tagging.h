@@ -53,10 +53,10 @@ public:
     // towards `end`, `size` big; with `send`, told to the server in a network game (message 0x99).
     void place_tag(bool sticker, maths::Vec4 start, maths::Vec4 end, int size, bool send);
 
-    bool custom_tag_; // +0x18
+    bool custom_tag_{false}; // +0x18
     uint8_t pad19[3]{};
-    void* graffiti_; // +0x1C the graffiti texture
-    void* sticker_;  // +0x20 the sticker texture
+    void* graffiti_{nullptr}; // +0x1C the graffiti texture
+    void* sticker_{nullptr};  // +0x20 the sticker texture
 };
 
 // The tagging control component (TaggingControl, type 0x380D909A, vtable 0x0064C394, 0x38 bytes; made by 0x0051E280).
@@ -92,8 +92,8 @@ public:
     bool slap_sticker(bool sticker, bool walking, bool low);
 
     int countdown_{}; // +0x18 frames until a pending tag may be placed
-    bool pending_;  // +0x1C a tag or sticker started
-    bool blocked_;  // +0x1D BlockTaggingOn
+    bool pending_{false}; // +0x1C a tag or sticker started
+    bool blocked_{false}; // +0x1D BlockTaggingOn
     uint8_t pad1e_[2]{};
     float cooldown_{};                            // +0x20 frames until the next tag (counted down by 1)
     FootMovement* walk_{};                        // +0x24

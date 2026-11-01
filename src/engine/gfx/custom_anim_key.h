@@ -27,7 +27,7 @@ public:
     static void operator delete[](void* memory);
 
     // At `frame`, inactive.
-    explicit UserClipKey(int frame) : tick_(frame), armed_(false) {}
+    explicit UserClipKey(int frame) : tick_(frame) {}
     // 0x004819E0 / 0x004819F0 (the custom keys' 0x00486460 too): nothing to do.
     virtual ~UserClipKey() = default;
     UserClipKey(const UserClipKey&) = delete;

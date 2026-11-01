@@ -40,11 +40,7 @@ const uint32_t* stance_textures() { return g_stance_textures; }
 memory::owner<ObjectModule*> RiderStanceDisplay::fabricate() { return new RiderStanceDisplay; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderStanceDisplay::RiderStanceDisplay()
-{
-    kind_tag_ = kSkaterStancePanel;
-    core_physics_ = nullptr;
-}
+RiderStanceDisplay::RiderStanceDisplay() { kind_tag_ = kSkaterStancePanel; }
 
 // 0x00519130 (0x005191E0 the deleting one)
 RiderStanceDisplay::~RiderStanceDisplay() = default;

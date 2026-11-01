@@ -472,15 +472,12 @@ static uintptr_t g_text_seg_base;
 // 0x005BBC00
 Hub::Hub()
 {
-    ongoing_ = nullptr;
     for (LabeledZone& named : named_heaps_) {
         named.region = nullptr;
         named.heap = nullptr;
         named.name = 0;
         named.used = false;
     }
-    unknown5e4_ = 0;
-    unknown5e0_ = 0;
 
     // Not original - the block is 64 MB and what the bigger script pools take more (engine/core/memory_sizes.h:
     // pool sizes as THUGPRO's), so every heap in it keeps the room it had.
@@ -502,6 +499,7 @@ Hub::Hub()
     bottom_up_heap_ = bottom ? new (bottom) Arena(primary_zone_, MemSource::kGrowUp, "BottomUp") : nullptr;
     heaps_[1] = bottom_up_heap_;
     heaps_[0] = top_down_heap_;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     heap_count_ = 2;
 
     // (the code and data bounds are never set in this build: all zero)
@@ -519,6 +517,7 @@ Hub::Hub()
     cinematic_zone_ = nullptr;
     cinematic_low_heap_ = nullptr;
     cinematic_high_heap_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x005BB4E0

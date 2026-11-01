@@ -57,29 +57,29 @@ public:
     bool script_set_snow_active(script::Struct* params, script::Script* script);       // 0x004A14A0: rain off
     bool script_set_rain_active(script::Struct* params, script::Script* script);       // 0x004A14B0
 
-    float rain_height_;        // +0x04
-    int rain_frames_;          // +0x08
-    float rain_length_;        // +0x0C
-    float rain_rate_;          // +0x10
+    float rain_height_{2000.0f}; // +0x04
+    int rain_frames_{40};        // +0x08
+    float rain_length_{100.0f};  // +0x0C
+    float rain_rate_{0.0f};      // +0x10
     uint8_t rain_top_[4]{};    // +0x14 RGBA
     uint8_t rain_bottom_[4]{}; // +0x18
-    float splash_rate_;        // +0x1C
-    int splash_life_;          // +0x20
-    float splash_size_;        // +0x24
+    float splash_rate_{0.0f};  // +0x1C
+    int splash_life_{8};       // +0x20
+    float splash_size_{16.0f}; // +0x24
     uint8_t splash_colour_[4]{}; // +0x28
     int drops_{};                // +0x2C (the PC's)
-    bool active_;              // +0x30
+    bool active_{false};         // +0x30
     uint8_t pad31_[3]{};
-    float snow_height_;      // +0x34
-    int snow_frames_;        // +0x38
-    float snow_size_;        // +0x3C
-    float snow_rate_;        // +0x40
+    float snow_height_{500.0f}; // +0x34
+    int snow_frames_{0xFE};     // +0x38
+    float snow_size_{4.0f};     // +0x3C
+    float snow_rate_{0.0f};     // +0x40
     uint8_t snow_colour_[4]{}; // +0x44
     float camera_x_{};         // +0x48 where the camera was (the PC's)
     float camera_y_{};         // +0x4C
     float camera_z_{};         // +0x50
     uint8_t unknown54_[4]{};   // +0x54
-    bool rain_on_;           // +0x58
+    bool rain_on_{true};       // +0x58
 };
 static_assert(offsetof(WeatherSystem, active_) == 0x30 && offsetof(WeatherSystem, snow_colour_) == 0x44 &&
                   offsetof(WeatherSystem, rain_on_) == 0x58,

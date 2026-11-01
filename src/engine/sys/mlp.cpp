@@ -116,12 +116,7 @@ uint32_t& ref_tally() { return g_mlp_references; }
 
 // 0x0044EDC0
 // (the three task lists - 0x3C bytes each in the original - made first by their constructors)
-Hub::Hub()
-{
-    unknownb8_ = 0;
-    unknownbc_ = 0;
-    is_finished_ = false;
-}
+Hub::Hub() = default;
 
 // 0x0044EE90
 void Hub::reset_device_if_lost()

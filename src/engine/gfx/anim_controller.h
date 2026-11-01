@@ -100,9 +100,9 @@ public:
     uint8_t* fetch_rig();
 
     AnimTimeline* timeline_ptr_;        // +0x04 (the timeline of the blender channel it belongs to)
-    objects::GameEntity* owner_object_; // +0x08 (set by some controllers only; fetch_subject asks the channel)
-    int rank_;                          // +0x0C
-    uint32_t ident_;                    // +0x10
+    objects::GameEntity* owner_object_{nullptr}; // +0x08 (set by some controllers only; fetch_subject asks the channel)
+    int rank_{0};                                // +0x0C
+    uint32_t ident_{0};                          // +0x10
 };
 
 // The standard controller (type 0xCB4533FF, vtable 0x00649F50, 0x28 bytes from its own item pools 0x00701430):
@@ -184,7 +184,7 @@ public:
     float k1_;           // +0x1C wobbleK1 (cycles per ms of the first sine)
     float k2_;           // +0x20 wobbleK2
     float spaz_factor_;  // +0x24 spazFactor
-    float aim_point_;    // +0x28 the time it wobbles around
+    float aim_point_{0.0f}; // +0x28 the time it wobbles around
     void* blend_source_; // +0x2C
     void* frame_source_; // +0x30
     uint32_t anim_set_;  // +0x34

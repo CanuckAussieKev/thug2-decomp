@@ -24,7 +24,7 @@ struct MsgNormalLink {
 
     memory::ListNode list_link_{};
     PendingMsg* shared_msg_;
-    uint32_t due_time_; // not before this time
+    uint32_t due_time_{0}; // not before this time
 };
 struct ReliableMsgNode {
     // 0x00455620 (no resends, send time 0 - the timestamps aren't set)
@@ -36,9 +36,9 @@ struct ReliableMsgNode {
     uint32_t stamp_ms_{}; // when it was last sent (0: never)
     PendingMsg* shared_msg_;
     uint32_t packet_clock_{}; // the connection's timestamp it went out with (the ack names it)
-    uint8_t retry_count_;
+    uint8_t retry_count_{0};
     uint8_t pad21[3]{};
-    uint32_t due_time_;
+    uint32_t due_time_{0};
 };
 struct OrderedMsgNode {
     // 0x00455650 (no resends, +0x16 and send time 0 - the group, the timestamps and the
@@ -48,13 +48,13 @@ struct OrderedMsgNode {
     OrderedMsgNode* teardown(unsigned int flags);
 
     memory::ListNode list_link_{}; // priority: the sequence number
-    uint8_t retry_count_;
+    uint8_t retry_count_{0};
     uint8_t bundle_id_{};
-    uint8_t bulk_msg_; // a piece of a streamed message
+    uint8_t bulk_msg_{0}; // a piece of a streamed message
     uint32_t packet_clock_{};
     uint32_t stamp_ms_{}; // when it was last sent (0: never)
     uint32_t order_index_{};
-    uint32_t due_time_;
+    uint32_t due_time_{0};
     SeqQueuedMsg* shared_msg_;
 };
 

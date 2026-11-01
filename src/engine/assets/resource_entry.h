@@ -113,19 +113,19 @@ public:
     static void read_callback(file::AsyncFileHandle* file, int event, int size, void* asset, void* other);
 
     uint32_t checksum_{}; // +0x04
-    int cur_phase_;     // +0x08 AssetState
+    int cur_phase_{kUnloaded}; // +0x08 AssetState
     bool pinned_{};     // +0x0C not unloaded by unload_all_assets(false)
     uint8_t pad0d_[3]{};
     void* content_{};                 // +0x10 what was loaded (a scene, a texture dictionary...)
-    LoadCallback callback_;           // +0x14
+    LoadCallback callback_{nullptr};  // +0x14
     void* callback_data0_{};          // +0x18
     void* callback_data1_{};          // +0x1C
-    file::AsyncFileHandle* file_ref_; // +0x20 the file being read
-    void* octets_;                    // +0x24 its contents
-    uint32_t extent_;                 // +0x28 their size
+    file::AsyncFileHandle* file_ref_{nullptr}; // +0x20 the file being read
+    void* octets_{nullptr};                    // +0x24 its contents
+    uint32_t extent_{0};                       // +0x28 their size
     Resource* last_value_{};          // +0x2C in the manager's list (circular)
     Resource* succ_{};                // +0x30
-    Resource* bundle_;                // +0x34 the asset it depends on (a model's textures)
+    Resource* bundle_{nullptr};       // +0x34 the asset it depends on (a model's textures)
     memory::ListNode dependents_{};   // +0x38 the assets depending on it (lists::Foremost<Resource>)
 };
 
@@ -147,7 +147,7 @@ bool refresh_resource(Resource* asset, const char* name);
 struct AnimResource final : Resource {
     // 0x004071A0 (vtable 0x006454B0)
     AnimResource();
-    uint32_t archive_;
+    uint32_t archive_{0};
     // 0x004072E0 / 0x004072D0
     int fetch_kind() const override;
     const char* fetch_title() const override;
@@ -184,7 +184,7 @@ struct CutsceneResource final : Resource {
 struct NodeTableResource final : Resource {
     // 0x00408BB0 (vtable 0x00645698)
     NodeTableResource();
-    uint32_t archive_;     // +0x4C
+    uint32_t archive_{0};    // +0x4C
     uint32_t source_path_{}; // +0x50 the checksum of the file name (its script's)
     uint32_t array_name_{};  // +0x54 the node array's checksum
     void* nodes_{};          // +0x58 its script array
@@ -213,7 +213,7 @@ struct NodeTableResource final : Resource {
 struct SceneAsset final : Resource {
     // 0x00409220 (vtable 0x00645700)
     SceneAsset();
-    uint8_t* args_;
+    uint8_t* args_{nullptr};
     // 0x004093D0
     // (0x0049B8C0, shared: a constant)
     int fetch_kind() const override { return kScene; }
@@ -233,7 +233,7 @@ struct SceneAsset final : Resource {
 struct SceneCollisionAsset final : Resource {
     // 0x004095F0 (vtable 0x00645778)
     SceneCollisionAsset();
-    uint8_t* args_;
+    uint8_t* args_{nullptr};
     // 0x00409750
     // (0x0049BB70, shared: a constant)
     int fetch_kind() const override { return kSceneCollision; }
@@ -286,10 +286,10 @@ struct SkinResource final : Resource {
     // 0x00409C40 (vtable 0x00645888)
     SkinResource();
     uint32_t archive_{};
-    SkinParams* args_;
-    file::AsyncFileHandle* cas_file_;
-    void* cas_buffer_;
-    int files_reading_;
+    SkinParams* args_{nullptr};
+    file::AsyncFileHandle* cas_file_{nullptr};
+    void* cas_buffer_{nullptr};
+    int files_reading_{0};
     // 0x00409E00 / 0x00409DF0
     int fetch_kind() const override;
     const char* fetch_title() const override;
@@ -312,7 +312,7 @@ struct SkinResource final : Resource {
 struct SkinCollisionAsset final : Resource {
     // 0x0040A210 (vtable 0x00645928)
     SkinCollisionAsset();
-    uint8_t* args_;
+    uint8_t* args_{nullptr};
     // 0x0040A290 / 0x0040A280
     int fetch_kind() const override;
     const char* fetch_title() const override;
@@ -329,7 +329,7 @@ struct SkinCollisionAsset final : Resource {
 struct TexDictAsset final : Resource {
     // 0x0040A580 (vtable 0x006459A8)
     TexDictAsset();
-    uint8_t* args_;
+    uint8_t* args_{nullptr};
     // 0x0040A710
     // (0x0049C0F0, shared: a constant)
     int fetch_kind() const override { return kResTexDict; }

@@ -23,8 +23,8 @@ constexpr unsigned int kPosition = 12; // three floats
 
 // 0x0049B0D0
 RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
+    : steps_(history + 1)
 {
-    steps_ = history + 1;
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
                         2)) {
         colour_mid_ = -1.0f;
@@ -37,8 +37,8 @@ RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t, uint
 // 0x0049B380
 RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
                                            int history)
+    : steps_(history + 1)
 {
-    steps_ = history + 1;
     // (the colours' count read again from steps_ for each array and each step of the loop)
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
                         steps_)) {

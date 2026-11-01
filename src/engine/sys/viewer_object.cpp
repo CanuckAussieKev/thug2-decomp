@@ -566,7 +566,6 @@ int handle_run_anim_view_script(net::InboundMsgCtx* context)
 // 0x0058ADB0
 PreviewEntity::PreviewEntity(net::AppHost* app)
 {
-    actions_ = 0;
     add_base_components(this);
     change_species(kObjectTypeComposite);
     pad_input::Hub* input = input_manager();
@@ -577,6 +576,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     controller.handlers_.queue_job(handler);
     handler->control_data_ = &controller.content_;
     handler->dev_ = controller.dev_;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     saved_speed_ = 0.0f;
     panel_shown_ = true;
     speed_ = 1.0f;
@@ -585,6 +585,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     is_halted_ = false;
     asset_ = 0;
     owner_app_ = app;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (app) {
         net::Router& dispatcher = app->dispatcher_;
         dispatcher.append_listener(0x25, &handle_play_animation, 3, this, 0x80);

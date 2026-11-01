@@ -430,18 +430,8 @@ DrivableModule::DrivableModule()
 {
     clear_to_w1(orientation_);
     // (the colliders' vectors' constructors do nothing: 0x005902E0; contact_memo_ registered by its constructor)
-    input_ptr_ = nullptr;
-    debug_mode_ = 0;
-    passive_ = false;
-    display_steering_ = 0.0f;
     kind_tag_ = kType;
     clear_to_w1(skater_pos_);
-    wheels_ = nullptr;
-    contact_count_ = 0;
-    kick_time_ = 0.0f;
-    still_frames_ = 0;
-    sounds_name_ = 0x1CA1FF20;
-    awake_ = 1;
 }
 
 // 0x0043B990 (0x0043C1A0 the deleting one)

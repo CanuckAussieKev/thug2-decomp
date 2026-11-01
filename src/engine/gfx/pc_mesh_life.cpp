@@ -63,9 +63,6 @@ IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes)
 // 0x004D4BE0
 MeshRef::MeshRef()
 {
-    flags = 0;
-    vertex_buffer_count_ = 1;
-    current_vertex_buffer_ = 0;
     for (int i = 0; i < 3; ++i) {
         extra_buffers_[i] = nullptr;
         vertex_buffers_[i] = nullptr;

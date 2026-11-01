@@ -53,12 +53,9 @@ memory::owner<ObjectModule*> ImpactDestructModule::fabricate() { return new Impa
 ImpactDestructModule::ImpactDestructModule()
 {
     kind_tag_ = kType;
-    radius_ = 0.0f;
-    size_factor_ = 0.0f;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     made_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
-    on_collide_script_ = 0;
-    fading_out_ = false;
-    first_update_ = true;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0041C1F0 (0x0041C280 the deleting one)

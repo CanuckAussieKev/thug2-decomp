@@ -129,31 +129,20 @@ SplatParams::SplatParams()
     start[3] = 1.0f;
     end[0] = end[1] = end[2] = 0.0f;
     end[3] = 1.0f;
-    size = 0.0f;
-    depth = 0.0f;
-    angle = 0.0f;
-    cone_angle_ = 0.0f;
-    lifetime = 0.0f;
-    texture = nullptr;
-    unknown38 = 0x54628ED7;
-    up = nullptr;
-    unknown40 = 0;
 }
 
 // --- the engine's shatter ---
 
 // 0x004912C0
 Shatter::Shatter(int count)
+    : lifetime(g_glass_life_span), floor(g_shatter_floor), bounce(g_glass_restitution),
+      triangle_count_(static_cast<uint16_t>(count)), unknown28(g_shatter_value_af_1a)
 {
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     centres = static_cast<maths::Vec4*>(memory::alloc(count << 4));
     velocities = static_cast<maths::Vec4*>(memory::alloc(count << 4));
     rotations = static_cast<maths::Mat4*>(memory::alloc(count << 6));
-    triangle_count_ = static_cast<uint16_t>(count);
-    unknown28 = g_shatter_value_af_1a;
-    gravity = 128.0f;
-    lifetime = g_glass_life_span;
-    floor = g_shatter_floor;
-    bounce = g_glass_restitution;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00490E80

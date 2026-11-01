@@ -24,8 +24,8 @@ struct PendingMsg {
 
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
-    char* content_;       // +0x04
-    int share_count_;     // +0x08
+    char* content_{nullptr}; // +0x04
+    int share_count_{0};     // +0x08
 };
 struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
@@ -37,9 +37,9 @@ struct SeqQueuedMsg {
 
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
-    char* content_;       // +0x04
+    char* content_{nullptr}; // +0x04
     uint8_t byte8_;       // +0x08 (the constructor's 4th argument)
-    int share_count_;     // +0x0C
+    int share_count_{0};  // +0x0C
 };
 
 // Any of the links that queue a message on a connection (MsgNormalLink / ReliableMsgNode / OrderedMsgNode,

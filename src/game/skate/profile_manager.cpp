@@ -126,11 +126,8 @@ ProfileRoster::ProfileRoster()
     templates_.num_ = 0;
     templates_.first_ = nullptr;
     templates_.cursor_ = nullptr;
-    cursor_pos_ = 0;
     profiles_[0] = nullptr;
     profiles_[1] = nullptr;
-    locked_ = false;
-    extra_count_ = 0;
 }
 
 // 0x0057BC20

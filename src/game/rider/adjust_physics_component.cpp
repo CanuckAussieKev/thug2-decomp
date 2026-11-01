@@ -54,15 +54,7 @@ void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModu
 memory::owner<ObjectModule*> RiderPhysicsTweaks::fabricate() { return new RiderPhysicsTweaks; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderPhysicsTweaks::RiderPhysicsTweaks()
-{
-    core_ptr_ = nullptr;
-    mesh_instance_ = nullptr;
-    shadow_handle_ = nullptr;
-    ride_ = nullptr;
-    uber_frigged_ = 0;
-    kind_tag_ = kType;
-}
+RiderPhysicsTweaks::RiderPhysicsTweaks() { kind_tag_ = kType; }
 
 // 0x004F8040 (0x004F8050 the deleting one)
 RiderPhysicsTweaks::~RiderPhysicsTweaks() = default;

@@ -55,8 +55,8 @@ struct Viewer final : public PartUnit {
     float pad_lx_{}; // +0x34
     float pad_ly_{}; // +0x38
     uint8_t unknown3c_[8]{};
-    uint32_t actions_;                              // +0x44 the buttons' commands (bits; add_commands)
-    uint32_t shift_makes_;                          // +0x48 the buttons pressed with select held
+    uint32_t actions_{0};                           // +0x44 the buttons' commands (bits; add_commands)
+    uint32_t shift_makes_{0};                       // +0x48 the buttons pressed with select held
     int mode_sel_{};                                // +0x4C 0: object mode, 1: ...
     std::unique_ptr<net::AppHost> net_handler_;     // +0x50 the PC tool's message handler (a server app)
     memory::owner<objects::PreviewEntity*> entity_{}; // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)

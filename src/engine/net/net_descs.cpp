@@ -12,30 +12,10 @@
 namespace net {
 
 // 0x004549F0
-NetMessageInfo::NetMessageInfo()
-{
-    ident_ = 0;
-    feed_ = 0;
-    byte_count_ = 0;
-    content_ = nullptr;
-    rank_ = 0x80;
-    queue_ = kLaneNormal;
-    group_id_ = 0;
-    singular_ = false;
-    delay_ = 0;
-    fixed_seq_no_ = 0;
-    compression_ = 0;
-}
+NetMessageInfo::NetMessageInfo() = default;
 
 // 0x004549D0
-StreamDesc::StreamDesc()
-{
-    extent_ = 0;
-    content_ = nullptr;
-    succ_ = nullptr;
-    group_id_ = 0;
-    borrowed_payload_ = false;
-}
+StreamDesc::StreamDesc() = default;
 
 // 0x00454E00
 StreamDesc::~StreamDesc()
@@ -49,15 +29,6 @@ StreamDesc::~StreamDesc()
 // 0x00454A20
 InboundMsgCtx::InboundMsgCtx()
 {
-    body_ = nullptr;
-    type_code_ = 0;
-    body_size_ = 0;
-    receiver_app_ = nullptr;
-    sender_conn_ = nullptr;
-    wire_options_ = 0;
-    content_ = nullptr;
-    num_sequences_to_ack_ = 0;
-    acknowledge_ = false;
     for (uint32_t& sequence : sequences_to_ack_)
         sequence = 0;
 }

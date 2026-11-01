@@ -47,7 +47,7 @@ constexpr uint32_t kLodDist[4] = {0x4EEDFAE7, 0xD7E4AB5D, 0xA0E39BCB, 0x3E870E68
 
 constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 constexpr float kLod2Beyond1 = 75.0f;   // 0x006465FC
-constexpr int kCheckFrames = 10;
+constexpr int kCheckFrames = DormancyModule::kCheckFrames;
 // The distances that mean no LOD (1000000 - 1000003): lod_dist3 at its no-LOD value means the model is always drawn.
 const uint32_t kNoLodBits[4] = {0x49742400, 0x49742410, 0x49742420, 0x49742430};
 
@@ -90,9 +90,6 @@ DormancyModule::DormancyModule()
     kind_tag_ = kType;
     double distance = static_cast<double>(script::fetch_float(kDefaultSuspendDistance)) * kInchesPerFoot;
     suspend_distance_ = static_cast<float>(distance);
-    never_suspend_ = true;
-    frames_before_check_ = kCheckFrames;
-    frames_before_lod_ = 3;
     suspend_distance_squared_ = static_cast<float>(distance * distance);
 }
 

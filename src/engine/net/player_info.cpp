@@ -80,16 +80,7 @@ void unlink_node(memory::ListNode* node)
 // --- JoinerRecord ---
 
 // 0x005434D0
-JoinerRecord::JoinerRecord()
-{
-    account_ = new_profile();
-    rejoin_group_ = 0;
-    profile_id_ = 0;
-    skill_points_ = 0;
-    accumulated_score_ = 0;
-    drive_control_mode_ = 0;
-    memory::Hub::get_pull()->leave_heap_scope();
-}
+JoinerRecord::JoinerRecord() : account_(new_profile()) { memory::Hub::get_pull()->leave_heap_scope(); }
 
 // 0x00543560
 JoinerRecord::~JoinerRecord()
@@ -114,7 +105,9 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
 {
     make_node(this);
     clear_update_records(this);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_bits_ = 0;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     std::sprintf(label_, "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kMaxPlayers; ++i) {
         sent_.value68_[i] = 0xFFFFFFFF;

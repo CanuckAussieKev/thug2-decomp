@@ -293,14 +293,15 @@ void BillboardSet::setup_axes()
 }
 
 // 0x004CEB30
-BillboardBatch::BillboardBatch(MaterialRef* new_material)
+BillboardBatch::BillboardBatch(MaterialRef* new_material) : material(new_material)
 {
-    material = new_material;
     lists[0] = new_head();
     lists[1] = new_head();
     lists[2] = new_head();
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     vertex_bytes_ = 0x40;
     vertex_bytes_ = (new_material->pass_count_ + 2) * 0x20;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004CE1D0

@@ -15,9 +15,9 @@ class Typeface;
 
 // A character's effect (10 bytes): an offset, a scale and a rotation, in 1/16384ths.
 struct CharEffect {
-    int16_t x, y;           // +0 (as given)
-    int16_t xscale, yscale; // +4 (16384: 1)
-    int16_t rotation;       // +8
+    int16_t x{0}, y{0};                     // +0 (as given)
+    int16_t xscale{0x4000}, yscale{0x4000}; // +4 (16384: 1)
+    int16_t rotation{0};                    // +8
 
     // 0x0048D0A0 (Ghidra never made it: the array constructor's callback): no offset, scale 1, no rotation.
     CharEffect();
@@ -46,23 +46,23 @@ public:
     virtual void update_priority() {}
     virtual void update_window() {}
 
-    Typeface* typeface_;      // +0x04
-    CharEffect* effects_;     // +0x08 (null until one is set)
-    char* text_buffer_;       // +0x0C (a buffer of its own, null until set)
-    float pos_x_, y_;         // +0x10
-    float pivot_x_, pivot_y_; // +0x18
-    float scale_h_, scale_v_; // +0x20
-    float angle_;             // +0x28
-    float rank_;              // +0x2C
+    Typeface* typeface_{nullptr};         // +0x04
+    CharEffect* effects_{nullptr};        // +0x08 (null until one is set)
+    char* text_buffer_{nullptr};          // +0x0C (a buffer of its own, null until set)
+    float pos_x_{0.0f}, y_{0.0f};         // +0x10
+    float pivot_x_{0.0f}, pivot_y_{0.0f}; // +0x18
+    float scale_h_{1.0f}, scale_v_{1.0f}; // +0x20
+    float angle_{0.0f};                   // +0x28
+    float rank_{0.0f};                    // +0x2C
     uint32_t unknown30_{};
     float layer_{};          // +0x34 (with z_enabled_)
-    uint32_t shade_;         // +0x38: RGBA as bytes
-    bool fixed_colour_;      // +0x3C: the string's colour codes ignored
-    bool override_alpha_;    // +0x3D
-    bool invisible_;         // +0x3E
-    bool z_enabled_;         // +0x3F
+    uint32_t shade_{0x80808080}; // +0x38: RGBA as bytes
+    bool fixed_colour_{false};   // +0x3C: the string's colour codes ignored
+    bool override_alpha_{false}; // +0x3D
+    bool invisible_{true};       // +0x3E
+    bool z_enabled_{false};      // +0x3F
     void* screen_region_;    // +0x40: the 2D window it's drawn in
-    GlyphString* next_free_; // +0x44
+    GlyphString* next_free_{nullptr}; // +0x44
 
     // 0x0048D5A0: the string's buffer and the effects freed.
     void free_buffers();

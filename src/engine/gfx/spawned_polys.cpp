@@ -68,9 +68,11 @@ void place_corners(SpawnedPoly* poly, maths::Vec4* corners)
 SpawnedPoly::SpawnedPoly()
 {
     std::memset(this, 0, sizeof(*this));
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     align_h_ = 0.0f;
     align_v_ = 0.0f;
     blend_mode_ = 0x54628ED7;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 namespace engine {

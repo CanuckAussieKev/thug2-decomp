@@ -167,15 +167,7 @@ void AnimTimeline::advance_clock(float frames)
 
 // 0x00481830
 // (the timeline's constructor first, as its base)
-AnimTrack::AnimTrack(objects::GameEntity* object)
-{
-    controller_count_ = 0;
-    events_ptr_ = nullptr;
-    event_count_ = 0;
-    owner_object_ = object;
-    events_on_ = true;
-    cur_phase_ = kPlaying;
-}
+AnimTrack::AnimTrack(objects::GameEntity* object) : owner_object_(object), events_ptr_(nullptr) {}
 
 // 0x00481960
 void AnimTrack::get_reset()
@@ -242,13 +234,7 @@ objects::GameEntity* AnimTrack::fetch_subject() { return owner_object_; }
 // --- the base controller ---
 
 // 0x00481710
-AnimDriver::AnimDriver(AnimTimeline* timeline)
-{
-    timeline_ptr_ = timeline;
-    ident_ = 0;
-    owner_object_ = nullptr;
-    rank_ = 0;
-}
+AnimDriver::AnimDriver(AnimTimeline* timeline) : timeline_ptr_(timeline) {}
 
 void* AnimDriver::operator new(std::size_t size) noexcept
 {

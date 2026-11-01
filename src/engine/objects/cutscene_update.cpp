@@ -312,14 +312,12 @@ void CinematicTable::restart_objects()
 // 0x00466490
 CinematicEntry::CinematicEntry(const uint32_t* settings)
 {
-    content_ = nullptr;
-    asset_ = 0;
     script::Struct* block = script::spawn_param_bag();
     args_ = block ? new (block) script::Struct : nullptr;
     std::memcpy(settings_, settings, 12);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     owns_data_ = static_cast<uint8_t>(settings_[2] & 0xFF);
-    flag_5d_ = false;
-    unknown60_ = -1;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00466560

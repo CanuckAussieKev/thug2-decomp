@@ -54,12 +54,10 @@ void unpack_file(const ArchiveFile::FileInfo& info, uint8_t* out)
 } // namespace
 
 // 0x005B8820
-ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up)
+ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up) : block_(block), bottom_up_heap_(bottom_up)
 {
-    bottom_up_heap_ = bottom_up;
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     files_ = memory ? new (memory) lists::KeyMap(4) : nullptr;
-    block_ = block;
 
     // Not original - read through pre_format's reader, bounded by the block: a count or size past the end stops
     // at the damage (the original walked on past the block). Valid archives give the same files.
@@ -237,10 +235,12 @@ ArchiveManager::ArchiveManager()
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     pres_ = memory ? new (memory) lists::KeyMap(4) : nullptr;
     manager_slot() = this;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     open_entry_key_ = nullptr;
     open_entry_data_ = nullptr;
     missing_handle_ = nullptr;
     queued_archive_count_ = 0;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x005B8E90 (returns the instance in EAX: the caller keeps it)

@@ -51,7 +51,7 @@ public:
     // 0x004B1540: each line takes the block's blur, shadow (offset, colour) and encoded colour override.
     void update_lines();
 
-    uint32_t font_name_;                  // +0x178
+    uint32_t font_name_{0};               // +0x178
     char** lines_{};                      // +0x17C (while the lines are made: 30 of 0x60 characters)
     int num_lines_{};                     // +0x180 lines made
     int line_{};                          // +0x184 the line being filled
@@ -59,17 +59,17 @@ public:
     float line_width_{};                  // +0x18C
     int line_capacity_{};                 // +0x190 how many fit
     float inner_align_h_{}, inner_align_v_{}; // +0x194
-    float internal_scale_;                // +0x19C
-    float line_spacing_;                  // +0x1A0
-    float lines_height_;                  // +0x1A4 the lines' height in all
-    int rows_filled_;                     // +0x1A8 line elements
-    SmearEffect* blur_;                   // +0x1AC
+    float internal_scale_{1.0f};              // +0x19C
+    float line_spacing_{1.0f};                // +0x1A0
+    float lines_height_{0.0f};                // +0x1A4 the lines' height in all
+    int rows_filled_{0};                      // +0x1A8 line elements
+    SmearEffect* blur_{nullptr};              // +0x1AC
     bool shadow_{};                       // +0x1B0
-    bool may_grow_;                       // +0x1B1
+    bool may_grow_{false};                // +0x1B1
     float shadow_x_{}, shadow_y_{};       // +0x1B4
     uint8_t shadow_rgba_[4]{};            // +0x1BC
-    bool override_rgba_;                  // +0x1C0
-    bool remembered_override_;            // +0x1C1
+    bool override_rgba_{false};           // +0x1C0
+    bool remembered_override_{false};     // +0x1C1
     bool override_alpha_{};               // +0x1C2
 };
 

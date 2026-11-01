@@ -11,10 +11,6 @@ PingProbe::PingProbe()
 {
     for (int& time : times_)
         time = 0;
-    average_latency_ = 1000;
-    succ_ = 0;
-    probe_sent_at_ = 0;
-    echo_seen_at_ = 0;
 }
 
 // 0x004569B0

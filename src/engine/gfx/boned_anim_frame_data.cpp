@@ -413,23 +413,7 @@ void interpolate_float_trans(float* out, const FloatKey* a, const FloatKey* b, f
 // --- the frame data -----------------------------------------------------------------------------------------
 
 // 0x00482AF0
-JointClipFrames::JointClipFrames()
-{
-    bits_ &= 0xFE00;
-    unknown00_ = 0;
-    bone_count_ = 0;
-    key_table_ = nullptr;
-    quat_keys_ = nullptr;
-    trans_keys_ = nullptr;
-    key_counts_ = nullptr;
-    bone_labels_ = nullptr;
-    quat_sizes_ = nullptr;
-    trans_sizes_ = nullptr;
-    event_count_ = 0;
-    events_ptr_ = nullptr;
-    cache_slot_ = nullptr;
-    partial_bones_ = nullptr;
-}
+JointClipFrames::JointClipFrames() { bits_ &= 0xFE00; }
 
 // 0x00482B30
 JointClipFrames::~JointClipFrames()

@@ -39,14 +39,7 @@ constexpr float kLerpRate = 0.02f;    // 0x3CA3D70A
 memory::owner<ObjectModule*> MeshLightingModule::fabricate() { return new MeshLightingModule; }
 
 // (the constructor: inlined in fabricate in the original)
-MeshLightingModule::MeshLightingModule()
-{
-    light_flags_ = 0;
-    gap_time_ = 0;
-    counter_ = 0;
-    brightness_ = 0.0f;
-    kind_tag_ = kType;
-}
+MeshLightingModule::MeshLightingModule() { kind_tag_ = kType; }
 
 // 0x00422D00 (0x00422D10 the deleting one)
 MeshLightingModule::~MeshLightingModule() = default;

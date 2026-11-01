@@ -81,14 +81,14 @@ public:
     int weigh(const Primitive* other) override;
 
     uint32_t unknown20_{};   // +0x20
-    uint8_t* vertices_;      // +0x24
-    uint32_t vertex_format_; // +0x28: D3DFVF (2, 0x42, 0x102, 0x142, 0x152)
+    uint8_t* vertices_{nullptr}; // +0x24
+    uint32_t vertex_format_{2};  // +0x28: D3DFVF (2, 0x42, 0x102, 0x142, 0x152)
     uint32_t layout_{};      // +0x2C: as given to prepare_all (1 colour, 2 texture, 4 normal)
     int type_{};             // +0x30: 0 lines, 2 triangles, 4 quads (also the sort key, weigh)
-    int vertex_count_;       // +0x34
+    int vertex_count_{0};    // +0x34
     int stride_{};           // +0x38
     MaterialRef material_;   // +0x3C (its constructor 0x004D1A90)
-    uint32_t colour_;        // +0x14C
+    uint32_t colour_{0x80808080}; // +0x14C
     uint8_t unknown150_[8]{};
 };
 static_assert(offsetof(PcPrimitive, vertices_) == 0x24 && offsetof(PcPrimitive, stride_) == 0x38 &&

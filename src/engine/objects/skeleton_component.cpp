@@ -86,11 +86,7 @@ script::VectorValue to_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}
 memory::owner<ObjectModule*> BoneRigModule::fabricate() { return new BoneRigModule; }
 
 // (the constructor: inlined in fabricate in the original)
-BoneRigModule::BoneRigModule()
-{
-    kind_tag_ = kType;
-    bone_rig_ = nullptr;
-}
+BoneRigModule::BoneRigModule() { kind_tag_ = kType; }
 
 // 0x00431BE0
 void BoneRigModule::publish_method_table()

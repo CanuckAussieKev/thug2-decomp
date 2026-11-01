@@ -230,8 +230,10 @@ void CollStaticInstance::draw_diagnostic(int a, int b)
 HitMovingTriangles::HitMovingTriangles(TriMeshSource* geometry)
 {
     assign_shape_data(geometry);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     unknownd0_ = geometry->unknown3c_;
     box_dirty_ = true;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00413080

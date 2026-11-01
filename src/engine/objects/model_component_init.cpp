@@ -113,6 +113,7 @@ memory::owner<ObjectModule*> MeshInstanceModule::fabricate() { return new MeshIn
 MeshInstanceModule::MeshInstanceModule()
 {
     kind_tag_ = kType;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     mesh_instance_ = spawn_render_model(1);
     pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
     for (ModelSpinAxis& axis : twist_rate_) {
@@ -124,6 +125,7 @@ MeshInstanceModule::MeshInstanceModule()
     sector_model_ = false;
     shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
     brightness_ = 1.0f;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00420000 (0x00420270 the deleting one)

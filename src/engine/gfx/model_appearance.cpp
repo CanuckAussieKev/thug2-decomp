@@ -97,11 +97,7 @@ void delete_temp_struct(script::Struct* s)
 } // namespace
 
 // 0x00488EA0
-ModelLook::ModelLook()
-{
-    face_skin_ = nullptr;
-    has_face_texture_ = false;
-}
+ModelLook::ModelLook() = default;
 
 // 0x004890F0
 ModelLook::~ModelLook()

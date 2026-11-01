@@ -93,11 +93,7 @@ void walk_camera_restore(ObjectModule* camera, void* state)
 memory::owner<ObjectModule*> RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderBoardPhysics::RiderBoardPhysics()
-{
-    kind_tag_ = kSkaterPhysicsControl;
-    core_physics_ = nullptr;
-}
+RiderBoardPhysics::RiderBoardPhysics() { kind_tag_ = kSkaterPhysicsControl; }
 
 // 0x005176A0
 void RiderBoardPhysics::publish_method_table()

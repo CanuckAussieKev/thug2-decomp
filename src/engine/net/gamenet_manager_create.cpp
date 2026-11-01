@@ -70,7 +70,7 @@ void* carve(uint32_t size)
 // 0x0053EE90
 Hub::Hub()
 {
-    flag_bits_ = 0; // the flags (a word in the original: the three bytes after them are zero already)
+    // (flag_bits_: a word in the original - the three bytes after it are zero already)
     new (net_options_) prefs::Preferences;
     auto* taunts = new (taunt_options_) prefs::Preferences;
     setup_list_sentinel(&players_);        // the players
@@ -78,9 +78,9 @@ Hub::Hub()
     setup_list_sentinel(&queued_scripts_); // the queued scripts
     setup_list_sentinel(&servers_);        // the servers
     setup_list_sentinel(&waiting_servers_);
-    script_flag_bits_ = 0;
     tasks::PileUp* tasks = (&assets::g_main_loop_manager->logic_tasks_);
     net::Hub::sole()->set_msg_options(0x23, 1); // (the object update message's)
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     client_app_ = nullptr;
     client1_ = nullptr;
     browser_client_ = nullptr;
@@ -116,6 +116,7 @@ Hub::Hub()
     created_goals_level_ = 0;
     join_mode_ = 0;
     motd_received_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     void* memory = carve(sizeof(RoomManager));
     lobby_service_.reset(memory ? new (memory) RoomManager : nullptr);
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)

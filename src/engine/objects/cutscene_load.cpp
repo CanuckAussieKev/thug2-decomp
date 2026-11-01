@@ -118,36 +118,7 @@ void* anim_source_allocate(unsigned int size) { return source_pools().carve(size
 void anim_source_free(void* item) { source_pools().dealloc(item); }
 
 // 0x00464640
-CinematicTable::CinematicTable()
-{
-    bundle_ptr_ = nullptr;
-    object_part_ = 0;
-    camera_part_ = 0;
-    camera_parts_ = 0;
-    camera_source_ = nullptr;
-    object_parts_ = 0;
-    object_source_ = nullptr;
-    object_count_ = 0;
-    asset_count_ = 0;
-    ready_ = false;
-    unknown3470_ = 1.0f;
-    unknown3474_ = 0;
-    clock_ = 0.0f;
-    unknown3480_ = 0.0f;
-    camera_start_ = 0.0f;
-    unknown348c_ = 0.0f;
-    vblanks_ = 0;
-    prev_retraces_ = 0;
-    end_time_ = 0.0f;
-    lent_saved_ = false;
-    unknown34a8_ = nullptr;
-    unknown34ac_ = nullptr;
-    subtitles_ = nullptr;
-    next_subtitle_ = 0;
-    subtitle_time_ = 0.0f;
-    next_subtitle_time_ = -1.0f;
-    call_args_ = make_struct();
-}
+CinematicTable::CinematicTable() : bundle_ptr_(nullptr), call_args_(make_struct()) {}
 
 // 0x00464780
 void CinematicTable::refresh_objects()

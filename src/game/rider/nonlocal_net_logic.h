@@ -94,8 +94,8 @@ public:
 
     uint32_t sync_frame_{};       // +0x18 the client app's frame when playback started (0: not yet)
     int sync_time_{};             // +0x1C the history's time then, less the app's frames since
-    uint32_t last_event_time_;    // +0x20 the history's events played up to here
-    int play_idx_;                // +0x24 the history entry being played
+    uint32_t last_event_time_{0}; // +0x20 the history's events played up to here
+    int play_idx_{0};             // +0x24 the history entry being played
     maths::Vec4 play_pos_{};      // +0x28 the position playback put the skater at
     maths::Vec4 last_play_pos_{}; // +0x38 the one before
     maths::Vec4 last_pos_{};      // +0x48 the object's position before this frame
@@ -104,17 +104,17 @@ public:
     float lags_[kHistory]{};      // +0xB8 per update: how far behind the connection is
     float alignments_[kHistory]{};  // +0x108 per update: how the move lines up with the local skater's
     maths::Vec4 moves_[kHistory]{}; // +0x158 per update: the playback's move
-    int updates_;                 // +0x298
+    int updates_{0};                // +0x298
     float frame_seconds_{};       // +0x29C this frame's length
     uint8_t was_driving_{};       // +0x2A0
     uint8_t pad2a1_[3]{};
-    RiderFrameLog* past_frames_;    // +0x2A4 SkaterStateHistory (0x18223FD6)
-    ObjectModule* anim_blender_;    // +0x2A8 (0x7149B753)
-    MeshInstanceModule* mesh_set_;  // +0x2AC Model (0x286A8D26)
-    RiderPoseState* pose_;          // +0x2B0 SkaterState (0x43686585)
-    uint8_t* run_over_;             // +0x2B4 SkaterEndRun (0xB1D5A3E1)
-    ObjectModule* flip_and_rotate_; // +0x2B8 SkaterFlipAndRotate (0x488AF07A)
-    ObjectModule* shadow_;          // +0x2BC Shadow (0x8A897DD2)
+    RiderFrameLog* past_frames_{nullptr};    // +0x2A4 SkaterStateHistory (0x18223FD6)
+    ObjectModule* anim_blender_{nullptr};    // +0x2A8 (0x7149B753)
+    MeshInstanceModule* mesh_set_{nullptr};  // +0x2AC Model (0x286A8D26)
+    RiderPoseState* pose_{nullptr};          // +0x2B0 SkaterState (0x43686585)
+    uint8_t* run_over_{nullptr};             // +0x2B4 SkaterEndRun (0xB1D5A3E1)
+    ObjectModule* flip_and_rotate_{nullptr}; // +0x2B8 SkaterFlipAndRotate (0x488AF07A)
+    ObjectModule* shadow_{nullptr};          // +0x2BC Shadow (0x8A897DD2)
 };
 
 } // namespace objects

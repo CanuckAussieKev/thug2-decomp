@@ -22,7 +22,7 @@ namespace render {
 struct VertexBuffer {
     uint32_t size;
     uint32_t usage;
-    void* buffer;                                   // +0x08: IDirect3DVertexBuffer9
+    void* buffer{nullptr};                          // +0x08: IDirect3DVertexBuffer9
     uint8_t* data;                                  // +0x0C
     uint32_t lock_offset_{}, lock_size_{}, lock_flags_; // +0x10 (lockFlags -1: not locked)
     uint32_t flags;                                 // +0x1C: 1 no copy in memory; 4 a share of an arena's buffer
@@ -61,7 +61,7 @@ struct IdxStore {
     uint32_t size;
     uint32_t usage;
     uint32_t format;
-    void* buffer; // IDirect3DIndexBuffer9
+    void* buffer{nullptr}; // IDirect3DIndexBuffer9
     uint16_t* indices;
     uint32_t unknown14{}; // (cleared when destroyed)
 
@@ -86,13 +86,13 @@ struct Billboard {
 };
 
 struct MeshRef {
-    uint32_t flags;  // 1: shares another mesh's buffers; 0x10: a billboard
+    uint32_t flags{0}; // 1: shares another mesh's buffers; 0x10: a billboard
     float centre[3]{}; // the bounding sphere
     float radius{};
     MaterialRef* material{};
     uint8_t stride;                 // bytes per vertex
-    uint8_t current_vertex_buffer_; // +0x19
-    uint8_t vertex_buffer_count_;   // +0x1A
+    uint8_t current_vertex_buffer_{0}; // +0x19
+    uint8_t vertex_buffer_count_{1};   // +0x1A
     uint8_t viewports;              // +0x1B: a bit per viewport it shows in
     uint8_t unknown1c_[4]{};        // +0x1C: the colour's offset in a vertex, the normal's, ?, the bone (-1: none)
     uint16_t load_index_{};         // +0x20

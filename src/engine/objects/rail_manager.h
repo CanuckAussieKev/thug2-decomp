@@ -120,11 +120,11 @@ public:
     void move_node(uint32_t name, const maths::Vec4* pos);
 
     maths::Mat4 frame_xform_{}; // +0x00
-    GrindPoint* nodes_;         // +0x40
-    script::Array* node_array_; // +0x44 the node array they were made from
-    int num_;                   // +0x48
+    GrindPoint* nodes_{nullptr};         // +0x40
+    script::Array* node_array_{nullptr}; // +0x44 the node array they were made from
+    int num_{0};                         // +0x48
     int adding_{};              // +0x4C the node being added (0x0057D090)
-    bool on_object_;            // +0x50
+    bool on_object_{false};     // +0x50
     uint8_t pad51[3]{};
 };
 static_assert(offsetof(GrindRailHub, nodes_) == 0x40 && offsetof(GrindRailHub, num_) == 0x48 &&

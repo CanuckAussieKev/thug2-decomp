@@ -41,12 +41,8 @@ float get_scaled(float brightness, float dark, float bright)
 } // namespace
 
 // 0x0048E5B0
-ModelLights::ModelLights()
+ModelLights::ModelLights() : intensities_(static_cast<float*>(memory::alloc(light_count() * 4)))
 {
-    intensity_goal_ = 0.0f;
-    brightness_ = 0.0f;
-    size_factor_ = 1.0f;
-    intensities_ = static_cast<float*>(memory::alloc(light_count() * 4));
     for (uint32_t i = 0; i < light_count(); ++i)
         intensities_[i] = 1.0f;
     dynamic_radius_ = 0;

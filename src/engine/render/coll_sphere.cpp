@@ -514,10 +514,8 @@ SphereFeeler::SphereFeeler(const maths::Vec4* centre, float radius)
     bound_ball_.radius = radius;
     hits_.direction = {0.0f, 0.0f, 0.0f, 1.0f};
     hits_.sweep = 0.0f;
-    hit_cache_ = nullptr;
     hits_.count = 0;
     hits_.mode = 0;
-    unknownb50_ = 0;
     hits_.require_flags_ = 0;
     hits_.ignore_flags_ = 0x10;
 }

@@ -37,6 +37,7 @@ ParkLayout::ParkLayout()
         area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     void* memory = memory::alloc(0x4A4);
     builder_ = memory ? new (memory) ParkAssembler : nullptr;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     concrete_metas_ = nullptr;
     abstract_metas_ = nullptr;
     num_concrete_metas_ = 0;
@@ -47,6 +48,7 @@ ParkLayout::ParkLayout()
     field_05_ = false;
     gap_registry_ = nullptr;
     gap_manager_copy_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     // The shell's blocks of each of the 8 kinds.
     for (int i = 1; i <= 8; ++i) {
         char name[128];

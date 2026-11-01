@@ -48,12 +48,7 @@ memory::owner<ObjectModule*> KinematicsModule::fabricate() { return new Kinemati
 // 0x00424AA0
 KinematicsModule::KinematicsModule()
 {
-    ground_speed_ = 0.0f;
-    ground_offset_ = 0.0f;
     kind_tag_ = kType;
-    path_follower_ = nullptr;
-    path_group_ = nullptr;
-    ground_height_only_ = true;
     get_reset();
 }
 

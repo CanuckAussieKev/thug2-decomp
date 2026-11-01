@@ -1001,12 +1001,6 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
 }
 
 // 0x0057CC10
-GrindRailHub::GrindRailHub()
-{
-    nodes_ = nullptr;
-    num_ = 0;
-    on_object_ = false;
-    node_array_ = nullptr;
-}
+GrindRailHub::GrindRailHub() = default;
 
 } // namespace objects

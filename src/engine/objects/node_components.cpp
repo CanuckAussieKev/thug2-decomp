@@ -41,11 +41,7 @@ script::Array* node_array_of(ObjectModule* component)
 memory::owner<ObjectModule*> WaypointListModule::fabricate() { return new WaypointListModule; }
 
 // (the constructor: inlined in fabricate in the original)
-WaypointListModule::WaypointListModule()
-{
-    kind_tag_ = kType;
-    nodes_ = nullptr;
-}
+WaypointListModule::WaypointListModule() { kind_tag_ = kType; }
 
 // 0x00427EA0 (0x00427EF0 the deleting one)
 WaypointListModule::~WaypointListModule() = default;
@@ -80,11 +76,7 @@ void WaypointListModule::reapply_from_data(script::Struct* params)
 memory::owner<ObjectModule*> HookPointRegistryModule::fabricate() { return new HookPointRegistryModule; }
 
 // (the constructor: inlined in fabricate in the original)
-HookPointRegistryModule::HookPointRegistryModule()
-{
-    kind_tag_ = kType;
-    hooks_ptr_ = nullptr;
-}
+HookPointRegistryModule::HookPointRegistryModule() { kind_tag_ = kType; }
 
 // 0x004281B0 (0x00428220 the deleting one)
 HookPointRegistryModule::~HookPointRegistryModule()

@@ -79,11 +79,7 @@ SymbolTableEntry* resolve_symbol(uint32_t name)
 }
 
 // 0x00476410
-Struct::Struct()
-{
-    head_ = nullptr;
-    unknown1_ = 0;
-}
+Struct::Struct() = default;
 
 // 0x00476420
 bool Struct::is_vacant() { return head_ == nullptr; }
@@ -589,13 +585,7 @@ void delete_array(Array* array) { array_pools().dealloc(array); }
 void free_component(Component* component) { component_pools().dealloc(component); }
 
 // 0x0046CAA0
-Array::Array()
-{
-    kind_tag_ = kQbvalNone;
-    elements_ = nullptr;
-    extent_ = 0;
-    unknown0_ = 0;
-}
+Array::Array() { elements_ = nullptr; }
 
 // 0x0046CAB0
 void Array::get_clear()
@@ -1233,21 +1223,10 @@ Pair* new_pair() { return g_pair_pools.allocate<Pair>(); }
 Vector* alloc_script_vector() { return g_vector_pools.allocate<Vector>(); }
 
 // 0x0047AC00
-Pair::Pair()
-{
-    y = 0.0f;
-    x = 0.0f;
-    reinterpret_cast<uint8_t*>(this)[0] = 0;
-}
+Pair::Pair() { reinterpret_cast<uint8_t*>(this)[0] = 0; }
 
 // 0x0047ABF0
-Vector::Vector()
-{
-    z = 0.0f;
-    y = 0.0f;
-    x = 0.0f;
-    reinterpret_cast<uint8_t*>(this)[0] = 0;
-}
+Vector::Vector() { reinterpret_cast<uint8_t*>(this)[0] = 0; }
 
 // 0x0046CC50
 void Array::configure_size_kind(uint32_t size, QbValueKind type)
@@ -1486,11 +1465,7 @@ void create_symbol_table()
 SymbolTableEntry::SymbolTableEntry()
 {
     unknown0 &= 0xF8;
-    name = 0;
-    type = kQbvalNone;
     raw = 0;
-    next = nullptr;
-    unknown8 = 0;
 }
 
 // 0x00479110

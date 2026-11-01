@@ -121,20 +121,7 @@ void AnimCacheSlot::get_clear()
 
 // --- an entry ---
 
-AnimCacheEntry::AnimCacheEntry()
-{
-    flag_bits_ &= 0xA000;
-    rotation_keys_ptr_ = nullptr;
-    translation_keys_ptr_ = nullptr;
-    lookup_key_ = 0;
-    bones_ = 0;
-    rotation_key_size_ = 0;
-    translation_key_size_ = 0;
-    allocated_ = 0;
-    extent_ = 0;
-    payload_ = nullptr;
-    kind_tag_ = 0;
-}
+AnimCacheEntry::AnimCacheEntry() { flag_bits_ &= 0xA000; }
 
 // 0x00480810
 uint32_t AnimCacheEntry::carve(uint32_t key, int16_t bones, int rotation_keys, int translation_keys, int type)

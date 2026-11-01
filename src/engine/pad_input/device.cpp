@@ -60,7 +60,7 @@ void set_actuators(int port, int left, int right) { os_layer::set_actuators(port
 // 0x005BD920
 InputPort::InputPort(int index, int port, int slot)
 {
-    pause_count_ = 0;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     capabilities_ = 0;
     list_link_ = memory::ListNode::create(this);
     port_no_ = port;
@@ -79,6 +79,7 @@ InputPort::InputPort(int index, int port, int slot)
     octets_ = (buffer_raw_ + 63) & ~63u; // (buffer_raw_ is never set: as in the original)
     // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
     reconnect_delay_ = std::rand() & 63;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x005BCD00

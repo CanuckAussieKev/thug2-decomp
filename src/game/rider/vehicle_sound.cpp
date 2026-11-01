@@ -111,23 +111,7 @@ void SkaterVehicleSoundComponent::publish_method_table()
 }
 
 // 0x0051ADD0
-SkaterVehicleSoundComponent::SkaterVehicleSoundComponent()
-{
-    sound_ = nullptr;
-    settings_ = nullptr;
-    park_editor_level_ = false;
-    speed_ = 0.0f;
-    gear_ = 0;
-    shift_time_ = 0;
-    unknownb4_ = 0;
-    skid_ = 0.0f;
-    unknownbc_ = 0;
-    engine_sound_ = 0;
-    skid_sound_ = 0;
-    kind_tag_ = kType;
-    settings_name_ = 0x1CA1FF20;
-    silenced_ = true;
-}
+SkaterVehicleSoundComponent::SkaterVehicleSoundComponent() { kind_tag_ = kType; }
 
 // 0x0051ADB0 (0x0051AE30 the deleting one)
 SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() = default;

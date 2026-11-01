@@ -145,7 +145,6 @@ ElementState* ElementState::get_assign(const ElementState* other)
 // 0x004A8F90 (the four smart pointers start empty)
 UiWidget::UiWidget()
 {
-    morph_length_ = 0;
     shown_.scale_x_ = shown_.scale_y_ = 1.0f;
     shown_.base_scale_x_ = shown_.base_scale_y_ = 1.0f;
     shown_.x = shown_.y = 0.0f;
@@ -158,9 +157,6 @@ UiWidget::UiWidget()
     object_flags_ |= kNew | kDirty;
     span_ = level_y_ = 0.0f;
     rgba168_[0] = rgba168_[1] = rgba168_[2] = rgba168_[3] = 0x80;
-    rank_ = 0;
-    z_priority_ = 0.0f;
-    remembered_alpha_ = 1.0f;
 }
 
 // 0x004AAB30

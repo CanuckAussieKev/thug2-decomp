@@ -53,14 +53,14 @@ struct JoinerRecord {
     int add_at_frame_{};              // +0x18 the server app's frame from which it may be added
     objects::RiderIdentity* account_; // +0x1C
     uint32_t flag_bits_{};            // +0x20 PlayerFlag
-    int rejoin_group_;                // +0x24 (a player joining again: the server app's frame when it was listed)
+    int rejoin_group_{0};             // +0x24 (a player joining again: the server app's frame when it was listed)
     int team_{};                      // +0x28
-    int32_t profile_id_;              // +0x2C the GameSpy profile
-    int32_t skill_points_;            // +0x30
+    int32_t profile_id_{0};           // +0x2C the GameSpy profile
+    int32_t skill_points_{0};         // +0x30
     int score_{};                     // +0x34 (its score component's grand total)
-    uint32_t accumulated_score_;      // +0x38 (the player's accumulated_score_)
+    uint32_t accumulated_score_{0};   // +0x38 (the player's accumulated_score_)
     uint32_t eliminated_time_{};      // +0x3C (the player's eliminated_time_)
-    int32_t drive_control_mode_;      // +0x40
+    int32_t drive_control_mode_{0};   // +0x40
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left).

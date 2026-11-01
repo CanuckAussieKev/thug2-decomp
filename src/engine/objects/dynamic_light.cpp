@@ -74,11 +74,7 @@ render::DynamicLightBase* new_dynamic_light(int kind) { return render::new_dynam
 memory::owner<ObjectModule*> DynamicLightComponent::fabricate() { return new DynamicLightComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-DynamicLightComponent::DynamicLightComponent()
-{
-    kind_tag_ = kType;
-    light_ = nullptr;
-}
+DynamicLightComponent::DynamicLightComponent() { kind_tag_ = kType; }
 
 // 0x0041CBD0 (0x0041D0C0 the deleting one)
 DynamicLightComponent::~DynamicLightComponent()

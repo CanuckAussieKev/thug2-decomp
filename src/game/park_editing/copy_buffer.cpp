@@ -243,14 +243,7 @@ bool Clipboard::is_vacant() { return metas_ ? false : rail_groups_ == nullptr; }
 Clipboard::Clipboard()
 {
     edit_span_.assign_value(0, 0, 0, 0, 0, 0);
-    lo_cell_z_ = 0xFF;
-    lo_cell_x_ = 0xFF;
-    metas_ = nullptr;
-    hi_cell_z_ = 0;
-    hi_cell_x_ = 0;
-    following_ = nullptr;
     edit_span_.assign_value(0, 0, 0, 0, 0, 0);
-    rail_groups_ = nullptr;
 }
 
 // 0x0058BE30

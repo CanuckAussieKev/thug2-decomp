@@ -103,7 +103,7 @@ public:
     // 0x00487680: the same written to a structure (the image as an array of 0x1108 checksums).
     void save_to_structure(script::Struct* params);
 
-    bool is_usable_; // +0x00
+    bool is_usable_{false}; // +0x00
     uint8_t pad1[3]{};
     FaceAnchors path_vertices_{}; // +0x04
     uint8_t image_[kTexelEdge]{}; // +0x3C

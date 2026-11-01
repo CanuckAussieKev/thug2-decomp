@@ -68,23 +68,7 @@ void send_focus(uint32_t id, int controller, int grid_index)
 // --- the menu -------------------------------------------------------------------------------------------------
 
 // 0x004A74E0 (0x004A75C0 / 0x004A7630 the vmenu's / hmenu's: then vertical_ and the type)
-MenuBase::MenuBase(bool vertical)
-{
-    chosen_item_id_ = 0;
-    focused_ = false;
-    controller_ = 0;
-    regular_space_ = 0.0f;
-    item_gap_ = 0.0f;
-    inner_align_h_ = 0.0f;
-    inner_align_v_ = 0.0f;
-    pad_handling_ = true;
-    cycles_around_ = true;
-    selected_index_ = -1;
-    margin_factor_ = 1.0f;
-    grid_index_ = -1;
-    vertical_ = vertical;
-    change_species(vertical ? kVMenu : kHMenu);
-}
+MenuBase::MenuBase(bool vertical) : vertical_(vertical) { change_species(vertical ? kVMenu : kHMenu); }
 
 // 0x004A7550
 int MenuBase::get_regular_space(float* out) const
@@ -402,11 +386,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
 // --- the container element ------------------------------------------------------------------------------------
 
 // 0x004AAC20
-GroupWidget::GroupWidget()
-{
-    focusable_child_ = 0;
-    change_species(kContainerElement);
-}
+GroupWidget::GroupWidget() { change_species(kContainerElement); }
 
 // 0x004AAC80
 GroupWidget::~GroupWidget() = default;

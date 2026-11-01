@@ -42,11 +42,9 @@ memory::ListNode* get_next_node(memory::ListNode* node)
 // 0x00406890
 SchedulerTask::SchedulerTask(int priority)
 {
-    disabled_ = 0;
-    sequence_ = nullptr;
-    pass_count_ = 0;
-    skip_bits_ = 0;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     list_link_ = memory::ListNode::create(this, priority);
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00406930
@@ -72,13 +70,7 @@ void SchedulerTask::drop_out()
 bool SchedulerTask::is_on_task_list() const { return list_link_->prev != list_link_; }
 
 // 0x00406A50
-LinkChain::LinkChain()
-{
-    lock_ = 0;
-    head_.make_head();
-    pass_count_ = 0;
-    altered_ = false;
-}
+LinkChain::LinkChain() { head_.make_head(); }
 
 // 0x00406A20
 LinkChain::~LinkChain() { head_.uncouple(); }
@@ -139,7 +131,9 @@ void LinkChain::clear_job_list()
 }
 
 // 0x00406D60
+// NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
 StackList::StackList() { list_link_ = memory::ListNode::create(this); }
+// NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 
 // 0x00406C30 (then the list's own destructor)
 StackList::~StackList() { memory::ListNode::destroy(list_link_); } // (0x00406D20)
@@ -147,15 +141,16 @@ StackList::~StackList() { memory::ListNode::destroy(list_link_); } // (0x00406D2
 // 0x00406E80
 PileUp::PileUp()
 {
-    lock_ = 0;
     lists_.make_head();
     popped_lists_.make_head();
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     pushed_ = false;
     just_popped_ = false;
     stack_on();
     ongoing_ = top_side_;
     pushed_ = false;
     just_popped_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004070E0

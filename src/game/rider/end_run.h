@@ -64,7 +64,7 @@ public:
     void clear_goal_end_of_run_started();
     void clear_forced();
 
-    uint32_t flag_bits_; // +0x18 END_RUN_*
+    uint32_t flag_bits_{0}; // +0x18 END_RUN_*
 };
 
 } // namespace objects

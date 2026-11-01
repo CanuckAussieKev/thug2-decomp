@@ -25,10 +25,10 @@ struct CollGridCell {
     CollGridCell& operator=(const CollGridCell&) = delete;
 
     maths::BBox box;    // +0x00
-    uint32_t unknown20; // +0x20
-    int count;          // +0x24
-    void* unknown28;    // +0x28 (freed through the memory manager)
-    HitMesh** objects;  // +0x2C a Malloc block of `count`
+    uint32_t unknown20{0};      // +0x20
+    int count{0};               // +0x24
+    void* unknown28{nullptr};   // +0x28 (freed through the memory manager)
+    HitMesh** objects{nullptr}; // +0x2C a Malloc block of `count`
 };
 static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects) == 0x2C,
               "layout must match the original");

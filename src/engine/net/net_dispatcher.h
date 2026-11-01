@@ -36,17 +36,17 @@ struct InboundMsgCtx {
     // 0x00454A20 (net_descs.cpp): every field zeroed.
     InboundMsgCtx();
 
-    char* body_;
-    uint8_t type_code_;
+    char* body_{nullptr};
+    uint8_t type_code_{0};
     uint8_t spare_slot5_[3]{};
-    uint32_t body_size_;
-    AppHost* receiver_app_;
-    Conn* sender_conn_;
-    uint32_t wire_options_;
-    void* content_;                 // the handler's own data (NoteHandler::content_)
+    uint32_t body_size_{0};
+    AppHost* receiver_app_{nullptr};
+    Conn* sender_conn_{nullptr};
+    uint32_t wire_options_{0};
+    void* content_{nullptr};          // the handler's own data (NoteHandler::content_)
     uint32_t sequences_to_ack_[32]{}; // the timestamps to acknowledge after the packet (low 16 bits)
-    int num_sequences_to_ack_;
-    bool acknowledge_; // send those acks
+    int num_sequences_to_ack_{0};
+    bool acknowledge_{false}; // send those acks
 };
 static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == 0x1C &&
               offsetof(InboundMsgCtx, num_sequences_to_ack_) == 0x9C && sizeof(InboundMsgCtx) == 0xA4);

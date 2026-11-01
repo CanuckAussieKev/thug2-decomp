@@ -148,11 +148,9 @@ void VideoEntry::operator delete(void* memory) { memory::Hub::get_pull()->deallo
 VideoEntry::VideoEntry()
 {
     list_link_.make_node(this);
-    args_ = nullptr;
-    flag19_ = false;
-    flag18_ = false;
-    flag_1c_ = false;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     viewer_ = new gfx::ViewCam;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00469230
@@ -232,12 +230,7 @@ bool VideoEntry::set_value20(uint32_t value)
 }
 
 // 0x004693C0
-ClassNodeList::ClassNodeList()
-{
-    entries_ = nullptr;
-    transformed_ = false;
-    nodes_ = nullptr;
-}
+ClassNodeList::ClassNodeList() = default;
 
 // 0x00469300
 void ClassNodeList::get_clear()

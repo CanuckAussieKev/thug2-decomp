@@ -130,11 +130,6 @@ ResourceRegistry::ResourceRegistry()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     assets_ = memory ? new (memory) lists::KeyMap(10) : nullptr;
-    callback_ = nullptr;
-    callback_once_ = false;
-    pending_ = nullptr;
-    ready_flag_ = nullptr;
-    unknown15_ = false;
     task_ = std::make_unique<tasks::Task<ResourceRegistry>>(&process_task, this, 0);
 }
 

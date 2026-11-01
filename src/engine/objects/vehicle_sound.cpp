@@ -87,22 +87,7 @@ void play_sound_from_structure(ObjectModule* sound, script::Struct* description)
 memory::owner<ObjectModule*> EngineAudioModule::fabricate() { return new EngineAudioModule; }
 
 // 0x0043C590
-EngineAudioModule::EngineAudioModule()
-{
-    vehicle_ptr_ = nullptr;
-    sound_ptr_ = nullptr;
-    settings_ = nullptr;
-    park_editor_level_ = false;
-    speed_ = 0.0f;
-    gear_ = 0;
-    shift_time_ = 0;
-    unknowna8_ = 0;
-    skid_ = 0.0f;
-    collide_time_ = 0;
-    engine_sound_ = 0;
-    skid_sound_ = 0;
-    kind_tag_ = kType;
-}
+EngineAudioModule::EngineAudioModule() { kind_tag_ = kType; }
 
 // 0x0043C5F0 (0x0043D020 the deleting one)
 EngineAudioModule::~EngineAudioModule()

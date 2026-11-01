@@ -140,10 +140,12 @@ script::Array* shuffled_numbers(int count)
 ObjectiveNpc::ObjectiveNpc(script::Struct* params)
 {
     params->read_hash_value(kGoalIdChecksum, &objective_key_, 1);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     suspended_ = false;
     fam_ = 0;
     anim_object_ = 0;
     feed_ = 0;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0055EB70

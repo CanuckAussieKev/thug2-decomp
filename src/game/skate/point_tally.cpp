@@ -24,10 +24,9 @@ namespace lists {
 
 // 0x00561470
 GrowableMap::GrowableMap(int capacity, int grow)
+    : items_(static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * 4))), capacity_(capacity),
+      grow_(grow)
 {
-    capacity_ = capacity;
-    grow_ = grow;
-    items_ = static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * 4));
     for (int i = 0; i < capacity_; ++i)
         items_[i] = nullptr;
     num_ = 0;

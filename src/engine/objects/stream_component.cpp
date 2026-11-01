@@ -45,12 +45,7 @@ void AudioStreamModule::publish_method_table()
 }
 
 // 0x00433C10
-AudioStreamModule::AudioStreamModule()
-{
-    spewer_ = nullptr;
-    proxim_ = nullptr;
-    kind_tag_ = kType;
-}
+AudioStreamModule::AudioStreamModule() { kind_tag_ = kType; }
 
 // 0x00433890 (0x00433C40 the deleting one)
 AudioStreamModule::~AudioStreamModule()

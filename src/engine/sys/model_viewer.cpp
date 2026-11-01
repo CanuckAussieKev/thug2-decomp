@@ -534,8 +534,6 @@ void Viewer::start_callback()
 // 0x00577F20
 Viewer::Viewer()
 {
-    actions_ = 0;
-    shift_makes_ = 0;
     if (!debug_checks()) {
         net::Hub* net = net::Hub::sole();
         // NOLINTNEXTLINE(bugprone-unused-return-value): the original's call; its result unused, as there

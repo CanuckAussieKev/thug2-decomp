@@ -153,6 +153,7 @@ Objective* root_of(void* manager, GoalEdge* parents)
 Objective::Objective(script::Struct* params)
 {
     list_link_.make_node(this);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     stage_flags_ = 0;
     net_stage_flags_ = 0;
     sub_nodes_ = alloc_chain_link();
@@ -178,6 +179,7 @@ Objective::Objective(script::Struct* params)
     run_ending_ = 0;
     level_ = skate_calls::get_career()->fetch_stage();
     bundle_ = -1;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     params->fetch_int_value(kGroupNumber, &bundle_, 0);
     alloc_objective_bits(params);
     if (params->has_bare_flag(kSingleTimer))

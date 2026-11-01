@@ -45,7 +45,7 @@ public:
     // each is printed too.
     void tick_frame() override;
 
-    void* anim_;                 // +0x2C the animation asset (null: just a timer)
+    void* anim_{nullptr};        // +0x2C the animation asset (null: just a timer)
     gfx::AnimTimeline timeline_; // +0x30
 };
 
@@ -59,14 +59,14 @@ public:
     ~CameraAnimMovie() override;
 
     float field_of_view_{}; // +0x2C (0: the script global 0x99529205)
-    bool has_goal_;       // +0x30
+    bool has_goal_{false};  // +0x30
     uint8_t pad31[3]{};
-    uint32_t aim_point_;         // +0x34 the target object's name (0xC588EEBC: a fixed point, goal_shift_)
+    uint32_t aim_point_{0};      // +0x34 the target object's name (0xC588EEBC: a fixed point, goal_shift_)
     float goal_shift_[4]{};      // +0x38 (0x906642BF)
     float look_offset_[4]{};     // +0x48 (0xA00D3D6E)
     bool target_offset_set_{};   // +0x58 (any of x, y, z not 0)
     bool look_offset_set_{};     // +0x59
-    void* anim_;                 // +0x5C
+    void* anim_{nullptr};        // +0x5C
     gfx::AnimTimeline timeline_; // +0x60
 
     // 0x00587F70 (slot 1): ReadIn(params): the base's; the field of view (0x17E7321E, if there); the asset or a timer

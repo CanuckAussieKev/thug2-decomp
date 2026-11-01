@@ -157,15 +157,6 @@ uint32_t factor_channel(float value)
 // 0x004D1A90
 MaterialRef::MaterialRef()
 {
-    pass_count_ = 0;
-    color_anim_count_ = 0;
-    color_anims_ = nullptr;
-    anim_colors_ = nullptr;
-    texture_anim_ = nullptr;
-    has_uv_wibble_ = false;
-    has_texture_anim_ = false;
-    unknown18 = 0;
-    depth_bias_ = 0;
     for (int pass = 0; pass < 4; ++pass) {
         unknownc0_[pass] = 0x10001;
         pass_flags_[pass] = 0;

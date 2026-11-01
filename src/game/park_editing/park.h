@@ -426,12 +426,12 @@ static_assert(offsetof(ClipboardEntry, quarter_turns_) == 0x08 && offsetof(Clipb
 // it.
 struct Clipboard {
     CellBox edit_span_{};           // +0x00
-    uint8_t lo_cell_x_, lo_cell_z_; // +0x06: the cells its entries cover
-    uint8_t hi_cell_x_, hi_cell_z_; // +0x08
+    uint8_t lo_cell_x_{0xFF}, lo_cell_z_{0xFF}; // +0x06: the cells its entries cover
+    uint8_t hi_cell_x_{0}, hi_cell_z_{0};       // +0x08
     uint8_t pad0a_[2]{};
-    ClipboardEntry* metas_; // +0x0C: its entries (the newest first)
-    void* rail_groups_;     // +0x10: the rail editor's copies of the rails over it (linked by their first word)
-    Clipboard* following_;  // +0x14: the cursor's list
+    ClipboardEntry* metas_{nullptr}; // +0x0C: its entries (the newest first)
+    void* rail_groups_{nullptr};    // +0x10: the rail editor's copies of the rails over it (linked by their first word)
+    Clipboard* following_{nullptr}; // +0x14: the cursor's list
 
     // 0x0058BDF0
     Clipboard();
@@ -584,7 +584,7 @@ public:
     // start also with combined_flags), the end placed first first
     void fire_gap(int index, script::Script* script);
 
-    uint32_t next_id_;             // +0x00: the next end's GapID
+    uint32_t next_id_{2000};       // +0x00: the next end's GapID
     Gap* gaps_ptr_[kMaxGaps]{};    // +0x04
     bool started_first_[kMaxGaps]{}; // +0x84: the gap's first half (StartGap) was placed first
     ParkLayout* park_owner_;       // +0xA4: the park it's in (null in a copy)
@@ -1217,26 +1217,26 @@ public:
     ParkLayout* park_owner_; // +0x00
     CellBox cell_footprint_{}; // +0x04
     uint8_t pad0a_[2]{};
-    float move_time_; // +0x0C: of the slide to the target (1 when a step starts)
+    float move_time_{1.0f}; // +0x0C: of the slide to the target (1 when a step starts)
     int unknown10{};
     maths::Vec4 aim_point_{}; // +0x14
     maths::Vec4 at_point_{};  // +0x24
     uint8_t unknown34[4]{};
-    int quarter_turns_;        // +0x38: quarter turns
-    float target_angle_;       // +0x3C: degrees
-    float angle_;              // +0x40
-    PieceGroup* piece_group_;  // +0x44: the piece shown at the cursor
-    uint8_t box_select_stage_; // +0x48: the area selection (0 none, 1 first corner set, 2 done)
+    int quarter_turns_{0};             // +0x38: quarter turns
+    float target_angle_{0.0f};         // +0x3C: degrees
+    float angle_{0.0f};                // +0x40
+    PieceGroup* piece_group_{nullptr}; // +0x44: the piece shown at the cursor
+    uint8_t box_select_stage_{0};      // +0x48: the area selection (0 none, 1 first corner set, 2 done)
     CellBox area_start_{};     // +0x49: its first corner
     CellBox area_last_{};      // +0x4F: the cursor's cell when the highlight was made (the other corner)
-    bool area_highlighted_;    // +0x55
+    bool area_highlighted_{false}; // +0x55
     uint8_t pad56[2]{};
-    Clipboard* copy_buffers_; // +0x58: the newest first
-    Clipboard* clipboard_;    // +0x5C: the one being pasted
+    Clipboard* copy_buffers_{nullptr}; // +0x58: the newest first
+    Clipboard* clipboard_{nullptr};    // +0x5C: the one being pasted
     int clipboard_height_{};  // +0x60
-    int paste_set_index_;     // +0x64: the clipboard set's index
-    int menu_index_;          // +0x68
-    int mode_sel_;            // +0x6C
+    int paste_set_index_{0};  // +0x64: the clipboard set's index
+    int menu_index_{0};       // +0x68
+    int mode_sel_{kModeNone}; // +0x6C
     GapDetails gap_;          // +0x70
     uint32_t gap_counter_;    // +0xC4: names the next gap
 };

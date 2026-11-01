@@ -66,12 +66,7 @@ void get_note(T& stored, T value, uint8_t& changed)
 memory::owner<ObjectModule*> RiderPhysicsCommit::fabricate() { return new RiderPhysicsCommit; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderPhysicsCommit::RiderPhysicsCommit()
-{
-    kind_tag_ = kSkaterFinalizePhysics;
-    core_physics_ = nullptr;
-    pose_ = nullptr;
-}
+RiderPhysicsCommit::RiderPhysicsCommit() { kind_tag_ = kSkaterFinalizePhysics; }
 
 // 0x00511010 (0x00511020 the deleting one)
 RiderPhysicsCommit::~RiderPhysicsCommit() = default;

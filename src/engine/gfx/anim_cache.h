@@ -68,22 +68,22 @@ struct AnimCacheEntry {
     // 0x00480640: called with `arg` when the entry is given back.
     void set_release_callback(void (*callback)(void*), void* arg);
 
-    uint32_t lookup_key_;              // +0x000 the animation (0: free)
+    uint32_t lookup_key_{0};           // +0x000 the animation (0: free)
     uint32_t last_used_{};             // +0x004
-    int kind_tag_;                     // +0x008 (0: not in use)
-    uint8_t* payload_;                 // +0x00C
-    uint32_t allocated_;               // +0x010
-    uint32_t extent_;                  // +0x014
-    uint8_t* rotation_keys_ptr_;       // +0x018
-    uint8_t* translation_keys_ptr_;    // +0x01C
+    int kind_tag_{0};                  // +0x008 (0: not in use)
+    uint8_t* payload_{nullptr};        // +0x00C
+    uint32_t allocated_{0};            // +0x010
+    uint32_t extent_{0};               // +0x014
+    uint8_t* rotation_keys_ptr_{nullptr};    // +0x018
+    uint8_t* translation_keys_ptr_{nullptr}; // +0x01C
     void (*release_callback_)(void*){}; // +0x020
     void* release_arg_{};               // +0x024
     AnimCacheSlot* slots_ptr_[18]{};    // +0x028
-    uint8_t rotation_key_size_;        // +0x070
-    uint8_t translation_key_size_;     // +0x071
+    uint8_t rotation_key_size_{0};      // +0x070
+    uint8_t translation_key_size_{0};   // +0x071
     uint16_t rotation_offsets_[60]{};  // +0x072
     uint16_t translation_offsets_[60]{}; // +0x0EA
-    int16_t bones_;                    // +0x162
+    int16_t bones_{0};                   // +0x162
     uint16_t flag_bits_{};             // +0x164
     uint16_t pad166_{};
 };

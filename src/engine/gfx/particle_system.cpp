@@ -124,7 +124,6 @@ void EmitterInstance::operator delete(void* memory) { memory::dealloc(memory); }
 EmitterInstance::EmitterInstance()
 {
     list_link_.make_node(this);
-    flag_bits_ = 0;
     get_reset();
 }
 
@@ -452,8 +451,8 @@ NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t, ui
 // 0x004992C0
 FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
                                          int history)
+    : segments_(history + 1)
 {
-    segments_ = history + 1;
     // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * segments_ * 12), true,
                         segments_ + 3)) {
@@ -506,8 +505,8 @@ int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length_; }
 
 // 0x00499B80
 LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
+    : steps_(history + 1)
 {
-    steps_ = history + 1;
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1) * 12), true,
                         steps_)) {
         colour_mid_ = -1.0f;

@@ -71,8 +71,6 @@ RiderTeeterMoves::RiderTeeterMoves()
 {
     // (the four balances - manual_, grind_, lip_, skitch_ - are constructed first, as members)
     kind_tag_ = kType;
-    anim_blender_ptr_ = nullptr;
-    call_args_ = nullptr;
 }
 
 // 0x004F8CF0 (0x004F9010 the deleting one)

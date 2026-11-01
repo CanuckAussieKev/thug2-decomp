@@ -48,19 +48,19 @@ public:
     // spacing_between) and the menu's size set; with nothing selected and the focus, the first item focused.
     void arrange();
 
-    int selected_index_;      // +0x178 (-1 none)
-    uint32_t chosen_item_id_; // +0x17C (0 none)
-    bool focused_;            // +0x180
-    int controller_;          // +0x184 the controller of the focus event
-    float inner_align_h_;     // +0x188 internal_just
-    float inner_align_v_;     // +0x18C
+    int selected_index_{-1};     // +0x178 (-1 none)
+    uint32_t chosen_item_id_{0}; // +0x17C (0 none)
+    bool focused_{false};        // +0x180
+    int controller_{0};          // +0x184 the controller of the focus event
+    float inner_align_h_{0.0f};  // +0x188 internal_just
+    float inner_align_v_{0.0f};  // +0x18C
     bool vertical_;           // +0x190 a vmenu
-    float regular_space_;     // +0x194 regular_space_amount (0: off)
-    float margin_factor_;     // +0x198 padding_scale (1)
-    float item_gap_;          // +0x19C spacing_between
-    bool pad_handling_;       // +0x1A0 enable_pad_handling (on)
-    bool cycles_around_;      // +0x1A1 allow_wrap (on)
-    int grid_index_;          // +0x1A4 (-1)
+    float regular_space_{0.0f}; // +0x194 regular_space_amount (0: off)
+    float margin_factor_{1.0f}; // +0x198 padding_scale (1)
+    float item_gap_{0.0f};      // +0x19C spacing_between
+    bool pad_handling_{true};   // +0x1A0 enable_pad_handling (on)
+    bool cycles_around_{true};  // +0x1A1 allow_wrap (on)
+    int grid_index_{-1};        // +0x1A4 (-1)
 };
 
 // The container element (ContainerElement, vtable 0x0064A0BC, 0x17C bytes): passes focus / unfocus on to its
@@ -77,7 +77,7 @@ public:
     // unfocus then go on to the focusable child (with the event's controller).
     bool pass_event_to_script(objects::Signal* event) override;
 
-    uint32_t focusable_child_; // +0x178
+    uint32_t focusable_child_{0}; // +0x178
 };
 
 } // namespace frontend

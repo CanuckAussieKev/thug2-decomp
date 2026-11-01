@@ -187,24 +187,13 @@ std::unique_ptr<tasks::SchedulerTask> new_task(RoomManager* lobby, tasks::Task<R
 } // namespace
 
 // 0x00545860
-LobbyRoom::LobbyRoom()
-{
-    list_link_.make_node(this);
-    full_ = false;
-    neversoft_ = false;
-    out_of_range_ = false;
-}
+LobbyRoom::LobbyRoom() { list_link_.make_node(this); }
 
 // 0x00541870
 RoomManager::RoomManager()
 {
     rooms_.make_head();
     participants_.make_head();
-    negotiations_ = 0;
-    in_group_room_ = false;
-    drop_is_expected_ = true;
-    remote_ = nullptr;
-    lost_connection_ = false;
     think_task_ = new_task(this, &online::RoomManager::think_task);
     nat_task_ = new_task(this, &online::RoomManager::nat_negotiation_task);
     hosting_task_ = new_task(this, &online::RoomManager::query_task);

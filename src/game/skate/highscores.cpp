@@ -109,13 +109,7 @@ void delete_table(BestEntryList* table)
 } // namespace
 
 // 0x0057EF20
-BestEntry::BestEntry()
-{
-    tag_ = new_initials();
-    copy_initials(tag_, "XXX");
-    val_ = 1000;
-    slot_no_ = 0;
-}
+BestEntry::BestEntry() : tag_(new_initials()) { copy_initials(tag_, "XXX"); }
 
 // 0x0057ECD0
 bool BestEntry::try_beat_record(int value, int number)
@@ -144,9 +138,8 @@ void BestEntry::decode_from_struct(script::Struct* params)
 }
 
 // 0x0057EF60
-BestEntryList::BestEntryList(int count)
+BestEntryList::BestEntryList(int count) : num_(count)
 {
-    num_ = count;
     // (as new[]: the count before the records)
     auto* memory = static_cast<int*>(memory::alloc_zeroed(count * sizeof(BestEntry) + 4));
     if (!memory) {
@@ -231,6 +224,7 @@ void BestEntryList::write_to_structure(script::Struct* params)
 // 0x0057F120
 StageBests::StageBests()
 {
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     high_scores_ = new_table(5);
     best_combos_ = new_table(5);
     arcade_scores_ = new_table(10);
@@ -238,6 +232,7 @@ StageBests::StageBests()
     grind_record_ = new_longest_record();
     longest_lip_trick_ = new_longest_record();
     longest_manual_ = new_longest_record();
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0057F670
@@ -309,10 +304,8 @@ void StageBests::write_to_structure(script::Struct* params)
 }
 
 // 0x0057EE70
-BestResults::BestResults()
+BestResults::BestResults() : default_initials_(static_cast<char*>(memory::alloc_zeroed(4)))
 {
-    level_count_ = 0;
-    default_initials_ = static_cast<char*>(memory::alloc_zeroed(4));
     copy_initials(default_initials_, "ABC");
 }
 

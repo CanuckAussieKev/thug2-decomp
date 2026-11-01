@@ -200,9 +200,6 @@ RiderFrameLog::RiderFrameLog()
     // entries and the messages again.)
     std::memset(states_, 0, sizeof(states_));
     std::memset(messages_, 0, sizeof(messages_));
-    unknown1100_ = 0;
-    state_count_ = 0;
-    message_count_ = 0;
     kind_tag_ = kType;
 }
 

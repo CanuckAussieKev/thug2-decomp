@@ -52,7 +52,7 @@ public:
     uint8_t nollie_{};       // +0x1D
     uint8_t press_amount_{}; // +0x1E
     uint8_t pad1f_{};
-    skater::SkaterPhysicsModule* core_physics_; // +0x20 SkaterCorePhysics (0x5BD63B29)
+    skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x20 SkaterCorePhysics (0x5BD63B29)
 };
 
 } // namespace objects

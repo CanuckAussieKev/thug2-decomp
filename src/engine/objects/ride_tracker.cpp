@@ -30,10 +30,11 @@ void d3d_matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Ma
 RideTracker::RideTracker(GameEntity* object)
 {
     entity_.construct_from(object);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     previous_xform_ = object->basis_frame_;
     last_pos_ = object->at_point_;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     carried_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    turned_ = false;
 }
 
 // 0x00416F00

@@ -166,14 +166,6 @@ memory::owner<ObjectModule*> MoveExecutor::fabricate() { return new MoveExecutor
 MoveExecutor::MoveExecutor()
 {
     kind_tag_ = kTrick;
-    trick_lists_ = nullptr;
-    score_ = nullptr;
-    input_ = nullptr;
-    balance_trick_ = nullptr;
-    core_physics_ = nullptr;
-    flip_rotate_ = nullptr;
-    skater_state_ = nullptr;
-    stats_manager_ = nullptr;
     get_reset();
 }
 

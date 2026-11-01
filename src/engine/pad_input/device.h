@@ -75,7 +75,7 @@ public:
     uint8_t rumble_raw_[32]{}; // each motor's level
     uint8_t rumble_cap_[32]{};
     uint8_t actuator_saved_[32]{}; // levels while paused
-    int pause_count_;
+    int pause_count_{0};
     uint8_t rumble_off_{};
     uint32_t capabilities_;
     uint32_t unknownc8_{};

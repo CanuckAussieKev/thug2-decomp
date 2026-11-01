@@ -32,7 +32,7 @@ struct ChainLink {
     float value40_{};        // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
     float byte_count_{};     // +0x44 the rest length to the link before it
     uint32_t unused48_{};    // +0x48
-    memory::owner<render::PcPrimitive*> line_ptr_; // +0x4C the line drawn to the next link
+    memory::owner<render::PcPrimitive*> line_ptr_{nullptr}; // +0x4C the line drawn to the next link
 };
 
 // A chain hung from a bone of its object to a bone of another object (0x684 bytes).
@@ -44,21 +44,21 @@ struct Chain {
     // 0x00428300: the lines between the links shown at the links' positions, opaque black.
     void update_lines();
 
-    uint32_t ident_;                  // +0x000 chainid
-    uint32_t bone_start_;             // +0x004 bone_start (its object's skeleton)
+    uint32_t ident_{0};               // +0x000 chainid
+    uint32_t bone_start_{0};          // +0x004 bone_start (its object's skeleton)
     maths::Vec4 start_offset_{};      // +0x008 start_offset (in the bone's space)
-    uint32_t bone_end_;               // +0x018 bone_end
-    uint32_t obj_end_;                // +0x01C obj_end (the object whose bone_end the chain ends at)
-    int links_;                       // +0x020 segments + 1
+    uint32_t bone_end_{0};            // +0x018 bone_end
+    uint32_t obj_end_{0};             // +0x01C obj_end (the object whose bone_end the chain ends at)
+    int links_{0};                    // +0x020 segments + 1
     ChainLink chain_link_[kMaxLinks]; // +0x024
-    int iterations_;                  // +0x664 (0x41E56E7B): constraint passes a second
-    float damping_;                   // +0x668 damp_force
-    float sag_force_;                 // +0x66C gravity_force
-    bool move_with_object_;           // +0x670 (0xC96BA2C1): the links carried by the object's velocity
-    float plane_offset_;              // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis
-    int collide_first_;               // +0x678 (0x07EBDE63): the links kept to the plane, from
-    int collide_end_;                 // +0x67C (0xB721AB4A): ... to (not including)
-    bool collide_below_;              // +0x680 (0x4BFBDC28): kept on the plane's other side
+    int iterations_{0};               // +0x664 (0x41E56E7B): constraint passes a second
+    float damping_{0.0f};             // +0x668 damp_force
+    float sag_force_{0.0f};           // +0x66C gravity_force
+    bool move_with_object_{true};     // +0x670 (0xC96BA2C1): the links carried by the object's velocity
+    float plane_offset_{0.0f};        // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis
+    int collide_first_{0};            // +0x678 (0x07EBDE63): the links kept to the plane, from
+    int collide_end_{0};              // +0x67C (0xB721AB4A): ... to (not including)
+    bool collide_below_{false};       // +0x680 (0x4BFBDC28): kept on the plane's other side
 };
 
 // The chain component (type 0x6DCFEC46, vtable 0x0064630C, 0x48 bytes; made by 0x004298B0; our name): chains of

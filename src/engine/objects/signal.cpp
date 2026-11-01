@@ -70,12 +70,8 @@ void free_params(SignalRouteTable::TableRow& entry)
 
 // 0x0045F7F0
 Signal::Signal(uint32_t type, uint32_t source, uint32_t target, Struct* data)
+    : kind_tag_(type), from_where_(source), aim_point_(target), payload_(data)
 {
-    kind_tag_ = type;
-    from_where_ = source;
-    aim_point_ = target;
-    flag_bits_ = 0;
-    payload_ = data;
 }
 
 // 0x0045F980
@@ -123,14 +119,7 @@ void SignalReceiver::enter_wait_board(Entity* object)
 }
 
 // 0x0045F820
-SignalRouteTable::SignalRouteTable()
-{
-    num_ = 0;
-    entries_ = nullptr;
-    alive_ = true;
-    in_use_ = 0;
-    altered_ = false;
-}
+SignalRouteTable::SignalRouteTable() = default;
 
 // 0x0045FB70
 SignalRouteTable::~SignalRouteTable()

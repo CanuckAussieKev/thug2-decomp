@@ -48,17 +48,17 @@ public:
     // 0x004A2CA0
     maths::Mat4* get_inverse_bind_matrices() { return inverse_bind_; }
 
-    int num_;                        // +0x004
+    int num_{0};                     // +0x004
     uint32_t names_[64]{};           // +0x008
     uint32_t parent_names_[64]{};    // +0x108
     uint32_t flip_names_[64]{};      // +0x208
     int flip_indices_[64]{};         // +0x308
     uint32_t lod_masks_[64]{};       // +0x408 per bone: the LODs it's collapsed into its parent at (bit per LOD)
     float lod_distances_[32]{};      // +0x508
-    uint32_t unknown588_;            // +0x588
-    maths::Mat4* inverse_bind_;      // +0x58C
+    uint32_t unknown588_{0};         // +0x588
+    maths::Mat4* inverse_bind_{nullptr}; // +0x58C
     maths::Vec4* bind_translations_{}; // +0x590
-    uint32_t flag_bits_;             // +0x594 1: the skeleton's flag 0x10000000
+    uint32_t flag_bits_{0};            // +0x594 1: the skeleton's flag 0x10000000
 };
 
 // A skeleton's bone (0x1C bytes).
@@ -131,7 +131,7 @@ public:
     // bone's position (the first matrix's translation: that bone's GetBonePosition), their rotation rows (0, 0, 0, 1).
     void collapse_zero_scaled_bones();
 
-    uint32_t flag_bits_;        // +0x00
+    uint32_t flag_bits_{0};     // +0x00
     maths::Mat4* matrix_array_; // +0x04
     RigData* payload_;          // +0x08
     uint32_t lod_{};            // +0x0C

@@ -135,11 +135,11 @@ public:
     int count_a80_{};                    // +0xA80 (0xBA15FC7F)
     int count_a84_{};                    // +0xA84 (0xB9AE26D2)
     int air_score_{};                    // +0xA88
-    int last_air_combo_score_;           // +0xA8C
-    GameEntity* skater_;                 // +0xA90
-    RiderPoseState* skater_state_;       // +0xA94
-    RiderBoardPhysics* physics_control_; // +0xA98
-    uint32_t unknowna9c_;
+    int last_air_combo_score_{0};        // +0xA8C
+    GameEntity* skater_{nullptr};        // +0xA90
+    RiderPoseState* skater_state_{nullptr};       // +0xA94
+    RiderBoardPhysics* physics_control_{nullptr}; // +0xA98
+    uint32_t unknowna9c_{0};
 };
 
 } // namespace objects

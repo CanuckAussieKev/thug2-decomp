@@ -27,7 +27,7 @@ public:
 
     int pos_x_, y_;           // +0x04
     int span_, level_y_;      // +0x0C
-    ScreenWindow* following_; // +0x14 on the free list
+    ScreenWindow* following_{nullptr}; // +0x14 on the free list
 };
 static_assert(offsetof(ScreenWindow, following_) == 0x14 && sizeof(ScreenWindow) == 0x18,
               "layout must match the original");

@@ -108,11 +108,11 @@ public:
     // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kResultPassOn.
     static int handle_collision_messages(net::InboundMsgCtx* context);
 
-    int state_count_;                          // +0x18 the states received
+    int state_count_{0};                         // +0x18 the states received
     SkaterStateHistoryFrame states_[kEntries]{}; // +0x1C (the newest at (state_count_ - 1) % 20)
-    int message_count_;                        // +0xA6C the messages received
+    int message_count_{0};                       // +0xA6C the messages received
     StateHistoryMessage messages_[kEntries]{}; // +0xA70 (the newest at message_count_ % 20)
-    uint32_t unknown1100_;                     // +0x1100 (cleared)
+    uint32_t unknown1100_{0};                  // +0x1100 (cleared)
     uint32_t vehicle_control_type_{};          // +0x1104 the vehicle's control type (message 0x?)
 };
 

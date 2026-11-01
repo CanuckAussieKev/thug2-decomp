@@ -139,13 +139,7 @@ struct CellUpdate {
 } // namespace
 
 // 0x004183B0
-CollGridCell::CollGridCell()
-{
-    unknown20 = 0;
-    count = 0;
-    unknown28 = nullptr;
-    objects = nullptr;
-}
+CollGridCell::CollGridCell() = default;
 
 // 0x00418410
 CollGridCell::~CollGridCell()

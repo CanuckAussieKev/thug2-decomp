@@ -84,11 +84,7 @@ memory::owner<ObjectModule*> FloatingTextComponent::fabricate() { return new Flo
 FloatingTextComponent::FloatingTextComponent()
 {
     text_[0] = 0;
-    ident_ = 0;
-    end_time_ = 0;
     kind_tag_ = kType;
-    tint_ = 2;
-    y_offset_ = 120.0f;
 }
 
 // 0x0041E5E0 (0x0041E6C0 the deleting one)

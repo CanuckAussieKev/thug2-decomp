@@ -37,8 +37,8 @@ struct PrefixTable {
     void compact();
 
     lists::KeyMap* slot_table_;
-    uint32_t node_array_; // the node array's name
-    PrefixTable* following_;
+    uint32_t node_array_{0}; // the node array's name
+    PrefixTable* following_{nullptr};
 };
 static_assert(offsetof(PrefixTable, following_) == 8 && sizeof(PrefixTable) == 0xC, "allocated as 0xC bytes");
 

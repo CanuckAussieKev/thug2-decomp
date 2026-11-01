@@ -87,7 +87,7 @@ public:
     bool force_walk_{};       // +0x25
     uint8_t flag26_{};        // +0x26 (cleared each update)
     uint8_t pad27{};
-    skater::SkaterPhysicsModule* core_physics_; // +0x28 SkaterCorePhysics (0x5BD63B29)
+    skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x28 SkaterCorePhysics (0x5BD63B29)
     RiderPoseState* pose_{};                    // +0x2C SkaterState (0x43686585)
 };
 

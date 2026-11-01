@@ -26,7 +26,7 @@ public:
     char panel_[0x200]{};     // +0x20C: what the last run did
     int letters_[kPlayers]{}; // +0x40C: each player's letters
     uint32_t unknown42c_{};
-    int restart_;           // +0x430: the restart the next run starts from
+    int restart_{0};          // +0x430: the restart the next run starts from
     uint32_t cur_standing_{}; // +0x434: one of the table at 0x0067F340
 
     // 0x005600D0: the word HORSE, restart 0.

@@ -50,8 +50,6 @@ void init_node(memory::ListNode* node) { node->make_node(node); }
 // 0x00454FA0
 PendingMsg::PendingMsg(uint8_t id, uint16_t length, const void* data, uint8_t compression)
 {
-    share_count_ = 0;
-    content_ = nullptr;
     if (length > 0)
         content_ = copy_data(&id, &length, data, compression);
     ident_ = id;
@@ -61,8 +59,6 @@ PendingMsg::PendingMsg(uint8_t id, uint16_t length, const void* data, uint8_t co
 // 0x00455040
 SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, uint8_t byte8, uint8_t compression)
 {
-    share_count_ = 0;
-    content_ = nullptr;
     if (length > 0)
         content_ = copy_data(&id, &length, data, compression);
     ident_ = id;
@@ -80,38 +76,16 @@ PendingMsg::~PendingMsg()
 // --- Links -----------------------------------------------------------------------------------------------------
 
 // 0x004555F0
-MsgNormalLink::MsgNormalLink(PendingMsg* msg)
-{
-    init_node(&list_link_);
-    shared_msg_ = msg;
-    due_time_ = 0;
-}
+MsgNormalLink::MsgNormalLink(PendingMsg* msg) : shared_msg_(msg) { init_node(&list_link_); }
 
 // 0x00455620
-ReliableMsgNode::ReliableMsgNode(PendingMsg* msg)
-{
-    init_node(&list_link_);
-    shared_msg_ = msg;
-    due_time_ = 0;
-    retry_count_ = 0;
-}
+ReliableMsgNode::ReliableMsgNode(PendingMsg* msg) : shared_msg_(msg) { init_node(&list_link_); }
 
 // 0x00455650
-OrderedMsgNode::OrderedMsgNode(SeqQueuedMsg* msg)
-{
-    init_node(&list_link_);
-    bulk_msg_ = 0;
-    due_time_ = 0;
-    shared_msg_ = msg;
-    retry_count_ = 0;
-}
+OrderedMsgNode::OrderedMsgNode(SeqQueuedMsg* msg) : shared_msg_(msg) { init_node(&list_link_); }
 
 // 0x00455680
-BulkStreamNode::BulkStreamNode(StreamDesc* desc)
-{
-    init_node(&list_link_);
-    msg_meta_ = desc;
-}
+BulkStreamNode::BulkStreamNode(StreamDesc* desc) : msg_meta_(desc) { init_node(&list_link_); }
 
 // 0x004557C0
 MsgNormalLink* MsgNormalLink::teardown(unsigned int flags)

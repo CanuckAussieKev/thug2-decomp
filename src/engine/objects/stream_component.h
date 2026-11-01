@@ -69,8 +69,8 @@ public:
     bool obj_stop_stream(script::Struct* params, script::Script* script);
 
     uint32_t streams_[3]{}; // +0x18 the ids of the streams it plays (0: free)
-    EmitterNode* spewer_; // +0x24
-    ProximNode* proxim_;  // +0x28
+    EmitterNode* spewer_{nullptr}; // +0x24
+    ProximNode* proxim_{nullptr};  // +0x28
 };
 
 } // namespace objects

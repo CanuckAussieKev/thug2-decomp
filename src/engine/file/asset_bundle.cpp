@@ -13,17 +13,7 @@
 namespace file {
 
 // 0x005B6CF0
-AssetBundle::AssetBundle()
-{
-    bundle_bytes_ = nullptr;
-    loaded_data_ = nullptr;
-    file_ref_ = nullptr;
-    ready_flag_ = false;
-    file_heap_ = nullptr;
-    asset_heap_ = nullptr;
-    unknown234c_ = 0;
-    unknown2350_ = 0;
-}
+AssetBundle::AssetBundle() = default;
 
 // 0x005B6EA0
 AssetBundle::~AssetBundle()

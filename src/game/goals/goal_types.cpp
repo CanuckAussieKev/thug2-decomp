@@ -76,11 +76,6 @@ modules::Contest* the_competition() { return modules::Skate::sole()->competition
 // 0x005517C0
 ContestObjective::ContestObjective(script::Struct* params) : Objective(params)
 {
-    is_halted_ = false;
-    has_third_place_ = false;
-    has_second_place_ = false;
-    has_top_prize_ = false;
-    prize_paid_ = 0;
     record_points_ = 0x7FFFFFFF;
     run_ending_ = 1;
 }

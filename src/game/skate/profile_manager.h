@@ -67,7 +67,7 @@ struct RiderIdentity {
     struct SpecialTrick {
         uint32_t trick{};
         uint32_t keys{};
-        bool flag;
+        bool flag{false};
         uint8_t pad9[3]{};
         // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
         SpecialTrick();
@@ -97,7 +97,7 @@ static_assert(sizeof(RiderIdentity) == 0x64, "layout must match the original");
 // global array 0x5004A967.
 struct ChecksumSet {
     uint32_t items_[256]{};
-    int num_; // +0x400
+    int num_{0}; // +0x400
     ChecksumSet();
     void get_fill();
 };
@@ -179,9 +179,9 @@ public:
 
     ProfileTable templates_{};     // +0x00
     RiderIdentity* profiles_[2]{}; // +0x14 (the first: a template; the second: a copy)
-    int cursor_pos_;             // +0x1C
-    bool locked_;                // +0x20
-    int extra_count_;                  // +0x24
+    int cursor_pos_{0};            // +0x1C
+    bool locked_{false};           // +0x20
+    int extra_count_{0};           // +0x24
     uint32_t extra_names_[3]{};        // +0x28
     RiderIdentity* extra_profiles_[3]{}; // +0x34
 };

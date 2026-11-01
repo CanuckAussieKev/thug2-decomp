@@ -105,15 +105,7 @@ modules::PointTally* get_score_of(GameEntity* skater)
 memory::owner<ObjectModule*> ShotImpactModule::fabricate() { return new ShotImpactModule; }
 
 // (the constructor: inlined in fabricate in the original)
-ShotImpactModule::ShotImpactModule()
-{
-    radius_ = 0.0f;
-    holder_key_ = 0;
-    on_collide_script_ = 0;
-    size_factor_ = 0.0f;
-    hit_ = false;
-    kind_tag_ = kType;
-}
+ShotImpactModule::ShotImpactModule() { kind_tag_ = kType; }
 
 // 0x004F2F10 (0x004F2F50 the deleting one)
 ShotImpactModule::~ShotImpactModule() = default;

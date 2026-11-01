@@ -70,18 +70,14 @@ lists::KeyMap* new_texture_table()
 
 // 0x0049F830
 TextureSet::TextureSet(uint32_t checksum, bool make_table)
+    : checksum_(checksum), share_count_(1), textures_(make_table ? new_texture_table() : nullptr)
 {
-    checksum_ = checksum;
-    share_count_ = 1;
-    textures_ = make_table ? new_texture_table() : nullptr;
 }
 
 // 0x0049F8F0
 TextureSet::TextureSet(const char* name, bool make_table)
+    : checksum_(checksums::hash_from_text(name)), share_count_(1), textures_(make_table ? new_texture_table() : nullptr)
 {
-    checksum_ = checksums::hash_from_text(name);
-    share_count_ = 1;
-    textures_ = make_table ? new_texture_table() : nullptr;
 }
 
 // 0x0049FC70

@@ -79,7 +79,6 @@ void free_window2d(void* window) { render::free_window_2d(static_cast<render::Sc
 // 0x004AED90
 TextureElement::TextureElement()
 {
-    texture_ = 0;
     piece_.reset(new_textured_piece());
     change_species(kTextureElement);
 }
@@ -139,9 +138,7 @@ void TextureElement::tick_frame()
 // 0x004AF1A0
 ImageWidget::ImageWidget()
 {
-    texture_ = 0;
     quad_.reset(new_sprite(0));
-    z_write_ = true;
     change_species(kSpriteElement);
 }
 
@@ -261,7 +258,9 @@ void ImageWidget::tick_frame()
 PanelWidget::PanelWidget()
 {
     change_species(kWindowElement);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     screen_region_ = new_window2d(0, 0, 640, 448);
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     change_alignment(-1.0f, -1.0f);
     change_location(0.0f, 0.0f, 1);
     fit_to_size(640.0f, 448.0f, 0);

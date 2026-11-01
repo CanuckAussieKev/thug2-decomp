@@ -241,7 +241,6 @@ void parse_location(Buddy* buddy, char* location, bool checked)
 FriendNote::FriendNote()
 {
     init_node(&list_link_);
-    account_ = 0;
     std::snprintf(nick_, sizeof(nick_), "%s", "Proskater");
     text_[0] = '\0';
 }
@@ -278,9 +277,11 @@ FriendsManager::FriendsManager()
     gp_set_callback(this, 4, reinterpret_cast<const void*>(&stubs::do_nothing), this);
     gp_set_callback(this, 5, reinterpret_cast<const void*>(&stubs::do_nothing), this);
     task_ = std::make_unique<tasks::Task<FriendsManager>>(&buddy_task, this, 0);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     authenticated_ = false;
     cur_phase_ = 0;
     account_ = 0;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     pop_heap();
 }
 

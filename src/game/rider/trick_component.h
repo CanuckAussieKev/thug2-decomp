@@ -283,13 +283,13 @@ public:
     int get_current_bail_endpose(script::Struct* params, script::Script* script);
 
     int busy_{};                                // +0x18 (counted up and down round a trick's script)
-    modules::PointTally* score_;                // +0x1C the skater's score (set by the skater)
-    PadInputModule* input_;                     // +0x20 (its disabled_ / net_disabled_: no tricks)
-    RiderTeeterMoves* balance_trick_;           // +0x24
-    skater::SkaterPhysicsModule* core_physics_; // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
-    RiderSpinAndFlip* flip_rotate_;             // +0x2C
-    RiderPoseState* skater_state_;              // +0x30
-    AttributeTracker* stats_manager_;           // +0x34
+    modules::PointTally* score_{nullptr};       // +0x1C the skater's score (set by the skater)
+    PadInputModule* input_{nullptr};            // +0x20 (its disabled_ / net_disabled_: no tricks)
+    RiderTeeterMoves* balance_trick_{nullptr};  // +0x24
+    skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
+    RiderSpinAndFlip* flip_rotate_{nullptr};             // +0x2C
+    RiderPoseState* skater_state_{nullptr};              // +0x30
+    AttributeTracker* stats_manager_{nullptr};           // +0x34
     TrickEvent events_[kEvents]{};              // +0x38
     uint16_t event_count_{};                    // +0x998
     uint16_t event_head_{};                     // +0x99A
@@ -301,7 +301,7 @@ public:
     uint32_t ignored_[2]{};   // +0xA1C
     bool starting_special_{}; // +0xA24 the trick being started is special
     uint8_t pada25_[3]{};
-    script::Struct* trick_lists_; // +0xA28
+    script::Struct* trick_lists_{nullptr}; // +0xA28
     int queue_first_{};           // +0xA2C
     int queue_last_{};            // +0xA30
     QueuedTrick queue_[100]{};    // +0xA34

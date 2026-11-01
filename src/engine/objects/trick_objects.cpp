@@ -105,7 +105,7 @@ void TrickSpotHub::change_args(script::Struct* params)
 }
 
 // 0x00588170
-HitClusterLog::HitClusterLog() { num_ = 0; }
+HitClusterLog::HitClusterLog() = default;
 
 // 0x00588180
 bool HitClusterLog::get_clear()
@@ -415,16 +415,12 @@ void TrickObjectHead::unlink_all()
 }
 
 // 0x00588BD0
-TrickObjectCluster::TrickObjectCluster(uint32_t name)
+TrickObjectCluster::TrickObjectCluster(uint32_t name) : label_(name)
 {
     list_link_.make_node(this);
     entities_.make_head();
-    label_ = name;
     for (uint32_t& score : scores_)
         score = 0;
-    record_points_ = 0;
-    owner_ = 0;
-    owned_ = false;
 }
 
 namespace {

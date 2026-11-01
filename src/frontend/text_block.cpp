@@ -91,15 +91,6 @@ ParagraphWidget::ParagraphWidget()
 {
     shadow_rgba_[0] = shadow_rgba_[1] = shadow_rgba_[2] = 0;
     shadow_rgba_[3] = 0x80;
-    internal_scale_ = 1.0f;
-    line_spacing_ = 1.0f;
-    font_name_ = 0;
-    lines_height_ = 0.0f;
-    rows_filled_ = 0;
-    blur_ = nullptr;
-    may_grow_ = false;
-    override_rgba_ = false;
-    remembered_override_ = false;
     change_species(kTextBlockElement);
 }
 

@@ -90,33 +90,14 @@ memory::owner<ObjectModule*> BodyDynamicsModule::fabricate() { return new BodyDy
 BodyDynamicsModule::BodyDynamicsModule()
 {
     // (capsule_ is constructed first, as a member)
-    flag_bits_ = 0;
     orientation_ = {0.0f, 0.0f, 0.0f, 1.0f};
     kind_tag_ = kType;
     steady_accel_ = {0.0f, -386.3999938964844f, 0.0f, 1.0f};
-    skater_impulse_factor_ = 1.0f;
-    skater_rotation_factor_ = 1.0f;
-    mass_over_moment_ = 0.003000000026077032f;
-    restitution_ = 0.4000000059604645f;
-    drag_factor_ = 0.5f;
-    spring_const_ = 10.0f;
-    linear_sleep_squared_ = 100.0f;
-    angular_sleep_squared_ = 0.1600000113248825f; // (0x3E23D70B)
-    skater_radius_ = 48.0f;
-    skater_application_radius_ = 12.0f;
-    push_cooldown_time_ = 0.0833333358168602f;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     skater_assent_cos_ = static_cast<float>(std::cos(kAssent));
     skater_assent_sin_ = static_cast<float>(std::sin(kAssent));
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     model_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    script_d0_ = 0;
-    settle_script_ = 0;
-    bounce_script_ = 0;
-    collide_script_ = 0;
-    impact_quiet_ms_ = 1000;
-    global_collide_mute_delay_ = 100;
-    bounce_callback_threshold_ = 20.0f;
-    bounce_full_speed_ = 300.0f;
-    die_timer_ = -1.0f;
 }
 
 // 0x0042EF60 (0x00430DF0 the deleting one)

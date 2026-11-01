@@ -164,13 +164,15 @@ void* StandardAnimController::operator new(size_t size, int) noexcept
 void StandardAnimController::operator delete(void* item) { standard_pools().dealloc(item); }
 
 // 0x004A4500
-StandardAnimController::StandardAnimController(AnimTimeline* timeline) : AnimDriver(timeline)
+StandardAnimController::StandardAnimController(AnimTimeline* timeline)
+    : AnimDriver(timeline), blend_source_(new_source())
 {
-    blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     anim_set_ = current_anim_set(object_of(this));
     frame_source_ = nullptr;
     frame_index_ = -1;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4590
@@ -257,11 +259,13 @@ WeightedAnimController::WeightedAnimController(AnimTimeline* timeline, objects::
     : AnimDriver(timeline)
 {
     owner_object_ = timeline ? object_of(this) : object;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(owner_object_);
     frame_source_ = nullptr;
     weight_ = 0.0f;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4820
@@ -341,11 +345,12 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 // 0x004A49F0
 WobbleDriver::WobbleDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    aim_point_ = 0.0f;
     amp_a_ = amp_b_ = k1_ = k2_ = spaz_factor_ = 0.0f;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(object_of(this));
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4A80
@@ -480,14 +485,15 @@ bool StanceDriver::fetch_pose(uint8_t* pose)
 // --- the partial animation controller ------------------------------------------------------------------------
 
 // 0x004A5350
-PartialClipDriver::PartialClipDriver(AnimTimeline* timeline) : AnimDriver(timeline)
+PartialClipDriver::PartialClipDriver(AnimTimeline* timeline) : AnimDriver(timeline), blend_source_(new_source())
 {
-    blend_source_ = new_source();
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(object_of(this));
     void* memory = memory::alloc_zeroed(sizeof(AnimTimeline));
     partial_ = memory ? new (memory) AnimTimeline : nullptr;
     frame_source_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4D50

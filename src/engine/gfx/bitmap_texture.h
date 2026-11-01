@@ -14,10 +14,10 @@ struct TextureRef {
     uint8_t levels{};
     uint8_t depth{};
     uint8_t unknowne_{}, unknownf_{};
-    void* texture; // IDirect3DTexture9
-    void* palette; // (or an alpha texture: GetPaletteOwner)
-    void* surface; // a render target's level 0 (IDirect3DSurface9)
-    bool render_target_;
+    void* texture{nullptr}; // IDirect3DTexture9
+    void* palette{nullptr}; // (or an alpha texture: GetPaletteOwner)
+    void* surface{nullptr}; // a render target's level 0 (IDirect3DSurface9)
+    bool render_target_{false};
 
     // 0x004E04B0: construct (no texture) and go on the list.
     TextureRef();

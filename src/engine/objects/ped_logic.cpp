@@ -153,17 +153,13 @@ PedestrianBrainModule::PedestrianBrainModule()
         position = {0.0f, 0.0f, 0.0f, 1.0f};
     for (float& avoid : avoid_)
         avoid = 0.0f;
-    turn_frame_ = 0;
-    turn_frames_ = 0;
-    peds_ = nullptr;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     stick_above_ = script::fetch_float(kStickAbove);
     stick_below_ = script::fetch_float(kStickBelow);
-    flag_bits_ = 0;
-    stored_max_velocity_ = 0.0f;
     cur_phase_ = checksums::hash_from_text("NULL");
     state_table_ = checksums::hash_from_text("NULL");
     update_type_ = checksums::hash_from_text("NULL");
-    aux_script_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     next_node_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 

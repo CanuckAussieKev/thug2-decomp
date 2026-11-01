@@ -35,7 +35,7 @@ class OnlineObjective final : public Objective {
 public:
     OnlineObjective(const OnlineObjective&) = delete;
     OnlineObjective& operator=(const OnlineObjective&) = delete;
-    bool is_prepared_; // +0x70 (Update initializes it once)
+    bool is_prepared_{false}; // +0x70 (Update initializes it once)
     uint8_t pad71_[3]{};
 
     // 0x00560AC0: the constructor (the normal end of run). 0x00560AF0 / 0x00560B40: the destructor
@@ -68,7 +68,7 @@ class RaceObjective final : public Objective {
 public:
     RaceObjective(const RaceObjective&) = delete;
     RaceObjective& operator=(const RaceObjective&) = delete;
-    int laps_;      // +0x70 (race_total_laps; 1)
+    int laps_{1};   // +0x70 (race_total_laps; 1)
     int lap_{};     // +0x74 (from 1)
     bool add_time_; // +0x78 (the 0xA4038EC9 component: each waypoint's time added)
     uint8_t pad79_[3]{};

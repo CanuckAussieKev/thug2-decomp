@@ -412,7 +412,9 @@ PcFlatRibbonParticles::PcFlatRibbonParticles(uint32_t name, int particle_cap, ui
     material = memory ? new (memory)
                             SimpleMaterial(particle_cap, 0xB, texture, blend_mode, fixed_alpha, segment_count, history)
                       : nullptr;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     width = ribbon_width;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004BDD60

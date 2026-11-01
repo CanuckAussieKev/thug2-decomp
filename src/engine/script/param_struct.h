@@ -61,10 +61,10 @@ public:
     // An integer array's elements are converted.
     float fetch_float(uint32_t index);
 
-    uint8_t unknown0_;
-    QbValueKind kind_tag_;
+    uint8_t unknown0_{0};
+    QbValueKind kind_tag_{kQbvalNone};
     uint16_t unknown2_{};
-    uint32_t extent_;
+    uint32_t extent_{0};
     // (one 32-bit cell: the element block, or the one element itself - which by extent_; not a std::variant: the
     // arrays are pooled 12-byte records and the cell is copied raw)
     union {
@@ -80,16 +80,16 @@ struct Pair {
     Pair();
 
     uint32_t unknown0{};
-    float x;
-    float y;
+    float x{0.0f};
+    float y{0.0f};
 };
 struct Vector {
     Vector();
 
     uint32_t unknown0{};
-    float x;
-    float y;
-    float z;
+    float x{0.0f};
+    float y{0.0f};
+    float z{0.0f};
 };
 Pair* new_pair();
 Vector* alloc_script_vector();
@@ -122,10 +122,10 @@ struct SymbolTableEntry {
     SymbolTableEntry();
 
     uint8_t unknown0{}; // bit 0: in use
-    QbValueKind type;
+    QbValueKind type{kQbvalNone};
     uint16_t unknown2{};
-    uint32_t name;
-    uint32_t unknown8;
+    uint32_t name{0};
+    uint32_t unknown8{0};
     // The value: one 32-bit cell whose kind is `type` (as Component's).
     union {
         int32_t integer;
@@ -134,7 +134,7 @@ struct SymbolTableEntry {
         uint32_t checksum;
         uint32_t raw;
     };
-    SymbolTableEntry* next;
+    SymbolTableEntry* next{nullptr};
 };
 
 // 0x00478CF0: the global symbol `name` (following names that just name another symbol), or null.
@@ -315,9 +315,9 @@ public:
     bool fetch_vec(const char* name, VectorValue* out, int assert);
 
     uint8_t unknown0_{};
-    uint8_t unknown1_;
+    uint8_t unknown1_{0};
     uint16_t unknown2_{};
-    Component* head_;
+    Component* head_{nullptr};
 };
 static_assert(sizeof(Struct) == 8, "layout must match the original");
 

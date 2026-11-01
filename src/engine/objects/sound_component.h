@@ -96,8 +96,8 @@ public:
     WaitingSound waiting_[2]{}; // +0x38
     maths::Vec4 at_point_{};    // +0x98 where it is
     maths::Vec4 last_pos_{};    // +0xA8 where it was a frame ago
-    EmitterNode* spewer_;     // +0xB8 heard from its nearest point
-    ProximNode* proxim_;      // +0xBC
+    EmitterNode* spewer_{nullptr}; // +0xB8 heard from its nearest point
+    ProximNode* proxim_{nullptr};  // +0xBC
 };
 
 } // namespace objects

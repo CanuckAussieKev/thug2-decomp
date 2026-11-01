@@ -53,10 +53,6 @@ float current_round(double value) { return static_cast<float>(value); }
 // 0x00496240
 SparkleConfig::SparkleConfig()
 {
-    unknown04_ = 0xDEDFC057;
-    use_mid_ = true;
-    local_positions_ = false;
-    orient_with_object_ = false;
     for (int i = 0; i < 3; ++i) {
         extent_[i] = 1.0f;
         radius_[i] = 0.0f;

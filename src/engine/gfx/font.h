@@ -19,7 +19,7 @@ namespace render {
 class Typeface : public memory::HeapObject {
 public:
     // 0x0048D020
-    Typeface() { unknown4_ = 0; }
+    Typeface() = default;
     // 0x0048D030 (0x0048D1F0 the scalar deleting destructor, vtable slot 0)
     virtual ~Typeface() = default;
     Typeface(const Typeface&) = delete;
@@ -44,7 +44,7 @@ public:
     // 0x0048D040: the platform's unload, +4 cleared.
     void offload();
 
-    uint32_t unknown4_;
+    uint32_t unknown4_{0};
 };
 
 // A loaded font: its name (the file name the scripts gave) and the font. 16 of them at 0x006FA830.

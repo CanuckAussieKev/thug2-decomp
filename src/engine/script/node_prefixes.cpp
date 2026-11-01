@@ -60,8 +60,6 @@ PrefixTable::PrefixTable()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     slot_table_ = memory ? new (memory) lists::KeyMap(8) : nullptr;
-    node_array_ = 0;
-    following_ = nullptr;
 }
 
 // 0x0045CD30

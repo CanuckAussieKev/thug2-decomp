@@ -189,6 +189,7 @@ AppHost::AppHost(int flags)
 {
     for (memory::ListNode& handlers : dispatcher_.lists_)
         handlers.make_head(); // (0x00457010)
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     dispatcher_app_ = this;
     list1414_.make_node(this);
     flag_bits_ = 0;
@@ -201,6 +202,7 @@ AppHost::AppHost(int flags)
     flag_bits_ = static_cast<uint32_t>(flags);
     clock_ = 0;
     unknown_packet_sink_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 namespace {

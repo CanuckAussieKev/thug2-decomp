@@ -50,7 +50,7 @@ struct Signal {
     uint32_t kind_tag_;       // +0x00
     uint32_t from_where_;     // +0x04 the id of the sender
     uint32_t aim_point_;      // +0x08 the id of the object (or spawned script) it is for
-    uint32_t flag_bits_;      // +0x0C
+    uint32_t flag_bits_{0};   // +0x0C
     script::Struct* payload_; // +0x10 added to each handler's parameters
 };
 
@@ -136,12 +136,13 @@ public:
     // 0x0045F880 (cdecl): print the table (null: "Emtpy" [sic]); returns debug::Printf's result.
     static int list_wait_table(SignalRouteTable* table);
 
-    TableRow* entries_; // +0x00
-    int num_;           // +0x04
-    bool alive_; // +0x08 cleared when the script dies while forward_trigger runs (forward_trigger then frees the table)
-    bool altered_; // +0x09 entries were added or moved (forward_trigger stops: its entry pointer may be stale)
+    TableRow* entries_{nullptr}; // +0x00
+    int num_{0};                 // +0x04
+    bool alive_{
+        true}; // +0x08 cleared when the script dies while forward_trigger runs (forward_trigger then frees the table)
+    bool altered_{false}; // +0x09 entries were added or moved (forward_trigger stops: its entry pointer may be stale)
     uint8_t pad0a_[2]{};
-    int in_use_; // +0x0C forward_trigger nesting depth
+    int in_use_{0}; // +0x0C forward_trigger nesting depth
 };
 
 } // namespace objects

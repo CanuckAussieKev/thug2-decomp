@@ -54,6 +54,7 @@ bool may_have(UiWidget* e, objects::Signal* event)
 WindowedList::WindowedList(bool vertical)
 {
     listener_.enter_wait_board(this);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     menu_ = nullptr;
     chosen_item_id_ = 0;
     focused_ = false;
@@ -65,6 +66,7 @@ WindowedList::WindowedList(bool vertical)
     regular_space_ = -1.0f;
     change_species(kVScrollingMenu);
     vertical_ = vertical;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004AE2D0

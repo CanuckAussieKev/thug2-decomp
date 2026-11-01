@@ -138,23 +138,9 @@ ModelWidget::ModelWidget()
 {
     for (ShapeMesh& model : models_)
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
-    model_total_ = 0;
-    camera_z_ = -400.0f;
     angle_[0] = angle_[1] = angle_[2] = 0.0f;
     angular_velocity_[0] = angular_velocity_[1] = angular_velocity_[2] = 0.0f;
-    point_at_ = kPointAtNothing;
-    euler_sequence_ = 2;
     target_position_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    target_object_ = 0;
-    lean_angle_ = 0.0f;
-    anchor_object_ = 0;
-    parent_integer_ = 0;
-    fit_scale_ = 1.0f;
-    view_slot_ = 0;
-    size_follows_range_ = false;
-    distance_scale_ = 0.002f;
-    max_scale_ = 3.0f;
-    is_dead_ = false;
     basis_frame_.reset_to_identity();
     pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
     centre_ = {0.0f, 0.0f, 0.0f, 1.0f};

@@ -12,35 +12,12 @@
 
 namespace render {
 
-namespace {
-
-constexpr uint32_t kBlend = 0x54628ED7; // "blend"
-
-} // namespace
-
 // --- the sprite ---------------------------------------------------------------------------------------------
 
 // 0x0049ED60
-BillboardQuad::BillboardQuad(void* window)
+BillboardQuad::BillboardQuad(void* window) : screen_region_(window)
 {
-    pos_x_ = -1.0f;
-    y_ = -1.0f;
-    hot_x_ = -1.0f;
-    hot_y_ = -1.0f;
-    bitmap_ = nullptr;
-    scale_h_ = 1.0f;
-    scale_v_ = 1.0f;
-    orientation_turn_ = 0.0f;
-    rank_ = 0.0f;
-    span_ = 0;
-    level_y_ = 0;
     std::memset(rgba_value_, 0x80, sizeof(rgba_value_));
-    screen_region_ = window;
-    invisible_ = true;
-    use_depth_ = false;
-    flip_v_ = false;
-    flip_u_ = false;
-    mix_mode_ = kBlend;
 }
 
 // 0x0048D1B0 (folded with GlyphString::change_pane)
@@ -167,13 +144,9 @@ void BillboardQuad::change_rgba(uint32_t rgba)
 // --- the textured quad ----------------------------------------------------------------------------------------
 
 // 0x0049EED0
-TexturedQuad::TexturedQuad(void* window)
+TexturedQuad::TexturedQuad(void* window) : screen_region_(window)
 {
-    screen_region_ = window;
-    bitmap_ = nullptr;
     std::memset(rgba_value_, 0x80, sizeof(rgba_value_));
-    invisible_ = true;
-    use_depth_ = false;
 }
 
 // 0x0049EF30

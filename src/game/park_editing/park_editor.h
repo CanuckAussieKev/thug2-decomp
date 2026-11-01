@@ -175,7 +175,7 @@ public:
     std::unique_ptr<ParkEditorTask> draw_job_;                    // +0x38 (the empty 0x005480A0, priority -1000)
     std::unique_ptr<ParkEditorInputHandler> editor_pad_listener_; // +0x3C (process_pad_input, priority 0)
     uint32_t cur_phase_;                                          // +0x40
-    uint32_t actions_;                                            // +0x44
+    uint32_t actions_{0};                                         // +0x44
     uint32_t flag_bits_;                                          // +0x48
     float move_speed_;                                            // +0x4C (480)
     float turn_speed_;                                            // +0x50 (120)

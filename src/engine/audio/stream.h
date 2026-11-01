@@ -52,8 +52,8 @@ struct WadStream {
     // The status word status_index_ picks (E_PENDING 0x8000000A: still going).
     uint32_t get_standing() const { return cur_standing_[status_index_]; }
 
-    Hdl file_ref_;           // +0x00 INVALID_HANDLE_VALUE when closed
-    uint32_t unknown04_;     // +0x04
+    Hdl file_ref_{reinterpret_cast<Hdl>(-1)}; // +0x00 INVALID_HANDLE_VALUE when closed
+    uint32_t unknown04_{0};                   // +0x04
     _OVERLAPPED* async_ctl_{}; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
     bool reading_{};           // +0x0C
     bool read_done_{};         // +0x0D the read finished at once
@@ -64,8 +64,8 @@ struct WadStream {
     uint8_t pad16_[2]{};
     uint32_t shift_{};   // +0x18
     uint32_t extent_{};  // +0x1C
-    uint32_t unknown20_; // +0x20
-    uint32_t unknown24_; // +0x24
+    uint32_t unknown20_{0}; // +0x20
+    uint32_t unknown24_{0}; // +0x24
     uint8_t unknown28_[4]{};
     uint32_t cur_standing_[9]{}; // +0x2C indexed by status_index_ (0x8000000A: still fine)
     uint32_t unknown50_{};       // +0x50
@@ -74,10 +74,10 @@ struct WadStream {
     uint8_t pad56_[2]{};
     int status_index_{}; // +0x58
     uint8_t unknown5c_[3]{};
-    bool unknown5f_; // +0x5F set by the constructor and the "start" calls, cleared once loaded
+    bool unknown5f_{true}; // +0x5F set by the constructor and the "start" calls, cleared once loaded
     uint8_t unknown60_[0x30]{};
-    uint32_t unknown90_;  // +0x90
-    void* octets_;        // +0x94
+    uint32_t unknown90_{0}; // +0x90
+    void* octets_{nullptr}; // +0x94
     int ready_flag_{};    // +0x98
     int played_{};        // +0x9C
     int cur_phase_{};     // +0xA0 1: preloading
@@ -126,34 +126,34 @@ struct BinkStream {
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
     void set_channel_volumes(float, float, float, float, float) {}
 
-    Hdl file_ref_;           // +0x00 INVALID_HANDLE_VALUE: none
-    uint32_t unknown04_;     // +0x04
+    Hdl file_ref_{reinterpret_cast<Hdl>(-1)}; // +0x00 INVALID_HANDLE_VALUE: none
+    uint32_t unknown04_{0};                   // +0x04
     _OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0)
-    int wad_entry_;          // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
-    bool silent_;            // +0x10 the volume is 0: not updated
-    bool is_halted_;         // +0x11 the pause state carried out
+    int wad_entry_{-1};      // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
+    bool silent_{false};     // +0x10 the volume is 0: not updated
+    bool is_halted_{false};  // +0x11 the pause state carried out
     uint8_t unknown12_[6]{};
     bool shared_file_{}; // +0x18 file_ref_ isn't closed with the stream
     bool unknown19_;   // +0x19
     uint8_t unknown1a_[0xA]{};
     int plays_;                 // +0x24 plays left (counted down at the last frame; 0 after one: finished)
-    render::Bink* bink_;        // +0x28 null while paused
-    void* memory_;              // +0x2C freed with the stream
+    render::Bink* bink_{nullptr}; // +0x28 null while paused
+    void* memory_{nullptr};       // +0x2C freed with the stream
     uint32_t unknown30_{};      // +0x30
     uint32_t status_words_[11]{}; // +0x34: indexed by status_index_ (see Status)
-    bool pause_requested_;      // +0x60
-    bool finished_;             // +0x61
+    bool pause_requested_{false}; // +0x60
+    bool finished_{false};        // +0x61
     uint8_t unknown62_[2]{};
     int status_index_{}; // +0x64
     uint8_t unknown68_[3]{};
-    bool unknown6b_; // +0x6B set by the constructor and the "start" calls, cleared once loaded
+    bool unknown6b_{true}; // +0x6B set by the constructor and the "start" calls, cleared once loaded
     uint8_t unknown6c_[0x14]{};
     float loudness_{};         // +0x80
     uint32_t resume_frame_{};  // +0x84 the frame it was paused on
     bool from_handle_{};       // +0x88 from_where_ holds a file handle, not a path
     char from_where_[0x11F]{}; // +0x89 the path, or the handle (video_open is given its address)
-    uint32_t unknown1a8_;    // +0x1A8
-    uint32_t unknown1ac_;    // +0x1AC
+    uint32_t unknown1a8_{0};   // +0x1A8
+    uint32_t unknown1ac_{0};   // +0x1AC
     uint8_t unknown1b0_[0xC]{};
     bool stop_requested_{}; // +0x1BC freed by the update once ready_to_free
     uint8_t pad1bd_[3]{};

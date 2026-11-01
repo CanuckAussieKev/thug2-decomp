@@ -11,15 +11,15 @@
 namespace memory {
 
 // 0x005BA420
-SlabBank::SlabBank(int item_size, int count, const char* name)
+SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), slot_bytes_(item_size)
 {
-    slot_bytes_ = item_size;
-    num_ = count;
     auto* block = static_cast<uint8_t*>(alloc(static_cast<unsigned int>(item_size * count)));
     finish_ = block + num_ * slot_bytes_;
     outset_ = block;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     taken_count_ = 0;
     peak_used_ = 0;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     free_list_ = block;
 
     // Link every item to the next; the last one ends the list.

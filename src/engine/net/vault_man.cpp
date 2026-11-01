@@ -195,15 +195,6 @@ VaultItem::VaultItem()
     extent_[0] = '\0';
     unknowncc_[0] = '\0';
     summary_text_[0] = '\0';
-    points_held_ = 0;
-    num_pieces_ = 0;
-    num_gaps_ = 0;
-    num_goals_ = 0;
-    style_set_ = 0;
-    tod_script_ = 0;
-    has_male_body_ = 0;
-    span_ = 0;
-    level_y_ = 0;
 }
 
 // 0x0054B5E0
@@ -220,7 +211,6 @@ VaultCategory::VaultCategory()
 {
     init_node(&list_link_);
     items_.make_head();
-    skip_ = false;
 }
 
 // 0x0054C890
@@ -265,11 +255,10 @@ VaultMan::VaultMan()
 {
     categories_.make_head();
     search_.list_link_ = nullptr;
-    transfer_ = kNone;
-    progress_ = 0;
-    start_time_ = 0;
     task_ = std::make_unique<tasks::Task<VaultMan>>(&vault_task, this, 0);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     semaphore_ = CreateSemaphoreA(nullptr, 1, 10, nullptr);
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0054B470

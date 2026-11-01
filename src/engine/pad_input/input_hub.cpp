@@ -149,10 +149,6 @@ HostEnd::HostEnd()
     content_.ongoing_ = 0;
     content_.changes_ = 0;
     content_.previous_ = 0;
-    data_in_ = nullptr;
-    data_out_ = nullptr;
-    in_buf_limit_ = nullptr;
-    out_buf_limit_ = nullptr;
 }
 
 // 0x0044EAA0

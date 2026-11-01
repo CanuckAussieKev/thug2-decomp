@@ -27,6 +27,9 @@ class RiderBoardPhysics;
 
 class RiderRollingAudio final : public ObjectModule {
 public:
+    // The skater states cur_phase_ holds.
+    static constexpr int kStateGround = 0, kStateAir = 1, kStateRail = 4;
+
     RiderRollingAudio(const RiderRollingAudio&) = delete;
     RiderRollingAudio& operator=(const RiderRollingAudio&) = delete;
     // 0x00513AD0 (registered by register_component_types): a new one (0 if out of memory).
@@ -73,18 +76,18 @@ public:
     uint8_t surface_type_{};               // +0x60 (the finalize physics component's: the state's +0xE1)
     uint8_t pad61[3]{};
     maths::Vec4 last_pos_{}; // +0x64 the skater's position last frame
-    int cur_phase_;        // +0x74 the skater's state (0 ground, 1 air, 4 rail)
+    int cur_phase_{kStateAir}; // +0x74 the skater's state (0 ground, 1 air, 4 rail)
     uint8_t sound_[0x84]{}; // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
     // (in sound_: +0xE0 the sound's checksum, +0xE4 / +0xE8 its pitch at full / no speed)
-    uint8_t have_sound_;    // +0xFC
-    uint8_t sound_changed_; // +0xFD choose the sound again
-    uint8_t force_update_;  // +0xFE (never set here)
-    uint8_t no_rail_sound_; // +0xFF (the state's +0x70)
-    uint8_t sliding_;       // +0x100 on a rail: slide, not grind (the state's +0x58)
+    uint8_t have_sound_{0};    // +0xFC
+    uint8_t sound_changed_{1}; // +0xFD choose the sound again
+    uint8_t force_update_{0};  // +0xFE (never set here)
+    uint8_t no_rail_sound_{0}; // +0xFF (the state's +0x70)
+    uint8_t sliding_{0};       // +0x100 on a rail: slide, not grind (the state's +0x58)
     uint8_t pad101[3]{};
     float speed_ratio_{}; // +0x104
-    float volume_mult_; // +0x108 volume_mult
-    uint8_t on_;        // +0x10C
+    float volume_mult_{1.0f}; // +0x108 volume_mult
+    uint8_t on_{1};           // +0x10C
     uint8_t pad10d_[3]{};
 };
 

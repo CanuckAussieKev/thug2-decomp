@@ -70,15 +70,15 @@ bool split_next_triangle(uint8_t** out, const SplitFormat* format);
 struct SplatParams {
     float start[4]{};
     float end[4]{};
-    float size;        // +0x20
-    float depth;       // +0x24 (each triangle's correction A)
-    float angle;       // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
-    float cone_angle_; // +0x2C
-    float lifetime;    // +0x30
-    uint8_t* texture;  // +0x34
-    uint32_t unknown38;
-    const float* up;   // +0x3C: a point the projection's up comes from, or null
-    uint8_t unknown40; // +0x40
+    float size{0.0f};          // +0x20
+    float depth{0.0f};         // +0x24 (each triangle's correction A)
+    float angle{0.0f};         // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
+    float cone_angle_{0.0f};   // +0x2C
+    float lifetime{0.0f};      // +0x30
+    uint8_t* texture{nullptr}; // +0x34
+    uint32_t unknown38{0x54628ED7};
+    const float* up{nullptr}; // +0x3C: a point the projection's up comes from, or null
+    uint8_t unknown40{0};     // +0x40
     uint8_t pad41[3]{};
 
     // 0x00490E40: construct: the start and end (0, 0, 0, 1), everything else zero but +0x38 (0x54628ED7). Returns

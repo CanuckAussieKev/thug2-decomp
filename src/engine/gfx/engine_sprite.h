@@ -13,6 +13,8 @@ namespace render {
 // The sprite (0x44 bytes of the engine's; vtable 0x00649A80 - PC 0x0064A744).
 class BillboardQuad : public memory::HeapObject {
 public:
+    static constexpr uint32_t kBlend = 0x54628ED7; // the blend mode "blend"
+
     // 0x0049ED60: in `window` - hidden, no texture, blend "blend", at (-1, -1), scale 1, hot spot (-1, -1), unturned,
     // priority 0, size 0, no flips, colour 0x80 each.
     explicit BillboardQuad(void* window);
@@ -57,19 +59,19 @@ public:
     // 0x0049ECF0: its colour (RGBA).
     void change_rgba(uint32_t rgba);
 
-    uint8_t* bitmap_;         // +0x04: an engine BitmapTexture
-    uint32_t mix_mode_;       // +0x08
-    float pos_x_, y_;         // +0x0C
-    float scale_h_, scale_v_; // +0x14
-    float hot_x_, hot_y_;     // +0x1C
-    float orientation_turn_;  // +0x24
-    float rank_;              // +0x28
+    uint8_t* bitmap_{nullptr};            // +0x04: an engine BitmapTexture
+    uint32_t mix_mode_{kBlend};           // +0x08
+    float pos_x_{-1.0f}, y_{-1.0f};       // +0x0C
+    float scale_h_{1.0f}, scale_v_{1.0f}; // +0x14
+    float hot_x_{-1.0f}, hot_y_{-1.0f};   // +0x1C
+    float orientation_turn_{0.0f};        // +0x24
+    float rank_{0.0f};                    // +0x28
     uint32_t layer_{};        // +0x2C: (not set when made)
-    uint16_t span_, level_y_; // +0x30
-    bool invisible_;          // +0x34
-    bool use_depth_;          // +0x35: layer_ rather than rank_
+    uint16_t span_{0}, level_y_{0}; // +0x30
+    bool invisible_{true};          // +0x34
+    bool use_depth_{false};         // +0x35: layer_ rather than rank_
     bool z_write_{};          // +0x36: (not set when made)
-    bool flip_v_, flip_u_;    // +0x37
+    bool flip_v_{false}, flip_u_{false}; // +0x37
     uint8_t rgba_value_[4]{}; // +0x39 (unaligned)
     uint8_t pad3d_[3]{};
     void* screen_region_; // +0x40: its 2D window (set by 0x0048D1B0)
@@ -101,11 +103,11 @@ public:
     void change_rgba(uint32_t rgba);
 
     void* screen_region_; // (the original's offsets: +0x04)
-    uint8_t* bitmap_;     // +0x08
-    bool invisible_;      // +0x0C
+    uint8_t* bitmap_{nullptr}; // +0x08
+    bool invisible_{true};     // +0x0C
     uint8_t padd_[3]{};
     float rank_{};   // +0x10
-    bool use_depth_; // +0x14: (always cleared)
+    bool use_depth_{false}; // +0x14: (always cleared)
     uint8_t pad15[3]{};
     uint32_t mix_mode_{};     // +0x18: (not set when made)
     uint8_t rgba_value_[4]{}; // +0x1C

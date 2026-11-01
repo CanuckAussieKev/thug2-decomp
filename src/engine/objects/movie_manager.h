@@ -95,7 +95,7 @@ public:
     memory::ListNode movies_{}; // +0x4C the queue's head (lists::Foremost<Movie>)
     gfx::ViewCam viewer_;     // +0x60 the last movie's camera, kept
     uint32_t keep_until_{};   // +0x124 the render frame it's kept until
-    bool keep_camera_;        // +0x128
+    bool keep_camera_{false}; // +0x128
 };
 
 // The compiler-made copy assignments: 0x0057A190 GameObjects::Entity's (every field but the tables: the vptr, the list

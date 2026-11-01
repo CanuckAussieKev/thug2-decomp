@@ -85,13 +85,7 @@ int current_level(void* career) { return static_cast<objects::RiderStoryProgress
 } // namespace
 
 // 0x005786E0
-GapEntry::GapEntry()
-{
-    list_link_.make_node(this);
-    num_ = 0;
-    pending_ = 0;
-    in_level_ = true;
-}
+GapEntry::GapEntry() { list_link_.make_node(this); }
 
 // 0x00579510
 GapEntry::~GapEntry()
@@ -109,11 +103,7 @@ GapEntry* GapEntry::teardown(unsigned int flags)
 }
 
 // 0x00579690
-GapTally::GapTally()
-{
-    gaps_.make_head();
-    built_ = false;
-}
+GapTally::GapTally() { gaps_.make_head(); }
 
 // 0x00578840
 void GapTally::get_clear()

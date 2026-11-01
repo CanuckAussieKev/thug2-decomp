@@ -9,9 +9,6 @@ namespace net {
 // 0x004544E0
 Gauges::Gauges()
 {
-    packets_seen_ = 0;
-    byte_sum_ = 0;
-    throughput_ = 0;
     for (int& count : per_kind_counts_)
         count = 0;
     for (int& bytes : message_data_)

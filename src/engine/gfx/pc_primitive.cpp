@@ -77,10 +77,6 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
 {
     // (material_ made first by its constructor)
     uint32_t made = flag_bits_ | 1;
-    vertex_format_ = 2;
-    vertices_ = nullptr;
-    vertex_count_ = 0;
-    colour_ = 0x80808080;
     flag_bits_ = made;
     material_.pass_flags_[0] = 0;
     int r = get_rand();

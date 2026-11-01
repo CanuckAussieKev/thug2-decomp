@@ -608,7 +608,7 @@ public:
     // Fields.
     net::AppHost*& client_slot(int index) { return (&client_app_)[index]; }
 
-    uint8_t flag_bits_; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
+    uint8_t flag_bits_{0}; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     uint8_t unknown1_[3]{};
     net::AppHost* host_;                                  // +0x04
     net::AppHost* client_app_;                            // +0x08 client 0 (the game's)
@@ -666,7 +666,7 @@ public:
     uint32_t last_ready_probe_id_{};        // +0x188
     bool cleared_to_start_{};               // +0x18C
     uint32_t score_synced_at_{};            // +0x190
-    uint32_t script_flag_bits_;             // +0x194 the pro set's bits (sent as a byte)
+    uint32_t script_flag_bits_{0};          // +0x194 the pro set's bits (sent as a byte)
     int join_phase_{};                      // +0x198 EntryPhase
     uint32_t join_ip_{};                    // +0x19C
     uint32_t join_private_ip_{};            // +0x1A0

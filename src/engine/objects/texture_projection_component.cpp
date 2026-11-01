@@ -40,9 +40,6 @@ memory::owner<ObjectModule*> TextureProjectionComponent::fabricate() { return ne
 TextureProjectionComponent::TextureProjectionComponent()
 {
     projections_.make_head();
-    suspend_ = nullptr;
-    bone_rig_ = nullptr;
-    mesh_instance_ = nullptr;
     kind_tag_ = kType;
 }
 

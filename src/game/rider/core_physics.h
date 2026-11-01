@@ -785,18 +785,19 @@ public:
     uint8_t transfer_blocked_{}; // +0x2D0 a spine transfer was blocked: break_vert tries again
     uint8_t pad2d1_[3]{};
     uint32_t nearest_wall_side_{}; // +0x2D4 which end or side of the board has the nearest wall (0: none)
-    uint8_t powerslide_;         // +0x2D8 EnterPowerslide / ExitPowerslide
+    uint8_t powerslide_{0};        // +0x2D8 EnterPowerslide / ExitPowerslide
     uint8_t auto_kick_{};        // +0x2D9 ForceAutoKickOn / Off
     uint8_t tap_spin_{};         // +0x2DA spins by taps (half a turn each)
     uint8_t model_rotating_{};   // +0x2DB a timed model rotation (a flip spin) is on
     uint8_t model_flipped_{};    // +0x2DC ... a half turn about y
     uint8_t pad2dd_[3]{};
     float model_rotation_left_{}; // +0x2E0 ... its frames left
-    uint8_t flip_spin_started_; // +0x2E4 a flip spin started this air (the trick component's sequence check)
+    uint8_t flip_spin_started_{0}; // +0x2E4 a flip spin started this air (the trick component's sequence check)
     uint8_t pad2e5_[3]{};
-    float slomo_speed_; // +0x2E8 SetSlomo's speed (1): the model rotation's step a frame, the trick windows' stretch
+    float slomo_speed_{
+        1.0f}; // +0x2E8 SetSlomo's speed (1): the model rotation's step a frame, the trick windows' stretch
     uint8_t point_rail_spin_{}; // +0x2EC in a point rail spin
-    uint8_t on_vehicle_;      // +0x2ED SkaterVehicleOn / Off
+    uint8_t on_vehicle_{0};     // +0x2ED SkaterVehicleOn / Off
     uint8_t pad2ee_[2]{};
     uint32_t vehicle_{};       // +0x2F0 SetSkaterVehicle
     uint8_t projectiles_on_{}; // +0x2F4 ProjectilesOn / Off
@@ -804,12 +805,12 @@ public:
     int ammo_{};                // +0x2F8 the projectile count
     uint32_t ammo_type_{};      // +0x2FC SetAmmoType
     uint8_t in_revert_{};       // +0x300 InRevert / OutRevert
-    uint8_t focus_on_;          // +0x301 FocusOn / FocusOff (the special's time runs)
+    uint8_t focus_on_{0};       // +0x301 FocusOn / FocusOff (the special's time runs)
     uint8_t motoskateboard_{};  // +0x302 moto_skateboard_on / Off
     uint8_t crouch_stats_{};    // +0x303 push with the crouched stats
-    uint8_t manual_turnaround_; // +0x304 the backwards script ran (EndManualTurnaround clears it)
+    uint8_t manual_turnaround_{0}; // +0x304 the backwards script ran (EndManualTurnaround clears it)
     uint8_t pad305_[3]{};
-    int projectile_input_; // +0x308 -1: none
+    int projectile_input_{-1}; // +0x308 -1: none
     float queued_spin_{};  // +0x30C tap spins queued (degrees)
     uint8_t no_kick_{};    // +0x310 kicking forbidden (can_kick_on / CanKickOff)
     uint8_t can_brake_{};  // +0x311 CanBrakeOn / Off
@@ -883,18 +884,18 @@ public:
     uint8_t tantrum_{};     // +0x1508 EnterTantrum / ExitTantrum
     uint8_t tagging_{};     // +0x1509 EnterTagging / ExitTagging
     uint8_t pad150a_[2]{};
-    objects::PadInputModule* input_;                      // +0x150C the object's components (seal)
-    objects::ActivationZoneModule* trigger_;              // +0x1510
-    objects::RiderSfxPlayer* sound_;                      // +0x1514
-    objects::MoveExecutor* trick_;                        // +0x1518
-    objects::RiderTurning* rotate_;                       // +0x151C
-    objects::RiderPointKeeper* score_;                    // +0x1520
-    objects::RiderTeeterMoves* balance_;                  // +0x1524
-    objects::RiderPoseState* state_;                      // +0x1528
-    objects::MovingSurfaceModule* ride_;                  // +0x152C
-    objects::RiderBoardPhysics* physics_control_;         // +0x1530
-    objects::FootMovement* walk_;                         // +0x1534
-    objects::TaggingControlComponent* tagging_component_; // +0x1538 the projectiles'
+    objects::PadInputModule* input_{nullptr};                      // +0x150C the object's components (seal)
+    objects::ActivationZoneModule* trigger_{nullptr};              // +0x1510
+    objects::RiderSfxPlayer* sound_{nullptr};                      // +0x1514
+    objects::MoveExecutor* trick_{nullptr};                        // +0x1518
+    objects::RiderTurning* rotate_{nullptr};                       // +0x151C
+    objects::RiderPointKeeper* score_{nullptr};                    // +0x1520
+    objects::RiderTeeterMoves* balance_{nullptr};                  // +0x1524
+    objects::RiderPoseState* state_{nullptr};                      // +0x1528
+    objects::MovingSurfaceModule* ride_{nullptr};                  // +0x152C
+    objects::RiderBoardPhysics* physics_control_{nullptr};         // +0x1530
+    objects::FootMovement* walk_{nullptr};                         // +0x1534
+    objects::TaggingControlComponent* tagging_component_{nullptr}; // +0x1538 the projectiles'
 };
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).

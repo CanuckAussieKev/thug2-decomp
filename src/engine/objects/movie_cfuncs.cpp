@@ -73,8 +73,6 @@ uint32_t movie_key_from_params(script::Struct* params, int assert)
 // 0x005ADF60
 CutsceneDestroyEntry::CutsceneDestroyEntry()
 {
-    label_ = 0;
-    destroy_script_ = 0;
     script::Struct* memory = script::spawn_param_bag();
     args_ = memory ? new (memory) script::Struct : nullptr;
 }

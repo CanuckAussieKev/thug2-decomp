@@ -57,16 +57,16 @@ struct ColorAnim {
 struct MaterialRef {
     uint32_t checksum{};
     uint32_t name_hash_{}; // passes are named relative to it (see pass_from_checksum)
-    uint32_t pass_count_;
+    uint32_t pass_count_{0};
     uint8_t sort_flag_{};   // +0x0C
     uint8_t two_sided_{};   // +0x0D: no culling
-    bool has_uv_wibble_;    // +0x0E: set when a pass gets a UV wibble of its own
-    bool has_texture_anim_; // +0x0F
+    bool has_uv_wibble_{false};    // +0x0E: set when a pass gets a UV wibble of its own
+    bool has_texture_anim_{false}; // +0x0F
     uint8_t alpha_ref_{};   // +0x10 (0: no alpha test)
-    uint8_t depth_bias_;    // +0x11 (up to 16)
+    uint8_t depth_bias_{0}; // +0x11 (up to 16)
     uint8_t unknown12[2]{};
     uint32_t unknown14{};
-    uint32_t unknown18;
+    uint32_t unknown18{0};
     float sort_key_{}; // +0x1C
     uint32_t
         pass_flags_[4]{};   // +0x20: 1 UV wibble, 2 (pass 0) colour animations, 8 environment mapped, 0x80 (byte) the
@@ -81,10 +81,10 @@ struct MaterialRef {
     uint32_t unknownc0_[4]{};         // +0xC0 (0x10001 when constructed)
     UvOscillator* uv_wibble_[4]{};    // +0xD0
     uint32_t mip_lod_bias_[4]{};      // +0xE0 (kMipLodBias0's: float bits)
-    uint32_t color_anim_count_;     // +0xF0
-    ColorAnim* color_anims_;        // +0xF4
-    uint32_t* anim_colors_;         // +0xF8: each animation's colour now
-    TextureAnim* texture_anim_;     // +0xFC
+    uint32_t color_anim_count_{0};    // +0xF0
+    ColorAnim* color_anims_{nullptr}; // +0xF4
+    uint32_t* anim_colors_{nullptr};  // +0xF8: each animation's colour now
+    TextureAnim* texture_anim_{nullptr}; // +0xFC
     float specular[3]{};            // +0x100
     float specular_power_{};        // +0x10C
 

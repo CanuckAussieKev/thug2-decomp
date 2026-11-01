@@ -248,17 +248,13 @@ EventWaitBoard::EventWaitBoard()
     log_.names_ptr_ = nullptr;
     log_.layer_ = 0;
     log_.added_since_sweep_ = 0;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     entity_list_ = new_hash_table(8);
     aliases_ = new_hash_table(4);
     listeners_ = new_hash_table(8);
-    next_auto_id_ = 0;
-    event_listeners_ = nullptr;
-    unknown18 = false;
-    launch_depth_ = 0;
-    launched_from_script_ = 0;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     for (Waiter& waiter : waiters_)
         waiter.type = 0;
-    unknownb218_ = false;
 }
 
 // 0x00462E40 (the listener table isn't freed - an original leak)

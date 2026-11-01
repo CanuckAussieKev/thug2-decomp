@@ -17,8 +17,8 @@ namespace commands {
 // An entry of the cutscene destroy list (AddToCutsceneDestroyList, 0x005B5320; 0xC bytes): the object's name, the
 // script that destroys it (destroy_func) and its parameters (destroy_params, a structure of the entry's own).
 struct CutsceneDestroyEntry {
-    uint32_t label_;          // +0x00
-    uint32_t destroy_script_; // +0x04
+    uint32_t label_{0};          // +0x00
+    uint32_t destroy_script_{0}; // +0x04
     script::Struct* args_;    // +0x08
     // 0x005ADF60: the constructor: no name or script, a new empty structure (null if out of memory).
     CutsceneDestroyEntry();

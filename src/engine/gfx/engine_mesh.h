@@ -36,9 +36,9 @@ public:
     int collision_count_{};       // +0x88
     uint8_t* hit_shape_{};        // +0x8C: the objects (0x40 bytes each)
     maths::BBox box_;           // +0x90
-    uint32_t bone_count_;       // +0xB0 (the PC skin file's, from version 2)
-    void* hierarchy_;           // +0xB4
-    uint32_t hierarchy_count_;  // +0xB8
+    uint32_t bone_count_{0};    // +0xB0 (the PC skin file's, from version 2)
+    void* hierarchy_{nullptr};  // +0xB4
+    uint32_t hierarchy_count_{0}; // +0xB8
 };
 static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_count_) == 0xB8 && sizeof(SubMesh) == 0xBC,
               "layout must match the original");

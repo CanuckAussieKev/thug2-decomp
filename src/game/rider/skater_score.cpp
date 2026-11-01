@@ -71,11 +71,7 @@ int number_parameter(script::Struct* params)
 memory::owner<ObjectModule*> RiderPointKeeper::fabricate() { return new RiderPointKeeper; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderPointKeeper::RiderPointKeeper()
-{
-    kind_tag_ = kSkaterScore;
-    points_held_ = nullptr;
-}
+RiderPointKeeper::RiderPointKeeper() { kind_tag_ = kSkaterScore; }
 
 // 0x00518BE0 (0x00518C50 the deleting one)
 RiderPointKeeper::~RiderPointKeeper()

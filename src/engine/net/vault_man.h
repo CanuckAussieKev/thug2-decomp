@@ -42,15 +42,15 @@ struct VaultItem {
     char extent_[0x10]{};          // +0x0BC (parks)
     char unknowncc_[0x21]{};       // +0x0CC the field before the description
     char summary_text_[0x103]{};   // +0x0ED the rest of the line
-    int points_held_;            // +0x1F0 (tricks)
-    int span_;                   // +0x1F4 (never read from the list)
-    int level_y_;                // +0x1F8 (never read from the list)
-    int num_pieces_;             // +0x1FC (parks)
-    int num_gaps_;               // +0x200 (parks)
-    int num_goals_;              // +0x204 (parks, goals)
-    int style_set_;              // +0x208 (parks)
-    uint32_t tod_script_;        // +0x20C (parks)
-    int has_male_body_;          // +0x210 (skaters)
+    int points_held_{0};           // +0x1F0 (tricks)
+    int span_{0};                  // +0x1F4 (never read from the list)
+    int level_y_{0};               // +0x1F8 (never read from the list)
+    int num_pieces_{0};            // +0x1FC (parks)
+    int num_gaps_{0};              // +0x200 (parks)
+    int num_goals_{0};             // +0x204 (parks, goals)
+    int style_set_{0};             // +0x208 (parks)
+    uint32_t tod_script_{0};       // +0x20C (parks)
+    int has_male_body_{0};         // +0x210 (skaters)
 
     // 0x0054B570: unlinked, every string and number empty.
     VaultItem();
@@ -61,7 +61,7 @@ struct VaultItem {
 // A category of the vault (0x44 bytes): lists::Elem<VaultCategory> with its items.
 struct VaultCategory {
     memory::ListNode list_link_{}; // +0x00 data = this
-    bool skip_;                  // +0x14 not chosen when moving through the categories at the start ("Uploads")
+    bool skip_{false};             // +0x14 not chosen when moving through the categories at the start ("Uploads")
     char label_[0x1B]{};         // +0x15
     memory::ListNode items_{};   // +0x30 lists::Foremost<VaultItem>
 
@@ -159,13 +159,13 @@ public:
     static int on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length, VaultMan* vault);
 
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<VaultMan> (vault_task)
-    int transfer_;                               // +0x004 Transfer
-    int progress_;                               // +0x008 percent; 100 = finished
+    int transfer_{kNone};                        // +0x004 Transfer
+    int progress_{0};                            // +0x008 percent; 100 = finished
     int outcome_val_{};                          // +0x00C 0 running, 1 done, 2 failed
     int fault_{};                                // +0x010 ghttp's result (on_file_downloaded)
     uint32_t buffer_size_{};                     // +0x014
     char* octets_{};                             // +0x018 what came (or the upload's data)
-    uint32_t start_time_;                        // +0x01C the time of the start or of the last progress
+    uint32_t start_time_{0};                     // +0x01C the time of the start or of the last progress
     char url_[0x80]{};                           // +0x020
     char source_path_[0x80]{};                   // +0x0A0 the upload's
     char summary_text_[0x200]{};                 // +0x120 the upload's

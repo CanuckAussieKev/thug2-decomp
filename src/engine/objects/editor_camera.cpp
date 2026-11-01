@@ -189,10 +189,12 @@ EditorViewModule::EditorViewModule()
     for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
         *v = {0.0f, 0.0f, 0.0f, 1.0f};
     zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0f;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     shadow_handle_ = nullptr;
     input_ptr_ = nullptr;
     simple_collision_ = false;
     no_wall_check_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004E5100 (0x004E59A0 the deleting one)

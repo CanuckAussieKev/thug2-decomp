@@ -29,8 +29,8 @@ public:
     // the rotation's x and w and the translation's x negated. True.
     bool fetch_pose(uint8_t* pose) override;
 
-    bool mirrored_;    // +0x14
-    bool has_pivoted_; // +0x15
+    bool mirrored_{false};    // +0x14
+    bool has_pivoted_{false}; // +0x15
     uint8_t pad16[2]{};
 };
 static_assert(offsetof(FlipRotateComponent, mirrored_) == 0x14);

@@ -20,15 +20,15 @@ struct SceneRef;
 // An instance (0x64 bytes, constructor 0x004D1030): a mesh list drawn with a transform of its own and bone matrices,
 // on the instances' list (0x007825C0).
 struct Singleton {
-    uint32_t flags;        // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
-                           // constructor); 4: coloured
+    uint32_t flags{0};       // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
+                             // constructor); 4: coloured
     maths::Mat4 transform{}; // +0x04
     maths::Mat4* bones;    // +0x44
     int bone_count_;       // +0x48
-    bool active;           // +0x4C
+    bool active{true};     // +0x4C
     uint8_t color[4]{};    // +0x4D: RGBA (0x80 each: unchanged)
     uint8_t pad51[3]{};
-    void* model;        // +0x54
+    void* model{nullptr}; // +0x54
     SceneRef* scene;    // +0x58: its mesh list (the bounding sphere at +0x64)
     Singleton* next;    // +0x5C
     uint32_t viewports; // +0x60: a bit per viewport it shows in (all: -1)
@@ -180,13 +180,13 @@ public:
 
     maths::BBox bounds;           // +0x14 (as loaded)
     uint8_t* scene{};             // +0x34: the PC scene it's in
-    memory::ListNode* load_list_; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
-    MeshRef** meshes;             // +0x3C
+    memory::ListNode* load_list_{nullptr}; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
+    MeshRef** meshes{nullptr};             // +0x3C
     uint32_t mesh_count_{};       // +0x40
-    uint32_t visibility;          // +0x44: a viewport mask (0xDEADBEEF until set)
-    bool active;                  // +0x48
+    uint32_t visibility{0xDEADBEEF}; // +0x44: a viewport mask (0xDEADBEEF until set)
+    bool active{true};               // +0x48
     uint8_t pad49[3]{};
-    Singleton* instance; // +0x4C: an instance's (null for a sector's geometry)
+    Singleton* instance{nullptr}; // +0x4C: an instance's (null for a sector's geometry)
     uint8_t* source{};   // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
     maths::Vec4 scale{}; // +0x54
 };

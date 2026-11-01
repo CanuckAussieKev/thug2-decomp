@@ -82,13 +82,7 @@ int get_skater_index(GameEntity* skater) { return static_cast<Rider*>(skater)->v
 memory::owner<ObjectModule*> RiderSpinAndFlip::fabricate() { return new RiderSpinAndFlip; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderSpinAndFlip::RiderSpinAndFlip()
-{
-    anim_blender_ = nullptr;
-    mesh_set_ = nullptr;
-    deck_turned_ = false;
-    kind_tag_ = kSkaterFlipAndRotate;
-}
+RiderSpinAndFlip::RiderSpinAndFlip() { kind_tag_ = kSkaterFlipAndRotate; }
 
 // 0x00511300 (0x00511320 the deleting one)
 RiderSpinAndFlip::~RiderSpinAndFlip() = default;

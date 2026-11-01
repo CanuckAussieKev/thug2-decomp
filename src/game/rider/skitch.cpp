@@ -48,11 +48,7 @@ void place_nodes(ClassNodeList* nodes, GameEntity* object)
 memory::owner<ObjectModule*> TowRideHandler::fabricate() { return new TowRideHandler; }
 
 // (the constructor: inlined in fabricate in the original)
-TowRideHandler::TowRideHandler()
-{
-    kind_tag_ = kType;
-    allowed_ = true;
-}
+TowRideHandler::TowRideHandler() { kind_tag_ = kType; }
 
 // 0x0051B960 (0x0051B980 the deleting one)
 TowRideHandler::~TowRideHandler() = default;

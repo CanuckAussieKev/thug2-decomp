@@ -24,11 +24,11 @@ static_assert(offsetof(SpriteTexture, actual_width_) == 8, "layout must match th
 class QuadSprite final : public OverlayDraw {
 public:
     // 0x004DFC50: with this priority - hidden (not in the draw list), no texture.
-    explicit QuadSprite(float priority) : OverlayDraw(priority, true) { texture = nullptr; }
+    explicit QuadSprite(float priority) : OverlayDraw(priority, true) {}
     // 0x004DFC80 (0x004DFCC0 the scalar deleting destructor): the base's (out of the draw list).
     ~QuadSprite() override = default;
 
-    SpriteTexture* texture; // or null: the whole of whatever texture is set
+    SpriteTexture* texture{nullptr}; // or null: the whole of whatever texture is set
     float x{}, y{};         // position (of the hot spot), in 640x480 screen layout units
     uint16_t width{}, height{}; // in pixels at scale 1
     float xscale{}, yscale{};   // negative: mirrored

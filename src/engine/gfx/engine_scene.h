@@ -59,27 +59,27 @@ struct WorldScene : public memory::HeapObject {
     char label_[0x80]{};         // +0x04: the file it was loaded from
     uint32_t checksum_{};        // +0x84: its name's
     TextureSet* texture_set_{};  // +0x88
-    bool builds_collision_grid_; // +0x8C: its collision gets a grid (super sectors)
-    bool is_sky_;                // +0x8D: a sky (the scene list tells the sky from the main scene by it)
+    bool builds_collision_grid_{false}; // +0x8C: its collision gets a grid (super sectors)
+    bool is_sky_{false};                // +0x8D: a sky (the scene list tells the sky from the main scene by it)
     uint8_t pad8e_[2]{};
     maths::BBox unknown_box_;   // +0x90 (made empty)
     maths::BBox collision_box_; // +0xB0
     lists::KeyMap* sectors_;    // +0xD0
     CollGrid* coll_grid_;       // +0xD4
     char pip_name_[0x80]{};     // +0xD8: the collision file's (unloaded with the collision)
-    int coll_static_count_;     // +0x158
-    memory::owner<StaticCollider*>
-        coll_statics_;          // +0x15C (an array new; filled through an out parameter, read by offset)
-    uint8_t* collision_blob_;   // +0x160: the collision geometry (load_collision_data's)
+    int coll_static_count_{0};  // +0x158
+    memory::owner<StaticCollider*> coll_statics_{
+        nullptr};                      // +0x15C (an array new; filled through an out parameter, read by offset)
+    uint8_t* collision_blob_{nullptr}; // +0x160: the collision geometry (load_collision_data's)
     char add_name_[0x80]{};     // +0x164: the scene added to it
-    uint32_t add_data_;         // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
+    uint32_t add_data_{0};      // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
     char add_pip_name_[0x80]{}; // +0x1E8: the added scene's collision file
-    int add_coll_static_count_; // +0x268: the added scene's collision, as the base's
-    memory::owner<StaticCollider*>
-        add_coll_statics_;      // +0x26C (an array new; left dangling after its delete[], as the original)
-    uint8_t* add_coll_objects_; // +0x270
-    bool sector_kept_;          // +0x274: a sector couldn't be deleted (flag 0x40): marked instead
-    bool added_;                // +0x275: the added scene shown
+    int add_coll_static_count_{0}; // +0x268: the added scene's collision, as the base's
+    memory::owner<StaticCollider*> add_coll_statics_{
+        nullptr};                        // +0x26C (an array new; left dangling after its delete[], as the original)
+    uint8_t* add_coll_objects_{nullptr}; // +0x270
+    bool sector_kept_{false};            // +0x274: a sector couldn't be deleted (flag 0x40): marked instead
+    bool added_{false};                  // +0x275: the added scene shown
     uint8_t pad276[2]{};
     memory::ListNode* hidden_sectors_; // +0x278: lists::Foremost<WorldCell> - the base's sectors the added scene hides
     memory::ListNode* add_scene_sectors_; // +0x27C: lists::Foremost<WorldCell> - the sectors the added scene made

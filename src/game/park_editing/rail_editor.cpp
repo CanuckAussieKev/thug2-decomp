@@ -147,10 +147,9 @@ void EditedRailPoint::get_pack(uint16_t* record) const
 // 0x004F70C0
 EditedRail::EditedRail()
 {
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     ident_ = next_rail_id()++;
-    point_chain_ = nullptr;
-    following_ = nullptr;
-    preceding_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     get_clear();
 }
 
@@ -396,11 +395,13 @@ RailAuthoring::RailAuthoring()
     kind_tag_ = kType;
     make_point_pool(kMaxPoints, "CEditedRailPoint");
     make_rail_pool(kMaxRails, "CEditedRail");
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     input_ptr_ = nullptr;
     view_camera_ = nullptr;
     dotted_line_ = nullptr;
     dotted_line_name_ = 0;
     rail_groups_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     std::memset(&packed_, 0, sizeof(packed_));
     get_clear();
 }

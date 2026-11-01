@@ -62,9 +62,11 @@ ScriptStore::ScriptStore()
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     entries_ = memory ? new (memory) lists::KeyMap(8) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     newest_unused_ = nullptr;
     oldest_unused_ = nullptr;
     delete_unused_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00476090

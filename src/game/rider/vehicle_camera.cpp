@@ -70,13 +70,7 @@ maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths:
 memory::owner<ObjectModule*> CarView::fabricate() { return new CarView; }
 
 // (the constructor: inlined in fabricate in the original)
-CarView::CarView()
-{
-    kind_tag_ = kVehicleCamera;
-    level_y_ = 60.0f;
-    reach_ = 144.0f;
-    lerp_ = 3.0f;
-}
+CarView::CarView() { kind_tag_ = kVehicleCamera; }
 
 // 0x00524420
 void CarView::publish_method_table()

@@ -55,26 +55,13 @@ void** projected_collision() { return g_projected_collision; }
 TextureProjection::TextureProjection()
 {
     list_link_.make_node(this);
-    label_ = 0;
-    bitmap_ = nullptr;
-    blend_mode_ = 0;
-    fineness_ = 0;
     projection_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     projection_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     projection_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     projection_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    extent_ = 0.0f;
-    field_of_view_ = 0.0f;
-    aspect_ = 0.0f;
     direction_ = {0.0f, 0.0f, 0.0f, 1.0f};
     anchor_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    range_ = 0.0f;
-    unknowna4_ = 0;
     shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    angle_ = 0.0f;
-    unknownbc_ = 0.0f;
-    view_distance_ = 0.0f;
-    flag_bits_ = 0;
 }
 
 // 0x004A04A0

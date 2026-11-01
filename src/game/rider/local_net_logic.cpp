@@ -222,17 +222,11 @@ memory::owner<ObjectModule*> RiderHostSync::fabricate() { return new RiderHostSy
 // (the constructor: inlined in fabricate in the original)
 RiderHostSync::RiderHostSync()
 {
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     sent_controls_ = 0;
-    sent_value_6c_ = 0;
-    pose_ = nullptr;
-    board_ = nullptr;
-    last_transmit_at_ = 0;
-    sent_value_7c_ = 0xFF;
     kind_tag_ = kSkaterLocalNetLogic;
     sent_controls_ = 0;
-    sent_flag74_ = 0xFF;
-    sent_state_ = 0;
-    sent_value80_ = 0;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00512E30 (0x00512E40 the deleting one)

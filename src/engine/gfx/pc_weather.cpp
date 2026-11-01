@@ -85,13 +85,12 @@ int clamp_column(const WeatherRow& row, int x)
 // 0x004CC560
 PcWeather::PcWeather()
 {
-    columns = nullptr;
-    splash_texture_ = nullptr; // (the snow's texture left as it was)
+    // (the snow's texture: zero - the original leaves it as it was)
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     rain_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
     splash_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
-    rain_due_ = 0.0f;
-    splash_due_ = 0.0f;
     snow_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004CC4D0

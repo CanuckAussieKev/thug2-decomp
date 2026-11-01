@@ -110,23 +110,7 @@ int compare_meshes(const void* a, const void* b)
 }
 
 // 0x004DE300
-SceneRef::SceneRef()
-{
-    flags = 0;
-    mesh_count_ = 0;
-    transparent_count_ = 0;
-    filled = 0;
-    flagged_count_ = 0;
-    unknown40 = 0;
-    meshes = nullptr;
-    materials = nullptr;
-    extra = nullptr;
-    unknown78 = 0;
-    com_object_ = nullptr;
-    unknown80 = 0;
-    first_flagged_ = -1;
-    first_transparent_ = -1;
-}
+SceneRef::SceneRef() = default;
 
 // 0x004DE490
 void SceneRef::destroy_body()

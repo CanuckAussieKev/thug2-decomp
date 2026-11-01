@@ -241,17 +241,7 @@ int BinkStream::tick_frame()
 // --- WadStream ---------------------------------------------------------------------------------------------
 
 // 0x00454340
-WadStream::WadStream(bool unknown15)
-{
-    unknown90_ = 0;
-    unknown20_ = 0;
-    unknown24_ = 0;
-    octets_ = nullptr;
-    unknown04_ = 0;
-    file_ref_ = INVALID_HANDLE_VALUE;
-    unknown15_ = unknown15;
-    unknown5f_ = true;
-}
+WadStream::WadStream(bool unknown15) : unknown15_(unknown15) {}
 
 // 0x00454370
 Result WadStream::start_read()

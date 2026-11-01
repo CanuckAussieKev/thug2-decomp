@@ -12,16 +12,7 @@
 namespace assets {
 
 // 0x00407910
-Resource::Resource()
-{
-    dependents_.make_head();
-    bundle_ = nullptr;
-    cur_phase_ = kUnloaded;
-    file_ref_ = nullptr;
-    octets_ = nullptr;
-    extent_ = 0;
-    callback_ = nullptr;
-}
+Resource::Resource() { dependents_.make_head(); }
 
 // 0x00407810
 Resource::~Resource() { dependents_.uncouple(); }
@@ -177,37 +168,31 @@ void Resource::read_callback(file::AsyncFileHandle* /*file*/, int /*event*/, int
 // --- the types' constructors: the base's, then their fields ---
 
 // 0x004071A0
-AnimResource::AnimResource() { archive_ = 0; }
+AnimResource::AnimResource() = default;
 
 // 0x00409220
-SceneAsset::SceneAsset() { args_ = nullptr; }
+SceneAsset::SceneAsset() = default;
 
 // 0x004095F0
-SceneCollisionAsset::SceneCollisionAsset() { args_ = nullptr; }
+SceneCollisionAsset::SceneCollisionAsset() = default;
 
 // 0x00409970
 RigResource::RigResource() = default;
 
 // 0x00409C40 (+0x50 .. +0x5C cleared; the archive left as allocated - zeroed)
-SkinResource::SkinResource()
-{
-    args_ = nullptr;
-    cas_file_ = nullptr;
-    cas_buffer_ = nullptr;
-    files_reading_ = 0;
-}
+SkinResource::SkinResource() = default;
 
 // 0x0040A210
-SkinCollisionAsset::SkinCollisionAsset() { args_ = nullptr; }
+SkinCollisionAsset::SkinCollisionAsset() = default;
 
 // 0x0040A580
-TexDictAsset::TexDictAsset() { args_ = nullptr; }
+TexDictAsset::TexDictAsset() = default;
 
 // 0x00407A30
 CutsceneResource::CutsceneResource() = default;
 
 // 0x00408BB0
-NodeTableResource::NodeTableResource() { archive_ = 0; }
+NodeTableResource::NodeTableResource() = default;
 
 // 0x00408BF0
 void NodeTableResource::make_owner()

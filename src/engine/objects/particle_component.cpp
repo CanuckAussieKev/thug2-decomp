@@ -103,11 +103,9 @@ void EffectsEmitterModule::publish_method_table()
 EffectsEmitterModule::EffectsEmitterModule()
 {
     kind_tag_ = kType;
-    emit_target_ = 0;
-    effect_handle_ = nullptr;
-    mesh_instance_ = nullptr;
-    lifespan_ = 0;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     start_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00429B90 (0x0042A060 the deleting one)

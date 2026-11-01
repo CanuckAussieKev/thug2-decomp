@@ -34,11 +34,11 @@ struct Gauges {
     int get_msg_count_for_type(int msg_id) { return per_kind_counts_[msg_id]; }
 
     Packet packet_tally_[kTallyWindow]{}; // +0x0000 the newest at (packets_seen_ - 1) % 256
-    int packets_seen_;                    // +0x0800 every packet added
+    int packets_seen_{0};                 // +0x0800 every packet added
     int per_kind_counts_[kNumMessageIds]{}; // +0x0804
     int message_data_[kNumMessageIds]{};    // +0x0C04
-    int byte_sum_;                        // +0x1004 every packet's bytes
-    int throughput_;                      // +0x1008
+    int byte_sum_{0};                       // +0x1004 every packet's bytes
+    int throughput_{0};                     // +0x1008
 };
 
 } // namespace net

@@ -76,6 +76,7 @@ Conn::Conn(int flags)
     normal_msgs_.make_head();
     important_msgs_.make_head();
     sequenced_msgs_.make_head();
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     cur_standing_ = 0;
     flag_bits_ = 0;
     for (ListNode& queue : received_queues_)
@@ -102,6 +103,7 @@ Conn::Conn(int flags)
     std::memset(next_sequence_ids_, 0, 0x100);
     std::memset(sequence_numbers_, 0, 0x100);
     ident_ = next_conn_id()++;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00456790

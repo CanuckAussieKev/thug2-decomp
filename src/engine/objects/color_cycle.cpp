@@ -57,14 +57,7 @@ void delete_params(script::Struct* params)
 memory::owner<ObjectModule*> ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-ColorCycleComponent::ColorCycleComponent()
-{
-    color_count_ = 0;
-    ongoing_ = 0;
-    clock_ = 0.0f;
-    on_ = false;
-    kind_tag_ = kType;
-}
+ColorCycleComponent::ColorCycleComponent() { kind_tag_ = kType; }
 
 // 0x0041B280
 void ColorCycleComponent::publish_method_table()

@@ -32,11 +32,11 @@ public:
     // 0x00406850: whether it's in a list (its node isn't linked to itself).
     bool is_on_task_list() const;
 
-    int disabled_;                // +0x04 not run while nonzero
+    int disabled_{0};             // +0x04 not run while nonzero
     memory::ListNode* list_link_; // +0x08 data = this
-    LinkChain* sequence_;         // +0x0C the list it's in
-    int pass_count_;              // +0x10 the list's stamp when it last ran
-    uint32_t skip_bits_;          // +0x14 not run when it shares a bit with the mask the list is processed with
+    LinkChain* sequence_{nullptr}; // +0x0C the list it's in
+    int pass_count_{0};            // +0x10 the list's stamp when it last ran
+    uint32_t skip_bits_{0};        // +0x14 not run when it shares a bit with the mask the list is processed with
 };
 
 // tasks::Task<Owner> (0x20 bytes; every instance shared the vtable 0x006476F0 - the linker folded them): a task
@@ -75,10 +75,10 @@ public:
     // 0x004069B0
     void mark_changed();
 
-    int lock_;              // +0x00 nonzero while being changed or run
+    int lock_{0};             // +0x00 nonzero while being changed or run
     memory::ListNode head_{}; // +0x04 (lists::Foremost<SchedulerTask>)
-    int pass_count_;        // +0x14 counts the passes
-    bool altered_;          // +0x18 a task was added or removed
+    int pass_count_{0};       // +0x14 counts the passes
+    bool altered_{false};     // +0x18 a task was added or removed
 };
 
 // A list on a Stack (0x24 bytes in the original): its node in the stack (lists::Elem<StackList>).
@@ -118,7 +118,7 @@ public:
     // 0x00406F10: delete the popped lists.
     void delete_popped_lists();
 
-    int lock_;                      // +0x00
+    int lock_{0};                   // +0x00
     uint32_t skip_bits_{};          // +0x04
     memory::ListNode lists_{};      // +0x08 newest first (lists::Foremost<StackList>)
     memory::ListNode popped_lists_{}; // +0x18 lists popped while the stack was locked

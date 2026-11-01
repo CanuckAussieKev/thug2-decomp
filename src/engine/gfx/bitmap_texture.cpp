@@ -38,10 +38,6 @@ void* cached_texture(int stage) { return g_textures[stage]; }
 // 0x004E04B0
 TextureRef::TextureRef()
 {
-    texture = nullptr;
-    palette = nullptr;
-    surface = nullptr;
-    render_target_ = false;
     auto* node = static_cast<Elem*>(memory::alloc(sizeof(Elem)));
     Elem* head = foremost();
     node->texture = this;

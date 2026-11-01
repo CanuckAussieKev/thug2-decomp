@@ -37,12 +37,7 @@ void dump_heaps() { commands::cfunc_dump_heaps(nullptr, nullptr); }
 } // namespace
 
 // 0x005BA520
-Arena::Arena(Zone* region, int direction, const char* name) : MemSource(region, direction, name)
-{
-    use_fallbacks_ = 0;
-    unknown64_ = false;
-    unknown68_ = -1;
-}
+Arena::Arena(Zone* region, int direction, const char* name) : MemSource(region, direction, name) {}
 
 // 0x005BA780
 void* Arena::carve(uint32_t size, bool halt_if_exhausted)

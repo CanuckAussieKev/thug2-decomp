@@ -35,7 +35,7 @@ public:
     uint32_t unknown0c_{};
     maths::Mat4* rotations;   // +0x10
     float lifetime;           // +0x14: seconds left
-    float gravity;            // +0x18 (128)
+    float gravity{128.0f};    // +0x18 (128)
     float floor;              // +0x1C: the height the triangles bounce at
     float bounce;             // +0x20: the speed kept in a bounce
     uint16_t triangle_count_; // +0x24

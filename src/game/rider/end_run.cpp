@@ -48,11 +48,7 @@ bool is_local_skater(GameEntity* object) { return object->is_local_skater_ != 0;
 memory::owner<ObjectModule*> RiderSessionEnd::fabricate() { return new RiderSessionEnd; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderSessionEnd::RiderSessionEnd()
-{
-    flag_bits_ = 0;
-    kind_tag_ = kSkaterEndRun;
-}
+RiderSessionEnd::RiderSessionEnd() { kind_tag_ = kSkaterEndRun; }
 
 // 0x00510D20 (0x00510D40 the deleting one)
 RiderSessionEnd::~RiderSessionEnd() = default;

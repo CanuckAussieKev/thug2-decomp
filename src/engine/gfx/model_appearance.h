@@ -62,8 +62,8 @@ public:
     uint8_t* decode_from_bytes(uint8_t* buffer, size_t size);
 
     script::Struct structure_; // +0x4C the slots
-    FaceSkin* face_skin_;      // +0x54
-    bool has_face_texture_;    // +0x58 (read from the network)
+    FaceSkin* face_skin_{nullptr}; // +0x54
+    bool has_face_texture_{false}; // +0x58 (read from the network)
 };
 
 // 0x00488FD0: the tattoo slots taken out of `appearance` (head, biceps, forearms, chest, back, legs).

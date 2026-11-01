@@ -17,8 +17,8 @@ namespace render {
 // split node has its two children at +4 (the low 2 bits masked off): the one at +0 is the "less" side (below
 // the split) unless bit 0 is set, which swaps them.
 struct HitTreeNode {
-    int32_t axis_tag_;
-    uint32_t chain_link_;
+    int32_t axis_tag_{0};
+    uint32_t chain_link_{0};
 
     // 0x00414D70 (not a function in Ghidra: new[]'s constructor): zeroed.
     HitTreeNode();

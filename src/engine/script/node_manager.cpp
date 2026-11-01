@@ -205,7 +205,6 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
 // 0x0045D370
 NodeManager::NodeManager()
 {
-    num_ = 0;
     for (NodeSlot& slot : slots_)
         slot = {0, -1};
     walk_.list_link_ = -1;

@@ -125,7 +125,9 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
     at_point_.y = pos->z;
     at_point_.z = -pos->y;
     at_point_.w = 1.0f;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     cut_ = cut;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004861D0

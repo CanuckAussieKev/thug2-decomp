@@ -183,7 +183,9 @@ CrownObject::CrownObject()
     add_base_components(this);
     kind_tag_ = kObjectTypeCrown;
     change_serial(kCrownObject);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     worn_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x005782B0

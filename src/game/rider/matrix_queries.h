@@ -49,7 +49,7 @@ public:
 
     maths::Mat4 basis_frame_{};                 // +0x18 the core physics' (rows: right, up, at, position)
     float prev_gradient_{};                     // +0x58 GetSlope's last
-    skater::SkaterPhysicsModule* core_physics_; // +0x5C SkaterCorePhysics (0x5BD63B29)
+    skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x5C SkaterCorePhysics (0x5BD63B29)
 };
 
 } // namespace objects

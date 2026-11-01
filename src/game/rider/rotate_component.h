@@ -54,7 +54,7 @@ public:
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     Turn turns_[3]{};                           // +0x18 about x, y, z
-    skater::SkaterPhysicsModule* core_physics_; // +0x54 SkaterCorePhysics (0x5BD63B29)
+    skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x54 SkaterCorePhysics (0x5BD63B29)
 };
 
 } // namespace objects

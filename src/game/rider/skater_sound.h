@@ -57,10 +57,10 @@ public:
     int cur_phase_{};        // +0x18 the skater's state (0 ground, 1 air, 4 rail)
     uint8_t surface_type_{}; // +0x1C
     uint8_t last_ground_{};  // +0x1D the terrain the ground and air sounds use
-    uint8_t sliding_;      // +0x1E on a rail: a slide, not a grind
+    uint8_t sliding_{0};     // +0x1E on a rail: a slide, not a grind
     uint8_t pad1f_{};
-    float full_speed_;  // +0x20 the speed that counts as 1
-    float volume_mult_; // +0x24 volume_mult
+    float full_speed_{1.0f};  // +0x20 the speed that counts as 1
+    float volume_mult_{1.0f}; // +0x24 volume_mult
 };
 
 } // namespace objects

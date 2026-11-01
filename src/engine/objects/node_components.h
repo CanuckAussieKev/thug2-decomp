@@ -49,7 +49,7 @@ public:
     // it as a slot, so a plain method here): the node array.
     script::Array* get_node_array() const { return nodes_; }
 
-    script::Array* nodes_; // +0x18
+    script::Array* nodes_{nullptr}; // +0x18
 };
 static_assert(sizeof(WaypointListModule) == 0x1C, "layout must match the original (0x00428010 allocates 0x1C bytes)");
 
@@ -75,7 +75,7 @@ public:
     // 0x005480F0 (slot 13, the shared getter of +0x18): the hook list.
     ClassNodeList* get_hooks() const { return hooks_ptr_; }
 
-    ClassNodeList* hooks_ptr_; // +0x18 (0x4C bytes)
+    ClassNodeList* hooks_ptr_{nullptr}; // +0x18 (0x4C bytes)
 };
 static_assert(sizeof(HookPointRegistryModule) == 0x1C,
               "layout must match the original (0x00428130 allocates 0x1C bytes)");

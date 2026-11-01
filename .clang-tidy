@@ -80,8 +80,6 @@ Checks:
   # memcpy / memset / free of pointer arrays and pointer-sized slots: the C API's void* is meant.
   - '-bugprone-multi-level-implicit-pointer-conversion'
 
-  # --- off for now: being worked through (they need a look at each place) ---
-  - '-cppcoreguidelines-prefer-member-initializer'
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']
 WarningsAsErrors: ''

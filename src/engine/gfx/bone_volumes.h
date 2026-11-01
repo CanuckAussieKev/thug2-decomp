@@ -28,9 +28,9 @@ struct BoneVolume {
 
 // A skeleton's bone volumes (0x0C bytes): one per bone (the root has none).
 struct BoneVolumes {
-    BoneVolume** volumes_; // +0x00 (null where a bone has none)
+    BoneVolume** volumes_{nullptr}; // +0x00 (null where a bone has none)
     uint32_t num_;         // +0x04 the bones
-    int users_;            // +0x08
+    int users_{0};         // +0x08
 
     // 0x0048B350: `count` bones, none with a volume yet, no users.
     explicit BoneVolumes(uint32_t count);

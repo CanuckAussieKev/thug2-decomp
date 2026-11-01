@@ -41,17 +41,14 @@ void model_path_for(const char* name, const char* ext, char* out) { gfx::make_mo
 
 // 0x0049A0C0
 ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* model, uint32_t, int, int, float, int)
+    : model_count_(static_cast<unsigned int>(particle_cap)), drawn_models_(static_cast<unsigned int>(particle_cap))
 {
     label_ = name;
     char file_name[512] = {};
     position_array_ = nullptr;
-    model_list_ = nullptr;
-    unknown_13c_ptr_ = nullptr;
     particle_list_ = nullptr;
     particle_count_ = 0;
     max_particles_ = particle_cap;
-    model_count_ = static_cast<unsigned int>(particle_cap);
-    drawn_models_ = static_cast<unsigned int>(particle_cap);
     particle_list_ = particle_parts::new_particles(particle_cap);
     if (!particle_list_)
         return;

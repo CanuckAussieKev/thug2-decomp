@@ -387,13 +387,7 @@ bool& use_overlapped_io() { return g_use_overlapped_io; }
 class PcAsyncFileHandle final : public AsyncFileHandle {
 public:
     // 0x005B9B80's construction: the base's, then no staging buffer and no file.
-    PcAsyncFileHandle()
-    {
-        unknown7c_ = 0;
-        destination_ = nullptr;
-        staging_bytes_ = nullptr;
-        file_ref_ = INVALID_HANDLE_VALUE;
-    }
+    PcAsyncFileHandle() = default;
     // 0x005B97B0 / 0x005B9640
     ~PcAsyncFileHandle() override = default;
 
@@ -408,10 +402,10 @@ public:
     int os_read_chunk(void* buffer, int size, int count) override;
 
     uint8_t unknown3c_[0x7C - 0x3C]{};
-    int unknown7c_;
-    void* destination_; // where a read through staging_bytes_ goes
-    void* staging_bytes_;
-    HANDLE file_ref_;
+    int unknown7c_{0};
+    void* destination_{nullptr}; // where a read through staging_bytes_ goes
+    void* staging_bytes_{nullptr};
+    HANDLE file_ref_{INVALID_HANDLE_VALUE};
     OVERLAPPED async_ctl_{};
 };
 

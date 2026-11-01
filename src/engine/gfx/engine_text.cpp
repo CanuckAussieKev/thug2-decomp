@@ -55,37 +55,10 @@ int16_t get_fixed(float value)
 } // namespace
 
 // 0x0048D0A0
-CharEffect::CharEffect()
-{
-    x = 0;
-    y = 0;
-    xscale = 0x4000;
-    yscale = 0x4000;
-    rotation = 0;
-}
+CharEffect::CharEffect() = default;
 
 // 0x0048D220
-GlyphString::GlyphString(void* window)
-{
-    scale_h_ = 1.0f;
-    scale_v_ = 1.0f;
-    typeface_ = nullptr;
-    effects_ = nullptr;
-    pos_x_ = 0.0f;
-    y_ = 0.0f;
-    pivot_x_ = 0.0f;
-    pivot_y_ = 0.0f;
-    angle_ = 0.0f;
-    rank_ = 0.0f;
-    shade_ = 0x80808080;
-    fixed_colour_ = false;
-    override_alpha_ = false;
-    invisible_ = true;
-    z_enabled_ = false;
-    screen_region_ = window;
-    next_free_ = nullptr;
-    text_buffer_ = nullptr;
-}
+GlyphString::GlyphString(void* window) : screen_region_(window) {}
 
 // 0x0048D620
 GlyphString::~GlyphString()

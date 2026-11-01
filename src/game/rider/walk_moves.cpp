@@ -212,19 +212,9 @@ memory::owner<ObjectModule*> FootMovement::fabricate() { return new FootMovement
 FootMovement::FootMovement()
 {
     // (the contacts, the cache and the feeler made first by their constructors)
-    input_ = nullptr;
-    anim_blender_ = nullptr;
-    model_ = nullptr;
-    trigger_ = nullptr;
-    physics_control_ = nullptr;
-    ride_ = nullptr;
-    skater_state_ = nullptr;
-    core_physics_ = nullptr;
     kind_tag_ = 0x726E85AA; // Walk
     stick_heading_ = {0.0f, 0.0f, 0.0f, 1.0f};
     jump_velocity_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    upright_time_ = 0.0f;
-    jump_unsteered_ = false;
 }
 
 // 0x00529F80

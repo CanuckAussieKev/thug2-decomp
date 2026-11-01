@@ -258,18 +258,8 @@ PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original
     seen_.num_ = 0;
     seen_.first_ = nullptr;
     seen_.cursor_ = nullptr;
-    // (arrows_, meter_offset_, bars_: their constructors)
-    last_no_spin_ = -1;
-    spin_trick_ = -1;
-    rider_no_ = 0;
-    sum_ = 0;
-    pot_ = 0;
-    pot_score_ = 0;
-    pot_special_ = 0;
-    tricks_ = 0;
-    multiplier_ = 0.0f;
-    special_ = 0;
-    set_special_active(false); // (inlined there; special_active_ isn't set before: as the original)
+    // (arrows_, meter_offset_, bars_tricks_(0)ormultiplier_(0.0f)ialast_no_spin_(-1)alspin_trick_(-1)there; special_active_ isn't set before: as the original)
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     special_phase_ = 0.0f;
     best_tricks_ = 0;
     top_chain_ = 0;
@@ -277,6 +267,7 @@ PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original
     verbose_print_ = script::fetch_int_value(kDebugScore) != 0;
     focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
     focus_max_times_ = script::fetch_int_value(kFocusMaxTimesInCombo);
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     setup_balance_meter();
 }
 

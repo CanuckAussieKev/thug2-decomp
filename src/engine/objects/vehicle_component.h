@@ -311,9 +311,9 @@ public:
     maths::Vec4 linear_momentum_{}; // +0x28 linear momentum
     maths::Vec4 orientation_{};     // +0x38 a quaternion (x, y, z, w)
     maths::Vec4 rotmom_{};          // +0x48 angular momentum
-    int awake_;                   // +0x58 0: asleep (only the model kept up to date)
-    int still_frames_;            // +0x5C frames it has hardly moved (asleep after three)
-    int contact_count_;           // +0x60 the colliders' contact points this step (in s_contacts)
+    int awake_{1};                  // +0x58 0: asleep (only the model kept up to date)
+    int still_frames_{0};           // +0x5C frames it has hardly moved (asleep after three)
+    int contact_count_{0};          // +0x60 the colliders' contact points this step (in s_contacts)
     maths::Mat4 basis_frame_{};   // +0x64 the orientation as a matrix
     maths::Vec4 vel_{};           // +0xA4 linear_momentum_ * inv_mass_
     maths::Vec4 rotvel_{};        // +0xB4 the angular velocity
@@ -324,7 +324,7 @@ public:
     bool cut_short_{};            // +0x119 a trigger's script took over during the step
     bool righting_{};             // +0x11A turning itself upright
     int righting_start_{};        // +0x11C the game clock (with its offset) when it started righting itself
-    float kick_time_;             // +0x120 seconds left of a random kick (0x00435890)
+    float kick_time_{0.0f};       // +0x120 seconds left of a random kick (0x00435890)
     maths::Vec4 force_{};         // +0x124 the force this step
     maths::Vec4 twist_force_{};   // +0x134 the torque this step
     float step_length_{};         // +0x144 the sub-step's length (seconds)
@@ -353,7 +353,7 @@ public:
     maths::Vec4 skater_bone_{};            // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
     bool can_dismount_{};                  // +0x2CC Exitable
     bool handbrake_disabled_{};            // +0x2CD no_handbrake
-    Wheel* wheels_;                        // +0x2D0
+    Wheel* wheels_{nullptr};               // +0x2D0
     float engine_torque_{};                // +0x2D4 drive_torque (engine; * 12)
     float engine_braking_{};               // +0x2D8 (0xB2268648, * 12) engine braking without throttle
     int gear_count_{};                     // +0x2DC gear_ratios
@@ -370,8 +370,8 @@ public:
     bool rider_shown_{};                   // +0x12D8 (0x2ED67657) a skater is shown driving
     maths::Vec4 skater_pos_{};             // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
     uint32_t rider_anim_name_{};           // +0x12EC skater_anim (0xDA75A33E)
-    float display_steering_;               // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
-    uint32_t sounds_name_;                 // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
+    float display_steering_{0.0f};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
+    uint32_t sounds_name_{0x1CA1FF20};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     float gravity_scale_{};                // +0x12F8 (Vehicle_AdjustGravity)
     float gravity_time_{};                 // +0x12FC seconds left of it
     bool handbrake_active_{};              // +0x1300 (forces the brake)
@@ -379,10 +379,10 @@ public:
     float free_fall_time_{};               // +0x1308 seconds in the air without touching anything
     float collision_impulse_{};            // +0x130C the strongest contact impulse this step
     ObjectModule* bone_rig_{};             // +0x1310 the object's skeleton (0x222756D5)
-    PadInputModule* input_ptr_;            // +0x1314 the input component (0x27D7CD28)
+    PadInputModule* input_ptr_{nullptr};   // +0x1314 the input component (0x27D7CD28)
     ObjectModule* mesh_instance_{};        // +0x1318 the model (0x286A8D26)
-    int debug_mode_;                    // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
-    bool passive_;                      // +0x1320 no input, collision or debug drawing (set from outside)
+    int debug_mode_{0};                 // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
+    bool passive_{false};               // +0x1320 no input, collision or debug drawing (set from outside)
     GameEntity* rider_ref_{};           // +0x1324 the local skater (modules::Skate's 0x00566520)
     ObjectModule* anim_blender_ptr_{};  // +0x1328 its animation blender (with rider_shown_)
     ObjectModule* skater_core_physics_{}; // +0x132C its core physics (0x5BD63B29)

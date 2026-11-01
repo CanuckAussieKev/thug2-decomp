@@ -179,8 +179,6 @@ RiderGapTracker::RiderGapTracker()
     gaps_.make_head();
     gap_move_chain_.make_head();
     kind_tag_ = kSkaterGap;
-    core_physics_ = nullptr;
-    balance_trick_ = nullptr;
 }
 
 // 0x00511F10 (0x005122F0 the deleting one)

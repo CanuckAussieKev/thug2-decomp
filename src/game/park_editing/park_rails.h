@@ -65,12 +65,12 @@ static_assert(offsetof(ParkRailString, point_chain_) == 0x0C && offsetof(ParkRai
 
 // A rail set (0x34 bytes: its rails and the pools they and their points come from).
 struct ParkRailSet {
-    ParkRailString* rail_groups_; // +0x00
+    ParkRailString* rail_groups_{nullptr}; // +0x00
     ParkRailString* tail_node_{}; // +0x04
-    uint16_t rail_total_;         // +0x08
+    uint16_t rail_total_{0};      // +0x08
     uint8_t pad0a_[2]{};
-    memory::SlabBank* point_pool_; // +0x0C (0x30-byte items)
-    memory::SlabBank* rail_pool_;  // +0x10 (0x20-byte items)
+    memory::SlabBank* point_pool_{nullptr}; // +0x0C (0x30-byte items)
+    memory::SlabBank* rail_pool_{nullptr};  // +0x10 (0x20-byte items)
     char label_[0x20]{};           // +0x14: "In set" / "Out set"
 
     // 0x0058AFF0: no rails, no pools (the last rail isn't cleared).

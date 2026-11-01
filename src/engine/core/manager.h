@@ -78,7 +78,7 @@ public:
 
     MemSource* heaps_[kMaxHeaps]{};
     int heap_count_;
-    MemSource** ongoing_; // the top of alloc_source_stack_
+    MemSource** ongoing_{nullptr}; // the top of alloc_source_stack_
     MemSource* alloc_source_stack_[16]{};
     int context_depth_;
     Zone* primary_zone_;
@@ -110,8 +110,8 @@ public:
     Arena* skater_info_heap_{};
     Zone* theme_region_{};
     Arena* theme_heap_{};
-    uint32_t unknown5e0_;
-    uint32_t unknown5e4_;
+    uint32_t unknown5e0_{0};
+    uint32_t unknown5e4_{0};
 };
 
 // 0x005BC2C0: create the manager (on the first allocation), with the bottom-up heap current.

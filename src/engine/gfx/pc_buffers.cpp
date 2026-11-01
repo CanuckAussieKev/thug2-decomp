@@ -88,7 +88,6 @@ constexpr uint32_t kShared = 4;
 // 0x004D3FF0
 VertexBuffer::VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags)
 {
-    buffer = nullptr;
     if (!(buffer_flags & kShared))
         input_port()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
                                          reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
@@ -160,13 +159,14 @@ void VertexBuffer::recreate()
 // 0x004D4270
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
 {
-    buffer = nullptr;
     input_port()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
                                     D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&buffer), nullptr);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     size = bytes;
     usage = usage_flags;
     format = index_format;
     indices = static_cast<uint16_t*>(alloc_block(bytes));
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     enlist(index_buffers(), this);
 }
 

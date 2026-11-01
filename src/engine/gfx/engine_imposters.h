@@ -32,7 +32,7 @@ public:
 
 struct ImposterManager {
     lists::KeyMap* groups_ptr_;
-    int max_per_frame_;
+    int max_per_frame_{1};
 
     // 0x0048E3E0: construct - a table of 2^8 buckets, 1 imposter a frame.
     ImposterManager();

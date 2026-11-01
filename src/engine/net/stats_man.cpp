@@ -384,10 +384,12 @@ RankingsManager::RankingsManager()
     std::memset(personal_.high_combos_, 0, sizeof(personal_.high_combos_));
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     task_ = std::make_unique<tasks::Task<RankingsManager>>(&stats_task, this, 0);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     authenticated_ = false;
     cur_phase_ = kNone;
     game_ = nullptr;
     need_top_stats_ = true;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     pop_heap();
 }
 

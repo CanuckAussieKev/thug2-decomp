@@ -171,11 +171,7 @@ void VideoHub::keep_camera(Movie* movie)
 }
 
 // 0x0057A4B0
-VideoHub::VideoHub()
-{
-    movies_.make_head();
-    keep_camera_ = false;
-}
+VideoHub::VideoHub() { movies_.make_head(); }
 
 // 0x0057A530
 gfx::ViewCam* VideoHub::obtain_active_lens()

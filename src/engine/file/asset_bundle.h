@@ -46,19 +46,19 @@ public:
     bool free_asset(uint32_t name, uint32_t type);
 
     // (the original's table at 0x0065822C held only the destructor: no vtable here)
-    AsyncFileHandle* file_ref_; // an async load in progress (closed when the bundle is split / destroyed)
-    void* bundle_bytes_;        // the whole file, as loaded (shrinks as the assets are split off)
-    uint8_t* loaded_data_;      // the start of the file
+    AsyncFileHandle* file_ref_{nullptr}; // an async load in progress (closed when the bundle is split / destroyed)
+    void* bundle_bytes_{nullptr};        // the whole file, as loaded (shrinks as the assets are split off)
+    uint8_t* loaded_data_{nullptr};      // the start of the file
     int num_{};                 // number of entries
     int unknown14_{};
     TableRow entries_[kBundleCapacity]{};
     void* assets_[kBundleCapacity]{}; // each asset's own copy
-    bool ready_flag_;
+    bool ready_flag_{false};
     uint8_t pad2341_[3]{};
-    memory::Arena* asset_heap_;
-    memory::Arena* file_heap_;
-    int unknown234c_;
-    int unknown2350_;
+    memory::Arena* asset_heap_{nullptr};
+    memory::Arena* file_heap_{nullptr};
+    int unknown234c_{0};
+    int unknown2350_{0};
 };
 static_assert(sizeof(AssetBundle) == 0x2350, "the original's 0x2354 bytes less its vtable");
 

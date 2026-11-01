@@ -33,17 +33,17 @@ const float kDegreesPerRadian = float_from_bits(0x42652EE0);
 int g_draw_distance_setting;
 
 // 0x00485BA0
-ViewCam::ViewCam()
+ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
 {
-    unknownc0_ = 1.0f;
-    h_fov_ = render::get_screen_angle();
     refresh_effective_h_fov();
     basis_frame_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     basis_frame_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     basis_frame_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     near_dist_ = 12.0f;
     far_clip_ = 12000.0f;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (render::g_distance_clipping) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
         auto distance = static_cast<double>(g_draw_distance_setting);

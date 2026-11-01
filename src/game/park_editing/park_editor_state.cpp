@@ -175,7 +175,7 @@ void ParkBuilderMode::front_end_tick(ParkEditorTask* task)
 
 ParkBuilderMode::ParkBuilderMode()
 {
-    actions_ = 0;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     flag_bits_ = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
     editor_update_job_ = std::make_unique<ParkEditorTask>(&front_end_tick, this, 0);
@@ -191,6 +191,7 @@ ParkBuilderMode::ParkBuilderMode()
     flag_bits_ = 0;
     lighting_script_ = 0;
     action_finished_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     ParkLayout::spawn_occurrence();
     listener_.enter_wait_board(nullptr);
 }

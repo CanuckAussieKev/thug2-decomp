@@ -121,17 +121,12 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 // 0x004D1030
 Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths::Mat4* bone_matrices)
+    : transform(*matrix), bones(bone_matrices), bone_count_(count), scene(list), next(instances())
 {
-    transform = *matrix;
-    bones = bone_matrices;
-    bone_count_ = count;
-    scene = list;
-    model = nullptr;
-    active = true;
-    flags = 0;
-    next = instances();
     instances() = this;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     viewports = 0xFFFFFFFF;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (bones && bones_on_device(scene) <= 0)
         return;
     for (int i = 0; i < scene->mesh_count_; ++i) {

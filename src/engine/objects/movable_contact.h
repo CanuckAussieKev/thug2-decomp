@@ -60,11 +60,11 @@ public:
     // less the object's, through the object's inverted orientation.
     void update_contact_point();
 
-    RideTracker* ride_;         // +0x18
+    RideTracker* ride_{nullptr};  // +0x18
     maths::Vec4 contact_point_{}; // +0x1C in the object's frame
     uint8_t unknown2c_[0x40]{};   // +0x2C
     GameEntity* last_object_{};   // +0x6C the object last ridden
-    int stop_time_;             // +0x70 the game clock when it stopped riding
+    int stop_time_{0};            // +0x70 the game clock when it stopped riding
 };
 
 } // namespace objects

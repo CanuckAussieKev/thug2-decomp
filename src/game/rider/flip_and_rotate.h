@@ -58,12 +58,12 @@ public:
     // the board's rotation (the other way, told to the server); the model's +0x1F4 cleared.
     void do_after_anim();
 
-    bool deck_turned_;                          // +0x18
+    bool deck_turned_{false};                   // +0x18
     bool flip_after_{};                         // +0x19
     bool rotate_after_{};                       // +0x1A
     bool board_rotate_after_{};                 // +0x1B
-    ObjectModule* anim_blender_;                // +0x1C (0x7149B753)
-    MeshInstanceModule* mesh_set_;              // +0x20 Model (0x286A8D26)
+    ObjectModule* anim_blender_{nullptr};       // +0x1C (0x7149B753)
+    MeshInstanceModule* mesh_set_{nullptr};     // +0x20 Model (0x286A8D26)
     skater::SkaterPhysicsModule* core_physics_{}; // +0x24 SkaterCorePhysics (0x5BD63B29)
 };
 

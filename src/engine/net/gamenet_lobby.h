@@ -194,14 +194,14 @@ public:
     int unknown30_{};               // +0x30 the chosen room's players
     char room_name_[0x80]{};        // +0x34
     char server_name_[0x80]{};      // +0xB4
-    bool in_group_room_;            // +0x134
+    bool in_group_room_{false};     // +0x134
     bool restricted_hosting_{};     // +0x135 only a few GameSpy profiles may host (CanHostGame)
-    bool drop_is_expected_;         // +0x136
-    bool lost_connection_;          // +0x137
+    bool drop_is_expected_{true};   // +0x136
+    bool lost_connection_{false};   // +0x137
     bool connecting_{};             // +0x138
     bool hosting_{};                // +0x139
-    int negotiations_;              // +0x13C NAT negotiations going on (the server's)
-    void* remote_;                  // +0x140
+    int negotiations_{0};           // +0x13C NAT negotiations going on (the server's)
+    void* remote_{nullptr};         // +0x140
     int nat_cookie_{};              // +0x144 (a client's)
     std::unique_ptr<tasks::SchedulerTask> think_task_;   // +0x148 think_task
     std::unique_ptr<tasks::SchedulerTask> nat_task_;     // +0x14C nat_negotiation_task
@@ -225,9 +225,9 @@ struct LobbyRoom {
     int max_players_{};  // +0x5C (its "maxWaiting"; at least num_players_)
     int min_rating_{};   // +0x60
     int max_rating_{};   // +0x64
-    bool full_;         // +0x68
-    bool out_of_range_; // +0x69 the player's rating outside the room's
-    bool neversoft_;    // +0x6A
+    bool full_{false};   // +0x68
+    bool out_of_range_{false}; // +0x69 the player's rating outside the room's
+    bool neversoft_{false};    // +0x6A
 };
 
 // A player in the lobby's room (the lobby's player list).

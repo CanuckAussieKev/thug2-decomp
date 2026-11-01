@@ -75,8 +75,6 @@ void AudioEmitterModule::publish_method_table()
 // 0x00432D90
 AudioEmitterModule::AudioEmitterModule()
 {
-    spewer_ = nullptr;
-    proxim_ = nullptr;
     kind_tag_ = kType;
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     last_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};

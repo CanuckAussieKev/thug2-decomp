@@ -27,12 +27,9 @@ void free_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 } // namespace
 
 // 0x0044F7E0
-PartUnit::PartUnit()
-{
-    cur_phase_ = kStopped;
-    locked_ = false;
-    list_link_ = memory::ListNode::create(this);
-}
+// NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
+PartUnit::PartUnit() { list_link_ = memory::ListNode::create(this); }
+// NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 
 // 0x0044F790
 PartUnit::~PartUnit()
@@ -45,7 +42,9 @@ Hub::Hub()
 {
     modules_.make_head();
     task_ = std::make_unique<tasks::Task<Hub>>(&tick_modules, this, -1000);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     command_pending_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0044F680

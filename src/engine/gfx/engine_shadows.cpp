@@ -69,10 +69,12 @@ maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& dir
 // 0x004A19C0
 FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance) : ShadowBase(1)
 {
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     bitmap_ = static_cast<uint8_t*>(create_render_target(0x100, 0x100, 0x10, 0x10));
     add_shadow_caster(bitmap_, model, 0);
     reach_ = distance;
     direction_ = direction;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     direction_.make_unit();
     view_camera_.reset(new_shadow_camera());
     maths::Vec4 v = direction_;
@@ -174,17 +176,18 @@ void BlobShadow::show()
 }
 
 // 0x004A1F80
-ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance) : ShadowBase(3)
+ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance)
+    : ShadowBase(3), direction_(direction), reach_(distance)
 {
-    reach_ = distance;
-    direction_ = direction;
     direction_.make_unit();
     view_camera_.reset(new_shadow_camera());
     maths::Vec4 v = direction_;
     v.make_unit();
     look_along(view_camera_.get(), v);
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     model_key_ = 0;
     edges_ = nullptr;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A2120

@@ -88,7 +88,6 @@ void AnimBlenderComponent::publish_method_table()
 AnimBlenderComponent::AnimBlenderComponent()
 {
     lanes_.make_head();
-    observer_count_ = 0;
     auto* sentinel = static_cast<void**>(memory::alloc(0xC));
     if (sentinel) {
         sentinel[1] = sentinel;

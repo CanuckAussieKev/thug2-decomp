@@ -124,26 +124,17 @@ int geom_count_c_6f_0(void* geom) // (through the jump 0x0049C6F0)
 // 0x0049D390 (the original's SEH frame around the table's `new` left out)
 WorldScene::WorldScene(int bits)
 {
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     coll_grid_ = nullptr;
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     sectors_ = memory ? new (memory) lists::KeyMap(bits) : nullptr;
     label_[0] = '\0';
     pip_name_[0] = '\0';
     coll_grid_ = nullptr;
-    coll_statics_ = nullptr;
-    collision_blob_ = nullptr;
-    coll_static_count_ = 0;
     add_name_[0] = '\0';
-    add_data_ = 0;
-    add_coll_statics_ = nullptr;
-    add_coll_objects_ = nullptr;
-    add_coll_static_count_ = 0;
-    sector_kept_ = false;
-    added_ = false;
     hidden_sectors_ = new_head();
     add_scene_sectors_ = new_head();
-    builds_collision_grid_ = false;
-    is_sky_ = false;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0049DD10

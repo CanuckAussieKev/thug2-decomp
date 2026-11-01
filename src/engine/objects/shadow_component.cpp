@@ -29,7 +29,7 @@ constexpr uint32_t kShadowType = 0x9AC24B18;       // ShadowType
 constexpr uint32_t kDetailed = 0x76A54CD1;         // detailed
 constexpr uint32_t kSimple = 0x3E84C2FD;           // simple
 constexpr uint32_t kVolume = 0x46653221;           // Volume
-constexpr uint32_t kNone = 0x806FFF30;             // none
+constexpr uint32_t kNone = GroundShadowModule::kNoShadow; // none
 constexpr uint32_t kStayPut = 0x7E773A11;          // (a flag: the shadow doesn't follow the object; name unknown)
 constexpr uint32_t kShadowModel = 0x545F8172;      // ShadowModel
 constexpr uint32_t kBlobSizeFactor = 0x6F8CD62F;   // ShadowScale
@@ -73,14 +73,11 @@ const uint8_t* hierarchy_of(uint8_t* model)
 memory::owner<ObjectModule*> GroundShadowModule::fabricate() { return new GroundShadowModule; }
 
 // 0x00431380
-GroundShadowModule::GroundShadowModule()
+GroundShadowModule::GroundShadowModule() : shadow_handle_(nullptr)
 {
     kind_tag_ = kType;
-    shadow_handle_ = nullptr;
     surface_dir_ = {0.0f, 1.0f, 0.0f, 1.0f};
-    shadow_kind_ = kNone;
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    follow_object_ = true;
 }
 
 // 0x00431300 (0x004313D0 the deleting one)

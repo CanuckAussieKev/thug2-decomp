@@ -138,16 +138,11 @@ void AttributeTracker::publish_method_table()
 // 0x0051C5A0
 AttributeTracker::AttributeTracker()
 {
-    skater_ = nullptr;
-    skater_state_ = nullptr;
-    physics_control_ = nullptr;
-    unknowna9c_ = 0;
     kind_tag_ = kType;
     air_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
     air_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
     jump_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
     jump_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
-    last_air_combo_score_ = 0;
 }
 
 // 0x0051C460 (0x0051C640 the deleting one)

@@ -28,11 +28,7 @@ constexpr uint32_t kRotated = 0x6EA3704A; // "rotated"
 } // namespace
 
 // 0x004E2C50
-FlipRotateComponent::FlipRotateComponent(gfx::AnimTimeline* timeline) : AnimDriver(timeline)
-{
-    mirrored_ = false;
-    has_pivoted_ = false;
-}
+FlipRotateComponent::FlipRotateComponent(gfx::AnimTimeline* timeline) : AnimDriver(timeline) {}
 
 // 0x004E2C90
 void FlipRotateComponent::configure_from_data(script::Struct* params)

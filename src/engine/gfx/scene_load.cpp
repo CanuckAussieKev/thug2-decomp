@@ -148,10 +148,6 @@ uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool 
 // 0x004B2D30
 HierarchyNode::HierarchyNode()
 {
-    checksum = 0;
-    parent_checksum_ = 0;
-    parent_index_ = 0xFFFF;
-    bone_slot_ = 0;
     for (int i = 0; i < 16; ++i)
         matrix[i] = (i % 5 == 0) ? 1.0f : 0.0f;
 }

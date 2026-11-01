@@ -58,11 +58,7 @@ void start_turn(RiderTurning::Turn& turn, double degrees, float duration)
 memory::owner<ObjectModule*> RiderTurning::fabricate() { return new RiderTurning; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderTurning::RiderTurning()
-{
-    kind_tag_ = kSkaterRotate;
-    core_physics_ = nullptr;
-}
+RiderTurning::RiderTurning() { kind_tag_ = kSkaterRotate; }
 
 // 0x00517CC0 (0x00517CF0 the deleting one)
 RiderTurning::~RiderTurning() = default;

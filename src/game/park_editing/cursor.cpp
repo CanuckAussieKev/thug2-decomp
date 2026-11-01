@@ -428,27 +428,17 @@ BuildPointer::BuildPointer()
     cell_footprint_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    quarter_turns_ = 0;
-    target_angle_ = 0.0f;
-    angle_ = 0.0f;
-    piece_group_ = nullptr;
     area_start_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     area_last_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     // (gap_ made first by its constructor)
-    box_select_stage_ = 0;
-    area_highlighted_ = false;
-    copy_buffers_ = nullptr;
-    clipboard_ = nullptr;
-    move_time_ = 1.0f;
-    paste_set_index_ = 0;
-    menu_index_ = 0;
     gap_.halves_placed_ = 0;
     gap_.cancel_flags_ = 0;
-    mode_sel_ = kModeNone;
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     park_owner_ = ParkLayout::sole();
     PieceFamily* set = park_owner_->get_piece_family(0, &menu_index_);
     change_piece(set->entries_[set->selected_].checksum);
     gap_counter_ = 1;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0059C860

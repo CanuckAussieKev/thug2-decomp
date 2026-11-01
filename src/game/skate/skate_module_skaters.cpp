@@ -982,8 +982,6 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
 Skate::Skate()
 {
     riders_.list_link_.make_head();
-    watch_for_unplug_ = false;
-    unplugged_frames_ = 0;
     update_job_ = std::make_unique<tasks::Task<Skate>>(&front_end_tick, this, 0);
     reinterpret_cast<SkateNet*>(this)->create_network_tasks();
     objects::g_profile_roster->reset_templates();
@@ -994,8 +992,10 @@ Skate::Skate()
     rail_manager_ = memory::make_zeroed<objects::GrindRailHub>(); // (0x54 bytes)
     checksums_ = memory::make_zeroed<objects::ChecksumSet>();     // (0x404 bytes)
     get_trick_objects()->remove_all_clusters();
+    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     level_launched_ = false;
     match_style_ = kFreeskate;
+    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     splitscreen_preferences_ = std::make_unique<prefs::Preferences>();
     splitscreen_preferences_->read_in(kDefaultSplitscreenPreferences);
     competition_ = memory::make_zeroed<Contest>();

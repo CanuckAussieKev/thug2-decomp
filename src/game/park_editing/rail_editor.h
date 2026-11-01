@@ -73,9 +73,9 @@ static_assert(offsetof(EditedRailPoint, has_post_) == 0x10 && offsetof(EditedRai
 
 // A rail (0x10 bytes). Its points are kept newest first: the head is the last point laid.
 struct EditedRail {
-    EditedRail* following_;        // +0x00
-    EditedRail* preceding_;        // +0x04
-    EditedRailPoint* point_chain_; // +0x08
+    EditedRail* following_{nullptr};        // +0x00
+    EditedRail* preceding_{nullptr};        // +0x04
+    EditedRailPoint* point_chain_{nullptr}; // +0x08
     uint32_t ident_;               // +0x0C (from the counter 0x0067EFFC: unique)
 
     // 0x004F70C0: the constructor: a new id, unlinked, no points.

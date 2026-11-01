@@ -55,12 +55,8 @@ void OverlayDraw::drop_out()
 }
 
 // 0x004DFA70
-OverlayDraw::OverlayDraw(float new_priority, bool new_hidden)
+OverlayDraw::OverlayDraw(float new_priority, bool new_hidden) : hidden(new_hidden), priority(new_priority)
 {
-    priority = new_priority;
-    hidden = new_hidden;
-    z = 0.0f;
-    next = nullptr;
     if (!new_hidden)
         splice();
 }

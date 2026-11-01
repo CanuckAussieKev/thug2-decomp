@@ -13,10 +13,10 @@ namespace render {
 // A model's hierarchy node (0x50 bytes; the scene's array at +0x74, its count at +0x78; read as they are from the
 // file): a checksum, its parent's, the parent's index (0xFFFF: none), a bone index and a matrix.
 struct HierarchyNode {
-    uint32_t checksum;
-    uint32_t parent_checksum_;
-    uint16_t parent_index_;
-    uint8_t bone_slot_;
+    uint32_t checksum{0};
+    uint32_t parent_checksum_{0};
+    uint16_t parent_index_{0xFFFF};
+    uint8_t bone_slot_{0};
     uint8_t pad0b_{};
     uint32_t unknown0c_{};
     float matrix[16]{};

@@ -46,8 +46,8 @@ public:
     // 0x004A0D70: a camera marked for deletion is deleted (its virtual [0]) and let go.
     void remove_flagged_camera();
 
-    float pos_x_, y_, span_, level_y_;        // +0x04 fractions of the screen
-    uint32_t flag_bits_;                      // +0x14 1: the camera is to be deleted
+    float pos_x_{0.0f}, y_{0.0f}, span_{1.0f}, level_y_{1.0f}; // +0x04 fractions of the screen
+    uint32_t flag_bits_{0};                                    // +0x14 1: the camera is to be deleted
     objects::SharedRef<gfx::ViewCam> viewer_; // +0x18
 };
 static_assert(offsetof(ViewRegion, flag_bits_) == 0x14 && offsetof(ViewRegion, viewer_) == 0x18 &&

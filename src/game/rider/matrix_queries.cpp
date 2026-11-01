@@ -54,11 +54,7 @@ double cos_degrees(float degrees) { return std::cos(static_cast<double>(degrees)
 memory::owner<ObjectModule*> RiderFrameLookups::fabricate() { return new RiderFrameLookups; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderFrameLookups::RiderFrameLookups()
-{
-    kind_tag_ = kSkaterMatrixQueries;
-    core_physics_ = nullptr;
-}
+RiderFrameLookups::RiderFrameLookups() { kind_tag_ = kSkaterMatrixQueries; }
 
 // 0x00513FD0 (0x00513FE0 the deleting one)
 RiderFrameLookups::~RiderFrameLookups() = default;

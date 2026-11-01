@@ -495,11 +495,7 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
 }
 
 // 0x00414D70
-HitTreeNode::HitTreeNode()
-{
-    axis_tag_ = 0;
-    chain_link_ = 0;
-}
+HitTreeNode::HitTreeNode() = default;
 
 // 0x00415C90
 int HitTreeNode::tally_nodes() const

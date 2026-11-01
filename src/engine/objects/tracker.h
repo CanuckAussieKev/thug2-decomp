@@ -163,18 +163,18 @@ public:
     void log_frame();
 
     // (The offsets are the original's, which has its vtable at +0x00.)
-    int next_auto_id_;                // +0x04
+    int next_auto_id_{0};             // +0x04
     lists::KeyMap* entity_list_;      // +0x08 id -> Entity (8 bits)
     lists::KeyMap* aliases_;          // +0x0C alias -> Entity (4 bits)
     lists::KeyMap* listeners_;        // +0x10 event type -> ScriptList (8 bits)
-    SignalReceiver* event_listeners_; // +0x14
-    bool unknown18;                   // +0x18 (cleared by the constructor only)
+    SignalReceiver* event_listeners_{nullptr}; // +0x14
+    bool unknown18{false};                     // +0x18 (cleared by the constructor only)
     uint8_t unknown19[3]{};
-    int launch_depth_;         // +0x1C
+    int launch_depth_{0};      // +0x1C
     SignalTrace log_{};        // +0x20
-    int launched_from_script_; // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
+    int launched_from_script_{0}; // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
     Waiter waiters_[40]{};     // +0xB038
-    bool unknownb218_;         // +0xB218 (cleared by the constructor only)
+    bool unknownb218_{false};  // +0xB218 (cleared by the constructor only)
 };
 
 // The tracker (null until made).

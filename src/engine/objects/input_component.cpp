@@ -121,12 +121,7 @@ void PadInputModule::publish_method_table()
 }
 
 // 0x0041E850
-PadInputModule::PadInputModule()
-{
-    kind_tag_ = kType;
-    handler_ = nullptr;
-    unknown49c_ = 0;
-}
+PadInputModule::PadInputModule() { kind_tag_ = kType; }
 
 // 0x0041E710 (0x0041E8C0 the deleting one)
 PadInputModule::~PadInputModule()

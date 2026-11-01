@@ -52,10 +52,10 @@ public:
     // `lerp`) and kept; nothing hit: nothing.
     void get_sample(bool lerp, float rate);
 
-    uint32_t light_flags_;              // +0x18 MODEL_LIGHT_*
-    uint32_t gap_time_;                 // +0x1C 0x470B8AE9 (frames)
-    uint32_t counter_;                  // +0x20
-    float brightness_;                  // +0x24 the last sample's
+    uint32_t light_flags_{0};             // +0x18 MODEL_LIGHT_*
+    uint32_t gap_time_{0};                // +0x1C 0x470B8AE9 (frames)
+    uint32_t counter_{0};                 // +0x20
+    float brightness_{0.0f};              // +0x24 the last sample's
     MeshInstanceModule* mesh_instance_{}; // +0x28
 };
 

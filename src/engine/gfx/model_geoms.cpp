@@ -141,7 +141,6 @@ void get_png_name(char* into, const char* name)
 // 0x00494C40
 RenderModel::RenderModel()
 {
-    geom_list_size_ = 0;
     // The list's head: a node linked to itself (none when out of memory).
     auto* head = static_cast<ModelGeomNode*>(memory::alloc(sizeof(ModelGeomNode)));
     if (head)

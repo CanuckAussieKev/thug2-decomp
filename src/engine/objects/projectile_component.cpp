@@ -55,11 +55,7 @@ void probe_tip(int index, float x, float z, float* last_column, float* end_z)
 memory::owner<ObjectModule*> ProjectileComponent::fabricate() { return new ProjectileComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-ProjectileComponent::ProjectileComponent()
-{
-    kind_tag_ = kType;
-    rest_ = 0;
-}
+ProjectileComponent::ProjectileComponent() { kind_tag_ = kType; }
 
 // 0x004F37B0 (0x004F37D0 the deleting one)
 ProjectileComponent::~ProjectileComponent() { slot_taken(rider_ref_, seat_) = false; }

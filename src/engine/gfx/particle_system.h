@@ -98,7 +98,7 @@ struct EmitterInstance : objects::SharedBase {
     uint8_t* end_colour_{};    // +0x114
     int history_length_{};     // +0x118 (the glow ribbon trail's history steps)
     float* position_array_{};  // +0x11C: three floats a particle a history step (step-major)
-    uint32_t flag_bits_;       // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
+    uint32_t flag_bits_{0};    // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
                                // spread (0xDB8621F7), 0x100 setCircularEmit; 0x4000 UseRandomUVQuadrants, 0x8000
                                // 0x5446AF14, 0x10000 takes the level's colour)
     uint8_t rank_{};           // +0x124 priority
@@ -268,10 +268,10 @@ struct ModelParticles final : EmitterInstance {
     ModelParticles& operator=(const ModelParticles&) = delete;
     unsigned int model_count_;  // +0x134
     unsigned int drawn_models_; // +0x138: the models Render goes through (the same count)
-    void*
-        unknown_13c_ptr_; // +0x13C (freed): a rotation (maths::QuatRotation) a model, turned by its particle's velocity
+    void* unknown_13c_ptr_{
+        nullptr}; // +0x13C (freed): a rotation (maths::QuatRotation) a model, turned by its particle's velocity
     uint8_t unknown140[4]{};
-    RenderModel** model_list_; // +0x144: model_count_ of them
+    RenderModel** model_list_{nullptr}; // +0x144: model_count_ of them
 
     // 0x0049A0C0 (model_particles.cpp): constructed with (name, max particles, model file name, ...): the base's,
     // `particleCap` particles, positions and models - each from "<model>.mdl" (lower case) at a random scale 1 - 2.98 -

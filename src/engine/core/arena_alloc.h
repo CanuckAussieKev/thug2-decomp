@@ -187,9 +187,9 @@ public:
     void* trim_block_end(uint32_t new_size, void* block) override;
     void dealloc(ChunkPrefix* header) override;
 
-    bool unknown64_;
-    int unknown68_;
-    int use_fallbacks_;
+    bool unknown64_{false};
+    int unknown68_{-1};
+    int use_fallbacks_{0};
     Arena* fallbacks_[5]{};
     int fallback_reserve_[5]{};
 };

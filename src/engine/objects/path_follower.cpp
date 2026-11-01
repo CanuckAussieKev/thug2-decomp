@@ -63,9 +63,8 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 } // namespace
 
 // 0x0046A1D0
-PathFollower::PathFollower(GameEntity* owner)
+PathFollower::PathFollower(GameEntity* owner) : owner_(owner)
 {
-    owner_ = owner;
     tick_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     tick_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     tick_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};

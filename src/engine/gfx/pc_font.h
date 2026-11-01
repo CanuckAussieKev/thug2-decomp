@@ -21,7 +21,7 @@ public:
     PcFont(const PcFont&) = delete;
     PcFont& operator=(const PcFont&) = delete;
     // 0x004B3BB0: no font yet.
-    PcFont() { font = nullptr; }
+    PcFont() = default;
     // 0x004B3E00 (0x004B4060 the scalar deleting destructor): the font unloaded if there is one, then the engine's.
     ~PcFont() override;
     // 0x004B3BD0 (vtable slot 1): load "fonts/<name>.fnt.xbx" (TypefaceData::ReadIn). Whether it loaded.
@@ -40,7 +40,7 @@ public:
     uint32_t get_base() override;
     void read_string_param(const char* text, float* width, float* height) override;
 
-    TypefaceData* font; // +0x08
+    TypefaceData* font{nullptr}; // +0x08
 };
 static_assert(sizeof(PcFont) == 0xC, "layout must match the original");
 
