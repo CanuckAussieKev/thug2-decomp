@@ -15,6 +15,7 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
+#include "engine/core/down_cast.h"
 
 namespace modules::score_internal {
 
@@ -50,7 +51,7 @@ inline online::Hub* net_session_slot() { return online::g_online_hub; }
 inline objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
 inline objects::Rider* rider_for_slot(int id)
 {
-    return static_cast<objects::Rider*>(skate_calls::get_rider_by_number(static_cast<uint32_t>(id)));
+    return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(static_cast<uint32_t>(id)));
 }
 
 // The screen element with this id (its smart pointer let go at once: the raw pointer kept, as the original).

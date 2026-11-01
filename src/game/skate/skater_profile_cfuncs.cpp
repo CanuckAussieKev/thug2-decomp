@@ -15,6 +15,7 @@
 #include "game/skate/skate_module.h"
 #include "game/goals/goal_manager.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -396,7 +397,7 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Script*)
         objects::GameEntity* skater = get_rider_at(i);
         if (!skater)
             continue;
-        bool& special = static_cast<objects::Rider*>(skater)->always_special_;
+        bool& special = core::down_cast<objects::Rider>(skater)->always_special_;
         if (on)
             special = true;
         else if (off)
@@ -439,7 +440,7 @@ bool cfunc_select_current_skater(script::Struct* params, script::Script*)
         return false;
     manager->set_current_skater(name);
     objects::RiderIdentity* profile = get_profile_from_params(nullptr);
-    auto* skater = static_cast<objects::Rider*>(get_rider_at(manager->cursor_pos_));
+    auto* skater = core::down_cast<objects::Rider>(get_rider_at(manager->cursor_pos_));
     if (skater)
         skater->update_from_profile(profile);
     return true;
@@ -491,7 +492,7 @@ bool cfunc_update_skater_stats(script::Struct* params, script::Script*)
 {
     int player = 0; // (uninitialised in the original when missing)
     params->fetch_int_value(kPlayer, &player, 1);
-    auto* skater = static_cast<objects::Rider*>(get_rider_at(player));
+    auto* skater = core::down_cast<objects::Rider>(get_rider_at(player));
     skater->set_stats_from_profile(fetch_account(player));
     return true;
 }

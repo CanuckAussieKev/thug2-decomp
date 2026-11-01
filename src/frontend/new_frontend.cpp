@@ -79,6 +79,7 @@
 #include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::new_frontend {
 
@@ -338,7 +339,7 @@ void update_session(float dt)
     }
     if (!level || level == kLoadMainMenu || get_paused() || level_editor::live_now())
         return;
-    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
+    auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!skater)
         return;
     session_state().seconds += dt;
@@ -346,9 +347,9 @@ void update_session(float dt)
     int pending = 0;
     bool bailing = false;
     if (objects::ObjectModule* state = skater->fetch_module(kSkaterState))
-        bailing = static_cast<objects::RiderPoseState*>(state)->is_on(objects::PoseFlag::kBailing) != 0;
+        bailing = core::down_cast<objects::RiderPoseState>(state)->is_on(objects::PoseFlag::kBailing) != 0;
     if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore))
-        if (const modules::PointTally* s = static_cast<objects::RiderPointKeeper*>(score)->points_held_) {
+        if (const modules::PointTally* s = core::down_cast<objects::RiderPointKeeper>(score)->points_held_) {
             const double points = static_cast<double>(s->pot_) * s->multiplier_;
             if (points > 0.0 && points < 2.0e9)
                 pending = static_cast<int>(points);
@@ -861,7 +862,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
     if (visible_only && !get_visible(element))
         return;
     if (type_of(element) == text_type()) {
-        const char* text = static_cast<const LabelWidget*>(element)->chars_;
+        const char* text = core::down_cast<const LabelWidget>(element)->chars_;
         if (text && *text)
             out->emplace_back(text);
     }
@@ -888,7 +889,7 @@ void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string
     if (std::ranges::find(skip, element) != skip.end())
         return;
     if (type_of(element) == text_type()) {
-        const char* text = static_cast<const LabelWidget*>(element)->chars_;
+        const char* text = core::down_cast<const LabelWidget>(element)->chars_;
         if (text && *text)
             out->emplace_back(text, absolute_y(element));
     }
@@ -927,7 +928,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                                              name_hash("value_up_arrow"), name_hash("alpha_up_arrow")};
     for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
         if (type_of(e) == sprite_type()) {
-            const uint32_t texture = static_cast<const ImageWidget*>(e)->texture_;
+            const uint32_t texture = core::down_cast<const ImageWidget>(e)->texture_;
             if (texture == kLeft || texture == kRight)
                 item->adjustable = true;
             if (texture == kUp) {
@@ -953,7 +954,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 item->checkbox = 0;
                 for (const UiWidget* mark = first_child(e); mark; mark = get_next(mark))
                     if (type_of(mark) == sprite_type() && get_visible(mark) &&
-                        static_cast<const ImageWidget*>(mark)->texture_ == kCheckmark)
+                        core::down_cast<const ImageWidget>(mark)->texture_ == kCheckmark)
                         item->checkbox = 1;
             }
         }
@@ -1030,7 +1031,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         static const uint32_t kTextBlock = name_hash("TextBlockElement");
         for (UiWidget* child = first_child(menu); child; child = get_next(child)) {
             if (read.dialog_title_.empty() && type_of(child) == text_type()) {
-                const char* text = static_cast<LabelWidget*>(child)->chars_;
+                const char* text = core::down_cast<LabelWidget>(child)->chars_;
                 read.dialog_title_ = text ? text : "";
             } else if (type_of(child) == kTextBlock) {
                 std::vector<std::string> lines;
@@ -1045,8 +1046,8 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     }
     if (skaters) {
         if (UiWidget* name = game_screens::get_find(name_hash("select_skater_name")))
-            if (type_of(name) == text_type() && static_cast<LabelWidget*>(name)->chars_)
-                read.skater_name_ = static_cast<LabelWidget*>(name)->chars_;
+            if (type_of(name) == text_type() && core::down_cast<LabelWidget>(name)->chars_)
+                read.skater_name_ = core::down_cast<LabelWidget>(name)->chars_;
         if (read.selected_index_ >= 0 && std::cmp_less(read.selected_index_, read.items.size()))
             read.stats = skater_stats(read.items[read.selected_index_].id);
         return read;
@@ -1054,8 +1055,8 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     // A list: its title (title_text, the themed menus'), the other words on its screen (under the same child of the
     // root: not the menu, its title or the helper text).
     if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
-        if (type_of(title) == text_type() && static_cast<LabelWidget*>(title)->chars_ && get_visible(title))
-            read.title = static_cast<LabelWidget*>(title)->chars_;
+        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars_ && get_visible(title))
+            read.title = core::down_cast<LabelWidget>(title)->chars_;
     const UiWidget* root = root_element();
     const UiWidget* screen = menu;
     for (int guard = 0; screen && guard < 64; ++guard) {
@@ -1127,11 +1128,11 @@ void dump_tree(const UiWidget* element, int depth, int* budget)
                                      id_of_element(element), element->aim_point_.x, element->aim_point_.y,
                                      get_visible(element) ? "" : " hidden");
         if (type_of(element) == text_type()) {
-            const char* text = static_cast<const LabelWidget*>(element)->chars_;
+            const char* text = core::down_cast<const LabelWidget>(element)->chars_;
             std::snprintf(line + at, sizeof(line) - at, " \"%.80s\"", text ? text : "");
         } else if (type_of(element) == sprite_type()) {
             std::snprintf(line + at, sizeof(line) - at, " texture %08X",
-                          static_cast<const ImageWidget*>(element)->texture_);
+                          core::down_cast<const ImageWidget>(element)->texture_);
         }
         get_log("new front end: debug_restyle %s", line);
         if (depth < 8)
@@ -1249,8 +1250,8 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
         ++row;
     }
     if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
-        if (type_of(title) == text_type() && static_cast<LabelWidget*>(title)->chars_ && get_visible(title))
-            read.title = static_cast<LabelWidget*>(title)->chars_;
+        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars_ && get_visible(title))
+            read.title = core::down_cast<LabelWidget>(title)->chars_;
     return read;
 }
 

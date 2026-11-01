@@ -35,6 +35,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -767,7 +768,7 @@ void SkaterPhysicsModule::land_from_air()
         const uint32_t which = state_->surface_type_;
         objects::GameEntity* object = object_of(this);
         const float speed = object->vel_.len_of();
-        const float scale = static_cast<objects::Rider*>(object)->get_scaled_physics(0xCC5F87AA);
+        const float scale = core::down_cast<objects::Rider>(object)->get_scaled_physics(0xCC5F87AA);
         static_cast<objects::RiderSfxPlayer*>(sound_)->play_land(speed / scale, static_cast<int>(which));
     }
     objects::MoveExecutor* skater = trick_;

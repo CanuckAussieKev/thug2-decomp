@@ -33,6 +33,7 @@
 #include "engine/objects/path_follower.h"
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -70,7 +71,7 @@ void init_component_from_structure(ObjectModule* component, script::Struct* para
     component->configure_from_data(params);
 }
 // The model component's update after the object is finished (0x00420480).
-void update_model(ObjectModule* model) { static_cast<MeshInstanceModule*>(model)->jump_to(); }
+void update_model(ObjectModule* model) { core::down_cast<MeshInstanceModule>(model)->jump_to(); }
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
@@ -109,7 +110,7 @@ void add_node_components(GameEntity* object, script::Struct* node)
     ObjectModule* motion = object->fetch_module(kMotion);
     if (!motion)
         add_motion_components(object); // (sic: not looked up again - the motion stays null below)
-    static_cast<KinematicsModule*>(motion)->face_node(node);
+    core::down_cast<KinematicsModule>(motion)->face_node(node);
     if (const uint32_t name = level_nodes::get_node_name(node))
         object->change_serial(name);
     uint32_t script = 0;
@@ -135,7 +136,7 @@ void spawn_pedestrian(script::Struct* params)
     script::launch_script(kPedAddComponents, params, ped, false, nullptr);
     ped->seal();
     script::launch_script(kPedInitModel, params, ped, false, nullptr);
-    auto* motion = static_cast<KinematicsModule*>(ped->fetch_module(kMotion));
+    auto* motion = core::down_cast<KinematicsModule>(ped->fetch_module(kMotion));
     motion->path_max_speed_ = 44.0f;
     motion->path_acceleration_ = 48.0f;
     motion->path_deceleration_ = 12.0f;
@@ -153,7 +154,7 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
 {
     add_motion_components(car);
     add_node_components(car, params);
-    auto* motion = static_cast<KinematicsModule*>(car->fetch_module(kMotion));
+    auto* motion = core::down_cast<KinematicsModule>(car->fetch_module(kMotion));
     motion->path_max_speed_ = 528.0f;
     motion->path_acceleration_ = 216.0f;
     motion->path_deceleration_ = 384.0f;
@@ -211,7 +212,7 @@ void CrownObject::own_update()
     if (!worn_)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    void* skeleton = static_cast<objects::BoneRigModule*>(skater_->fetch_module(kSkeleton))->bone_rig_;
+    void* skeleton = core::down_cast<objects::BoneRigModule>(skater_->fetch_module(kSkeleton))->bone_rig_;
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame_);
     maths::Mat4 turn;
     maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
@@ -240,7 +241,7 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     delete_structure(model);
     add_node_components(this, node);
     change_serial(kCrownObject);
-    auto* suspend = static_cast<DormancyModule*>(fetch_module(kSuspend));
+    auto* suspend = core::down_cast<DormancyModule>(fetch_module(kSuspend));
     suspend->lod_distances_[0] = 1000000.0f;
     suspend->lod_distances_[1] = 1000001.0f;
     suspend->lod_distances_[2] = 1000002.0f;
@@ -254,9 +255,9 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
         path->~Chars();
     }
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
-    void* model_data = static_cast<objects::MeshInstanceModule*>(fetch_module(kModel))->mesh_instance_;
+    void* model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance_;
     static_cast<render::RenderModel*>(model_data)->add_file_geom(file.c_str(), 0, true, 0, false, false, true, false);
-    model_data = static_cast<objects::MeshInstanceModule*>(fetch_module(kModel))->mesh_instance_;
+    model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance_;
     static_cast<render::RenderModel*>(model_data)->change_live(1);
     level_nodes::fetch_place(node, &at_point_);
     seal();

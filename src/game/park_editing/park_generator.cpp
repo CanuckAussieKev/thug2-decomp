@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -279,8 +280,8 @@ bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
 ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
 {
     flags &= ParkTile::kCursor | ParkTile::kNoNode20 | ParkTile::kNoRails | ParkTile::kDestroyNow;
-    TileTemplate* from = (source->flag_bits_ & ParkPiece::kSource) ? static_cast<TileTemplate*>(source)
-                                                                   : static_cast<ParkTile*>(source)->blend_source_;
+    TileTemplate* from = (source->flag_bits_ & ParkPiece::kSource) ? core::down_cast<TileTemplate>(source)
+                                                                   : core::down_cast<ParkTile>(source)->blend_source_;
     // The source's sector copied into the park's scene (on the bottom-up heap).
     cloning_piece() = 1;
     const uint32_t name = from->sector_;

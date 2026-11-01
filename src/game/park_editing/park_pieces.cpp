@@ -12,6 +12,7 @@
 #include "game/park_editing/park_nx.h"
 #include "engine/maths/mat4.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -75,7 +76,7 @@ void ParkPiece::get_footprint_size(CellBox* dims)
 
 maths::Vec4* ParkPiece::get_dims_turned(maths::Vec4* out, int rot)
 {
-    ParkPiece* source = (flag_bits_ & kSource) ? this : static_cast<ParkTile*>(this)->blend_source_;
+    ParkPiece* source = (flag_bits_ & kSource) ? this : core::down_cast<ParkTile>(this)->blend_source_;
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
     maths::Vec4 size;

@@ -17,6 +17,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -51,7 +52,7 @@ void RiderStanceDisplay::configure_from_data(script::Struct* /*params*/) { shown
 // 0x00519210
 void RiderStanceDisplay::seal()
 {
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x00519150
@@ -59,7 +60,7 @@ int RiderStanceDisplay::get_stance()
 {
     auto* core = static_cast<ObjectModule*>(core_physics_);
     const uint8_t flip = core_physics_->state_->flag(PoseFlag::kFlipped).on;
-    const bool reversed = static_cast<Rider*>(core->entity_)->goofy_ != 0;
+    const bool reversed = core::down_cast<Rider>(core->entity_)->goofy_ != 0;
     const bool flipped = reversed ? flip != 0 : flip == 0;
     if (press_amount_)
         return flipped ? 3 : 4;
@@ -74,7 +75,7 @@ void RiderStanceDisplay::tick_frame()
     frontend::UiWidget* panel = nullptr;
     {
         frontend::ElementPtr found;
-        const uint32_t id = static_cast<uint32_t>(static_cast<Rider*>(entity_)->get_skater_number()) - kPanelIdOffset;
+        const uint32_t id = static_cast<uint32_t>(core::down_cast<Rider>(entity_)->get_skater_number()) - kPanelIdOffset;
         frontend::UiTree::sole()->fetch_part(&found, id, 0);
         panel = found.get_pull();
     }
@@ -86,7 +87,7 @@ void RiderStanceDisplay::tick_frame()
         panel->change_opacity(0.0f, 1);
         return;
     }
-    static_cast<frontend::ImageWidget*>(panel)->set_texture(stance_textures()[stance]);
+    core::down_cast<frontend::ImageWidget>(panel)->set_texture(stance_textures()[stance]);
     panel->change_opacity(1.0f, 1);
 }
 

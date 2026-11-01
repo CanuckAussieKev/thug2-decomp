@@ -35,6 +35,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -201,7 +202,7 @@ bool GoalManager::complete_objective(uint32_t id)
             desc.content_ = bytes;
             desc.ident_ = kMsgGoalWon;
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-            static_cast<net::Guest*>(client)->send_to_host(&desc);
+            core::down_cast<net::Guest>(client)->send_to_host(&desc);
         } else if (goal->sub_nodes_->objective_key_ == 0 && !goal->fetch_args()->has_bare_flag(kEditedGoal)) {
             ++goals_beaten_;
         }
@@ -398,9 +399,9 @@ void GoalManager::check_trick_goals()
             if (!params->has_bare_flag(kSpecialGap) && goal->did_trick_string())
                 complete_objective(goal->get_objective_key());
         } else if (goal->is_tetris()) {
-            static_cast<FallingTricksGoal*>(goal)->check_tricks();
+            core::down_cast<FallingTricksGoal>(goal)->check_tricks();
         } else if (goal->is_find_gaps()) {
-            static_cast<HuntGapsObjective*>(goal)->scan_for_gaps();
+            core::down_cast<HuntGapsObjective>(goal)->scan_for_gaps();
         }
     }
 }
@@ -570,9 +571,9 @@ bool GoalManager::goal_exists(uint32_t id) { return goals_.get_pull(id) != nullp
 // 0x00558E50
 void GoalManager::test_tagged_props()
 {
-    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     const int player = static_cast<modules::PointTally*>(skater->get_points_total())->pot_score_;
-    auto* trick = static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick));
+    auto* trick = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
     // The combo's trick objects: up to 512 clusters, then their count (copied first, as the original).
     const objects::HitClusterLog objects = trick->trick_objects_;
     const int count = objects.num_ > 512 ? 512 : objects.num_;
@@ -660,7 +661,7 @@ void GoalManager::trick_object_hit(uint32_t cluster)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->fetch_args()->has_bare_flag(kTrickObjects))
-            static_cast<TrickObjectsGoal*>(goal)->get_object_hit(cluster);
+            core::down_cast<TrickObjectsGoal>(goal)->get_object_hit(cluster);
     }
 }
 

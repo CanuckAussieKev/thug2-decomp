@@ -37,6 +37,7 @@
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -120,12 +121,12 @@ void SkaterPhysicsModule::get_reset()
         if (flag == 7)
             sound_->sliding_ = 0;
     }
-    set_timed_flag(this, PoseFlag::kFlipped, !static_cast<objects::Rider*>(entity_)->goofy_);
+    set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy_);
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
     auto* rider = raw::as<objects::SharedRef<objects::SharedBase>>(ride->ride_);
     if (rider) {
-        ride->last_object_ = static_cast<objects::GameEntity*>(rider->owner_object_);
+        ride->last_object_ = core::down_cast<objects::GameEntity>(rider->owner_object_);
         rider->get_release();
         memory::Hub::get_pull()->dealloc(rider);
         ride->ride_ = nullptr;
@@ -239,7 +240,7 @@ void SkaterPhysicsModule::update_model_rotation()
 {
     if (!model_rotating_)
         return;
-    auto* model = static_cast<objects::MeshInstanceModule*>(skater_object(this)->fetch_module(kModel));
+    auto* model = core::down_cast<objects::MeshInstanceModule>(skater_object(this)->fetch_module(kModel));
     const double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
@@ -257,7 +258,7 @@ void SkaterPhysicsModule::update_model_rotation()
         model_rotating_ = 0;
         model_rotation_left_ = 0.0f;
         if (model_flipped_) {
-            static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
+            core::down_cast<objects::RiderSpinAndFlip>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
                 ->get_flip();
         }
         reset_rotations();
@@ -269,7 +270,7 @@ void SkaterPhysicsModule::update_special_time()
 {
     if (!focus_on_)
         return;
-    auto* time = static_cast<float*>(static_cast<objects::Rider*>(object_of(this))->get_points_total()); // (the score)
+    auto* time = static_cast<float*>(core::down_cast<objects::Rider>(object_of(this))->get_points_total()); // (the score)
     if (!time)
         return;
     if (*time > 0.0f) {
@@ -350,7 +351,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
             }
         }
         rail_adjust_ = 0;
-        static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
+        core::down_cast<objects::RiderSpinAndFlip>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
             ->do_after_anim();
         object = skater_object(this);
         object->own_script_->bind_script(tricks->fetch_part(buttons), nullptr, object);

@@ -21,6 +21,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -97,7 +98,7 @@ void RiderOverheadTag::tick_frame()
         label = found.get_pull();
     }
     const online::PlayerRecord* player = find_player_slot_by_obj(entity_->ident_);
-    auto* skater = static_cast<Rider*>(entity_);
+    auto* skater = core::down_cast<Rider>(entity_);
     if (!skater->get_flag_2c_4() || (entity_->composite_flags_ & kCompositeFlagHidden)) {
         if (label)
             run_with_label_id(kDestroyObjectLabel, label_id_);

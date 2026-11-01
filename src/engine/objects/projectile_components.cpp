@@ -36,6 +36,7 @@
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -95,7 +96,7 @@ void delete_params(script::Struct* params)
 
 modules::PointTally* get_score_of(GameEntity* skater)
 {
-    return (static_cast<RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_);
+    return (core::down_cast<RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_);
 }
 
 } // namespace
@@ -211,10 +212,10 @@ void ShotImpactModule::tick_frame()
         }
         if (score->get_total_score() > 0 && !victim->is_own_player()) {
             script::Struct* params = new_params();
-            params->append_word(kName, static_cast<Rider*>(skater)->fetch_shown_name());
+            params->append_word(kName, core::down_cast<Rider>(skater)->fetch_shown_name());
             script::launch_script(kAnnounceElimination, params, nullptr, false, nullptr);
             delete_params(params);
-            skate->conceal_skater(static_cast<Rider*>(skater), true);
+            skate->conceal_skater(core::down_cast<Rider>(skater), true);
         }
         score->set_grand_total(0);
         return;
@@ -236,7 +237,7 @@ ProjectileProximityComponent::~ProjectileProximityComponent() = default;
 void ProjectileProximityComponent::configure_from_data(script::Struct*)
 {
     rider_ref_ = local_skater();
-    ped_logic_ = static_cast<PedestrianBrainModule*>(entity_->fetch_module(kPedLogic));
+    ped_logic_ = core::down_cast<PedestrianBrainModule>(entity_->fetch_module(kPedLogic));
     reach_squared_ = kReach * kReach;
 }
 
@@ -250,7 +251,7 @@ void ProjectileProximityComponent::tick_frame()
     if (!entity_->ident_)
         return;
     if (!ped_logic_) {
-        ped_logic_ = static_cast<PedestrianBrainModule*>(entity_->fetch_module(kPedLogic));
+        ped_logic_ = core::down_cast<PedestrianBrainModule>(entity_->fetch_module(kPedLogic));
         return;
     }
     if (ped_logic_->get_logic_state() == kShot)
@@ -274,7 +275,7 @@ void ProjectileProximityComponent::tick_frame()
         script::launch_script(kProjectileHitPed, params, find_object(rider_ref_->ident_), false, nullptr);
         params->put_name_key(
             kAmmoType,
-            static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type_);
+            core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type_);
         script::launch_script(kHitPedScript, params, entity_, false, nullptr);
         delete_params(params);
         projectile.active = false;

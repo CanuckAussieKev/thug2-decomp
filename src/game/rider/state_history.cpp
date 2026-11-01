@@ -36,6 +36,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -124,20 +125,20 @@ bool tag_game_over() { return static_cast<goals::MatchRules*>(get_game_mode())->
 bool in_slap_game() { return commands::cfunc_in_slap_game(nullptr, nullptr); }
 
 GameEntity* skater_by_index(int index) { return static_cast<modules::Skate*>(skater_manager())->get_rider_at(index); }
-const char* get_skater_name(GameEntity* skater) { return static_cast<Rider*>(skater)->fetch_shown_name(); }
+const char* get_skater_name(GameEntity* skater) { return core::down_cast<Rider>(skater)->fetch_shown_name(); }
 // A skater's score (its +0x278's +0x18).
-void* skater_score(GameEntity* skater) { return static_cast<Rider*>(skater)->score_holder_->points_held_; }
+void* skater_score(GameEntity* skater) { return core::down_cast<Rider>(skater)->score_holder_->points_held_; }
 int get_points_total(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 void set_points_total(void* score, int value) { static_cast<modules::PointTally*>(score)->set_grand_total(value); }
 
 // Knocked over by `other`: a bail on the core physics, or the walk component's when walking or driving.
 void knock_down(ObjectModule* physics, GameEntity* other)
 {
-    static_cast<skater::SkaterPhysicsModule*>(physics)->reset_to_air(other);
+    core::down_cast<skater::SkaterPhysicsModule>(physics)->reset_to_air(other);
 }
 void knock_down_walking(ObjectModule* walk, GameEntity* other)
 {
-    static_cast<FootMovement*>(walk)->go_to_air_for(other);
+    core::down_cast<FootMovement>(walk)->go_to_air_for(other);
 }
 
 // A vector's length as 0x004023C0 leaves it on the x87 stack (x, y, then z; unrounded).
@@ -265,7 +266,7 @@ void RiderFrameLog::check_for_collisions(int first)
         return;
     if (!manager_may_collide() && !is_it(me) && !on_a_team(me))
         return;
-    auto* my_state = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    auto* my_state = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
     // Whether this machine tells the players of a hit (not when the skater is in a bail, outside a slap game).
     bool tell_players = false;
     if (!my_state->flag(PoseFlag::kBailing).on || in_slap_game()) {
@@ -288,7 +289,7 @@ void RiderFrameLog::check_for_collisions(int first)
         GameEntity* skater = skater_by_index(i);
         if (!skater || skater == entity_)
             continue;
-        auto* their_state = static_cast<RiderPoseState*>(skater->fetch_module(kSkaterState));
+        auto* their_state = core::down_cast<RiderPoseState>(skater->fetch_module(kSkaterState));
         if (their_state->flag(PoseFlag::kBailing).on)
             continue;
         online::PlayerRecord* them = find_player_slot_by_obj(static_cast<int>(skater->ident_));
@@ -299,7 +300,7 @@ void RiderFrameLog::check_for_collisions(int first)
         if (is_squad_play() && them->team_ == me->team_)
             continue;
 
-        RiderFrameLog* their_history = static_cast<Rider*>(skater)->state_history_;
+        RiderFrameLog* their_history = core::down_cast<Rider>(skater)->state_history_;
         const bool their_driving = their_state->in_vehicle_;
         maths::Vec4 their_pos{};
         their_history->fetch_place(&their_pos);
@@ -368,7 +369,7 @@ void RiderFrameLog::check_for_collisions(int first)
             util::ByteWriter ran_into_writer(ran_into_bytes, sizeof(ran_into_bytes));
             online::write_ran_into(ran_into_writer, ran_into);
             if (ObjectModule* input = entity_->fetch_module(kInput))
-                static_cast<PadInputModule*>(input)->disabled_ = true;
+                core::down_cast<PadInputModule>(input)->disabled_ = true;
             mark_tag_time(me);
             msg.ident_ = kMsgRanInto;
             msg.content_ = ran_into_bytes;
@@ -476,7 +477,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             skater->vel_.w = wk * kKnockScale;
             skater->vel_.y = kKnockUp;
             ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
-            const RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
+            const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose_;
             if (!state->in_vehicle_ && state->physics_mode_ == 0)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
@@ -536,7 +537,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     }
     if (player) {
         ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
-        if (!static_cast<RiderBoardPhysics*>(control)->pose_->in_vehicle_) {
+        if (!core::down_cast<RiderBoardPhysics>(control)->pose_->in_vehicle_) {
             GameEntity* other = player_object(player);
             const double dw = static_cast<double>(skater->at_point_.w) - other->at_point_.w;
             const double dz = static_cast<double>(skater->at_point_.z) - other->at_point_.z;
@@ -567,9 +568,9 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             skater->vel_.z = zk * kKnockScale;
             skater->vel_.w = static_cast<float>(wk * kKnockScale);
             skater->vel_.y = kKnockUp;
-            const RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
+            const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose_;
             if (!state->in_vehicle_ && state->physics_mode_ == 0 &&
-                !static_cast<RiderBoardPhysics*>(control)->force_walk_)
+                !core::down_cast<RiderBoardPhysics>(control)->force_walk_)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
                 knock_down_walking(skater->fetch_module(kWalk), other);

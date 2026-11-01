@@ -33,6 +33,7 @@
 #include "game/rider/state_history.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -112,7 +113,7 @@ bool PlayerRecord::is_invulnerable()
     if (get_game_type() == kNetFirefight) {
         auto* skater = raw::as<objects::GameEntity>(skater_);
         if (static_cast<modules::PointTally*>(
-                static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_)
+                core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_)
                 ->get_total_score() <= 0)
             return true;
     }

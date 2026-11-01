@@ -23,6 +23,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -255,7 +256,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
         uint32_t object_id = unknown28_;
         params->read_hash_value(kObjId, &object_id, 0);
         if (object_id)
-            brightness_model_ = static_cast<GameEntity*>(find_object(object_id))->fetch_module(kModel);
+            brightness_model_ = core::down_cast<GameEntity>(find_object(object_id))->fetch_module(kModel);
     }
     if (params->has_bare_flag(kUseRandomUvQuadrants))
         system_.get_pull()->flag_bits_ |= 0x4000;
@@ -327,7 +328,7 @@ void FlexibleParticleComponent::tick_frame()
             render::EmitterInstance* system = system_.get_pull();
             if (system->wants_time_) {
                 if (brightness_model_)
-                    system->brightness_ = static_cast<MeshInstanceModule*>(brightness_model_)->brightness_;
+                    system->brightness_ = core::down_cast<MeshInstanceModule>(brightness_model_)->brightness_;
                 update_system(system_.get_pull(), clock_, 0);
                 clock_ = 0.0f;
             }

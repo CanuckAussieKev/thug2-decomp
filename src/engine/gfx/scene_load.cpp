@@ -26,6 +26,7 @@
 #include "engine/gfx/sector.h"
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -53,7 +54,7 @@ uint8_t* new_sector_geom(uint8_t* scene)
     geom->scene = scene;
     return raw::bytes(static_cast<Geom*>(geom));
 }
-void prepare_geometry(uint8_t* geom) { static_cast<PcGeom*>(raw::as<Geom>(geom))->start_mesh_list(); }
+void prepare_geometry(uint8_t* geom) { core::down_cast<PcGeom>(raw::as<Geom>(geom))->start_mesh_list(); }
 // The 2D clip rectangle off (0x004D3CE0).
 void clear_screen_clip() { clear_skin_scaling(); }
 
@@ -127,7 +128,7 @@ uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool 
         uint8_t* geom = new_sector_geom(scene);
         choose_geom(sector, geom);
         prepare_geometry(geom);
-        load_sector(static_cast<PcSector*>(sector)); // (a damaged one keeps the meshes it made)
+        load_sector(core::down_cast<PcSector>(sector)); // (a damaged one keeps the meshes it made)
         insert_sector(scene, sector);
     }
     list->update_sphere();

@@ -26,6 +26,7 @@
 #include "platform/run_log.h"
 #include "engine/gfx/pc_instance.h"
 #include "engine/core/ints.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::preview {
 
@@ -179,7 +180,7 @@ bool box_of(Kind kind, uint32_t id, OrientedBox* box)
         return scenery::sector_geometry(id) && scenery::cuboid(id, box);
     if (kind != Kind::kObject)
         return false;
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) && object_edit::model_box(object, box);
 }
 bool subject_box(OrientedBox* box) { return box_of(g_kind, g_id, box); }
@@ -191,7 +192,7 @@ void draw_subject(Kind kind, uint32_t id)
             draw_meshes(geom);
         return;
     }
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     for (int i = 0; object && i < 16; ++i) {
         auto* geom = static_cast<render::PcGeom*>(object_edit::get_geometry(object, i));
         if (!geom)

@@ -21,6 +21,7 @@
 #include "game/rider/rider.h"
 #include "engine/net/player_info.h"
 #include "game/skate/point_tally.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -122,7 +123,7 @@ void LetterGameObjective::land()
     if (i == count)
         return;
     const int landed = static_cast<modules::PointTally*>(
-                           static_cast<objects::Rider*>(skate_calls::get_home_rider())->get_points_total())
+                           core::down_cast<objects::Rider>(skate_calls::get_home_rider())->get_points_total())
                            ->pot_score_;
     if (landed > 0) {
         const uint32_t id = get_objective_key();
@@ -214,7 +215,7 @@ bool OnlineObjective::wants_to_end()
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
         objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->skater_;
-        auto* end_run = static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
+        auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         if (!end_run->run_done() && !skater->is_halted_ && run_ending_ != 2 && seconds_remaining_ <= 0) {
             flag_bits_ |= kFlagEndOfRunStarted;
             end_run->end_run(false);

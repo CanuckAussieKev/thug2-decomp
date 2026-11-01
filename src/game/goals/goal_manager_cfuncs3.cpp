@@ -24,6 +24,7 @@
 #include "game/skate/trick_goals.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -296,7 +297,7 @@ bool cfunc_goal_manager_get_last_goal_id(script::Struct*, script::Script* script
 bool cfunc_goal_manager_clear_tetris_tricks(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    static_cast<FallingTricksGoal*>(manager->goals_.get_pull(get_goal_name(params)))->clear_tricks_and_menu();
+    core::down_cast<FallingTricksGoal>(manager->goals_.get_pull(get_goal_name(params)))->clear_tricks_and_menu();
     return true;
 }
 
@@ -322,7 +323,7 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     desc.content_ = bytes;
     desc.byte_count_ = sizeof(bytes);
     desc.ident_ = kMsgGoalStarted;
-    static_cast<net::Guest*>(client)->send_to_host(&desc);
+    core::down_cast<net::Guest>(client)->send_to_host(&desc);
     return true;
 }
 
@@ -452,7 +453,7 @@ bool cfunc_goal_manager_advance_stage(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_film_goal_checkpoint(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    static_cast<ShootVideoObjective*>(optional_goal(manager, params))->checkpoint();
+    core::down_cast<ShootVideoObjective>(optional_goal(manager, params))->checkpoint();
     return true;
 }
 
@@ -460,7 +461,7 @@ bool cfunc_goal_manager_film_goal_checkpoint(script::Struct* params, script::Scr
 bool cfunc_goal_manager_start_filming(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    static_cast<ContestObjective*>(optional_goal(manager, params))->freeze_contest();
+    core::down_cast<ContestObjective>(optional_goal(manager, params))->freeze_contest();
     return true;
 }
 
@@ -563,7 +564,7 @@ bool cfunc_goal_manager_hide_all_goal_peds(script::Struct* params, script::Scrip
 // 0x0055B6C0 (the goal taken to be a trick beat goal)
 bool cfunc_goal_manager_set_trick_beat_pattern(script::Struct* params, script::Script*)
 {
-    auto* goal = static_cast<TrickBeatGoal*>(name_then_goal(params));
+    auto* goal = core::down_cast<TrickBeatGoal>(name_then_goal(params));
     int tempo = 0;
     params->fetch_int_value(kTempo, &tempo, 1);
     script::Array* pattern = nullptr;
@@ -575,7 +576,7 @@ bool cfunc_goal_manager_set_trick_beat_pattern(script::Struct* params, script::S
 // 0x0055B740
 bool cfunc_goal_manager_reset_trick_beat_timer(script::Struct* params, script::Script*)
 {
-    static_cast<TrickBeatGoal*>(name_then_goal(params))->reset_clock();
+    core::down_cast<TrickBeatGoal>(name_then_goal(params))->reset_clock();
     return true;
 }
 

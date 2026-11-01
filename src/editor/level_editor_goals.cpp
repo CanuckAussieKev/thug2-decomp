@@ -35,6 +35,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -846,7 +847,7 @@ void initialize_goal(uint32_t goal)
 
 void remove_entity(const std::string& name)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(get_checksums(name)));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(get_checksums(name)));
     if (object && !(object->object_flags_ & objects::kObjectFlagDead))
         object->flag_as_dead();
 }
@@ -1226,7 +1227,7 @@ bool export_goal(const std::string& id, std::string* message)
         return false;
     }
     // The goal editor's component (the object GoalEditor, CreateGoalEditor at start-up: its goaleditor 0x81F01058).
-    auto* editor = static_cast<objects::GameEntity*>(objects::find_object(get_checksums("GoalEditor")));
+    auto* editor = core::down_cast<objects::GameEntity>(objects::find_object(get_checksums("GoalEditor")));
     uint8_t* component = editor ? raw::bytes(editor->fetch_module(0x81F01058)) : nullptr;
     const uint32_t level = current_level();
     if (!component || !level) {

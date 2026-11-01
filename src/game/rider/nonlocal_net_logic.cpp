@@ -35,6 +35,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -102,12 +103,12 @@ RiderRemoteSync::~RiderRemoteSync() = default;
 // 0x00514580
 void RiderRemoteSync::seal()
 {
-    past_frames_ = static_cast<RiderFrameLog*>(entity_->fetch_module(kSkaterStateHistory));
-    pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    past_frames_ = core::down_cast<RiderFrameLog>(entity_->fetch_module(kSkaterStateHistory));
+    pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
     run_over_ = raw::bytes(entity_->fetch_module(kSkaterEndRun));
     anim_blender_ = entity_->fetch_module(kAnimBlender);
     flip_and_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
-    mesh_set_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
+    mesh_set_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel));
     shadow_ = entity_->fetch_module(kShadow);
 }
 
@@ -149,8 +150,8 @@ void RiderRemoteSync::update_ground_lighting()
             render::set_world_brightness(static_cast<float>(feeler.get_hit_vertex_value()));
     }
     // The shadow at the hit.
-    static_cast<GroundShadowModule*>(shadow_)->change_place(&feeler.contact_pos_);
-    static_cast<GroundShadowModule*>(shadow_)->set_normal(&feeler.surface_dir_);
+    core::down_cast<GroundShadowModule>(shadow_)->change_place(&feeler.contact_pos_);
+    core::down_cast<GroundShadowModule>(shadow_)->set_normal(&feeler.surface_dir_);
 }
 
 // 0x00514850
@@ -446,7 +447,7 @@ void RiderRemoteSync::tick_frame()
     was_driving_ = pose_->in_vehicle_;
 
     // The looping sound: on while skating, its speed and state.
-    auto* sound = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound));
+    auto* sound = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound));
     if (pose_->physics_mode_ != 0) {
         if (sound->on_) {
             sound->hold_off(true);

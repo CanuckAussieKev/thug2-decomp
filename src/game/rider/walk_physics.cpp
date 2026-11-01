@@ -42,6 +42,7 @@
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -125,9 +126,9 @@ void FootMovement::configure_from_data(script::Struct* params)
 {
     uint32_t id = 0;
     if (params->read_hash_value(kCamIdKey, &id, 0)) {
-        auto* camera = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
+        auto* camera = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
         camera_ = camera;
-        walk_camera_ = static_cast<FootView*>(camera->fetch_module(kWalkCameraType));
+        walk_camera_ = core::down_cast<FootView>(camera->fetch_module(kWalkCameraType));
     }
     unknown710_ = 0;
 }
@@ -150,7 +151,7 @@ void FootMovement::seal()
 void FootMovement::choose_camera(GameEntity* camera)
 {
     camera_ = camera;
-    walk_camera_ = static_cast<FootView*>(camera->fetch_module(kWalkCameraType));
+    walk_camera_ = core::down_cast<FootView>(camera->fetch_module(kWalkCameraType));
 }
 
 // 0x005260E0
@@ -253,7 +254,7 @@ maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
 void FootMovement::update_run_adjustment()
 {
     const modules::PointTally* score =
-        static_cast<RiderPointKeeper*>(entity_->fetch_module(kSkaterScore))->points_held_;
+        core::down_cast<RiderPointKeeper>(entity_->fetch_module(kSkaterScore))->points_held_;
     if (truncate(static_cast<double>(score->pot_) * score->multiplier_) > 0) {
         run_adjustment_ = 1.0f;
         return;

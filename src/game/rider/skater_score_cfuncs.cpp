@@ -16,6 +16,7 @@
 #include "game/rider/rider.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -31,7 +32,7 @@ constexpr uint32_t kTeam = 0x3B1F59E0;         // "team"
 constexpr uint32_t kPlayer = 0x67E6859A;       // "player"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
-objects::Rider* get_skater_at(int index) { return static_cast<objects::Rider*>(get_skate()->get_rider_at(index)); }
+objects::Rider* get_skater_at(int index) { return core::down_cast<objects::Rider>(get_skate()->get_rider_at(index)); }
 bool is_host_local(objects::Rider* skater) { return skater->is_local_skater_ != 0; }
 
 // The skater's score (the SkaterScore component's object): 0x00564A10 resets it, 0x00561B40 / 0x00561A80 get and set
@@ -121,7 +122,7 @@ bool cfunc_reset_score_pot(script::Struct* params, script::Script*)
 bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script* script)
 {
     script::Struct* results = script->args_;
-    auto* object = static_cast<objects::GameEntity*>(script->entity_.owner_object_);
+    auto* object = core::down_cast<objects::GameEntity>(script->entity_.owner_object_);
     int team = -1;
     uint32_t player = 0xFFFFFFFF;
     float nearest = 1000000.0f;

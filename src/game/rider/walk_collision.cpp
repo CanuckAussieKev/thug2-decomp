@@ -30,6 +30,7 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -256,7 +257,7 @@ void FootMovement::update_ground_below()
     if (below) {
         // The height above it (the skater state's +0x11C), the shadow on it.
         skater_state_->height_above_ground_ = static_cast<float>(static_cast<double>(pos.y) - down.contact_pos_.y);
-        auto* shadow = static_cast<GroundShadowModule*>(entity_->fetch_module(kShadow));
+        auto* shadow = core::down_cast<GroundShadowModule>(entity_->fetch_module(kShadow));
         shadow->change_place(&down.contact_pos_);
         shadow->set_normal(&down.surface_dir_);
         return;
@@ -445,7 +446,7 @@ void FootMovement::try_wallplant()
     if (static_cast<bool>(physics_control_->flag26_))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
-    static_cast<MoveExecutor*>(entity_->fetch_module(kTrick))
+    core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))
         ->pass_to_trick_objects(contact->feeler.hit_.object_checksum_);
     core_physics_->wallplant_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
     anim_state_ = kWallplant;
@@ -473,10 +474,10 @@ bool FootMovement::try_grind()
         if (!component)
             return false;
         // (the original's slot 13: the component's rails)
-        auto rails_of = [](ObjectModule* c) { return static_cast<GrindPathLinkModule*>(c)->get_rail_groups(); };
+        auto rails_of = [](ObjectModule* c) { return core::down_cast<GrindPathLinkModule>(c)->get_rail_groups(); };
         for (; component && !found; component = component->next_of_type_) {
             maths::Mat4 world{};
-            static_cast<GrindPathLinkModule*>(component)->update_rail_matrix(&world);
+            core::down_cast<GrindPathLinkModule>(component)->update_rail_matrix(&world);
             maths::Mat4 inverse = world;
             inverse.upend();
             maths::Vec4 local_old{}, rel_pos{};

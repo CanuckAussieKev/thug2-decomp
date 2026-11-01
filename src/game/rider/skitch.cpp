@@ -16,6 +16,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -26,7 +27,7 @@ constexpr uint32_t kAllowSkitching = 0xC38CCE3B; // Obj_AllowSkitching
 const char* const kOff = "off";                  // "off"
 
 // The hook manager's node list (the original's slot 13), or null.
-ClassNodeList* hook_nodes(ObjectModule* hooks) { return static_cast<HookPointRegistryModule*>(hooks)->get_hooks(); }
+ClassNodeList* hook_nodes(ObjectModule* hooks) { return core::down_cast<HookPointRegistryModule>(hooks)->get_hooks(); }
 
 // The nodes' transform: the object's orientation (the w column cleared) at its position.
 void place_nodes(ClassNodeList* nodes, GameEntity* object)

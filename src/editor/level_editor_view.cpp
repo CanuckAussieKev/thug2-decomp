@@ -26,6 +26,7 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::view {
 
@@ -342,7 +343,7 @@ bool geom_active(void* geom) { return static_cast<render::Geom*>(geom)->is_opera
 
 objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 
@@ -384,7 +385,7 @@ struct ObjectWalk {
 };
 void collect_object(objects::Entity* object, void* data)
 {
-    auto* composite = static_cast<objects::GameEntity*>(object);
+    auto* composite = core::down_cast<objects::GameEntity>(object);
     OrientedBox box{};
     if (object_edit::model_box(composite, &box))
         static_cast<ObjectWalk*>(data)->ids.push_back(composite->ident_);

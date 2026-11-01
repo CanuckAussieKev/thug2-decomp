@@ -63,6 +63,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -92,7 +93,7 @@ constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
 uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
 modules::Skate* skate_module() { return raw::as<modules::Skate>(get_skate()); }
-objects::Rider* get_rider_at(int index) { return static_cast<objects::Rider*>(skate_module()->get_rider_at(index)); }
+objects::Rider* get_rider_at(int index) { return core::down_cast<objects::Rider>(skate_module()->get_rider_at(index)); }
 objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
 
 // The object manager (0x006F0FB8).
@@ -313,7 +314,7 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
     objects::Entity* object = script ? script->entity_.get_pull() : nullptr;
     objects::Rider* skater = nullptr;
     if (object && object->kind_tag_ == kSkaterType) {
-        skater = static_cast<objects::Rider*>(object);
+        skater = core::down_cast<objects::Rider>(object);
     } else {
         int index = 0;
         if (params->fetch_int_value(kSkater, &index, 0))
@@ -471,7 +472,7 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
         flags |= 4;
     params->fetch_int_value(kSkater, &viewport, 0);
     if (viewport == -1)
-        viewport = static_cast<objects::Rider*>(script->entity_.get_pull())->view_slot_;
+        viewport = core::down_cast<objects::Rider>(script->entity_.get_pull())->view_slot_;
     if (params->has_bare_flag(kFlashFlag8))
         flags |= 8;
     uint8_t start[4];

@@ -42,8 +42,6 @@ Checks:
   # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
   # id types) and parameter structs once the boundary layer keeps the layouts apart.
   - '-bugprone-easily-swappable-parameters'
-  # The class hierarchy dispatches on its own type tags; the original has no RTTI.
-  - '-cppcoreguidelines-pro-type-static-cast-downcast'
   # It knows only gsl::owner; ownership here is memory::owner<> and std::unique_ptr.
   - '-cppcoreguidelines-owning-memory'
   # The script interpreter, the screen element tree and the scene walks recurse by design.

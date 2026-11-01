@@ -61,6 +61,7 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -101,7 +102,7 @@ objects::RiderIdentity* fetch_account(int index)
 }
 objects::Rider* get_rider_at(int index)
 {
-    return static_cast<objects::Rider*>(raw::as<modules::Skate>(get_skate())->get_rider_at(index));
+    return core::down_cast<objects::Rider>(raw::as<modules::Skate>(get_skate())->get_rider_at(index));
 }
 
 // The object manager (0x006F0FB8).
@@ -166,7 +167,7 @@ bool cfunc_set_viewer_lod_dist(script::Struct* params, script::Script*)
         return false;
     if (objects::PreviewEntity* object = viewer_target(viewer)) {
         // (the model component isn't checked for null, as in the original)
-        auto* model = static_cast<objects::MeshInstanceModule*>(object->fetch_module(kModel));
+        auto* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel));
         model->set_color_value(static_cast<int>(pair.x), pair.y);
     }
     return true;
@@ -271,7 +272,7 @@ void second_pad_watch_tick(tasks::Task<void>*)
 // 0x0059F890
 bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
 {
-    auto* object = static_cast<objects::GameEntity*>(object_edit()->look_up_entity(id));
+    auto* object = core::down_cast<objects::GameEntity>(object_edit()->look_up_entity(id));
     if (!object)
         return false;
     objects::ObjectModule* camera = object->fetch_module(kCamera);
@@ -446,7 +447,7 @@ void apply_view_mode(int mode)
     if (view_mode()) {
         make_camera_active(kViewerCameraObject, 0, true);
     } else if (objects::Entity* object = object_edit()->look_up_entity(kSkaterCamObject)) {
-        if (objects::ObjectModule* camera = static_cast<objects::GameEntity*>(object)->fetch_module(kCamera))
+        if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera))
             set_viewport_camera(0, raw::as<void*>(camera)[0x18 / 4]);
     }
     for (int i = 0; i < 8; ++i) {
@@ -540,13 +541,13 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
     auto* objects = objects::g_composite_registry;
     for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input;
          input = input->next_of_type_)
-        static_cast<objects::PadInputModule*>(input)->lock_button(button, time, release != 0);
+        core::down_cast<objects::PadInputModule>(input)->lock_button(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     auto until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
                                     static_cast<double>(time) * static_cast<double>(gfx::g_thousand));
     for (objects::ObjectModule* trick = objects->find_first_module_of_kind(0x270F56E1); trick;
          trick = trick->next_of_type_)
-        static_cast<objects::MoveExecutor*>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);
+        core::down_cast<objects::MoveExecutor>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);
     return true;
 }
 
@@ -646,7 +647,7 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
     }
     node->put_vec3(kPos, position.x, position.y, position.z);
     if (objects::Entity* object = object_edit()->look_up_entity(name))
-        std::memcpy(&static_cast<objects::GameEntity*>(object)->at_point_, &position, sizeof(position));
+        std::memcpy(&core::down_cast<objects::GameEntity>(object)->at_point_, &position, sizeof(position));
     uint32_t node_class = 0;
     node->read_hash_value(0x12B4E660u, &node_class, 0); // "class"
     switch (node_class) {

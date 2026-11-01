@@ -32,6 +32,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -60,7 +61,7 @@ constexpr uint32_t kGreen = 0x0424D9EA;
 constexpr uint32_t kBlue = 0x9D2D8850;
 
 // The model of an object's model component (+0x208), and the model calls (not rewritten yet).
-void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
+void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
 uint32_t model_get(void* model)
 {
     return cell::of(static_cast<render::RenderModel*>(model)->fetch_skinning_palette());
@@ -211,8 +212,8 @@ void CinematicTable::destroy_objects()
         if (entry.active) {
             // the level's object it stood in for gets its model's settings back
             ObjectModule* stand_in = static_cast<GameEntity*>(entry.object)->fetch_module(kModelModuleName);
-            const uint32_t id = static_cast<MeshInstanceModule*>(stand_in)->get_linked_entity_name();
-            auto* original = static_cast<GameEntity*>(find_object(id));
+            const uint32_t id = core::down_cast<MeshInstanceModule>(stand_in)->get_linked_entity_name();
+            auto* original = core::down_cast<GameEntity>(find_object(id));
             void* model = model_of(original->fetch_module(kModelModuleName));
             static_cast<render::RenderModel*>(model)->change_bound_sphere(
                 raw::as<const maths::Vec4>(lent_2c_));
@@ -276,7 +277,7 @@ void CinematicTable::show_hidden_objects()
     if (!hidden)
         return;
     for (uint32_t i = 0; i < hidden->extent_; ++i) {
-        auto* object = static_cast<GameEntity*>(find_object(hidden->fetch_part(i)));
+        auto* object = core::down_cast<GameEntity>(find_object(hidden->fetch_part(i)));
         if (!object)
             continue;
         ObjectModule* component = object->fetch_module(kModelModuleName);
@@ -327,7 +328,7 @@ void CinematicTable::update_object_poses()
         if (!component)
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-        uint8_t* skeleton = static_cast<objects::BoneRigModule*>(component)->bone_rig_;
+        uint8_t* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
         auto* source = static_cast<render::FrameSource*>(entry.animation->source);
         void* animation = entry.animation->data;
         raw::as<gfx::Rig>(skeleton)->set_lod(0.0f);

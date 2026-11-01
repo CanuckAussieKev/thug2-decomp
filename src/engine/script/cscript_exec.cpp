@@ -53,6 +53,7 @@
 #include "platform/run_log.h"
 #include "engine/core/pointer_cell.h"
 #include "platform/code_address.h"
+#include "engine/core/down_cast.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -85,7 +86,7 @@ bool component_call_member_function(objects::ObjectModule* component, MemberFunc
 // The object's component of `type` (GameEntity::fetch_module).
 objects::ObjectModule* fetch_module(objects::Entity* object, uint32_t type)
 {
-    return static_cast<objects::GameEntity*>(object)->fetch_module(type);
+    return core::down_cast<objects::GameEntity>(object)->fetch_module(type);
 }
 // The object named `name` (GameObjects::find_object: the object tracker's), or null.
 objects::Entity* find_object(uint32_t name) { return objects::find_object(name); }

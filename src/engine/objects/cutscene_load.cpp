@@ -28,6 +28,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -80,9 +81,9 @@ void free_struct(script::Struct* s)
     script::delete_struct(s);
 }
 
-void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
-bool stands_in(ObjectModule* model) { return static_cast<MeshInstanceModule*>(model)->level_object_; }
-uint32_t stand_in_id(ObjectModule* model) { return static_cast<MeshInstanceModule*>(model)->get_linked_entity_name(); }
+void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
+bool stands_in(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->level_object_; }
+uint32_t stand_in_id(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->get_linked_entity_name(); }
 } // namespace
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
@@ -94,12 +95,12 @@ namespace {
 void* skeleton_of(ObjectModule* component)
 {
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    return static_cast<objects::BoneRigModule*>(component)->bone_rig_;
+    return core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
 }
 // The level object a cutscene object stands in for.
 GameEntity* level_object_of(GameEntity* object)
 {
-    return static_cast<GameEntity*>(find_object(stand_in_id(object->fetch_module(kModelModuleName))));
+    return core::down_cast<GameEntity>(find_object(stand_in_id(object->fetch_module(kModelModuleName))));
 }
 void model_set_offset(void* model, const float* offset)
 {
@@ -246,7 +247,7 @@ void CinematicTable::add_objects(script::Struct* params)
                 model_set_offset(model_of(stand_in), offset);
                 if (stands_in(stand_in)) {
                     // the level object's model lends its settings (saved once) and is hidden
-                    auto* level = static_cast<GameEntity*>(find_object(stand_in_id(stand_in)));
+                    auto* level = core::down_cast<GameEntity>(find_object(stand_in_id(stand_in)));
                     ObjectModule* level_model = level->fetch_module(kModelModuleName);
                     void* model2 = model_of(level_model);
                     if (!lent_saved_) {
@@ -271,7 +272,7 @@ void CinematicTable::add_objects(script::Struct* params)
                         cell::pointer<uint8_t>(theirs));
                     static_cast<render::RenderModel*>(model_of(stand_in))
                         ->upload_skinning_palette(cell::pointer<uint8_t>(mine));
-                    static_cast<MeshInstanceModule*>(level_model)->get_update_brightness();
+                    core::down_cast<MeshInstanceModule>(level_model)->get_update_brightness();
                 }
                 stand_in->hold_off(true);
             }
@@ -372,7 +373,7 @@ void CinematicTable::copy_skeleton(ObjectEntry& from, ObjectEntry& to)
 void CinematicTable::apply_skater_look(ObjectEntry& entry)
 {
     ObjectModule* component = entry.object->fetch_module(kModelModuleName);
-    static_cast<MeshInstanceModule*>(component)->set_up_mesh_from_profile(unknown34a8_, false, 0, 0x8FB01036);
+    core::down_cast<MeshInstanceModule>(component)->set_up_mesh_from_profile(unknown34a8_, false, 0, 0x8FB01036);
     uint32_t part_name = kPartA;
     auto* part = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
     if (!part) {

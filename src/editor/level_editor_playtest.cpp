@@ -46,6 +46,7 @@
 #include "platform/run_log.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -468,19 +469,19 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     const objects::ObjectModule* state = skater->fetch_module(kSkaterState);
     if (!state)
         return false;
-    const auto* pose = static_cast<const objects::RiderPoseState*>(state);
+    const auto* pose = core::down_cast<const objects::RiderPoseState>(state);
     const int physics = pose->cur_phase_;
     const bool bailing = pose->is_on(objects::PoseFlag::kBailing) != 0;
     const bool driving = pose->in_vehicle_ != 0;
     const bool walking = !driving && pose->physics_mode_ == 1;
     const objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);
-    const uint32_t trick = balance ? static_cast<const objects::RiderTeeterMoves*>(balance)->trick_ : 0;
+    const uint32_t trick = balance ? core::down_cast<const objects::RiderTeeterMoves>(balance)->trick_ : 0;
     out->pos = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
     out->motion = get_classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
     out->pending = 0;
     if (const objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
-        if (const modules::PointTally* s = static_cast<const objects::RiderPointKeeper*>(score)->points_held_) {
+        if (const modules::PointTally* s = core::down_cast<const objects::RiderPointKeeper>(score)->points_held_) {
             const double points = static_cast<double>(s->pot_) * s->multiplier_;
             if (points > 0.0 && points < 2.0e9)
                 out->pending = static_cast<int>(points);
@@ -630,7 +631,7 @@ void link_record(modules::FrontEnd* front_end)
     if (g_rec.open && (g_rec.load != load || !recording()))
         close_run(g_rec.load != load ? "another level loaded" : "recording turned off");
     const bool paused = front_end && front_end->is_halted_;
-    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
+    auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!recording() || paused || !skater || render::current_level() == 0 || !layout::editing_copy()) {
         g_rec.last_ticks_ = 0;
         return;
@@ -728,7 +729,7 @@ struct SnapWalk {
 void snap_one(objects::Entity* object, void* data)
 {
     auto* walk = static_cast<SnapWalk*>(data);
-    auto* composite = static_cast<objects::GameEntity*>(object);
+    auto* composite = core::down_cast<objects::GameEntity>(object);
     if ((composite->object_flags_ & objects::kObjectFlagDead) ||
         (composite->composite_flags_ & objects::kCompositeFlagDestroying))
         return;
@@ -748,7 +749,7 @@ void pause_skaters()
     for (const memory::ListNode* node = skate->riders_.list_link_.next; node && !node->is_head(); node = node->next)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
+        auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (skater)
             skater->get_freeze();
     }
@@ -829,7 +830,7 @@ void stop_simulation(const char* why)
                 ++gone;
                 continue;
             }
-            if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(s.state.id)))
+            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(s.state.id)))
                 object->vel_ = s.vel;
             ++restored;
         }

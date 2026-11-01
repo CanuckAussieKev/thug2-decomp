@@ -15,6 +15,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/trigger_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects::vehicle {
 
@@ -28,11 +29,11 @@ inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp"; // "omp
 // `events` (const int[3]).
 inline void trigger_feeler(ObjectModule* trigger, const int* events, render::ProbeRay* feeler)
 {
-    static_cast<ActivationZoneModule*>(trigger)->probe_touches_zone(events, feeler);
+    core::down_cast<ActivationZoneModule>(trigger)->probe_touches_zone(events, feeler);
 }
 inline void trigger_rect(ObjectModule* trigger, const int* events, render::BoxProbe* feeler)
 {
-    static_cast<ActivationZoneModule*>(trigger)->trigger_hits(events, feeler);
+    core::down_cast<ActivationZoneModule>(trigger)->trigger_hits(events, feeler);
 }
 
 // Quaternions: 0x0042BC40 a quaternion's rotation matrix (its 3x3), 0x0042E1F0 a matrix's

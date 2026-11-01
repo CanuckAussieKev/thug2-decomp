@@ -48,6 +48,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -300,7 +301,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         const bool observer = is_observer(player);
         manager->evict_player(player, request.kick == 1 ? 3 : 4);
         if (!observer)
-            get_skate()->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
+            get_skate()->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         break;
     }
     case 0x62: {
@@ -428,8 +429,8 @@ int handle_start_game(net::InboundMsgCtx* context)
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
          p = step_roster_sweep(manager, &search, false)) {
         if (!is_own_player(p)) {
-            static_cast<objects::Rider*>(player_skater(p))->conceal_skater();
-            static_cast<objects::Rider*>(player_skater(p))->reset_27c();
+            core::down_cast<objects::Rider>(player_skater(p))->conceal_skater();
+            core::down_cast<objects::Rider>(player_skater(p))->reset_27c();
         }
     }
     get_game_mode()->apply_match_style(start.game_type);
@@ -487,8 +488,8 @@ int handle_start_game(net::InboundMsgCtx* context)
         p->clear_flags();
         p->clear_last_hit_time();
         if (objects::Entity* skater = player_skater(p)) {
-            auto* score = static_cast<objects::RiderPointKeeper*>(
-                static_cast<objects::GameEntity*>(skater)->fetch_module(kSkaterScore)); // its score component
+            auto* score = core::down_cast<objects::RiderPointKeeper>(
+                core::down_cast<objects::GameEntity>(skater)->fetch_module(kSkaterScore)); // its score component
             if (score->points_held_)
                 score->points_held_->get_reset();
         }

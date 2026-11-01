@@ -19,6 +19,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -268,7 +269,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
         // The current skater's trick state told.
         auto* skater = raw::as<GameEntity>(modules::Skate::sole()->get_home_rider());
         if (skater)
-            static_cast<MoveExecutor*>(skater->fetch_module(0x270F56E1))->apply_trick_bindings(this);
+            core::down_cast<MoveExecutor>(skater->fetch_module(0x270F56E1))->apply_trick_bindings(this);
     }
     return true;
 }

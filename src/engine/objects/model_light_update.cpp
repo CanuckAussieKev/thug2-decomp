@@ -21,6 +21,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -61,7 +62,7 @@ void MeshLightingModule::configure_from_data(script::Struct* params)
 }
 
 // 0x00422DA0
-void MeshLightingModule::seal() { mesh_instance_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel)); }
+void MeshLightingModule::seal() { mesh_instance_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel)); }
 
 // 0x00422E40
 void MeshLightingModule::get_sample(bool lerp, float rate)

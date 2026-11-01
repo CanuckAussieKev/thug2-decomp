@@ -27,6 +27,7 @@
 #include "platform/code_address.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/create_a_trick.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -95,7 +96,7 @@ objects::GameEntity* local_skater() { return get_skate()->get_home_rider(); }
 // Whether a skater is a local one (its byte at +0xBC, as 0x00566520 reads it).
 bool is_local_skater(objects::GameEntity* skater) { return skater->is_local_skater_ != 0; }
 // The skater's score (0x00580480: its score component's object).
-void* skater_score(objects::GameEntity* skater) { return static_cast<objects::Rider*>(skater)->get_points_total(); }
+void* skater_score(objects::GameEntity* skater) { return core::down_cast<objects::Rider>(skater)->get_points_total(); }
 
 // 0x00564F80 (no source yet; a skate module method that ignores the module): the profile of `params`' Skater, or the
 // current one (no params or no Skater).
@@ -274,7 +275,7 @@ bool cfunc_update_trick_mappings(script::Struct* params, script::Script*)
         if (!skater || !profile)
             return true;
     }
-    static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
+    core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     return true;
 }
 
@@ -312,7 +313,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
         objects::GameEntity* skater = local_skater();
         if (skater) {
             // the skater's created tricks 1-10
-            const std::unique_ptr<goals::CreateATrick>* created = static_cast<objects::Rider*>(skater)->trick_slots_;
+            const std::unique_ptr<goals::CreateATrick>* created = core::down_cast<objects::Rider>(skater)->trick_slots_;
             for (int slot = 1; slot < 11; ++slot) {
                 int full = 0;
                 if (created[slot]->other_params_->fetch_int_value(kFull, &full, 0) && full)

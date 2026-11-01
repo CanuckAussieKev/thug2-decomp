@@ -60,6 +60,7 @@ namespace {
 #include "frontend/automation_tables.inc"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516; // "focus"
@@ -897,9 +898,9 @@ void trace_frame()
     Trace& trace = trace_state();
     if (!trace.file)
         return;
-    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
+    auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (skater) {
-        auto* state = static_cast<objects::RiderPoseState*>(skater->fetch_module(kStateModuleKey));
+        auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kStateModuleKey));
         const int where = state ? state->cur_phase_ : -1;
         const int physics = state ? state->physics_mode_ : -1;
         const int bailing = state ? state->is_on(objects::PoseFlag::kBailing) : -1;
@@ -912,7 +913,7 @@ void trace_frame()
         const float multiplier = score ? score->multiplier_ : 0.0f;
         const int landed = score ? score->pot_score_ : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
-        auto* core = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysicsComponent));
+        auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
         const unsigned ground_flags = core ? core->floor_feeler_.hit_.face_flags_ : 0;
         const unsigned ground_object = core ? core->floor_feeler_.hit_.object_checksum_ : 0;
         std::fprintf(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",

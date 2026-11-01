@@ -11,6 +11,7 @@
 #include "engine/core/mem.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/park_editor.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -112,7 +113,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     for (uint32_t i = 0; i < meta->filled_slots_; ++i) {
         maths::Vec4 relative;
         meta->get_relative_position(&relative, i);
-        auto* piece = static_cast<ParkTile*>(meta->get_piece(i)); // (a placed metapiece's)
+        auto* piece = core::down_cast<ParkTile>(meta->get_piece(i)); // (a placed metapiece's)
         maths::Vec4 position;
         position.x = static_cast<float>(static_cast<double>(relative.x) + origin.x);
         position.z = static_cast<float>(static_cast<double>(relative.z) + origin.z);

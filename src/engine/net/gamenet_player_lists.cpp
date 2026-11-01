@@ -62,6 +62,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -293,7 +294,7 @@ void Hub::set_ready_state(bool ready)
     modules::Skate* skate = modules::g_skate_module;
     const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
     for (unsigned int i = 0; i < count; ++i) {
-        auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
+        auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (skater) { // (the original's skater slots 12 / 11)
             if (ready)
                 skater->unpause();
@@ -336,7 +337,7 @@ void Hub::clear_roster()
         auto* skater = raw::as<objects::GameEntity>(player_skater(player));
         if (skater) {
             // (not checked for null, as in the original)
-            auto* score = static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore));
+            auto* score = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
             if (score->points_held_)
                 score->points_held_->get_reset();
         }
@@ -582,7 +583,7 @@ void Hub::disconnect_clients()
         modules::Skate* skate = modules::g_skate_module;
         const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
         for (unsigned int i = 0; i < count; ++i) {
-            auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
+            auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
             if (skater)
                 skater->get_freeze(); // (the original's skater slot 11)
         }
@@ -656,7 +657,7 @@ bool Hub::prepare_local_face()
         void* data = memory::alloc(kFaceSize);
         memory::Hub::get_pull()->leave_heap_scope();
         face->write_to(static_cast<uint8_t*>(data), kFaceSize);
-        static_cast<net::Guest*>(client_app_)
+        core::down_cast<net::Guest>(client_app_)
             ->send_bulk_to_host(kMsgFace, kFaceSize, data, kFaceDesc, kGroupFace, false, false);
         memory::dealloc(data);
     }
@@ -799,11 +800,11 @@ void carried_flags_task(tasks::Task<Hub>*)
             name = 0;
             break;
         }
-        auto* flag = static_cast<objects::GameEntity*>(objects::find_object(name));
+        auto* flag = core::down_cast<objects::GameEntity>(objects::find_object(name));
         if (!flag)
             return;
-        auto* skater = static_cast<objects::GameEntity*>(player_skater(player));
-        auto* skeleton = raw::as<gfx::Rig>(static_cast<objects::BoneRigModule*>(skater->fetch_module(kSkeleton))->bone_rig_);
+        auto* skater = core::down_cast<objects::GameEntity>(player_skater(player));
+        auto* skeleton = raw::as<gfx::Rig>(core::down_cast<objects::BoneRigModule>(skater->fetch_module(kSkeleton))->bone_rig_);
         maths::Mat4* matrix = &flag->basis_frame_;
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};

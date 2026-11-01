@@ -24,6 +24,7 @@
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/down_cast.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -188,10 +189,10 @@ bool cfunc_proxim_cleanup(script::Struct*, script::Script*)
 {
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c;
          c = c->next_of_type_)
-        static_cast<objects::AudioEmitterModule*>(c)->proxim_ = nullptr;
+        core::down_cast<objects::AudioEmitterModule>(c)->proxim_ = nullptr;
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kStream); c;
          c = c->next_of_type_)
-        static_cast<objects::AudioStreamModule*>(c)->proxim_ = nullptr;
+        core::down_cast<objects::AudioStreamModule>(c)->proxim_ = nullptr;
     objects::nearby_zone_shutdown();
     return true;
 }

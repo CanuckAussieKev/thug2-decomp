@@ -22,6 +22,7 @@
 #include "game/park/park_memory.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -386,8 +387,8 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
 // 0x004F4970
 RailAuthoring* RailAuthoring::sole()
 {
-    auto* object = static_cast<objects::GameEntity*>(static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kType));
-    return static_cast<RailAuthoring*>(object->fetch_module(kType));
+    auto* object = core::down_cast<objects::GameEntity>(static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kType));
+    return core::down_cast<RailAuthoring>(object->fetch_module(kType));
 }
 
 // 0x004F7FB0

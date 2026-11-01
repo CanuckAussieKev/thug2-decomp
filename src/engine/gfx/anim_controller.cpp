@@ -32,6 +32,7 @@
 #include "engine/script/script_startup.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace gfx {
 
@@ -74,12 +75,12 @@ uint8_t* skeleton_of(AnimDriver* c) { return c->AnimDriver::fetch_rig(); }
 uint32_t current_anim_set(objects::GameEntity* object)
 {
     objects::ObjectModule* blender = object->fetch_module(kAnimBlender);
-    return static_cast<objects::AnimBlenderComponent*>(blender)->get_anim_set();
+    return core::down_cast<objects::AnimBlenderComponent>(blender)->get_anim_set();
 }
 
 // The timeline's pieces (thiscall, not rewritten yet).
 float get_step(AnimTimeline* t) { return static_cast<float>(t->next_time()); }
-void passed_events(AnimTimeline* t, float from, float to) { static_cast<AnimTrack*>(t)->fire_events(from, to); }
+void passed_events(AnimTimeline* t, float from, float to) { core::down_cast<AnimTrack>(t)->fire_events(from, to); }
 void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
 {
     t->play_anim(anim, start, end, loop_type, blend, speed);
@@ -289,7 +290,7 @@ bool WeightedAnimController::fetch_pose(uint8_t* pose)
     // (the skeleton component's skeleton, +0x18 - read through null without one, as the original)
     auto skeleton = [this] {
         objects::ObjectModule* component = owner_object_->fetch_module(kSkeleton);
-        return component ? static_cast<objects::BoneRigModule*>(component)->bone_rig_ : nullptr;
+        return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig_ : nullptr;
     };
     set_bones(blend_source_, skeleton());
     set_bone_count(blend_source_, skeleton());
@@ -533,7 +534,7 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     float start = 0.0f, end = 0.0f, current = 0.0f;
     objects::ObjectModule* blender = object_of(this)->fetch_module(kAnimBlender);
     // (the blender's fetch_value: the anim set's entry for the animation - its length)
-    const float duration = static_cast<objects::AnimBlenderComponent*>(blender)->fetch_value(anim);
+    const float duration = core::down_cast<objects::AnimBlenderComponent>(blender)->fetch_value(anim);
     // the times and loop type given (0x004877E0, 0x00487770; cdecl)
     fetch_anim_durations(&start, &end, current, duration, params);
     int loop_type = 0; // (the original leaves it to 0x00487770)

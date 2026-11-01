@@ -25,6 +25,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -130,9 +131,9 @@ void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
 // 0x0051B8E0
 void SkaterVehicleSoundComponent::seal()
 {
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
     sound_ = entity_->fetch_module(kSound);
-    input_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput));
+    input_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
     read_settings();
 }
 

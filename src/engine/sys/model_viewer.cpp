@@ -43,6 +43,7 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
+#include "engine/core/down_cast.h"
 
 namespace modules {
 
@@ -399,7 +400,7 @@ bool Viewer::place_camera(script::Struct* params)
 {
     if (!script::fetch_int_value(kResetCameraToViewerObject))
         return true;
-    auto* camera = static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(kViewerCam));
+    auto* camera = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(kViewerCam));
     if (!camera)
         return true;
     maths::Mat4 identity{};
@@ -441,7 +442,7 @@ void free_camera_task(ViewerTask* task)
     viewer->pad_ly_ = dead_zone(viewer->pad_ly_);
     viewer->pad_lx_ = dead_zone(viewer->pad_lx_);
 
-    auto* camera = static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(kViewerCam));
+    auto* camera = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(kViewerCam));
     constexpr float kDegrees = 0.017453292f; // 0x00645464 (pi / 180)
     if (camera) {
         if (viewer->mode_sel_ == 0) {

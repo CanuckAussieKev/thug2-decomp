@@ -21,6 +21,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -79,7 +80,7 @@ float get_fraction(double value)
 // The Sound component's 0x00433240 (not rewritten yet): the sound a structure describes played.
 void play_sound_from_structure(ObjectModule* sound, script::Struct* description)
 {
-    static_cast<AudioEmitterModule*>(sound)->emit_sound(description);
+    core::down_cast<AudioEmitterModule>(sound)->emit_sound(description);
 }
 
 } // namespace
@@ -112,7 +113,7 @@ void EngineAudioModule::configure_from_data(script::Struct*)
 // 0x0043D050
 void EngineAudioModule::seal()
 {
-    vehicle_ptr_ = static_cast<DrivableModule*>(entity_->fetch_module(kVehicle));
+    vehicle_ptr_ = core::down_cast<DrivableModule>(entity_->fetch_module(kVehicle));
     sound_ptr_ = entity_->fetch_module(kSound);
     read_settings();
 }

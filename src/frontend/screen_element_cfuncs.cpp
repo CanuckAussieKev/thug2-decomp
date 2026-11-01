@@ -25,6 +25,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -58,8 +59,8 @@ UiTree* hub() { return UiTree::sole(); }
 uint32_t unassigned_id() { return g_unassigned_id; }
 
 // The text elements' pieces.
-ParagraphWidget* text_block(UiWidget* e) { return static_cast<ParagraphWidget*>(e); }
-LabelWidget* as_label(UiWidget* e) { return static_cast<LabelWidget*>(e); }
+ParagraphWidget* text_block(UiWidget* e) { return core::down_cast<ParagraphWidget>(e); }
+LabelWidget* as_label(UiWidget* e) { return core::down_cast<LabelWidget>(e); }
 bool text_block_concatenate(UiWidget* e, const char* text, bool enforce_max_width, bool last_line)
 {
     return text_block(e)->join_onto(text, enforce_max_width, last_line);
@@ -319,7 +320,7 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
     }
     element.owner_object_->get_properties(script->args_);
     if (element->kind_tag_ == kElement3d) {
-        auto* e3d = static_cast<ModelWidget*>(objects::get_tracker()->look_up_object(id));
+        auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
         script->args_->push_float(kAngleX, e3d->angle_[0]);
         script->args_->push_float(kAngleY, e3d->angle_[1]);
         script->args_->push_float(kAngleZ, e3d->angle_[2]);
@@ -400,7 +401,7 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
         if (text_block_string(element.owner_object_, text, sizeof(text)))
             script->args_->append_word(kString, text);
     } else if (element->kind_tag_ == kTextElement) {
-        if (const char* string = static_cast<LabelWidget*>(element.owner_object_)->chars_)
+        if (const char* string = core::down_cast<LabelWidget>(element.owner_object_)->chars_)
             script->args_->append_word(kString, string);
     }
     return false;
@@ -438,7 +439,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    auto* menu = static_cast<MenuBase*>(element.owner_object_);
+    auto* menu = core::down_cast<MenuBase>(element.owner_object_);
     const int selected = menu->selected_index_;
     if (selected == -1)
         return false;

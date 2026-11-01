@@ -19,6 +19,7 @@
 #include "editor/level_editor_scenery.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::links {
 
@@ -209,7 +210,7 @@ std::vector<Remake> g_remakes;
 
 objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 

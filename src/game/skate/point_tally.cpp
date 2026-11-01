@@ -20,6 +20,7 @@
 #include "game/skate/score_internal.h"
 #include "engine/gfx/viewport_list.h"
 #include "game/goals/create_a_trick.h"
+#include "engine/core/down_cast.h"
 
 namespace lists {
 
@@ -135,7 +136,7 @@ int screen_mode() { return render::get_view_layout(); }
 // The created trick `index`'s name (the local skater's; 0 without one).
 uint32_t created_trick_name(int index)
 {
-    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     if (!skater)
         return 0;
     const char* name = nullptr;
@@ -276,7 +277,7 @@ void PointTally::dispatch_trick_sequence(bool clear)
 {
     objects::Rider* skater = rider_for_slot(rider_no_);
     const int number = skater ? skater->get_skater_number() : 0;
-    auto* text = static_cast<frontend::ParagraphWidget*>(find_element(kTheTrickText + static_cast<uint32_t>(number)));
+    auto* text = core::down_cast<frontend::ParagraphWidget>(find_element(kTheTrickText + static_cast<uint32_t>(number)));
     if (!text)
         return;
     const char* lines[0xFD];
@@ -316,7 +317,7 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
 {
     objects::Rider* skater = rider_for_slot(rider_no_);
     const int number = skater ? skater->get_skater_number() : 0;
-    auto* text = static_cast<frontend::LabelWidget*>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
+    auto* text = core::down_cast<frontend::LabelWidget>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
     char shown[0x80];
     if (!points) {
         shown[0] = ' ';

@@ -23,6 +23,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -191,7 +192,7 @@ void ParkLayout::set_up_abstract_metas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 const int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                static_cast<PieceBlueprint*>(meta)->add_meta_piece(part, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
+                core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
             }
         }
         if (desc->read_hash_value("name", &meta->name_key_, 0))

@@ -11,6 +11,7 @@
 #include "game/goals/goal_names.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -265,7 +266,7 @@ bool cfunc_goal_manager_next_race_waypoint(script::Struct* params, script::Scrip
     GoalManager* manager = get_objective_board();
     const uint32_t name = get_goal_name(params);
     Objective* goal = manager->goals_.get_pull(name);
-    return static_cast<RaceObjective*>(goal)->advance_race_gate(name);
+    return core::down_cast<RaceObjective>(goal)->advance_race_gate(name);
 }
 
 // 0x00559930

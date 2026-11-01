@@ -25,6 +25,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -60,7 +61,7 @@ uint32_t& current_object_id(Entity* object) { return object->ident_; }
 bool has_aliases(const Entity* object) { return static_cast<int>(object->alias_count_) > 0; }
 bool has_position(const Entity* object) { return (object->object_flags_ & kObjectFlagHasPosition) != 0; }
 // The position: GameEntity's at_point_ (+0x4C, just after Entity's; read on any object).
-const float* get_position(Entity* object) { return &static_cast<GameEntity*>(object)->at_point_.x; }
+const float* get_position(Entity* object) { return &core::down_cast<GameEntity>(object)->at_point_.x; }
 // Take the properties in `params` (SetObjectProps); an event targeted at it.
 void change_traits(Entity* object, script::Struct* params) { object->change_traits(params); }
 void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_script(event); }

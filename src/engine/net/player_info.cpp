@@ -36,6 +36,7 @@
 #include "game/rider/tagging.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -199,7 +200,7 @@ void PlayerRecord::set_custom_tag(bool custom)
     if (!skater_)
         return;
     if (objects::ObjectModule* tagging = skater_component(skater_, kTagging))
-        static_cast<objects::TaggingComponent*>(tagging)->custom_tag_ = custom; // (0x004E4000, a setter folded there)
+        core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ = custom; // (0x004E4000, a setter folded there)
 }
 
 // 0x00543090
@@ -208,7 +209,7 @@ bool PlayerRecord::has_custom_tag()
     if (!skater_)
         return false;
     objects::ObjectModule* tagging = skater_component(skater_, kTagging);
-    return tagging ? static_cast<objects::TaggingComponent*>(tagging)->custom_tag_ : false; // (0x0051D850)
+    return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ : false; // (0x0051D850)
 }
 
 // 0x005430B0
@@ -217,7 +218,7 @@ void* PlayerRecord::get_graffiti_texture()
     if (!skater_)
         return nullptr;
     objects::ObjectModule* tagging = skater_component(skater_, kTagging);
-    return tagging ? static_cast<objects::TaggingComponent*>(tagging)->graffiti_
+    return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->graffiti_
                    : nullptr; // (0x00553E90, a getter folded there)
 }
 
@@ -299,7 +300,7 @@ bool PlayerRecord::is_eliminated()
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
     objects::ObjectModule* score = skater_component(skater_, kSkaterScore);
-    return score && static_cast<modules::PointTally*>(static_cast<objects::RiderPointKeeper*>(score)->points_held_)
+    return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held_)
                             ->get_total_score() == 0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> 7) & 1); }

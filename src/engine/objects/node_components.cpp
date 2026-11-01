@@ -19,6 +19,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -31,7 +32,7 @@ constexpr uint32_t kModel = 0x286A8D26; // model
 // The node array of an object's node array component (the original's slot 13).
 script::Array* node_array_of(ObjectModule* component)
 {
-    return static_cast<WaypointListModule*>(component)->get_node_array();
+    return core::down_cast<WaypointListModule>(component)->get_node_array();
 }
 
 } // namespace

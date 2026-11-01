@@ -30,6 +30,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -78,7 +79,7 @@ void lights_lerp_brightness(void* lights, float brightness, float rate)
 void set_global_brightness(float brightness) { render::set_world_brightness(brightness); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
+void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -97,7 +98,7 @@ int player_skater_index(void* player)
 }
 net::Guest* client_app(void* manager, int index)
 {
-    return static_cast<net::Guest*>(static_cast<online::Hub*>(manager)->fetch_patron(index));
+    return core::down_cast<net::Guest>(static_cast<online::Hub*>(manager)->fetch_patron(index));
 }
 
 // A message about `object` to the server, when its player is this machine's.

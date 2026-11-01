@@ -25,6 +25,7 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -218,9 +219,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         // (walking: at least the walk's speed - 0x0043DAA0)
         auto least = static_cast<float>(walk_->run_speed());
         if (horizontal < least) {
-            auto* walk = static_cast<objects::FootMovement*>(skater_object(this)->fetch_module(kWalk));
+            auto* walk = core::down_cast<objects::FootMovement>(skater_object(this)->fetch_module(kWalk));
             velocity->x = static_cast<float>(static_cast<double>(least) * walk->facing_.x);
-            walk = static_cast<objects::FootMovement*>(skater_object(this)->fetch_module(kWalk));
+            walk = core::down_cast<objects::FootMovement>(skater_object(this)->fetch_module(kWalk));
             velocity->z = static_cast<float>(static_cast<double>(least) * walk->facing_.z);
             horizontal = least;
         }

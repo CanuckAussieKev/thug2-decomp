@@ -20,6 +20,7 @@
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
 #include "platform/code_address.h"
+#include "engine/core/down_cast.h"
 
 namespace skater::thaw_bmx {
 
@@ -58,7 +59,7 @@ objects::Rider* local_skater()
 {
     if (!modules::Skate::sole())
         return nullptr;
-    return static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    return core::down_cast<objects::Rider>(skate_calls::get_home_rider());
 }
 
 Point point_of(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
@@ -135,7 +136,7 @@ objects::GameEntity* object_of(script::Struct* params)
     uint32_t id = 0;
     if (!params || !params->read_hash_value("id", &id, 0))
         return nullptr;
-    return static_cast<objects::GameEntity*>(objects::find_object(id));
+    return core::down_cast<objects::GameEntity>(objects::find_object(id));
 }
 
 // The skater put at `pos` facing `heading` (standing upright), its drawn matrix and the core physics' with it.

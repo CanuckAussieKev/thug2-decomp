@@ -25,6 +25,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -90,7 +91,7 @@ objects::GameEntity* object_named(uint32_t id)
 {
     if (id == kSkater)
         return skate_calls::get_home_rider();
-    return static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(id));
+    return core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(id));
 }
 
 script::Struct* spawn_param_table()
@@ -393,7 +394,7 @@ void ObjectiveNpc::conceal(bool hide)
     params->read_hash_value(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (auto* object = static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(trigger)))
+    if (auto* object = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(trigger)))
         object->conceal(hide);
     script::Struct* arrow = spawn_param_table();
     arrow->put_name_key(kGoalIdChecksum, objective_key_);
@@ -437,7 +438,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     if (!no_anim) {
         play_params->put_int(kUsePosInfo, 0);
         const uint32_t anim_set =
-            static_cast<objects::AnimBlenderComponent*>(object->fetch_module(kAnimBlender))->get_anim_set();
+            core::down_cast<objects::AnimBlenderComponent>(object->fetch_module(kAnimBlender))->get_anim_set();
         if (load_fam)
             load_anim_bank(stream, anim_set);
         const uint32_t handle = audio::prime_stream(stream, 0x66);

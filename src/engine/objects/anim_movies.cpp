@@ -29,6 +29,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -318,7 +319,7 @@ void CameraAnimMovie::place_camera()
     float dir[4];
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
-        auto* object = static_cast<GameEntity*>(
+        auto* object = core::down_cast<GameEntity>(
             static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(aim_point_));
         if (!object)
             return;
@@ -414,7 +415,7 @@ void ObjectAnimMovie::tick_frame()
     static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quats, positions, flags, timeline_.ongoing_, 0);
     for (int i = 0; i < frames->bone_count_; ++i) {
         const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
-        auto* object = static_cast<GameEntity*>(objects::find_object(name));
+        auto* object = core::down_cast<GameEntity>(objects::find_object(name));
         if (!object) {
             debug::printf("object animation:  couldn't find object %s\n", script::find_checksum_name_or_unknown(name));
             continue;

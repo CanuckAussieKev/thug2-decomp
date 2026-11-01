@@ -25,6 +25,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/particle_sets.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -65,7 +66,7 @@ constexpr uint32_t kException = 0x80367192;    // "Exception"
 
 objects::GameEntity* entity_for_id(uint32_t id)
 {
-    return static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(id));
+    return core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(id));
 }
 
 // The camera of viewport `index` (0x004A06D0), and its projection of a world position to the screen (0x004A1090,
@@ -87,7 +88,7 @@ void destroy_particle_group(void* manager, uint32_t group)
 // A particle component's group id: its particle system's (its parameters').
 uint32_t particle_group(objects::ObjectModule* component)
 {
-    return static_cast<objects::EffectsEmitterModule*>(component)->effect_handle_->args_.group_id_;
+    return core::down_cast<objects::EffectsEmitterModule>(component)->effect_handle_->args_.group_id_;
 }
 
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
@@ -104,7 +105,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 void* skeleton_of(objects::ObjectModule* component)
 {
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    return static_cast<objects::BoneRigModule*>(component)->bone_rig_;
+    return core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
 }
 bool read_joint_matrix(void* skeleton, uint32_t bone, maths::Mat4* out)
 {

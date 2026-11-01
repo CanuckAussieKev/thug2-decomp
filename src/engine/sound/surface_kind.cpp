@@ -21,6 +21,7 @@
 #include "wire/play_messages.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace surface_kind {
 
@@ -359,7 +360,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
         return;
     if (propagate) {
         net::NetMessageInfo desc;
-        auto* client = static_cast<net::Guest*>(static_cast<online::Hub*>(net)->fetch_patron(0));
+        auto* client = core::down_cast<net::Guest>(static_cast<online::Hub*>(net)->fetch_patron(0));
         // (the message a propagated terrain sound sends: wire/play_messages.h)
         online::TerrainSound message;
         message.table = table;

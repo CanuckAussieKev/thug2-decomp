@@ -31,6 +31,7 @@
 #include "engine/gfx/rig.h"
 #include "game/goals/create_a_trick.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace save_cards {
 
@@ -420,7 +421,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
 
     switch (type) {
     case kSaveCat: {
-        auto* skater = static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(0));
+        auto* skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(0));
         Struct* trick_record = skater->trick_slots_[0]->other_params_;
         const char* name = empty;
         trick_record->fetch_text(kName, &name, 1);
@@ -431,9 +432,9 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     case kSaveCreatedGoals: {
         constexpr uint32_t kGoalEditor = 0x81F01058; // "GoalEditor": the object and its component
         objects::Entity* object = objects::g_tracker->look_up_object(kGoalEditor);
-        objects::ObjectModule* component = static_cast<objects::GameEntity*>(object)->fetch_module(kGoalEditor);
+        objects::ObjectModule* component = core::down_cast<objects::GameEntity>(object)->fetch_module(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
-        const int edited = static_cast<park_editing::ObjectiveAuthoring*>(component)->count_used_goals();
+        const int edited = core::down_cast<park_editing::ObjectiveAuthoring>(component)->count_used_goals();
         summary->put_int(kNumEditedGoals, edited);
         if (type != kSavePark)
             break;
@@ -490,7 +491,7 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
     modules::Skate* skate = modules::Skate::sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
     const int index = profiles->cursor_pos_;
-    auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(index));
+    auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(index));
     skater->load_cat_info(loaded);
     skater->load_list_44b_66a_9f(loaded);
     skater->read_chapter_info(loaded);

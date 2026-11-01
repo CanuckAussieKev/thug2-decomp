@@ -19,6 +19,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/rider.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -64,7 +65,7 @@ ProjectileComponent::~ProjectileComponent() { slot_taken(rider_ref_, seat_) = fa
 // 0x004F3800
 void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
 {
-    auto* skater = static_cast<Rider*>(skate_calls::get_home_rider());
+    auto* skater = core::down_cast<Rider>(skate_calls::get_home_rider());
     rider_ref_ = skater;
     const uint32_t name = entity_->ident_;
     seat_ = -1;
@@ -82,7 +83,7 @@ void ProjectileComponent::seal()
 {
     auto* skater = skate_calls::get_home_rider();
     if (skater)
-        trigger_ptr_ = static_cast<ActivationZoneModule*>(skater->fetch_module(ActivationZoneModule::kType));
+        trigger_ptr_ = core::down_cast<ActivationZoneModule>(skater->fetch_module(ActivationZoneModule::kType));
 }
 
 // 0x004F3A90

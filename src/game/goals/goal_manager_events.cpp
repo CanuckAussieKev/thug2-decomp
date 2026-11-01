@@ -17,6 +17,7 @@
 #include "game/rider/rider.h"
 #include "game/skate/point_tally.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -118,12 +119,12 @@ void GoalManager::land()
         if (!goal->is_operative())
             continue;
         if (goal->is_horse()) {
-            static_cast<LetterGameObjective*>(goal)->land(); // (the rest skipped)
+            core::down_cast<LetterGameObjective>(goal)->land(); // (the rest skipped)
             return;
         }
         script::Struct* params = goal->fetch_args();
         if (params->has_bare_flag(kHighCombo)) {
-            auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+            auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
             if (!skater)
                 continue;
             auto* score = static_cast<modules::PointTally*>(skater->get_points_total());
@@ -135,7 +136,7 @@ void GoalManager::land()
             script::launch_script(kHighComboCheckScore, check, nullptr, false, nullptr);
             delete_structure(check);
         } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {
-            auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+            auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
             if (!skater)
                 continue;
             void* score = skater->get_points_total();
@@ -148,13 +149,13 @@ void GoalManager::land()
             complete_objective(goal->get_objective_key());
             goal->fetch_args()->erase_module(kWinningScore);
         } else if (goal->fetch_args()->has_bare_flag(kTrickObjects)) {
-            static_cast<TrickObjectsGoal*>(goal)->evaluate_points();
+            core::down_cast<TrickObjectsGoal>(goal)->evaluate_points();
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
-            static_cast<TrickBeatGoal*>(goal)->remove_landed_tricks();
+            core::down_cast<TrickBeatGoal>(goal)->remove_landed_tricks();
         } else if (goal->fetch_args()->has_bare_flag(kSkateTheLine)) {
-            static_cast<SkateLineGoal*>(goal)->land();
+            core::down_cast<SkateLineGoal>(goal)->land();
         } else if (goal->fetch_args()->has_entry_named(kArcadeCurrentScoreTotal)) {
-            auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+            auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
             if (!skater)
                 continue;
             void* score = skater->get_points_total();
@@ -185,7 +186,7 @@ void GoalManager::get_bail()
             if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && flag)
                 goal->fetch_args()->put_int(kTrickMarker, 0);
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
-            static_cast<TrickBeatGoal*>(goal)->clear_landed();
+            core::down_cast<TrickBeatGoal>(goal)->clear_landed();
         }
     }
 }

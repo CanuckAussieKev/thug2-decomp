@@ -30,6 +30,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -108,7 +109,7 @@ RiderIdentity* first_profile()
 void* game_flow() { return goals::get_objective_board(); }
 
 // The skater's score component and its counts.
-void* point_tally(GameEntity* skater) { return static_cast<Rider*>(skater)->get_points_total(); }
+void* point_tally(GameEntity* skater) { return core::down_cast<Rider>(skater)->get_points_total(); }
 int count_tricks(void* score, uint32_t trick, int a, int b, int c)
 {
     return static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, a, static_cast<uint8_t>(b) != 0, c);
@@ -181,13 +182,13 @@ void AttributeTracker::configure_from_data(script::Struct*)
     count_a84_ = 0;
     air_score_ = 0;
     first_update_ = true;
-    skater_ = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(entity_->ident_));
+    skater_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity_->ident_));
     if (!skater_) {
         skater_state_ = nullptr;
         physics_control_ = nullptr;
     } else {
-        skater_state_ = static_cast<RiderPoseState*>(skater_->fetch_module(kSkaterState));
-        physics_control_ = static_cast<RiderBoardPhysics*>(skater_->fetch_module(kSkaterPhysicsControl));
+        skater_state_ = core::down_cast<RiderPoseState>(skater_->fetch_module(kSkaterState));
+        physics_control_ = core::down_cast<RiderBoardPhysics>(skater_->fetch_module(kSkaterPhysicsControl));
     }
     difficulty_ = static_cast<goals::GoalManager*>(game_flow())->get_skill_tier(true);
     debug::printf("STATSManager: difficulty ====================== %i\n",
@@ -365,7 +366,7 @@ void AttributeTracker::announce_met_goals()
     }
     if (announced) {
         debug::printf("updating skater stats\n"); // "updating skater stats"
-        static_cast<Rider*>(skater_)->set_stats_from_profile(profile);
+        core::down_cast<Rider>(skater_)->set_stats_from_profile(profile);
         if (!goal_done_ && static_cast<goals::GoalManager*>(game_flow())->may_begin_objective()) {
             launch_script(0xEF3A4EE5);
             goal_done_ = true;

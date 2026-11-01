@@ -22,6 +22,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -40,7 +41,7 @@ constexpr uint32_t kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B
 // The script array of the pad event types ("pad_event_types").
 const char* pad_event_types_name() { return "pad_event_types"; }
 
-UiWidget* as_element(objects::Entity* object) { return static_cast<UiWidget*>(object); }
+UiWidget* as_element(objects::Entity* object) { return core::down_cast<UiWidget>(object); }
 
 void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
 {
@@ -677,7 +678,7 @@ void set_score_text(const char* text, int player)
     ElementPtr element;
     UiTree::sole()->fetch_part(&element, kScoreElementHash + player, 0);
     if (element)
-        static_cast<LabelWidget*>(element.owner_object_)->change_caption(text);
+        core::down_cast<LabelWidget>(element.owner_object_)->change_caption(text);
 }
 
 } // namespace frontend

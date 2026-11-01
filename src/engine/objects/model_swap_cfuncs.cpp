@@ -23,6 +23,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -60,7 +61,7 @@ void record_swap(uint32_t a, uint32_t b) { commands::swap_mapping(a, b); }
 // 0x004A2E20 copies one into another, 0x004A2CB0 is its destructor body.
 uint8_t* skeleton_of(objects::ObjectModule* component)
 {
-    return static_cast<objects::BoneRigModule*>(component)->bone_rig_;
+    return core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
 }
 void copy_skeleton(uint8_t* to, uint8_t* from)
 {
@@ -113,20 +114,20 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     params->read_hash_value(kObj1, &id1, 1);
     uint32_t id2 = 0;
     params->read_hash_value(kObj2, &id2, 1);
-    auto* a = static_cast<GameEntity*>(objects::object_hub_slot()->look_up_entity(id1));
-    auto* b = static_cast<GameEntity*>(objects::object_hub_slot()->look_up_entity(id2));
+    auto* a = core::down_cast<GameEntity>(objects::object_hub_slot()->look_up_entity(id1));
+    auto* b = core::down_cast<GameEntity>(objects::object_hub_slot()->look_up_entity(id2));
     if (a->fetch_module(kSkaterCorePhysics))
-        skater = static_cast<objects::Rider*>(a);
+        skater = core::down_cast<objects::Rider>(a);
     if (b->fetch_module(kSkaterCorePhysics))
-        skater = static_cast<objects::Rider*>(b);
+        skater = core::down_cast<objects::Rider>(b);
     if (!a || !b || a == b)
         return false;
     record_swap(a->ident_, b->ident_);
 
-    auto* model_a = static_cast<objects::MeshInstanceModule*>(a->fetch_module(kModel));
-    auto* model_b = static_cast<objects::MeshInstanceModule*>(b->fetch_module(kModel));
-    auto* shadow_a = static_cast<objects::GroundShadowModule*>(a->fetch_module(kShadow));
-    auto* shadow_b = static_cast<objects::GroundShadowModule*>(b->fetch_module(kShadow));
+    auto* model_a = core::down_cast<objects::MeshInstanceModule>(a->fetch_module(kModel));
+    auto* model_b = core::down_cast<objects::MeshInstanceModule>(b->fetch_module(kModel));
+    auto* shadow_a = core::down_cast<objects::GroundShadowModule>(a->fetch_module(kShadow));
+    auto* shadow_b = core::down_cast<objects::GroundShadowModule>(b->fetch_module(kShadow));
     if (!model_a || !model_b)
         return false;
     shadow_a->destroy_shadow();
@@ -159,8 +160,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     set_model_virtual(model_a, nx_b);
     set_model_virtual(model_b, nx_a);
 
-    auto* suspend_a = static_cast<objects::DormancyModule*>(a->fetch_module(kSuspend));
-    auto* suspend_b = static_cast<objects::DormancyModule*>(b->fetch_module(kSuspend));
+    auto* suspend_a = core::down_cast<objects::DormancyModule>(a->fetch_module(kSuspend));
+    auto* suspend_b = core::down_cast<objects::DormancyModule>(b->fetch_module(kSuspend));
     suspend_a->reset_counts();
     suspend_b->reset_counts();
     a->hold_off(false);
@@ -226,7 +227,7 @@ bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
     int index = 0;
     const objects::Rider* skater = nullptr;
     if (params->fetch_int_value(kSkater, &index, 0))
-        skater = static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(index));
+        skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(index));
     else
         skater = modules::Skate::sole()->get_home_rider();
     return skater->unknown31c_ != 0;

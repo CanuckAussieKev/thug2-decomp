@@ -83,6 +83,7 @@
 #include "platform/run_log.h"
 #include "engine/gfx/device.h"
 #include "platform/code_address.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor {
 
@@ -1222,7 +1223,7 @@ void set_exist(UndoStep* step, bool exist)
     if (!step->copies.empty()) {
         std::vector<objects::GameEntity*> made;
         for (MadeCopy& copy : step->copies) {
-            auto* object = static_cast<objects::GameEntity*>(objects::find_object(copy.name));
+            auto* object = core::down_cast<objects::GameEntity>(objects::find_object(copy.name));
             const bool there = object && !(object->object_flags_ & objects::kObjectFlagDead);
             if (exist && !there) {
                 const V3 pos = {copy.state.pos.x, copy.state.pos.y, copy.state.pos.z};
@@ -1252,7 +1253,7 @@ void get_restore(UndoStep& step)
         std::vector<objects::GameEntity*> objects;
         for (const object_edit::State& state : step.objects) {
             if (object_edit::get_restore(state))
-                objects.push_back(static_cast<objects::GameEntity*>(objects::find_object(state.id)));
+                objects.push_back(core::down_cast<objects::GameEntity>(objects::find_object(state.id)));
         }
         select_objects(objects);
         break;
@@ -1384,7 +1385,7 @@ UndoStep at_hand(const UndoStep& step)
     case UndoStep::Kind::kObjects:
         now.objects.clear();
         for (const object_edit::State& state : step.objects) {
-            if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(state.id)))
+            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(state.id)))
                 now.objects.push_back(object_edit::store_away(object));
         }
         break;
@@ -1393,7 +1394,7 @@ UndoStep at_hand(const UndoStep& step)
         now.scenery = scenery::save_state();
         now.carried_objects_.clear();
         for (const object_edit::State& state : step.carried_objects_) {
-            if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(state.id)))
+            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(state.id)))
                 now.carried_objects_.push_back(object_edit::store_away(object));
         }
         std::vector<uint32_t> names;
@@ -2549,7 +2550,7 @@ void update_highlights()
         const uint32_t id = g_browser.items[g_browser.index].id;
         if (g_browser.tab == 0)
             tint_sectors({id}, kBrowseTint);
-        else if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(id)))
+        else if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id)))
             object_edit::get_tint(object, kBrowseTint);
     }
     scenery::end_tints(object_edit::resolve_tint, false);
@@ -2731,7 +2732,7 @@ bool ground_below(V3 from, V3* ground) { return get_cast(from, {from.x, from.y -
 void place_skater_below_camera()
 {
     constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
-    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
+    auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!skater)
         return;
     // (below the camera; else from high above it - the camera may have gone through the floor)
@@ -3377,7 +3378,7 @@ bool place_entity(int entry, V3 at)
     step.exist = false;
     std::vector<objects::GameEntity*> made;
     for (const uint32_t name : placed.copies) {
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
         if (!object)
             continue;
         uint32_t source = 0;
@@ -3483,7 +3484,7 @@ void unlink_list_node(bool confirmed)
             if (c.name == node.name)
                 source = c.source;
         }
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(node.name));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(node.name));
         if (!object || (object->object_flags_ & objects::kObjectFlagDead))
             return;
         step.copies.push_back({node.name, source, object_edit::store_away(object)});
@@ -3682,7 +3683,7 @@ std::unordered_map<uint32_t, uint8_t> change_marks()
     }
     for (const uint32_t id : object_edit::get_touched()) {
         const object_edit::State* origin = object_edit::get_origin(id);
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
         if (!origin || !object)
             continue;
         const maths::Vec4 &a = origin->matrix.row[2], &b = object->basis_frame_.row[2];
@@ -4723,7 +4724,7 @@ void select_node(int index)
     const nodes::Elem& node = nodes[index];
     // (a flag is moved as its node - its object with it - so the place the game makes it at changes too)
     if (node.family == nodes::Family::kObject) {
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(node.name));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(node.name));
         OrientedBox box{};
         if (object && !(object->object_flags_ & objects::kObjectFlagDead) && object_edit::model_box(object, &box)) {
             g_node_selected = false;
@@ -4888,7 +4889,7 @@ void focus_browser_item()
         V3 a{}, b{};
         bounds_of(box, &a, &b);
         get_look_at((a + b) * 0.5f, std::max(300.0f, std::sqrt(get_dot(b - a, b - a)) * 1.5f));
-    } else if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(id))) {
+    } else if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id))) {
         get_look_at(object_edit::current_centre(object), 300.0f);
     }
 }
@@ -4985,7 +4986,7 @@ void apply_resume(const perform::Resume& r)
     g_speed = r.speed;
     std::vector<objects::GameEntity*> objects;
     for (const uint32_t id : r.objects) {
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
         if (object && get_live({object, id}))
             objects.push_back(object);
     }
@@ -5304,7 +5305,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             break;
         case ui::Request::Kind::kSelectObject:
             if (!g_dragging) {
-                if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(request.id))) {
+                if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(request.id))) {
                     select_objects({object});
                     go_to_selection();
                     note_action("selected in the Outliner: %s", describe_selection().c_str());
@@ -6222,7 +6223,7 @@ void tick_frame()
             if (next.kind == picking::Choice::kNode)
                 g_hover_node = static_cast<int>(next.id);
             else if (next.kind == picking::Choice::kObject)
-                hover = get_live({static_cast<objects::GameEntity*>(objects::find_object(next.id)), next.id});
+                hover = get_live({core::down_cast<objects::GameEntity>(objects::find_object(next.id)), next.id});
             else
                 hover_sector = next.id;
         } else if (have_ray && g_hover_axis < 0) {
@@ -6782,7 +6783,7 @@ void set_selection(const SelectionIds& ids)
     unpick();
     std::vector<objects::GameEntity*> objects;
     for (const uint32_t id : ids.objects) {
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
         if (object && !(object->object_flags_ & objects::kObjectFlagDead))
             objects.push_back(object);
     }
@@ -6811,7 +6812,7 @@ bool go_to_thing(uint32_t id)
             go_to_selection();
         return true;
     }
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     if (object && !(object->object_flags_ & objects::kObjectFlagDead)) {
         unpick();
         select_objects({object});
@@ -7016,7 +7017,7 @@ void choose_one(const Selected& selected)
     case Kind::kObject: {
         std::vector<objects::GameEntity*> objects;
         for (const uint32_t id : selected.ids) {
-            auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+            auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
             if (object && !(object->object_flags_ & objects::kObjectFlagDead))
                 objects.push_back(object);
         }
@@ -7124,7 +7125,7 @@ void push_made(const std::vector<uint32_t>& objects, const std::vector<uint32_t>
     step.kind = UndoStep::Kind::kMade;
     step.exist = false;
     for (const uint32_t id : objects) {
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
         if (!object)
             continue;
         uint32_t source = 0;
@@ -7148,7 +7149,7 @@ void remove_copies(const std::vector<uint32_t>& ids)
     step.kind = UndoStep::Kind::kMade;
     step.exist = true; // (undone: made again)
     for (const uint32_t id : ids) {
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
         if (!object || !object_edit::is_copy(id))
             continue;
         uint32_t source = 0;

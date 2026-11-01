@@ -29,6 +29,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -43,7 +44,7 @@ constexpr uint32_t kName = 0xA1DC81F9;            // Name
 // The model component's model (+0x208).
 uint8_t* model_of(ObjectModule* model)
 {
-    return raw::bytes(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
+    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_);
 }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).

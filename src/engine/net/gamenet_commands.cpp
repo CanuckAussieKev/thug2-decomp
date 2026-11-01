@@ -38,6 +38,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -275,7 +276,7 @@ bool cfunc_fcfs_request_change_level(Struct* params, Script*)
     Hub* manager = net_link();
     uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 0);
-    auto* client = static_cast<net::Guest*>(manager->client_app_);
+    auto* client = core::down_cast<net::Guest>(manager->client_app_);
     if (level == kCreatedPark) {
         void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
         client->send_bulk_to_host(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);

@@ -19,6 +19,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -74,7 +75,7 @@ void RiderTurning::configure_from_data(script::Struct* /*params*/)
 // 0x00517D20
 void RiderTurning::seal()
 {
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x00517DC0

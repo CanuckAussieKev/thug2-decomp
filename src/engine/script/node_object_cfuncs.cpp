@@ -55,6 +55,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -180,7 +181,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
                 break;
         }
     }
-    auto* camera = static_cast<objects::GameEntity*>(
+    auto* camera = core::down_cast<objects::GameEntity>(
         static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kViewerCameraObject));
     if (!camera)
         return;
@@ -733,10 +734,10 @@ bool set_node_color(uint32_t name, script::Struct* params)
     if (node_class == kClassLevelObject) {
         uint32_t object_name = 0;
         if (node->read_hash_value(kName, &object_name, 0)) {
-            auto* object = static_cast<objects::GameEntity*>(
+            auto* object = core::down_cast<objects::GameEntity>(
                 static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(object_name));
             // (neither checked for null, as in the original)
-            static_cast<objects::MeshInstanceModule*>(object->fetch_module(0x286A8D26))
+            core::down_cast<objects::MeshInstanceModule>(object->fetch_module(0x286A8D26))
                 ->change_tint(rgba); // "model"
         }
         return true;
@@ -881,7 +882,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     maths::Vec4 velocity;
     if (params->has_bare_flag(0x9F98989Eu)) {
         params->fetch_float(0x13B9DA7Bu, &scale, 0); // "scale"
-        const maths::Vec4& v = static_cast<objects::GameEntity*>(script->entity_.get_pull())->vel_;
+        const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity_.get_pull())->vel_;
         velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
         velocity.y = static_cast<float>(static_cast<double>(scale) * v.y);
         velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);

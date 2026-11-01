@@ -24,6 +24,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -256,8 +257,8 @@ bool ShootVideoObjective::target_in_view()
     objects::Entity* target = objects::find_object(id);
     if (!target)
         return false;
-    auto* object = static_cast<objects::GameEntity*>(target);
-    void* model = static_cast<objects::MeshInstanceModule*>(object->fetch_module(kModel))->mesh_instance_;
+    auto* object = core::down_cast<objects::GameEntity>(target);
+    void* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel))->mesh_instance_;
     // The model's bounding sphere (0x00492F30) in the world.
     maths::Vec4 sphere;
     const maths::Vec4* bounds = static_cast<render::RenderModel*>(model)->fetch_bound_sphere(&sphere);
@@ -273,7 +274,7 @@ bool ShootVideoObjective::target_in_view()
     // (0x0048C490: the sphere hidden from the camera)
     if (render::engine::sphere_visible_in_one_viewport(&centre, 6.0f))
         return false;
-    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     maths::Vec4* camera = static_cast<gfx::ViewCam*>(skater->obtain_active_lens())->fetch_location();
     const float dx = (*camera)[0] - object->at_point_[0];
     const float dy = (*camera)[1] - object->at_point_[1];
@@ -336,7 +337,7 @@ HuntGapsObjective::~HuntGapsObjective() = default;
 // 0x00552B90
 void HuntGapsObjective::scan_for_gaps()
 {
-    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     script::Struct* found = nullptr;
     args_->read_sub_struct(kGapsFound, &found, 1);
     int count = 0;

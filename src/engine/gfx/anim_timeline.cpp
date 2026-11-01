@@ -14,6 +14,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "game/rider/vehicle_sound.h"
+#include "engine/core/down_cast.h"
 
 namespace gfx {
 
@@ -249,13 +250,13 @@ int AnimDriver::invoke_method_by_name(uint32_t, script::Struct*, script::Script*
 void AnimDriver::configure_from_data(script::Struct* params) { params->read_hash_value(kId, &ident_, 0); }
 
 // 0x00481760
-objects::GameEntity* AnimDriver::fetch_subject() { return static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject(); }
+objects::GameEntity* AnimDriver::fetch_subject() { return core::down_cast<AnimTrack>(timeline_ptr_)->fetch_subject(); }
 
 // 0x00481770
 uint8_t* AnimDriver::fetch_rig()
 {
-    objects::ObjectModule* component = static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject()->fetch_module(kSkeleton);
-    return component ? static_cast<objects::BoneRigModule*>(component)->bone_rig_ : nullptr;
+    objects::ObjectModule* component = core::down_cast<AnimTrack>(timeline_ptr_)->fetch_subject()->fetch_module(kSkeleton);
+    return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig_ : nullptr;
 }
 
 } // namespace gfx

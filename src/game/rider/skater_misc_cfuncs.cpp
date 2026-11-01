@@ -21,6 +21,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "engine/gfx/cag_cfuncs.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -82,7 +83,7 @@ bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script*)
     params->read_hash_value(kPart, &part, 1);
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
-    static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(player))->show_board_element(part);
+    core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(player))->show_board_element(part);
     return true;
 }
 
@@ -92,7 +93,7 @@ bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script*)
 // about Y by the skew angle if there is one. False without an object.
 bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 {
-    auto* object = static_cast<objects::GameEntity*>(script->entity_.owner_object_);
+    auto* object = core::down_cast<objects::GameEntity>(script->entity_.owner_object_);
     if (!object)
         return false;
     maths::Vec4 velocity = object->vel_;
@@ -157,7 +158,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     voice[0] = 0; // (left as the stack had it in the original when the voice is not found)
     char stream[128];
     char first_name[128];
-    auto* skater = static_cast<objects::Rider*>(script->entity_.owner_object_);
+    auto* skater = core::down_cast<objects::Rider>(script->entity_.owner_object_);
     const char* type = nullptr;
     params->fetch_text(kType, &type, 1);
     int count = 10;

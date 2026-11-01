@@ -40,6 +40,7 @@
 #include "engine/gfx/geom.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -385,7 +386,7 @@ const V3 kWorld[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}
 
 objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 

@@ -14,6 +14,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "game/rider/skater_camera_component.h"
 #include "engine/objects/camera_component.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -55,7 +56,7 @@ RiderChaseView::~RiderChaseView()
 // 0x004F9A20
 void RiderChaseView::seal()
 {
-    free_look_module_ = static_cast<FreeLookModule*>(entity_->fetch_module(kCameraLookaround));
+    free_look_module_ = core::down_cast<FreeLookModule>(entity_->fetch_module(kCameraLookaround));
 }
 
 // 0x004F9A40
@@ -148,7 +149,7 @@ void RiderChaseView::change_regime(int mode, float time)
         above_ = static_cast<float>(static_cast<double>(above) * kFeet);
     }
     // The camera component's camera (+0x18): its field of view (half across a vertical split).
-    gfx::ViewCam* view = static_cast<objects::ViewpointModule*>(camera)->view_camera_.get();
+    gfx::ViewCam* view = core::down_cast<objects::ViewpointModule>(camera)->view_camera_.get();
     view->change_h_fov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
     float heading = 0.0f;
     switch (mode) {

@@ -21,6 +21,7 @@
 #include "game/rider/trick_component.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace modules {
 
@@ -43,12 +44,12 @@ void PointTally::note_tagged_prop_ask(int score)
     online::Hub* net = net_session_slot();
     net::NetMessageInfo desc;
     auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(rider_no_)));
-    auto* client = static_cast<net::Guest*>(net->fetch_patron(info->skater_->view_slot_));
+    auto* client = core::down_cast<net::Guest>(net->fetch_patron(info->skater_->view_slot_));
     online::TrickObjectsMessage message;
     message.player = rider_no_;
     message.score = static_cast<uint32_t>(score);
     message.game_id = net->get_game_id();
-    auto* trick = static_cast<objects::MoveExecutor*>(rider_for_slot(rider_no_)->fetch_module(kTrick));
+    auto* trick = core::down_cast<objects::MoveExecutor>(rider_for_slot(rider_no_)->fetch_module(kTrick));
     const uint32_t bytes = trick->end_trick_objects(static_cast<uint32_t>(cell::address(message.objects)),
                                                     sizeof(message.objects));
     message.count = bytes >> 2;

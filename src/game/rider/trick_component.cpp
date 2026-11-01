@@ -25,6 +25,7 @@
 #include "game/rider/stats_manager.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -107,12 +108,12 @@ void MoveExecutor::publish_method_table()
 // 0x0051F2B0
 void MoveExecutor::seal()
 {
-    input_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput));
-    balance_trick_ = static_cast<RiderTeeterMoves*>(entity_->fetch_module(kSkaterBalanceTrick));
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    flip_rotate_ = static_cast<RiderSpinAndFlip*>(entity_->fetch_module(kSkaterFlipAndRotate));
-    skater_state_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
-    stats_manager_ = static_cast<AttributeTracker*>(entity_->fetch_module(kStatsManager));
+    input_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
+    balance_trick_ = core::down_cast<RiderTeeterMoves>(entity_->fetch_module(kSkaterBalanceTrick));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+    flip_rotate_ = core::down_cast<RiderSpinAndFlip>(entity_->fetch_module(kSkaterFlipAndRotate));
+    skater_state_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
+    stats_manager_ = core::down_cast<AttributeTracker>(entity_->fetch_module(kStatsManager));
 }
 
 // 0x0051F320

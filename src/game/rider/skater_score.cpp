@@ -22,6 +22,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -104,7 +105,7 @@ void RiderPointKeeper::tick_frame()
         return;
     }
     get_score_of(points_held_)->tick_frame();
-    const bool always_special = static_cast<Rider*>(entity_)->always_special_ ||
+    const bool always_special = core::down_cast<Rider>(entity_)->always_special_ ||
                                 raw::as<RiderStoryProgress>(get_career())->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
         uint8_t* career = get_career();

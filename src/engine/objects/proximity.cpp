@@ -20,6 +20,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -326,7 +327,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->active_ = true;
     int id = 0;
     for (Entity* skater = entity_for_id(0); skater && id < kSkaterSlots; skater = entity_for_id(++id)) {
-        if (static_cast<GameEntity*>(skater)->is_local_skater_)
+        if (core::down_cast<GameEntity>(skater)->is_local_skater_)
             node->is_within_ |= 1u << id;
     }
     node->change_live(false);

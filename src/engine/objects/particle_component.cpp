@@ -28,6 +28,7 @@
 #include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -427,7 +428,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
     if (params->read_hash_value(0x5E2A8D9Fu, &model, 0) && model)
-        mesh_instance_ = static_cast<GameEntity*>(find_object(model))->fetch_module(0x286A8D26);
+        mesh_instance_ = core::down_cast<GameEntity>(find_object(model))->fetch_module(0x286A8D26);
     if (p.emit_script_) {
         script::Struct* script_params = nullptr;
         params->read_sub_struct(0x7031F10Cu, &script_params, 0);
@@ -444,7 +445,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
 void EffectsEmitterModule::tick_frame()
 {
     // (suspended: nothing - unless a network game runs and it has a lifetime)
-    if (suspend_ && static_cast<DormancyModule*>(suspend_)->is_far()) {
+    if (suspend_ && core::down_cast<DormancyModule>(suspend_)->is_far()) {
         void* net = static_cast<void*>(g_online_hub);
         if (!static_cast<online::Hub*>(net)->in_net_game() || lifespan_ == 0)
             return;
@@ -457,7 +458,7 @@ void EffectsEmitterModule::tick_frame()
         }
     }
     if (mesh_instance_)
-        effect_handle_->set_brightness(static_cast<MeshInstanceModule*>(mesh_instance_)->brightness_);
+        effect_handle_->set_brightness(core::down_cast<MeshInstanceModule>(mesh_instance_)->brightness_);
     const render::SparkleConfig& args = effect_handle_->args_;
     if (!args.local_positions_)
         return;

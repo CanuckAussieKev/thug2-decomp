@@ -38,6 +38,7 @@
 #include "engine/objects/rail_manager.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -700,7 +701,7 @@ void MoveExecutor::update_bash()
 {
     if (!bashing_)
         return;
-    auto* blender = static_cast<AnimBlenderComponent*>(entity_->fetch_module(kAnimBlender));
+    auto* blender = core::down_cast<AnimBlenderComponent>(entity_->fetch_module(kAnimBlender));
     if (blender->get_timeline30() != kRunOut && blender->get_timeline30() != kRunOutQuick) {
         if (!(get_bash_speed() > kMashedFastEnough))
             return;
@@ -757,7 +758,7 @@ void MoveExecutor::tick_frame()
 bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
 {
     auto* trick =
-        static_cast<MoveExecutor*>(static_cast<GameEntity*>(script->entity_.get_pull())->fetch_module(kTrick));
+        core::down_cast<MoveExecutor>(core::down_cast<GameEntity>(script->entity_.get_pull())->fetch_module(kTrick));
     uint32_t first = 0;
     script::Struct* first_params = nullptr;
     params->read_hash_value(kScriptToRunFirst, &first, 0);

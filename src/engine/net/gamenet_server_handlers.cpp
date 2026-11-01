@@ -34,6 +34,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -101,7 +102,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
         objects::Entity* skater = player_skater(player);
         manager->evict_player(player, 2); // the player out of the game (2: to observe)
         static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
-            static_cast<objects::Rider*>(skater)); // its skater gone
+            core::down_cast<objects::Rider>(skater)); // its skater gone
         player->flag_bits_ |= 4;                   // an observer now
         player->skater_ = nullptr;
         if (player->is_host_player()) {
@@ -337,7 +338,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
             const bool observer = is_observer(player);
             manager->evict_player(player, 0); // the player out of the game
             if (!observer)
-                static_cast<modules::Skate*>(skate)->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
+                static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         }
         return kKeep;
     }

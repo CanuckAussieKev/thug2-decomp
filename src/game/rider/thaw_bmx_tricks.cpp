@@ -35,6 +35,7 @@
 #include "engine/gfx/model.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace skater::thaw_bmx {
 
@@ -172,7 +173,7 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
 objects::GameEntity* bike_of(void* skater)
 {
     auto* items =
-        static_cast<objects::PickupItemHandler*>(static_cast<objects::GameEntity*>(skater)->fetch_module(kSpecialItem));
+        core::down_cast<objects::PickupItemHandler>(static_cast<objects::GameEntity*>(skater)->fetch_module(kSpecialItem));
     if (!items)
         return nullptr;
     const uint32_t id = name_hash(kBikeObject);
@@ -185,7 +186,7 @@ objects::GameEntity* bike_of(void* skater)
 
 void set_wobble(objects::GameEntity* object, float fraction)
 {
-    if (auto* blender = static_cast<objects::AnimBlenderComponent*>(object->fetch_module(kAnimBlender)))
+    if (auto* blender = core::down_cast<objects::AnimBlenderComponent>(object->fetch_module(kAnimBlender)))
         blender->first_channel_47e_280(fraction, 1);
 }
 
@@ -515,7 +516,7 @@ void* shadow_companion(void* caster_model)
     static const bool kShadow = config_int("features", "thaw_bmx_shadow", 1) != 0;
     if (!is_switched_on() || !kShadow || !modules::Skate::sole())
         return nullptr;
-    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     if (!skater || !skater->core_physics_ || !on_bike(skater->core_physics_))
         return nullptr;
     objects::ObjectModule* rider_model = skater->fetch_module(kModel);
@@ -523,9 +524,9 @@ void* shadow_companion(void* caster_model)
     objects::ObjectModule* bike_model = bike ? bike->fetch_module(kModel) : nullptr;
     if (!rider_model || !bike_model)
         return nullptr;
-    render::RenderModel* bike_renderer = static_cast<objects::MeshInstanceModule*>(bike_model)->mesh_instance_;
+    render::RenderModel* bike_renderer = core::down_cast<objects::MeshInstanceModule>(bike_model)->mesh_instance_;
     return bike::shadow_companion_of(caster_model,
-                                     static_cast<objects::MeshInstanceModule*>(rider_model)->mesh_instance_,
+                                     core::down_cast<objects::MeshInstanceModule>(rider_model)->mesh_instance_,
                                      bike_renderer, bike_renderer ? bike_renderer->flag_bits_ : 0);
 }
 
@@ -535,13 +536,13 @@ int play_flip(objects::GameEntity* object)
 {
     if (!is_switched_on() || !object || !modules::Skate::sole())
         return -1;
-    auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     if (!skater || !skater->core_physics_ || !on_bike(skater->core_physics_))
         return -1;
     if (object == skater) {
         // (THAW's Skater_Playanim: HandleFlipOrBoardRotateAfter before the branch - the component's own PlayAnim
         // answer does it too, after this or before: done once, the flags cleared)
-        if (auto* flip_and_rotate = static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate)))
+        if (auto* flip_and_rotate = core::down_cast<objects::RiderSpinAndFlip>(skater->fetch_module(kSkaterFlipAndRotate)))
             flip_and_rotate->do_after_anim();
     } else if (object != bike_of(skater)) {
         return -1;
@@ -555,7 +556,7 @@ void flip_anims_to_flag(SkaterPhysicsModule* core)
     // animation played left them as they were)
     auto* skater = static_cast<objects::GameEntity*>(object_of(core));
     if (auto* flip_and_rotate =
-            skater ? static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate)) : nullptr)
+            skater ? core::down_cast<objects::RiderSpinAndFlip>(skater->fetch_module(kSkaterFlipAndRotate)) : nullptr)
         flip_and_rotate->apply_flip_to_anims();
 }
 

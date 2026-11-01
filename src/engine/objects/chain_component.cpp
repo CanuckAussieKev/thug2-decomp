@@ -24,6 +24,7 @@
 #include "engine/gfx/weather.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -91,16 +92,16 @@ void set_line_vertex(render::PcPrimitive* line, int vertex, const maths::Vec4& p
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
 void joint_world_point(ObjectModule* skeleton, uint32_t bone, maths::Vec4* out)
 {
-    static_cast<BoneRigModule*>(skeleton)->get_bone_position(bone, out);
+    core::down_cast<BoneRigModule>(skeleton)->get_bone_position(bone, out);
 }
 void bone_position(ObjectModule* skeleton, uint32_t bone, maths::Vec4* out)
 {
-    static_cast<BoneRigModule*>(skeleton)->get_local_bone_position(bone, out);
+    core::down_cast<BoneRigModule>(skeleton)->get_local_bone_position(bone, out);
 }
 // The skeleton component's skeleton (its +0x18, the shared getter 0x005480F0) and that skeleton's bone matrix.
 void skin_matrix_ptr(ObjectModule* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    auto* data = raw::as<void>(static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
+    auto* data = raw::as<void>(core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_);
     static_cast<gfx::Rig*>(data)->read_joint_matrix(bone, out);
 }
 
@@ -452,7 +453,7 @@ void ChainComponent::tick_frame()
         // The end: bone_end of obj_end, into that object's world, plus this object's velocity over the last frame.
         // (no obj_end: the original's end is whatever its stack held - zero here)
         maths::Vec4 end = {0.0f, 0.0f, 0.0f, 0.0f};
-        if (auto* other = static_cast<GameEntity*>(find_object(chain->obj_end_))) {
+        if (auto* other = core::down_cast<GameEntity>(find_object(chain->obj_end_))) {
             bone_position(other->fetch_module(kSkeleton), chain->bone_end_, &end);
             const maths::Mat4& m = other->display_matrix_;
             const maths::Vec4& at = other->at_point_;

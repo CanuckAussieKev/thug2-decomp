@@ -16,6 +16,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -391,7 +392,7 @@ ParkTile* PlacedPieceGroup::get_piece(uint32_t index)
 
 void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, bool sets_floor)
 {
-    auto* piece = static_cast<ParkTile*>(placed);
+    auto* piece = core::down_cast<ParkTile>(placed);
     PieceGroupDesc* entry = get_descriptor(static_cast<int>(filled_slots_++));
     maths::Vec4 size;
     piece->measure_span(&size);
@@ -443,7 +444,7 @@ void grow_to_take(CellBox& cells, const CellBox* pos)
 
 void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor)
 {
-    auto* source = (piece->flag_bits_ & ParkPiece::kSource) ? static_cast<TileTemplate*>(piece) : nullptr;
+    auto* source = (piece->flag_bits_ & ParkPiece::kSource) ? core::down_cast<TileTemplate>(piece) : nullptr;
     PieceGroupDesc* entry = get_descriptor(static_cast<int>(filled_slots_++));
     if (!source)
         return; // (counted all the same)

@@ -31,6 +31,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -443,7 +444,7 @@ void ParkBuilderMode::tick_frame()
     camera.row[3].y = static_cast<float>(static_cast<double>(camera.row[3].y) + kCameraHeight);
     camera.row[3].z = static_cast<float>(static_cast<double>(cursor_pos.z) + camera.row[3].z);
     auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
-    if (auto* cam = static_cast<objects::GameEntity*>(objects->look_up_entity(kParkedCam))) {
+    if (auto* cam = core::down_cast<objects::GameEntity>(objects->look_up_entity(kParkedCam))) {
         cam->at_point_ = camera.row[3];
         cam->basis_frame_ = camera;
     }

@@ -29,6 +29,7 @@
 #include "engine/gfx/geom.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -524,14 +525,14 @@ std::vector<ObjectEntry> g_objects;
 uint8_t* model_of(objects::GameEntity* object)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    return component ? raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
+    return component ? raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_)
                      : nullptr;
 }
 
 render::HitMesh* collision_of(objects::GameEntity* object)
 {
     auto* component =
-        static_cast<objects::ContactShapeModule*>(object->fetch_module(objects::ContactShapeModule::kType));
+        core::down_cast<objects::ContactShapeModule>(object->fetch_module(objects::ContactShapeModule::kType));
     return component ? component->hit_shape_ : nullptr;
 }
 
@@ -586,14 +587,14 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
         return true;
     const render::HitMeshKind kind = collision->kind();
     if (kind == render::HitMeshKind::kMovingTriangles)
-        return take_tri(static_cast<render::HitMovingTriangles*>(collision), entry);
+        return take_tri(core::down_cast<render::HitMovingTriangles>(collision), entry);
     if (kind == render::HitMeshKind::kMovingBox) {
-        auto* box = static_cast<render::HitMovingBox*>(collision);
+        auto* box = core::down_cast<render::HitMovingBox>(collision);
         entry->boxes.push_back({box, box->box_});
         return true;
     }
     if (kind == render::HitMeshKind::kGroup) {
-        const memory::ListNode* head = static_cast<render::HitMeshGroup*>(collision)->sub_nodes_;
+        const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(collision)->sub_nodes_;
         for (const memory::ListNode* node = head ? head->next : nullptr;
              node && node != head && node->data != kListHeadData; node = node->next) {
             if (!take_collision(static_cast<render::HitMesh*>(node->data), entry))
@@ -619,7 +620,7 @@ void apply_collision(ObjectEntry& entry)
         b.box->box_.max = {hi.x * entry.scale.x, hi.y * entry.scale.y, hi.z * entry.scale.z, hi.w};
     }
     if (entry.collision && entry.collision->kind() == render::HitMeshKind::kGroup)
-        static_cast<render::HitMeshGroup*>(entry.collision)->dirty_ = true;
+        core::down_cast<render::HitMeshGroup>(entry.collision)->dirty_ = true;
 }
 
 } // namespace
@@ -656,7 +657,7 @@ V3 object_limit(objects::GameEntity* object)
         if (c->kind() == render::HitMeshKind::kMovingTriangles && c->geometry_)
             narrow(c->geometry_, get_uniform(1.0f));
         if (c->kind() == render::HitMeshKind::kGroup) {
-            const memory::ListNode* head = static_cast<render::HitMeshGroup*>(c)->sub_nodes_;
+            const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(c)->sub_nodes_;
             for (memory::ListNode* node = head ? head->next : nullptr;
                  node && node != head && node->data != kListHeadData; node = node->next)
                 pending.push_back(static_cast<render::HitMesh*>(node->data));

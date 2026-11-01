@@ -22,6 +22,7 @@
 #include "engine/objects/suspend_component.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -45,7 +46,7 @@ constexpr float kAbove = 24.0f;       // 0x00645EE8
 void get_kill(GameEntity* object) { object->flag_as_dead(); }
 
 // The projectile collision component's 0x004F2F40 (no source yet): told of the hit.
-void projectile_hit(ObjectModule* projectile) { static_cast<ShotImpactModule*>(projectile)->mark_hit(); }
+void projectile_hit(ObjectModule* projectile) { core::down_cast<ShotImpactModule>(projectile)->mark_hit(); }
 
 } // namespace
 

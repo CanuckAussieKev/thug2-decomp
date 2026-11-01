@@ -24,6 +24,7 @@
 #include "engine/objects/camera_component.h"
 #include "game/rider/skater_camera_component.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -110,8 +111,8 @@ void FootView::bind_rider(GameEntity* skater)
         return;
     }
     skater_ = skater;
-    walk_ = static_cast<FootMovement*>(skater->fetch_module(kWalk));
-    physics_control_ = static_cast<RiderBoardPhysics*>(skater_->fetch_module(kSkaterPhysicsControl));
+    walk_ = core::down_cast<FootMovement>(skater->fetch_module(kWalk));
+    physics_control_ = core::down_cast<RiderBoardPhysics>(skater_->fetch_module(kSkaterPhysicsControl));
 }
 
 // 0x00524F50
@@ -119,7 +120,7 @@ void FootView::configure_from_data(script::Struct* params)
 {
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);
-    bind_rider(static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id)));
+    bind_rider(core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id)));
     turn_cosine_ = 1.0f;
     zoom_ = 1.0f;
     orientation_ = entity_->basis_frame_;
@@ -128,9 +129,9 @@ void FootView::configure_from_data(script::Struct* params)
 // 0x00524FB0
 void FootView::seal()
 {
-    free_look_ = static_cast<FreeLookModule*>(entity_->fetch_module(kCameraLookAround));
-    viewer_ = static_cast<ViewpointModule*>(entity_->fetch_module(kCamera));
-    skater_camera_ = static_cast<RiderChaseView*>(entity_->fetch_module(kSkaterCamera));
+    free_look_ = core::down_cast<FreeLookModule>(entity_->fetch_module(kCameraLookAround));
+    viewer_ = core::down_cast<ViewpointModule>(entity_->fetch_module(kCamera));
+    skater_camera_ = core::down_cast<RiderChaseView>(entity_->fetch_module(kSkaterCamera));
 }
 
 // 0x00524C30
@@ -271,7 +272,7 @@ void FootView::tick_frame()
     }
     viewer_->view_camera_->remember_prev_pos();
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    const float turn = static_cast<PadInputModule*>(entity_->fetch_module(kInput))->pad_primary_.scaled_stick_[0];
+    const float turn = core::down_cast<PadInputModule>(entity_->fetch_module(kInput))->pad_primary_.scaled_stick_[0];
     entity_->basis_frame_ = orientation_;
 
     // Where to look: along the camera's flat facing, swung round to the skater's.

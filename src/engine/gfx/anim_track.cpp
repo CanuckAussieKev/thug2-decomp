@@ -22,6 +22,7 @@
 #include "engine/core/stubs.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace gfx {
 
@@ -190,7 +191,7 @@ void AnimTrack::load_events(uint32_t anim)
     objects::ObjectModule* component = owner_object_->fetch_module(kAnimBlender);
     if (!component)
         return;
-    const uint32_t table_name = static_cast<objects::AnimBlenderComponent*>(component)->get_first_channel58();
+    const uint32_t table_name = core::down_cast<objects::AnimBlenderComponent>(component)->get_first_channel58();
     if (!table_name)
         return;
     Struct* table = script::read_sub_struct(table_name);

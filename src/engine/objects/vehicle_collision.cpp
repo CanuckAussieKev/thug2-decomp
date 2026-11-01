@@ -22,6 +22,7 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -50,7 +51,7 @@ const float kAlignSlowRate = std::bit_cast<float>(0x3E99999Au);   // 0x006467C0:
 // The model component's 0x00420670 (not rewritten yet): its lighting from what a feeler hit.
 void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, float c)
 {
-    static_cast<MeshInstanceModule*>(model)->apply_brightness(feeler, b, c);
+    core::down_cast<MeshInstanceModule>(model)->apply_brightness(feeler, b, c);
 }
 
 bool get_interrupted(const DrivableModule* vehicle)

@@ -35,6 +35,7 @@
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace modules {
 
@@ -534,7 +535,7 @@ void FrontEnd::get_pause_game(bool pause)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =
-            static_cast<objects::Rider*>(raw::as<modules::Skate>(skate)->get_rider_at(static_cast<int>(i)));
+            core::down_cast<objects::Rider>(raw::as<modules::Skate>(skate)->get_rider_at(static_cast<int>(i)));
         if (!skater)
             continue;
         if (pause)

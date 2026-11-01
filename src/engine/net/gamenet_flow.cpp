@@ -43,6 +43,7 @@
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -424,7 +425,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
                     manager->evict_player(player, reason);
                     if (!observer)
                         static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
-                            static_cast<objects::Rider*>(skater));
+                            core::down_cast<objects::Rider>(skater));
                 }
             }
             player = next;

@@ -43,6 +43,7 @@
 #include "game/rider/balance_trick.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace skater::thaw_bmx {
 
@@ -195,7 +196,7 @@ int physics_integer(uint32_t name, const SkaterPhysicsModule* core)
 }
 float get_stat(uint32_t name, const SkaterPhysicsModule* core)
 {
-    return static_cast<objects::Rider*>(object_of(core))->get_scaled_physics(name);
+    return core::down_cast<objects::Rider>(object_of(core))->get_scaled_physics(name);
 }
 // A global of THAW's physics.qb that THUG2 hasn't: THAW's value while the overlay lacks it.
 float thaw_global(const char* name, float thaw)
@@ -669,7 +670,7 @@ namespace {
 gfx::BlendChannel* steer_channel(objects::GameEntity* object, objects::AnimBlenderComponent** blender)
 {
     *blender =
-        object ? static_cast<objects::AnimBlenderComponent*>(object->fetch_module(objects::AnimBlenderComponent::kType))
+        object ? core::down_cast<objects::AnimBlenderComponent>(object->fetch_module(objects::AnimBlenderComponent::kType))
                : nullptr;
     return *blender ? (*blender)->find_channel(checksums::hash_from_text(kSteerSubset)) : nullptr;
 }

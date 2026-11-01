@@ -40,6 +40,7 @@
 #include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace {
 
@@ -140,11 +141,11 @@ void stop_riding(objects::FootMovement* walk) { walk->ride_->stop_riding(); }
 // shared getter of +0x18).
 void object_matrix_of(objects::ObjectModule* component, maths::Mat4* matrix)
 {
-    static_cast<objects::GrindPathLinkModule*>(component)->update_rail_matrix(matrix);
+    core::down_cast<objects::GrindPathLinkModule>(component)->update_rail_matrix(matrix);
 }
 objects::GrindRailHub* rail_manager_of(objects::ObjectModule* component)
 {
-    return static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
+    return core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
 }
 // The skate module's rail manager (the level's).
 objects::GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_.get(); }
@@ -391,7 +392,7 @@ void objects::FootMovement::end_drop_to_hang()
     change_phase(2);
     tell_physics_rail(this);
     trigger_rail_script(this, kHangEvents);
-    static_cast<objects::TaggingControlComponent*>(object_of(this)->fetch_module(kTaggingControl))->blocked_ = false;
+    core::down_cast<objects::TaggingControlComponent>(object_of(this)->fetch_module(kTaggingControl))->blocked_ = false;
 }
 
 // 0x0043DDD0
@@ -637,7 +638,7 @@ bool objects::FootMovement::drop_to_hang()
                           static_cast<double>(velocity.z) * velocity.z;
     if (speed * speed < moving)
         return false;
-    auto* tagging = static_cast<objects::TaggingControlComponent*>(object_of(this)->fetch_module(kTaggingControl));
+    auto* tagging = core::down_cast<objects::TaggingControlComponent>(object_of(this)->fetch_module(kTaggingControl));
     if (tagging->pending_)
         return false;
     old_pos_.w = 1.0f;

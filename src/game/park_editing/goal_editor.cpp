@@ -27,6 +27,7 @@
 #include "platform/crt.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -75,7 +76,7 @@ uint32_t current_level()
 
 objects::EditorViewModule* view_cam(objects::ObjectModule* camera)
 {
-    return static_cast<objects::EditorViewModule*>(camera);
+    return core::down_cast<objects::EditorViewModule>(camera);
 }
 
 script::Struct* spawn_param_table()
@@ -139,8 +140,8 @@ void ObjectiveAuthoring::seal()
 ObjectiveAuthoring* ObjectiveAuthoring::get_pull()
 {
     auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
-    auto* object = static_cast<objects::GameEntity*>(manager->look_up_entity(kGoalEditor));
-    return static_cast<ObjectiveAuthoring*>(object->fetch_module(kGoalEditor));
+    auto* object = core::down_cast<objects::GameEntity>(manager->look_up_entity(kGoalEditor));
+    return core::down_cast<ObjectiveAuthoring>(object->fetch_module(kGoalEditor));
 }
 
 // 0x004E7BE0

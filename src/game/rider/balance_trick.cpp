@@ -21,6 +21,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_score.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -49,7 +50,7 @@ constexpr uint32_t kWobbleNames[5] = {0xFD266A26 /* WobbleAmpA */, 0x642F3B9C /*
 constexpr uint32_t kGrindParams = 0x6B7FDADD, kManualParams = 0xB8CC8633, kSkitchParams = 0xFC87CC01,
                    kLipParams = 0xBE615D0A;
 
-Rider* skater_of(GameEntity* object) { return static_cast<Rider*>(object); }
+Rider* skater_of(GameEntity* object) { return core::down_cast<Rider>(object); }
 
 script::Struct* spawn_param_bag()
 {
@@ -91,7 +92,7 @@ void RiderTeeterMoves::configure_from_data(script::Struct* /*params*/)
 // 0x004F9080
 void RiderTeeterMoves::seal()
 {
-    anim_blender_ptr_ = static_cast<AnimBlenderComponent*>(entity_->fetch_module(kAnimBlender));
+    anim_blender_ptr_ = core::down_cast<AnimBlenderComponent>(entity_->fetch_module(kAnimBlender));
 }
 
 // 0x004F8D70
@@ -251,7 +252,7 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     switch (name) {
     case kSwitchOffBalanceMeter: {
         auto* score = entity_->fetch_module(kSkaterScore);
-        modules::PointTally* display = static_cast<RiderPointKeeper*>(score)->points_held_;
+        modules::PointTally* display = core::down_cast<RiderPointKeeper>(score)->points_held_;
         display->set_teeter_gauge(false, 0.0f);
         display->set_wheelie_gauge(false, 0.0f);
         manual_.hide_display();

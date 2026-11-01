@@ -43,6 +43,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace gfx {
 
@@ -150,7 +151,7 @@ online::PlayerRecord* find_own_player_record(uint32_t object_id)
 }
 net::Guest* client_of(online::PlayerRecord* player)
 {
-    return static_cast<net::Guest*>(net_session_slot()->fetch_patron(static_cast<int>(player->get_skater_view_slot())));
+    return core::down_cast<net::Guest>(net_session_slot()->fetch_patron(static_cast<int>(player->get_skater_view_slot())));
 }
 
 void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)
@@ -208,7 +209,7 @@ void attach_controller(AnimTrack* timeline, Struct* params) { timeline->attach_c
 // The skeleton component's skeleton (the getter folded at 0x005480F0).
 Rig* skeleton_of(objects::ObjectModule* component)
 {
-    return raw::as<Rig>(static_cast<objects::BoneRigModule*>(component)->bone_rig_);
+    return raw::as<Rig>(core::down_cast<objects::BoneRigModule>(component)->bone_rig_);
 }
 
 } // namespace

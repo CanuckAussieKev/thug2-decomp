@@ -32,6 +32,7 @@
 #include "platform/crt.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -512,7 +513,7 @@ void update_shatters()
         if (left <= 0.0)
             dead = shatter;
         else
-            update_shatter(static_cast<PcShatter*>(shatter), elapsed);
+            update_shatter(core::down_cast<PcShatter>(shatter), elapsed);
         value = next_value(shatters());
         if (dead) {
             drop_out(shatters(), dead);

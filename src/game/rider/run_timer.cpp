@@ -19,6 +19,7 @@
 #include "game/rider/walk_physics.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -46,13 +47,13 @@ constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 // The state names cur_phase_ shows as (0x0064C080).
 const uint32_t* mode_label_keys() { return g_run_timer_state_names; }
 
-uint32_t get_skater_index(GameEntity* skater) { return static_cast<uint32_t>(static_cast<Rider*>(skater)->view_slot_); }
+uint32_t get_skater_index(GameEntity* skater) { return static_cast<uint32_t>(core::down_cast<Rider>(skater)->view_slot_); }
 uint32_t timer_script_id(GameEntity* skater) { return get_skater_index(skater) + kRunTimerScriptId; }
 
 // The skater's physics value `name`.
 double physics_value(GameEntity* skater, uint32_t name)
 {
-    return static_cast<Rider*>(skater)->get_scaled_physics(name);
+    return core::down_cast<Rider>(skater)->get_scaled_physics(name);
 }
 
 // An event of `type` to the run timer's script (no data, not broadcast).

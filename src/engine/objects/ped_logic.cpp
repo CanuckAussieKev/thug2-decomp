@@ -29,6 +29,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -112,7 +113,7 @@ constexpr float kPercentScale = 0.01f; // 0x0064544C
 
 KinematicsModule* get_motion(GameEntity* object)
 {
-    return static_cast<KinematicsModule*>(object->fetch_module(kMotion));
+    return core::down_cast<KinematicsModule>(object->fetch_module(kMotion));
 }
 
 script::Struct* new_params()
@@ -234,22 +235,22 @@ void PedestrianBrainModule::push_position()
 // 0x004EDC60
 void PedestrianBrainModule::set_sound_state(int state)
 {
-    if (auto* looping = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound))) {
+    if (auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound))) {
         looping->sound_changed_ |= looping->cur_phase_ != state;
         looping->cur_phase_ = state;
     }
-    if (auto* sound = static_cast<RiderSfxPlayer*>(entity_->fetch_module(kSkaterSound)))
+    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound)))
         sound->cur_phase_ = state;
 }
 
 // 0x004EDCB0
 void PedestrianBrainModule::set_sound_terrain(uint8_t terrain)
 {
-    if (auto* looping = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound))) {
+    if (auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound))) {
         looping->sound_changed_ |= looping->surface_type_ != terrain;
         looping->surface_type_ = terrain;
     }
-    if (auto* sound = static_cast<RiderSfxPlayer*>(entity_->fetch_module(kSkaterSound))) {
+    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound))) {
         sound->surface_type_ = terrain;
         sound->last_ground_ = terrain;
     }
@@ -260,7 +261,7 @@ bool PedestrianBrainModule::hide_board(int hide)
 {
     if (!(flag_bits_ & kPedFlagBoardHideable))
         return false;
-    if (auto* model = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel))) {
+    if (auto* model = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel))) {
         if (hide) {
             if (!(flag_bits_ & kPedFlagBoardHidden)) {
                 model->conceal_mesh(kBoard, true, true);
@@ -566,7 +567,7 @@ bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Sc
 // 0x004EE180
 bool PedestrianBrainModule::ped_play_jump_sound(script::Struct*, script::Script*)
 {
-    if (auto* sound = static_cast<RiderSfxPlayer*>(entity_->fetch_module(kSkaterSound)))
+    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound)))
         sound->play_jump_here(speed_ratio_);
     return true;
 }
@@ -574,7 +575,7 @@ bool PedestrianBrainModule::ped_play_jump_sound(script::Struct*, script::Script*
 // 0x004EE1B0
 bool PedestrianBrainModule::ped_play_land_sound(script::Struct*, script::Script*)
 {
-    if (auto* sound = static_cast<RiderSfxPlayer*>(entity_->fetch_module(kSkaterSound)))
+    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound)))
         sound->play_land_here(speed_ratio_);
     return true;
 }

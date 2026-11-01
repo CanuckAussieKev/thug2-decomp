@@ -32,6 +32,7 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -105,7 +106,7 @@ constexpr float kUpBlendRate = 6.0f;                // 0x00646284
 
 KinematicsModule* get_motion(GameEntity* object)
 {
-    return static_cast<KinematicsModule*>(object->fetch_module(kMotion));
+    return core::down_cast<KinematicsModule>(object->fetch_module(kMotion));
 }
 MotionPathMembers* motion_path(KinematicsModule* motion) { return raw::as<MotionPathMembers>(motion); }
 
@@ -298,7 +299,7 @@ bool PedestrianBrainModule::avoid_peds()
     if (count <= 0)
         return false;
     for (; count; --count, ++slot) {
-        auto* other = static_cast<GameEntity*>(slot->owner_object_);
+        auto* other = core::down_cast<GameEntity>(slot->owner_object_);
         if (!other || other == entity_)
             continue;
         const double max_y = script::fetch_float(kMaxYDistance);
@@ -743,8 +744,8 @@ int PedestrianBrainModule::probe_ahead(maths::Vec4 direction, float range, maths
     ObjectSearch search;
     ObjectHubBase* manager = entity_->park_owner_;
     memory::ListNode* list = manager->fetch_object_set();
-    for (auto* other = static_cast<GameEntity*>(search.first_item_of_type(list, kObjectTypePed)); other;
-         other = static_cast<GameEntity*>(search.next_item_of_type())) {
+    for (auto* other = core::down_cast<GameEntity>(search.first_item_of_type(list, kObjectTypePed)); other;
+         other = core::down_cast<GameEntity>(search.next_item_of_type())) {
         const GameEntity* me = entity_;
         if (other == me)
             continue;
@@ -924,7 +925,7 @@ void PedestrianBrainModule::skater_move_update()
                            : static_cast<float>(static_cast<double>(motion->path_speed_) / motion->path_max_speed_);
     else
         speed_ratio_ = 0.0f;
-    if (auto* looping = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound))) {
+    if (auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound))) {
         looping->no_rail_sound_ = (flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing)) != 0;
         looping->set_pace_ratio(speed_ratio_);
     }

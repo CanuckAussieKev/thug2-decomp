@@ -46,6 +46,7 @@
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::chains {
 
@@ -1211,7 +1212,7 @@ void cuboid(objects::GrindPoint* node)
 
 void get_remake(uint32_t name)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (object && !(object->object_flags_ & objects::kObjectFlagDead))
         object->flag_as_dead();
     if (std::ranges::find(g_remake, name) == g_remake.end())

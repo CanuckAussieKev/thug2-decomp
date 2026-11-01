@@ -22,6 +22,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -52,7 +53,7 @@ constexpr float kDetailedHeight = 36.0f;
 // The renderer's shadow object's kind (engine_shadows.h).
 int shadow_kind_of(const render::ShadowBase* shadow) { return shadow->kind_tag_; }
 // A simple shadow's scale and offset (the kind checked by the caller - or not, as the original).
-render::BlobShadow* as_blob(render::ShadowBase* shadow) { return static_cast<render::BlobShadow*>(shadow); }
+render::BlobShadow* as_blob(render::ShadowBase* shadow) { return core::down_cast<render::BlobShadow>(shadow); }
 
 // The model's +0x2C object (vtable slot 5 gives a vector).
 
@@ -60,7 +61,7 @@ render::BlobShadow* as_blob(render::ShadowBase* shadow) { return static_cast<ren
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
 uint8_t* model_of(ObjectModule* component)
 {
-    return raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
+    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_);
 }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
 void set_model_shadow(uint8_t* model, bool on) { raw::as<render::RenderModel>(model)->activate_shadow(on); }

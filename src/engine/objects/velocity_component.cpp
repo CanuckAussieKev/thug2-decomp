@@ -15,6 +15,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -24,7 +25,7 @@ constexpr uint32_t kVel = 0x0C4C809E;
 const float kHalf = 0.5f; // 0x006453BC
 
 // The Suspend component's flag at +0x30 (0x00433E90; not rewritten yet).
-bool suspend_flag(ObjectModule* suspend) { return static_cast<DormancyModule*>(suspend)->is_far(); }
+bool suspend_flag(ObjectModule* suspend) { return core::down_cast<DormancyModule>(suspend)->is_far(); }
 
 } // namespace
 

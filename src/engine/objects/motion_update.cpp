@@ -19,6 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -281,7 +282,7 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
     GameEntity* nearest = nullptr;
     float nearest_distance = 0.0f; // (only read once there is a nearest)
     for (; count > 0; --count, ++slot) {
-        auto* other = static_cast<GameEntity*>(slot->owner_object_);
+        auto* other = core::down_cast<GameEntity>(slot->owner_object_);
         if (!other || other == entity_)
             continue;
         const maths::Vec4& at = entity_->basis_frame_.row[2];
@@ -297,9 +298,9 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
         if (!(ahead >= 0.0))
             continue;
         // (both on the same segment: headed for the same node - and if that's the same, from the same one)
-        auto* other_motion = static_cast<KinematicsModule*>(other->fetch_module(kType));
+        auto* other_motion = core::down_cast<KinematicsModule>(other->fetch_module(kType));
         if (path_node(other_motion) == path_node(this)) {
-            other_motion = static_cast<KinematicsModule*>(other->fetch_module(kType));
+            other_motion = core::down_cast<KinematicsModule>(other->fetch_module(kType));
             if (path_last_node(other_motion) != path_last_node(this))
                 continue;
         }
@@ -331,7 +332,7 @@ void KinematicsModule::trail_behind_lead(script::Struct* params)
     }
     leave_y_unaffected_ = params->has_bare_flag("LeaveYUnaffected");
     motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingLeader;
-    static_cast<PinnedObjectModule*>(entity_->fetch_module(kLockObj))->lock_flags_ &= ~kLockFlagLocked;
+    core::down_cast<PinnedObjectModule>(entity_->fetch_module(kLockObj))->lock_flags_ &= ~kLockFlagLocked;
     if (!trail_) {
         void* memory = memory::alloc_zeroed(sizeof(FollowTrail));
         trail_ = memory ? memory::construct_in<FollowTrail>(memory) : nullptr;

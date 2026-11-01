@@ -29,6 +29,7 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -77,7 +78,7 @@ bool call_object_member(objects::GameEntity* object, uint32_t name, script::Stru
 }
 objects::RiderSessionEnd* end_run_of(objects::GameEntity* skater)
 {
-    return static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
+    return core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
 }
 
 } // namespace
@@ -215,7 +216,7 @@ bool Objective::tick_frame()
         objects::GameEntity* skater = local_skater();
         if (skater) {
             const auto* score =
-                static_cast<const modules::PointTally*>(static_cast<objects::Rider*>(skater)->get_points_total());
+                static_cast<const modules::PointTally*>(core::down_cast<objects::Rider>(skater)->get_points_total());
             // (the combo's points: its base score times its multiplier)
             if (score && truncate(score->pot_ * static_cast<double>(score->multiplier_)) > 0)
                 args_->put_name_key(kNoName, kChainActiveFlag);
@@ -248,7 +249,7 @@ bool Objective::register_gap_hit(uint32_t gap)
         objects::GameEntity* skater = local_skater();
         if (!skater)
             return false;
-        void* score = static_cast<objects::Rider*>(skater)->get_points_total();
+        void* score = core::down_cast<objects::Rider>(skater)->get_points_total();
         const uint32_t name = checksums::hash_from_text(trick);
         const uint32_t backside = checksums::fold_text_into_checksum(kBsPrefix, trick);
         const uint32_t frontside = checksums::fold_text_into_checksum(kFsPrefix, trick);
@@ -334,7 +335,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
 // 0x005553C0
 bool Objective::did_trick_string()
 {
-    void* score = static_cast<objects::RiderPointKeeper*>(local_skater()->fetch_module(kSkaterScore))->points_held_;
+    void* score = core::down_cast<objects::RiderPointKeeper>(local_skater()->fetch_module(kSkaterScore))->points_held_;
     const char* trick = nullptr;
     args_->fetch_text(kTrickString, &trick, 1);
     uint32_t type = 0;
@@ -403,7 +404,7 @@ int Objective::net_stage_flag_set(int bit) { return (net_stage_flags_ & (1u << (
 // 0x005556D0
 void Objective::set_launch_altitude()
 {
-    auto* state = static_cast<objects::RiderPoseState*>(local_skater()->fetch_module(kSkaterState));
+    auto* state = core::down_cast<objects::RiderPoseState>(local_skater()->fetch_module(kSkaterState));
     args_->put_int(kLaunchAltitude, truncate(state->height_above_ground_));
 }
 
@@ -417,7 +418,7 @@ bool Objective::test_highest_air()
     objects::GameEntity* skater = local_skater();
     int start = 10000;
     args_->fetch_int_value(kLaunchAltitude, &start, 0);
-    auto* state = static_cast<objects::RiderPoseState*>(skater->fetch_module(kSkaterState));
+    auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kSkaterState));
     int height = truncate(state->height_above_ground_) - start;
     if (height < 0)
         height = 0;
@@ -444,7 +445,7 @@ bool Objective::test_longest_jump()
     if (!skater || !object)
         return false;
     // The distance across the ground: the height's square added and taken away again, as the original.
-    const float* from = &static_cast<objects::GameEntity*>(object)->at_point_.x;
+    const float* from = &core::down_cast<objects::GameEntity>(object)->at_point_.x;
     const float* to = &skater->at_point_.x;
     const double dx = static_cast<double>(from[0]) - to[0];
     const double dy = static_cast<double>(from[1]) - to[1];

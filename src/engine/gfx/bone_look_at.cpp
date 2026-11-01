@@ -19,6 +19,7 @@
 #include "engine/objects/anim_movies.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace gfx {
 
@@ -189,7 +190,7 @@ void BoneLookAt::tick_frame()
         if (bone.fixed_pos_)
             continue;
         auto* object =
-            static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(bone.aim_point_));
+            core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(bone.aim_point_));
         if (!object)
             continue;
         bone.look_goal_.z = bone.shift_.z + object->at_point_.z;
@@ -206,7 +207,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
     objects::GameEntity* object = owner_object_;
     objects::ObjectModule* component = object->fetch_module(kSkeletonModuleName);
     auto* skeleton =
-        component ? raw::as<Rig>(static_cast<objects::BoneRigModule*>(component)->bone_rig_) : nullptr;
+        component ? raw::as<Rig>(core::down_cast<objects::BoneRigModule>(component)->bone_rig_) : nullptr;
     for (Bone& bone : bones_) {
         if (bone.bone_ == kNoBone)
             continue;

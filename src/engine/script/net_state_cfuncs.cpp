@@ -35,6 +35,7 @@
 #include "engine/assets/resource_registry.h"
 #include "game/rider/core_physics.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -281,7 +282,7 @@ bool cfunc_set_slomo(script::Struct* params, script::Script*)
     frame_clock::set_game_clock_speed(speed);
     if (get_home_rider()) {
         if (objects::ObjectModule* component = get_home_rider()->fetch_module(kSlomoComponent))
-            static_cast<skater::SkaterPhysicsModule*>(component)->slomo_speed_ = speed;
+            core::down_cast<skater::SkaterPhysicsModule>(component)->slomo_speed_ = speed;
     }
     return true;
 }
@@ -348,7 +349,7 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
     objects::Entity* object = script ? script->entity_.get_pull() : nullptr;
     if (!object || object->kind_tag_ != kSkaterType)
         return true;
-    auto* skater = static_cast<objects::Rider*>(object);
+    auto* skater = core::down_cast<objects::Rider>(object);
     if (!skater->is_local_skater_)
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot_)) {
@@ -356,7 +357,7 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
         desc.ident_ = 0x45;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = 8;
-        static_cast<net::Guest*>(client)->send_to_host(&desc);
+        core::down_cast<net::Guest>(client)->send_to_host(&desc);
     }
     return true;
 }

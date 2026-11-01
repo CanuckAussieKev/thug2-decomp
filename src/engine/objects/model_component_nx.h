@@ -20,6 +20,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 class RenderModel;
@@ -28,7 +29,7 @@ class RenderModel;
 namespace objects::model_nx {
 
 // A skeleton component's skeleton (0x005480F0: its +0x18), a skeleton's name (0x004A2BA0: its +0x14) and data (+0x08).
-inline void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
+inline void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 inline uint32_t get_skeleton_name(void* skeleton)
 {
     return *raw::field_at<uint32_t>(static_cast<uint8_t*>(skeleton), 0x14);
@@ -92,7 +93,7 @@ inline int player_skater_index(void* player)
 }
 inline net::Guest* client_app(void* manager, int index)
 {
-    return static_cast<net::Guest*>(static_cast<online::Hub*>(manager)->fetch_patron(index));
+    return core::down_cast<net::Guest>(static_cast<online::Hub*>(manager)->fetch_patron(index));
 }
 
 // The model's lights' direction setter: their vtable slot 2 with (index, direction). No address of its own: the

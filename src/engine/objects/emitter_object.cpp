@@ -15,6 +15,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -195,7 +196,7 @@ void FollowTrail::get_reset()
 // 0x00468610
 void FollowTrail::tick_frame()
 {
-    auto* object = static_cast<GameEntity*>(find_object(entity_key_));
+    auto* object = core::down_cast<GameEntity>(find_object(entity_key_));
     if (!object)
         return;
     aim_point_ = object->at_point_;

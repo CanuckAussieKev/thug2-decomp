@@ -39,6 +39,7 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::layout {
 
@@ -744,7 +745,7 @@ object_edit::State state_of(uint32_t id, const float pos[3], const float rows[9]
 
 objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 

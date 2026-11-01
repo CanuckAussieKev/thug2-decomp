@@ -54,6 +54,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -194,7 +195,7 @@ using PlayerSearch = online::PlayerSearch;
 using StateEntry = objects::SkaterStateHistoryFrame;
 objects::RiderFrameLog* history_of(objects::Entity* object)
 {
-    return static_cast<objects::Rider*>(object)->state_history_;
+    return core::down_cast<objects::Rider>(object)->state_history_;
 }
 
 void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data,
@@ -318,7 +319,7 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
     // The handlers of this client's own skaters.
     for (uint32_t i = 0; i < 8; ++i) {
         auto* skater =
-            static_cast<objects::Rider*>(raw::as<modules::Skate>(this)->get_rider_at(static_cast<int>(i)));
+            core::down_cast<objects::Rider>(raw::as<modules::Skate>(this)->get_rider_at(static_cast<int>(i)));
         if (!skater || !skater->is_local_skater_ || skater->get_skater_number() != index)
             continue;
         append_listener(client, 0x3B, &modules::PointTally::on_score_msg, 0, skater);
@@ -540,7 +541,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(static_cast<int>(id)));
         if (!object)
             continue;
-        auto* skater = static_cast<objects::Rider*>(object);
+        auto* skater = core::down_cast<objects::Rider>(object);
         modules::PointTally* score = nullptr;
         if (!get_game_mode()->is_true(kShouldModulateColor) && get_game_mode()->keeps_move_points()) {
             if (skater->is_local_skater_) // (a local skater keeps its own)
@@ -818,7 +819,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         objects::Entity* object = entity_hub_handle()->look_up_entity(i);
         if (!object || (context->wire_options_ & 3))
             continue;
-        auto* skater = static_cast<objects::GameEntity*>(object);
+        auto* skater = core::down_cast<objects::GameEntity>(object);
         objects::RiderFrameLog* history = history_of(object);
         int previous = 0;
         if (history->state_count_ > 0) {

@@ -26,6 +26,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/objects/input_component.h"
 #include "engine/core/ints.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -108,9 +109,9 @@ void reset_state(Balance* b)
 void Balance::prepare_all(GameEntity* skater)
 {
     skater_ = skater;
-    balance_trick_ = static_cast<RiderTeeterMoves*>(skater->fetch_module(kSkaterBalanceTrick));
-    points_held_ = static_cast<RiderPointKeeper*>(skater_->fetch_module(kSkaterScore));
-    input_ = static_cast<PadInputModule*>(skater_->fetch_module(kInput));
+    balance_trick_ = core::down_cast<RiderTeeterMoves>(skater->fetch_module(kSkaterBalanceTrick));
+    points_held_ = core::down_cast<RiderPointKeeper>(skater_->fetch_module(kSkaterScore));
+    input_ = core::down_cast<PadInputModule>(skater_->fetch_module(kInput));
 }
 
 // 0x005798A0
@@ -170,7 +171,7 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
     flip_ = flip;
     const uint32_t type = get_trick_type(balance_trick_);
     if (type == kGrind || type == kSlide) {
-        auto* core = static_cast<skater::SkaterPhysicsModule*>(skater_->fetch_module(kSkaterCorePhysics));
+        auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
         void* rail = core->rail_node_;
         if (rail_ != -1) {
             if (static_cast<GrindPoint*>(rail)->is_named(static_cast<uint32_t>(rail_))) { // the same rail
@@ -252,7 +253,7 @@ void Balance::tick_frame()
     clock_ = static_cast<float>(static_cast<double>(frame) + clock_);
     on_rail_seconds_ = static_cast<float>(static_cast<double>(frame) + on_rail_seconds_);
     ObjectModule* stats = skater_->fetch_module(kStatsManager);
-    static_cast<AttributeTracker*>(stats)->check_balance_time(get_trick_type(balance_trick_), clock_, 0);
+    core::down_cast<AttributeTracker>(stats)->check_balance_time(get_trick_type(balance_trick_), clock_, 0);
     // The lean speeds up.
     auto gravity = static_cast<float>(get_physics(balance_trick_, kLeanGravityStat));
     auto instable_rate = static_cast<float>(get_physics(balance_trick_, kInstableRate));
@@ -306,13 +307,13 @@ void Balance::tick_frame()
     if (show_meter_) {
         bool flip = flip_;
         if (mirrored_) {
-            auto* core = static_cast<skater::SkaterPhysicsModule*>(skater_->fetch_module(kSkaterCorePhysics));
+            auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
             if (core->state_->flag(PoseFlag::kFlipped).on)
                 flip = !flip;
         }
         if (ObjectModule* blender = skater_->fetch_module(kAnimBlender)) {
             const double position = flip ? 4096.0 - lean_ : lean_ + 4096.0;
-            static_cast<AnimBlenderComponent*>(blender)->first_channel_47e_280(
+            core::down_cast<AnimBlenderComponent>(blender)->first_channel_47e_280(
                 static_cast<float>(position * 0.0001220703125f), 1);
         }
     }

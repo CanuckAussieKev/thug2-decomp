@@ -16,6 +16,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -427,7 +428,7 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
         node = next_object_node(node);
         object = node ? static_cast<Entity*>(node->data) : nullptr;
         if (current != entity_ && current->ident_ == name)
-            return get_look_at(params, &static_cast<GameEntity*>(current)->at_point_);
+            return get_look_at(params, &core::down_cast<GameEntity>(current)->at_point_);
     }
     return false;
 }

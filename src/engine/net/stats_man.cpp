@@ -35,6 +35,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -504,7 +505,7 @@ void RankingsManager::raise_tallies(bool final)
     push_bottom_up();
     for (const PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
-        auto* skater = static_cast<objects::GameEntity*>(detail::player_skater(player));
+        auto* skater = core::down_cast<objects::GameEntity>(detail::player_skater(player));
         skater->fetch_module(0xD262802F); // (unused)
         const int id = static_cast<int>(detail::get_skater_id(skater));
         set_player_int(game_, "score", player_points(manager, id), id);

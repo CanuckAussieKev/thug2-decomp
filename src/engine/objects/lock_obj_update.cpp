@@ -24,6 +24,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -39,7 +40,7 @@ constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the s
 float update_wobble_step() { return g_lock_obj_update_wobble_step; }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
+void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
 // data (+0x08), a bone's parent (0x004A2C50).
 bool skin_matrix_ptr(void* skeleton, uint32_t bone, maths::Mat4* out)
@@ -55,12 +56,12 @@ uint32_t parent_bone(void* skeleton, int index)
 // The model component's 0x004215F0: its matrix into `out`.
 void compose_object_transform(ObjectModule* model, maths::Mat4* out)
 {
-    static_cast<MeshInstanceModule*>(model)->get_draw_matrix(out);
+    core::down_cast<MeshInstanceModule>(model)->get_draw_matrix(out);
 }
 // Whether the target's model is to be followed: a model with its +0x234 set, or a skater.
 bool follow_model(ObjectModule* model, GameEntity* target)
 {
-    return (model && static_cast<MeshInstanceModule*>(model)->level_object_) || target->ident_ < kFirstNonSkaterId;
+    return (model && core::down_cast<MeshInstanceModule>(model)->level_object_) || target->ident_ < kFirstNonSkaterId;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
@@ -91,9 +92,9 @@ PinnedObjectModule::~PinnedObjectModule() = default;
 void PinnedObjectModule::update_lock()
 {
     EntityHub* manager = object_hub_slot();
-    auto* target = static_cast<GameEntity*>(manager->look_up_entity(target_id_));
+    auto* target = core::down_cast<GameEntity>(manager->look_up_entity(target_id_));
     if (!target) {
-        target = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(entity_label_));
+        target = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity_label_));
         if (!target)
             return;
     }

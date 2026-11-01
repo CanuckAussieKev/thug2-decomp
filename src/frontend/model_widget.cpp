@@ -30,6 +30,7 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -93,14 +94,14 @@ const maths::Vec4* geometry_bounding_box(void* geometry)
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
 const maths::Vec4* model_bounding_box(objects::ObjectModule* component)
 {
-    void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
+    void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
     void* geometry = static_cast<render::RenderModel*>(model)->get_geom_by_name(0);
     return geometry_bounding_box(geometry);
 }
 // The same, or null when the model has no geometry yet (the widescreen rule asks every frame, for every element).
 const maths::Vec4* model_bounding_box_if_any(objects::ObjectModule* component)
 {
-    void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
+    void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
     if (!model)
         return nullptr;
     void* geometry = static_cast<render::RenderModel*>(model)->get_geom_by_name(0);
@@ -110,7 +111,7 @@ const maths::Vec4* model_bounding_box_if_any(objects::ObjectModule* component)
 }
 void set_model_viewports(objects::ObjectModule* component, uint32_t mask)
 {
-    void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
+    void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
     static_cast<render::RenderModel*>(model)->toggle_shown(mask);
 }
 
@@ -502,7 +503,7 @@ void ModelWidget::tick_frame()
         if (parent) {
             basis_frame_.reset_to_identity();
             basis_frame_.row[3] =
-                static_cast<objects::GameEntity*>(parent)->at_point_ + anchor_shift_ * basis_frame_;
+                core::down_cast<objects::GameEntity>(parent)->at_point_ + anchor_shift_ * basis_frame_;
         } else {
             script::Script* script =
                 script::spawn_script(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false, false);
@@ -532,7 +533,7 @@ void ModelWidget::tick_frame()
             target = target_position_;
         } else if (point_at_ == kPointAtObject) {
             if (objects::Entity* object = objects::find_object(target_object_))
-                target = static_cast<objects::GameEntity*>(object)->at_point_;
+                target = core::down_cast<objects::GameEntity>(object)->at_point_;
         }
         if (point_at_ != kPointAtNothing) {
             // Facing the target (row 2 the direction to it, row 0 across, w 1 - sic), then tilted about the

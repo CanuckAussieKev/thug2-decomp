@@ -23,6 +23,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -465,7 +466,7 @@ int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*)
 int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
 {
     const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
-    if (static_cast<objects::Rider*>(entity_)->goofy_)
+    if (core::down_cast<objects::Rider>(entity_)->goofy_)
         return flipped ? 1 : 0;
     return flipped ? 0 : 1;
 }
@@ -606,7 +607,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 // 0x004FC9C0
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
-    const int profile = static_cast<objects::Rider*>(entity_)->view_slot_;
+    const int profile = core::down_cast<objects::Rider>(entity_)->view_slot_;
     auto* profiles = raw::bytes(modules::g_skate_module);
     auto_kick_ = profiles[profile * 8 + 0x395];
     return 1;
@@ -841,7 +842,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
         return 0;
     entity_->vel_.change_heading(feeler.surface_dir_);
     entity_->basis_frame_.row[2].change_heading(feeler.surface_dir_);
-    static_cast<objects::RiderSpinAndFlip*>(
+    core::down_cast<objects::RiderSpinAndFlip>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate))
         ->get_flip();
     display_matrix_ = entity_->basis_frame_;
@@ -864,14 +865,14 @@ int SkaterPhysicsModule::focus_off(script::Struct*, script::Script*)
 {
     focus_on_ = 0;
     auto* camera =
-        static_cast<objects::GameEntity*>(static_cast<objects::Rider*>(object_of(this))->get_skater_camera());
-    static_cast<objects::FreeLookModule*>(camera->fetch_module(kCameraLookAround))->set_locked(false);
+        core::down_cast<objects::GameEntity>(core::down_cast<objects::Rider>(object_of(this))->get_skater_camera());
+    core::down_cast<objects::FreeLookModule>(camera->fetch_module(kCameraLookAround))->set_locked(false);
     return 1;
 }
 // 0x004FDCC0
 int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* script)
 {
-    auto* score = static_cast<modules::PointTally*>(static_cast<objects::Rider*>(object_of(this))->get_points_total());
+    auto* score = static_cast<modules::PointTally*>(core::down_cast<objects::Rider>(object_of(this))->get_points_total());
     if (!score)
         return 0;
     results_of(script)->push_float(kFocusTime, score->focus_time_limit_);
@@ -880,7 +881,7 @@ int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* sc
 // 0x004FDCF0
 int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script* script)
 {
-    auto* score = static_cast<modules::PointTally*>(static_cast<objects::Rider*>(object_of(this))->get_points_total());
+    auto* score = static_cast<modules::PointTally*>(core::down_cast<objects::Rider>(object_of(this))->get_points_total());
     if (!score)
         return 0;
     results_of(script)->put_int(kFocusAllowed, score->focus_max_times_);
@@ -889,7 +890,7 @@ int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script
 // 0x004FDD20
 int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script::Script*)
 {
-    auto* score = static_cast<modules::PointTally*>(static_cast<objects::Rider*>(object_of(this))->get_points_total());
+    auto* score = static_cast<modules::PointTally*>(core::down_cast<objects::Rider>(object_of(this))->get_points_total());
     if (!score)
         return 0;
     params->fetch_int_value(0u, &score->focus_max_times_, 0);

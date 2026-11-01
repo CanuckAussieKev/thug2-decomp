@@ -39,6 +39,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/skater_score.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -103,7 +104,7 @@ void play_land_sound(SkaterPhysicsModule* component)
 {
     objects::GameEntity* object = object_of(component);
     auto speed = static_cast<float>(length_of(object->vel_));
-    const float fraction = speed / static_cast<objects::Rider*>(object)->get_scaled_physics(kSpeedCapStat);
+    const float fraction = speed / core::down_cast<objects::Rider>(object)->get_scaled_physics(kSpeedCapStat);
     static_cast<objects::RiderSfxPlayer*>(component->sound_)->play_land(fraction, component->state_->surface_type_);
 }
 
@@ -315,7 +316,7 @@ void start_lip_trick(SkaterPhysicsModule* c, const maths::Vec4* point)
     right.x = -u.z;
     right.z = u.x;
     c->display_matrix_ = object_of(c)->basis_frame_;
-    auto* gap = static_cast<objects::RiderGapTracker*>(
+    auto* gap = core::down_cast<objects::RiderGapTracker>(
         static_cast<objects::GameEntity*>(object_of(c))->fetch_module(kSkaterGap));
     gap->scan_for_gaps(0, 0x100000);
     c->trigger_rail_script(kLipEvents);
@@ -502,7 +503,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
                                       objects::GrindRailHub* manager, bool no_lip_trick, bool from_object)
 {
     const objects::PadInputModule* input = input_;
-    auto* flip_and_rotate = static_cast<objects::RiderSpinAndFlip*>(
+    auto* flip_and_rotate = core::down_cast<objects::RiderSpinAndFlip>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate));
     flip_and_rotate->do_after_anim();
     if (rail_node_ != node) {
@@ -594,9 +595,9 @@ void SkaterPhysicsModule::try_grind(bool always)
     // The rails on moving objects: the move in the object's space.
     for (auto* rails = objects::object_hub_slot()->find_first_module_of_kind(kRailManagerType); rails;
          rails = rails->next_of_type_) {
-        auto* object_rails = static_cast<objects::GrindPathLinkModule*>(rails)->get_rail_groups();
+        auto* object_rails = core::down_cast<objects::GrindPathLinkModule>(rails)->get_rail_groups();
         maths::Mat4 world;
-        static_cast<objects::GrindPathLinkModule*>(rails)->update_rail_matrix(&world);
+        core::down_cast<objects::GrindPathLinkModule>(rails)->update_rail_matrix(&world);
         maths::Mat4 inverse;
         inverse = world;
         inverse.upend();

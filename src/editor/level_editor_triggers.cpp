@@ -53,6 +53,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -2788,7 +2789,7 @@ void perform(bool editing)
         g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
     }
-    auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
+    auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!skater)
         return;
     const V3 at = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};

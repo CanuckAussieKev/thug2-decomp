@@ -36,6 +36,7 @@
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -72,7 +73,7 @@ uint32_t& score_sync_stamp_slot() { return g_score_refresh_stamp; }
 void* get_score_of(PlayerRecord* player)
 {
     auto* skater = raw::as<objects::GameEntity>(player->skater_);
-    return static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
+    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 int points_of(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 
@@ -87,7 +88,7 @@ bool has_score_line(PlayerRecord* p)
     if (get_game_type() != kNetFirefight || !p->skater_)
         return true;
     objects::ObjectModule* score = raw::as<objects::GameEntity>(p->skater_)->fetch_module(kSkaterScore);
-    return !score || points_of(static_cast<objects::RiderPointKeeper*>(score)->points_held_) != 0;
+    return !score || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held_) != 0;
 }
 
 // A new line (null if out of memory: then used anyway, as the original).

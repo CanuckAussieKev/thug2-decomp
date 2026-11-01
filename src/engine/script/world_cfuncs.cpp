@@ -19,6 +19,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/down_cast.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -40,8 +41,8 @@ bool node_command(Struct* params, Script* script, int command)
 }
 
 // The skater's own pause and unpause (the original's vtable +0x2C / +0x30).
-void pause_skater(objects::GameEntity* skater) { static_cast<objects::Rider*>(skater)->get_freeze(); }
-void unpause_skater(objects::GameEntity* skater) { static_cast<objects::Rider*>(skater)->unpause(); }
+void pause_skater(objects::GameEntity* skater) { core::down_cast<objects::Rider>(skater)->get_freeze(); }
+void unpause_skater(objects::GameEntity* skater) { core::down_cast<objects::Rider>(skater)->unpause(); }
 
 // Whether LaunchViewer has made the viewer (0x007CEBF0).
 bool& viewer_launched() { return g_viewer_launched; }

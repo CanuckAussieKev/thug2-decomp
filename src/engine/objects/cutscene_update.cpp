@@ -32,6 +32,7 @@
 #include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -64,7 +65,7 @@ float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(sta
 
 gsl::owner<void*> new_anim_source() { return new render::FrameSource; }
 void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
-void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
+void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
 // The model's fader (cutscene.h) fading to `target` by 0.02 a frame.
 void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)
@@ -194,32 +195,32 @@ void CinematicTable::update_stand_in(GameEntity* object)
         void* model = model_of(component);
         if (static_cast<render::RenderModel*>(model)->flag_bits_ & 4) // (hidden)
             return;
-        if (static_cast<MeshInstanceModule*>(component)->level_object_) {
+        if (core::down_cast<MeshInstanceModule>(component)->level_object_) {
             // the level object it stands in for: faded out, moved along
-            auto* level = static_cast<GameEntity*>(
-                find_object(static_cast<MeshInstanceModule*>(component)->get_linked_entity_name()));
+            auto* level = core::down_cast<GameEntity>(
+                find_object(core::down_cast<MeshInstanceModule>(component)->get_linked_entity_name()));
             ObjectModule* level_component = level->fetch_module(kModelModuleName);
             void* level_model = model_of(level_component);
             fade_model(level_model, 0.0f);
-            static_cast<MeshInstanceModule*>(level_component)->get_update_brightness();
+            core::down_cast<MeshInstanceModule>(level_component)->get_update_brightness();
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
             float matrix[16];
             *raw::as<maths::Mat4>(matrix) = object->display_matrix_;
             std::memcpy(matrix + 12, &object->at_point_, 16);
             static_cast<render::RenderModel*>(level_model)
                 ->render(raw::as<maths::Mat4>(matrix), false,
-                         static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
+                         core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_);
             std::memcpy(&level->at_point_, &object->at_point_, 16);
         } else {
             if (fader_of(model)) {
                 fade_model(model_of(component), 1.0f);
-                static_cast<MeshInstanceModule*>(component)->get_update_brightness();
+                core::down_cast<MeshInstanceModule>(component)->get_update_brightness();
             }
             component->tick_frame();
         }
     }
     if (ObjectModule* matrix = object->fetch_module(kMatrixComponent))
-        static_cast<MatrixComponent*>(matrix)->change_mat(&object->display_matrix_);
+        core::down_cast<MatrixComponent>(matrix)->change_mat(&object->display_matrix_);
 }
 
 // 0x00465C00
@@ -241,7 +242,7 @@ void CinematicTable::update_object_transforms()
         }
         if (own)
             continue;
-        auto* object = static_cast<GameEntity*>(find_object(name));
+        auto* object = core::down_cast<GameEntity>(find_object(name));
         if (!object)
             continue;
         float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -255,7 +256,7 @@ void CinematicTable::update_object_transforms()
         GameEntity* object = entry.object;
         if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
-            void* skeleton = static_cast<objects::BoneRigModule*>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
+            void* skeleton = core::down_cast<objects::BoneRigModule>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
             float bone[4], turned[4];
             static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, raw::as<maths::Vec4>(bone));
             *raw::as<maths::Vec4>(turned) =

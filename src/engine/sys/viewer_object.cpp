@@ -38,6 +38,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -100,7 +101,7 @@ void drop_cached_model(const char* name)
 
 AnimBlenderComponent* get_animation(GameEntity* object)
 {
-    return static_cast<AnimBlenderComponent*>(object->fetch_module(AnimBlenderComponent::kType));
+    return core::down_cast<AnimBlenderComponent>(object->fetch_module(AnimBlenderComponent::kType));
 }
 
 // The same, for its virtual member functions (vtable +0x30).
@@ -148,7 +149,7 @@ void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // getter 0x005480F0: +0x18) and the skeleton's bone matrices (0x005480C0: +0x04).
 uint8_t* model_of(ObjectModule* component)
 {
-    return raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
+    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_);
 }
 int get_bone_count(uint8_t* model)
 {
@@ -158,7 +159,7 @@ uint8_t* hierarchy_of(uint8_t* model)
 {
     return cell::pointer<uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
 }
-uint8_t* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
+uint8_t* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *raw::field_at<maths::Mat4*>(skeleton, 0x04); }
 
 uint32_t g_no_skeleton_counter{10};

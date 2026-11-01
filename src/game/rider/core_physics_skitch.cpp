@@ -21,6 +21,7 @@
 #include "engine/objects/ride_tracker.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/ints.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -74,7 +75,7 @@ void SkaterPhysicsModule::try_start_skitch()
     objects::GameEntity* found = nullptr;
     for (objects::ObjectModule* skitch = objects::object_hub_slot()->find_first_module_of_kind(kSkitch); skitch;
          skitch = skitch->next_of_type_) {
-        if (!static_cast<objects::TowRideHandler*>(skitch)->allowed_)
+        if (!core::down_cast<objects::TowRideHandler>(skitch)->allowed_)
             continue;
         objects::GameEntity* car = skitch->entity_;
         if (car == object_of(this))

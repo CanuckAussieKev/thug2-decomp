@@ -31,6 +31,7 @@
 #include "engine/objects/motion.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -128,8 +129,8 @@ void AutomobileDynamicsModule::seal()
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     if (!skeleton)
         return;
-    mesh_instance_ = static_cast<objects::MeshInstanceModule*>(entity_->fetch_module(kModel))->mesh_instance_;
-    bone_rig_ = static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_;
+    mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance_;
+    bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_;
     const BoneDesc* bones = model_bones(mesh_instance_);
     maths::Mat4 a = bones[2].matrix;
     matrix_multiply(&a, &a, &bones[0].matrix);

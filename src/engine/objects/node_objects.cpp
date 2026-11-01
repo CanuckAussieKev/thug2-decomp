@@ -22,6 +22,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
+#include "engine/core/down_cast.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -117,7 +118,7 @@ GameEntity* create_game_object(script::Struct* params, int /*unused*/)
     seal(object);
     run_creation_script(object, params);
     if (ObjectModule* component = object->fetch_module(kGameObjectComponentType))
-        static_cast<MeshInstanceModule*>(component)->jump_to();
+        core::down_cast<MeshInstanceModule>(component)->jump_to();
     switch_to_node_script(object, params);
     return object;
 }

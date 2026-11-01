@@ -47,6 +47,7 @@
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -107,8 +108,8 @@ void Hub::add_new_player(JoinerRecord* info)
             skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(info->account_, false,
                                                                               static_cast<int>(obj_id), count);
             if (info->drive_control_mode_) // its vehicle control type
-                static_cast<objects::RiderFrameLog*>(
-                    static_cast<objects::GameEntity*>(skater)->fetch_module(kVehicleComponent))
+                core::down_cast<objects::RiderFrameLog>(
+                    core::down_cast<objects::GameEntity>(skater)->fetch_module(kVehicleComponent))
                     ->vehicle_control_type_ = static_cast<uint32_t>(info->drive_control_mode_);
         }
     }
@@ -120,7 +121,7 @@ void Hub::add_new_player(JoinerRecord* info)
             remove_player_record(player);
             player = nullptr;
         }
-        static_cast<modules::Skate*>(skate)->teleport_to_spawn(static_cast<objects::Rider*>(skater), 0, 0);
+        static_cast<modules::Skate*>(skate)->teleport_to_spawn(core::down_cast<objects::Rider>(skater), 0, 0);
     }
     if (!player) {
         player = new_player(skater, info->conn_, info->flag_bits_ & kNewPlayerFlags);
@@ -147,10 +148,10 @@ void Hub::add_new_player(JoinerRecord* info)
         get_run(kResyncedPlayers);
     }
     if (!is_own_player(player)) {
-        auto* object = static_cast<objects::GameEntity*>(skater);
+        auto* object = core::down_cast<objects::GameEntity>(skater);
         modules::PointTally* score =
-            static_cast<objects::RiderPointKeeper*>(object->fetch_module(kSkaterScore))->points_held_;
-        static_cast<objects::Rider*>(skater)->conceal_skater(); // hidden
+            core::down_cast<objects::RiderPointKeeper>(object->fetch_module(kSkaterScore))->points_held_;
+        core::down_cast<objects::Rider>(skater)->conceal_skater(); // hidden
         score->set_grand_total(info->score_);
     }
 }
@@ -413,7 +414,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                         continue;
                     send_word(server, desc, other, kMsgReadyQuery, &now);
                     if (!is_own_player(other) && !is_observer(other)) {
-                        static_cast<objects::Rider*>(player_skater(other))->reset_27c(); // reset
+                        core::down_cast<objects::Rider>(player_skater(other))->reset_27c(); // reset
                         other->await_ready_response(now);
                     }
                 }

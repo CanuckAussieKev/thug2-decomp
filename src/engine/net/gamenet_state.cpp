@@ -15,6 +15,7 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -255,7 +256,7 @@ void Hub::send_game_ended()
     desc.ident_ = kMsgGameEnded;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    static_cast<net::Guest*>(client_app_)->send_to_host(&desc);
+    core::down_cast<net::Guest>(client_app_)->send_to_host(&desc);
     ended_game_id_ = game_id_;
 }
 
@@ -282,7 +283,7 @@ void Hub::send_ready_response()
     desc.queue_ = net::NetMessageInfo::kLanePriority;
     for (int i = 0; i < 2; ++i) {
         if (net::AppHost* client = fetch_patron(i))
-            static_cast<net::Guest*>(client)->send_to_host(&desc);
+            core::down_cast<net::Guest>(client)->send_to_host(&desc);
     }
 }
 

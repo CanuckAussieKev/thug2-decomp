@@ -30,6 +30,7 @@
 #include "game/skate/cas_options.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -365,7 +366,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
          component = component->next_of_type_) {
         if (component->entity_->kind_tag_ != kCarType)
             continue;
-        void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
+        void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
         bool added = false;
         for (int i = 0; i < static_cast<render::RenderModel*>(model)->fetch_geom_total(); ++i) {
             auto textures = static_cast<uint32_t>(

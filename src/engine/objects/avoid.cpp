@@ -30,6 +30,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -69,7 +70,7 @@ int get_quarter(float angle)
 GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider()); }
 
 // The animation blender's (component 0x7149B753).
-AnimBlenderComponent* get_blender(ObjectModule* blender) { return static_cast<AnimBlenderComponent*>(blender); }
+AnimBlenderComponent* get_blender(ObjectModule* blender) { return core::down_cast<AnimBlenderComponent>(blender); }
 void play_anim(ObjectModule* blender, uint32_t anim, int unknown)
 {
     get_blender(blender)->play_animation(anim, static_cast<uint32_t>(unknown));

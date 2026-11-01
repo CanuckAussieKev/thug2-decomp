@@ -30,6 +30,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -214,7 +215,7 @@ void EditorViewModule::configure_from_data(script::Struct* params)
 }
 
 // 0x004E51F0
-void EditorViewModule::seal() { input_ptr_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput)); }
+void EditorViewModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput)); }
 
 // 0x004E5170
 void EditorViewModule::build_blob_shadow()

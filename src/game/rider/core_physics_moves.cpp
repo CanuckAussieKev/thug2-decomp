@@ -32,6 +32,7 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -392,7 +393,7 @@ void SkaterPhysicsModule::check_flip_spin()
     if (!input->pad_primary_.button_round_.held_down_ && !input->pad_primary_.button_box_.held_down_)
         return;
     model_flipped_ = 0;
-    auto* trick = static_cast<objects::MoveExecutor*>(get_composite(object_of(this))->fetch_module(kTrickModuleKey));
+    auto* trick = core::down_cast<objects::MoveExecutor>(get_composite(object_of(this))->fetch_module(kTrickModuleKey));
     script::Array* spins = script::fetch_list(kFlipSpins);
     const int count = static_cast<int>(spins->extent_);
     script::Struct* spin = nullptr;
@@ -415,7 +416,7 @@ void SkaterPhysicsModule::check_flip_spin()
     no_rail_tricks_ = 1;
     flip_spin_started_ = 1;
     auto* model =
-        static_cast<objects::MeshInstanceModule*>(get_composite(object_of(this))->fetch_module(kModelModuleName));
+        core::down_cast<objects::MeshInstanceModule>(get_composite(object_of(this))->fetch_module(kModelModuleName));
     int x = 0, y = 0, z = 0;
     if (spin->fetch_int_value(kSpinX, &x, 0) && x)
         model->rotate_display(model_rotation_left_, 0.0f, static_cast<float>(x), 0, true, true, false, false);

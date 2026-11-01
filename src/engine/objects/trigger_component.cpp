@@ -21,6 +21,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 // The event lists (trigger_events.h).
 const int kWheelLeavesEvents[3]{1, 4, 0};
@@ -79,7 +80,7 @@ script::Array* node_array_of(GameEntity* object)
     ObjectModule* nodes = object->fetch_module(kNodeArray);
     if (!nodes)
         return nullptr;
-    return static_cast<WaypointListModule*>(nodes)->get_node_array();
+    return core::down_cast<WaypointListModule>(nodes)->get_node_array();
 }
 
 } // namespace

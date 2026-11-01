@@ -18,6 +18,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -74,7 +75,7 @@ void FreeLookModule::configure_from_data(script::Struct* /*params*/)
 }
 
 // 0x004E4040
-void FreeLookModule::seal() { input_ptr_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput)); }
+void FreeLookModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput)); }
 
 // 0x004E4000
 void FreeLookModule::set_locked(bool locked) { locked_ = locked; }

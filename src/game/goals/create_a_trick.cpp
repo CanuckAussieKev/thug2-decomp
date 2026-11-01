@@ -13,6 +13,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -34,7 +35,7 @@ const char* const kTotalY = "total_Y_angle";               // "total_Y_angle"
 const char* const kTotalX = "total_X_angle";               // "total_X_angle"
 const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
-objects::Rider* local_skater() { return static_cast<objects::Rider*>(skate_calls::get_home_rider()); }
+objects::Rider* local_skater() { return core::down_cast<objects::Rider>(skate_calls::get_home_rider()); }
 CreateATrick* created_trick(objects::Rider* skater, int index) { return skater->trick_slots_[index].get(); }
 // The editor's state on the skater.
 template <typename T>

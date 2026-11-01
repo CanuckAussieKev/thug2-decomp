@@ -22,6 +22,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -777,7 +778,7 @@ void DrivableModule::update_skater()
     skater->at_point_.y = static_cast<float>(static_cast<double>(object->at_point_.y) + place.y);
     skater->basis_frame_ = object->basis_frame_;
     // The skater's core physics keeps its own copy of its object's matrix (+0x18).
-    auto* core = static_cast<skater::SkaterPhysicsModule*>(skater_core_physics_);
+    auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_core_physics_);
     core->display_matrix_ = core->entity_->basis_frame_;
     skater->vel_ = object->vel_;
     if (!rider_shown_)
@@ -785,7 +786,7 @@ void DrivableModule::update_skater()
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     objects::RiderPoseState* flags = core->state_;
     const float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;
-    auto* blender = static_cast<AnimBlenderComponent*>(anim_blender_ptr_);
+    auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_ptr_);
     const double duration = blender->fetch_value(rider_anim_name_);
     auto frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     auto frame_bits = std::bit_cast<uint32_t>(frame);

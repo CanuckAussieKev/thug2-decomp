@@ -31,6 +31,7 @@
 #include "engine/gfx/rig.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace save_cards {
 
@@ -87,7 +88,7 @@ Struct* preferences_structure(prefs::Preferences* preferences)
 objects::ObjectModule* goal_editor_component()
 {
     objects::Entity* object = objects::g_tracker->look_up_object(kGoalEditor);
-    return static_cast<objects::GameEntity*>(object)->fetch_module(kGoalEditor);
+    return core::down_cast<objects::GameEntity>(object)->fetch_module(kGoalEditor);
 }
 
 // The skate module's controller settings: each controller's three flags (vibration, autokick, spin taps).
@@ -259,10 +260,10 @@ void write_save_contents(Struct* contents, uint32_t type)
     switch (type) {
     case kSaveCreatedGoals:
         // the goal editor's goals written (0x004EB850, no source yet)
-        static_cast<park_editing::ObjectiveAuthoring*>(goal_editor_component())->write_goals(contents);
+        core::down_cast<park_editing::ObjectiveAuthoring>(goal_editor_component())->write_goals(contents);
         return;
     case kSaveCat: {
-        auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
+        auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
         const goals::CreateATrick* trick_record = skater->trick_slots_[0].get();
         contents->put_sub_struct("other_params", trick_record->other_params_);
         contents->append_array_value("rotation_info", trick_record->spin_list_);
@@ -284,7 +285,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         story->put_sub_struct(kGoalManagerParams, goals::get_objective_board()->goal_data_);
         contents->append_struct_ref(kStory, story);
         Struct* story_skater = spawn_param_table();
-        auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
+        auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
         skater->write_cat_info(story_skater);
         skater->write_list_44b_66a_9f(story_skater);
         skater->write_chapter_info(story_skater);
@@ -312,7 +313,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
     switch (type) {
     case kSaveCreatedGoals:
         // the goal editor's goals read (0x004EA470, no source yet)
-        static_cast<park_editing::ObjectiveAuthoring*>(goal_editor_component())->read_goals(contents, 0);
+        core::down_cast<park_editing::ObjectiveAuthoring>(goal_editor_component())->read_goals(contents, 0);
         return;
     case kSaveCat: {
         // the local skater (0x00566520, no source yet)

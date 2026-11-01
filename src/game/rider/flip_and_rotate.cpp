@@ -26,6 +26,7 @@
 #include "engine/objects/model_component.h"
 #include "game/rider/rider.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -59,7 +60,7 @@ online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 }
 bool is_own_player(online::PlayerRecord* player) { return player->is_own_player() != 0; }
 int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_view_slot()); }
-net::Guest* client_app(int index) { return static_cast<net::Guest*>(net_session_slot()->fetch_patron(index)); }
+net::Guest* client_app(int index) { return core::down_cast<net::Guest>(net_session_slot()->fetch_patron(index)); }
 // A client app's +0x08 (passed to the animation blender and to apply_board_turned, which doesn't use it).
 uint32_t app_value8(net::Guest* app) { return app->clock_; }
 
@@ -71,11 +72,11 @@ bool flip_needed(skater::SkaterPhysicsModule* core_physics) { return (core_physi
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
 void flip_anims(ObjectModule* blender, uint32_t object_id, uint32_t flip, uint32_t a, int b)
 {
-    static_cast<AnimBlenderComponent*>(blender)->any_channel(object_id, flip, a, static_cast<uint32_t>(b));
+    core::down_cast<AnimBlenderComponent>(blender)->any_channel(object_id, flip, a, static_cast<uint32_t>(b));
 }
 
 // The skater's index (+0x2BC of the skater object).
-int get_skater_index(GameEntity* skater) { return static_cast<Rider*>(skater)->view_slot_; }
+int get_skater_index(GameEntity* skater) { return core::down_cast<Rider>(skater)->view_slot_; }
 
 } // namespace
 
@@ -91,8 +92,8 @@ RiderSpinAndFlip::~RiderSpinAndFlip() = default;
 // 0x00511350
 void RiderSpinAndFlip::seal()
 {
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    mesh_set_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+    mesh_set_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel));
     anim_blender_ = entity_->fetch_module(kAnimBlender);
 }
 
@@ -127,14 +128,14 @@ void RiderSpinAndFlip::clear_after_flags()
 void RiderSpinAndFlip::apply_flip_to_anims()
 {
     net::Guest* app = client_app(get_skater_index(entity_));
-    auto* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    auto* state = core::down_cast<objects::RiderPoseState>(entity_->fetch_module(kSkaterState));
     flip_anims(anim_blender_, entity_->ident_, state->flag(PoseFlag::kFlipped).on, app_value8(app), 1);
 }
 
 // 0x005114F0
 void RiderSpinAndFlip::get_flip()
 {
-    auto* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    auto* state = core::down_cast<objects::RiderPoseState>(entity_->fetch_module(kSkaterState));
     uint8_t& flipped = state->flag(PoseFlag::kFlipped).on;
     const uint8_t flip = flipped == 0 ? 1 : 0;
     if (flipped != flip) { // (always)

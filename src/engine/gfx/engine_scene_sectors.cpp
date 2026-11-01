@@ -26,6 +26,7 @@
 #include "engine/gfx/pc_texture.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -186,7 +187,7 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
     info->put_int(0x1E3061EE, slot33_again);
     info->put_int(0x1E3061EE, slot33_again);
     info->put_int(0x78CAD2E8, count_c_6f_0);
-    info->put_int(0x5714C480, static_cast<int>(static_cast<PcTexDict*>(texture_set_)->unknown10_));
+    info->put_int(0x5714C480, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10_));
 }
 
 // 0x0049D4E0

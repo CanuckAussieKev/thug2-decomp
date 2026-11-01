@@ -27,6 +27,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace net {
 
@@ -176,7 +177,7 @@ void add_link(ListNode* queue, ListNode* link) { raw::as<lists::Foremost>(queue)
 // conn's received messages to their handlers (Router::invoke_handlers_for_msg); 2 = halted, 3 = stop
 int dispatch_messages(HandlerLists* dispatcher, Conn* conn, int flags)
 {
-    return static_cast<Router*>(dispatcher)->invoke_handlers_for_msg(conn, static_cast<uint32_t>(flags));
+    return core::down_cast<Router>(dispatcher)->invoke_handlers_for_msg(conn, static_cast<uint32_t>(flags));
 }
 
 // A task of the app's (null if out of memory).

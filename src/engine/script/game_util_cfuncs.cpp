@@ -24,6 +24,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "engine/gfx/cag_cfuncs.h"
+#include "engine/core/down_cast.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -197,7 +198,7 @@ bool cfunc_clear_powerups(script::Struct*, script::Script*)
     modules::Skate* skate = modules::Skate::sole();
     for (int i = 0; i < 8; ++i) {
         if (skate->get_rider_at(i)) {
-            auto* state = static_cast<objects::RiderPoseState*>(
+            auto* state = core::down_cast<objects::RiderPoseState>(
                 objects::object_hub_slot()->find_first_module_of_kind(kSkaterState));
             state->clear_powerups();
         }
@@ -258,7 +259,7 @@ bool cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
 {
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
-    auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(index));
+    auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(index));
     static_cast<modules::PointTally*>(skater->get_points_total())->set_special_bar_colors();
     return true;
 }

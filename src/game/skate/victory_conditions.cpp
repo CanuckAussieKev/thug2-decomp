@@ -18,6 +18,7 @@
 #include "game/skate/skate_module.h"
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -49,7 +50,7 @@ uint32_t skater_count(modules::Skate* skate)
 }
 objects::Rider* get_rider_at(modules::Skate* skate, uint32_t index)
 {
-    return static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(index)));
+    return core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(index)));
 }
 // A skater's score object (modules::PointTally) and its total.
 modules::PointTally* get_score_of(objects::Rider* skater)

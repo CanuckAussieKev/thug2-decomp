@@ -21,6 +21,7 @@
 #include "game/skate/game_mode.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -87,7 +88,7 @@ text::Chars* get_horse_string(void* storage, uint32_t which)
 // read.
 uint8_t* get_score_of(objects::GameEntity* skater)
 {
-    return static_cast<uint8_t*>(static_cast<objects::Rider*>(skater)->get_points_total());
+    return static_cast<uint8_t*>(core::down_cast<objects::Rider>(skater)->get_points_total());
 }
 int total_score(uint8_t* score) { return raw::as<modules::PointTally>(score)->get_total_score(); }
 void add_to_bonus(uint8_t* score, int bonus) { raw::as<modules::PointTally>(score)->add_bonus(bonus); }

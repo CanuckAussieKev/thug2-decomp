@@ -24,6 +24,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -130,7 +131,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
         params->put_int(kVol, volume);
     if (!stream_only) {
         params->put_int(kUsePosInfo, 0);
-        auto* blender = static_cast<AnimBlenderComponent*>(entity_->fetch_module(AnimBlenderComponent::kType));
+        auto* blender = core::down_cast<AnimBlenderComponent>(entity_->fetch_module(AnimBlenderComponent::kType));
         const uint32_t anim_set = blender->get_anim_set();
         load_anim_bank(name, anim_set);
         const uint32_t stream = audio::prime_stream(name, priority);

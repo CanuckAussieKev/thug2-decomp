@@ -23,6 +23,7 @@
 #include "platform/crt.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -423,7 +424,7 @@ void PcPrimitive::scroll_v(float v)
 // 0x004C5340
 int PcPrimitive::weigh(const Primitive* other_primitive)
 {
-    const auto* other = static_cast<const PcPrimitive*>(other_primitive);
+    const auto* other = core::down_cast<const PcPrimitive>(other_primitive);
     if (type_ < other->type_)
         return 1;
     return type_ <= other->type_ ? 0 : -1;

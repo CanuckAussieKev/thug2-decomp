@@ -12,6 +12,7 @@
 #include "engine/core/stubs.h"
 #include "engine/render/coll_obj.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -53,7 +54,7 @@ void HitMovingMesh::change_facing(const maths::Mat4* orientation)
     orientation_.row[0] = orientation->row[0];
     orientation_.row[1] = orientation->row[1];
     orientation_.row[2] = orientation->row[2];
-    static_cast<MatrixTranspose*>(&inverse_)->transpose_from(&orientation_);
+    core::down_cast<MatrixTranspose>(&inverse_)->transpose_from(&orientation_);
 }
 
 // 0x00412050

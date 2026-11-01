@@ -26,6 +26,7 @@
 #include "platform/run_log.h"
 #include "engine/gfx/sector.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -315,7 +316,7 @@ bool stat_value(script::Struct* physics, uint32_t name, float stat, float* value
 void read_physics()
 {
     Physics p = arcs_fallback();
-    auto* skater = static_cast<objects::Rider*>(objects::find_object(kSkater));
+    auto* skater = core::down_cast<objects::Rider>(objects::find_object(kSkater));
     script::Struct* physics = objects::get_physics_structure(skater);
     if (!physics) {
         physics_state() = p;

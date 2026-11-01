@@ -31,6 +31,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -57,7 +58,7 @@ uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->s
 // The manager's client connection (+0x08) queues a message for the server.
 void send_to_server(Hub* manager, NetMessageInfo* desc)
 {
-    static_cast<net::Guest*>(manager->client_app_)->send_to_host(desc);
+    core::down_cast<net::Guest>(manager->client_app_)->send_to_host(desc);
 }
 
 // Scripts::CStruct (8 bytes, from the current script struct pool when there is one).

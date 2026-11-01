@@ -24,6 +24,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -74,7 +75,7 @@ void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 // An object's model's data (its model component's +0x208), or null.
 render::RenderModel* get_model_data(GameEntity* object)
 {
-    auto* model = static_cast<MeshInstanceModule*>(object->fetch_module(kModel));
+    auto* model = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
     return model ? model->mesh_instance_ : nullptr;
 }
 
@@ -85,7 +86,7 @@ void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
     if (!manager->in_net_game())
         return;
     net::NetMessageInfo msg;
-    auto* client = static_cast<net::Guest*>(manager->fetch_patron(0));
+    auto* client = core::down_cast<net::Guest>(manager->fetch_patron(0));
     uint8_t data[online::kSpecialItemSize];
     util::ByteWriter writer(data, sizeof(data));
     online::write_special_item(writer, item);

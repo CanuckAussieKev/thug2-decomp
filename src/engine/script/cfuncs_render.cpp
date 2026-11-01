@@ -31,6 +31,7 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/device.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -502,8 +503,8 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
     if (objects::Entity* object = manager->look_up_entity(id)) {
         uint32_t bone = 0;
         params->read_hash_value(kBone, &bone, 1);
-        objects::ObjectModule* skeleton = static_cast<objects::GameEntity*>(object)->fetch_module(kSkeleton);
-        found = static_cast<objects::BoneRigModule*>(skeleton)->get_bone_position(bone, &position);
+        objects::ObjectModule* skeleton = core::down_cast<objects::GameEntity>(object)->fetch_module(kSkeleton);
+        found = core::down_cast<objects::BoneRigModule>(skeleton)->get_bone_position(bone, &position);
     }
     script->args_->push_float(kX, position.x);
     script->args_->push_float(kY, position.y);

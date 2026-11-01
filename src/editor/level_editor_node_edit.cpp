@@ -23,6 +23,7 @@
 #include "platform/run_log.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/scene_lights.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::node_edit {
 
@@ -196,7 +197,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
     if (family == nodes::Family::kLight)
         move_lights(name, values.pos);
     // Its object (a flag a CTF or team game made; any object of the node's name): moved and turned as the node.
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (object && !(object->object_flags_ & objects::kObjectFlagDead)) {
         object_edit::State state = object_edit::store_away(object);
         state.pos = pos;

@@ -17,6 +17,7 @@
 #include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -38,7 +39,7 @@ void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
     event->set_event_consumed(how, script);
 }
 
-UiTree* manager_of(const UiWidget* e) { return static_cast<UiTree*>(e->park_owner_); }
+UiTree* manager_of(const UiWidget* e) { return core::down_cast<UiTree>(e->park_owner_); }
 
 // With the manager's pad-event priorities, only the top priority element may have a pad event.
 bool may_have(UiWidget* e, objects::Signal* event)
@@ -86,7 +87,7 @@ void WindowedList::find_menu()
         }
     }
     float space = -1.0f;
-    if (static_cast<MenuBase*>(menu_)->get_regular_space(&space) && num_items_to_show_ >= 0) {
+    if (core::down_cast<MenuBase>(menu_)->get_regular_space(&space) && num_items_to_show_ >= 0) {
         regular_space_ = space;
         window_length_ = static_cast<float>(static_cast<double>(num_items_to_show_) * space);
     } else {

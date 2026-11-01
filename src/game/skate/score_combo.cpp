@@ -31,6 +31,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace modules {
 
@@ -101,7 +102,7 @@ void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int point
     desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    static_cast<net::Guest*>(net->fetch_patron(skater->view_slot_))->send_to_host(&desc);
+    core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot_))->send_to_host(&desc);
 }
 
 // The robot counts: of the run (`run`) and of the combo; the factor back to 1.
@@ -207,7 +208,7 @@ void PointTally::reset_score_pot()
 void PointTally::place_balance_gauge(bool on, float lean, bool manual)
 {
     objects::Rider* skater = rider_for_slot(rider_no_);
-    auto* meter = static_cast<frontend::ImageWidget*>(
+    auto* meter = core::down_cast<frontend::ImageWidget>(
         find_element(kTheBalanceMeter + static_cast<uint32_t>(skater->get_skater_number())));
     int turned_on = 0;
     meter->read_int_tag(kTagTurnedOn, &turned_on);
@@ -228,7 +229,7 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     meter_offset_.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
     meter_offset_.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -45.0);
-    auto* arrow = static_cast<frontend::ImageWidget*>(meter->eldest_.owner_object_);
+    auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest_.owner_object_);
     const bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
     double x = 0.0;
     double y = 0.0;
@@ -345,12 +346,12 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater)
         return;
-    auto* trick_component = static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick));
-    auto* stats = static_cast<objects::AttributeTracker*>(skater->fetch_module(kStatsManager));
+    auto* trick_component = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
+    auto* stats = core::down_cast<objects::AttributeTracker>(skater->fetch_module(kStatsManager));
     if (text[0])
         trick_component->bailed_ = true;
-    auto* physics = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics));
-    auto* physics_skater = static_cast<objects::Rider*>(physics->entity_);
+    auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
+    auto* physics_skater = core::down_cast<objects::Rider>(physics->entity_);
     const uint8_t flipped = physics->state_->flag(objects::PoseFlag::kFlipped).on;
     const int stance = physics_skater->goofy_ ? flipped : !flipped;
     stats->set10(static_cast<int>(cell::address(text)), score, stance);
@@ -448,9 +449,9 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         if (add_one)
             multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
         if (multiplier_ == 1.0f) {
-            auto* timer = static_cast<objects::RiderRunClock*>(skater->fetch_module(kSkaterRunTimer));
+            auto* timer = core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer));
             timer->seconds_remaining_ =
-                static_cast<objects::Rider*>(timer->entity_)->get_scaled_physics(kPhysicsRunTimerDuration);
+                core::down_cast<objects::Rider>(timer->entity_)->get_scaled_physics(kPhysicsRunTimerDuration);
             timer->resumes_ = 0;
             timer->cur_phase_ = 2;
             focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
@@ -482,7 +483,7 @@ void PointTally::change_spin_degrees(int degrees)
         return;
     objects::Rider* skater = rider_for_slot(rider_no_);
     const bool flipped =
-        static_cast<objects::AnimBlenderComponent*>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
+        core::down_cast<objects::AnimBlenderComponent>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
     int size = degrees;
     const char* side = nullptr;
     if (degrees < 0) {
@@ -550,7 +551,7 @@ void PointTally::change_spin_degrees(int degrees)
     dispatch_trick_sequence(false);
     get_trick(spin_trick_)->twist_rate_ = half_turns;
     bank_combo_score();
-    static_cast<objects::AttributeTracker*>(skater->fetch_module(kStatsManager))
+    core::down_cast<objects::AttributeTracker>(skater->fetch_module(kStatsManager))
         ->set_value58(static_cast<float>(shown_degrees));
     pot_state_ = 0;
     dispatch_score_pot(pot_, multiplier_);
@@ -590,7 +591,7 @@ void PointTally::land()
     goals::get_objective_board()->land();
     if (by_clusters || (mode->is_true(kShouldModulateColor) && points > 0))
         note_tagged_prop_ask(points);
-    static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick))->set_trick_objects(false);
+    core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->set_trick_objects(false);
     if (!script::fetch_int_value(kNewSpecial)) {
         special_ += ftol(static_cast<double>(pot_) * multiplier_);
         if (special_ >= 3000) {
@@ -654,7 +655,7 @@ void PointTally::land()
         }
     }
     test_record_score(before, get_total_score());
-    static_cast<objects::RiderRunClock*>(skater->fetch_module(kSkaterRunTimer))->halt();
+    core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer))->halt();
 }
 
 // 0x00564860
@@ -680,7 +681,7 @@ void PointTally::get_bail(bool clear)
     clear_combo(this);
     special_ = 0;
     set_special_active(false); // (inlined there)
-    static_cast<objects::RiderRunClock*>(rider_for_slot(rider_no_)->fetch_module(kSkaterRunTimer))->halt();
+    core::down_cast<objects::RiderRunClock>(rider_for_slot(rider_no_)->fetch_module(kSkaterRunTimer))->halt();
     goals::get_objective_board()->get_bail();
 }
 
@@ -711,7 +712,7 @@ void PointTally::get_reset()
     set_special_bar_colors();
     skater = rider_for_slot(rider_no_);
     if (skater && skater->is_local_skater_)
-        static_cast<objects::RiderRunClock*>(skater->fetch_module(kSkaterRunTimer))->halt();
+        core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer))->halt();
 }
 
 // 0x00564BE0

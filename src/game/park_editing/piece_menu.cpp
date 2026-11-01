@@ -11,6 +11,7 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/down_cast.h"
 
 namespace park_editing {
 
@@ -70,7 +71,7 @@ void change_scale(frontend::UiWidget* element, float x, float y, int a, int b)
 }
 void change_caption(frontend::UiWidget* element, const char* text)
 {
-    static_cast<frontend::LabelWidget*>(element)->change_caption(text);
+    core::down_cast<frontend::LabelWidget>(element)->change_caption(text);
 }
 
 // The names of a metapiece's sectors, into `out`

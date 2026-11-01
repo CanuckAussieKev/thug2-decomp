@@ -20,6 +20,7 @@
 #include "frontend/screen_element.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_texture.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -192,7 +193,7 @@ void ImageWidget::change_traits(Struct* params)
     if (params->has_bare_flag(kNoZWrite))
         z_write_ = false;
     // (no window above it: the original reads through null)
-    auto* window = static_cast<PanelWidget*>(fetch_pane());
+    auto* window = core::down_cast<PanelWidget>(fetch_pane());
     quad_->change_pane(window->fetch_screen_rect());
 }
 

@@ -22,6 +22,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/trick_goals.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -97,7 +98,7 @@ void GoalManager::update_time_display()
     frontend::ElementPtr element;
     frontend::UiTree::sole()->fetch_part(&element, kTheTime, 0);
     if (element)
-        static_cast<frontend::LabelWidget*>(element.owner_object_)->change_caption(text);
+        core::down_cast<frontend::LabelWidget>(element.owner_object_)->change_caption(text);
 }
 
 // 0x0055DEA0
@@ -242,7 +243,7 @@ void GoalManager::trick_landed(script::Struct* trick)
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (goal->fetch_args()->has_bare_flag(kTrickBeat))
-            static_cast<TrickBeatGoal*>(goal)->trick_landed(trick);
+            core::down_cast<TrickBeatGoal>(goal)->trick_landed(trick);
     }
 }
 

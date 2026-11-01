@@ -44,6 +44,7 @@
 #include "wire/play_messages.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -252,7 +253,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     msg.ident_ = online::kMsgPlaceTag;
     msg.group_id_ = 0xA;
     msg.queue_ = net::NetMessageInfo::kLaneOrdered;
-    static_cast<net::Guest*>(manager->fetch_patron(0))->send_to_host(&msg);
+    core::down_cast<net::Guest>(manager->fetch_patron(0))->send_to_host(&msg);
 }
 
 // --- TaggingControlComponent ---
@@ -269,11 +270,11 @@ TaggingControlComponent::~TaggingControlComponent() = default;
 // 0x0051DD90
 void TaggingControlComponent::seal()
 {
-    walk_ = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
+    walk_ = core::down_cast<FootMovement>(entity_->fetch_module(kWalk));
     input_ = entity_->fetch_module(kInput);
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
     trigger_ = entity_->fetch_module(kTrigger);
-    tagging_ = static_cast<TaggingComponent*>(entity_->fetch_module(TaggingComponent::kType));
+    tagging_ = core::down_cast<TaggingComponent>(entity_->fetch_module(TaggingComponent::kType));
 }
 
 // 0x0051E300
@@ -395,7 +396,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 // 0x0051E390
 bool TaggingControlComponent::try_tagging()
 {
-    const RiderPoseState* state = static_cast<RiderBoardPhysics*>(entity_->fetch_module(kSkaterPhysicsControl))->pose_;
+    const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity_->fetch_module(kSkaterPhysicsControl))->pose_;
     if (state->in_vehicle_ || state->physics_mode_ != 1 || blocked_)
         return false;
     if (cooldown_ > 0.0f) {
@@ -407,12 +408,12 @@ bool TaggingControlComponent::try_tagging()
     const int walk_state = walk_->state_;
     if (walk_state != 2 && walk_state != 0)
         return false;
-    auto* core = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+    auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     uint32_t bone = core->state_->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
-    if (static_cast<Rider*>(entity_)->label_ == 0xFC3A8D7F)
+    if (core::down_cast<Rider>(entity_)->label_ == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
-    auto* button = &static_cast<PadInputModule*>(input_)->pad_primary_.button_wedge_;
+    auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary_.button_wedge_;
     const bool tapped = button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) < 100u;
     if (!tapped && (!pending_ || countdown_ != 0))
         return true;
@@ -420,7 +421,7 @@ bool TaggingControlComponent::try_tagging()
     const float reach = tag_setting(0xDC98A1BE);
     render::ProbeRay feeler;
     maths::Vec4 joint_world;
-    static_cast<BoneRigModule*>(skeleton)->get_bone_position(bone, &joint_world);
+    core::down_cast<BoneRigModule>(skeleton)->get_bone_position(bone, &joint_world);
     if (walk_->state_ == 2)
         joint_world.y = static_cast<float>(joint_world.y - 10.0); // 0x00646710
     maths::Vec4 hits[6];
@@ -453,7 +454,7 @@ bool TaggingControlComponent::try_tagging()
             hits[i] = feeler.contact_pos_;
             distances[i] = std::fabs(feeler.reach_);
             found = true;
-            static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kTaggingEvents, &feeler);
+            core::down_cast<ActivationZoneModule>(trigger_)->probe_touches_zone(kTaggingEvents, &feeler);
         } else {
             distances[i] = 1000.0f;
         }
@@ -500,7 +501,7 @@ bool TaggingControlComponent::try_tagging()
         return true;
     }
     const modules::PointTally* score =
-        static_cast<RiderPointKeeper*>(entity_->fetch_module(kSkaterScore))->points_held_;
+        core::down_cast<RiderPointKeeper>(entity_->fetch_module(kSkaterScore))->points_held_;
     const int combo_score = get_truncated(score->pot_ * static_cast<double>(score->multiplier_));
     const int size = combo_score > 5000 ? 100 : (combo_score > 1000 ? 75 : 50);
     tagging_->place_tag(false, start, end, size, true);

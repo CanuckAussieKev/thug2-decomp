@@ -33,6 +33,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -104,7 +105,7 @@ void RiderRemoteSync::interpolate()
     const net::AppHost* app = client_app();
     if (!app || past_frames_->state_count_ < kHistory)
         return;
-    auto* skater = static_cast<Rider*>(entity_);
+    auto* skater = core::down_cast<Rider>(entity_);
     if (sync_frame_ == 0) {
         // Playback starts at the newest state, a fixed time behind it.
         const int newest = (past_frames_->state_count_ - 1) % kHistory;
@@ -532,7 +533,7 @@ void RiderRemoteSync::play_history_events()
     const int first = past_frames_->message_count_ % kHistory;
     const uint32_t now = app->clock_ - sync_frame_ + sync_time_;
     auto* messages = past_frames_->messages_;
-    auto* blender = static_cast<AnimBlenderComponent*>(anim_blender_);
+    auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_);
     int i = first;
     do {
         StateHistoryMessage* msg = &messages[i];
@@ -544,7 +545,7 @@ void RiderRemoteSync::play_history_events()
                                        msg->blend_period_, msg->speed_, nullptr);
                 break;
             case 0x2A: // the board rotated (the byte passed as it was sent)
-                static_cast<RiderSpinAndFlip*>(flip_and_rotate_)
+                core::down_cast<RiderSpinAndFlip>(flip_and_rotate_)
                     ->apply_board_turned(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->rotated_, 0,
                                          false);
                 break;
@@ -584,7 +585,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             }
             case 0x77: { // a special item made: its +0x5CB5CB7E component told its name and owner
-                auto* items = static_cast<PickupItemHandler*>(entity_->fetch_module(PickupItemHandler::kType));
+                auto* items = core::down_cast<PickupItemHandler>(entity_->fetch_module(PickupItemHandler::kType));
                 script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
                 GameEntity* item = items->create_item(msg->item_slot_, structure);
                 script::Struct* params = script::spawn_param_bag();
@@ -600,7 +601,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             }
             case 0x78: // the special item gone
-                static_cast<PickupItemHandler*>(entity_->fetch_module(PickupItemHandler::kType))
+                core::down_cast<PickupItemHandler>(entity_->fetch_module(PickupItemHandler::kType))
                     ->destroy_item(msg->item_slot_);
                 break;
             case 0x8C:

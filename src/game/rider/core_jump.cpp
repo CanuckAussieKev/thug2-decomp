@@ -25,6 +25,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -61,7 +62,7 @@ constexpr float kSteepDrop = 1.5f;      // 0x00646744
 
 float scaled_physics(objects::GameEntity* object, uint32_t name)
 {
-    return static_cast<objects::Rider*>(object)->get_scaled_physics(name);
+    return core::down_cast<objects::Rider>(object)->get_scaled_physics(name);
 }
 
 // 0x00518EE0: the jump sound, by how fast the skater goes (a fraction of the max max speed) and a terrain.

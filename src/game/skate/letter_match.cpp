@@ -14,6 +14,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "game/skate/point_tally.h"
+#include "engine/core/down_cast.h"
 
 namespace modules {
 
@@ -57,7 +58,7 @@ int horse_restarts()
     return objects::get_restart_nodes(kHorse, restarts, 0);
 }
 
-objects::Rider* get_skater(uint32_t id) { return static_cast<objects::Rider*>(skate_calls::get_rider_by_number(id)); }
+objects::Rider* get_skater(uint32_t id) { return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(id)); }
 
 char get_upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 0x20) : c; }
 

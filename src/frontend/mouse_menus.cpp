@@ -36,6 +36,7 @@
 #include "engine/pad_input/device.h"
 #include "frontend/menu_element.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace mouse_menus {
 
@@ -307,7 +308,7 @@ bool is_menu(const UiWidget* element)
 }
 
 namespace {
-const MenuBase* as_menu(const UiWidget* menu) { return static_cast<const MenuBase*>(menu); }
+const MenuBase* as_menu(const UiWidget* menu) { return core::down_cast<const MenuBase>(menu); }
 } // namespace
 bool menu_runs_top_to_bottom(const UiWidget* menu) { return as_menu(menu)->vertical_; }
 int selected_index(const UiWidget* menu) { return as_menu(menu)->selected_index_; }
@@ -531,7 +532,7 @@ bool menu_takes_pad_events(UiWidget* menu)
 {
     if (!menu_has_focus(menu))
         return false;
-    auto* manager = static_cast<UiTree*>(as_object(menu)->park_owner_);
+    auto* manager = core::down_cast<UiTree>(as_object(menu)->park_owner_);
     if (!manager)
         return false;
     if (manager->num_priorities_ > 0) {

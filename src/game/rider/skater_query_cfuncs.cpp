@@ -21,6 +21,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_camera_component.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -63,12 +64,12 @@ bool is_squad_match() { return static_cast<goals::MatchRules*>(get_game_mode())-
 // A skater's score: 0x00561B40 its total; the trick's base score (pot_), its multiplier, the last trick's score.
 modules::PointTally* get_score_of(objects::GameEntity* skater)
 {
-    return static_cast<modules::PointTally*>(static_cast<objects::Rider*>(skater)->get_points_total());
+    return static_cast<modules::PointTally*>(core::down_cast<objects::Rider>(skater)->get_points_total());
 }
 // (a player's skater's score through its SkaterScore component)
 modules::PointTally* component_score_of(objects::GameEntity* skater)
 {
-    return static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
+    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
 int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
@@ -513,8 +514,8 @@ bool cfunc_toggle_skater_cam_mode(script::Struct* params, script::Script*)
         skater = get_rider_at(index);
     }
     if (skater) {
-        auto* camera = static_cast<objects::GameEntity*>(static_cast<objects::Rider*>(skater)->get_skater_camera());
-        static_cast<objects::RiderChaseView*>(camera->fetch_module(kSkaterCamera))->next_mode();
+        auto* camera = core::down_cast<objects::GameEntity>(core::down_cast<objects::Rider>(skater)->get_skater_camera());
+        core::down_cast<objects::RiderChaseView>(camera->fetch_module(kSkaterCamera))->next_mode();
     }
     return true;
 }
@@ -560,7 +561,7 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
 // with the composite object's +0xBC set).
 bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
 {
-    auto* object = static_cast<objects::GameEntity*>(script->entity_.get_pull());
+    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
     if (!object || !object->is_local_skater_)
         return false;
     const uint32_t id = object->ident_;
@@ -573,7 +574,7 @@ bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
 // object.
 bool cfunc_get_skater_position(script::Struct*, script::Script* script)
 {
-    auto* object = static_cast<objects::GameEntity*>(script->entity_.get_pull());
+    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
     if (!object)
         return false;
     const float y = object->at_point_.y;
@@ -589,7 +590,7 @@ bool cfunc_get_skater_position(script::Struct*, script::Script* script)
 // original's new maths::Vec4). False without an object.
 bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
 {
-    auto* object = static_cast<objects::GameEntity*>(script->entity_.get_pull());
+    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
     if (!object)
         return false;
     float speed = 0.0f;

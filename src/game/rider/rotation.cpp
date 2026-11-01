@@ -24,6 +24,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -90,7 +91,7 @@ int tuning_int_lookup(uint32_t name, int required, objects::GameEntity* object)
 // A value set by the skater's stats (0x00580790: script range scaled by the stat level, unrounded).
 double stat_value(objects::GameEntity* object, uint32_t name)
 {
-    return static_cast<objects::Rider*>(object)->get_scaled_physics(name); // (rounded to a float by ours)
+    return core::down_cast<objects::Rider>(object)->get_scaled_physics(name); // (rounded to a float by ours)
 }
 
 // How long a button has been down - read as unsigned by the first pair of spin buttons, signed by

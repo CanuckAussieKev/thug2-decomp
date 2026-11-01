@@ -56,6 +56,7 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -228,7 +229,7 @@ void send_connection_request(net::Guest* client, const ConnectInfo& info, thugpr
     client->send_to_host(&desc);
 }
 
-net::Guest* as_client(AppHost* app) { return static_cast<net::Guest*>(app); }
+net::Guest* as_client(AppHost* app) { return core::down_cast<net::Guest>(app); }
 
 // The handlers a joining client adds (0x00534480): on every client, then on client 0 only.
 struct HandlerEntry {

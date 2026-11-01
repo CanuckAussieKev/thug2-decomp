@@ -27,6 +27,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -633,7 +634,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
 {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     const uint32_t id = params->step_to_entry(nullptr)->checksum;
-    auto* other = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
+    auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
     const bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
     vel_ = other->vel_;
     if (adjust) {
@@ -644,7 +645,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
     entity_->vel_ = vel_;
     if (cur_phase_ == kStateAsleep && std::fabs(vel_.y) < 1.0f)
         vel_.y = 1.0f;
-    if (auto* body = static_cast<BodyDynamicsModule*>(other->fetch_module(kType))) {
+    if (auto* body = core::down_cast<BodyDynamicsModule>(other->fetch_module(kType))) {
         rot_vel_ = body->rot_vel_;
         if (adjust) {
             const double factor = maths::plus_or_minus_exact(0.4000000059604645f);

@@ -33,6 +33,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -131,7 +132,7 @@ void AnimBlenderComponent::tick_frame()
     int count = 0;
     bool changed = false;
     Channel* channel = masked(lanes_.next);
-    const bool ready = static_cast<DormancyModule*>(component18_)->wants_animating(&distance_squared_);
+    const bool ready = core::down_cast<DormancyModule>(component18_)->wants_animating(&distance_squared_);
     if (!channel)
         return;
     do {
@@ -161,7 +162,7 @@ void AnimBlenderComponent::tick_frame()
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     auto skeleton = [this]() {
-        return raw::as<gfx::Rig>(static_cast<objects::BoneRigModule*>(bone_rig_)->bone_rig_);
+        return raw::as<gfx::Rig>(core::down_cast<objects::BoneRigModule>(bone_rig_)->bone_rig_);
     };
     if (count == 1) {
         notify_observers(gfx::g_blend_buffer);
@@ -437,7 +438,7 @@ bool AnimBlenderComponent::all_channels_flag29()
 // 0x00419CA0
 bool AnimBlenderComponent::model_ready()
 {
-    const render::RenderModel* thing = static_cast<MeshInstanceModule*>(mesh_instance_)->mesh_instance_;
+    const render::RenderModel* thing = core::down_cast<MeshInstanceModule>(mesh_instance_)->mesh_instance_;
     if (!thing)
         return false;
     const uint8_t flags = thing->flag_bits_;

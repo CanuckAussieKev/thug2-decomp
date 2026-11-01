@@ -23,6 +23,7 @@
 #include "game/rider/physics_control.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -141,7 +142,7 @@ void RiderRollingAudio::set_pace_ratio(float fraction)
 // 0x00513970
 void RiderRollingAudio::seal()
 {
-    physics_control_ = static_cast<RiderBoardPhysics*>(entity_->fetch_module(kSkaterPhysicsControl));
+    physics_control_ = core::down_cast<RiderBoardPhysics>(entity_->fetch_module(kSkaterPhysicsControl));
 }
 
 // 0x00513F60
@@ -270,7 +271,7 @@ void RiderRollingAudio::tick_frame()
         }
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
-        auto* core = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+        auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
         if (core && core->point_rail_spin_)
             speed_ratio_ = kCapsizedFraction;
         if (speed_ratio_ > 0.0f) {
@@ -292,7 +293,7 @@ void RiderRollingAudio::tick_frame()
         return;
     }
     if (!sound_id_) {
-        static_cast<LoopingSoundVolume*>(&prev_levels_)->get_assign(&volume);
+        core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
         prev_pitch_value_ = pitch;
         sound_id_ = sfx->emit_sound(sound_name_key(sound_), &volume, pitch, 0, nullptr,
                                     static_cast<int>(cell::address(sound_)));
@@ -305,7 +306,7 @@ void RiderRollingAudio::tick_frame()
         !(std::fabs(static_cast<double>(volume.lanes_[0]) - prev_levels_.lanes_[0]) > kChangeThreshold) &&
         !(std::fabs(static_cast<double>(pitch) - prev_pitch_value_) > kChangeThreshold))
         return;
-    static_cast<LoopingSoundVolume*>(&prev_levels_)->get_assign(&volume);
+    core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
     prev_pitch_value_ = pitch;
     force_update_ = 0;
     sfx->set_sound_params_scaled(sound_id_, &volume, pitch);

@@ -28,6 +28,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -132,7 +133,7 @@ struct PickWalk {
 void pick_one(objects::Entity* object, void* data)
 {
     auto* walk = static_cast<PickWalk*>(data);
-    auto* composite = static_cast<objects::GameEntity*>(object);
+    auto* composite = core::down_cast<objects::GameEntity>(object);
     OrientedBox box{};
     if (picking::latched(picking::kObjects, composite->ident_) ||
         view::hidden_object(composite->ident_) || // (H: level_editor_view.h)
@@ -154,14 +155,14 @@ struct Census {
 void count_one(objects::Entity* object, void* data)
 {
     auto* census = static_cast<Census*>(data);
-    auto* composite = static_cast<objects::GameEntity*>(object);
+    auto* composite = core::down_cast<objects::GameEntity>(object);
     ++census->objects;
     OrientedBox box{};
     if (!model_box(composite, &box)) {
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
             const render::RenderModel* model =
-                component ? static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_ : nullptr;
+                component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_ : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                     "(flags %02X)",
                     caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
@@ -181,7 +182,7 @@ void* model_geometry(objects::GameEntity* object, int index)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     render::RenderModel* model =
-        component ? static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_ : nullptr;
+        component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_ : nullptr;
     return model ? model->fetch_geom(index) : nullptr;
 }
 
@@ -222,13 +223,13 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     if (!component)
         return false;
-    render::RenderModel* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
     if (!model)
         return false;
     // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its
     // flags), or one in use (its flags: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
     // off: they are placed through their skeletons, not 0x004219F0's matrix).
-    const bool cloned = static_cast<objects::MeshInstanceModule*>(component)->level_object_;
+    const bool cloned = core::down_cast<objects::MeshInstanceModule>(component)->level_object_;
     const uint8_t flags = model->flag_bits_;
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
@@ -381,7 +382,7 @@ State store_away(objects::GameEntity* object)
 
 bool get_restore(const State& state)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(state.id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(state.id));
     if (!object || (object->object_flags_ & objects::kObjectFlagDead))
         return false;
     object->basis_frame_ = state.matrix;
@@ -427,7 +428,7 @@ void* resolve_tint(scenery::TintOwner owner)
 {
     if (owner.index < 0)
         return scenery::sector_geometry(owner.id);
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(owner.id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(owner.id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) ? model_geometry(object, owner.index)
                                                                          : nullptr;
 }
@@ -487,7 +488,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         return nullptr;
     }
     commands::create_from_node(copy);
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (object)
         g_copies.push_back({name, source});
     if (debug_enabled())
@@ -502,7 +503,7 @@ bool remove_copy(uint32_t name)
     if (it == g_copies.end())
         return false;
     g_copies.erase(it);
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (!object || (object->object_flags_ & objects::kObjectFlagDead))
         return false;
     object->flag_as_dead();

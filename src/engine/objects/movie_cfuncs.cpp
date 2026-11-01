@@ -18,6 +18,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -60,7 +61,7 @@ objects::Entity* named_skater(script::Struct* params)
     return get_rider_at(index);
 }
 // (the composite object's +0xBC: a local skater)
-bool is_host_local(objects::Entity* object) { return static_cast<objects::GameEntity*>(object)->is_local_skater_ != 0; }
+bool is_host_local(objects::Entity* object) { return core::down_cast<objects::GameEntity>(object)->is_local_skater_ != 0; }
 
 // A movie's name (0 if missing).
 uint32_t movie_key_from_params(script::Struct* params, int assert)

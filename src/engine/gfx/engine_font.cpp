@@ -11,6 +11,7 @@
 #include "engine/gfx/pc_font.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -53,7 +54,7 @@ void unload_font(const char* name)
     }
     const uint32_t key = checksums::hash_from_text(name);
     font_table().erase_entry(key);
-    unload_pc_font(static_cast<PcFont*>(slots[index].font));
+    unload_pc_font(core::down_cast<PcFont>(slots[index].font));
     slots[index].font = nullptr;
 }
 

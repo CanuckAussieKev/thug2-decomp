@@ -17,6 +17,7 @@
 #include "engine/objects/trigger_events.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -199,7 +200,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
                 const uint8_t terrain = feeler_.hit_.terrain;
                 objects::GameEntity* skater = object_of(this);
                 auto speed = static_cast<float>(length_of(skater->vel_));
-                const float fraction = speed / static_cast<objects::Rider*>(skater)->get_scaled_physics(kSpeedCapStat);
+                const float fraction = speed / core::down_cast<objects::Rider>(skater)->get_scaled_physics(kSpeedCapStat);
                 static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk(fraction, terrain);
             } else {
                 script::launch_script(kVehicleLandSound, nullptr, static_cast<objects::Entity*>(object_of(this)), false,

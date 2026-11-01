@@ -25,6 +25,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -131,7 +132,7 @@ void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 // 0x0042BD90
 void BodyDynamicsModule::seal()
 {
-    audio_module_ = static_cast<AudioEmitterModule*>(entity_->fetch_module(kSound));
+    audio_module_ = core::down_cast<AudioEmitterModule>(entity_->fetch_module(kSound));
     const maths::Mat4& m = basis_frame_;
     for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
         Spring& spring = springs_[i];

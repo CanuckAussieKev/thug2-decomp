@@ -34,6 +34,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -102,7 +103,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     }
     out.controls = controls;
     uint32_t value = 0;
-    out.value_6c_ = *static_cast<RiderSessionEnd*>(component_6c)->fetch_bits(&value); // (SkaterEndRun)
+    out.value_6c_ = *core::down_cast<RiderSessionEnd>(component_6c)->fetch_bits(&value); // (SkaterEndRun)
 }
 } // namespace
 
@@ -110,7 +111,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
 uint32_t RiderHostSync::fetch_sync_field_mask()
 {
     uint32_t flags = 0;
-    const net::AppHost* app = client_app(static_cast<Rider*>(entity_)->view_slot_);
+    const net::AppHost* app = client_app(core::down_cast<Rider>(entity_)->view_slot_);
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count_) % 15 == 0;
     UpdateState now{};
@@ -144,7 +145,7 @@ void RiderHostSync::send_update()
 {
     net::NetMessageInfo desc;
     util::PackedBitBuffer stream;
-    auto* app = static_cast<net::Guest*>(client_app(static_cast<Rider*>(entity_)->view_slot_));
+    auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity_)->view_slot_));
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     const bool on_server = get_on_server();
     if (!on_server && static_cast<uint32_t>(app->frame_count_) % 15 != 0) {
@@ -237,8 +238,8 @@ RiderHostSync::~RiderHostSync() = default;
 // 0x00512E70
 void RiderHostSync::seal()
 {
-    pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
-    board_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
+    pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
+    board_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x005136C0

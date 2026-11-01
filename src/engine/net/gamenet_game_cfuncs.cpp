@@ -40,6 +40,7 @@
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -107,7 +108,7 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
         const bool observer = is_observer(player);
         manager->evict_player(player, drop);
         if (!observer)
-            get_skate()->drop_skater_from_roster(static_cast<objects::Rider*>(skater)); // its skater removed
+            get_skate()->drop_skater_from_roster(core::down_cast<objects::Rider>(skater)); // its skater removed
         return;
     }
     KickRequest msg; // (a client asks the server to kick or ban: gamenet_messages.h)
@@ -155,7 +156,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
     send_flag_message(manager, kMsgCapturedFlag, player, team, [&] {
         auto* skater = raw::as<objects::GameEntity>(player_skater(capturer));
         modules::PointTally* score =
-            static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
+            core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
         score->set_grand_total(score->get_total_score() + 1); // its captures
         capturer->score_flag_capture(team);
     });

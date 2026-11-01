@@ -21,6 +21,7 @@
 #include "engine/sound/surface_kind.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -98,7 +99,7 @@ constexpr float kSpinRound = 0.01f;               // 0x0064544C
 
 KinematicsModule* get_motion(GameEntity* object)
 {
-    return static_cast<KinematicsModule*>(object->fetch_module(kMotion));
+    return core::down_cast<KinematicsModule>(object->fetch_module(kMotion));
 }
 
 void delete_params(script::Struct* params)
@@ -327,7 +328,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
         uint32_t direction = 0;
         params->read_hash_value(kSpinDirection, &direction, 1);
         const bool flag =
-            static_cast<AnimBlenderComponent*>(entity_->fetch_module(kAnimBlender))->all_channels_flag29();
+            core::down_cast<AnimBlenderComponent>(entity_->fetch_module(kAnimBlender))->all_channels_flag29();
         if (direction == kBs) {
             if (flag)
                 spin = -spin;

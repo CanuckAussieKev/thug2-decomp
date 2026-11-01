@@ -20,6 +20,7 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -259,7 +260,7 @@ int LabelWidget::fetch_magnitude() const { return static_cast<int>(std::strlen(c
 // 0x004AF670
 void LabelWidget::set_viewports()
 {
-    auto* window = static_cast<PanelWidget*>(fetch_pane());
+    auto* window = core::down_cast<PanelWidget>(fetch_pane());
     if (!window)
         return;
     if (num_)

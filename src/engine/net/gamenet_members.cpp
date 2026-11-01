@@ -53,6 +53,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -286,7 +287,7 @@ bool Hub::send_custom_tag_texture()
     auto* skater = raw::as<modules::Skate>(skate)->get_home_rider(); // the local skater
     if (!skater)
         return false;
-    auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));
+    auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
     if (!tagging || !tagging->has_custom_tag_texture())
         return false;
 

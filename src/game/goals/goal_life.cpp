@@ -24,6 +24,7 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/rider.h"
 #include "engine/core/ints.h"
+#include "engine/core/down_cast.h"
 
 namespace goals {
 
@@ -135,7 +136,7 @@ objects::GameEntity* player_skater(void* player) { return static_cast<online::Pl
 // A skater's score (its SkaterScore component's modules::PointTally) reset (0x00564A10) / its total (0x00561B40).
 void* get_score_of(objects::GameEntity* skater)
 {
-    return static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
+    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 void reset_score(void* score) { static_cast<modules::PointTally*>(score)->get_reset(); }
 int total_score(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
@@ -621,10 +622,10 @@ bool Objective::all_skaters_run_done()
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
         objects::GameEntity* skater = player_skater(player);
-        auto* end_run = static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
+        auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
         if (active_ruleset_label() == kHorse &&
-            (static_cast<objects::Rider*>(skater)->is_halted_ || (skater->composite_flags_ >> 2) & 1))
+            (core::down_cast<objects::Rider>(skater)->is_halted_ || (skater->composite_flags_ >> 2) & 1))
             continue;
         bool done = false;
         if (run_ending_ == 0)

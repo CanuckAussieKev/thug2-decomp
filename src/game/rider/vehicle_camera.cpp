@@ -26,6 +26,7 @@
 #include "engine/objects/vehicle_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -49,7 +50,7 @@ constexpr float kDegrees = 0.01745329238474369f;      // 0x00645464 (degrees to 
 // Its Camera component's camera (+0x18).
 gfx::ViewCam* camera_of(GameEntity* object)
 {
-    return static_cast<objects::ViewpointModule*>(object->fetch_module(kCamera))->view_camera_.get();
+    return core::down_cast<objects::ViewpointModule>(object->fetch_module(kCamera))->view_camera_.get();
 }
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
@@ -91,7 +92,7 @@ void CarView::configure_from_data(script::Struct* params)
     if (params->has_entry_named(kSubject)) {
         uint32_t id = 0;
         params->read_hash_value(kSubject, &id, 1);
-        subject_ = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
+        subject_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
         vehicle_ = raw::bytes(subject_->fetch_module(kVehicle));
     }
     params->fetch_float(kLerp, &lerp_, 0);
@@ -103,7 +104,7 @@ void CarView::configure_from_data(script::Struct* params)
 // 0x00524C00
 void CarView::seal()
 {
-    free_look_ = static_cast<FreeLookModule*>(entity_->fetch_module(kCameraLookAround));
+    free_look_ = core::down_cast<FreeLookModule>(entity_->fetch_module(kCameraLookAround));
     get_reset();
 }
 

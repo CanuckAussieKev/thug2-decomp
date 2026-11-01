@@ -18,6 +18,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
+#include "engine/core/down_cast.h"
 
 namespace gfx {
 
@@ -174,12 +175,12 @@ void HiddenModels::conceal()
 {
     auto* manager = objects::object_hub_slot();
     auto first = [manager] {
-        return static_cast<objects::MeshInstanceModule*>(
+        return core::down_cast<objects::MeshInstanceModule>(
             manager->find_first_module_of_kind(objects::MeshInstanceModule::kType));
     };
     int count = 0;
     for (auto* component = first(); component;
-         component = static_cast<objects::MeshInstanceModule*>(component->next_of_type_)) {
+         component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type_)) {
         if (hideable(component))
             ++count;
     }
@@ -190,7 +191,7 @@ void HiddenModels::conceal()
     ids_ptr_ = static_cast<uint32_t*>(memory::Hub::get_pull()->carve(count * 4, 1, nullptr));
     num_ = 0;
     for (auto* component = first(); component;
-         component = static_cast<objects::MeshInstanceModule*>(component->next_of_type_)) {
+         component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type_)) {
         if (hideable(component)) {
             ids_ptr_[num_] = current_object_id(component);
             component->mesh_instance_->conceal(1);
@@ -205,9 +206,9 @@ void HiddenModels::get_show()
 {
     if (ids_ptr_) {
         for (int i = 0; i < num_; ++i) {
-            if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(ids_ptr_[i]))) {
+            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(ids_ptr_[i]))) {
                 auto* component =
-                    static_cast<objects::MeshInstanceModule*>(object->fetch_module(objects::MeshInstanceModule::kType));
+                    core::down_cast<objects::MeshInstanceModule>(object->fetch_module(objects::MeshInstanceModule::kType));
                 component->mesh_instance_->conceal(0);
             }
         }

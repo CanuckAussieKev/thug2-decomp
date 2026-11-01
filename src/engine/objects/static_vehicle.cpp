@@ -23,6 +23,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -35,12 +36,12 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 // bytes from +0x50, each with its matrix at +0x10.
 const uint8_t* hierarchy_of(ObjectModule* model)
 {
-    auto* m = raw::bytes(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
+    auto* m = raw::bytes(core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_);
     return cell::pointer<const uint8_t>(raw::as<render::RenderModel>(m)->get_asset_hierarchy());
 }
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
-uint8_t* skeleton_of(ObjectModule* skeleton) { return static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_; }
+uint8_t* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
 maths::Mat4* skeleton_palette(uint8_t* skeleton) { return raw::as<gfx::Rig>(skeleton)->matrix_array_; }
 int get_bone_count(uint8_t* skeleton) { return raw::as<gfx::Rig>(skeleton)->get_num_bones(); }
 

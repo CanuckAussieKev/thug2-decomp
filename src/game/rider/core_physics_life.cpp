@@ -26,6 +26,7 @@
 #include "game/rider/tagging.h"
 #include "game/rider/walk_physics.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -86,7 +87,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 int SkaterPhysicsModule::is_sides_swapped()
 {
     const uint8_t flipped = state_of(this)->flag(PoseFlag::kFlipped).on;
-    if (static_cast<objects::Rider*>(entity_)->goofy_)
+    if (core::down_cast<objects::Rider>(entity_)->goofy_)
         return flipped;
     return flipped ? 0 : 1;
 }

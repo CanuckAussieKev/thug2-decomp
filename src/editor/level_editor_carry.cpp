@@ -16,6 +16,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::carry {
 
@@ -211,7 +212,7 @@ Attachment attachment_of(const Gather& g, uint32_t name, V3 pos)
 void gather_object(objects::Entity* object, void* data)
 {
     auto* g = static_cast<Gather*>(data);
-    auto* composite = static_cast<objects::GameEntity*>(object);
+    auto* composite = core::down_cast<objects::GameEntity>(object);
     OrientedBox box{};
     if (!object_edit::model_box(composite, &box))
         return;
@@ -229,7 +230,7 @@ void gather_object(objects::Entity* object, void* data)
 
 objects::GameEntity* live_object(uint32_t id)
 {
-    auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
 }
 

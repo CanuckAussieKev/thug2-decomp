@@ -23,6 +23,7 @@
 #include "engine/net/net_messages.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace net {
 
@@ -64,16 +65,16 @@ void delete_msg(void* msg)
 }
 
 // The Dispatcher (net_dispatcher.h) the App's handler lists are.
-void dispatcher_init(HandlerLists* dispatcher) { static_cast<Router*>(dispatcher)->prepare_all(); }
-void dispatcher_deinit(HandlerLists* dispatcher) { static_cast<Router*>(dispatcher)->tear_down_state(); }
+void dispatcher_init(HandlerLists* dispatcher) { core::down_cast<Router>(dispatcher)->prepare_all(); }
+void dispatcher_deinit(HandlerLists* dispatcher) { core::down_cast<Router>(dispatcher)->tear_down_state(); }
 void append_listener(HandlerLists* dispatcher, uint32_t id, HandlerSlotValue handler, uint32_t flags, uint32_t priority)
 {
-    static_cast<Router*>(dispatcher)
+    core::down_cast<Router>(dispatcher)
         ->append_listener(static_cast<uint8_t>(id), handler, flags, nullptr, static_cast<int>(priority));
 }
 int DispatchMessage(HandlerLists* dispatcher, InboundMsgCtx* context)
 {
-    return static_cast<Router*>(dispatcher)->dispatch_msg(context);
+    return core::down_cast<Router>(dispatcher)->dispatch_msg(context);
 }
 
 uint16_t name_hash(const uint8_t* data, int length)

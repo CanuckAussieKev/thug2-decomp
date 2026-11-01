@@ -11,6 +11,7 @@
 #include "game/skate/career.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -250,11 +251,11 @@ bool cfunc_profile_equals(script::Struct* params, script::Script* script)
     if (script) {
         objects::Entity* object = script->entity_.get_pull();
         if (object && object->kind_tag_ == kSkaterType)
-            return static_cast<objects::Rider*>(object)->matches_params(params);
+            return core::down_cast<objects::Rider>(object)->matches_params(params);
     }
     if (!is_multiplayer())
         return false;
-    auto* skater = static_cast<objects::Rider*>(get_rider_at(0));
+    auto* skater = core::down_cast<objects::Rider>(get_rider_at(0));
     if (!skater)
         return false;
     return skater->matches_params(params);

@@ -22,6 +22,7 @@
 #include "engine/objects/entity.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 class Entity;
@@ -112,7 +113,7 @@ inline int player_handle(PlayerRecord* player) { return player->get_link_handle(
 // A message for the server through `app` (a client).
 inline void send_to_server(net::AppHost* app, net::NetMessageInfo* desc)
 {
-    static_cast<net::Guest*>(app)->send_to_host(desc);
+    core::down_cast<net::Guest>(app)->send_to_host(desc);
 }
 
 // Script parameters: a new structure (the original's new CStruct - null if out of memory, then used anyway as the

@@ -43,6 +43,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -410,7 +411,7 @@ uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_resta
 // 0x50 each.
 const uint8_t* model_geometry(ObjectModule* model)
 {
-    void* instance = static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_;
+    void* instance = core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_;
     return cell::pointer<const uint8_t>(static_cast<render::RenderModel*>(instance)->get_asset_hierarchy());
 }
 const float* wheel_place(const uint8_t* geometry, int i)
@@ -418,7 +419,7 @@ const float* wheel_place(const uint8_t* geometry, int i)
     return raw::field_at<const float>(geometry, 0xE0 + i * 0x50);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
-void* skeleton_of(ObjectModule* skeleton) { return static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_; }
+void* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
 // The viewport's camera (0x004A09C0; null if none), its position (0x00485A00) and matrix (0x00485A10).
 void* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
@@ -539,7 +540,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
             c.lengths[1] = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
         }
         auto distance = static_cast<float>(static_cast<double>(sum) * kThird / count - kCameraBack);
-        static_cast<Rider*>(local_skater())->set_42b_d60(distance);
+        core::down_cast<Rider>(local_skater())->set_42b_d60(distance);
     }
 
     // engine: drive_torque and 0xB2268648 in foot-pounds, upshift_rpm, differential_ratio, reverse_torque_ratio,
@@ -664,7 +665,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
 // 0x0043BA20
 void DrivableModule::seal()
 {
-    input_ptr_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput));
+    input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
     mesh_instance_ = entity_->fetch_module(kModel);
     const uint8_t* geometry = model_geometry(entity_->fetch_module(kModel));
     // The wheels' places from the model (z up there; always four).

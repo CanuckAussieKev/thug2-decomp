@@ -39,6 +39,7 @@
 #include "engine/gfx/surface_material.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::ground {
 
@@ -63,7 +64,7 @@ render::StaticCollider* static_of(render::WorldCell* sector)
     render::HitMesh* coll = coll_of(sector);
     if (!render::is_static_collider(coll))
         return nullptr;
-    return static_cast<render::StaticCollider*>(coll);
+    return core::down_cast<render::StaticCollider>(coll);
 }
 
 // The buffers as MeshRef::Replicate (sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and

@@ -21,6 +21,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -96,7 +97,7 @@ bool refresh_skater(script::Struct* params, uint32_t build_script)
     params->fetch_int_value(kSkater, &skater_index, 1);
     objects::GameEntity* skater = get_rider_at(skater_index);
     objects::RiderIdentity* profile = fetch_account(profile_index);
-    static_cast<objects::MeshInstanceModule*>(skater->fetch_module(kModel))
+    core::down_cast<objects::MeshInstanceModule>(skater->fetch_module(kModel))
         ->rebuild_from_profile(profile, build_script);
     return true;
 }
@@ -244,7 +245,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     int skater_index = index;
     params->fetch_int_value(kProfile, &profile_index, 0);
     params->fetch_int_value(kSkater, &skater_index, 0);
-    auto* skater = static_cast<objects::Rider*>(get_rider_at(skater_index));
+    auto* skater = core::down_cast<objects::Rider>(get_rider_at(skater_index));
     if (skater->view_slot_ == 0) {
         auto* objects = static_cast<objects::MiscHub*>(objects::g_composite_registry);
         if (objects::Entity* board = objects->look_up_entity(kBailBoard)) {
@@ -256,18 +257,18 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->skater_geom_heaps_[skater->get_skater_number()]);
     model_build_hook();
-    auto* model = static_cast<objects::MeshInstanceModule*>(skater->fetch_module(kModel));
+    auto* model = core::down_cast<objects::MeshInstanceModule>(skater->fetch_module(kModel));
     model->set_up_mesh_from_profile(profile, false, skater->get_skater_number(), 0);
     memory::Hub::get_pull()->leave_heap_scope();
     manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->skater_heaps_[skater->get_skater_number()]);
     skater->set_stats_from_profile(profile);
-    static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
+    core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     skater->update_from_profile(profile);
     memory::Hub::get_pull()->leave_heap_scope();
     uint32_t no_board = 0;
     if (params->read_hash_value(kNoBoard, &no_board, 0)) {
-        auto* skater_model = static_cast<objects::MeshInstanceModule*>(skater->fetch_module(kModel));
+        auto* skater_model = core::down_cast<objects::MeshInstanceModule>(skater->fetch_module(kModel));
         skater_model->conceal_mesh(kBoard, true, true);
         static_cast<objects::ObjectModule*>(skater_model)->tick_frame(); // (through the vtable: slot 1)
     }

@@ -14,6 +14,7 @@
 #include "engine/gfx/font.h"
 #include "engine/gfx/text.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -107,7 +108,7 @@ void PcText::update_settings()
 {
     text->text = text_buffer_;
     if (typeface_)
-        text->font = static_cast<PcFont*>(typeface_)->font;
+        text->font = core::down_cast<PcFont>(typeface_)->font;
     text->pivot_x_ = pivot_x_;
     text->pivot_y_ = pivot_y_;
     text->effects = raw::as<const TextEffect>(effects_);

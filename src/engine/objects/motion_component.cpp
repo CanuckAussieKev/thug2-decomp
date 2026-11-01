@@ -23,6 +23,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -250,7 +251,7 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
     if (motion_flags_ & kMotionMoving) {
         speed = move_speed_;
     } else if (entity_->fetch_module(kLockObj) &&
-               (static_cast<PinnedObjectModule*>(entity_->fetch_module(kLockObj))->lock_flags_ & kLockFlagLocked)) {
+               (core::down_cast<PinnedObjectModule>(entity_->fetch_module(kLockObj))->lock_flags_ & kLockFlagLocked)) {
         auto dx = static_cast<float>(static_cast<double>(entity_->at_point_.x) - entity_->old_pos_.x);
         auto dy = static_cast<float>(static_cast<double>(entity_->at_point_.y) - entity_->old_pos_.y);
         auto dz = static_cast<float>(static_cast<double>(entity_->at_point_.z) - entity_->old_pos_.z);

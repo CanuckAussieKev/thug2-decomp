@@ -29,6 +29,7 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::node_create {
 
@@ -1106,7 +1107,7 @@ bool conceal(uint32_t name, bool hide)
         if (cls == kLight)
             remove_light(name);
         // (a flag a CTF game made: killed - it comes back when the game makes it again)
-        auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
+        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
         if (object && !(object->object_flags_ & objects::kObjectFlagDead) && cls != kProxim && cls != kEmitter &&
             cls != kLight)
             object->flag_as_dead();

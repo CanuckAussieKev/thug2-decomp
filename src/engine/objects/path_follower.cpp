@@ -16,6 +16,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/maths/random.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -32,7 +33,7 @@ bool picks_random_link(ObjectModule* component)
 // The component told that `node` has been passed (not rewritten yet).
 void node_passed(ObjectModule* component, uint32_t node)
 {
-    static_cast<KinematicsModule*>(component)->arrive_at_node(node);
+    core::down_cast<KinematicsModule>(component)->arrive_at_node(node);
 }
 // x, y and z scaled to `length` (0x0042BBF0, not rewritten yet).
 void set_length(maths::Vec4& v, float length) { v.set_length(length); }

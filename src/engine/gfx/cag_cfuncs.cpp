@@ -16,6 +16,7 @@
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace commands {
 
@@ -160,7 +161,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
     if (player == 0) {
-        auto* tagging = static_cast<objects::TaggingComponent*>(
+        auto* tagging = core::down_cast<objects::TaggingComponent>(
             get_skate()->get_rider_at(0)->fetch_module(objects::TaggingComponent::kType));
         tagging->custom_tag_ = true; // (0x004E4000, a setter folded with others)
         tagging->apply_custom_tag_texture();
@@ -182,7 +183,7 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_skate()->get_rider_at(index);
     get_skate()->fetch_account(static_cast<Struct*>(nullptr));
-    auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));
+    auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
     void* graffiti = tagging->graffiti_; // (0x00553E90, a getter folded with others)
     if (graffiti)
         find_texture(skater_textures(), kCustomTag)->copy_from(static_cast<render::BitmapTexture*>(graffiti));

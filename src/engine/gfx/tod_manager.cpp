@@ -42,6 +42,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace gfx {
 
@@ -247,7 +248,7 @@ render::WorldCell* look_up_sector(uint32_t name)
 // A model component's colour (0x00420700).
 void set_model_color(objects::ObjectModule* model, uint32_t color)
 {
-    static_cast<objects::MeshInstanceModule*>(model)->change_tint(color);
+    core::down_cast<objects::MeshInstanceModule>(model)->change_tint(color);
 }
 
 TodSystem& system_at(CtodManager* manager, int index)

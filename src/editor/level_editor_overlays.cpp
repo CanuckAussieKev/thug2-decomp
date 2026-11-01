@@ -19,6 +19,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::overlays {
 
@@ -242,7 +243,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
     if (get_shown(kCarryHints) && moving) {
         constexpr uint32_t kCarried = 0xE060F080;
         for (const uint32_t id : carry::carried_objects()) {
-            auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
+            auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
             OrientedBox box{};
             if (!object || (object->object_flags_ & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
                 continue;

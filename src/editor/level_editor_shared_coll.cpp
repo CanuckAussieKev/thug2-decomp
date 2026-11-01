@@ -25,6 +25,7 @@
 #include "engine/gfx/geom.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend::level_editor::shared_collision {
 
@@ -221,7 +222,7 @@ namespace {
 render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
 render::StaticCollider* coll_of(render::WorldCell* sector)
 {
-    return static_cast<render::StaticCollider*>(sector->hit_body_);
+    return core::down_cast<render::StaticCollider>(sector->hit_body_);
 }
 void* grid_of(render::WorldScene* scene) { return scene->coll_grid_; }
 

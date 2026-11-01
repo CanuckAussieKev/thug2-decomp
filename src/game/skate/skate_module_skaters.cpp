@@ -69,6 +69,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace modules {
 
@@ -282,7 +283,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
         }
     } else if (net->in_net_game()) {
         if (objects::Rider* skater = get_home_rider()) {
-            if (auto* vibration = static_cast<objects::PadRumbleModule*>(skater->fetch_module(kVibration)))
+            if (auto* vibration = core::down_cast<objects::PadRumbleModule>(skater->fetch_module(kVibration)))
                 vibration->stop_all();
         }
     }
@@ -291,7 +292,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
     const int heap = find_free_rider_heap(local);
     memory::enter_heap_scope(rider_heap_at(heap));
     auto* skater =
-        new objects::Rider(viewport, static_cast<objects::EntityHub*>(entity_hub_handle()), local, id, heap, 1);
+        new objects::Rider(viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local, id, heap, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
         script::Struct* params = spawn_param_table();
@@ -320,7 +321,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
         }
     }
     if (skater->ident_ == 1 && static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)))
-        static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
+        core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     memory::pop_mem_profile();
     memory::leave_heap_scope();
     return skater;
@@ -352,7 +353,7 @@ int Skate::find_free_rider_heap(bool local)
 // 0x00565BF0
 void Skate::set_skater_shadow(objects::Rider* skater)
 {
-    auto* shadow = static_cast<objects::GroundShadowModule*>(skater->fetch_module(kShadow));
+    auto* shadow = core::down_cast<objects::GroundShadowModule>(skater->fetch_module(kShadow));
     int type = render::g_hq_shadows ? 1 : 2;
     memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)))
@@ -379,10 +380,10 @@ void Skate::bind_controllers()
         const int number = skater->get_skater_number();
         auto* input = pad_input::g_input_manager;
         int controller = input->get_player_controller(number);
-        static_cast<objects::PadInputModule*>(skater->fetch_module(kInput))->link_to_pad(controller);
-        if (auto* camera = static_cast<objects::GameEntity*>(skater->get_skater_camera())) {
+        core::down_cast<objects::PadInputModule>(skater->fetch_module(kInput))->link_to_pad(controller);
+        if (auto* camera = core::down_cast<objects::GameEntity>(skater->get_skater_camera())) {
             controller = pad_input::g_input_manager->get_player_controller(number);
-            static_cast<objects::PadInputModule*>(camera->fetch_module(kInput))->link_to_pad(controller);
+            core::down_cast<objects::PadInputModule>(camera->fetch_module(kInput))->link_to_pad(controller);
         }
     }
 }
@@ -691,7 +692,7 @@ void Skate::update_records()
     highscores::BestEntryList* high_scores = records->high_scores_;
     new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
     new_record_ |= records->best_combos_->try_insert_entry(score->top_chain_, 0) != -1;
-    auto* balance = static_cast<objects::RiderTeeterMoves*>(skater->fetch_module(kSkaterBalanceTrick));
+    auto* balance = core::down_cast<objects::RiderTeeterMoves>(skater->fetch_module(kSkaterBalanceTrick));
     const float grind = balance->grind_.best_time_; // (the longest grind, manual and lip trick: seconds)
     const float manual = balance->manual_.best_time_;
     const float lip_trick = balance->lip_.best_time_;
@@ -710,7 +711,7 @@ bool Skate::all_skaters_idle()
         objects::Rider* skater = get_skater_at(i); // (null past the end, as the original - never reached)
         if (get_game_mode()->is_true(kIsHorse) && ints::as_unsigned(horse_->skater_) != skater->ident_)
             continue; // (in HORSE only the skater taking the run)
-        auto* end_run = static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
+        auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         if (end_run->run_done())
             continue;
         idle = false;
@@ -724,9 +725,9 @@ bool Skate::all_skaters_idle()
 bool Skate::first_trick_started()
 {
     objects::Rider* skater = get_rider_by_number(static_cast<uint32_t>(horse_->skater_));
-    auto* trick = static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick));
+    auto* trick = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
     if (trick->bailed_)
-        static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun))->end_run(false);
+        core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun))->end_run(false);
     return trick->bailed_;
 }
 
@@ -734,7 +735,7 @@ bool Skate::first_trick_started()
 bool Skate::first_trick_completed()
 {
     objects::Rider* skater = get_rider_by_number(static_cast<uint32_t>(horse_->skater_));
-    return static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick))->bailed_panel_;
+    return core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->bailed_panel_;
 }
 
 // --- the per-player settings ----------------------------------------------------------------------------------------
@@ -744,7 +745,7 @@ void Skate::set_turn_tap_count(int player, bool on)
 {
     participants_[player].spin_taps_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
-        static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = on;
+        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = on;
 }
 
 // 0x00567C00
@@ -752,7 +753,7 @@ void Skate::set_auto_eject(int player, bool on)
 {
     participants_[player].auto_kick_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
-        static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = on;
+        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = on;
 }
 
 // 0x00567C30
@@ -760,7 +761,7 @@ void Skate::change_rumble(int player, int on)
 {
     participants_[player].vibration_ = static_cast<uint8_t>(on) != 0;
     if (objects::GameEntity* skater = get_rider_at(player)) {
-        if (auto* vibration = static_cast<objects::PadRumbleModule*>(skater->fetch_module(kVibration)))
+        if (auto* vibration = core::down_cast<objects::PadRumbleModule>(skater->fetch_module(kVibration)))
             vibration->change_live(static_cast<uint8_t>(on) != 0); // (the whole word passed: only its low byte read)
     }
 }
@@ -794,7 +795,7 @@ void Skate::debug_rails()
     if (!skate->debug_rails_)
         return;
     stubs::ignore_argument(0); // (the rail manager's debug drawing)
-    auto* manager = static_cast<objects::EntityHub*>(entity_hub_handle());
+    auto* manager = core::down_cast<objects::EntityHub>(entity_hub_handle());
     for (objects::ObjectModule* component = manager->find_first_module_of_kind(kRailManagerType); component;
          component = component->next_of_type_) {
         objects::GameEntity* object = component->entity_;
@@ -805,7 +806,7 @@ void Skate::debug_rails()
         matrix[11] = 0.0f;
         std::memcpy(matrix + 12, &object->at_point_, 12);
         matrix[15] = 1.0f;
-        const void* rails = static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
+        const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)
             stubs::ignore_argument(static_cast<int>(cell::address(matrix)));
     }
@@ -849,7 +850,7 @@ frontend::UiWidget* find_element(uint32_t id)
 void Skate::update_suspend_visibility(objects::Entity* object, void*)
 {
     if (auto* suspend =
-            static_cast<objects::DormancyModule*>(static_cast<objects::GameEntity*>(object)->fetch_module(kSuspend)))
+            core::down_cast<objects::DormancyModule>(core::down_cast<objects::GameEntity>(object)->fetch_module(kSuspend)))
         suspend->refresh_shown_state();
 }
 
@@ -892,12 +893,12 @@ void Skate::run_frame_logic()
             if (screen_camera(0)) {
                 objects::Entity* first = entity_hub_handle()->look_up_entity(0);
                 objects::proximity_notify(1, first, screen_camera(0)->fetch_location(), 1);
-                objects::proximity_notify(1, first, &static_cast<objects::GameEntity*>(first)->at_point_, 2);
+                objects::proximity_notify(1, first, &core::down_cast<objects::GameEntity>(first)->at_point_, 2);
             }
             if (screen_camera(1) && entity_hub_handle()->look_up_entity(1)) {
                 objects::Entity* second = entity_hub_handle()->look_up_entity(1);
                 objects::proximity_notify(2, second, screen_camera(1)->fetch_location(), 1);
-                objects::proximity_notify(2, second, &static_cast<objects::GameEntity*>(second)->at_point_, 2);
+                objects::proximity_notify(2, second, &core::down_cast<objects::GameEntity>(second)->at_point_, 2);
             }
         }
     } else if (static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) && g_viewport_count == 1 &&
@@ -915,7 +916,7 @@ void Skate::run_frame_logic()
     bool unplugged = false;
     const objects::PadInputModule::Responder* device = nullptr;
     for (int i = 0; i < 8; ++i) {
-        auto* skater = static_cast<objects::Rider*>(get_rider_at(i));
+        auto* skater = core::down_cast<objects::Rider>(get_rider_at(i));
         if (!skater || !skater->is_local_skater_)
             continue;
         device = skater->pad_input_->handler_;
@@ -1011,10 +1012,10 @@ Skate::Skate()
         participants_[i].vibration_ = true;
         participants_[i].auto_kick_ = true;
         if (objects::Rider* skater = get_skater_at(i))
-            static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = 1;
+            core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = 1;
         participants_[i].spin_taps_ = false;
         if (objects::Rider* skater = get_skater_at(i))
-            static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = 0;
+            core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = 0;
     }
     own_script_ = nullptr;
 }

@@ -42,6 +42,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -198,10 +199,10 @@ void RiderGapTracker::configure_from_data(script::Struct* /*params*/) { tick_ = 
 // 0x00511BC0
 void RiderGapTracker::seal()
 {
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    balance_trick_ = static_cast<RiderTeeterMoves*>(entity_->fetch_module(kSkaterBalanceTrick));
-    physics_control_ = static_cast<RiderBoardPhysics*>(entity_->fetch_module(kSkaterPhysicsControl));
-    walk_ = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+    balance_trick_ = core::down_cast<RiderTeeterMoves>(entity_->fetch_module(kSkaterBalanceTrick));
+    physics_control_ = core::down_cast<RiderBoardPhysics>(entity_->fetch_module(kSkaterPhysicsControl));
+    walk_ = core::down_cast<FootMovement>(entity_->fetch_module(kWalk));
 }
 
 // 0x00512320
@@ -228,8 +229,8 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
-        auto* vehicle = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(kPlayerVehicle));
-        auto* physics = static_cast<DrivableModule*>(vehicle->fetch_module(kVehicle));
+        auto* vehicle = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(kPlayerVehicle));
+        auto* physics = core::down_cast<DrivableModule>(vehicle->fetch_module(kVehicle));
         set(physics->wheels_in_contact_ != 0 ? kGapGround : kGapAir);
         return;
     }
@@ -380,9 +381,9 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     gap_node(gap) = script->list_link_;
     gap_trick_text(gap) = 0;
     // Where the skater starts: its camera's position, and facing back along the camera's at row.
-    auto* skater = static_cast<Rider*>(entity_);
-    gap_start_pos(gap) = static_cast<GameEntity*>(skater->get_skater_camera())->at_point_;
-    const maths::Vec4& at = static_cast<GameEntity*>(skater->get_skater_camera())->basis_frame_.row[2];
+    auto* skater = core::down_cast<Rider>(entity_);
+    gap_start_pos(gap) = core::down_cast<GameEntity>(skater->get_skater_camera())->at_point_;
+    const maths::Vec4& at = core::down_cast<GameEntity>(skater->get_skater_camera())->basis_frame_.row[2];
     maths::Vec4& dir = gap_start_dir(gap);
     dir.z = -at.z;
     dir.x = -at.x;
@@ -525,7 +526,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         int points = 0;
         if (params->fetch_int_value(kScore, &points, 0) && entity_->is_local_skater_) {
             add_gap_score(points_held_, coloured, points, 0x10);
-            static_cast<MoveExecutor*>(entity_->fetch_module(kTrick))->bailed_ = true;
+            core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))->bailed_ = true;
             gap_tally_ref()->register_gap_hit(text);
             entity_->start_script_task(kDefaultGapScript, 0, false, false, nullptr);
         }

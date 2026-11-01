@@ -23,6 +23,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -517,7 +518,7 @@ bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(kUnnamed, &name, 1);
-    auto* other = static_cast<GameEntity*>(find_object(name));
+    auto* other = core::down_cast<GameEntity>(find_object(name));
     float distance = 0.0f;
     if (other) {
         const double dx = static_cast<double>(at_point_.x) - other->at_point_.x;
@@ -686,7 +687,7 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(kUnnamed, &name, 1);
-    auto* other = static_cast<GameEntity*>(find_object(name));
+    auto* other = core::down_cast<GameEntity>(find_object(name));
     float dot = 0.0f;
     float angle = 0.0f;
     if (other) {
@@ -770,14 +771,14 @@ bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
 GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
 {
     ObjectSearch search;
-    auto* object = static_cast<GameEntity*>(search.first_item_of_type(manager_object_list(park_owner_), type));
+    auto* object = core::down_cast<GameEntity>(search.first_item_of_type(manager_object_list(park_owner_), type));
     if (object == this)
-        object = static_cast<GameEntity*>(search.next_item_of_type());
+        object = core::down_cast<GameEntity>(search.next_item_of_type());
     if (!object)
         return nullptr;
     GameEntity* nearest = object;
     float nearest_distance = kFarAway;
-    for (; object; object = static_cast<GameEntity*>(search.next_item_of_type())) {
+    for (; object; object = core::down_cast<GameEntity>(search.next_item_of_type())) {
         const double dx = static_cast<double>(object->at_point_.x) - at_point_.x;
         const double dy = static_cast<double>(object->at_point_.y) - at_point_.y;
         const double dz = static_cast<double>(object->at_point_.z) - at_point_.z;

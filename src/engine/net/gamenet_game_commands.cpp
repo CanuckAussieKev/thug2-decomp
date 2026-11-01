@@ -43,6 +43,7 @@
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -208,7 +209,7 @@ bool cfunc_spawn_crown(Struct*, Script*)
     level_nodes::fetch_place(node, &position);
     manager->crown_->init_from_node(objects::g_composite_registry, node);
     if (auto* king = manager->get_hill_ruler())
-        manager->crown_->put_on(static_cast<objects::GameEntity*>(player_skater(king)));
+        manager->crown_->put_on(core::down_cast<objects::GameEntity>(player_skater(king)));
     return true;
 }
 

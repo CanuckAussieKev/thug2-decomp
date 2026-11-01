@@ -30,6 +30,7 @@
 #include <gsl/pointers>
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -256,7 +257,7 @@ bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t hei
 // 0x004C86A0
 bool PcTexture::copy_from(const BitmapTexture* source_texture)
 {
-    const auto* source = static_cast<const PcTexture*>(source_texture);
+    const auto* source = core::down_cast<const PcTexture>(source_texture);
     const TextureRef* from = source->get_texture();
     auto** into = raw::as<IDirect3DTexture9*>(&get_texture()->texture);
     if (*into)
@@ -498,7 +499,7 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
 // 0x004C9D80
 bool PcTexture::resize_from(const BitmapTexture* source_texture, int /*unused*/)
 {
-    const auto* source = static_cast<const PcTexture*>(source_texture);
+    const auto* source = core::down_cast<const PcTexture>(source_texture);
     if (!(flag_bits_ & 1) || !(source->flag_bits_ & 1))
         return false;
     const TextureRef* into = get_edit(this)->texture;
@@ -719,7 +720,7 @@ bool PcTexture::get_mirror()
 // 0x004CA8E0
 bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
 {
-    auto* over = static_cast<PcTexture*>(over_texture);
+    auto* over = core::down_cast<PcTexture>(over_texture);
     const auto* texels = static_cast<const uint8_t*>(over->get_texture()->get_lock());
     auto* into = raw::bytes(flag_bits_ & 1 ? get_edit(this)->pixels : nullptr);
     const uint32_t width = over->fetch_breadth();
@@ -982,7 +983,7 @@ bool PcTexDict::destroy_texture(BitmapTexture* texture)
 // 0x004C9C80
 BitmapTexture* PcTexDict::duplicate_texture(uint32_t checksum, BitmapTexture* source)
 {
-    auto* texture = new PcTexture(static_cast<const PcTexture*>(source));
+    auto* texture = new PcTexture(core::down_cast<const PcTexture>(source));
     texture->get_texture()->checksum = checksum; // (no check, as the original)
     return texture;
 }

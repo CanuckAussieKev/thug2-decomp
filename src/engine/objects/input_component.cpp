@@ -29,6 +29,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -176,7 +177,7 @@ void PadInputModule::link_to_pad(int controller)
     server_handlers(manager, 1)->queue_job(handler2);
     place_handler(handler2, manager, 1);
     if (ObjectModule* vibration = entity_->fetch_module(kVibration))
-        static_cast<PadRumbleModule*>(vibration)->change_gadget(handler_->dev_);
+        core::down_cast<PadRumbleModule>(vibration)->change_gadget(handler_->dev_);
 }
 
 // 0x0041F170

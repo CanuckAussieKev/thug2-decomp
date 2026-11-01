@@ -29,6 +29,7 @@
 #include "game/rider/physics_control.h"
 #include "engine/objects/camera_component.h"
 #include "game/rider/balance_trick.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -68,7 +69,7 @@ bool vert_air(const objects::RiderPoseState* state)
            !state->flag(PoseFlag::kAcidDrop).on;
 }
 
-maths::Mat4* skater_display_matrix(GameEntity* skater) { return static_cast<Rider*>(skater)->get_draw_matrix(); }
+maths::Mat4* skater_display_matrix(GameEntity* skater) { return core::down_cast<Rider>(skater)->get_draw_matrix(); }
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
@@ -116,7 +117,7 @@ void RiderChaseView::tick_frame()
     }
     auto seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     update_lerps();
-    gfx::ViewCam* camera = static_cast<ViewpointModule*>(camera_component)->view_camera_.get();
+    gfx::ViewCam* camera = core::down_cast<ViewpointModule>(camera_component)->view_camera_.get();
     camera->remember_prev_pos();
     maths::Mat4& view = camera_component->entity_->basis_frame_;
     std::memcpy(&view, orientation_, sizeof(orientation_));
@@ -125,7 +126,7 @@ void RiderChaseView::tick_frame()
     const float last_facing_x = view.row[2].x;
     const objects::RiderPoseState* state = state_ref_;
     const int physics_state = state->cur_phase_;
-    auto* core = static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kCorePhysics));
+    auto* core = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
     bool turned = false;
 
     // The orientation to look along: the skater's (its display matrix), or on a wall ride and while +0x2EC holds
@@ -167,7 +168,7 @@ void RiderChaseView::tick_frame()
     // The roll: on a rail on the skater's model, the balance's lean.
     double roll = 0.0;
     if (physics_state == 4 && rider_ref_->is_local_skater_) {
-        auto* balance = static_cast<RiderTeeterMoves*>(rider_ref_->fetch_module(kBalanceTrick));
+        auto* balance = core::down_cast<RiderTeeterMoves>(rider_ref_->fetch_module(kBalanceTrick));
         roll = static_cast<double>(balance_roll_scale()) * balance->grind_.lean_;
     }
     float& roll_now = roll_;
@@ -253,7 +254,7 @@ void RiderChaseView::tick_frame()
         }
     }
     if (rider_ref_->is_local_skater_ && state_ref_->flag(PoseFlag::kFromAcidDrop).on) {
-        auto* physics = static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kCorePhysics));
+        auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
         orient = physics->drop_matrix_;
     }
 
@@ -486,7 +487,7 @@ void RiderChaseView::tick_frame()
     // Kept clear of the world (unless riding something on a lip).
     bool avoid = true;
     if (rider_ref_->is_local_skater_) {
-        auto* physics = static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kCorePhysics));
+        auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
         if (physics->ride_->ride_ && physics_state == 3)
             avoid = false;
     }
@@ -503,7 +504,7 @@ void RiderChaseView::tick_frame()
     target.w = 1.0f;
     camera_component->entity_->at_point_ = target;
     if (instant)
-        static_cast<ViewpointModule*>(camera_component)->view_camera_->remember_prev_pos();
+        core::down_cast<ViewpointModule>(camera_component)->view_camera_->remember_prev_pos();
 }
 
 } // namespace objects

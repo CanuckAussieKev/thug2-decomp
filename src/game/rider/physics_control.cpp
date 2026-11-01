@@ -25,6 +25,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -70,24 +71,24 @@ void core_returning(skater::SkaterPhysicsModule* core, bool on_ground, const Foo
     core->resume_skating(on_ground, grind_from, acid_drop);
 }
 void set_walking(RiderPoseState* state, bool walking) { state->set_physics_mode(walking ? 1 : 0); }
-void walk_starting(ObjectModule* walk, bool from_ground) { static_cast<FootMovement*>(walk)->get_begin(from_ground); }
-void walk_leaving(ObjectModule* walk) { static_cast<FootMovement*>(walk)->clear_model_offset(); }
+void walk_starting(ObjectModule* walk, bool from_ground) { core::down_cast<FootMovement>(walk)->get_begin(from_ground); }
+void walk_leaving(ObjectModule* walk) { core::down_cast<FootMovement>(walk)->clear_model_offset(); }
 // The skater camera's 0x004FA420 (save) / 0x004F9A40 (set), the walk camera's 0x00525060 (save) / 0x00524FF0 (restore).
 void skater_camera_save(ObjectModule* camera, void* state)
 {
-    static_cast<RiderChaseView*>(camera)->save_state(static_cast<WalkCameraState*>(state));
+    core::down_cast<RiderChaseView>(camera)->save_state(static_cast<WalkCameraState*>(state));
 }
 void skater_camera_set(ObjectModule* camera, void* state)
 {
-    static_cast<RiderChaseView*>(camera)->change_phase(static_cast<const WalkCameraState*>(state));
+    core::down_cast<RiderChaseView>(camera)->change_phase(static_cast<const WalkCameraState*>(state));
 }
 void walk_camera_save(ObjectModule* camera, void* state)
 {
-    static_cast<FootView*>(camera)->save_state(static_cast<WalkCameraState*>(state));
+    core::down_cast<FootView>(camera)->save_state(static_cast<WalkCameraState*>(state));
 }
 void walk_camera_restore(ObjectModule* camera, void* state)
 {
-    static_cast<FootView*>(camera)->restore_state(static_cast<const WalkCameraState*>(state));
+    core::down_cast<FootView>(camera)->restore_state(static_cast<const WalkCameraState*>(state));
 }
 
 } // namespace
@@ -114,8 +115,8 @@ void RiderBoardPhysics::configure_from_data(script::Struct* /*params*/) { is_hal
 // 0x00517770
 void RiderBoardPhysics::seal()
 {
-    core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+    pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
     pose_->physics_mode_ = -1;
 }
 
@@ -147,8 +148,8 @@ void RiderBoardPhysics::dismount_to_walk()
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
-    auto* walk = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
-    auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
+    auto* walk = core::down_cast<FootMovement>(entity_->fetch_module(kWalk));
+    auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
     const int skater_state = core_physics_->state_->cur_phase_;
@@ -176,8 +177,8 @@ void RiderBoardPhysics::remount_board()
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
-    auto* walk = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
-    auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
+    auto* walk = core::down_cast<FootMovement>(entity_->fetch_module(kWalk));
+    auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
     walk_leaving(walk);

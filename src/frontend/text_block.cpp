@@ -20,6 +20,7 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -83,7 +84,7 @@ void delete_blur(SmearEffect* blur)
     }
 }
 
-LabelWidget* as_text(UiWidget* e) { return static_cast<LabelWidget*>(e); }
+LabelWidget* as_text(UiWidget* e) { return core::down_cast<LabelWidget>(e); }
 
 } // namespace
 

@@ -28,6 +28,7 @@
 #include "platform/crt.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -121,8 +122,8 @@ void BoneRigModule::configure_from_data(script::Struct* params)
 {
     uint32_t from = 0;
     if (params->read_hash_value(kCopySkeletonFrom, &from, 0)) {
-        auto* other = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(from));
-        auto* other_skeleton = static_cast<BoneRigModule*>(other->fetch_module(kType));
+        auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(from));
+        auto* other_skeleton = core::down_cast<BoneRigModule>(other->fetch_module(kType));
         void* memory = memory::alloc(0x1C);
         bone_rig_ = memory ? raw::bytes(static_cast<gfx::Rig*>(memory)->construct_copy(
                                  raw::as<const gfx::Rig>(other_skeleton->bone_rig_)))
@@ -222,7 +223,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
                                                    float velocity_scale, const maths::Vec4* velocity,
                                                    const maths::Vec4* rotational_velocity, maths::Vec4* offset)
 {
-    auto* skeleton = static_cast<BoneRigModule*>(entity_->fetch_module(kType));
+    auto* skeleton = core::down_cast<BoneRigModule>(entity_->fetch_module(kType));
     maths::Mat4 joint_mat;
     skeleton_bone_matrix(skeleton->bone_rig_, bone, &joint_mat);
     // The object's matrix at its position (the rows' w cleared).

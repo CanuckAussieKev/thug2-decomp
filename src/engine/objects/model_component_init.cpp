@@ -30,6 +30,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -65,7 +66,7 @@ constexpr uint32_t kBoneVolumesOn = 0x74FF5CB4; // (a script global integer: bon
 constexpr uint32_t kBoneVolumeHeap = 0xA432DC41;
 
 // A skeleton component's skeleton (0x005480F0: its +0x18), a skeleton's name (0x004A2BA0: its +0x14) and data (+0x08).
-void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
+void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 uint32_t get_skeleton_name(void* skeleton)
 {
     return *raw::field_at<uint32_t>(static_cast<uint8_t*>(skeleton), 0x14);
@@ -171,8 +172,8 @@ void MeshInstanceModule::tick_frame()
     if (level_object_) {
         // A level object: its sector's model follows.
         GameEntity* object = entity_;
-        auto* source = static_cast<GameEntity*>(find_object(linked_entity_label_));
-        render::RenderModel* model = static_cast<MeshInstanceModule*>(source->fetch_module(kModel))->mesh_instance_;
+        auto* source = core::down_cast<GameEntity>(find_object(linked_entity_label_));
+        render::RenderModel* model = core::down_cast<MeshInstanceModule>(source->fetch_module(kModel))->mesh_instance_;
         ObjectModule* skeleton = object->fetch_module(kSkeleton);
         get_draw_matrix(&matrix);
         model->render(&matrix, false, raw::bytes(skeleton_of(skeleton)));
@@ -186,7 +187,7 @@ void MeshInstanceModule::tick_frame()
     void* skeleton = bone_rig_ ? skeleton_of(bone_rig_) : nullptr;
     bool ready = bone_rig_ != nullptr;
     if (anim_blender_ptr_)
-        ready = static_cast<AnimBlenderComponent*>(anim_blender_ptr_)->model_ready();
+        ready = core::down_cast<AnimBlenderComponent>(anim_blender_ptr_)->model_ready();
     mesh_instance_->render(&matrix, !ready, raw::bytes(skeleton));
 }
 
@@ -307,8 +308,8 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             mesh_instance_->add_asset_geom(name, 0, multicolor != 0, true);
         } else if (params->read_hash_value(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
-            auto* object = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(name));
-            auto* source = static_cast<MeshInstanceModule*>(object->fetch_module(kModel));
+            auto* object = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(name));
+            auto* source = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
             color_value_count_ = source->color_value_count_;
             for (int i = 0; i < color_value_count_; ++i)
                 color_values_[i] = source->color_values_[i];

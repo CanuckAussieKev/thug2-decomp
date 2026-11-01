@@ -24,6 +24,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
 #include "engine/core/ints.h"
+#include "engine/core/down_cast.h"
 
 namespace frontend {
 
@@ -131,7 +132,7 @@ void FloatingTextComponent::seal() { mesh_instance_ = entity_->fetch_module(kMod
 void FloatingTextComponent::tick_frame()
 {
     auto* model =
-        static_cast<render::RenderModel*>(static_cast<objects::MeshInstanceModule*>(mesh_instance_)->mesh_instance_);
+        static_cast<render::RenderModel*>(core::down_cast<objects::MeshInstanceModule>(mesh_instance_)->mesh_instance_);
     if (!model || !(model->flag_bits_ & 2) || (model->flag_bits_ & 4))
         return;
     if (!text_[0])

@@ -27,6 +27,7 @@
 #include "game/park_editing/park_editor.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace skater {
 
@@ -326,7 +327,7 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
     uint32_t dir = 0; // (left as it was on the stack without one, in the original)
     params->read_hash_value(kDir, &dir, 1);
     maths::Mat4 m;
-    m = static_cast<objects::GameEntity*>(static_cast<objects::Rider*>(skater_object(this))->get_skater_camera())
+    m = core::down_cast<objects::GameEntity>(core::down_cast<objects::Rider>(skater_object(this))->get_skater_camera())
             ->basis_frame_;
     switch (dir) {
     case kDownRight:
@@ -373,7 +374,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     objects::ObjectModule* motion = object->fetch_module(kMotion);
     const bool moved = motion->invoke_method_by_name(kObjMoveToNode, params, script) != 0;
     display_matrix_ = entity_->basis_frame_;
-    auto* shadow = static_cast<objects::GroundShadowModule*>(skater_object(this)->fetch_module(kShadow));
+    auto* shadow = core::down_cast<objects::GroundShadowModule>(skater_object(this)->fetch_module(kShadow));
     shadow->change_place(&entity_->at_point_);
     shadow->set_normal(&entity_->basis_frame_.row[1]);
     safe_pos_ = entity_->at_point_;
@@ -381,7 +382,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     skater_object(this)->mark_jumped_ahead(true);
     if (entity_->is_local_skater_) {
         // (the skater's camera follows at once)
-        void* camera = static_cast<objects::Rider*>(object_of(this))->get_skater_camera();
+        void* camera = core::down_cast<objects::Rider>(object_of(this))->get_skater_camera();
         if (camera)
             static_cast<objects::GameEntity*>(camera)->tick_frame();
     }
@@ -389,8 +390,8 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         floor_feeler_.hit_.face_flag40_ = 0;
         entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
         physics::change_phase(this, 0);
-        set_timed_flag(this, PoseFlag::kFlipped, !static_cast<objects::Rider*>(entity_)->goofy_);
-        static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
+        set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy_);
+        core::down_cast<objects::RiderSpinAndFlip>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
             ->apply_flip_to_anims();
     } else if (params->has_bare_flag(kOrient)) {
         // The horizontal speed kept, along the new facing.
@@ -529,7 +530,7 @@ void SkaterPhysicsModule::check_side_feelers()
 // 0x005054A0
 bool SkaterPhysicsModule::apply_model_rotations()
 {
-    auto* model = static_cast<objects::MeshInstanceModule*>(skater_object(this)->fetch_module(0x286A8D26)); // (Model)
+    auto* model = core::down_cast<objects::MeshInstanceModule>(skater_object(this)->fetch_module(0x286A8D26)); // (Model)
     if (!model->twist_rate_[0].active_ && !model->twist_rate_[1].active_ && !model->twist_rate_[2].active_)
         return false;
     objects::GameEntity* object = object_of(this);

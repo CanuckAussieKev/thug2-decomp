@@ -22,6 +22,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/entity_hub.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -192,7 +193,7 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
         return false;
     // The middle of its box in the box's frame.
     maths::Vec4 point = object->at_point_;
-    auto* query = static_cast<CbBoxComponent*>(object->fetch_module(kType));
+    auto* query = core::down_cast<CbBoxComponent>(object->fetch_module(kType));
     point.y = static_cast<float>((static_cast<double>(query->box_max_.y) - query->box_min_.y) * kHalf + point.y);
     point.x = point.x - self.x;
     point.y = point.y - self.y;
@@ -244,9 +245,9 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
         return false;
     }
     ObjectSearch search;
-    for (auto* object = static_cast<GameEntity*>(
+    for (auto* object = core::down_cast<GameEntity>(
              search.first_item_of_type(manager_object_list(entity_->park_owner_), object_type));
-         object; object = static_cast<GameEntity*>(search.next_item_of_type())) {
+         object; object = core::down_cast<GameEntity>(search.next_item_of_type())) {
         if (object == entity_)
             continue;
         if (rect) {

@@ -25,6 +25,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -65,11 +66,11 @@ RiderPhysicsTweaks::~RiderPhysicsTweaks() = default;
 // 0x004F8080
 void RiderPhysicsTweaks::seal()
 {
-    core_ptr_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    mesh_instance_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
+    core_ptr_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+    mesh_instance_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel));
     shadow_handle_ = raw::as<GroundShadowModule>(entity_->fetch_module(kShadow));
-    ride_ = static_cast<MovingSurfaceModule*>(entity_->fetch_module(kMovableContact));
-    state_ref_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    ride_ = core::down_cast<MovingSurfaceModule>(entity_->fetch_module(kMovableContact));
+    state_ref_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
 }
 
 // 0x004F8C40

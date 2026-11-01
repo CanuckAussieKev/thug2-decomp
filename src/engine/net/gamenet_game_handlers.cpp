@@ -37,6 +37,7 @@
 #include "engine/net/stats_man.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/down_cast.h"
 
 namespace online {
 
@@ -525,7 +526,7 @@ int handle_eliminated(net::InboundMsgCtx* context)
         return kContinue;
     auto* skate = get_skate();
     player->mark_eliminated();
-    static_cast<modules::Skate*>(skate)->conceal_skater(static_cast<objects::Rider*>(player_skater(player)), true);
+    static_cast<modules::Skate*>(skate)->conceal_skater(core::down_cast<objects::Rider>(player_skater(player)), true);
     if (is_own_player(player)) {
         get_run(kEliminatedYou);
         return kContinue;

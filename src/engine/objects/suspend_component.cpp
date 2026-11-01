@@ -27,6 +27,7 @@
 #include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace objects {
 
@@ -66,7 +67,7 @@ void set_no_lod(float* distances)
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 uint8_t* model_of(ObjectModule* component)
 {
-    return raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
+    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_);
 }
 void change_model_enabled(uint8_t* model, bool active)
 {
@@ -198,7 +199,7 @@ void DormancyModule::refresh_shown_state()
             visible = true;
         } else if (modules::g_viewport_count > 1) {
             visible = true;
-        } else if (static_cast<MeshInstanceModule*>(mesh_instance_)->level_object_) {
+        } else if (core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object_) {
             visible = true;
         } else {
             const double lod = lod_distances_[1];
@@ -261,7 +262,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
     // The camera the distances are measured from: the skate module's (a flag that turns the checks off, then the
     // position).
     const modules::Skate* camera = modules::g_skate_module;
-    auto* component = static_cast<DormancyModule*>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
+    auto* component = core::down_cast<DormancyModule>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
         component->distance_squared_ = 0.0f;
         component->far_ = false;
@@ -298,7 +299,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
                 component->refresh_shown_state();
             }
         }
-        component = static_cast<DormancyModule*>(component->next_of_type_);
+        component = core::down_cast<DormancyModule>(component->next_of_type_);
     }
 }
 

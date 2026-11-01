@@ -59,6 +59,7 @@
 #include "wire/play_messages.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/down_cast.h"
 
 namespace modules {
 
@@ -175,7 +176,7 @@ void delete_structure(Struct* structure)
 // A skater's state history (+0x27C) and its newest state / message.
 objects::RiderFrameLog* get_history(const objects::Entity* object)
 {
-    return static_cast<const objects::Rider*>(object)->state_history_;
+    return core::down_cast<const objects::Rider>(object)->state_history_;
 }
 int& message_count(objects::RiderFrameLog* history) { return history->message_count_; }
 // The newest message slot made a message of `id`, stamped with the newest state's time.
@@ -485,7 +486,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         return 4;
     if (skater_of(collector)) {
         auto* component = skater_of(collector)->fetch_module(kSkaterScore);
-        PointTally* score = static_cast<objects::RiderPointKeeper*>(component)->points_held_;
+        PointTally* score = core::down_cast<objects::RiderPointKeeper>(component)->points_held_;
         if (score)
             score->set_grand_total(score->get_total_score() + 1);
         int total = 0;
@@ -714,7 +715,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     static_cast<gfx::FaceSkin*>(texture)->read_from(data, static_cast<int>(size));
     static_cast<gfx::FaceSkin*>(texture)->mark_usable(true);
     auto* model = skater->fetch_module(kModel);
-    static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_->replace_face_texture(texture,
+    core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->replace_face_texture(texture,
                                                                                            "CS_NSN_facemap.png", kAll);
     if (net->get_on_server()) {
         // the server keeps the face and streams it to the others
@@ -761,7 +762,7 @@ int SkateNet::handle_history_value(net::InboundMsgCtx* context)
         static_cast<Skate*>(context->content_)->get_rider_by_number(static_cast<uint32_t>(message.skater_id));
     if (!skater)
         return 4;
-    auto* history = static_cast<objects::RiderFrameLog*>(skater->fetch_module(objects::RiderFrameLog::kType));
+    auto* history = core::down_cast<objects::RiderFrameLog>(skater->fetch_module(objects::RiderFrameLog::kType));
     history->vehicle_control_type_ = message.control_type;
     return 1;
 }
@@ -1048,7 +1049,7 @@ int SkateNet::handle_place_tag(net::InboundMsgCtx* context)
     PlayerRecord* player = by_object_id(message.object_id);
     if (!player)
         return 4;
-    auto* tagging = static_cast<objects::TaggingComponent*>(skater_of(player)->fetch_module(kTagging));
+    auto* tagging = core::down_cast<objects::TaggingComponent>(skater_of(player)->fetch_module(kTagging));
     if (!tagging)
         return 4;
     const maths::Vec4 start = {message.start[0], message.start[1], message.start[2], message.start[3]};
@@ -1064,7 +1065,7 @@ int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
     const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
-    auto* object = static_cast<objects::Rider*>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
+    auto* object = core::down_cast<objects::Rider>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
     if (!object)
         return 1;
     if (context->type_code_ == 0x37)
@@ -1216,8 +1217,8 @@ int SkateNet::handle_skater_channel(net::InboundMsgCtx* context)
     objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id));
     if (!object)
         return 1;
-    auto* blender = static_cast<objects::AnimBlenderComponent*>(
-        static_cast<objects::GameEntity*>(object)->fetch_module(kAnimBlender));
+    auto* blender = core::down_cast<objects::AnimBlenderComponent>(
+        core::down_cast<objects::GameEntity>(object)->fetch_module(kAnimBlender));
     if (!blender)
         return 1;
     gfx::BlendChannel* channel = blender->find_channel(0);
@@ -1256,7 +1257,7 @@ void Skate::leave_server()
         net::NetMessageInfo desc;
         desc.ident_ = 0xB;
         get_sequence(desc, 8);
-        static_cast<net::Guest*>(client)->send_to_host(&desc);
+        core::down_cast<net::Guest>(client)->send_to_host(&desc);
         client->transmit(false);
     }
     net->remove_players_and_apps();
