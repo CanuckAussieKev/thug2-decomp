@@ -12,7 +12,7 @@
 #include <cstdint>
 
 #include "engine/core/owner.h"
-#include "engine/gfx/anim_format.h"
+#include "formats/anim_format.h"
 #include "engine/gfx/frame_source.h"
 
 namespace maths {

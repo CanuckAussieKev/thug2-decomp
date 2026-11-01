@@ -11,13 +11,13 @@
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/anim_blend.h"
-#include "engine/gfx/anim_format.h"
+#include "formats/anim_format.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/custom_anim_key.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/vec4.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 
 namespace gfx {

@@ -23,7 +23,7 @@ struct InboundMsgCtx;
 namespace objects {
 
 // One of the history's other messages (0x54 bytes, 20 of them at +0xA70; the newest at +0xA6C % 20): the message's
-// id, its time stamp as two halves, then what the message said (engine/net/skater_messages.h; filled by
+// id, its time stamp as two halves, then what the message said (wire/skater_messages.h; filled by
 // SkateNet::handle_skater_messages, played by RiderRemoteSync::play_history_events). Each kind uses its own fields.
 struct StateHistoryMessage {
     uint8_t ident_;      // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)

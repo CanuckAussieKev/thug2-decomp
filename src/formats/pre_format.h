@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the .pre / .prx archive format and its localised patches, read through util::ByteReader.
 //

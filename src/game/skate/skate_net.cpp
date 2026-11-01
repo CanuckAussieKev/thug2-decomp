@@ -40,10 +40,10 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "game/skate/skate_net_messages.h"
-#include "engine/net/gamenet_messages.h"
-#include "engine/net/play_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/skate_net_messages.h"
+#include "wire/gamenet_messages.h"
+#include "wire/play_messages.h"
+#include "formats/byte_stream.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/movie_manager.h"
@@ -393,7 +393,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     default:
         return 1;
     }
-    // Objects left (engine/net/play_messages.h): [0] the player (or the team), [1] how many.
+    // Objects left (wire/play_messages.h): [0] the player (or the team), [1] how many.
     util::ByteReader reader(context->body_, context->body_size_);
     int8_t data[2];
     data[0] = reader.i8();
@@ -655,7 +655,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     online::Hub* net = net_session_slot();
     net->set_entry_phase(8);
     net->empty_server_listing();
-    // (the message: engine/net/gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the
+    // (the message: wire/gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the
     // original read on past it)
     util::ByteReader reader(context->body_, context->body_size_);
     online::SessionBrief brief;
@@ -757,7 +757,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
 // 0x0056E380
 int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
 {
-    // (the message: engine/net/play_messages.h; NOT ORIGINAL: one too short for its header is dropped, and its
+    // (the message: wire/play_messages.h; NOT ORIGINAL: one too short for its header is dropped, and its
     // parameters are read no further than its end)
     util::ByteReader reader(context->body_, context->body_size_);
     online::RunScript message;

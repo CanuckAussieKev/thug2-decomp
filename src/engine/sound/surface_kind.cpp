@@ -17,8 +17,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/startup_init.h"
-#include "engine/util/byte_stream.h"
-#include "engine/net/play_messages.h"
+#include "formats/byte_stream.h"
+#include "wire/play_messages.h"
 #include "engine/core/ints.h"
 
 namespace surface_kind {
@@ -359,7 +359,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     if (propagate) {
         net::NetMessageInfo desc;
         auto* client = static_cast<net::Guest*>(static_cast<online::Hub*>(net)->fetch_patron(0));
-        // (the message a propagated terrain sound sends: engine/net/play_messages.h)
+        // (the message a propagated terrain sound sends: wire/play_messages.h)
         online::TerrainSound message;
         message.table = table;
         message.terrain = terrain;

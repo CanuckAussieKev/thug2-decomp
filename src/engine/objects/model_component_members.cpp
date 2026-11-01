@@ -18,8 +18,8 @@
 #include "engine/core/checksums.h"
 #include "engine/objects/control_pad.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/net/skater_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/skater_messages.h"
+#include "formats/byte_stream.h"
 
 namespace objects {
 

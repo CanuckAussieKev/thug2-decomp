@@ -17,7 +17,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "game/park_editing/rail_buffer_format.h"
+#include "formats/rail_buffer_format.h"
 #include "engine/core/owner.h"
 
 namespace script {
@@ -131,7 +131,7 @@ static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail,
                   sizeof(EditedRail) == 0x10,
               "layout must match the original");
 
-// The rails packed for the park file and network messages: RailBuffer (game/park_editing/rail_buffer_format.h).
+// The rails packed for the park file and network messages: RailBuffer (formats/rail_buffer_format.h).
 
 // The rail editor's geometry (rail_editor_draw.cpp).
 // 0x004F3E00: a copy of the source sector `source` made in the park (counts dirty, collision rebuilt); its sector.

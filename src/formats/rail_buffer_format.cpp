@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the packed rails' reader: see rail_buffer_format.h.
 
-#include "game/park_editing/rail_buffer_format.h"
+#include "formats/rail_buffer_format.h"
 
 #include <cstring>
 #include <utility>

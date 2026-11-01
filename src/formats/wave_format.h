@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the sound effects' files ("data\sounds\...\x.snd": RIFF / WAVE, IMA ADPCM samples), read through
 // util::ByteReader.

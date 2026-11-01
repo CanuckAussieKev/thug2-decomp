@@ -12,7 +12,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_module.h"
-#include "engine/util/lzss.h"
+#include "formats/lzss.h"
 #include "engine/core/owner.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag

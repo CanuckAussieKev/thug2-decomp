@@ -31,8 +31,8 @@
 #include "engine/core/code_address.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/trick_component.h"
-#include "engine/net/gamenet_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/gamenet_messages.h"
+#include "formats/byte_stream.h"
 
 namespace goals {
 
@@ -186,7 +186,7 @@ bool GoalManager::complete_objective(uint32_t id)
         if (goal->sub_nodes_->objective_key_ == 0 && net->in_net_game()) {
             net::NetMessageInfo desc;
             net::AppHost* client = net->fetch_patron(0);
-            // The message (engine/net/gamenet_messages.h): the game's id and the chain's first goal (the id's three
+            // The message (wire/gamenet_messages.h): the game's id and the chain's first goal (the id's three
             // padding bytes, as the original's stack had them - the network manager's address -, zeros here).
             online::GoalMessage message;
             message.id = net->get_game_id();

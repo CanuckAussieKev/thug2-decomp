@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the streamed sounds' index ("data\streams\pcm\pcm.dat", of pcm.wad's Bink streams), read through
 // util::ByteReader.

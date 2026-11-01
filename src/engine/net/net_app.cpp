@@ -20,8 +20,8 @@
 #include "engine/net/net_manager.h"
 #include "engine/net/net_metrics.h"
 #include "engine/net/net_messages.h"
-#include "engine/net/net_wire.h"
-#include "engine/util/byte_stream.h"
+#include "wire/net_wire.h"
+#include "formats/byte_stream.h"
 #include "platform/stopwatch.h"
 #include "engine/core/owner.h"
 

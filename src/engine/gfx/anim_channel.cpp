@@ -26,8 +26,8 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/player_info.h"
-#include "engine/net/skater_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/skater_messages.h"
+#include "formats/byte_stream.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/movie_manager.h"
@@ -69,7 +69,7 @@ constexpr uint32_t kCycle = 0x4F792E6C, kPingPong = 0x3153E314, kHoldLoop = 0x6D
 constexpr float kStockCrossfade = 0.3f;                                                 // 0x3E99999A
 constexpr float kFixedPoint = 4096.0f;                                                  // 0x00648730
 
-// The network messages a channel sends (engine/net/skater_messages.h).
+// The network messages a channel sends (wire/skater_messages.h).
 using online::kMsgFlip;
 using online::kMsgLoopType;
 using online::kMsgPlayAnim;

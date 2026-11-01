@@ -1,5 +1,5 @@
 // Loading an image (the engine's own format: a 32-byte header, a palette for 8-bit images, the texels swizzled -
-// engine/gfx/image_format.h) into a texture: see bitmap_texture.h.
+// formats/image_format.h) into a texture: see bitmap_texture.h.
 
 #include <windows.h>
 
@@ -15,8 +15,8 @@
 #include "engine/file/file_load.h"
 #include "engine/gfx/hd_ui.h"
 #include "engine/gfx/bitmap_texture.h"
-#include "engine/gfx/image_format.h"
-#include "engine/util/byte_stream.h"
+#include "formats/image_format.h"
+#include "formats/byte_stream.h"
 #include "platform/platform_d3d.h"
 #include "platform/platform_system.h"
 #include "engine/gfx/device.h"

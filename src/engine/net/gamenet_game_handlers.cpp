@@ -35,8 +35,8 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
-#include "engine/net/gamenet_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/gamenet_messages.h"
+#include "formats/byte_stream.h"
 
 namespace online {
 

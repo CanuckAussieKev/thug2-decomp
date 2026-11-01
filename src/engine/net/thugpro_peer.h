@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/net/gamenet_messages.h"
+#include "wire/gamenet_messages.h"
 
 // NOT ORIGINAL - the THUGPRO peer mode: playing network games with THUGPRO players (THUG2 PC plus Morten1337's
 // thugpro.dll and scripts). THUGPRO keeps THUG2's protocol and adds to it (docs/thugpro-online.md section 3); in

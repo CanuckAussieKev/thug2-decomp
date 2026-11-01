@@ -159,6 +159,48 @@ foreach(font IN LISTS THUG2_EDITOR_FONTS)
 endforeach()
 add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 
+# --- The boundary layer (docs/architecture.md "Layers") ----------------------------------------------------------
+# The places where bytes come from outside: files on disk (formats), network messages (wire). Each is a static library
+# that depends only on the standard library and engine/core's leaf headers (ints.h, checksums.h); the game sees their
+# typed APIs. (GPU vertex data: src/gpu, part of the game target - it needs the Direct3D device; the platform APIs:
+# src/platform.)
+add_library(thug2_options INTERFACE)
+target_compile_features(thug2_options INTERFACE cxx_std_20)
+target_compile_definitions(thug2_options INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(thug2_options INTERFACE src)
+# /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md)
+target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
+
+# The file formats: readers and writers of the game's data files, saves and custom parks (round-trip checked by
+# thug2_format_check).
+add_library(thug2_formats STATIC
+    src/engine/core/checksums.cpp
+    src/formats/anim_format.cpp
+    src/formats/bundle_format.cpp
+    src/formats/collision_format.cpp
+    src/formats/font_format.cpp
+    src/formats/image_format.cpp
+    src/formats/lzss_unpack.cpp
+    src/formats/park_map_format.cpp
+    src/formats/pre_format.cpp
+    src/formats/rail_buffer_format.cpp
+    src/formats/save_file_format.cpp
+    src/formats/skeleton_format.cpp
+    src/formats/texture_format.cpp
+    src/formats/wave_format.cpp
+)
+target_link_libraries(thug2_formats PUBLIC thug2_options)
+
+# The network messages: the packet framing and every game message, byte-compatible with the original's peers.
+add_library(thug2_wire STATIC
+    src/wire/gamenet_messages.cpp
+    src/wire/net_wire.cpp
+    src/wire/play_messages.cpp
+    src/wire/skate_net_messages.cpp
+    src/wire/skater_messages.cpp
+)
+target_link_libraries(thug2_wire PUBLIC thug2_formats)
+
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
 # (its Data folder, binkw32.dll): README.md "Building and running".
@@ -170,8 +212,8 @@ add_executable(thug2 WIN32
     src/engine/assets/asset_types.cpp
     src/engine/assets/resource_registry.cpp
     src/engine/core/arena_alloc.cpp
-    src/engine/core/checksums.cpp
     src/engine/core/dbg.cpp
+    src/engine/util/lzss.cpp
     src/engine/core/dump_text.cpp
     src/engine/core/arena.cpp
     src/engine/core/manager.cpp
@@ -190,8 +232,6 @@ add_executable(thug2 WIN32
     src/game/park_editing/park_floor.cpp
     src/game/park_editing/park_manager.cpp
     src/game/park_editing/park_map.cpp
-    src/game/park_editing/park_map_format.cpp
-    src/game/park_editing/rail_buffer_format.cpp
     src/game/park_editing/park_rails.cpp
     src/game/park_editing/rail_editor.cpp
     src/game/park_editing/rail_editor_draw.cpp
@@ -349,7 +389,6 @@ add_executable(thug2 WIN32
     src/game/skate/trick_goals.cpp
     src/game/skate/skate_net.cpp
     src/game/skate/skate_net_relay.cpp
-    src/game/skate/skate_net_messages.cpp
     src/game/skate/skate_module.cpp
     src/engine/sys/model_viewer.cpp
     src/engine/sys/viewer_object.cpp
@@ -590,10 +629,6 @@ add_executable(thug2 WIN32
     src/engine/net/net_client.cpp
     src/engine/net/net_server.cpp
     src/engine/net/net_app.cpp
-    src/engine/net/net_wire.cpp
-    src/engine/net/gamenet_messages.cpp
-    src/engine/net/skater_messages.cpp
-    src/engine/net/play_messages.cpp
     src/engine/net/net_app_view.cpp
     src/engine/net/net_latency.cpp
     src/engine/net/net_lists.cpp
@@ -776,7 +811,6 @@ add_executable(thug2 WIN32
     src/game/save_cards/memcard.cpp
     src/game/save_cards/memcard_cfuncs.cpp
     src/game/save_cards/save_types.cpp
-    src/game/save_cards/save_file_format.cpp
     src/game/save_cards/save_files_cfuncs.cpp
     src/game/save_cards/save_contents.cpp
     src/engine/gfx/texture_cfuncs.cpp
@@ -844,17 +878,6 @@ add_executable(thug2 WIN32
     src/engine/maths/rotation_blend.cpp
     src/engine/maths/vec4.cpp
     src/engine/util/bitstream.cpp
-    src/engine/util/lzss.cpp
-    src/engine/util/lzss_unpack.cpp
-    src/engine/file/pre_format.cpp
-    src/engine/file/bundle_format.cpp
-    src/engine/gfx/texture_format.cpp
-    src/engine/gfx/image_format.cpp
-    src/engine/render/collision_format.cpp
-    src/engine/gfx/skeleton_format.cpp
-    src/engine/gfx/anim_format.cpp
-    src/engine/gfx/font_format.cpp
-    src/engine/sound/wave_format.cpp
     src/engine/util/bps.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
@@ -864,7 +887,7 @@ target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY
 # (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them; the generated build_info.h)
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats sdl2 ws2_32 dsound ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
 target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /we4150)
@@ -880,27 +903,9 @@ add_custom_command(TARGET thug2 POST_BUILD
 # (src/tests/format_check.cpp; give it save files or folders: `thug2_format_check <game>/Save`).
 add_executable(thug2_format_check
     src/tests/format_check.cpp
-    src/engine/core/checksums.cpp
-    src/game/save_cards/save_file_format.cpp
-    src/engine/net/net_wire.cpp
-    src/game/skate/skate_net_messages.cpp
-    src/game/park_editing/park_map_format.cpp
-    src/game/park_editing/rail_buffer_format.cpp
-    src/engine/net/gamenet_messages.cpp
-    src/engine/net/skater_messages.cpp
-    src/engine/net/play_messages.cpp
     src/tests/format_check_net.cpp
-    src/tests/format_check_files.cpp
-    src/engine/file/pre_format.cpp
-    src/engine/file/bundle_format.cpp
-    src/engine/gfx/texture_format.cpp
-    src/engine/gfx/image_format.cpp
-    src/engine/render/collision_format.cpp
-    src/engine/gfx/skeleton_format.cpp
-    src/engine/gfx/anim_format.cpp
-    src/engine/gfx/font_format.cpp
-    src/engine/sound/wave_format.cpp
-    src/engine/util/lzss_unpack.cpp)
+    src/tests/format_check_files.cpp)
+target_link_libraries(thug2_format_check PRIVATE thug2_wire thug2_formats)
 target_include_directories(thug2_format_check PRIVATE src)
 target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 

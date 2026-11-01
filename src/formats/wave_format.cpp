@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the sound effects' file reader: see wave_format.h.
 
-#include "engine/sound/wave_format.h"
+#include "formats/wave_format.h"
 
 namespace wave_format {
 

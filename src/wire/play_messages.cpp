@@ -1,8 +1,8 @@
 // NOT ORIGINAL - the network game's other messages' readers and writers. See play_messages.h.
 
-#include "engine/net/play_messages.h"
+#include "wire/play_messages.h"
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace online {
 

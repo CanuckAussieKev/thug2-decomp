@@ -1,8 +1,8 @@
 // NOT ORIGINAL - the skater's animation / model messages' readers and writers. See skater_messages.h.
 
-#include "engine/net/skater_messages.h"
+#include "wire/skater_messages.h"
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace online {
 

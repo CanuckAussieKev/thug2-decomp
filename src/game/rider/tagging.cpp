@@ -39,8 +39,8 @@
 #include "game/skate/point_tally.h"
 #include "game/rider/rider.h"
 #include "game/rider/skater_score.h"
-#include "engine/util/byte_stream.h"
-#include "engine/net/play_messages.h"
+#include "formats/byte_stream.h"
+#include "wire/play_messages.h"
 
 namespace objects {
 

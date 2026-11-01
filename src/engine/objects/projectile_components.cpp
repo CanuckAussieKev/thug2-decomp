@@ -32,8 +32,8 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
-#include "engine/net/play_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/play_messages.h"
+#include "formats/byte_stream.h"
 
 namespace objects {
 
@@ -65,7 +65,7 @@ constexpr uint32_t kHitPedScript = 0x186E040D; // hit_ped_script
 constexpr float kReach = 48.0f;    // 0x006461CC: added to the radius
 constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its position
 
-// The network message a hit sends (0x84 to the hit skater's player, 0x85 to the owner's: engine/net/play_messages.h).
+// The network message a hit sends (0x84 to the hit skater's player, 0x85 to the owner's: wire/play_messages.h).
 using online::kMsgHit;
 using online::kMsgHitOwner;
 

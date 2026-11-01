@@ -1,10 +1,10 @@
 // NOT ORIGINAL - the network manager's session messages' readers and writers. See gamenet_messages.h.
 
-#include "engine/net/gamenet_messages.h"
+#include "wire/gamenet_messages.h"
 
 #include <cstring>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace online {
 

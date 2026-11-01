@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the collision file format (.col, PC: "x.col.xbx": a level's or a skinned model's collision), its
 // header read through util::ByteReader, its sections laid out and checked before the game fixes it up in place.

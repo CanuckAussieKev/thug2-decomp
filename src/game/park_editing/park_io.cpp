@@ -3,8 +3,8 @@
 
 #include "game/park_editing/park.h"
 #include "engine/core/str.h"
-#include "game/park_editing/park_map_format.h"
-#include "engine/util/byte_stream.h"
+#include "formats/park_map_format.h"
+#include "formats/byte_stream.h"
 
 #include <cstddef>
 #include <cstdint>

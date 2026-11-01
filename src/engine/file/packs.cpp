@@ -11,12 +11,12 @@
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
-#include "engine/file/pre_format.h"
+#include "formats/pre_format.h"
 #include "frontend/data_overlay.h"
 #include "engine/script/params.h"
 #include "engine/sys/game_config.h"
-#include "engine/util/byte_stream.h"
-#include "engine/util/lzss.h"
+#include "formats/byte_stream.h"
+#include "formats/lzss.h"
 #include "engine/gfx/loading_console.h"
 
 namespace packs {
@@ -56,7 +56,7 @@ PackLeadIn* header_of(char* pre) { return reinterpret_cast<PackLeadIn*>(pre + ((
 PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(header + 1); }
 
 // (Loaded archives are repacked with 16-byte aligned data - see next_entry; the archive format as stored is read
-// through engine/file/pre_format.h.)
+// through formats/pre_format.h.)
 PreEntry* next_entry(PreEntry* entry)
 {
     auto stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);

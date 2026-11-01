@@ -56,8 +56,8 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
-#include "engine/net/gamenet_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/gamenet_messages.h"
+#include "formats/byte_stream.h"
 
 namespace online {
 

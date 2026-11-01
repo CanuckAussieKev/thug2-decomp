@@ -22,8 +22,8 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/trick_goals.h"
-#include "engine/net/gamenet_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/gamenet_messages.h"
+#include "formats/byte_stream.h"
 
 namespace goals {
 
@@ -313,7 +313,7 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     net::AppHost* client = net->fetch_patron(0);
     net::NetMessageInfo desc;
     net->get_own_player();
-    online::GoalMessage message; // (engine/net/gamenet_messages.h)
+    online::GoalMessage message; // (wire/gamenet_messages.h)
     message.id = net->get_game_id();
     message.goal = goal->get_objective_key();
     uint8_t bytes[online::kGoalMessageSize];

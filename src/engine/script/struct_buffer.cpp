@@ -10,7 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "engine/core/ints.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag

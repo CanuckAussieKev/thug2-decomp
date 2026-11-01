@@ -17,8 +17,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
-#include "engine/util/byte_stream.h"
-#include "engine/net/play_messages.h"
+#include "formats/byte_stream.h"
+#include "wire/play_messages.h"
 
 namespace commands {
 
@@ -46,7 +46,7 @@ constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
 constexpr uint8_t kMsgObjectPickedUp = 0x90; // ReportObjectPickup: the object's id
 constexpr uint8_t kMsgNeedToPlaceObjects = 0x91;
 constexpr uint8_t kMsgHuntStarted = 0x93;
-// (their formats: engine/net/play_messages.h)
+// (their formats: wire/play_messages.h)
 using online::kMsgBoardVehicle; // BroadcastEnterVehicle: the skater and the control type
 constexpr uint8_t kMsgObjectPlacements = online::kMsgHuntPlacements; // a player's placed objects (from the server) /
                                                                      // one placed (to it)

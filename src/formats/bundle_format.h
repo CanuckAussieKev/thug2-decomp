@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the asset bundle format (the cutscenes' .cut files, file::AssetBundle), read through
 // util::ByteReader.

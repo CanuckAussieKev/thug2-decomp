@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the animation format (.ska, PC: "x.ska.xbx"; also cutscenes' camera / object animations), its
 // headers and custom keys read through util::ByteReader and its sections laid out and checked before the frame data

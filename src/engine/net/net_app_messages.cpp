@@ -13,8 +13,8 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_compress.h"
 #include "engine/net/net_lzham.h"
-#include "engine/net/net_wire.h"
-#include "engine/util/byte_stream.h"
+#include "wire/net_wire.h"
+#include "formats/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "engine/core/ints.h"
 

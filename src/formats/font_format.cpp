@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the bitmap font format's readers: see font_format.h.
 
-#include "engine/gfx/font_format.h"
+#include "formats/font_format.h"
 
 namespace font_format {
 

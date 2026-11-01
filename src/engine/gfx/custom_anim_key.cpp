@@ -7,7 +7,7 @@
 #include "engine/gfx/custom_anim_key.h"
 
 #include "engine/core/mem.h"
-#include "engine/gfx/anim_format.h"
+#include "formats/anim_format.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/cutscene.h"

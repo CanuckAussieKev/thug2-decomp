@@ -23,7 +23,7 @@
 #include "engine/gfx/pixel_shaders.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/scene_file_stream.h"
-#include "engine/gfx/scene_format.h"
+#include "formats/scene_format.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"

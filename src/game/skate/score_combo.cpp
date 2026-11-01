@@ -17,8 +17,8 @@
 #include "game/goals/goal_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "engine/net/skater_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/skater_messages.h"
+#include "formats/byte_stream.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/script/cscript.h"
 #include "game/skate/profile_manager.h"
@@ -87,7 +87,7 @@ bool points_held(objects::Rider* skater)
 void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int points)
 {
     net::NetMessageInfo desc;
-    // (the message both send: engine/net/skater_messages.h)
+    // (the message both send: wire/skater_messages.h)
     online::PointsMessage message;
     message.points = points;
     message.game_id = net->get_game_id();

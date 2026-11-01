@@ -33,7 +33,7 @@ public:
 
     // `block` is the whole archive as loaded, `size` bytes (the ArchiveFile owns it from now on; 0: not known -
     // the archive's own size word is the bound). `bottom_up` picks the heap that file information and
-    // decompressed files are allocated from. The files are read through engine/file/pre_format.h: a damaged
+    // decompressed files are allocated from. The files are read through formats/pre_format.h: a damaged
     // archive keeps the files before the damage.
     ArchiveFile(uint8_t* block, size_t size, bool bottom_up);
     // Frees the block and all file information.

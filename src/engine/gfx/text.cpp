@@ -18,7 +18,7 @@
 #include "engine/file/file_load.h"
 #include "engine/gfx/draw2d.h"
 #include "engine/gfx/font.h"
-#include "engine/gfx/font_format.h"
+#include "formats/font_format.h"
 #include "engine/gfx/glyphs.h"
 #include "engine/gfx/hd_ui.h"
 #include "engine/gfx/draw_frame.h"
@@ -455,7 +455,7 @@ void GlyphRun::close_sketch()
     get_texture_font() = nullptr;
 }
 
-// 0x004CF0F0. The file's format: engine/gfx/font_format.h (a header, the glyphs' character map entries, the page's
+// 0x004CF0F0. The file's format: formats/font_format.h (a header, the glyphs' character map entries, the page's
 // header, its texels and palette, the glyphs' rectangles).
 TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 {

@@ -11,8 +11,8 @@
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
-#include "engine/audio/stream_index_format.h"
-#include "engine/util/byte_stream.h"
+#include "formats/stream_index_format.h"
+#include "formats/byte_stream.h"
 #include "engine/audio/stream_commands.h"
 #include "engine/sys/startup_init.h"
 

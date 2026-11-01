@@ -5,7 +5,7 @@
 #include <cstring>
 #include <vector>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the PC scene format (scenes "x.scn.xbx", models "x.mdl.xbx", skinned models "x.skin.xbx", the same
 // records) and the skin's strip breaks ("x.cas.xbx"), read record by record into plain structs.

@@ -12,7 +12,7 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app_messages.h"
 #include "engine/net/net_guards.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace net {
 

@@ -6,8 +6,8 @@
 #include <cstring>
 #include <unordered_set>
 
-#include "engine/net/gamenet_messages.h"
-#include "engine/net/skater_messages.h"
+#include "wire/gamenet_messages.h"
+#include "wire/skater_messages.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_net.h"

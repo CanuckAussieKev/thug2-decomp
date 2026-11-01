@@ -22,12 +22,12 @@
 #include <utility>
 
 #include "engine/core/checksums.h"
-#include "engine/net/gamenet_messages.h"
-#include "engine/net/net_wire.h"
-#include "engine/util/byte_stream.h"
-#include "game/park_editing/park_map_format.h"
-#include "game/save_cards/save_file_format.h"
-#include "game/skate/skate_net_messages.h"
+#include "wire/gamenet_messages.h"
+#include "wire/net_wire.h"
+#include "formats/byte_stream.h"
+#include "formats/park_map_format.h"
+#include "formats/save_file_format.h"
+#include "wire/skate_net_messages.h"
 #include "tests/format_check_files.h"
 #include "engine/core/ints.h"
 

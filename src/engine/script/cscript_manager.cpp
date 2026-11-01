@@ -33,8 +33,8 @@
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
-#include "engine/util/byte_stream.h"
-#include "engine/net/play_messages.h"
+#include "formats/byte_stream.h"
+#include "wire/play_messages.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -276,7 +276,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
         return;
     NetMessageInfo desc;
     init_msg_desc(&desc);
-    // (the message: engine/net/play_messages.h)
+    // (the message: wire/play_messages.h)
     online::RunScript message;
     message.name = name;
     message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;
@@ -301,7 +301,7 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
         return;
     NetMessageInfo desc;
     init_msg_desc(&desc);
-    // (the message: engine/net/play_messages.h; the original leaves the last 3 bytes as they were on its stack)
+    // (the message: wire/play_messages.h; the original leaves the last 3 bytes as they were on its stack)
     online::SpawnScript message;
     message.name = name;
     message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;

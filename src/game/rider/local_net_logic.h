@@ -41,7 +41,7 @@ public:
     // send_update.
     void tick_frame() override;
     // 0x005136F0 (the client's handler for message 0x4B, registered by 0x0056EB50; not a Ghidra function): someone's
-    // graffiti was stolen - the message (engine/net/skater_messages.h): the game id (the network manager's +0x38; another:
+    // graffiti was stolen - the message (wire/skater_messages.h): the game id (the network manager's +0x38; another:
     // kResultConsumed), the thief's skater id (the player who scored the clusters, as the senders write it), the
     // victim's. The handler's data is the local skater: the thief runs GraffitiStealYou with String0 = the victim's
     // name, the victim GraffitiStealOther with the thief's.

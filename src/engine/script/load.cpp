@@ -17,7 +17,7 @@
 #include "engine/script/precompiled.h"
 #include "engine/script/qb.h"
 #include "engine/util/lzss.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
 

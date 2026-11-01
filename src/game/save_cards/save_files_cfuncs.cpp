@@ -19,7 +19,7 @@
 #include "game/save_cards/memcard.h"
 #include "game/save_cards/memcard_cfuncs.h"
 #include "game/save_cards/save_contents.h"
-#include "game/save_cards/save_file_format.h"
+#include "formats/save_file_format.h"
 #include "game/save_cards/save_types.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/audio/music_player.h"
@@ -29,7 +29,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "engine/core/ints.h"
 
 namespace save_cards {

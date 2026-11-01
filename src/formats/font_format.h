@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the bitmap font format (PC: "fonts/x.fnt.xbx"), read through util::ByteReader.
 //

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the engine's image format (.img, PC: "x.img.xbx"; also the face texture's image in memory and on
 // the wire), read through util::ByteReader.

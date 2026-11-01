@@ -7,7 +7,7 @@
 #include "engine/core/owner.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
-#include "engine/net/gamenet_messages.h"
+#include "wire/gamenet_messages.h"
 
 namespace net {
 struct AppHost;
@@ -51,7 +51,7 @@ struct JoinerRecord;
 
 // --- The join messages (THUG2's) ---
 
-// (the join messages: engine/net/gamenet_messages.h - ConnectInfo, JoinRequestBlock, ProceedInfo)
+// (the join messages: wire/gamenet_messages.h - ConnectInfo, JoinRequestBlock, ProceedInfo)
 
 // Join refused (message 71, 10 bytes): the reason; with kRefusedCdKey, the host's CD-key challenge after it.
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers

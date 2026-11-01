@@ -20,7 +20,7 @@
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
-#include "engine/render/collision_format.h"
+#include "formats/collision_format.h"
 #include "engine/render/coll_capsule.h"
 #include "engine/render/coll_sphere.h"
 #include "engine/render/coll_rect.h"

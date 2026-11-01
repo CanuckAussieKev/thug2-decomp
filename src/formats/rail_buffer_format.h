@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the created park's packed rails (the rail editor's buffer: network message 0x7A "rail data", sent
 // whole), read and checked through util::ByteReader.

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 // NOT ORIGINAL - the texture dictionary format (.tex, PC: "x.tex.xbx"), read through util::ByteReader.
 //

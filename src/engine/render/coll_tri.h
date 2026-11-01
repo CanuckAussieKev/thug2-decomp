@@ -7,7 +7,7 @@
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
-#include "engine/render/collision_format.h"
+#include "formats/collision_format.h"
 
 namespace render {
 
@@ -133,7 +133,7 @@ struct TriMeshSource {
                             : reinterpret_cast<const uint16_t*>(faces_ + face * 10 + 4)[corner];
     }
 };
-// The collision file's object record, used in place (engine/render/collision_format.h): its layout is the file's.
+// The collision file's object record, used in place (formats/collision_format.h): its layout is the file's.
 static_assert(offsetof(TriMeshSource, num_vertices_) == 0x06 && offsetof(TriMeshSource, tri_count_) == 0x08 &&
                   offsetof(TriMeshSource, small_faces_) == 0x0A && offsetof(TriMeshSource, compressed_) == 0x0B &&
                   offsetof(TriMeshSource, faces_) == 0x0C && offsetof(TriMeshSource, lower_limit_) == 0x10 &&

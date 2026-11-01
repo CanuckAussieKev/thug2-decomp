@@ -174,7 +174,7 @@ struct TrickSpotHub : memory::HeapObject {
     uint32_t log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player, uint32_t score);
 };
 
-// The graffiti messages' group (their formats: engine/net/skater_messages.h - sent by score_trick_objects and
+// The graffiti messages' group (their formats: wire/skater_messages.h - sent by score_trick_objects and
 // modules::PointTally, score_net.cpp).
 constexpr uint8_t kGroupGame = 8;
 

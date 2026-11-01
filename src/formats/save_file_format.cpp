@@ -1,10 +1,10 @@
 // NOT ORIGINAL - the save file header's reader and writer (the original cast the bytes onto a struct). See
 // save_file_format.h.
 
-#include "game/save_cards/save_file_format.h"
+#include "formats/save_file_format.h"
 
 #include "engine/core/checksums.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace save_cards {
 

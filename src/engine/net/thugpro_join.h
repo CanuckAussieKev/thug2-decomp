@@ -37,7 +37,7 @@ uint32_t scripts_hash();
 void set_scripts_hash_override(uint32_t hash); // (tests; 0: the settings again)
 
 // THUGPRO's connection request trailer (after THUG2's 92 bytes): its format, ConnectTrailer, in
-// engine/net/gamenet_messages.h.
+// wire/gamenet_messages.h.
 constexpr uint32_t kProtocolVersion = 0x00070000; // THUGPRO 0.7's (its host: byte-swapped, at least 0x700)
 // The release type field: THUGPRO's are 0 (beta, what its release sends), 1 (public), 2 (its developers': checks
 // skipped). Ours says what it is - not THUGPRO at all - with a value of its own (THUGPRO's host only looks for 2).

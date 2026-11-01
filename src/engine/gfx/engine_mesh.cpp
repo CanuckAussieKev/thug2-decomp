@@ -15,7 +15,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
-#include "engine/render/collision_format.h"
+#include "formats/collision_format.h"
 
 namespace render {
 

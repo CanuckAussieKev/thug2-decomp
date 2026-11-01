@@ -1,8 +1,8 @@
 // NOT ORIGINAL - the net layer's own messages' readers and writers. See net_wire.h.
 
-#include "engine/net/net_wire.h"
+#include "wire/net_wire.h"
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace net::wire {
 

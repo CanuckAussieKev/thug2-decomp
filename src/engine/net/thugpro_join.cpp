@@ -8,7 +8,7 @@
 #include "engine/core/checksums.h"
 #include "engine/net/thugpro_peer.h"
 #include "engine/script/param_struct.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 

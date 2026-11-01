@@ -1,4 +1,4 @@
-#include "engine/gfx/anim_format.h"
+#include "formats/anim_format.h"
 #include "engine/core/ints.h"
 
 namespace anim_format {

@@ -59,7 +59,7 @@ Checks:
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*[/\\]src[/\\](platform|engine|game|frontend|editor)[/\\].*'
+HeaderFilterRegex: '.*[/\\]src[/\\](platform|formats|wire|gpu|engine|game|frontend|editor)[/\\].*'
 CheckOptions:
   # An allocation failure ends the game whether or not it leaves a noexcept function (no handler anywhere: the
   # game has no exception handling); the debug runtime's container moves allocate, so every move of a container

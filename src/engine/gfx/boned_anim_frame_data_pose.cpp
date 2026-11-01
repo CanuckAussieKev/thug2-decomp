@@ -9,7 +9,7 @@
 #include "engine/gfx/anim_cache.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 #include "platform/stopwatch.h"
 #include "engine/core/ints.h"

@@ -1,9 +1,9 @@
 // NOT ORIGINAL - the park map's readers and writers. See park_map_format.h.
 
-#include "game/park_editing/park_map_format.h"
+#include "formats/park_map_format.h"
 
 #include "engine/core/checksums.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace park_editing {
 

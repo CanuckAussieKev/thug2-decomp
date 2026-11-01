@@ -22,7 +22,7 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/scene_file_stream.h"
-#include "engine/gfx/scene_format.h"
+#include "formats/scene_format.h"
 #include "engine/gfx/sector.h"
 #include "engine/core/owner.h"
 

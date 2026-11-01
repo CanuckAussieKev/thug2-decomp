@@ -31,8 +31,8 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/input_component.h"
-#include "engine/net/play_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/play_messages.h"
+#include "formats/byte_stream.h"
 
 namespace objects {
 
@@ -354,7 +354,7 @@ void RiderFrameLog::check_for_collisions(int first)
         net::AppHost* app = manager_app();
         if (tell_players) {
             net::NetMessageInfo msg;
-            online::RanInto ran_into; // (engine/net/play_messages.h)
+            online::RanInto ran_into; // (wire/play_messages.h)
             ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
             const maths::Vec4 push = my_point - their_point;
             ran_into.push[0] = push.x;
@@ -439,7 +439,7 @@ void RiderFrameLog::check_for_collisions(int first)
 // 0x00519870
 int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
 {
-    // (the message: engine/net/play_messages.h; NOT ORIGINAL: one too short is dropped - the original read past it)
+    // (the message: wire/play_messages.h; NOT ORIGINAL: one too short is dropped - the original read past it)
     util::ByteReader reader(context->body_, context->body_size_);
     online::Hit hit;
     if (!online::read_hit(reader, &hit))
@@ -506,7 +506,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     const uint8_t id = context->type_code_;
     if (id != kMsgRanInto && id != kMsgRanIntoAck)
         return net::kResultPassOn;
-    // (the messages: engine/net/play_messages.h - 0x44 its first byte only; NOT ORIGINAL: one too short is dropped,
+    // (the messages: wire/play_messages.h - 0x44 its first byte only; NOT ORIGINAL: one too short is dropped,
     // the original read past it)
     util::ByteReader reader(context->body_, context->body_size_);
     online::RanInto ran_into;

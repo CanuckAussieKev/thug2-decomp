@@ -15,7 +15,7 @@
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/scene_file_stream.h"
-#include "engine/gfx/scene_format.h"
+#include "formats/scene_format.h"
 
 namespace render {
 

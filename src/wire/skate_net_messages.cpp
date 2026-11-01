@@ -1,8 +1,8 @@
 // NOT ORIGINAL - the skate module's net messages' readers and writers. See skate_net_messages.h.
 
-#include "game/skate/skate_net_messages.h"
+#include "wire/skate_net_messages.h"
 
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace skate_net {
 

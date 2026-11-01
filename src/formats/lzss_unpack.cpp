@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/util/lzss.h"
+#include "formats/lzss.h"
 
 namespace lzss {
 

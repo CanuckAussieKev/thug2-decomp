@@ -1,4 +1,4 @@
-#include "engine/gfx/skeleton_format.h"
+#include "formats/skeleton_format.h"
 
 namespace skeleton_format {
 

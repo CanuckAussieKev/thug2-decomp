@@ -14,7 +14,7 @@
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
-#include "game/park_editing/park_map_format.h"
+#include "formats/park_map_format.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard_cfuncs.h"
 #include "engine/net/gamenet_manager.h"

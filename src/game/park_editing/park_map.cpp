@@ -2,8 +2,8 @@
 // map itself, and a new empty park.
 
 #include "game/park_editing/park.h"
-#include "game/park_editing/park_map_format.h"
-#include "engine/util/byte_stream.h"
+#include "formats/park_map_format.h"
+#include "formats/byte_stream.h"
 #include "game/park_editing/park_editor.h"
 
 #include <cstdint>

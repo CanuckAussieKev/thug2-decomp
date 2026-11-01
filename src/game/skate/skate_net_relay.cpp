@@ -53,10 +53,10 @@
 #include "engine/core/code_address.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/model_component.h"
-#include "engine/util/byte_stream.h"
-#include "game/skate/skate_net_messages.h"
-#include "engine/net/skater_messages.h"
-#include "engine/net/play_messages.h"
+#include "formats/byte_stream.h"
+#include "wire/skate_net_messages.h"
+#include "wire/skater_messages.h"
+#include "wire/play_messages.h"
 #include "engine/gfx/tod_manager.h"
 
 namespace modules {
@@ -280,7 +280,7 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
     if (!player)
         return 4;
     PointTally* score = get_score_of(skater_of(player));
-    // (the message: engine/net/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
+    // (the message: wire/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
     // original read the names on past its end and passed the count on to be copied into a fixed buffer)
     util::ByteReader reader(context->body_, context->body_size_);
     auto message = std::make_unique<online::TrickObjectsMessage>();
@@ -378,7 +378,7 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
             const uint32_t mode = get_game_mode()->get_name_key();
             if (mode != kFirefight && get_game_mode()->get_name_key() != kNetFirefight)
                 break;
-            // (the message: engine/net/play_messages.h; NOT ORIGINAL: one too short is passed on as it is - the
+            // (the message: wire/play_messages.h; NOT ORIGINAL: one too short is passed on as it is - the
             // original read and wrote past its end)
             util::ByteReader reader(context->body_, context->body_size_);
             online::Projectile projectile;
@@ -778,7 +778,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         return reinterpret_cast<objects::Entity*>(
             skate->get_rider_by_number(static_cast<uint32_t>(static_cast<int8_t>(id))));
     };
-    // (the messages: engine/net/skater_messages.h; NOT ORIGINAL: one too short for its fields is dropped - the
+    // (the messages: wire/skater_messages.h; NOT ORIGINAL: one too short for its fields is dropped - the
     // original read on past its end)
     util::ByteReader reader(context->body_, context->body_size_);
     const objects::Entity* target = nullptr;
@@ -981,7 +981,7 @@ int SkateNet::handle_player_left(net::InboundMsgCtx* context)
 {
     auto* skate = static_cast<Skate*>(context->content_);
     online::Hub* net = net_link();
-    // (the message: engine/net/play_messages.h - the object id, the reason)
+    // (the message: wire/play_messages.h - the object id, the reason)
     util::ByteReader reader(context->body_, context->body_size_);
     const int id = int{reader.i8()};
     const int reason = int{reader.i8()};
@@ -1015,7 +1015,7 @@ int SkateNet::handle_server_quit(net::InboundMsgCtx* /*context*/)
 // 0x0056AC90
 int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
 {
-    // (the message: engine/net/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
+    // (the message: wire/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
     // original read the names on past its end)
     util::ByteReader reader(context->body_, context->body_size_);
     auto message = std::make_unique<online::TrickObjectsMessage>();

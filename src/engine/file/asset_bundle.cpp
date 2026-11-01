@@ -6,9 +6,9 @@
 
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
-#include "engine/file/bundle_format.h"
+#include "formats/bundle_format.h"
 #include "engine/file/packs.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 
 namespace file {
 

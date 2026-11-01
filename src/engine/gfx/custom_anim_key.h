@@ -5,7 +5,7 @@
 
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "engine/core/owner.h"
 
 namespace script {

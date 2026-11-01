@@ -32,7 +32,7 @@
 #include "engine/net/stats_man.h"
 #include "engine/net/thugpro_join.h"
 #include "engine/net/thugpro_peer.h"
-#include "engine/util/byte_stream.h"
+#include "formats/byte_stream.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"

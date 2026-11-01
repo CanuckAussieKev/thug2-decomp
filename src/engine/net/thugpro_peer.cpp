@@ -42,8 +42,8 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/gfx/weather.h"
-#include "engine/net/gamenet_messages.h"
-#include "engine/util/byte_stream.h"
+#include "wire/gamenet_messages.h"
+#include "formats/byte_stream.h"
 #include "engine/core/parse_number.h"
 
 namespace script {

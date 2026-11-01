@@ -56,8 +56,8 @@
 #include "engine/script/debug_cfuncs.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/gfx/engine.h"
-#include "engine/util/byte_stream.h"
-#include "engine/net/play_messages.h"
+#include "formats/byte_stream.h"
+#include "wire/play_messages.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
 
@@ -628,7 +628,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         if (!conn->is_off_machine())
             continue;
         net::NetMessageInfo desc;
-        online::ToggleCheat message; // (engine/net/play_messages.h)
+        online::ToggleCheat message; // (wire/play_messages.h)
         message.cheat = omnigon;
         message.on = flag;
         uint8_t data[online::kToggleCheatSize];
