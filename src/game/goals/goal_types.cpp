@@ -350,7 +350,7 @@ void HuntGapsObjective::scan_for_gaps()
     bool found_new = false;
     for (int i = 0; i < gaps; ++i) {
         // (modules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
-        if (!static_cast<modules::PointTally*>(static_cast<void*>(score))->is_gap(i))
+        if (!score->is_gap(i))
             continue;
         uint32_t gap = reinterpret_cast<modules::PointTally*>(score)->get_trick_name(i);
         if (found->has_entry_named(gap))

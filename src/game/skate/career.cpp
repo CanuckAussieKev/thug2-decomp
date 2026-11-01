@@ -531,8 +531,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->add_component_of_type(kGapLevelList, script::kQbvalArray, reinterpret_cast<uint32_t>(gap_levels));
     career->append_array_ref(kVisitedArray, visited);
     career->put_name_key(0xE3335D2F, modules::g_skate_module->level_);
-    career->put_name_key(0x2CC06F5E,
-                         static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->get_name_key());
+    career->put_name_key(0x2CC06F5E, goals::g_game_mode->get_name_key());
     // (both made first, then sized, as the original)
     script::Array* cash_memory = script::alloc_script_array();
     script::Array* cash = cash_memory ? new (cash_memory) script::Array : nullptr;

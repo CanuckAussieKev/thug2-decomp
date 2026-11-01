@@ -48,7 +48,7 @@ std::string size_text(long long bytes)
     char text[32];
     if (bytes < 1024)
         std::snprintf(text, sizeof(text), "%lld B", bytes);
-    else if (bytes < 1024 * 1024)
+    else if (bytes < 1024LL * 1024)
         std::snprintf(text, sizeof(text), "%.1f KB", static_cast<double>(bytes) / 1024.0);
     else
         std::snprintf(text, sizeof(text), "%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));

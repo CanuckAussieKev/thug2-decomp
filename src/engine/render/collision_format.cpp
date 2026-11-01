@@ -91,8 +91,10 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
     auto start = reinterpret_cast<uintptr_t>(base);
     // (as the game computes them - in 32 bits on its platform; counts past what a file can hold fail below)
     uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
-    uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) + 2 * header->float_vertex_count);
-    uint64_t face_size = 11 * static_cast<uint64_t>(header->large_face_count) + 8 * header->small_face_count;
+    uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) +
+                                2 * static_cast<uint64_t>(header->float_vertex_count));
+    uint64_t face_size =
+        11 * static_cast<uint64_t>(header->large_face_count) + 8 * static_cast<uint64_t>(header->small_face_count);
     bool known = size != util::ByteReader::kUnknownSize;
     if (known && objects_size + vertex_size + header->vertex_byte_count + face_size > size)
         return false;

@@ -52,6 +52,8 @@ Chars& Chars::operator=(const char* text)
 // 0x00401F10
 Chars& Chars::operator=(const Chars& other)
 {
+    if (this == &other) // (harmless anyway: the same length needs no new buffer)
+        return *this;
     copy_range(other.octets_, 0, last_index(other.octets_));
     return *this;
 }

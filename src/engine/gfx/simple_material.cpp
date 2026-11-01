@@ -20,8 +20,7 @@ namespace {
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
 uint8_t* find_texture(uint32_t checksum)
 {
-    return reinterpret_cast<uint8_t*>(
-        static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
+    return reinterpret_cast<uint8_t*>(g_particle_texture_dict->fetch_skin(checksum));
 }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
 MaterialRef* construct_material(void* memory) { return new (memory) MaterialRef; }

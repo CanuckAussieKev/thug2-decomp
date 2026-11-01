@@ -211,7 +211,11 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
 }
 
 // 0x00404100 (the original calls the statically linked D3DXMatrixMultiply)
-Mat4& Mat4::operator=(const MatrixProduct& product) { return get_multiply(*this, *product.left, *product.right); }
+Mat4& Mat4::operator=(const MatrixProduct& product)
+{
+    get_multiply(*this, *product.left, *product.right);
+    return *this;
+}
 
 // 0x0040AF60 (x87: each sum in double, rounded once; `in` may be `out`)
 Vec4& Mat4::xform(Vec4& out, const Vec4& in) const

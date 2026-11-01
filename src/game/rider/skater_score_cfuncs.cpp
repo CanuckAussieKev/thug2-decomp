@@ -39,10 +39,7 @@ bool is_host_local(objects::Rider* skater) { return skater->is_local_skater_ != 
 void* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
 
 // The game mode's name (0x005532A0, no source yet).
-uint32_t active_ruleset_label()
-{
-    return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->get_name_key();
-}
+uint32_t active_ruleset_label() { return goals::g_game_mode->get_name_key(); }
 
 } // namespace
 

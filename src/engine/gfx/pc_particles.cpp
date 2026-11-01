@@ -56,8 +56,7 @@ void change_material_layer(MaterialRef* material, int pass, int flags)
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* find_texture(uint32_t checksum)
 {
-    return reinterpret_cast<const uint8_t*>(
-        static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
+    return reinterpret_cast<const uint8_t*>(g_particle_texture_dict->fetch_skin(checksum));
 }
 // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
 uint8_t* texture_key(const uint8_t* texture)

@@ -630,7 +630,7 @@ void draw_viewport(int index)
     issue_occlusion_queries();
     set_render_state(1, 0);
     static_cast<FlexibleParticleManager*>(g_flexible_particle_manager)->render_systems(index > 0);
-    static_cast<EffectsDirector*>(reinterpret_cast<void*>(objects::g_particle_hub))->draw_particles();
+    objects::g_particle_hub->draw_particles();
     g_weather->render(); // (through the jump 0x004A10A0)
     set_render_state(1, 1);
     engine::draw_shatters();

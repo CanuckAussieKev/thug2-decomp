@@ -89,11 +89,7 @@ maths::Vec4& get_color() { return g_flare_color; }
 maths::Vec4& get_position() { return g_flare_position; } // in the world, this frame
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted.
-void* find_texture(uint32_t checksum)
-{
-    return static_cast<render::TextureSet*>(reinterpret_cast<void*>(render::g_particle_texture_dict))
-        ->fetch_skin(checksum);
-}
+void* find_texture(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
 void delete_texture(void* texture) { delete static_cast<render::BitmapTexture*>(texture); }
 
 // The game's clock with its offset, and the milliseconds since `time`.

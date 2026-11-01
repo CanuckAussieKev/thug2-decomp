@@ -228,10 +228,8 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     params->read_hash_value(kBlendMode, &details->blend_mode_, 0);
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 0);
-    details->texture = texture
-                           ? static_cast<render::TextureSet*>(reinterpret_cast<void*>(render::g_particle_texture_dict))
-                                 ->fetch_skin(texture) // the texture dictionary
-                           : nullptr;
+    details->texture = texture ? render::g_particle_texture_dict->fetch_skin(texture) // the texture dictionary
+                               : nullptr;
     render::engine::spawn_poly(reinterpret_cast<render::SpawnedPoly*>(details),
                                reinterpret_cast<maths::Vec4*>(&vector1), reinterpret_cast<maths::Vec4*>(&vector2));
     return true;

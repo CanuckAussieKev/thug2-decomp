@@ -133,9 +133,8 @@ void reset_walk_camera(objects::ObjectModule* camera) { static_cast<objects::Foo
 // 0x0053A910
 void Hub::spectate_player(PlayerRecord* player)
 {
-    auto* cam_object = static_cast<objects::GameEntity*>(
-        reinterpret_cast<objects::ObjectHubBase*>(reinterpret_cast<void*>(objects::g_composite_registry))
-            ->look_up_entity(kSkaterCamObject));
+    auto* cam_object =
+        static_cast<objects::GameEntity*>(objects::g_composite_registry->look_up_entity(kSkaterCamObject));
     objects::ObjectModule* skater_camera = cam_object->fetch_module(kSkaterCamera);
     objects::ObjectModule* walk_camera = cam_object->fetch_module(kWalkCamera);
     if (!player || !player_skater(player)) {

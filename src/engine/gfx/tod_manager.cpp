@@ -200,7 +200,7 @@ void set_sun(const SunParams* sun, int mask)
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
 void set_level_color(const float* color)
 {
-    static_cast<render::EffectsDirector*>(reinterpret_cast<void*>(objects::g_particle_hub))->change_colour(color);
+    objects::g_particle_hub->change_colour(color);
     static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->set_colour_scale(color);
     render::engine::set_level_color(color);
 }
@@ -208,10 +208,7 @@ void set_bloom_structure(script::Struct* params) { render::g_screen_effects->set
 // Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
 bool is_multiplayer() { return modules::Skate::is_multiplayer() & 1; }
 // The game mode's name (modules::Skate's game mode 0x007CE470).
-uint32_t active_ruleset_label()
-{
-    return static_cast<goals::MatchRules*>(reinterpret_cast<void*>(goals::g_game_mode))->get_name_key();
-}
+uint32_t active_ruleset_label() { return goals::g_game_mode->get_name_key(); }
 // The front end (0x007CE464): +0x30 paused.
 bool is_game_halted() { return reinterpret_cast<uint8_t*&>(modules::g_front_end_instance)[0x30] != 0; }
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.

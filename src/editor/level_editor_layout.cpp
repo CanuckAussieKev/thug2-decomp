@@ -1417,7 +1417,6 @@ void on_node_array_added(uint32_t array)
 bool saved_props(uint32_t scene, level_props::Props* props)
 {
     FileLoad file;
-    std::string message;
     std::ifstream in(path_for(scene), std::ios::binary);
     if (!in)
         return false;

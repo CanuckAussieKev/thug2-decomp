@@ -429,8 +429,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         }
     }
     if (!texture) {
-        auto* textures =
-            static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict)); // (the particles' dictionary)
+        auto* textures = g_particle_texture_dict; // (the particles' dictionary)
         texture = reinterpret_cast<uint8_t*>(textures->fetch_skin(checksums::hash_from_text(image_label)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.

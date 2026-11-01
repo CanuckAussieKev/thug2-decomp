@@ -238,8 +238,7 @@ bool handle_chat_command(Hub* manager, const char* text)
         // to thug2-decomp.log (for picking a place to show behind the main menu).
         uint8_t level = render::current_level();
         get_log("where: level %u", level);
-        auto* skater = reinterpret_cast<modules::Skate*>(reinterpret_cast<void*>(modules::g_skate_module))
-                           ->get_home_rider(); // the skate module's local skater
+        auto* skater = modules::g_skate_module->get_home_rider(); // the skate module's local skater
         if (skater) {
             const maths::Vec4& p = skater->at_point_;
             const maths::Mat4& m = skater->basis_frame_;

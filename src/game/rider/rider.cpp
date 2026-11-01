@@ -386,7 +386,7 @@ float Rider::get_scaled_value(script::Struct* params)
     // The game's difficulty (one more in classic mode): times the diff pair's first (0) or second (2).
     goals::GoalManager* mode = modules::Skate::sole()->get_objective_board();
     int difficulty = mode->get_skill_tier(false);
-    if (static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_true(kIsClassic))
+    if (goals::g_game_mode->is_true(kIsClassic))
         ++difficulty;
     if (difficulty != 1) {
         script::Pair diff;
@@ -570,7 +570,7 @@ void* get_elements() { return reinterpret_cast<void*>(render::g_game_texture_dic
 void Rider::set_stats_from_profile(RiderIdentity* profile)
 {
     RiderStoryProgress* classic_stats = get_skate()->career_.get();
-    if (static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_true(kIsClassic)) {
+    if (goals::g_game_mode->is_true(kIsClassic)) {
         for (int i = 0; i < 10; ++i)
             set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(kStatNames[i])));
         return;
@@ -1562,7 +1562,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     }
     mark_jumped_ahead(true);
     // In these game modes the server is told (message 0x57).
-    auto mode = [] { return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->get_name_key(); };
+    auto mode = [] { return goals::g_game_mode->get_name_key(); };
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         net::NetMessageInfo message;
         auto* client = static_cast<net::Guest*>(net->fetch_patron(view_slot_));

@@ -437,7 +437,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     params->read_hash_value(0x7E4813A7u, &value54, 0);
     effect_handle_->args_.unknown50_ = value54;
     if (p.flag158_)
-        effect_handle_->change_colour(reinterpret_cast<const uint8_t*>(static_cast<void*>(nullptr)));
+        effect_handle_->change_colour(nullptr);
 }
 
 // 0x0042AD90

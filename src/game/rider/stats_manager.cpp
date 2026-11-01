@@ -250,7 +250,7 @@ bool AttributeTracker::is_operative()
     if (!skater_)
         return false;
     void* skate = skate_module();
-    if (!static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_true(0x1DED1EA4))
+    if (!goals::g_game_mode->is_true(0x1DED1EA4))
         return false;
     if (!activated_ || static_cast<modules::Skate*>(skate)->level_ == 0xE92ECAFE)
         return false;

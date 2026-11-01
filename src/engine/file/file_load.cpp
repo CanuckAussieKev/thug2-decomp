@@ -166,7 +166,7 @@ int get_take_in(void* buffer, int size, int count, Hdl file)
             return result;
     }
     DWORD bytes_read;
-    if (!ReadFile(file, buffer, static_cast<DWORD>(size * count), &bytes_read, nullptr)) {
+    if (!ReadFile(file, buffer, static_cast<DWORD>(size) * static_cast<DWORD>(count), &bytes_read, nullptr)) {
         DWORD error = GetLastError();
         if (error != ERROR_HANDLE_EOF)
             fatal_file_error(error);

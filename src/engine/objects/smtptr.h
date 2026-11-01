@@ -68,6 +68,8 @@ public:
     }
     SharedRef& operator=(const SharedRef& other)
     {
+        if (this == &other)
+            return *this;
         if (owner_object_)
             get_object()->detach_shared_ref(get_generic());
         owner_object_ = other.owner_object_;

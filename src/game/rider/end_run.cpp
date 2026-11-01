@@ -33,10 +33,7 @@ constexpr uint32_t kRunHasEnded = 0x822E13A9, kGoalHasEnded = 0xAB676175, kForce
 bool is_versus_session() { return modules::Skate::is_multiplayer() != 0; }
 // The game mode (0x007CE470)'s 0x00553550: whether a run is over at its end here (multiplayer, and the mode's
 // stop_at_zero if it has the setting). Not rewritten yet.
-bool game_mode_ends_runs()
-{
-    return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->clock_halts_at_zero();
-}
+bool game_mode_ends_runs() { return goals::g_game_mode->clock_halts_at_zero(); }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
 // matches +0x38), and telling it (0x00533250).
 bool server_told_run_ended() { return online::g_online_hub->game_ended_sent(); }

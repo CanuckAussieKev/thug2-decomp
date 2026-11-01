@@ -541,8 +541,7 @@ void PcWeather::tick_grid()
     if (splash)
         splash_texture_ =
             splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
-    auto* snow = reinterpret_cast<uint8_t*>(
-        static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(0xC97C5A4C));
+    auto* snow = reinterpret_cast<uint8_t*>(g_particle_texture_dict->fetch_skin(0xC97C5A4C));
     if (snow)
         snow_texture_ = snow[8] & 1 ? **reinterpret_cast<void***>(snow + 0x10) : *reinterpret_cast<void**>(snow + 0x10);
     active_ = true;

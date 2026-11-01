@@ -513,7 +513,7 @@ void Skate::tidy_up()
     rail_manager_->tidy_up();
     objects::nearby_zone_shutdown();
     objects::emitter_cleanup();
-    static_cast<render::EffectsDirector*>(static_cast<void*>(objects::g_particle_hub))->kill_every_particle();
+    objects::g_particle_hub->kill_every_particle();
 }
 
 // 0x00565A00
