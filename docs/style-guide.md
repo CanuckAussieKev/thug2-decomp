@@ -97,6 +97,27 @@ keep a check carry a `NOLINT` with their reason:
   types (`Vec4 box{};`): zero where the original left whatever the memory held.
 - **The GameSpy SDK** takes non-const `char*` where it only reads: `const_cast` there with a NOLINT naming the SDK.
 - Narrowing conversions are written as `static_cast` where the original narrows.
+- **`const` wherever nothing changes** (`misc-const-correctness`): locals and what pointers point at. Placement new
+  goes through `memory::construct_in` / `construct_value_in` / `construct_global_in` (`engine/core/mem.h`) and the
+  original's unbounded inline copies through `text::copy_unbounded` / `append_unbounded` (`engine/core/str.h`), so
+  the check sees the writes. The one exception: `src/tests/maths_check.cpp`'s x87 reference, whose locals inline
+  assembly writes.
+- **Mixed-sign comparisons** say which conversion they make: `std::cmp_less` and its kin where the answer is the same
+  for every value (an int against a narrower unsigned, a container's `size()`), `ints::as_signed` /
+  `ints::as_unsigned` (`engine/core/ints.h`) where the original compares a 32-bit count as an int or an int as a
+  count - the same bits, so a negative index still reads huge.
+- **Signed bytes** widened on purpose are written `int{byte}`; **text read as a number** goes through
+  `text::to_int` / `text::to_double` (`engine/core/parse_number.h`: atoi's / atof's answers, over
+  `std::from_chars`; `thug2_parse_check` compares them with the C runtime's); a `T**` passed as `void*` is cast
+  explicitly.
+- **No C-style variadics of our own**: printf-style functions are variadic templates over a plain-text function
+  (`get_log`, `debug::printf`...). The one left is the run-time-check callback, whose type the C runtime gives.
+- **Globals whose construction may throw** are function-local statics behind an accessor (made on first use);
+  allocation failures don't count as an escaping exception (`IgnoredExceptions`: the game ends either way).
+- File-local names live in **unnamed namespaces**; **`[[nodiscard]]`** marks results not to drop, and `(void)` the
+  ones dropped on purpose; **enums** take the smallest type their values need, except where a value comes from
+  outside as an int (the pad bindings' ini numbers); `std::numbers` only where a literal is exactly the constant
+  (`DiffThreshold: 0`); the **ranges** algorithms and `std::erase_if` over iterator pairs.
 
 No check is "off for now": each one is on with zero warnings or off with its reason.
 

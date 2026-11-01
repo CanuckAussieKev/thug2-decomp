@@ -42,7 +42,8 @@ Checks:
   - '-cppcoreguidelines-avoid-non-const-global-variables'
   # The game's printf-style formatting is kept for its exact output (std::format would change it).
   - '-cppcoreguidelines-pro-type-vararg'
-  # The original's signatures (x, y, z / width, height); strong types would be a redesign.
+  # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
+  # id types) and parameter structs once the boundary layer keeps the layouts apart.
   - '-bugprone-easily-swappable-parameters'
   # The class hierarchy dispatches on its own type tags; the original has no RTTI.
   - '-cppcoreguidelines-pro-type-static-cast-downcast'
