@@ -768,8 +768,7 @@ void Skate::change_rumble(int player, int on)
 void Skate::launch_script(uint32_t name, script::Struct* params)
 {
     if (!own_script_) {
-        void* memory = script::Script::operator new(sizeof(script::Script));
-        own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        own_script_ = script::Script::create();
     }
     own_script_->bind_script(name, params, nullptr);
 }
@@ -780,8 +779,7 @@ bool Skate::kill_script()
     script::Script* script = own_script_;
     if (!script)
         return false;
-    script->teardown();
-    script::Script::operator delete(script);
+    script::Script::destroy(script);
     own_script_ = nullptr;
     return true;
 }
@@ -1050,10 +1048,7 @@ Skate::~Skate()
     delete update_job_;
     delete splitscreen_preferences_;
     memory::dealloc(checksums_);
-    if (script::Script* script = own_script_) {
-        script->teardown();
-        script::Script::operator delete(script);
-    }
+    script::Script::destroy(own_script_);
     riders_.list_link_.uncouple(); // (0x00565730)
 }
 

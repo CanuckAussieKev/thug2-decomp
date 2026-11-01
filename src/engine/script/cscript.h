@@ -132,6 +132,11 @@ public:
     // 0x00449970 / 0x004499B0 (cdecl): CPoolable new / delete (the pool 0x006F3548, else the current heap).
     static void* operator new(size_t size);
     static void operator delete(void* script);
+    // NOT ORIGINAL - the pair the game's inlined new / delete of a script come to: one from the pool (else the
+    // current heap) made by make_new - null when there's no memory -; and one torn down and given back (null:
+    // nothing).
+    static Script* create();
+    static void destroy(Script* script);
 
     // 0x00473A80: stop: run the OnExitRun scripts, free the code copy, release the code and every level's
     // code from the script cache, free the parameters and every level's, back to the inline call stack /

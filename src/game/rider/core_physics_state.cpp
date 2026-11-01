@@ -342,8 +342,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
 {
     objects::GameEntity* object = skater_object(this);
     if (!object->own_script_) {
-        void* memory = script::Script::operator new(sizeof(script::Script));
-        skater_object(this)->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        skater_object(this)->own_script_ = script::Script::create();
     }
     if (motoskateboard_) {
         object = skater_object(this);

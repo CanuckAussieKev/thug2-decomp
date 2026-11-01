@@ -49,18 +49,6 @@ void launch_event(uint32_t type, uint32_t target, uint32_t source, Struct* data,
     get_tracker()->launch_event(type, target, source, data, broadcast, radius);
 }
 
-// How the original makes and frees a script: the pooled operator new and Construct; Destroy and the pooled
-// operator delete.
-Script* new_script()
-{
-    void* memory = Script::operator new(sizeof(Script));
-    return memory ? static_cast<Script*>(memory)->make_new() : nullptr;
-}
-void delete_script(Script* script)
-{
-    script->teardown();
-    Script::operator delete(script);
-}
 // `new CStruct` (the structure pool) / `delete`.
 Struct* new_empty_struct()
 {
@@ -95,7 +83,7 @@ Entity::~Entity()
     if (own_script_) {
         own_script_->clear_on_exit_scripts();
         if (own_script_)
-            delete_script(own_script_);
+            Script::destroy(own_script_);
         own_script_ = nullptr;
     }
     script::end_scripts_bound_to_entity(this);
@@ -171,7 +159,7 @@ void Entity::create_script_if_needed()
     if (own_script_)
         return;
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-    Script* script = new_script();
+    Script* script = Script::create();
     own_script_ = script;
     script->bind_script(kEmptyScript, nullptr, this);
     memory::leave_heap_scope();
@@ -181,7 +169,7 @@ void Entity::create_script_if_needed()
 Script* Entity::replace_script(uint32_t name, Struct* params)
 {
     if (!own_script_)
-        own_script_ = new_script();
+        own_script_ = Script::create();
     own_script_->bind_script(name, params, this);
     own_script_->has_attached_script(); // (the answer isn't used)
     return own_script_;
@@ -191,7 +179,7 @@ Script* Entity::replace_script(uint32_t name, Struct* params)
 int Entity::run_sub_script(uint32_t name, Struct* params)
 {
     if (!own_script_) {
-        Script* script = new_script();
+        Script* script = Script::create();
         own_script_ = script;
         script->entity_.assign_value(this);
     }

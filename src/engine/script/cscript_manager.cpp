@@ -40,20 +40,6 @@ namespace script {
 
 namespace {
 
-// How the original makes and frees a script (no C++ constructor or destructor runs): the pooled operator new
-// (0x00449970) and Construct (0x004738E0); Destroy (0x00474420) and the pooled operator delete (0x004499B0).
-Script* new_script()
-{
-    void* memory = Script::operator new(sizeof(Script));
-    return memory ? static_cast<Script*>(memory)->make_new() : nullptr;
-}
-void delete_script(Script* script)
-{
-    if (!script)
-        return;
-    script->teardown();
-    Script::operator delete(script);
-}
 void bind_script(Script* script, uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
     script->bind_script(name, code, params, object);
@@ -135,7 +121,7 @@ void tick_child_scripts()
             if (script->on_finish_script_)
                 launch_script(script->on_finish_script_, script->callback_params_, script->entity_.get_pull(), false,
                               nullptr);
-            delete_script(script);
+            Script::destroy(script);
         }
         script = next;
     }
@@ -156,7 +142,7 @@ void kill_all_child_scripts()
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
         if (is_spawned(script) && !(script->spawn_flags_ & kScriptFlagNotSessionSpecific))
-            delete_script(script);
+            Script::destroy(script);
         script = next;
     }
 }
@@ -170,14 +156,14 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap_);
-        Script* script = new_script();
+        Script* script = Script::create();
         memory::Hub::get_pull()->leave_heap_scope();
         reinterpret_cast<Function>(symbol->raw)(params, script);
-        delete_script(script);
+        Script::destroy(script);
         return nullptr;
     }
     // (with no such symbol too: bind_script then stops it at once, and it's deleted at its first update)
-    Script* script = new_script();
+    Script* script = Script::create();
     bind_script(script, name, nullptr, params, nullptr);
     script->spawn_id_ = id;
     script->list_link_ = node;
@@ -210,7 +196,7 @@ Script* spawn_script(const char* name, Struct* params, uint32_t callback, Struct
 void kill_spawned_script(Script* script)
 {
     if (script && is_spawned(script))
-        delete_script(script);
+        Script::destroy(script);
 }
 
 // 0x004756F0
@@ -222,7 +208,7 @@ void delete_finished_scripts()
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
         if (!script->pc_ && !is_spawned(script) && !script->signal_routes_)
-            delete_script(script);
+            Script::destroy(script);
         script = next;
     }
 }
@@ -251,13 +237,13 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
     default: {
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap_);
-        Script* script = new_script();
+        Script* script = Script::create();
         bind_script(script, name, nullptr, params, object);
         memory::Hub::get_pull()->leave_heap_scope();
         // To the end now: waits on frames or time just spin; a script that blocks never returns (original).
         while (get_update_script(script) != kScriptOutcomeFinished) {
         }
-        delete_script(script);
+        Script::destroy(script);
         return;
     }
     }
@@ -272,12 +258,12 @@ void launch_script(const char* name, Struct* params, objects::Entity* object, bo
 // 0x004752F0
 void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Struct* results)
 {
-    Script* script = new_script();
+    Script* script = Script::create();
     bind_script(script, name, nullptr, params, object);
     get_update_script(script);
     if (script->args_)
         results->merge_structure(script->args_); // (no check that there are results)
-    delete_script(script);
+    Script::destroy(script);
 }
 
 // 0x00473350

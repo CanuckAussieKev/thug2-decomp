@@ -318,9 +318,7 @@ void start_lip_trick(SkaterPhysicsModule* c, const maths::Vec4* point)
     c->trick_->starting_special_ = false;
     auto* skater = static_cast<objects::Entity*>(object_of(c));
     if (!skater->own_script_) {
-        void* memory = script::Script::operator new(0xF4);
-        static_cast<objects::Entity*>(object_of(c))->own_script_ =
-            memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        static_cast<objects::Entity*>(object_of(c))->own_script_ = script::Script::create();
     }
     static_cast<objects::Entity*>(object_of(c))
         ->own_script_->bind_script(kLipTrick, nullptr, static_cast<objects::Entity*>(object_of(c)));

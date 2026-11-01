@@ -115,10 +115,7 @@ MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_
 // 0x00552F30
 MatchFlow::~MatchFlow()
 {
-    if (script::Script* script = own_script_) {
-        script->teardown();
-        script::Script::operator delete(script);
-    }
+    script::Script::destroy(own_script_);
 }
 
 // 0x00552E30
@@ -133,20 +130,13 @@ void MatchFlow::tick_frame()
 {
     if (pending_) {
         pending_ = false;
-        if (script::Script* old = own_script_) {
-            old->teardown();
-            script::Script::operator delete(old);
-        }
-        void* memory = script::Script::operator new(0xF4);
-        auto* script = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        script::Script::destroy(own_script_);
+        auto* script = script::Script::create();
         own_script_ = script;
         script->bind_script(label_, nullptr, nullptr);
     }
     if (own_script_ && static_cast<int>(own_script_->tick_frame()) == 0) {
-        if (script::Script* done = own_script_) {
-            done->teardown();
-            script::Script::operator delete(done);
-        }
+        script::Script::destroy(own_script_);
         own_script_ = nullptr;
     }
 }

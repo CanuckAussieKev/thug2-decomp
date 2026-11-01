@@ -46,16 +46,6 @@ void* allocate_zeroed(unsigned int size)
     return memory::Hub::get_pull()->allocate_zeroed(size, g_alloc_assert_flag, nullptr);
 }
 
-void delete_script(script::Script* script)
-{
-    script->teardown();
-    script::Script::operator delete(script);
-}
-script::Script* new_script()
-{
-    void* memory = script::Script::operator new(sizeof(script::Script));
-    return memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
-}
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
@@ -200,9 +190,9 @@ void EmitterInstance::get_reset()
 EmitterInstance::~EmitterInstance()
 {
     if (emit_script_ptr_)
-        delete_script(emit_script_ptr_);
+        script::Script::destroy(emit_script_ptr_);
     if (tick_script_)
-        delete_script(tick_script_);
+        script::Script::destroy(tick_script_);
     if (script::Struct* params = script_args_) {
         params->get_clear();
         script::delete_struct(params);
@@ -366,7 +356,7 @@ void EmitterInstance::run_emit_script()
 {
     if (emit_script_ptr_ && emit_script_ptr_->tick_frame() == script::kScriptOutcomeFinished) {
         if (script::Script* script = emit_script_ptr_)
-            delete_script(script);
+            script::Script::destroy(script);
         emit_script_ptr_ = nullptr;
     }
 }
@@ -388,12 +378,12 @@ void bind_script(EmitterInstance* system, script::Script*& slot, uint32_t script
 {
     if (!script) {
         if (script::Script* old = slot)
-            delete_script(old);
+            script::Script::destroy(old);
         slot = nullptr;
         return;
     }
     if (!slot)
-        slot = new_script();
+        slot = script::Script::create();
     if (!system->script_args_)
         system->script_args_ = spawn_param_table();
     system->script_args_->append_structure_if_any(params);

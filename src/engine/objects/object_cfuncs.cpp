@@ -357,8 +357,7 @@ bool __cdecl cfunc_set_event_handler_on_object(script::Struct* params, script::S
     params->read_hash_value(kObject, &id, 1);
     objects::GameEntity* object = entity_for_id(id);
     if (!object->own_script_) {
-        void* memory = script::Script::operator new(sizeof(script::Script));
-        object->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        object->own_script_ = script::Script::create();
     }
     object->own_script_->set_event_handler(event_type, handler, group, exception, handler_params);
     return true;

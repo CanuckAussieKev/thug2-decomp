@@ -329,8 +329,7 @@ void BlendChannel::update_blend()
         return;
     objects::GameEntity* owner = get_owner(this);
     if (!owner->own_script_) {
-        void* memory = script::Script::operator new(sizeof(script::Script));
-        owner->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        owner->own_script_ = script::Script::create();
     }
     bool stop;
     if (!owner->own_script_->is_blocked(false)) {
@@ -1103,8 +1102,7 @@ int BlendChannel::wait_anim(Struct* params)
         wait_time_ = end;
     objects::GameEntity* owner = get_owner(this);
     if (!owner->own_script_) {
-        void* memory = script::Script::operator new(sizeof(script::Script));
-        owner->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        owner->own_script_ = script::Script::create();
     }
     if ((start <= end && current >= wait_time_) || (start >= end && current <= wait_time_)) {
         owner->own_script_->stop_waiting(); // (already there)

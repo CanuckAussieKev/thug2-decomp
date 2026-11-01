@@ -111,6 +111,20 @@ void* Script::operator new(size_t size) { return script_pools().carve(static_cas
 // 0x004499B0
 void Script::operator delete(void* script) { script_pools().dealloc(script); }
 
+Script* Script::create()
+{
+    void* memory = operator new(sizeof(Script));
+    return memory ? static_cast<Script*>(memory)->make_new() : nullptr;
+}
+
+void Script::destroy(Script* script)
+{
+    if (!script)
+        return;
+    script->teardown();
+    operator delete(script);
+}
+
 // 0x00473A80
 void Script::reset_script_state()
 {

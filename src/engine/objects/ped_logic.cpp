@@ -118,18 +118,6 @@ script::Struct* new_params()
     return memory ? memory->prepare_all() : nullptr;
 }
 
-// How the original makes and frees its scripts (the pooled operator new and Construct; Destroy and the pooled
-// operator delete).
-script::Script* new_script()
-{
-    void* memory = script::Script::operator new(sizeof(script::Script));
-    return memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
-}
-void delete_script(script::Script* script)
-{
-    script->teardown();
-    script::Script::operator delete(script);
-}
 
 } // namespace
 
@@ -184,7 +172,7 @@ PedestrianBrainModule::PedestrianBrainModule()
 PedestrianBrainModule::~PedestrianBrainModule()
 {
     if (script::Script* script = aux_script_) {
-        delete_script(script);
+        script::Script::destroy(script);
         aux_script_ = nullptr;
     }
 }
@@ -354,7 +342,7 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
     update_type_ = update_type;
     entity_->replace_script(script, params);
     if (script::Script* aux = aux_script_) {
-        delete_script(aux);
+        script::Script::destroy(aux);
         aux_script_ = nullptr;
     }
     initialize_movement();
@@ -371,14 +359,14 @@ void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct*
     if (!script)
         return;
     if (!aux_script_)
-        aux_script_ = new_script();
+        aux_script_ = script::Script::create();
     aux_script_->bind_script(script, params, entity_);
     if (aux_script_->has_attached_script()) {
         aux_script_->tick_frame();
         return;
     }
     if (script::Script* aux = aux_script_) {
-        delete_script(aux);
+        script::Script::destroy(aux);
         aux_script_ = nullptr;
     }
 }
@@ -625,7 +613,7 @@ bool PedestrianBrainModule::ped_activate_aux_script(script::Struct* params, scri
 bool PedestrianBrainModule::ped_deactivate_aux_script(script::Struct*, script::Script*)
 {
     if (script::Script* aux = aux_script_) {
-        delete_script(aux);
+        script::Script::destroy(aux);
         aux_script_ = nullptr;
     }
     return true;

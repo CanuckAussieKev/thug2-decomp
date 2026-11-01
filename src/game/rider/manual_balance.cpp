@@ -292,8 +292,7 @@ void Balance::tick_frame()
         }
     }
     if (!skater_->own_script_) {
-        void* memory = script::Script::operator new(0xF4);
-        skater_->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        skater_->own_script_ = script::Script::create();
     }
     // Past the bail angle: the skater falls.
     float lean = std::fabs(lean_);

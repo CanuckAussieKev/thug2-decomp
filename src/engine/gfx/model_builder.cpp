@@ -702,14 +702,12 @@ bool ModelAssembler::launch_script(uint32_t part, uint32_t target)
         held->code_stream_ = nullptr;
     }
     if (fetch_script(option, target, held, 0)) {
-        void* memory = script::Script::operator new(sizeof(script::Script));
-        script::Script* script = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        script::Script* script = script::Script::create();
         script->set_script_copy(held, nullptr, built_appearance()); // (no memory: a crash, as the original)
         while (script->tick_frame()) {
         }
         if (script) {
-            script->teardown();
-            script::Script::operator delete(script);
+            script::Script::destroy(script);
         }
     }
     memory::Hub::get_pull()->dealloc(held);

@@ -882,8 +882,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         memory::Hub::get_pull()->leave_heap_scope();
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
-    void* script = script::Script::operator new(0xF4);
-    own_script_ = script ? static_cast<script::Script*>(script)->make_new() : nullptr;
+    own_script_ = script::Script::create();
     uint32_t skeleton = 0x9FE476E2;
     if (script::Struct* asset_info = script::read_sub_struct(0x962E5CF7))
         asset_info->read_hash_value(0xCEEFD662, &skeleton, 0);
@@ -1039,8 +1038,7 @@ void Rider::init_from_profile(RiderIdentity* profile)
 void Rider::run_state_script(bool walk, bool other)
 {
     if (!own_script_) {
-        void* memory = script::Script::operator new(0xF4);
-        own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        own_script_ = script::Script::create();
     }
     script::Struct* params = nullptr;
     if (walk || other) {
@@ -1064,8 +1062,7 @@ void Rider::run_state_script(bool walk, bool other)
 void Rider::switch_to_script(uint32_t name, script::Struct* params)
 {
     if (!own_script_) {
-        void* memory = script::Script::operator new(0xF4);
-        own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        own_script_ = script::Script::create();
     }
     if (ObjectModule* flip_and_rotate = fetch_module(kSkaterFlipAndRotate))
         static_cast<RiderSpinAndFlip*>(flip_and_rotate)->do_after_anim();
@@ -1318,8 +1315,7 @@ void Rider::reset_components()
     static_cast<PickupItemHandler*>(fetch_module(0xF27A294D))->destroy_items();
     anim_blender_->reset_channels();
     if (script::Script* script = own_script_) {
-        script->teardown();
-        script::Script::operator delete(script);
+        script::Script::destroy(script);
         own_script_ = nullptr;
     }
     // Not original - the special items gone, THAW's bike with them: off the bike (game/rider/thaw_bmx.h).
