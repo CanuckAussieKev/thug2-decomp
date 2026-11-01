@@ -172,7 +172,7 @@ void Skate::advance_match_flow()
 }
 
 // 0x00564D80
-prefs::Preferences* Skate::get_split_view_settings() { return splitscreen_preferences_; }
+prefs::Preferences* Skate::get_split_view_settings() { return splitscreen_preferences_.get(); }
 
 // 0x00564D90
 goals::GoalManager* Skate::get_objective_board() { return goal_manager_; }
@@ -445,7 +445,7 @@ prefs::Preferences* __cdecl Skate::get_player_options(uint32_t name)
     if (name == kTaunt)
         return net_session_slot()->get_taunt_settings();
     if (name == kSplitscreen)
-        return sole()->splitscreen_preferences_;
+        return sole()->splitscreen_preferences_.get();
     return nullptr;
 }
 

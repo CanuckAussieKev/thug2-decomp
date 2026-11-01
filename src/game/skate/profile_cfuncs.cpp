@@ -31,7 +31,7 @@ constexpr int kSwapSlots = 5;
 SwapSlot* swap_table() { return g_swap_table; }
 
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
-objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_; }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
 Struct* result_params(Script* script) { return script->args_; }
 
 // The skate module's profile `params`' skater names (0x00564F80).

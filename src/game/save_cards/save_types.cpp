@@ -455,7 +455,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(objective_board());
         Struct* goal_manager_params = nullptr; // (read, not used)
         own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
-        objects::RiderStoryProgress* career = modules::Skate::sole()->career_;
+        objects::RiderStoryProgress* career = modules::Skate::sole()->career_.get();
         summary->put_int(kTotalScore, career->lifetime_funds_);
         summary->put_int(kTotalScorePotential, career->total_amount_);
         summary->put_int(kTotalGoalsComplete, career->total_counter_);

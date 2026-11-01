@@ -563,7 +563,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.
 bool __cdecl cfunc_get_career_save_info(script::Struct* /*params*/, script::Script* script)
 {
-    RiderStoryProgress* career = modules::g_skate_module->career_;
+    RiderStoryProgress* career = modules::g_skate_module->career_.get();
     career->write_to_structure(script->args_);
     return true;
 }

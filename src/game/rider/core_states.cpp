@@ -73,7 +73,7 @@ void SkaterPhysicsModule::step_coping_move()
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
     if (balance_->trick_ == kLipKind) {
-        auto career = [] { return modules::g_skate_module->career_; };
+        auto career = [] { return modules::g_skate_module->career_.get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->lip_.lean_ = 0.0f;

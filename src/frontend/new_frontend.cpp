@@ -97,7 +97,7 @@ uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_mod
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 // The skate module's career (+0x20; null before the module is up).
-objects::RiderStoryProgress* get_career() { return skate_module() ? modules::g_skate_module->career_ : nullptr; }
+objects::RiderStoryProgress* get_career() { return skate_module() ? modules::g_skate_module->career_.get() : nullptr; }
 modules::FrontEnd* the_front_end() { return modules::g_front_end_instance; }
 bool get_paused() { return the_front_end() && the_front_end()->is_halted_; }
 bool loading_screen_up()

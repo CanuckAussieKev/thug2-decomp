@@ -70,7 +70,7 @@ modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
 highscores::BestResults* game_records() { return highscores::g_game_records; }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
-objects::RiderStoryProgress* get_career() { return get_skate()->career_; }
+objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 int os_layer() { return game_config::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).

@@ -19,7 +19,7 @@ namespace skate_calls {
 
 // The skate module: its career, the run is to end (EndRun), the competition, the horse game.
 inline modules::Skate* get_skate() { return modules::Skate::sole(); }
-inline objects::RiderStoryProgress* get_career() { return get_skate()->career_; }
+inline objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 inline bool& end_run_flag() { return get_skate()->run_over_; }
 inline uint8_t* get_competition() { return reinterpret_cast<uint8_t*>(get_skate()->competition_); }
 inline uint8_t* get_horse() { return reinterpret_cast<uint8_t*>(get_skate()->horse_); }

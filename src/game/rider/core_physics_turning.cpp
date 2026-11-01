@@ -209,10 +209,10 @@ bool SkaterPhysicsModule::turn_down_slope()
 // 0x00504730
 void SkaterPhysicsModule::natas_spin()
 {
-    auto* career = modules::g_skate_module->career_;
+    auto* career = modules::g_skate_module->career_.get();
     if (career->is_code_on(kPerfectRail)) {
         // (the perfect rail cheat: the balance held)
-        career = modules::g_skate_module->career_;
+        career = modules::g_skate_module->career_.get();
         career->set_global_flag(script::fetch_int_value(kPerfectRail));
         balance_->lip_.lean_ = 0.0f;
         balance_->lip_.lean_speed_ = 0.0f;

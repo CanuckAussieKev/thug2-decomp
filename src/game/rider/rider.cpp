@@ -354,7 +354,7 @@ float Rider::fetch_tally(int index)
         if (player && player->holds_crown())
             stat = 1.0f;
     }
-    RiderStoryProgress* cheats = get_skate()->career_;
+    RiderStoryProgress* cheats = get_skate()->career_.get();
     float result = cheats->is_code_on(static_cast<uint32_t>(script::fetch_int_value(kCheatStats13))) ? 15.0f : stat;
     if (score_holder_->points_held_->special_active_)
         result = static_cast<float>(result + 3.0);
@@ -572,7 +572,7 @@ void* get_elements() { return reinterpret_cast<void*>(render::g_game_texture_dic
 // 0x00580BE0
 void Rider::set_stats_from_profile(RiderIdentity* profile)
 {
-    RiderStoryProgress* classic_stats = get_skate()->career_;
+    RiderStoryProgress* classic_stats = get_skate()->career_.get();
     if (static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_true(kIsClassic)) {
         for (int i = 0; i < 10; ++i)
             set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(kStatNames[i])));

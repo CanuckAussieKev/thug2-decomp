@@ -88,7 +88,7 @@ const uint32_t kWalkStateNames[5]{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465
 uint32_t get_state_name(int state) { return kWalkStateNames[state]; }
 
 // The skate module's career (0x007CE478's +0x20).
-RiderStoryProgress* get_career() { return modules::g_skate_module->career_; }
+RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
 
 // asin (the game's C runtime) of `value` in degrees (x 57.29578), negated when `negate` - the result kept in the
 // register until it is rounded to float, as the original.

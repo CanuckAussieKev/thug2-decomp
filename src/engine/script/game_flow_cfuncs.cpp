@@ -600,7 +600,7 @@ void update_score_display(objects::Rider* skater)
 // 0x005A1320: ClearOmnigons: the career's 23 Omnigon flags (the values of the globals above) cleared.
 bool __cdecl cfunc_clear_omnigons(script::Struct*, script::Script*)
 {
-    objects::RiderStoryProgress* career = modules::g_skate_module->career_;
+    objects::RiderStoryProgress* career = modules::g_skate_module->career_.get();
     for (uint32_t flag : kOmnigonFlags)
         career->un_set_global_flag(script::fetch_int_value(flag));
     return true;
