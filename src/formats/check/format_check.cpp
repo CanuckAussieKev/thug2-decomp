@@ -29,7 +29,7 @@
 #include "formats/park_map_format.h"
 #include "formats/save_file_format.h"
 #include "wire/skate_net_messages.h"
-#include "tests/format_check_files.h"
+#include "formats/check/format_check_files.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 

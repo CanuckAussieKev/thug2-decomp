@@ -22,7 +22,7 @@
 #include "formats/pre_format.h"
 #include "formats/anim_format.h"
 #include "formats/font_format.h"
-#include "engine/gfx/hd_ui.h"
+#include "formats/hd_ui_format.h"
 #include "formats/image_format.h"
 #include "formats/scene_format.h"
 #include "formats/skeleton_format.h"
@@ -31,7 +31,7 @@
 #include "formats/wave_format.h"
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
-#include "tests/format_check_files.h"
+#include "formats/check/format_check_files.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -749,7 +749,7 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     font_format::Page page;
     check(font_format::read_page(reader, &page), name + ": page");
     const uint32_t scale =
-        render::hd_ui::font_scale(page.hd_mark, page.hd_scale); // (an upscaled page: not in the game's data)
+        hd_ui_format::font_scale(page.hd_mark, page.hd_scale); // (an upscaled page: not in the game's data)
     const bool hd = scale != 1;
     const uint64_t texels = font_format::texel_count(page);
     reader.skip(static_cast<size_t>(hd ? texels * 4 : texels + font_format::kPaletteSize));

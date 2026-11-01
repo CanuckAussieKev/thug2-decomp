@@ -915,11 +915,11 @@ add_custom_command(TARGET thug2 POST_BUILD
     COMMENT "Copying d3dx9_43.dll, SDL2.dll and gamecontrollerdb.txt next to thug2-decomp.exe")
 
 # NOT ORIGINAL - thug2_format_check.exe: offline checks of the file, save and network format readers / writers
-# (src/tests/format_check.cpp; give it save files or folders: `thug2_format_check <game>/Save`).
+# (src/formats/check/format_check.cpp; give it save files or folders: `thug2_format_check <game>/Save`).
 add_executable(thug2_format_check
-    src/tests/format_check.cpp
-    src/tests/format_check_net.cpp
-    src/tests/format_check_files.cpp)
+    src/formats/check/format_check.cpp
+    src/formats/check/format_check_net.cpp
+    src/formats/check/format_check_files.cpp)
 target_link_libraries(thug2_format_check PRIVATE thug2_wire thug2_formats)
 target_include_directories(thug2_format_check PRIVATE src)
 target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)

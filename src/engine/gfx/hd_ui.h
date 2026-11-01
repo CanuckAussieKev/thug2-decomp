@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "formats/hd_ui_format.h"
+
 // NOT ORIGINAL - HD menu UI (an experiment at the user's request, 2026-10-24; not the game's and not PartyMod's): the
 // menus' images and fonts upscaled 2x / 4x by tools/pipeline/hd_textures/ui.ts into the data overlay
 // (tools/pipeline/menu_level/make_menu_level.ts --hd-ui [2|4]). Always built; switched by thug2-decomp.ini
@@ -21,24 +23,12 @@
 // code still takes the TextureRef's sizes as the Direct3D texture's.
 namespace render::hd_ui {
 
-constexpr uint32_t kImageMarker = 0x48440000; // "HD" in the high half, the scale in the low byte
-constexpr uint32_t kFontMarker = 0x49554448;  // "HDUI"
-// An upscaled opaque image (the loading screens) may be stored as DXT1 blocks instead of 32-bit texels: header format
-// = this ("DXT1"), the file's texels one level of 8 bytes per 4x4 block, rows top-down as d_3d wants them (not swizzled).
-constexpr uint32_t kFormatDxt1 = 0x31545844;
-
-// The scale an image header's +0x14 marks (1: not an upscaled image).
-inline uint32_t image_scale(uint32_t field)
-{
-    const uint32_t scale = field & 0xFF;
-    return (field & 0xFFFFFF00) == kImageMarker && (scale == 2 || scale == 4) ? scale : 1;
-}
-
-// The scale a font's glyph page header marks (1: not an upscaled font).
-inline uint32_t font_scale(uint32_t marker, uint32_t scale)
-{
-    return marker == kFontMarker && (scale == 2 || scale == 4) ? scale : 1;
-}
+// The upscaled files' markers and scales (formats/hd_ui_format.h).
+using hd_ui_format::kImageMarker;
+using hd_ui_format::kFontMarker;
+using hd_ui_format::kFormatDxt1;
+using hd_ui_format::image_scale;
+using hd_ui_format::font_scale;
 
 // [features] hd_ui (read once).
 bool is_switched_on();

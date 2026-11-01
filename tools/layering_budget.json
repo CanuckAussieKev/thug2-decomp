@@ -334,6 +334,5 @@
     "src/game/skate/skater_profile_cfuncs.cpp": 6,
     "src/game/skate/thugpro_cas.cpp": 6,
     "src/game/skate/trick_goals.cpp": 16,
-    "src/game/skate/victory_conditions.cpp": 1,
-    "src/tests/format_check_files.cpp": 33
+    "src/game/skate/victory_conditions.cpp": 1
 }
