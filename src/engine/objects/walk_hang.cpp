@@ -263,7 +263,7 @@ void let_go_of_ride(objects::MovingSurfaceModule* contact)
     if (!tracker)
         return;
     contact->last_object_ = tracker->entity_.get_pull(); // (the object last ridden)
-    tracker->entity_.get_release();
+    tracker->~RideTracker(); // (its smart pointer lets go)
     memory::dealloc(tracker);
     contact->ride_ = nullptr;
     contact->stop_time_ = get_now();
@@ -1573,7 +1573,7 @@ void walk::MovableContact::start_riding(objects::GameEntity* object)
     let_go_of_ride(reinterpret_cast<objects::MovingSurfaceModule*>(this));
     void* memory = memory::alloc(sizeof(objects::RideTracker));
     reinterpret_cast<objects::MovingSurfaceModule*>(this)->ride_ =
-        memory ? static_cast<objects::RideTracker*>(memory)->make_new(object) : nullptr;
+        memory ? new (memory) objects::RideTracker(object) : nullptr;
 }
 
 namespace objects {

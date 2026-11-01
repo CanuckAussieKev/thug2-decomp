@@ -139,18 +139,16 @@ struct CellUpdate {
 } // namespace
 
 // 0x004183B0
-CollGridCell* CollGridCell::make_new()
+CollGridCell::CollGridCell()
 {
-    new (&box) maths::BBox();
     unknown20 = 0;
     count = 0;
     unknown28 = nullptr;
     objects = nullptr;
-    return this;
 }
 
 // 0x00418410
-void CollGridCell::destruct()
+CollGridCell::~CollGridCell()
 {
     if (unknown28)
         memory::Hub::get_pull()->dealloc(unknown28);

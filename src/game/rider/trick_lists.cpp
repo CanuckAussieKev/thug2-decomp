@@ -61,24 +61,21 @@ TrickListEntry* TrickListEntry::teardown(unsigned int flags)
 }
 
 // 0x005787F0
-TrickNameEntry* TrickNameEntry::make_new()
+TrickNameEntry::TrickNameEntry()
 {
     init_node(list_link_, this);
-    new (&label_) text::Chars();
-    return this;
 }
 
 // 0x00579630
-void TrickNameEntry::destroy_body()
+TrickNameEntry::~TrickNameEntry()
 {
-    label_.~Chars();
-    list_link_.uncouple(); // (0x00511E70)
+    list_link_.uncouple(); // (then the name: its destructor) // (0x00511E70)
 }
 
 // 0x00579600
 TrickNameEntry* TrickNameEntry::teardown(unsigned int flags)
 {
-    destroy_body();
+    this->~TrickNameEntry();
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;

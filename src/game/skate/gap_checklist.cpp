@@ -85,27 +85,24 @@ int current_level(void* career) { return static_cast<objects::RiderStoryProgress
 } // namespace
 
 // 0x005786E0
-GapEntry* GapEntry::make_new()
+GapEntry::GapEntry()
 {
     list_link_.make_node(this);
-    new (&label_) text::Chars();
     num_ = 0;
     pending_ = 0;
     in_level_ = true;
-    return this;
 }
 
 // 0x00579510
-void GapEntry::destroy_body()
+GapEntry::~GapEntry()
 {
-    label_.~Chars();
-    list_link_.uncouple();
+    list_link_.uncouple(); // (then the name: its destructor)
 }
 
 // 0x005794E0
 GapEntry* GapEntry::teardown(unsigned int flags)
 {
-    destroy_body();
+    this->~GapEntry();
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;
@@ -143,7 +140,7 @@ void GapTally::register_gap_entry(const char* name, int count, int score)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     void* memory = memory::alloc_zeroed(sizeof(GapEntry));
-    GapEntry* gap = memory ? static_cast<GapEntry*>(memory)->make_new() : nullptr;
+    GapEntry* gap = memory ? new (memory) GapEntry : nullptr;
     gap->num_ = 0;
     gap->label_ = name;
     gap->num_ = count;

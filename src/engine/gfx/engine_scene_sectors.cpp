@@ -232,15 +232,7 @@ bool WorldScene::add_collision_data(const uint8_t* data, size_t size, int flag)
     if (coll_static_count_ > 0) {
         if (builds_collision_grid_) {
             void* memory = memory::alloc(sizeof(CollGrid));
-            CollGrid* grid = nullptr;
-            if (memory) {
-                grid = static_cast<CollGrid*>(memory);
-                new (memory) maths::BBox();
-                for (int x = 0; x < CollGrid::kSize; ++x) {
-                    for (int z = 0; z < CollGrid::kSize; ++z)
-                        grid->get_cell(x, z)->make_new();
-                }
-            }
+            CollGrid* grid = memory ? new (memory) CollGrid : nullptr; // (its box and cells constructed)
             coll_grid_ = grid;
             grid->prepare_all(&collision_box_);
             coll_grid_->get_fill(coll_statics_, coll_static_count_);

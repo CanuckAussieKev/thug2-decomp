@@ -320,7 +320,7 @@ void RiderGapTracker::clear_gaps()
 void RiderGapTracker::start_gap_trick(script::Struct* params, script::Script* script)
 {
     void* memory = memory::alloc_zeroed(sizeof(TrickNameEntry));
-    auto* trick = memory ? static_cast<TrickNameEntry*>(memory)->make_new() : nullptr;
+    auto* trick = memory ? new (memory) TrickNameEntry : nullptr;
     add_to_front(gap_move_chain_, &trick->list_link_);
     trick_node(trick) = script->list_link_;
     trick_done(trick) = 0;

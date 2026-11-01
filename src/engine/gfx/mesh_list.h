@@ -38,8 +38,8 @@ struct SceneRef {
     void* com_object_; // +0x7C: released with the scene
     uint32_t unknown80;
 
-    // 0x004DE300: construct empty. Returns this.
-    SceneRef* make_new();
+    // 0x004DE300: construct empty.
+    SceneRef();
     // 0x004DE490: the destructor's body: the material table, the meshes' vertex buffer 0, the list, the records,
     // the object.
     void destroy_body();

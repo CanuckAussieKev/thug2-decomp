@@ -106,9 +106,8 @@ int __cdecl compare_meshes(const void* a, const void* b)
 }
 
 // 0x004DE300
-SceneRef* SceneRef::make_new()
+SceneRef::SceneRef()
 {
-    new (&bounds) maths::BBox();
     flags = 0;
     mesh_count_ = 0;
     transparent_count_ = 0;
@@ -123,7 +122,6 @@ SceneRef* SceneRef::make_new()
     unknown80 = 0;
     first_flagged_ = -1;
     first_transparent_ = -1;
-    return this;
 }
 
 // 0x004DE490

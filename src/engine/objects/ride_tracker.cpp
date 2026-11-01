@@ -27,14 +27,13 @@ void d3d_matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Ma
 } // namespace
 
 // 0x00416E70
-RideTracker* RideTracker::make_new(GameEntity* object)
+RideTracker::RideTracker(GameEntity* object)
 {
     entity_.construct_from(object);
     previous_xform_ = object->basis_frame_;
     last_pos_ = object->at_point_;
     carried_ = {0.0f, 0.0f, 0.0f, 1.0f};
     turned_ = false;
-    return this;
 }
 
 // 0x00416F00

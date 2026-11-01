@@ -58,11 +58,13 @@ struct TrickNameEntry {
     uint8_t pad2d_[3];
     uint32_t frame_; // +0x30
 
-    // 0x005787F0: an unlinked node (its data itself), an empty name. Returns this.
-    TrickNameEntry* make_new();
+    // 0x005787F0: an unlinked node (its data itself), an empty name.
+    TrickNameEntry();
     // 0x00579630: the name freed, the node unlinked (its node type's vtable). 0x00579600: the scalar deleting
     // destructor.
-    void destroy_body();
+    ~TrickNameEntry();
+    TrickNameEntry(const TrickNameEntry&) = delete;
+    TrickNameEntry& operator=(const TrickNameEntry&) = delete;
     TrickNameEntry* teardown(unsigned int flags);
     // 0x00578670: done_ set.
     void set_flag();

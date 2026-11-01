@@ -214,7 +214,7 @@ bool PcGeom::add_to_mesh_list(bool count)
 SceneRef* PcGeom::create_mesh_list()
 {
     void* memory = memory::alloc(sizeof(SceneRef));
-    SceneRef* list = memory ? static_cast<SceneRef*>(memory)->make_new() : nullptr;
+    SceneRef* list = memory ? new (memory) SceneRef : nullptr;
     list->mesh_total(static_cast<int>(mesh_count_), meshes);
     list->allocate_mesh_list();
     list->append_meshes(static_cast<int>(mesh_count_), meshes);

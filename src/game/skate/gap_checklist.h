@@ -30,11 +30,13 @@ struct GapEntry {
     uint8_t pad41[3];
     text::Chars label_; // +0x44
 
-    // 0x005786E0: an unlinked node, an empty name, never landed, in the level. Returns this.
-    GapEntry* make_new();
+    // 0x005786E0: an unlinked node, an empty name, never landed, in the level.
+    GapEntry();
     // 0x00579510: the name freed, the node unlinked (0x00578680). 0x005794E0: the scalar deleting
     // destructor.
-    void destroy_body();
+    ~GapEntry();
+    GapEntry(const GapEntry&) = delete;
+    GapEntry& operator=(const GapEntry&) = delete;
     GapEntry* teardown(unsigned int flags);
 };
 

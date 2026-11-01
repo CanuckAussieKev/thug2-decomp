@@ -211,7 +211,7 @@ void* __cdecl make_empty_scene(const char* /*name*/, void* /*textures*/, bool wi
     scene[0x8C] = with_super_sectors;
     scene[0x8D] = 0;
     void* memory = memory::alloc(sizeof(SceneRef));
-    *reinterpret_cast<SceneRef**>(scene + 0x280) = memory ? static_cast<SceneRef*>(memory)->make_new() : nullptr;
+    *reinterpret_cast<SceneRef**>(scene + 0x280) = memory ? new (memory) SceneRef : nullptr;
     return scene;
 }
 

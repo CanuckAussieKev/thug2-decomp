@@ -17,10 +17,12 @@ class StaticCollider;
 
 // A cell (0x30 bytes).
 struct CollGridCell {
-    // 0x004183B0: an empty box, nothing listed. Returns this.
-    CollGridCell* make_new();
+    // 0x004183B0: an empty box, nothing listed.
+    CollGridCell();
     // 0x00418410: the two blocks freed.
-    void destruct();
+    ~CollGridCell();
+    CollGridCell(const CollGridCell&) = delete;
+    CollGridCell& operator=(const CollGridCell&) = delete;
 
     maths::BBox box;    // +0x00
     uint32_t unknown20; // +0x20

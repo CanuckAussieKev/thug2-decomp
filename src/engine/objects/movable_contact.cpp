@@ -121,7 +121,7 @@ void MovingSurfaceModule::stop_riding()
     if (!ride)
         return;
     last_object_ = ride->entity_.owner_object_;
-    reinterpret_cast<SharedRef<SharedBase>*>(&ride->entity_)->get_release();
+    ride->~RideTracker(); // (its smart pointer lets go)
     memory::Hub::get_pull()->dealloc(ride);
     ride_ = nullptr;
     stop_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
@@ -163,7 +163,7 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
         ride_ = nullptr;
         return true;
     }
-    ride_ = static_cast<RideTracker*>(memory)->make_new(feeler->get_hit_object());
+    ride_ = new (memory) RideTracker(feeler->get_hit_object());
     return true;
 }
 

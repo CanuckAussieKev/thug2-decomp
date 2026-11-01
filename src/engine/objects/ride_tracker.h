@@ -17,8 +17,8 @@ namespace objects {
 // when the object turned.
 struct RideTracker {
     // 0x00416E70: following `object` (not null): its orientation and position now, nothing carried yet (0, 0, 0,
-    // 1), not turned. Returns this.
-    RideTracker* make_new(GameEntity* object);
+    // 1), not turned.
+    explicit RideTracker(GameEntity* object);
     // 0x00416F00: the object's move since the last update into carried_ (w included), plus - when its
     // orientation changed - how `point` turns with it about its old position (turn_: the orientation change
     // without translation; turned_ set). Then the position and orientation kept. False (nothing done) when the

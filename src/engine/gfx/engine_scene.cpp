@@ -209,13 +209,8 @@ bool WorldScene::init_collision_grid(const maths::BBox* box)
     if (!builds_collision_grid_)
         return false;
     collision_box_ = *box;
-    auto* grid = static_cast<CollGrid*>(memory::alloc(sizeof(CollGrid)));
-    if (grid) {
-        new (&grid->box_) maths::BBox();
-        for (int x = 0; x < CollGrid::kSize; ++x)
-            for (int z = 0; z < CollGrid::kSize; ++z)
-                grid->cells_[x][z].make_new();
-    }
+    void* block = memory::alloc(sizeof(CollGrid));
+    CollGrid* grid = block ? new (block) CollGrid : nullptr; // (its box and cells constructed)
     coll_grid_ = grid;
     grid->prepare_all(&collision_box_); // (no check, as the original)
     return true;
@@ -225,8 +220,7 @@ bool WorldScene::init_collision_grid(const maths::BBox* box)
 bool WorldScene::unload_collision()
 {
     if (CollGrid* grid = coll_grid_) {
-        for (int i = CollGrid::kSize * CollGrid::kSize - 1; i >= 0; --i) // (the grid's destructor, 0x0049C980)
-            (&grid->cells_[0][0])[i].destruct();
+        grid->~CollGrid(); // (0x0049C980: the cells destroyed, last first)
         memory::dealloc(grid);
         coll_grid_ = nullptr;
     }

@@ -86,7 +86,7 @@ HierarchyNode* new_hierarchy(int count)
 SceneRef* new_mesh_list(bool mesh_flag)
 {
     void* memory = memory::alloc(sizeof(SceneRef));
-    SceneRef* list = memory ? static_cast<SceneRef*>(memory)->make_new() : nullptr;
+    SceneRef* list = memory ? new (memory) SceneRef : nullptr;
     list->unknown40 = mesh_flag;
     return list;
 }
