@@ -16,7 +16,6 @@
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"

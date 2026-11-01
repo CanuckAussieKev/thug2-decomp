@@ -22,7 +22,6 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -36,8 +35,8 @@ std::array<uint8_t, 0x100> g_primitive_vertex_buffer;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
-uint32_t& draw_calls() { return memory::bits_as<uint32_t>(g_draw_calls); }
-uint32_t& drawn_triangles() { return memory::bits_as<uint32_t>(g_drawn_triangles); }
+uint32_t& draw_calls() { return g_draw_calls; }
+uint32_t& drawn_triangles() { return g_drawn_triangles; }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 // The vertex layouts by flexible vertex format (D3DFVF): XYZ (0x2) and XYZ | DIFFUSE (0x42) - positions and colours -,

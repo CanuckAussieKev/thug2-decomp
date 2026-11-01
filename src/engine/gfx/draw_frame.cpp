@@ -50,7 +50,6 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
@@ -71,8 +70,8 @@ int g_step_seconds;
 int g_screen_copy_index;
 int g_back_buffer_width;
 int g_back_buffer_height;
-int g_draw_calls;
-int g_drawn_triangles;
+uint32_t g_draw_calls;
+uint32_t g_drawn_triangles;
 float g_fog_begin_distance;
 float g_fog_end;
 
@@ -153,9 +152,9 @@ void set_display_region()
     auto width = static_cast<uint32_t>(g_display_factor_x * 640.0f);
     auto height = static_cast<uint32_t>(g_display_factor_y * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
-    g_device_viewport.x = (memory::bits_as<uint32_t>(g_back_buffer_width) - width) / 2;
+    g_device_viewport.x = (static_cast<uint32_t>(g_back_buffer_width) - width) / 2;
     g_device_viewport.width = width;
-    g_device_viewport.y = (memory::bits_as<uint32_t>(g_back_buffer_height) - height) / 2;
+    g_device_viewport.y = (static_cast<uint32_t>(g_back_buffer_height) - height) / 2;
     g_device_viewport.height = height;
 }
 
@@ -171,8 +170,8 @@ void draw_2d_with_black_bars()
     if (get_front_end_widescreen())
         return;
 
-    const uint32_t back_buffer_width = memory::bits_as<uint32_t>(g_back_buffer_width);
-    const uint32_t back_buffer_height = memory::bits_as<uint32_t>(g_back_buffer_height);
+    const auto back_buffer_width = static_cast<uint32_t>(g_back_buffer_width);
+    const auto back_buffer_height = static_cast<uint32_t>(g_back_buffer_height);
     const float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
     constexpr uint32_t kBlack = 0xFF000000;
     if (back_buffer_aspect > desired_aspect_ratio()) {
@@ -477,7 +476,7 @@ void set_device_render_state(int state, uint32_t value)
 void full_screen_viewport()
 {
     the_viewport() = {
-        0,    0,   memory::bits_as<uint32_t>(g_back_buffer_width), memory::bits_as<uint32_t>(g_back_buffer_height),
+        0,    0,   static_cast<uint32_t>(g_back_buffer_width), static_cast<uint32_t>(g_back_buffer_height),
         0.0f, 1.0f};
 }
 
@@ -586,8 +585,8 @@ void draw_viewport(int index)
     const float saved_fog_start = fog_start;
     fog_start = 20.0f;
     fog_end = 21.0f;
-    set_device_render_state(0x24, memory::bits_as<uint32_t>(g_fog_begin_distance)); // D3DRS_FOGSTART
-    set_device_render_state(0x25, memory::bits_as<uint32_t>(g_fog_end));            // D3DRS_FOGEND
+    set_device_render_state(0x24, std::bit_cast<uint32_t>(g_fog_begin_distance)); // D3DRS_FOGSTART
+    set_device_render_state(0x25, std::bit_cast<uint32_t>(g_fog_end));            // D3DRS_FOGEND
     const bool fog = g_fog_active != 0;
     change_fog(false);
     set_render_state(1, 0);
@@ -614,8 +613,8 @@ void draw_viewport(int index)
     set_render_state(2, 1);
     fog_start = saved_fog_start;
     fog_end = saved_fog_end;
-    set_device_render_state(0x24, memory::bits_as<uint32_t>(g_fog_begin_distance));
-    set_device_render_state(0x25, memory::bits_as<uint32_t>(g_fog_end));
+    set_device_render_state(0x24, std::bit_cast<uint32_t>(g_fog_begin_distance));
+    set_device_render_state(0x25, std::bit_cast<uint32_t>(g_fog_end));
     change_fog(fog);
 
     // The world again, for the later passes.

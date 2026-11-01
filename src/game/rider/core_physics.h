@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/bits_as.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
@@ -11,6 +10,7 @@
 #include "engine/objects/smtptr.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
+#include "engine/core/bits_as.h"
 
 namespace script {
 class Struct;

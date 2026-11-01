@@ -30,7 +30,6 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
@@ -146,8 +145,8 @@ void draw_projection_batches()
         batch->material.hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, &batch->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(), 0x18);
-        ++memory::bits_as<uint32_t>(g_draw_calls);                              // (the frame's draw calls)
-        memory::bits_as<uint32_t>(g_drawn_triangles) += batch->triangle_count_; // (and triangles)
+        ++g_draw_calls;                              // (the frame's draw calls)
+        g_drawn_triangles += batch->triangle_count_; // (and triangles)
     }
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     batch_count() = 0;

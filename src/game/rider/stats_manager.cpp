@@ -28,7 +28,6 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"

@@ -27,7 +27,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/device.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
@@ -54,8 +53,8 @@ uint32_t get_argb(const uint8_t* rgba)
 // The frame's draw counts.
 void count_draw(uint32_t primitives)
 {
-    ++memory::bits_as<uint32_t>(g_draw_calls);
-    memory::bits_as<uint32_t>(g_drawn_triangles) += primitives;
+    ++g_draw_calls;
+    g_drawn_triangles += primitives;
 }
 
 // The drop slots' order: a linear-feedback step through 0-0x3FF (0 goes to 0x19B first; 0x19B back to 0).

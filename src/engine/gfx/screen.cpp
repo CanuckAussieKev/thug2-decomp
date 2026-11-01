@@ -48,8 +48,8 @@ float& horiz_screen_ratio() { return g_display_factor_x; }
 float& vert_screen_ratio() { return g_display_factor_y; }
 uint32_t& screen_offset_x() { return memory::bits_as<uint32_t>(g_screen_offset_x); }
 uint32_t& screen_offset_y() { return memory::bits_as<uint32_t>(g_screen_offset_y); }
-uint32_t get_back_buffer_width() { return memory::bits_as<uint32_t>(g_back_buffer_width); }
-uint32_t get_back_buffer_height() { return memory::bits_as<uint32_t>(g_back_buffer_height); }
+uint32_t get_back_buffer_width() { return static_cast<uint32_t>(g_back_buffer_width); }
+uint32_t get_back_buffer_height() { return static_cast<uint32_t>(g_back_buffer_height); }
 
 } // namespace
 

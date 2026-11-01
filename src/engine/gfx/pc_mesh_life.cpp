@@ -19,7 +19,6 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 

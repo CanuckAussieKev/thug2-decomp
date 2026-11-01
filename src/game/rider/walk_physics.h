@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-#include "engine/core/bits_as.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"

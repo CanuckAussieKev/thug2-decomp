@@ -25,7 +25,6 @@
 #include "engine/gfx/engine.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -39,8 +38,8 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
 void* default_pixel_shader() { return core::at(g_pixel_shaders, kPixelShader964); }
 // The frame's draw counts: draws, triangles.
-uint32_t& draw_calls() { return memory::bits_as<uint32_t>(g_draw_calls); }
-uint32_t& drawn_triangles() { return memory::bits_as<uint32_t>(g_drawn_triangles); }
+uint32_t& draw_calls() { return g_draw_calls; }
+uint32_t& drawn_triangles() { return g_drawn_triangles; }
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

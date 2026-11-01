@@ -335,8 +335,8 @@ void create_render_targets()
         g_border_addressing_supported = true;
     g_blend_factor_supported =
         (caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) && (caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR);
-    memory::bits_as<uint32_t>(g_back_buffer_width) = pp.BackBufferWidth;
-    memory::bits_as<uint32_t>(g_back_buffer_height) = pp.BackBufferHeight;
+    g_back_buffer_width = static_cast<int>(pp.BackBufferWidth);
+    g_back_buffer_height = static_cast<int>(pp.BackBufferHeight);
     g_back_buffer_format = pp.BackBufferFormat;
     g_depth_bits = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
     if (screen_surfaces()[0]) {

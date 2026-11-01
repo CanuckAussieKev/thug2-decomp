@@ -652,8 +652,8 @@ void reset_render_state()
     memory::bits_as<uint32_t>(core::at(g_light_constants, 3)) = 0x3F800000;
     get_fog() = 0;
     fog_color() = 0;
-    memory::bits_as<uint32_t>(g_fog_begin_distance) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
-    memory::bits_as<uint32_t>(g_fog_end) = 0xC6C03000;
+    g_fog_begin_distance = -240.0f; // fog start and end (the original stored their bit patterns)
+    g_fog_end = -24600.0f;
 }
 
 // 0x004D80D0
@@ -709,8 +709,8 @@ void apply_render_state()
     input_port()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
     input_port()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
     input_port()->SetRenderState(D3DRS_FOGCOLOR, fog_color());
-    input_port()->SetRenderState(D3DRS_FOGSTART, memory::bits_as<uint32_t>(g_fog_begin_distance));
-    input_port()->SetRenderState(D3DRS_FOGEND, memory::bits_as<uint32_t>(g_fog_end));
+    input_port()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(g_fog_begin_distance));
+    input_port()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(g_fog_end));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
     if (g_antialiasing || graphics_options::chosen_samples()) // the antialiasing setting
         input_port()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);

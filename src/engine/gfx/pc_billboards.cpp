@@ -26,7 +26,6 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -119,8 +118,8 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         return;
     if (g_distance_clipping && g_fog_setting) { // (fog: its start a quarter back)
         float end = g_camera.far_z_;
-        memory::bits_as<uint32_t>(g_fog_begin_distance) = 0;
-        memory::bits_as<uint32_t>(g_fog_end) = 0;
+        g_fog_begin_distance = 0.0f;
+        g_fog_end = 0.0f;
         auto start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
         toggle_fog(true);
         input_port()->SetRenderState(D3DRS_FOGSTART, *raw::as<DWORD>(&start));

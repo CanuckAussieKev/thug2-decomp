@@ -78,8 +78,8 @@ extern int g_step_seconds;
 extern int g_screen_copy_index;
 extern int g_back_buffer_width;
 extern int g_back_buffer_height;
-extern int g_draw_calls;
-extern int g_drawn_triangles;
+extern uint32_t g_draw_calls;
+extern uint32_t g_drawn_triangles;
 extern float g_fog_begin_distance;
 extern float g_fog_end;
 

@@ -17,7 +17,6 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"

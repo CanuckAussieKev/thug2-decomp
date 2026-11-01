@@ -75,8 +75,8 @@ void set_movie_texture(int stage, void* texture, int unknown)
 
 void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
-    const uint32_t back_buffer_width = memory::bits_as<uint32_t>(g_back_buffer_width);
-    const uint32_t back_buffer_height = memory::bits_as<uint32_t>(g_back_buffer_height);
+    const auto back_buffer_width = static_cast<uint32_t>(g_back_buffer_width);
+    const auto back_buffer_height = static_cast<uint32_t>(g_back_buffer_height);
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
     const float target_aspect = 4.0f / 3.0f;
     const float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
