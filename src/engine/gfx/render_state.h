@@ -56,7 +56,15 @@ void set_world_transform(const float* matrix);
 
 // 0x004D3CA0 / 0x004D3CE0: the scaling the skinned meshes' loaders apply set (four values, 0x007865D0 - the last a
 // table of 16-byte bone scales, 0x007865DC) and on (0x007865CC) / off and cleared.
-void set_skin_scaling(const uint32_t* settings);
+// The skin scaling's settings (a cutscene's skinned model's colours, while it loads): the colour table's entries, the
+// table, and the colours (four floats a bone) the loaders scale the bones' positions by.
+struct SkinScaling {
+    const uint8_t* end = nullptr;
+    const uint8_t* start = nullptr;
+    void* table = nullptr;
+    float* colours = nullptr;
+};
+void set_skin_scaling(const SkinScaling* settings);
 void clear_skin_scaling();
 // 0x004D3ED0: the pixel shader a scene file's index names (0x007CA920-64; 0 and 1: none; past 0x12: the index
 // itself).
@@ -68,7 +76,7 @@ void reset_render_state();
 void apply_render_state();
 
 extern uint8_t g_skin_scaling_on;
-extern std::array<uint32_t, 5> g_skin_settings;
+extern SkinScaling g_skin_settings;
 extern bool g_shaders_available;
 extern uint32_t g_specular;
 extern uint8_t g_z_write;

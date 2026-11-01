@@ -16,7 +16,6 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_sound.h"
 #include "engine/objects/trigger_events.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -47,9 +46,7 @@ struct alignas(16) FeelerStorage {
 // The smart pointer of a stack feeler let go inline (the original's code on some paths instead of the destructor).
 void release_feeler_object(FeelerStorage& feeler)
 {
-    auto& object = memory::bits_as<objects::SharedRef<objects::SharedBase>>(feeler->entity_);
-    if (object.owner_object_)
-        object.owner_object_->detach_shared_ref(&object);
+    feeler->entity_.get_release(); // (the original left the pointer set: the storage is let go next)
 }
 
 } // namespace

@@ -24,7 +24,6 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/down_cast.h"
 
 
@@ -200,7 +199,7 @@ bool cfunc_proxim_cleanup(script::Struct*, script::Script*)
 // check that the proximity manager exists.)
 bool cfunc_inside(script::Struct*, script::Script*)
 {
-    return memory::bits_as<objects::ProximityRegistry*>(objects::g_proximity_hub)->entering_;
+    return objects::g_proximity_hub->entering_;
 }
 
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).

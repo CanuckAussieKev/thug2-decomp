@@ -22,7 +22,6 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -34,8 +33,8 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool pixel_shaders() { return g_shaders_available; }
 
 // D3DX (the statically linked library's, through its thunks).
-void transform_coord(float* out, const float* v, const float* m) { d3dx::vec3_transform_coord(out, v, m); }
-void transform_normal(float* out, const float* v, const float* m) { d3dx::vec3_transform_normal(out, v, m); }
+void transform_coord(float* out, const float* v, const maths::Mat4& m) { d3dx::vec3_transform_coord(out, v, &m); }
+void transform_normal(float* out, const float* v, const maths::Mat4& m) { d3dx::vec3_transform_normal(out, v, &m); }
 void matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A vertex's skinning data (0x4C bytes): its position, normal, colour, texture coordinates, bones and weights.
@@ -49,17 +48,17 @@ struct SkinVertex {
 };
 static_assert(sizeof(SkinVertex) == 0x4C, "layout must match the original");
 
-const float* skin_matrix_ptr(uint8_t bone) { return memory::bits_as<float*>(g_palette_base) + 16 * bone; }
+const maths::Mat4& skin_matrix(uint8_t bone) { return g_palette_base[bone]; }
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
 void add_bone(float* blended, const SkinVertex& v, uint8_t bone, float weight)
 {
     std::array<float, 3> other{};
-    transform_coord(other.data(), v.position.data(), skin_matrix_ptr(bone));
+    transform_coord(other.data(), v.position.data(), skin_matrix(bone));
     for (int k = 0; k < 3; ++k)
         blended[k] = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + blended[k]);
-    transform_normal(other.data(), v.normal.data(), skin_matrix_ptr(bone));
+    transform_normal(other.data(), v.normal.data(), skin_matrix(bone));
     for (int k = 0; k < 3; ++k)
         blended[3 + k] = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + blended[3 + k]);
 }
@@ -71,8 +70,8 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
     const auto* v = raw::as<const SkinVertex>(mesh->per_vertex_data_);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i, ++v) {
         std::array<float, 6> blended{};
-        transform_coord(blended.data(), v->position.data(), skin_matrix_ptr(core::at(v->bones, 0)));
-        transform_normal(blended.data() + 3, v->normal.data(), skin_matrix_ptr(core::at(v->bones, 0)));
+        transform_coord(blended.data(), v->position.data(), skin_matrix(core::at(v->bones, 0)));
+        transform_normal(blended.data() + 3, v->normal.data(), skin_matrix(core::at(v->bones, 0)));
         if (bones > 1 && !(core::at(v->weights, 0) == 1.0f)) {
             for (float& value : blended)
                 value = static_cast<float>(static_cast<double>(value) * core::at(v->weights, 0));
@@ -134,7 +133,7 @@ void MeshRef::render()
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
         input_port()->GetTransform(D3DTS_WORLD, &world);
         D3DMATRIX boned;
-        matrix_multiply(&boned, skin_matrix_ptr(static_cast<uint8_t>(0)) + 16 * unknown98, &world);
+        matrix_multiply(&boned, &g_palette_base[unknown98], &world);
         input_port()->SetTransform(D3DTS_WORLD, &boned);
     }
     apply_vertex_colors();
@@ -163,9 +162,9 @@ void MeshRef::render()
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     if (per_vertex_data_ &&
         (unknown9c_ != g_frames_rendered ||
-         unknowna0_ != memory::bits_as<uint32_t>(g_current_instance))) { // (once a frame per instance)
+         unknowna0_ != g_current_instance)) { // (once a frame per instance)
         unknown9c_ = g_frames_rendered;
-        unknowna0_ = memory::bits_as<uint32_t>(g_current_instance);
+        unknowna0_ = g_current_instance;
         uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
         vb->lock_size_ = vb->size;
         vb->lock_offset_ = 0;

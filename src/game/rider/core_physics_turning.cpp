@@ -28,7 +28,6 @@
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 
 namespace skater {
@@ -219,7 +218,7 @@ void SkaterPhysicsModule::natas_spin()
         career->set_global_flag(script::fetch_int_value(kPerfectRail));
         balance_->lip_.lean_ = 0.0f;
         balance_->lip_.lean_speed_ = 0.0f;
-        memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
+        online::g_cheat_flag = true;
     }
     balance_->lip_.tick_frame();
     const float factor = script::fetch_float(kNatasSpinFactor);

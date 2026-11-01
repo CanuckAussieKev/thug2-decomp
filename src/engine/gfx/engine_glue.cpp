@@ -109,7 +109,7 @@ void begin_frame_draw()
 }
 
 // 0x004B22B0
-void set_screen_clip(const void* rect) { set_skin_scaling(static_cast<const uint32_t*>(rect)); }
+void set_screen_clip(const SkinScaling* settings) { set_skin_scaling(settings); }
 
 // 0x004B22C0
 void add_debug_shape(int type, const maths::Vec4* points, uint32_t colour)

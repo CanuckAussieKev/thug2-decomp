@@ -10,7 +10,6 @@
 #include "engine/objects/smtptr.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
-#include "engine/core/bits_as.h"
 
 namespace script {
 class Struct;
@@ -37,7 +36,6 @@ class TaggingControlComponent;
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::ps2_controls()).
 namespace skater {
 
-using memory::bits_as;
 
 // What the acid drop search (SkaterPhysicsModule::find_acid_drop) finds (0x28 bytes).
 struct AcidDrop {

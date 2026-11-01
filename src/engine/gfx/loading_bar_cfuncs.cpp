@@ -9,7 +9,6 @@
 #include "engine/gfx/loading_bar.h"
 #include "engine/gfx/loading_screen.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -43,7 +42,7 @@ bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
     return true;
 }
 
-bool& loading_screen_shown() { return memory::bits_as<bool>(g_loading_screen_shown); }
+uint8_t& loading_screen_shown() { return g_loading_screen_shown; }
 
 float g_loading_bar_seconds;
 } // namespace

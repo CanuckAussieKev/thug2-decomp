@@ -41,7 +41,6 @@
 #include "engine/core/stubs.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -106,7 +105,6 @@ bool omit_from_draw() { return render::g_suppress_draw; }
 
 memory::PoolPair& struct_pools() { return script::g_struct_pools; }
 
-float& get_as_float(uint32_t& bits) { return memory::bits_as<float>(bits); }
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // A list node as the original masks it: null when it's the head.
@@ -229,7 +227,7 @@ BlendChannel::BlendChannel(objects::GameEntity* object, objects::AnimBlenderComp
 {
     list_link_.make_node(this);
     timelines_.make_head();
-    const uint32_t value = full ? 0x3F800000 : 0;
+    const float value = full ? 1.0f : 0.0f;
     ongoing_ = value;
     aim_point_ = value;
     outset_ = value;
@@ -309,8 +307,7 @@ void BlendChannel::update_blend()
             left = 0.0;
         period_left_ = static_cast<float>(left);
         const double done = left / period_;
-        get_as_float(ongoing_) = static_cast<float>(
-            (static_cast<double>(get_as_float(outset_)) - get_as_float(aim_point_)) * done + get_as_float(aim_point_));
+        ongoing_ = static_cast<float>((static_cast<double>(outset_) - aim_point_) * done + aim_point_);
     } else {
         ongoing_ = aim_point_;
     }
@@ -783,7 +780,7 @@ void BlendChannel::play_animation(uint32_t anim, float blend_period)
 void BlendChannel::configure_from_data(Struct* params)
 {
     params->read_hash_value(kSubsetId, &ident_, 0);
-    params->fetch_float(0x4D786F62, &get_as_float(ongoing_), 0); // BlendWeight
+    params->fetch_float(0x4D786F62, &ongoing_, 0); // BlendWeight
     int priority = 0;
     params->fetch_int_value(0x3D836C96, &priority, 0);
     rank_ = priority;

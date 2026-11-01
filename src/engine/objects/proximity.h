@@ -98,5 +98,5 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start);
 // 0x0046B790: restart node `index` (wrapped round the count once it's past it) of `type` - 0 if there's none.
 uint32_t get_spawn_node(uint32_t type, int index, uint32_t start);
 
-extern void* g_proximity_hub;
+extern ProximityRegistry* g_proximity_hub;
 } // namespace objects

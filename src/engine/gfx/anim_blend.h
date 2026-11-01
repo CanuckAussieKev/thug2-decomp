@@ -60,7 +60,7 @@ public:
     void set_flag_4c(bool value);
     // 0x0047D430: blending to `target` over `period` (at once when it's 0: the current value is the target too);
     // the blend starts from the current value.
-    void blend_to(uint32_t target, float period);
+    void blend_to(float target, float period);
     // 0x0047D620 / 0x0047D640: the value `offset` past the channel's key (0x0048CF50 finds it), and whether there
     // is one.
     float fetch_value(uint32_t offset);
@@ -178,9 +178,9 @@ public:
     memory::ListNode timelines_{}; // +0x14 the head (data -1)
     uint32_t ident_{0};            // +0x28
     int rank_{0};                  // +0x2C (0x3D836C96)
-    uint32_t ongoing_;           // +0x30 the blend value (a float)
-    uint32_t aim_point_;         // +0x34
-    uint32_t outset_;            // +0x38
+    float ongoing_{};            // +0x30 the blend weight
+    float aim_point_{};          // +0x34 the weight blended to
+    float outset_{};             // +0x38 the weight blended from
     float period_{0.0f};         // +0x3C
     float period_left_{0.0f};    // +0x40
     bool has_next_blend_{};      // +0x44 (the next play blends over next_blend_)

@@ -17,7 +17,6 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 
 namespace render {
@@ -78,7 +77,7 @@ float& get_total_seconds() { return g_total_seconds; }
 int& get_screen_height() { return g_back_buffer_height; }
 uint32_t& bar_timer() { return g_loading_bar_timer; }     // the timer's id (timeSetEvent)
 bool& load_screen_shown() { return g_loading_screen_up; } // shown (0x004B78B0): the main loop doesn't draw
-HANDLE& screen_mutex() { return memory::bits_as<HANDLE>(g_screen_mutex); } // held while the loading screen is drawn
+HANDLE& screen_mutex() { return g_screen_mutex; } // held while the loading screen is drawn
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 struct BarVertex {

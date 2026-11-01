@@ -81,5 +81,5 @@ public:
     bool free_facing_{};              // +0x420
 };
 
-extern void* g_emitter_table;
+extern lists::KeyMap* g_emitter_table;
 } // namespace objects

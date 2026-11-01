@@ -61,7 +61,6 @@
 #include "wire/play_messages.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -163,7 +162,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     skate_module()->tidy_up(); // the skate module's objects
     if (script)
         script->spawn_flags_ = static_cast<uint8_t>((script->spawn_flags_ & ~script::kScriptFlagSpawned) | spawned);
-    memory::bits_as<render::ImposterManager*>(render::g_imposter_manager)->delete_all();
+    render::g_imposter_manager->delete_all();
     render::engine::kill_all_effects();
     gfx::ClipStore* particles = gfx::ClipStore::get_pull(); // (0x006F92B0)
     particles->drain(false);

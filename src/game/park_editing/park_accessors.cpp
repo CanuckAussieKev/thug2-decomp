@@ -12,7 +12,6 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park/park_memory.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 
 namespace park_editing {
@@ -228,18 +227,18 @@ bool ParkLayout::is_area_blocked(CellBox area)
 namespace {
 
 // GapRegistry (0xA8 bytes): the instance in use (sSingleton, 0x0058CBB0), constructor, copying and destructor.
-void*& gap_manager_instance() { return memory::bits_as<void*>(g_gap_registry); }
+GapRegistry*& gap_manager_instance() { return g_gap_registry; }
 
 } // namespace
 
 void ParkLayout::create_gap_manager_copy()
 {
-    void* current = gap_manager_instance();
+    GapRegistry* current = gap_manager_instance();
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-    void* memory = memory::alloc(0xA8);
+    void* memory = memory::alloc(sizeof(GapRegistry)); // (0xA8 bytes in the original)
     GapRegistry* copy = memory ? memory::construct_in<GapRegistry>(memory, nullptr) : nullptr;
     gap_manager_copy_ = copy;
-    copy->copy_from(static_cast<GapRegistry*>(current)); // (null if out of memory)
+    copy->copy_from(current); // (null if out of memory)
     memory::leave_heap_scope();
     gap_manager_instance() = current; // (the constructor made the copy current)
 }

@@ -30,7 +30,6 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/util/com_ptr.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -129,7 +128,7 @@ double g_start = 0.0;         // when the load began (Now())
 double g_last_activity = 0.0; // the last line's time (Now())
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
-HANDLE screen_mutex() { return memory::bits_as<HANDLE>(render::g_screen_mutex); }
+HANDLE screen_mutex() { return render::g_screen_mutex; }
 IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 bool load_screen_shown() { return render::g_loading_screen_up != 0; } // the main loop draws nothing then
 uint32_t bar_timer() { return render::g_loading_bar_timer; }          // the loading bar's timer (0x004B7400)

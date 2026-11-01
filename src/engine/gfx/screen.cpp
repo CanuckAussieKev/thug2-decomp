@@ -15,7 +15,6 @@
 #include "engine/gfx/device.h"
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -33,7 +32,7 @@ float g_angle_factor{1.0f};
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-auto& blur_available() { return memory::bits_as<uint32_t>(core::at(g_screen_surfaces, 0)); }
+bool blur_available() { return core::at(g_screen_surfaces, 0) != nullptr; }
 auto& screen_blur() { return g_screen_blur; }
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return g_script_screen_blur; }
@@ -46,8 +45,8 @@ float angle_factor_constant() { return g_angle_factor; }
 uint8_t& cinema_bars_on() { return g_camera.letterbox_active_; }
 float& horiz_screen_ratio() { return g_display_factor_x; }
 float& vert_screen_ratio() { return g_display_factor_y; }
-uint32_t& screen_offset_x() { return memory::bits_as<uint32_t>(g_screen_offset_x); }
-uint32_t& screen_offset_y() { return memory::bits_as<uint32_t>(g_screen_offset_y); }
+void set_screen_offset_x(uint32_t x) { g_screen_offset_x = static_cast<int>(x); }
+void set_screen_offset_y(uint32_t y) { g_screen_offset_y = static_cast<int>(y); }
 uint32_t get_back_buffer_width() { return static_cast<uint32_t>(g_back_buffer_width); }
 uint32_t get_back_buffer_height() { return static_cast<uint32_t>(g_back_buffer_height); }
 
@@ -145,16 +144,16 @@ void set_letterbox(bool letterbox)
         horiz_screen_ratio() = desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f);
         vert_screen_ratio() = static_cast<float>(get_back_buffer_height()) / 480.0f;
         auto width = static_cast<uint32_t>(horiz_screen_ratio() * 640.0f);
-        screen_offset_x() = (get_back_buffer_width() - width) / 2;
-        screen_offset_y() = static_cast<uint32_t>(16.0f * vert_screen_ratio());
+        set_screen_offset_x((get_back_buffer_width() - width) / 2);
+        set_screen_offset_y(static_cast<uint32_t>(16.0f * vert_screen_ratio()));
     } else {
         horiz_screen_ratio() = static_cast<float>(get_back_buffer_width()) / 640.0f;
         vert_screen_ratio() = back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f);
         auto height = static_cast<uint32_t>(vert_screen_ratio() * 480.0f);
-        screen_offset_x() = 0;
-        screen_offset_y() = static_cast<uint32_t>(16.0f * vert_screen_ratio() +
+        set_screen_offset_x(0);
+        set_screen_offset_y(static_cast<uint32_t>(16.0f * vert_screen_ratio() +
                                                   // NOLINTNEXTLINE(bugprone-integer-division): as the original
-                                                  static_cast<float>((get_back_buffer_height() - height) / 2));
+                                                  static_cast<float>((get_back_buffer_height() - height) / 2)));
     }
     cinema_bars_on() = letterbox;
 }

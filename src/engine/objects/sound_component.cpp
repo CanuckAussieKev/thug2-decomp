@@ -22,7 +22,6 @@
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
@@ -180,12 +179,12 @@ void AudioEmitterModule::update_props(sound::PlaybackProps* props)
 {
     if (props->pitch3 != props->pitch) { // (not a number: moved too)
         auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
-                                       memory::bits_as<float>(props->unknown20));
+                                       props->unknown20);
         props->pitch = maths::keep_within(props->pitch3, props->pitch, step);
     }
     if (props->volume3 != props->volume) {
         auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
-                                       memory::bits_as<float>(props->unknown24));
+                                       props->unknown24);
         props->volume = maths::keep_within(props->volume3, props->volume, step);
     }
 }
@@ -214,7 +213,7 @@ void AudioEmitterModule::update_waiting_sounds()
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
-                memory::bits_as<float>(playing->unknown24) = playing->volume3 * kPercent;
+                playing->unknown24 = playing->volume3 * kPercent;
                 playing->unknown20 = props.unknown20;
                 playing->volume = 0.0f;
             }

@@ -112,8 +112,8 @@ struct PlaybackProps {
     float volume2;      // +0x14
     float pitch3;       // +0x18
     float volume3;      // +0x1C
-    uint32_t unknown20; // +0x20
-    uint32_t unknown24; // +0x24
+    float unknown20; // +0x20 (a pitch step)
+    float unknown24; // +0x24 (a volume step)
     uint32_t falloff;   // +0x28
 };
 static_assert(sizeof(PlaybackProps) == 0x2C, "layout must match the original");

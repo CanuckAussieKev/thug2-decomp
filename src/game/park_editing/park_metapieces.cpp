@@ -15,7 +15,6 @@
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -470,7 +469,7 @@ void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uin
     entry->y = pos->y;
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
-    memory::bits_as<uint8_t>(entry->sets_floor_) = sets_floor;
+    entry->sets_floor_ = sets_floor != 0;
     entry->piece = cell::pointer<void>(meta->name_key_);
     grow_to_take(cell_footprint_, pos);
 }

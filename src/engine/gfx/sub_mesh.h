@@ -19,6 +19,7 @@ namespace render {
 
 
 struct VertexArena; // (pc_scene.h)
+struct Singleton;   // (geom.h)
 struct SceneRef;    // (mesh_list.h)
 struct MaterialRef; // (surface_material.h)
 
@@ -45,7 +46,8 @@ struct MeshRef {
     std::array<uint16_t, 8> index_counts_{};    // +0x24
     std::array<uint8_t, 4> unknown34{};
     uint32_t fvf; // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
-    std::array<uint8_t, 8> unknown3c_{};
+    uint32_t second_fvf_{};           // +0x3C: the vertex format of the mesh's second type (written, never read)
+    std::array<uint8_t, 4> unknown40_{};
     void* pixel_shader_;              // +0x44
     void* unknown48;                  // +0x48 (from the heap)
     Billboard* billboard;             // +0x4C
@@ -60,7 +62,7 @@ struct MeshRef {
     uint8_t* per_vertex_data_;        // +0x94: 0x4C bytes per vertex
     int unknown98;                    // +0x98: its one bone (-1: none)
     int unknown9c_;                   // +0x9C: the frame (0x00786AC4) it was last skinned in
-    uint32_t unknowna0_;              // +0xA0: and for which instance (0x007825B8)
+    const Singleton* unknowna0_;      // +0xA0: and for which instance (0x007825B8)
     uint32_t unknowna4_{}, unknowna8_{}; // +0xA4: texture coordinate sets; +0xA8: bones a vertex (1-3)
     uint32_t position_count_;         // +0xAC
     float* positions;                 // +0xB0: three floats each

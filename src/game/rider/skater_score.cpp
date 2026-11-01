@@ -19,7 +19,6 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/rider.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -111,7 +110,7 @@ void RiderPointKeeper::tick_frame()
         uint8_t* career = get_career();
         raw::as<RiderStoryProgress>(career)->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
         get_score_of(points_held_)->fill_special();
-        memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
+        online::g_cheat_flag = true;
     }
 }
 

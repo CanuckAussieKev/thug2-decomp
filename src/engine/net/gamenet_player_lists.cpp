@@ -60,7 +60,6 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -453,7 +452,7 @@ void Hub::launch_queued_scripts()
         auto* next = data_of<PendingScriptItem>(node);
         script::Script* script = script::spawn_script(queued->own_script_, nullptr, 0, nullptr, queued->list_link_, 0,
                                                       false, false, false, false);
-        objects::Entity* object = memory::bits_as<objects::ObjectHubBase*>(objects::g_composite_registry)
+        objects::Entity* object = objects::g_composite_registry
                                       ->look_up_entity(queued->entity_key_);
         script->entity_.assign_value(object);
         while (script->tick_frame() != script::kScriptOutcomeFinished) {

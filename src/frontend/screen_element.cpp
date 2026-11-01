@@ -443,13 +443,7 @@ void UiWidget::set_children_priority(int priority)
 // 0x004A8B80
 ElementPtr* UiWidget::get_parent(ElementPtr* out) const
 {
-    out->preceding_ = nullptr;
-    out->following_ = nullptr;
-    out->owner_object_ = container_.owner_object_;
-    if (out->owner_object_)
-        static_cast<objects::SharedBase*>(out->owner_object_)
-            ->attach_shared_ref(raw::as<objects::SharedRef<objects::SharedBase>>(out));
-    return out;
+    return out->construct_copy(&container_);
 }
 
 // 0x004A8BB0

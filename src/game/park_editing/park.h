@@ -22,7 +22,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 
 namespace script {
@@ -1205,8 +1204,9 @@ public:
     ParkLayout*& hub() { return park_owner_; }
     CellBox& get_area() { return cell_footprint_; } // the cells under the cursor
     int& get_rotation() { return quarter_turns_; }
-    // An area is selected (the selection stage as a flag: written true / read non-zero).
-    bool& selecting() { return memory::bits_as<bool>(box_select_stage_); }
+    // An area is being selected (the selection stage read as a flag: non-zero), and its first corner set.
+    [[nodiscard]] bool selecting() const { return box_select_stage_ != 0; }
+    void start_selecting() { box_select_stage_ = 1; }
     GapDetails& current_gap() { return gap_; } // the gap being made
     uint32_t& gap_counter() { return gap_counter_; }
     PieceGroup*& get_meta() { return piece_group_; } // the piece the cursor holds (flag 0x200 while it does)

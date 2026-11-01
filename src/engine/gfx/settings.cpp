@@ -11,7 +11,6 @@
 #include "platform/platform_config.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/core/bits_as.h"
 
 namespace render {
 
@@ -52,7 +51,7 @@ void load_graphics_settings()
 
 void write_graphics_settings()
 {
-    memory::bits_as<uint8_t>(g_antialiasing) = static_cast<uint8_t>(s_settings.antialiasing);
+    g_antialiasing = static_cast<uint8_t>(s_settings.antialiasing) != 0;
     g_hq_shadows = static_cast<uint8_t>(s_settings.hq_shadows_);
     g_distance_clipping = static_cast<uint8_t>(s_settings.distance_clipping_);
     uint32_t distance = s_settings.clipping_distance_;
@@ -61,8 +60,7 @@ void write_graphics_settings()
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    memory::bits_as<uint32_t>(gfx::g_draw_distance_setting) =
-        static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
+    gfx::g_draw_distance_setting = static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f));
     g_fog_setting = static_cast<uint8_t>(s_settings.fog);
 }
 

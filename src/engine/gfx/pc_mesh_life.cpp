@@ -81,7 +81,7 @@ MeshRef::MeshRef()
     triangle_count_ = 0;
     triangles = nullptr;
     per_vertex_data_ = nullptr;
-    unknowna0_ = 0;
+    unknowna0_ = nullptr;
     core::at(unknown1c_, 3) = 0xFF;
     unknown9c_ = -1;
     unknown98 = -1;

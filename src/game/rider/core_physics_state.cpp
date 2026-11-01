@@ -39,6 +39,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/objects/ride_tracker.h"
 
 namespace skater {
 
@@ -125,10 +126,9 @@ void SkaterPhysicsModule::get_reset()
     set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy_);
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
-    auto* rider = raw::as<objects::SharedRef<objects::SharedBase>>(ride->ride_);
-    if (rider) {
-        ride->last_object_ = core::down_cast<objects::GameEntity>(rider->owner_object_);
-        rider->get_release();
+    if (objects::RideTracker* rider = ride->ride_) {
+        ride->last_object_ = rider->entity_.owner_object_;
+        rider->entity_.get_release();
         memory::Hub::get_pull()->dealloc(rider);
         ride->ride_ = nullptr;
         ride->stop_time_ = get_now();
@@ -144,7 +144,7 @@ void SkaterPhysicsModule::get_reset()
     can_brake_ = 1;
     state_->lip_straight_up_ = 0;
     rail_node_ = nullptr;
-    if (bits_as<uint32_t>(limits_time_) != 0xC0000000u) // (-2: kept)
+    if (limits_time_ != -2.0f) // (-2: kept)
         limits_time_ = 0.0f;
     wallplant_time_ = 0;
     last_push_off_ = 0;

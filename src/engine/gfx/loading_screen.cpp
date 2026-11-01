@@ -27,7 +27,6 @@
 #include "platform/crt.h"
 #include "platform/run_log.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -38,7 +37,7 @@ uint8_t* g_loading_screen_picture;
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-HANDLE screen_mutex() { return memory::bits_as<HANDLE>(g_screen_mutex); }
+HANDLE screen_mutex() { return g_screen_mutex; }
 bool& load_screen_shown() { return g_loading_screen_up; }
 uint32_t& bar_timer() { return g_loading_bar_timer; }
 uint32_t fog_render_flag() { return g_fog_active; } // (the renderer's cached D3DRS_FOGENABLE)

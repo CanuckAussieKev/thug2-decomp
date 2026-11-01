@@ -14,13 +14,12 @@
 #include "engine/objects/entity.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
 
-void* g_emitter_table;
+lists::KeyMap* g_emitter_table;
 
 namespace {
 
@@ -29,7 +28,7 @@ constexpr uint32_t kShape = 0x7321A8D6;  // (the shape's parameter; the proximit
 constexpr uint32_t kRadius = 0xC48391A5; // radius
 constexpr uint32_t kScript = 0x2CA8A299; // (the node's script)
 
-lists::KeyMap*& get_table() { return memory::bits_as<lists::KeyMap*>(g_emitter_table); }
+lists::KeyMap*& get_table() { return g_emitter_table; }
 
 // The level sector named `name` (null if none) and its bounding box (not rewritten yet).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }

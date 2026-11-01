@@ -25,7 +25,6 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/walk_physics.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -81,7 +80,7 @@ void SkaterPhysicsModule::step_coping_move()
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->lip_.lean_ = 0.0f;
             balance_->lip_.lean_speed_ = 0.0f;
-            memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
+            online::g_cheat_flag = true;
         }
         balance_->lip_.tick_frame();
     }
@@ -135,7 +134,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     no_kick_ = 0;
     can_brake_ = 1;
     state_->lip_straight_up_ = 0; // (without its time)
-    if (bits_as<uint32_t>(limits_time_) != 0xC0000000)
+    if (limits_time_ != -2.0f)
         limits_time_ = 0.0f;
     speed_override_ = 1.0f;
     wallplant_time_ = 0;
@@ -147,7 +146,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         objects::MovingSurfaceModule* ride = ride_;
         if (objects::RideTracker* tracker = ride->ride_) {
             ride->last_object_ = tracker->entity_.owner_object_;
-            raw::as<objects::SharedRef<objects::SharedBase>>(&tracker->entity_)->get_release();
+            tracker->entity_.get_release();
             memory::Hub::get_pull()->dealloc(tracker);
             ride->ride_ = nullptr;
             ride->stop_time_ = get_now();

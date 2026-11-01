@@ -16,7 +16,6 @@
 #include "game/skate/skate_module_calls.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 
@@ -233,7 +232,7 @@ bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
 // 0x005AE000: CutsceneDestroyListActive - the renderer's 0x0049A8E0 (its +0x10 set) on 0x006FA7C0.
 bool cfunc_cutscene_destroy_list_active(script::Struct*, script::Script*)
 {
-    return memory::bits_as<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->has_temp_heap();
+    return render::g_flexible_particle_manager->has_temp_heap();
 }
 
 // 0x005AE010: PlayCutscene ... - a cutscene queued (as the movie Cutscene); with ObjectAnim, name=<anim> as an

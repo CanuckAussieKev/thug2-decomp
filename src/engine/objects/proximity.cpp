@@ -19,14 +19,13 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
 
-void* g_proximity_hub;
+ProximityRegistry* g_proximity_hub;
 
 namespace {
 
@@ -43,7 +42,7 @@ constexpr uint32_t kRestart = 0x1806DDF8;        // Restart
 // The skaters by object id (0-31).
 constexpr int kSkaterSlots = 32;
 
-ProximityRegistry*& hub() { return memory::bits_as<ProximityRegistry*>(g_proximity_hub); }
+ProximityRegistry*& hub() { return g_proximity_hub; }
 EntityHub* entity_hub_handle() { return g_composite_registry.get(); }
 Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(id); }
 

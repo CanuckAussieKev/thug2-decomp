@@ -28,7 +28,6 @@
 #include "engine/gfx/viewport.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -191,7 +190,6 @@ bool ObjectAnimMovie::is_held_and_complete() { return flag18_ && is_accomplished
 CameraAnimMovie::CameraAnimMovie()
 {
     construct_timeline(&timeline_);
-    memory::bits_as<uint32_t>(field_of_view_) = 0;
 }
 
 // 0x005872C0

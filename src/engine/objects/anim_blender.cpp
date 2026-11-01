@@ -135,7 +135,7 @@ void AnimBlenderComponent::tick_frame()
     if (!channel)
         return;
     do {
-        if (!(std::bit_cast<float>(channel->ongoing_) >= kMinWeight) && count != 0) {
+        if (!(channel->ongoing_ >= kMinWeight) && count != 0) {
             // a channel after the first with (next to) no weight: only reset
             channel->update_blend();
             channel->update_timelines();
@@ -146,7 +146,7 @@ void AnimBlenderComponent::tick_frame()
         } else {
             if (channel->tick_frame(count, ready))
                 changed = true;
-            gfx::g_blend_weights[count] = std::bit_cast<float>(channel->ongoing_);
+            gfx::g_blend_weights[count] = channel->ongoing_;
             gfx::g_blend_sets[count] = static_cast<uint32_t>(channel->rank_);
             if (!(highest_set > gfx::g_blend_sets[count]))
                 highest_set = gfx::g_blend_sets[count];
@@ -295,9 +295,7 @@ int AnimBlenderComponent::blend_channel(uint32_t, script::Struct* params, script
     float a = 0.0f, b = 0.0f;
     params->fetch_float(0x4D786F62, &a, 1);
     params->fetch_float(0xBF237659, &b, 0);
-    uint32_t target = 0; // (blend_to's target is a float here: its bits passed on)
-    std::memcpy(&target, &a, sizeof(target));
-    channel->blend_to(target, b);
+    channel->blend_to(a, b);
     return 1;
 }
 

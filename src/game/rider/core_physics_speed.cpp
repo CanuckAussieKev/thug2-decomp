@@ -62,8 +62,7 @@ void SkaterPhysicsModule::clamp_skater_speed()
         heavy_friction = thaw_bmx::vert_speed_allowance(this, &max_max);
     float& timer = limits_time_;
     if (timer != 0.0f) {
-        const uint32_t bits = bits_as<uint32_t>(limits_time_);
-        if (bits != 0xBF800000u && bits != 0xC0000000u) {
+        if (timer != -1.0f && timer != -2.0f) { // (-1: for good; -2: for the level)
             const double left = static_cast<double>(timer) - frame_length_;
             timer = static_cast<float>(left);
             if (left < 0.0)

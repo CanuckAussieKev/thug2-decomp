@@ -16,6 +16,7 @@ class ViewCam;
 // The engine's platform calls (render::CEngine's s_plat_* on PC, cdecl): the engine's own entry points at
 // 0x0048BF10-0x0048C860 are jumps to these, and most of these pass straight on into the PC engine.
 namespace render {
+struct SkinScaling;
 
 struct PcScene;
 struct WorldScene;
@@ -33,7 +34,7 @@ void toggle_mem_view();
 // 0x004B2280: the frame's BeginScene, unless the loading screen is up (0x00786D04).
 void begin_frame_draw();
 // 0x004B22B0: a jump to 0x004D3CA0 - the 2D clip rectangle (four values) set and turned on.
-void set_screen_clip(const void* rect);
+void set_screen_clip(const SkinScaling* settings);
 // 0x004B22C0: a debug shape: type 4 is a quad (four points, 0x004D8D70) in `colour`; others nothing.
 // (What it reaches is occlusion.h's insert_occluder_poly - `colour` is the polygon's checksum; the two below are
 // activate_occluder_poly and clear_occluder_polys, and sphere_visible is sphere_outside_view: 1 when the sphere is

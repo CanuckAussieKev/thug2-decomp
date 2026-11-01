@@ -500,7 +500,7 @@ void SkaterPhysicsModule::check_side_feelers()
         }
         check_side_feeler(&start, &end, side);
     }
-    if (bits_as<uint32_t>(side_nearest_) == 0x3F800000u) // (nothing hit: still 1)
+    if (side_nearest_ == 1.0f) // (nothing hit: still 1)
         return;
     // Pushed off by the walls hit, the nearer the harder; turned along a wall it faces into.
     maths::Vec4& push = side_normal_sum_;

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 // NOT ORIGINAL - a vertex buffer's bytes (the copy kept in memory, or a mesh file's vertex block) read and written
 // by attribute: `stride` bytes per vertex, each attribute a run of floats at its offset in the vertex (the position
@@ -26,9 +27,13 @@ public:
     [[nodiscard]] std::array<float, 3> float3(size_t index, size_t offset = 0) const { return floats<3>(index, offset); }
     [[nodiscard]] std::array<float, 2> float2(size_t index, size_t offset = 0) const { return floats<2>(index, offset); }
     // The 32-bit word at `offset` in vertex `index` (a packed colour).
-    [[nodiscard]] uint32_t word(size_t index, size_t offset) const
+    [[nodiscard]] uint32_t word(size_t index, size_t offset) const { return value<uint32_t>(index, offset); }
+    // The value of type T (a plain number or record) at `offset` in vertex `index`.
+    template <typename T>
+    [[nodiscard]] T value(size_t index, size_t offset) const
     {
-        uint32_t out = 0;
+        static_assert(std::is_trivially_copyable_v<T>);
+        T out{};
         std::memcpy(&out, at(index, offset), sizeof(out));
         return out;
     }
@@ -53,9 +58,18 @@ public:
     {
         set_floats<3>(index, offset, {x, y, z});
     }
-    void set_word(size_t index, size_t offset, uint32_t value) const
+    void set_word(size_t index, size_t offset, uint32_t value) const { set_value(index, offset, value); }
+    // `value` (a plain number or record) at `offset` in vertex `index`.
+    template <typename T>
+    void set_value(size_t index, size_t offset, const T& value) const
     {
+        static_assert(std::is_trivially_copyable_v<T>);
         std::memcpy(at(index, offset), &value, sizeof(value));
+    }
+    // `size` bytes from `source` to `offset` in vertex `index`.
+    void set_bytes(size_t index, size_t offset, const void* source, size_t size) const
+    {
+        std::memcpy(at(index, offset), source, size);
     }
     [[nodiscard]] VertexView view() const { return {bytes_, stride_}; }
 

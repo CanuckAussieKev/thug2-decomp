@@ -40,10 +40,10 @@
 #include "engine/objects/cutscene.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/render_state.h"
 
 namespace objects {
 
@@ -122,13 +122,9 @@ struct TextureParams {
     uint8_t is_model_; // +0x08
     uint8_t flag9;
 };
-// A skinned model's colours (for 0x0048C090): the colour table, its entries, where the colours go.
-struct SkinColours {
-    const uint8_t* end;
-    const uint8_t* start;
-    void* table;    // (0x0067D810)
-    float* colours; // (0x0067D860)
-};
+// A skinned model's colours (for 0x0048C090): the colour table (0x0067D810), its entries, where the colours go
+// (0x0067D860).
+using SkinColours = render::SkinScaling;
 
 // (debug output, compiled out)
 inline void print_cutscene_details(void*) {}
@@ -229,7 +225,7 @@ void CinematicEntry::stop()
     }
     get_run(0xE7BC7EFD);
     get_run(0x4C0FD1D7);
-    memory::bits_as<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->delete_temp_heap();
+    render::g_flexible_particle_manager->delete_temp_heap();
     if (content_) {
         discard_loaded_item(asset_);
         content_ = nullptr;

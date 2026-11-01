@@ -307,7 +307,7 @@ bool BuildPointer::destroy_selection()
     selected_area(this, &area);
     const bool destroyed = hub()->destroy_metas_in_area_and_rebuild(area, true, true, false);
     memory_marker("After Area deletion"); // "After Area deletion"
-    selecting() = true;
+    start_selecting();
     area_highlighted_ = false;
     return destroyed;
 }
@@ -320,7 +320,7 @@ void BuildPointer::flatten_selection()
     CellBox area = {};
     selected_area(this, &area);
     hub()->clear_area(area);
-    selecting() = true;
+    start_selecting();
     area_highlighted_ = false;
 }
 

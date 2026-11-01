@@ -19,9 +19,9 @@
 #include "engine/gfx/debug_lines.h"
 #include "engine/objects/cutscene.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <bit>
 
 namespace gfx {
 
@@ -102,7 +102,7 @@ maths::Mat4 bone_space(Rig* skeleton, int index)
 } // namespace
 
 // 0x004A2C20
-RigData::RigData() { memory::bits_as<uint32_t>(core::at(lod_distances_, 0)) = 0x7F7FC99E; }
+RigData::RigData() { core::at(lod_distances_, 0) = std::bit_cast<float>(0x7F7FC99Eu); } // (about 3.4e38: no limit)
 
 // 0x004A3950
 RigData::~RigData()

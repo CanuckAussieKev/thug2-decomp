@@ -168,7 +168,7 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 void BlendChannel::set_flag_4c(bool value) { flag_4c_ = value; }
 
 // 0x0047D430
-void BlendChannel::blend_to(uint32_t target, float period)
+void BlendChannel::blend_to(float target, float period)
 {
     aim_point_ = target;
     period_left_ = period;

@@ -40,7 +40,6 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/engine_glue.h"
 #include "frontend/front_end.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -207,7 +206,7 @@ bool is_multiplayer() { return modules::Skate::is_multiplayer() & 1; }
 // The game mode's name (modules::Skate's game mode 0x007CE470).
 uint32_t active_ruleset_label() { return goals::g_game_mode->get_name_key(); }
 // The front end (0x007CE464): +0x30 paused.
-bool is_game_halted() { return memory::bits_as<uint8_t*>(modules::g_front_end_instance)[0x30] != 0; }
+bool is_game_halted() { return modules::g_front_end_instance->is_halted_; }
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.
 void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
 

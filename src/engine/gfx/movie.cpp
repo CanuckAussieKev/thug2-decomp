@@ -36,7 +36,6 @@
 #include "platform/crt.h"
 #include "platform/bink.h"
 #include "platform/compiler.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -333,7 +332,7 @@ void play_movie_file(const char* name)
     UINT screen_saver_timeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
     uint32_t screen_saver_frames = 0;
-    const bool fog = memory::bits_as<int>(g_fog_active) != 0;
+    const bool fog = g_fog_active != 0;
     toggle_fog(false);
     if (texture) {
         sio::Hub* input = sio::create_manager(false);

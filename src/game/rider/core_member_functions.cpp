@@ -26,6 +26,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <bit>
 
 namespace skater {
 
@@ -730,7 +731,7 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
         time = 0.0f;
         return 1;
     }
-    if (bits_as<uint32_t>(limits_time_) == 0xC0000000u) // -2: for the level
+    if (limits_time_ == -2.0f) // for the level
         return 1;
     if (params->has_bare_flag(kEnd)) {
         time = 0.0f;
@@ -739,12 +740,12 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
     float* max = &limits_max_;
     params->fetch_float(kMax, max, 1);
     float* max_max = &limits_max_max_;
-    bits_as<uint32_t>(limits_max_max_) = *raw::as<uint32_t>(max);
+    limits_max_max_ = *max;
     params->fetch_float(kMaxMax, max_max, 0);
-    bits_as<uint32_t>(limits_time_) = kLimitsTimeDefault;
+    limits_time_ = std::bit_cast<float>(kLimitsTimeDefault);
     params->fetch_float(kTime, &time, 0);
     float* friction = &limits_friction_;
-    bits_as<uint32_t>(limits_friction_) = kLimitsFrictionDefault;
+    limits_friction_ = std::bit_cast<float>(kLimitsFrictionDefault);
     params->fetch_float(kFriction, friction, 0);
     float* gravity = &limits_gravity_;
     *gravity = tuning_float_lookup(kGroundGravity, object);

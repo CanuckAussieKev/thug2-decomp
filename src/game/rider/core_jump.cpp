@@ -243,7 +243,7 @@ void SkaterPhysicsModule::end_skitch()
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* tracker = ride->ride_) {
         ride->last_object_ = tracker->entity_.owner_object_; // (what it rode last)
-        raw::as<objects::SharedRef<objects::SharedBase>>(&tracker->entity_)->get_release();
+        tracker->entity_.get_release();
         memory::Hub::get_pull()->dealloc(tracker);
         ride->ride_ = nullptr;
         ride->stop_time_ = get_now();

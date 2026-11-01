@@ -40,7 +40,6 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/balance_trick.h"
 #include "engine/objects/vehicle_component.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -90,7 +89,7 @@ int& gap_trick_count(TrickListEntry* gap) { return gap->trick_count_; } // the s
 uint32_t& gap_trick_script(TrickListEntry* gap) { return gap->trick_script_; }
 uint32_t& gap_trick_text(TrickListEntry* gap) { return gap->trick_text_; }
 int& gap_spin(TrickListEntry* gap) { return gap->spin_; }
-uint8_t& gap_perfect(TrickListEntry* gap) { return memory::bits_as<uint8_t>(gap->perfect_); }
+bool& gap_perfect(TrickListEntry* gap) { return gap->perfect_; }
 uint32_t& gap_tricks_count(TrickListEntry* gap) { return gap->tricks_count_; }
 int& gap_taps(TrickListEntry* gap) { return gap->taps_; }
 maths::Vec4& gap_start_pos(TrickListEntry* gap) { return gap->start_pos_; }
@@ -402,7 +401,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
         auto read_spin = [&]() {
             int spin = 0;
             if (params->fetch_int_value(kSpin, &spin, 0)) {
-                gap_perfect(gap) = params->has_bare_flag(kPerfect) ? 1 : 0;
+                gap_perfect(gap) = params->has_bare_flag(kPerfect);
                 gap_spin(gap) = get_half_turns(spin);
             }
             params->fetch_int_value(kNumTaps, &gap_taps(gap), 0);

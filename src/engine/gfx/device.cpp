@@ -27,7 +27,6 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
@@ -102,7 +101,7 @@ void init_direct_3d()
     g_screen_offset_x = 0;
     g_screen_offset_y = 16;
     g_depth_texture_target = nullptr;
-    memory::bits_as<uint32_t>(g_screen_copy_index) = 0;
+    g_screen_copy_index = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
     //   if (g_show_window_flag) ShowWindow(Pane(), SW_MAXIMIZE);
 

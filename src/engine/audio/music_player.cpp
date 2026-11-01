@@ -24,7 +24,6 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/stream_component.h"
 #include "platform/compiler.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -90,8 +89,8 @@ int& user_soundtrack() { return g_user_soundtrack; }
 bool& custom_soundtrack_active() { return g_custom_playlist_on; }
 int* user_order() { return g_user_order.data(); }
 constexpr int kUserOrderSize = 600;
-int& user_track() { return memory::bits_as<int>(g_user_track); }
-int& user_position() { return memory::bits_as<int>(g_user_position); }
+uint32_t& user_track() { return g_user_track; }
+uint32_t& user_position() { return g_user_position; }
 bool shuffle_user() { return g_shuffle_user; }
 
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.

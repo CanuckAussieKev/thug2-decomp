@@ -28,9 +28,9 @@
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "gpu/vertex_view.h"
 
 namespace render {
 
@@ -60,7 +60,7 @@ struct ScaledVertex {
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
-bool skin_scaling_on() { return g_skin_scaling_on && memory::bits_as<float*>(core::at(g_skin_settings, 3)); }
+bool skin_scaling_on() { return g_skin_scaling_on && g_skin_settings.colours; }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
@@ -69,7 +69,7 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
-    const float* scale = memory::bits_as<float*>(core::at(g_skin_settings, 3)) + 4 * bone;
+    const float* scale = g_skin_settings.colours + 4 * bone;
     e0 = scale[0];
     e4 = scale[1];
     e8 = scale[2];
@@ -80,7 +80,7 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
 // third, z by its second - and moved by the bone's position, then blended by the weights. (The original's memory and
 // file loaders compute it in x87 code that rounds different sums and products to float; in plain float arithmetic
 // they are the same formula.)
-void scaled_position(const ScaledVertex& v, float* out)
+std::array<float, 3> scaled_position(const ScaledVertex& v)
 {
     std::array<float, 4> e0{};
     std::array<float, 4> e1{};
@@ -92,9 +92,7 @@ void scaled_position(const ScaledVertex& v, float* out)
     const float bx = core::at(v.q, 0) + core::at(e1, 0) * core::at(v.b, 0), by = core::at(v.q, 1) + core::at(e1, 2) * core::at(v.b, 1), bz = core::at(v.q, 2) + core::at(e1, 1) * core::at(v.b, 2);
     const float cx = core::at(v.r, 0) + core::at(e2, 0) * core::at(v.c, 0), cy = core::at(v.r, 1) + core::at(e2, 2) * core::at(v.c, 1), cz = core::at(v.r, 2) + core::at(e2, 1) * core::at(v.c, 2);
     const float* s = v.weights.data();
-    out[0] = ax * s[0] + bx * s[1] + cx * s[2];
-    out[1] = ay * s[0] + by * s[1] + cy * s[2];
-    out[2] = az * s[0] + bz * s[1] + cz * s[2];
+    return {ax * s[0] + bx * s[1] + cx * s[2], ay * s[0] + by * s[1] + cy * s[2], az * s[0] + bz * s[1] + cz * s[2]};
 }
 
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).
@@ -111,12 +109,12 @@ uint32_t vertex_format(uint32_t type)
 void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertices, uint32_t stride)
 {
     const size_t count = records.size() / scene_format::kScaledVertexSize;
+    const gpu::VertexWriter out(vertices, stride);
     for (size_t i = 0; i < count; ++i) {
         ScaledVertex v{};
         std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
         if (skin_scaling_on())
-            scaled_position(v, raw::as<float>(vertices));
-        vertices += stride;
+            out.set_floats<3>(i, 0, scaled_position(v));
     }
 }
 
@@ -152,7 +150,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     if (!body.scaled.empty())
         apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride);
     mesh->fvf = vertex_format(core::at(body.vertex_types, 0));
-    *raw::as<uint32_t>(mesh->unknown3c_.data()) = vertex_format(core::at(body.vertex_types, 1));
+    mesh->second_fvf_ = vertex_format(core::at(body.vertex_types, 1));
     core::at(mesh->unknown1c_, 1) = core::at(body.offsets, 0);
     core::at(mesh->unknown1c_, 0) = core::at(body.offsets, 1);
     core::at(mesh->unknown1c_, 2) = core::at(body.offsets, 2);
@@ -215,39 +213,45 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
 void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexArena* arena)
 {
     const uint32_t sets = material->pass_count_; // (a texture coordinate set a pass)
-    auto* out = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
-    per_vertex_data_ = out;
+    auto* out_bytes = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
+    per_vertex_data_ = out_bytes;
+    // Each vertex: the position, the normal (float3s), the colour, the texture coordinates (a float2 a set), the
+    // four bone indexes (bytes, at 0x3C) and the weights (float3 at 0x40) - from the packed vertex's.
+    const gpu::VertexView in(packed, stride);
+    const gpu::VertexWriter out(out_bytes, 0x4C);
     uint32_t bones = 1;
     const bool suspect = vertex_count_ == 0x280 && core::at(index_counts_, 0) == 0x6A3; // (a debugging check the original kept)
     auto unpack11 = [](uint32_t bits) {
         return static_cast<int>(bits & 0x400 ? (bits & 0x7FF) - 0x800 : bits & 0x7FF);
     };
     for (int i = 0; std::cmp_less(i, vertex_count_); ++i) {
-        std::memcpy(out, packed, 12); // the position
+        const auto n = static_cast<size_t>(i);
+        out.set_floats<3>(n, 0, in.float3(n, 0)); // the position
         if (suspect && i == 0xF7)
             debug::printf("euh");
-        const uint32_t normal = *raw::field_at<const uint32_t>(packed, 0x18);
-        auto* f = raw::as<float>(out);
-        f[3] = static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11_scale));
-        f[4] = static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11_scale));
+        const uint32_t normal = in.word(n, 0x18);
         const uint32_t z = normal >> 22;
-        f[5] = static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) * static_cast<double>(g_unpack_z_scale));
-        std::memcpy(out + 0x18, packed + 0x1C, 4); // the colour
-        std::memcpy(out + 0x1C, packed + 0x20, sets * 8);
-        for (int k = 0; k < 4; ++k)
-            out[0x3C + k] = static_cast<uint8_t>(*raw::field_at<const int16_t>(packed, 0x10 + 2 * k) / 3);
-        const uint32_t weights = *raw::field_at<const uint32_t>(packed, 0xC);
-        f[16] = static_cast<float>(unpack11(weights) * static_cast<double>(g_unpack11_scale));
-        f[17] = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(g_unpack11_scale));
+        out.set_floats<3>(n, 0xC,
+                          {static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11_scale)),
+                           static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11_scale)),
+                           static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) *
+                                              static_cast<double>(g_unpack_z_scale))});
+        out.set_word(n, 0x18, in.word(n, 0x1C)); // the colour
+        for (uint32_t set = 0; set < sets; ++set)
+            out.set_floats<2>(n, 0x1C + 8 * set, in.float2(n, 0x20 + 8 * set));
+        for (size_t k = 0; k < 4; ++k)
+            out.set_value(n, 0x3C + k, static_cast<uint8_t>(in.value<int16_t>(n, 0x10 + 2 * k) / 3));
+        const uint32_t weights = in.word(n, 0xC);
         const uint32_t w = weights >> 22;
         const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(g_unpack_z_scale);
-        f[18] = static_cast<float>(third);
-        if (bones < 2 && !(f[17] == 0.0f))
+        const auto second = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(g_unpack11_scale));
+        out.set_floats<3>(n, 0x40,
+                          {static_cast<float>(unpack11(weights) * static_cast<double>(g_unpack11_scale)), second,
+                           static_cast<float>(third)});
+        if (bones < 2 && !(second == 0.0f))
             bones = 2;
         if (bones < 3 && !(third == 0.0))
             bones = 3;
-        out += 0x4C;
-        packed += stride;
     }
     unknowna4_ = sets;
     unknowna8_ = bones;

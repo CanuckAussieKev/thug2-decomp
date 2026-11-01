@@ -24,7 +24,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -409,7 +408,7 @@ void EmitterInstance::set_wants_time(uint8_t on)
         flag_bits_ |= 0x10000u;
     else
         flag_bits_ &= ~0x10000u;
-    memory::bits_as<uint8_t>(wants_time_) = on;
+    wants_time_ = on != 0;
 }
 
 // 0x00497AB0

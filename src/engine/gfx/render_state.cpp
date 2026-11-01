@@ -21,7 +21,6 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -621,11 +620,11 @@ void reset_render_state()
     src_blend() = 0xDEADBABE;
     dest_blend() = 0xDEADBABE;
     core::at(g_pending_screen_shot, 0) = 0;
-    memory::bits_as<uint8_t>(g_screen_shot_name_exact) = 0;
+    g_screen_shot_name_exact = false;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    memory::bits_as<uint32_t>(core::at(g_ps_constant_bank, 16)) = 0;
+    core::at(g_ps_constant_bank, 16) = 0.0f;
     core::at(g_ps_constant_bank, 17) = 0.5f;
-    memory::bits_as<uint32_t>(core::at(g_ps_constant_bank, 18)) = 0;
+    core::at(g_ps_constant_bank, 18) = 0.0f;
     core::at(g_ps_constant_bank, 19) = 0.5f;
     pixel_shader_locked() = 0;
     current_pixel_shader() = nullptr;
@@ -645,11 +644,12 @@ void reset_render_state()
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     });
     for (int i = 0; i < 24; ++i)
-        memory::bits_as<uint32_t>(core::at(g_light_constants, 4 + i)) = core::at(kLight, i);
-    memory::bits_as<uint32_t>(core::at(g_light_constants, 0)) = 0x3F1624DD; // the ambient colour
-    memory::bits_as<uint32_t>(core::at(g_light_constants, 1)) = 0x3F1624DD;
-    memory::bits_as<uint32_t>(core::at(g_light_constants, 2)) = 0x3F1624DD;
-    memory::bits_as<uint32_t>(core::at(g_light_constants, 3)) = 0x3F800000;
+        core::at(g_light_constants, 4 + i) = std::bit_cast<float>(core::at(kLight, i));
+    constexpr auto kAmbient = std::bit_cast<float>(0x3F1624DDu); // the ambient colour (0.586)
+    core::at(g_light_constants, 0) = kAmbient;
+    core::at(g_light_constants, 1) = kAmbient;
+    core::at(g_light_constants, 2) = kAmbient;
+    core::at(g_light_constants, 3) = 1.0f;
     get_fog() = 0;
     fog_color() = 0;
     g_fog_begin_distance = -240.0f; // fog start and end (the original stored their bit patterns)

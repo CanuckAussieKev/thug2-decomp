@@ -128,7 +128,7 @@ double FootMovement::adjust_speed_for_slope(float speed, const maths::Vec4* dire
 void FootMovement::update_upright()
 {
     maths::Vec4& up = up_;
-    if (memory::bits_as<uint32_t>(up_.y) == 0x3F800000) // (up.y exactly 1)
+    if (up_.y == 1.0f) // (up.y exactly 1)
         return;
     if (up.y > kNearlyUpright) {
         up = {0.0f, 1.0f, 0.0f, 1.0f};

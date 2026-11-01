@@ -32,9 +32,9 @@
 #include "engine/net/gamenet_manager.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <bit>
 
 namespace skater {
 
@@ -188,9 +188,9 @@ void SkaterPhysicsModule::update_speed_override()
         const float most = tuning_float_lookup(kOverrideMaxFactor, object);
         const double over = static_cast<double>(speed_rounded) / stat;
         factor = over < most ? static_cast<float>(over) : most;
-        bits_as<uint32_t>(limits_max_) = kNoLimit;
-        bits_as<uint32_t>(limits_max_max_) = kNoLimit;
-    } else if (bits_as<uint32_t>(speed_override_) == 0x3F800000u) { // (1: off)
+        limits_max_ = std::bit_cast<float>(kNoLimit);
+        limits_max_max_ = std::bit_cast<float>(kNoLimit);
+    } else if (speed_override_ == 1.0f) { // (1: off)
         return;
     }
     limits_time_ = -1.0f;
@@ -226,7 +226,7 @@ void SkaterPhysicsModule::update_speed_override()
         }
     }
     factor = 1.0f;
-    if (bits_as<uint32_t>(limits_time_) == 0xC0000000u) // (never: it was just set to -1)
+    if (limits_time_ == -2.0f) // (never: it was just set to -1)
         return;
     limits_time_ = 0.0f;
 }
@@ -244,7 +244,7 @@ double SkaterPhysicsModule::get_gravity()
     if (career->is_code_on(kMoonCheat)) {
         career->set_global_flag(script::fetch_int_value(kMoonCheat));
         result = static_cast<float>(static_cast<double>(tuning_float_lookup(kMoonGravity, object)) * result);
-        memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
+        online::g_cheat_flag = true;
     }
     const float scale = script::fetch_float(kFallScale);
     if (scale != 0.0f && !(entity_->vel_.y > 0.0f) && entity_->vel_.y == entity_->vel_.y)

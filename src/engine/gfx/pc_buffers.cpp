@@ -24,7 +24,7 @@
 namespace render {
 
 uint8_t g_skin_scaling_on;
-std::array<uint32_t, 5> g_skin_settings;
+SkinScaling g_skin_settings; // (+ a fifth word, only ever cleared)
 namespace {
 std::array<uint8_t, 64> g_saved_pixel_shader_constants; // (4 passes of 16 bytes: the adapter identifier follows)
 } // namespace
@@ -80,25 +80,17 @@ void MeshRef::set_pixel_shader_colored()
 }
 
 // 0x004D3CA0
-void set_skin_scaling(const uint32_t* settings)
+void set_skin_scaling(const SkinScaling* settings)
 {
     g_skin_scaling_on = 1;
-    core::at(g_skin_settings, 1) = settings[1];
-    core::at(g_skin_settings, 0) = settings[0];
-    core::at(g_skin_settings, 3) = settings[3];
-    core::at(g_skin_settings, 2) = settings[2];
-    core::at(g_skin_settings, 4) = 0;
+    g_skin_settings = *settings;
 }
 
 // 0x004D3CE0
 void clear_skin_scaling()
 {
     g_skin_scaling_on = 0;
-    core::at(g_skin_settings, 1) = 0;
-    core::at(g_skin_settings, 0) = 0;
-    core::at(g_skin_settings, 3) = 0;
-    core::at(g_skin_settings, 2) = 0;
-    core::at(g_skin_settings, 4) = 0;
+    g_skin_settings = {};
 }
 
 // 0x004D3ED0

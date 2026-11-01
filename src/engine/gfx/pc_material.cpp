@@ -22,10 +22,10 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/bitmap_texture.h"
+#include <bit>
 
 namespace render {
 
@@ -39,7 +39,7 @@ std::array<float, 16> g_environment_matrix{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f,
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 float* pass_constants() { return g_ps_constant_bank.data(); } // the pixel shader's colours, 16 bytes a pass
-bool& constants_changed() { return memory::bits_as<bool>(g_pixel_shader_changed); }
+uint8_t& constants_changed() { return g_pixel_shader_changed; }
 
 void device_stage_state(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
 {
@@ -134,9 +134,9 @@ void set_border_color(const MaterialRef* material, uint32_t pass, uint32_t stage
 void change_bump_map_matrix(uint32_t stage)
 {
     device_stage_state(stage, D3DTSS_BUMPENVMAT00, *raw::as<uint32_t>(&g_heading_matrix));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT01, memory::bits_as<uint32_t>(core::at(g_heading_matrix.row, 0).z));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT10, memory::bits_as<uint32_t>(core::at(g_heading_matrix.row, 2).x));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT11, memory::bits_as<uint32_t>(core::at(g_heading_matrix.row, 2).z));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT01, std::bit_cast<uint32_t>(core::at(g_heading_matrix.row, 0).z));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT10, std::bit_cast<uint32_t>(core::at(g_heading_matrix.row, 2).x));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT11, std::bit_cast<uint32_t>(core::at(g_heading_matrix.row, 2).z));
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
