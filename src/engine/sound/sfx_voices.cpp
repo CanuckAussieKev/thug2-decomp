@@ -512,7 +512,7 @@ void create_manager(bool create)
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(8, nullptr, 1);
         if (memory) {
-            sole() = static_cast<AudioMixer*>(memory)->make_new();
+            sole() = new (memory) AudioMixer;
             ++ref_tally();
             return;
         }

@@ -903,7 +903,7 @@ void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, u
 }
 
 // 0x00573620
-CtodManager* CtodManager::make_new()
+CtodManager::CtodManager()
 {
     unknown4_ = spawn_param_table();
     void* table = memory::alloc(sizeof(lists::KeyMap));
@@ -911,11 +911,10 @@ CtodManager* CtodManager::make_new()
     for (TodSystem& system : systems_)
         system.params = spawn_param_table();
     get_reset();
-    return this;
 }
 
 // 0x00573770
-void CtodManager::destruct()
+CtodManager::~CtodManager()
 {
     for (TodSystem& system : systems_) {
         delete_structure(system.params);
@@ -1227,7 +1226,7 @@ CtodManager* create_tod_manager(bool create)
     CtodManager*& manager = tod_manager();
     if (!manager && create) {
         void* memory = memory::alloc_zeroed(sizeof(CtodManager), nullptr, 1);
-        manager = memory ? static_cast<CtodManager*>(memory)->make_new() : nullptr;
+        manager = memory ? new (memory) CtodManager : nullptr;
     }
     ++ref_tally();
     return manager;
@@ -1242,7 +1241,7 @@ void release_tod_manager()
     }
     CtodManager* manager = tod_manager();
     if (manager) {
-        manager->destruct();
+        manager->~CtodManager();
         memory::Hub::get_pull()->dealloc(manager);
     }
     tod_manager() = nullptr;

@@ -202,13 +202,12 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
 }
 
 // 0x0045D370
-NodeManager* NodeManager::make_new()
+NodeManager::NodeManager()
 {
     num_ = 0;
     for (NodeSlot& slot : slots_)
         slot = {0, -1};
     walk_.list_link_ = -1;
-    return this;
 }
 
 // 0x0045D050
@@ -441,7 +440,7 @@ NodeManager* create_node_manager(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(NodeManager), nullptr, 1);
-        sole() = memory ? static_cast<NodeManager*>(memory)->make_new() : nullptr;
+        sole() = memory ? new (memory) NodeManager : nullptr;
         // NOT ORIGINAL: its name hash bigger than the original's (memory::sizes::node_hash_slots - see BigSlot).
         if (sole() && memory::sizes::node_hash_slots() > static_cast<uint32_t>(NodeManager::kSlots))
             use_big_name_hash(sole(), memory::sizes::node_hash_slots());

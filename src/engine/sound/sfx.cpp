@@ -162,7 +162,7 @@ int count_playing_voices()
 }
 
 // 0x0047B160
-AudioMixer* AudioMixer::make_new()
+AudioMixer::AudioMixer()
 {
     if (!no_sound()) {
         fallback_channel_mode_ = VolumeRef::kTypeStereo;
@@ -172,7 +172,6 @@ AudioMixer* AudioMixer::make_new()
             get_playing()[i].checksum = 0;
         }
     }
-    return this;
 }
 
 // 0x0047AD80

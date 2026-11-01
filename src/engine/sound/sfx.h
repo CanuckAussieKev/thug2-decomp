@@ -150,8 +150,8 @@ struct Voice {
 
 class AudioMixer {
 public:
-    // 0x0047B160 (returns this): the voices set up, nothing playing.
-    AudioMixer* make_new();
+    // 0x0047B160: the voices set up, nothing playing.
+    AudioMixer();
     // 0x0047AD80: the slot of the playing sound `id` - by unique id, else by name (-1 if neither is playing).
     int get_playing_index(uint32_t id);
     // 0x0047AE20: a positional sound for `object` (nothing at 128).

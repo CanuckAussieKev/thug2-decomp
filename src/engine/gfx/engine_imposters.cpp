@@ -30,12 +30,11 @@ ImposterGroup* first_group(lists::KeyMap* table)
 } // namespace
 
 // 0x0048E3E0
-ImposterManager* ImposterManager::make_new()
+ImposterManager::ImposterManager()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     groups_ptr_ = memory ? new (memory) lists::KeyMap(8) : nullptr;
     max_per_frame_ = 1;
-    return this;
 }
 
 // 0x0048E260

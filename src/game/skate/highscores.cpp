@@ -312,12 +312,11 @@ void StageBests::write_to_structure(script::Struct* params)
 }
 
 // 0x0057EE70
-BestResults* BestResults::make_new()
+BestResults::BestResults()
 {
     level_count_ = 0;
     default_initials_ = static_cast<char*>(memory::alloc_zeroed(4));
     copy_initials(default_initials_, "ABC");
-    return this;
 }
 
 // 0x0057EEA0 / 0x0057EEC0
@@ -374,7 +373,7 @@ BestResults* BestResults::fabricate(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(BestResults), nullptr, 1);
-        sole() = memory ? static_cast<BestResults*>(memory)->make_new() : nullptr;
+        sole() = memory ? new (memory) BestResults : nullptr;
     }
     ++ref_tally();
     return sole();

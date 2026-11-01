@@ -25,10 +25,12 @@ static_assert(sizeof(PrefixNodes) == 0xC, "allocated as 0xC bytes");
 
 // One node array's prefixes: a hash table (2^8 buckets) from the prefix to its PrefixNodes.
 struct PrefixTable {
-    // 0x0045C5D0: the constructor (returns this).
-    PrefixTable* make_new();
+    // 0x0045C5D0: the constructor.
+    PrefixTable();
     // 0x0045CD30: the destructor: every PrefixNodes freed, then the table.
-    void destruct();
+    ~PrefixTable();
+    PrefixTable(const PrefixTable&) = delete;
+    PrefixTable& operator=(const PrefixTable&) = delete;
     // 0x0045C650: node `index` added under `prefix` (a new PrefixNodes if it has none yet).
     void append_one(uint32_t prefix, uint16_t index);
     // 0x0045C240: every PrefixNodes' block cut down to its size.

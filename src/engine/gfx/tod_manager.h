@@ -128,10 +128,12 @@ class CtodManager {
 public:
     static constexpr int kSystems = 2;
 
-    // 0x00573620: the constructor (returns this): the dead-objects table, the structures, then Reset.
-    CtodManager* make_new();
+    // 0x00573620: the constructor: the dead-objects table, the structures, then Reset.
+    CtodManager();
     // 0x00573770: the destructor body.
-    void destruct();
+    ~CtodManager();
+    CtodManager(const CtodManager&) = delete;
+    CtodManager& operator=(const CtodManager&) = delete;
     // 0x005730E0: back to the defaults: afternoon, states of 60 s, transitions of 30 s, active, fog on, time
     // multiplier 1; the systems' parameters and the dead-objects table emptied.
     void get_reset();

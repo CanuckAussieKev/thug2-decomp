@@ -87,7 +87,7 @@ class BestResults {
 public:
     // 0x0057EE70 (the constructor): no levels, default initials ABC (the levels pointer left as it was). Returns
     // this.
-    BestResults* make_new();
+    BestResults();
     // 0x0057EEA0: the default initials set. 0x0057EEC0: a level's records.
     void set_stock_initials(const char* initials);
     StageBests* get_level_records(int level);

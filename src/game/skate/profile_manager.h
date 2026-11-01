@@ -127,11 +127,13 @@ struct ProfileTable {
 
 class ProfileRoster {
 public:
-    // 0x0057BC00: the constructor: nothing in it. Returns this.
-    ProfileRoster* make_new();
+    // 0x0057BC00: the constructor: nothing in it.
+    ProfileRoster();
     // 0x0057BC20: the destructor body: every template deleted and dropped from the table, the second player's
     // copy and the extra profiles deleted, the table cleared.
-    void destroy_body();
+    ~ProfileRoster();
+    ProfileRoster(const ProfileRoster&) = delete;
+    ProfileRoster& operator=(const ProfileRoster&) = delete;
     // 0x0057B690: the templates made (the init_pro_skaters script, in the skater info heap); the first player's
     // profile is the first template, the second's a copy of the second.
     void prepare_all();

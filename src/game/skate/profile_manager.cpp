@@ -121,7 +121,7 @@ void ProfileTable::get_clear()
 void ProfileTable::teardown() { get_clear(); }
 
 // 0x0057BC00
-ProfileRoster* ProfileRoster::make_new()
+ProfileRoster::ProfileRoster()
 {
     templates_.num_ = 0;
     templates_.first_ = nullptr;
@@ -131,11 +131,10 @@ ProfileRoster* ProfileRoster::make_new()
     profiles_[1] = nullptr;
     locked_ = false;
     extra_count_ = 0;
-    return this;
 }
 
 // 0x0057BC20
-void ProfileRoster::destroy_body()
+ProfileRoster::~ProfileRoster()
 {
     // Every template (the first each time: dropped from the table as it goes; a null one dropped too).
     for (uint32_t left = templates_.num_; left != 0; --left) {
@@ -355,7 +354,7 @@ ProfileRoster* ProfileRoster::fabricate(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(ProfileRoster), nullptr, 1);
-        sole() = memory ? static_cast<ProfileRoster*>(memory)->make_new() : nullptr;
+        sole() = memory ? new (memory) ProfileRoster : nullptr;
     }
     ++ref_tally();
     return sole();
@@ -369,7 +368,7 @@ void ProfileRoster::get_release()
         return;
     }
     if (ProfileRoster* manager = sole()) {
-        manager->destroy_body();
+        manager->~ProfileRoster();
         memory::Hub::get_pull()->dealloc(manager);
     }
     sole() = nullptr;

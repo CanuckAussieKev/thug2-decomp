@@ -34,8 +34,8 @@ struct ImposterManager {
     lists::KeyMap* groups_ptr_;
     int max_per_frame_;
 
-    // 0x0048E3E0: construct - a table of 2^8 buckets, 1 imposter a frame. Returns this.
-    ImposterManager* make_new();
+    // 0x0048E3E0: construct - a table of 2^8 buckets, 1 imposter a frame.
+    ImposterManager();
     // 0x0048E260: every group deleted (virtual destructor, flag 1), the table emptied.
     void delete_all();
     // 0x0048E2D0: each group updated, its imposter dropped when it's within its distance, else made or brought up to

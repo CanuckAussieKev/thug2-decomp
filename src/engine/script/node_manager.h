@@ -35,8 +35,8 @@ public:
     static constexpr int kSlots = 0x4000;
     static constexpr int kMaxArrays = 20;
 
-    // 0x0045D370: the constructor (returns this): no arrays, every slot empty, no walk.
-    NodeManager* make_new();
+    // 0x0045D370: the constructor: no arrays, every slot empty, no walk.
+    NodeManager();
 
     // 0x0045D520: `name` (a global array of nodes) added as the next node array, unless it is there already
     // (false): its nodes hashed, its prefixes added (add_node_array_prefixes), every node's position= turned into pos=

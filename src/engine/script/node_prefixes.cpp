@@ -56,17 +56,16 @@ void PrefixNodes::append_one(uint16_t index)
 }
 
 // 0x0045C5D0
-PrefixTable* PrefixTable::make_new()
+PrefixTable::PrefixTable()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     slot_table_ = memory ? new (memory) lists::KeyMap(8) : nullptr;
     node_array_ = 0;
     following_ = nullptr;
-    return this;
 }
 
 // 0x0045CD30
-void PrefixTable::destruct()
+PrefixTable::~PrefixTable()
 {
     slot_table_->iter_bucket_ = -1;
     slot_table_->iter_item_ = nullptr;
@@ -131,7 +130,7 @@ void PrefixTables::add_node_array(uint32_t name)
 {
     // (The original first walks to the end of the list, and does nothing with it.)
     void* memory = memory::alloc_zeroed(sizeof(PrefixTable));
-    PrefixTable* table = memory ? static_cast<PrefixTable*>(memory)->make_new() : nullptr;
+    PrefixTable* table = memory ? new (memory) PrefixTable : nullptr;
     table->following_ = first_ptr_;
     first_ptr_ = table;
     table->node_array_ = name;
@@ -188,7 +187,7 @@ void PrefixTables::remove_node_array(uint32_t name)
                 previous->following_ = next;
             else
                 first_ptr_ = next;
-            table->destruct();
+            table->~PrefixTable();
             memory::Hub::get_pull()->dealloc(table);
         } else {
             previous = table;
