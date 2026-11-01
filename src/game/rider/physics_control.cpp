@@ -47,11 +47,6 @@ constexpr uint32_t kTimeSincePhysicsSwitch = 0x27F48E93, kPreviousPhysicsStateDu
 constexpr int kSkating = 0, kWalking = 1; // the state component's physics mode (+0x1C)
 constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
 
-template <typename T>
-T& prop(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 

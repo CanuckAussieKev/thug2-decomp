@@ -74,11 +74,6 @@ constexpr uint32_t kGapGround = 0x1, kGapAir = 0x2, kGapRail = 0x4, kGapWall = 0
                    kGapWalking = 0x400, kGapDriving = 0x800, kGapRequired = 0xFFFF0000;
 constexpr int kRequireShift = 16;
 
-template <typename T>
-T& prop(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 // A gap in progress (the 0x64-byte TrickListEntry) and a gap trick (the 0x34-byte TrickNameEntry), by their fields.
 uint32_t& get_gap_id(TrickListEntry* gap) { return gap->gap_id_; }

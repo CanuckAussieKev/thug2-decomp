@@ -43,15 +43,9 @@ namespace skater {
 
 namespace {
 
-template <typename T>
-T& get_at(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 // The input's buttons (offsets into the pad).
 
-maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global
 // script value).

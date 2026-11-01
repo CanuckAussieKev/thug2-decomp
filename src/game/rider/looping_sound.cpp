@@ -50,11 +50,6 @@ constexpr float kPercent = 100.0f;           // 0x0064BF2C
 constexpr float kChangeThreshold = 0.5f;     // 0x0064BF28 (volume or pitch: an update when it moved more)
 constexpr float kCapsizedFraction = 0.5f;    // the core physics' +0x2EC
 
-template <typename T>
-T& prop(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 

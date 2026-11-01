@@ -37,11 +37,6 @@ namespace {
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 // The core physics component's fields read here (THUG2's).
 constexpr uint32_t kObject = 0xC; // its skater

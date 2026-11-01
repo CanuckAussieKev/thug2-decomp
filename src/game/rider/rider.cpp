@@ -148,11 +148,6 @@ modules::Skate* get_skate() { return modules::g_skate_module; }
 online::Hub* net_link() { return online::g_online_hub; }
 bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0; }
 
-template <typename T>
-T& get_at(void* base, uint32_t offset)
-{
-    return *raw::as<T>(static_cast<uint8_t*>(base) + offset);
-}
 
 } // namespace
 

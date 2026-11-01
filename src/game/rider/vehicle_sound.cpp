@@ -48,11 +48,6 @@ const float kSpeedScale = std::bit_cast<float>(0x40400000u); // 0x006467A8: 3
 const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);      // 0x00646828: 1 / 17.6
 const double kTwoTo32 = 4294967296.0;                        // 0x006453B4 (an unsigned clock difference)
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 

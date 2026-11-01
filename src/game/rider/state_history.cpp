@@ -73,11 +73,6 @@ const char* const kDrivingRadiusBoost = "driving_radius_boost";     // "driving_
 // a - b as the original's x87 code rounds it when it stores it.
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
 online::Hub* net_session_slot() { return online::g_online_hub; }

@@ -47,12 +47,6 @@ constexpr std::array<std::array<float, 4>, 5> kUberFrigOffsets = {{
     {0.0f, 0.0f, -0.2f, 1.0f}, {0.2f, 0.0f, 0.0f, 1.0f},
 }};
 
-template <typename T>
-T& get_at(const void* base, uint32_t offset)
-{
-    return *cell::pointer<T>(cell::address(base) + offset);
-}
-maths::Vec4& vector_at(const void* base, uint32_t offset) { return get_at<maths::Vec4>(base, offset); }
 
 int state_of(skater::SkaterPhysicsModule* core) { return core->state_->cur_phase_; }
 void change_phase(skater::SkaterPhysicsModule* core, int state) { core->set_physics_state(state); }

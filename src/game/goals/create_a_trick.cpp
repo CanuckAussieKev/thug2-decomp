@@ -38,12 +38,6 @@ const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
 objects::Rider* local_skater() { return core::down_cast<objects::Rider>(skate_calls::get_home_rider()); }
 CreateATrick* created_trick(objects::Rider* skater, int index) { return core::at(skater->trick_slots_, index).get(); }
-// The editor's state on the skater.
-template <typename T>
-T& prop(objects::Rider* skater, uint32_t offset)
-{
-    return *raw::field_at<T>(skater, offset);
-}
 script::Struct* get_results(script::Script* script) { return script->args_; }
 
 

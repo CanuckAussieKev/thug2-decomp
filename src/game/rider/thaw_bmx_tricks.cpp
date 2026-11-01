@@ -43,12 +43,6 @@ namespace skater::thaw_bmx {
 
 namespace {
 
-template <typename T>
-T& get_at(const void* object, uint32_t offset)
-{
-    return *cell::pointer<T>(cell::address(object) + offset);
-}
-maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // The timed flags (THUG2's; THAW's in the comment).
 // THUG2's state flags against THAW's offsets: kVertAir 0x30, kVertWall 0x38, kBailing 0x78, kAcidDrop 0x80.

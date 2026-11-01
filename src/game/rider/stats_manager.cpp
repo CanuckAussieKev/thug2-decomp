@@ -77,11 +77,6 @@ constexpr uint32_t kLip = 0xA549B57B;
 
 constexpr float kFeet = 12.0f; // 0x0064546C
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 void launch_script(uint32_t name, script::Struct* params = nullptr)
 {

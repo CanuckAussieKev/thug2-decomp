@@ -51,12 +51,6 @@ namespace skater::thaw_bmx {
 
 namespace {
 
-template <typename T>
-T& get_at(const void* object, uint32_t offset)
-{
-    return *cell::pointer<T>(cell::address(object) + offset);
-}
-maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // The core physics component's fields (THUG2's; THAW's offset in the comment).
 // balance, its lean at +0x54)

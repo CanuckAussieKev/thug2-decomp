@@ -40,11 +40,6 @@ constexpr uint32_t kLastScoreLandedLessThan = 0x3C445A82, kGetSpecialValue = 0x3
 constexpr uint32_t kValue = 0xE288A7CB, kKeycombo = 0x95E16467, kSpin = 0xEDF5DB70, kNumTaps = 0xC82CF71B,
                    kTrickText = 0x3EAFA520, kTotalScore = 0xEE5B2B48, kNumberOfNonGapTricks = 0xFFE7E02C;
 
-template <typename T>
-T& prop(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 // The score (modules::PointTally).
 modules::PointTally* get_score_of(modules::PointTally* score) { return score; }

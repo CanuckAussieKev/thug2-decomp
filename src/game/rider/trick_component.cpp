@@ -45,11 +45,6 @@ constexpr uint32_t kStatsManager = 0x4FF8DAC6;
 
 constexpr uint32_t kSecond = 1000; // the sequences' window (ms)
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 // The events from the newest back, `count` of them (the count read again each step, as the original does).
 template <typename Visit>

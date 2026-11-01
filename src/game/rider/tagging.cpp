@@ -64,11 +64,6 @@ constexpr uint32_t kSkaterScore = 0xD262802F;
 constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 // --- textures (the texture dictionary 0x00700F20) ---
 void* texture_bank() { return raw::as<void>(render::g_particle_texture_dict); }

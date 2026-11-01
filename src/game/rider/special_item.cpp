@@ -52,11 +52,6 @@ constexpr uint32_t kObjectId = 0x40C698AF;
 
 // Network messages to the server.
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 
 // The object marked dead (its vtable +0x18: a composite object tells its components first).

@@ -66,11 +66,6 @@ memory::ListNode* get_next(Channel* channel) { return get_link(channel)->next; }
 // The walks' end test: the head or null.
 bool is_over(memory::ListNode* node) { return is_head(node) || !node; }
 
-template <typename T>
-T& prop(void* object, int offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 uint32_t& ident_no(Channel* channel) { return channel->ident_; }
 
 // A bool read from a 32-bit argument slot as the callee does: its low byte (the callers pass raw words).

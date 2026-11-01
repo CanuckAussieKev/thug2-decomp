@@ -41,11 +41,6 @@ constexpr uint32_t kUnderTheFloor = 0xAFAA46BA; // (as Update sends it)
 constexpr float kFeelerReach = 30.0f;     // 0x00646240
 constexpr float kBrightnessAbove = 12.0f; // 0x0064546C
 
-template <typename T>
-T& get_at(const void* base, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(base) + offset);
-}
 
 void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModule*>(core)->set_physics_state(state); }
 

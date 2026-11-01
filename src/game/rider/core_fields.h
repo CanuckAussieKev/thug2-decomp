@@ -24,13 +24,6 @@
 
 namespace skater::core_fields {
 
-template <typename T>
-T& get_at(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
-inline maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
-inline maths::Mat4& matrix_at(void* object, uint32_t offset) { return get_at<maths::Mat4>(object, offset); }
 
 // The component's fields (offsets).
 constexpr uint32_t kObject = 0xC;         // the skater's object (below)

@@ -78,11 +78,6 @@ float seconds_per_frame() { return g_anim_movies_seconds_per_frame; } // 1/60
 
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
 
-template <typename T>
-T& prop(void* base, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(base), offset);
-}
 
 // 0x00463AA0 (cdecl, cutscene.h): a rotation matrix from a quaternion (negated in place on the way) with `origin` as
 // its last row.

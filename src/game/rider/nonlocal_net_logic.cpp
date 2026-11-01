@@ -73,11 +73,6 @@ constexpr int kStateAir = 1, kStateLip = 3, kStateRail = 4;
 // Face flags (as the level editor names them)
 constexpr uint16_t kFaceSkatable = 0x1, kFaceNotSkatable = 0x2, kFaceWallride = 0x4, kFaceVert = 0x8;
 
-template <typename T>
-T& prop(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 // A physics value of the skater (GameObjects::read_tuning_float, asserting).
 double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(name, 1, skater); }

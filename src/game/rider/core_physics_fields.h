@@ -19,11 +19,6 @@
 
 namespace skater::physics {
 
-template <typename T>
-T& get_at(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 // --- the component's fields ---
 constexpr uint32_t kObject = 0x0C;        // the skater (a composite object: its fields below)
@@ -53,7 +48,6 @@ constexpr uint32_t kVelocity = 0xAC;
 // --- the timed flags (offsets into the flags block) ---
 constexpr uint32_t kState = 0x18; // an int: 0 on the ground, 1 in the air, ...
 
-inline maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
 using objects::PoseFlag;
 

@@ -61,11 +61,6 @@ Rider* rider_for_slot(uint32_t id) { return modules::Skate::sole()->get_rider_by
 void* find_own_player_record() { return net_session_slot()->get_own_player(); }
 uint8_t run_count() { return net_session_slot()->get_game_id(); }
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *raw::as<T>(cell::address(object) + offset);
-}
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
 // server (0x00533F90: its flags' bit 0).

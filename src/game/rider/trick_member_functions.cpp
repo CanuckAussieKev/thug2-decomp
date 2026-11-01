@@ -30,11 +30,6 @@ namespace objects {
 
 namespace {
 
-template <typename T>
-T& get_at(void* object, uint32_t offset)
-{
-    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
-}
 
 // Member function names.
 constexpr uint32_t kReleased = 0x04BA9EE9, kGetSpazzFactor = 0x00271B04, kUseEventsX = 0x070E934D,
