@@ -303,7 +303,6 @@ void RiderRemoteSync::get_extrapolate()
     maths::Vec4 from = {raise_x + play_pos_.x, raise_y + play_pos_.y, raise_z + play_pos_.z, raise_w + play_pos_.w};
     maths::Vec4 to = {raise_x + pos.x, raise_y + pos.y, raise_z + pos.z, raise_w + pos.w};
     render::ProbeRay feeler;
-    feeler.make_new();
     double ex = static_cast<double>(from.x) - to.x, ey = static_cast<double>(from.y) - to.y,
            ez = static_cast<double>(from.z) - to.z;
     if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)

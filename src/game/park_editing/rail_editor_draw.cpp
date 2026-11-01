@@ -524,7 +524,6 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
 float __fastcall EditedRailPoint::ground_height(const Vec4* position)
 {
     render::ProbeRay feeler;
-    feeler.make_new();
     Vec4 start = {position->x, static_cast<float>(static_cast<double>(position->y) + kGroundProbe), position->z,
                   position->w};
     feeler.change_origin(&start);

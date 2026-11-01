@@ -144,23 +144,11 @@ void __cdecl FootMovement::publish_method_table()
     script::register_member_function_table(reinterpret_cast<void*>(kWalk), g_walk_member_functions, 0x18);
 }
 
-// 0x00528880
-WalkContact* WalkContact::make_new()
-{
-    feeler.make_new();
-    return this;
-}
-
-// 0x00528890
-void WalkContact::teardown() { feeler.entity_.get_release(); }
-
 // 0x005288B0 (0x0052A290 the deleting one)
 FootMovement::~FootMovement()
 {
-    feeler_.entity_.get_release();
-    hit_cache_.destruct();
-    for (int i = 7; i >= 0; --i)
-        contacts_[i].teardown();
+    // (the members' destructors, as the original's order: the feeler's object let go, the cache unregistered, the
+    // contacts' feelers last to first)
 }
 
 // 0x00526060

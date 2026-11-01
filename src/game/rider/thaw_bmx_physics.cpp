@@ -1206,7 +1206,6 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
     // back.
     for (maths::Vec4* wheel : {&state.front_wheel_, &state.rear_wheel_}) {
         render::ProbeRay feeler;
-        feeler.make_new();
         feeler.line_.start = {position.x + up.x * kWheelOffset, position.y + up.y * kWheelOffset,
                               position.z + up.z * kWheelOffset, position.w + up.w * kWheelOffset};
         feeler.line_.end = {wheel->x + up.x, wheel->y + up.y, wheel->z + up.z, wheel->w + up.w};
@@ -1217,7 +1216,6 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
             if (length3(velocity) < kSlow)
                 velocity = {-velocity.x, -velocity.y, -velocity.z, -velocity.w};
         }
-        feeler.destruct();
     }
 }
 

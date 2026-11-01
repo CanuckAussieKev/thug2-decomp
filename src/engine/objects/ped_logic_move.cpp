@@ -165,18 +165,14 @@ void delete_params(script::Struct* params)
 // The collision feeler (0xB0 bytes): what it hit is held by a smart pointer at +0x98, let go when it goes.
 class Feeler {
 public:
-    Feeler() { reinterpret_cast<render::ProbeRay*>(bytes_)->make_new(); }
-    Feeler(const maths::Vec4* start, const maths::Vec4* end)
-    {
-        reinterpret_cast<render::ProbeRay*>(bytes_)->make_new(start, end);
-    }
-    ~Feeler() { feeler()->entity_.~SharedRef(); }
+    Feeler() = default;
+    Feeler(const maths::Vec4* start, const maths::Vec4* end) : ray_(start, end) {}
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
-    render::ProbeRay* feeler() { return reinterpret_cast<render::ProbeRay*>(bytes_); }
+    render::ProbeRay* feeler() { return &ray_; }
 
 private:
-    alignas(16) uint8_t bytes_[0xB0];
+    render::ProbeRay ray_;
 };
 
 // The cross product's rows of a facing matrix: across = up x at (`a` kept unrounded), up again = at x across.

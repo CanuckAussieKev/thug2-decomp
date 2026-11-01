@@ -148,13 +148,9 @@ void report_inside(int line, const char* where)
     debug::printf("M:%s:%i: %s\n", "mponents\\WalkComponent.cpp", line, where);
 }
 
-// A local feeler going away: the object hit let go of (the original's inlined smart pointer destructor).
-void release_hit(render::ProbeRay* feeler)
-{
-    if (GameEntity* hit = feeler->entity_.get_pull())
-        reinterpret_cast<SharedBase*>(hit)->detach_shared_ref(
-            reinterpret_cast<SharedRef<SharedBase>*>(&feeler->entity_));
-}
+// A local feeler going away: the object hit let go of (the original's inlined smart pointer destructor; cleared, so
+// the feeler's own destructor has nothing left to do).
+void release_hit(render::ProbeRay* feeler) { feeler->entity_.get_release(); }
 
 // `position` put `gap` off the feeler's hit along its normal (x, y and z's offsets rounded first, w's not).
 void put_off(maths::Vec4* position, const render::ProbeRay* feeler, float gap)
@@ -236,10 +232,7 @@ memory::owner<ObjectModule*> __cdecl FootMovement::fabricate() { return new Foot
 // 0x0052A190
 FootMovement::FootMovement()
 {
-    for (WalkContact& contact : contacts_)
-        contact.make_new(); // (each contact's constructor)
-    hit_cache_.make_new();
-    feeler_.make_new();
+    // (the contacts, the cache and the feeler made first by their constructors)
     input_ = nullptr;
     anim_blender_ = nullptr;
     model_ = nullptr;
@@ -664,8 +657,8 @@ void FootMovement::update_air()
         return;
     position = to - offset;
     report_inside(0x74B, "WALKING_AIR, within moving object");
-    alignas(16) uint8_t storage[sizeof(render::ProbeRay)];
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(storage)->make_new();
+    render::ProbeRay storage;
+    render::ProbeRay* feeler = &storage;
     const maths::Vec4 up = {0.0f, 30.0f, 0.0f, 0.0f};
     maths::Vec4 top = entity_->at_point_ + up;
     feeler->change_origin(&top);
@@ -676,7 +669,6 @@ void FootMovement::update_air()
     vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     vertical = 0.0f;
     collide_air_move(&position, &start);
-    feeler->destruct();
 }
 
 // 0x0052AD10
@@ -742,8 +734,8 @@ void FootMovement::update_anim_wait()
 // 0x0052A700
 void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* to)
 {
-    alignas(16) uint8_t storage[sizeof(render::ProbeRay)];
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(storage)->make_new();
+    render::ProbeRay storage;
+    render::ProbeRay* feeler = &storage;
     feeler->line_.start = *from;
     feeler->line_.end = *to;
     if (!feeler->get_hit_shape(true, false)) {
@@ -823,8 +815,8 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
 void FootMovement::settle_onto_floor()
 {
     // A feeler from snap_up_height above to snap_down_height below the position.
-    alignas(16) uint8_t storage[sizeof(render::ProbeRay)];
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(storage)->make_new();
+    render::ProbeRay storage;
+    render::ProbeRay* feeler = &storage;
     maths::Vec4& position = pos_;
     feeler->line_.start = position;
     feeler->line_.start.y += walk_parameter(kSnapUpHeight);
@@ -848,13 +840,11 @@ void FootMovement::settle_onto_floor()
             if (feeler_hit_) {
                 static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c660, ground);
                 if (halted(this)) {
-                    feeler->destruct();
                     return;
                 }
             }
             static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c654, feeler);
             if (halted(this)) {
-                feeler->destruct();
                 return;
             }
         }
@@ -1085,8 +1075,8 @@ bool FootMovement::try_barrier_jump()
     float reach = walk_parameter(kFeelerLength) * 3.0f;
     float feeler_height = walk_parameter(kProbeElevation);
     auto step = static_cast<float>((static_cast<double>(highest) - feeler_height) * kNinth);
-    alignas(16) uint8_t feeler_storage[sizeof(render::ProbeRay)];
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(feeler_storage)->make_new();
+    render::ProbeRay feeler_storage;
+    render::ProbeRay* feeler = &feeler_storage;
 
     // The collision near it: `reach` + 1 to each side, from its feet to above the highest barrier.
     const maths::Vec4& position = pos_;
@@ -1096,8 +1086,8 @@ bool FootMovement::try_barrier_jump()
                side + position.z, static_cast<float>(static_cast<double>(position.w) + 1.0)};
     box.min = {position.x - side, position.y, position.z - side,
                static_cast<float>(static_cast<double>(position.w) - 1.0)};
-    alignas(16) uint8_t cache_storage[sizeof(render::HitMeshCache)];
-    auto* cache = reinterpret_cast<render::HitMeshCache*>(cache_storage)->make_new();
+    render::HitMeshCache cache_storage;
+    render::HitMeshCache* cache = &cache_storage;
     cache->tick_frame(box);
     feeler->hit_cache_ = cache;
 
@@ -1132,7 +1122,6 @@ bool FootMovement::try_barrier_jump()
             clear = true;
     }
     if (!clear) {
-        cache->destruct();
         release_hit(feeler);
         return false;
     }
@@ -1177,7 +1166,6 @@ bool FootMovement::try_barrier_jump()
         static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
                                                                          &feeler_); // (the ground's jump triggers)
         if (halted(this)) {
-            cache->destruct();
             release_hit(feeler);
             return true;
         }
@@ -1189,7 +1177,6 @@ bool FootMovement::try_barrier_jump()
     anim_state_ = kJump;
     entity_->announce(kSkaterJump, nullptr, 0.0f);
     entity_->clear_event_handler(kJumpRequested);
-    cache->destruct();
     release_hit(feeler);
     return true;
 }
@@ -1199,8 +1186,8 @@ bool FootMovement::update_contacts()
 {
     float reach = walk_parameter(kFeelerLength);
     float feeler_height = walk_parameter(kProbeElevation);
-    alignas(16) uint8_t storage[sizeof(render::ProbeRay)];
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(storage)->make_new();
+    render::ProbeRay storage;
+    render::ProbeRay* feeler = &storage;
     maths::Vec4& position = pos_;
     maths::Vec4& velocity = vel_;
     const maths::Vec4& facing = facing_;

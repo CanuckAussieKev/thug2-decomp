@@ -34,10 +34,9 @@ class RiderPoseState;
 class TaggingControlComponent;
 
 // One of the Walk component's eight contacts (+0xA0, 0xCC bytes): what a feeler found round the skater.
-// 0x00528880: constructed (its feeler's). Returns this. 0x00528890: the destructor (the feeler's object let go).
+// 0x00528880: the constructor (its feeler's); 0x00528890: the destructor (the feeler's object let go) - both the
+// implicit ones.
 struct WalkContact {
-    WalkContact* make_new();
-    void teardown();
 
     bool hit; // +0x00
     uint8_t pad1_[3];

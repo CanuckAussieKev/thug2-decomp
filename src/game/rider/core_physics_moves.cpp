@@ -112,9 +112,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
                                            maths::Vec4* point, maths::Vec4* normal, bool* object_alive)
 {
     render::ProbeRay feeler;
-    feeler.make_new();
     render::HitMeshCache cache;
-    cache.make_new();
     maths::BBox box;
     // The box: from 10 out to 500 out, 4000 down.
     for (float out : {kTargetFirst, kTargetLast}) {
@@ -164,14 +162,12 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
             break;
     } while (true);
     if (!found) {
-        cache.destruct();
         return false;
     }
     *point = feeler.contact_pos_;
     *normal = feeler.surface_dir_;
     *object_alive = feeler.hit_object_alive();
     *not_opposite = static_cast<float>(along) > kTargetOpposite;
-    cache.destruct();
     return true;
 }
 
@@ -438,7 +434,6 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
     if (state_->flag(PoseFlag::kBailing).on)
         return false;
     render::ProbeRay feeler;
-    feeler.make_new();
     float height = tuning_float_lookup(kStepUpHeight, object_of(this));
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& position = object->at_point_;

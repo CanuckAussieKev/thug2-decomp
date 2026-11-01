@@ -124,7 +124,6 @@ void ProjectileComponent::check_triggers()
         return;
     }
     render::ProbeRay feeler;
-    feeler.make_new();
     const maths::Vec4 pos = entity_->at_point_;
     float end_w = static_cast<float>(static_cast<double>(pos.w) + kReach);
     for (int i = 0; i < kFeelers; ++i) {

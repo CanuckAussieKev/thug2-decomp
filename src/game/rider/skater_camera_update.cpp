@@ -327,7 +327,6 @@ void RiderChaseView::tick_frame()
         if (lip == 0) {
             orient.rotate_y(kHalfPi);
             render::ProbeRay feeler;
-            feeler.make_new();
             maths::Vec4 side(orient.row[2].x, 0.0f, orient.row[2].z, 1.0f);
             side.make_unit();
             const maths::Vec4& position = rider_ref_->at_point_;

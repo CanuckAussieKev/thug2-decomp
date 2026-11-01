@@ -61,7 +61,6 @@ void EditedGoal::drop_point_to_ground(int index)
     maths::Vec4 start = {pos.x, pos.y + kDropHeight, pos.z, pos.w};
     maths::Vec4 end = {pos.x, pos.y - kDropHeight, pos.z, pos.w};
     render::ProbeRay feeler;
-    feeler.make_new();
     feeler.change_origin(&start);
     feeler.change_finish(&end);
     if (!feeler.get_hit_shape(true, false)) {

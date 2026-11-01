@@ -62,7 +62,6 @@ bool __cdecl get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const
         return true;
     }
     render::ProbeRay feeler;
-    feeler.make_new();
     if (!feeler.get_collision_along(start, end, false))
         return false;
     // (the face hit becomes the triangle tried first next time)
@@ -112,7 +111,6 @@ void KinematicsModule::update_jump()
             }
         } else {
             render::ProbeRay feeler;
-            feeler.make_new();
             float above = static_cast<float>(static_cast<double>(w) + 1.0f);
             feeler.line_.start = {x, static_cast<float>(static_cast<double>(y) + jump_col_above_), z, above};
             feeler.line_.end = {x, static_cast<float>(static_cast<double>(y) + -jump_col_below_), z, above};
@@ -154,7 +152,6 @@ bool KinematicsModule::stick_to_ground()
     // Three feelers - behind on the right, behind on the left, ahead in the middle (72 back or ahead, 30 to the
     // side): the ground's points give the height and the orientation.
     render::ProbeRay feeler; // (made and never used)
-    feeler.make_new();
     maths::Vec4& right = matrix.row[0];
     maths::Vec4& up = matrix.row[1];
     maths::Vec4& at = matrix.row[2];

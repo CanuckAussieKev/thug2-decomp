@@ -466,7 +466,6 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                 x87::spin_by(left ? turn : -turn, facing.x, facing.z, &turned_x, &turned_z);
                 float ahead_x = static_cast<float>(turned_x), ahead_z = static_cast<float>(turned_z);
                 render::ProbeRay feeler;
-                feeler.make_new();
                 maths::Vec4& start = feeler.line_.start;
                 start = pos_;
                 start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));

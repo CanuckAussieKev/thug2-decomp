@@ -150,7 +150,6 @@ void RiderPhysicsTweaks::keep_above_ground()
         // passed over) hits a floor. Within 6 of it: onto it. Further, moved this frame: back where the frame began
         // at half the speed the other way (a lip: out of it, into the air, 2 up); hardly moved: onto it.
         render::ProbeRay feeler;
-        feeler.make_new();
         feeler.set_excluded(0x810, 0);
         maths::Vec4 from = {position.x, static_cast<float>(static_cast<double>(position.y) + kFloorProbeHeight),
                             position.z, position.w};

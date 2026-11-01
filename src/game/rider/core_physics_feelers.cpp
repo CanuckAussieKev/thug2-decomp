@@ -404,7 +404,6 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
 void SkaterPhysicsModule::find_nearest_wall_side()
 {
     render::ProbeRay feeler;
-    feeler.make_new();
     nearest_wall_side_ = 0;
     feeler.line_.start = entity_->at_point_;
     float nearest = 999.0f;

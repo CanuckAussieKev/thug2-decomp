@@ -124,9 +124,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
 
     // The collision near the whole search, cached.
     render::ProbeRay feeler;
-    feeler.make_new();
     render::HitMeshCache cache;
-    cache.make_new();
     maths::BBox box;
     maths::Vec4 corner = {base.x, base.y + lift, base.z, base.w};
     box.append_spot(corner);
@@ -179,7 +177,6 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         searching = next < reach;
     }
     if (!found) {
-        cache.destruct();
         return false;
     }
 
@@ -253,7 +250,6 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     }
     auto fail = [&] {
         *velocity = saved;
-        cache.destruct();
         return false;
     };
     if (peak < hit.y)
@@ -289,7 +285,6 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
                 drop->normal = normal;
                 drop->hit_height_ = hit_height;
                 drop->object_hit_ = alive;
-                cache.destruct();
                 return true;
             }
         }
@@ -459,7 +454,6 @@ bool SkaterPhysicsModule::try_spine_transfer()
     // A feeler straight down from half a unit that way: the wall the skater is on.
     bool hip = false, object_hit = false;
     render::ProbeRay feeler;
-    feeler.make_new();
     const maths::Vec4& position = object->at_point_;
     maths::Vec4 ahead = {target.x * kAhead, target.y * kAhead, target.z * kAhead, target.w * kAhead};
     feeler.line_.start = {static_cast<float>(static_cast<double>(ahead.x) + position.x),

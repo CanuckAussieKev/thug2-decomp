@@ -27,10 +27,10 @@ using FeelerCallback = void(__cdecl*)(ProbeRay* feeler);
 class ProbeRay {
 public:
     // 0x00417760: no callback, cache or object; faces flagged 0x10 ignored; the hit's normal and point (0, 0, 0, 1).
-    // The line is left unset. Returns this.
-    ProbeRay* make_new();
-    // 0x00417250: the same with the line from `start` to `end`. Returns this.
-    ProbeRay* make_new(const maths::Vec4* start, const maths::Vec4* end);
+    // The line is left unset.
+    ProbeRay();
+    // 0x00417250: the same with the line from `start` to `end`.
+    ProbeRay(const maths::Vec4* start, const maths::Vec4* end);
 
     // 0x0041C350: the destructor's body: the object hit let go (its smart pointer).
     void destruct();

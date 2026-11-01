@@ -314,7 +314,6 @@ void SkaterPhysicsModule::recover_in_air()
         return;
     // Ground (not vert, not too steep) within 500 below.
     render::ProbeRay feeler;
-    feeler.make_new();
     feeler.line_.start = entity_->at_point_;
     feeler.line_.end = entity_->at_point_;
     feeler.line_.end.y = feeler.line_.end.y - kRecoverFeelerLength;

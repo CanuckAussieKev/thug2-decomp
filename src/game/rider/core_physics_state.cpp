@@ -85,13 +85,11 @@ memory::owner<void*> __cdecl SkaterPhysicsModule::fabricate() { return new Skate
 // 0x00500CA0
 SkaterPhysicsModule::SkaterPhysicsModule()
 {
-    feeler_.make_new();
-    floor_feeler_.make_new();
+    // (the feelers made first by their constructors; the cache, below, by its own - in declaration order)
     skitch_target_.preceding_ = nullptr;
     skitch_target_.following_ = nullptr;
     skitch_target_.owner_object_ = nullptr;
     // (+0x3F0: its constructor 0x005902E0 only returns it.)
-    hit_cache_.make_new();
     input_ = nullptr;
     trigger_ = nullptr;
     sound_ = nullptr;

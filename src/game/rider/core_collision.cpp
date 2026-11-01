@@ -316,7 +316,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     maths::Vec4 outer = point + normal * length;
     maths::Vec4 inner = point + normal;
     FeelerStorage feeler;
-    feeler->make_new(&inner, &outer);
+    new (feeler.bytes) render::ProbeRay(&inner, &outer);
     if (feeler->get_hit_shape(true, false)) {
         destroy_feeler(feeler.get());
         return false;

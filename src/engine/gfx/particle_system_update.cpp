@@ -451,7 +451,6 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
 void EmitterInstance::update_ground_brightness(bool movables)
 {
     ProbeRay feeler;
-    feeler.make_new();
     float y = at_point_.y;
     feeler.line_.start = {at_point_.x, static_cast<float>(static_cast<double>(y) + 1.0), at_point_.z, at_point_.w};
     feeler.line_.end = {at_point_.x, static_cast<float>(static_cast<double>(y) - 4800.0), at_point_.z, at_point_.w};
@@ -459,7 +458,6 @@ void EmitterInstance::update_ground_brightness(bool movables)
         double value = feeler.get_hit_vertex_value();
         brightness_ = static_cast<float>(value + value);
     }
-    feeler.destruct();
 }
 
 void EmitterInstance::remove_particle(int index, bool through_accessors)

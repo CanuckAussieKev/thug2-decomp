@@ -510,7 +510,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
 }
 
 // 0x00418330
-SphereFeeler* SphereFeeler::make_new(const maths::Vec4* centre, float radius)
+SphereFeeler::SphereFeeler(const maths::Vec4* centre, float radius)
 {
     bound_ball_.centre = *centre;
     bound_ball_.radius = radius;
@@ -522,7 +522,6 @@ SphereFeeler* SphereFeeler::make_new(const maths::Vec4* centre, float radius)
     unknownb50_ = 0;
     hits_.require_flags_ = 0;
     hits_.ignore_flags_ = 0x10;
-    return this;
 }
 
 // 0x00418300

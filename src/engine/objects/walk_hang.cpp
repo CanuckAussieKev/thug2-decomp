@@ -572,7 +572,6 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
 {
     // the ground to stand on: near the target, else 12 to one side of it, else 12 to the other
     render::ProbeRay ledge;
-    ledge.make_new();
     maths::Vec4 ground;
     bool found = find_stand_position(target, &ground, &ledge);
     if (!found) {
@@ -594,7 +593,6 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     }
     // seven feelers round the ground point, half the push feeler's length out (an x87 sine and cosine each)
     render::ProbeRay probe;
-    probe.make_new();
     float push = get_param(kPushFeelerLength);
     float half_push = static_cast<float>(static_cast<double>(push) * 0.5f);
     float height = get_param(kProbeElevation);
@@ -778,7 +776,6 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     }
     // the feeler: from the hang point, raised and pulled back out of the wall
     render::ProbeRay feeler;
-    feeler.make_new();
     maths::Seg& line = feeler.line_;
     line.start = *point;
     line.start.y = line.start.y + get_param(kHangMoveCollisionUp);
@@ -1007,7 +1004,6 @@ check:
     {
         maths::Vec4 critical = {offset.x + pos.x, offset.y + pos.y, offset.z + pos.z, offset.w + pos.w};
         render::ProbeRay feeler;
-        feeler.make_new();
         feeler.line_.start = old_critical;
         feeler.line_.end = critical;
         if (feeler.get_hit_shape(true, false)) {
@@ -1068,9 +1064,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
 
     // room to hang there (the collision near the rail cached), facing that way - or the other, if the rail allows
     render::ProbeRay feeler;
-    feeler.make_new();
     render::HitMeshCache cache;
-    cache.make_new();
     float height = origin + 12.0f;
     maths::BBox box;
     box.max = {on_rail->x + 24.0f, height + on_rail->y, on_rail->z + 24.0f, on_rail->w + 1.0f};
@@ -1081,7 +1075,6 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     if (!hang_clear(&feeler, on_rail, record)) {
         if ((state_ != 1 && away) || ((flags & 0x80) && !on_right) || ((flags & 0x40) && on_right) ||
             (flip(), !hang_clear(&feeler, on_rail, record))) {
-            cache.destruct();
             return false;
         }
     }
@@ -1104,7 +1097,6 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     line.end.z = static_cast<float>(static_cast<double>(length) * out.z + line.end.z);
     line.end.w = static_cast<float>(static_cast<double>(length) * out.w + line.end.w);
     rail->anim = feeler.get_hit_shape(true, false) ? kAnimWall : kAnimSwing;
-    cache.destruct();
     return true;
 }
 
@@ -1309,7 +1301,6 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     ladder->point = {on_ladder->x - cx, on_ladder->y - cy, on_ladder->z - cz,
                      static_cast<float>(on_ladder->w - static_cast<double>(climb) * at.w)};
     render::ProbeRay feeler;
-    feeler.make_new();
     feeler.line_.start = pos_;
     feeler.line_.end = ladder->point;
     if (feeler.get_hit_shape(true, false))
@@ -1381,7 +1372,6 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
     ladder->point.w = static_cast<float>(ladder->point.w - static_cast<double>(climb) * at.w);
     // nothing between the skater and 6 behind that point
     render::ProbeRay feeler;
-    feeler.make_new();
     feeler.line_.start = pos_;
     float bx = at.x * 6.0f, by = at.y * 6.0f, bz = at.z * 6.0f;
     feeler.line_.end = {ladder->point.x - bx, ladder->point.y - by, ladder->point.z - bz,
@@ -1404,7 +1394,6 @@ void objects::FootMovement::climb_off_top()
                           static_cast<float>(static_cast<double>(forward) * facing.w + pos.w)};
     target.y = target.y + get_param(kLadderTopOffsetUp);
     render::ProbeRay ledge;
-    ledge.make_new();
     bool found = find_stand_position(&target, &target, &ledge);
     transition_start_ = pos;
     transition_pos_ = target;

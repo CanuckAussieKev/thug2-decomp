@@ -721,6 +721,7 @@ void __cdecl add_rigid_body_pusher(GameEntity* object)
 namespace objects {
 
 // 0x00640900 (a static initialiser): the rigid bodies' collision cache (registered among the caches, empty).
-void construct_rigid_body_cache() { reinterpret_cast<render::HitMeshCache*>(&g_rigid_body_cache)->make_new(); }
+// (never destroyed: it stays registered to the end)
+void construct_rigid_body_cache() { new (&g_rigid_body_cache) render::HitMeshCache; }
 
 } // namespace objects

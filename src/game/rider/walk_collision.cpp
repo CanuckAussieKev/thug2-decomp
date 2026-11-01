@@ -98,7 +98,6 @@ void FootMovement::update_curb_float()
 
     // A feeler from half a unit above the feet, curb_float_feeler_length ahead.
     render::ProbeRay feeler;
-    feeler.make_new();
     const maths::Vec4& pos = pos_;
     feeler.line_.start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kHalf), pos.z, 0.0f};
     float reach = walk_parameter(kCurbFloatFeelerLength);
@@ -152,7 +151,6 @@ void FootMovement::check_ceiling()
 
     // A feeler up from just above the feet to the head.
     render::ProbeRay feeler;
-    feeler.make_new();
     maths::Vec4& pos = pos_;
     feeler.line_.start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kHeadClearance), pos.z, pos.w};
     feeler.line_.end = {pos.x, static_cast<float>(static_cast<double>(pos.y) + top), pos.z, pos.w};
@@ -194,7 +192,6 @@ void FootMovement::check_sticker_slap()
 
     // A wall ahead: a feeler from feeler_height up, feeler_length along the facing (static collision only).
     render::ProbeRay feeler;
-    feeler.make_new();
     const maths::Vec4& facing = facing_;
     maths::Vec4& start = feeler.line_.start;
     start = pos_;
@@ -232,7 +229,6 @@ void FootMovement::update_ground_below()
 
     // Down from the critical point: the ground below.
     render::ProbeRay down;
-    down.make_new();
     float y = pos.y + offset.y;
     maths::Vec4 point = {pos.x + offset.x, y, pos.z + offset.z, pos.w + offset.w};
     down.line_.start = {point.x, static_cast<float>(static_cast<double>(y) + kOne), point.z, point.w};
@@ -241,7 +237,6 @@ void FootMovement::update_ground_below()
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
-    shade.make_new();
     shade.set_excluded(0, 0x20);
     shade.line_.start = {point.x, static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), point.z,
                          point.w};
@@ -318,7 +313,6 @@ void FootMovement::ease_critical_point_offset()
 
     // The critical point's path from the frame's start: what it went through moves the position back off it.
     render::ProbeRay feeler;
-    feeler.make_new();
     const maths::Vec4& old_pos = old_pos_;
     maths::Vec4& pos = pos_;
     feeler.line_.start = {old.x + old_pos.x, old.y + old_pos.y, old.z + old_pos.z, old.w + old_pos.w};
@@ -349,7 +343,6 @@ void FootMovement::plan_jump_over_obstruction()
 {
     // A feeler up from the head by jump_obstruction_check_height (static collision only)...
     render::ProbeRay feeler;
-    feeler.make_new();
     maths::Vec4& start = feeler.line_.start;
     maths::Vec4& end = feeler.line_.end;
     start = pos_;
@@ -499,8 +492,7 @@ bool FootMovement::try_grind()
     // The core physics' say, and nothing in the way to it (a wall within 6 of the rail is fine).
     if (!core_physics_->can_grind_rail(node, grind_rails_, true))
         return false;
-    render::ProbeRay feeler;
-    feeler.make_new(&pos, &point);
+    render::ProbeRay feeler(&pos, &point);
     if (feeler.get_hit_shape(true, false)) {
         double dz = static_cast<double>(point.z) - feeler.contact_pos_.z;
         double dy = static_cast<double>(point.y) - feeler.contact_pos_.y;

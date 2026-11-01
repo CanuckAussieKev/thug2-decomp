@@ -102,7 +102,6 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
                   "found to be inside a moving object");
     render::ProbeRay feeler;
-    feeler.make_new();
     const maths::Vec4& pos = entity_->at_point_;
     maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
     feeler.change_origin(&start);

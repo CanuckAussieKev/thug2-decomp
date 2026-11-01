@@ -47,9 +47,8 @@ objects::Rider* local_skater()
 bool ground_below(Vec3 point, float* y)
 {
     // (the game's memory layout, as level_editor_carry.cpp's first_hit: static collision only, nothing to release)
-    alignas(16) uint8_t memory[sizeof(render::ProbeRay)] = {};
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(memory);
-    feeler->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* feeler = &ray_storage;
     maths::Vec4 start = {point.x, point.y + kProbeAbove, point.z, 1.0f};
     maths::Vec4 end = {point.x, point.y - kProbeBelow, point.z, 1.0f};
     if (!feeler->get_collision_along(&start, &end, false))

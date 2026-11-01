@@ -65,9 +65,8 @@ Point point_of(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
 // The game's collision ray (static collision, the nearest hit): true and the point when something is hit.
 bool get_hit(Point from, Point to, Point* at)
 {
-    alignas(16) uint8_t memory[sizeof(render::ProbeRay)] = {};
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(memory);
-    feeler->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* feeler = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!feeler->get_collision_along(&start, &end, false))
         return false;

@@ -207,9 +207,8 @@ namespace {
 // static collision only; the hit's point at +0x34), as level_editor.cpp's ground_below.
 bool get_ground_y(V3 from, float* y)
 {
-    alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
-    ray->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;

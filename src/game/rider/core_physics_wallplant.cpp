@@ -105,8 +105,7 @@ bool wall_above_hit(SkaterPhysicsModule* component)
     point += rise;
     maths::Vec4 end = point - normal * kProbe;
     maths::Vec4 start = point + normal * kProbe;
-    render::ProbeRay feeler;
-    feeler.make_new(&start, &end);
+    render::ProbeRay feeler(&start, &end);
     return feeler.get_hit_shape(true, false) != 0;
 }
 

@@ -16,7 +16,7 @@ namespace {
 // pointer (let go of by its destructor).
 class Feeler {
 public:
-    Feeler() { ray_.make_new(); }
+    Feeler() = default;
     ~Feeler() = default;
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;

@@ -184,8 +184,7 @@ void DrivableModule::move_by(const maths::Vec4* move)
                     static_cast<float>(static_cast<double>(at_point_.y) + move->y),
                     static_cast<float>(static_cast<double>(at_point_.z) + move->z),
                     static_cast<float>(static_cast<double>(at_point_.w) + move->w)};
-    render::ProbeRay feeler;
-    feeler.make_new(&at_point_, &end);
+    render::ProbeRay feeler(&at_point_, &end);
     if (feeler.get_hit_shape(false, false)) {
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
         // turned back by half again.
@@ -438,7 +437,6 @@ void DrivableModule::collide()
     render::BoxProbe rect;
     rect.make_new();
     render::ProbeRay feeler;
-    feeler.make_new();
     rect.hit_cache_ = &contact_memo_;
     feeler.hit_cache_ = &contact_memo_;
     contact_count_ = 0;

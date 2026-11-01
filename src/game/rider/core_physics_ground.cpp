@@ -210,8 +210,7 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
         end.y = static_cast<float>(static_cast<float>(normal.y * static_cast<double>(kNormalFeeler)) + position.y);
         end.z = static_cast<float>(static_cast<float>(normal.z * static_cast<double>(kNormalFeeler)) + position.z);
         end.w = static_cast<float>(normal.w * static_cast<double>(kNormalFeeler) + position.w);
-        render::ProbeRay feeler;
-        feeler.make_new(&position, &end);
+        render::ProbeRay feeler(&position, &end);
         if (feeler.get_hit_shape(true, false))
             normal = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
     }

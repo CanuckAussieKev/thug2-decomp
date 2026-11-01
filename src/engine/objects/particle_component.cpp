@@ -487,7 +487,6 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         // doubled (1 without a hit).
         float value = 1.0f;
         render::ProbeRay feeler;
-        feeler.make_new();
         const float* at = &effect_handle_->args_.at_point_[0].x;
         feeler.line_.start = {at[0], static_cast<float>(at[1] + 1.0f), at[2], at[3]};
         feeler.line_.end = {at[0], static_cast<float>(static_cast<double>(at[1]) - 4800.0), at[2], at[3]};

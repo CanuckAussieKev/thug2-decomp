@@ -348,7 +348,6 @@ void PcWeather::render_splashes(float x, float z)
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
         // 2048 either side - alternately - nearer in), its landing the splash's.
         ProbeRay feeler;
-        feeler.make_new();
         const float* camera = &g_camera.position[0];
         maths::Vec4 heading = {static_cast<float>(static_cast<double>(x) - camera[0]), 0.0f,
                                static_cast<float>(static_cast<double>(z) - camera[2]), 1.0f};
@@ -458,7 +457,6 @@ void PcWeather::tick_grid()
     auto* grid = static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(width * depth)));
     memory::Hub::get_pull()->leave_heap_scope();
     ProbeRay feeler;
-    feeler.make_new();
     int levels = 0;
     int* level = heights; // (no limit on the levels, as the original: past 256 they run on over the fields after)
     for (int z = min_z, r = 0; z <= max_z; ++z, ++r) {

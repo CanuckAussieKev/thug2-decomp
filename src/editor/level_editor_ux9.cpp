@@ -50,9 +50,8 @@ V3 get_snapped(V3 p) { return {ground::snap_to(p.x, g_grid), p.y, ground::snap_t
 // The collision ray: the point and the piece hit (0: none / a movable).
 bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
-    alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
-    ray->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;

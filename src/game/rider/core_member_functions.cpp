@@ -168,7 +168,7 @@ bool feel_ahead(SkaterPhysicsModule* component, script::Struct* params, render::
 {
     float distance = kFacingDistance;
     params->fetch_float(0u, &distance, 0);
-    feeler.make_new();
+    // (the feeler made by the caller - 0x00417760 here in the original)
     objects::GameEntity* object = object_of(component);
     const maths::Vec4& position = object->at_point_;
     feeler.line_.start = position;

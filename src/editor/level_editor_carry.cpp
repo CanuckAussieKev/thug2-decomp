@@ -120,9 +120,8 @@ Placement placement_of(uint32_t sector)
 // 0x00417710 - static collision only; the collision object hit at +0x54, its checksum at +0x58): what it meets first.
 uint32_t first_hit(V3 from, V3 to, V3* point)
 {
-    alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
-    ray->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return 0;

@@ -46,16 +46,14 @@ void get_clear(HitMeshCache* cache)
 } // namespace
 
 // 0x0040AB50
-HitMeshCache* HitMeshCache::make_new()
+HitMeshCache::HitMeshCache()
 {
-    new (&box_) maths::BBox();
     register_coll_cache(this);
     get_clear(this);
-    return this;
 }
 
 // 0x0040AB40
-void HitMeshCache::destruct() { unregister_coll_cache(this); }
+HitMeshCache::~HitMeshCache() { unregister_coll_cache(this); }
 
 // 0x0040ABA0
 void HitMeshCache::tick_frame(const maths::BBox& box)

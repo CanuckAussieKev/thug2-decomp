@@ -97,7 +97,7 @@ void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 // held by a smart pointer, let go of by its destructor.
 class Feeler {
 public:
-    Feeler() { ray_.make_new(); }
+    Feeler() = default;
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     maths::Vec4& kickoff() { return ray_.line_.start; }

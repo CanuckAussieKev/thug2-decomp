@@ -91,11 +91,8 @@ public:
         maths::Vec4 sideways;        // +0xF8 the tyre's sideways direction (world, unit, w = 1)
         maths::Vec4 contact_vel_;    // +0x108 the body's velocity at the wheel, before the suspension (world)
         render::ProbeRay feeler;     // +0x118 the suspension's line against the world
-
-        // 0x00435870: the feeler constructed. Returns this.
-        Wheel* make_new();
-        // 0x00437CF0 (not a Ghidra function): the destructor (the feeler's smart pointer let go).
-        void destruct();
+        // (0x00435870, the constructor: the feeler constructed; 0x00437CF0, not a Ghidra function, the destructor:
+        // the feeler's smart pointer let go - both the implicit ones)
     };
 
     // A collision box's face (0x88 bytes): a corner and two edges in the body, the same in the world, the edges as

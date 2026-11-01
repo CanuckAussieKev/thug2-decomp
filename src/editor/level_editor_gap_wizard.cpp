@@ -160,9 +160,8 @@ struct Hit {
 // The game's collision ray (a ProbeRay, as level_editor_ruler.cpp's): the point, the face's normal and flags.
 bool get_cast(V3 from, V3 to, Hit* hit)
 {
-    alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
-    ray->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;

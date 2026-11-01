@@ -150,7 +150,6 @@ void RiderRemoteSync::reset_playback()
 void RiderRemoteSync::update_ground_lighting()
 {
     render::ProbeRay feeler;
-    feeler.make_new();
     const maths::Vec4& pos = entity_->at_point_;
     const maths::Vec4& up = entity_->basis_frame_.row[1];
     maths::Vec4& start = feeler.line_.start;
@@ -186,7 +185,6 @@ void RiderRemoteSync::update_ground_lighting()
 void RiderRemoteSync::settle_onto_floor()
 {
     render::ProbeRay feeler;
-    feeler.make_new();
     GameEntity* skater = entity_;
     const maths::Vec4& up = skater->basis_frame_.row[1];
     const maths::Vec4& pos = skater->at_point_;
@@ -309,7 +307,6 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     float away_y = static_cast<float>(static_cast<double>(skater->at_point_.y) - last_pos_.y);
     float away_x = static_cast<float>(static_cast<double>(skater->at_point_.x) - last_pos_.x);
     render::ProbeRay feeler;
-    feeler.make_new();
     // The collision height up the up row (the products rounded).
     double height = get_physics(skater, kFirstForwardCollisionHeight);
     const maths::Vec4& up = skater->basis_frame_.row[1];

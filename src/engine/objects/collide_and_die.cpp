@@ -92,7 +92,6 @@ void ImpactDestructModule::tick_frame()
             get_kill(entity_);
     } else {
         render::ProbeRay feeler;
-        feeler.make_new();
         GameEntity* object = entity_;
         maths::Vec4 direction = object->vel_;
         direction.make_unit();

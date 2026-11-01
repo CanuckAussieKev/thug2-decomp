@@ -68,9 +68,8 @@ V3 g_hover;
 // The game's collision ray (a ProbeRay as level_editor_arcs.cpp's): the point hit and the collision object's checksum.
 bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
-    alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
-    ray->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;

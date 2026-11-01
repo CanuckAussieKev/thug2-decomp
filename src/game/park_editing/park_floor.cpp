@@ -21,25 +21,6 @@ constexpr uint32_t kRiserFloorBelow = 0x14FD33E4; // "riser_floor_below"
 constexpr uint32_t kRiserBelow = 0x4A0D22DB;      // "riser_below"
 constexpr uint32_t kFence = 0x771994FF;           // "Sk4Ed_Fence_20x20"
 
-// A collision probe along a line (render::ProbeRay, 0xB0 bytes): constructed by 0x00417760, its ends set by
-// 0x00417190 / 0x004171B0, tested by 0x004172F0; what it hit is held by a smart pointer.
-struct Feeler {
-    uint8_t unknown00[0x78];
-    maths::Vec4 contact_pos_; // +0x78: where it hit
-    uint8_t unknown88[0x10];
-    objects::SharedRef<objects::SharedBase> entity_; // +0x98
-    uint8_t unknowna4_[0xC];
-
-    render::ProbeRay* get_ours() { return reinterpret_cast<render::ProbeRay*>(this); }
-    Feeler* make_new() { return reinterpret_cast<Feeler*>(get_ours()->make_new()); }
-    void change_origin(maths::Vec4* start) { get_ours()->change_origin(start); }
-    void change_finish(maths::Vec4* end) { get_ours()->change_finish(end); }
-    // (the original's result is read from AL)
-    bool get_hit_shape(bool movables, bool farthest) { return get_ours()->get_hit_shape(movables, farthest) != 0; }
-};
-static_assert(offsetof(Feeler, entity_) == 0x98);
-static_assert(sizeof(Feeler) == 0xB0);
-
 // The park editor (a reference taken here, let go by release_park_editor): whether the park is full.
 bool park_is_full() { return ParkBuilderMode::fabricate(false)->is_park_full() != 0; }
 void release_park_editor() { ParkBuilderMode::get_release(); }
@@ -110,8 +91,7 @@ void ParkLayout::generate_node_array()
         point.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
         point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kGridStepAlong) + kGridStepAlong * 0.5);
         point.w = 1.0f;
-        Feeler feeler;
-        feeler.make_new();
+        render::ProbeRay feeler;
         maths::Vec4 start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
                              static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.change_origin(&start);

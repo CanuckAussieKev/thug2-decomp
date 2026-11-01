@@ -63,7 +63,7 @@ uint32_t* get_seen() { return g_editor_camera_seen; }
 // a smart pointer (let go of by its destructor).
 class Feeler {
 public:
-    Feeler() { ray_.make_new(); }
+    Feeler() = default;
     ~Feeler() = default;
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;

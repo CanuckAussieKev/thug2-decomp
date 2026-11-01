@@ -48,11 +48,9 @@ MovingSurfaceModule::~MovingSurfaceModule() {}
 GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::Vec4* hit)
 {
     render::ProbeRay down;
-    down.make_new();
     down.line_.start = {point->x, get_sum(point->y, kFeelerTop), point->z, point->w};
     down.line_.end = {point->x, get_sum(point->y, kFeelerBottom), point->z, point->w};
     render::ProbeRay up;
-    up.make_new();
     for (int tries = 1;;) {
         if (!down.get_hit_shape(true, false) || !down.hit_object_alive())
             return nullptr;

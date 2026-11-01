@@ -228,16 +228,13 @@ void get_reset()
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
 Face get_probe(const float* from, const float* to, bool everything)
 {
-    alignas(16) uint8_t storage[sizeof(render::ProbeRay)];
-    auto* feeler = reinterpret_cast<render::ProbeRay*>(storage);
     maths::Vec4 start = {from[0], from[1], from[2], 1.0f};
     maths::Vec4 end = {to[0], to[1], to[2], 1.0f};
-    feeler->make_new(&start, &end);
+    render::ProbeRay ray_storage(&start, &end);
+    render::ProbeRay* feeler = &ray_storage;
     feeler->set_excluded(everything ? 0 : 0x10, 0);
     feeler->get_hit_shape(true, false);
-    Face face = face_of(*feeler);
-    feeler->destruct();
-    return face;
+    return face_of(*feeler);
 }
 
 // Whether to leave this spot out (again within a second); `repeats`: those left out since its last line.

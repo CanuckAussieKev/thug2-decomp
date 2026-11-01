@@ -64,16 +64,6 @@ const float kHundredth = 0.00999999978f; // 0x0064544C
 
 } // namespace
 
-// 0x00435870
-DrivableModule::Wheel* DrivableModule::Wheel::make_new()
-{
-    feeler.make_new();
-    return this;
-}
-
-// 0x00437CF0
-void DrivableModule::Wheel::destruct() { feeler.entity_.get_release(); }
-
 // 0x004351C0
 void DrivableModule::update_wheel_rotations()
 {
@@ -441,8 +431,7 @@ memory::owner<ObjectModule*> __cdecl DrivableModule::fabricate() { return new Dr
 DrivableModule::DrivableModule()
 {
     clear_to_w1(orientation_);
-    // (the colliders' vectors' constructors do nothing: 0x005902E0)
-    contact_memo_.make_new();
+    // (the colliders' vectors' constructors do nothing: 0x005902E0; contact_memo_ registered by its constructor)
     input_ptr_ = nullptr;
     debug_mode_ = 0;
     passive_ = false;
@@ -464,10 +453,10 @@ DrivableModule::~DrivableModule()
         // (as `delete[]`: the count before the array, the wheels destroyed last to first)
         int* block = reinterpret_cast<int*>(wheels_) - 1;
         for (int i = *block - 1; i >= 0; --i)
-            wheels_[i].destruct();
+            wheels_[i].~Wheel();
         memory::Hub::get_pull()->dealloc(block);
     }
-    contact_memo_.destruct();
+    // (then contact_memo_ unregistered by its destructor)
 }
 
 // 0x00437D10
@@ -604,7 +593,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
                 *block = count;
                 array = reinterpret_cast<Wheel*>(block + 1);
                 for (int i = 0; i < count; ++i)
-                    array[i].make_new();
+                    new (&array[i]) Wheel; // (default-initialised: only the feeler is set up)
             }
             wheels_ = array;
         }
@@ -1010,8 +999,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     maths::Vec4 start{pos.x, static_cast<float>(static_cast<double>(pos.y) + kAbove), pos.z,
                       static_cast<float>(static_cast<double>(pos.w) + 1.0)};
     maths::Vec4 end{pos.x, static_cast<float>(static_cast<double>(pos.y) - kBelow), pos.z, start.w};
-    render::ProbeRay feeler;
-    feeler.make_new(&start, &end);
+    render::ProbeRay feeler(&start, &end);
     if (feeler.get_hit_shape(false, false))
         pos.y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - above);
     // The node marks the fixed axle (the first fixed wheel from the last): back along the node's facing by its place.

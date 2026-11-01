@@ -80,8 +80,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
 class SphereFeeler {
 public:
     // 0x00418330: the sphere; no move (direction (0, 0, 0, 1)), no hits, faces flagged 0x10 ignored, no cache.
-    // Returns this.
-    SphereFeeler* make_new(const maths::Vec4* centre, float radius);
+    SphereFeeler(const maths::Vec4* centre, float radius);
     // 0x00418300: the query (mode 1), through the feeler's cache or the current sphere cache (0x00691990). (The
     // argument isn't used.)
     bool get_query(int unused);

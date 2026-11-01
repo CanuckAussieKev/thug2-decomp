@@ -47,38 +47,6 @@ constexpr uint32_t kCluster = 0x1A3A966B;              // Cluster
 constexpr uint32_t kLinks = 0x2E7D5EE7;                // Links
 constexpr uint32_t kLadderTrigger = 0xF5B17B09;        // TRG_Ladder03 (a node: counted 4 times as far)
 
-// A collision probe along a line (Nx's feeler, 0xB0 bytes; as park_floor.cpp's): constructed by 0x00417760, its line
-// set by 0x004171D0 (from, to), tested by 0x004172F0; what it hit (contact_pos_) and the object hit, held by a smart pointer
-// (+0x98). Going away: the smart pointer let go of (the destructor inlined), or the destructor 0x0041C350 - the
-// original uses either (no C++ destructor here: callers say which).
-struct Feeler {
-    maths::Vec4 outset_; // +0x00
-    maths::Vec4 finish_; // +0x10
-    uint8_t unknown20_[0x58];
-    maths::Vec4 contact_pos_; // +0x78
-    uint8_t unknown88_[0x10];
-    objects::SharedBase* entity_; // +0x98 (a SharedRef<SharedBase>: the object, then its links)
-    uint32_t links_[2];
-    uint8_t unknowna4_[0xC];
-
-    // (render::ProbeRay, seen by its fields here)
-    render::ProbeRay* as_feeler() { return reinterpret_cast<render::ProbeRay*>(this); }
-    Feeler* make_new()
-    {
-        as_feeler()->make_new();
-        return this;
-    }
-    void change_strand(const maths::Vec4* from, const maths::Vec4* to) { as_feeler()->change_strand(from, to); }
-    bool get_hit_shape(int a, int b) { return as_feeler()->get_hit_shape(a != 0, b != 0) != 0; }
-    void release_object()
-    {
-        if (entity_)
-            entity_->detach_shared_ref(reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(&entity_));
-    }
-    void teardown() { as_feeler()->destruct(); }
-};
-static_assert(offsetof(Feeler, contact_pos_) == 0x78 && offsetof(Feeler, entity_) == 0x98 && sizeof(Feeler) == 0xB0);
-
 // The matrix times `in` (all four components; 0x0040AF60, returns `out`).
 maths::Vec4* xform(const maths::Mat4* matrix, maths::Vec4* out, const maths::Vec4* in)
 {
@@ -242,8 +210,7 @@ bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
         return true;
     if (g_rail_clear_override && g_rail_clear_override(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
-    Feeler feeler;
-    feeler.make_new();
+    render::ProbeRay feeler; // (what it hit let go of by its destructor, where the original lets go inline)
     // A quarter of the way from a to b, 6 above (the original's rounding: some sums kept unrounded).
     double sum_w = static_cast<double>(b.w) + a.w;
     double sum_z = static_cast<double>(b.z) + a.z;
@@ -279,21 +246,21 @@ bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
     const maths::Vec4 plus = {add(across_x, at_x), add(across_y, high_y), add(across_z, at_z), add(across_w, at_w)};
     // Anything across it (either way): not clear.
     feeler.change_strand(&plus, &minus);
-    if (feeler.get_hit_shape(1, 0)) {
-        feeler.release_object();
+    if (feeler.get_hit_shape(true, false)) {
+        feeler.entity_.get_release();
         return false;
     }
     reinterpret_cast<BoxPair*>(&feeler)->get_exchange();
-    if (feeler.get_hit_shape(1, 0)) {
-        feeler.release_object();
+    if (feeler.get_hit_shape(true, false)) {
+        feeler.entity_.get_release();
         return false;
     }
     // Down 12 from one side: nothing there, clear.
     maths::Vec4 top = plus;
     maths::Vec4 bottom = {plus.x, static_cast<float>(plus.y - 12.0), plus.z, static_cast<float>(plus.w + 1.0)};
     feeler.change_strand(&top, &bottom);
-    if (!feeler.get_hit_shape(1, 0)) {
-        feeler.release_object();
+    if (!feeler.get_hit_shape(true, false)) {
+        feeler.entity_.get_release();
         return true;
     }
     float base = static_cast<float>(high_y - 6.0);
@@ -302,14 +269,12 @@ bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
     top = minus;
     bottom = {minus.x, static_cast<float>(minus.y - 12.0), minus.z, static_cast<float>(minus.w + 1.0)};
     feeler.change_strand(&top, &bottom);
-    if (!feeler.get_hit_shape(1, 0)) {
-        feeler.teardown();
+    if (!feeler.get_hit_shape(true, false)) {
         return true;
     }
     double height_two = static_cast<double>(feeler.contact_pos_.y) - base;
     // Ground on both sides: clear only if one side is at the rail's height (within 1) or 2 below it.
     if (height_one > -1.0f && height_two > -1.0) { // (NaN: on to the next test)
-        feeler.teardown();
         return false;
     }
     double higher, lower;
@@ -320,7 +285,6 @@ bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
         higher = height_one;
         lower = height_two;
     }
-    feeler.teardown();
     if (!(higher > 1.0))
         return true;
     return !(lower > -2.0);
@@ -367,8 +331,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
 {
     const maths::Vec4 p = at_point_;
     const maths::Vec4 q = succ_->at_point_;
-    Feeler feeler;
-    feeler.make_new();
+    render::ProbeRay feeler; // (what it hit let go of by its destructor, where the original lets go inline)
     // A quarter of the way along the segment, 6 below it (the original's rounding: some sums kept unrounded).
     float sum_y = static_cast<float>(static_cast<double>(q.y) + p.y);
     float sum_x = static_cast<float>(static_cast<double>(q.x) + p.x);
@@ -413,11 +376,11 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
                       static_cast<float>(static_cast<double>(at_z) - across_z),
                       static_cast<float>(static_cast<double>(at_w) - dw)};
     feeler.change_strand(&from, &to);
-    bool hit_one_way = feeler.get_hit_shape(1, 0);
-    maths::Vec4 start = feeler.outset_;
-    feeler.outset_ = feeler.finish_;
-    feeler.finish_ = start;
-    bool hit_other_way = feeler.get_hit_shape(1, 0);
+    bool hit_one_way = feeler.get_hit_shape(true, false);
+    maths::Vec4 start = feeler.line_.start;
+    feeler.line_.start = feeler.line_.end;
+    feeler.line_.end = start;
+    bool hit_other_way = feeler.get_hit_shape(true, false);
     int side = 0;
     if (hit_one_way != hit_other_way) {
         side = hit_one_way ? -1 : 1;
@@ -426,7 +389,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
         if (dot < 0.0)
             side = -side;
     }
-    feeler.release_object();
+    feeler.entity_.get_release();
     return side;
 }
 

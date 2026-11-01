@@ -345,7 +345,6 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     if (countdown_ > 0)
         return false;
     render::ProbeRay feeler;
-    feeler.make_new();
     script::Struct* settings = script::read_sub_struct(0x6775E538u);
     float reach;
     maths::Vec4 facing;
@@ -446,7 +445,6 @@ bool TaggingControlComponent::try_tagging()
 
     float reach = tag_setting(0xDC98A1BE);
     render::ProbeRay feeler;
-    feeler.make_new();
     maths::Vec4 joint_world;
     static_cast<BoneRigModule*>(skeleton)->get_bone_position(bone, &joint_world);
     if (walk_->state_ == 2)

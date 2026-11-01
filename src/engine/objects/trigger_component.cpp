@@ -106,7 +106,6 @@ void ActivationZoneModule::tick_frame()
         return;
     }
     render::ProbeRay feeler;
-    feeler.make_new();
     feeler.line_.start = last_pos_;
     feeler.line_.end = entity_->at_point_;
     feeler.set_excluded(0, kTriggerFaces);

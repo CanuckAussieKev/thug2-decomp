@@ -512,7 +512,6 @@ void BodyDynamicsModule::tick_frame()
     for (int step = 0;;) {
         float length = remaining;
         render::ProbeRay feeler;
-        feeler.make_new();
         double vx = get_wide(remaining) * vel_.x, vy = get_wide(remaining) * vel_.y, vz = get_wide(remaining) * vel_.z,
                vw = get_wide(remaining) * vel_.w;
         double half = (get_wide(remaining) * remaining) * kHalf;

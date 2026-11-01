@@ -1012,9 +1012,8 @@ void put_in_play()
 // Where the view looks, on the ground (the game's collision ray - a ProbeRay, as the triggers' Cast).
 bool get_cast(V3 from, V3 to, V3* hit)
 {
-    alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
-    ray->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;

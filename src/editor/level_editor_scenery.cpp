@@ -829,9 +829,8 @@ std::vector<uint32_t> g_hover_group;
 // (+0x58: the object's +4, written by 0x004131F0).
 bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
 {
-    alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<render::ProbeRay*>(feeler);
-    ray->make_new();
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
     maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;

@@ -96,10 +96,8 @@ void SkaterPhysicsModule::set_surface_kind(uint32_t terrain)
 // 0x004FC500 (0x00500DB0 the deleting one)
 SkaterPhysicsModule::~SkaterPhysicsModule()
 {
-    hit_cache_.destruct();
-    skitch_target_.get_release();
-    floor_feeler_.entity_.get_release();
-    feeler_.entity_.get_release();
+    // (the members' destructors, as the original's order: the cache unregistered, the skitch target, the floor
+    // feeler's and the feeler's objects let go)
 }
 
 // 0x004FC5C0

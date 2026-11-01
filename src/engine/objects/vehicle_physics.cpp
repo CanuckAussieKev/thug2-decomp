@@ -636,7 +636,6 @@ void DrivableModule::update_dependents()
 void DrivableModule::update_wheel_contacts()
 {
     render::ProbeRay feeler;
-    feeler.make_new();
     feeler.hit_cache_ = &contact_memo_;
     wheels_in_contact_ = 0;
     for (int i = wheel_count_ - 1; i >= 0; --i) {

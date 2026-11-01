@@ -72,7 +72,6 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
 {
     // Down from just above the object (nudged along its up vector).
     render::ProbeRay down;
-    down.make_new();
     GameEntity* object = entity_;
     maths::Vec4& start = down.line_.start;
     maths::Vec4& end = down.line_.end;
@@ -92,7 +91,6 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     bool hit = down.get_hit_shape(false, false) != 0;
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
     render::ProbeRay again;
-    again.make_new();
     again.set_excluded(0, 0x20);
     again.line_.start = {start.x, start.y + kSecondAbove, start.z, start.w};
     if (hit)
@@ -106,8 +104,6 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
         mesh_instance_->apply_brightness(&down, lerp, 1.0f);
         brightness_ = static_cast<float>(down.get_hit_vertex_value());
     }
-    again.destruct();
-    down.destruct();
 }
 
 // 0x004230B0

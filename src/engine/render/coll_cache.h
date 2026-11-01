@@ -21,10 +21,12 @@ public:
         const maths::BBox* bounds; // (a static object's world box, a movable's own)
     };
 
-    // 0x0040AB50: an empty box, no objects; registered (returns this).
-    HitMeshCache* make_new();
+    // 0x0040AB50: an empty box, no objects; registered.
+    HitMeshCache();
     // 0x0040AB40: unregistered.
-    void destruct();
+    ~HitMeshCache();
+    HitMeshCache(const HitMeshCache&) = delete;
+    HitMeshCache& operator=(const HitMeshCache&) = delete;
     // 0x0040ABA0: refilled for `box`: the box kept if any collision grid lists cover it, and the objects of those
     // lists and the movable ones (neither flag 2 nor 4) whose boxes touch it grown by 0.5.
     void tick_frame(const maths::BBox& box);

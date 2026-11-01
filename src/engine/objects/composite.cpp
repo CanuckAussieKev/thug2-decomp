@@ -153,7 +153,7 @@ inline void print_object_details(const char* /*text*/) {}
 // held by a smart pointer, let go of by its destructor.
 class CollisionFeeler {
 public:
-    CollisionFeeler() { ray_.make_new(); }
+    CollisionFeeler() = default;
     CollisionFeeler(const CollisionFeeler&) = delete;
     CollisionFeeler& operator=(const CollisionFeeler&) = delete;
     maths::Vec4& kickoff() { return ray_.line_.start; }
