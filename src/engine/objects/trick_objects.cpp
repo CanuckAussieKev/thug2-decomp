@@ -35,7 +35,7 @@
 
 namespace objects {
 
-objects::TrickSpotHub* g_trick_spot_hub;
+memory::owner<objects::TrickSpotHub*> g_trick_spot_hub;
 uint32_t g_trick_object_manager_references;
 
 namespace {

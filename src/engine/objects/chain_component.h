@@ -32,7 +32,7 @@ struct ChainLink {
     float value40_;                 // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
     float byte_count_;              // +0x44 the rest length to the link before it
     uint32_t unused48_;             // +0x48
-    render::PcPrimitive* line_ptr_; // +0x4C the line drawn to the next link
+    memory::owner<render::PcPrimitive*> line_ptr_; // +0x4C the line drawn to the next link
 };
 
 // A chain hung from a bone of its object to a bone of another object (0x684 bytes).

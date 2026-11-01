@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/owner.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/script/param_struct.h"
@@ -45,7 +46,7 @@ public:
     // The victory conditions' list (an intrusive ring; the head's condition is -1). The original's list types have
     // a vtable each (the head's 0x0064DD90, the nodes' 0x0064DD54) holding only their destructors.
     struct ConditionNode {
-        WinRule* condition_; // (-1 for the head)
+        memory::owner<WinRule*> condition_; // (-1 for the head; the intrusive list's nodes own their conditions)
         int rank_;
         ConditionNode* succ_;
         ConditionNode* last_value_;

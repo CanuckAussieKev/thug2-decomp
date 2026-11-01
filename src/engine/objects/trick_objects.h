@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/owner.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
@@ -223,6 +224,6 @@ void __cdecl find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch*
 void __cdecl find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search);
 void __cdecl write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer);
 
-extern objects::TrickSpotHub* g_trick_spot_hub;
+extern memory::owner<objects::TrickSpotHub*> g_trick_spot_hub; // (made / deleted by the module's start-up / shutdown)
 
 } // namespace objects

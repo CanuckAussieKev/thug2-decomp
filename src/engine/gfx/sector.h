@@ -112,7 +112,7 @@ public:
     uint32_t light_group_; // +0x0C: its light group (the time of day's; outdoor by default)
     int rot_y_;            // +0x10: quarter turns about y
     void* geom_handle_;    // +0x14: CGeom (on PC a PcGeom), or null
-    HitMesh* hit_body_;    // +0x18: or null
+    memory::owner<HitMesh*> hit_body_; // +0x18: or null (the sector's layout; deleted by its destructor)
 };
 static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
                   sizeof(WorldCell) == 0x1C,
