@@ -5,6 +5,7 @@
 
 #include "engine/gfx/viewport.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/owner.h"
 
 // The PC viewport (Nx engine: the engine's ViewRegion - constructor 0x004A0DB0, destructor body 0x004A0E60 - over it;
 // the viewports at 0x00701350): a world point onto the 640 x 448 screen, and the occlusion queries the sun's
@@ -33,7 +34,7 @@ public:
 static_assert(sizeof(PcViewport) == 0x24, "layout must match the original");
 
 // 0x004CB860: a new PC viewport (null without memory).
-PcViewport* __cdecl create_viewport(const float* rect, gfx::ViewCam* camera);
+memory::owner<PcViewport*> __cdecl create_viewport(const float* rect, gfx::ViewCam* camera);
 // 0x004CBD40 (the engine's 0x004A0F20 jumps here): the pixels the first request's query saw - its flag
 // (0x0067E550) cleared and the requests moved on (0x004A0F80) when it's in, the last count while it's coming, 0 when
 // there's none (or on a Radeon 8500).

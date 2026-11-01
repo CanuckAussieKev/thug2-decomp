@@ -17,6 +17,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -26,7 +27,7 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 
 // A projection (the renderer's, 0xC8 bytes; a list node with its checksum at +0x14): made (0x004C7E80), set up from
 // its structure (0x004A04C0) and updated from an object (0x0049FFE0).
-render::TextureProjection* new_projection() { return new render::PcTextureProjection; }
+memory::owner<render::TextureProjection*> new_projection() { return new render::PcTextureProjection; }
 
 bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 

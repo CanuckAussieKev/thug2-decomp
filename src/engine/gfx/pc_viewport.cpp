@@ -19,6 +19,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/glow.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -59,7 +60,7 @@ void end_query_draw(uint8_t query)
 } // namespace
 
 // 0x004CB860
-PcViewport* __cdecl create_viewport(const float* rect, gfx::ViewCam* camera) { return new PcViewport(rect, camera); }
+memory::owner<PcViewport*> __cdecl create_viewport(const float* rect, gfx::ViewCam* camera) { return new PcViewport(rect, camera); }
 
 // 0x004CB940
 float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth)

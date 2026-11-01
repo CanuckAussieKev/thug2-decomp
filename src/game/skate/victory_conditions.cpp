@@ -16,6 +16,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/owner.h"
 
 namespace goals {
 
@@ -223,7 +224,7 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
 }
 
 // 0x00576810
-WinRule* create_victory_condition(script::Struct* params)
+memory::owner<WinRule*> create_victory_condition(script::Struct* params)
 {
     uint32_t type;
     params->read_hash_value("type", &type, 1);

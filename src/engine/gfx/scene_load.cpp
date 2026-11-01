@@ -24,6 +24,7 @@
 #include "engine/gfx/scene_file_stream.h"
 #include "engine/gfx/scene_format.h"
 #include "engine/gfx/sector.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -187,7 +188,7 @@ void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_s
 }
 
 // 0x004B3990
-void* __cdecl create_frame_source() { return new FrameSource; }
+memory::owner<void*> __cdecl create_frame_source() { return new FrameSource; }
 
 // 0x004B3A20
 void* __cdecl load_mesh_file(const char* name, void* textures)

@@ -70,7 +70,7 @@ void get_append(Resource** head, Resource* asset)
 }
 
 // A new asset of `type` (null for a type that isn't one, or if the allocation fails).
-Resource* make_asset(int type, bool with_cutscene)
+memory::owner<Resource*> make_asset(int type, bool with_cutscene)
 {
     switch (type) {
     case kScene:

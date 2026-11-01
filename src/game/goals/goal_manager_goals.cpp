@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"
+#include "engine/core/owner.h"
 
 namespace goals {
 
@@ -96,7 +97,7 @@ void free_array(script::Array* array)
 
 // The goal's type by its flags (made zeroed: Objective is a HeapObject; the original allocated the sizes noted with
 // the types).
-Objective* make_goal(script::Struct* params)
+memory::owner<Objective*> make_goal(script::Struct* params)
 {
     if (params->has_bare_flag(kCompetitionFlag))
         return new ContestObjective(params);

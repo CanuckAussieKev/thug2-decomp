@@ -6,6 +6,7 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
+#include "engine/core/owner.h"
 
 namespace lists {
 class KeyMap;
@@ -155,9 +156,9 @@ lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, size_t 
 
 // 0x004C7270: a dictionary loaded from a file. 0x004C72E0: one made with a checksum and loaded from memory (called
 // on null without memory, as the original). 0x004C7360: an empty one.
-PcTexDict* __cdecl load_tex_dict_file(const char* name);
+memory::owner<PcTexDict*> __cdecl load_tex_dict_file(const char* name);
 PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
-PcTexDict* __cdecl create_tex_dict(uint32_t checksum);
+memory::owner<PcTexDict*> __cdecl create_tex_dict(uint32_t checksum);
 
 // 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it (`bits_per_pixel` 4 copies half bytes).
 void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,

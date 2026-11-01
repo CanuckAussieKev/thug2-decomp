@@ -7,6 +7,7 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/owner.h"
 
 // The engine's sector (render::WorldCell; the PC sector PcSector - pc_scene.h - extends it): a piece of a scene with a
 // name, its geometry (a CGeom - drawn) and its collision (a HitMesh - collided with), moved, turned, scaled, shown,
@@ -40,7 +41,7 @@ public:
     virtual ~WorldCell();
     // 0x0049E8C0 / 0x0049E8E0 (the engine's stubs: "STUB: Plat...").
     virtual void plat_set_shatter(bool on);
-    virtual WorldCell* plat_clone(int instance, void* scene);
+    virtual memory::owner<WorldCell*> plat_clone(int instance, void* scene);
     // 0x0049E8D0 ("STUB: PlatGetShatter").
     bool plat_get_shatter();
 

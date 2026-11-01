@@ -10,6 +10,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/core/owner.h"
 
 namespace script {
 
@@ -882,7 +883,7 @@ Component* new_typed_component(uint32_t name, QbValueKind type)
 } // namespace
 
 // 0x0044C130 (+ the constructor, as the callers do)
-Component* new_component()
+memory::owner<Component*> new_component()
 {
     void* memory = component_pools().carve(sizeof(Component));
     return memory ? construct_component(static_cast<Component*>(memory)) : nullptr;

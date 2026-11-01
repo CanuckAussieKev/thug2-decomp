@@ -22,6 +22,7 @@
 #include "engine/net/net_wire.h"
 #include "engine/util/byte_stream.h"
 #include "platform/stopwatch.h"
+#include "engine/core/owner.h"
 
 namespace net {
 
@@ -181,7 +182,7 @@ int dispatch_messages(HandlerLists* dispatcher, Conn* conn, int flags)
 }
 
 // A task of the app's (null if out of memory).
-tasks::SchedulerTask* new_task(int priority, tasks::Task<AppHost>::Code callback, AppHost* app)
+memory::owner<tasks::SchedulerTask*> new_task(int priority, tasks::Task<AppHost>::Code callback, AppHost* app)
 {
     return new tasks::Task<AppHost>(callback, app, priority);
 }

@@ -29,6 +29,7 @@
 #include "engine/core/stubs.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -73,7 +74,7 @@ float vblank_seconds(uint64_t vblanks, int rate)
     return result;
 }
 
-void* new_anim_source() { return new render::FrameSource; }
+memory::owner<void*> new_anim_source() { return new render::FrameSource; }
 void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
 void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
 // The model's fader (cutscene.h) fading to `target` by 0.02 a frame.

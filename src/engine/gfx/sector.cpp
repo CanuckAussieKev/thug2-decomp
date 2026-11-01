@@ -12,6 +12,7 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_obj.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -54,7 +55,7 @@ bool WorldCell::plat_get_shatter()
 }
 
 // 0x0049E8E0 (not a function in Ghidra: only the vtable reaches it)
-WorldCell* WorldCell::plat_clone(int, void*)
+memory::owner<WorldCell*> WorldCell::plat_clone(int, void*)
 {
     debug::printf("STUB: PlatClone\n"); // "STUB: PlatClone\n"
     return nullptr;

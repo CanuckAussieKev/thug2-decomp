@@ -38,6 +38,7 @@
 #include "engine/core/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/cutscene.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -93,7 +94,7 @@ void discard_loaded_item(uint32_t name)
     get_assets()->discard_loaded_item(asset);
 }
 void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
-void* new_anim_source() { return new render::FrameSource; }
+memory::owner<void*> new_anim_source() { return new render::FrameSource; }
 script::Struct* make_struct()
 {
     script::Struct* memory = script::spawn_param_bag();

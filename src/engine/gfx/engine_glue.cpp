@@ -226,16 +226,16 @@ bool __cdecl unload_scene(void* scene)
 }
 
 // 0x004B29C0
-RenderModel* __cdecl spawn_model() { return new PcModel; }
+memory::owner<RenderModel*> __cdecl spawn_model() { return new PcModel; }
 
 // 0x004B2A20
-Geom* __cdecl create_geom() { return new PcGeom; }
+memory::owner<Geom*> __cdecl create_geom() { return new PcGeom; }
 
 // 0x004B2A80
-BillboardQuad* __cdecl build_sprite_quad() { return new PcSprite; }
+memory::owner<BillboardQuad*> __cdecl build_sprite_quad() { return new PcSprite; }
 
 // 0x004B2AF0
-TexturedQuad* __cdecl create_textured_quad() { return new TexturedQuad(nullptr); }
+memory::owner<TexturedQuad*> __cdecl create_textured_quad() { return new TexturedQuad(nullptr); }
 
 // 0x004B2B60
 void* __cdecl create_render_target(int width, int height, uint8_t depth, int unused)

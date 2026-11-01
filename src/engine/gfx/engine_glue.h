@@ -62,10 +62,10 @@ void* __cdecl make_empty_scene(const char* name, void* textures, bool with_super
 bool __cdecl unload_scene(void* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
-RenderModel* __cdecl spawn_model();
-Geom* __cdecl create_geom();
-BillboardQuad* __cdecl build_sprite_quad();
-TexturedQuad* __cdecl create_textured_quad();
+memory::owner<RenderModel*> __cdecl spawn_model();
+memory::owner<Geom*> __cdecl create_geom();
+memory::owner<BillboardQuad*> __cdecl build_sprite_quad();
+memory::owner<TexturedQuad*> __cdecl create_textured_quad();
 // 0x004B2B60: a new render target (0x14 bytes) with a texture of its own made a width x height render target.
 void* __cdecl create_render_target(int width, int height, uint8_t depth, int unused);
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer

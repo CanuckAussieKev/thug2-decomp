@@ -4,6 +4,7 @@
 #include "engine/core/slab_bank.h"
 
 #include "engine/core/slab_bank.h"
+#include "engine/core/owner.h"
 
 // The script system's data: structures of named components (Scripts::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
@@ -199,7 +200,7 @@ Array* alloc_script_array();
 void delete_array(Array* array);
 void free_component(Component* component);
 // A new, empty component (from the component pool).
-Component* new_component();
+memory::owner<Component*> new_component();
 // Construct an empty component in place (leaves the second byte alone).
 Component* construct_component(Component* component);
 

@@ -36,6 +36,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/owner.h"
 
 namespace online {
 
@@ -48,7 +49,7 @@ constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
 constexpr int kChallengeLength = 8;
 
-tasks::SchedulerTask* new_task(Hub* manager, tasks::Task<Hub>::Code code, int priority)
+memory::owner<tasks::SchedulerTask*> new_task(Hub* manager, tasks::Task<Hub>::Code code, int priority)
 {
     return new tasks::Task<Hub>(code, manager, priority);
 }

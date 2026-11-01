@@ -23,6 +23,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -190,21 +191,21 @@ struct ConstructArgs {
     const char* model;
 };
 template <typename T>
-EmitterInstance* make_plain(const ConstructArgs& a)
+memory::owner<EmitterInstance*> make_plain(const ConstructArgs& a)
 {
     return new T(a.name, a.particle_cap_, a.texture, a.blend_mode_, a.fixed_alpha_, a.segments, a.unknown);
 }
 template <typename T>
-EmitterInstance* make_with_history(const ConstructArgs& a)
+memory::owner<EmitterInstance*> make_with_history(const ConstructArgs& a)
 {
     return new T(a.name, a.particle_cap_, a.texture, a.blend_mode_, a.fixed_alpha_, a.segments, a.unknown, a.history);
 }
 template <typename T>
-EmitterInstance* make_five(const ConstructArgs& a)
+memory::owner<EmitterInstance*> make_five(const ConstructArgs& a)
 {
     return new T(a.name, a.particle_cap_, a.texture, a.blend_mode_, a.fixed_alpha_);
 }
-EmitterInstance* make_model(const ConstructArgs& a)
+memory::owner<EmitterInstance*> make_model(const ConstructArgs& a)
 {
     return new ModelParticles(a.name, a.particle_cap_, a.model, a.blend_mode_, a.fixed_alpha_, a.segments, a.unknown,
                               a.history);

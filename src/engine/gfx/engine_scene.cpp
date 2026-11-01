@@ -26,6 +26,7 @@
 #include "engine/render/coll_rect.h"
 #include "engine/render/coll_line.h"
 #include "engine/render/coll_obj.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -298,7 +299,7 @@ bool WorldScene::unload_add_scene()
     return false;
 }
 // 0x0049CAF0
-WorldCell* WorldScene::plat_create_sector()
+memory::owner<WorldCell*> WorldScene::plat_create_sector()
 {
     debug::printf("STUB: plat_create_sector\n");
     return nullptr;

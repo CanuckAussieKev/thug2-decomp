@@ -40,6 +40,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/owner.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strcpy, kept)
 
@@ -177,7 +178,7 @@ void console_message(const char* nick, uint32_t text_name, bool by_name)
 }
 
 // A task running `code` for the lobby (priority 0; null if out of memory).
-tasks::SchedulerTask* new_task(RoomManager* lobby, tasks::Task<RoomManager>::Code code)
+memory::owner<tasks::SchedulerTask*> new_task(RoomManager* lobby, tasks::Task<RoomManager>::Code code)
 {
     return new tasks::Task<RoomManager>(code, lobby, 0);
 }

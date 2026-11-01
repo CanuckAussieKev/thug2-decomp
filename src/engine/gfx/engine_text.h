@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
+#include "engine/core/owner.h"
 
 // The engine's text (render::GlyphString - the platform-independent part of the PC text, PcText in pc_font.h, its first 0x48
 // bytes): a string drawn in a font, its position, pivot, scale, rotation, priority or depth, colour and per-character
@@ -101,7 +102,7 @@ static_assert(offsetof(GlyphString, rank_) == 0x2C && offsetof(GlyphString, laye
               "layout must match the original");
 
 // 0x0048D1D0: a text from the free list (null when it's empty).
-GlyphString* __cdecl new_text();
+memory::owner<GlyphString*> __cdecl new_text();
 // 0x0048D5F0: a text hidden, its buffers freed, and put back on the free list.
 void __cdecl free_text(GlyphString* text);
 

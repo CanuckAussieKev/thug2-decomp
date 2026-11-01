@@ -11,6 +11,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -292,6 +293,6 @@ maths::Vec4* __cdecl get_light_direction(int light)
 }
 
 // 0x004B6B10
-PcModelLights* __cdecl spawn_model_lights() { return new PcModelLights; }
+memory::owner<PcModelLights*> __cdecl spawn_model_lights() { return new PcModelLights; }
 
 } // namespace render

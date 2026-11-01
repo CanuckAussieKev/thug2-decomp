@@ -23,6 +23,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/owner.h"
 
 namespace commands {
 
@@ -104,7 +105,7 @@ void add_scene_collision(void* scene, const char* add) { static_cast<render::Wor
 
 // Models (Nx): one made (0x0048BFA0, a jump to 0x004B29C0), its model file loaded (0x004935E0, thiscall), destroyed
 // again (0x0048C3C0).
-render::RenderModel* spawn_model(int) { return render::spawn_model(); } // (0x0048BFA0, a jump to 0x004B29C0)
+memory::owner<render::RenderModel*> spawn_model(int) { return render::spawn_model(); } // (0x0048BFA0, a jump to 0x004B29C0)
 void load_model_file(render::RenderModel* model, const char* file, bool allow_replace_tex)
 {
     model->add_file_geom(file, 0, true, 0, allow_replace_tex, false, true, false);

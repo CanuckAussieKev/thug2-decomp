@@ -46,6 +46,7 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
+#include "engine/core/owner.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -1258,7 +1259,7 @@ void read_level_gaps()
 
 // --- the boxes ---
 
-render::HitMovingBox* make_box(uint32_t name)
+memory::owner<render::HitMovingBox*> make_box(uint32_t name)
 {
     auto* box = new render::HitMovingBox();
     if (!box)

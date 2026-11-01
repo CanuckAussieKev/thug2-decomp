@@ -8,6 +8,7 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -229,7 +230,7 @@ void GlyphString::set_char_rotation(int index, float rotation)
 }
 
 // 0x0048D1D0
-GlyphString* __cdecl new_text()
+memory::owner<GlyphString*> __cdecl new_text()
 {
     GlyphString* text = free_list();
     if (text)

@@ -26,6 +26,7 @@
 #include "engine/gfx/texture_format.h"
 #include "engine/util/byte_stream.h"
 #include "platform/crt.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -34,7 +35,7 @@ namespace {
 TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->image_); }
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
-PcTexture* alloc_pc_texture() { return new PcTexture; }
+memory::owner<PcTexture*> alloc_pc_texture() { return new PcTexture; }
 
 } // namespace
 
@@ -1229,7 +1230,7 @@ bool PcTexDict::load_memory(const uint8_t* data, size_t size)
 PcTexDict::PcTexDict(const char* name) : TextureSet(name, true) { ingest_file(name); }
 
 // 0x004C7270
-PcTexDict* __cdecl load_tex_dict_file(const char* name) { return new PcTexDict(name); }
+memory::owner<PcTexDict*> __cdecl load_tex_dict_file(const char* name) { return new PcTexDict(name); }
 
 // 0x004C72E0
 PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
@@ -1240,7 +1241,7 @@ PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, 
 }
 
 // 0x004C7360
-PcTexDict* __cdecl create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
+memory::owner<PcTexDict*> __cdecl create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
 
 // 0x004C80B0
 void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,

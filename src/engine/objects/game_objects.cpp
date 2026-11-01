@@ -31,6 +31,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/path_follower.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -57,7 +58,7 @@ constexpr uint32_t kPedDisableBones = 0x48CA2D26;  // ped_disable_bones (a scrip
 
 // A new component of `Size` bytes (the original's allocation) from T's constructor (null if there's no memory).
 template <typename T, unsigned int Size>
-ObjectModule* new_component()
+memory::owner<ObjectModule*> new_component()
 {
     static_assert(sizeof(T) == Size, "the original allocates this many bytes");
     return new T;

@@ -7,6 +7,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/shape_tests.h"
+#include "engine/core/owner.h"
 
 namespace lists {
 class KeyMap;
@@ -50,7 +51,7 @@ struct WorldScene : public memory::HeapObject {
     virtual bool load_collision(const char* name); // 0x0049CAA0
     virtual bool add_collision(const char* name);  // 0x0049CAC0
     virtual bool unload_add_scene();               // 0x0049CAE0
-    virtual WorldCell* plat_create_sector();       // 0x0049CAF0 (not a Ghidra function)
+    virtual memory::owner<WorldCell*> plat_create_sector();       // 0x0049CAF0 (not a Ghidra function)
     // 0x0049CF60 (slot 9): grey (0x80 each of RGBA) into `out`. Returns out.
     virtual uint8_t* get_default_colour(uint8_t* out);
     virtual void set_rendered(int rendered); // 0x0049CA60

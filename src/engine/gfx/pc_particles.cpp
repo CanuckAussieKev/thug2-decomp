@@ -26,6 +26,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
@@ -221,7 +222,7 @@ void ParticleBurst::get_skip(int particles)
 }
 
 // 0x004BCE90
-Sparkle* PcParticleManager::create_system() { return new PcParticleSystem; }
+memory::owner<Sparkle*> PcParticleManager::create_system() { return new PcParticleSystem; }
 
 // 0x004BC250
 void PcParticleSystem::initialise()

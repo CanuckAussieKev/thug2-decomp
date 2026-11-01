@@ -33,6 +33,7 @@
 #include "game/goals/create_a_trick.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/owner.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -178,8 +179,8 @@ frontend::UiWidget* element_by_id(void* manager, uint32_t id)
     return raw;
 }
 void change_opacity(frontend::UiWidget* element, float alpha) { element->change_opacity(alpha, 1); }
-void* new_container() { return new frontend::GroupWidget; }
-void* new_text() { return new frontend::LabelWidget; }
+memory::owner<void*> new_container() { return new frontend::GroupWidget; }
+memory::owner<void*> new_text() { return new frontend::LabelWidget; }
 void set_id(void* element, uint32_t id) { static_cast<objects::Entity*>(element)->change_serial(id); }
 // The manager's +4 (adds an element) / an element's +4 (its properties from a structure).
 void add_to_manager(void* manager, void* element)

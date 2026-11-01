@@ -37,6 +37,7 @@
 #include "engine/gfx/model.h"
 #include "engine/objects/model_component.h"
 #include "game/rider/tagging.h"
+#include "engine/core/owner.h"
 
 namespace {
 
@@ -1589,6 +1590,6 @@ void walk::MovableContact::start_riding(objects::GameEntity* object)
 namespace objects {
 
 // 0x0043D930
-ObjectModule* __cdecl create_wait_and_die_component() { return new WaitAndDieComponent; }
+memory::owner<ObjectModule*> __cdecl create_wait_and_die_component() { return new WaitAndDieComponent; }
 
 } // namespace objects
