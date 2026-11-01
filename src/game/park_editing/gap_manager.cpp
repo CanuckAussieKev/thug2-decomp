@@ -137,7 +137,7 @@ void GapRegistry::set_trigger_length(ParkTile* piece)
 }
 
 // 0x0058CF20
-void GapRegistry::teardown()
+GapRegistry::~GapRegistry()
 {
     clear_gap_entries();
     sole() = nullptr;

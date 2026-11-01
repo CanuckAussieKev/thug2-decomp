@@ -150,7 +150,7 @@ inline int get_num_pending_messages(Conn* conn) { return conn->get_highest_resen
 // A send failed: the messages that went with this packet's timestamp go again.
 inline void mark_messages_for_retry(Conn* conn, uint32_t timestamp) { conn->mark_messages_for_retry(timestamp); }
 // The connection's destructor.
-inline void destroy_conn(Conn* conn) { conn->teardown(); }
+inline void destroy_conn(Conn* conn) { conn->~Conn(); }
 // The connection's latency test takes a measurement.
 inline void add_latency(Conn* conn, uint32_t latency)
 {

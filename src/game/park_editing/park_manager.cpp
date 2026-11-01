@@ -277,7 +277,7 @@ void ParkLayout::teardown(int keep_rails)
     flag_bits_ = (flag_bits_ & ~kMapUpToDate) | kMapSaved;
     field_05_ = false;
     if (GapRegistry* gaps = gap_registry_) {
-        gaps->teardown();
+        gaps->~GapRegistry();
         memory::dealloc(gaps);
     }
     gap_registry_ = nullptr;

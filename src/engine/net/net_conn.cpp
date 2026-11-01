@@ -105,7 +105,7 @@ Conn::Conn(int flags)
 }
 
 // 0x00456790
-void Conn::teardown()
+Conn::~Conn()
 {
     destroy_received_sequenced_messages();
     release_queued_messages();

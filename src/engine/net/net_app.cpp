@@ -68,7 +68,7 @@ uint8_t*& send_buffer_end(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn-
 
 // Conn's methods (net_conn.cpp).
 Conn* construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
-void destroy_conn_body(Conn* conn) { conn->teardown(); }
+void destroy_conn_body(Conn* conn) { conn->~Conn(); }
 bool is_sound(Conn* conn) { return conn->is_sound(); }
 void mark_stale(Conn* conn) { conn->mark_stale(); }
 bool is_local_conn(Conn* conn) { return conn->is_host_local(); }

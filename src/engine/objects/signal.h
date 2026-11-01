@@ -103,7 +103,9 @@ public:
     // 0x0045F820
     SignalRouteTable();
     // 0x0045FB70: the destructor: every entry's parameters, then the array (the fields aren't cleared).
-    void teardown();
+    ~SignalRouteTable();
+    SignalRouteTable(const SignalRouteTable&) = delete;
+    SignalRouteTable& operator=(const SignalRouteTable&) = delete;
 
     // 0x0045FBC0: a handler for `type`: replaces the entry of that type, else reuses a removed entry, else a new
     // one at the end. The tracker is told `script` listens for `type` unless the entry of that type was live.

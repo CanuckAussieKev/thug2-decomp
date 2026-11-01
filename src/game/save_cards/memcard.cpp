@@ -191,7 +191,7 @@ bool SaveCard::list_save_files(const char* pattern, FileLoad* list)
 bool SaveCard::always_true(int) { return true; }
 
 // 0x005BC8D0
-Hub* Hub::prepare_all()
+Hub::Hub()
 {
     for (int port = 0; port < 4; ++port) {
         for (int slot = 0; slot < 2; ++slot) {
@@ -200,7 +200,6 @@ Hub* Hub::prepare_all()
         }
     }
     save_device_.present_ = 0x75;
-    return this;
 }
 
 // 0x005BC730 (one card, whichever port and slot)
@@ -210,9 +209,8 @@ SaveCard* Hub::get_storage_slot(int, int) { return &save_device_; }
 Hub* create_manager(bool create)
 {
     if (!sole() && create) {
-        auto* manager = static_cast<Hub*>(memory::alloc_zeroed(sizeof(Hub), nullptr, 1));
-        if (manager) {
-            sole() = manager->prepare_all();
+        if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
+            sole() = new (memory) Hub;
             ++ref_tally();
             return sole();
         }

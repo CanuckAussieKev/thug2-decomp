@@ -563,7 +563,9 @@ public:
     // 0x0058CF30: a copy of `other`'s gaps (without their pieces; no park manager)
     void copy_from(GapRegistry* other);
     // 0x0058CF20: the destructor (also clears the singleton)
-    void teardown();
+    ~GapRegistry();
+    GapRegistry(const GapRegistry&) = delete;
+    GapRegistry& operator=(const GapRegistry&) = delete;
 
     // --- gap_manager.cpp (0x0058CD40-0x0058D290) ---
     // One gap (0xEC bytes, made by StartGap / EndGap): the ids of its two ends, their trigger pieces and

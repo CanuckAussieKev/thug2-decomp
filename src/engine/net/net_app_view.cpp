@@ -48,7 +48,7 @@ uint32_t retransmit_limit(Conn* conn) { return conn->get_retry_delay(); }
 void delete_conn(Conn* conn)
 {
     if (conn) {
-        conn->teardown();
+        conn->~Conn();
         dealloc(conn);
     }
 }

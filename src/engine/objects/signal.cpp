@@ -133,7 +133,7 @@ SignalRouteTable::SignalRouteTable()
 }
 
 // 0x0045FB70
-void SignalRouteTable::teardown()
+SignalRouteTable::~SignalRouteTable()
 {
     if (!entries_)
         return;
@@ -450,7 +450,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
         if (!alive_) {
             // The script was destroyed by a handler: the last forward_trigger out frees the table.
             if (--in_use_ == 0) {
-                teardown();
+                this->~SignalRouteTable();
                 memory::Hub::get_pull()->dealloc(this);
             }
             return;

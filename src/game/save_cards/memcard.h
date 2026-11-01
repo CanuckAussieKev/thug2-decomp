@@ -59,7 +59,7 @@ public:
 
 class Hub {
 public:
-    Hub* prepare_all(); // the constructor
+    Hub(); // the constructor
     SaveCard* get_storage_slot(int port, int slot);
 
     struct Bay {

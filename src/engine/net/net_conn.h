@@ -41,7 +41,9 @@ struct Conn {
     // 0x00455C80
     explicit Conn(int flags);
     // 0x00456790 (the destructor)
-    void teardown();
+    ~Conn();
+    Conn(const Conn&) = delete;
+    Conn& operator=(const Conn&) = delete;
 
     // 0x00455920 (net_conn_times.cpp): the last communication time moved to now + `extra` ms, unless it's
     // later already.

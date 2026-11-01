@@ -469,7 +469,7 @@ uintptr_t g_data_start;
 uintptr_t g_text_seg_base;
 
 // 0x005BBC00
-Hub* Hub::make_new()
+Hub::Hub()
 {
     ongoing_ = nullptr;
     for (LabeledZone& named : named_heaps_) {
@@ -518,7 +518,6 @@ Hub* Hub::make_new()
     cinematic_zone_ = nullptr;
     cinematic_low_heap_ = nullptr;
     cinematic_high_heap_ = nullptr;
-    return this;
 }
 
 // 0x005BB4E0
@@ -655,7 +654,7 @@ void set_up_manager()
     if (Hub::get_pull())
         return;
     void* memory = get_clear(sizeof(Hub), kManagerStorage);
-    Hub* manager = memory ? static_cast<Hub*>(memory)->make_new() : nullptr;
+    Hub* manager = memory ? new (memory) Hub : nullptr;
     Hub::sole() = manager;
     manager->enter_heap_scope(manager->bottom_up_heap_);
 }

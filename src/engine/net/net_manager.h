@@ -34,9 +34,11 @@ public:
 
     // 0x004556E0: empty app lists, every message with a length field but acks (8) and timestamps (9), no IP
     // address yet ("<Unknown>"), 192.168.55.99 and a 255.255.0.0 mask, a 400000 bandwidth.
-    Hub* make_new();
+    Hub();
     // 0x004555A0: the destructor body (the app lists' heads).
-    void destroy_body();
+    ~Hub();
+    Hub(const Hub&) = delete;
+    Hub& operator=(const Hub&) = delete;
     // 0x00455270: a new server (in the network heap), named and told its manager, initialised and (unless it's
     // local) bound to `port` on `address` - the local IP when DHCP is set and the connection type isn't 1 or 3;
     // flags bit 0: its socket counts as connected. Null memory isn't checked (a crash).

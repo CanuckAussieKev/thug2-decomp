@@ -96,7 +96,7 @@ void Script::teardown()
             // Its handlers are being run: it is marked dead and freed afterwards (by forward_trigger).
             table->alive_ = false;
         } else {
-            table->teardown();
+            table->~SignalRouteTable();
             memory::Hub::get_pull()->dealloc(table);
         }
     }

@@ -60,7 +60,7 @@ void copy_name(char* out, const char* text)
 } // namespace
 
 // 0x004556E0
-Hub* Hub::make_new()
+Hub::Hub()
 {
     setup_list_sentinel(&hosts_);
     setup_list_sentinel(&clients_);
@@ -83,11 +83,10 @@ Hub* Hub::make_new()
         server[0] = '\0';
     dialup_number_index_ = 0;
     link_speed_ = 400000;
-    return this;
 }
 
 // 0x004555A0
-void Hub::destroy_body()
+Hub::~Hub()
 {
     clients_.uncouple();
     hosts_.uncouple();
@@ -163,7 +162,7 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = static_cast<Hub*>(memory)->make_new();
+            sole() = new (memory) Hub;
             ++ref_tally();
             return sole();
         }
@@ -181,7 +180,7 @@ void release_manager()
         return;
     }
     if (Hub* manager = sole()) {
-        manager->destroy_body();
+        manager->~Hub();
         memory::Hub::get_pull()->dealloc(manager);
     }
     sole() = nullptr;

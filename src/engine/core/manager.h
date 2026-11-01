@@ -28,7 +28,7 @@ public:
     static Hub*& sole();
 
     // 0x005BBC00: the 64 MB block (ours bigger: engine/core/memory_sizes.h), the main region and its two heaps (in static storage).
-    Hub* make_new();
+    Hub();
     // The rest of the standard heaps (front end, network, script, skater info, theme, skater, named texture heaps).
     void init_standard_heaps();
     // A new heap in `region`, registered.
