@@ -73,7 +73,6 @@ void announce_to_players(uint8_t id, bool remote_only)
 {
     Hub* manager = net_session_slot();
     net::NetMessageInfo desc;
-    desc.make_new();
     net::AppHost* server = manager->host_;
     online::detail::PlayerSearch search;
     for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &search, true); player;
@@ -136,7 +135,6 @@ bool __cdecl cfunc_report_object_pickup(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     net::NetMessageInfo desc;
-    desc.make_new();
     uint32_t client = 0; // (both uninitialised in the original when missing)
     params->read_hash_value(kColObjId, &client, 0);
     uint32_t id = 0;
@@ -176,7 +174,6 @@ bool __cdecl cfunc_broadcast_enter_vehicle(script::Struct* params, script::Scrip
     net::AppHost* client = manager->fetch_patron(0);
     if (client) {
         net::NetMessageInfo desc;
-        desc.make_new();
         online::BoardVehicle msg;
         msg.skater_id = static_cast<int8_t>(skater);
         msg.control_type = steer_kind;
@@ -220,7 +217,6 @@ bool __cdecl cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     online::detail::PlayerSearch others;
     online::detail::PlayerSearch receivers;
     net::NetMessageInfo desc;
-    desc.make_new();
     net::AppHost* server = manager->host_;
     online::HuntPlacements msg;
     uint8_t data[online::kHuntPlacementsSize];
@@ -265,7 +261,6 @@ bool __cdecl cfunc_report_object_placement(script::Struct* params, script::Scrip
     net::AppHost* app = manager->fetch_patron(manager->in_net_game() ? 0 : static_cast<int>(client));
     if (app) {
         net::NetMessageInfo desc;
-        desc.make_new();
         const float at[4] = {pos.x, pos.y, pos.z, pos.w};
         uint8_t data[online::kHuntPlacementSize];
         util::ByteWriter writer(data, sizeof(data));
@@ -288,7 +283,6 @@ bool __cdecl cfunc_broadcast_projectile(script::Struct* params, script::Script*)
     if (!client)
         return true;
     net::NetMessageInfo desc;
-    desc.make_new();
     uint32_t id = 0; // (all uninitialised in the original when missing)
     params->read_hash_value(kObjId, &id, 0);
     uint32_t type = 0;

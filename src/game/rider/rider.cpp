@@ -1568,7 +1568,6 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     auto mode = [] { return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->get_name_key(); };
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         net::NetMessageInfo message;
-        message.make_new();
         auto* client = static_cast<net::Guest*>(net->fetch_patron(view_slot_));
         if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident_)))
             player->mark_face_texture_sent();

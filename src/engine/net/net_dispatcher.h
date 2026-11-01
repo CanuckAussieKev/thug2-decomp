@@ -33,7 +33,7 @@ constexpr uint32_t kPacketChecksumMismatch = 0x4; // a stream whose checksum doe
 // What a handler gets (0xA4 bytes, constructor 0x00454A20).
 struct InboundMsgCtx {
     // 0x00454A20 (net_descs.cpp): every field zeroed.
-    InboundMsgCtx* make_new();
+    InboundMsgCtx();
 
     char* body_;
     uint8_t type_code_;

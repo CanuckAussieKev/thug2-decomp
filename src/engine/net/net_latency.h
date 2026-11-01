@@ -11,7 +11,7 @@ struct PingProbe {
     static constexpr int kNumTimes = 10;
 
     // 0x00456970: no measurements yet; the average starts at 1000 ms.
-    PingProbe* make_new();
+    PingProbe();
     // 0x004569B0: `latency` replaces the oldest measurement; the average is taken over the nonzero ones (left
     // as it was if there are none).
     void input_delay_amount(int latency);

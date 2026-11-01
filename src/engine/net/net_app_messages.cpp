@@ -28,7 +28,7 @@ constexpr size_t kMaxStreamStartData = wire::kStreamPieceSize; // the first piec
 uint32_t get_timestamp(AppHost* app) { return app->clock_; }
 Router* get_dispatcher(AppHost* app) { return &app->dispatcher_; }
 
-void construct_context(InboundMsgCtx* context) { context->make_new(); }
+void construct_context(InboundMsgCtx* context) { *context = InboundMsgCtx(); }
 
 // NOT ORIGINAL: the room left in the packet being built (the writers checked first that the message fits).
 size_t packet_space_left(Conn* conn)

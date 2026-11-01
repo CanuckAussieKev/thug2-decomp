@@ -100,8 +100,8 @@ void __cdecl next_suspend_frame();
 void __cdecl create_suspend_task();
 struct SuspendTaskHolder {
     // 0x00434520: the task (tasks::Task, 0x20 bytes, priority -1100, callback suspend_task, its data this holder) made
-    // and added to the main loop's logic tasks (none if out of memory: null added). Returns this.
-    SuspendTaskHolder* make_new();
+    // and added to the main loop's logic tasks (none if out of memory: null added).
+    SuspendTaskHolder();
 
     tasks::SchedulerTask* job_handle_;
 };

@@ -268,7 +268,7 @@ void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, 
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->internet_bottom_up_heap_);
     void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
-    auto* room = block ? static_cast<LobbyRoom*>(block)->make_new() : nullptr;
+    auto* room = block ? new (block) LobbyRoom : nullptr;
     std::strncpy(room->label_, name, sizeof(room->label_) - 1);
     room->label_[sizeof(room->label_) - 1] = '\0';
     room->num_players_ = num_games;

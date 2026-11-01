@@ -39,7 +39,7 @@ using script::Struct;
 
 // --- the engine's loaders ---------------------------------------------------------------------------------
 // gfx::JointClipFrames (0x3C bytes): 0x00482AF0 the constructor, 0x00482B30 the destructor, 0x004856C0 Load.
-void* construct_anim_frames(void* frames) { return static_cast<gfx::JointClipFrames*>(frames)->make_new(); }
+void* construct_anim_frames(void* frames) { return new (frames) gfx::JointClipFrames; }
 void destroy_anim_frames(void* frames) { static_cast<gfx::JointClipFrames*>(frames)->destroy_body(); }
 bool load_anim_frames(void* frames, void* buffer, uint32_t size)
 {

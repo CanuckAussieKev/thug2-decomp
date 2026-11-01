@@ -39,8 +39,8 @@ struct ChainLink {
 struct Chain {
     static constexpr int kMaxLinks = 20;
 
-    // 0x00428290: 20 links, everything 0 (start_offset (0, 0, 0, 1)), +0x670 on (returns this).
-    Chain* make_new();
+    // 0x00428290: 20 links, everything 0 (start_offset (0, 0, 0, 1)), +0x670 on.
+    Chain();
     // 0x00428300: the lines between the links shown at the links' positions, opaque black.
     void update_lines();
 

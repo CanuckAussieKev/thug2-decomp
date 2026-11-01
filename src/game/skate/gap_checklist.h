@@ -43,8 +43,8 @@ struct GapEntry {
 
 class GapTally {
 public:
-    // 0x00579690: no gaps, not built. Returns this.
-    GapTally* make_new();
+    // 0x00579690: no gaps, not built.
+    GapTally();
     // 0x00585520: the destructor body (its list head unlinked, as a lists::Elem<GapEntry>; the gaps aren't freed).
     void destroy_body();
 

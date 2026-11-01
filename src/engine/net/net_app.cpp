@@ -67,7 +67,7 @@ uint8_t*& send_buffer_start(Conn* conn) { return reinterpret_cast<uint8_t*&>(con
 uint8_t*& send_buffer_end(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->write_ptr_); }
 
 // Conn's methods (net_conn.cpp).
-Conn* construct_conn(void* memory, int flags) { return static_cast<Conn*>(memory)->make_new(flags); }
+Conn* construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
 void destroy_conn_body(Conn* conn) { conn->teardown(); }
 bool is_sound(Conn* conn) { return conn->is_sound(); }
 void mark_stale(Conn* conn) { conn->mark_stale(); }
@@ -96,7 +96,7 @@ int connection_type(void* manager) { return static_cast<Hub*>(manager)->get_net_
 // links that send it to each connection; freed with the last.
 PendingMsg* construct_queued_msg(void* memory, uint8_t id, uint16_t length, void* data, uint8_t compression)
 {
-    return static_cast<PendingMsg*>(memory)->make_new(id, length, data, compression);
+    return new (memory) PendingMsg(id, length, data, compression);
 }
 // ~PendingMsg / ~SeqQueuedMsg: frees the data.
 void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)->destroy_body(); }
@@ -106,24 +106,24 @@ void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)-
 // (also the group, whether it's a stream piece and the sequence id).
 MsgNormalLink* construct_msg_link(void* memory, PendingMsg* message)
 {
-    return static_cast<MsgNormalLink*>(memory)->make_new(message);
+    return new (memory) MsgNormalLink(message);
 }
 ReliableMsgNode* construct_msg_important_link(void* memory, PendingMsg* message)
 {
-    return static_cast<ReliableMsgNode*>(memory)->make_new(message);
+    return new (memory) ReliableMsgNode(message);
 }
 OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
 {
-    return static_cast<OrderedMsgNode*>(memory)->make_new(message);
+    return new (memory) OrderedMsgNode(message);
 }
 
 // BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
 BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream)
 {
-    return static_cast<BulkStreamNode*>(memory)->make_new(stream);
+    return new (memory) BulkStreamNode(stream);
 }
 StreamDesc* stream_of(ListNode* link) { return reinterpret_cast<BulkStreamNode*>(link)->msg_meta_; }
-StreamDesc* construct_stream_desc(void* memory) { return static_cast<StreamDesc*>(memory)->make_new(); }
+StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
 void destroy_stream_desc_body(StreamDesc* stream) { stream->destroy_body(); }
 
@@ -134,7 +134,7 @@ void copy_string(char* out, const char* source)
     }
 }
 
-void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
+void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
 // The tail of a list.
 void append_last(ListNode* head, ListNode* node)

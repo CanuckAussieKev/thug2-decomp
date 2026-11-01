@@ -248,7 +248,6 @@ void Hub::set_room_id(uint32_t id) { room_id_ = id; }
 void Hub::send_game_ended()
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     desc.content_ = &game_id_;
     desc.byte_count_ = 1;
     desc.ident_ = kMsgGameEnded;
@@ -274,7 +273,6 @@ void Hub::note_cheating() { cheating_noted_ = true; }
 void Hub::send_ready_response()
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     uint32_t id = last_ready_probe_id_;
     desc.content_ = &id;
     desc.byte_count_ = sizeof(id);

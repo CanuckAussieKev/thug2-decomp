@@ -78,7 +78,7 @@ script::Struct* cas_option_at(uint32_t part, int index, uint32_t random_set)
 bool face_texture_is_valid(FaceSkin* face) { return face->is_sound(); }
 void set_face_texture_valid(FaceSkin* face, bool valid) { face->mark_usable(valid); }
 
-FaceSkin* construct_face_texture(void* memory) { return static_cast<FaceSkin*>(memory)->make_new(); }
+FaceSkin* construct_face_texture(void* memory) { return new (memory) FaceSkin; }
 
 // A temporary structure (from the structure pool; null if there's no memory) / cleared and given back.
 script::Struct* new_temp_struct()

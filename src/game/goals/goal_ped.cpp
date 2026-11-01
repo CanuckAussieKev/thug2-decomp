@@ -137,14 +137,13 @@ script::Array* shuffled_numbers(int count)
 } // namespace
 
 // 0x0055EB40
-ObjectiveNpc* ObjectiveNpc::make_new(script::Struct* params)
+ObjectiveNpc::ObjectiveNpc(script::Struct* params)
 {
     params->read_hash_value(kGoalIdChecksum, &objective_key_, 1);
     suspended_ = false;
     fam_ = 0;
     anim_object_ = 0;
     feed_ = 0;
-    return this;
 }
 
 // 0x0055EB70

@@ -261,7 +261,6 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         int size = out.feed_.get_byte_count();
         if (size) {
             net::NetMessageInfo desc;
-            desc.make_new();
             desc.content_ = buffer;
             desc.byte_count_ = static_cast<uint16_t>(size);
             desc.ident_ = 0x23;
@@ -373,7 +372,6 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
         return 4;
     for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
         net::NetMessageInfo desc;
-        desc.make_new();
         if (player == sender)
             continue;
         relay(desc, context);
@@ -440,7 +438,6 @@ int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
                 continue;
         }
         net::NetMessageInfo desc;
-        desc.make_new();
         relay(desc, context);
         enqueue(context->receiver_app_, player, &desc);
     }
@@ -457,7 +454,6 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
         return 4;
     for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
         net::NetMessageInfo desc;
-        desc.make_new();
         if (player == sender)
             continue;
         relay(desc, context);
@@ -511,7 +507,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         uint8_t left[2];
         if (collected == total) {
             // all collected: the collect period over everywhere
-            desc.make_new();
+            desc = net::NetMessageInfo();
             net::AppHost* server = server_app();
             desc.ident_ = 0x94;
             get_sequence(desc, 8);
@@ -530,7 +526,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             else if (score->get_total_score() == total - 1 && !commands::cfunc_in_split_screen_game(nullptr, nullptr))
                 count = 1;
             if (count) {
-                desc.make_new();
+                desc = net::NetMessageInfo();
                 net::AppHost* server = server_app();
                 left[0] = get_game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team_)
                                                             : get_skater_id(skater_of(collector));
@@ -547,7 +543,6 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
     // the object picked up: told to the collector's team mates
     if (get_game_mode()->is_squad_match()) {
         net::NetMessageInfo desc;
-        desc.make_new();
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(false); player; player = search.get_next(false)) {
             if (player == collector || player->team_ != collector->team_)
@@ -588,7 +583,6 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
     if (dropped == players * 5) {
         // every player's five dropped: the hunt goes on (0x92 to everyone)
         net::NetMessageInfo desc;
-        desc.make_new();
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
             desc.ident_ = 0x92;
@@ -667,7 +661,6 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         net::AppHost* app = context->receiver_app_;
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             net::NetMessageInfo desc;
-            desc.make_new();
             if (other->is_own_player() || other == player || other->conn_->get_link_speed_class() == 1)
                 continue;
             uint8_t id = get_skater_id(skater_of(player));
@@ -706,7 +699,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
     void* memory = memory::alloc_zeroed(0x449C);
-    void* texture = memory ? reinterpret_cast<void*>(static_cast<gfx::FaceSkin*>(memory)->make_new()) : nullptr;
+    void* texture = memory ? reinterpret_cast<void*>(new (memory) gfx::FaceSkin) : nullptr;
     auto* data = reinterpret_cast<uint8_t*>(context->body_);
     uint32_t size = context->body_size_;
     PlayerRecord* player;
@@ -1254,7 +1247,6 @@ void Skate::leave_server()
     if (net->get_on_server()) {
         // the server: everyone told it's over (0x32), the server and its tasks gone
         net::NetMessageInfo desc;
-        desc.make_new();
         net::AppHost* server = server_app();
         if (net->get_hosting_role() == 1)
             net->remove_host_task();
@@ -1272,7 +1264,6 @@ void Skate::leave_server()
     net::AppHost* client = net->fetch_patron(0);
     if (client) {
         net::NetMessageInfo desc;
-        desc.make_new();
         desc.ident_ = 0xB;
         get_sequence(desc, 8);
         static_cast<net::Guest*>(client)->send_to_host(&desc);
@@ -1286,7 +1277,6 @@ void Skate::send_cheats(online::PlayerRecord* player)
 {
     online::Hub* net = net_link();
     net::NetMessageInfo desc;
-    desc.make_new();
     online::Cheats message;
     for (uint32_t cheat : kSentCheats) {
         if (career_->is_code_on(cheat))
@@ -1339,7 +1329,6 @@ void Skate::broadcast_points(bool final)
         if (static_cast<int8_t>(count) <= 0)
             continue;
         net::NetMessageInfo desc;
-        desc.make_new();
         uint32_t cheats = get_cheats();
         message->count = count;
         message->cheats = cheats;

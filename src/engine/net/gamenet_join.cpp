@@ -225,7 +225,6 @@ void get_sprintf(char* out, const char* format, uint32_t a, uint32_t b, int c, c
 NetMessageInfo new_desc()
 {
     NetMessageInfo desc;
-    desc.make_new();
     return desc;
 }
 
@@ -772,7 +771,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         return net::kResultStop;
     }
     void* memory = memory::alloc_zeroed(kPlayerInfoSize);
-    auto* player = memory ? static_cast<JoinerRecord*>(memory)->make_new() : nullptr;
+    auto* player = memory ? new (memory) JoinerRecord : nullptr;
     std::strncpy(player->label_, msg->name, kNameSize - 1);
     player->label_[kNameSize - 1] = '\0';
     player->entity_key_ = static_cast<uint8_t>(manager->reserve_obj_id_for_player());

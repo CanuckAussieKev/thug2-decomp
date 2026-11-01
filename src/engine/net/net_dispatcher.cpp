@@ -20,7 +20,7 @@ namespace {
 
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
-void construct_context(InboundMsgCtx* context) { context->make_new(); }
+void construct_context(InboundMsgCtx* context) { *context = InboundMsgCtx(); }
 
 } // namespace
 

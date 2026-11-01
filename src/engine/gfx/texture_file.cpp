@@ -45,7 +45,7 @@ void expand_palette(void* out, const void* indices, uint32_t size, const void* p
 memory::owner<TextureRef*> alloc_pc_texture()
 {
     void* memory = memory::alloc(sizeof(TextureRef));
-    return memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
+    return memory ? new (memory) TextureRef : nullptr;
 }
 
 // The texture's sizes from the header: its own (the image's if the size isn't a power of two) and the image's.

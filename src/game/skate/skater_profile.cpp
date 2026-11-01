@@ -442,12 +442,11 @@ void RiderIdentity::write_to_save(script::Struct* save)
 }
 
 // 0x00586D60
-RiderIdentity* RiderIdentity::make_new()
+RiderIdentity::RiderIdentity()
 {
     new (look_data_) gfx::ModelLook; // the appearance
     details_params()->prepare_all();
     get_reset(nullptr);
-    return this;
 }
 
 // 0x00586DC0

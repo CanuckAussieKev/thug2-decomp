@@ -19,8 +19,8 @@ struct TextureRef {
     void* surface; // a render target's level 0 (IDirect3DSurface9)
     bool render_target_;
 
-    // 0x004E04B0: construct (no texture) and go on the list. Returns this.
-    TextureRef* make_new();
+    // 0x004E04B0: construct (no texture) and go on the list.
+    TextureRef();
     // 0x004E0500: construct a copy of `source` - a managed texture of its size, format and levels, every level's
     // texels copied. Returns this.
     TextureRef* construct_copy(const TextureRef* source);

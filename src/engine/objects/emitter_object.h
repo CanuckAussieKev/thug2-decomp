@@ -59,8 +59,8 @@ void emitter_add_node(uint32_t name, bool active);
 
 class FollowTrail {
 public:
-    // 0x00468AC0 (returns this) / 0x004685D0: empty, following nothing.
-    FollowTrail* prepare_all();
+    // 0x00468AC0 / 0x004685D0: empty, following nothing.
+    FollowTrail();
     void get_reset();
     // 0x00468610: the followed object's position added once it's over 40 units (1600 squared) from the last.
     void tick_frame();

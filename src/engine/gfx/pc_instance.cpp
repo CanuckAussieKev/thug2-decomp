@@ -120,7 +120,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 } // namespace
 
 // 0x004D1030
-Singleton* Singleton::make_new(SceneRef* list, const maths::Mat4* matrix, int count, maths::Mat4* bone_matrices)
+Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths::Mat4* bone_matrices)
 {
     transform = *matrix;
     bones = bone_matrices;
@@ -133,14 +133,13 @@ Singleton* Singleton::make_new(SceneRef* list, const maths::Mat4* matrix, int co
     instances() = this;
     viewports = 0xFFFFFFFF;
     if (bones && bones_on_device(scene) <= 0)
-        return this;
+        return;
     for (int i = 0; i < scene->mesh_count_; ++i) {
         MeshRef* mesh = scene->meshes[i];
         if (!(mesh->fvf & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit))
-            return this;
+            return;
     }
     flags |= 2;
-    return this;
 }
 
 // 0x004D10C0
@@ -358,7 +357,7 @@ int __cdecl compare_instances(const void* a, const void* b)
 }
 
 // 0x004D1A60
-UvOscillator* UvOscillator::make_new()
+UvOscillator::UvOscillator()
 {
     velocity[0] = velocity[1] = 0;
     frequency[0] = frequency[1] = 0;
@@ -367,7 +366,6 @@ UvOscillator* UvOscillator::make_new()
     matrix[0] = 1.0f;
     matrix[1] = 0;
     offset[0] = offset[1] = 0;
-    return this;
 }
 
 // 0x004D1A80

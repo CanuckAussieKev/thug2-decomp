@@ -141,7 +141,6 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
 void RiderHostSync::send_update()
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     util::PackedBitBuffer stream;
     auto* app = static_cast<net::Guest*>(client_app(static_cast<Rider*>(entity_)->view_slot_));
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);

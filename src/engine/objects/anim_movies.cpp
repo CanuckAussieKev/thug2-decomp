@@ -54,7 +54,7 @@ void* find_asset(uint32_t name) { return assets::g_asset_manager->get_asset_data
 void start_movie(VideoEntry* movie) { movie->kickoff(); }
 
 // The timeline's code: constructor / destructor body, complete, PlayAnim (slot 3), Update (slot 2).
-void construct_timeline(AnimTimeline* t) { t->make_new(); }
+void construct_timeline(AnimTimeline* t) { new (t) AnimTimeline; }
 void destroy_timeline(AnimTimeline* t) { t->destroy_body(); }
 bool is_accomplished(AnimTimeline* t) { return t->is_accomplished(); }
 void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_type, float blend, float speed)

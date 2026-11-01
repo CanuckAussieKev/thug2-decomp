@@ -52,8 +52,8 @@ struct FriendNote {
     char nick_[16];              // +0x18
     char text_[64];              // +0x28
 
-    // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text. Returns this.
-    FriendNote* make_new();
+    // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text.
+    FriendNote();
     // 0x00548D20 (scalar deleting): the node destructor (0x005484C0: unlinked), freed with
     // flag 1. Returns this.
     FriendNote* teardown(unsigned int flags);

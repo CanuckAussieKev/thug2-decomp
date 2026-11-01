@@ -176,7 +176,6 @@ void Hub::spectate_player(PlayerRecord* player)
 void Hub::send_observe_request()
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     if (is_observer(find_own_player_record(this))) // (no local player: the original reads through null too)
         return;
     desc.ident_ = kMsgObserveRequest;
@@ -190,7 +189,6 @@ void Hub::assign_first_come_first_served()
 {
     PlayerSearch search;
     net::NetMessageInfo desc;
-    desc.make_new();
     for (PlayerRecord* player = start_roster_sweep(this, &search, false); player;
          player = step_roster_sweep(this, &search, false)) {
         if (is_own_player(player) || !(player->flag_bits_ & kPlayerFcfsCandidate))
@@ -264,7 +262,7 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
     void* block = memory::alloc_zeroed(kPlayerInfoSize);
-    PlayerRecord* player = block ? static_cast<PlayerRecord*>(block)->make_new(flags) : nullptr;
+    PlayerRecord* player = block ? new (block) PlayerRecord(flags) : nullptr;
     player->skater_ = static_cast<objects::Rider*>(skater); // (out of memory: written through null, as the original)
     player->conn_ = conn;
     if (is_own_player(player)) {
@@ -331,7 +329,6 @@ void Hub::evict_player(PlayerRecord* player, int reason)
             if (is_own_player(other))
                 continue;
             net::NetMessageInfo desc;
-            desc.make_new();
             uint8_t msg[2] = {static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(reason)};
             desc.content_ = msg;
             desc.byte_count_ = sizeof(msg);
@@ -388,7 +385,6 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         if (!(p->flag_bits_ & kPlayerGameEnded))
             return;
     net::NetMessageInfo desc;
-    desc.make_new();
     desc.ident_ = kMsgGameOver;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
@@ -409,8 +405,7 @@ void Hub::re_add_pending_players()
     while (player) {
         PlayerRecord* next = step_roster_sweep(this, &search, true); // (before the player is destroyed)
         if (player->flag_bits_ & kPlayerPending) {
-            JoinerRecord info;
-            info.make_new(); // (a skater profile)
+            JoinerRecord info; // (its constructor: a skater profile)
             frames += 10;
             std::strcpy(info.label_, player_name(player));
             info.entity_key_ = static_cast<uint8_t>(reserve_obj_id_for_player());

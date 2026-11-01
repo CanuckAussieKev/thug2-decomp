@@ -101,7 +101,7 @@ public:
     };
 
     // 0x0045F820
-    SignalRouteTable* make_new();
+    SignalRouteTable();
     // 0x0045FB70: the destructor: every entry's parameters, then the array (the fields aren't cleared).
     void teardown();
 

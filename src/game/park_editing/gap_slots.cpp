@@ -115,14 +115,13 @@ void GapRegistry::change_gap_in_progress(int index)
 GapRegistry* GapRegistry::singleton() { return sole(); }
 
 // 0x0058CCC0
-GapRegistry* GapRegistry::make_new(ParkLayout* manager)
+GapRegistry::GapRegistry(ParkLayout* manager)
 {
     next_id_ = 2000;
     for (Gap*& gap : gaps_ptr_)
         gap = nullptr;
     park_owner_ = manager;
     sole() = this;
-    return this;
 }
 
 // 0x0058CBC0

@@ -53,8 +53,8 @@ struct HostListing : memory::ListNode {
     memory::ListNode participants_; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings
 
     // 0x00545F60: an empty one: one of eight players, one of one observer, skill level 2, mode and level "None",
-    // reachable. Returns this.
-    HostListing* make_new();
+    // reachable.
+    HostListing();
     // 0x00546640: its players freed (0x005465A0), then the heads' destructors.
     void destroy_body();
     // 0x00547F70: the scalar deleting destructor.

@@ -419,7 +419,7 @@ void TrickObjectHead::unlink_all()
 }
 
 // 0x00588BD0
-TrickObjectCluster* TrickObjectCluster::make_new(uint32_t name)
+TrickObjectCluster::TrickObjectCluster(uint32_t name)
 {
     list_link_.make_node(this);
     entities_.make_head();
@@ -429,7 +429,6 @@ TrickObjectCluster* TrickObjectCluster::make_new(uint32_t name)
     record_points_ = 0;
     owner_ = 0;
     owned_ = false;
-    return this;
 }
 
 namespace {
@@ -617,7 +616,6 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
     online::Hub* net = net_session_slot();
     void* skate = static_cast<void*>(modules::g_skate_module);
     net::NetMessageInfo desc;
-    desc.make_new();
     PlayerSearch search;
     if (send) {
         net::AppHost* server = net->host_;
@@ -635,7 +633,6 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
             if (!stolen[victim])
                 continue;
             net::NetMessageInfo stolen_desc;
-            stolen_desc.make_new();
             online::TagStolenMessage message;
             message.thief_id = static_cast<uint32_t>(player);
             message.victim_id = static_cast<uint32_t>(victim);
@@ -716,7 +713,7 @@ bool TrickSpotHub::add_cluster(uint32_t name)
         park_editing::RailAuthoring::sole()->clear_cluster_colours(name);
     }
     void* memory = memory::alloc_zeroed(sizeof(TrickObjectCluster));
-    clusters_.store_entry(name, memory ? static_cast<TrickObjectCluster*>(memory)->make_new(name) : nullptr);
+    clusters_.store_entry(name, memory ? new (memory) TrickObjectCluster(name) : nullptr);
     ++cluster_count_;
     object_clusters_.store_entry(name, get_cluster(name));
     return true;

@@ -42,8 +42,7 @@ public:
     static void operator delete(void* item);
 
     // 0x00481830: the timeline's constructor, then no controllers and no events, `object`, events on, playing.
-    // Returns this.
-    AnimTrack* make_new(objects::GameEntity* object);
+    explicit AnimTrack(objects::GameEntity* object);
     // 0x00481960 (slot 1): the timeline's Reset, then off with no fade.
     void get_reset();
     // 0x00481870: each controller deleted (its slot 0 with 1; null ones skipped), none left.

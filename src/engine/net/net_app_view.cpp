@@ -183,7 +183,7 @@ SeqQueuedMsg* AppHost::new_queued_msg(uint8_t id, uint16_t length, void* data, u
     if (!memory)
         return nullptr;
     // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
-    return static_cast<SeqQueuedMsg*>(memory)->make_new(id, length, data, arg4, arg5);
+    return new (memory) SeqQueuedMsg(id, length, data, arg4, arg5);
 }
 
 // 0x00456E20
@@ -318,7 +318,6 @@ void AppHost::tear_down_state()
 bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
 {
     InboundMsgCtx context;
-    context.make_new();
     for (memory::ListNode& queue : conn->received_queues_) {
         lists::Hunt<OrderedMsgNode> search;
         for (OrderedMsgNode *link = search.head_element(&queue), *next; link; link = next) {

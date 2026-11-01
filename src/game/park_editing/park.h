@@ -549,8 +549,7 @@ public:
     // 0x0058C9B0: gap `index`'s second end in a free slot (none free: nothing), given the next GapID
     void end_gap(void* piece, PieceGroup* meta, int index);
     // 0x0058CCC0: the constructor (no gaps, the counter at 2000, in `manager`'s park; makes itself the instance).
-    // Returns this.
-    GapRegistry* make_new(ParkLayout* manager);
+    explicit GapRegistry(ParkLayout* manager);
 
     // 0x0058CDA0 (gap_manager.cpp): gap `index`'s info (its name, the rest copied); the checklist made again
     void store_gap_details(int index, GapDetails* info);
@@ -648,8 +647,8 @@ public:
     // pieces whose type has TemplateTile::kRebuilt
     void rebuild_all();
     void rebuild_marked();
-    // 0x00593460: the constructor (no pieces, restarts or rails; 2 players). Returns this.
-    ParkAssembler* make_new();
+    // 0x00593460: the constructor (no pieces, restarts or rails; 2 players).
+    ParkAssembler();
     // 0x00592FE0: light `index` at `position`
     void move_light_source(const maths::Vec4* position, int index);
     // 0x00593010: `rgba`'s red, green and blue (0-255) lit at `position`: the ambient part plus the falloff part of
@@ -955,8 +954,8 @@ public:
     static void print_map_list(const MapListNode* list);
 
     // --- park_manager.cpp, park_map.cpp, park_floor.cpp (0x00598E00-0x0059C900) ---
-    // 0x00598E00: the constructor (an empty park; the generator made). Returns this.
-    ParkLayout* make_new();
+    // 0x00598E00: the constructor (an empty park; the generator made).
+    ParkLayout();
     // 0x00599BF0 / 0x00599C70: make / delete the instance
     static void spawn_occurrence();
     static void discard_occurrence();
@@ -1137,8 +1136,8 @@ public:
     int advance_area_selection();
 
     // --- cursor.cpp (0x00598A60-0x0059C860) ---
-    // 0x0059C7A0: the constructor (on the first piece of set 0). Returns this.
-    BuildPointer* make_new();
+    // 0x0059C7A0: the constructor (on the first piece of set 0).
+    BuildPointer();
     // 0x0059C860: make the instance (on the park editor's heap) if there isn't one
     static void spawn_occurrence();
     // 0x00598A60: highlight (or not) the metapieces under the cursor (or under the paste)

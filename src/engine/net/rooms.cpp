@@ -186,13 +186,12 @@ std::unique_ptr<tasks::SchedulerTask> new_task(RoomManager* lobby, tasks::Task<R
 } // namespace
 
 // 0x00545860
-LobbyRoom* LobbyRoom::make_new()
+LobbyRoom::LobbyRoom()
 {
     list_link_.make_node(this);
     full_ = false;
     neversoft_ = false;
     out_of_range_ = false;
-    return this;
 }
 
 // 0x00541870

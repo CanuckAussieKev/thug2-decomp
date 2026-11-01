@@ -134,7 +134,7 @@ void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* de
 }
 void init_desc(net::NetMessageInfo& desc, uint8_t id)
 {
-    desc.make_new();
+    desc = net::NetMessageInfo();
     desc.ident_ = id;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
@@ -244,7 +244,6 @@ bool __cdecl cfunc_start_network_game(Struct*, Script*)
         // The selected goals: a byte 1, then each selected goal's id (each told first - its slot 29), then 0.
         uint8_t buffer[0x1000];
         net::NetMessageInfo desc;
-        desc.make_new();
         uint8_t* goals = objective_board();
         net::AppHost* server = manager->host_;
         buffer[0] = 1;
@@ -291,7 +290,7 @@ bool __cdecl cfunc_end_network_game(Struct*, Script*)
     report_game_state(manager, false);
     net::NetMessageInfo desc;
     if (manager->flag_bits_ & kFlagsServer) {
-        desc.make_new();
+        desc = net::NetMessageInfo();
         net::AppHost* server = manager->host_;
         get_run(kDoBackendRetry);
         desc.ident_ = kMsgGameEnded;
@@ -323,12 +322,10 @@ bool __cdecl cfunc_set_num_teams(Struct* params, Script*)
     uint8_t* skate = detail::get_skate();
     PlayerSearch search;
     net::NetMessageInfo desc;
-    desc.make_new();
     int teams = 0;
     params->fetch_int_value(0u, &teams, 0);
     if (!(manager->flag_bits_ & kFlagsServer)) {
         net::NetMessageInfo request;
-        request.make_new();
         uint8_t count = static_cast<uint8_t>(teams);
         request.content_ = &count;
         request.byte_count_ = 1;
@@ -382,7 +379,6 @@ bool __cdecl cfunc_join_team(Struct* params, Script*)
 {
     Hub* manager = net_link();
     net::NetMessageInfo desc;
-    desc.make_new();
     auto* local = manager->get_own_player();
     if (!local || !player_skater(local))
         return false;

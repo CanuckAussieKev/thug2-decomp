@@ -20,8 +20,8 @@ struct CutsceneDestroyEntry {
     uint32_t label_;          // +0x00
     uint32_t destroy_script_; // +0x04
     script::Struct* args_;    // +0x08
-    // 0x005ADF60: the constructor: no name or script, a new empty structure (null if out of memory). Returns this.
-    CutsceneDestroyEntry* make_new();
+    // 0x005ADF60: the constructor: no name or script, a new empty structure (null if out of memory).
+    CutsceneDestroyEntry();
 };
 static_assert(sizeof(CutsceneDestroyEntry) == 0xC && offsetof(CutsceneDestroyEntry, args_) == 8,
               "layout must match the original");

@@ -621,7 +621,6 @@ bool __cdecl cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         if (!conn->is_off_machine())
             continue;
         net::NetMessageInfo desc;
-        desc.make_new();
         online::ToggleCheat message; // (engine/net/play_messages.h)
         message.cheat = omnigon;
         message.on = flag;

@@ -242,7 +242,7 @@ void* __cdecl create_render_target(int width, int height, uint8_t depth, int unu
 {
     auto* target = new PcTexture;
     void* memory = memory::alloc(sizeof(TextureRef));
-    TextureRef* texture = memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
+    TextureRef* texture = memory ? new (memory) TextureRef : nullptr;
     target->set_texture(texture);
     // (no check: a failed allocation calls through null, as the original)
     texture->create_render_target(width, height, depth, unused);

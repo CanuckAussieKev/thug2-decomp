@@ -87,8 +87,8 @@ struct TrickObjectCluster {
     // cleared first (and, with show_all_trick_objects set outside the 0x00684FA8 mode, given graffiti colour 2).
     // False (nothing made) when out of memory.
     bool add_object(uint32_t name);
-    // 0x00588BD0: the constructor - named `name`, no scores, holder or objects. Returns this.
-    TrickObjectCluster* make_new(uint32_t name);
+    // 0x00588BD0: the constructor - named `name`, no scores, holder or objects.
+    explicit TrickObjectCluster(uint32_t name);
     // 0x00588C30: the destructor's body - each object deleted (the first one each time), the list emptied, the head
     // and the cluster's own node out of their lists.
     void destroy_body();

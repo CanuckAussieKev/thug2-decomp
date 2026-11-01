@@ -12,7 +12,7 @@
 namespace net {
 
 // 0x004549F0
-NetMessageInfo* NetMessageInfo::make_new()
+NetMessageInfo::NetMessageInfo()
 {
     ident_ = 0;
     feed_ = 0;
@@ -25,18 +25,16 @@ NetMessageInfo* NetMessageInfo::make_new()
     delay_ = 0;
     fixed_seq_no_ = 0;
     compression_ = 0;
-    return this;
 }
 
 // 0x004549D0
-StreamDesc* StreamDesc::make_new()
+StreamDesc::StreamDesc()
 {
     extent_ = 0;
     content_ = nullptr;
     succ_ = nullptr;
     group_id_ = 0;
     borrowed_payload_ = false;
-    return this;
 }
 
 // 0x00454E00
@@ -49,7 +47,7 @@ void StreamDesc::destroy_body()
 }
 
 // 0x00454A20
-InboundMsgCtx* InboundMsgCtx::make_new()
+InboundMsgCtx::InboundMsgCtx()
 {
     body_ = nullptr;
     type_code_ = 0;
@@ -62,7 +60,6 @@ InboundMsgCtx* InboundMsgCtx::make_new()
     acknowledge_ = false;
     for (uint32_t& sequence : sequences_to_ack_)
         sequence = 0;
-    return this;
 }
 
 } // namespace net

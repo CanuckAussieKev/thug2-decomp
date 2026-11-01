@@ -277,7 +277,6 @@ void __cdecl Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     modules::Skate* skate = skate_module();
     net::NetMessageInfo desc;
-    desc.make_new();
     net::Hub* net = net::Hub::sole();
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;

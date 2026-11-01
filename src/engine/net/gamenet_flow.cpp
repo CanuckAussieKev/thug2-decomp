@@ -175,7 +175,6 @@ void Hub::start_network_game()
 {
     PlayerSearch search;
     net::NetMessageInfo desc;
-    desc.make_new();
     prefs::Preferences* prefs = game_preferences(this);
     net::AppHost* server = host_;
     remove_all_new_players();
@@ -243,7 +242,6 @@ void Hub::start_network_game()
 void Hub::cancel_join()
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     if (join_phase_ == 10 || join_phase_ == 8 || join_phase_ == kJoinStateRefused)
         return;
     net::AppHost* client = client_app_;

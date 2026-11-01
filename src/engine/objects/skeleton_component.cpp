@@ -113,7 +113,7 @@ void BoneRigModule::prepare_rig(uint32_t name)
     void* asset = assets::g_asset_manager->get_asset_data(name, 0);
     void* memory = memory::alloc(0x1C);
     bone_rig_ =
-        memory ? reinterpret_cast<uint8_t*>(static_cast<gfx::Rig*>(memory)->make_new(static_cast<gfx::RigData*>(asset)))
+        memory ? reinterpret_cast<uint8_t*>(new (memory) gfx::Rig(static_cast<gfx::RigData*>(asset)))
                : nullptr;
 }
 

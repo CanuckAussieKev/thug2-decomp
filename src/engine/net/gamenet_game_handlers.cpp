@@ -127,9 +127,8 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
     PlayerArrived arrived;
     if (!read_player_arrived(reader, &arrived))
         return kDone;
-    JoinerRecord record; // (on the stack)
+    JoinerRecord record; // (on the stack; its constructor: a skater profile)
     JoinerRecord* info = &record;
-    info->make_new(); // (its constructor: a skater profile)
     // (15 characters at most, the rest zeroed)
     std::memset(info->label_, 0, sizeof(info->label_));
     std::memcpy(info->label_, arrived.name, strnlen(arrived.name, 15));
@@ -271,7 +270,6 @@ int __cdecl handle_rails_data(net::InboundMsgCtx* context)
         return kContinue;
     }
     net::NetMessageInfo desc;
-    desc.make_new();
     if (reinterpret_cast<modules::Skate*>(skate)->level_ == kLoadMainMenu) {
         cancel_join(manager, true);
         return kKeep;
@@ -287,7 +285,6 @@ int __cdecl handle_rails_data(net::InboundMsgCtx* context)
 int __cdecl on_goal_sync_msg(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     Hub* manager = manager_of(context);
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
         // {u32 level, the goals as a written structure} (NOT ORIGINAL: read within the message - a short one is

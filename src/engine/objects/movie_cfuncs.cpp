@@ -71,13 +71,12 @@ uint32_t movie_key_from_params(script::Struct* params, int assert)
 } // namespace
 
 // 0x005ADF60
-CutsceneDestroyEntry* CutsceneDestroyEntry::make_new()
+CutsceneDestroyEntry::CutsceneDestroyEntry()
 {
     label_ = 0;
     destroy_script_ = 0;
     script::Struct* memory = script::spawn_param_bag();
     args_ = memory ? memory->prepare_all() : nullptr;
-    return this;
 }
 
 // 0x005AD830: PlaySkaterCamAnim [SkaterId= | skater=] name=<anim> ... - the skater's (a local one) camera animation

@@ -70,8 +70,8 @@ class FaceSkin {
 public:
     static constexpr int kTexelEdge = 0x4420;
 
-    // 0x004875C0: not valid, the default points, the overlay "faces\CS_NSN_Head_wht_alpha". Returns this.
-    FaceSkin* make_new();
+    // 0x004875C0: not valid, the default points, the overlay "faces\CS_NSN_Head_wht_alpha".
+    FaceSkin();
     // 0x00487380: the image loaded from "images\<name>.img.xbx" (with `full_path`: "<name>.img.xbx") - all the file's
     // bytes copied in, however many - and valid.
     void load_image_file(const char* name, bool full_path);

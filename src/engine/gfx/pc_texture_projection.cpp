@@ -81,7 +81,7 @@ void copy_triangle(uint8_t* into, uint8_t* from)
 // 0x004C7610
 ProjectionBatch* ProjectionBatch::make_new()
 {
-    material.make_new();
+    new (&material) MaterialRef;
     return this;
 }
 
@@ -231,7 +231,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
                     std::memset(pieces, 0, 0x2000);
                     void* memory = memory::alloc(0xD8);
-                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<MeshRef*>(memory)->make_new()) : nullptr;
+                    format = memory ? reinterpret_cast<uint8_t*>(new (memory) MeshRef) : nullptr;
                     format[0x1C] = 0x0C; // (no check: written through null, as the original)
                     format[0x1E] = 0x10;
                     end = pieces;

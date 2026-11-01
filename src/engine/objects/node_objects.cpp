@@ -232,12 +232,11 @@ bool VideoEntry::set_value20(uint32_t value)
 }
 
 // 0x004693C0
-ClassNodeList* ClassNodeList::prepare_all()
+ClassNodeList::ClassNodeList()
 {
     entries_ = nullptr;
     transformed_ = false;
     nodes_ = nullptr;
-    return this;
 }
 
 // 0x00469300

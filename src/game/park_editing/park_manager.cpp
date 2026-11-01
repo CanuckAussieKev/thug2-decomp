@@ -29,14 +29,14 @@ void destroy_park_pools() { power_down(); }
 } // namespace
 
 // 0x00598E00
-ParkLayout* ParkLayout::make_new()
+ParkLayout::ParkLayout()
 {
     build_area_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     shell_bounds_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     for (CellBox& area : blocked_areas_)
         area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     void* memory = memory::alloc(0x4A4);
-    builder_ = memory ? static_cast<ParkAssembler*>(memory)->make_new() : nullptr;
+    builder_ = memory ? new (memory) ParkAssembler : nullptr;
     concrete_metas_ = nullptr;
     abstract_metas_ = nullptr;
     num_concrete_metas_ = 0;
@@ -63,14 +63,13 @@ ParkLayout* ParkLayout::make_new()
     park_name_[0] = '\0';
     field_74_ = 0;
     field_78_ = nullptr;
-    return this;
 }
 
 // 0x00599BF0
 void ParkLayout::spawn_occurrence()
 {
     void* memory = memory::alloc(sizeof(ParkLayout));
-    sole() = memory ? static_cast<ParkLayout*>(memory)->make_new() : nullptr;
+    sole() = memory ? new (memory) ParkLayout : nullptr;
 }
 
 // 0x00599C70

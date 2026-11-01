@@ -336,7 +336,6 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
 {
     if (broadcast) {
         net::NetMessageInfo desc;
-        desc.make_new();
         // (the panel message: gamenet_messages.h - the strings cut to their 16 bytes; the original copied them whole,
         // the bytes after a terminator as its stack held them)
         HudNotice message;
@@ -457,7 +456,6 @@ void Hub::launch_queued_scripts()
 void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     struct {
         uint32_t param;
         uint8_t bit;
@@ -598,7 +596,6 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         if (profile_has_part(profile, kDeckGraphic))
             logos |= 8;
         net::NetMessageInfo desc;
-        desc.make_new();
         uint8_t skater_id = static_cast<uint8_t>(get_skater_id(player_skater(other)));
         desc.content_ = &skater_id;
         desc.ident_ = kMsgTagOwner;
@@ -683,7 +680,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
-    auto* record = record_memory ? static_cast<JoinerRecord*>(record_memory)->make_new() : nullptr;
+    auto* record = record_memory ? new (record_memory) JoinerRecord : nullptr;
     std::strcpy(record->label_, info->label_);
     record->conn_ = info->conn_;
     record->entity_key_ = info->entity_key_;

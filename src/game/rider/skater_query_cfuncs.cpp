@@ -205,7 +205,7 @@ bool __cdecl cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
     net::NetMessageInfo desc;
     uint32_t data;
     if (highest == lowest) {
-        desc.make_new();
+        desc = net::NetMessageInfo();
         data = 0xFFFFFFFF;
         prepare_eliminated(&desc, &data);
         send_to_players(manager, &desc, false);
@@ -215,7 +215,7 @@ bool __cdecl cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
          player = step_roster_sweep(manager, &search, false)) {
         if (player->is_eliminated() || total_score(get_score_of(player->skater_)) != lowest)
             continue;
-        desc.make_new();
+        desc = net::NetMessageInfo();
         player->mark_eliminated();
         data = player->skater_->ident_;
         prepare_eliminated(&desc, &data);

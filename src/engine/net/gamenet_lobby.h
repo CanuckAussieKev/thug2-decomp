@@ -217,7 +217,7 @@ public:
 struct LobbyRoom {
     // 0x00545860: an empty one (a node of nothing, its data itself; full / out of range / neversoft cleared). Returns
     // this. (rooms.cpp)
-    LobbyRoom* make_new();
+    LobbyRoom();
 
     memory::ListNode list_link_;
     char label_[0x40];  // +0x14 (63 characters)

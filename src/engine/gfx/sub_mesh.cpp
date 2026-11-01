@@ -37,7 +37,7 @@ IdxStore* new_index_buffer(uint32_t bytes)
     void* memory = crt::alloc_block(0x18);
     if (!memory)
         return nullptr;
-    return static_cast<IdxStore*>(memory)->make_new(bytes, 0, 0x65);
+    return new (memory) IdxStore(bytes, 0, 0x65);
 }
 // The index buffer's Direct3D copy written again from the one in memory.
 void upload_indices(IdxStore* buffer)
@@ -190,7 +190,7 @@ void MeshRef::turn_y(int turns)
 MeshRef* MeshRef::replicate(bool share)
 {
     void* memory = memory::alloc(sizeof(MeshRef));
-    auto* copy = memory ? static_cast<MeshRef*>(memory)->make_new() : nullptr; // (constructor)
+    auto* copy = memory ? new (memory) MeshRef : nullptr; // (constructor)
     std::memcpy(copy, this, sizeof(MeshRef));
     if (share) {
         copy->flags |= 1;

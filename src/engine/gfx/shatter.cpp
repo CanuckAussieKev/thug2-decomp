@@ -51,7 +51,7 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own) : Shatter(co
     positions = static_cast<float*>(memory::alloc(12 * count));
     if (own) {
         void* memory = memory::alloc(0x110);
-        material = memory ? reinterpret_cast<uint8_t*>(static_cast<MaterialRef*>(memory)->make_new()) : nullptr;
+        material = memory ? reinterpret_cast<uint8_t*>(new (memory) MaterialRef) : nullptr;
     } else {
         material = nullptr;
     }

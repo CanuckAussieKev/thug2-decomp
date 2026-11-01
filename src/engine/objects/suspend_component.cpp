@@ -241,19 +241,18 @@ void __cdecl next_suspend_frame()
 }
 
 // 0x00434520
-SuspendTaskHolder* SuspendTaskHolder::make_new()
+SuspendTaskHolder::SuspendTaskHolder()
 {
     auto* task = new tasks::Task<SuspendTaskHolder>(&suspend_task, this, kTaskPriority);
     job_handle_ = task;
     (&assets::g_main_loop_manager->logic_tasks_)->queue_job(task); // the logic tasks
-    return this;
 }
 
 // 0x004345B0
 void __cdecl create_suspend_task()
 {
     void* memory = memory::alloc_zeroed(sizeof(SuspendTaskHolder));
-    g_suspend_task_holder = memory ? static_cast<SuspendTaskHolder*>(memory)->make_new() : nullptr;
+    g_suspend_task_holder = memory ? new (memory) SuspendTaskHolder : nullptr;
 }
 
 // 0x00434420

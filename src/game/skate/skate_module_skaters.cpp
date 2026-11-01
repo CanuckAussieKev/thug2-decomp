@@ -629,7 +629,6 @@ void Skate::test_rider_contacts()
         if (static_cast<uint8_t>(as_player(player)->is_own_player()))
             continue;
         net::NetMessageInfo desc;
-        desc.make_new();
         net::AppHost* server = net->host_; // (0x005480C0)
         uint8_t id = static_cast<uint8_t>(king->ident_);
         desc.content_ = &id;

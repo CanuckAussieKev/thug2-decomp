@@ -132,8 +132,8 @@ public:
     // position in `source`; bones the source's mask or the partial-animation bits leave out are marked invalid in
     // `valid`. True.
     bool fetch_pose(float* rotations, float* translations, uint8_t* valid, float time, int cursor, FrameSource* source);
-    // 0x00482AF0: empty. Returns this.
-    JointClipFrames* make_new();
+    // 0x00482AF0: empty.
+    JointClipFrames();
     // 0x00482B30: its events deleted and their array freed; out of the frame cache (0x006F92B0) if it's in it.
     void destroy_body();
     // 0x00482BA0: one more reference, and its index in the frame cache (-1: none).

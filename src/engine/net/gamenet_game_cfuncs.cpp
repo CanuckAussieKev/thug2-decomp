@@ -74,7 +74,6 @@ void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local loc
 {
     uint8_t msg[2] = {static_cast<uint8_t>(player), static_cast<uint8_t>(team)};
     net::NetMessageInfo desc;
-    desc.make_new();
     desc.byte_count_ = sizeof(msg);
     desc.content_ = msg;
     desc.ident_ = id;
@@ -111,7 +110,6 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
     }
     KickRequest msg; // (a client asks the server to kick or ban: gamenet_messages.h)
     net::NetMessageInfo desc;
-    desc.make_new();
     msg.kick = request;
     msg.index = static_cast<int8_t>(index);
     std::strncpy(msg.name, player_name(player), kNameSize - 1);

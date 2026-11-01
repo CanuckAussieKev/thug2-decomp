@@ -27,8 +27,8 @@ struct BillboardBatch {
     MaterialRef* material;
     memory::ListNode* lists[3]; // heads (data -1) of nodes over entries
 
-    // 0x004CEB30: construct for a material: three empty lists. Returns this.
-    BillboardBatch* make_new(MaterialRef* material);
+    // 0x004CEB30: construct for a material: three empty lists.
+    explicit BillboardBatch(MaterialRef* material);
     // 0x004CE1D0: a mesh added to the list of its billboard's type (at the end).
     void add_row(MeshRef* mesh);
     // 0x004CE250: a mesh's entry taken out (its node destroyed, the entry freed).

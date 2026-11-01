@@ -112,7 +112,6 @@ void set_services_state(Hub* manager, int state) { manager->set_next_service_sta
 void send_request(Hub* manager, uint8_t id, void* data, uint16_t length)
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     desc.ident_ = id;
     desc.content_ = data;
     desc.byte_count_ = length;

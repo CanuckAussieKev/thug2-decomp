@@ -178,7 +178,7 @@ void change_sector_key(PcSector* sector, uint32_t checksum)
 MeshRef* new_mesh()
 {
     void* memory = memory::alloc(sizeof(MeshRef));
-    return memory ? static_cast<MeshRef*>(memory)->make_new() : nullptr; // (its constructor)
+    return memory ? new (memory) MeshRef : nullptr; // (its constructor)
 }
 void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius, const maths::Vec4* min,
                              const maths::Vec4* max)

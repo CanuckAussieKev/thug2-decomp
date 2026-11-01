@@ -19,7 +19,7 @@ struct Gauges {
     };
 
     // 0x004544E0: counts and totals zeroed (the packet history isn't touched).
-    Gauges* make_new();
+    Gauges();
     // 0x00454550: a message of `msg_id` with `size` bytes.
     void append_note(int msg_id, int size);
     // 0x00454D90: a packet of `size` bytes at `time` into the history.

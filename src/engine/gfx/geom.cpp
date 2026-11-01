@@ -60,13 +60,13 @@ Singleton* new_instance(SceneRef* scene, const maths::Mat4* transform, int bone_
     void* memory = memory::alloc(sizeof(Singleton));
     if (!memory)
         return nullptr;
-    return static_cast<Singleton*>(memory)->make_new(scene, transform, bone_count, bones);
+    return new (memory) Singleton(scene, transform, bone_count, bones);
 }
 // A new UV wibble (0x004D1A60, on 0x30 bytes from the heap).
 UvOscillator* new_uv_wibble()
 {
     void* memory = memory::alloc(sizeof(UvOscillator));
-    return memory ? static_cast<UvOscillator*>(memory)->make_new() : nullptr;
+    return memory ? new (memory) UvOscillator : nullptr;
 }
 
 void get_identity(maths::Mat4* m)
@@ -316,7 +316,7 @@ bool PcGeom::plat_init_instance(void* mesh_bytes, void* model_bytes, int /*unuse
     if (memory) {
         auto* list = *reinterpret_cast<SceneRef**>(*reinterpret_cast<uint8_t**>(mesh + 0xC4) + 0x280);
         auto* bones = *reinterpret_cast<maths::Mat4**>(model + 0xC); // (the model's bones: 0x00492E50)
-        inst = static_cast<Singleton*>(memory)->make_new(list, &identity, bone_count, bones);
+        inst = new (memory) Singleton(list, &identity, bone_count, bones);
     }
     instance = inst;
     inst->model = model; // (no check, as the original)

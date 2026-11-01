@@ -32,8 +32,8 @@ struct BoneVolumes {
     uint32_t num_;         // +0x04 the bones
     int users_;            // +0x08
 
-    // 0x0048B350: `count` bones, none with a volume yet, no users. Returns this.
-    BoneVolumes* make_new(uint32_t count);
+    // 0x0048B350: `count` bones, none with a volume yet, no users.
+    explicit BoneVolumes(uint32_t count);
     // 0x0048BEA0: one more user; `count` bones, none with a volume yet (the old array dropped); registered under
     // `count`.
     void enrol(uint32_t count);

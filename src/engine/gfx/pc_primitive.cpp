@@ -75,7 +75,7 @@ uint32_t get_swapped(uint32_t rgba) { return (rgba & 0xFF00FF00u) | (rgba & 0xFF
 // 0x004C5230
 PcPrimitive::PcPrimitive(int own) : Primitive(own)
 {
-    material_.make_new();
+    // (material_ made first by its constructor)
     uint32_t made = flag_bits_ | 1;
     vertex_format_ = 2;
     vertices_ = nullptr;

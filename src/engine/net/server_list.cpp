@@ -185,7 +185,7 @@ void move_waiting_servers(Hub* manager)
 // --- HostListing ---
 
 // 0x00545F60
-HostListing* HostListing::make_new()
+HostListing::HostListing()
 {
     make_node(this);
     participants_.make_head();
@@ -206,7 +206,6 @@ HostListing* HostListing::make_new()
     sb_server_ = nullptr;
     max_players_ = 8;
     skill_level_ = 2;
-    return this;
 }
 
 // 0x00546640
@@ -233,7 +232,7 @@ void HostListing::enroll_player(const char* name, int rating)
                                       ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap_)
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap_));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
-    PlayerRecord* player = block ? static_cast<PlayerRecord*>(block)->make_new(0) : nullptr;
+    PlayerRecord* player = block ? new (block) PlayerRecord(0) : nullptr;
     player->skill_points_ = rating;
     std::strncpy(player->label_, name, 15);
     player->label_[15] = '\0';

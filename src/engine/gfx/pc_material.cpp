@@ -221,7 +221,7 @@ uint32_t factor_channel(float value)
 } // namespace
 
 // 0x004D1A90
-MaterialRef* MaterialRef::make_new()
+MaterialRef::MaterialRef()
 {
     pass_count_ = 0;
     color_anim_count_ = 0;
@@ -240,7 +240,6 @@ MaterialRef* MaterialRef::make_new()
         reflection_tiling_[pass][0] = 3.0f;
         reflection_tiling_[pass][1] = 3.0f;
     }
-    return this;
 }
 
 // 0x004D2BD0
@@ -531,12 +530,10 @@ namespace render {
 
 namespace {
 
-// A material nothing uses but its static initialiser and exit function.
+// A material nothing uses but its static initialiser (0x00640D70: its constructor - run by C++ static
+// initialisation here) and exit function.
 MaterialRef g_spare_material;
 
 } // namespace
-
-// 0x00640D70 (a static initialiser)
-void construct_spare_material() { g_spare_material.make_new(); }
 
 } // namespace render

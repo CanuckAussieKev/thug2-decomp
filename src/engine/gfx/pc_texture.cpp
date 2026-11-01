@@ -208,7 +208,7 @@ bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t hei
     if (old && old->texture) // (released, the old texture itself kept)
         static_cast<IUnknown*>(old->texture)->Release();
     void* memory = memory::alloc(sizeof(TextureRef));
-    TextureRef* texture = memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
+    TextureRef* texture = memory ? new (memory) TextureRef : nullptr;
     checksum_ = new_checksum;
     image_ = texture;                 // (an edit's place too)
     texture->checksum = new_checksum; // (no check, as the original)
@@ -321,7 +321,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     }
     if (keep_texture) {
         void* memory = memory::alloc(sizeof(TextureRef));
-        get_edit(this)->kept = memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
+        get_edit(this)->kept = memory ? new (memory) TextureRef : nullptr;
         TextureRef* kept = get_edit(this)->kept; // (no check, as the original)
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
@@ -1022,7 +1022,7 @@ void add_to_table(lists::KeyMap* table, TextureRef* texture)
 TextureRef* new_engine_texture()
 {
     void* memory = memory::alloc(sizeof(TextureRef));
-    return memory ? static_cast<TextureRef*>(memory)->make_new() : nullptr;
+    return memory ? new (memory) TextureRef : nullptr;
 }
 
 } // namespace

@@ -24,7 +24,7 @@ uint8_t* find_texture(uint32_t checksum)
         static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
 }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
-MaterialRef* construct_material(void* memory) { return static_cast<MaterialRef*>(memory)->make_new(); }
+MaterialRef* construct_material(void* memory) { return new (memory) MaterialRef; }
 // The C runtime's rand (the game's: its sequence).
 int get_rand() { return crt::get_rand(); }
 
@@ -65,7 +65,7 @@ uint32_t __cdecl blend_mode_from_name(uint32_t checksum)
 }
 
 // 0x004D9B80
-SimpleMaterial* SimpleMaterial::make_new(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t texture_checksum,
+SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t texture_checksum,
                                          uint32_t blend_checksum, int fixed_alpha, uint32_t /*unused5*/,
                                          uint32_t /*unused6*/)
 {
@@ -94,7 +94,6 @@ SimpleMaterial* SimpleMaterial::make_new(uint32_t /*unused0*/, uint32_t /*unused
     material = m;
     uint32_t mode = m->blend_modes_[0] & 0xFFFFFF;
     shader = g_pixel_shaders[mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964];
-    return this;
 }
 
 // 0x004D9CD0

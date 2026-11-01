@@ -43,7 +43,7 @@ using objects::SignalRouteTable;
 SignalRouteTable* new_event_handler_table()
 {
     void* memory = memory::alloc(sizeof(SignalRouteTable));
-    return memory ? static_cast<SignalRouteTable*>(memory)->make_new() : nullptr;
+    return memory ? new (memory) SignalRouteTable : nullptr;
 }
 
 // A new, empty structure.

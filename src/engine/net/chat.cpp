@@ -45,7 +45,7 @@ constexpr uint8_t kServerColor = 7;
 
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
 using ::net::NetMessageInfo;
-void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
+void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
 // The local player (online::PlayerRecord): its name, whether it observes, its colour (its skater's object id).
 PlayerRecord* find_own_player_record(Hub* manager) { return manager->get_own_player(); }

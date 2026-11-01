@@ -78,8 +78,8 @@ struct EditedRail {
     EditedRailPoint* point_chain_; // +0x08
     uint32_t ident_;               // +0x0C (from the counter 0x0067EFFC: unique)
 
-    // 0x004F70C0: the constructor (returns this): a new id, unlinked, no points.
-    EditedRail* make_new();
+    // 0x004F70C0: the constructor: a new id, unlinked, no points.
+    EditedRail();
     // 0x004F6E20 (also the destructor, 0x004F70F0 - a jump to it): every point's sectors deleted and the point freed.
     void get_clear();
     // 0x004F3B90

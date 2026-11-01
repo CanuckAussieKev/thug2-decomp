@@ -62,7 +62,7 @@ objects::RiderIdentity* new_profile()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
     void* block = memory::alloc_zeroed(sizeof(objects::RiderIdentity));
-    return block ? static_cast<objects::RiderIdentity*>(block)->make_new() : nullptr;
+    return block ? new (block) objects::RiderIdentity : nullptr;
 }
 
 // A node's unlinking, as lists::Elem's destructor does it (the node linked to itself after).
@@ -79,7 +79,7 @@ void unlink_node(memory::ListNode* node)
 // --- JoinerRecord ---
 
 // 0x005434D0
-JoinerRecord* JoinerRecord::make_new()
+JoinerRecord::JoinerRecord()
 {
     account_ = new_profile();
     rejoin_group_ = 0;
@@ -88,7 +88,6 @@ JoinerRecord* JoinerRecord::make_new()
     accumulated_score_ = 0;
     drive_control_mode_ = 0;
     memory::Hub::get_pull()->leave_heap_scope();
-    return this;
 }
 
 // 0x00543560
@@ -110,7 +109,7 @@ void clear_update_records(PlayerRecord* player)
 }
 
 // 0x00543740
-PlayerRecord* PlayerRecord::make_new(uint32_t flags)
+PlayerRecord::PlayerRecord(uint32_t flags)
 {
     make_node(this);
     clear_update_records(this);
@@ -140,7 +139,6 @@ PlayerRecord* PlayerRecord::make_new(uint32_t flags)
     eliminated_time_ = 0;
     num_placed_ = 0;
     last_sent_skater_ = 7;
-    return this;
 }
 
 // 0x00543810

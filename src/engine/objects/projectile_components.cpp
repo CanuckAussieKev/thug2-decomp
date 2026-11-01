@@ -178,7 +178,6 @@ void ShotImpactModule::tick_frame()
 
         // Hit.
         net::NetMessageInfo msg;
-        msg.make_new();
         net::AppHost* server = static_cast<online::Hub*>(net)->host_;
         get_kill(entity_);
         if (on_collide_script_) {

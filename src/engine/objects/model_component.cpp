@@ -118,7 +118,6 @@ void send_to_server(GameEntity* object, uint8_t id, uint16_t length, void* data)
     if (!player || !is_own_player(player))
         return;
     net::NetMessageInfo message;
-    message.make_new();
     net::Guest* app = client_app(manager, player_skater_index(player));
     message.content_ = data;
     message.byte_count_ = length;
@@ -362,7 +361,6 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     if (!player || !is_own_player(player))
         return;
     net::NetMessageInfo message;
-    message.make_new();
     net::Guest* app = client_app(manager, player_skater_index(player));
     sent.period = get_truncated(period);
     sent.start = static_cast<int16_t>(get_truncated(start));

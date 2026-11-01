@@ -46,7 +46,7 @@ int table_bits(uint32_t count)
 MaterialRef* make_material(const scene_format::Material& record, const lists::KeyMap* textures)
 {
     void* at = memory::alloc(sizeof(MaterialRef));
-    MaterialRef* m = at ? static_cast<MaterialRef*>(at)->make_new() : nullptr;
+    MaterialRef* m = at ? new (at) MaterialRef : nullptr;
     m->checksum = record.checksum;
     m->name_hash_ = record.name_hash;
     m->pass_count_ = record.pass_count;
@@ -84,7 +84,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         if (in.flags & scene_format::kPassUvWibble) {
             m->has_uv_wibble_ = true;
             void* w = memory::alloc(sizeof(UvOscillator));
-            UvOscillator* wibble = w ? static_cast<UvOscillator*>(w)->make_new() : nullptr;
+            UvOscillator* wibble = w ? new (w) UvOscillator : nullptr;
             m->uv_wibble_[pass] = wibble;
             std::memcpy(wibble, in.uv_wibble, sizeof(in.uv_wibble));
         }

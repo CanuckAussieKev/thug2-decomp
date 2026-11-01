@@ -96,12 +96,12 @@ int __cdecl handle_observe_request(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     if (!is_own_player(player) &&
         manager->count_observers() >= manager->get_spectator_limit()) { // the observers so far
-        desc.make_new();
+        desc = net::NetMessageInfo();
         desc.ident_ = kMsgObserversFull;
         manager->host_->put_on_outbox(context->sender_conn_->hdl_, &desc);
         return kContinue;
     }
-    desc.make_new();
+    desc = net::NetMessageInfo();
     if (!is_own_player(player)) {
         objects::Entity* skater = player_skater(player);
         manager->evict_player(player, 2); // the player out of the game (2: to observe)
@@ -156,7 +156,6 @@ int __cdecl handle_request_game_data(net::InboundMsgCtx* context)
     // The level change ('F', the level; 8 bytes - bytes 5-7 left as the original leaves them, zeroed here), then a
     // ready query (the time) the player owes the answer to.
     net::NetMessageInfo desc;
-    desc.make_new();
     LevelSwitch change;
     change.level = request.level;
     uint8_t level[kLevelSwitchSize];
@@ -200,7 +199,6 @@ int __cdecl handle_game_ended_report(net::InboundMsgCtx* context)
     }
     // Everyone's game has ended: game over, to all (observers too).
     net::NetMessageInfo desc;
-    desc.make_new();
     net::AppHost* server = manager->host_;
     desc.ident_ = kMsgGameOver;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -215,7 +213,6 @@ int __cdecl handle_game_ended_report(net::InboundMsgCtx* context)
 int __cdecl on_switch_squad_msg(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     PlayerSearch search;
     Hub* manager = manager_of(context);
     // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
@@ -282,7 +279,7 @@ int __cdecl handle_goal_completed_report(net::InboundMsgCtx* context)
         mark_goal_done_by(goal, get_skater_id(player_skater(sender)));
         for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
              p = step_roster_sweep(manager, &search, false)) {
-            desc.make_new();
+            desc = net::NetMessageInfo();
             prepare();
             context->receiver_app_->put_on_outbox(player_handle(p), &desc);
         }
@@ -290,7 +287,7 @@ int __cdecl handle_goal_completed_report(net::InboundMsgCtx* context)
     }
     if (goal_done_by(goal, get_skater_id(player_skater(sender))))
         return kContinue;
-    desc.make_new();
+    desc = net::NetMessageInfo();
     mark_goal_done_by(goal, get_skater_id(player_skater(sender)));
     prepare();
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
@@ -316,7 +313,6 @@ int __cdecl handle_goal_started_report(net::InboundMsgCtx* context)
         return kContinue;
     PlayerSearch search;
     net::NetMessageInfo desc;
-    desc.make_new();
     GoalMessage message; // (the sender's object id, the goal)
     message.goal = report.goal;
     message.id = static_cast<uint8_t>(get_skater_id(player_skater(sender)));
@@ -381,7 +377,7 @@ int __cdecl handle_drop_carried(net::InboundMsgCtx* context)
         // Its flag returned.
         if (!player || !player->is_carrying_flag())
             return kContinue;
-        desc.make_new();
+        desc = net::NetMessageInfo();
         int team = player->get_flag_team();
         char name[64];
         team_name_key(name, team);
@@ -414,7 +410,7 @@ int __cdecl handle_drop_carried(net::InboundMsgCtx* context)
     // The crown dropped: a new spot for it.
     if (!player || !player->holds_crown()) // (has the crown)
         return kContinue;
-    desc.make_new();
+    desc = net::NetMessageInfo();
     player->give_crown(false);
     int spot = maths::rnd(10);
     manager->crown_start_ = spot;

@@ -467,7 +467,6 @@ void send_server_info(net::AppHost* app, int handle)
     util::ByteWriter writer(bytes, sizeof(bytes));
     write_server_info(writer, info);
     net::NetMessageInfo desc;
-    desc.make_new();
     desc.ident_ = kMsgServerInfo;
     desc.byte_count_ = sizeof(bytes);
     desc.content_ = bytes;
@@ -484,7 +483,6 @@ void get_broadcast(uint8_t id, uint32_t value)
     if (!is_host_of_net_game(manager) || !manager->host_)
         return;
     net::NetMessageInfo desc;
-    desc.make_new();
     desc.ident_ = id;
     uint8_t bytes[4];
     util::ByteWriter writer(bytes, sizeof(bytes));

@@ -78,7 +78,7 @@ inline uint32_t max_latency() { return g_max_latency; }
 // --- Functions of other classes, by address ---
 
 // NetMessageInfo (0x004549F0)
-inline void construct_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
+inline void construct_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
 // App (wt/netA's App and wt/netB's App, net_app.h): short names for the calls this range makes
 inline void put_on_outbox(AppHost* app, int handle, NetMessageInfo* desc) { app->put_on_outbox(handle, desc); }
@@ -171,16 +171,16 @@ inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->destr
 inline SeqQueuedMsg* construct_seq_msg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group,
                                        bool compressed)
 {
-    return static_cast<SeqQueuedMsg*>(memory)->make_new(id, length, data, group, compressed);
+    return new (memory) SeqQueuedMsg(id, length, data, group, compressed);
 }
 inline OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* msg)
 {
-    return static_cast<OrderedMsgNode*>(memory)->make_new(msg);
+    return new (memory) OrderedMsgNode(msg);
 }
-inline StreamDesc* construct_stream_desc(void* memory) { return static_cast<StreamDesc*>(memory)->make_new(); }
+inline StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 inline BulkStreamNode* construct_stream_link(void* memory, StreamDesc* desc)
 {
-    return static_cast<BulkStreamNode*>(memory)->make_new(desc);
+    return new (memory) BulkStreamNode(desc);
 }
 inline void destroy_stream_desc(StreamDesc* desc) { desc->destroy_body(); }
 

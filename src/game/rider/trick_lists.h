@@ -36,8 +36,8 @@ struct TrickListEntry {
     maths::Vec4 start_dir_;       // +0x50
     script::Array* element_list_; // +0x60
 
-    // 0x00578740: an unlinked node (its data itself), the fields cleared, a new empty script array. Returns this.
-    TrickListEntry* make_new();
+    // 0x00578740: an unlinked node (its data itself), the fields cleared, a new empty script array.
+    TrickListEntry();
     // 0x00579570: the array's contents and the array freed, then the node unlinked (its node type's vtable).
     // 0x00579820: the scalar deleting destructor.
     void destroy_body();

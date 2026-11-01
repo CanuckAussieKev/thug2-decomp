@@ -340,7 +340,7 @@ RiderStoryProgress::RiderStoryProgress()
 {
     for (int level = 0; level < kLevels; ++level) {
         void* memory = memory::alloc(sizeof(goals::GapTally));
-        gaps_[level] = memory ? static_cast<goals::GapTally*>(memory)->make_new() : nullptr;
+        gaps_[level] = memory ? new (memory) goals::GapTally : nullptr;
         visited_[level] = false;
     }
     details_ = spawn_param_table();

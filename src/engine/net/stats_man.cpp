@@ -462,7 +462,6 @@ void RankingsManager::start_game()
     for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
         net::NetMessageInfo desc;
-        desc.make_new();
         int id = static_cast<int>(detail::get_skater_id(detail::player_skater(player)));
         const char* name = detail::player_name(player);
         new_player(game_, id, name);

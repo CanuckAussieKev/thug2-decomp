@@ -236,7 +236,6 @@ int __cdecl handle_nothing(net::InboundMsgCtx*) { return kContinue; }
 int __cdecl handle_cd_key_challenge(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     Hub* manager = manager_of(context);
     const char* password = manager->get_online_settings()->get_preference_string(kProfilePassword, kUiString);
     char answer[36];
@@ -264,7 +263,6 @@ int __cdecl on_admitted_msg(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     net::NetMessageInfo desc;
-    desc.make_new();
     Hub* manager = manager_of(context);
     manager->set_entry_phase(6);
     desc.ident_ = kMsgReadyToReceive;
@@ -348,7 +346,6 @@ int __cdecl handle_checksum_request(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     net::NetMessageInfo desc;
-    desc.make_new();
     char* msg = context->body_;
     *reinterpret_cast<uint32_t*>(msg + 4) = get_call<uint32_t>(code_address(&modules::Skate::get_cheats), skate);
     desc.group_id_ = kGroupGame;

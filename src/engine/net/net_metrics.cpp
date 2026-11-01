@@ -7,7 +7,7 @@
 namespace net {
 
 // 0x004544E0
-Gauges* Gauges::make_new()
+Gauges::Gauges()
 {
     packets_seen_ = 0;
     byte_sum_ = 0;
@@ -16,7 +16,6 @@ Gauges* Gauges::make_new()
         count = 0;
     for (int& bytes : message_data_)
         bytes = 0;
-    return this;
 }
 
 // 0x00454550

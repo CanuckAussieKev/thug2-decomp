@@ -78,7 +78,7 @@ bool in_net_game(NetSessionSlot* net) { return net->in_net_game(); }
 void* fetch_patron(NetSessionSlot* net, int index) { return net->fetch_patron(index); }
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
 using ::net::NetMessageInfo;
-void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
+void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 // 0x00459E50: queue a message for the server.
 void send_to_host(void* client, NetMessageInfo* desc) { static_cast<::net::Guest*>(client)->send_to_host(desc); }
 // 0x00479E20: `params` written into `buffer` (at most `size` bytes); returns the bytes written.

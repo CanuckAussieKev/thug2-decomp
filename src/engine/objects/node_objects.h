@@ -131,8 +131,8 @@ public:
         bool unknown17;  // +0x17 (cleared)
     };
 
-    // 0x004693C0: empty, no transform (returns this).
-    ClassNodeList* prepare_all();
+    // 0x004693C0: empty, no transform.
+    ClassNodeList();
     // 0x00469300 (and 0x004693D0, a jump to it): every entry freed; no transform, no array.
     void get_clear();
     // 0x00469340: the transform (copied); it applies from now on.

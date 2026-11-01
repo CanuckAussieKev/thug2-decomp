@@ -35,8 +35,8 @@ struct Singleton {
 
     // 0x004D1030: construct over `scene` (its mesh list) with a copy of `transform` and the bones (not copied);
     // active, on the instances' list (0x007825C0). Lit (2) when the bones are not drawn by the vertex shader and
-    // every mesh asks for lighting (+0x38 bit 0x10) and has no flag 0x20000. Returns this.
-    Singleton* make_new(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones);
+    // every mesh asks for lighting (+0x38 bit 0x10) and has no flag 0x20000.
+    Singleton(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones);
     // 0x004D10C0: the destructor's body - its mesh list and bones freed when it owns them (1), off the list.
     void destroy_body();
     // 0x004D1130: drawn (draw_scene's flags, always with 8: no culling) - skinned by the vertex shader (bones, and

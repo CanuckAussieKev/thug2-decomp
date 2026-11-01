@@ -84,8 +84,7 @@ public:
     };
 
     // 0x004A3D30: for `data`: its bones (names, parents' matrices, scale 1) and identity matrices, LOD limit 31.
-    // Returns this.
-    Rig* make_new(RigData* data);
+    explicit Rig(RigData* data);
     // 0x004A3E80: a copy of `other` (its matrices and bones' state).
     Rig* construct_copy(const Rig* other);
     // 0x004A2CB0: the bones and matrices freed.

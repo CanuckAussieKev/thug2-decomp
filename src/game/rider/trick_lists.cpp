@@ -26,7 +26,7 @@ void init_node(memory::ListNode& node, void* data)
 void TrickNameEntry::set_flag() { done_ = true; }
 
 // 0x00578740
-TrickListEntry* TrickListEntry::make_new()
+TrickListEntry::TrickListEntry()
 {
     init_node(list_link_, this);
     lookup_key_ = 0;
@@ -37,7 +37,6 @@ TrickListEntry* TrickListEntry::make_new()
     element_list_ = memory ? memory->prepare_all() : nullptr;
     tricks_count_ = 0;
     taps_ = 0;
-    return this;
 }
 
 // 0x00579570

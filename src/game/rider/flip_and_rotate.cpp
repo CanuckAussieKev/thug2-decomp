@@ -108,7 +108,6 @@ bool RiderSpinAndFlip::apply_board_turned(uint32_t object_id, bool rotated, uint
         online::PlayerRecord* player = find_player_slot_by_obj(object_id);
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
-            message.make_new();
             net::Guest* app = client_app(player_skater_index(player));
             uint8_t data[2] = {static_cast<uint8_t>(object_id), static_cast<uint8_t>(rotated)};
             message.ident_ = kMsgBoardRotated;

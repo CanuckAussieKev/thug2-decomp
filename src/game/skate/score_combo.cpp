@@ -88,7 +88,6 @@ bool points_held(objects::Rider* skater)
 void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int points)
 {
     net::NetMessageInfo desc;
-    desc.make_new();
     // (the message both send: engine/net/skater_messages.h)
     online::PointsMessage message;
     message.points = points;
@@ -255,7 +254,7 @@ void PointTally::set_teeter_gauge(bool on, float lean) { place_balance_gauge(on,
 void PointTally::set_wheelie_gauge(bool on, float lean) { place_balance_gauge(on, lean, true); }
 
 // 0x00563440
-PointTally* PointTally::make_new()
+PointTally::PointTally()
 {
     seen_.num_ = 0;
     seen_.first_ = nullptr;
@@ -285,7 +284,6 @@ PointTally* PointTally::make_new()
     focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
     focus_max_times_ = script::fetch_int_value(kFocusMaxTimesInCombo);
     setup_balance_meter();
-    return this;
 }
 
 // 0x00564B80

@@ -423,7 +423,7 @@ void BuildPointer::change_piece(uint32_t checksum)
 }
 
 // 0x0059C7A0
-BuildPointer* BuildPointer::make_new()
+BuildPointer::BuildPointer()
 {
     cell_footprint_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -449,7 +449,6 @@ BuildPointer* BuildPointer::make_new()
     PieceFamily* set = park_owner_->get_piece_family(0, &menu_index_);
     change_piece(set->entries_[set->selected_].checksum);
     gap_counter_ = 1;
-    return this;
 }
 
 // 0x0059C860
@@ -460,7 +459,7 @@ void BuildPointer::spawn_occurrence()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(editor_arena());
     void* memory = memory::alloc(sizeof(BuildPointer));
-    sole() = memory ? static_cast<BuildPointer*>(memory)->make_new() : nullptr;
+    sole() = memory ? new (memory) BuildPointer : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

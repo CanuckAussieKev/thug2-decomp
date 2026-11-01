@@ -339,7 +339,6 @@ bool __cdecl Skate::cfunc_change_level(script::Struct* params, script::Script*)
     for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true)) {
         online::PlayerRecord* info = as_player(player);
         net::NetMessageInfo desc;
-        desc.make_new();
         uint32_t now = frame_clock::get_time();
         if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
             void* map = park_editing::g_park_editor->get_packed_park_data(false);

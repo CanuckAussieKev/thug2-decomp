@@ -7,7 +7,7 @@
 namespace net {
 
 // 0x00456970
-PingProbe* PingProbe::make_new()
+PingProbe::PingProbe()
 {
     for (int& time : times_)
         time = 0;
@@ -15,7 +15,6 @@ PingProbe* PingProbe::make_new()
     succ_ = 0;
     probe_sent_at_ = 0;
     echo_seen_at_ = 0;
-    return this;
 }
 
 // 0x004569B0

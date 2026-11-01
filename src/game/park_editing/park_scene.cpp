@@ -149,7 +149,7 @@ void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
 
 } // namespace
 
-ParkAssembler* ParkAssembler::make_new()
+ParkAssembler::ParkAssembler()
 {
     source_rails_.make_new();
     rails_.make_new();
@@ -164,7 +164,6 @@ ParkAssembler* ParkAssembler::make_new()
     source_world_ = nullptr;
     next_piece_id_ = 0x20;
     max_players_ = 2;
-    return this;
 }
 
 void ParkAssembler::move_light_source(const maths::Vec4* position, int index)

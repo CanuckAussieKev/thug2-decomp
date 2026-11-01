@@ -189,7 +189,6 @@ bool GoalManager::complete_objective(uint32_t id)
     if (!goal->has_won()) {
         if (goal->sub_nodes_->objective_key_ == 0 && net->in_net_game()) {
             net::NetMessageInfo desc;
-            desc.make_new();
             net::AppHost* client = net->fetch_patron(0);
             // The message (engine/net/gamenet_messages.h): the game's id and the chain's first goal (the id's three
             // padding bytes, as the original's stack had them - the network manager's address -, zeros here).

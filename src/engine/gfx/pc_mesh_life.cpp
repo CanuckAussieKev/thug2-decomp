@@ -61,7 +61,7 @@ IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes)
 } // namespace
 
 // 0x004D4BE0
-MeshRef* MeshRef::make_new()
+MeshRef::MeshRef()
 {
     flags = 0;
     vertex_buffer_count_ = 1;
@@ -97,7 +97,6 @@ MeshRef* MeshRef::make_new()
     flags |= 0x40;
     viewports = 0xFF;
     primitive_type_ = 5;
-    return this;
 }
 
 // 0x004D4CA0
@@ -136,7 +135,7 @@ void MeshRef::fetch_place(float* out) const
 VertexBuffer* __cdecl new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
     void* memory = alloc_block(sizeof(VertexBuffer));
-    return memory ? static_cast<VertexBuffer*>(memory)->make_new(bytes, usage, flags) : nullptr;
+    return memory ? new (memory) VertexBuffer(bytes, usage, flags) : nullptr;
 }
 
 // 0x004D57D0

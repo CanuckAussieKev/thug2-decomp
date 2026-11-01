@@ -299,7 +299,6 @@ bool Hub::send_custom_tag_texture()
         void* texture = reinterpret_cast<goals::Objective*>(tagging)->fetch_args(); // the custom tag texture
         if (texture) {
             net::NetMessageInfo desc;
-            desc.make_new();
             desc.ident_ = kMsgTagLogos;
             desc.content_ = &logos;
             desc.byte_count_ = 4;

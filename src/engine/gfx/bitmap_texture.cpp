@@ -36,7 +36,7 @@ void* cached_texture(int stage) { return g_textures[stage]; }
 } // namespace
 
 // 0x004E04B0
-TextureRef* TextureRef::make_new()
+TextureRef::TextureRef()
 {
     texture = nullptr;
     palette = nullptr;
@@ -50,7 +50,6 @@ TextureRef* TextureRef::make_new()
     foremost() = node;
     if (head)
         head->previous = node;
-    return this;
 }
 
 // 0x004E0500

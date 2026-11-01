@@ -39,7 +39,7 @@ IdxStore* new_index_buffer(uint32_t bytes)
     void* memory = crt::alloc_block(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
-    return static_cast<IdxStore*>(memory)->make_new(bytes, 0, 0x65);
+    return new (memory) IdxStore(bytes, 0, 0x65);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
 void* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }

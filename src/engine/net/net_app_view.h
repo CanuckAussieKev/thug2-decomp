@@ -16,7 +16,7 @@ namespace net {
 struct PendingMsg {
     // 0x00454FA0: a copy of `data` (`length` bytes; none if 0). With a compression method (1 RLE, 2 LZSS) the
     // copy is compressed if that makes it smaller: the id becomes 0x12 (compressed) and the length shrinks.
-    PendingMsg* make_new(uint8_t id, uint16_t length, void* data, uint8_t compression);
+    PendingMsg(uint8_t id, uint16_t length, void* data, uint8_t compression);
     // 0x004550F0 (SeqQueuedMsg's too): the data freed.
     void destroy_body();
 
@@ -27,7 +27,7 @@ struct PendingMsg {
 };
 struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
-    SeqQueuedMsg* make_new(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression);
+    SeqQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression);
     // (0x004550F0: PendingMsg::destroy_body - the data is at the same place)
     void destroy_body() { reinterpret_cast<PendingMsg*>(this)->destroy_body(); }
 

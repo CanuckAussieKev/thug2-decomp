@@ -101,14 +101,13 @@ int BoneVolume::intersects_segment(const maths::Seg* segment, float* s)
 }
 
 // 0x0048B350
-BoneVolumes* BoneVolumes::make_new(uint32_t count)
+BoneVolumes::BoneVolumes(uint32_t count)
 {
     num_ = count;
     volumes_ = nullptr;
     users_ = 0;
     if (count)
         volumes_ = new_volume_array(num_);
-    return this;
 }
 
 // 0x0048BEA0

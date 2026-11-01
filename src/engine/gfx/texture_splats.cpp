@@ -377,7 +377,7 @@ TextureSplats* __cdecl get_texture_splats(uint32_t texture)
             return splats;
     }
     void* memory = memory::alloc(sizeof(MaterialRef));
-    MaterialRef* material = memory ? static_cast<MaterialRef*>(memory)->make_new() : nullptr;
+    MaterialRef* material = memory ? new (memory) MaterialRef : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     material->pass_flags_[0] = texture ? 4 : 0; // (the pass's flags)
     int a = get_rand();
@@ -583,7 +583,7 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
                 auto* pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
                 std::memset(pieces, 0, 0x2000);
                 void* memory = memory::alloc(0xD8);
-                auto* format = memory ? reinterpret_cast<uint8_t*>(static_cast<MeshRef*>(memory)->make_new()) : nullptr;
+                auto* format = memory ? reinterpret_cast<uint8_t*>(new (memory) MeshRef) : nullptr;
                 format[0x1C] = 0x0C;
                 format[0x1E] = 0x10;
                 uint8_t* cursor = pieces;

@@ -375,7 +375,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         if (!count)
             continue;
         void* memory = alloc_block(sizeof(IdxStore));
-        IdxStore* ib = memory ? static_cast<IdxStore*>(memory)->make_new(count * 2u, 0, D3DFMT_INDEX16) : nullptr;
+        IdxStore* ib = memory ? new (memory) IdxStore(count * 2u, 0, D3DFMT_INDEX16) : nullptr;
         mesh->index_buffers_[i] = ib;
         std::memcpy(ib->indices, body.indices[i].data(), count * 2u);
         ib->get_unlock();

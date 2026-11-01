@@ -124,7 +124,7 @@ void uncouple(memory::ListNode* node)
 ObjectiveNpc* new_goal_ped(script::Struct* params)
 {
     void* memory = memory::alloc(sizeof(ObjectiveNpc));
-    return memory ? static_cast<ObjectiveNpc*>(memory)->make_new(params) : nullptr;
+    return memory ? new (memory) ObjectiveNpc(params) : nullptr;
 }
 inline void destroy_goal_ped_body(ObjectiveNpc*) {}
 

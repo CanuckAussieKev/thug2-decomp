@@ -86,7 +86,7 @@ constexpr uint32_t kShared = 4;
 } // namespace
 
 // 0x004D3FF0
-VertexBuffer* VertexBuffer::make_new(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags)
+VertexBuffer::VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags)
 {
     buffer = nullptr;
     if (!(buffer_flags & kShared))
@@ -99,7 +99,6 @@ VertexBuffer* VertexBuffer::make_new(uint32_t bytes, uint32_t usage_flags, uint3
     arena_offset_ = 0;
     lock_flags_ = 0xFFFFFFFF;
     enlist(vertex_buffers(), this);
-    return this;
 }
 
 // 0x004D3BE0
@@ -159,7 +158,7 @@ void VertexBuffer::recreate()
 }
 
 // 0x004D4270
-IdxStore* IdxStore::make_new(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
+IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
 {
     buffer = nullptr;
     input_port()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
@@ -169,7 +168,6 @@ IdxStore* IdxStore::make_new(uint32_t bytes, uint32_t usage_flags, uint32_t inde
     format = index_format;
     indices = static_cast<uint16_t*>(alloc_block(bytes));
     enlist(index_buffers(), this);
-    return this;
 }
 
 // 0x004D3C40

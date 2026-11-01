@@ -265,7 +265,7 @@ void MeshInstanceModule::init_bone_volumes()
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
         void* made = memory::alloc(0x0C);
         if (made)
-            made = static_cast<gfx::BoneVolumes*>(made)->make_new(0);
+            made = new (made) gfx::BoneVolumes(0);
         static_cast<gfx::BoneVolumes*>(made)->enrol(get_skeleton_name(skeleton));
         static_cast<gfx::BoneVolumes*>(made)->get_fill(static_cast<gfx::RigData*>(data));
     }

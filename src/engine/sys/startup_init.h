@@ -33,7 +33,6 @@ void construct_spare_tex_dict_table();    // 0x00640CB0
 void construct_shadow_edge_table();       // 0x00640CD0
 void create_screen_mutex();               // 0x00640D10
 void construct_projection_batches();      // 0x00640D30
-void construct_spare_material();          // 0x00640D70
 void construct_grass_textures();          // 0x00640D90
 void construct_grass_texture_animation(); // 0x00640DC0
 void construct_shader_cache();            // 0x00640DF0

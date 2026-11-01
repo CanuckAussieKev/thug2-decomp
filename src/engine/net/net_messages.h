@@ -18,7 +18,7 @@ struct StreamDesc;
 // The queues' links (lists::Elem<T>: the node, then the link's fields).
 struct MsgNormalLink {
     // 0x004555F0 (send time 0)
-    MsgNormalLink* make_new(PendingMsg* msg);
+    explicit MsgNormalLink(PendingMsg* msg);
     // 0x004557C0: the scalar deleting destructor (out of its list: 0x00455B50).
     MsgNormalLink* teardown(unsigned int flags);
 
@@ -28,7 +28,7 @@ struct MsgNormalLink {
 };
 struct ReliableMsgNode {
     // 0x00455620 (no resends, send time 0 - the timestamps aren't set)
-    ReliableMsgNode* make_new(PendingMsg* msg);
+    explicit ReliableMsgNode(PendingMsg* msg);
     // 0x004557F0: the scalar deleting destructor (0x00455B70).
     ReliableMsgNode* teardown(unsigned int flags);
 
@@ -43,7 +43,7 @@ struct ReliableMsgNode {
 struct OrderedMsgNode {
     // 0x00455650 (no resends, +0x16 and send time 0 - the group, the timestamps and the
     // sequence id aren't set)
-    OrderedMsgNode* make_new(SeqQueuedMsg* msg);
+    explicit OrderedMsgNode(SeqQueuedMsg* msg);
     // 0x00455820: the scalar deleting destructor (0x00455B90).
     OrderedMsgNode* teardown(unsigned int flags);
 
@@ -61,7 +61,7 @@ struct OrderedMsgNode {
 // A stream being received in pieces: StreamDesc (net_app.h); its link (0x18).
 struct BulkStreamNode {
     // 0x00455680
-    BulkStreamNode* make_new(StreamDesc* desc);
+    explicit BulkStreamNode(StreamDesc* desc);
     // 0x00455850: the scalar deleting destructor (0x00455BB0).
     BulkStreamNode* teardown(unsigned int flags);
 

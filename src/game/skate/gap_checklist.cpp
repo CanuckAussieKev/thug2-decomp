@@ -112,11 +112,10 @@ GapEntry* GapEntry::teardown(unsigned int flags)
 }
 
 // 0x00579690
-GapTally* GapTally::make_new()
+GapTally::GapTally()
 {
     gaps_.make_head();
     built_ = false;
-    return this;
 }
 
 // 0x00578840

@@ -124,14 +124,13 @@ void SignalReceiver::enter_wait_board(Entity* object)
 }
 
 // 0x0045F820
-SignalRouteTable* SignalRouteTable::make_new()
+SignalRouteTable::SignalRouteTable()
 {
     num_ = 0;
     entries_ = nullptr;
     alive_ = true;
     in_use_ = 0;
     altered_ = false;
-    return this;
 }
 
 // 0x0045FB70

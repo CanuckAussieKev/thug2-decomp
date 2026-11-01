@@ -82,7 +82,6 @@ void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
     if (!manager->in_net_game())
         return;
     net::NetMessageInfo msg;
-    msg.make_new();
     auto* client = static_cast<net::Guest*>(manager->fetch_patron(0));
     uint8_t data[online::kSpecialItemSize];
     util::ByteWriter writer(data, sizeof(data));

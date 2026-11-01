@@ -21,8 +21,8 @@ public:
     uint32_t anim_object_;   // +0x0C: the object playing the facial animation (its id, or skater; 0: none)
     uint32_t feed_;          // +0x10: the stream playing (0: none)
 
-    // 0x0055EB40: the constructor: `params`' goal_id (asserted), nothing playing. Returns this.
-    ObjectiveNpc* make_new(script::Struct* params);
+    // 0x0055EB40: the constructor: `params`' goal_id (asserted), nothing playing.
+    explicit ObjectiveNpc(script::Struct* params);
 
     // 0x0055EB70 (cdecl): the first word of `*name` (up to its first space, `*name` left there) into `out` - the
     // whole name if there's no space. (`size` isn't read.)

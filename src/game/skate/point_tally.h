@@ -203,8 +203,8 @@ public:
     // 0x00563370 / 0x00563390
     void set_teeter_gauge(bool on, float lean);
     void set_wheelie_gauge(bool on, float lean);
-    // 0x00563440: the constructor. Returns this.
-    PointTally* make_new();
+    // 0x00563440: the constructor.
+    PointTally();
     // 0x00564B80: the destructor body.
     void destroy_body();
     // 0x00563580: one frame: the special meter running down, the pot's countdown and counting, the special bar's

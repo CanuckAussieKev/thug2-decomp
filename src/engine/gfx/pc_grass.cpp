@@ -181,15 +181,15 @@ namespace render {
 // 0x00640D90 (a static initialiser): the grass materials' two textures (each listed among the textures).
 void construct_grass_textures()
 {
-    reinterpret_cast<TextureRef*>(g_grass_texture0)->make_new();
-    reinterpret_cast<TextureRef*>(g_grass_texture1)->make_new();
+    new (g_grass_texture0) TextureRef;
+    new (g_grass_texture1) TextureRef;
 }
 
 // 0x00640DC0 (a static initialiser): the grass animation's 17 textures.
 void construct_grass_texture_animation()
 {
     for (int i = 0; i < 17; ++i)
-        reinterpret_cast<TextureRef*>(g_grass_texture_animation + 0x20 * i)->make_new();
+        new (g_grass_texture_animation + 0x20 * i) TextureRef;
 }
 
 } // namespace render

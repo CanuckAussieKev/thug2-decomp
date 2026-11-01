@@ -39,7 +39,7 @@ struct Conn {
     static constexpr int kChannelGroups = 256;
 
     // 0x00455C80
-    Conn* make_new(int flags);
+    explicit Conn(int flags);
     // 0x00456790 (the destructor)
     void teardown();
 

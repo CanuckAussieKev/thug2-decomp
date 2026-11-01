@@ -137,7 +137,7 @@ void ChainLink::destroy_body()
 }
 
 // 0x00428290
-Chain* Chain::make_new()
+Chain::Chain()
 {
     for (ChainLink& link : chain_link_)
         link.make_new();
@@ -155,7 +155,6 @@ Chain* Chain::make_new()
     sag_force_ = 0.0f;
     collide_below_ = false;
     move_with_object_ = true;
-    return this;
 }
 
 // 0x00428300
@@ -260,7 +259,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         uint32_t id = 0;
         description->read_hash_value(kChainId, &id, 1);
         void* memory = carve(sizeof(Chain));
-        Chain* chain = memory ? static_cast<Chain*>(memory)->make_new() : nullptr;
+        Chain* chain = memory ? new (memory) Chain : nullptr;
         int value = 0;
         chain->ident_ = id;
         chain->links_ = segments + 1;

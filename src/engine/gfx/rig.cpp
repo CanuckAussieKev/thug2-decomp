@@ -199,7 +199,7 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
 }
 
 // 0x004A3D30
-Rig* Rig::make_new(RigData* data)
+Rig::Rig(RigData* data)
 {
     flag_bits_ = 0;
     if (data->flag_bits_ & 1)
@@ -214,7 +214,6 @@ Rig* Rig::make_new(RigData* data)
     link_bones(data);
     payload_ = data;
     max_lod_ = 0x1F;
-    return this;
 }
 
 // 0x004A3E80

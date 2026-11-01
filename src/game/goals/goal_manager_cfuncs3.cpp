@@ -315,7 +315,6 @@ bool __cdecl cfunc_goal_manager_announce_goal_started(script::Struct* params, sc
         return true;
     net::AppHost* client = net->fetch_patron(0);
     net::NetMessageInfo desc;
-    desc.make_new();
     net->get_own_player();
     online::GoalMessage message; // (engine/net/gamenet_messages.h)
     message.id = net->get_game_id();

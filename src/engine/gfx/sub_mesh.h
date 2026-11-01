@@ -29,8 +29,8 @@ struct VertexBuffer {
     uint32_t arena_offset_;                         // +0x20: where in the arena's buffer
 
     // 0x004D3FF0: construct - a buffer of its own (without flag 4: CreateVertexBuffer, default pool), the copy (but
-    // with flag 1), on the list. Returns this.
-    VertexBuffer* make_new(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags);
+    // with flag 1), on the list.
+    VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags);
     // 0x004D3BE0: taken off the list (its node freed).
     void unlist();
     // 0x004D4090: locked - *out the copy at `offset` (or, with D3DLOCK_DISCARD, the card's buffer itself: its Lock's
@@ -65,8 +65,8 @@ struct IdxStore {
     uint16_t* indices;
     uint32_t unknown14; // (cleared when destroyed)
 
-    // 0x004D4270: construct - CreateIndexBuffer (write-only, default pool), the copy, on the list. Returns this.
-    IdxStore* make_new(uint32_t bytes, uint32_t usage_flags, uint32_t index_format);
+    // 0x004D4270: construct - CreateIndexBuffer (write-only, default pool), the copy, on the list.
+    IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format);
     // 0x004D3C40: taken off the list (its node freed).
     void unlist();
     // 0x004D42F0: locked - *out the copy (all of it, whatever the offset). 0.
@@ -126,8 +126,8 @@ struct MeshRef {
     VertexBuffer* vertex_buffers_[3]; // +0xCC
 
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,
-    // primitive type 5. Returns this.
-    MeshRef* make_new();
+    // primitive type 5.
+    MeshRef();
     // 0x004D69E0: the destructor's body - off the billboards (0x10), its transform freed, and unless it shares
     // another mesh's buffers (1) its index and vertex buffers destroyed (the device's stream let go of if it is one),
     // its per-vertex data and billboard freed; its positions and triangles freed; all of it cleared.

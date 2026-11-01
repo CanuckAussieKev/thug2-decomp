@@ -358,7 +358,6 @@ void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec
         return;
     if (propagate) {
         net::NetMessageInfo desc;
-        desc.make_new();
         auto* client = static_cast<net::Guest*>(static_cast<online::Hub*>(net)->fetch_patron(0));
         // (the message a propagated terrain sound sends: engine/net/play_messages.h)
         online::TerrainSound message;

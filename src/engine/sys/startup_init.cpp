@@ -74,7 +74,7 @@ void run_startup_initialisers()
     render::create_screen_mutex();          // 0x00640D10
     render::construct_projection_batches(); // 0x00640D30
     // 0x00640D60: an exit function only (it does nothing)
-    render::construct_spare_material();          // 0x00640D70
+    // (0x00640D70, the spare material's constructor: C++ static initialisation - pc_material.cpp)
     render::construct_grass_textures();          // 0x00640D90
     render::construct_grass_texture_animation(); // 0x00640DC0
     render::construct_shader_cache();            // 0x00640DF0

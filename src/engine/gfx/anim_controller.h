@@ -32,7 +32,7 @@ struct AnimTimeline {
     enum RepeatMode : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
 
     // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
-    AnimTimeline* make_new();
+    AnimTimeline();
     // 0x00481690: the list node's destructor body - unlinked (the channel's list nodes and the blend timeline use
     // it too). 0x004816E0 (slot 0, also the channel list head's): that, then freed.
     void destroy_body();

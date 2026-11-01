@@ -48,7 +48,7 @@ void init_node(memory::ListNode* node) { node->make_node(node); }
 // --- Queued messages -----------------------------------------------------------------------------------------
 
 // 0x00454FA0
-PendingMsg* PendingMsg::make_new(uint8_t id, uint16_t length, void* data, uint8_t compression)
+PendingMsg::PendingMsg(uint8_t id, uint16_t length, void* data, uint8_t compression)
 {
     share_count_ = 0;
     content_ = nullptr;
@@ -56,11 +56,10 @@ PendingMsg* PendingMsg::make_new(uint8_t id, uint16_t length, void* data, uint8_
         content_ = copy_data(&id, &length, data, compression);
     ident_ = id;
     byte_count_ = length;
-    return this;
 }
 
 // 0x00455040
-SeqQueuedMsg* SeqQueuedMsg::make_new(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression)
+SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression)
 {
     share_count_ = 0;
     content_ = nullptr;
@@ -69,7 +68,6 @@ SeqQueuedMsg* SeqQueuedMsg::make_new(uint8_t id, uint16_t length, void* data, ui
     ident_ = id;
     byte_count_ = length;
     byte8_ = byte8;
-    return this;
 }
 
 // 0x004550F0
@@ -82,41 +80,37 @@ void PendingMsg::destroy_body()
 // --- Links -----------------------------------------------------------------------------------------------------
 
 // 0x004555F0
-MsgNormalLink* MsgNormalLink::make_new(PendingMsg* msg)
+MsgNormalLink::MsgNormalLink(PendingMsg* msg)
 {
     init_node(&list_link_);
     shared_msg_ = msg;
     due_time_ = 0;
-    return this;
 }
 
 // 0x00455620
-ReliableMsgNode* ReliableMsgNode::make_new(PendingMsg* msg)
+ReliableMsgNode::ReliableMsgNode(PendingMsg* msg)
 {
     init_node(&list_link_);
     shared_msg_ = msg;
     due_time_ = 0;
     retry_count_ = 0;
-    return this;
 }
 
 // 0x00455650
-OrderedMsgNode* OrderedMsgNode::make_new(SeqQueuedMsg* msg)
+OrderedMsgNode::OrderedMsgNode(SeqQueuedMsg* msg)
 {
     init_node(&list_link_);
     bulk_msg_ = 0;
     due_time_ = 0;
     shared_msg_ = msg;
     retry_count_ = 0;
-    return this;
 }
 
 // 0x00455680
-BulkStreamNode* BulkStreamNode::make_new(StreamDesc* desc)
+BulkStreamNode::BulkStreamNode(StreamDesc* desc)
 {
     init_node(&list_link_);
     msg_meta_ = desc;
-    return this;
 }
 
 // 0x004557C0

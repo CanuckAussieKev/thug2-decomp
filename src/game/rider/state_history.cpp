@@ -358,7 +358,6 @@ void RiderFrameLog::check_for_collisions(int first)
         net::AppHost* app = manager_app();
         if (tell_players) {
             net::NetMessageInfo msg;
-            msg.make_new();
             online::RanInto ran_into; // (engine/net/play_messages.h)
             ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
             maths::Vec4 push = my_point - their_point;
@@ -402,7 +401,6 @@ void RiderFrameLog::check_for_collisions(int first)
                 if (is_host_local(player))
                     continue;
                 net::NetMessageInfo msg;
-                msg.make_new();
                 uint8_t tagged = static_cast<uint8_t>(skater->ident_);
                 msg.content_ = &tagged;
                 msg.ident_ = kMsgTagged;
@@ -417,7 +415,6 @@ void RiderFrameLog::check_for_collisions(int first)
             if (!on_a_team(me))
                 continue;
             net::NetMessageInfo msg;
-            msg.make_new();
             uint8_t tagged[2];
             tagged[0] = static_cast<uint8_t>(skater->ident_);
             tagged[1] = static_cast<uint8_t>(get_team(me));

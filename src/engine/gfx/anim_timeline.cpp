@@ -43,11 +43,10 @@ void get_clear(AnimTimeline* t)
 // --- the timeline ---
 
 // 0x00481650
-AnimTimeline* AnimTimeline::make_new()
+AnimTimeline::AnimTimeline()
 {
     list_link_.make_node(this);
     get_clear(this);
-    return this;
 }
 
 // 0x00481690
@@ -167,16 +166,15 @@ void AnimTimeline::advance_clock(float frames)
 // --- the blend timeline ---
 
 // 0x00481830
-AnimTrack* AnimTrack::make_new(objects::GameEntity* object)
+// (the timeline's constructor first, as its base)
+AnimTrack::AnimTrack(objects::GameEntity* object)
 {
-    AnimTimeline::make_new();
     controller_count_ = 0;
     events_ptr_ = nullptr;
     event_count_ = 0;
     owner_object_ = object;
     events_on_ = true;
     cur_phase_ = kPlaying;
-    return this;
 }
 
 // 0x00481960

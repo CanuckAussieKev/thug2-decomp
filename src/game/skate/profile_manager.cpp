@@ -58,7 +58,7 @@ uint32_t& ref_tally() { return g_profile_manager_references; }
 RiderIdentity* new_profile()
 {
     void* memory = memory::alloc_zeroed(sizeof(RiderIdentity));
-    return memory ? static_cast<RiderIdentity*>(memory)->make_new() : nullptr;
+    return memory ? new (memory) RiderIdentity : nullptr;
 }
 
 // The face texture object of a model appearance (its +0x54; 0x00576E60, folded with modules::Viewer's getter), told a

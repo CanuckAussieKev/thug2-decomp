@@ -20,8 +20,8 @@ struct UvOscillator {
     float matrix[2];
     float offset[2];
 
-    // 0x004D1A60: construct - all 0 but the matrix's first value, 1. Returns this.
-    UvOscillator* make_new();
+    // 0x004D1A60: construct - all 0 but the matrix's first value, 1.
+    UvOscillator();
 };
 static_assert(sizeof(UvOscillator) == 0x30, "layout must match the original");
 
@@ -87,8 +87,8 @@ struct MaterialRef {
     float specular[3];              // +0x100
     float specular_power_;          // +0x10C
 
-    // 0x004D1A90: construct - no passes, animations or wibbles; the per-pass defaults. Returns this.
-    MaterialRef* make_new();
+    // 0x004D1A90: construct - no passes, animations or wibbles; the per-pass defaults.
+    MaterialRef();
     // 0x004D2BD0: the destructor's body - the animations and UV wibbles freed.
     void destroy_body();
     // 0x004D1D90: a bit per pass taking its alpha from the texture alone (flag 0x1000).

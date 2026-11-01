@@ -235,13 +235,12 @@ void parse_location(Buddy* buddy, char* location, bool checked)
 } // namespace
 
 // 0x00548CB0
-FriendNote* FriendNote::make_new()
+FriendNote::FriendNote()
 {
     init_node(&list_link_);
     account_ = 0;
     std::snprintf(nick_, sizeof(nick_), "%s", "Proskater");
     text_[0] = '\0';
-    return this;
 }
 
 // 0x00548CF0
@@ -615,7 +614,7 @@ void __cdecl FriendsManager::on_buddy_message(void*, const void* argument, Frien
     push_top_down();
     size_t length = std::strlen(arg->message);
     void* memory = memory::alloc_zeroed(sizeof(FriendNote));
-    FriendNote* message = memory ? static_cast<FriendNote*>(memory)->make_new() : nullptr;
+    FriendNote* message = memory ? new (memory) FriendNote : nullptr;
     message->account_ = arg->profile;
     char* text = text_tools::get_token(arg->message, "\n");
     if (length == std::strlen(text)) {

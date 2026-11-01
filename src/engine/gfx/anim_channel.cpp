@@ -402,7 +402,7 @@ void BlendChannel::push_timeline(float period)
         }
     }
     void* memory = new_timeline(sizeof(AnimTrack));
-    AnimTrack* timeline = memory ? static_cast<AnimTrack*>(memory)->make_new(get_owner(this)) : nullptr;
+    AnimTrack* timeline = memory ? ::new (memory) AnimTrack(get_owner(this)) : nullptr;
     memory::ListNode* node = elem(timeline); // (null: a crash, as the original)
     node->prev = &timelines_;
     node->next = timelines_.next;
@@ -471,7 +471,6 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
     if (send && ident_ == 0) {
         if (online::PlayerRecord* player = find_own_player_record(object_id)) {
             net::NetMessageInfo message;
-            message.make_new();
             net::Guest* app = client_of(player);
             uint8_t data[2] = {static_cast<uint8_t>(object_id), static_cast<uint8_t>(flip)};
             post_out(app, message, kMsgFlip, data, 2, false);
@@ -563,7 +562,6 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
             data[0] = static_cast<uint8_t>(get_owner(this)->ident_);
             if (last_wobble_target() != data[1]) {
                 net::NetMessageInfo message;
-                message.make_new();
                 post_out(app, message, kMsgWobbleTarget, data, 2, true);
                 last_wobble_target() = data[1];
             }
@@ -600,7 +598,6 @@ void BlendChannel::set_wobble_details(const float* details, bool send)
             data[1] = static_cast<uint8_t>(get_owner(this)->ident_);
             if (last_wobble_details() != data[0]) {
                 net::NetMessageInfo message;
-                message.make_new();
                 post_out(app, message, kMsgWobbleDetails, data, 2, true);
                 last_wobble_details() = data[0];
             }
@@ -627,7 +624,6 @@ void BlendChannel::change_repeat_mode(int loop_type, bool send)
             uint8_t data[2] = {static_cast<uint8_t>(get_owner(this)->ident_), static_cast<uint8_t>(loop_type)};
             if (last_loop_type() != loop_type) {
                 net::NetMessageInfo message;
-                message.make_new();
                 post_out(app, message, kMsgLoopType, data, 2, false);
                 last_loop_type() = static_cast<int8_t>(loop_type);
             }
@@ -656,7 +652,6 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
             if (net::Guest* app = client_of(player)) {
                 net::NetMessageInfo message;
-                message.make_new();
                 online::AnimSpeedMessage sent;
                 sent.speed_bits = std::bit_cast<uint32_t>(speed);
                 sent.object_id = static_cast<uint8_t>(get_owner(this)->ident_);
@@ -763,7 +758,6 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
     if (send && ident_ == 0) {
         if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
             net::NetMessageInfo message;
-            message.make_new();
             net::Guest* app = client_of(player);
             // loop type, object, anim, then the times, blend period and speed x 4096 as shorts
             online::PlayAnimMessage sent;

@@ -258,7 +258,6 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     if (!send)
         return;
     net::NetMessageInfo msg;
-    msg.make_new();
     online::Hub* manager = net_session_slot();
     if (!manager->in_net_game())
         return;

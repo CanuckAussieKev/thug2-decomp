@@ -35,7 +35,7 @@ struct NetMessageInfo {
     enum Queue : int { kLaneNormal = 0, kLanePriority = 1, kLaneOrdered = 2 };
 
     // 0x004549F0 (net_descs.cpp)
-    NetMessageInfo* make_new();
+    NetMessageInfo();
 
     uint8_t ident_;         // 0x00
     uint8_t feed_;          // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
@@ -55,7 +55,7 @@ struct NetMessageInfo {
 // in 256-byte pieces, a few each frame (AppHost::pump_stream_traffic).
 struct StreamDesc {
     // 0x004549D0 (net_descs.cpp): size, data, next, group and borrow_caller_buffer zeroed.
-    StreamDesc* make_new();
+    StreamDesc();
     // 0x00454E00: the data freed unless it's the sender's ("Destroying StreamDesc's Data").
     void destroy_body();
 

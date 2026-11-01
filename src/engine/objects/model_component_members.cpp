@@ -259,7 +259,6 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         void* player = find_player_slot_by_obj(manager, entity_->ident_);
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
-            message.make_new();
             net::Guest* app = client_app(manager, player_skater_index(player));
             uint8_t object = static_cast<uint8_t>(entity_->ident_);
             message.content_ = &object;
@@ -300,7 +299,6 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         void* player = find_player_slot_by_obj(manager, entity_->ident_);
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
-            message.make_new();
             net::Guest* app = client_app(manager, player_skater_index(player));
             online::SpinModelMessage sent;
             sent.period = get_truncated(duration);

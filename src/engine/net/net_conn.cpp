@@ -71,7 +71,7 @@ void for_each(ListNode* head, F action)
 } // namespace
 
 // 0x00455C80
-Conn* Conn::make_new(int flags)
+Conn::Conn(int flags)
 {
     normal_msgs_.make_head();
     important_msgs_.make_head();
@@ -82,9 +82,7 @@ Conn* Conn::make_new(int flags)
         queue.make_head(); // (0x00455C60)
     received_streams_.make_head();
     send_streams_.make_head();
-    ping_probe_.make_new();
-    receive_metrics_.make_new();
-    send_metrics_.make_new();
+    // (the ping probe and the two gauges made first by their constructors)
     app_node_.make_node(this);
 
     flag_bits_ = static_cast<uint32_t>(flags);
@@ -104,7 +102,6 @@ Conn* Conn::make_new(int flags)
     std::memset(next_sequence_ids_, 0, 0x100);
     std::memset(sequence_numbers_, 0, 0x100);
     ident_ = next_conn_id()++;
-    return this;
 }
 
 // 0x00456790

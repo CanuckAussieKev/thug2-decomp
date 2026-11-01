@@ -293,7 +293,7 @@ void BillboardSet::setup_axes()
 }
 
 // 0x004CEB30
-BillboardBatch* BillboardBatch::make_new(MaterialRef* new_material)
+BillboardBatch::BillboardBatch(MaterialRef* new_material)
 {
     material = new_material;
     lists[0] = new_head();
@@ -301,7 +301,6 @@ BillboardBatch* BillboardBatch::make_new(MaterialRef* new_material)
     lists[2] = new_head();
     vertex_bytes_ = 0x40;
     vertex_bytes_ = (new_material->pass_count_ + 2) * 0x20;
-    return this;
 }
 
 // 0x004CE1D0
@@ -442,7 +441,7 @@ void BillboardSet::append_mesh(MeshRef* mesh)
     BillboardBatch* batch = get_find(mesh->material);
     if (!batch) {
         void* memory = memory::alloc(sizeof(BillboardBatch));
-        batch = memory ? static_cast<BillboardBatch*>(memory)->make_new(mesh->material) : nullptr;
+        batch = memory ? new (memory) BillboardBatch(mesh->material) : nullptr;
         batches[count] = batch;
         ++count;
         order_batches(this);

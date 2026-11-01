@@ -104,7 +104,7 @@ void HookPointRegistryModule::configure_from_data(script::Struct*)
         memory::Hub::get_pull()->dealloc(hooks);
     }
     void* memory = memory::alloc_zeroed(sizeof(ClassNodeList));
-    hooks_ptr_ = memory ? static_cast<ClassNodeList*>(memory)->prepare_all() : nullptr;
+    hooks_ptr_ = memory ? new (memory) ClassNodeList : nullptr;
     hooks_ptr_->set_nodes(node_array_of(node_array));
 }
 

@@ -321,7 +321,6 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
         // End the game: everyone else told.
         PlayerSearch search;
         net::NetMessageInfo desc;
-        desc.make_new();
         net::AppHost* server = manager->host_;
         get_run(kEndGameSelected);
         desc.ident_ = kMsgGameEnded;
@@ -524,7 +523,6 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
     if (!player || (player->flag_bits_ & 0x40))
         return kContinue;
     net::NetMessageInfo desc;
-    desc.make_new();
     frame_clock::get_time();    // (not used)
     player->flag_bits_ |= 0x40; // told
     // (the message: gamenet_messages.h)
@@ -589,7 +587,7 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
         auto* node = manager->queued_scripts_.next; // (the queued scripts' first node)
         node = node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
         for (auto* item = node ? static_cast<PendingScriptItem*>(node->data) : nullptr; item;) {
-            desc.make_new();
+            desc = net::NetMessageInfo();
             online::SpawnScript queued; // (not permanent: the joiner runs it once)
             queued.name = item->own_script_;
             queued.object_id = item->entity_key_;
@@ -612,14 +610,14 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
             get_call(code_address(&modules::Skate::send_cheats), skate, player);
         if (is_observer(player) && get_game_type() == kNetGraffiti) {
             // An observer of graffiti: the trick objects' state.
-            desc.make_new();
+            desc = net::NetMessageInfo();
             static uint8_t buffer[0x1100]; // (the original's is on its stack)
             int size = objects::g_trick_spot_hub->write_graffiti_state(buffer);
             server->send_bulk_message(player_handle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer,
                                       "TrickObj Buffer", kGroupGame, true, false);
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.
-        desc.make_new();
+        desc = net::NetMessageInfo();
         uint8_t* goals = objective_board();
         static uint8_t selected[0x1000];
         selected[0] = 0;
@@ -642,7 +640,7 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
         desc.group_id_ = kGroupGame;
         server->put_on_outbox(player_handle(player), &desc);
         if (PlayerRecord* king = is_crown_rule_active(manager)) {
-            desc.make_new();
+            desc = net::NetMessageInfo();
             uint8_t id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
             desc.content_ = &id;
             desc.byte_count_ = 1;
@@ -654,7 +652,6 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
     }
     // The end of the game's state (0x42).
     net::NetMessageInfo done;
-    done.make_new();
     done.ident_ = kMsgGameStateSent;
     done.queue_ = net::NetMessageInfo::kLaneOrdered;
     done.group_id_ = kGroupGame;

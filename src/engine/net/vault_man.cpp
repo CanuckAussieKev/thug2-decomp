@@ -185,7 +185,7 @@ int number_field(char** rest)
 // --- the list nodes, items and categories ---
 
 // 0x0054B570
-VaultItem* VaultItem::make_new()
+VaultItem::VaultItem()
 {
     init_node(&list_link_);
     url_[0] = '\0';
@@ -203,7 +203,6 @@ VaultItem* VaultItem::make_new()
     has_male_body_ = 0;
     span_ = 0;
     level_y_ = 0;
-    return this;
 }
 
 // 0x0054B5E0
@@ -216,12 +215,11 @@ VaultItem* VaultItem::teardown(unsigned int flags)
 }
 
 // 0x0054B670
-VaultCategory* VaultCategory::make_new()
+VaultCategory::VaultCategory()
 {
     init_node(&list_link_);
     items_.make_head();
     skip_ = false;
-    return this;
 }
 
 // 0x0054C890
@@ -419,7 +417,7 @@ void __cdecl VaultMan::vault_task(tasks::Task<VaultMan>* task)
         if (line) {
             do {
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
-                VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->make_new() : nullptr;
+                VaultCategory* category = memory ? new (memory) VaultCategory : nullptr;
                 prepend(&vault->categories_, &category->list_link_);
                 text_tools::dup_from(category->label_, line);
                 line = text_tools::get_token(nullptr, "\r\n");
@@ -448,7 +446,7 @@ void __cdecl VaultMan::vault_task(tasks::Task<VaultMan>* task)
         for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? static_cast<VaultItem*>(memory)->make_new() : nullptr;
+            VaultItem* item = memory ? new (memory) VaultItem : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
             char* rest = line;
             char file[1024];
@@ -499,7 +497,7 @@ void __cdecl VaultMan::vault_task(tasks::Task<VaultMan>* task)
         for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? static_cast<VaultItem*>(memory)->make_new() : nullptr;
+            VaultItem* item = memory ? new (memory) VaultItem : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
             std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s", vault->folder_,
                           line);
@@ -779,7 +777,7 @@ bool __cdecl download_directory_list(script::Struct* params, script::Script*)
     }
     push_bottom_up();
     void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
-    VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->make_new() : nullptr;
+    VaultCategory* category = memory ? new (memory) VaultCategory : nullptr;
     category->skip_ = true;
     prepend(&vault->categories_, &category->list_link_);
     std::memcpy(category->label_, "Uploads", 8);

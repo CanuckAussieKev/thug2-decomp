@@ -61,8 +61,8 @@ struct JoinerRecord {
     int32_t drive_control_mode_;      // +0x40
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
-    // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left). Returns this.
-    JoinerRecord* make_new();
+    // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left).
+    JoinerRecord();
     // 0x00543560: the destructor: its profile destroyed and freed.
     void destroy_body();
 };
@@ -93,8 +93,8 @@ public:
     static constexpr int kMaxPlayers = 8;
 
     // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile,
-    // "<No Name>", last_sent_skater_ 7 and the update records cleared (the per-skater ones to -1). Returns this.
-    PlayerRecord* make_new(uint32_t flags);
+    // "<No Name>", last_sent_skater_ 7 and the update records cleared (the per-skater ones to -1).
+    explicit PlayerRecord(uint32_t flags);
     // 0x00543810: the destructor: its profile (destroyed and freed), the observer task (deleted),
     // the face texture message (freed); then the node's (out of its list).
     void destroy_body();

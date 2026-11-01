@@ -27,7 +27,7 @@ struct RiderIdentity {
     alignas(4) uint8_t look_data_[0x5C]; // a gfx::ModelLook, made in place by make_new (appearance())
     uint8_t details_[8];                 // +0x5C (a Scripts::CStruct)
 
-    RiderIdentity* make_new();                                    // 0x00586D60
+    RiderIdentity();                                    // 0x00586D60
     uint32_t fetch_title();                                       // 0x00586150 (its info's name)
     bool is_pro();                                                // 0x00586170 (is_pro)
     const char* fetch_shown_name();                               // 0x00586210 (display_name)

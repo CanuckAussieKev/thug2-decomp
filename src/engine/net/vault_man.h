@@ -52,8 +52,8 @@ struct VaultItem {
     uint32_t tod_script_;        // +0x20C (parks)
     int has_male_body_;          // +0x210 (skaters)
 
-    // 0x0054B570: unlinked, every string and number empty. Returns this.
-    VaultItem* make_new();
+    // 0x0054B570: unlinked, every string and number empty.
+    VaultItem();
     // 0x0054B5E0 (scalar deleting): the node destructor, freed with flag 1.
     VaultItem* teardown(unsigned int flags);
 };
@@ -65,8 +65,8 @@ struct VaultCategory {
     char label_[0x1B];           // +0x15
     memory::ListNode items_;     // +0x30 lists::Foremost<VaultItem>
 
-    // 0x0054B670: unlinked, no items, not skipped. Returns this.
-    VaultCategory* make_new();
+    // 0x0054B670: unlinked, no items, not skipped.
+    VaultCategory();
     // 0x0054C890 (destructor body): the items deleted, the head and the node unlinked.
     void destroy_body();
     // 0x0054C980 (scalar deleting)

@@ -352,7 +352,6 @@ bool __cdecl cfunc_notify_bail_done(script::Struct*, script::Script* script)
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot_)) {
         net::NetMessageInfo desc;
-        desc.make_new();
         desc.ident_ = 0x45;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = 8;

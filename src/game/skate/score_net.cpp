@@ -41,7 +41,6 @@ void PointTally::note_tagged_prop_ask(int score)
 {
     online::Hub* net = net_session_slot();
     net::NetMessageInfo desc;
-    desc.make_new();
     auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(rider_no_)));
     auto* client = static_cast<net::Guest*>(net->fetch_patron(info->skater_->view_slot_));
     online::TrickObjectsMessage message;
@@ -100,7 +99,6 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
                 robbed->team_ == thief->team_)
                 continue;
             net::NetMessageInfo desc;
-            desc.make_new();
             desc.content_ = stolen_data;
             desc.byte_count_ = sizeof(stolen_data);
             desc.ident_ = online::kMsgTagStolen;
@@ -123,7 +121,6 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         util::ByteWriter writer(data, sizeof(data));
         online::write_trick_objects(writer, *all);
         net::NetMessageInfo desc;
-        desc.make_new();
         desc.byte_count_ = static_cast<uint16_t>(writer.position());
         desc.content_ = data;
         desc.ident_ = online::kMsgTrickObjects;

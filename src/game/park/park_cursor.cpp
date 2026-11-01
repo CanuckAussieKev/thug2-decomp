@@ -405,7 +405,7 @@ void ParkLayout::commission(uint32_t level)
     if (level == kTopDownLevel)
         memory->enter_heap_scope(memory->top_down_heap_);
     void* block = memory::alloc(0xA8);
-    gap_registry_ = block ? static_cast<GapRegistry*>(block)->make_new(this) : nullptr;
+    gap_registry_ = block ? new (block) GapRegistry(this) : nullptr;
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();
     int theme = (current_flags() & 2) ? map_.shell_size_ : 0;

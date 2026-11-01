@@ -175,10 +175,9 @@ void emitter_add_node(uint32_t name, bool active)
 }
 
 // 0x00468AC0
-FollowTrail* FollowTrail::prepare_all()
+FollowTrail::FollowTrail()
 {
     get_reset();
-    return this;
 }
 
 // 0x004685D0
