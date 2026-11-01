@@ -23,7 +23,8 @@ everything above it uses the game's own types and may change them freely.
   dictionaries and images, scenes / models / skins (`scene_format`), collision, skeletons, animations, fonts, sound
   effects, the streamed sounds' index, the park map and its rails, the save file. Each takes a byte span
   (`ByteReader` / `ByteWriter`, `byte_stream.h`: little-endian, unaligned, bounds-checked) and gives plain records.
-  `thug2_format_check` runs every reader over a game folder and round-trips the writers.
+  `thug2_format_check` (`formats/check/`) runs every reader over a game folder, compares it with an independent
+  reading of the bytes, and round-trips the writers.
 - `wire/` (static library `thug2_wire`): the packet framing (`net_wire`) and every game message
   (`gamenet_messages`, `skater_messages`, `play_messages`, `skate_net_messages`), byte-compatible with the
   original's and THUGPRO's peers. Encoders and decoders over the same byte stream; a short or oversized message is
@@ -34,7 +35,9 @@ everything above it uses the game's own types and may change them freely.
   bytes themselves).
 - `platform/`: the operating system and the SDKs - the window and input (SDL, DirectInput), Direct3D's device,
   DirectSound, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
-  addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`).
+  addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
+  Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`)
+  and the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records).
 
 `formats/` and `wire/` depend only on the standard library and `engine/core`'s leaf headers (`ints.h`,
 `checksums.h`, `pointer_cell.h`, `raw_view.h`); they build and are checked without the game.
