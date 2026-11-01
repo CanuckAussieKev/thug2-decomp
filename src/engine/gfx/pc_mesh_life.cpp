@@ -32,14 +32,9 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 void* alloc_block(size_t size) { return crt::alloc_block(size); }
 void dealloc(void* memory) { crt::dealloc(memory); }
 
-// The buffers' lists' nodes (as pc_buffers.cpp's): the buffer, the previous and the next node.
-struct BufferNode {
-    void* buffer;
-    BufferNode* prev;
-    BufferNode* next;
-};
-BufferNode* vertex_buffer_list() { return static_cast<BufferNode*>(g_vertex_buffer_list); }
-BufferNode* index_buffer_list() { return static_cast<BufferNode*>(g_index_buffer_list); }
+using BufferNode = buffer_lists::Node;
+BufferNode* vertex_buffer_list() { return buffer_lists::vertex_buffers(); }
+BufferNode* index_buffer_list() { return buffer_lists::index_buffers(); }
 
 // The engine's scenes (a memory::ListNode list: data the scene; the head's data is -1) and a scene's mesh list
 // (+0x280), whose arena vertex buffer is its +0x7C and the buffer's size its +0x80.
@@ -200,31 +195,7 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
     vertex_buffers_[0]->get_unlock();
 }
 
-// 0x004D6720
-uint32_t VertexBuffer::teardown()
-{
-    const uint32_t references = static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
-    buffer = nullptr;
-    unlist();
-    if (data)
-        dealloc(data);
-    std::memset(this, 0, sizeof(*this));
-    dealloc(this);
-    return references;
-}
 
-// 0x004D6790
-uint32_t IdxStore::teardown()
-{
-    const uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer)->Release();
-    buffer = nullptr;
-    unlist();
-    if (indices)
-        dealloc(indices);
-    std::memset(this, 0, sizeof(*this));
-    dealloc(this);
-    return references;
-}
 
 // 0x004D67F0
 void release_buffers()

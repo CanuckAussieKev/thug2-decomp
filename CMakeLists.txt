@@ -502,6 +502,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/pc_weather.cpp
     src/engine/gfx/pc_billboards.cpp
     src/engine/gfx/pc_buffers.cpp
+    src/gpu/vertex_buffers.cpp
     src/engine/gfx/pc_gamma.cpp
     src/engine/gfx/pc_grass.cpp
     src/engine/gfx/pc_instance.cpp
