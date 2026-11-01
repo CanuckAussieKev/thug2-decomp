@@ -47,13 +47,13 @@ constexpr uint32_t kCustomSkater = 0x0A7BE964;   // the custom skater's name
 constexpr uint32_t kStatCatalog = 0x61EB6BA9;    // the global array of stats (each a structure with a name)
 
 // The appearance's code (0x00488xxx-0x00489xxx).
-void free_face_texture(RiderIdentity* p) { raw::as<gfx::ModelLook>(p)->free_face_texture(); }
-void reset_appearance(RiderIdentity* p) { raw::as<gfx::ModelLook>(p)->get_reset(); }
+void free_face_texture(RiderIdentity* p) { p->appearance()->free_face_texture(); }
+void reset_appearance(RiderIdentity* p) { p->appearance()->get_reset(); }
 void load_appearance(RiderIdentity* p, uint32_t name, bool update)
 {
-    raw::as<gfx::ModelLook>(p)->load_by_name(name, update);
+    p->appearance()->load_by_name(name, update);
 }
-void make_face_texture(RiderIdentity* p) { raw::as<gfx::ModelLook>(p)->make_face_texture(); }
+void make_face_texture(RiderIdentity* p) { p->appearance()->make_face_texture(); }
 
 // A new empty structure (pooled; null if none) / one cleared and freed.
 
@@ -78,7 +78,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 RiderIdentity* RiderIdentity::copy_from(RiderIdentity* other)
 {
     if (other != this) {
-        raw::as<gfx::ModelLook>(this)->copy_from(raw::as<gfx::ModelLook>(other)); // the appearance
+        appearance()->copy_from(other->appearance()); // the appearance
         details_params()->get_assign(other->details_params());
     }
     return this;
@@ -430,8 +430,6 @@ void RiderIdentity::write_to_save(script::Struct* save)
 // 0x00586D60
 RiderIdentity::RiderIdentity()
 {
-    new (look_data_.data()) gfx::ModelLook; // the appearance
-    new (details_params()) script::Struct;
     get_reset(nullptr);
 }
 
@@ -441,7 +439,7 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
     // (Not original: `size` - each part decoded within the buffer's bytes)
     const uint8_t* limit = buffer + size;
     push_script_heap();
-    uint8_t* at = raw::as<gfx::ModelLook>(this)->decode_from_bytes(buffer, size); // the appearance
+    uint8_t* at = appearance()->decode_from_bytes(buffer, size); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
     appearance_guard::sanitise(&appearance()->structure_);
@@ -472,7 +470,7 @@ uint8_t* RiderIdentity::read_info_from_buffer(uint8_t* buffer, const uint8_t* li
 int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
 {
     push_script_heap();
-    int total = raw::as<gfx::ModelLook>(this)->emit_into_buffer(
+    int total = appearance()->emit_into_buffer(
         buffer, size, static_cast<uint8_t>(flags) != 0); // the appearance
     size -= total;
     buffer += total;

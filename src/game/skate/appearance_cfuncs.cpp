@@ -72,7 +72,7 @@ objects::RiderIdentity* rider_identity_from_params(script::Struct* params, int a
 // the slot's global part list. The appearance's own structure is at +0x4C.
 gfx::ModelLook* get_appearance(objects::RiderIdentity* profile)
 {
-    return raw::as<gfx::ModelLook>(profile);
+    return profile->appearance();
 } // (its first member)
 script::Struct* actual_part(objects::RiderIdentity* profile, uint32_t part)
 {

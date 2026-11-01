@@ -195,7 +195,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     bool female = false;
     if (suffix && checksums::hash_from_text(suffix) == kSkater) {
         int male = 0;
-        raw::as<script::Struct>(current_profile()->details_.data())->fetch_int_value(kIsMale, &male, 1);
+        current_profile()->details_params()->fetch_int_value(kIsMale, &male, 1);
         if (!male)
             female = true;
     }

@@ -139,8 +139,8 @@ bool cfunc_restore_temporary_appearance(script::Struct* params, script::Script*)
         appearance->append_structure_if_any(&remembered->appearance()->structure_);
         return true;
     }
-    raw::as<gfx::ModelLook>(profile)->copy_from(
-        raw::as<gfx::ModelLook>(remembered)); // (the appearance copied)
+    profile->appearance()->copy_from(
+        remembered->appearance()); // (the appearance copied)
     return true;
 }
 

@@ -72,18 +72,13 @@ void* face_of(RiderIdentity* profile) { return profile->appearance()->face_skin_
 
 void RiderIdentity::set_appearance(script::Struct* appearance, bool update)
 {
-    raw::as<gfx::ModelLook>(this)->read_in(appearance, update);
+    look_.read_in(appearance, update);
 }
 // 0x00543010
-RiderIdentity::~RiderIdentity()
-{
-    details_params()->get_clear();
-    appearance()->~ModelLook();
-}
+RiderIdentity::~RiderIdentity() { details_.get_clear(); } // (then the appearance's destructor)
 void RiderIdentity::erase_one()
 {
-    details_params()->get_clear();
-    appearance()->~ModelLook();
+    this->~RiderIdentity();
     memory::Hub::get_pull()->dealloc(this);
 }
 

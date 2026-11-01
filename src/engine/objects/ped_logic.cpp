@@ -381,7 +381,7 @@ bool PedestrianBrainModule::get_bail()
 const char* profile_voice()
 {
     RiderIdentity* profile = g_profile_roster->fetch_active_account();
-    auto* info = raw::as<script::Struct>(profile->details_.data());
+    auto* info = profile->details_params();
     uint32_t voice = 0;
     if (!info->read_hash_value(kVoice, &voice, 0)) {
         int male = 0; // (the original's is uninitialised: is_male is asserted)

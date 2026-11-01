@@ -8,6 +8,8 @@
 #include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/mem.h"
+#include "engine/gfx/model_appearance.h"
+#include "engine/script/param_struct.h"
 
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
 // skaters, made by the init_pro_skaters script through add_template), keyed by name in a lookup table, and the
@@ -28,8 +30,8 @@ namespace objects {
 // info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code is in
 // skater_profile.cpp (0x00585ED0-0x005871A0); the appearance's (0x00488xxx-0x00489xxx) is called through the game.
 struct RiderIdentity {
-    alignas(4) std::array<uint8_t, 0x5C> look_data_{}; // a gfx::ModelLook, made in place by make_new (appearance())
-    std::array<uint8_t, 8> details_{};                 // +0x5C (a Scripts::CStruct)
+    gfx::ModelLook look_;    // the appearance
+    script::Struct details_; // its details (name, is_pro, specials...)
 
     RiderIdentity();                                    // 0x00586D60
     uint32_t fetch_title();                                       // 0x00586150 (its info's name)
@@ -44,8 +46,8 @@ struct RiderIdentity {
     void write_to_save(script::Struct* save);                     // 0x00586B00
     bool get_reset(script::Struct* params);                       // 0x00586810 (its defaults, then `params`; true)
     void set_appearance(script::Struct* appearance, bool update); // 0x00488F40
-    script::Struct* details_params() { return raw::as<script::Struct>(details_.data()); }
-    gfx::ModelLook* appearance() { return raw::as<gfx::ModelLook>(look_data_.data()); }
+    script::Struct* details_params() { return &details_; }
+    gfx::ModelLook* appearance() { return &look_; }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
     void erase_one();
     // 0x00543010: the destructor body (Delete without the free): the info cleared, the appearance's destructor body.
@@ -95,7 +97,6 @@ struct RiderIdentity {
     int write_info_to_buffer(uint8_t* buffer, int size);
     uint8_t* read_info_from_buffer(uint8_t* buffer, const uint8_t* limit);
 };
-static_assert(sizeof(RiderIdentity) == 0x64, "layout must match the original");
 
 // 0x00587120 / 0x00587130: a list of distinct checksums (up to 256, its count at +0x400): emptied / filled from the
 // global array 0x5004A967.

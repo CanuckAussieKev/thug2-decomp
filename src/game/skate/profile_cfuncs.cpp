@@ -197,24 +197,23 @@ bool cfunc_remember_temporary_appearance(Struct* params, Script*)
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name
     gfx::ModelLook appearance;                      // (destroyed at the end)
     objects::ProfileRoster* profiles = get_profiles();
-    uint8_t* source = nullptr;
+    gfx::ModelLook* source = nullptr;
     Struct* structure = nullptr;
     if (params->read_sub_struct(0xEFC8944Cu, &structure, 0)) { // appearance_structure
         appearance.read_in(structure, true);
-        source = raw::bytes(&appearance);
+        source = &appearance;
     } else {
         int player = 0;                                   // (asserted: used as it is)
         params->fetch_int_value(0x67E6859Au, &player, 1); // player
-        source = raw::bytes(profiles->fetch_account(player));
+        source = profiles->fetch_account(player)->appearance();
     }
-    auto* temporary = raw::bytes(profiles->get_extra_profile(name));
-    if (params->has_bare_flag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure (+0x4C)
-        auto* own = &raw::as<gfx::ModelLook>(temporary)->structure_;
+    gfx::ModelLook* temporary = profiles->get_extra_profile(name)->appearance();
+    if (params->has_bare_flag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure
+        auto* own = &temporary->structure_;
         own->get_clear();
-        own->append_structure_if_any(&raw::as<gfx::ModelLook>(source)->structure_);
+        own->append_structure_if_any(&source->structure_);
     } else {
-        raw::as<gfx::ModelLook>(temporary)->copy_from(
-            raw::as<gfx::ModelLook>(source)); // the appearance copied
+        temporary->copy_from(source); // the appearance copied
     }
     return true;
 }

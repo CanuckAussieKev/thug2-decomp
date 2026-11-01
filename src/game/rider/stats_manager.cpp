@@ -245,7 +245,7 @@ bool AttributeTracker::is_operative()
         return false;
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    raw::as<script::Struct>(first_profile()->details_.data())->read_hash_value(0xA1DC81F9u, &name, 1);
+    first_profile()->details_params()->read_hash_value(0xA1DC81F9u, &name, 1);
     return name == 0x0A7BE964;
 }
 
