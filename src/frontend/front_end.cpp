@@ -416,7 +416,7 @@ void __cdecl FrontEnd::keyboard_task(FrontEndTask* task)
 void FrontEnd::tick_frame(bool game_paused)
 {
     uint8_t* skate = skate_bytes();
-    bool in_skateshop = *reinterpret_cast<uint32_t*>(skate + 0x374) == 0xE92ECAFE; // (the level / game mode)
+    bool in_skateshop = modules::g_skate_module->pending_level_ == 0xE92ECAFE; // (the level / game mode)
     if (skateshop_override())
         in_skateshop = false;
     bool keyboard_up = false;

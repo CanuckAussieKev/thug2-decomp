@@ -70,6 +70,8 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "game/rider/skater_state.h"
+#include "game/rider/skater_score.h"
+#include "game/skate/point_tally.h"
 
 namespace frontend::new_frontend {
 
@@ -91,13 +93,10 @@ constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return skate_module() ? *reinterpret_cast<uint32_t*>(skate_module() + 0x378) : 0; }
+uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 // The skate module's career (+0x20; null before the module is up).
-objects::RiderStoryProgress* get_career()
-{
-    return skate_module() ? *reinterpret_cast<objects::RiderStoryProgress**>(skate_module() + 0x20) : nullptr;
-}
+objects::RiderStoryProgress* get_career() { return skate_module() ? modules::g_skate_module->career_ : nullptr; }
 modules::FrontEnd* the_front_end() { return modules::g_front_end_instance; }
 bool get_paused() { return the_front_end() && the_front_end()->is_halted_; }
 bool loading_screen_up()
@@ -329,14 +328,14 @@ void update_session(float dt)
     if (!skater)
         return;
     s_session.seconds += dt;
-    // The combo's points pending (the score's +0x14 times its multiplier +0x60 - level_editor_playtest.h), bails.
+    // The combo's points pending (the score's pot times its multiplier - level_editor_playtest.h), bails.
     int pending = 0;
     bool bailing = false;
     if (objects::ObjectModule* state = skater->fetch_module(kSkaterState))
         bailing = static_cast<objects::RiderPoseState*>(state)->is_on(objects::PoseFlag::kBailing) != 0;
     if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore))
-        if (const uint8_t* s = get_at<const uint8_t*>(score, 0x18)) {
-            double points = static_cast<double>(get_at<int>(s, 0x14)) * get_at<float>(s, 0x60);
+        if (const modules::PointTally* s = static_cast<objects::RiderPointKeeper*>(score)->points_held_) {
+            double points = static_cast<double>(s->pot_) * s->multiplier_;
             if (points > 0.0 && points < 2.0e9)
                 pending = static_cast<int>(points);
         }

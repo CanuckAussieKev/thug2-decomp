@@ -89,7 +89,7 @@ float g_message_y = 40.0f; // (show_notice's lower, clear of the score: 100)
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return skate_module() ? *reinterpret_cast<uint32_t*>(skate_module() + 0x378) : 0; }
+uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool loading_screen_up()
 {
     return render::g_loading_screen_shown != 0 || render::g_loading_bar_timer != 0 ||

@@ -33,10 +33,7 @@ constexpr uint32_t kCancelGround = 0x9A27E74D;  // CANCEL_GROUND (the global int
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); } // modules::Skate
 // The skate module's career (+0x20).
-objects::RiderStoryProgress* get_career()
-{
-    return *reinterpret_cast<objects::RiderStoryProgress**>(skate_module() + 0x20);
-}
+objects::RiderStoryProgress* get_career() { return modules::g_skate_module->career_; }
 // 0x005656C0: the skate module's (the current level's) gap checklist.
 goals::GapTally* skate_checklist()
 {

@@ -328,8 +328,8 @@ bool __cdecl cfunc_draw_directional_light_lines(script::Struct* params, script::
     params->fetch_int_value(kG, &g, 1);
     int b;
     params->fetch_int_value(kBlue, &b, 1);
-    auto* skater = reinterpret_cast<uint8_t*>(get_skate()->get_home_rider());
-    const maths::Vec4& position = *reinterpret_cast<maths::Vec4*>(skater + 0x4C);
+    objects::GameEntity* skater = get_skate()->get_home_rider();
+    const maths::Vec4& position = skater->at_point_;
     double above = static_cast<double>(position.y) + 75.0;
     float horizontal = static_cast<float>(std::cos(static_cast<double>(pitch)) * 50.0);
     maths::Vec4 from;

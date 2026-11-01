@@ -220,82 +220,97 @@ namespace {
 
 // A CAT_Set... of an integer field (the command's unnamed integer) / a flag (non-zero), and its CAT_Get... into the
 // script's parameters.
-bool store_int_field(script::Struct* params, uint32_t offset)
+bool store_int_field(script::Struct* params, int objects::Rider::* field)
 {
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int value;
     params->fetch_int_value(kNoName, &value, 1);
-    prop<int>(skater, offset) = value;
+    skater->*field = value;
     return true;
 }
-bool fetch_int_value(script::Script* script, uint32_t offset, const char* name)
+bool fetch_int_value(script::Script* script, int objects::Rider::* field, const char* name)
 {
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    get_results(script)->put_int(name, prop<int>(skater, offset));
+    get_results(script)->put_int(name, skater->*field);
     return true;
 }
-bool set_flag(script::Struct* params, uint32_t offset)
+bool set_flag(script::Struct* params, bool objects::Rider::* field)
 {
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int value;
     params->fetch_int_value(kNoName, &value, 1);
-    prop<bool>(skater, offset) = value != 0;
+    skater->*field = value != 0;
     return true;
 }
-bool fetch_marker(script::Script* script, uint32_t offset, const char* name)
+bool fetch_marker(script::Script* script, bool objects::Rider::* field, const char* name)
 {
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    get_results(script)->put_int(name, prop<bool>(skater, offset) ? 1 : 0);
+    get_results(script)->put_int(name, skater->*field ? 1 : 0);
     return true;
 }
 
 } // namespace
 
 // 0x005520F0
-bool __cdecl cfunc_cat_set_num_anims(script::Struct* params, script::Script*) { return store_int_field(params, 0x1A8); }
+bool __cdecl cfunc_cat_set_num_anims(script::Struct* params, script::Script*)
+{
+    return store_int_field(params, &objects::Rider::cat_num_anims_);
+}
 // 0x00552130
 bool __cdecl cfunc_cat_get_num_anims(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, 0x1A8, kNumAnimationsOn);
+    return fetch_int_value(script, &objects::Rider::cat_num_anims_, kNumAnimationsOn);
 }
 // 0x00552160
-bool __cdecl cfunc_cat_set_anims_done(script::Struct* params, script::Script*) { return set_flag(params, 0x1AE); }
+bool __cdecl cfunc_cat_set_anims_done(script::Struct* params, script::Script*)
+{
+    return set_flag(params, &objects::Rider::cat_anims_done_);
+}
 // 0x005521A0
 bool __cdecl cfunc_cat_get_anims_done(script::Struct*, script::Script* script)
 {
-    return fetch_marker(script, 0x1AE, kAnimationsDone);
+    return fetch_marker(script, &objects::Rider::cat_anims_done_, kAnimationsDone);
 }
 // 0x005521F0
-bool __cdecl cfunc_cat_set_rots_done(script::Struct* params, script::Script*) { return set_flag(params, 0x1AF); }
+bool __cdecl cfunc_cat_set_rots_done(script::Struct* params, script::Script*)
+{
+    return set_flag(params, &objects::Rider::cat_rots_done_);
+}
 // 0x00552230
 bool __cdecl cfunc_cat_get_rots_done(script::Struct*, script::Script* script)
 {
-    return fetch_marker(script, 0x1AF, kRotationsDone);
+    return fetch_marker(script, &objects::Rider::cat_rots_done_, kRotationsDone);
 }
 // 0x00552280
-bool __cdecl cfunc_cat_set_bail_done(script::Struct* params, script::Script*) { return set_flag(params, 0x1AC); }
+bool __cdecl cfunc_cat_set_bail_done(script::Struct* params, script::Script*)
+{
+    return set_flag(params, &objects::Rider::cat_bail_done_);
+}
 // 0x005522C0
 bool __cdecl cfunc_cat_get_bail_done(script::Struct*, script::Script* script)
 {
-    return fetch_marker(script, 0x1AC, kBailDone);
+    return fetch_marker(script, &objects::Rider::cat_bail_done_, kBailDone);
 }
 // 0x00552310
-bool __cdecl cfunc_cat_set_flip_skater(script::Struct* params, script::Script*) { return set_flag(params, 0x1AD); }
+bool __cdecl cfunc_cat_set_flip_skater(script::Struct* params, script::Script*)
+{
+    return set_flag(params, &objects::Rider::cat_flip_180_);
+}
 // 0x00552350
 bool __cdecl cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
 {
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    get_results(script)->put_int(kFlipSkater180, prop<bool>(skater, 0x1AD) ? 1 : 0);
+    get_results(script)->put_int(kFlipSkater180, skater->cat_flip_180_ ? 1 : 0);
     return true;
 }
 // 0x005523A0
@@ -306,7 +321,7 @@ bool __cdecl cfunc_cat_set_hold_time(script::Struct* params, script::Script*)
         return false;
     float time;
     params->fetch_float(kNoName, &time, 1);
-    prop<float>(skater, 0x1B0) = time;
+    skater->cat_hold_time_ = time;
     return true;
 }
 // 0x005523E0
@@ -315,29 +330,38 @@ bool __cdecl cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    get_results(script)->push_float(kHoldTime, prop<float>(skater, 0x1B0));
+    get_results(script)->push_float(kHoldTime, skater->cat_hold_time_);
     return true;
 }
 // 0x00552410
-bool __cdecl cfunc_cat_set_total_y(script::Struct* params, script::Script*) { return store_int_field(params, 0x1B8); }
+bool __cdecl cfunc_cat_set_total_y(script::Struct* params, script::Script*)
+{
+    return store_int_field(params, &objects::Rider::cat_total_y_);
+}
 // 0x00552450
 bool __cdecl cfunc_cat_get_total_y(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, 0x1B8, kTotalY);
+    return fetch_int_value(script, &objects::Rider::cat_total_y_, kTotalY);
 }
 // 0x00552480
-bool __cdecl cfunc_cat_set_total_x(script::Struct* params, script::Script*) { return store_int_field(params, 0x1B4); }
+bool __cdecl cfunc_cat_set_total_x(script::Struct* params, script::Script*)
+{
+    return store_int_field(params, &objects::Rider::cat_total_x_);
+}
 // 0x005524C0
 bool __cdecl cfunc_cat_get_total_x(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, 0x1B4, kTotalX);
+    return fetch_int_value(script, &objects::Rider::cat_total_x_, kTotalX);
 }
 // 0x005524F0
-bool __cdecl cfunc_cat_set_total_z(script::Struct* params, script::Script*) { return store_int_field(params, 0x1BC); }
+bool __cdecl cfunc_cat_set_total_z(script::Struct* params, script::Script*)
+{
+    return store_int_field(params, &objects::Rider::cat_total_z_);
+}
 // 0x00552530
 bool __cdecl cfunc_cat_get_total_z(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, 0x1BC, kTotalZ);
+    return fetch_int_value(script, &objects::Rider::cat_total_z_, kTotalZ);
 }
 
 } // namespace goals

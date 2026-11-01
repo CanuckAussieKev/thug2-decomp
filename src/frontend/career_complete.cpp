@@ -137,8 +137,8 @@ bool __cdecl cfunc_apply(script::Struct* params, script::Script*)
     script::Array* levels = nullptr;
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;
-    auto* career = *reinterpret_cast<objects::RiderStoryProgress**>(skate + 0x20);
-    uint8_t* goal_manager = *reinterpret_cast<uint8_t**>(skate + 0x38C);
+    objects::RiderStoryProgress* career = reinterpret_cast<modules::Skate*>(skate)->career_;
+    auto* goal_manager = reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(skate)->goal_manager_);
     script::Struct* saved = goal_manager ? *reinterpret_cast<script::Struct**>(goal_manager + 0x14) : nullptr;
     if (!career || !saved)
         return false;

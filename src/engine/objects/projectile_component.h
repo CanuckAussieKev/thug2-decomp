@@ -24,6 +24,8 @@ class ProbeRay;
 // function table entry 0x0045D720, 12 0x0051ADC0).
 namespace objects {
 
+class Rider;
+
 class ActivationZoneModule;
 
 class ProjectileComponent final : public ObjectModule {
@@ -49,7 +51,7 @@ public:
     // the trigger component (event 14) - any that does rests them for ten frames.
     void check_triggers();
 
-    uint8_t* rider_ref_;                // +0x18 the local skater (its projectile slots at +0x1C0, 0x18 bytes each)
+    Rider* rider_ref_;                  // +0x18 the local skater (its projectile slots)
     int seat_;                          // +0x1C its slot (-1: none)
     int rest_;                          // +0x20 frames left before the feelers run again
     ActivationZoneModule* trigger_ptr_; // +0x24 the local skater's trigger component

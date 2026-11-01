@@ -47,6 +47,8 @@
 #include "platform/screenshot.h"
 #include "platform/crash.h"
 #include "platform/run_log.h"
+#include "game/skate/point_tally.h"
+#include "game/rider/skater_score.h"
 
 namespace frontend::automation {
 
@@ -675,7 +677,7 @@ using mouse_menus::selected_index;
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return skate_module() ? *reinterpret_cast<uint32_t*>(skate_module() + 0x378) : 0; }
+uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 
 UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
@@ -898,10 +900,11 @@ void trace_frame()
         int trick = state ? state->in_trick_move_ : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
         auto* score_component = reinterpret_cast<uint8_t*>(skater->fetch_module(kScoreModuleKey));
-        uint8_t* score = score_component ? *reinterpret_cast<uint8_t**>(score_component + 0x18) : nullptr;
-        int pot = score ? *reinterpret_cast<int*>(score + 0x14) : -1;
-        float multiplier = score ? *reinterpret_cast<float*>(score + 0x60) : 0.0f;
-        int landed = score ? *reinterpret_cast<int*>(score + 0x20) : -1;
+        modules::PointTally* score =
+            score_component ? reinterpret_cast<objects::RiderPointKeeper*>(score_component)->points_held_ : nullptr;
+        int pot = score ? score->pot_ : -1;
+        float multiplier = score ? score->multiplier_ : 0.0f;
+        int landed = score ? score->pot_score_ : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
         auto* core = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysicsComponent));
         unsigned ground_flags = core ? core->floor_feeler_.hit_.face_flags_ : 0;

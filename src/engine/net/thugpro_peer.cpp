@@ -395,7 +395,7 @@ const char* current_level_prefix()
     uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
     if (!skate)
         return nullptr;
-    script::Struct* structure = script::read_sub_struct(*reinterpret_cast<uint32_t*>(skate + 0x380));
+    script::Struct* structure = script::read_sub_struct(modules::g_skate_module->level_params_);
     const char* prefix = nullptr;
     if (!structure || !structure->fetch_text(kLevel, &prefix, 0))
         return nullptr;

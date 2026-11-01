@@ -176,7 +176,7 @@ public:
     char given_name_[0x40];  // +0x118
     uint32_t label_;         // +0x158
     text::Chars shown_name_; // +0x15C
-    bool always_special_; // +0x168 (the special meter always full)
+    bool always_special_;    // +0x168 (the special meter always full)
     uint8_t pad169_[3];
     uint32_t last_restart_; // +0x16C
     bool sparks_;           // +0x170
@@ -184,13 +184,21 @@ public:
     int shadow_fade_; // +0x174
     uint8_t unknown178_[4];
     goals::CreateATrick* trick_slots_[11]; // +0x17C the created tricks
-    uint8_t unknown1a8_[0x1C0 - 0x1A8];
+    // The create-a-trick editor's state (CAT_Set... / CAT_Get..., create_a_trick.cpp).
+    int cat_num_anims_;   // +0x1A8 num_animations_on
+    bool cat_bail_done_;  // +0x1AC bailtimescriptdone
+    bool cat_flip_180_;   // +0x1AD cat_flip_skater_180
+    bool cat_anims_done_; // +0x1AE cat_animations_done
+    bool cat_rots_done_;  // +0x1AF cat_rotations_done
+    float cat_hold_time_; // +0x1B0 cat_hold_time
+    int cat_total_x_;     // +0x1B4
+    int cat_total_y_;     // +0x1B8
+    int cat_total_z_;     // +0x1BC
     struct Projectile {
         uint32_t name; // projectile_0 ... projectile_4
         bool active;
         uint8_t pad5_[3];
-        float pos[3]; // +0x08
-        uint32_t unknown14_;
+        maths::Vec4 pos;                  // +0x08 (the projectile component's position; w unused)
     } projectiles_[5];                    // +0x1C0
     memory::PaddedListNode skater_link_;  // +0x238 its node in the skate module's skater list (data = itself)
     AnimBlenderComponent* anim_blender_;  // +0x24C

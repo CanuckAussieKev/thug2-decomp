@@ -16,14 +16,13 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/trigger_events.h"
+#include "game/rider/rider.h"
 
 namespace objects {
 
 namespace {
 
 // The local skater's projectile slots (Rider +0x1C0, five of 0x18 bytes: +0 the name, +4 taken, +8 the position).
-constexpr uint32_t kSlots = 0x1C0;
-constexpr uint32_t kSlotSize = 0x18;
 constexpr int kSlotCount = 5;
 
 // The trigger component's events for a projectile's touch (0x0064B89C: 14, none, none).
@@ -34,7 +33,8 @@ constexpr float kStep = 0.8975979f; // 0x00646968 (2pi / 7)
 constexpr int kFeelers = 8;
 constexpr int kRestFrames = 10;
 
-uint8_t& slot_taken(uint8_t* skater, int slot) { return skater[kSlots + 4 + slot * static_cast<int>(kSlotSize)]; }
+// (a seat of -1 - no slot named for the object - reaches before the slots, as the original)
+bool& slot_taken(Rider* skater, int slot) { return skater->projectiles_[slot].active; }
 
 // One feeler's end x / z, as the original's x87 code: the cosine of the angle as computed (53 bits), the sine of it
 // rounded to float; z adds (sin + float(cos)) * 12 rounded to float first.
@@ -83,22 +83,22 @@ ProjectileComponent::ProjectileComponent()
 }
 
 // 0x004F37B0 (0x004F37D0 the deleting one)
-ProjectileComponent::~ProjectileComponent() { slot_taken(rider_ref_, seat_) = 0; }
+ProjectileComponent::~ProjectileComponent() { slot_taken(rider_ref_, seat_) = false; }
 
 // 0x004F3800
 void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
 {
-    auto* skater = reinterpret_cast<uint8_t*>(skate_calls::get_home_rider());
+    auto* skater = static_cast<Rider*>(skate_calls::get_home_rider());
     rider_ref_ = skater;
     uint32_t name = entity_->ident_;
     seat_ = -1;
     for (int i = 0; i < kSlotCount; ++i) {
-        if (name == *reinterpret_cast<uint32_t*>(skater + kSlots + i * kSlotSize)) {
+        if (name == skater->projectiles_[i].name) {
             seat_ = i;
             break;
         }
     }
-    slot_taken(skater, seat_) = 1;
+    slot_taken(skater, seat_) = true;
 }
 
 // 0x004F3860
@@ -112,7 +112,7 @@ void ProjectileComponent::seal()
 // 0x004F3A90
 void ProjectileComponent::tick_frame()
 {
-    *reinterpret_cast<maths::Vec4*>(rider_ref_ + kSlots + 8 + seat_ * static_cast<int>(kSlotSize)) = entity_->at_point_;
+    rider_ref_->projectiles_[seat_].pos = entity_->at_point_;
     check_triggers();
 }
 

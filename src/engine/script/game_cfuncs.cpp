@@ -646,8 +646,7 @@ bool __cdecl cfunc_move_node(script::Struct* params, script::Script*)
     switch (node_class) {
     case kClassClimbingNode:
     case kClassRailNode:
-        (*reinterpret_cast<objects::GrindRailHub**>(get_skate() + 0x24))
-            ->move_node(name, reinterpret_cast<const maths::Vec4*>(&position));
+        modules::g_skate_module->rail_manager_->move_node(name, reinterpret_cast<const maths::Vec4*>(&position));
         return true;
     case 0xA0DFAC98: // Pedestrian
     case 0x061A741E: // (name unknown)

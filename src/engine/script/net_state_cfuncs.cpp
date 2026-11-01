@@ -516,7 +516,7 @@ bool __cdecl cfunc_in_internet_mode(script::Struct*, script::Script*)
 bool __cdecl cfunc_entering_net_game(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online_hub_handle();
-    return game_net->in_net_game() && *reinterpret_cast<uint32_t*>(get_skate() + 0x37C) == 0xE92ECAFE;
+    return game_net->in_net_game() && modules::g_skate_module->previous_level_ == 0xE92ECAFE;
 }
 
 // 0x005A1C30: DeviceChosen: the network preference 0xFA187DEC isn't 0x09562A0A.

@@ -267,7 +267,7 @@ void ProjectileProximityComponent::tick_frame()
         Rider::Projectile& projectile = rider_ref_->projectiles_[i];
         if (!projectile.active)
             continue;
-        const float* pos = projectile.pos;
+        const float* pos = &projectile.pos.x;
         const maths::Vec4& at = entity_->at_point_;
         double middle = static_cast<double>(at.y) + kAbovePed;
         float dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);

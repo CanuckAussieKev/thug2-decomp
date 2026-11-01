@@ -33,7 +33,7 @@ constexpr uint32_t kDeviceNum = 0xC9428A08;    // "device_num"
 constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-uint32_t current_load_state() { return skate_module() ? *reinterpret_cast<uint32_t*>(skate_module() + 0x378) : 0; }
+uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 
 uint32_t id_of(UiWidget* element) { return reinterpret_cast<objects::Entity*>(element)->ident_; }
 
