@@ -34,9 +34,12 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/device.h"
 #include "engine/pad_input/device.h"
+#include "frontend/menu_element.h"
 
 namespace mouse_menus {
 
+using frontend::MenuBase;
+using frontend::UiTree;
 using frontend::UiWidget;
 
 namespace {
@@ -68,24 +71,18 @@ constexpr uint32_t kFlagBlockEvents = 0x200000; // block_events
 constexpr uint32_t kFlagHidden = 0x400000;      // hide
 constexpr uint32_t kFlagPriority = 0x10000000;  // priority > 0 (pad events with priorities: 0x004A8F20)
 
-// An element below this alpha (+0x114, its parents' included) isn't seen.
+// An element below this alpha (its summed alpha, its parents' included) isn't seen.
 constexpr float kMinAlpha = 0.01f;
 
-template <typename T>
-T prop(const UiWidget* element, uint32_t offset)
-{
-    return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(element) + offset);
-}
-
 const objects::Entity* as_object(const UiWidget* element) { return reinterpret_cast<const objects::Entity*>(element); }
-uint32_t current_flags(const UiWidget* element) { return prop<uint32_t>(element, 0x08); }
+uint32_t current_flags(const UiWidget* element) { return as_object(element)->object_flags_; }
 uint32_t kind_tag(const UiWidget* element) { return as_object(element)->kind_tag_; }
 uint32_t ident_no(const UiWidget* element) { return as_object(element)->ident_; }
-UiWidget* current_parent(const UiWidget* element) { return prop<UiWidget*>(element, 0x4C); }
-UiWidget* first_child(const UiWidget* element) { return prop<UiWidget*>(element, 0x58); }
-UiWidget* next_sibling(const UiWidget* element) { return prop<UiWidget*>(element, 0x64); }
-float get_alpha(const UiWidget* element) { return prop<float>(element, 0x114); }
-float bearing(const UiWidget* element) { return prop<float>(element, 0x14C); }
+UiWidget* current_parent(const UiWidget* element) { return element->container_.owner_object_; }
+UiWidget* first_child(const UiWidget* element) { return element->eldest_.owner_object_; }
+UiWidget* next_sibling(const UiWidget* element) { return element->following_.owner_object_; }
+float get_alpha(const UiWidget* element) { return element->summed_.alpha; }
+float bearing(const UiWidget* element) { return element->summed_.angle; }
 
 // The flag on the element or a parent.
 bool flag_in_chain(const UiWidget* element, uint32_t flag)
@@ -276,9 +273,8 @@ bool window_to_layout(const ScreenMapping& mapping, float window_x, float window
 
 Cuboid element_box(const UiWidget* element)
 {
-    return {prop<float>(element, 0x134), prop<float>(element, 0x138),
-            prop<float>(element, 0x160) * prop<float>(element, 0x13C),
-            prop<float>(element, 0x164) * prop<float>(element, 0x140), bearing(element)};
+    return {element->summed_.left, element->summed_.top, element->span_ * element->summed_.scale_x_,
+            element->level_y_ * element->summed_.scale_y_, bearing(element)};
 }
 
 Rect2 element_rect(const UiWidget* element) { return box_rect(element_box(element)); }
@@ -306,10 +302,11 @@ bool is_menu(const UiWidget* element)
     return type == kVMenu || type == kHMenu;
 }
 
-bool menu_runs_top_to_bottom(const UiWidget* menu) { return prop<uint8_t>(menu, 0x190) != 0; }
-int selected_index(const UiWidget* menu) { return prop<int>(menu, 0x178); }
-bool menu_has_focus(const UiWidget* menu) { return prop<uint8_t>(menu, 0x180) != 0; }
-bool menu_wraps(const UiWidget* menu) { return prop<uint8_t>(menu, 0x1A1) != 0; }
+const MenuBase* as_menu(const UiWidget* menu) { return static_cast<const MenuBase*>(menu); }
+bool menu_runs_top_to_bottom(const UiWidget* menu) { return as_menu(menu)->vertical_; }
+int selected_index(const UiWidget* menu) { return as_menu(menu)->selected_index_; }
+bool menu_has_focus(const UiWidget* menu) { return as_menu(menu)->focused_; }
+bool menu_wraps(const UiWidget* menu) { return as_menu(menu)->cycles_around_; }
 
 int child_count(const UiWidget* element)
 {
@@ -526,19 +523,19 @@ bool menu_takes_pad_events(UiWidget* menu)
 {
     if (!menu_has_focus(menu))
         return false;
-    auto* manager = reinterpret_cast<uint8_t*>(as_object(menu)->park_owner_);
+    auto* manager = static_cast<const UiTree*>(as_object(menu)->park_owner_);
     if (!manager)
         return false;
-    if (*reinterpret_cast<int*>(manager + 0x4E8) > 0) {
+    if (manager->num_priorities_ > 0) {
         bool listed = false;
-        int count = *reinterpret_cast<int*>(manager + 0x69C);
+        int count = manager->pad_event_kind_count_;
         for (int i = 0; i < count; ++i)
-            if (reinterpret_cast<uint32_t*>(manager + 0x5DC)[i] == kPadChoose)
+            if (manager->pad_event_types_[i] == kPadChoose)
                 listed = true;
         if (listed) {
             if (!flag_in_chain(menu, kFlagPriority))
                 return false;
-            if (!reinterpret_cast<frontend::UiTree*>(manager)->has_top_precedence(ident_no(menu)))
+            if (!const_cast<UiTree*>(manager)->has_top_precedence(ident_no(menu)))
                 return false;
         }
     }
@@ -661,7 +658,7 @@ void log_menu(UiWidget* menu)
 {
     get_log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s",
             ident_no(menu), current_type_name(kind_tag(menu)), selected_index(menu), child_count(menu),
-            menu_has_focus(menu), menu_takes_pad_events(menu), prop<uint8_t>(menu, 0x1A0), menu_wraps(menu),
+            menu_has_focus(menu), menu_takes_pad_events(menu), as_menu(menu)->pad_handling_ ? 1 : 0, menu_wraps(menu),
             is_rotating_menu(menu) ? ", turned (a spin menu)" : "");
 }
 
