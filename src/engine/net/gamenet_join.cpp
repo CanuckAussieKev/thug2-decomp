@@ -32,6 +32,7 @@
 #include "engine/net/stats_man.h"
 #include "engine/net/thugpro_join.h"
 #include "engine/net/thugpro_peer.h"
+#include "engine/util/byte_stream.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
@@ -235,13 +236,13 @@ void send_connection_request(net::Guest* client, const ConnectInfo& info, thugpr
     NetMessageInfo desc = new_desc();
     if (thugpro::peer_mode()) {
         desc.byte_count_ = thugpro::make_connect_request(info, request);
-        desc.content_ = request;
         desc.compression_ = 3; // (THUGPRO's LZHAM, as its client sends it - only if smaller)
     } else {
-        request->thug2 = info;
-        desc.content_ = &request->thug2;
-        desc.byte_count_ = sizeof(ConnectInfo);
+        util::ByteWriter writer(request->bytes, sizeof(request->bytes));
+        write_connect_info(writer, info);
+        desc.byte_count_ = static_cast<uint16_t>(writer.position());
     }
+    desc.content_ = request->bytes;
     desc.ident_ = kMsgConnectionRequest;
     client->send_to_host(&desc);
 }
@@ -635,16 +636,18 @@ int Hub::on_link_established(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn_;
     auto* manager = static_cast<Hub*>(context->content_);
-    auto* msg = reinterpret_cast<ConnectInfo*>(context->body_);
     if (!conn->is_off_machine()) {
         // The host's own client: proceed at once (only the player count filled in).
         NetMessageInfo desc = new_desc();
         ProceedInfo proceed;
         std::memset(&proceed, 0, sizeof(proceed));
         proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
-        desc.content_ = &proceed;
+        uint8_t proceed_bytes[kProceedInfoSize];
+        util::ByteWriter writer(proceed_bytes, sizeof(proceed_bytes));
+        write_proceed_info(writer, proceed);
+        desc.content_ = proceed_bytes;
         desc.ident_ = kMsgJoinProceed;
-        desc.byte_count_ = sizeof(proceed);
+        desc.byte_count_ = sizeof(proceed_bytes);
         context->receiver_app_->put_on_outbox(conn->hdl_, &desc);
         return net::kResultPassOn;
     }
@@ -654,10 +657,13 @@ int Hub::on_link_established(InboundMsgCtx* context)
     if (!context->receiver_app_->allows_outside_peers())
         return net::kResultConsumed;
     // NOT ORIGINAL: a request shorter than THUG2's isn't read (the original reads past it).
-    if (context->body_size_ < sizeof(ConnectInfo))
+    util::ByteReader reader(context->body_, context->body_size_);
+    ConnectInfo request;
+    if (!read_connect_info(reader, &request))
         return net::kResultConsumed;
+    ConnectInfo* msg = &request;
     thugpro::ConnectTrailer trailer;
-    if (thugpro::peer_mode() && thugpro::read_connect_trailer(msg, context->body_size_, &trailer))
+    if (thugpro::peer_mode() && thugpro::read_connect_trailer(context->body_, context->body_size_, &trailer))
         get_log("THUGPRO join (TP-R12): a THUGPRO client asks to join: version %08X, release %u, scripts %08X%s, "
                 "machine %08X",
                 trailer.version, trailer.release, trailer.scripts_hash_, trailer.modified_scripts_ ? " (modified)" : "",
@@ -699,8 +705,11 @@ int Hub::on_link_established(InboundMsgCtx* context)
     }
     std::strncpy(proceed.server_name_, preference_text(manager, kServerName), kServerNameSize - 1);
     proceed.server_name_[kServerNameSize - 1] = '\0';
-    context->receiver_app_->deliver_to(kMsgJoinProceed, sizeof(proceed), &proceed, joined->remote_ip_, joined->port_no_,
-                                       0);
+    uint8_t proceed_bytes[kProceedInfoSize];
+    util::ByteWriter writer(proceed_bytes, sizeof(proceed_bytes));
+    write_proceed_info(writer, proceed);
+    context->receiver_app_->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes, joined->remote_ip_,
+                                       joined->port_no_, 0);
     return net::kResultPassOn;
 }
 
@@ -728,7 +737,10 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         }
         std::strncpy(proceed.server_name_, preference_text(manager, kServerName), kServerNameSize - 1);
         proceed.server_name_[kServerNameSize - 1] = '\0';
-        instance->app->deliver_to(kMsgJoinProceed, sizeof(proceed), &proceed, instance->conn->remote_ip_,
+        uint8_t proceed_bytes[kProceedInfoSize];
+        util::ByteWriter writer(proceed_bytes, sizeof(proceed_bytes));
+        write_proceed_info(writer, proceed);
+        instance->app->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes, instance->conn->remote_ip_,
                                   instance->conn->port_no_, 0);
     }
     memory::Hub::get_pull()->dealloc(instance);
@@ -739,12 +751,14 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn_;
     auto* manager = static_cast<Hub*>(context->content_);
-    auto* msg = reinterpret_cast<JoinRequestBlock*>(context->body_);
     void* skate = reinterpret_cast<void*>(modules::g_skate_module);
     context->acknowledge_ = true;
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
-    if (context->body_size_ < kJoinInfoHeaderSize)
+    util::ByteReader reader(context->body_, context->body_size_);
+    JoinRequestHeader request;
+    if (!read_join_request(reader, &request))
         return net::kResultConsumed;
+    JoinRequestHeader* msg = &request;
     int reason = 0;
     if (conn->is_off_machine() && !manager->joins_accepted(reason, msg, conn, false, false, false)) {
         NetMessageInfo desc = new_desc();
@@ -802,11 +816,11 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         // NOT ORIGINAL: the appearance read from a copy as long as the most a request holds (a request cut short
         // reads zeros, not past the message).
         uint8_t appearance[kAppearanceSize];
-        uint32_t size = context->body_size_ - kJoinInfoHeaderSize;
+        size_t size = reader.remaining();
         if (size > kAppearanceSize)
             size = kAppearanceSize;
         std::memset(appearance, 0, kAppearanceSize);
-        std::memcpy(appearance, msg->appearance, size);
+        reader.bytes(appearance, size);
         player->account_->decode_from_bytes(appearance);
     }
     late_player_arrival(manager, player, kDeferredJoinFrames);
@@ -824,7 +838,12 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     NetMessageInfo desc = new_desc();
     Conn* conn = context->sender_conn_;
     auto* manager = static_cast<Hub*>(context->content_);
-    auto* proceed = reinterpret_cast<ProceedInfo*>(context->body_);
+    // (NOT ORIGINAL: one too short is dropped - the original read past it -, and the server's name is cut to its field)
+    util::ByteReader reader(context->body_, context->body_size_);
+    ProceedInfo answer;
+    if (!read_proceed_info(reader, &answer))
+        return net::kResultConsumed;
+    ProceedInfo* proceed = &answer;
     if (conn->is_off_machine()) {
         conn->set_link_speed_class(proceed->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
         manager->join_ip_ = proceed->public_ip_;
@@ -842,7 +861,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     set_maximum_players(proceed->max_players_);
     const char* name = preference_text(manager, kNetworkId);
     JoinRequestBlock* info = &g_join_scratch; // (the original's is on its stack: 4 KB)
-    std::memset(info, 0, kJoinInfoHeaderSize);
+    std::memset(static_cast<JoinRequestHeader*>(info), 0, sizeof(JoinRequestHeader));
     // NOT ORIGINAL: in the THUGPRO peer mode the profile is our machine id, as THUGPRO's client sends it (TP-R12).
     info->profile =
         thugpro::peer_mode() ? static_cast<int32_t>(thugpro::get_machine_id()) : manager->presence_service_->account_;
@@ -871,8 +890,12 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
             narrowband = true; // (a narrowband server gets no face)
         size = profile->emit_into_buffer(info->appearance, kAppearanceSize, narrowband);
     }
-    desc.content_ = info;
-    desc.byte_count_ = static_cast<uint16_t>(size + kJoinInfoHeaderSize);
+    static uint8_t request_bytes[kJoinInfoHeaderSize + kAppearanceSize]; // (the message is copied when queued)
+    util::ByteWriter writer(request_bytes, sizeof(request_bytes));
+    write_join_request(writer, *info);
+    writer.bytes(info->appearance, static_cast<size_t>(size));
+    desc.content_ = request_bytes;
+    desc.byte_count_ = static_cast<uint16_t>(writer.position());
     desc.ident_ = kMsgJoinRequest;
     desc.compression_ = 2; // LZSS (in the peer mode it goes as THUGPRO's LZHAM: compress_message)
     if (context->sender_conn_->is_off_machine())

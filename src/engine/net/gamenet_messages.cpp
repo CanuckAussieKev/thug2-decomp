@@ -138,4 +138,100 @@ bool write_start_game(util::ByteWriter& writer, const StartGame& message)
     return writer.ok();
 }
 
+bool read_connect_info(util::ByteReader& reader, ConnectInfo* message)
+{
+    message->version = reader.i32();
+    message->observer = reader.u8() != 0;
+    message->can_queue_up_ = reader.u8() != 0;
+    reader.fixed_string(message->password, sizeof(message->password), kPasswordSize);
+    message->broadband = reader.u8() != 0;
+    message->rank = reader.i8();
+    reader.fixed_string(message->cd_key_response_, sizeof(message->cd_key_response_), kCdKeyResponseSize);
+    return reader.ok();
+}
+
+bool write_connect_info(util::ByteWriter& writer, const ConnectInfo& message)
+{
+    writer.i32(message.version);
+    writer.u8(message.observer ? 1 : 0);
+    writer.u8(message.can_queue_up_ ? 1 : 0);
+    writer.fixed_string(message.password, kPasswordSize);
+    writer.u8(message.broadband ? 1 : 0);
+    writer.i8(message.rank);
+    writer.fixed_string(message.cd_key_response_, kCdKeyResponseSize);
+    return writer.ok();
+}
+
+bool read_join_request(util::ByteReader& reader, JoinRequestHeader* message)
+{
+    read_connect_info(reader, message);
+    message->profile = reader.i32();
+    message->rating = reader.i32();
+    message->drive_scheme_ = reader.i32();
+    reader.fixed_string(message->name, sizeof(message->name), kNameSize);
+    return reader.ok();
+}
+
+bool write_join_request(util::ByteWriter& writer, const JoinRequestHeader& message)
+{
+    write_connect_info(writer, message);
+    writer.i32(message.profile);
+    writer.i32(message.rating);
+    writer.i32(message.drive_scheme_);
+    writer.fixed_string(message.name, kNameSize);
+    return writer.ok();
+}
+
+bool read_proceed_info(util::ByteReader& reader, ProceedInfo* message)
+{
+    message->public_ip_ = reader.u32();
+    message->private_ip_ = reader.u32();
+    message->port = reader.i32();
+    reader.fixed_string(message->server_name_, sizeof(message->server_name_), kServerNameSize);
+    message->max_players_ = reader.i8();
+    message->broadband = reader.u8() != 0;
+    return reader.ok();
+}
+
+bool write_proceed_info(util::ByteWriter& writer, const ProceedInfo& message)
+{
+    writer.u32(message.public_ip_);
+    writer.u32(message.private_ip_);
+    writer.i32(message.port);
+    writer.fixed_string(message.server_name_, kServerNameSize);
+    writer.i8(message.max_players_);
+    writer.u8(message.broadband ? 1 : 0);
+    writer.fill(0, 2);
+    return writer.ok();
+}
+
+namespace thugpro {
+
+bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message)
+{
+    reader.bytes(message->magic, sizeof(message->magic));
+    reader.skip(2);
+    message->version = reader.u32();
+    message->release = reader.u32();
+    message->scripts_hash_ = reader.u32();
+    message->machine_id_ = reader.u32();
+    message->modified_scripts_ = reader.u8() != 0;
+    return reader.ok();
+}
+
+bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& message)
+{
+    writer.bytes(message.magic, sizeof(message.magic));
+    writer.fill(0, 2);
+    writer.u32(message.version);
+    writer.u32(message.release);
+    writer.u32(message.scripts_hash_);
+    writer.u32(message.machine_id_);
+    writer.u8(message.modified_scripts_ ? 1 : 0);
+    writer.fill(0, 3);
+    return writer.ok();
+}
+
+} // namespace thugpro
+
 } // namespace online

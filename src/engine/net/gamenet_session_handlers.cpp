@@ -575,8 +575,8 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
             queued.object_id = item->entity_key_;
             queued.node = item->list_link_;
             uint8_t spawned[kSpawnScriptSize];
-            util::ByteWriter writer(spawned, sizeof(spawned));
-            write_spawn_script(writer, queued);
+            util::ByteWriter spawned_writer(spawned, sizeof(spawned));
+            write_spawn_script(spawned_writer, queued);
             desc.content_ = spawned;
             desc.byte_count_ = sizeof(spawned);
             desc.ident_ = kMsgSpawnedScript;

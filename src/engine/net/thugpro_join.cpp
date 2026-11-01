@@ -8,6 +8,7 @@
 #include "engine/core/checksums.h"
 #include "engine/net/thugpro_peer.h"
 #include "engine/script/param_struct.h"
+#include "engine/util/byte_stream.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 
@@ -55,26 +56,30 @@ void set_scripts_hash_override(uint32_t hash) { g_hash_override = hash; }
 
 uint16_t make_connect_request(const ConnectInfo& thug2, ConnectRequest* out)
 {
-    std::memset(out, 0, sizeof(*out));
-    out->thug2 = thug2;
-    std::memcpy(out->thugpro.magic, kMagic, sizeof(kMagic));
-    out->thugpro.version = kProtocolVersion;
-    out->thugpro.release = kReleaseThug2Decomp;
-    out->thugpro.scripts_hash_ = scripts_hash();
-    out->thugpro.machine_id_ = get_machine_id();
+    ConnectTrailer trailer = {};
+    std::memcpy(trailer.magic, kMagic, sizeof(kMagic));
+    trailer.version = kProtocolVersion;
+    trailer.release = kReleaseThug2Decomp;
+    trailer.scripts_hash_ = scripts_hash();
+    trailer.machine_id_ = get_machine_id();
     // (THUGPRO's host checks this flag, not the hash: the two say the same - see the register, TP-R12)
-    out->thugpro.modified_scripts_ = out->thugpro.scripts_hash_ != kReleaseScriptsHash;
-    return static_cast<uint16_t>(sizeof(ConnectRequest));
+    trailer.modified_scripts_ = trailer.scripts_hash_ != kReleaseScriptsHash;
+    util::ByteWriter writer(out->bytes, sizeof(out->bytes));
+    write_connect_info(writer, thug2);
+    write_connect_trailer(writer, trailer);
+    return static_cast<uint16_t>(writer.position());
 }
 
 bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* out)
 {
-    if (!message || length < sizeof(ConnectRequest))
+    if (!message || length < kConnectRequestSize)
         return false;
-    const auto* request = static_cast<const ConnectRequest*>(message);
-    if (std::memcmp(request->thugpro.magic, kMagic, sizeof(kMagic)) != 0)
+    util::ByteReader reader(message, length);
+    reader.seek(kConnectInfoSize);
+    ConnectTrailer trailer;
+    if (!read_connect_trailer(reader, &trailer) || std::memcmp(trailer.magic, kMagic, sizeof(kMagic)) != 0)
         return false;
-    *out = request->thugpro;
+    *out = trailer;
     return true;
 }
 

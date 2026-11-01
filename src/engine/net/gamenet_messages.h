@@ -106,4 +106,84 @@ struct StartGame {
 bool read_start_game(util::ByteReader& reader, StartGame* message);
 bool write_start_game(util::ByteWriter& writer, const StartGame& message);
 
+// --- The join messages (THUG2's) ---
+//
+//   3 connection request (92; the joining client's, read by the host's on_link_established / joins_accepted)
+//     +0x00 i32 the network version (kVersion)   +0x04 u8 observer   +0x05 u8 can queue up (a game in progress is no
+//     refusal)   +0x06 char[10] the password   +0x10 u8 broadband   +0x11 i8 the rank (the rank limit's test)
+//     +0x12 char[74] the GameSpy CD-key response (72 characters) to the host's challenge
+//     (THUGPRO's clients add 32 bytes: ConnectTrailer below)
+//   80 join request (0x78 + the appearance's used length): the connection request's 92 bytes, then
+//     +0x5C i32 the GameSpy profile id   +0x60 i32 the rating   +0x64 i32 the drive scheme   +0x68 char[16] the
+//     name   +0x78 the appearance (RiderIdentity::emit_into_buffer, up to 0x1000 bytes)
+//   79 join proceed (32; the host's answer, read by the client's on_go_ahead_msg)
+//     +0x00 u32 the public ip   +0x04 u32 the private ip (internet hosts)   +0x08 i32 the port   +0x0C char[16] the
+//     server's name   +0x1C i8 max players   +0x1D u8 broadband (the host's)   (0) x2
+constexpr int32_t kVersion = 0x0004000B; // THUG2 PC's network version (both ends must match)
+constexpr int kPasswordSize = 10;        // 9 characters + NUL
+constexpr int kNameSize = 16;            // 15 characters + NUL
+constexpr int kServerNameSize = 16;
+constexpr int kCdKeyResponseSize = 74;
+constexpr uint32_t kAppearanceSize = 0x1000;
+constexpr size_t kConnectInfoSize = 92;
+constexpr uint32_t kJoinInfoHeaderSize = 0x78;
+constexpr size_t kProceedInfoSize = 32;
+
+struct ConnectInfo {
+    int32_t version;
+    bool observer;
+    bool can_queue_up_;
+    char password[kPasswordSize]; // (terminated: on the wire its 10 bytes)
+    bool broadband;
+    int8_t rank;
+    char cd_key_response_[kCdKeyResponseSize];
+};
+bool read_connect_info(util::ByteReader& reader, ConnectInfo* message);
+bool write_connect_info(util::ByteWriter& writer, const ConnectInfo& message);
+
+// The join request's fields (the appearance follows them on the wire).
+struct JoinRequestHeader : ConnectInfo {
+    int32_t profile;
+    int32_t rating;
+    int32_t drive_scheme_;
+    char name[kNameSize];
+};
+struct JoinRequestBlock : JoinRequestHeader {
+    uint8_t appearance[kAppearanceSize]; // (RiderIdentity::emit_into_buffer)
+};
+bool read_join_request(util::ByteReader& reader, JoinRequestHeader* message);
+bool write_join_request(util::ByteWriter& writer, const JoinRequestHeader& message);
+
+struct ProceedInfo {
+    uint32_t public_ip_;
+    uint32_t private_ip_;
+    int32_t port;
+    char server_name_[kServerNameSize];
+    int8_t max_players_;
+    bool broadband; // (the host's: the client's connection to it is narrowband if not)
+};
+bool read_proceed_info(util::ByteReader& reader, ProceedInfo* message);
+bool write_proceed_info(util::ByteWriter& writer, const ProceedInfo& message);
+
+namespace thugpro {
+
+// NOT ORIGINAL - THUGPRO's connection request trailer (after THUG2's 92 bytes; engine/net/thugpro_join.h, TP-R12):
+//   +0x5C char[10] "_THUG_PRO_"   (0) x2   +0x68 u32 its protocol version   +0x6C u32 its release type
+//   +0x70 u32 its scripts' hash   +0x74 u32 its machine id   +0x78 u8 modified scripts   (0) x3
+constexpr size_t kConnectTrailerSize = 32;
+constexpr size_t kConnectRequestSize = kConnectInfoSize + kConnectTrailerSize; // 124
+constexpr char kMagic[10] = {'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'};
+struct ConnectTrailer {
+    char magic[10];
+    uint32_t version;
+    uint32_t release;
+    uint32_t scripts_hash_;
+    uint32_t machine_id_;
+    bool modified_scripts_;
+};
+bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message);
+bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& message);
+
+} // namespace thugpro
+
 } // namespace online

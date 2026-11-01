@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/net/gamenet_messages.h"
 
 namespace net {
 struct AppHost;
@@ -47,47 +48,7 @@ struct JoinerRecord;
 
 // --- The join messages (THUG2's) ---
 
-constexpr int32_t kVersion = 0x0004000B; // THUG2 PC's network version (both ends must match)
-constexpr int kPasswordSize = 10;        // 9 characters + NUL
-constexpr int kNameSize = 16;            // 15 characters + NUL
-constexpr int kServerNameSize = 16;
-constexpr uint32_t kAppearanceSize = 0x1000;
-
-// The connection request (message 3, 92 bytes): sent by the joining client, read by the host's ok_to_join.
-struct ConnectInfo {
-    int32_t version;              // +0x00 kVersion
-    bool observer;                // +0x04
-    bool can_queue_up_;           // +0x05 a game in progress is no refusal
-    char password[kPasswordSize]; // +0x06
-    bool broadband;               // +0x10
-    int8_t rank;                  // +0x11 (the rank limit's test)
-    char cd_key_response_[74];    // +0x12 the GameSpy CD-key response (72 characters) to the host's challenge
-};
-static_assert(sizeof(ConnectInfo) == 92 && offsetof(ConnectInfo, cd_key_response_) == 0x12);
-
-// The join request (message 80): the connection request, the player and the appearance (its used length only).
-struct JoinRequestBlock : ConnectInfo {
-    int32_t profile;                     // +0x5C the GameSpy profile id
-    int32_t rating;                      // +0x60
-    int32_t drive_scheme_;               // +0x64
-    char name[kNameSize];                // +0x68
-    uint8_t appearance[kAppearanceSize]; // +0x78 (RiderIdentity::emit_into_buffer)
-};
-static_assert(offsetof(JoinRequestBlock, name) == 0x68 && offsetof(JoinRequestBlock, appearance) == 0x78);
-constexpr uint32_t kJoinInfoHeaderSize = offsetof(JoinRequestBlock, appearance);
-
-// Join proceed (message 79, 32 bytes): the host's answer to a connection request; the client then sends its join
-// request.
-struct ProceedInfo {
-    uint32_t public_ip_;                // +0x00 (internet hosts)
-    uint32_t private_ip_;               // +0x04
-    int32_t port;                       // +0x08
-    char server_name_[kServerNameSize]; // +0x0C
-    int8_t max_players_;                // +0x1C
-    bool broadband;                     // +0x1D (the host's: the client's connection to it is narrowband if not)
-    uint8_t pad1e_[2];
-};
-static_assert(sizeof(ProceedInfo) == 32 && offsetof(ProceedInfo, max_players_) == 0x1C);
+// (the join messages: engine/net/gamenet_messages.h - ConnectInfo, JoinRequestBlock, ProceedInfo)
 
 // Join refused (message 71, 10 bytes): the reason; with kRefusedCdKey, the host's CD-key challenge after it.
 enum JoinRefusedReason : int8_t {

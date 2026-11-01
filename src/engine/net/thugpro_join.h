@@ -36,32 +36,19 @@ constexpr uint32_t kReleaseScriptsHash = 0x09FC08B0; // THUGPRO's release script
 uint32_t scripts_hash();
 void set_scripts_hash_override(uint32_t hash); // (tests; 0: the settings again)
 
-// THUGPRO's connection request trailer (after THUG2's 92 bytes).
-constexpr char kMagic[10] = {'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'};
+// THUGPRO's connection request trailer (after THUG2's 92 bytes): its format, ConnectTrailer, in
+// engine/net/gamenet_messages.h.
 constexpr uint32_t kProtocolVersion = 0x00070000; // THUGPRO 0.7's (its host: byte-swapped, at least 0x700)
 // The release type field: THUGPRO's are 0 (beta, what its release sends), 1 (public), 2 (its developers': checks
 // skipped). Ours says what it is - not THUGPRO at all - with a value of its own (THUGPRO's host only looks for 2).
 constexpr uint32_t kReleaseThug2Decomp = 0x32475554; // "TUG2" in memory
-struct ConnectTrailer {
-    char magic[10]; // +0x5C "_THUG_PRO_"
-    uint8_t pad66[2];
-    uint32_t version;       // +0x68
-    uint32_t release;       // +0x6C
-    uint32_t scripts_hash_; // +0x70
-    uint32_t machine_id_;   // +0x74
-    bool modified_scripts_; // +0x78
-    uint8_t pad79[3];
-};
+// The request as it is sent: THUG2's 92 bytes and the trailer.
 struct ConnectRequest {
-    ConnectInfo thug2;
-    ConnectTrailer thugpro;
+    uint8_t bytes[kConnectRequestSize];
 };
-static_assert(sizeof(ConnectRequest) == 124 && offsetof(ConnectRequest, thugpro.version) == 0x68 &&
-              offsetof(ConnectRequest, thugpro.machine_id_) == 0x74 &&
-              offsetof(ConnectRequest, thugpro.modified_scripts_) == 0x78);
 
 // THUG2's connection request with THUGPRO's trailer: the hash scripts_hash(), "modified" when that isn't the release's,
-// our machine id. Returns the length to send (124).
+// our machine id - written into `out`. Returns the length to send (124).
 uint16_t make_connect_request(const ConnectInfo& thug2, ConnectRequest* out);
 // What a connection request from a THUGPRO client carries (for the host's log): false if it has no trailer.
 bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* out);

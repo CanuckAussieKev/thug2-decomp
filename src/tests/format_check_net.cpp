@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/net/gamenet_messages.h"
 #include "engine/net/play_messages.h"
 #include "engine/net/skater_messages.h"
 #include "engine/util/byte_stream.h"
@@ -372,6 +373,109 @@ void check_play_messages()
     }
 }
 
+// The join messages as the original's structs held them (ConnectInfo, JoinRequestBlock, ProceedInfo; THUGPRO's
+// trailer as its release sends it).
+#pragma pack(push, 1)
+struct ReferenceConnectInfo {
+    int32_t version;
+    uint8_t observer, can_queue_up;
+    char password[10];
+    uint8_t broadband;
+    int8_t rank;
+    char cd_key_response[74];
+};
+struct ReferenceJoinHeader {
+    ReferenceConnectInfo connect;
+    int32_t profile, rating, drive_scheme;
+    char name[16];
+};
+struct ReferenceProceed {
+    uint32_t public_ip, private_ip;
+    int32_t port;
+    char server_name[16];
+    int8_t max_players;
+    uint8_t broadband, pad[2];
+};
+struct ReferenceTrailer {
+    char magic[10];
+    uint8_t pad[2];
+    uint32_t version, release, scripts_hash, machine_id;
+    uint8_t modified, pad79[3];
+};
+#pragma pack(pop)
+static_assert(sizeof(ReferenceConnectInfo) == online::kConnectInfoSize &&
+              offsetof(ReferenceConnectInfo, cd_key_response) == 0x12 &&
+              sizeof(ReferenceJoinHeader) == online::kJoinInfoHeaderSize &&
+              offsetof(ReferenceJoinHeader, name) == 0x68 && sizeof(ReferenceProceed) == online::kProceedInfoSize &&
+              offsetof(ReferenceProceed, max_players) == 0x1C &&
+              sizeof(ReferenceTrailer) == online::thugpro::kConnectTrailerSize &&
+              online::kConnectInfoSize + offsetof(ReferenceTrailer, version) == 0x68 &&
+              online::kConnectInfoSize + offsetof(ReferenceTrailer, modified) == 0x78);
+
+void check_join_messages()
+{
+    ReferenceConnectInfo ref = {};
+    ref.version = online::kVersion;
+    ref.observer = 1;
+    ref.can_queue_up = 1;
+    std::strcpy(ref.password, "secret123");
+    ref.broadband = 1;
+    ref.rank = -3;
+    std::memset(ref.cd_key_response, 'k', 72);
+    online::ConnectInfo info = {};
+    info.version = online::kVersion;
+    info.observer = true;
+    info.can_queue_up_ = true;
+    std::strcpy(info.password, "secret123");
+    info.broadband = true;
+    info.rank = -3;
+    std::memset(info.cd_key_response_, 'k', 72);
+    check_message("connection request 3", info, ref, online::write_connect_info, online::read_connect_info);
+
+    ReferenceJoinHeader join_ref = {};
+    join_ref.connect = ref;
+    join_ref.profile = 123456;
+    join_ref.rating = 900;
+    join_ref.drive_scheme = 2;
+    std::strcpy(join_ref.name, "fifteen_letters");
+    online::JoinRequestHeader join = {};
+    static_cast<online::ConnectInfo&>(join) = info;
+    join.profile = 123456;
+    join.rating = 900;
+    join.drive_scheme_ = 2;
+    std::strcpy(join.name, "fifteen_letters");
+    check_message("join request 80", join, join_ref, online::write_join_request, online::read_join_request);
+
+    ReferenceProceed proceed_ref = {0x0100007F, 0x0A00000A, 5150, {}, 8, 1, {}};
+    std::strcpy(proceed_ref.server_name, "Skate Shop");
+    online::ProceedInfo proceed = {};
+    proceed.public_ip_ = 0x0100007F;
+    proceed.private_ip_ = 0x0A00000A;
+    proceed.port = 5150;
+    std::strcpy(proceed.server_name_, "Skate Shop");
+    proceed.max_players_ = 8;
+    proceed.broadband = true;
+    check_message("join proceed 79", proceed, proceed_ref, online::write_proceed_info, online::read_proceed_info, 30);
+    // a server name filling its field (no terminator): cut there
+    std::memset(proceed_ref.server_name, 'N', 16);
+    util::ByteReader reader(&proceed_ref, sizeof(proceed_ref));
+    online::ProceedInfo back;
+    check(online::read_proceed_info(reader, &back) && std::strlen(back.server_name_) == 15 && back.max_players_ == 8,
+          "join proceed 79: an unterminated name cut to its field");
+
+    ReferenceTrailer trailer_ref = {{'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'}, {}, 0x00070000, 0x32475554,
+                                    0x09FC08B0, 0xA1B2C3D4, 1, {}};
+    online::thugpro::ConnectTrailer trailer = {};
+    std::memcpy(trailer.magic, online::thugpro::kMagic, sizeof(trailer.magic));
+    trailer.version = 0x00070000;
+    trailer.release = 0x32475554;
+    trailer.scripts_hash_ = 0x09FC08B0;
+    trailer.machine_id_ = 0xA1B2C3D4;
+    trailer.modified_scripts_ = true;
+    check_message("THUGPRO connection trailer (TP-R12)", trailer, trailer_ref, online::thugpro::write_connect_trailer,
+                  online::thugpro::read_connect_trailer, 29);
+}
+
 } // namespace
 
 int run()
@@ -380,6 +484,7 @@ int run()
     check_skater_messages();
     check_graffiti_messages();
     check_play_messages();
+    check_join_messages();
     return g_failures;
 }
 
