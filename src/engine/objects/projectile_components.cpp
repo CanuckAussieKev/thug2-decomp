@@ -32,6 +32,8 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
+#include "engine/net/play_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace objects {
 
@@ -63,15 +65,9 @@ constexpr uint32_t kHitPedScript = 0x186E040D; // hit_ped_script
 constexpr float kReach = 48.0f;    // 0x006461CC: added to the radius
 constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its position
 
-// The network message a hit sends (0x84 to the hit skater's player, 0x85 to the owner's).
-constexpr uint8_t kMsgHit = 0x84, kMsgHitOwner = 0x85;
-struct HitMessage {
-    uint8_t id; // the owner's object id / the hit skater's (low byte)
-    bool fireball;
-    uint8_t pad[2];
-    int score; // what the hit takes (score_taken)
-};
-static_assert(sizeof(HitMessage) == 8, "the message is 8 bytes");
+// The network message a hit sends (0x84 to the hit skater's player, 0x85 to the owner's: engine/net/play_messages.h).
+using online::kMsgHit;
+using online::kMsgHitOwner;
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
 modules::Skate* skate_module() { return modules::g_skate_module; }
@@ -196,18 +192,23 @@ void ShotImpactModule::tick_frame()
         }
         // (The original builds it over its loop counter's slot: the two bytes after the flag are the count's high
         // bytes, 0.)
-        HitMessage hit = {};
-        hit.id = static_cast<uint8_t>(holder_key_);
+        online::Hit hit; // (the owner's object id / the hit skater's (low byte); what the hit takes: score_taken)
+        hit.object_id = static_cast<uint8_t>(holder_key_);
         hit.score = projectile_type_ == kFireball ? static_cast<int>(size_factor_) * 10 : 0;
         hit.fireball = projectile_type_ == kFireball;
+        uint8_t bytes[online::kHitSize];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        online::write_hit(writer, hit);
         msg.ident_ = kMsgHit;
-        msg.content_ = &hit;
-        msg.byte_count_ = sizeof(hit);
+        msg.content_ = bytes;
+        msg.byte_count_ = sizeof(bytes);
         msg.queue_ = net::NetMessageInfo::kLaneOrdered;
         msg.group_id_ = 8;
         victim->change_recent_hit_stamp(frame_clock::get_time());
         server->put_on_outbox(victim->get_link_handle(), &msg);
-        hit.id = static_cast<uint8_t>(skater->ident_);
+        hit.object_id = static_cast<uint8_t>(skater->ident_);
+        util::ByteWriter owner_writer(bytes, sizeof(bytes));
+        online::write_hit(owner_writer, hit);
         msg.ident_ = kMsgHitOwner;
         server->put_on_outbox(owner->get_link_handle(), &msg);
         if (projectile_type_ != kFireball)

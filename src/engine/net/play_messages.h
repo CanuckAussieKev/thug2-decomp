@@ -35,6 +35,10 @@ class ByteWriter;
 //                              (u8), (0) x3
 //   0x2D player gone (2)       the player's object id (i8), the reason (i8)
 //   (0x46 level switch: gamenet_messages.h)
+//   0x84 hit / 0x85 hit owner (8)  the other skater's object id (u8), fireball (u8), (0) x2, the score the hit takes
+//                              (i32)
+//   0x43 ran into (20)         the other's object id (u8; bit 7: it was driving), (0) x3, the push (4 floats);
+//   0x44 ran into ack (1)      the same first byte
 //   0x96 graffiti for (1)      the player's object id (u8); 0x9A graffiti parts (4): which board parts show it (u32)
 namespace online {
 
@@ -63,6 +67,12 @@ constexpr int kMaxCheats = 32;
 constexpr size_t kRunScriptHeaderSize = 8;
 constexpr size_t kRunScriptParamsSize = 0x400;
 constexpr size_t kSpawnScriptSize = 16;
+constexpr uint8_t kMsgHit = 0x84;
+constexpr uint8_t kMsgHitOwner = 0x85;
+constexpr uint8_t kMsgRanInto = 0x43;
+constexpr uint8_t kMsgRanIntoAck = 0x44;
+constexpr size_t kHitSize = 8;
+constexpr size_t kRanIntoSize = 20;
 // Fields the server rewrites in a projectile it relays (in place, before passing it on).
 constexpr uint32_t kProjectileTimeAt = 0x00;
 constexpr uint32_t kProjectileOwnerAt = 0x34;
@@ -134,6 +144,21 @@ struct Cheats {
 // (fails when the count is negative, more than kMaxCheats or more than the message holds)
 bool read_cheats(util::ByteReader& reader, Cheats* message);
 bool write_cheats(util::ByteWriter& writer, const Cheats& message);
+
+struct Hit {
+    uint8_t object_id = 0;
+    bool fireball = false;
+    int32_t score = 0;
+};
+bool read_hit(util::ByteReader& reader, Hit* message);
+bool write_hit(util::ByteWriter& writer, const Hit& message);
+
+struct RanInto {
+    uint8_t object_id = 0; // (with bit 7: driving)
+    float push[4] = {};
+};
+bool read_ran_into(util::ByteReader& reader, RanInto* message);
+bool write_ran_into(util::ByteWriter& writer, const RanInto& message);
 
 // 0x48's header (the parameters follow: script::decode_from_bytes on what is left).
 struct RunScript {

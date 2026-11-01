@@ -31,6 +31,8 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/input_component.h"
+#include "engine/net/play_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace objects {
 
@@ -357,19 +359,22 @@ void RiderFrameLog::check_for_collisions(int first)
         if (tell_players) {
             net::NetMessageInfo msg;
             msg.make_new();
-            struct {
-                uint8_t id;
-                uint8_t pad[3];
-                maths::Vec4 push;
-            } ran_into = {};
-            ran_into.id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
-            ran_into.push = my_point - their_point;
+            online::RanInto ran_into; // (engine/net/play_messages.h)
+            ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
+            maths::Vec4 push = my_point - their_point;
+            ran_into.push[0] = push.x;
+            ran_into.push[1] = push.y;
+            ran_into.push[2] = push.z;
+            ran_into.push[3] = push.w;
+            uint8_t ran_into_bytes[online::kRanIntoSize];
+            util::ByteWriter ran_into_writer(ran_into_bytes, sizeof(ran_into_bytes));
+            online::write_ran_into(ran_into_writer, ran_into);
             if (ObjectModule* input = entity_->fetch_module(kInput))
                 static_cast<PadInputModule*>(input)->disabled_ = true;
             mark_tag_time(me);
             msg.ident_ = kMsgRanInto;
-            msg.content_ = &ran_into;
-            msg.byte_count_ = 0x14;
+            msg.content_ = ran_into_bytes;
+            msg.byte_count_ = sizeof(ran_into_bytes);
             msg.queue_ = net::NetMessageInfo::kLaneOrdered;
             msg.group_id_ = 8;
             app->put_on_outbox(get_connection(me), &msg);
@@ -441,13 +446,17 @@ void RiderFrameLog::check_for_collisions(int first)
 // 0x00519870
 int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
 {
-    uint8_t* msg = reinterpret_cast<uint8_t*>(context->body_);
-    bool other_driving = msg[1] != 0;
+    // (the message: engine/net/play_messages.h; NOT ORIGINAL: one too short is dropped - the original read past it)
+    util::ByteReader reader(context->body_, context->body_size_);
+    online::Hit hit;
+    if (!online::read_hit(reader, &hit))
+        return net::kResultConsumed;
+    bool other_driving = hit.fireball;
     auto* skater = static_cast<GameEntity*>(context->content_);
     char name[0x20] = {};
     std::memcpy(name, kSomeone, 8);
     if (context->type_code_ == kMsgHit) {
-        if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0]))) {
+        if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id))) {
             GameEntity* other = player_object(player);
             // Away from the other skater (straight along x and z if they're on top of each other).
             double dx = static_cast<double>(skater->at_point_.x) - other->at_point_.x;
@@ -479,7 +488,7 @@ int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             copy_name(name, get_skater_name(player_object(player)));
             if (!get_on_server()) {
                 void* score = skater_score(skater);
-                int lost = prop<int>(msg, 4);
+                int lost = hit.score;
                 if (get_points_total(score) - lost < 0) {
                     set_points_total(score, 0);
                     script::launch_script(kUnbindFireballTricks, nullptr, nullptr, false);
@@ -490,7 +499,7 @@ int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
         }
         send_event(skater, 0x915E5E39, name, other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
     } else if (context->type_code_ == kMsgHitAck) {
-        if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0])))
+        if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id)))
             copy_name(name, get_skater_name(player_object(player)));
         send_event(skater, 0xA1021AF0, name, other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
     }
@@ -504,12 +513,25 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
     uint8_t id = context->type_code_;
     if (id != kMsgRanInto && id != kMsgRanIntoAck)
         return net::kResultPassOn;
-    uint8_t* msg = reinterpret_cast<uint8_t*>(context->body_);
+    // (the messages: engine/net/play_messages.h - 0x44 its first byte only; NOT ORIGINAL: one too short is dropped,
+    // the original read past it)
+    util::ByteReader reader(context->body_, context->body_size_);
+    online::RanInto ran_into;
+    bool read;
+    if (id == kMsgRanIntoAck) {
+        ran_into.object_id = reader.u8();
+        read = reader.ok();
+    } else {
+        read = online::read_ran_into(reader, &ran_into);
+    }
+    if (!read)
+        return net::kResultPassOn;
     char name[0x20] = {};
     std::memcpy(name, kSomeone, 8);
-    bool other_driving = (msg[0] >> 7) & 1;
-    msg[0] &= 0x7F;
-    online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(msg[0]));
+    bool other_driving = (ran_into.object_id >> 7) & 1;
+    // (the driving bit cleared in the message itself, as the original: the next local skater's handler sees it so)
+    context->body_[0] = static_cast<char>(ran_into.object_id & 0x7F);
+    online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(ran_into.object_id & 0x7F));
     if (id == kMsgRanIntoAck) {
         if (player)
             copy_name(name, get_skater_name(player_object(player)));
@@ -558,8 +580,7 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
         }
         copy_name(name, get_skater_name(player_object(player)));
     }
-    script::VectorValue push;
-    std::memcpy(&push, msg + 4, sizeof(push));
+    script::VectorValue push = {ran_into.push[0], ran_into.push[1], ran_into.push[2], ran_into.push[3]};
     send_event(skater, 0x915E5E39, name, 0x2F679251, other_driving, &push);
     return net::kResultPassOn;
 }

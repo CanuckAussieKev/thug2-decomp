@@ -720,6 +720,34 @@ void check_news()
     }
 }
 
+// The skater collision messages as their senders built them (the projectile's HitMessage, the state history's).
+#pragma pack(push, 1)
+struct ReferenceHit {
+    uint8_t id, fireball, pad[2];
+    int32_t score;
+};
+struct ReferenceRanInto {
+    uint8_t id, pad[3];
+    float push[4];
+};
+#pragma pack(pop)
+static_assert(sizeof(ReferenceHit) == online::kHitSize && sizeof(ReferenceRanInto) == online::kRanIntoSize);
+
+void check_collision_messages()
+{
+    ReferenceHit hit_ref = {5, 1, {}, 120};
+    online::Hit hit;
+    hit.object_id = 5;
+    hit.fireball = true;
+    hit.score = 120;
+    check_message("hit 0x84 / 0x85", hit, hit_ref, online::write_hit, online::read_hit);
+    ReferenceRanInto ran_ref = {0x83, {}, {10, -2, 30.5f, 0}};
+    online::RanInto ran;
+    ran.object_id = 0x83;
+    std::memcpy(ran.push, ran_ref.push, sizeof(ran.push));
+    check_message("ran into 0x43", ran, ran_ref, online::write_ran_into, online::read_ran_into);
+}
+
 } // namespace
 
 int run()
@@ -732,6 +760,7 @@ int run()
     check_session_others();
     check_chat_messages();
     check_news();
+    check_collision_messages();
     return g_failures;
 }
 

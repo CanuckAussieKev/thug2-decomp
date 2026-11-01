@@ -181,6 +181,40 @@ bool write_cheats(util::ByteWriter& writer, const Cheats& message)
     return writer.ok();
 }
 
+bool read_hit(util::ByteReader& reader, Hit* message)
+{
+    message->object_id = reader.u8();
+    message->fireball = reader.u8() != 0;
+    reader.skip(2);
+    message->score = reader.i32();
+    return reader.ok();
+}
+
+bool write_hit(util::ByteWriter& writer, const Hit& message)
+{
+    writer.u8(message.object_id);
+    writer.u8(message.fireball ? 1 : 0);
+    writer.fill(0, 2);
+    writer.i32(message.score);
+    return writer.ok();
+}
+
+bool read_ran_into(util::ByteReader& reader, RanInto* message)
+{
+    message->object_id = reader.u8();
+    reader.skip(3);
+    read_floats(reader, message->push, 4);
+    return reader.ok();
+}
+
+bool write_ran_into(util::ByteWriter& writer, const RanInto& message)
+{
+    writer.u8(message.object_id);
+    writer.fill(0, 3);
+    write_floats(writer, message.push, 4);
+    return writer.ok();
+}
+
 bool read_run_script(util::ByteReader& reader, RunScript* message)
 {
     message->name = reader.u32();

@@ -165,8 +165,11 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
 int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
+    util::ByteReader reader(context->body_, context->body_size_);
+    char spot = static_cast<char>(reader.u8());
+    if (!reader.ok()) // NOT ORIGINAL: empty - dropped
+        return kDone;
     PlayerRecord* king = is_crown_rule_active(manager);
-    char spot = static_cast<char>(get_message(context)[0]);
     if (king) {
         king->give_crown(false); // no longer the king
     }
@@ -228,7 +231,11 @@ int __cdecl handle_fcfs_notice(net::InboundMsgCtx* context)
 int __cdecl handle_flag_returned(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    PlayerRecord* player = find_player_slot_by_obj(manager, get_message(context));
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint8_t id = reader.u8();
+    if (!reader.ok()) // NOT ORIGINAL: empty - dropped
+        return kDone;
+    PlayerRecord* player = find_player_slot_by_obj(manager, &id);
     if (!player || !player->is_carrying_flag()) // (carrying a flag: 0 / 1)
         return kContinue;
     int team = player->get_flag_team(); // the flag's team
@@ -307,7 +314,11 @@ int __cdecl on_goal_sync_msg(net::InboundMsgCtx* context)
 // 0x0052E760
 int __cdecl on_crown_change_msg(net::InboundMsgCtx* context)
 {
-    const uint8_t* msg = get_message(context);
+    util::ByteReader reader(context->body_, context->body_size_);
+    const uint8_t id = reader.u8();
+    if (!reader.ok()) // NOT ORIGINAL: empty - dropped
+        return kDone;
+    const uint8_t* msg = &id; // (the new king's object id)
     Hub* manager = manager_of(context);
     NewPlayerSearch search;
     // The crown off the old king - or off a new player waiting to be added.
@@ -365,7 +376,11 @@ int __cdecl handle_joined_team(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
     Hub* manager = manager_of(context);
-    const uint8_t* msg = get_message(context);
+    // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint8_t msg[2];
+    if (!reader.bytes(msg, sizeof(msg)))
+        return kDone;
     PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (!player)
         return kContinue;

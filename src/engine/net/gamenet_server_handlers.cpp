@@ -183,7 +183,10 @@ int __cdecl handle_game_ended_report(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
-    uint8_t game = get_message(context)[0];
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint8_t game = reader.u8();
+    if (!reader.ok()) // NOT ORIGINAL: empty - dropped
+        return kDone;
     if (!player)
         return kContinue;
     PlayerSearch search;
@@ -215,7 +218,11 @@ int __cdecl on_switch_squad_msg(net::InboundMsgCtx* context)
     desc.make_new();
     PlayerSearch search;
     Hub* manager = manager_of(context);
-    const uint8_t* msg = get_message(context);
+    // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint8_t msg[2];
+    if (!reader.bytes(msg, sizeof(msg)))
+        return kDone;
     PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (!player || !player_skater(player))
         return kDone;
