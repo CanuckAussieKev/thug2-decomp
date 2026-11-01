@@ -15,6 +15,7 @@
 #include <new>
 #include <sstream>
 #include <vector>
+#include <utility>
 
 #include "engine/render/coll_static.h"
 #include "engine/core/checksums.h"
@@ -48,6 +49,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 #include "engine/core/owner.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -779,7 +781,7 @@ bool read_record(const std::string& line, Placed* placed)
 
 int partner(const std::vector<Spec>& specs, int index)
 {
-    if (index < 0 || index >= static_cast<int>(specs.size()))
+    if (index < 0 || std::cmp_greater_equal(index, specs.size()))
         return -1;
     const Spec& s = specs[index];
     Kind other{};
@@ -790,7 +792,7 @@ int partner(const std::vector<Spec>& specs, int index)
     else
         return -1;
     for (size_t i = 0; i < specs.size(); ++i) {
-        if (static_cast<int>(i) != index && specs[i].kind == other && !s.gap.empty() && same_text(specs[i].gap, s.gap))
+        if (ints::as_signed(i) != index && specs[i].kind == other && !s.gap.empty() && same_text(specs[i].gap, s.gap))
             return static_cast<int>(i);
     }
     return -1;
@@ -1173,7 +1175,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     t->bounds_low_ = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
     t->bounds_high_ = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
     bool any = false;
-    for (int f = 0; f < tri->tri_count_; ++f) {
+    for (int f = 0; std::cmp_less(f, tri->tri_count_); ++f) {
         const uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         if (!(flags & 0x40)) {
             t->all_trigger_ = false;
@@ -2415,7 +2417,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     const uint32_t selected =
-        selected_node >= 0 && selected_node < static_cast<int>(nodes.size()) ? nodes[selected_node].name : 0;
+        selected_node >= 0 && std::cmp_less(selected_node, nodes.size()) ? nodes[selected_node].name : 0;
     auto draw_proxim = [&](uint32_t node, bool is_selected) {
         const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
         if (!p)

@@ -41,6 +41,7 @@
 #include "engine/objects/input_component.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/balance_trick.h"
+#include "engine/core/ints.h"
 
 namespace skater::thaw_bmx {
 
@@ -1236,7 +1237,7 @@ bool vert_push_held(SkaterPhysicsModule* core, int push_time)
     // square nor circle.
     const BikeState& state = *state_of(core, true);
     const objects::PadSnapshot* pad = &core->input_->pad_primary_;
-    return state.stick_up_.down && push_time < static_cast<int>(get_since(state.stick_up_.press_time_)) &&
+    return state.stick_up_.down && push_time < ints::as_signed(get_since(state.stick_up_.press_time_)) &&
            !state.stick_left_.down && !state.stick_right_.down && !pad->button_box_.held_down_ &&
            !pad->button_round_.held_down_;
 }

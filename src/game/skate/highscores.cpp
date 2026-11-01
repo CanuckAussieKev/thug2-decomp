@@ -14,6 +14,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 #include "engine/core/owner.h"
+#include "engine/core/ints.h"
 
 namespace highscores {
 
@@ -204,7 +205,7 @@ void BestEntryList::decode_from_struct(script::Struct* params)
 {
     script::Array* array = nullptr;
     params->fetch_list("RecordTable", &array, 0);
-    if (num_ != static_cast<int>(array->extent_))
+    if (num_ != ints::as_signed(array->extent_))
         return;
     for (int i = 0; i < num_; ++i)
         records_[i].decode_from_struct(reinterpret_cast<script::Struct*>(array->fetch_part(i)));
@@ -334,7 +335,7 @@ void BestResults::decode_from_struct(script::Struct* params)
 {
     script::Array* array = nullptr;
     params->fetch_list("GameRecords", &array, 0);
-    if (level_count_ != static_cast<int>(array->extent_))
+    if (level_count_ != ints::as_signed(array->extent_))
         return;
     for (int i = 0; i < level_count_; ++i)
         levels_[i].decode_from_struct(reinterpret_cast<script::Struct*>(array->fetch_part(i)));

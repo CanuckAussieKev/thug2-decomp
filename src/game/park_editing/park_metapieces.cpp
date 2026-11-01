@@ -4,6 +4,7 @@
 // moves and turns with itself.
 
 #include <cstdint>
+#include <utility>
 
 #include "game/park_editing/park.h"
 #include "engine/gfx/d3dx.h"
@@ -12,6 +13,7 @@
 #include "game/park_editing/park_nx.h"
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/ints.h"
 
 namespace park_editing {
 
@@ -194,7 +196,7 @@ void PieceGroup::commission(int count)
     if (count > 2) {
         extra = allocate_descriptors(static_cast<uint32_t>(count - 2));
         // Growing: the extra entries kept.
-        if (extra && extra_desc_ && slot_limit_ <= static_cast<uint32_t>(count) && slot_limit_ > 2) {
+        if (extra && extra_desc_ && slot_limit_ <= ints::as_unsigned(count) && slot_limit_ > 2) {
             for (uint32_t i = 2; i < slot_limit_; ++i)
                 extra[i - 2] = extra_desc_[i - 2];
         }
@@ -242,11 +244,11 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
     const int y_end = area.y + area.h;
     const int z_start = area.z;
     const int z_end = area.z + area.l;
-    if (cells.x + cells.w <= x_start || cells.x >= x_end)
+    if (cells.x + cells.w <= x_start || std::cmp_greater_equal(cells.x, x_end))
         return false;
     if (cells.y + cells.h <= y_start || cells.y >= y_end)
         return false;
-    if (cells.z + cells.l <= z_start || cells.z >= z_end)
+    if (cells.z + cells.l <= z_start || std::cmp_greater_equal(cells.z, z_end))
         return false;
     if (!static_cast<uint8_t>(precise))
         return true;
@@ -270,7 +272,8 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
         const auto z = static_cast<uint8_t>(entry->z + cells.z);
         if (entry->sets_floor_)
             continue;
-        if (x + size.w > x_start && y + size.h > y_start && z + size.l > z_start && x < x_end && y < y_end && z < z_end)
+        if (x + size.w > x_start && y + size.h > y_start && z + size.l > z_start && std::cmp_less(x, x_end) &&
+            y < y_end && std::cmp_less(z, z_end))
             return true;
     }
     return false;
@@ -426,11 +429,11 @@ void grow_to_take(CellBox& cells, const CellBox* pos)
     const int w = pos->x + pos->w;
     const int h = pos->y + pos->h;
     const int l = pos->z + pos->l;
-    if (w > cells.w)
+    if (std::cmp_greater(w, cells.w))
         cells.w = static_cast<uint8_t>(w);
-    if (h > cells.h)
+    if (std::cmp_greater(h, cells.h))
         cells.h = static_cast<uint8_t>(h);
-    if (l > cells.l)
+    if (std::cmp_greater(l, cells.l))
         cells.l = static_cast<uint8_t>(l);
 }
 

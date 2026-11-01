@@ -3,6 +3,7 @@
 #include "frontend/new_frontend_model.h"
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
+#include "engine/core/ints.h"
 
 #include <algorithm>
 #include <cctype>
@@ -11,6 +12,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <utility>
 
 namespace frontend::new_frontend {
 
@@ -384,7 +386,7 @@ void Catalogue::apply_art_choices(const std::vector<std::pair<std::string, int>>
         if (!get_find(load, &s, &l))
             continue;
         StageMap& level = sections[s].levels[l];
-        if (variant >= 0 && variant < static_cast<int>(level.art_variants_.size()))
+        if (variant >= 0 && std::cmp_less(variant, level.art_variants_.size()))
             level.variant = variant;
     }
 }
@@ -580,7 +582,7 @@ void Menu::get_reset(const Catalogue* catalogue, std::vector<SectionView> views,
     // The level select opens at the last level played when it's listed.
     int section = 0, level = 0;
     if (catalogue_ && !last_level_.empty() && catalogue_->get_find(last_level_, &section, &level) &&
-        section < static_cast<int>(views_.size())) {
+        std::cmp_less(section, views_.size())) {
         const std::vector<int>& rows = views_[section].levels;
         auto it = std::find(rows.begin(), rows.end(), level);
         if (it != rows.end()) {
@@ -595,7 +597,7 @@ void Menu::set_views(std::vector<SectionView> views)
 {
     views_ = std::move(views);
     row_in_section_.resize(views_.size(), 0);
-    if (section_ >= static_cast<int>(views_.size()))
+    if (std::cmp_greater_equal(section_, views_.size()))
         section_ = 0;
     if (shown_ == Screen::kLevels) {
         reset_rows();
@@ -626,16 +628,16 @@ const std::vector<int>& Menu::option_rows() const
 {
     static const std::vector<int> kNone;
     const std::vector<options::GroupSet>& groups = options::bunches();
-    return bundle_ >= 0 && bundle_ < static_cast<int>(groups.size()) ? groups[bundle_].rows : kNone;
+    return bundle_ >= 0 && std::cmp_less(bundle_, groups.size()) ? groups[bundle_].rows : kNone;
 }
 
 int Menu::option_choice(int option) const
 {
     const std::vector<options::Spec>& specs = options::get_specs();
-    if (option < 0 || option >= static_cast<int>(specs.size()))
+    if (option < 0 || std::cmp_greater_equal(option, specs.size()))
         return 0;
     const int n = static_cast<int>(specs[option].choices.size());
-    const int value = option < static_cast<int>(options_.size()) ? options_[option] : specs[option].fallback;
+    const int value = std::cmp_less(option, options_.size()) ? options_[option] : specs[option].fallback;
     return std::clamp(value, 0, std::max(0, n - 1));
 }
 
@@ -650,7 +652,7 @@ int Menu::list_count() const
 
 const SectionView* Menu::get_view() const
 {
-    return section_ >= 0 && section_ < static_cast<int>(views_.size()) ? &views_[section_] : nullptr;
+    return section_ >= 0 && std::cmp_less(section_, views_.size()) ? &views_[section_] : nullptr;
 }
 
 int Menu::level_row() const
@@ -664,22 +666,22 @@ int Menu::level_row() const
 const StageMap* Menu::selected_level() const
 {
     const int row = level_row();
-    if (row < 0 || !catalogue_ || section_ >= static_cast<int>(catalogue_->sections.size()))
+    if (row < 0 || !catalogue_ || std::cmp_greater_equal(section_, catalogue_->sections.size()))
         return nullptr;
     const int index = get_view()->levels[row];
     const std::vector<StageMap>& levels = catalogue_->sections[section_].levels;
-    return index >= 0 && index < static_cast<int>(levels.size()) ? &levels[index] : nullptr;
+    return index >= 0 && std::cmp_less(index, levels.size()) ? &levels[index] : nullptr;
 }
 
 bool Menu::selected_locked() const
 {
     const int row = level_row();
-    return row >= 0 && row < static_cast<int>(get_view()->locked.size()) && get_view()->locked[row];
+    return row >= 0 && std::cmp_less(row, get_view()->locked.size()) && get_view()->locked[row];
 }
 
 float Menu::row_amount(int row) const
 {
-    return row >= 0 && row < static_cast<int>(rows_.size()) ? rows_[row].get_eased() : 0.0f;
+    return row >= 0 && std::cmp_less(row, rows_.size()) ? rows_[row].get_eased() : 0.0f;
 }
 
 float Menu::get_pan() const
@@ -691,7 +693,7 @@ float Menu::get_pan() const
 
 uint32_t Menu::accent_colour() const
 {
-    if (shown_ == Screen::kLevels && catalogue_ && section_ < static_cast<int>(catalogue_->sections.size()))
+    if (shown_ == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections.size()))
         return catalogue_->sections[section_].colour;
     return kHouseYellow;
 }
@@ -717,7 +719,7 @@ void Menu::get_go(Screen screen)
 {
     pile_.push_back(screen);
     uint32_t colour = kHouseYellow;
-    if (screen == Screen::kLevels && catalogue_ && section_ < static_cast<int>(catalogue_->sections.size()))
+    if (screen == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections.size()))
         colour = catalogue_->sections[section_].colour;
     wipe_ = 0.0f;
     switched_ = false;
@@ -796,7 +798,7 @@ ActStep Menu::set_section(int section)
 ActStep Menu::change_option(int step, bool wrap)
 {
     const std::vector<int>& rows = option_rows();
-    if (option_row_ < 0 || option_row_ >= static_cast<int>(rows.size()))
+    if (option_row_ < 0 || std::cmp_greater_equal(option_row_, rows.size()))
         return {};
     const int option = rows[option_row_];
     const int n = static_cast<int>(options::get_specs()[option].choices.size());
@@ -858,7 +860,7 @@ ActStep Menu::get_confirm()
         return start_launch(level->load);
     }
     if (shown_ == Screen::kOptions) {
-        if (option_row_ >= static_cast<int>(option_rows().size()))
+        if (std::cmp_greater_equal(option_row_, option_rows().size()))
             return {ActionKind::kGameOptions};
         return change_option(1, true);
     }
@@ -923,7 +925,7 @@ ActStep Menu::click_item(int index)
         return {};
     if (shown_ == Screen::kOptions) {
         move_to(index);
-        return index >= static_cast<int>(option_rows().size()) ? get_confirm() : ActStep{};
+        return std::cmp_greater_equal(index, option_rows().size()) ? get_confirm() : ActStep{};
     }
     return {};
 }
@@ -938,7 +940,7 @@ ActStep Menu::hover_level(int row)
 ActStep Menu::click_level(int row)
 {
     if (occupied() || shown_ != Screen::kLevels || !get_view() || row < 0 ||
-        row >= static_cast<int>(get_view()->levels.size()))
+        std::cmp_greater_equal(row, get_view()->levels.size()))
         return {};
     move_level(row);
     return get_confirm();
@@ -976,7 +978,7 @@ ActStep Menu::click_skate()
 
 ActStep Menu::click_choice(int row, int choice)
 {
-    if (occupied() || shown_ != Screen::kOptions || row < 0 || row >= static_cast<int>(option_rows().size()))
+    if (occupied() || shown_ != Screen::kOptions || row < 0 || std::cmp_greater_equal(row, option_rows().size()))
         return {};
     option_row_ = row;
     const int current = option_choice(option_rows()[row]);
@@ -1047,7 +1049,7 @@ bool Menu::select_id(const std::string& id)
                                                             : same_text(spec.section, id.substr(0, dot)) &&
                                                                   same_text(spec.key, id.substr(dot + 1));
                 if (match) {
-                    if (static_cast<int>(g) != bundle_) {
+                    if (ints::as_signed(g) != bundle_) {
                         set_option_group(static_cast<int>(g));
                         reset_rows();
                     }
@@ -1068,7 +1070,7 @@ std::string Menu::chosen_item_id() const
     }
     if (shown_ == Screen::kOptions) {
         const std::vector<int>& rows = option_rows();
-        if (option_row_ >= static_cast<int>(rows.size()))
+        if (std::cmp_greater_equal(option_row_, rows.size()))
             return "game_options";
         const options::Spec& spec = options::get_specs()[rows[option_row_]];
         return std::string(spec.section) + "." + spec.key;
@@ -1092,7 +1094,7 @@ ActStep Menu::tick(float dt)
     }
     const int selected = get_selected();
     for (size_t i = 0; i < rows_.size(); ++i)
-        rows_[i].tick(static_cast<int>(i) == selected, dt);
+        rows_[i].tick(ints::as_signed(i) == selected, dt);
     // The list's scroll eases toward its target (about a tenth of a second).
     const float k = 1.0f - std::exp(-dt * 18.0f);
     scroll_ += (scroll_target_ - scroll_) * k;

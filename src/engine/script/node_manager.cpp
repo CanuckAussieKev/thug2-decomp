@@ -20,6 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/core/owner.h"
+#include "engine/core/ints.h"
 
 namespace level_nodes {
 
@@ -252,7 +253,7 @@ Struct* NodeManager::get_next_node()
     int next = walk.elem() + 1;
     if (!walk.big)
         next = static_cast<int16_t>(next); // (the original's 16-bit count)
-    if (next >= static_cast<int>(nodes->extent_)) {
+    if (next >= ints::as_signed(nodes->extent_)) {
         ++array;
         next = 0;
         if (array >= num_)

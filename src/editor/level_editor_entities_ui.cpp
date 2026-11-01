@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_entities.h"
@@ -236,7 +237,7 @@ void inspector_section(int node, uint32_t object, ImFont* mono, std::vector<ui::
     const std::vector<nodes::Elem>& all = nodes::get_all();
     uint32_t name = object;
     int family = -1;
-    if (!name && node >= 0 && node < static_cast<int>(all.size()))
+    if (!name && node >= 0 && std::cmp_less(node, all.size()))
         name = all[node].name;
     const int index = name ? nodes::get_find(name) : -1;
     if (index >= 0)

@@ -16,6 +16,7 @@
 #include "engine/net/net_wire.h"
 #include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
+#include "engine/core/ints.h"
 
 namespace net {
 
@@ -302,7 +303,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
         return kResultConsumed;
     int size = header.size;
     const uint8_t method = header.method;
-    if (size < static_cast<int>(wire::kMessageHeaderSize))
+    if (size < ints::as_signed(wire::kMessageHeaderSize))
         return kResultConsumed;
     const uint8_t* stream = reader.cursor();
     const int stream_size = static_cast<int>(reader.remaining());
@@ -331,7 +332,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
         size_t expanded = 0;
         if (!lzham::decompress(stream, static_cast<size_t>(stream_size), reinterpret_cast<uint8_t*>(data),
                                static_cast<size_t>(expected_size), &expanded) ||
-            expanded != static_cast<size_t>(expected_size)) {
+            expanded != ints::as_unsigned(expected_size)) {
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }

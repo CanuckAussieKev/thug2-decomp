@@ -25,6 +25,7 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 #include "engine/gfx/pc_instance.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::preview {
 
@@ -294,7 +295,7 @@ void tick_cycle(ui::ShapeMesh* model)
 {
     ui::ShapeMesh::PreviewView& view = model->preview;
     const std::vector<ui::BrowserItem>* items = model->browser_items_;
-    if (!model->browser || !items || view.index < 0 || view.index >= static_cast<int>(items->size())) {
+    if (!model->browser || !items || view.index < 0 || view.index >= ints::as_signed(items->size())) {
         if (g_kind != Kind::kNone)
             conceal();
         return;

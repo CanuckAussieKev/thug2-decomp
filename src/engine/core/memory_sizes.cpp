@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "platform/run_log.h"
+#include "engine/core/ints.h"
 
 namespace memory::sizes {
 
@@ -111,7 +112,7 @@ uint32_t node_hash_slots()
             return kOriginalNodeHashSlots;
         const int asked = std::clamp(config_int("memory", "node_hash_slots", 0x10000), 0x4000, 0x100000);
         uint32_t n = kOriginalNodeHashSlots;
-        while (n < static_cast<uint32_t>(asked))
+        while (n < ints::as_unsigned(asked))
             n <<= 1;
         return n;
     }();

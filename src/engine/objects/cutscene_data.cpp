@@ -28,6 +28,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -122,7 +123,7 @@ const char* skater_model_name(script::Struct* params)
     uint32_t profile = 0;
     if (params->read_hash_value(kProfile, &profile, 0)) {
         script::Array* profiles = script::fetch_list(kProfiles);
-        for (int i = 0; i < static_cast<int>(profiles->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(profiles->extent_); ++i) {
             auto* entry = reinterpret_cast<script::Struct*>(profiles->fetch_part(static_cast<uint32_t>(i)));
             uint32_t name = 0; // (asserted: the original's is uninitialised)
             entry->read_hash_value(kProfileName, &name, 1);

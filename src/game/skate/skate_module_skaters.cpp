@@ -66,6 +66,7 @@
 #include "engine/gfx/settings.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/balance_trick.h"
+#include "engine/core/ints.h"
 
 namespace modules {
 
@@ -181,7 +182,7 @@ objects::GameEntity* Skate::get_rider_at(int index)
 // The skater at `index` as the module's loops find it (null past the end; the node's data otherwise).
 objects::Rider* Skate::get_skater_at(uint32_t index)
 {
-    if (static_cast<uint32_t>(count_riders()) <= index)
+    if (ints::as_unsigned(count_riders()) <= index)
         return nullptr;
     return static_cast<objects::Rider*>(skater_node(index)->data);
 }
@@ -189,7 +190,7 @@ objects::Rider* Skate::get_skater_at(uint32_t index)
 // 0x00566520
 objects::Rider* Skate::get_home_rider()
 {
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         auto* skater = static_cast<objects::Rider*>(skater_node(i)->data); // (no check: as the original)
         if (skater->is_local_skater_)
             return skater;
@@ -200,7 +201,7 @@ objects::Rider* Skate::get_home_rider()
 // 0x00566600
 objects::Rider* Skate::get_rider_by_number(uint32_t id)
 {
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         auto* skater = static_cast<objects::Rider*>(skater_node(i)->data);
         if (skater->ident_ == id)
             return skater;
@@ -332,7 +333,7 @@ int Skate::find_free_rider_heap(bool local)
         return index;
     for (int tries = 0;;) {
         bool used = false;
-        for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
+        for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
             if (static_cast<objects::Rider*>(skater_node(i)->data)->get_skater_number() == index) {
                 used = true;
                 break;
@@ -458,7 +459,7 @@ void Skate::teleport_to_spawn(objects::Rider* skater, uint32_t node, uint32_t wa
 // 0x00566980
 void Skate::reset_skaters(uint32_t node, uint32_t walking)
 {
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i); // (no check: as the original)
         if (skater->is_local_skater_) {
             const uint32_t at = node ? node : warp_to_restart(skater->ident_);
@@ -481,7 +482,7 @@ void Skate::tidy_up()
 {
     debug::printf(
         "Skate::Cleanup() - Deleting all session specific objects\n"); // "Skate::tidy_up() - Deleting all session specific objects\n"
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (!skater)
             continue;
@@ -500,7 +501,7 @@ void Skate::tidy_up()
         viewer->drop_viewer_entity();
     entity_hub_handle()->for_each(&objects::dispose_when_free, nullptr);
     entity_hub_handle()->flush_dead_objects();
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (!skater)
             continue;
@@ -704,9 +705,9 @@ void Skate::update_records()
 bool Skate::all_skaters_idle()
 {
     bool idle = true;
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i); // (null past the end, as the original - never reached)
-        if (get_game_mode()->is_true(kIsHorse) && static_cast<uint32_t>(horse_->skater_) != skater->ident_)
+        if (get_game_mode()->is_true(kIsHorse) && ints::as_unsigned(horse_->skater_) != skater->ident_)
             continue; // (in HORSE only the skater taking the run)
         auto* end_run = static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
         if (end_run->run_done())

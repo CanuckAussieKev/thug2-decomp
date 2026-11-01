@@ -10,6 +10,7 @@
 #include <limits>
 #include <map>
 #include <string>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -181,7 +182,7 @@ V3 Companion::get_vertex(int i) const { return {vertices_[i * 3], vertices_[i * 
 std::vector<FaceCopy> Companion::get_faces() const
 {
     std::vector<FaceCopy> faces(geometry_.tri_count_);
-    for (int f = 0; f < geometry_.tri_count_; ++f)
+    for (int f = 0; std::cmp_less(f, geometry_.tri_count_); ++f)
         faces[f] = read_face(&geometry_, f);
     return faces;
 }
@@ -195,7 +196,7 @@ bool Companion::live_now() const { return !(entity_.flag_bits_ & 4); }
 
 void Companion::change_tri_flags(int face, uint16_t flags)
 {
-    if (face >= 0 && face < geometry_.tri_count_)
+    if (face >= 0 && std::cmp_less(face, geometry_.tri_count_))
         std::memcpy(&faces_[static_cast<size_t>(face) * 10], &flags, 2);
 }
 
@@ -433,7 +434,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             continue; // (named after another piece: that one's)
         const V3 named_min = min - V3{100.0f, 100.0f, 100.0f};
         const V3 named_max = max + V3{100.0f, 100.0f, 100.0f};
-        for (int f = 0; f < geometry->tri_count_ && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
+        for (int f = 0; std::cmp_less(f, geometry->tri_count_) && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
             const FaceCopy face = read_face(geometry, f);
             if (!takeable(face.flags))
                 continue;
@@ -703,7 +704,7 @@ bool origin_of(uint32_t piece, int index, render::TriMeshSource** geometry, int*
 {
     TableRow* entry = get_find(piece);
     // (the companion's faces are the taken ones, in order - Gather / Add; a copy's took none)
-    if (!entry || !entry->companion || index < 0 || index >= static_cast<int>(entry->taken.size()))
+    if (!entry || !entry->companion || index < 0 || std::cmp_greater_equal(index, entry->taken.size()))
         return false;
     *geometry = entry->taken[index].geometry;
     *face = entry->taken[index].face;

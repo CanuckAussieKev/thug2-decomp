@@ -15,6 +15,7 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_actions.h"
@@ -37,6 +38,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/gfx/geom.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -993,7 +995,7 @@ const std::vector<Segment>& current_segments()
         if (!place(n, &a))
             continue;
         for (const int link : n.links) {
-            if (link < 0 || link >= static_cast<int>(nodes.size()))
+            if (link < 0 || std::cmp_greater_equal(link, nodes.size()))
                 continue;
             V3 b{};
             if (place(nodes[link], &b))
@@ -1337,7 +1339,7 @@ void add_contacts(const Painter& p)
     if (!edit::get_dragging() || SDL_GetTicks() - g_snap.contacts_at_ > 150)
         return;
     for (const Contact& c : g_snap.contacts) {
-        if (c.other < 0 || c.other >= static_cast<int>(g_snap.boxes.size()))
+        if (c.other < 0 || std::cmp_greater_equal(c.other, g_snap.boxes.size()))
             continue;
         // (the face met: the neighbour's rectangle on that plane where the two boxes meet)
         const Aabb& o = g_snap.boxes[c.other];
@@ -1375,7 +1377,7 @@ void add_edges(const Painter& p)
         runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
         12.0f * static_cast<float>(p.viewport[3]) / 720.0f);
     for (size_t r = 0; r < runs.size(); ++r) {
-        const bool lit = static_cast<int>(r) == g_edge_hover;
+        const bool lit = ints::as_signed(r) == g_edge_hover;
         for (size_t i = 1; i < runs[r].points.size(); ++i)
             p.get_seg(runs[r].points[i - 1], runs[r].points[i], lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
         if (lit) {

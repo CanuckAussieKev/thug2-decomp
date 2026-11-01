@@ -12,6 +12,7 @@
 #include "engine/util/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 #include "platform/stopwatch.h"
+#include "engine/core/ints.h"
 
 namespace gfx {
 
@@ -219,8 +220,8 @@ void JointClipFrames::build_cache(int format)
                 ++sizes;
                 ++bone;
                 rot_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
-            } while (static_cast<uint16_t>(bone) != static_cast<uint32_t>(bones) && *sizes == 0);
-            if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && *sizes == 0);
+            if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }
         cursor = decode_rotation(cursor, key, flag_bits_, key_table_);
@@ -240,7 +241,7 @@ void JointClipFrames::build_cache(int format)
         ++sizes;
         ++bone;
         rot_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
-        if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+        if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
             break;
     }
 
@@ -257,8 +258,8 @@ void JointClipFrames::build_cache(int format)
                 ++sizes;
                 ++bone;
                 trans_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
-            } while (static_cast<uint16_t>(bone) != static_cast<uint32_t>(bones) && *sizes == 0);
-            if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && *sizes == 0);
+            if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }
         cursor = decode_translation(cursor, translation, flag_bits_);
@@ -280,7 +281,7 @@ void JointClipFrames::build_cache(int format)
         ++sizes;
         ++bone;
         trans_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
-        if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+        if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
             break;
     }
 

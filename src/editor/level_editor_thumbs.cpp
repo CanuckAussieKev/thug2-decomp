@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <unordered_map>
+#include <utility>
 
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_preview.h"
@@ -394,7 +395,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     std::vector<int> shown;
     if (g_list_mode == 1) {
         std::unordered_map<uint32_t, int> by_id;
-        for (int i = 0; i < static_cast<int>(items.size()); ++i)
+        for (int i = 0; std::cmp_less(i, items.size()); ++i)
             by_id.emplace(items[i].id, i);
         for (const std::string& entry : g_recent) {
             int entry_tab = 0;
@@ -406,7 +407,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 shown.push_back(found->second);
         }
     } else {
-        for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+        for (int i = 0; std::cmp_less(i, items.size()); ++i) {
             if (!get_matches(items[i].label, filter))
                 continue;
             if (g_list_mode == 2 && !favourite(tab, items[i].id))
@@ -486,7 +487,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
             for (int column = 0; column < columns; ++column) {
                 const int n = row * columns + column;
-                if (n >= static_cast<int>(shown.size()))
+                if (std::cmp_greater_equal(n, shown.size()))
                     break;
                 const int i = shown[n];
                 if (column)

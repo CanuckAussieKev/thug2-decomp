@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "frontend/new_frontend_text.h"
 
@@ -25,7 +26,7 @@ struct StageMap {
     // The picture shown: the chosen variant, else `art`.
     const std::string& current_art() const
     {
-        return variant >= 0 && variant < static_cast<int>(art_variants_.size()) ? art_variants_[variant] : art;
+        return variant >= 0 && std::cmp_less(variant, art_variants_.size()) ? art_variants_[variant] : art;
     }
     std::string level_num_name_; // level_num as a script name ("LevelNum_BO"), or empty when it was a number
     int level_index_ = -1;       // level_num as a number (-1: a name - resolved by the game)

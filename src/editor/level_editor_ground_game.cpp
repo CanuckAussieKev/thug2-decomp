@@ -17,6 +17,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checksums.h"
@@ -184,7 +185,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     // The render: new vertex buffers (each of the mesh's) and index buffers (each level of detail it draws).
     std::vector<uint8_t> data(static_cast<size_t>(count) * first->stride);
     write_vertices(mesh, layout, first->stride, spec.colour, data.data());
-    for (int b = 0; b < first->vertex_buffer_count_; ++b) {
+    for (int b = 0; std::cmp_less(b, first->vertex_buffer_count_); ++b) {
         render::VertexBuffer* buffer = new_vertex_buffer(static_cast<uint32_t>(data.size()));
         if (!buffer || !buffer->data) {
             *why = "no vertex buffer";
@@ -506,7 +507,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     }
     const render::TriMeshSource* tri = static_of(sector)->geometry_;
     std::map<uint16_t, int> terrains;
-    for (int f = 0; f < tri->tri_count_ && tri->faces_; ++f)
+    for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f)
         ++terrains[reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10))[1]];
     int most = -1;
     for (const auto& t : terrains) {

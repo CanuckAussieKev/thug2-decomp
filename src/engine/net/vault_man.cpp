@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -675,7 +676,7 @@ int VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t receiv
     // Not original - the item decoded within what was received (at most the download's buffer; the original
     // decoded the structure with no end - a download cut short read on past it).
     int64_t size = received < 0 ? 0 : received;
-    if (size > static_cast<int64_t>(vault->buffer_size_))
+    if (std::cmp_greater(size, static_cast<int64_t>(vault->buffer_size_)))
         size = vault->buffer_size_;
     load_downloaded_item(buffer, static_cast<size_t>(size), script);
     vault->fault_ = 0;

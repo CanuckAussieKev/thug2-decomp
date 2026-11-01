@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/dbg.h"
 #include "engine/script/names.h"
@@ -51,7 +52,7 @@ template <typename Visit>
 void for_each_event(MoveExecutor* trick, Visit visit)
 {
     int index = trick->event_head_;
-    for (int n = 0; n < trick->event_count_; ++n) {
+    for (int n = 0; std::cmp_less(n, trick->event_count_); ++n) {
         if (!visit(index, trick->events_[index]))
             return;
         if (--index < 0)

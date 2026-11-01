@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <utility>
 
 #include "engine/core/checksums.h"
+#include "engine/core/ints.h"
 
 namespace frontend::new_frontend::mirror {
 
@@ -280,7 +282,7 @@ View get_build(const MenuRead& read, const Policy& policy)
                                   // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                                   static_cast<int>(low + item.slider_at_ * (kValMax - low) + 0.5f));
                 } else {
-                    show = static_cast<int>(i) == read.selected_index_;
+                    show = ints::as_signed(i) == read.selected_index_;
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                     std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * 100.0f + 0.5f));
                 }
@@ -289,7 +291,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             }
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
-            if (static_cast<int>(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_)
                 view.selected = static_cast<int>(view.rows.size());
             view.rows.push_back(std::move(row));
         }
@@ -326,7 +328,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             row.label = label;
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
-            if (static_cast<int>(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_)
                 view.selected = static_cast<int>(view.rows.size());
             view.rows.push_back(std::move(row));
         }
@@ -386,7 +388,7 @@ View get_build(const MenuRead& read, const Policy& policy)
                 row.blurb = style->blurb ? style->blurb : "";
                 row.tag = style->tag ? style->tag : "";
             }
-            if (static_cast<int>(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_)
                 view.selected = static_cast<int>(view.rows.size());
             view.rows.push_back(std::move(row));
         }
@@ -436,7 +438,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             row.label = item.display.empty() ? std::string("?") : clean_text(item.display);
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
-            if (static_cast<int>(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_)
                 view.selected = static_cast<int>(view.rows.size());
             view.rows.push_back(std::move(row));
         }
@@ -582,14 +584,14 @@ bool Tracker::tick_frame(const View& now, float dt)
     if (up_dir_) {
         rows_.resize(camera_view_.rows.size());
         for (size_t i = 0; i < rows_.size(); ++i)
-            rows_[i].tick(static_cast<int>(i) == camera_view_.selected, dt);
+            rows_[i].tick(ints::as_signed(i) == camera_view_.selected, dt);
     }
     return up_dir_;
 }
 
 float Tracker::row_amount(int row) const
 {
-    return row >= 0 && row < static_cast<int>(rows_.size()) ? rows_[row].get_eased() : 0.0f;
+    return row >= 0 && std::cmp_less(row, rows_.size()) ? rows_[row].get_eased() : 0.0f;
 }
 
 void Tracker::get_reset()

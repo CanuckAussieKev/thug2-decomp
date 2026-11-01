@@ -22,6 +22,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
+#include "engine/core/ints.h"
 
 namespace frontend {
 
@@ -134,7 +135,7 @@ void FloatingTextComponent::tick_frame()
         return;
     if (!text_[0])
         return;
-    if (end_time_ && end_time_ < static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset)) {
+    if (end_time_ && end_time_ < ints::as_unsigned(frame_clock::game_clock_elapsed() + g_clock_offset)) {
         text_[0] = 0;
         end_time_ = 0;
     }

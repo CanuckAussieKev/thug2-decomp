@@ -2,6 +2,7 @@
 // area, the floor slide, and the floor under placed pieces.
 
 #include <cstdint>
+#include <utility>
 
 #include "game/park_editing/park.h"
 
@@ -165,8 +166,8 @@ void ParkLayout::remove_meta_from_list(PieceGroup* meta, MapListNode** list)
 
 void ParkLayout::add_meta_to_cells(PieceGroup* meta)
 {
-    for (int i = 0; i < meta->cell_footprint_.w; ++i) {
-        for (int j = 0; j < meta->cell_footprint_.l; ++j) {
+    for (int i = 0; std::cmp_less(i, meta->cell_footprint_.w); ++i) {
+        for (int j = 0; std::cmp_less(j, meta->cell_footprint_.l); ++j) {
             MapListNode* node = MapListNode::fabricate();
             node->piece_group_ = meta; // (out of memory crashes, as in the original)
             MapListNode*& bucket = cell_metas_[meta->cell_footprint_.x + i][meta->cell_footprint_.z + j];
@@ -178,8 +179,8 @@ void ParkLayout::add_meta_to_cells(PieceGroup* meta)
 
 void ParkLayout::remove_meta_from_cells(PieceGroup* meta)
 {
-    for (int i = 0; i < meta->cell_footprint_.w; ++i) {
-        for (int j = 0; j < meta->cell_footprint_.l; ++j) {
+    for (int i = 0; std::cmp_less(i, meta->cell_footprint_.w); ++i) {
+        for (int j = 0; std::cmp_less(j, meta->cell_footprint_.l); ++j) {
             MapListNode*& bucket = cell_metas_[meta->cell_footprint_.x + i][meta->cell_footprint_.z + j];
             MapListNode* previous = nullptr;
             for (MapListNode* node = bucket; node; previous = node, node = node->following_) {

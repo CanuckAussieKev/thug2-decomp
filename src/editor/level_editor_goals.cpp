@@ -13,6 +13,7 @@
 #include <functional>
 #include <initializer_list>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "game/park_editing/goal_editor.h"
@@ -32,6 +33,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 #include "engine/objects/compositemgr.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -511,7 +513,7 @@ bool read_record(const std::string& text, Goal* out)
     // (the points: p0.. with none missing, within the type's most)
     std::sort(points.begin(), points.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     for (size_t i = 0; i < points.size(); ++i) {
-        if (points[i].first != static_cast<int>(i))
+        if (points[i].first != ints::as_signed(i))
             return false;
         g.points.push_back(points[i].second);
     }
@@ -1352,7 +1354,7 @@ bool point_of_node(uint32_t node, std::string* id, int* point)
 void choose_one(const std::string& id, int point)
 {
     const int i = index_of_goal_id(id);
-    if (i >= 0 && point >= 0 && point < static_cast<int>(g_goals[i].points.size()))
+    if (i >= 0 && point >= 0 && std::cmp_less(point, g_goals[i].points.size()))
         select_point(g_goals[i], point);
 }
 bool in_play() { return !g_in_play.empty(); }

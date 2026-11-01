@@ -11,6 +11,7 @@
 #include <sstream>
 
 #include "engine/core/checksums.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::ground {
 
@@ -302,7 +303,7 @@ bool layout_for(uint32_t fvf, uint32_t stride, Layout* layout)
     if (layout->tex_count_)
         layout->tex = at;
     at += 8 * layout->tex_count_;
-    return static_cast<uint32_t>(at) == stride;
+    return ints::as_unsigned(at) == stride;
 }
 
 void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint32_t colour, uint8_t* out)

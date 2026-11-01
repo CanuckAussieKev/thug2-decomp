@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -1865,8 +1866,7 @@ Graph graph_of(nodes::Family family)
             continue;
         std::vector<uint32_t> links;
         for (const int link : node.links) {
-            if (link >= 0 && link < static_cast<int>(nodes.size()) && nodes[link].family == family &&
-                !nodes[link].hidden)
+            if (link >= 0 && std::cmp_less(link, nodes.size()) && nodes[link].family == family && !nodes[link].hidden)
                 links.push_back(nodes[link].name);
         }
         graph[node.name] = links;

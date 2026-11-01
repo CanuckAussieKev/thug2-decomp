@@ -16,6 +16,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/ints.h"
 
 namespace render {
 
@@ -135,7 +136,7 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
                 break;
             auto* color = reinterpret_cast<script::Array*>(table->fetch_part(i));
             uint32_t packed = 0;
-            for (int j = 0; j < static_cast<int>(color->extent_); ++j)
+            for (int j = 0; j < ints::as_signed(color->extent_); ++j)
                 packed |= (color->fetch_part(j) & 0xFF) << ((8 * j) & 31); // (a 5th byte wraps round, as SHL does)
             colors[i] = packed;
         }

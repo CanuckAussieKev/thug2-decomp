@@ -15,6 +15,7 @@
 #include "game/park_editing/park.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/ints.h"
 
 namespace park_editing {
 
@@ -271,8 +272,8 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     stats.park_heap_free_ = park_region()->free_byte_count() + (park_heap()->free_size_ - park_pad);
 
     // Fragmented: the largest block is all that can be counted on.
-    if (static_cast<int>(main_heap->largest_free()) < stats.main_heap_free_ &&
-        static_cast<int>(main_heap->largest_free()) < main_pad && stats.main_heap_free_ >= main_pad) {
+    if (ints::as_signed(main_heap->largest_free()) < stats.main_heap_free_ &&
+        ints::as_signed(main_heap->largest_free()) < main_pad && stats.main_heap_free_ >= main_pad) {
         stats.main_heap_free_ = static_cast<int>(main_heap->largest_free());
         stats.main_heap_fragmented_ = true;
     } else {

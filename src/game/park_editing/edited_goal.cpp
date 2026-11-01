@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -48,7 +49,7 @@ EditedGoal::EditedGoal() { init_edited_goal(reinterpret_cast<uint8_t*>(this)); }
 // 0x004E6B80
 void EditedGoal::drop_gap_entry(uint8_t gap)
 {
-    for (int i = 0; i < num_gaps_; ++i) {
+    for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
         if (gaps_[i] != gap)
             continue;
         for (int j = i; j < num_gaps_ - 1; ++j)
@@ -62,7 +63,7 @@ void EditedGoal::drop_gap_entry(uint8_t gap)
 void EditedGoal::remove_gap_and_renumber(uint8_t gap)
 {
     drop_gap_entry(gap);
-    for (int i = 0; i < num_gaps_; ++i) {
+    for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
         if (gaps_[i] > gap)
             --gaps_[i];
     }
@@ -72,7 +73,7 @@ void EditedGoal::remove_gap_and_renumber(uint8_t gap)
 void EditedGoal::register_gap_entry(uint8_t gap)
 {
     const uint8_t count = num_gaps_;
-    for (int i = 0; i < num_gaps_; ++i) {
+    for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
         if (gaps_[i] == gap)
             return;
     }
@@ -90,7 +91,7 @@ void EditedGoal::add_key_combo_set(int set, int must_be_flawless, int spin, int 
     int index = num_key_combo_sets_;
     bool found = false;
     for (int i = 0; i < num_key_combo_sets_; ++i) {
-        if (key_combo_sets_[i].set == set) {
+        if (std::cmp_equal(key_combo_sets_[i].set, set)) {
             index = i;
             found = true;
             break;
@@ -109,7 +110,7 @@ void EditedGoal::add_key_combo_set(int set, int must_be_flawless, int spin, int 
 void EditedGoal::remove_key_combo_set(int set)
 {
     for (int i = 0; i < num_key_combo_sets_; ++i) {
-        if (key_combo_sets_[i].set != set)
+        if (std::cmp_not_equal(key_combo_sets_[i].set, set))
             continue;
         for (int j = i; j < num_key_combo_sets_ - 1; ++j)
             key_combo_sets_[j] = key_combo_sets_[j + 1];
@@ -123,7 +124,7 @@ KeyComboSet* EditedGoal::find_key_combo_set(int set)
 {
     const int count = num_key_combo_sets_;
     for (int i = 0; i < count; ++i) {
-        if (key_combo_sets_[i].set == set)
+        if (std::cmp_equal(key_combo_sets_[i].set, set))
             return &key_combo_sets_[i];
     }
     return nullptr;
@@ -150,7 +151,7 @@ void EditedGoal::change_species(uint32_t type)
     case kGoalTypeCombo:
         min_points_ = 7;
         max_points_ = 7;
-        for (int i = 2; i < min_points_; ++i) {
+        for (int i = 2; std::cmp_less(i, min_points_); ++i) {
             path_vertices_[i].kind = kPointObject;
             path_vertices_[i].height = 0.0f;
         }
@@ -233,7 +234,7 @@ void EditedGoal::place_goal_marker(int index)
 // 0x004E7780
 void EditedGoal::create_markers()
 {
-    for (int i = 1; i < vertex_total_; ++i)
+    for (int i = 1; std::cmp_less(i, vertex_total_); ++i)
         place_goal_marker(i);
     current_point_ = 0;
     won_ = false;
@@ -337,7 +338,7 @@ void EditedGoal::write_node_position(int index, uint32_t node_name)
 void EditedGoal::emit_node_coords()
 {
     char name[100];
-    for (int i = 0; i < vertex_total_; ++i) {
+    for (int i = 0; std::cmp_less(i, vertex_total_); ++i) {
         name[0] = '\0';
         if (i == 0)
             get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
@@ -407,7 +408,7 @@ void EditedGoal::read_specific_params(script::Struct* params)
         if (!gaps)
             break;
         num_gaps_ = static_cast<uint8_t>(gaps->extent_);
-        for (int i = 0; i < num_gaps_; ++i)
+        for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
             gaps_[i] = static_cast<uint8_t>(gaps->fetch_part(static_cast<uint32_t>(i)));
         break;
     }

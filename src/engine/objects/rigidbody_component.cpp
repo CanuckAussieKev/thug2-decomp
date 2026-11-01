@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <new>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -319,7 +320,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         springs_ = reallocate(springs_, spring_count_ * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
         const uint32_t* elements = springs->find_array_value();
-        for (int i = 0; i < spring_count_; ++i) {
+        for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
             const float* v = vector_of(elements[i]);
             springs_[i].point = {v[0], v[1], v[2], 0.0f};
             springs_[i].active = true;

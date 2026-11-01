@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace frontend::level_editor::nav {
 
@@ -185,7 +186,7 @@ std::string quick_set_name(int number) { return "Set " + std::to_string(number);
 
 int find_group(const organize::State& state, const std::string& name)
 {
-    for (int i = 0; i < static_cast<int>(state.groups.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
         if (state.groups[i].name == name)
             return i;
     }
@@ -210,7 +211,7 @@ bool store_group(organize::State* state, const std::string& name, const std::vec
 
 bool remove_from_group(organize::State* state, int index, const std::vector<organize::Member>& members)
 {
-    if (index < 0 || index >= static_cast<int>(state->groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, state->groups.size()))
         return false;
     std::vector<organize::Member>& in = state->groups[index].members;
     const size_t before = in.size();

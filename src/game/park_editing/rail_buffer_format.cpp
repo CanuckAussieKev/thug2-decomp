@@ -3,6 +3,7 @@
 #include "game/park_editing/rail_buffer_format.h"
 
 #include <cstring>
+#include <utility>
 
 namespace park_editing::rail_buffer_format {
 
@@ -11,7 +12,7 @@ bool counts_fit(const RailBuffer& buffer)
     if (buffer.rail_count_ > kMaxRails)
         return false;
     int points = 0;
-    for (int i = 0; i < buffer.rail_count_; ++i)
+    for (int i = 0; std::cmp_less(i, buffer.rail_count_); ++i)
         points += buffer.point_counts_[i];
     return points <= kMaxPoints;
 }

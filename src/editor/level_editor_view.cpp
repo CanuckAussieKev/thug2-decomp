@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "engine/render/coll_static.h"
 #include "engine/gfx/engine_geom.h"
@@ -259,9 +260,9 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
     const bool collision_only = geom_of(sector) == nullptr;
     Cached& c = g_cache[checksum];
     const uint32_t generation = shared_collision::get_generation();
-    if (c.sector == sector && c.tri == tri && c.faces == tri->tri_count_ && c.collision_only_ == collision_only &&
-        c.generation == generation && same(c.min, min) && same(c.max, max) && same(c.first, first) &&
-        same(c.last, last))
+    if (c.sector == sector && c.tri == tri && std::cmp_equal(c.faces, tri->tri_count_) &&
+        c.collision_only_ == collision_only && c.generation == generation && same(c.min, min) && same(c.max, max) &&
+        same(c.first, first) && same(c.last, last))
         return &c;
     c = Cached{};
     c.generation = generation;
@@ -419,7 +420,7 @@ void tick()
             g_concealed_records.erase(g_concealed_records.begin() + static_cast<long>(i));
             continue;
         }
-        for (int g = 0; g < static_cast<int>(rec.geoms.size()); ++g) {
+        for (int g = 0; std::cmp_less(g, rec.geoms.size()); ++g) {
             void* geom = object_edit::get_geometry(object, g);
             if (geom && geom_active(geom))
                 set_geom_active(geom, false);
@@ -598,7 +599,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
     for (const auto& entry : companions.near) {
         const render::TriMeshSource& tri = entry.second->get_geometry();
         bool any = false;
-        for (int f = 0; f < tri.tri_count_ && tri.faces_ && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
+        for (int f = 0;
+             std::cmp_less(f, tri.tri_count_) && tri.faces_ && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
             V3 p[3];
             bool ok = true;
             for (int k = 0; k < 3 && ok; ++k) {
@@ -682,7 +684,7 @@ std::string describe_wall(uint32_t checksum)
         return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
     std::vector<std::pair<uint16_t, int>> counts;
-    for (int f = 0; f < tri->tri_count_ && tri->faces_; ++f) {
+    for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f) {
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         auto it = std::find_if(counts.begin(), counts.end(), [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
@@ -766,7 +768,7 @@ void show_all()
     }
     for (const HiddenObjectRec& rec : g_concealed_records) {
         objects::GameEntity* object = live_object(rec.id);
-        for (int g = 0; object && g < static_cast<int>(rec.geoms.size()); ++g) {
+        for (int g = 0; object && std::cmp_less(g, rec.geoms.size()); ++g) {
             void* geom = object_edit::get_geometry(object, g);
             if (geom && geom == rec.geoms[g].first)
                 set_geom_active(geom, rec.geoms[g].second);
@@ -794,7 +796,7 @@ int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& 
             continue;
         }
         objects::GameEntity* object = live_object(it->id);
-        for (int g = 0; object && g < static_cast<int>(it->geoms.size()); ++g) {
+        for (int g = 0; object && std::cmp_less(g, it->geoms.size()); ++g) {
             void* geom = object_edit::get_geometry(object, g);
             if (geom && geom == it->geoms[g].first)
                 set_geom_active(geom, it->geoms[g].second);

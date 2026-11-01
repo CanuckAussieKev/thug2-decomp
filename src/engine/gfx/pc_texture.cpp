@@ -14,6 +14,7 @@
 #include <cstring>
 #include <new>
 #include <vector>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/arena_alloc.h"
@@ -27,6 +28,7 @@
 #include "engine/util/byte_stream.h"
 #include "platform/crt.h"
 #include "engine/core/owner.h"
+#include "engine/core/ints.h"
 
 namespace render {
 
@@ -387,10 +389,10 @@ void resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height
         auto x_scale = static_cast<float>(static_cast<double>(width) / static_cast<int>(into_width));
         auto y_scale =
             static_cast<float>(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height));
-        for (int y = 0; y < into_height; ++y) {
+        for (int y = 0; std::cmp_less(y, into_height); ++y) {
             const double row = static_cast<double>(y) * width * y_scale;
             uint8_t* out = into + into_width * y;
-            for (int x = 0; x < into_width; ++x)
+            for (int x = 0; std::cmp_less(x, into_width); ++x)
                 out[x] = from[ftol(static_cast<double>(x) * x_scale + row)];
         }
         return;
@@ -857,7 +859,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
     uint16_t read_x = 0, read_y = 0, into_x = 0, into_y = 0, read_width = 0, read_height = 0, new_width = 0,
              new_height = 0;
     if (!vertical) {
-        if (end >= static_cast<int>(width))
+        if (end >= ints::as_signed(width))
             amount = static_cast<int>(width) - at - 1;
         new_height = read_height = static_cast<uint16_t>(height);
         if (amount < 0) {
@@ -870,7 +872,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
             into_x = static_cast<uint16_t>(amount);
         }
     } else {
-        if (end >= static_cast<int>(height))
+        if (end >= ints::as_signed(height))
             amount = static_cast<int>(height) - at - 1;
         read_width = new_width = static_cast<uint16_t>(width);
         if (amount < 0) {

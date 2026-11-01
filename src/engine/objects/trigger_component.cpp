@@ -18,6 +18,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/ints.h"
 
 // The event lists (trigger_events.h).
 const int kWheelLeavesEvents[3]{1, 4, 0};
@@ -136,7 +137,7 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
         if (array->kind_tag_ != script::kQbvalInteger)
             return 0;
         uint32_t wanted = 0;
-        for (int k = 0; k < static_cast<int>(array->extent_); ++k) {
+        for (int k = 0; k < ints::as_signed(array->extent_); ++k) {
             if (static_cast<int>(array->fetch_part(static_cast<uint32_t>(k))) >= 0)
                 wanted += 1u << (array->fetch_part(static_cast<uint32_t>(k)) & 31);
         }

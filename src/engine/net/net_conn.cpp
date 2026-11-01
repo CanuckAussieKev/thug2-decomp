@@ -5,12 +5,14 @@
 
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
+#include "engine/core/ints.h"
 
 namespace net {
 
@@ -193,7 +195,7 @@ uint32_t Conn::get_retry_delay()
     if (cur_standing_ & kStatus2)
         return kStatus2ResendThreshold;
     int threshold = 2 * get_mean_ping();
-    if (threshold < static_cast<int>(kMinResendThreshold)) // (signed)
+    if (threshold < ints::as_signed(kMinResendThreshold)) // (signed)
         threshold = kMinResendThreshold;
     return static_cast<uint32_t>(threshold);
 }
@@ -258,11 +260,11 @@ int Conn::get_highest_resend_count()
 {
     int highest = 0;
     for_each<ReliableMsgNode>(&important_msgs_, [&](ReliableMsgNode* link) {
-        if (link->retry_count_ > highest)
+        if (std::cmp_greater(link->retry_count_, highest))
             highest = link->retry_count_;
     });
     for_each<OrderedMsgNode>(&sequenced_msgs_, [&](OrderedMsgNode* link) {
-        if (link->retry_count_ > highest)
+        if (std::cmp_greater(link->retry_count_, highest))
             highest = link->retry_count_;
     });
     return highest;

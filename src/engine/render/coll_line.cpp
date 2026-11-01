@@ -12,6 +12,7 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
+#include "engine/core/ints.h"
 
 namespace render {
 
@@ -176,7 +177,7 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry->get_faces_in_box(line_box, &count, buffer, 0x800);
     bool any = false;
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
         const uint32_t face = faces[i];
         const uint8_t rejection = geometry->small_faces_ ? geometry->faces_[face * 8 + 7] : octets_[face];
@@ -222,7 +223,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry_->get_faces_in_box(&around, &count, buffer, 0x800);
     bool any = false;
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
         const uint32_t face = faces[i];
         maths::Vec4 v0{}, v1{}, v2{};
@@ -303,7 +304,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry->get_faces_in_box(&around, &count, buffer, 0x800);
     bool any = false;
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
         const uint32_t face = faces[i];
         if (geometry->small_faces_ && threshold > geometry->faces_[face * 8 + 7])

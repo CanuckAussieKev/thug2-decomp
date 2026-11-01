@@ -5,12 +5,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/net/net_lzham.h"
 #include "engine/net/thugpro_peer.h"
 #include "engine/util/lzss.h"
+#include "engine/core/ints.h"
 
 namespace net {
 
@@ -126,7 +128,7 @@ int rle_decompress(const uint8_t* in, int size, uint8_t* out, int* out_size)
                 *out++ = *in;
                 ++written;
                 ++copied;
-            } while (copied < count);
+            } while (std::cmp_less(copied, count));
             ++in;
             --size;
         }
@@ -171,7 +173,7 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     }
     // (Another method compresses to nothing: the 3-byte header "wins".)
     memory::dealloc(message);
-    if (static_cast<uint32_t>(compressed_size) < *length) {
+    if (ints::as_unsigned(compressed_size) < *length) {
         *length = static_cast<uint16_t>(compressed_size + 3);
         *msg_id = kMsgCompressed;
         return compressed;

@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_budget.h"
@@ -593,8 +594,7 @@ void get_outliner(const ShapeMesh& model)
         }
         if (shown.empty())
             continue;
-        const bool holds_selected =
-            follow && selected < static_cast<int>(nodes.size()) && nodes[selected].family == family;
+        const bool holds_selected = follow && std::cmp_less(selected, nodes.size()) && nodes[selected].family == family;
         if (holds_selected || g_outliner_search[0] || g_changed_only)
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
         char header[64];
@@ -722,7 +722,7 @@ void badge(const char* text, ImU32 colour)
 void node_section(const ShapeMesh& model, int index)
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || index >= static_cast<int>(nodes.size()))
+    if (index < 0 || std::cmp_greater_equal(index, nodes.size()))
         return;
     const nodes::Elem& node = nodes[index];
     if (model.nodes.node_only_) {
@@ -1026,9 +1026,9 @@ void get_inspector(const ShapeMesh& model)
         triggers::inspector_section(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
         entities::inspector_section(model.nodes.selected, 0, g_mono, &g_requests); // (sound, particles, ghosts)
         // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
-        if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(nodes::get_all().size()))
+        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size()))
             cameras::inspector_section(nodes::get_all()[model.nodes.selected].name, g_mono, g_small);
-        if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(nodes::get_all().size()))
+        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size()))
             goal_edit::inspector_section(nodes::get_all()[model.nodes.selected].name, g_mono,
                                          g_small); // (a goal's point)
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
@@ -1143,7 +1143,7 @@ void get_inspector(const ShapeMesh& model)
     ImGui::Separator();
     get_muted("Under Cursor");
     const std::vector<nodes::Elem>& all = nodes::get_all();
-    if (model.nodes.hovered >= 0 && model.nodes.hovered < static_cast<int>(all.size())) {
+    if (model.nodes.hovered >= 0 && std::cmp_less(model.nodes.hovered, all.size())) {
         const nodes::Elem& node = all[model.nodes.hovered];
         ImGui::TextWrapped("%s (%s)", nodes::caption(node.name).c_str(), nodes::caption(node.cls).c_str());
     } else {
@@ -1456,7 +1456,7 @@ void get_place(const ShapeMesh& model)
         std::min(static_cast<float>(entries.size()) * ImGui::GetTextLineHeightWithSpacing() + 8.0f,
                  std::max(160.0f * g_scale, g_layout.viewport.height * 0.6f));
     ImGui::BeginChild("##placelist", ImVec2(0.0f, list_height));
-    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, entries.size()); ++i) {
         const ShapeMesh::PlaceView::TableRow& e = entries[i];
         if (!get_matches(e.label, g_place_search))
             continue;
@@ -1482,7 +1482,7 @@ void get_place(const ShapeMesh& model)
     ImGui::EndChild();
     ImGui::Separator();
     ImGui::PushFont(g_small);
-    if (model.place.armed >= 0 && model.place.armed < static_cast<int>(entries.size()))
+    if (model.place.armed >= 0 && std::cmp_less(model.place.armed, entries.size()))
         ImGui::TextWrapped("Click to place %s. Shift+click: place more. Esc: cancel.",
                            entries[model.place.armed].label.c_str());
     else

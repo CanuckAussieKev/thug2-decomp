@@ -21,6 +21,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/gfx/weather.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -139,7 +140,7 @@ Chain::Chain() { start_offset_ = {0.0f, 0.0f, 0.0f, 1.0f}; }
 // 0x00428300
 void Chain::update_lines()
 {
-    for (uint32_t i = 1; i < static_cast<uint32_t>(links_); ++i) {
+    for (uint32_t i = 1; i < ints::as_unsigned(links_); ++i) {
         render::PcPrimitive* line = chain_link_[i - 1].line_ptr_;
         line->ready_ = true;
         set_line_colour(line, 0, kLineBlack);
@@ -600,7 +601,7 @@ void ChainComponent::tick_frame()
         if (!(entity_->composite_flags_ & kCompositeFlagHidden) && !invisible_) {
             chain->update_lines();
         } else {
-            for (uint32_t i = 1; i < static_cast<uint32_t>(chain->links_); ++i)
+            for (uint32_t i = 1; i < ints::as_unsigned(chain->links_); ++i)
                 chain->chain_link_[i - 1].line_ptr_->ready_ = false;
         }
     }

@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -544,7 +545,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     }
     int64_t size = (static_cast<int64_t>(size_high) << 32) | size_low;
     // NOT ORIGINAL: no more than the buffer holds (the download is limited to it; the original trusted the size)
-    if (size < 0 || size > static_cast<int64_t>(kNewsBufferSize))
+    if (size < 0 || std::cmp_greater(size, static_cast<int64_t>(kNewsBufferSize)))
         size = kNewsBufferSize;
     for (int i = 0; static_cast<int64_t>(i) < size; ++i)
         buffer[i] ^= 0x6D;

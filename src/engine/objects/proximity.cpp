@@ -17,6 +17,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -406,7 +407,7 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
         script::Array* types = nullptr;
         if (!node->fetch_list("restart_types", &types, 0))
             continue;
-        for (int i = 0; i < static_cast<int>(types->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
             if (types->fetch_part(i) == type)
                 out[count++] = name;
         }

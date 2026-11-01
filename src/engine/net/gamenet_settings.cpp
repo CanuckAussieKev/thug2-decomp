@@ -36,6 +36,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/net/stats_man.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/ints.h"
 
 namespace online {
 
@@ -146,7 +147,7 @@ void Hub::use_network_preferences()
             std::strcpy(servers[next++], text);
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
-    for (int i = 0; i < static_cast<int>(defaults->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(defaults->extent_); ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(defaults->fetch_part(i));
         entry->fetch_text(kName, &text, 1);
         std::strcpy(servers[next + i], text);
@@ -406,7 +407,7 @@ const char* Hub::get_game_type_name()
     // (the original's locals, reused: a missing checksum compares the last value read - uninitialised at first)
     uint32_t type = 0;
     uint32_t mode = 0;
-    for (int i = 0; i < static_cast<int>(modes->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(modes->extent_); ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(modes->fetch_part(i));
         get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
         entry->read_hash_value(kChecksum, &mode, 0);

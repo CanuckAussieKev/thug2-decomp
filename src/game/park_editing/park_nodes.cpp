@@ -23,6 +23,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/game_cfuncs.h"
+#include "engine/core/ints.h"
 
 namespace park_editing {
 
@@ -250,7 +251,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     used_nodes_ = static_cast<int*>(memory::alloc(0x400)); // (room for 256)
     num_used_nodes_ = 0;
     node_info_ = static_cast<PieceNodeInfo*>(memory::alloc(count * sizeof(PieceNodeInfo)));
-    for (int i = 0; i < static_cast<int>(nodes->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(nodes->extent_); ++i) {
         Struct* node = elem(nodes, i);
         PieceNodeInfo& info = node_info_[i];
         info.class_ = 0;
@@ -264,7 +265,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     // each piece's rails: from a first node (or, for a loop, any) along the links
     int index = 0;
     uint32_t geometry = next_geometry_node(nodes, &index);
-    while (index < static_cast<int>(nodes->extent_)) {
+    while (index < ints::as_signed(nodes->extent_)) {
         num_used_nodes_ = 0;
         bool is_loop = false;
         RailNodeInfo info{};

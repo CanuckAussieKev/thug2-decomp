@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -98,7 +99,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         uint8_t* to = nullptr;
         mesh->fetch_vertex_store(0)->get_lock(0, 0, &from, D3DLOCK_READONLY);
         wider->get_lock(0, 0, &to, 0);
-        for (int i = 0; i < mesh->vertex_count_; ++i) {
+        for (int i = 0; std::cmp_less(i, mesh->vertex_count_); ++i) {
             std::memcpy(to, from, mesh->stride);
             to += mesh->stride + 8;
             from += mesh->stride;

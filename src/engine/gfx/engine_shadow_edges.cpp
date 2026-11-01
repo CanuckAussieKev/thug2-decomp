@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <utility>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -120,7 +121,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
             if (get_skipped(mesh))
                 continue;
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
-            for (int f = 0; f < mesh.tri_count_; ++f) {
+            for (int f = 0; std::cmp_less(f, mesh.tri_count_); ++f) {
                 uint16_t a = 0, b = 0, c = 0;
                 if (mesh.small_faces_) {
                     const uint8_t* face = mesh.faces_ + f * 8;

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -79,7 +80,7 @@ void EditedGoal::drop_point_to_ground(int index)
 void EditedGoal::place_points_on_ground()
 {
     char* name = g_goal_io_name_buffer;
-    for (int i = 0; i < vertex_total_; ++i) {
+    for (int i = 0; std::cmp_less(i, vertex_total_); ++i) {
         drop_point_to_ground(i);
         script::Struct params;
         uint32_t node = 0;
@@ -269,18 +270,18 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
         out->append_word(0x730844A3, required_trick_);
         if (for_goal_manager == 1) {
             script::Array* flags = new_array_of(num_gaps_, kChecksumArray);
-            for (int i = 0; i < num_gaps_; ++i) {
+            for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
                 get_sprintf(text, "got_%d", i + 1);
                 flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(text));
             }
             out->append_array_ref(0xCC3C4CC4, flags);
             script::Array* gaps = new_array_of(num_gaps_, kIntegerArray);
-            for (int i = 0; i < num_gaps_; ++i)
+            for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
                 gaps->set_element(static_cast<uint32_t>(i), gaps_[i]);
             out->append_array_ref(0x52D4489E, gaps);
         } else if (num_gaps_) {
             script::Array* gaps = new_array_of(num_gaps_, kIntegerArray);
-            for (int i = 0; i < num_gaps_; ++i)
+            for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
                 gaps->set_element(static_cast<uint32_t>(i), gaps_[i]);
             out->append_array_ref(0xD76C173E, gaps);
         }

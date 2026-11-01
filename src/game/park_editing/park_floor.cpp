@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/render/probe_ray.h"
@@ -178,7 +179,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
 
     // The lowest neighbour (outside the shell counts as 0).
     int lowest = 10000;
-    if (x > shell_bounds_.x) {
+    if (std::cmp_greater(x, shell_bounds_.x)) {
         if (height_at(x - 1, z) < lowest)
             lowest = height_at(x - 1, z);
     } else {
@@ -194,7 +195,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     } else {
         at_most_zero();
     }
-    if (z > shell_bounds_.z) {
+    if (std::cmp_greater(z, shell_bounds_.z)) {
         if (height_at(x, z - 1) < lowest)
             lowest = height_at(x, z - 1);
     } else {
@@ -242,9 +243,9 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     }
     // (outside the park's bounds, no top piece unless the floor is dug in)
     if (in_park) {
-        if (x < build_area_.x || x >= build_area_.x + build_area_.w)
+        if (std::cmp_less(x, build_area_.x) || x >= build_area_.x + build_area_.w)
             top = 0;
-        if (z < build_area_.z || z >= build_area_.z + build_area_.l)
+        if (std::cmp_less(z, build_area_.z) || z >= build_area_.z + build_area_.l)
             top = 0;
     }
 
@@ -276,8 +277,8 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     }
     if (below) {
         PieceGroup* meta = make_placed_piece(find_piece_template(below), 0);
-        if (request->x < build_area_.x || request->x >= build_area_.x + build_area_.w || request->z < build_area_.z ||
-            request->z >= build_area_.z + build_area_.l)
+        if (std::cmp_less(request->x, build_area_.x) || request->x >= build_area_.x + build_area_.w ||
+            std::cmp_less(request->z, build_area_.z) || request->z >= build_area_.z + build_area_.l)
             meta->flag_bits_ |= PieceGroup::kRiserBelow | PieceGroup::kFlag400;
         place_meta_piece_in_park(CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(below_y),
                                                    static_cast<uint8_t>(request->z), 0, 0, 0),
@@ -359,7 +360,7 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     // No floor height outside the park (the first 56 x 56 cells).
     for (int x = 0; x < 56; ++x) {
         for (int z = 0; z < 56; ++z) {
-            if (x < park.x || z < park.z || x >= park.w + park.x || z >= park.l + park.z)
+            if (std::cmp_less(x, park.x) || std::cmp_less(z, park.z) || x >= park.w + park.x || z >= park.l + park.z)
                 floor_[x][z].level_y_ = 0;
         }
     }

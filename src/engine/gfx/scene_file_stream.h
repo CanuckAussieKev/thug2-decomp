@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "engine/file/file_load.h"
+#include "engine/core/ints.h"
 
 // NOT ORIGINAL - a scene file read through the file system with scene_format's reads (scene_format::MemoryStream's
 // interface): its size taken when opened, every read and skip counted against it. A failed read zero-fills its
@@ -23,9 +24,9 @@ public:
             return false;
         }
         const int read = file::get_take_in(out, static_cast<int>(bytes), 1, file_);
-        if (read != static_cast<int>(bytes)) {
+        if (read != ints::as_signed(bytes)) {
             ok_ = false;
-            if (read >= 0 && static_cast<size_t>(read) < bytes)
+            if (read >= 0 && ints::as_unsigned(read) < bytes)
                 std::memset(static_cast<uint8_t*>(out) + read, 0, bytes - static_cast<size_t>(read));
             return false;
         }

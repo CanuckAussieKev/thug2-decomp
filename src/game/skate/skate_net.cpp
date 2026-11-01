@@ -9,6 +9,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <memory>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -49,6 +50,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/sys/mlp.h"
 #include "platform/compiler.h"
+#include "engine/core/ints.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -500,7 +502,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         Array* array = new_array_init();
         array->configure_size_kind(counts[i], static_cast<script::QbValueKind>(kSymbolChecksum));
         // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
-        for (int j = 0; j < static_cast<int>(counts[i]); ++j)
+        for (int j = 0; std::cmp_less(j, counts[i]); ++j)
             array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(reader.u8()));
         char name[32];
         std::sprintf(name, "Skater%d", i);
@@ -721,7 +723,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     delete_structure(victory);
     // The mode's goal_script.
     Array* types = script::fetch_list(net->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
-    for (int i = 0; i < static_cast<int>(types->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
         auto* type = reinterpret_cast<Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
         uint32_t checksum = 0;
         type->read_hash_value(kChecksum, &checksum, 1);

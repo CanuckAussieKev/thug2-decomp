@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/net/gamenet_messages.h"
@@ -27,6 +28,7 @@
 #include "game/save_cards/save_file_format.h"
 #include "game/skate/skate_net_messages.h"
 #include "tests/format_check_files.h"
+#include "engine/core/ints.h"
 
 namespace {
 
@@ -331,12 +333,12 @@ void check_park_map(const ArrayValue& array, const std::string& what)
     reader.seek(kParkMapRecordsStart);
     writer.seek(kParkMapRecordsStart);
     const bool current = header.version == kParkMapVersion;
-    for (int i = 0; i < header.piece_count; ++i) {
+    for (int i = 0; std::cmp_less(i, header.piece_count); ++i) {
         ParkMapPiece piece;
         read_park_map_piece(reader, &piece);
         write_park_map_piece(writer, piece);
     }
-    for (int i = 0; i < header.gap_count; ++i) {
+    for (int i = 0; std::cmp_less(i, header.gap_count); ++i) {
         ParkMapGap gap;
         read_park_map_gap(reader, &gap, current);
         if (current) {
@@ -395,8 +397,8 @@ void check_save_file(const std::filesystem::path& path)
     util::ByteReader reader(file.data(), file.size());
     save_cards::SaveFileHeader header;
     const bool save = save_cards::read_save_file_header(reader, &header) &&
-                      header.size >= static_cast<int>(save_cards::kSaveFileHeaderSize) &&
-                      header.size <= static_cast<int>(file.size()) && header.summary_size >= 0 &&
+                      header.size >= ints::as_signed(save_cards::kSaveFileHeaderSize) &&
+                      std::cmp_less_equal(header.size, file.size()) && header.summary_size >= 0 &&
                       header.summary_size <= save_cards::kMaxSummarySize;
     if (!save) { // (not a save: a bare structure, as the custom parks)
         check_structure_file(path, file);
@@ -418,7 +420,7 @@ void check_save_file(const std::filesystem::path& path)
 
     const size_t summary_used =
         check_structure_round_trip(summary, static_cast<size_t>(header.summary_size), name + " summary");
-    check(summary_used == static_cast<size_t>(header.summary_size), name + ": summary ends at its size");
+    check(summary_used == ints::as_unsigned(header.summary_size), name + ": summary ends at its size");
     std::vector<uint8_t> contents(file.begin() + static_cast<std::ptrdiff_t>(save_cards::kSaveFileHeaderSize) +
                                       header.summary_size,
                                   file.begin() + static_cast<std::ptrdiff_t>(size));

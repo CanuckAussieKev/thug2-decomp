@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -146,7 +147,7 @@ template <typename Visit>
 void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 {
     int index = self->event_head_;
-    for (int i = 0; i < self->event_count_; ++i) {
+    for (int i = 0; std::cmp_less(i, self->event_count_); ++i) {
         TrickEvent* event = &self->events_[index];
         if (frame_clock::get_time() - event->time >= period)
             break;

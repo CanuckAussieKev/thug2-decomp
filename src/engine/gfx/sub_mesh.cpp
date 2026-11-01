@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/mem.h"
 #include "platform/crt.h"
@@ -100,7 +101,7 @@ void MeshRef::move_to(const maths::Vec4* position)
     transform[13] = position->y;
     transform[14] = position->z;
     transform[15] = position->w;
-    for (int b = 0; b < vertex_buffer_count_; ++b) {
+    for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
         uint8_t* vertex = get_lock(vertex_buffers_[b], 0);
         for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
             auto* p = reinterpret_cast<float*>(vertex);
@@ -129,7 +130,7 @@ void MeshRef::turn_y(int turns)
         transform = static_cast<float*>(memory::alloc(0x40));
         get_identity(transform);
     }
-    for (int b = 0; b < vertex_buffer_count_; ++b) {
+    for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
         uint8_t* vertex = get_lock(vertex_buffers_[b], 0);
         // (the transform's position re-read for every vertex, as the original does)
         switch (turns) {

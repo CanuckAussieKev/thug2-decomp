@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -258,7 +259,7 @@ void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
     if (geometry)
         checksum_ = geometry->checksum_;
     radius_ = 0.0f;
-    for (int i = 0; i < geometry->num_vertices_; ++i) {
+    for (int i = 0; std::cmp_less(i, geometry->num_vertices_); ++i) {
         const maths::Vec4 v = geometry_->read_stored_vertex(i);
         const double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
                                         static_cast<double>(v.z) * v.z);

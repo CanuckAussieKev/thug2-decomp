@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -84,7 +85,7 @@ void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position)
 // 0x00414F90
 void TriMeshSource::get_stored_vertex_array(maths::Vec4* out) const
 {
-    for (int i = 0; i < num_vertices_; ++i)
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
         out[i] = read_stored_vertex(i);
 }
 
@@ -94,9 +95,9 @@ void TriMeshSource::choose_raw_verts(const maths::Vec4* positions)
     auto* box = reinterpret_cast<maths::BBox*>(&lower_limit_);
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    for (int i = 0; i < num_vertices_; ++i)
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
         box->append_spot(positions[i]);
-    for (int i = 0; i < num_vertices_; ++i)
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
         write_stored_vertex(i, &positions[i]);
 }
 
@@ -200,7 +201,7 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
         bsp_->get_slide(delta);
     if (!compressed_) {
         auto* v = static_cast<float*>(vertices_);
-        for (int i = 0; i < num_vertices_; ++i, v += 3) {
+        for (int i = 0; std::cmp_less(i, num_vertices_); ++i, v += 3) {
             v[0] = static_cast<float>(static_cast<double>(v[0]) + delta->x);
             v[1] = static_cast<float>(static_cast<double>(v[1]) + delta->y);
             v[2] = static_cast<float>(static_cast<double>(delta->z) + v[2]);
@@ -233,7 +234,7 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
         memory::leave_heap_scope();
         get_stored_vertex_array(positions);
     }
-    for (int i = 0; i < num_vertices_; ++i) {
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
         if (positions) {
             positions[i].turn_quarter_about_y(quarter_turns);
             continue;
@@ -256,7 +257,7 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     box->append_spot(min);
     box->append_spot(max);
     if (positions) {
-        for (int i = 0; i < num_vertices_; ++i)
+        for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
             write_stored_vertex(i, &positions[i]);
         memory::Hub::get_pull()->dealloc(positions);
     }
@@ -278,7 +279,7 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
         memory::leave_heap_scope();
         get_stored_vertex_array(positions);
     }
-    for (int i = 0; i < num_vertices_; ++i) {
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
         float* v = positions ? &positions[i].x : static_cast<float*>(vertices_) + 3 * i;
         v[0] *= scale->x;
         v[1] *= scale->y;
@@ -287,7 +288,7 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
     lower_limit_ = {lower_limit_.x * scale->x, lower_limit_.y * scale->y, lower_limit_.z * scale->z, lower_limit_.w};
     upper_limit_ = {upper_limit_.x * scale->x, upper_limit_.y * scale->y, upper_limit_.z * scale->z, upper_limit_.w};
     if (positions) {
-        for (int i = 0; i < num_vertices_; ++i)
+        for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
             write_stored_vertex(i, &positions[i]);
         memory::Hub::get_pull()->dealloc(positions);
     }
@@ -313,7 +314,7 @@ void TriMeshSource::add_occlusion_polys()
     constexpr float kSameDirection = 0.05f;
     maths::Vec4 points[4];
     for (int i = 0; i < tri_count_ - 1; ++i) {
-        for (int j = i + 1; j < tri_count_; ++j) {
+        for (int j = i + 1; std::cmp_less(j, tri_count_); ++j) {
             // the corners shared: shared[k] is face i's corner k if face j has it, other[m] face j's corner m if
             // face i has it
             int shared[3] = {-1, -1, -1};
@@ -454,7 +455,7 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
     const uint32_t n = node->leaf_face_count();
     uint16_t* out = s_face_buffer + s_face_count;
     s_face_count += static_cast<int>(n);
-    if (s_face_count > tri_count_) {
+    if (std::cmp_greater(s_face_count, tri_count_)) {
         s_face_count = -1;
         return;
     }
@@ -471,7 +472,7 @@ bool TriMeshSource::is_point_behind_faces(const maths::Vec4* point, int unused)
     s_face_count = 0;
     if (!count_faces_behind(bsp_, point, unused))
         return false;
-    return s_face_count == tri_count_;
+    return std::cmp_equal(s_face_count, tri_count_);
 }
 
 // 0x004161D0 (a point at or above a split ends the walk; in a leaf, the count stops at the first face the point

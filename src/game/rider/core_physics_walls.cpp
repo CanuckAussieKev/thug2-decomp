@@ -27,6 +27,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/ints.h"
 
 namespace skater {
 
@@ -232,7 +233,7 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     const float head_height = tuning_float_lookup(kEyeLevelStat, object);
     const uint32_t elapsed = get_since(wallplant_time_);
     const double reach =
-        elapsed > static_cast<uint32_t>(script::fetch_int_value(kIgnoreCeilings)) ? head_height : kNoHeadHeight;
+        elapsed > ints::as_unsigned(script::fetch_int_value(kIgnoreCeilings)) ? head_height : kNoHeadHeight;
     object = object_of(this);
     const maths::Vec4& up = object->basis_frame_.row[1];
     const double x = reach * up.x;

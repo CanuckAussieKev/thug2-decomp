@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <map>
 #include <memory>
+#include <utility>
 
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_fields.h"
@@ -499,7 +500,7 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
     auto resolve = [&](const RefTo& ref) -> uint32_t {
         if (ref.clone < 0)
             return ref.id;
-        return ref.clone < static_cast<int>(made.size()) ? made[ref.clone] : 0;
+        return std::cmp_less(ref.clone, made.size()) ? made[ref.clone] : 0;
     };
     int groups = 0;
     for (const LinkRecord& record : records) {

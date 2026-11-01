@@ -8,6 +8,7 @@
 #include "engine/gfx/d3dx.h"
 #include "platform/compiler.h"
 #include <cstring>
+#include <utility>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
@@ -272,7 +273,7 @@ JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
 {
     const memory::ListNode* node = get_next_node(new_player_list(this));
     for (auto* player = data_of<JoinerRecord>(node); player; player = data_of<JoinerRecord>(node)) {
-        if (static_cast<int>(static_cast<int8_t>(player->entity_key_)) == static_cast<int>(id))
+        if (std::cmp_equal(static_cast<int8_t>(player->entity_key_), id))
             return player;
         node = get_next_node(node);
     }

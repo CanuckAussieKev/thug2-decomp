@@ -44,6 +44,7 @@
 #include "engine/net/gamenet_lists.h"
 #include "engine/net/play_messages.h"
 #include "platform/compiler.h"
+#include "engine/core/ints.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -494,7 +495,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
     auto checksum = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(types));
-    for (int i = 0; i < static_cast<int>(types->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
         auto* type = reinterpret_cast<script::Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != start.game_type)

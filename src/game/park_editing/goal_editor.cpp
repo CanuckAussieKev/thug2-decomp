@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "game/rider/vehicle_sound.h"
@@ -212,7 +213,7 @@ bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float heigh
     const float z = pos.z;
     const float radius = script::fetch_float(0x71B20276);
     for (const EditedGoal& goal : goals_) {
-        if (!goal.taken_count_ || goal.level_ != level || goal.vertex_total_ <= index)
+        if (!goal.taken_count_ || goal.level_ != level || std::cmp_less_equal(goal.vertex_total_, index))
             continue;
         const EditedGoalPoint& point = goal.path_vertices_[index];
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)

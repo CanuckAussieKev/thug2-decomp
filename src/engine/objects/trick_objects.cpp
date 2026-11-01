@@ -32,6 +32,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -91,7 +92,7 @@ void release_trick_object_manager()
 ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter)
 {
     const auto* cluster = reinterpret_cast<const TrickObjectCluster*>(object);
-    if (cluster->owned_ && counter->cluster == static_cast<uint32_t>(cluster->owner_))
+    if (cluster->owned_ && counter->cluster == ints::as_unsigned(cluster->owner_))
         counter->count += 1;
     return counter;
 }
@@ -353,7 +354,7 @@ bool TrickSpotHub::remove_all_clusters()
 // 0x00588A20
 bool HitClusterLog::append_one(uint32_t object_name)
 {
-    const uint32_t listed = static_cast<uint32_t>(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
+    const uint32_t listed = ints::as_unsigned(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
     const TrickObjectCluster* cluster = g_trick_spot_hub->get_object_cluster(object_name);
     if (!cluster || !cluster->label_)
         return false;
@@ -370,7 +371,7 @@ bool HitClusterLog::append_one(uint32_t object_name)
 // 0x00588AA0
 uint32_t HitClusterLog::copy_cluster_names(uint32_t* out, uint32_t max_bytes)
 {
-    const uint32_t listed = static_cast<uint32_t>(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
+    const uint32_t listed = ints::as_unsigned(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
     const TrickSpotHub* manager = g_trick_spot_hub;
     uint32_t bytes = 0;
     for (uint32_t i = 0; i < listed; ++i) {
@@ -553,7 +554,7 @@ void TrickSpotHub::apply_player_graffiti()
         script::Array* objects = nullptr;
         if (!args_->fetch_list(name, &objects, 0))
             continue;
-        for (int i = 0; i < static_cast<int>(objects->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(objects->extent_); ++i) {
             auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(objects->fetch_part(i)));
             if (cluster)
                 cluster->set_graffiti_color(player == -1 ? -1 : player + 1);

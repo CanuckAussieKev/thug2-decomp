@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <utility>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/assets/resource_registry.h"
@@ -835,7 +836,7 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
         const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
-        for (int i = 0; i < static_cast<uint16_t>(count); ++i) {
+        for (int i = 0; std::cmp_less(i, static_cast<uint16_t>(count)); ++i) {
             if (node_command(nodes[i], action, script, params) && action == 5)
                 break;
         }

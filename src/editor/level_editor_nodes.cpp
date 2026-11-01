@@ -10,6 +10,7 @@
 #include <cstring>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_objects.h"
@@ -21,6 +22,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::nodes {
 
@@ -476,14 +478,14 @@ int get_find(uint32_t name)
 script::Struct* struct_of(const Elem& node)
 {
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
-    if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->num_)
+    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
         return nullptr;
     return get_node_at(manager->arrays_[node.array].node_entries_, static_cast<uint32_t>(node.index));
 }
 
 void reread(int index)
 {
-    if (index < 0 || index >= static_cast<int>(g_nodes.size()))
+    if (index < 0 || std::cmp_greater_equal(index, g_nodes.size()))
         return;
     Elem& node = g_nodes[index];
     script::Struct* s = struct_of(node);
@@ -509,7 +511,7 @@ void reread(int index)
 uint32_t get_array_name(const Elem& node)
 {
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
-    if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->num_)
+    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
         return 0;
     return manager->arrays_[node.array].label_;
 }

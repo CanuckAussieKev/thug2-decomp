@@ -11,6 +11,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <vector>
+#include <utility>
 
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_overlays.h"
@@ -124,7 +125,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     std::sort(groups.begin(), groups.end(), [](const GroupSet& a, const GroupSet& b) { return a.area > b.area; });
 
     for (const GroupSet& g : groups) {
-        if (static_cast<int>(lips.size()) >= max_lips)
+        if (std::cmp_greater_equal(lips.size(), max_lips))
             break;
         float top = -1e30f, bottom = 1e30f;
         for (const int i : g.faces) {
@@ -348,7 +349,7 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
     const auto* tri = coll->geometry_;
     if (!tri || !tri->faces_ || !tri->vertices_)
         return;
-    for (int f = 0; f < tri->tri_count_ && out->size() < 20000; ++f) {
+    for (int f = 0; std::cmp_less(f, tri->tri_count_) && out->size() < 20000; ++f) {
         V3 p[3];
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {

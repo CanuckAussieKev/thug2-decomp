@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_actions.h"
@@ -648,7 +649,8 @@ int picked_node_index()
     if (!g_node_selected)
         return -1;
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (g_node_index < 0 || g_node_index >= static_cast<int>(nodes.size()) || nodes[g_node_index].name != g_node_name) {
+    if (g_node_index < 0 || std::cmp_greater_equal(g_node_index, nodes.size()) ||
+        nodes[g_node_index].name != g_node_name) {
         const int found = g_node_name ? nodes::get_find(g_node_name) : -1;
         if (found < 0)
             return -1;
@@ -688,7 +690,7 @@ void note_online_change(nodes::Family family, const char* what, const char* verb
 void note_online_edit(int index)
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || index >= static_cast<int>(nodes.size()))
+    if (index < 0 || std::cmp_greater_equal(index, nodes.size()))
         return;
     note_online_change(nodes[index].family, nodes::caption(nodes[index].name).c_str(), "moved");
 }
@@ -2283,7 +2285,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     const float top = static_cast<float>(g_viewport[1]) - 40.0f;
     const float right = static_cast<float>(g_viewport[0] + g_viewport[2]) + 40.0f;
     const float bottom = static_cast<float>(g_viewport[1] + g_viewport[3]) + 40.0f;
-    for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, nodes.size()); ++i) {
         const nodes::Elem& n = nodes[i];
         if (!n.has_pos_ || !(g_families & nodes::get_bit(n.family)) || organize::gizmo_hidden(n.name))
             continue;
@@ -2484,7 +2486,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     // (the Outliner's selectable off: drawn, not picked - level_editor_organize.h)
     g_pickables.erase(std::remove_if(g_pickables.begin(), g_pickables.end(),
                                      [&](const nodes::Pickable& p) {
-                                         return p.node >= 0 && p.node < static_cast<int>(nodes.size()) &&
+                                         return p.node >= 0 && std::cmp_less(p.node, nodes.size()) &&
                                                 !organize::gizmo_pickable(nodes[p.node].name);
                                      }),
                       g_pickables.end());
@@ -2548,7 +2550,7 @@ void update_highlights()
                                           : scenery::hover_group(g_hover_sector),
                                       kHoverTint);
     // (the browser's entry where it is in the level)
-    if (g_browser.open && g_browser.index < static_cast<int>(g_browser.items.size())) {
+    if (g_browser.open && std::cmp_less(g_browser.index, g_browser.items.size())) {
         const uint32_t id = g_browser.items[g_browser.index].id;
         if (g_browser.tab == 0)
             tint_sectors({id}, kBrowseTint);
@@ -2924,7 +2926,7 @@ std::string describe_selection()
         return scenery::describe_selection();
     if (const uint32_t wall = wall_only())
         return "invisible wall " + object_edit::caption(wall) + " - " + walls::describe_state(wall);
-    if (g_node_selected && g_node_index < static_cast<int>(nodes::get_all().size())) {
+    if (g_node_selected && std::cmp_less(g_node_index, nodes::get_all().size())) {
         const nodes::Elem& node = nodes::get_all()[g_node_index];
         return "node " + nodes::caption(node.name) + " (" + nodes::caption(node.cls) + ")";
     }
@@ -3097,7 +3099,7 @@ void place_node(int entry, V3 at)
     if (place_entity(entry, at))
         return; // (the entities' entries - after the chains': level_editor_entities.h)
     const std::vector<PlaceEntry>& entries = place_entries();
-    if (entry < 0 || entry >= static_cast<int>(entries.size()))
+    if (entry < 0 || std::cmp_greater_equal(entry, entries.size()))
         return;
     const PlaceEntry& e = entries[entry];
     if (const char* why =
@@ -3333,7 +3335,7 @@ int chain_entry(int entry)
 bool place_entity(int entry, V3 at)
 {
     const int index = entry - static_cast<int>(place_entries().size()) - kChainEntries;
-    if (entry < 0 || index < 0 || index >= static_cast<int>(entities::get_palette().size()))
+    if (entry < 0 || index < 0 || std::cmp_greater_equal(index, entities::get_palette().size()))
         return false;
     const entities::PaletteEntry& e = entities::get_palette()[index];
     if (!e.why.empty()) {
@@ -3831,7 +3833,7 @@ ui::ShapeMesh assemble_model()
         g_ui_browser_items.push_back({item.id, item.label});
     model.browser_items_ = &g_ui_browser_items;
     model.preview.index = !g_browser.open || g_browser.items.empty() ? -1
-                          : g_browser.preview >= 0 && g_browser.preview < static_cast<int>(g_browser.items.size())
+                          : g_browser.preview >= 0 && std::cmp_less(g_browser.preview, g_browser.items.size())
                               ? g_browser.preview
                               : g_browser.index;
     model.nodes.families = g_families;
@@ -3857,7 +3859,7 @@ ui::ShapeMesh assemble_model()
         }
     }
     model.nodes.online_warning_ = g_online_warning_shown;
-    if (model.nodes.node_only_ && model.nodes.selected < static_cast<int>(nodes::get_all().size())) {
+    if (model.nodes.node_only_ && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
         const nodes::Elem& n = nodes::get_all()[model.nodes.selected];
         model.nodes.added = n.added;
         model.nodes.hidden = n.hidden;
@@ -3894,7 +3896,7 @@ ui::ShapeMesh assemble_model()
             if (n.family == nodes::Family::kSpawn && !n.hidden && n.name)
                 model.level_props_.restarts.emplace_back(n.name, nodes::caption(n.name));
         }
-        if (model.nodes.node_only_ && model.nodes.selected < static_cast<int>(nodes::get_all().size())) {
+        if (model.nodes.node_only_ && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
             const nodes::Elem& n = nodes::get_all()[model.nodes.selected];
             if (n.family == nodes::Family::kSpawn && !n.hidden)
                 model.level_props_.selected_restart_ = n.name;
@@ -4046,7 +4048,7 @@ V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame)
 
 void place_from_browser(V3 at, bool keep_open = false)
 {
-    if (g_browser.index >= static_cast<int>(g_browser.items.size()))
+    if (std::cmp_greater_equal(g_browser.index, g_browser.items.size()))
         return;
     const uint32_t source = g_browser.items[g_browser.index].id;
     UndoStep step;
@@ -4224,7 +4226,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
         return false;
     node_create::LinkChain list = node_create::at_hand();
     int at = -1;
-    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, list.size()); ++i) {
         if (node_create::name_hash(list[i].name) == g_node_name)
             at = i;
     }
@@ -4544,7 +4546,7 @@ bool drop_under_cursor(V3 dir)
 {
     if (!scenery::has_selection())
         return false;
-    if (g_hover_node >= 0 && g_hover_node < static_cast<int>(nodes::get_all().size())) {
+    if (g_hover_node >= 0 && std::cmp_less(g_hover_node, nodes::get_all().size())) {
         const uint32_t name = nodes::get_all()[g_hover_node].name;
         if (!scenery::carries_rail(name))
             return false;
@@ -4698,7 +4700,7 @@ int inspected_node()
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     if (g_node_selected) {
-        if (g_node_index < static_cast<int>(nodes.size()) && nodes[g_node_index].name == g_node_name)
+        if (std::cmp_less(g_node_index, nodes.size()) && nodes[g_node_index].name == g_node_name)
             return g_node_index;
         const int found = g_node_name ? nodes::get_find(g_node_name) : -1;
         if (found < 0) {
@@ -4720,7 +4722,7 @@ int inspected_node()
 void select_node(int index)
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || index >= static_cast<int>(nodes.size()) || g_dragging)
+    if (index < 0 || std::cmp_greater_equal(index, nodes.size()) || g_dragging)
         return;
     const nodes::Elem& node = nodes[index];
     // (a flag is moved as its node - its object with it - so the place the game makes it at changes too)
@@ -4760,7 +4762,7 @@ void go_to_node(int index)
 {
     select_node(index);
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || index >= static_cast<int>(nodes.size()) || !nodes[index].has_pos_)
+    if (index < 0 || std::cmp_greater_equal(index, nodes.size()) || !nodes[index].has_pos_)
         return;
     if (!have_selection())
         get_look_at(nodes[index].pos, nodes[index].family == nodes::Family::kRail ? 500.0f : 400.0f);
@@ -4882,7 +4884,7 @@ void toggle_browser()
 // F in the browser: the camera to its entry.
 void focus_browser_item()
 {
-    if (g_browser.index >= static_cast<int>(g_browser.items.size()))
+    if (std::cmp_greater_equal(g_browser.index, g_browser.items.size()))
         return;
     const uint32_t id = g_browser.items[g_browser.index].id;
     OrientedBox box{};
@@ -4997,7 +4999,7 @@ void apply_resume(const perform::Resume& r)
         scenery::set_selection(r.sectors);
     } else if (r.node) {
         const std::vector<nodes::Elem>& nodes = nodes::get_all();
-        for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
+        for (int i = 0; std::cmp_less(i, nodes.size()); ++i) {
             if (nodes[i].name == r.node) {
                 select_node_only(i);
                 break;
@@ -5050,7 +5052,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             }
             break;
         case ui::Request::Kind::kBrowserIndex:
-            if (g_browser.open && request.value >= 0 && request.value < static_cast<int>(g_browser.items.size()))
+            if (g_browser.open && request.value >= 0 && std::cmp_less(request.value, g_browser.items.size()))
                 g_browser.index = request.value;
             break;
         case ui::Request::Kind::kBrowserPlace:
@@ -6664,7 +6666,7 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
                       sel.pos.y, sel.pos.z);
         out.emplace_back("selection", text);
     }
-    if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(nodes::get_all().size())) {
+    if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
         const nodes::Elem& node = nodes::get_all()[model.nodes.selected];
         std::snprintf(text, sizeof(text), "%s (%s, %s) at (%.1f, %.1f, %.1f)%s%s", nodes::caption(node.name).c_str(),
                       nodes::caption(node.cls).c_str(), nodes::family_name(node.family), node.pos.x, node.pos.y,
@@ -7220,7 +7222,7 @@ float get_yaw() { return g_yaw; }
 
 bool browser_item(int* tab, uint32_t* id)
 {
-    if (!g_browser.open || g_browser.index < 0 || g_browser.index >= static_cast<int>(g_browser.items.size()))
+    if (!g_browser.open || g_browser.index < 0 || std::cmp_greater_equal(g_browser.index, g_browser.items.size()))
         return false;
     *tab = g_browser.tab;
     *id = g_browser.items[g_browser.index].id;
@@ -7233,7 +7235,7 @@ int place_armed(uint32_t* colour)
     *colour = 0;
     if (!g_place_open || g_place_armed < 0)
         return -1;
-    if (g_place_armed < static_cast<int>(place_entries().size()))
+    if (std::cmp_less(g_place_armed, place_entries().size()))
         *colour = place_entries()[g_place_armed].colour;
     return g_place_armed;
 }

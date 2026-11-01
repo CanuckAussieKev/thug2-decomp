@@ -9,6 +9,7 @@
 #include <cstring>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_nodes.h"
@@ -110,8 +111,8 @@ float len_of(const Rail& rail, const std::vector<V3>& positions)
 {
     float total = 0.0f;
     for (const auto& link : rail.links) {
-        if (link.first < 0 || link.second < 0 || link.first >= static_cast<int>(positions.size()) ||
-            link.second >= static_cast<int>(positions.size()))
+        if (link.first < 0 || link.second < 0 || std::cmp_greater_equal(link.first, positions.size()) ||
+            std::cmp_greater_equal(link.second, positions.size()))
             continue;
         const V3 d = positions[link.second] - positions[link.first];
         total += std::sqrt(get_dot(d, d));
@@ -147,7 +148,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         return;
     const std::vector<nodes::Elem>& all = nodes::get_all();
     auto rail_node = [&](int index) {
-        return index >= 0 && index < static_cast<int>(all.size()) && all[index].family == nodes::Family::kRail;
+        return index >= 0 && std::cmp_less(index, all.size()) && all[index].family == nodes::Family::kRail;
     };
     const int index = rail_node(hovered) ? hovered : rail_node(selected) ? selected : -1;
     const objects::GrindRailHub* rails = get_rails();
@@ -254,9 +255,8 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     if (g_terrain_for != name) {
         g_terrain_for = name;
         chains::View view = chains::view_of(name);
-        g_terrain = view.terrain >= 0 && view.terrain < static_cast<int>(view.terrains.size())
-                        ? view.terrains[view.terrain]
-                        : std::string("terrain ?");
+        g_terrain = view.terrain >= 0 && std::cmp_less(view.terrain, view.terrains.size()) ? view.terrains[view.terrain]
+                                                                                           : std::string("terrain ?");
     }
     char text[256];
     std::snprintf(text, sizeof(text), "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),

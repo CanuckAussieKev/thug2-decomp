@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <unordered_set>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_budget.h"
@@ -145,14 +146,14 @@ std::vector<int> lonely_points(const std::vector<std::vector<int>>& links)
     std::vector<int> incoming(links.size(), 0);
     for (const std::vector<int>& out : links) {
         for (const int to : out) {
-            if (to >= 0 && to < static_cast<int>(links.size()))
+            if (to >= 0 && std::cmp_less(to, links.size()))
                 ++incoming[to];
         }
     }
     std::vector<int> lonely;
     for (size_t i = 0; i < links.size(); ++i) {
         const bool links_out = std::any_of(links[i].begin(), links[i].end(),
-                                           [&](int to) { return to >= 0 && to < static_cast<int>(links.size()); });
+                                           [&](int to) { return to >= 0 && std::cmp_less(to, links.size()); });
         if (!links_out && incoming[i] == 0)
             lonely.push_back(static_cast<int>(i));
     }
@@ -483,7 +484,7 @@ void check_rails(std::vector<Issue>* out)
     std::vector<std::vector<int>> links(rails.size());
     for (size_t r = 0; r < rails.size(); ++r) {
         for (const int to : nodes[rails[r]].links) {
-            if (to >= 0 && to < static_cast<int>(nodes.size()) && index[to] >= 0)
+            if (to >= 0 && std::cmp_less(to, nodes.size()) && index[to] >= 0)
                 links[r].push_back(index[to]);
         }
     }

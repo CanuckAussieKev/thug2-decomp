@@ -14,6 +14,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
+#include "engine/core/ints.h"
 
 namespace frontend::career_complete {
 
@@ -172,7 +173,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         if (level->fetch_list(name_hash("classic_goals"), &classic, 0) && classic) {
             for (uint32_t g = 0; g < classic->extent_; ++g, ++classic_count)
                 store_beaten_goal(saved, classic->fetch_part(g), number, kClassic);
-            if (number < static_cast<int>(sizeof(career->counter_)))
+            if (number < ints::as_signed(sizeof(career->counter_)))
                 career->counter_[number] = static_cast<uint8_t>(classic->extent_);
         }
         script::Array* gaps = nullptr;

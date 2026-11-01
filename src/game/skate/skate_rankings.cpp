@@ -20,6 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/rider/rider.h"
+#include "engine/core/ints.h"
 
 namespace modules {
 
@@ -227,7 +228,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             for (void* player = net->begin_player_walk(&search, false); player;
                  player = net->step_player_walk(&search, false)) {
                 online::PlayerRecord* info = as_player(player);
-                if (static_cast<uint32_t>(info->team_) != entry->unknown44_)
+                if (ints::as_unsigned(info->team_) != entry->unknown44_)
                     continue;
                 uint32_t score = score_of(info);
                 char text[0x40];

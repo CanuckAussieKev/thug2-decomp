@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <unordered_map>
+#include <utility>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_clip.h"
@@ -103,7 +104,7 @@ void get_palette()
     }
     const std::vector<actions::ActStep>& all = actions::get_all();
     std::vector<std::pair<int, int>> found; // (score, index)
-    for (int i = 0; i < static_cast<int>(all.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, all.size()); ++i) {
         const actions::ActStep& a = all[i];
         const int score = std::max({actions::fuzzy_score(g_query, a.name) * 2,
                                     actions::fuzzy_score(g_query, a.category + " " + a.name),
@@ -120,7 +121,7 @@ void get_palette()
         ImVec2(0.0f, row_height * std::min<float>(14.0f, std::max<float>(1.0f, static_cast<float>(found.size()))) +
                          8.0f * current_s()));
     int run = -1;
-    for (int r = 0; r < static_cast<int>(found.size()); ++r) {
+    for (int r = 0; std::cmp_less(r, found.size()); ++r) {
         const int i = found[r].second;
         const actions::ActStep& a = all[i];
         const bool enabled = actions::is_switched_on(i);
@@ -192,7 +193,7 @@ void history_window()
     bool any = false;
     if (ImGui::Selectable("(start)", undo.empty()))
         jump = -static_cast<int>(undo.size()), any = true;
-    for (int i = 0; i < static_cast<int>(undo.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, undo.size()); ++i) {
         ImGui::PushID(i);
         const bool current = i == static_cast<int>(undo.size()) - 1;
         char text[200];
@@ -205,7 +206,7 @@ void history_window()
             ImGui::SetItemDefaultFocus();
         ImGui::PopID();
     }
-    for (int j = 0; j < static_cast<int>(redo.size()); ++j) {
+    for (int j = 0; std::cmp_less(j, redo.size()); ++j) {
         ImGui::PushID(1000 + j);
         char text[200];
         std::snprintf(text, sizeof(text), "%2d  %s  (undone)", static_cast<int>(undo.size()) + j + 1,
@@ -556,7 +557,7 @@ void help_from_registry()
     ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
     for (const std::string& category : categories) {
         bool first = true;
-        for (int i = 0; i < static_cast<int>(all.size()); ++i) {
+        for (int i = 0; std::cmp_less(i, all.size()); ++i) {
             const actions::ActStep& a = all[i];
             if (a.category != category)
                 continue;
@@ -591,7 +592,7 @@ void keys_section()
     ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", g_keys_filter, sizeof(g_keys_filter));
     ImGui::SameLine();
     if (ImGui::SmallButton("Reset all") && ImGui::GetIO().KeyShift) {
-        for (int i = 0; i < static_cast<int>(all.size()); ++i)
+        for (int i = 0; std::cmp_less(i, all.size()); ++i)
             actions::reset_keys(i);
     }
     if (ImGui::IsItemHovered())
@@ -607,7 +608,7 @@ void keys_section()
         ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("##reset", ImGuiTableColumnFlags_WidthFixed, 60.0f * current_s());
         std::string category;
-        for (int i = 0; i < static_cast<int>(all.size()); ++i) {
+        for (int i = 0; std::cmp_less(i, all.size()); ++i) {
             const actions::ActStep& a = all[i];
             if (!a.rebindable ||
                 actions::fuzzy_score(g_keys_filter, a.category + " " + a.name + " " + actions::get_keys_text(i)) == 0)
@@ -626,7 +627,7 @@ void keys_section()
             ImGui::TableNextColumn();
             if (g_fonts.mono)
                 ImGui::PushFont(g_fonts.mono);
-            for (int k = 0; k < static_cast<int>(a.keys.size()); ++k) {
+            for (int k = 0; std::cmp_less(k, a.keys.size()); ++k) {
                 ImGui::PushID(k);
                 const bool capturing = actions::get_capturing() && actions::capturing_index() == i;
                 const std::string text = capturing ? "..." : actions::format_chord(a.keys[k]);
@@ -702,7 +703,7 @@ void bunches()
     ImGui::TextDisabled("%d", static_cast<int>(state.groups.size()));
     if (!open)
         return;
-    for (int i = 0; i < static_cast<int>(state.groups.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
         const organize::GroupSet& g = state.groups[i];
         ImGui::PushID(i);
         char text[96];
@@ -806,7 +807,7 @@ void row_menu(const nodes::Elem& node)
         g_group_asked = true;
     const organize::State& state = organize::at_hand();
     if (!state.groups.empty() && ImGui::BeginMenu("Add Selection to")) {
-        for (int i = 0; i < static_cast<int>(state.groups.size()); ++i) {
+        for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
             if (ImGui::MenuItem(state.groups[i].name.c_str()))
                 get_queue([i] { organize::add_to_group(i); });
         }

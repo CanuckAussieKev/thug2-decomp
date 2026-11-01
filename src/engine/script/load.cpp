@@ -19,6 +19,7 @@
 #include "engine/util/lzss.h"
 #include "engine/util/byte_stream.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/ints.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -100,7 +101,7 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
     const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
     auto* buffer = static_cast<uint8_t*>(memory::alloc_block(room));
     int stored = lzss::pack_up(code, buffer, static_cast<int>(size), false);
-    if (stored >= static_cast<int>(size)) {
+    if (stored >= ints::as_signed(size)) {
         // (no smaller: kept as it is)
         for (uint32_t i = 0; i < size; ++i)
             buffer[i] = code[i];

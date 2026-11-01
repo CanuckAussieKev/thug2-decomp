@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -143,7 +144,8 @@ void update_shatter(PcShatter* shatter, float step)
     uint8_t* v0 = shatter->vertices;
     uint8_t* v1 = v0 + stride;
     uint8_t* v2 = v0 + 2 * stride;
-    for (int i = 0; i < shatter->triangle_count_; ++i, v0 += 3 * stride, v1 += 3 * stride, v2 += 3 * stride) {
+    for (int i = 0; std::cmp_less(i, shatter->triangle_count_);
+         ++i, v0 += 3 * stride, v1 += 3 * stride, v2 += 3 * stride) {
         const maths::Vec4& c = shatter->centres[i];
         const maths::Mat4& m = shatter->rotations[i];
         // (the first vertex's offsets stay in registers, the others' are stored)
@@ -170,7 +172,7 @@ void update_shatter(PcShatter* shatter, float step)
     if (!normal_offset)
         return;
     uint8_t* n0 = shatter->vertices + normal_offset;
-    for (int i = 0; i < shatter->triangle_count_; ++i, n0 += 3 * stride) {
+    for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i, n0 += 3 * stride) {
         const maths::Mat4& m = shatter->rotations[i];
         for (int v = 0; v < 3; ++v) {
             float* n = get_at(n0 + v * stride);

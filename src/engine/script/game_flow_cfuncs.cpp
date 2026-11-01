@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include <cstdio>
+#include <utility>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -58,6 +59,7 @@
 #include "engine/util/byte_stream.h"
 #include "engine/net/play_messages.h"
 #include "platform/compiler.h"
+#include "engine/core/ints.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -290,7 +292,7 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     command.action = action;
     command.found = false;
     command.result = false;
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; std::cmp_less(i, count); ++i) {
         command.id = nodes[i];
         object_edit()->for_each(&apply_flag_command_to_object, &command);
     }
@@ -724,7 +726,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
         cheat->fetch_int_value("c1", &cheat_c1, true);        // "c1"
         cheat->fetch_int_value("c2", &cheat_c2, true);        // "c2"
         cheat->read_hash_value("cheatscript", &script, true); // "cheatscript"
-        if (static_cast<uint32_t>(cheat_c1) == c1 && static_cast<uint32_t>(cheat_c2) == c2) {
+        if (ints::as_unsigned(cheat_c1) == c1 && ints::as_unsigned(cheat_c2) == c2) {
             script::launch_script(kCheatFound, nullptr, nullptr, false, nullptr);
             script::launch_script(script, nullptr, nullptr, false, nullptr);
             found = true;

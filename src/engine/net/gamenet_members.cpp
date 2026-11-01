@@ -50,6 +50,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/ints.h"
 
 namespace online {
 
@@ -328,7 +329,7 @@ const char* Hub::get_choice_name(uint32_t list, uint32_t choice)
     // The checksum is read into the argument's slot: an entry without one compares what the slot last held (at
     // first the list's own name).
     uint32_t checksum = list;
-    for (int i = 0; i < static_cast<int>(choices->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(choices->extent_); ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(choices->fetch_part(i));
         entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)
@@ -344,7 +345,7 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
     int value = 0;
     // (as above, the checksum goes into `choice`'s slot: an entry without one matches)
     uint32_t checksum = choice;
-    for (int i = 0; i < static_cast<int>(choices->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(choices->extent_); ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(choices->fetch_part(i));
         entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)

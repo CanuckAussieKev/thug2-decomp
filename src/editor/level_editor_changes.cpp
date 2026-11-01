@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
+#include <utility>
 
 #include "editor/level_editor_fields.h"
 
@@ -110,7 +111,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
 {
     std::vector<TableRow> out;
     std::vector<std::string> lines = get_lines(layout_text);
-    for (int n = 0; n < static_cast<int>(lines.size()); ++n) {
+    for (int n = 0; std::cmp_less(n, lines.size()); ++n) {
         std::string line = lines[n];
         if (!line.empty() && line.back() == '\r')
             line.pop_back();
@@ -281,10 +282,10 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
 std::string without(const std::string& layout_text, int line)
 {
     std::vector<std::string> lines = get_lines(layout_text);
-    if (line < 0 || line >= static_cast<int>(lines.size()))
+    if (line < 0 || std::cmp_greater_equal(line, lines.size()))
         return layout_text;
     std::string out;
-    for (int n = 0; n < static_cast<int>(lines.size()); ++n) {
+    for (int n = 0; std::cmp_less(n, lines.size()); ++n) {
         if (n == line)
             continue;
         out += lines[n];

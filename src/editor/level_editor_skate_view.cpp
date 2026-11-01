@@ -9,6 +9,7 @@
 #include <cstring>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
@@ -155,7 +156,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     const float threshold = game_threshold();
     Cached& c = g_cache[checksum];
-    if (c.tri == tri && c.faces == tri->tri_count_ && c.threshold == threshold && same(c.min, min) &&
+    if (c.tri == tri && std::cmp_equal(c.faces, tri->tri_count_) && c.threshold == threshold && same(c.min, min) &&
         same(c.max, max) && same(c.first, first) && same(c.last, last))
         return c;
     c = Cached{};

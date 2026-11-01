@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <utility>
 
 #include "frontend/new_frontend_mirror.h"
 #include "frontend/new_frontend_options.h"
@@ -16,6 +17,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "engine/util/unique_handle.h"
+#include "engine/core/ints.h"
 
 namespace frontend::new_frontend::paint {
 
@@ -728,7 +730,7 @@ float get_tabs(Ctx& c, const std::vector<std::pair<std::string, uint32_t>>& tabs
     tab.css = 13.0f;
     float x = 48.0f;
     const float tab_h = 13.0f * 1.3f + 8.0f;
-    for (int i = 0; i < static_cast<int>(tabs.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, tabs.size()); ++i) {
         const float w = get_measure(tab, c.f, tabs[i].first.c_str()) / c.f.scale;
         if (x > 48.0f && x + w > kColumnInner) {
             x = 48.0f;
@@ -805,7 +807,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
     const int count = static_cast<int>(rows.size()) + 1;
     for (int i = 0; i < count; ++i) {
         const float top = list_top + static_cast<float>(i) * row_h;
-        const bool action = i == static_cast<int>(rows.size());
+        const bool action = std::cmp_equal(i, rows.size());
         const char* label = action ? text_tools::kGameOptions : specs[rows[i]].label;
         // (a short label for the row: the design's 40 px type in a 470 px column)
         get_row(c, rs, top, pad2(i + 1).c_str(), label, menu.row_amount(i), Menu::kHouseYellow, false);
@@ -852,7 +854,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
         const int chosen = menu.option_choice(option);
         for (size_t i = 0; i < spec.choices.size(); ++i) {
             const float w = get_measure(seg, c.f, spec.choices[i].label) / c.f.scale + 28.0f;
-            const bool on = static_cast<int>(i) == chosen;
+            const bool on = ints::as_signed(i) == chosen;
             if (on)
                 get_cut(c.dl, c.f.get_x(x), c.f.get_y(y0), c.f.get_x(x + w), c.f.get_y(bottom), c.f.current_s(6.0f),
                         c.f.current_s(6.0f), get_col(Menu::kHouseYellow));
@@ -869,7 +871,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
         // When it's seen ("Restart to apply" - yellow once changed; nothing for a live one), its ini key only behind
         // [frontend] show_ini_keys=1, what it does (when it has a line).
         const bool pending =
-            option < static_cast<int>(c.extras.restart_pending_.size()) && c.extras.restart_pending_[option];
+            std::cmp_less(option, c.extras.restart_pending_.size()) && c.extras.restart_pending_[option];
         const std::string when =
             spec.apply == options::Apply::kLive ? std::string() : std::string(text_tools::kRestartToApply);
         const std::string where =
@@ -907,7 +909,7 @@ void levels_screen(Ctx& c, int* visible_rows)
     const Catalogue* data = menu.payload();
     const SectionView* view = menu.get_view();
     const int section_index = menu.get_section_index();
-    const Section* section = data && section_index >= 0 && section_index < static_cast<int>(data->sections.size())
+    const Section* section = data && section_index >= 0 && std::cmp_less(section_index, data->sections.size())
                                  ? &data->sections[section_index]
                                  : nullptr;
     const uint32_t colour = section ? section->colour : Menu::kHouseYellow;
@@ -931,7 +933,7 @@ void levels_screen(Ctx& c, int* visible_rows)
         const float rule = get_header(c, 36.0f, kColumnInner, title, true, nullptr);
         // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
         std::vector<std::pair<std::string, uint32_t>> tabs;
-        for (int i = 0; data && i < static_cast<int>(data->sections.size()); ++i)
+        for (int i = 0; data && std::cmp_less(i, data->sections.size()); ++i)
             tabs.emplace_back(data->sections[i].tab, data->sections[i].colour);
         const float tabs_bottom = get_tabs(c, tabs, section_index, rule + 14.0f);
         const float tab_h = 0.0f;
@@ -951,7 +953,7 @@ void levels_screen(Ctx& c, int* visible_rows)
         for (int row = first; row <= last; ++row) {
             const StageMap& l = section->levels[view->levels[row]];
             const float top = list_top + (static_cast<float>(row) - scroll) * kLevelRowHeight;
-            const bool locked = row < static_cast<int>(view->locked.size()) && view->locked[row];
+            const bool locked = std::cmp_less(row, view->locked.size()) && view->locked[row];
             get_row(c, rs, top, pad2(row + 1).c_str(), l.name.c_str(), menu.row_amount(row), colour, locked);
             if (top >= list_top - 1.0f && top + kLevelRowHeight <= list_bottom + 1.0f)
                 c.get_hit(Hit::Kind::kStageMap, row, 48.0f, top, kColumnInner + 20.0f, top + kLevelRowHeight);
@@ -976,7 +978,7 @@ void levels_screen(Ctx& c, int* visible_rows)
     // The picture's number at the top right (Q / E change it) - only for a level with more than one.
     if (level && level->art_variants_.size() > 1 && grow < 0.999f) {
         char text[64];
-        if (level->variant >= 0 && level->variant < static_cast<int>(level->art_labels_.size()))
+        if (level->variant >= 0 && std::cmp_less(level->variant, level->art_labels_.size()))
             std::snprintf(text, sizeof(text), "Q  %s  E", level->art_labels_[level->variant].c_str());
         else
             std::snprintf(text, sizeof(text), "Q  %d / %d  E", level->variant + 1,
@@ -1220,7 +1222,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     float total = 0.0f, selected_centre = 0.0f;
     for (size_t i = 0; i < v.rows.size(); ++i) {
         widths.push_back(get_measure(name, c.f, v.rows[i].label.c_str()) / c.f.scale);
-        if (static_cast<int>(i) == v.selected)
+        if (ints::as_signed(i) == v.selected)
             selected_centre = total + widths.back() * 0.5f;
         total += widths.back() + gap;
     }
@@ -1618,7 +1620,7 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
         hints.emplace_back(text_tools::kHintBack);
     std::vector<std::pair<float, float>> spans;
     const float bottom = get_hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
-    if (resume_hint >= 0 && resume_hint < static_cast<int>(spans.size()))
+    if (resume_hint >= 0 && std::cmp_less(resume_hint, spans.size()))
         c.get_hit(Hit::Kind::kContinue, 0, spans[resume_hint].first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f,
                   spans[resume_hint].second + 6.0f, 688.0f + 6.0f);
     const float name_top = big_name(c, v.big_name_, 120.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
@@ -1669,7 +1671,7 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
         for (size_t k = 0; k < v.keys[r].size(); ++k) {
             const std::string& label = v.keys[r][k];
             const float w = std::max(52.0f, get_measure(key, c.f, label.c_str()) / c.f.scale + 28.0f);
-            const bool sel = static_cast<int>(r) == v.key_row_ && static_cast<int>(k) == v.key_col_;
+            const bool sel = ints::as_signed(r) == v.key_row_ && ints::as_signed(k) == v.key_col_;
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), c.f.get_y(top)), ImVec2(c.f.get_x(x + w), c.f.get_y(top + h)),
                                 sel ? get_col(Menu::kHouseYellow) : get_col(kGround, 0.85f));
             c.dl->AddRect(ImVec2(c.f.get_x(x), c.f.get_y(top)), ImVec2(c.f.get_x(x + w), c.f.get_y(top + h)),

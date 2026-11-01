@@ -51,8 +51,6 @@ Checks:
   - '-performance-no-int-to-ptr'
   # It knows only gsl::owner; ownership here is memory::owner<> and std::unique_ptr.
   - '-cppcoreguidelines-owning-memory'
-  # std::cmp_less would change the result where the original compares mixed-sign values as written.
-  - '-modernize-use-integer-sign-comparison'
   # It would warn at the original's own call sites that drop results.
   - '-modernize-use-nodiscard'
   # Iterator-pair algorithms are as clear here; its fix mishandles pointers to containers.

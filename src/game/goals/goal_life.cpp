@@ -23,6 +23,7 @@
 #include "engine/net/player_info.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/rider.h"
+#include "engine/core/ints.h"
 
 namespace goals {
 
@@ -515,7 +516,7 @@ int Objective::get_reward_points()
     script::Array* by_level = nullptr;
     if (args_->fetch_list(kRewardPoints, &by_level, 0)) {
         const int level = get_skill_tier(objective_board(), false);
-        if (level >= 0 && level < static_cast<int>(by_level->extent_))
+        if (level >= 0 && level < ints::as_signed(by_level->extent_))
             return static_cast<int>(by_level->fetch_part(static_cast<uint32_t>(level)));
     }
     return 0;

@@ -47,6 +47,7 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "platform/compiler.h"
+#include "engine/core/ints.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -216,7 +217,7 @@ int Hub::reserve_obj_id_for_player()
         PlayerSearch search;
         for (const PlayerRecord* player = start_roster_sweep(this, &search, false); player && !used;
              player = step_roster_sweep(this, &search, false))
-            used = static_cast<int>(get_skater_id(player_skater(player))) ==
+            used = ints::as_signed(get_skater_id(player_skater(player))) ==
                    id; // (a player without a skater: read at 0x14)
         NewPlayerSearch new_search;
         for (const JoinerRecord* info = first_new_player(this, &new_search); info && !used;
@@ -356,7 +357,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         player->conn_->mark_stale();
         player->conn_->drop_queued_traffic();
     }
-    const uint32_t text = reason >= 0 && reason < static_cast<int>(sizeof(kDropTexts) / sizeof(kDropTexts[0]))
+    const uint32_t text = reason >= 0 && reason < ints::as_signed(sizeof(kDropTexts) / sizeof(kDropTexts[0]))
                               ? kDropTexts[reason]
                               : kNetMessagePlayerTimedOut;
     if (!is_own_player(player))

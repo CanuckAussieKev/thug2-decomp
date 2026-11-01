@@ -17,6 +17,7 @@
 #include "engine/script/script_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
+#include "engine/core/ints.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -172,7 +173,7 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
             return false;
     } else {
         ++index;
-        if (index >= static_cast<int>(size))
+        if (index >= ints::as_signed(size))
             return false;
     }
     script->args_->put_int(kIndex, index);
@@ -418,7 +419,7 @@ bool cfunc_get_element(Struct* params, Script* script)
     script->args_->erase_module(kElement);
     if (!array)
         return true;
-    if (index < 0 || index >= static_cast<int>(array->extent_))
+    if (index < 0 || index >= ints::as_signed(array->extent_))
         return false;
     switch (array->kind_tag_) {
     case script::kQbvalInteger:

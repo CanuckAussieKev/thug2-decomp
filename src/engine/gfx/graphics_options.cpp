@@ -14,6 +14,7 @@
 
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
+#include "engine/core/ints.h"
 
 namespace render::graphics_options {
 
@@ -111,7 +112,7 @@ int device_anisotropy(int option, bool device_can_filter, uint32_t max_anisotrop
 {
     if (option < 2 || !device_can_filter || max_anisotropy < 2)
         return 0;
-    return static_cast<uint32_t>(option) > max_anisotropy ? static_cast<int>(max_anisotropy) : option;
+    return ints::as_unsigned(option) > max_anisotropy ? static_cast<int>(max_anisotropy) : option;
 }
 
 uint32_t get_min_filter(bool linear, int anisotropy)

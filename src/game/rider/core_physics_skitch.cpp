@@ -20,6 +20,7 @@
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/ride_tracker.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/ints.h"
 
 namespace skater {
 
@@ -66,7 +67,7 @@ void SkaterPhysicsModule::try_start_skitch()
     if (state_->flag(PoseFlag::kSkitching).on || !hold->held_down_)
         return;
     auto held = static_cast<uint32_t>(time_since_press(hold));
-    if (held <= static_cast<uint32_t>(script::fetch_int_value(kSkitchHoldTime)) || state_->cur_phase_ != 0)
+    if (held <= ints::as_unsigned(script::fetch_int_value(kSkitchHoldTime)) || state_->cur_phase_ != 0)
         return;
     // The nearest skitch point of any other object's skitch component (that's on), within Skitch_Max_Distance.
     float nearest = script::fetch_float(kSkitchMaxDistance);

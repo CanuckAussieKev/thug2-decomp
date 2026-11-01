@@ -6,6 +6,7 @@
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <utility>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_clip.h"
@@ -239,7 +240,7 @@ void refresh_changes()
         return std::string(name ? name : "");
     };
     for (const changes::TableRow& e : changes::link_chain(text, label))
-        g_changes.push_back({e, e.line >= 0 && e.line < static_cast<int>(lines.size()) ? lines[e.line] : ""});
+        g_changes.push_back({e, e.line >= 0 && std::cmp_less(e.line, lines.size()) ? lines[e.line] : ""});
 }
 
 void go_to(const ChangeRow& row)

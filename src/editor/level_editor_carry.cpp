@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <vector>
+#include <utility>
 
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_scenery.h"
@@ -161,7 +162,7 @@ std::vector<uint32_t> link_names(const nodes::Elem* node)
         return names;
     const std::vector<nodes::Elem>& all = nodes::get_all();
     for (const int link : node->links) {
-        if (link >= 0 && link < static_cast<int>(all.size()))
+        if (link >= 0 && std::cmp_less(link, all.size()))
             names.push_back(all[link].name);
     }
     return names;

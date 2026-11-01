@@ -8,6 +8,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <utility>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
@@ -21,6 +22,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/gfx/sector.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::faces {
 
@@ -230,7 +232,7 @@ bool get_corners(FaceKey key, V3 out[3])
             return false;
         for (int k = 0; k < 3; ++k) {
             const uint32_t v = companion->get_geometry().face_vertex(index, k);
-            if (v >= static_cast<uint32_t>(companion->get_vertex_count()))
+            if (v >= ints::as_unsigned(companion->get_vertex_count()))
                 return false;
             out[k] = companion->get_vertex(static_cast<int>(v));
         }
@@ -400,7 +402,7 @@ bool select_piece(uint32_t checksum, bool add)
     if (scenery::is_clone(checksum))
         return false;
     if (const render::TriMeshSource* tri = get_geometry(checksum)) {
-        for (int f = 0; f < tri->tri_count_ && faces.size() < kMostSelected; ++f)
+        for (int f = 0; std::cmp_less(f, tri->tri_count_) && faces.size() < kMostSelected; ++f)
             faces.push_back({checksum, static_cast<uint16_t>(f)});
     }
     // (the faces its shared collision took along: theirs to edit too)

@@ -20,6 +20,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/ints.h"
 
 namespace render {
 
@@ -190,7 +191,7 @@ void* generated_pixel_shader(const void* material)
     // number: r0, t1, t2, t3, r1.
     static const char kRegisters[5][3] = {"r0", "t1", "t2", "t3", "r1"};
     uint32_t reg = 0;
-    for (int pass = 1; pass < static_cast<int>(passes); ++pass) {
+    for (int pass = 1; pass < ints::as_signed(passes); ++pass) {
         const uint32_t mode = modes[pass];
         const bool brighten = mode == 0xC || mode == 0xD;
         const uint32_t previous = reg;

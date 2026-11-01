@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -208,7 +209,7 @@ uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
         if (!n)
             continue;
         Array* array = script::fetch_list(table->node_array_);
-        for (int i = 0; i < n; ++i) // (the buffer's size isn't checked)
+        for (int i = 0; std::cmp_less(i, n); ++i) // (the buffer's size isn't checked)
             names[found++] = get_node_name(reinterpret_cast<Struct*>(array->fetch_part(indices[i])));
     }
     *count = static_cast<uint16_t>(found);

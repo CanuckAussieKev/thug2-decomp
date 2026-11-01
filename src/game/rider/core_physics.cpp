@@ -32,6 +32,7 @@
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/rotate_component.h"
+#include "engine/core/ints.h"
 
 namespace skater {
 
@@ -738,7 +739,7 @@ void SkaterPhysicsModule::do_air_physics()
     if (!triggers_held(input))
         return;
     bool recent = false;
-    if (air_start_ > static_cast<uint32_t>(leap_time_))
+    if (air_start_ > ints::as_unsigned(leap_time_))
         recent = static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(air_start_))) < 0xFA;
     uint8_t drop[40];
     objects::GameEntity* o = object_of(this);

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -532,7 +533,7 @@ void PcWeather::tick_grid()
         }
         if (first < last) {
             rows[r] = {first, last, static_cast<uint16_t>(offset)};
-            for (int c = first; c <= last; ++c)
+            for (int c = first; std::cmp_less_equal(c, last); ++c)
                 columns[static_cast<uint16_t>(offset++)] = grid[width * r + c];
         } else {
             rows[r] = {0x4000, 0, 0};

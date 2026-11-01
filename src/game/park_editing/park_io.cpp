@@ -20,6 +20,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
+#include "engine/core/ints.h"
 
 namespace park_editing {
 
@@ -363,7 +364,7 @@ void ParkLayout::set_up_lights()
     builder_->configure_lighting(static_cast<int>(positions->extent_), ambient.x * ambient_const,
                                  ambient.y * ambient_const, ambient.z * ambient_const, falloff.x * falloff_const,
                                  falloff.y * falloff_const, falloff.z * falloff_const, cursor_ambience);
-    for (int i = 0; i < static_cast<int>(positions->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(positions->extent_); ++i) {
         auto* v = reinterpret_cast<float*>(positions->fetch_part(static_cast<uint32_t>(i))); // a CVector (x at +4)
         maths::Vec4 pos;
         pos.x = cell_size_x() * v[1];

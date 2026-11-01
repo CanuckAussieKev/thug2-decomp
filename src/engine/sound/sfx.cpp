@@ -15,6 +15,7 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/core/owner.h"
+#include "engine/core/ints.h"
 
 namespace sound {
 
@@ -230,7 +231,7 @@ void AudioMixer::unload_group(int group)
     int count = permanent_count();
     for (int i = 0; i < count;) {
         SoundWaveSlot& entry = permanent_waves()[i];
-        if (entry.load_type_ == 2 && entry.group == static_cast<uint32_t>(group)) {
+        if (entry.load_type_ == 2 && entry.group == ints::as_unsigned(group)) {
             --count;
             entry = permanent_waves()[count]; // (the last moves into its place)
         } else {

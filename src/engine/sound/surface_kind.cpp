@@ -19,6 +19,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/util/byte_stream.h"
 #include "engine/net/play_messages.h"
+#include "engine/core/ints.h"
 
 namespace surface_kind {
 
@@ -417,7 +418,7 @@ bool load_terrain_sounds(uint32_t checksum)
             new (merged) script::Struct;
         merged->append_structure_if_any(default_actions);
         merged->append_structure_if_any(terrain_actions);
-        for (uint32_t table = 0; table < static_cast<uint32_t>(get_terrain_actions().extent_); ++table)
+        for (uint32_t table = 0; table < ints::as_unsigned(get_terrain_actions().extent_); ++table)
             load_table_sounds(merged, static_cast<uint8_t>(table));
         if (merged) {
             merged->get_clear();

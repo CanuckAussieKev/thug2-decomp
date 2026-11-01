@@ -17,6 +17,7 @@
 #include "platform/winmain.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/movie.h"
+#include "engine/core/ints.h"
 
 namespace sys {
 
@@ -41,9 +42,9 @@ void enforce_max_resolution()
     bool width_fits = false;
     bool height_fits = false;
     for (DWORD i = 0; EnumDisplaySettingsA(nullptr, i, &mode); ++i) {
-        if (mode.dmPelsWidth >= static_cast<DWORD>(s_client_width))
+        if (mode.dmPelsWidth >= ints::as_unsigned(s_client_width))
             width_fits = true;
-        if (mode.dmPelsHeight >= static_cast<DWORD>(s_client_height))
+        if (mode.dmPelsHeight >= ints::as_unsigned(s_client_height))
             height_fits = true;
     }
     if (!width_fits || !height_fits) {

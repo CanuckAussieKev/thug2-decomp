@@ -19,6 +19,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/suspend_component.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -85,7 +86,7 @@ void ImpactDestructModule::tick_frame()
         kLifetime) {
         get_kill(entity_);
     } else if (fading_out_) {
-        if (static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset) > death_time_)
+        if (ints::as_unsigned(frame_clock::game_clock_elapsed() + offset) > death_time_)
             get_kill(entity_);
     } else {
         render::ProbeRay feeler;

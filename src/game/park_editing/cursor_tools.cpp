@@ -3,6 +3,7 @@
 #include "engine/core/str.h"
 
 #include <cstdint>
+#include <utility>
 
 #include "game/park_editing/park.h"
 
@@ -164,7 +165,7 @@ void BuildPointer::clamp_to_park()
     clipboard_->fetch_extent(this, &area);
     int last = bounds.w + bounds.x - 1;
     int shift = 0;
-    if (static_cast<int8_t>(area.x) < bounds.x)
+    if (std::cmp_less(static_cast<int8_t>(area.x), bounds.x))
         shift = bounds.x - static_cast<int8_t>(area.x);
     int end = static_cast<int8_t>(area.w + area.x - 1);
     if (end > last)
@@ -172,7 +173,7 @@ void BuildPointer::clamp_to_park()
     pos.x = static_cast<uint8_t>(pos.x + shift);
     last = bounds.l + bounds.z - 1;
     shift = 0;
-    if (static_cast<int8_t>(area.z) < bounds.z)
+    if (std::cmp_less(static_cast<int8_t>(area.z), bounds.z))
         shift = bounds.z - static_cast<int8_t>(area.z);
     end = static_cast<int8_t>(area.l + area.z - 1);
     if (end > last)

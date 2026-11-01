@@ -10,12 +10,14 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_level_props.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_ui.h"
 #include "imgui.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::ui {
 
@@ -111,7 +113,7 @@ const fields::Kind kAddKinds[] = {fields::Kind::kInteger, fields::Kind::kFloat, 
 void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (node_index < 0 || node_index >= static_cast<int>(nodes.size()))
+    if (node_index < 0 || std::cmp_greater_equal(node_index, nodes.size()))
         return;
     const nodes::Elem& node = nodes[node_index];
     if (g_typing.node != node_index || g_typing.generation != nodes::get_generation()) {
@@ -249,7 +251,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::BeginCombo("##newkind", fields::kind_name(kAddKinds[g_typing.new_kind_]))) {
-            for (int i = 0; i < static_cast<int>(sizeof(kAddKinds) / sizeof(kAddKinds[0])); ++i) {
+            for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(kAddKinds[0])); ++i) {
                 if (ImGui::Selectable(fields::kind_name(kAddKinds[i]), i == g_typing.new_kind_))
                     g_typing.new_kind_ = i;
             }

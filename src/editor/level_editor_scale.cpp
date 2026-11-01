@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <utility>
 
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/model.h"
@@ -405,7 +406,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                          mesh->position_count_,
                          mesh->positions,
                          {}};
-        for (int b = 0; b < mesh->vertex_buffer_count_; ++b) {
+        for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count_); ++b) {
             render::VertexBuffer* buffer = mesh->vertex_buffers_[b];
             if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertex_count_) * mesh->stride)
                 return nullptr;

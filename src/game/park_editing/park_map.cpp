@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -211,7 +212,7 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     util::ByteReader in(&map_, sizeof(map_));
     in.seek(kParkMapRecordsStart);
     // The metapieces: the name's index, x, z; the height and rotation.
-    for (int i = 0; i < map_.composite_count_; ++i) {
+    for (int i = 0; std::cmp_less(i, map_.composite_count_); ++i) {
         ParkMapPiece piece;
         if (!read_park_map_piece(in, &piece))
             break;
@@ -228,7 +229,7 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     }
 
     // The gaps (0x30 bytes each, 0x2C in older parks): both ends, their sides, the name and score.
-    for (int i = 0; i < map_.num_gaps_; ++i) {
+    for (int i = 0; std::cmp_less(i, map_.num_gaps_); ++i) {
         ParkMapGap record;
         if (!read_park_map_gap(in, &record, current))
             break;

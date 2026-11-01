@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <utility>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_camera.h"
@@ -391,7 +392,7 @@ void run_slice()
     const int at = g_pie.hovered;
     std::vector<pie::Item> items = g_pie.items;
     g_pie.open = false;
-    if (at < 0 || at >= static_cast<int>(items.size()) || !items[at].enabled())
+    if (at < 0 || std::cmp_greater_equal(at, items.size()) || !items[at].enabled())
         return;
     if (items[at].edits)
         stop_simulation();

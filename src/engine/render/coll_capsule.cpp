@@ -9,6 +9,7 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
+#include "engine/core/ints.h"
 
 namespace render {
 
@@ -91,7 +92,7 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
     int count = 0;
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer, 0x800);
-    for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
+    for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
         const uint32_t face = faces[i];
         const uint16_t flags =

@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -352,7 +353,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
             // Every piece now.
             const uint8_t* next = static_cast<const uint8_t*>(data) + first;
             StreamPieceMessage piece;
-            for (int sent = first; sent < size;) {
+            for (int sent = first; std::cmp_less(sent, size);) {
                 int length = size - sent;
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;

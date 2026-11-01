@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_playtest.h"
@@ -42,7 +43,7 @@ void current_heading(const char* title, ImFont* heading)
 void restart_section(int node_index)
 {
     const std::vector<nodes::Elem>& all = nodes::get_all();
-    if (node_index < 0 || node_index >= static_cast<int>(all.size()))
+    if (node_index < 0 || std::cmp_greater_equal(node_index, all.size()))
         return;
     const nodes::Elem& node = all[node_index];
     if (node.family != nodes::Family::kSpawn || node.hidden)

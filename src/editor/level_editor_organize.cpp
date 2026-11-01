@@ -702,7 +702,7 @@ void make_group(const std::string& wanted)
 
 void select_group(int index)
 {
-    if (index < 0 || index >= static_cast<int>(g_state.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()))
         return;
     SelectionIds ids;
     uint32_t node = 0;
@@ -741,7 +741,7 @@ void select_group(int index)
 
 void delete_group(int index)
 {
-    if (index < 0 || index >= static_cast<int>(g_state.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()))
         return;
     State next = g_state;
     next.groups.erase(next.groups.begin() + index);
@@ -751,9 +751,9 @@ void delete_group(int index)
 void rename_group(int index, const std::string& wanted)
 {
     std::string name;
-    if (index < 0 || index >= static_cast<int>(g_state.groups.size()) || !clean_name(wanted, &name))
+    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()) || !clean_name(wanted, &name))
         return;
-    for (int i = 0; i < static_cast<int>(g_state.groups.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, g_state.groups.size()); ++i) {
         if (i != index && g_state.groups[i].name == name) {
             show_message("Group name already in use");
             return;
@@ -766,7 +766,7 @@ void rename_group(int index, const std::string& wanted)
 
 void add_to_group(int index)
 {
-    if (index < 0 || index >= static_cast<int>(g_state.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()))
         return;
     const SelectionIds s = current_selection();
     State next = g_state;

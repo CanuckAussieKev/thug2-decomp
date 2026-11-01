@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -616,7 +617,7 @@ void PointTally::refresh_bot_check(int line)
     if (combo_count < 0xFF)
         ++combo_count;
     const int kick_in = script::fetch_int_value(kRobotKickInCount);
-    if (combo_count <= kick_in) {
+    if (std::cmp_less_equal(combo_count, kick_in)) {
         robot_factor_ = 1.0f;
         return;
     }

@@ -9,6 +9,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -21,6 +22,7 @@
 #include "engine/gfx/model.h"
 #include "engine/core/stubs.h"
 #include "engine/gfx/shader_slots.h"
+#include "engine/core/ints.h"
 
 namespace render {
 
@@ -399,7 +401,7 @@ bool PcGeom::change_material_tint(uint32_t checksum, int pass, uint32_t rgba)
         if (!material)
             continue;
         const int index = pass_from_checksum(material, checksum, pass);
-        if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_)
+        if (index < 0 || ints::as_unsigned(index) >= material->pass_count_)
             continue;
         if (static_cast<int8_t>(material->pass_flags_[index] & 0xFF) < 0) // (the colour is fixed)
             continue;
@@ -689,7 +691,7 @@ void PcGeom::change_colors(const uint8_t* in)
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
         const uint8_t* mesh_colors = in;
-        for (int b = 0; b < mesh->vertex_buffer_count_; ++b) {
+        for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count_); ++b) {
             in = mesh_colors;
             uint8_t* color = get_lock(get_vertex_buffer(mesh, b), 0) + color_offset(mesh);
             for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, in += 4) {
@@ -776,7 +778,7 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         if (!material)
             continue;
         const int index = pass_from_checksum(material, checksum, pass);
-        if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_)
+        if (index < 0 || ints::as_unsigned(index) >= material->pass_count_)
             continue;
         if (!material->uv_wibble_[index]) {
             material->uv_wibble_[index] = new_uv_wibble();
@@ -811,7 +813,7 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
         if (!material)
             continue;
         const int index = pass_from_checksum(material, checksum, pass);
-        if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_ || material->uv_wibble_[index])
+        if (index < 0 || ints::as_unsigned(index) >= material->pass_count_ || material->uv_wibble_[index])
             continue;
         material->uv_wibble_[index] = new_uv_wibble();
         material->has_uv_wibble_ = true;

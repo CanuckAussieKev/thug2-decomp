@@ -20,6 +20,7 @@
 #include "game/rider/skater_sound.h"
 #include "game/rider/skater_state.h"
 #include "game/skate/point_tally.h"
+#include "engine/core/ints.h"
 
 namespace skater {
 
@@ -583,13 +584,13 @@ int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*)
 int SkaterPhysicsModule::air_time_less_than(script::Struct* params, script::Script*)
 {
     const uint32_t time = time_aloft(this);
-    return time < static_cast<uint32_t>(air_time_threshold(params)) ? 1 : 0;
+    return time < ints::as_unsigned(air_time_threshold(params)) ? 1 : 0;
 }
 // 0x004FC8E0
 int SkaterPhysicsModule::air_time_greater_than(script::Struct* params, script::Script*)
 {
     const uint32_t time = time_aloft(this);
-    return static_cast<uint32_t>(air_time_threshold(params)) < time ? 1 : 0;
+    return ints::as_unsigned(air_time_threshold(params)) < time ? 1 : 0;
 }
 // 0x004FC940
 int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)

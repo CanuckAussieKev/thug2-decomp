@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <utility>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hints.h"
@@ -321,7 +322,7 @@ void sets_menu(const Fonts& fonts)
     }
     // The other groups (named in the Outliner: Ctrl+G). (Clicks queued: done in the next Update, as UX3's panels.)
     bool any = false;
-    for (int g = 0; g < static_cast<int>(state.groups.size()); ++g) {
+    for (int g = 0; std::cmp_less(g, state.groups.size()); ++g) {
         const organize::GroupSet& group = state.groups[g];
         if (group.name.starts_with("Set ") && group.name.size() == 5 && group.name[4] >= '1' && group.name[4] <= '9')
             continue;

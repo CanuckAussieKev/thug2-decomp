@@ -16,6 +16,7 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_layout.h"
@@ -1177,7 +1178,7 @@ void refresh_palette()
 Placed get_place(int index, V3 at, float yaw)
 {
     Placed placed;
-    if (index < 0 || index >= static_cast<int>(g_sources.size()))
+    if (index < 0 || std::cmp_greater_equal(index, g_sources.size()))
         return placed;
     const Source& source = g_sources[index];
     if (source.kind == SourceKind::kSound) {

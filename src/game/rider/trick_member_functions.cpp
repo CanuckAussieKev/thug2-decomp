@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -153,7 +154,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kUseEventsX:
         // Every event of the button x marked used (+0x14), in the buffer's order.
-        for (int i = 0; i < event_count_; ++i) {
+        for (int i = 0; std::cmp_less(i, event_count_); ++i) {
             TrickEvent* event = &events_[i];
             if (event->button == kX)
                 event->flags = 1;
@@ -258,7 +259,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             break;
         }
         int index = event_head_;
-        for (int i = 0; i < event_count_; ++i) {
+        for (int i = 0; std::cmp_less(i, event_count_); ++i) {
             TrickEvent* event = &events_[index];
             if (frame_clock::get_time() - event->time >= static_cast<uint32_t>(duration))
                 break;

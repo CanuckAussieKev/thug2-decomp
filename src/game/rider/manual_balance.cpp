@@ -25,6 +25,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -265,7 +266,7 @@ void Balance::tick_frame()
         pushed_ = true;
     auto safe_period = static_cast<uint32_t>(script::fetch_int_value(kBalanceSafeButtonPeriod));
     const uint32_t elapsed = get_clock() - start_time_;
-    if (!pushed_ && elapsed > static_cast<uint32_t>(script::fetch_int_value(kBalanceIgnoreButtonPeriod)))
+    if (!pushed_ && elapsed > ints::as_unsigned(script::fetch_int_value(kBalanceIgnoreButtonPeriod)))
         pushed_ = true;
     if (left && pushed_) {
         // Pushing back - not at all before the safe period while leaning the other way (the original's ratio is an

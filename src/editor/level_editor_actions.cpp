@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <utility>
 
 #include "platform/run_log.h"
 
@@ -268,7 +269,7 @@ std::vector<int> settle_up(const std::vector<std::vector<Chord>>& bound, int sca
 {
     std::vector<int> best;
     int best_specificity = -1;
-    for (int i = 0; i < static_cast<int>(bound.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, bound.size()); ++i) {
         int specificity = -1;
         for (const Chord& c : bound[i]) {
             if (chord_matches(c, scancode, held))
@@ -648,13 +649,13 @@ const std::vector<ActStep>& get_all() { return get_registry(); }
 ActStep* get_pull(int index)
 {
     std::vector<ActStep>& r = get_registry();
-    return index >= 0 && index < static_cast<int>(r.size()) ? &r[index] : nullptr;
+    return index >= 0 && std::cmp_less(index, r.size()) ? &r[index] : nullptr;
 }
 
 int get_find(const std::string& id)
 {
     const std::vector<ActStep>& r = get_registry();
-    for (int i = 0; i < static_cast<int>(r.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, r.size()); ++i) {
         if (r[i].id == id)
             return i;
     }
@@ -735,7 +736,7 @@ std::vector<int> conflicts(int index)
     if (!a)
         return out;
     const std::vector<ActStep>& r = get_registry();
-    for (int i = 0; i < static_cast<int>(r.size()); ++i) {
+    for (int i = 0; std::cmp_less(i, r.size()); ++i) {
         if (i == index || r[i].kind == Kind::kDetailsOf)
             continue;
         // (a key held and a key pressed may share a key: flying's E and nudging's E are one key in two modes)
@@ -780,7 +781,7 @@ void begin_frame(const uint8_t* keys)
                     if (!*get_key_name(s)) {
                         get_log("level editor: key %d can't be bound (not one the keymap names)", s);
                     } else {
-                        if (g_capture_slot < static_cast<int>(next.size()))
+                        if (std::cmp_less(g_capture_slot, next.size()))
                             next[g_capture_slot] = chord;
                         else
                             next.push_back(chord);
@@ -809,7 +810,7 @@ void seed_keys(const uint8_t* keys)
     g_triggered.assign(g_triggered.size(), false);
 }
 
-bool squeezed(int index) { return index >= 0 && index < static_cast<int>(g_fired.size()) && g_fired[index]; }
+bool squeezed(int index) { return index >= 0 && std::cmp_less(index, g_fired.size()) && g_fired[index]; }
 
 bool get_held(const uint8_t* keys, int index)
 {
@@ -827,7 +828,7 @@ bool get_held(const uint8_t* keys, int index)
 void fire_off(int index)
 {
     const std::vector<ActStep>& r = get_registry();
-    if (index < 0 || index >= static_cast<int>(r.size()))
+    if (index < 0 || std::cmp_greater_equal(index, r.size()))
         return;
     g_triggered.resize(r.size(), false);
     g_triggered[index] = true;

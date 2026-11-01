@@ -31,6 +31,7 @@
 #include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "tests/format_check_files.h"
+#include "engine/core/ints.h"
 
 namespace format_check_files {
 
@@ -206,7 +207,7 @@ void check_archive(const std::string& name, const std::vector<uint8_t>& archive,
             // the original decoder, given room, writes the same bytes
             std::vector<uint8_t> original(unpacked.size() + 64);
             const uint8_t* end = reference_decode(record.data, original.data(), record.compressed_size);
-            check(static_cast<size_t>(end - original.data()) == written &&
+            check(ints::as_unsigned(end - original.data()) == written &&
                       std::memcmp(original.data(), unpacked.data(), written) == 0,
                   what + ": the same bytes as the original decoder");
             // a capacity one short fails
@@ -272,7 +273,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
     check(ok, name + ": bundle table");
     // the original's in-place reading: the count at +4, the entries from +8
     const auto* words = reinterpret_cast<const uint32_t*>(data);
-    check(size >= 8 && words[0] == 1 && words[1] == static_cast<uint32_t>(count), name + ": version 1, the count");
+    check(size >= 8 && words[0] == 1 && words[1] == ints::as_unsigned(count), name + ": version 1, the count");
     for (int i = 0; ok && i < count; ++i) {
         const uint32_t* row = words + 2 + i * 4;
         const bundle_format::Entry& entry = table[static_cast<size_t>(i)];
@@ -320,7 +321,7 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
     }
     // the original memory loader's walk in place: the count at +4, eight words a texture, each level {size, texels}
     const auto* p = reinterpret_cast<const uint32_t*>(data);
-    check(static_cast<int>(p[1]) == header.count, name + ": the count as in place");
+    check(ints::as_signed(p[1]) == header.count, name + ": the count as in place");
     p += 2;
     for (int i = 0; i < header.count; ++i) {
         texture_format::TextureHeader texture;
@@ -685,8 +686,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
     const bool walked = reference_scene(copy.data(), size, &reference);
     check(walked && reference.end == in.position() && reference.materials == materials &&
               reference.sectors == sectors && reference.meshes == meshes && reference.indices == indices &&
-              reference.vertex_bytes == vertex_bytes &&
-              reference.hierarchy == static_cast<uint32_t>(nodes > 0 ? nodes : 0),
+              reference.vertex_bytes == vertex_bytes && reference.hierarchy == ints::as_unsigned(nodes > 0 ? nodes : 0),
           name + ": as read in place");
     // the whole-scene walk agrees, and refuses the scene cut short
     scene_format::MemoryStream again(data, size);

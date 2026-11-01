@@ -26,6 +26,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/owner.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -409,7 +410,7 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
         scaled = static_cast<double>(time) * kFrameMilliseconds;
     auto milliseconds = static_cast<uint32_t>(get_truncated(scaled));
     ControlButton* button = pad_primary_.read_button(name);
-    if (button && button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) > milliseconds)
+    if (button && button->held_down_ && ints::as_unsigned(button->get_held_millis()) > milliseconds)
         return 1;
     return 0;
 }

@@ -15,6 +15,7 @@
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -224,7 +225,7 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots = nullptr;
     specials->fetch_list(0u, &slots, 1);
-    if (index < 0 || index >= static_cast<int>(slots->extent_)) {
+    if (index < 0 || index >= ints::as_signed(slots->extent_)) {
         // (asserts, compiled out)
         // (0x005480A0, an empty function, given the info structure and the specials)
         stubs::do_nothing();
@@ -248,7 +249,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots = nullptr;
     specials->fetch_list(0u, &slots, 1);
-    if (index < 0 || index >= static_cast<int>(slots->extent_))
+    if (index < 0 || index >= ints::as_signed(slots->extent_))
         return false;
     uint32_t name = trick->trick, keys = trick->keys;
     if (trick->is_vacant())

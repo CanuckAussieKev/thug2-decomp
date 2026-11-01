@@ -9,6 +9,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_entities.h"
@@ -26,6 +27,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/gfx/light_manager.h"
+#include "engine/core/ints.h"
 
 namespace frontend::level_editor::node_create {
 
@@ -459,7 +461,7 @@ bool move_crown(LinkChain* list, const std::string& name, int delta)
     const int at = get_index_of(*list, name);
     if (at < 0 || !is_crown((*list)[at]) || (delta != -1 && delta != 1))
         return false;
-    for (int i = at + delta; i >= 0 && i < static_cast<int>(list->size()); i += delta) {
+    for (int i = at + delta; i >= 0 && i < ints::as_signed(list->size()); i += delta) {
         if (is_crown((*list)[i])) {
             std::swap((*list)[at], (*list)[i]);
             return true;
@@ -857,7 +859,7 @@ bool fabricate(const Spec& spec, int index, std::string* message)
         *message = "Couldn't make the node";
         return false;
     }
-    if (index < 0 || index > static_cast<int>(g_list.size()))
+    if (index < 0 || std::cmp_greater(index, g_list.size()))
         index = static_cast<int>(g_list.size());
     g_list.insert(g_list.begin() + index, spec);
     g_structs.insert(g_structs.begin() + index, node);

@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/tod_manager.h"
@@ -29,7 +30,7 @@ bool read_ints(const std::string& text, int* out, int count)
 {
     std::string error;
     fields::Value v;
-    if (!fields::parse(fields::Kind::kIntegers, text, &v, &error) || static_cast<int>(v.list.size()) != count)
+    if (!fields::parse(fields::Kind::kIntegers, text, &v, &error) || std::cmp_not_equal(v.list.size(), count))
         return false;
     for (int i = 0; i < count; ++i)
         out[i] = static_cast<int32_t>(v.list[i]);

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "game/park_editing/goal_editor.h"
@@ -61,7 +62,7 @@ bool ObjectiveAuthoring::edited_goal_got_gap(script::Struct* params, script::Scr
         return false;
     int gap = 0;
     params->fetch_int_value(0x3AC9AB5E, &gap, 0);
-    for (int i = 0; i < goal->num_gaps_; ++i) {
+    for (int i = 0; std::cmp_less(i, goal->num_gaps_); ++i) {
         if (goal->gaps_[i] == static_cast<uint8_t>(gap))
             return true;
     }

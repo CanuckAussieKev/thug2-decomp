@@ -37,6 +37,7 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
 #include "engine/util/unique_handle.h"
+#include "engine/core/ints.h"
 
 namespace sound {
 
@@ -520,7 +521,7 @@ int fetch_idle_voice(PcWave* wave)
     auto last = static_cast<uint32_t>(last_voice());
     auto count = static_cast<uint32_t>(voice_count());
     int chosen = static_cast<int>((last + 1) % count);
-    for (int i = 0; i < static_cast<int>(count); ++i) {
+    for (int i = 0; i < ints::as_signed(count); ++i) {
         const int voice = static_cast<int>((last + i) % count);
         if (get_voices()[voice].playing)
             continue;

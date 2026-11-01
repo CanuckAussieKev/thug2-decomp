@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/engine_scene.h"
@@ -131,7 +132,7 @@ void BodyDynamicsModule::seal()
 {
     audio_module_ = static_cast<AudioEmitterModule*>(entity_->fetch_module(kSound));
     const maths::Mat4& m = basis_frame_;
-    for (int i = 0; i < spring_count_; ++i) {
+    for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
         Spring& spring = springs_[i];
         const maths::Vec4& p = spring.point;
         const double x =

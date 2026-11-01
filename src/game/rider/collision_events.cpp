@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <utility>
 
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_obj.h"
@@ -292,7 +293,7 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
         return;
     auto* object = static_cast<render::HitMesh*>(face.coll_obj_);
     const render::TriMeshSource* geometry = object->geometry_;
-    if (!geometry || face.index < 0 || face.index >= geometry->tri_count_)
+    if (!geometry || face.index < 0 || std::cmp_greater_equal(face.index, geometry->tri_count_))
         return;
     uint32_t index[3];
     maths::Vec4 raw[3];
@@ -324,7 +325,7 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
         const float dz = v.z - raw[k].z;
         return dx * dx + dy * dy + dz * dz < 0.25f;
     };
-    for (int j = 0; j < geometry->tri_count_; ++j) {
+    for (int j = 0; std::cmp_less(j, geometry->tri_count_); ++j) {
         if (j == face.index)
             continue;
         bool has_a = false, has_b = false;

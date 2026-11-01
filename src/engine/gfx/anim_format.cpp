@@ -1,4 +1,5 @@
 #include "engine/gfx/anim_format.h"
+#include "engine/core/ints.h"
 
 namespace anim_format {
 
@@ -131,8 +132,9 @@ bool check_bone_keys(const AnimHeader& header, const AnimLayout& layout)
             rotations += static_cast<uint64_t>(rotation);
             translations += static_cast<uint64_t>(translation);
         }
-        return counts.ok() && rotations <= static_cast<uint64_t>(static_cast<int16_t>(header.rotation_key_count)) &&
-               translations <= static_cast<uint64_t>(static_cast<int16_t>(header.translation_key_count));
+        return counts.ok() &&
+               rotations <= ints::as_unsigned(int64_t{static_cast<int16_t>(header.rotation_key_count)}) &&
+               translations <= ints::as_unsigned(int64_t{static_cast<int16_t>(header.translation_key_count)});
     }
     if (!layout.rotation_keys)
         return true;

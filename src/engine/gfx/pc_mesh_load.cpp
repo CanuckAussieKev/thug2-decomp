@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <utility>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -209,7 +210,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
     auto unpack11 = [](uint32_t bits) {
         return static_cast<int>(bits & 0x400 ? (bits & 0x7FF) - 0x800 : bits & 0x7FF);
     };
-    for (int i = 0; i < vertex_count_; ++i) {
+    for (int i = 0; std::cmp_less(i, vertex_count_); ++i) {
         std::memcpy(out, packed, 12); // the position
         if (suspect && i == 0xF7)
             debug::printf("euh");

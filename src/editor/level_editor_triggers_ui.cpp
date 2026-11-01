@@ -8,6 +8,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "editor/level_editor_cameras.h"
 #include "editor/level_editor_nodes.h"
@@ -341,7 +342,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
 void inspector_section(int index)
 {
     const std::vector<nodes::Elem>& all = nodes::get_all();
-    if (index < 0 || index >= static_cast<int>(all.size()))
+    if (index < 0 || std::cmp_greater_equal(index, all.size()))
         return;
     const uint32_t name = all[index].name;
     if (const LevelTrigger* l = level_named(name)) {

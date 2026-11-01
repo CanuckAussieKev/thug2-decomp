@@ -22,6 +22,7 @@
 #include "engine/objects/compositemgr.h"
 #include "game/park_editing/piece_menu.h"
 #include "engine/script/script_startup.h"
+#include "engine/core/ints.h"
 
 namespace objects {
 
@@ -178,7 +179,7 @@ void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint3
     if (!names_ptr_) {
         names_ptr_ = new_hash_table(8);
         script::Array* names = script::fetch_list(kEventNames);
-        for (int i = 0; i < static_cast<int>(names->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(names->extent_); ++i) {
             char* name = names_[i];
             const char* string = names->find_inline_text(i);
             std::memcpy(name, string, std::strlen(string) + 1);

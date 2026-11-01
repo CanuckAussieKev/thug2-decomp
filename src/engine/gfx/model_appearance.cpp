@@ -16,6 +16,7 @@
 #include "engine/core/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
+#include "engine/core/ints.h"
 
 namespace gfx {
 
@@ -337,7 +338,7 @@ uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer, size_t size)
     structure_.append_structure_if_any(read);
     delete_temp_struct(read);
     // (Not original: within the size - none left, no face texture and the end where it is)
-    if (static_cast<size_t>(end - buffer) >= size) {
+    if (ints::as_unsigned(end - buffer) >= size) {
         has_face_texture_ = false;
         return buffer + size;
     }

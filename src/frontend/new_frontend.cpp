@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <SDL2/SDL.h>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/file/file_load.h"
@@ -659,7 +660,7 @@ void load_option_values()
 void apply_option(int option, int choice)
 {
     const std::vector<options::Spec>& specs = options::get_specs();
-    if (option < 0 || option >= static_cast<int>(specs.size()))
+    if (option < 0 || std::cmp_greater_equal(option, specs.size()))
         return;
     const options::Spec& spec = specs[option];
     const char* value = spec.choices[choice].value;
@@ -683,7 +684,7 @@ void apply_option(int option, int choice)
             level_editor::is_switched_on() = on;
         else if (std::strcmp(spec.key, "respect_locks") == 0)
             s_menu.set_views(get_views());
-    } else if (option < static_cast<int>(s_restart_pending.size())) {
+    } else if (std::cmp_less(option, s_restart_pending.size())) {
         s_restart_pending[option] = s_start_values[option] != value;
     }
 }
@@ -1030,7 +1031,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         if (UiWidget* name = game_screens::get_find(name_hash("select_skater_name")))
             if (type_of(name) == text_type() && reinterpret_cast<LabelWidget*>(name)->chars_)
                 read.skater_name_ = reinterpret_cast<LabelWidget*>(name)->chars_;
-        if (read.selected_index_ >= 0 && read.selected_index_ < static_cast<int>(read.items.size()))
+        if (read.selected_index_ >= 0 && std::cmp_less(read.selected_index_, read.items.size()))
             read.stats = skater_stats(read.items[read.selected_index_].id);
         return read;
     }
@@ -1406,7 +1407,7 @@ bool step_to(modules::FrontEnd* front_end, int row)
 {
     const mirror::View& v = s_mirror.get_shown();
     const UiWidget* menu = active_menu();
-    if (!menu || row < 0 || row >= static_cast<int>(v.rows.size()))
+    if (!menu || row < 0 || std::cmp_greater_equal(row, v.rows.size()))
         return false;
     const int target = v.rows[row].index;
     StepContext context{front_end, v.horizontal};
@@ -1491,7 +1492,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
                         const float width = hit->x1 - hit->x0;
                         int side = 0;
                         if (shown.kind == mirror::Kind::kLinkChain && hit->index >= 0 &&
-                            hit->index < static_cast<int>(shown.rows.size()) && shown.rows[hit->index].adjustable)
+                            std::cmp_less(hit->index, shown.rows.size()) && shown.rows[hit->index].adjustable)
                             side = click_x < hit->x0 + width * 0.3f ? -1 : click_x >= hit->x1 - width * 0.3f ? 1 : 0;
                         mouse_menus::send_menu_pad_event(front_end, side < 0   ? modules::FrontEnd::kPadLeft
                                                                     : side > 0 ? modules::FrontEnd::kPadRight
@@ -2606,7 +2607,7 @@ std::string automation_status()
     if (!showing() && s_mirror.get_up()) {
         const mirror::View& v = s_mirror.get_shown();
         text += std::string(", restyled ") + mirror::kind_name(v.kind) + " \"" + v.title + "\"";
-        if (v.selected >= 0 && v.selected < static_cast<int>(v.rows.size()))
+        if (v.selected >= 0 && std::cmp_less(v.selected, v.rows.size()))
             text += " on \"" + v.rows[v.selected].label + "\"";
     }
     return text;

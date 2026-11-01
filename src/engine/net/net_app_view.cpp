@@ -227,8 +227,10 @@ bool AppHost::post_out(const uint8_t* data, int length, int flags)
 bool AppHost::prepare_all()
 {
     if (!(flag_bits_ & kLocal)) {
-        sock_ = static_cast<uint32_t>(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
-        if (sock_ == INVALID_SOCKET) {
+        const SOCKET made = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        sock_ = static_cast<uint32_t>(made);
+        constexpr auto kNoSocket = INVALID_SOCKET; // (winsock's macro: a C cast of ~0)
+        if (made == kNoSocket) {
             raise_fault();
             return false;
         }

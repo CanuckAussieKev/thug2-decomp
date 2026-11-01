@@ -30,6 +30,7 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "engine/util/byte_stream.h"
+#include "engine/core/ints.h"
 
 namespace save_cards {
 
@@ -654,13 +655,13 @@ bool save_to_memory_card(Struct* params, Script*)
                 write_save_file_header(header_writer, file_header);
                 int written = file->emit_out(header, static_cast<int>(total));
                 out_of_space = card->fault_ == 2;
-                if (written == static_cast<int>(total)) {
+                if (written == ints::as_signed(total)) {
                     if (os_layer() == 5 || padding_size == 0) {
                         saved = true;
                     } else {
                         written = file->emit_out(padding, static_cast<int>(padding_size));
                         out_of_space = card->fault_ == 2;
-                        saved = written == static_cast<int>(padding_size);
+                        saved = written == ints::as_signed(padding_size);
                     }
                 }
             }
