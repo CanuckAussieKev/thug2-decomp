@@ -1,7 +1,7 @@
 // The online stats (online::RankingsManager). See stats_man.h.
 
 #include "engine/net/stats_man.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <windows.h>
 

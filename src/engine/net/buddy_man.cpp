@@ -4,7 +4,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_ntoa: what the game uses
 
 #include "engine/net/buddy_man.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <winsock2.h>
 #include <windows.h>

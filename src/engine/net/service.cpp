@@ -2,7 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "engine/net/service.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <windows.h>
 

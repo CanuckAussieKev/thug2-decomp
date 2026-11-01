@@ -13,7 +13,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 

@@ -5,7 +5,7 @@
 #include <new>
 
 #include "engine/core/manager.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/net/buddy_man.h"

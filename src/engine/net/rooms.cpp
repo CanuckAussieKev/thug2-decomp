@@ -36,7 +36,7 @@
 #include "engine/gfx/rig.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
@@ -216,26 +216,24 @@ RoomManager::RoomManager()
 void RoomManager::init_peer()
 {
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
-    // The SDK's callbacks (0x74 bytes; those not set stay null).
-    std::array<uint32_t, 0x1D> callbacks = {};
-    core::at(callbacks, 0x00 / 4) =
-        cell::of(code_address(online::RoomManager::disconnected_callback)); // disconnected
-    core::at(callbacks, 1) = // (+0x04)
-        cell::of(code_address(online::RoomManager::room_message_callback)); // roomMessage
-    core::at(callbacks, 0x14 / 4) = cell::of(code_address(stubs::do_nothing)); // (nothing: the empty function)
-    core::at(callbacks, 0x24 / 4) = cell::of(&player_joined_callback);
-    core::at(callbacks, 0x28 / 4) = cell::of(&player_left_callback);
-    core::at(callbacks, 0x38 / 4) = cell::of(&player_info_callback);
-    core::at(callbacks, 0x30 / 4) = cell::of(&new_player_list_callback);
-    core::at(callbacks, 0x4C / 4) = cell::of(&room_key_changed_callback);
-    core::at(callbacks, 0x68 / 4) = cell::of(code_address(online::RoomManager::hole_punch_result_fn));
-    core::at(callbacks, 0x5C / 4) = cell::of(code_address(online::RoomManager::key_list_callback));
-    core::at(callbacks, 0x50 / 4) = cell::of(code_address(online::RoomManager::server_key_callback));
-    core::at(callbacks, 0x54 / 4) = cell::of(code_address(online::RoomManager::player_key_callback));
-    core::at(callbacks, 0x60 / 4) = cell::of(code_address(online::RoomManager::count_callback));
-    core::at(callbacks, 0x64 / 4) = cell::of(code_address(stubs::do_nothing));
-    core::at(callbacks, 0x6C / 4) = cell::of(code_address(online::RoomManager::public_address_callback));
-    core::at(callbacks, 0x70 / 4) = cell::of(this); // (their parameter)
+    // The SDK's callbacks (those not set stay null).
+    game_spy::PeerCallbacks callbacks;
+    callbacks.disconnected = &online::RoomManager::disconnected_callback;
+    callbacks.room_message_ = &online::RoomManager::room_message_callback;
+    callbacks.player_message_ = &stubs::do_nothing; // (nothing: the empty function)
+    callbacks.player_joined_ = &player_joined_callback;
+    callbacks.player_left_ = &player_left_callback;
+    callbacks.player_info_ = &player_info_callback;
+    callbacks.new_player_list_ = &new_player_list_callback;
+    callbacks.room_key_changed_ = &room_key_changed_callback;
+    callbacks.qr_nat_negotiate_ = &online::RoomManager::hole_punch_result_fn;
+    callbacks.qr_key_list_ = &online::RoomManager::key_list_callback;
+    callbacks.qr_server_key_ = &online::RoomManager::server_key_callback;
+    callbacks.qr_player_key_ = &online::RoomManager::player_key_callback;
+    callbacks.qr_count_ = &online::RoomManager::count_callback;
+    callbacks.qr_add_error_ = &stubs::do_nothing;
+    callbacks.qr_public_address_ = &online::RoomManager::public_address_callback;
+    callbacks.param = this; // (their parameter)
     remote_ = game_spy::peer_initialize(callbacks);         // (the peer made)
     in_group_room_ = false;
     drop_is_expected_ = true;

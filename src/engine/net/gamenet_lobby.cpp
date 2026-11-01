@@ -5,7 +5,7 @@
 // "thps6pc" and online_identity.cpp wrote the configured name over that push (0x0053F936), which this source replaces.
 
 #include "engine/net/gamenet_lobby.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <cstdint>
 #include <cstring>

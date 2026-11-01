@@ -20,7 +20,7 @@
 #include "formats/byte_stream.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_lobby.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/player_info.h"

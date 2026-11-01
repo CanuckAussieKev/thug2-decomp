@@ -632,7 +632,7 @@ add_executable(thug2 WIN32
     src/engine/net/service.cpp
     src/engine/net/online_hosts.cpp
     src/engine/net/online_identity.cpp
-    src/engine/net/gamespy.cpp
+    src/platform/gamespy.cpp
     src/engine/net/thugpro_compat.cpp
     src/engine/net/net_guards.cpp
     src/engine/net/thugpro_join.cpp

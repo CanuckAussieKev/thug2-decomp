@@ -1,7 +1,7 @@
 // The content vault and HTTP file transfers (online::VaultMan). See vault_man.h.
 
 #include "engine/net/vault_man.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <windows.h>
 

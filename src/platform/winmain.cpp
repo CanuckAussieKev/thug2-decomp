@@ -4,7 +4,7 @@
 // NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname: what the game uses
 #include "platform/winmain.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <winsock2.h>
 #include <windows.h>

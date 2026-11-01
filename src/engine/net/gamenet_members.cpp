@@ -13,7 +13,7 @@
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 #include "engine/core/checksums.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/maths/random.h"

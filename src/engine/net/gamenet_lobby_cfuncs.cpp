@@ -13,7 +13,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_lobby.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/script/param_struct.h"

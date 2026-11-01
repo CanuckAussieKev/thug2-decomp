@@ -2,7 +2,7 @@
 // THIRD_PARTY_NOTICES.md), adapted to the calls the game makes (gamespy.h; what differs from the SDK version the game
 // was built with: docs/gamespy.md).
 
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "platform/compiler.h"
 
 #include <cctype>
@@ -204,8 +204,36 @@ void nat_free_negotiations() { NNFreeNegotiateList(); }
 
 void* peer_initialize(const PeerCallbacks& callbacks)
 {
-    PEERCallbacks sdk;
-    std::memcpy(&sdk, callbacks.data(), sizeof(sdk));
+    PEERCallbacks sdk{};
+    sdk.disconnected = as<peerDisconnectedCallback>(callbacks.disconnected);
+    sdk.roomMessage = as<peerRoomMessageCallback>(callbacks.room_message_);
+    sdk.roomUTM = as<peerRoomUTMCallback>(callbacks.room_utm_);
+    sdk.roomNameChanged = as<peerRoomNameChangedCallback>(callbacks.room_name_changed_);
+    sdk.roomModeChanged = as<peerRoomModeChangedCallback>(callbacks.room_mode_changed_);
+    sdk.playerMessage = as<peerPlayerMessageCallback>(callbacks.player_message_);
+    sdk.playerUTM = as<peerPlayerUTMCallback>(callbacks.player_utm_);
+    sdk.readyChanged = as<peerReadyChangedCallback>(callbacks.ready_changed_);
+    sdk.gameStarted = as<peerGameStartedCallback>(callbacks.game_started_);
+    sdk.playerJoined = as<peerPlayerJoinedCallback>(callbacks.player_joined_);
+    sdk.playerLeft = as<peerPlayerLeftCallback>(callbacks.player_left_);
+    sdk.kicked = as<peerKickedCallback>(callbacks.kicked);
+    sdk.newPlayerList = as<peerNewPlayerListCallback>(callbacks.new_player_list_);
+    sdk.playerChangedNick = as<peerPlayerChangedNickCallback>(callbacks.player_changed_nick_);
+    sdk.playerInfo = as<peerPlayerInfoCallback>(callbacks.player_info_);
+    sdk.playerFlagsChanged = as<peerPlayerFlagsChangedCallback>(callbacks.player_flags_changed_);
+    sdk.ping = as<peerPingCallback>(callbacks.ping);
+    sdk.crossPing = as<peerCrossPingCallback>(callbacks.cross_ping_);
+    sdk.globalKeyChanged = as<peerGlobalKeyChangedCallback>(callbacks.global_key_changed_);
+    sdk.roomKeyChanged = as<peerRoomKeyChangedCallback>(callbacks.room_key_changed_);
+    sdk.qrServerKey = as<peerQRServerKeyCallback>(callbacks.qr_server_key_);
+    sdk.qrPlayerKey = as<peerQRPlayerKeyCallback>(callbacks.qr_player_key_);
+    sdk.qrTeamKey = as<peerQRTeamKeyCallback>(callbacks.qr_team_key_);
+    sdk.qrKeyList = as<peerQRKeyListCallback>(callbacks.qr_key_list_);
+    sdk.qrCount = as<peerQRCountCallback>(callbacks.qr_count_);
+    sdk.qrAddError = as<peerQRAddErrorCallback>(callbacks.qr_add_error_);
+    sdk.qrNatNegotiateCallback = as<peerQRNatNegotiateCallback>(callbacks.qr_nat_negotiate_);
+    sdk.qrPublicAddressCallback = as<peerQRPublicAddressCallback>(callbacks.qr_public_address_);
+    sdk.param = callbacks.param;
     return peerInitialize(&sdk);
 }
 int peer_set_title(void* peer, const char* title, const char* qr_secret_key, const char* sb_name,

@@ -3,8 +3,8 @@
 The original game links a 2003-04 build of the GameSpy SDK (0x5f8160-0x622e80 in the reference build). It is not
 decompiled: the game built from this source links IGN's open-source release of the SDK (BSD-3, December 2007, common
 2.06: github.com/nitrocaster/GameSpy at commit d1deb2d, fetched by `cmake/gamespy_sdk.cmake`), through
-`src/engine/net/gamespy.h`: one function per SDK call the game makes, each calling the 2007 API
-(`src/engine/net/gamespy.cpp`), adapted where the API changed.
+`src/platform/gamespy.h`: one function per SDK call the game makes, each calling the 2007 API
+(`src/platform/gamespy.cpp`), adapted where the API changed.
 
 ## What the game calls (exe address -> 2007 API)
 

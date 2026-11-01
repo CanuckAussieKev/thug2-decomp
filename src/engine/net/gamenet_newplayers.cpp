@@ -9,7 +9,7 @@
 #include <array>
 
 #include "engine/core/manager.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "game/park_editing/park_editor.h"

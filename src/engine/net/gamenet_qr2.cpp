@@ -8,7 +8,7 @@
 // writes it (0x0067F120, stored bitwise-NOT).
 
 #include "engine/net/gamenet_qr2.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <cstdint>
 #include <cstring>

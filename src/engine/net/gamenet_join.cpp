@@ -11,7 +11,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/single_instance.h"

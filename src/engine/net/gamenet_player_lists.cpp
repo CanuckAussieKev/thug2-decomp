@@ -14,7 +14,7 @@
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
 #include "engine/core/checksums.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"

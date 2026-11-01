@@ -7,7 +7,7 @@
 #include "platform/code_address.h"
 
 #include "engine/core/arena_alloc.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 #include "engine/core/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/net/gamenet_commands.h"

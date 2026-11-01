@@ -2,7 +2,7 @@
 // GameSpy presence (GP) is library code, called by address.
 
 #include "engine/net/buddy_status.h"
-#include "engine/net/gamespy.h"
+#include "platform/gamespy.h"
 
 #include <cstdint>
 #include <cstdio>

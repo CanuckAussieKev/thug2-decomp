@@ -14,10 +14,6 @@
 
 namespace game_spy {
 
-// The peer SDK's global callbacks (PEERCallbacks: 28 callbacks and their parameter - the same 0x74 bytes, in the same
-// order, in both SDKs). Index = byte offset / 4.
-using PeerCallbacks = std::array<uint32_t, 0x1D>;
-
 // A callback given to the SDK: any function (its signature the SDK's) or code address (GAME_CODE), or null.
 struct HookFn {
     const void* code; // (a function's address)
@@ -25,6 +21,40 @@ struct HookFn {
     HookFn(F* function) : code(code_address(function))
     {}
     HookFn(std::nullptr_t) : code(nullptr) {}
+};
+
+// The peer SDK's global callbacks (PEERCallbacks: 28 callbacks and their parameter, in the same order in both SDKs);
+// those not set stay null.
+struct PeerCallbacks {
+    HookFn disconnected = nullptr;
+    HookFn room_message_ = nullptr;
+    HookFn room_utm_ = nullptr;
+    HookFn room_name_changed_ = nullptr;
+    HookFn room_mode_changed_ = nullptr;
+    HookFn player_message_ = nullptr;
+    HookFn player_utm_ = nullptr;
+    HookFn ready_changed_ = nullptr;
+    HookFn game_started_ = nullptr;
+    HookFn player_joined_ = nullptr;
+    HookFn player_left_ = nullptr;
+    HookFn kicked = nullptr;
+    HookFn new_player_list_ = nullptr;
+    HookFn player_changed_nick_ = nullptr;
+    HookFn player_info_ = nullptr;
+    HookFn player_flags_changed_ = nullptr;
+    HookFn ping = nullptr;
+    HookFn cross_ping_ = nullptr;
+    HookFn global_key_changed_ = nullptr;
+    HookFn room_key_changed_ = nullptr;
+    HookFn qr_server_key_ = nullptr;
+    HookFn qr_player_key_ = nullptr;
+    HookFn qr_team_key_ = nullptr;
+    HookFn qr_key_list_ = nullptr;
+    HookFn qr_count_ = nullptr;
+    HookFn qr_add_error_ = nullptr;
+    HookFn qr_nat_negotiate_ = nullptr;
+    HookFn qr_public_address_ = nullptr;
+    void* param = nullptr;
 };
 
 // peerFixNick with the rules of the SDK the game was built with: a '_' before a leading digit or '-', and every
