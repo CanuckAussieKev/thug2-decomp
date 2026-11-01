@@ -2,18 +2,19 @@
 // PNG encoding by stb_image_write v1.16 (Sean Barrett, public domain / MIT - see THIRD_PARTY_NOTICES.md).
 
 #include "platform/screenshot_files.h"
+#include "platform/compiler.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-#pragma warning(push, 0)
+THUG2_MSVC_WARNING(push, 0)
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_STATIC
 #define STBI_WRITE_NO_STDIO
 #include "stb_image_write.h"
-#pragma warning(pop)
+THUG2_MSVC_WARNING(pop)
 
 namespace sys::screenshot {
 

@@ -18,6 +18,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/owner.h"
+#include "platform/compiler.h"
 
 namespace file {
 
@@ -583,7 +584,7 @@ void platform_init()
 
     OSVERSIONINFOA version = {};
     version.dwOSVersionInfoSize = sizeof(version);
-#pragma warning(suppress : 4996) // GetVersionExA: deprecated, but what the original asks
+    THUG2_MSVC_WARNING(suppress : 4996) // GetVersionExA: deprecated, but what the original asks
     if (GetVersionExA(&version))
         use_overlapped_io() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > 5;
 }
@@ -651,7 +652,10 @@ void destroy_async_loader_module()
 }
 
 // 0x005B6BC0
-AsyncLoaderModule::AsyncLoaderModule() { task_ = std::make_unique<tasks::Task<AsyncLoaderModule>>(&async_loader_task, this, 0); }
+AsyncLoaderModule::AsyncLoaderModule()
+{
+    task_ = std::make_unique<tasks::Task<AsyncLoaderModule>>(&async_loader_task, this, 0);
+}
 
 // 0x005B6970
 void AsyncLoaderModule::start_callback() { register_logic_task(task_.get()); }

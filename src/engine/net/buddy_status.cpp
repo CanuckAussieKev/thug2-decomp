@@ -18,8 +18,9 @@
 #include "engine/script/param_struct.h"
 #include "platform/winmain.h"
 #include "engine/core/code_address.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (the original's sprintf, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 

@@ -55,8 +55,9 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/net/score_list.h"
 #include "platform/crt.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
 namespace online {
 

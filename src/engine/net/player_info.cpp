@@ -34,8 +34,9 @@
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/tagging.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (the original's sprintf, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 

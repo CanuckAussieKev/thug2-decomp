@@ -12,8 +12,9 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/device.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
+THUG2_MSVC_WARNING(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
 
 namespace os_layer {
 

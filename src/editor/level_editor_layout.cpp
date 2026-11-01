@@ -33,6 +33,7 @@
 #include "engine/script/node_manager.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
+#include "platform/crash.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
 #include "engine/util/unique_handle.h"
@@ -1036,14 +1037,11 @@ void reset_to_level(const FileLoad& keep)
     checks::forget_layout_records(); // (UX5: Apply notes the next layout's again)
 }
 
-// The crash hook's write: no C++ objects here (structured exception handling), no allocation.
-void write_snapshot_guarded()
+// The crash hook's write (no allocation; run_guarded catches a fault in it).
+void write_snapshot()
 {
-    __try {
-        if (write_whole(g_snapshot_folder, g_snapshot_path, g_snapshot.data(), g_snapshot.size()))
-            g_snapshot_written = true;
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-    }
+    if (write_whole(g_snapshot_folder, g_snapshot_path, g_snapshot.data(), g_snapshot.size()))
+        g_snapshot_written = true;
 }
 
 } // namespace
@@ -1148,7 +1146,7 @@ void write_autosave_from_crash()
     static volatile LONG busy = 0;
     if (!g_snapshot_ready || g_snapshot_written || g_offer_pending || InterlockedExchange(&busy, 1))
         return;
-    write_snapshot_guarded();
+    run_guarded(write_snapshot);
     get_log(g_snapshot_written ? "level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)"
                                : "level editor: the unsaved changes couldn't be autosaved - %s",
             g_snapshot_path);

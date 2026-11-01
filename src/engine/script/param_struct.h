@@ -64,6 +64,8 @@ public:
     QbValueKind kind_tag_;
     uint16_t unknown2_;
     uint32_t extent_;
+    // (one 32-bit cell: the element block, or the one element itself - which by extent_; not a std::variant: the
+    // arrays are pooled 12-byte records and the cell is copied raw)
     union {
         uint32_t* elements_;
         uint32_t single_;
@@ -96,6 +98,8 @@ struct Component {
     uint8_t unknown1;
     uint16_t unknown2;
     uint32_t name;
+    // The value: one 32-bit cell whose kind is kind_tag() - an externally tagged union, not a std::variant (the
+    // components are pooled 16-byte records, and `raw` copies any kind as its 32 bits).
     union {
         int32_t integer;
         float float_value_;
@@ -121,6 +125,7 @@ struct SymbolTableEntry {
     uint16_t unknown2;
     uint32_t name;
     uint32_t unknown8;
+    // The value: one 32-bit cell whose kind is `type` (as Component's).
     union {
         int32_t integer;
         float float_value_;

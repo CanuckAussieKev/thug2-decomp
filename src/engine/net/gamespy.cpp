@@ -3,6 +3,7 @@
 // was built with: docs/gamespy.md).
 
 #include "engine/net/gamespy.h"
+#include "platform/compiler.h"
 
 #include <cctype>
 #include <cstdio>
@@ -22,8 +23,8 @@ void fix_nick(char* new_nick, const char* old_nick)
 
 } // namespace game_spy
 
-#pragma warning(push)
-#pragma warning(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN again)
+THUG2_MSVC_WARNING(push)
+THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN again)
 #include "GP/gp.h"
 #include "Peer/peer.h"
 #include "common/gsAvailable.h"
@@ -36,7 +37,7 @@ void fix_nick(char* new_nick, const char* old_nick)
 #include "pt/pt.h"
 #include "qr2/qr2.h"
 #include "serverbrowsing/sb_serverbrowsing.h"
-#pragma warning(pop)
+THUG2_MSVC_WARNING(pop)
 
 // Host-name overrides the SDK keeps without declaring them in a header (pt/ptMain.c), and the one the build adds
 // (Peer/peerOperations.c, patched by cmake/gamespy_sdk.cmake: the chat server's name was a constant).

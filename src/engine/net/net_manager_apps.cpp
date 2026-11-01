@@ -15,6 +15,7 @@
 #include "engine/net/net_client.h"
 #include "engine/net/net_server.h"
 #include "engine/core/owner.h"
+#include "platform/compiler.h"
 
 namespace net {
 
@@ -53,7 +54,7 @@ void copy_string(char* out, const char* text) { std::memcpy(out, text, std::strl
 // (strncpy: zero-padded, unterminated if `text` is longer)
 void copy_name(char* out, const char* text)
 {
-#pragma warning(suppress : 4996)
+    THUG2_MSVC_WARNING(suppress : 4996)
     std::strncpy(out, text, 0x40);
 }
 

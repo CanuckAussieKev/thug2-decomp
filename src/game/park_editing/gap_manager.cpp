@@ -16,8 +16,9 @@
 #include "game/skate/gap_checklist.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/skate/skate_module.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (sprintf / strcpy: the original's copies of the gap names)
+THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's copies of the gap names)
 
 namespace park_editing {
 

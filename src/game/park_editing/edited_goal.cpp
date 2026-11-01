@@ -15,8 +15,9 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace park_editing {
 
@@ -42,10 +43,7 @@ uint32_t current_level() { return modules::Skate::sole()->level_; }
 } // namespace
 
 // 0x004E93C0
-EditedGoal::EditedGoal()
-{
-    init_edited_goal(reinterpret_cast<uint8_t*>(this));
-}
+EditedGoal::EditedGoal() { init_edited_goal(reinterpret_cast<uint8_t*>(this)); }
 
 // 0x004E6B80
 void EditedGoal::drop_gap_entry(uint8_t gap)

@@ -30,8 +30,6 @@
 #include "imgui.h"
 #include "engine/util/com_ptr.h"
 
-#pragma comment(lib, "winmm.lib") // timeSetEvent / timeKillEvent
-
 namespace gfx::loading_console {
 
 // --- pure helpers ---

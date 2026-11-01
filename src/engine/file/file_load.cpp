@@ -45,7 +45,6 @@ uint32_t archive_get_file_size(Hdl file) { return static_cast<uint32_t>(pre::get
 {
     (void)error; // (pushed to it; unused)
     render::show_disc_error();
-    __assume(0);
 }
 
 int g_use_alternate_drive;

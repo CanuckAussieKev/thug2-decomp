@@ -19,8 +19,9 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy: the original's copy of the server's name)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the server's name)
 
 namespace online {
 

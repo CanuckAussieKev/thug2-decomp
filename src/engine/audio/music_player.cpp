@@ -22,6 +22,7 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/stream_component.h"
+#include "platform/compiler.h"
 
 namespace audio {
 
@@ -203,7 +204,7 @@ void __cdecl queue_track(const char* name, int list, const char* title)
     if (playlist.count >= 80)
         return;
     char* track = reinterpret_cast<char*>(playlist.tracks[playlist.count]);
-#pragma warning(suppress : 4996) // (the slot is 40 bytes; names are shorter)
+    THUG2_MSVC_WARNING(suppress : 4996) // (the slot is 40 bytes; names are shorter)
     std::strcpy(track, name);
     for (size_t i = 0; i < std::strlen(track); ++i) {
         signed char c = static_cast<signed char>(track[i]);
@@ -213,7 +214,7 @@ void __cdecl queue_track(const char* name, int list, const char* title)
     if (list == 0) {
         char* slot = get_title(playlist.count);
         if (title) {
-#pragma warning(suppress : 4996) // (terminated by hand, as in the original)
+            THUG2_MSVC_WARNING(suppress : 4996) // (terminated by hand, as in the original)
             std::strncpy(slot, title, 100);
             slot[99] = 0;
         } else {
@@ -364,7 +365,7 @@ void __cdecl play_track(const char* name, bool loop)
     if (!music_on() || music_channel_kind() != 0)
         return;
     char* playing = static_cast<char*>(special_track());
-#pragma warning(suppress : 4996) // (40 bytes, as in the original)
+    THUG2_MSVC_WARNING(suppress : 4996) // (40 bytes, as in the original)
     std::strcpy(playing, name);
     int list = current_playlist();
     bool at_music_volume = other_lists_at_music_volume();

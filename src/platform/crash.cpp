@@ -21,6 +21,7 @@
 #endif
 
 #include "platform/run_log.h"
+#include "platform/compiler.h"
 
 namespace {
 
@@ -276,7 +277,7 @@ int __cdecl rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, con
 void __stdcall pops_its_argument(int) {}
 // A __stdcall function called as __cdecl: it pops its argument and so does the caller - ESP ends up 4 off, which
 // the /RTCs check after the call reports.
-__declspec(noinline) void call_with_wrong_convention()
+THUG2_NOINLINE void call_with_wrong_convention()
 {
     auto call = reinterpret_cast<void(__cdecl*)(int)>(&pops_its_argument);
     call(1);
@@ -425,3 +426,18 @@ bool cause_test_fault(TestFault fault)
 
 // (no original C runtime to point at ours)
 bool cause_game_crt_fault(TestFault) { return false; }
+
+bool run_guarded(void (*function)())
+{
+#ifdef _MSC_VER
+    __try {
+        function();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+    return true;
+#else
+    function();
+    return true;
+#endif
+}

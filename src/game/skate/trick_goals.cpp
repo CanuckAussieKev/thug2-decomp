@@ -34,8 +34,9 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/owner.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
 namespace goals {
 
@@ -584,11 +585,11 @@ void FallingTricksGoal::add_tricks(int count)
             }
             text[0] = '\0';
             if (t.spin) {
-#pragma warning(suppress : 4996)
+                THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
                     std::sprintf(text, "Perfect ");
                 // (written over "Perfect ": the original's too)
-#pragma warning(suppress : 4996)
+                THUG2_MSVC_WARNING(suppress : 4996)
                 std::sprintf(text, "\\c5%i\\c0 ", t.spin * 180);
             }
             std::strcat(text, trick_text);
@@ -1182,10 +1183,10 @@ void TrickBeatGoal::add_tricks(int count)
             }
             text[0] = '\0';
             if (t.spin) {
-#pragma warning(suppress : 4996)
+                THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
                     std::sprintf(text, "Perfect ");
-#pragma warning(suppress : 4996)
+                THUG2_MSVC_WARNING(suppress : 4996)
                 std::sprintf(text, "\\c5%i\\c0 ", t.spin * 180); // (over "Perfect ", as in the original)
             }
             std::strcat(text, trick_text);

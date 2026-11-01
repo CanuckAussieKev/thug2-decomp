@@ -20,8 +20,9 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
 #include "engine/gfx/loading_bar.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (sprintf / strncpy: the original's own)
+THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strncpy: the original's own)
 
 namespace online {
 

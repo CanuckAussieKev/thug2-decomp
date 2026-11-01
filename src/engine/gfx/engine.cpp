@@ -34,8 +34,9 @@
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/owner.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
+THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
 namespace render {
 

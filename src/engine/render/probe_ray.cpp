@@ -14,6 +14,7 @@
 #include "engine/render/coll_world.h"
 #include "engine/objects/entity.h"
 #include "game/rider/debug_collision.h"
+#include "platform/compiler.h"
 
 namespace render {
 
@@ -118,7 +119,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     int result = hit_static || entity_ ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h).
     collision_overlay::note_feeler_query(this, result,
-                                         static_cast<uint32_t>(reinterpret_cast<uintptr_t>(_ReturnAddress())));
+                                         static_cast<uint32_t>(reinterpret_cast<uintptr_t>(THUG2_RETURN_ADDRESS())));
     return result;
 }
 

@@ -14,6 +14,7 @@
 #include "engine/file/packs.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/script/param_struct.h"
+#include "platform/compiler.h"
 
 namespace gfx {
 
@@ -253,7 +254,7 @@ FaceSkin::FaceSkin()
 void FaceSkin::load_image_file(const char* name, bool full_path)
 {
     char path[512];
-#pragma warning(suppress : 4996)
+    THUG2_MSVC_WARNING(suppress : 4996)
     std::sprintf(path, full_path ? "%s.img.xbx" : "images\\%s.img.xbx", name);
     int size = 0; // (uninitialised in the original: a file that can't be loaded copies from null)
     auto* data = static_cast<uint8_t*>(packs::load_file_into(path, &size, nullptr));

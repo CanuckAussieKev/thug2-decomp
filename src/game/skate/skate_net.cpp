@@ -49,8 +49,9 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/sys/game_config.h"
 #include "engine/sys/mlp.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
 namespace modules {
 

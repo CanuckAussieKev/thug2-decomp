@@ -14,8 +14,9 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace park_editing {
 

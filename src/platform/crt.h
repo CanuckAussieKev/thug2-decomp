@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <ctime>
 
+#include "platform/compiler.h"
+
 // The C runtime and the system libraries (Windows, DirectX, Winsock, Bink) the game calls: the linked library, or -
 // where the compiler's library behaves differently from the game's - our own version of the game's (qsort's order of
 // equal elements, rand's sequence, _stricmp's result). Bink has no import library: its functions are
@@ -24,6 +26,7 @@ void* get_host_by_name(const char* name);    // gethostbyname (a hostent*)
 // --- The C runtime: its heap, files and exit ---
 inline void* alloc_block(size_t size) { return std::malloc(size); }
 inline void dealloc(void* memory) { std::free(memory); }
+THUG2_MSVC_WARNING(suppress : 4996) // (std::fopen: MSVC calls it unsafe)
 inline FILE* get_fopen(const char* path, const char* mode) { return std::fopen(path, mode); }
 inline int get_fclose(FILE* file) { return std::fclose(file); }
 inline size_t get_fread(void* buffer, size_t size, size_t count, FILE* file)

@@ -5,9 +5,10 @@
 #include <cstdint>
 #include <initializer_list>
 #include "engine/core/code_address.h"
+#include "platform/compiler.h"
 #include <cstdio>
 
-#pragma warning(disable : 4996) // (the original's sprintf, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 #include "engine/core/checksums.h"
 #include "engine/net/gamespy.h"

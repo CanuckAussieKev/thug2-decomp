@@ -32,8 +32,9 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/loading_bar.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
 
 namespace online {
 

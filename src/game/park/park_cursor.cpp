@@ -16,6 +16,7 @@
 #include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"
 #include "engine/script/param_struct.h"
+#include "platform/compiler.h"
 
 namespace park_editing {
 
@@ -174,10 +175,9 @@ bool BuildPointer::add_gap_half()
             if (n == 0) {
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (gap_counter() > 1)
-#pragma warning(suppress : 4996)
-                    std::sprintf(gap.text_, "gap%d", gap_counter()); // "gap%d"
-                else
-                    std::memcpy(gap.text_, "gap", 4);
+                    THUG2_MSVC_WARNING(suppress : 4996)
+                std::sprintf(gap.text_, "gap%d", gap_counter()); // "gap%d"
+                else std::memcpy(gap.text_, "gap", 4);
                 ++gap_counter();
             }
             if (register_gap_entry(hub(), &gap)) {

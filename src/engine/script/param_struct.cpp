@@ -11,6 +11,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/core/owner.h"
+#include "platform/compiler.h"
 
 namespace script {
 
@@ -559,7 +560,7 @@ char (&script_string_slot(int index))[128] { return reinterpret_cast<char (*)[12
 // 0x00476370
 int set_script_string(int index, const char* string)
 {
-#pragma warning(suppress : 4996) // (unbounded, and the string is the format: as in the original)
+    THUG2_MSVC_WARNING(suppress : 4996) // (unbounded, and the string is the format: as in the original)
     return std::sprintf(script_string_slot(index), string);
 }
 

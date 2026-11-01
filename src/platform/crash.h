@@ -69,6 +69,11 @@ bool cause_test_fault(TestFault fault);
 // The return addresses found on the stack from `esp` up, logged.
 void crash_log_stack_scan(uintptr_t esp);
 
+// Calls `function`, catching a hardware exception (an access violation...) it raises: false if one was caught. For
+// code that runs while the process is already in trouble (the crash hook's writes). With MSVC's structured exception
+// handling; other compilers call it unguarded.
+bool run_guarded(void (*function)());
+
 // The two faults that went through the original's C runtime (kGameOverrun, kGameCrtMessage): there is no such runtime
 // here, so they return false (not caused).
 bool cause_game_crt_fault(TestFault fault);

@@ -38,8 +38,9 @@
 #include "game/rider/skater_score.h"
 #include "engine/net/gamenet_messages.h"
 #include "engine/util/byte_stream.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy: the original's copy of the player's name)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the player's name)
 
 namespace online {
 

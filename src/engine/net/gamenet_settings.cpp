@@ -4,9 +4,10 @@
 
 #include <cstdint>
 #include "engine/core/code_address.h"
+#include "platform/compiler.h"
 #include <cstring>
 
-#pragma warning(disable : 4996) // (strcpy: the original's copies into its fixed fields)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fixed fields)
 
 #include "engine/core/task_list.h"
 #include "engine/net/gamespy.h"

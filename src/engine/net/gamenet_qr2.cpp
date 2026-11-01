@@ -35,8 +35,9 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy: the original's copy of the level's name)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {
 

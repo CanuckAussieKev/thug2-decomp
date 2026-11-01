@@ -951,33 +951,33 @@ void objects::FootMovement::shimmy(float move)
         step = -step;
     double moved = step + along;
     along = static_cast<float>(moved);
-    if (moved < 0.0 || moved > 1.0) {
-        // past an end: onto the next rail (the rest of the way along it), or stopped at the end
-        if (!next_hang_rail(&along, start, end, &start, &end)) {
-            float t = along;
-            climb_scale_ = 0.0f;
-            if (t > 1.0f)
-                along = 1.0f;
-            else
-                along = t < 0.0f ? 0.0f : t;
-            anim_state_ = kAnimHang;
-            goto check;
-        }
+    // past an end: onto the next rail (the rest of the way along it), or stopped at the end
+    const bool past_end = moved < 0.0 || moved > 1.0;
+    if (past_end && !next_hang_rail(&along, start, end, &start, &end)) {
         float t = along;
-        double clamped = t > 1.0f ? 1.0 : t < 0.0f ? 0.0 : t;
-        double over = static_cast<double>(along) - clamped;
-        float rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(length_squared_f)));
-        maths::Vec4 reversed;
-        const maths::Vec4* direction = &segment;
-        if (!towards_end) {
-            reversed = {-segment.x, -segment.y, -segment.z, -segment.w};
-            direction = &reversed;
+        climb_scale_ = 0.0f;
+        if (t > 1.0f)
+            along = 1.0f;
+        else
+            along = t < 0.0f ? 0.0f : t;
+        anim_state_ = kAnimHang;
+    } else {
+        if (past_end) {
+            float t = along;
+            double clamped = t > 1.0f ? 1.0 : t < 0.0f ? 0.0 : t;
+            double over = static_cast<double>(along) - clamped;
+            float rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(length_squared_f)));
+            maths::Vec4 reversed;
+            const maths::Vec4* direction = &segment;
+            if (!towards_end) {
+                reversed = {-segment.x, -segment.y, -segment.z, -segment.w};
+                direction = &reversed;
+            }
+            face_hang_rail(rest, along < 0.0f, direction);
         }
-        face_hang_rail(rest, along < 0.0f, direction);
+        anim_state_ = left ? kAnimHangMoveLeft : kAnimHangMoveRight;
     }
-    anim_state_ = left ? kAnimHangMoveLeft : kAnimHangMoveRight;
 
-check:
     // nothing in the way from the old critical point to the new one, or it's all put back
     {
         maths::Vec4 critical = {offset.x + pos.x, offset.y + pos.y, offset.z + pos.z, offset.w + pos.w};

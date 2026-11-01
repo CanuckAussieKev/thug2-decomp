@@ -46,8 +46,9 @@
 #include "engine/net/buddy_man.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
 namespace online {
 

@@ -17,6 +17,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "platform/compiler.h"
 
 namespace gfx {
 
@@ -131,13 +132,13 @@ text::Chars* __cdecl make_model_path(text::Chars* out, const char* name, const c
 // 0x00487A70
 void __cdecl make_model_file_name(const char* name, const char* extension, char* out)
 {
-#pragma warning(push)
-#pragma warning(disable : 4996)
+    THUG2_MSVC_WARNING(push)
+    THUG2_MSVC_WARNING(disable : 4996)
     if (std::strstr(name, "/") || std::strstr(name, "\\"))
         std::sprintf(out, "models\\%s", name);
     else
         std::sprintf(out, "models\\%s\\%s%s", name, name, extension);
-#pragma warning(pop)
+    THUG2_MSVC_WARNING(pop)
 }
 
 // 0x00487AD0

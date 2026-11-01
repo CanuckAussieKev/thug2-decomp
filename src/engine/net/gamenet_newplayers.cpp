@@ -44,8 +44,9 @@
 #include "game/rider/state_history.h"
 #include "engine/net/gamenet_messages.h"
 #include "engine/util/byte_stream.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
 namespace online {
 
@@ -373,8 +374,7 @@ void __cdecl Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     msg.header.profile_id = other->profile_id_;
                     msg.header.rating = other->skill_points_;
                     msg.header.drive_scheme = other->drive_control_mode_;
-                    msg.header.score =
-                        manager->get_entrant_points(get_skater_id(player_skater(other))); // (its score)
+                    msg.header.score = manager->get_entrant_points(get_skater_id(player_skater(other))); // (its score)
                     msg.header.accumulated_score = other->accumulated_score_;
                     msg.header.eliminated_time = other->eliminated_time_;
                     std::memset(msg.header.name, 0, sizeof(msg.header.name));

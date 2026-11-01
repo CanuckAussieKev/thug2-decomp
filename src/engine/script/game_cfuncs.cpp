@@ -55,6 +55,7 @@
 #include "platform/winmain.h"
 #include "engine/gfx/movie.h"
 #include "platform/crt.h"
+#include "platform/compiler.h"
 
 namespace commands {
 
@@ -773,7 +774,7 @@ bool __cdecl cfunc_choose_face_for_facemap(script::Struct* params, script::Scrip
     const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &name, 1); // "string"
     char path[0x80];
-#pragma warning(suppress : 4996)           // (unbounded: as in the original)
+    THUG2_MSVC_WARNING(suppress : 4996)    // (unbounded: as in the original)
     std::sprintf(path, "faces\\%s", name); // "faces\%s"
     void* file = game_fopen(path, "rb");   // "rb"
     if (!file)

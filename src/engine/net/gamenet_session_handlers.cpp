@@ -43,8 +43,9 @@
 #include "game/rider/skater_score.h"
 #include "engine/net/gamenet_lists.h"
 #include "engine/net/play_messages.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (the original's sprintf, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 
@@ -243,7 +244,7 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
         set(0x15421B73, 0x15EA4F9E, request.ctf_game_type);        // ctf_game_type: ctf_type
         set(0x38DBE1D0, 0x38DBE1D0, request.goals);                // goals: goals
         set(0xA8774BF7, 0xA8774BF7, request.team_graffiti_mode);   // team_graffiti_mode
-        {                                              // time_limit: time_limit_options, with its time
+        {                                                          // time_limit: time_limit_options, with its time
             script::Struct* params = new_params();
             const char* text = option_text(0x834A7C01, request.time_limit);
             int time = option_field(0x834A7C01, request.time_limit, kTime);

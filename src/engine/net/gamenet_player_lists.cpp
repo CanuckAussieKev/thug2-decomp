@@ -5,9 +5,10 @@
 #include <initializer_list>
 #include "engine/core/code_address.h"
 #include "engine/gfx/d3dx.h"
+#include "platform/compiler.h"
 #include <cstring>
 
-#pragma warning(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
 #include "engine/core/checksums.h"
 #include "engine/net/gamespy.h"
@@ -79,7 +80,6 @@ constexpr uint32_t kPreRunQueuedScripts = 0xD4DAFEB2;   // PreRunQueuedScripts
 constexpr uint32_t kPostRunQueuedScripts = 0xE1BDBE73;  // PostRunQueuedScripts
 
 const char* const kStringSlot = "%s0"; // "%s0"
-
 
 memory::ListNode* player_list(Hub* manager) { return &manager->players_; }
 memory::ListNode* new_player_list(Hub* manager) { return &manager->joiners_; }

@@ -40,6 +40,7 @@
 #include "game/park_editing/park_editor.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/core/owner.h"
+#include "platform/compiler.h"
 
 namespace sio {
 
@@ -343,7 +344,7 @@ char (&key_name_result())[256] { return g_key_name_result; }
 
 void convert_key_name(int code)
 {
-#pragma warning(suppress : 4996) // (as the original: the C runtime's conversion, at most 256 bytes)
+    THUG2_MSVC_WARNING(suppress : 4996) // (as the original: the C runtime's conversion, at most 256 bytes)
     std::wcstombs(name_buffer(), key_name_w(code), 256);
     name_buffer()[255] = '\0';
 }

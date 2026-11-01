@@ -31,6 +31,7 @@
 #include "platform/run_log.h"
 #include "platform/winmain.h"
 #include "platform/crt.h"
+#include "platform/compiler.h"
 
 namespace render {
 
@@ -368,7 +369,7 @@ void __cdecl play_movie_file(const char* name)
             break;
         }
     }
-#pragma warning(suppress : 4996) // (unbounded, as in the original: the buffer is zeroed, so terminated)
+    THUG2_MSVC_WARNING(suppress : 4996) // (unbounded, as in the original: the buffer is zeroed, so terminated)
     std::strncpy(path + 16, name + start, length - start);
     std::memcpy(path + std::strlen(path), ".bik", 5);
 

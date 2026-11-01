@@ -57,6 +57,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/util/byte_stream.h"
 #include "engine/net/play_messages.h"
+#include "platform/compiler.h"
 
 namespace commands {
 
@@ -690,8 +691,8 @@ bool __cdecl cfunc_try_cheat_string(script::Struct* params, script::Script*)
         return false;
     }
     char buffer[0x80];
-#pragma warning(push)
-#pragma warning(disable : 4996)                   // (unbounded, and the text is the format: as in the original)
+    THUG2_MSVC_WARNING(push)
+    THUG2_MSVC_WARNING(disable : 4996)            // (unbounded, and the text is the format: as in the original)
     std::sprintf(buffer, "12345678901234567890"); // "12345678901234567890"
     std::sprintf(buffer, text);
     uint32_t checksum = checksums::hash_from_text(text);
@@ -703,7 +704,7 @@ bool __cdecl cfunc_try_cheat_string(script::Struct* params, script::Script*)
             sum += static_cast<signed char>(*c) * 0x3FF;
         checksum = checksums::hash_from_text(buffer);
     }
-#pragma warning(pop)
+    THUG2_MSVC_WARNING(pop)
     uint32_t c1 = checksums::hash_from_text(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
     uint32_t c2 = checksums::hash_from_text(buffer) ^ static_cast<uint32_t>(sum);
     debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2,

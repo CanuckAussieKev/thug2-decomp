@@ -44,8 +44,9 @@
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
 #include "engine/util/byte_stream.h"
+#include "platform/compiler.h"
 
-#pragma warning(disable : 4996) // (the original's sprintf / strncpy, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strncpy, kept)
 
 namespace online {
 
