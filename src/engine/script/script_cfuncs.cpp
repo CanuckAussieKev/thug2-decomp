@@ -16,6 +16,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/tod_manager.h"
+#include "engine/core/pointer_cell.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -293,7 +294,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
         entry->type = script::kQbvalArray;
         script::Array* memory = script::alloc_script_array();
         script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-        entry->raw = reinterpret_cast<uint32_t>(array);
+        entry->raw = cell::of(array);
         script::duplicate_array(array, copy.array);
         break;
     }

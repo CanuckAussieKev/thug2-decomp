@@ -21,6 +21,7 @@
 #include "platform/run_log.h"
 #include "engine/core/owner.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
 
 namespace level_nodes {
 
@@ -177,7 +178,7 @@ void NodeManager::unhash_node_array(uint32_t array)
         const uint32_t moved_array = slots.get_array(i);
         const int moved_node = slots.elem(i);
         slots.get_clear(i);
-        auto* node = reinterpret_cast<Struct*>(arrays_[moved_array].node_entries_->fetch_part(moved_node));
+        auto* node = arrays_[moved_array].node_entries_->struct_at(moved_node);
         uint32_t name = 0;
         node->read_hash_value(kName, &name, 1);
         uint32_t to = name & slots.get_mask();
@@ -196,7 +197,7 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
     for (uint32_t slot = name & slots.get_mask(); tries-- && !slots.vacant(slot);
          slot = (slot + 1) & slots.get_mask()) {
         auto* node =
-            reinterpret_cast<Struct*>(arrays_[slots.get_array(slot)].node_entries_->fetch_part(slots.elem(slot)));
+            arrays_[slots.get_array(slot)].node_entries_->struct_at(slots.elem(slot));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
         if (node_name == name)
@@ -226,7 +227,7 @@ void NodeManager::start_walk(uint32_t name)
     uint32_t slot = name & slots.get_mask();
     for (;;) {
         auto* node =
-            reinterpret_cast<Struct*>(arrays_[slots.get_array(slot)].node_entries_->fetch_part(slots.elem(slot)));
+            arrays_[slots.get_array(slot)].node_entries_->struct_at(slots.elem(slot));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
         if (node_name == name)
@@ -251,7 +252,7 @@ Struct* NodeManager::get_next_node()
         return nullptr;
     uint32_t array = walk.get_array();
     Array* nodes = arrays_[array].node_entries_;
-    auto* node = reinterpret_cast<Struct*>(nodes->fetch_part(walk.elem()));
+    auto* node = nodes->struct_at(walk.elem());
     int next = walk.elem() + 1;
     if (!walk.big)
         next = static_cast<int16_t>(next); // (the original's 16-bit count)
@@ -292,7 +293,7 @@ void NodeManager::set_owner(void* owner) { owner_ptr_ = owner; }
 uint32_t NodeManager::get_owner_value58()
 {
     // (the owner is a node table asset: its script array)
-    return reinterpret_cast<uint32_t>(static_cast<assets::NodeTableResource*>(owner_ptr_)->nodes_);
+    return cell::of(static_cast<assets::NodeTableResource*>(owner_ptr_)->nodes_);
 }
 
 // 0x0045D270
@@ -310,7 +311,7 @@ bool NodeManager::hash_node_in(uint32_t name, uint32_t a, uint32_t b)
 {
     for (uint32_t i = 0; i < num_; ++i) {
         if (arrays_[i].label_ == name) {
-            hash_node(i, a, reinterpret_cast<Struct*>(b));
+            hash_node(i, a, cell::pointer<Struct>(b));
             return true;
         }
     }
@@ -322,7 +323,7 @@ void NodeManager::hash_nodes(uint32_t index)
 {
     Array* nodes = arrays_[index].node_entries_;
     for (uint32_t i = 0; i < nodes->extent_; ++i)
-        hash_node(index, i, reinterpret_cast<Struct*>(nodes->fetch_part(i)));
+        hash_node(index, i, nodes->struct_at(i));
 }
 
 // 0x0045D480
@@ -330,13 +331,13 @@ void NodeManager::resolve_links(Array* nodes)
 {
     const uint32_t count = nodes->extent_;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* node = reinterpret_cast<Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         Array* links = nullptr;
         if (!node->fetch_list(kLinks, &links, 0) || !links->extent_)
             continue;
         const uint32_t link_count = links->extent_;
         for (uint32_t j = 0; j < link_count; ++j) {
-            auto* linked = reinterpret_cast<Struct*>(nodes->fetch_part(links->fetch_part(j)));
+            auto* linked = nodes->struct_at(links->fetch_part(j));
             links->set_element(j, get_node_name(linked));
         }
         links->change_species(script::kQbvalName);
@@ -357,7 +358,7 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
     add_node_array_prefixes(name);
     const int count = static_cast<int>(nodes->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* node = reinterpret_cast<Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         script::VectorValue position = {0.0f, 0.0f, 0.0f, 1.0f};
         if (node->fetch_vec(kPosition, &position, 0)) {
             node->erase_module(kPosition);

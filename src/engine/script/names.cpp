@@ -10,6 +10,9 @@
 #include "engine/file/packs.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/cfuncs_scene.h"
+#include "platform/code_address.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -155,7 +158,7 @@ void install_script_functions(const NativeCommand* functions, uint32_t count)
         register_name_hash(checksum, functions[i].name);
         SymbolTableEntry* symbol = create_symbol(checksum);
         symbol->type = kQbvalNativeFunc;
-        symbol->raw = reinterpret_cast<uint32_t>(functions[i].function);
+        symbol->raw = cell::of(functions[i].function);
     }
 }
 
@@ -174,8 +177,8 @@ void register_member_function_table(void*, const uint32_t* records, int stride)
 {
     while (*records) {
         SymbolTableEntry* symbol = create_symbol(*records);
-        symbol->raw = reinterpret_cast<uint32_t>(records);
-        records = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(records) + stride);
+        symbol->raw = cell::of(records);
+        records = raw::field_at<const uint32_t>(records, stride);
         symbol->type = kQbvalNativeMethod;
     }
 }
@@ -184,7 +187,7 @@ void fill_member_function_code(uint32_t* records, const MemberCode* code, int co
 {
     for (int i = 0; i < count; ++i) {
         uint32_t* record = records + 6 * i;
-        record[2] = reinterpret_cast<uint32_t>(code[i]);
+        record[2] = cell::of(code_address(code[i]));
         record[3] = 0;
         record[4] = 0;
         record[5] = 0;

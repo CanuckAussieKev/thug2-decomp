@@ -30,6 +30,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/settings.h"
 #include "engine/gfx/device.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -114,7 +115,7 @@ inline void print_anim_cache_info(void* /*cache*/) {}
 gfx::ClipStore* clip_store_ref() { return gfx::ClipStore::get_pull(); }
 
 // The viewport's camera `index` (0x004A0950: null if the viewport has none).
-uint8_t* viewport_camera(int index) { return reinterpret_cast<uint8_t*>(render::obtain_active_lens(index)); }
+uint8_t* viewport_camera(int index) { return raw::bytes(render::obtain_active_lens(index)); }
 
 // A colour of four bytes (r, g, b, a in memory order).
 uint32_t pack_bytes(int r, int g, int b, int a)
@@ -270,7 +271,7 @@ bool cfunc_debug_line(Struct* params, Script*)
     params->fetch_vec(kEnd, &end, 1);
     params->fetch_int_value(kColor, &colour, 0);
     params->fetch_int_value(kFrames, &frames, 0);
-    gfx::push_diag_line(reinterpret_cast<const maths::Vec4*>(&start), reinterpret_cast<const maths::Vec4*>(&end),
+    gfx::push_diag_line(&start, &end,
                         static_cast<uint32_t>(colour), 0, frames);
     return true;
 }
@@ -321,11 +322,11 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
         extent(dist, low.z, high.z);
     if (box_params->fetch_float(kWidth, &width, 1))
         extent(width, low.x, high.x);
-    if (box_params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&offset), 1))
+    if (box_params->fetch_vec(kOffset, &offset, 1))
         offset.feet_as_inches();
     box.min = {offset.x + low.x, offset.y + low.y, offset.z + low.z, offset.w + 1.0f};
     box.max = {offset.x + high.x, offset.y + high.y, offset.z + high.z, offset.w + 1.0f};
-    render::engine::kill_texture_splats_in_box(reinterpret_cast<const float*>(&box));
+    render::engine::kill_texture_splats_in_box(raw::as<const float>(&box));
     return true;
 }
 
@@ -376,7 +377,7 @@ bool cfunc_set_clipping_distances(Struct* params, Script*)
     params->fetch_float("Near", &near_plane, 0);
     params->fetch_float("Far", &far_plane, 0);
     for (int i = 0; i < 2; ++i) {
-        if (auto* camera = reinterpret_cast<gfx::ViewCam*>(viewport_camera(i))) {
+        if (auto* camera = raw::as<gfx::ViewCam>(viewport_camera(i))) {
             camera->near_dist_ = near_plane;
             camera->far_clip_ = far_plane;
         }
@@ -497,7 +498,7 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
     params->read_hash_value(kId, &id, 1);
     bool found = false;
     maths::Vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
-    auto* manager = reinterpret_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+    auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
     if (objects::Entity* object = manager->look_up_entity(id)) {
         uint32_t bone = 0;
         params->read_hash_value(kBone, &bone, 1);

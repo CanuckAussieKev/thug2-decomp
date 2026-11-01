@@ -14,6 +14,7 @@
 #include "engine/sys/game_module.h"
 #include "formats/lzss.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -158,7 +159,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     if (!symbol)
         return nullptr;
 
-    const auto* stored = reinterpret_cast<const StoredScript*>(symbol->raw);
+    const auto* stored = cell::pointer<const StoredScript>(symbol->raw);
     const uint32_t size = stored->size;
     const uint32_t stored_size = stored->stored_size_;
     make_room(static_cast<int>(size), name);

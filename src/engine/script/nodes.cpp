@@ -16,7 +16,9 @@
 #include "engine/script/qb.h"
 #include "engine/script/script_cfuncs.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace level_nodes {
 
@@ -36,7 +38,7 @@ constexpr uint32_t kScr = 0xA6D2D890;         // scr (SetEventHandler's script)
 constexpr uint32_t kEndGap = 0xE5399FB2;      // EndGap
 constexpr uint32_t kGapScript = 0x7C9E51AB;   // gapscript
 // SetEventHandler (the C function, as tokens 0x43 hold it: the game's address)
-const uint32_t kSetEventHandler = reinterpret_cast<uintptr_t>(code_address(&commands::cfunc_set_event_handler));
+const uint32_t kSetEventHandler = cell::address(code_address(&commands::cfunc_set_event_handler));
 constexpr int kDeepestLevel = 5;
 
 // Script tokens (qb.h).
@@ -53,12 +55,12 @@ constexpr uint8_t kTokenIf = 0x47;                  // (a short jump)
 
 NodeManager* hub() { return node_manager_instance(); }
 
-VectorValue* as_value(maths::Vec4* v) { return reinterpret_cast<VectorValue*>(v); }
+VectorValue* as_value(maths::Vec4* v) { return v; }
 
 // A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, maths::QuatRotation::fetch_mat).
 void quat_to_matrix(const float* quat, maths::Mat4* matrix)
 {
-    reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix);
+    raw::as<const maths::QuatRotation>(quat)->fetch_mat(matrix);
 }
 
 } // namespace
@@ -227,7 +229,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or
             // member function that is `target` handed to the callback; EndGap's gapscript= is followed too.
             const uint32_t name = *token == kTokenMemberFunctionEntry
-                                      ? *reinterpret_cast<const uint32_t*>(script::fetch_word32(token + 1))
+                                      ? *cell::pointer<const uint32_t>(script::fetch_word32(token + 1))
                                       : script::fetch_word32(token + 1);
             token += 5;
             if (*token == kTokenEquals)
@@ -279,7 +281,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
             token += 5;
             // (the game's Function table holds the game's address; a table of ours would hold our function)
             if (function != kSetEventHandler &&
-                function != reinterpret_cast<uint32_t>(&commands::cfunc_set_event_handler)) {
+                function != cell::of(code_address(&commands::cfunc_set_event_handler))) {
                 token = script::skip_to_end_of_statement(token);
                 break;
             }

@@ -60,6 +60,9 @@
 #include "wire/play_messages.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -87,8 +90,8 @@ constexpr uint32_t kFlashFlag4 = 0x387C9ED6;
 constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-modules::Skate* skate_module() { return reinterpret_cast<modules::Skate*>(get_skate()); }
+uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* skate_module() { return raw::as<modules::Skate>(get_skate()); }
 objects::Rider* get_rider_at(int index) { return static_cast<objects::Rider*>(skate_module()->get_rider_at(index)); }
 objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
 
@@ -158,7 +161,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     skate_module()->tidy_up(); // the skate module's objects
     if (script)
         script->spawn_flags_ = static_cast<uint8_t>((script->spawn_flags_ & ~script::kScriptFlagSpawned) | spawned);
-    reinterpret_cast<render::ImposterManager*&>(render::g_imposter_manager)->delete_all();
+    memory::bits_as<render::ImposterManager*>(render::g_imposter_manager)->delete_all();
     render::engine::kill_all_effects();
     gfx::ClipStore* particles = gfx::ClipStore::get_pull(); // (0x006F92B0)
     particles->drain(false);
@@ -257,7 +260,7 @@ void apply_flag_command_to_object(objects::Entity* object, void* data)
 {
     auto* command = static_cast<FlagCommand*>(data);
     if (object->ident_ == command->id)
-        apply_flag_command(reinterpret_cast<FlagCommandData*>(&command->value), object);
+        apply_flag_command(raw::as<FlagCommandData>(&command->value), object);
 }
 
 // 0x005A01D0
@@ -267,7 +270,7 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     if (action == kFlagActionException)
         params->read_hash_value(0u, &value, 0);
     else
-        params->fetch_int_value(0u, reinterpret_cast<int*>(&value), 0);
+        params->fetch_int_value(0u, raw::as<int>(&value), 0);
     // (two flags looked for and not used)
     if (!params->has_bare_flag(kFlagCommandFlagA))
         params->has_bare_flag(kFlagCommandFlagB);
@@ -719,7 +722,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
     const int count = static_cast<int>(cheats->extent_);
     bool found = false;
     for (int i = 0; i < count; ++i) {
-        auto* cheat = reinterpret_cast<script::Struct*>(cheats->fetch_part(static_cast<uint32_t>(i)));
+        auto* cheat = cheats->struct_at(static_cast<uint32_t>(i));
         int cheat_c1 = 0;
         int cheat_c2 = 0;
         uint32_t script = 0;
@@ -809,7 +812,7 @@ bool cfunc_kill_tester_script(script::Struct*, script::Script*) { return skate_m
 bool cfunc_auto_rail(script::Struct* params, script::Script*)
 {
     (void)modules::g_skate_module->rail_manager_; // (the stub's `this`)
-    stubs::ignore_argument(static_cast<int>(reinterpret_cast<intptr_t>(params)));
+    stubs::ignore_argument(static_cast<int>(static_cast<intptr_t>(cell::address(params))));
     return true;
 }
 

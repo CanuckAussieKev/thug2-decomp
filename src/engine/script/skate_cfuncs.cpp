@@ -25,6 +25,7 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/script/game_cfuncs.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -73,7 +74,7 @@ bool controller_pressed(const void* controller, uint32_t button)
 {
     if (!controller)
         return false;
-    auto* input = *reinterpret_cast<PadInputSample* const*>(static_cast<const uint8_t*>(controller) + 0x18);
+    auto* input = *raw::as<PadInputSample* const>(static_cast<const uint8_t*>(controller) + 0x18);
     if (!input)
         return false;
     const int index = glyph_for_button_tag(button);
@@ -158,7 +159,7 @@ bool cfunc_fake_lights(script::Struct* params, script::Script*)
     const bool is_prefix = !params->has_bare_flag(kFakeLightsExact);
     // (the original passes is_prefix too: 0x0045BF90 takes two arguments and ignores it)
     (void)is_prefix;
-    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
+    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, raw::as<uint16_t>(&count));
     render::queue_scene_lights(nodes, static_cast<uint16_t>(count), time, params);
     return true;
 }

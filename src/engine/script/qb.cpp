@@ -21,6 +21,9 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/cscript.h"
 #include "platform/run_log.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -64,7 +67,7 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
     void* memory = memory::Hub::get_pull()->carve(sizeof(memory::SlabBank), 1, nullptr);
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
     pools.pools[pools.current] = pool;
-    reinterpret_cast<uint8_t*>(&pools.unknown4)[pools.current] = 1;
+    raw::bytes(&pools.unknown4)[pools.current] = 1;
 }
 
 // 0x0046F690
@@ -354,8 +357,8 @@ void add_script_checksum_name(uint32_t checksum, const char* name)
 void forget_stored_randoms_of(uint32_t owner)
 {
     // The stored random states (newest first, the next at +0x58), the owning script first.
-    for (auto* entry = reinterpret_cast<uint32_t*>(g_stored_randoms_newest); entry;
-         entry = reinterpret_cast<uint32_t*>(entry[0x58 / 4])) {
+    for (auto* entry = raw::as<uint32_t>(g_stored_randoms_newest); entry;
+         entry = cell::pointer<uint32_t>(entry[0x58 / 4])) {
         if (entry[0] == owner)
             entry[0] = 0;
     }
@@ -388,7 +391,7 @@ void allocate_permanent_string_heap(uint32_t size, uint32_t count)
     char* strings = static_cast<char*>(memory::alloc_block(size));
     g_permanent_strings_start = strings;
     g_permanent_strings_next = strings;
-    reinterpret_cast<void*&>(g_permanent_string_table) = memory::alloc_block(count * 8);
+    memory::bits_as<void*>(g_permanent_string_table) = memory::alloc_block(count * 8);
     g_permanent_string_count = 0;
 }
 
@@ -526,7 +529,7 @@ void allocate_script_checksum_names(bool debug_heap)
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(debug_heap ? manager->debug_heap_ : manager->script_heap_);
     auto* names = static_cast<uint32_t*>(memory::alloc_block(0x1000 * 12));
-    reinterpret_cast<uint32_t*&>(g_script_labels) = names;
+    memory::bits_as<uint32_t*>(g_script_labels) = names;
     memory::leave_heap_scope();
     for (uint32_t i = 0; i < 0x1000 * 3; ++i)
         names[i] = 0;
@@ -547,16 +550,16 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     switch (symbol->type) {
     case kQbvalString:
     case kQbvalInlineText:
-        free_string(reinterpret_cast<char*>(symbol->raw));
+        free_string(cell::pointer<char>(symbol->raw));
         break;
     case kQbvalPair:
-        free_pair(reinterpret_cast<void*>(symbol->raw));
+        free_pair(cell::pointer<void>(symbol->raw));
         break;
     case kQbvalVector:
-        free_vector(reinterpret_cast<void*>(symbol->raw));
+        free_vector(cell::pointer<void>(symbol->raw));
         break;
     case kQbvalScriptBody:
-        memory::free_malloc(reinterpret_cast<void*>(symbol->raw));
+        memory::free_malloc(cell::pointer<void>(symbol->raw));
         break;
     case kQbvalStruct:
         if (Struct* structure = symbol->structure) {
@@ -565,8 +568,8 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
         }
         break;
     case kQbvalArray:
-        release_array_storage(reinterpret_cast<Array*>(symbol->raw));
-        if (auto* array = reinterpret_cast<Array*>(symbol->raw)) {
+        release_array_storage(cell::pointer<Array>(symbol->raw));
+        if (auto* array = cell::pointer<Array>(symbol->raw)) {
             array->get_clear();
             delete_array(array);
         }

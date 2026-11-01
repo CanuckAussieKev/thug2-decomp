@@ -24,6 +24,8 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -138,7 +140,7 @@ bool cfunc_preload_model(Struct* params, Script*)
     {
         // <name>.mdl (0x004879D0 returns a String: made in `storage`)
         alignas(text::Chars) uint8_t storage[sizeof(text::Chars)];
-        auto* path = gfx::make_model_path(reinterpret_cast<text::Chars*>(storage), name, ".mdl");
+        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage), name, ".mdl");
         file = *path;
         path->~Chars();
     }
@@ -218,7 +220,7 @@ bool cfunc_load_asset(Struct* params, Script*)
     uint32_t desc = 0;
     params->read_hash_value(kDesc, &desc, false);
     if (!assets->fetch_or_load_resource(name, 0, desc, parent, async, false, assets->get_permanent_by_default(),
-                                        nullptr, static_cast<int>(reinterpret_cast<uintptr_t>(params))))
+                                        nullptr, static_cast<int>(cell::address(params))))
         script::fetch_int_value(kAssertOnMissingAssets); // (an assert on it compiled out)
     return true;
 }
@@ -254,7 +256,7 @@ bool cfunc_set_reference_checksum(Struct* params, Script*)
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
     if (!params->read_hash_value(0u, &checksum, 0))
-        params->fetch_int_value(0u, reinterpret_cast<int*>(&checksum), true);
+        params->fetch_int_value(0u, raw::as<int>(&checksum), true);
     assets->set_unknown18(static_cast<int>(checksum));
     return true;
 }
@@ -298,7 +300,7 @@ bool cfunc_unload_scene(Struct* params, Script*)
         else
             scene = first_scene();
         if (scene) {
-            void* textures = *reinterpret_cast<void**>(static_cast<uint8_t*>(scene) + 0x88);
+            void* textures = *raw::as<void*>(static_cast<uint8_t*>(scene) + 0x88);
             unload_scene(scene, 1);
             if (textures)
                 unload_tex_dict(textures);

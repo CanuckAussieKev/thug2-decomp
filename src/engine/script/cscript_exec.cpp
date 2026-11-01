@@ -51,6 +51,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/loading_console.h"
 #include "platform/run_log.h"
+#include "engine/core/pointer_cell.h"
+#include "platform/code_address.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -199,7 +201,7 @@ bool Script::execute_command()
     }
     case 0x46: {
         ++pc_;
-        auto* entry = reinterpret_cast<MemberFunctionEntry*>(fetch_word32(pc_));
+        auto* entry = cell::pointer<MemberFunctionEntry>(fetch_word32(pc_));
         pc_ += 4;
         parse_function_params();
         if (!entity_.get_pull()) {
@@ -210,7 +212,7 @@ bool Script::execute_command()
     }
     case 0x43: {
         ++pc_;
-        auto function = reinterpret_cast<Function>(fetch_word32(pc_));
+        auto function = function_at<Function>(fetch_word32(pc_));
         pc_ += 4;
         parse_function_params();
         return function(stmt_args_, this);
@@ -260,7 +262,7 @@ bool Script::execute_command()
             return true;
         }
         case kQbvalNativeMethod:
-            if (auto* entry = reinterpret_cast<MemberFunctionEntry*>(symbol->raw))
+            if (auto* entry = cell::pointer<MemberFunctionEntry>(symbol->raw))
                 return invoke_method_by_name(entry, object);
             return invoke_method_by_name(function, object);
         default: // (C functions included: not run on an object)
@@ -306,9 +308,9 @@ bool Script::execute_command()
         return true;
     }
     case kQbvalNativeFunc:
-        return reinterpret_cast<Function>(symbol->raw)(stmt_args_, this);
+        return function_at<Function>(symbol->raw)(stmt_args_, this);
     case kQbvalNativeMethod: {
-        auto* entry = reinterpret_cast<MemberFunctionEntry*>(symbol->raw);
+        auto* entry = cell::pointer<MemberFunctionEntry>(symbol->raw);
         objects::Entity* object = entity_.owner_object_;
         if (entry) {
             if (object)

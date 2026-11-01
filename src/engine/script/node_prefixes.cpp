@@ -20,7 +20,6 @@
 namespace level_nodes {
 
 using script::Array;
-using script::Struct;
 
 namespace {
 uint32_t g_node_names[1000];
@@ -135,7 +134,7 @@ void PrefixTables::add_node_array(uint32_t name)
     Array* nodes = script::fetch_list(name);
     const uint32_t count = nodes->extent_;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* node = reinterpret_cast<Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 0);
         const char* text = script::find_script_checksum_name(node_name);
@@ -209,7 +208,7 @@ uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
             continue;
         Array* array = script::fetch_list(table->node_array_);
         for (int i = 0; std::cmp_less(i, n); ++i) // (the buffer's size isn't checked)
-            names[found++] = get_node_name(reinterpret_cast<Struct*>(array->fetch_part(indices[i])));
+            names[found++] = get_node_name(array->struct_at(indices[i]));
     }
     *count = static_cast<uint16_t>(found);
     return names;

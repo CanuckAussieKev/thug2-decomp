@@ -212,7 +212,7 @@ bool cfunc_clear_powerups(script::Struct*, script::Script*)
 bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* script)
 {
     maths::Vec4 pos;
-    params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 1);
+    params->fetch_vec(kPos, &pos, 1);
     float distance = 150.0f;
     params->fetch_float(kRailDistance, &distance, 0);
     auto max_distance_squared = static_cast<float>(static_cast<double>(distance) * distance);
@@ -298,7 +298,7 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
     Array* skaters = script::fetch_list(kMasterSkaterList);
     const int count = static_cast<int>(skaters->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* skater = reinterpret_cast<Struct*>(skaters->fetch_part(i));
+        auto* skater = skaters->struct_at(i);
         uint32_t entry = 0;
         skater->read_hash_value(kName, &entry, 1);
         if (entry != name)

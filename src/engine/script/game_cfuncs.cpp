@@ -59,6 +59,8 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/script/cfuncs_scene.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -90,22 +92,22 @@ constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the objec
 constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the object whose camera is used otherwise
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
 objects::RiderIdentity* fetch_account(int index)
 {
     // (0x00564F80 is the overload taking the params: the original passes the index in its place - 0, no params, the
     // current profile)
-    return reinterpret_cast<modules::Skate*>(get_skate())->fetch_account(reinterpret_cast<script::Struct*>(index));
+    return raw::as<modules::Skate>(get_skate())->fetch_account(cell::pointer<script::Struct>(index));
 }
 objects::Rider* get_rider_at(int index)
 {
-    return static_cast<objects::Rider*>(reinterpret_cast<modules::Skate*>(get_skate())->get_rider_at(index));
+    return static_cast<objects::Rider*>(raw::as<modules::Skate>(get_skate())->get_rider_at(index));
 }
 
 // The object manager (0x006F0FB8).
 objects::ObjectHubBase* object_edit()
 {
-    return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
 }
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
@@ -164,7 +166,7 @@ bool cfunc_set_viewer_lod_dist(script::Struct* params, script::Script*)
         return false;
     if (objects::PreviewEntity* object = viewer_target(viewer)) {
         // (the model component isn't checked for null, as in the original)
-        auto* model = reinterpret_cast<objects::MeshInstanceModule*>(object->fetch_module(kModel));
+        auto* model = static_cast<objects::MeshInstanceModule*>(object->fetch_module(kModel));
         model->set_color_value(static_cast<int>(pair.x), pair.y);
     }
     return true;
@@ -280,7 +282,7 @@ bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
         object->at_point_ = *viewport_camera(viewport)->fetch_location();
         camera->tick_frame(); // (vtable slot 1)
     }
-    set_viewport_camera(viewport, reinterpret_cast<void**>(camera)[0x18 / 4]); // the component's camera (+0x18)
+    set_viewport_camera(viewport, raw::as<void*>(camera)[0x18 / 4]); // the component's camera (+0x18)
     return true;
 }
 
@@ -330,7 +332,7 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     params->fetch_int_value(kController, &controller, 0);
     const modules::FrontEndInputHandler* handler = front_end->pad_listeners_[controller].get();
     objects::PadSnapshot pad;
-    pad.tick_frame(reinterpret_cast<const uint8_t*>(handler->control_data_));
+    pad.tick_frame(raw::bytes(handler->control_data_));
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return false;
@@ -378,7 +380,7 @@ bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    auto type = reinterpret_cast<uint32_t>(script);
+    auto type = cell::of(script);
     params->read_hash_value(kPrefType, &type, 0);
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     const char* text = nullptr; // (unset in the original when missing)
@@ -394,7 +396,7 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    auto type = reinterpret_cast<uint32_t>(script);     // (the slot the original reads back: the argument's)
+    auto type = cell::of(script);     // (the slot the original reads back: the argument's)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     const char* password = nullptr;                    // (unset in the original when missing)
@@ -414,7 +416,7 @@ bool cfunc_get_preference_checksum(script::Struct* params, script::Script* scrip
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    auto type = reinterpret_cast<uint32_t>(script);     // (the slot the original reads back: the argument's)
+    auto type = cell::of(script);     // (the slot the original reads back: the argument's)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     uint32_t value = 0; // (unset in the original when missing)
@@ -445,7 +447,7 @@ void apply_view_mode(int mode)
         make_camera_active(kViewerCameraObject, 0, true);
     } else if (objects::Entity* object = object_edit()->look_up_entity(kSkaterCamObject)) {
         if (objects::ObjectModule* camera = static_cast<objects::GameEntity*>(object)->fetch_module(kCamera))
-            set_viewport_camera(0, reinterpret_cast<void**>(camera)[0x18 / 4]);
+            set_viewport_camera(0, raw::as<void*>(camera)[0x18 / 4]);
     }
     for (int i = 0; i < 8; ++i) {
         if (objects::Rider* skater = get_rider_at(i))
@@ -514,7 +516,7 @@ bool cfunc_reload_anim(script::Struct* params, script::Script*)
     const bool debug_heap = g_got_extra_memory;
     if (debug_heap) {
         memory::Hub* memory = memory::Hub::get_pull();
-        memory->enter_heap_scope(reinterpret_cast<memory::MemSource*>(memory->debug_heap_));
+        memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap_));
     }
     assets->load_anim(file, base, anim, false, false);
     if (g_got_extra_memory)
@@ -594,7 +596,7 @@ bool fetch_place(script::Struct* structure, script::VectorValue* out)
 }
 
 // The getter folded at 0x00576E60 (the word at +0x54: the viewer's object, a profile's face texture...).
-void* word54(void* object) { return reinterpret_cast<modules::Viewer*>(object)->get_viewer_entity(); }
+void* word54(void* object) { return static_cast<modules::Viewer*>(object)->get_viewer_entity(); }
 
 // The game's C runtime (library code, called through the game).
 void* game_fopen(const char* name, const char* mode) { return crt::get_fopen(name, mode); }
@@ -650,7 +652,7 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
     switch (node_class) {
     case kClassClimbingNode:
     case kClassRailNode:
-        modules::g_skate_module->rail_manager_->move_node(name, reinterpret_cast<const maths::Vec4*>(&position));
+        modules::g_skate_module->rail_manager_->move_node(name, &position);
         return true;
     case 0xA0DFAC98: // Pedestrian
     case 0x061A741E: // (name unknown)
@@ -686,7 +688,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
 {
     compiled_out_debug_call();
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(reinterpret_cast<memory::MemSource*>(memory->debug_heap_));
+    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap_));
     bool show1 = params->has_bare_flag(0xB426BF5Au);
     bool show2 = params->has_bare_flag(0x14240297u);
     bool show3 = params->has_bare_flag(0x969D3AF6u);
@@ -722,7 +724,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
         at += 11;
         float values[6];
         for (float& value : values) {
-            value = static_cast<float>(game_atof(reinterpret_cast<const char*>(at)));
+            value = static_cast<float>(game_atof(raw::chars(at)));
             while (*at == '-' || *at == '.' || (*at >= '0' && *at <= '9'))
                 ++at;
             ++at;
@@ -802,7 +804,7 @@ bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0x67E6859Au, &index, 1);
-    void* profile = reinterpret_cast<modules::Skate*>(get_skate())->fetch_account(index);
+    void* profile = raw::as<modules::Skate>(get_skate())->fetch_account(index);
     return word54(profile) != nullptr;
 }
 

@@ -35,6 +35,8 @@
 #include "engine/script/struct_buffer.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
+#include "engine/core/pointer_cell.h"
+#include "platform/code_address.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -73,7 +75,7 @@ uint32_t current_object_id(objects::Entity* object) { return object->ident_; }
 
 // The network game (online::Hub 0x007CCE14).
 using NetSessionSlot = online::Hub;
-NetSessionSlot* net_link() { return reinterpret_cast<NetSessionSlot*>(online::g_online_hub); }
+NetSessionSlot* net_link() { return static_cast<NetSessionSlot*>(online::g_online_hub); }
 // 0x0044E4F0: whether a network game is on.
 bool in_net_game(NetSessionSlot* net) { return net->in_net_game(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).
@@ -160,7 +162,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
         manager->enter_heap_scope(manager->script_heap_);
         Script* script = Script::create();
         memory::Hub::get_pull()->leave_heap_scope();
-        reinterpret_cast<Function>(symbol->raw)(params, script);
+        function_at<Function>(symbol->raw)(params, script);
         Script::destroy(script);
         return nullptr;
     }
@@ -228,13 +230,13 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
     switch (symbol->type) {
     case kQbvalNativeMethod:
         // (no check that there is an object)
-        if (auto* entry = reinterpret_cast<MemberFunctionEntry*>(symbol->raw))
+        if (auto* entry = cell::pointer<MemberFunctionEntry>(symbol->raw))
             call_member_function_of(entry, params, object, nullptr);
         else
             call_member_function_by_name(object, name, params, nullptr);
         return;
     case kQbvalNativeFunc:
-        reinterpret_cast<Function>(symbol->raw)(params, nullptr);
+        function_at<Function>(symbol->raw)(params, nullptr);
         return;
     default: {
         memory::Hub* manager = memory::Hub::get_pull();

@@ -53,6 +53,8 @@
 #include "engine/script/skate_cfuncs.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -89,7 +91,7 @@ constexpr uint32_t kClassTrigger = 0xE594F0A2;        // "Trigger"
 constexpr uint32_t kClassSkater = 0x5B8AB877;         // "skater"
 constexpr uint32_t kClassA0e52802 = 0xA0E52802;       // (name unknown) killed through 0x0048FCA0
 
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
 objects::GrindRailHub* rail_manager() { return modules::g_skate_module->rail_manager_.get(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
@@ -104,15 +106,15 @@ struct SceneNode {
     SceneNode* next; // +0x08
 };
 static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-SceneNode* first_scene() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
+SceneNode* first_scene() { return raw::as<SceneNode>(render::first_scene_node()); }
 SceneNode* next_scene(SceneNode* node)
 {
-    return node->next->scene == reinterpret_cast<uint8_t*>(-1) ? nullptr : node->next;
+    return node->next->scene == cell::pointer<uint8_t>(-1) ? nullptr : node->next;
 }
 
 // A scene's sector by name (0x0049CB00) and a copy of one (0x0049D510).
-render::WorldCell* as_sector(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector); }
-render::WorldScene* as_scene(uint8_t* scene) { return reinterpret_cast<render::WorldScene*>(scene); }
+render::WorldCell* as_sector(uint8_t* sector) { return raw::as<render::WorldCell>(sector); }
+render::WorldScene* as_scene(uint8_t* scene) { return raw::as<render::WorldScene>(scene); }
 uint8_t* look_up_sector(uint8_t* scene, uint32_t name)
 {
     return static_cast<uint8_t*>(as_scene(scene)->look_up_sector(name));
@@ -129,11 +131,11 @@ void enable_collision(uint8_t* sector, bool on) { as_sector(sector)->enable_coll
 void change_facing(uint8_t* sector, const maths::Mat4* m) { as_sector(sector)->change_facing(m); }
 void change_scale(uint8_t* sector, const script::VectorValue* scale)
 {
-    as_sector(sector)->change_scale(reinterpret_cast<const maths::Vec4*>(scale));
+    as_sector(sector)->change_scale(scale);
 }
 void change_place(uint8_t* sector, const script::VectorValue* pos)
 {
-    as_sector(sector)->place_at_absolute_point(reinterpret_cast<const maths::Vec4*>(pos));
+    as_sector(sector)->place_at_absolute_point(pos);
 }
 // A sector name's flag 0x4E549FE1 effect on or off (0x0048BF90, a jump to 0x004B22F0).
 void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on != 0); }
@@ -147,7 +149,7 @@ void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on
 void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
 {
     maths::BBox box;
-    auto* sectors = *reinterpret_cast<lists::KeyMap**>(scene + 0xD0);
+    auto* sectors = *raw::as<lists::KeyMap*>(scene + 0xD0);
     if (sectors) {
         sectors->iter_bucket_ = -1;
         sectors->iter_item_ = nullptr;
@@ -156,11 +158,11 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
             if (!sector)
                 break;
             // (the sector's name: the getter folded at 0x005480C0, its +4)
-            if (!only || *reinterpret_cast<uint32_t*>(sector + 4) == only) {
+            if (!only || *raw::as<uint32_t>(sector + 4) == only) {
                 uint8_t* geometry = nullptr;
                 if (as_sector(sector)->is_operative()) // active
                     geometry = static_cast<uint8_t*>(as_sector(sector)->geom_handle_);
-                auto* geom = reinterpret_cast<render::Geom*>(geometry);
+                auto* geom = raw::as<render::Geom>(geometry);
                 const int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
                 if (count) {
                     if (!memory::g_manager_ready) // (the memory manager set up, if it isn't)
@@ -179,7 +181,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
         }
     }
     auto* camera = static_cast<objects::GameEntity*>(
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kViewerCameraObject));
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kViewerCameraObject));
     if (!camera)
         return;
     const maths::Vec4& lo = box.min;
@@ -343,12 +345,12 @@ bool create_from_node(script::Struct* node)
         duplicate_scene_sector(scene, sector, scene, 1, 1, section_id);
         copy = look_up_sector(scene, section_id);
     }
-    *reinterpret_cast<uint32_t*>(sector + 8) |= 0x80;
-    *reinterpret_cast<uint32_t*>(copy + 8) &= ~0x80u;
+    *raw::as<uint32_t>(sector + 8) |= 0x80;
+    *raw::as<uint32_t>(copy + 8) &= ~0x80u;
     script::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (node->fetch_vec(kAngles, &angles, 0)) {
         maths::Mat4 orientation;
-        orientation.init_from_angles(*reinterpret_cast<const maths::Vec4*>(&angles));
+        orientation.init_from_angles(*&angles);
         change_facing(copy, &orientation);
     }
     script::VectorValue scale = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -389,7 +391,7 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
             uint32_t id;
             objects::Entity* object;
         } data = {name, script->entity_.get_pull()};
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
             ->for_each(&destroy_object_with_id, &data);
         return true;
     }
@@ -464,7 +466,7 @@ objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
 bool cfunc_parse_node_array(script::Struct* params, script::Script*)
 {
     memory::push_mem_profile("ParseNodeArray"); // "ParseNodeArray"
-    auto* nodes = reinterpret_cast<script::Array*>(level_nodes::get_node_owner_value58());
+    auto* nodes = cell::pointer<script::Array>(level_nodes::get_node_owner_value58());
     objects::GrindRailHub* rails = rail_manager();
     if (!params || !params->has_bare_flag("no_cleanup")) { // "no_cleanup"
         objects::nearby_zone_startup();
@@ -481,7 +483,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
     // holds the last one read when a node has none)
     uint32_t object_name = 0;
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
         if (node_class == kClassRailNode) {
@@ -494,7 +496,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 change_live(sector, false);
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                *reinterpret_cast<uint32_t*>(sector + 0xC) = terrain;
+                *raw::as<uint32_t>(sector + 0xC) = terrain;
             }
         } else if (node_class == kClassLevelGeometry) {
             node->erase_module(kGeometryRemove);
@@ -524,7 +526,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 }
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                *reinterpret_cast<uint32_t*>(sector + 0xC) = terrain;
+                *raw::as<uint32_t>(sector + 0xC) = terrain;
             } else {
                 uint32_t clone_from = 0;
                 node->read_hash_value(kCloneFrom, &clone_from, 0);
@@ -574,14 +576,14 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
     memory::pop_mem_profile();
     rails->remove_overlaps_if_not_park();
     if (!script::fetch_int_value(kNoGapChecklist))
-        static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(get_skate())->fetch_gap_list())->get_build();
+        static_cast<goals::GapTally*>(raw::as<modules::Skate>(get_skate())->fetch_gap_list())->get_build();
     for (SceneNode* at = first_scene(); at;) {
         SceneNode* next = next_scene(at);
         as_scene(at->scene)->update_super_sectors_if_marked(nullptr);
         at = next;
     }
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
         if (node_class == kClassA0e52802)
@@ -596,13 +598,13 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
 // 0x005A5960) and the node manager's last array put back in.
 bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
 {
-    mem_manager()->enter_heap_scope(reinterpret_cast<memory::MemSource*>(mem_manager()->debug_heap_));
+    mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap_));
     level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance();
     const char* loaded_node_list = g_node_list_name;
     assets::ResourceRegistry* assets = assets::asset_manager();
     assets->discard_loaded_item(assets->obtain_loaded_item(checksums::hash_from_text(loaded_node_list), 0));
     alignas(4) uint8_t storage[8];
-    auto* file = reinterpret_cast<script::Struct*>(storage);
+    auto* file = raw::as<script::Struct>(storage);
     new (file) script::Struct;
     file->append_word(0u, loaded_node_list);
     const char* name = nullptr;
@@ -672,7 +674,7 @@ bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
         command.value = 4;
         command.action = hide ? kFlagActionSetObjectFlags : kFlagActionClearObjectFlags;
         command.id = name;
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
             ->for_each(&apply_flag_command_to_object, &command);
         return true;
     }
@@ -705,7 +707,7 @@ bool node_is_alive(uint32_t name)
         command.found = false;
         command.result = false;
         command.id = name;
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
             ->for_each(&apply_flag_command_to_object, &command);
         return command.found;
     }
@@ -732,9 +734,9 @@ bool set_node_color(uint32_t name, script::Struct* params)
         uint32_t object_name = 0;
         if (node->read_hash_value(kName, &object_name, 0)) {
             auto* object = static_cast<objects::GameEntity*>(
-                reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(object_name));
+                static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(object_name));
             // (neither checked for null, as in the original)
-            reinterpret_cast<objects::MeshInstanceModule*>(object->fetch_module(0x286A8D26))
+            static_cast<objects::MeshInstanceModule*>(object->fetch_module(0x286A8D26))
                 ->change_tint(rgba); // "model"
         }
         return true;
@@ -745,8 +747,8 @@ bool set_node_color(uint32_t name, script::Struct* params)
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
     uint8_t* sector = find_scene_sector(section_id); // (not checked for null)
-    if (auto* geometry = *reinterpret_cast<uint8_t**>(sector + 0x14))
-        reinterpret_cast<render::Geom*>(geometry)->change_tint(rgba);
+    if (auto* geometry = *raw::as<uint8_t*>(sector + 0x14))
+        raw::as<render::Geom>(geometry)->change_tint(rgba);
     return true;
 }
 
@@ -768,7 +770,7 @@ bool shatter_node(uint32_t name)
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
     uint8_t* sector = find_scene_sector(section_id);                      // (not checked for null)
-    reinterpret_cast<render::WorldCell*>(sector)->plat_set_shatter(true); // (0x004A1090: a jump to vtable +4)
+    raw::as<render::WorldCell>(sector)->plat_set_shatter(true); // (0x004A1090: a jump to vtable +4)
     return true;
 }
 
@@ -785,7 +787,7 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    *reinterpret_cast<uint32_t*>(find_scene_sector(section_id) + 0xC) = terrain; // (not checked for null)
+    *raw::as<uint32_t>(find_scene_sector(section_id) + 0xC) = terrain; // (not checked for null)
     return true;
 }
 
@@ -800,7 +802,7 @@ bool node_command(uint32_t name, int action, script::Script* script, script::Str
     int second_viewport = 0;
     if (script && script->entity_.get_pull() && !game_net->in_net_game() && modules::g_viewport_count == 2 &&
         script->entity_.get_pull() ==
-            reinterpret_cast<objects::Entity*>(reinterpret_cast<modules::Skate*>(get_skate())->get_rider_at(1)))
+            raw::as<objects::Entity>(raw::as<modules::Skate>(get_skate())->get_rider_at(1)))
         second_viewport = 1;
     switch (action) {
     case 0:
@@ -837,7 +839,7 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
         uint32_t count = 0;                                        // (a 16-bit count in a zeroed 32-bit slot)
         const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
-        const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
+        const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, raw::as<uint16_t>(&count));
         for (int i = 0; std::cmp_less(i, static_cast<uint16_t>(count)); ++i) {
             if (node_command(nodes[i], action, script, params) && action == 5)
                 break;
@@ -919,7 +921,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
         minimum_area = g_node_object_minimum_area; // (5000)
     if (area < minimum_area)
         area = minimum_area;
-    render::engine::change_breakup_settings(&velocity, reinterpret_cast<const maths::Vec4*>(&vector), value_c483, area,
+    render::engine::change_breakup_settings(&velocity, &vector, value_c483, area,
                                             value_bd30, value_834a, value_e632, value_7d_c3, value_f_01b, value_2e_1c,
                                             checksum_b_3d_e, checksum_af_1a, value_33d_f);
     return node_command_by_name(params, script, 4);

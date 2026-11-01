@@ -34,6 +34,7 @@
 #include "game/skate/game_mode.h"
 #include "engine/assets/resource_registry.h"
 #include "game/rider/core_physics.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -55,9 +56,9 @@ constexpr uint32_t kSlomoComponent = 0x5BD63B29;       // (name unknown) the loc
 constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
 constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the skaters' object type
 
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-modules::SkateNet* skate_net() { return reinterpret_cast<modules::SkateNet*>(get_skate()); }
-objects::GameEntity* get_home_rider() { return reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider(); }
+uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
+modules::SkateNet* skate_net() { return raw::as<modules::SkateNet>(get_skate()); }
+objects::GameEntity* get_home_rider() { return raw::as<modules::Skate>(get_skate())->get_home_rider(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
 net::Hub* net_session_slot() { return net::g_net_core; }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
@@ -75,7 +76,7 @@ bool cfunc_start_server(script::Struct*, script::Script*)
 {
     memory::Hub* memory = mem_manager();
     online::Hub* game_net = online_hub_handle();
-    memory->enter_heap_scope(reinterpret_cast<memory::MemSource*>(memory->bottom_up_heap_));
+    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap_));
     skate_net()->launch_host();
     if (!game_net->in_internet_mode())
         game_net->is_local_network_play();
@@ -86,7 +87,7 @@ bool cfunc_start_server(script::Struct*, script::Script*)
 // 0x005A08D0: LeaveServer (0x0056B890).
 bool cfunc_leave_server(script::Struct*, script::Script*)
 {
-    reinterpret_cast<modules::Skate*>(get_skate())->leave_server();
+    raw::as<modules::Skate>(get_skate())->leave_server();
     return true;
 }
 
@@ -97,7 +98,7 @@ bool cfunc_join_server(script::Struct* params, script::Script*)
 {
     memory::Hub* memory = mem_manager();
     online::Hub* game_net = online_hub_handle();
-    memory->enter_heap_scope(reinterpret_cast<memory::MemSource*>(memory->bottom_up_heap_));
+    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap_));
     script::launch_script(kJoinScript, nullptr, nullptr, false, nullptr);
     script::process_pending_symbols();
     if (game_net->get_on_server()) {
@@ -298,7 +299,7 @@ bool cfunc_toggle_player_names(script::Struct*, script::Script*)
 // 0x005A0EF0: SetCurrentGameType (the skate module's 0x00564FD0).
 bool cfunc_set_current_game_type(script::Struct*, script::Script*)
 {
-    reinterpret_cast<modules::Skate*>(get_skate())->set_current_game_type();
+    raw::as<modules::Skate>(get_skate())->set_current_game_type();
     return true;
 }
 
@@ -547,7 +548,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
         auto* host = static_cast<uint8_t*>(get_host_by_name(address));
         ip = 0xFFFFFFFF;
         if (host) {
-            const uint8_t* first = **reinterpret_cast<uint8_t***>(host + 0xC); // h_addr_list[0]
+            const uint8_t* first = **raw::as<uint8_t**>(host + 0xC); // h_addr_list[0]
             ip = first[0] | first[1] << 8 | first[2] << 16 | static_cast<uint32_t>(first[3]) << 24;
         }
     }
@@ -602,7 +603,7 @@ void set_string_preference(prefs::Preferences* prefs, const char* name, const ch
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.
 void set_choice_preference(script::Struct* preference, const char* text, const char* value)
 {
-    preference->append_word("ui_string", reinterpret_cast<const char*>(text)); // "ui_string"
+    preference->append_word("ui_string", text); // "ui_string"
     preference->put_name_key("checksum", get_checksums(value));                // "checksum"
 }
 

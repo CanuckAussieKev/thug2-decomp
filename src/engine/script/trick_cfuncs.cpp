@@ -24,7 +24,7 @@
 #include "game/rider/trick_component.h"
 #include "game/skate/point_tally.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/create_a_trick.h"
 
@@ -142,7 +142,7 @@ uint32_t trick_type_of(Struct* trick, uint32_t* type)
 // 0x005B0A40: FlushDeadObjects: the object manager's dead objects deleted now. Always true.
 bool cfunc_flush_dead_objects(script::Struct*, script::Script*)
 {
-    reinterpret_cast<objects::MiscHub*>(objects::g_composite_registry)->flush_dead_objects();
+    static_cast<objects::MiscHub*>(objects::g_composite_registry)->flush_dead_objects();
     return true;
 }
 
@@ -391,7 +391,7 @@ bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script
             extra = extras->fetch_part(0);
     }
     if (extra) {
-        auto* first = reinterpret_cast<Struct*>(script::fetch_list(extra)->fetch_part(0));
+        auto* first = script::fetch_list(extra)->struct_at(0);
         Struct* extra_params = nullptr;
         first->read_sub_struct(kParams, &extra_params, 1);
         const char* extra_name = nullptr;
@@ -446,7 +446,7 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
     params->read_hash_value(kValue, &value, 1);
     const int size = static_cast<int>(array->extent_);
     for (; index < size; ++index) {
-        auto* item = reinterpret_cast<Struct*>(array->fetch_part(index));
+        auto* item = array->struct_at(index);
         if (!item->has_entry_named(name))
             continue;
         uint32_t found = 0;

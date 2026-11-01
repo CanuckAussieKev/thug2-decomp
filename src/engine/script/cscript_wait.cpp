@@ -22,6 +22,7 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
+#include "engine/core/pointer_cell.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -383,7 +384,7 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
         signal_routes_ = new_event_handler_table();
     const uint32_t* elements = table->find_array_value();
     for (int i = 0; i < count; ++i) {
-        const Component* flag = reinterpret_cast<Struct*>(elements[i])->step_to_entry(nullptr);
+        const Component* flag = cell::pointer<Struct>(elements[i])->step_to_entry(nullptr);
         const Component* type = flag->next;
         const Component* script = type->next;
         const Component* params = script->next;

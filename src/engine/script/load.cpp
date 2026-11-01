@@ -20,6 +20,8 @@
 #include "formats/byte_stream.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -81,7 +83,7 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
         symbol->type = kQbvalArray;
         Array* array = alloc_script_array();
         array = array ? new (array) script::Array : nullptr;
-        symbol->raw = reinterpret_cast<uint32_t>(array);
+        symbol->raw = cell::of(array);
         return parse_array(array, token, nullptr);
     }
     default:
@@ -113,7 +115,7 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
     writer.u32(size);
     writer.u32(static_cast<uint32_t>(stored));
     writer.bytes(buffer, static_cast<size_t>(stored));
-    symbol->raw = reinterpret_cast<uint32_t>(block);
+    symbol->raw = cell::of(block);
     memory::free_malloc(buffer);
     if (script_store_instance())
         remove_from_script_cache(name);
@@ -133,13 +135,13 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
     for (const uint8_t* p = data; *p;) {
         if (*p == 0x2B) {
             const uint32_t checksum = fetch_word32(p + 1);
-            const char* name = reinterpret_cast<const char*>(p + 5);
+            const char* name = raw::chars(p + 5);
             if (use_qb_names)
                 add_script_checksum_name(checksum, name);
             else
                 register_name_hash(checksum, name);
             note_qb_name(checksum, name); // (ours: kept for the level editor when it's on)
-            p = reinterpret_cast<const uint8_t*>(name + std::strlen(name) + 1);
+            p = raw::bytes(name + std::strlen(name) + 1);
         } else {
             p = step_over_token(p);
         }
@@ -178,7 +180,7 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
-                if (existing->type == kQbvalScriptBody && checksum == *reinterpret_cast<uint32_t*>(existing->raw))
+                if (existing->type == kQbvalScriptBody && checksum == *cell::pointer<uint32_t>(existing->raw))
                     break;
                 get_replace(existing, temporary);
                 define_script_symbol(size, start, name, checksum, filename);
@@ -322,7 +324,7 @@ void unload_qb(uint32_t file_checksum)
 
 namespace {
 struct ScriptAdapter {
-    bool refers_to(uint32_t name) { return script::script_refers_to(reinterpret_cast<script::Script*>(this), name); }
+    bool refers_to(uint32_t name) { return script::script_refers_to(raw::as<script::Script>(this), name); }
 };
 } // namespace
 // NOLINTEND(cppcoreguidelines-pro-type-union-access)

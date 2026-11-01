@@ -1,6 +1,8 @@
 #include "engine/script/expression.h"
 
 #include "engine/core/mem.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 #include <bit>
 #include <cmath>
@@ -119,7 +121,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         to->string = spawn_text(array->find_inline_text(index));
         break;
     case kQbvalPair: {
-        auto* from = reinterpret_cast<const Pair*>(array->fetch_part(index));
+        auto* from = array->pair_at(index);
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
         to->pair = pair;
@@ -128,7 +130,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         break;
     }
     case kQbvalVector: {
-        auto* from = reinterpret_cast<const Vector*>(array->fetch_part(index));
+        auto* from = array->vector_at(index);
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
         to->vector = vector;
@@ -144,7 +146,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         } else {
             Struct* structure = spawn_param_bag();
             to->structure = structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-            to->structure->append_structure_if_any(reinterpret_cast<Struct*>(array->fetch_part(index)));
+            to->structure->append_structure_if_any(array->struct_at(index));
         }
         break;
     case kQbvalArray:
@@ -154,7 +156,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         } else {
             Array* copy = alloc_script_array();
             to->array = copy ? memory::construct_in<script::Array>(copy) : nullptr;
-            duplicate_array(to->array, reinterpret_cast<Array*>(array->fetch_part(index)));
+            duplicate_array(to->array, array->array_at(index));
         }
         break;
     default:
@@ -202,11 +204,11 @@ bool get_less(uint32_t type_a, uint32_t a, uint32_t type_b, uint32_t b)
     case kQbvalString:
     case kQbvalInlineText:
         return type_b == type_a &&
-               std::strlen(reinterpret_cast<const char*>(a)) < std::strlen(reinterpret_cast<const char*>(b));
+               std::strlen(cell::pointer<const char>(a)) < std::strlen(cell::pointer<const char>(b));
     case kQbvalStruct:
     case kQbvalStructRef:
         return (type_b == kQbvalStruct || type_b == kQbvalStructRef) &&
-               reinterpret_cast<Struct*>(a)->is_subset_of(reinterpret_cast<Struct*>(b));
+               cell::pointer<Struct>(a)->is_subset_of(cell::pointer<Struct>(b));
     default:
         return false;
     }
@@ -241,13 +243,13 @@ bool greater_than(Component* a, Component* b)
                (type_b == kQbvalInteger ? get_as_integer(value_b) : get_as_float(value_b));
     case kQbvalString:
     case kQbvalInlineText:
-        return type_b == type_a && std::strlen(reinterpret_cast<const char*>(value_a)) >
-                                       std::strlen(reinterpret_cast<const char*>(value_b));
+        return type_b == type_a && std::strlen(cell::pointer<const char>(value_a)) >
+                                       std::strlen(cell::pointer<const char>(value_b));
     case kQbvalStruct:
     case kQbvalStructRef:
         // b is a subset of a
         return (type_b == kQbvalStruct || type_b == kQbvalStructRef) &&
-               reinterpret_cast<Struct*>(value_b)->is_subset_of(reinterpret_cast<Struct*>(value_a));
+               cell::pointer<Struct>(value_b)->is_subset_of(cell::pointer<Struct>(value_a));
     default:
         return false;
     }
@@ -895,16 +897,16 @@ namespace {
 struct ComponentAdapters {
     bool less_than(script::Component* other)
     {
-        return script::less_than(reinterpret_cast<script::Component*>(this), other);
+        return script::less_than(raw::as<script::Component>(this), other);
     }
     bool greater_than(script::Component* other)
     {
-        return script::greater_than(reinterpret_cast<script::Component*>(this), other);
+        return script::greater_than(raw::as<script::Component>(this), other);
     }
-    bool is_reference() { return script::is_reference(reinterpret_cast<script::Component*>(this)); }
-    void make_reference() { script::make_reference(reinterpret_cast<script::Component*>(this)); }
-    void make_owning() { script::make_owning(reinterpret_cast<script::Component*>(this)); }
-    int fetch_flag() { return script::fetch_flag(reinterpret_cast<script::Component*>(this)); }
+    bool is_reference() { return script::is_reference(raw::as<script::Component>(this)); }
+    void make_reference() { script::make_reference(raw::as<script::Component>(this)); }
+    void make_owning() { script::make_owning(raw::as<script::Component>(this)); }
+    int fetch_flag() { return script::fetch_flag(raw::as<script::Component>(this)); }
 };
 
 } // namespace

@@ -15,6 +15,9 @@
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/movie.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
+#include "platform/code_address.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -114,12 +117,12 @@ const uint8_t* add_named_expression(const uint8_t* token, uint32_t name, Struct*
 Script* get_running_script() { return g_running_script; }
 
 // 0x004728D0
-Script* step_script_list(Script* script) { return script ? *reinterpret_cast<Script**>(script) : g_script_list_head; }
+Script* step_script_list(Script* script) { return script ? *raw::as<Script*>(script) : g_script_list_head; }
 
 // 0x0046F7A0
 StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
 {
-    auto script = reinterpret_cast<uint32_t>(get_running_script());
+    auto script = cell::of(get_running_script());
     for (StoredRandom* stored = stored_randoms_newest(); stored; stored = stored->succ_) {
         if (stored->lookup_table_ == table && stored->kind_tag_ == type && stored->num_ == count &&
             (stored->owner_ == script || stored->owner_ == 0))
@@ -194,7 +197,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                 stored->num_ = static_cast<uint16_t>(count);
                 stored->last_ = static_cast<uint32_t>(maths::rnd(static_cast<int>(count)));
             }
-            stored->owner_ = reinterpret_cast<uint32_t>(get_running_script());
+            stored->owner_ = cell::of(get_running_script());
             int pick = maths::rnd(static_cast<int>(count));
             for (int tries = 0; static_cast<uint16_t>(pick) == stored->last_;) {
                 if (++tries > 100)
@@ -221,7 +224,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                     stored->order_[i] = static_cast<uint8_t>(i);
                 stored->shuffle(false);
             }
-            stored->owner_ = reinterpret_cast<uint32_t>(get_running_script());
+            stored->owner_ = cell::of(get_running_script());
             if (++stored->ordinal_ >= stored->num_) {
                 stored->shuffle(true);
                 stored->ordinal_ = 0;
@@ -377,7 +380,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     case 0x1C: {
         change_species(out, *token == 0x1B ? kQbvalString : kQbvalInlineText);
         const uint32_t length = fetch_word32(p);
-        out->string = spawn_text(reinterpret_cast<const char*>(token + 5));
+        out->string = spawn_text(raw::chars(token + 5));
         return token + 5 + length;
     }
     case 0x1E: {
@@ -412,7 +415,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         memory::leave_heap_scope();
         for (uint32_t i = 0; i < size; ++i)
             code[i] = start[i];
-        out->raw = reinterpret_cast<uint32_t>(code);
+        out->raw = cell::of(code);
         return end;
     }
     case 0x2C: // <...>: all the caller's parameters
@@ -471,12 +474,12 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         return token + 9;
     case 0x1B: {
         const uint32_t length = fetch_word32(p);
-        dest->append_word(name, reinterpret_cast<const char*>(token + 5));
+        dest->append_word(name, raw::chars(token + 5));
         return token + 5 + length;
     }
     case 0x1C: {
         const uint32_t length = fetch_word32(p);
-        dest->append_inline_text(name, reinterpret_cast<const char*>(token + 5));
+        dest->append_inline_text(name, raw::chars(token + 5));
         return token + 5 + length;
     }
     case 0x03: {
@@ -730,7 +733,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x03) {
                 Struct* structure = new_init_struct();
                 p = parse_structure(structure, p, args);
-                *element = reinterpret_cast<uint32_t>(structure);
+                *element = cell::of(structure);
                 ++element;
             }
             break;
@@ -741,7 +744,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x05) {
                 Array* array = new_init_array();
                 p = parse_array(array, p - 1, args);
-                *element = reinterpret_cast<uint32_t>(array);
+                *element = cell::of(array);
                 ++element;
             }
             break;
@@ -788,7 +791,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == (type == kQbvalString ? 0x1B : 0x1C)) {
                 const uint32_t length = fetch_word32(p);
                 p += 4;
-                *element = reinterpret_cast<uint32_t>(spawn_text(reinterpret_cast<const char*>(p)));
+                *element = cell::of(spawn_text(raw::chars(p)));
                 ++element;
                 p += length;
             }
@@ -805,7 +808,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&vector->y, &y, 4);
                 std::memcpy(&vector->z, &z, 4);
                 p += 12;
-                *element = reinterpret_cast<uint32_t>(vector);
+                *element = cell::of(vector);
                 ++element;
             }
             break;
@@ -820,7 +823,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&pair->x, &x, 4);
                 std::memcpy(&pair->y, &y, 4);
                 p += 8;
-                *element = reinterpret_cast<uint32_t>(pair);
+                *element = cell::of(pair);
                 ++element;
             }
             break;
@@ -941,7 +944,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);
-                    const auto routine = reinterpret_cast<Routine>(symbol->raw);
+                    const auto routine = function_at<Routine>(symbol->raw);
                     value.raw = routine(params, script);
                     if (params) {
                         params->get_clear();

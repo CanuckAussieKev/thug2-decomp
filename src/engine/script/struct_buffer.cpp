@@ -12,6 +12,8 @@
 #include "engine/script/param_struct.h"
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -187,7 +189,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case kQbvalInlineText: {
         const uint32_t* elements = array->find_array_value();
         for (uint32_t i = 0; i < count; ++i) {
-            if (!out.c_string(reinterpret_cast<const char*>(elements[i])))
+            if (!out.c_string(cell::pointer<const char>(elements[i])))
                 return 0;
         }
         break;
@@ -195,7 +197,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case kQbvalPair: {
         if (uint64_t{count} * 8 > out.remaining())
             return 0;
-        auto* const* pairs = reinterpret_cast<Pair**>(array->find_array_value());
+        auto* const* pairs = raw::as<Pair*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             out.f32(pairs[i]->x);
             out.f32(pairs[i]->y);
@@ -205,7 +207,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case kQbvalVector: {
         if (uint64_t{count} * 12 > out.remaining())
             return 0;
-        auto* const* vectors = reinterpret_cast<Vector**>(array->find_array_value());
+        auto* const* vectors = raw::as<Vector*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             out.f32(vectors[i]->x);
             out.f32(vectors[i]->y);
@@ -214,7 +216,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         break;
     }
     case kQbvalStruct: {
-        auto* const* structures = reinterpret_cast<Struct**>(array->find_array_value());
+        auto* const* structures = raw::as<Struct*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             if (emit_structure(out, structures[i], assert, nullptr) == 0)
                 return 0;
@@ -222,7 +224,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         break;
     }
     case kQbvalArray: {
-        auto* const* arrays = reinterpret_cast<Array**>(array->find_array_value());
+        auto* const* arrays = raw::as<Array*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             if (write_array_to_buffer(out, arrays[i], assert) == 0)
                 return 0;
@@ -465,7 +467,7 @@ void decode_array(Array* array, util::ByteReader& reader)
     case kQbvalString:
     case kQbvalInlineText:
         for (uint32_t i = 0; i < count; ++i)
-            array->set_element(i, reinterpret_cast<uint32_t>(spawn_text(read_text(reader))));
+            array->set_element(i, cell::of(spawn_text(read_text(reader))));
         break;
     case kQbvalPair:
         for (uint32_t i = 0; i < count; ++i) {
@@ -474,7 +476,7 @@ void decode_array(Array* array, util::ByteReader& reader)
                 new (pair) script::Pair;
             pair->x = reader.f32();
             pair->y = reader.f32();
-            array->set_element(i, reinterpret_cast<uint32_t>(pair));
+            array->set_element(i, cell::of(pair));
         }
         break;
     case kQbvalVector:
@@ -485,7 +487,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             vector->x = reader.f32();
             vector->y = reader.f32();
             vector->z = reader.f32();
-            array->set_element(i, reinterpret_cast<uint32_t>(vector));
+            array->set_element(i, cell::of(vector));
         }
         break;
     case kQbvalStruct:
@@ -494,7 +496,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             if (inner)
                 new (inner) script::Struct;
             decode_structure(inner, reader);
-            array->set_element(i, reinterpret_cast<uint32_t>(inner));
+            array->set_element(i, cell::of(inner));
         }
         break;
     case kQbvalArray:
@@ -503,7 +505,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             if (inner)
                 new (inner) script::Array;
             decode_array(inner, reader);
-            array->set_element(i, reinterpret_cast<uint32_t>(inner));
+            array->set_element(i, cell::of(inner));
         }
         break;
     default:

@@ -79,7 +79,7 @@
 #include "game/rider/skater_score_cfuncs.h"
 #include "game/rider/trick_component.h"
 #include "engine/sys/system_cfuncs.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 
 namespace script {
 

@@ -23,6 +23,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
+#include "engine/core/bits_as.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -199,7 +200,7 @@ bool cfunc_proxim_cleanup(script::Struct*, script::Script*)
 // check that the proximity manager exists.)
 bool cfunc_inside(script::Struct*, script::Script*)
 {
-    return reinterpret_cast<objects::ProximityRegistry*&>(objects::g_proximity_hub)->entering_;
+    return memory::bits_as<objects::ProximityRegistry*>(objects::g_proximity_hub)->entering_;
 }
 
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).

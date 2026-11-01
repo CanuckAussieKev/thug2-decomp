@@ -18,6 +18,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/sys/game_config.h"
 #include "engine/gfx/settings.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -147,7 +148,7 @@ bool cfunc_set_sun_props(Struct* params, Script*)
         props.enabled = false;
         mask |= 0x80;
     }
-    sun::set_sun(reinterpret_cast<const sun::Settings*>(&props), mask);
+    sun::set_sun(raw::as<const sun::Settings>(&props), mask);
     return true;
 }
 
@@ -176,9 +177,9 @@ void write_gamma(float red, float green, float blue)
     if (RegCreateKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0,
                         nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
-    RegSetValueExA(key, "R", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&red), 4);
-    RegSetValueExA(key, "G", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&green), 4);
-    RegSetValueExA(key, "B", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&blue), 4);
+    RegSetValueExA(key, "R", 0, REG_DWORD, raw::bytes(&red), 4);
+    RegSetValueExA(key, "G", 0, REG_DWORD, raw::bytes(&green), 4);
+    RegSetValueExA(key, "B", 0, REG_DWORD, raw::bytes(&blue), 4);
     RegCloseKey(key);
 }
 

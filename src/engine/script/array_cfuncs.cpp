@@ -27,7 +27,7 @@ constexpr uint32_t kArrayName = 0x8F61D602; // "arrayName"
 constexpr uint32_t kIndices = 0xFFC8E484;   // "indices"
 constexpr uint32_t kVal = 0x6820459A;       // "val"
 
-Array* element_array(Array* array, uint32_t index) { return reinterpret_cast<Array*>(array->fetch_part(index)); }
+Array* element_array(Array* array, uint32_t index) { return array->array_at(index); }
 
 // The array named `name`: one in the calling script's parameters, else the global one.
 Array* find_array(script::Script* script, uint32_t name)
@@ -54,17 +54,17 @@ void add_element(Struct* results, Array* array, uint32_t index)
         results->append_word(kVal, array->find_inline_text(index));
         break;
     case script::kQbvalPair: {
-        auto* pair = reinterpret_cast<script::Pair*>(array->fetch_part(index));
+        auto* pair = array->pair_at(index);
         results->insert_pair(kVal, pair->x, pair->y);
         break;
     }
     case script::kQbvalVector: {
-        auto* vector = reinterpret_cast<script::Vector*>(array->fetch_part(index));
+        auto* vector = array->vector_at(index);
         results->put_vec3(kVal, vector->x, vector->y, vector->z);
         break;
     }
     case script::kQbvalStruct:
-        results->put_sub_struct(kVal, reinterpret_cast<Struct*>(array->fetch_part(index)));
+        results->put_sub_struct(kVal, array->struct_at(index));
         break;
     case script::kQbvalArray:
         results->append_array_value(kVal, element_array(array, index));

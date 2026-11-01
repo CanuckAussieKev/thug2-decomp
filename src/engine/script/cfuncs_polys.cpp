@@ -19,6 +19,8 @@
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/engine_scene.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -86,15 +88,15 @@ struct SceneNode {
     SceneNode* next;
 };
 static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-SceneNode* first_scene_node() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
+SceneNode* first_scene_node() { return raw::as<SceneNode>(render::first_scene_node()); }
 SceneNode* next_scene_node(SceneNode* node)
 {
     SceneNode* next = node->next;
-    return next->scene == reinterpret_cast<uint8_t*>(-1) ? nullptr : next;
+    return next->scene == cell::pointer<uint8_t>(-1) ? nullptr : next;
 }
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
-bool is_sky_backdrop(const uint8_t* scene) { return reinterpret_cast<const render::WorldScene*>(scene)->is_sky_; }
-uint8_t* first_sky_scene() { return reinterpret_cast<uint8_t*>(render::get_sky_scene()); }
+bool is_sky_backdrop(const uint8_t* scene) { return raw::as<const render::WorldScene>(scene)->is_sky_; }
+uint8_t* first_sky_scene() { return raw::bytes(render::get_sky_scene()); }
 
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
 // 0x0048DF80, 0x0048E150 into a buffer, 0x0048DFA0 back from one).
@@ -104,12 +106,12 @@ render::Geom* as_geom(void* geometry) { return static_cast<render::Geom*>(geomet
 int get_vertex_count(void* geometry) { return static_cast<int>(as_geom(geometry)->fetch_vertex_tally()); }
 void get_positions(void* geometry, script::VectorValue* out)
 {
-    as_geom(geometry)->get_vertices(reinterpret_cast<maths::Vec4*>(out)); // (x, y, z, w each)
+    as_geom(geometry)->get_vertices(out); // (x, y, z, w each)
 }
 void get_colours(void* geometry, uint32_t* out) { static_cast<render::Geom*>(geometry)->fetch_tints(out); }
 void set_colours(void* geometry, uint32_t* colours)
 {
-    as_geom(geometry)->change_colors(reinterpret_cast<const uint8_t*>(colours));
+    as_geom(geometry)->change_colors(raw::bytes(colours));
 }
 
 // The CRT's _ftol (0x006236FC): truncation towards zero; callers keep the low bits.
@@ -129,7 +131,7 @@ uint8_t channel_byte(double value)
 template <typename Fn>
 void for_each_sector_geometry(uint8_t* scene, uint32_t light_group, Fn fn)
 {
-    lists::KeyMap* sectors = reinterpret_cast<render::WorldScene*>(scene)->sectors_;
+    lists::KeyMap* sectors = raw::as<render::WorldScene>(scene)->sectors_;
     if (!sectors)
         return;
     sectors->iter_bucket_ = -1;
@@ -138,7 +140,7 @@ void for_each_sector_geometry(uint8_t* scene, uint32_t light_group, Fn fn)
         return;
     for (auto* sector = static_cast<uint8_t*>(sectors->iter_item_->value); sector;) {
         void* geometry = sector_geometry(sector);
-        if (geometry && (!light_group || light_group == reinterpret_cast<render::WorldCell*>(sector)->light_group_))
+        if (geometry && (!light_group || light_group == raw::as<render::WorldCell>(sector)->light_group_))
             fn(geometry);
         if (!sectors->step_iterator() || !sectors->iter_item_)
             break;
@@ -159,7 +161,7 @@ bool cfunc_spawn_poly(Struct* params, Script*)
 {
     auto* details = spawned_poly_pools().allocate<SpawnedPolyDetails>();
     if (details)
-        details = reinterpret_cast<SpawnedPolyDetails*>(new (details) render::SpawnedPoly);
+        details = raw::as<SpawnedPolyDetails>(new (details) render::SpawnedPoly);
     // (a failed allocation writes through null below, as in the original)
     params->fetch_vec(kPos, &details->pos, 1);
     script::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -175,8 +177,8 @@ bool cfunc_spawn_poly(Struct* params, Script*)
         // a colour per corner
         params->fetch_list(kEndColors, &end, 1);
         for (uint32_t corner = 0; corner < 4; ++corner) {
-            auto* start_colour = reinterpret_cast<Array*>(start->fetch_part(corner));
-            auto* end_colour = reinterpret_cast<Array*>(end->fetch_part(corner));
+            auto* start_colour = start->array_at(corner);
+            auto* end_colour = end->array_at(corner);
             for (uint32_t i = 0; i < 4; ++i)
                 details->start_colours_[corner][i] = static_cast<uint8_t>(start_colour->fetch_part(i));
             for (uint32_t i = 0; i < 4; ++i)
@@ -230,8 +232,8 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     params->read_hash_value(kTexture, &texture, 0);
     details->texture = texture ? render::g_particle_texture_dict->fetch_skin(texture) // the texture dictionary
                                : nullptr;
-    render::engine::spawn_poly(reinterpret_cast<render::SpawnedPoly*>(details),
-                               reinterpret_cast<maths::Vec4*>(&vector1), reinterpret_cast<maths::Vec4*>(&vector2));
+    render::engine::spawn_poly(raw::as<render::SpawnedPoly>(details),
+                               &vector1, &vector2);
     return true;
 }
 
@@ -246,7 +248,7 @@ void compress_scene_vertex_colours(uint8_t* scene, float target, float factor, u
             return;
         // (the original runs an empty constructor over the array: 0x005902E0)
         auto* colours = static_cast<uint8_t*>(memory::alloc(static_cast<unsigned int>(count) * 4));
-        get_colours(geometry, reinterpret_cast<uint32_t*>(colours));
+        get_colours(geometry, raw::as<uint32_t>(colours));
         if (target != 0.0f || factor != 0.0f) {
             for (int i = 0; i < count; ++i) {
                 uint8_t* colour = colours + 4 * i;
@@ -255,7 +257,7 @@ void compress_scene_vertex_colours(uint8_t* scene, float target, float factor, u
                     colour[channel] = channel_byte((static_cast<double>(colour[channel]) - target) * factor + target);
             }
         }
-        set_colours(geometry, reinterpret_cast<uint32_t*>(colours));
+        set_colours(geometry, raw::as<uint32_t>(colours));
         memory::dealloc(colours);
     });
 }
@@ -295,7 +297,7 @@ void nudge_scene_vertex_colours(uint8_t* scene, float amount)
         auto* positions = static_cast<script::VectorValue*>(memory::alloc(static_cast<unsigned int>(count) * 16));
         auto* colours = static_cast<uint8_t*>(memory::alloc(static_cast<unsigned int>(count) * 4));
         get_positions(geometry, positions);
-        get_colours(geometry, reinterpret_cast<uint32_t*>(colours));
+        get_colours(geometry, raw::as<uint32_t>(colours));
         for (int i = 0; i < count; ++i) {
             const script::VectorValue& position = positions[i];
             uint8_t* colour = colours + 4 * i;
@@ -311,7 +313,7 @@ void nudge_scene_vertex_colours(uint8_t* scene, float amount)
             colour[1] = channel_byte(green);
             colour[2] = channel_byte(blue);
         }
-        set_colours(geometry, reinterpret_cast<uint32_t*>(colours));
+        set_colours(geometry, raw::as<uint32_t>(colours));
         memory::dealloc(positions);
         memory::dealloc(colours);
     });
@@ -357,7 +359,7 @@ bool cfunc_set_light_direction(Struct* params, Script*)
         direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turned_z * c);
         direction.x = static_cast<float>(turned_z * s + static_cast<double>(c) * x);
     }
-    return render::set_light_direction(index, reinterpret_cast<const maths::Vec4*>(&direction));
+    return render::set_light_direction(index, &direction);
 }
 
 // 0x00447F30: GetMetrics: the renderer's metrics (0x0048CB00 into a new structure) added to the script's params as

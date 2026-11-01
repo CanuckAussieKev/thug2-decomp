@@ -18,6 +18,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -192,10 +194,10 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
         own->append_inline_text(kElement, array->fetch_text(index));
         break;
     case script::kQbvalStruct:
-        own->put_sub_struct(kElement, reinterpret_cast<Struct*>(array->fetch_part(index)));
+        own->put_sub_struct(kElement, array->struct_at(index));
         break;
     case script::kQbvalArray:
-        own->append_array_value(kElement, reinterpret_cast<Array*>(array->fetch_part(index)));
+        own->append_array_value(kElement, array->array_at(index));
         break;
     case script::kQbvalName:
         own->put_name_key(kElement, array->fetch_part(index));
@@ -230,10 +232,10 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
         own->push_float(kElement, array->fetch_float(index));
         break;
     case script::kQbvalStruct:
-        own->put_sub_struct(kElement, reinterpret_cast<Struct*>(array->fetch_part(index)));
+        own->put_sub_struct(kElement, array->struct_at(index));
         break;
     case script::kQbvalArray:
-        own->append_array_value(kElement, reinterpret_cast<Array*>(array->fetch_part(index)));
+        own->append_array_value(kElement, array->array_at(index));
         break;
     case script::kQbvalName:
         own->put_name_key(kElement, array->fetch_part(index));
@@ -294,9 +296,9 @@ bool cfunc_mangle_checksums(Struct* params, Script* script)
     uint32_t a = 0;
     uint32_t b = 0;
     if (!params->read_hash_value(kA, &a, 0))
-        params->fetch_int_value(kA, reinterpret_cast<int*>(&a), 1);
+        params->fetch_int_value(kA, raw::as<int>(&a), 1);
     if (!params->read_hash_value(kB, &b, 0))
-        params->fetch_int_value(kB, reinterpret_cast<int*>(&b), 1);
+        params->fetch_int_value(kB, raw::as<int>(&b), 1);
     script->args_->put_name_key(kMangledId, a + b);
     return true;
 }
@@ -360,7 +362,7 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     get_sprintf(buffers.number, " %d", suffix); // " %d"
     const int number_length = static_cast<int>(std::strlen(buffers.number));
     if (number_length + static_cast<int>(text_length) > max_length)
-        reinterpret_cast<char*>(&buffers)[sizeof(buffers.number) + max_length - number_length] = '\0';
+        raw::chars(&buffers)[sizeof(buffers.number) + max_length - number_length] = '\0';
     copy_text(buffers.result + std::strlen(buffers.result), buffers.number);
     uint32_t name = 0;
     params->read_hash_value(kResultName, &name, 0);
@@ -388,7 +390,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
             element_params = new (element_params) script::Struct;
         for (uint32_t i = 0; i < array->extent_; ++i) {
             element_params->get_clear();
-            if (auto* element = reinterpret_cast<Struct*>(array->fetch_part(i)))
+            if (auto* element = array->struct_at(i))
                 element_params->merge_structure(element);
             if (extra)
                 element_params->merge_structure(extra);
@@ -402,7 +404,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
     }
     for (uint32_t i = 0; i < array->extent_; ++i) {
         objects::Entity* object = script_object(script);
-        script::launch_script(each, reinterpret_cast<Struct*>(array->fetch_part(i)), object, false, nullptr);
+        script::launch_script(each, array->struct_at(i), object, false, nullptr);
     }
     return true;
 }
@@ -429,12 +431,12 @@ bool cfunc_get_element(Struct* params, Script* script)
         Struct* copy = script::spawn_param_bag();
         if (copy)
             copy = new (copy) script::Struct;
-        copy->append_structure_if_any(reinterpret_cast<Struct*>(array->fetch_part(index)));
-        script->args_->add_component_of_type(kElement, kTypeStructurePointer, reinterpret_cast<uint32_t>(copy));
+        copy->append_structure_if_any(array->struct_at(index));
+        script->args_->add_component_of_type(kElement, kTypeStructurePointer, cell::of(copy));
         break;
     }
     case script::kQbvalArray:
-        script->args_->append_array_value(kElement, reinterpret_cast<Array*>(array->fetch_part(index)));
+        script->args_->append_array_value(kElement, array->array_at(index));
         break;
     default:
         debug::printf(
@@ -634,7 +636,7 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     one[1] = '\0';
     for (uint32_t i = 0; i < length; ++i) {
         one[0] = string[i];
-        characters->set_element(i, reinterpret_cast<uint32_t>(script::spawn_text(one)));
+        characters->set_element(i, cell::of(script::spawn_text(one)));
     }
     script->args_->append_array_ref(kCharArray, characters);
     return true;
@@ -676,19 +678,19 @@ bool cfunc_set_array_element(Struct* params, Script* script)
         script::free_string(array->find_inline_text(index));
         break;
     case script::kQbvalPair:
-        script::free_pair(reinterpret_cast<void*>(array->fetch_part(index)));
+        script::free_pair(cell::pointer<void>(array->fetch_part(index)));
         break;
     case script::kQbvalVector:
-        script::free_vector(reinterpret_cast<void*>(array->fetch_part(index)));
+        script::free_vector(cell::pointer<void>(array->fetch_part(index)));
         break;
     case script::kQbvalStruct:
-        if (auto* old = reinterpret_cast<Struct*>(array->fetch_part(index))) {
+        if (auto* old = array->struct_at(index)) {
             old->get_clear();
             script::delete_struct(old);
         }
         break;
     case script::kQbvalArray: {
-        auto* old = reinterpret_cast<Array*>(array->fetch_part(index));
+        auto* old = array->array_at(index);
         script::release_array_storage(old);
         if (old) {
             old->get_clear();
