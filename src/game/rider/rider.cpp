@@ -94,8 +94,10 @@
 namespace objects {
 
 namespace {
-float g_skater_down_light_colour;
-float g_skater_light_colour;
+// (4 floats each: the light's direction while in the air - straight down - and on the ground. They were declared
+// as single floats and written as four: the writes ran on over whatever followed - the Direct3D device pointer, once.)
+float g_skater_down_light_colour[4];
+float g_skater_light_colour[4];
 uint32_t g_skater_lights_made;
 
 // Names.
@@ -488,8 +490,8 @@ void Rider::set_pause_state(int state)
 void Rider::update_shadow_light(int, int)
 {
     uint32_t& made = g_skater_lights_made;
-    auto* light = &g_skater_light_colour;     // (4 floats)
-    auto* down = &g_skater_down_light_colour; // (4 floats)
+    float* light = g_skater_light_colour;
+    float* down = g_skater_down_light_colour;
     if (!(made & 1)) {
         made |= 1;
         light[0] = 0.8f, light[1] = -0.8f, light[2] = 0.3f, light[3] = 1.0f;

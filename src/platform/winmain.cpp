@@ -245,8 +245,19 @@ bool& allow_multiple_instances()
     return allow;
 }
 
+namespace {
+std::string& startup_command_line_copy()
+{
+    static std::string value;
+    return value;
+}
+} // namespace
+
+const std::string& startup_command_line() { return startup_command_line_copy(); }
+
 int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_line, int /*show*/)
 {
+    startup_command_line_copy() = GetCommandLineA(); // (before anything parses it)
     // (the reference build's own patch loads a DLL here - LoadLibraryA(<the name at 0x0064B198>) in a code cave (0x005480A1)
     // called in place of gsi_start_available_check, which the cave then jumps to. PartyMod is part of the game's
     // source here, so nothing is loaded.)

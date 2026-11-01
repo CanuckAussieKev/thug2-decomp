@@ -27,6 +27,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
+#include "platform/winmain.h"
 
 namespace frontend::begin_level {
 
@@ -40,13 +41,9 @@ bool is_script(uint32_t name)
     return symbol && symbol->type == script::kQbvalScriptBody;
 }
 
-// The command line as the process got it, read at start-up: the game's own parsing cuts the process's command
-// line buffer into words later (a 0 after the first word, "... -level" - seen with THUG2.exe, 2026-10-20).
-const std::string& command_line()
-{
-    static const std::string kValue = GetCommandLineA();
-    return kValue;
-}
+// The command line as the process got it (the game's own parsing cuts the process's buffer into words later: a 0
+// after the first word - platform/winmain.h).
+const std::string& command_line() { return sys::startup_command_line(); }
 
 std::string from_ini(const char* key)
 {

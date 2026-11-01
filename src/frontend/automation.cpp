@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "engine/core/checksums.h"
+#include "platform/winmain.h"
 #include "engine/core/parse_number.h"
 #include "frontend/front_end.h"
 #include "frontend/mouse_menus.h"
@@ -1704,13 +1705,9 @@ void write_status(Runner& runner)
     WriteFile(file.get(), text.data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
 
-// The command line as the process got it, read at start-up: the game's own parsing cuts the process's command
-// line buffer into words later (a 0 after the first word: "... -run").
-const std::string& command_line()
-{
-    static const std::string kValue = GetCommandLineA();
-    return kValue;
-}
+// The command line as the process got it (the game's own parsing cuts the process's buffer into words later: a 0
+// after the first word - platform/winmain.h).
+const std::string& command_line() { return sys::startup_command_line(); }
 
 // -run <script>, --run <script> or --run=<script> ("" if none).
 const std::string& requested_run()
