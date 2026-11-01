@@ -109,13 +109,26 @@ keep a check carry a `NOLINT` with their reason:
   object's type tag (or asked a manager for an object of a type) converts the base pointer with it; Debug builds
   assert the object really is a Derived (a class's own `is_instance(const Base&)` if it has one, else `dynamic_cast`).
   The `static_cast` inside it is the one downcast in `src/` (its NOLINT says so).
-- **Arrays are `std::array`** (or `std::vector` / `std::string` / `std::span`); a pointer to the elements is asked
-  for with `.data()` where a C API or a pointer-taking function wants one - never passed through `...` (printf-style
-  calls take `.data()`). Indexing with anything but a constant goes through `core::at(container, index)`
-  (`engine/core/checked_index.h`: `gsl::at` with any integer or plain-enum index): out of range ends the game with a
-  report instead of reading past the end. Locals of `std::array` type are value-initialised (`{}`).
-- **Ownership**: `gsl::owner<T*>` (Microsoft GSL, the Guidelines' own) marks a raw pointer that owns what it points
-  to where `std::unique_ptr` can't be used yet.
+- **Arrays are `std::array`** (or `std::vector` / `std::string` / `std::span`), tables `std::to_array` (rows of a
+  named struct, never an anonymous one); a pointer to the elements is asked for with `.data()` where a C API or a
+  pointer-taking function wants one - never passed through `...` (printf-style calls take `.data()`). A C API
+  struct's own char array (`WIN32_FIND_DATA::cFileName`, `ImFontConfig::Name`...) is passed with `std::data()`.
+  **Array parameters are `std::span<T, N>`** (a fixed extent: the caller passes its `std::array`; a pointer needs an
+  explicit span). Every subscript goes through `core::at(container, index)` (`engine/core/checked_index.h`:
+  `gsl::at` with any integer or plain-enum index; constant indexes too, or `std::get<N>` / `.front()` / `.back()`):
+  out of range ends the game with a report instead of reading past the end. `maths::Vec4` / `Mat4` check their own
+  `operator[]` (the unchecked-container check's `ExcludeClasses`). Locals of `std::array` type are value-initialised
+  (`{}`). All five array / index checks are on.
+- **Ownership**: an owner is a smart pointer by type - `std::unique_ptr<T>` for objects made with `new`
+  (`std::make_unique`), `memory::HeapUnique<T>` (`engine/core/mem.h`) for objects constructed in a block from the
+  game's heaps (`memory::construct_in`: its destructor, then the block given back). The singletons' globals are
+  owners; their accessors return the owner (`std::unique_ptr<T>&`), readers take `.get()`. Teardown in the original's
+  order goes through `memory::destroy_then_clear` (the object destroyed while its owner still points at it); a
+  custom teardown takes the object out with `release()`. `memory::construct_in` returns `gsl::owner<T*>` (a factory:
+  the caller ends the object). `gsl::owner<T*>` (Microsoft GSL) marks the raw owners left where a smart pointer
+  can't be used yet (cppcoreguidelines-owning-memory is still off: .clang-tidy says why).
+- **Pools** (`memory::PoolPair`, `SlabBank`) are sized by `sizeof` of what they hold; a pool's `carve` refuses an
+  object bigger than its items (a class that grew past the original's byte size ends the game with a report).
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
 - **Constructor bodies in the original's order**: an assignment stays in the body (not an initialiser) when moving it

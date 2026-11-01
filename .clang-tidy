@@ -34,7 +34,11 @@ Checks:
   # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
   # id types) and parameter structs once the boundary layer keeps the layouts apart.
   - '-bugprone-easily-swappable-parameters'
-  # It knows only gsl::owner; ownership here is memory::owner<> and std::unique_ptr.
+  # The singletons' owners are smart pointers (std::unique_ptr, memory::HeapUnique); what is left is the pooled
+  # objects' ownership (script structures and arrays, components, net messages: ~500 sites made by pool factories and
+  # handed into the script runtime / lists) - marking each holder gsl::owner spreads to every caller (measured: 496 ->
+  # 672 after two rounds of propagation, reverted). They need owner types of their own (a script::Struct owner with
+  # the pool's deleter, intrusive lists that own their nodes) before this check can come on.
   - '-cppcoreguidelines-owning-memory'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
