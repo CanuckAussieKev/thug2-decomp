@@ -44,3 +44,9 @@ everything above it uses the game's own types and may change them freely.
 callbacks' user words), `raw::` (`engine/core/raw_view.h`) where an in-memory structure is still read through another
 type or at a byte offset. Each use is a place still to be given its real type or member; their number only goes down.
 `.clang-tidy` keeps `reinterpret_cast` and integer-to-pointer casts out of `src/` entirely.
+
+**Layouts freed above the boundary change sizes**: the game's fixed-size pools (`memory::PoolPair` / `SlabBank`:
+blend channels, animation slots, script structures...) are sized by `sizeof` of what they hold, and a pool refuses
+an object bigger than its items - a class that grows past the original's byte size stops the game with a report
+instead of running into its neighbour. The singletons are owned by type (`std::unique_ptr`, `memory::HeapUnique`);
+a loaded `.pre` archive is an index of plain records (`packs::PackedFile`) over one block of unpacked files.
