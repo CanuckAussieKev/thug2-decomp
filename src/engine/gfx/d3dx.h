@@ -28,8 +28,10 @@ void matrix_look_at_rh(void* out, const float* eye, const float* at, const float
 void matrix_perspective_rh(void* out, float width, float height, float near_z, float far_z);
 void matrix_ortho_rh(void* out, float width, float height, float near_z, float far_z);
 long save_surface_to_jpg(const char* file, IDirect3DSurface9* surface); // the HRESULT
-// `source`: ps_1_x assembler text. `shader`, `errors`: receive an ID3DXBuffer* each (COM: [2] Release,
-// [3] GetBufferPointer); `errors` may be null.
+// `source`: ps_1_x assembler text. `shader`, `errors`: receive an ID3DXBuffer* each; `errors` may be null.
 long assemble_shader(const char* source, uint32_t length, void** shader, void** errors);
+// An ID3DXBuffer's bytes, and the buffer released.
+void* buffer_pointer(void* buffer);
+void release_buffer(void* buffer);
 
 } // namespace d3dx

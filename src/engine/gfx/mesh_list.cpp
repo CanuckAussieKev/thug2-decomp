@@ -2,6 +2,10 @@
 
 #include "engine/gfx/mesh_list.h"
 
+#include <windows.h>
+
+#include <unknwn.h> // IUnknown
+
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -149,7 +153,7 @@ void SceneRef::destroy_body()
     if (extra) // (delete[]: the records' destructor is empty)
         memory::Hub::sole()->dealloc(extra - 4);
     if (com_object_)
-        reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(com_object_))[2])(com_object_);
+        static_cast<IUnknown*>(com_object_)->Release(); // (a COM object of the scene's)
 }
 
 // 0x004DE340

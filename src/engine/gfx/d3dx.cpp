@@ -69,5 +69,7 @@ long assemble_shader(const char* source, uint32_t length, void** shader, void** 
     return D3DXAssembleShader(source, length, nullptr, nullptr, 0, reinterpret_cast<LPD3DXBUFFER*>(shader),
                               reinterpret_cast<LPD3DXBUFFER*>(errors));
 }
+void* buffer_pointer(void* buffer) { return static_cast<ID3DXBuffer*>(buffer)->GetBufferPointer(); }
+void release_buffer(void* buffer) { static_cast<ID3DXBuffer*>(buffer)->Release(); }
 
 } // namespace d3dx

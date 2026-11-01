@@ -36,14 +36,8 @@ lists::KeyMap g_shader_cache{lists::KeyMap::Unconstructed{}}; // (the exe makes 
 lists::KeyMap& get_cache() { return g_shader_cache; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
-void* buffer_pointer(void* buffer)
-{
-    return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer);
-}
-void get_release(void* object)
-{
-    reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object);
-}
+void* buffer_pointer(void* buffer) { return d3dx::buffer_pointer(buffer); }
+void get_release(void* object) { d3dx::release_buffer(object); }
 
 // D3DXAssembleShader (linked library code; stdcall). Returns the HRESULT.
 long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)

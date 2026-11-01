@@ -108,14 +108,8 @@ long assemble_shader(const char* source, uint32_t length, void** shader, void** 
 {
     return d3dx::assemble_shader(source, length, shader, errors);
 }
-void* buffer_pointer(void* buffer)
-{
-    return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer);
-}
-void get_release(void* object)
-{
-    reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object);
-}
+void* buffer_pointer(void* buffer) { return d3dx::buffer_pointer(buffer); }
+void get_release(void* object) { d3dx::release_buffer(object); }
 
 void* make_twin(void* original, Twin* twin)
 {
