@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "platform/bink.h"
+
 // NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
 struct IDirect3DDevice9;
 
@@ -36,16 +38,8 @@ bool play_movie(script::Struct* params, script::Script* script);
 // frontend/start_level.h).
 bool& skip_intro_movies();
 
-// A Bink movie's header (binkw32's BINK: the fields the game reads).
-struct Bink {
-    uint32_t width;
-    uint32_t height;
-    uint32_t frames;
-    uint32_t frame_num_; // the frame decoded last, from 1
-    uint32_t last_frame_num_;
-    uint32_t frame_rate_; // frames per frame_rate_div_ seconds
-    uint32_t frame_rate_div_;
-};
+// A Bink movie (platform/bink.h).
+using Bink = bink::Movie;
 
 // 0x0044FDC0 (also reached by a jump at 0x0044F830): play data\movies\bik\<name>.bik (a path before the last
 // backslash in `name` is dropped) to its end, until the quit request, or until start or X is pressed on a pad

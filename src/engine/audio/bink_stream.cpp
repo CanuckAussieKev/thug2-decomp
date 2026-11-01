@@ -16,66 +16,18 @@
 #include "platform/winmain.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
+#include "platform/bink.h"
 #include "engine/core/raw_view.h"
 
 namespace audio {
 
 namespace {
 
-// The Bink SDK (binkw32.dll), through the game's import table.
 using render::Bink;
-Bink* video_open(const void* name, uint32_t flags)
-{
-    return crt::library_function<Bink*(__stdcall*)(const void*, uint32_t)>("binkw32.dll", "_BinkOpen@8")(name, flags);
-}
-void video_decode_frame(Bink* bink)
-{
-    crt::library_function<int(__stdcall*)(Bink*)>("binkw32.dll", "_BinkDoFrame@4")(bink);
-}
-void bink_set_pan(Bink* bink, uint32_t track, int pan)
-{
-    crt::library_function<void(__stdcall*)(Bink*, uint32_t, int)>("binkw32.dll", "_BinkSetPan@12")(
-        bink, track, pan);
-}
-void bink_goto(Bink* bink, uint32_t frame, int flags)
-{
-    crt::library_function<void(__stdcall*)(Bink*, uint32_t, int)>("binkw32.dll", "_BinkGoto@12")(
-        bink, frame, flags);
-}
-void bink_set_io_size(uint32_t size)
-{
-    crt::library_function<void(__stdcall*)(uint32_t)>("binkw32.dll", "_BinkSetIOSize@4")(size);
-}
-void bink_set_video_on_off(Bink* bink, int on)
-{
-    crt::library_function<int(__stdcall*)(Bink*, int)>("binkw32.dll", "_BinkSetVideoOnOff@8")(bink,
-                                                                                                                on);
-}
-void* bink_open_direct_sound()
-{
-    return crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4");
-} // the function, passed to the next
-int bink_set_sound_system(void* open, void* param)
-{
-    return crt::library_function<int(__stdcall*)(void*, void*)>("binkw32.dll", "_BinkSetSoundSystem@8")(open, param);
-}
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
 {
-    crt::library_function<void(__stdcall*)(Bink*, uint32_t, int)>("binkw32.dll", "_BinkSetVolume@12")(
-        bink, track, sound::output_bink_volume(volume));
+    bink::set_volume(bink, track, sound::output_bink_volume(volume));
 } // (NOT ORIGINAL: mute_audio)
-int video_wait_ready(Bink* bink)
-{
-    return crt::library_function<int(__stdcall*)(Bink*)>("binkw32.dll", "_BinkWait@4")(bink);
-}
-void video_close(Bink* bink)
-{
-    crt::library_function<void(__stdcall*)(Bink*)>("binkw32.dll", "_BinkClose@4")(bink);
-}
-void video_advance_frame(Bink* bink)
-{
-    crt::library_function<void(__stdcall*)(Bink*)>("binkw32.dll", "_BinkNextFrame@4")(bink);
-}
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
 constexpr uint32_t kBinkFileHandle = 0x04000000; // video_open: the name is (the address of) an open file handle
@@ -120,18 +72,18 @@ Result from_win32(DWORD error) { return static_cast<Result>((error & 0xFFFF) | 0
 Result BinkStream::unseal(const char* path)
 {
     if (!sound_system_set()) {
-        if (!bink_set_sound_system(bink_open_direct_sound(), sound_device()))
+        if (!bink::use_direct_sound(sound_device()))
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         sound_system_set() = true;
     }
     if (io_size() != kIoSize) {
-        bink_set_io_size(kIoSize);
+        bink::set_io_size(kIoSize);
         io_size() = kIoSize;
     }
-    bink_ = video_open(path, kBinkIoSize);
+    bink_ = bink::open(path, kBinkIoSize);
     if (!bink_)
         return kInvalidArgument;
-    bink_set_video_on_off(bink_, 0);
+    bink::set_video_on_off(bink_, 0);
     std::memcpy(from_where_.data(), path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
     from_handle_ = false;
     return 0;
@@ -174,7 +126,7 @@ void BinkStream::set_volume_and_pan(float left, float right)
     }
     if (bink_) {
         video_set_loudness(bink_, 0, level);
-        bink_set_pan(bink_, 0, pan);
+        bink::set_pan(bink_, 0, pan);
     }
     silent_ = level == 0;
 }
@@ -184,7 +136,7 @@ void BinkStream::destruct()
 {
     Bink* bink = bink_;
     bink_ = nullptr;
-    video_close(bink); // (even with none open)
+    bink::close(bink); // (even with none open)
     if (file_ref_ != INVALID_HANDLE_VALUE && !shared_file_)
         CloseHandle(file_ref_);
     if (wad_entry_ >= 0) {
@@ -206,27 +158,27 @@ int BinkStream::tick_frame()
         if (!pause_requested_) {
             if (!bink_) {
                 // Reopen where it was paused.
-                bink_ = video_open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
+                bink_ = bink::open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
                 if (bink_) {
-                    bink_set_video_on_off(bink_, 0);
-                    bink_goto(bink_, resume_frame_, 1);
+                    bink::set_video_on_off(bink_, 0);
+                    bink::go_to(bink_, resume_frame_, 1);
                     change_loudness(loudness_);
                 }
             }
         } else if (bink_) {
             resume_frame_ = bink_->frame_num_;
-            video_close(bink_);
+            bink::close(bink_);
             bink_ = nullptr;
         }
         is_halted_ = pause_requested_;
     }
     if (!bink_)
         return 0;
-    while (video_wait_ready(bink_) == 0) {
+    while (bink::wait(bink_) == 0) {
         if (!get_focused())
             break;
-        video_decode_frame(bink_);
-        video_advance_frame(bink_);
+        bink::do_frame(bink_);
+        bink::next_frame(bink_);
         if (bink_->frame_num_ == bink_->frames) {
             if (plays_ > 0)
                 --plays_;

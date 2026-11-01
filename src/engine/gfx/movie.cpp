@@ -34,6 +34,7 @@
 #include "platform/run_log.h"
 #include "platform/winmain.h"
 #include "platform/crt.h"
+#include "platform/bink.h"
 #include "platform/compiler.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
@@ -170,53 +171,10 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
 
 namespace {
 
-// The Bink SDK (binkw32.dll), through the game's import table.
-int bink_set_sound_system(void* open, void* param)
-{
-    return crt::library_function<int(__stdcall*)(void*, void*)>("binkw32.dll", "_BinkSetSoundSystem@8")(open, param);
-}
-void* bink_open_direct_sound()
-{
-    return crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4");
-} // the function, passed to the above
-Bink* video_open(const char* path, uint32_t flags)
-{
-    return crt::library_function<Bink*(__stdcall*)(const char*, uint32_t)>("binkw32.dll", "_BinkOpen@8")(path, flags);
-}
-void video_toggle_sound(Bink* bink, int on)
-{
-    crt::library_function<int(__stdcall*)(Bink*, int)>("binkw32.dll", "_BinkSetSoundOnOff@8")(bink,
-                                                                                                                on);
-}
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
 {
-    crt::library_function<void(__stdcall*)(Bink*, uint32_t, int)>("binkw32.dll", "_BinkSetVolume@12")(
-        bink, track, sound::output_bink_volume(volume));
+    bink::set_volume(bink, track, sound::output_bink_volume(volume));
 } // (NOT ORIGINAL: mute_audio)
-void bink_pause(Bink* bink, int pause)
-{
-    crt::library_function<int(__stdcall*)(Bink*, int)>("binkw32.dll", "_BinkPause@8")(bink, pause);
-}
-int video_wait_ready(Bink* bink)
-{
-    return crt::library_function<int(__stdcall*)(Bink*)>("binkw32.dll", "_BinkWait@4")(bink);
-}
-void video_decode_frame(Bink* bink)
-{
-    crt::library_function<int(__stdcall*)(Bink*)>("binkw32.dll", "_BinkDoFrame@4")(bink);
-}
-void video_copy_frame(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
-{
-    crt::library_function<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>("binkw32.dll", "_BinkCopyToBuffer@28")(bink, bits, pitch, height, x, y, flags);
-}
-void video_advance_frame(Bink* bink)
-{
-    crt::library_function<void(__stdcall*)(Bink*)>("binkw32.dll", "_BinkNextFrame@4")(bink);
-}
-void video_close(Bink* bink)
-{
-    crt::library_function<void(__stdcall*)(Bink*)>("binkw32.dll", "_BinkClose@4")(bink);
-}
 
 Bink*& current_movie() { return g_current_movie; }
 bool& movie_playing() { return g_movie_playing; }
@@ -305,7 +263,7 @@ void draw_movie(Bink* bink, void* texture)
     draw_movie_frame(texture, 0.0f, 0.0f, g_movie_draw_width, g_movie_draw_height, 1.0f);
     g_d3d_device->EndScene();
     g_d3d_device->Present(nullptr, nullptr, nullptr, nullptr);
-    video_advance_frame(bink);
+    bink::next_frame(bink);
 }
 
 // 0x0044F840
@@ -341,7 +299,7 @@ constexpr uint32_t kCross = 0x0040;
 // 0x0044FDC0
 void play_movie_file(const char* name)
 {
-    if (!bink_set_sound_system(bink_open_direct_sound(), audio::g_sound_device))
+    if (!bink::use_direct_sound(audio::g_sound_device))
         debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
     create_sound_manager();
     const float music = current_music_volume();
@@ -365,7 +323,7 @@ void play_movie_file(const char* name)
 
     audio::stop_music();
     audio::halt_streams(-1); // (all of them)
-    current_movie() = video_open(path.c_str(), 0);
+    current_movie() = bink::open(path.c_str(), 0);
     if (!current_movie()) {
         release_sound_manager();
         return;
@@ -380,7 +338,7 @@ void play_movie_file(const char* name)
     if (texture) {
         sio::Hub* input = sio::create_manager(false);
         std::array<uint16_t, 4> seen_up = {};
-        video_toggle_sound(current_movie(), 1);
+        bink::set_sound_on_off(current_movie(), 1);
         video_set_loudness(current_movie(), 0,
                            static_cast<int>(static_cast<double>(volume) * g_one_percent // 0.01
                                             * g_float16384));                           // 16384
@@ -391,7 +349,7 @@ void play_movie_file(const char* name)
                 SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             }
             if (!app_active()) {
-                bink_pause(current_movie(), 1);
+                bink::pause(current_movie(), 1);
                 while (!app_active()) {
                     Sleep(100);
                     os_layer::process_window_events();
@@ -411,16 +369,16 @@ void play_movie_file(const char* name)
                     os_layer::process_window_events();
                     continue;
                 }
-                bink_pause(current_movie(), 0);
+                bink::pause(current_movie(), 0);
             }
-            if (video_wait_ready(current_movie()))
+            if (bink::wait(current_movie()))
                 continue;
             Bink* bink = current_movie();
-            video_decode_frame(bink);
+            bink::do_frame(bink);
             auto* d3d_texture = static_cast<IDirect3DTexture9*>(texture);
             D3DLOCKED_RECT locked;
             if (SUCCEEDED(d3d_texture->LockRect(0, &locked, nullptr, 0))) {
-                video_copy_frame(bink, locked.pBits, locked.Pitch, bink->height, 0, 0,
+                bink::copy_to_buffer(bink, locked.pBits, locked.Pitch, bink->height, 0, 0,
                                  g_movie_surface_type | 0x80000000); // the surface type, copy all
                 d3d_texture->UnlockRect(0);
             }
@@ -454,7 +412,7 @@ void play_movie_file(const char* name)
     movie_playing() = false;
     toggle_fog(fog);
     end_movie(texture);
-    video_close(current_movie());
+    bink::close(current_movie());
     current_movie() = nullptr;
     set_texture_stage_state(0, 4, 4); // alpha: modulate
     release_sound_manager();

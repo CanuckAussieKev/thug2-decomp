@@ -14,6 +14,7 @@
 #include "engine/audio/stream.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
+#include "platform/bink.h"
 #include "engine/core/checked_index.h"
 
 namespace audio {
@@ -43,25 +44,6 @@ int crt_fclose(FILE* file) { return crt::get_fclose(file); }
 void* get_crt_malloc(size_t size) { return crt::alloc_block(size); }
 void get_crt_free(void* block) { crt::dealloc(block); }
 
-// The Bink SDK (binkw32.dll), through the game's import table.
-int bink_set_sound_system(void* open, void* param)
-{
-    return crt::library_function<int(__stdcall*)(void*, void*)>("binkw32.dll", "_BinkSetSoundSystem@8")(open, param);
-}
-// the function, passed to the above
-void* bink_open_direct_sound()
-{
-    return crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4");
-}
-void* video_open(const void* source, uint32_t flags)
-{
-    return crt::library_function<void*(__stdcall*)(const void*, uint32_t)>("binkw32.dll", "_BinkOpen@8")(source, flags);
-}
-void bink_set_video_on_off(void* bink, int on)
-{
-    crt::library_function<int(__stdcall*)(void*, int)>("binkw32.dll", "_BinkSetVideoOnOff@8")(bink,
-                                                                                                                on);
-}
 constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
 bool& bink_sound_set() { return g_bink_sound_set; }
@@ -130,7 +112,7 @@ BinkStream::BinkStream(bool unknown19, int plays) : unknown19_(unknown19), plays
 long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!bink_sound_set()) {
-        if (!bink_set_sound_system(bink_open_direct_sound(), g_sound_device))
+        if (!bink::use_direct_sound(g_sound_device))
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         bink_sound_set() = true;
     }
@@ -138,11 +120,11 @@ long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size
     if (slot < 0)
         return kInvalidArg;
     const void* data = stream_files()[slot].data;
-    void* bink = video_open(data, kBinkFromMemory);
-    bink_ = static_cast<render::Bink*>(bink);
+    render::Bink* bink = bink::open(data, kBinkFromMemory);
+    bink_ = bink;
     if (!bink)
         return kInvalidArg;
-    bink_set_video_on_off(bink, 0);
+    bink::set_video_on_off(bink, 0);
     // (the file's first four bytes, "BIKi")
     std::memcpy(from_where_.data(), stream_files()[slot].data, sizeof(uint32_t));
     wad_entry_ = slot;

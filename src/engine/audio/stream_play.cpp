@@ -14,6 +14,7 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
+#include "platform/bink.h"
 #include "engine/core/checked_index.h"
 
 namespace audio {
@@ -43,10 +44,6 @@ void create_sound_manager() { sound::create_manager(false); }
 void release_sound_manager() { sound::release_manager(); }
 float sound_volume() { return sound::fetch_master_loudness(); }
 
-void bink_goto(render::Bink* bink, uint32_t frame, int flags)
-{
-    crt::library_function<void(__stdcall*)(render::Bink*, uint32_t, int)>("binkw32.dll", "_BinkGoto@12")(bink, frame, flags);
-}
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -203,7 +200,7 @@ void sync_music_to_time(float seconds)
     if (static_cast<int>(off) < 0)
         off = 0u - off;
     if (static_cast<int>(off) > 5)
-        bink_goto(bink, static_cast<uint32_t>(frame), 1);
+        bink::go_to(bink, static_cast<uint32_t>(frame), 1);
     ReleaseMutex(stream_lock());
 }
 

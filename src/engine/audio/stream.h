@@ -10,8 +10,11 @@
 // NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Win32's own name
 struct _OVERLAPPED;
 
+namespace bink {
+struct Movie;
+}
 namespace render {
-struct Bink;
+using Bink = bink::Movie;
 }
 
 // The PC's streamed audio (the platform layer under Pcm's music and streams): the music and three sound
