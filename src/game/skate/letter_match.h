@@ -29,8 +29,8 @@ public:
     int restart_;           // +0x430: the restart the next run starts from
     uint32_t cur_standing_; // +0x434: one of the table at 0x0067F340
 
-    // 0x005600D0: the constructor: the word HORSE, restart 0. Returns this.
-    LetterMatch* make_new();
+    // 0x005600D0: the word HORSE, restart 0.
+    LetterMatch();
     // 0x00560100: a new game: no score, no letters, the panel "unknown", a random Horse restart.
     void prepare_all();
     // 0x00560180: a run started (the status idle).

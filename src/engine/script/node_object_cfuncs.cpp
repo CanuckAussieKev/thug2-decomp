@@ -87,7 +87,7 @@ constexpr uint32_t kClassSkater = 0x5B8AB877;         // "skater"
 constexpr uint32_t kClassA0e52802 = 0xA0E52802;       // (name unknown) killed through 0x0048FCA0
 
 uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-objects::GrindRailHub* rail_manager() { return modules::g_skate_module->rail_manager_; }
+objects::GrindRailHub* rail_manager() { return modules::g_skate_module->rail_manager_.get(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).

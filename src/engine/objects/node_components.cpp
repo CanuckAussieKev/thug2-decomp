@@ -114,31 +114,17 @@ void HookPointRegistryModule::configure_from_data(script::Struct*)
 memory::owner<ObjectModule*> __cdecl GrindPathLinkModule::fabricate() { return new GrindPathLinkModule; }
 
 // (the constructor: inlined in fabricate in the original)
-GrindPathLinkModule::GrindPathLinkModule()
-{
-    kind_tag_ = kType;
-    rail_groups_ = nullptr;
-}
+GrindPathLinkModule::GrindPathLinkModule() { kind_tag_ = kType; }
 
-// 0x0042B9A0 (0x0042BA90 the deleting one)
-GrindPathLinkModule::~GrindPathLinkModule()
-{
-    if (GrindRailHub* rails = rail_groups_) {
-        rails->tidy_up(); // (its destructor)
-        memory::Hub::get_pull()->dealloc(rails);
-    }
-}
+// 0x0042B9A0 (0x0042BA90 the deleting one): the rails destroyed and freed (rail_groups_'s destructor)
+GrindPathLinkModule::~GrindPathLinkModule() = default;
 
 // 0x0042B880
 void GrindPathLinkModule::configure_from_data(script::Struct*)
 {
     ObjectModule* node_array = entity_->fetch_module(WaypointListModule::kType);
-    if (GrindRailHub* rails = rail_groups_) {
-        rails->tidy_up();
-        memory::Hub::get_pull()->dealloc(rails);
-    }
-    void* memory = memory::alloc_zeroed(sizeof(GrindRailHub));
-    rail_groups_ = memory ? static_cast<GrindRailHub*>(memory)->prepare_all() : nullptr;
+    rail_groups_.reset(); // (the old ones destroyed and freed first)
+    rail_groups_ = memory::make_zeroed<GrindRailHub>();
     rail_groups_->add_from_node_array(node_array_of(node_array));
 }
 

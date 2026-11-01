@@ -989,23 +989,18 @@ Skate::Skate()
     reinterpret_cast<SkateNet*>(this)->create_network_tasks();
     objects::g_profile_roster->reset_templates();
     game_flow_ = std::make_unique<goals::MatchFlow>();
-    void* memory = memory::alloc_zeroed(sizeof(goals::GoalManager));
-    goal_manager_ = memory ? static_cast<goals::GoalManager*>(memory)->make_new() : nullptr;
+    goal_manager_ = memory::make_zeroed<goals::GoalManager>();
     render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry));
     career_ = std::make_unique<objects::RiderStoryProgress>();
-    memory = memory::alloc_zeroed(0x54);
-    rail_manager_ = memory ? static_cast<objects::GrindRailHub*>(memory)->prepare_all() : nullptr;
-    memory = memory::alloc_zeroed(0x404);
-    checksums_ = memory ? static_cast<objects::ChecksumSet*>(memory)->make_new() : nullptr;
+    rail_manager_ = memory::make_zeroed<objects::GrindRailHub>(); // (0x54 bytes)
+    checksums_ = memory::make_zeroed<objects::ChecksumSet>();       // (0x404 bytes)
     get_trick_objects()->remove_all_clusters();
     level_launched_ = false;
     match_style_ = kFreeskate;
     splitscreen_preferences_ = std::make_unique<prefs::Preferences>();
     splitscreen_preferences_->read_in(kDefaultSplitscreenPreferences);
-    memory = memory::alloc_zeroed(sizeof(Contest));
-    competition_ = memory ? static_cast<Contest*>(memory)->make_new(0) : nullptr;
-    memory = memory::alloc_zeroed(sizeof(LetterMatch));
-    horse_ = memory ? static_cast<LetterMatch*>(memory)->make_new() : nullptr;
+    competition_ = memory::make_zeroed<Contest>();
+    horse_ = memory::make_zeroed<LetterMatch>();
     movies_ = std::make_unique<objects::VideoHub>();
     object_movies_ = std::make_unique<objects::VideoHub>();
     highscores::g_game_records->init_levels(0x15);
@@ -1028,27 +1023,19 @@ Skate::~Skate()
     gfx::ClipStore::teardown();
     surface_kind::clear_terrain_types();
     script::launch_script(kUninitLightManager, nullptr, nullptr, false, nullptr);
-    if (Contest* competition = competition_) {
-        competition->destroy_body();
-        memory::dealloc(competition);
-    }
-    memory::dealloc(horse_);
-    movies_.reset();
-    object_movies_.reset();
-    if (objects::GrindRailHub* rails = rail_manager_) {
-        rails->tidy_up();
-        memory::dealloc(rails);
-    }
-    career_.reset();
+    // (each destroyed while the module still points at it, as the original's deletes)
+    memory::destroy_then_clear(competition_);
+    memory::destroy_then_clear(horse_);
+    memory::destroy_then_clear(movies_);
+    memory::destroy_then_clear(object_movies_);
+    memory::destroy_then_clear(rail_manager_);
+    memory::destroy_then_clear(career_);
     reinterpret_cast<SkateNet*>(this)->delete_network_tasks();
-    game_flow_.reset();
-    if (goals::GoalManager* goals = goal_manager_) {
-        goals->destroy_body();
-        memory::dealloc(goals);
-    }
-    update_job_.reset();
-    splitscreen_preferences_.reset();
-    memory::dealloc(checksums_);
+    memory::destroy_then_clear(game_flow_);
+    memory::destroy_then_clear(goal_manager_);
+    memory::destroy_then_clear(update_job_);
+    memory::destroy_then_clear(splitscreen_preferences_);
+    memory::destroy_then_clear(checksums_);
     script::Script::destroy(own_script_);
     riders_.list_link_.uncouple(); // (0x00565730)
 }

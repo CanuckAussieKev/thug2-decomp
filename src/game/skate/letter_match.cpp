@@ -63,11 +63,10 @@ void dup_from(char* dest, const char* text)
 } // namespace
 
 // 0x005600D0
-LetterMatch* LetterMatch::make_new()
+LetterMatch::LetterMatch()
 {
     std::memcpy(word_, "HORSE", 6);
     restart_ = 0;
-    return this;
 }
 
 // 0x00560100

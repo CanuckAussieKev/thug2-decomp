@@ -457,7 +457,7 @@ bool FootMovement::try_grind()
     maths::Vec4& pos = pos_;
     maths::Vec4& point = grind_point_;
     GrindPoint*& node = grind_node_;
-    GrindRailHub* level_rails = modules::g_skate_module->rail_manager_;
+    GrindRailHub* level_rails = modules::g_skate_module->rail_manager_.get();
     bool found = level_rails->find_grind_rail(&old_pos, &pos, &point, &node, nullptr, kOne, 0);
     if (found) {
         grind_rails_ = level_rails;

@@ -53,9 +53,12 @@ static_assert(offsetof(GrindPoint, at_point_) == 0x20 && offsetof(GrindPoint, su
 
 class GrindRailHub {
 public:
-    // 0x0057CC10 (the constructor): no nodes, not on an object; returns this. 0x0057C330: the nodes freed
-    // (memory::free_malloc), none, not on an object.
-    GrindRailHub* prepare_all();
+    // 0x0057CC10: no nodes, not on an object.
+    GrindRailHub();
+    // 0x0057C330 (tidy_up): the nodes freed (memory::free_malloc), none, not on an object.
+    ~GrindRailHub() { tidy_up(); }
+    GrindRailHub(const GrindRailHub&) = delete;
+    GrindRailHub& operator=(const GrindRailHub&) = delete;
     void tidy_up();
     // 0x0057C4F0: its rails ride an object: positions are in `matrix`'s space.
     maths::Mat4& change_body_transform(const maths::Mat4& matrix);

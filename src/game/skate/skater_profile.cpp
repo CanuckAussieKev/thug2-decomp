@@ -279,11 +279,7 @@ RiderIdentity::SpecialTrick* RiderIdentity::SpecialTrick::make_new()
 bool RiderIdentity::SpecialTrick::is_vacant() { return trick == kEmptyTrick; }
 
 // 0x00587120
-ChecksumSet* ChecksumSet::make_new()
-{
-    num_ = 0;
-    return this;
-}
+ChecksumSet::ChecksumSet() { num_ = 0; }
 
 // 0x00587130
 void ChecksumSet::get_fill()

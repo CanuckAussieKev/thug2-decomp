@@ -117,7 +117,7 @@ double dot3(const maths::Vec4& a, const maths::Vec4& b)
 objects::GrindRailHub* get_level_rails()
 {
     modules::Skate* module = modules::g_skate_module;
-    return module ? module->rail_manager_ : nullptr;
+    return module ? module->rail_manager_.get() : nullptr;
 }
 
 // The tire tap's ledge: THAW 0x0058C850 on the level's rails (the rails its 0x0058C856.. walks, flags read as THAW's:

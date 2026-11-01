@@ -139,7 +139,7 @@ bool __cdecl cfunc_apply(script::Struct* params, script::Script*)
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;
     objects::RiderStoryProgress* career = reinterpret_cast<modules::Skate*>(skate)->career_.get();
-    goals::GoalManager* goal_manager = reinterpret_cast<modules::Skate*>(skate)->goal_manager_;
+    goals::GoalManager* goal_manager = reinterpret_cast<modules::Skate*>(skate)->goal_manager_.get();
     script::Struct* saved = goal_manager ? goal_manager->goal_data_ : nullptr;
     if (!career || !saved)
         return false;

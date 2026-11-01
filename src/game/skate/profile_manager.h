@@ -96,7 +96,7 @@ static_assert(sizeof(RiderIdentity) == 0x64, "layout must match the original");
 struct ChecksumSet {
     uint32_t items_[256];
     int num_; // +0x400
-    ChecksumSet* make_new();
+    ChecksumSet();
     void get_fill();
 };
 

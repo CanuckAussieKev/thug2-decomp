@@ -31,9 +31,8 @@ struct Contest {
                             // and its padding as a fourth score)
         uint8_t pad1d_[3];
 
-        // 0x0054FFD0: the constructor (the name's). Returns this.
-        Leader* make_new();
-        // 0x0054FFE0 is its destructor: a jump to TextUtil::Chars's (text_store.cpp).
+        // (0x0054FFD0, the constructor - the name's - and 0x0054FFE0, the destructor - a jump to TextUtil::Chars's
+        // (text_store.cpp): the implicit ones)
 
         // The best two of the first `count` scores summed (none above 0: 0).
         int best_two(int count) const;
@@ -63,9 +62,11 @@ struct Contest {
 
     // 0x005504B0: the constructor (the leaders' names, an empty parameter structure). The argument isn't used.
     // Returns this.
-    Contest* make_new(int unused);
-    // 0x0054FFF0: the destructor body - the leaders' names, last first.
-    void destroy_body();
+    // (The original's argument isn't used.)
+    Contest();
+    // 0x0054FFF0: the leaders' names destroyed, last first (the implicit destructor).
+    Contest(const Contest&) = delete;
+    Contest& operator=(const Contest&) = delete;
     // 0x00550010: copies of `params`' components added to the competition's parameters (if any).
     void rewrite_args(script::Struct* params);
     // 0x00550020: a run starts.

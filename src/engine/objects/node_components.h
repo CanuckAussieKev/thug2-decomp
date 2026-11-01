@@ -8,6 +8,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/mem.h"
 #include "engine/core/owner.h"
 
 namespace script {
@@ -96,9 +97,9 @@ public:
     // manager and copied to `out`; returns `out`.
     maths::Mat4* update_rail_matrix(maths::Mat4* out);
     // 0x005480F0 (slot 13, the shared getter of +0x18): the rail manager.
-    GrindRailHub* get_rail_groups() const { return rail_groups_; }
+    GrindRailHub* get_rail_groups() const { return rail_groups_.get(); }
 
-    GrindRailHub* rail_groups_; // +0x18 (0x54 bytes)
+    memory::HeapUnique<GrindRailHub> rail_groups_; // +0x18 (0x54 bytes)
 };
 static_assert(sizeof(GrindPathLinkModule) == 0x1C, "layout must match the original (0x0042B920 allocates 0x1C bytes)");
 

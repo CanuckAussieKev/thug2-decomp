@@ -13,6 +13,7 @@
 #include "engine/lists/chain_start.h"
 #include "engine/maths/vec4.h"
 #include "engine/sys/game_module.h"
+#include "engine/core/mem.h"
 #include "engine/core/owner.h"
 
 namespace objects {
@@ -231,7 +232,7 @@ public:
     std::unique_ptr<tasks::Task<Skate>> update_job_;      // +0x14 (front_end_tick)
     tasks::Task<Skate>* server_tasks_[2]; // +0x18 (SkateNet::create_network_tasks)
     std::unique_ptr<objects::RiderStoryProgress> career_; // +0x20
-    memory::owner<objects::GrindRailHub*> rail_manager_; // +0x24
+    memory::HeapUnique<objects::GrindRailHub> rail_manager_; // +0x24
     lists::Foremost riders_;              // +0x28 (their nodes' data the skaters, in object id order)
     bool watch_for_unplug_;               // +0x3C
     uint8_t pad3d_[3];
@@ -243,13 +244,13 @@ public:
     uint32_t match_style_; // +0x4C (freeskate)
     bool movie_camera_;    // +0x50 a movie's camera in use
     uint8_t pad51[3];
-    memory::owner<objects::ChecksumSet*> checksums_;             // +0x54 (0x404 bytes)
+    memory::HeapUnique<objects::ChecksumSet> checksums_;         // +0x54 (0x404 bytes)
     std::unique_ptr<prefs::Preferences> splitscreen_preferences_; // +0x58
     bool stage_switched_;                         // +0x5C
     uint8_t pad5d_[3];
     ScoreGoal score_goals_[64];        // +0x60
-    memory::owner<modules::Contest*> competition_;    // +0x360
-    memory::owner<modules::LetterMatch*> horse_;      // +0x364
+    memory::HeapUnique<modules::Contest> competition_; // +0x360
+    memory::HeapUnique<modules::LetterMatch> horse_;   // +0x364
     std::unique_ptr<objects::VideoHub> movies_;        // +0x368
     std::unique_ptr<objects::VideoHub> object_movies_; // +0x36C
     int unknown370_;                   // +0x370
@@ -259,7 +260,7 @@ public:
     uint32_t level_params_;            // +0x380 the level's structure (its name)
     bool new_record_;                  // +0x384 a record was set by the last UpdateRecords
     std::unique_ptr<goals::MatchFlow> game_flow_;      // +0x388
-    memory::owner<goals::GoalManager*> goal_manager_; // +0x38C
+    memory::HeapUnique<goals::GoalManager> goal_manager_; // +0x38C
     PlayerSettings participants_[8];   // +0x390
     float forced_stat_;                // +0x3D0 every skater's stats, forced (unless 0)
     bool debug_rails_;                 // +0x3D4

@@ -175,7 +175,7 @@ void Skate::advance_match_flow()
 prefs::Preferences* Skate::get_split_view_settings() { return splitscreen_preferences_.get(); }
 
 // 0x00564D90
-goals::GoalManager* Skate::get_objective_board() { return goal_manager_; }
+goals::GoalManager* Skate::get_objective_board() { return goal_manager_.get(); }
 
 // 0x00564DA0
 void Skate::scan_pad_connections() { watch_for_unplug_ = true; }

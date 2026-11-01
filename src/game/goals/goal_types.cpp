@@ -67,7 +67,7 @@ void delete_structure(script::Struct* structure)
         script::delete_struct(structure);
     }
 }
-modules::Contest* the_competition() { return modules::Skate::sole()->competition_; }
+modules::Contest* the_competition() { return modules::Skate::sole()->competition_.get(); }
 
 } // namespace
 

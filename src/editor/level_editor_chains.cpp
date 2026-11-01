@@ -791,7 +791,7 @@ script::Struct* look_up_node_params(uint32_t name)
 objects::GrindRailHub* get_rails()
 {
     modules::Skate* skate = modules::g_skate_module;
-    auto* manager = skate ? skate->rail_manager_ : nullptr;
+    auto* manager = skate ? skate->rail_manager_.get() : nullptr;
     return manager && !manager->on_object_ ? manager : nullptr;
 }
 

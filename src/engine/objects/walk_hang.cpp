@@ -145,7 +145,7 @@ objects::GrindRailHub* rail_manager_of(objects::ObjectModule* component)
     return (*reinterpret_cast<Pull**>(component))[0x34 / 4](component);
 }
 // The skate module's rail manager (the level's).
-objects::GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_; }
+objects::GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_.get(); }
 
 // Onto a ladder from the level's rails: the ride let go, stopped.
 void grabbed_ladder(objects::FootMovement* walk)

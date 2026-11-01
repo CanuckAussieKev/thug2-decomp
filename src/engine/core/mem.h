@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <memory>
+#include <new>
+#include <utility>
 
 namespace memory {
 
@@ -47,6 +49,39 @@ template <typename Data>
 HeapPtr<Data> heap_ptr(void* block)
 {
     return HeapPtr<Data>(static_cast<Data*>(block));
+}
+
+// NOT ORIGINAL - an object constructed in a game-heap block (placement new), owned: destroyed, then its block given
+// back by dealloc (to the heap it came from, as HeapPtr's). For the classes without the game heaps' operator new that
+// the game makes in a zeroed block (alloc_zeroed, then the constructor).
+struct HeapDestroy {
+    template <typename Object>
+    void operator()(Object* object) const noexcept
+    {
+        object->~Object();
+        dealloc(object);
+    }
+};
+template <typename Object>
+using HeapUnique = std::unique_ptr<Object, HeapDestroy>;
+// NOT ORIGINAL - an owned object destroyed while its owner still points at it, then the pointer cleared - as the
+// original's delete of a member (code its destructor runs may still reach it through the owner).
+// std::unique_ptr::reset clears the pointer first.
+template <typename Owned>
+void destroy_then_clear(Owned& owned) noexcept
+{
+    if (auto* object = owned.get()) {
+        owned.get_deleter()(object);
+        (void)owned.release();
+    }
+}
+// A zeroed block from the current heap with an `Object` constructed in it (null when the heap is full: nothing is
+// constructed then).
+template <typename Object, typename... Args>
+HeapUnique<Object> make_zeroed(Args&&... args)
+{
+    void* block = alloc_zeroed(static_cast<unsigned int>(sizeof(Object)));
+    return HeapUnique<Object>(block ? new (block) Object(std::forward<Args>(args)...) : nullptr);
 }
 
 // Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this

@@ -142,20 +142,6 @@ int Contest::Leader::best_two_of_four_words() const
 }
 
 // 0x0054FFD0
-Contest::Leader* Contest::Leader::make_new()
-{
-    new (&label_) text::Chars();
-    return this;
-}
-
-// 0x0054FFF0
-void Contest::destroy_body()
-{
-    // (the compiler's array-destructor helper, 0x0062382B: last to first)
-    for (int i = 7; i >= 0; --i)
-        leaders_[i].label_.~Chars();
-}
-
 // 0x00550010
 void Contest::rewrite_args(script::Struct* params) { args_->append_structure_if_any(params); }
 
@@ -231,14 +217,9 @@ void Contest::sort_leaders()
 }
 
 // 0x005504B0
-Contest* Contest::make_new(int)
-{
-    // (the compiler's array-constructor helper, 0x0062388B)
-    for (Leader& leader : leaders_)
-        leader.make_new();
-    args_ = spawn_param_table();
-    return this;
-}
+// (the leaders made first by their constructors - the compiler's array-constructor helper, 0x0062388B; destroyed by
+// the implicit destructor, 0x0054FFF0, through its array-destructor helper 0x0062382B: last to first)
+Contest::Contest() { args_ = spawn_param_table(); }
 
 // 0x00550560
 void Contest::kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score, float gold_score,

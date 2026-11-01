@@ -85,7 +85,7 @@ bool has_no_parent(Objective* goal) { return goal->parents_->objective_key_ == 0
 void GoalListHead::destroy_body() { list_link_.uncouple(); }
 
 // 0x0055D9C0
-GoalManager* GoalManager::make_new()
+GoalManager::GoalManager()
 {
     goals_.num_ = 0;
     goals_.first_ = nullptr;
@@ -105,11 +105,10 @@ GoalManager* GoalManager::make_new()
     }
     for (int& unlocked : group_unlocked_)
         unlocked = 0;
-    return this;
 }
 
 // 0x0055DB50
-void GoalManager::destroy_body()
+GoalManager::~GoalManager()
 {
     wipe_objectives();
     if (script::Struct* data = goal_data_) {

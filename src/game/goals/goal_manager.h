@@ -52,11 +52,13 @@ public:
     int group_unlocked_[kLevels * kGroupsPerLevel]; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
     script::Struct* args_;                          // +0x398: the difficulty level by game mode name
 
-    // 0x0055D9C0: the constructor: empty tables and list, three new structures, every group locked. Returns this.
-    GoalManager* make_new();
-    // 0x0055DB50: the destructor body: every goal removed, the saved state deleted, the active list emptied, the
-    // table cleared. (team_ and args_ aren't deleted, as the original.)
-    void destroy_body();
+    // 0x0055D9C0: empty tables and list, three new structures, every group locked.
+    GoalManager();
+    // 0x0055DB50: every goal removed, the saved state deleted, the active list emptied, the table cleared. (team_
+    // and args_ aren't deleted, as the original.)
+    ~GoalManager();
+    GoalManager(const GoalManager&) = delete;
+    GoalManager& operator=(const GoalManager&) = delete;
 
     // 0x00557E30
     bool may_begin_objective();

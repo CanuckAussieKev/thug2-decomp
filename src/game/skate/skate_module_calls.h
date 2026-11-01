@@ -21,8 +21,8 @@ namespace skate_calls {
 inline modules::Skate* get_skate() { return modules::Skate::sole(); }
 inline objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 inline bool& end_run_flag() { return get_skate()->run_over_; }
-inline uint8_t* get_competition() { return reinterpret_cast<uint8_t*>(get_skate()->competition_); }
-inline uint8_t* get_horse() { return reinterpret_cast<uint8_t*>(get_skate()->horse_); }
+inline uint8_t* get_competition() { return reinterpret_cast<uint8_t*>(get_skate()->competition_.get()); }
+inline uint8_t* get_horse() { return reinterpret_cast<uint8_t*>(get_skate()->horse_.get()); }
 
 // 0x005665C0: skater `index` of the list (null past the end). 0x00566520: the first local skater (null: none).
 // 0x00566600: the skater whose object id is `id` (null: none).

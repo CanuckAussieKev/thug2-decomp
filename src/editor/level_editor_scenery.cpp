@@ -479,7 +479,7 @@ using RailNode = objects::GrindPoint;
 bool rail_nodes(RailNode** nodes, int* count)
 {
     modules::Skate* skate = modules::g_skate_module;
-    objects::GrindRailHub* manager = skate ? skate->rail_manager_ : nullptr;
+    objects::GrindRailHub* manager = skate ? skate->rail_manager_.get() : nullptr;
     if (!manager || manager->on_object_)
         return false;
     *nodes = manager->nodes_;

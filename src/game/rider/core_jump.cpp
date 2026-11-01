@@ -83,7 +83,7 @@ void SkaterPhysicsModule::trigger_rail_script(const int* events)
     if (!node)
         return;
     if (!rail_manager_)
-        rail_manager_ = modules::g_skate_module->rail_manager_; // (the skate module's)
+        rail_manager_ = modules::g_skate_module->rail_manager_.get(); // (the skate module's)
     script::Struct* script = level_nodes::fetch_vertex(node->label_, false);
     if (!script)
         return;
