@@ -13,6 +13,11 @@ class ByteWriter;
 // offsets). Little-endian; the bytes marked (0) were padding or never written in the original - sent as zeros here,
 // ignored when read.
 //
+//   0x10 server info (0xE0 bytes; a LAN server's answer to a search - read by on_server_reply_msg)
+//     +0x00 i8 x4 players, max players, observers, max observers   +0x04 u8 password   +0x05 u8 in a game (not the
+//     lobby)   +0x06 u8 the hosting role   +0x07 u8 logged in (internet play)   +0x08 char[16] the server's name
+//     +0x18 char[32] the level   +0x38 char[32] the game mode   +0x58 u8 skill level, (0) x3
+//     +0x5C u32 the asker's time (echoed: the ping)   +0x60 char[16] x8 the players' names (zero-padded)
 //   0x33 session brief (0x50 bytes; to a player joining, read by SkateNet::on_run_start_msg)
 //     +0x00 u8  the crown's start slot     +0x01 u8  not LAN   +0x02 u8  game id   +0x03 u8  the pro set option bits
 //     +0x04 u8  max players, (0) x3        +0x08 u32 time left (seconds)          +0x0C u32 game type
@@ -36,6 +41,32 @@ constexpr int kStartPoints = 8;
 constexpr uint32_t kSessionBriefGameTypeAt = 0x0C;
 constexpr uint32_t kSessionBriefLevelAt = 0x10;
 constexpr uint32_t kStartGameTypeAt = 0x00;
+
+constexpr uint8_t kMsgServerInfo = 0x10;
+constexpr size_t kServerInfoSize = 0xE0;
+constexpr int kServerInfoPlayers = 8;
+constexpr size_t kServerInfoNameSize = 16;
+constexpr size_t kServerInfoTextSize = 32;
+
+struct ServerInfo {
+    int8_t num_players = 0;
+    int8_t max_players = 0;
+    int8_t num_observers = 0;
+    int8_t max_observers = 0;
+    bool password = false;
+    bool in_game = false;
+    uint8_t host_mode = 0;
+    bool logged_in = false;
+    // (terminated here; on the wire their whole fields, terminated when shorter)
+    char name[kServerInfoNameSize + 1] = {};
+    char level[kServerInfoTextSize + 1] = {};
+    char mode[kServerInfoTextSize + 1] = {};
+    uint8_t skill_level = 0;
+    uint32_t time = 0;
+    char players[kServerInfoPlayers][kServerInfoNameSize + 1] = {};
+};
+bool read_server_info(util::ByteReader& reader, ServerInfo* message);
+bool write_server_info(util::ByteWriter& writer, const ServerInfo& message);
 
 struct SessionBrief {
     uint8_t crown_start_slot = 0;

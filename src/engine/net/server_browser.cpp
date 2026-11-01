@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -14,6 +15,8 @@
 #include "engine/maths/random.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_lobby.h"
 #include "engine/net/gamespy.h"
@@ -75,7 +78,7 @@ constexpr uint32_t kDescribeSelectedServer = 0x596BAB63; // describe_selected_se
 constexpr int kNoPing = 9999;
 constexpr int kPort = 0x1421; // 5153
 constexpr int kMaxRank = 10;
-constexpr uint16_t kServerResponseSize = 0xE0;
+constexpr auto kServerResponseSize = static_cast<uint16_t>(kServerInfoSize); // (the server info: gamenet_messages.h)
 
 // GameSpy's listing messages (peerListingGamesCallback's msg).
 enum ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove = 2, kListingClear = 3 };
@@ -301,29 +304,33 @@ int __cdecl on_server_reply_msg(net::InboundMsgCtx* context)
     }
     if (context->body_size_ != kServerResponseSize)
         return kDone;
-    const char* reply = context->body_;
-    if (manager->has_server(reply + 0x08, context->sender_conn_->remote_ip_))
+    // (the reply: gamenet_messages.h. NOT ORIGINAL: its texts cut to their fields - the original copied up to a
+    // terminator, past them when there was none - and no more players than it has names)
+    util::ByteReader reader(context->body_, context->body_size_);
+    auto reply = std::make_unique<ServerInfo>();
+    read_server_info(reader, reply.get());
+    if (manager->has_server(reply->name, context->sender_conn_->remote_ip_))
         return kDone;
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? static_cast<HostListing*>(block)->make_new() : nullptr;
-    std::strcpy(server->label_, reply + 0x08);
+    std::snprintf(server->label_, sizeof(server->label_), "%s", reply->name);
     server->remote_ip_ = context->sender_conn_->remote_ip_;
-    server->ping_ = static_cast<int>(frame_clock::get_time() - prop<uint32_t>(reply, 0x5C));
-    std::strcpy(server->level_, reply + 0x18);
-    std::strcpy(server->mode_sel_, reply + 0x38);
-    server->max_players_ = static_cast<int8_t>(reply[1]);
-    server->num_players_ = static_cast<int8_t>(reply[0]);
-    server->max_observers_ = static_cast<int8_t>(reply[3]);
-    server->num_observers_ = static_cast<int8_t>(reply[2]);
-    server->password_ = reply[4] != 0;
-    server->started_ = reply[5] != 0;
-    server->host_mode_ = static_cast<int8_t>(reply[6]);
-    server->ranked_ = reply[7] != 0;
-    server->skill_level_ = static_cast<int8_t>(reply[0x58]);
+    server->ping_ = static_cast<int>(frame_clock::get_time() - reply->time);
+    std::snprintf(server->level_, sizeof(server->level_), "%s", reply->level);
+    std::snprintf(server->mode_sel_, sizeof(server->mode_sel_), "%s", reply->mode);
+    server->max_players_ = reply->max_players;
+    server->num_players_ = reply->num_players;
+    server->max_observers_ = reply->max_observers;
+    server->num_observers_ = reply->num_observers;
+    server->password_ = reply->password;
+    server->started_ = reply->in_game;
+    server->host_mode_ = static_cast<int8_t>(reply->host_mode);
+    server->ranked_ = reply->logged_in;
+    server->skill_level_ = static_cast<int8_t>(reply->skill_level);
     server->port_no_ = kPort;
-    for (int i = 0; i < server->num_players_; ++i)
-        server->enroll_player(reply + 0x60 + 0x10 * i, 0);
+    for (int i = 0; i < server->num_players_ && i < kServerInfoPlayers; ++i)
+        server->enroll_player(reply->players[i], 0);
     get_append(&manager->waiting_servers_, server);
     ram_stats()->leave_heap_scope();
     return kContinue;

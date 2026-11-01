@@ -583,8 +583,67 @@ static_assert(sizeof(ReferenceStartGame) == 0x48 && offsetof(ReferenceStartGame,
               offsetof(ReferenceStartGame, crown_start_slot) == 0x24 &&
               offsetof(ReferenceStartGame, start_points) == 0x28);
 
+#pragma pack(push, 1)
+struct ReferenceServerInfo {
+    int8_t num_players, max_players, num_observers, max_observers;
+    uint8_t password, in_game, host_mode, logged_in;
+    char name[16], level[32], mode[32];
+    uint8_t skill_level, pad59[3];
+    uint32_t time;
+    char players[8][16];
+};
+#pragma pack(pop)
+static_assert(sizeof(ReferenceServerInfo) == 0xE0 && offsetof(ReferenceServerInfo, time) == 0x5C);
+
+void check_server_info()
+{
+    ReferenceServerInfo reference = {};
+    online::ServerInfo info;
+    reference.num_players = info.num_players = 3;
+    reference.max_players = info.max_players = 8;
+    reference.num_observers = info.num_observers = 1;
+    reference.max_observers = info.max_observers = 2;
+    reference.password = 1;
+    info.password = true;
+    reference.host_mode = info.host_mode = 2;
+    std::snprintf(reference.name, sizeof(reference.name), "%s", "Kevin's park");
+    std::snprintf(info.name, sizeof(info.name), "%s", "Kevin's park");
+    std::snprintf(reference.level, sizeof(reference.level), "%s", "Barcelona");
+    std::snprintf(info.level, sizeof(info.level), "%s", "Barcelona");
+    std::snprintf(reference.mode, sizeof(reference.mode), "%s", "Trick Attack");
+    std::snprintf(info.mode, sizeof(info.mode), "%s", "Trick Attack");
+    reference.skill_level = info.skill_level = 4;
+    reference.time = info.time = 123456;
+    const char* names[3] = {"one", "fifteen_chars__", "x"};
+    for (int i = 0; i < 3; ++i) {
+        std::snprintf(reference.players[i], sizeof(reference.players[i]), "%s", names[i]);
+        std::snprintf(info.players[i], sizeof(info.players[i]), "%s", names[i]);
+    }
+    uint8_t bytes[0xE0];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    online::write_server_info(writer, info);
+    check(writer.ok() && writer.position() == sizeof(bytes) && std::memcmp(bytes, &reference, sizeof(bytes)) == 0,
+          "server info: as the original's struct");
+    util::ByteReader reader(bytes, sizeof(bytes));
+    auto back = std::make_unique<online::ServerInfo>();
+    online::read_server_info(reader, back.get());
+    uint8_t again[0xE0];
+    util::ByteWriter again_writer(again, sizeof(again));
+    online::write_server_info(again_writer, *back);
+    check(reader.ok() && std::memcmp(again, bytes, sizeof(bytes)) == 0 &&
+              std::strcmp(back->players[1], "fifteen_chars__") == 0,
+          "server info: decoded and encoded again");
+    // a name filling its field without a terminator: cut there when read
+    std::memset(bytes + 8, 'n', 16);
+    util::ByteReader unterminated(bytes, sizeof(bytes));
+    online::read_server_info(unterminated, back.get());
+    check(std::strlen(back->name) == 16 && std::strcmp(back->level, "Barcelona") == 0,
+          "server info: an unterminated name stops at its field");
+}
+
 void check_session_messages()
 {
+    check_server_info();
     ReferenceSessionBrief brief_ref = {};
     online::SessionBrief brief;
     brief_ref.crown_start_slot = brief.crown_start_slot = 3;

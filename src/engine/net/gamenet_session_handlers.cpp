@@ -102,7 +102,6 @@ constexpr uint32_t kNetGameTypeInfo = 0x2F94C542;    // net_game_type_info
 constexpr uint32_t kMpGameTypeInfo = 0x4DA72272;     // mp_game_type_info
 
 // Messages.
-constexpr uint8_t kMsgServerInfo = 0x10;
 constexpr uint8_t kMsgGameStateSent = 0x42;
 constexpr uint8_t kMsgSpawnedScript = 0x49;
 constexpr uint8_t kMsgKing = 0x55;
@@ -110,28 +109,6 @@ constexpr uint8_t kMsgTrickObjects = 0x5C;
 constexpr uint8_t kMsgGameEnded = 0x6A;
 constexpr uint8_t kMsgSelectedGoals = 0x6D;
 constexpr uint8_t kMsgGoalsData = 0x87;
-
-// The server's answer to a LAN search (message 0x10, 0xE0 bytes).
-#pragma pack(push, 1)
-struct HostListing {
-    int8_t num_players_;   // +0x00
-    int8_t max_players_;   // +0x01
-    int8_t num_observers_; // +0x02
-    int8_t max_observers_; // +0x03
-    bool password;         // +0x04
-    bool in_game_;         // +0x05 (not in the lobby)
-    uint8_t host_mode_;    // +0x06
-    bool logged_in_;       // +0x07 internet play, logged in to GameSpy
-    char name[16];         // +0x08
-    char level[32];        // +0x18
-    char mode[32];         // +0x38
-    uint8_t skill_level_;  // +0x58
-    uint8_t pad59[3];
-    uint32_t time;       // +0x5C the asker's
-    char players[8][16]; // +0x60
-};
-#pragma pack(pop)
-static_assert(sizeof(HostListing) == 0xE0);
 
 // strncpy(dest, source, 15) and the 16th byte zeroed.
 void copy_name(char* dest, const char* source)
@@ -158,44 +135,47 @@ int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     const char* server_name;
     manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
-    const uint8_t* msg = get_message(context);
-    HostListing info;
-    std::memset(&info, 0, sizeof(info));
+    // (the answer: gamenet_messages.h)
+    util::ByteReader query(context->body_, context->body_size_);
+    ServerInfo info;
     char name[kNameSize];
     copy_name(name, server_name);
     net::AppHost* server = manager->host_;
-    info.skill_level_ = static_cast<uint8_t>(manager->get_difficulty_tier());
-    info.num_players_ = static_cast<int8_t>(manager->count_players());
-    info.max_players_ = static_cast<int8_t>(manager->get_player_limit());
-    info.num_observers_ = static_cast<int8_t>(manager->count_observers());
-    info.max_observers_ = static_cast<int8_t>(manager->get_spectator_limit());
-    if (info.max_players_ < info.num_players_)
-        info.max_players_ = info.num_players_;
-    if (info.max_observers_ < info.num_observers_)
-        info.max_observers_ = info.num_observers_;
+    info.skill_level = static_cast<uint8_t>(manager->get_difficulty_tier());
+    info.num_players = static_cast<int8_t>(manager->count_players());
+    info.max_players = static_cast<int8_t>(manager->get_player_limit());
+    info.num_observers = static_cast<int8_t>(manager->count_observers());
+    info.max_observers = static_cast<int8_t>(manager->get_spectator_limit());
+    if (info.max_players < info.num_players)
+        info.max_players = info.num_players;
+    if (info.max_observers < info.num_observers)
+        info.max_observers = info.num_observers;
     info.password = *manager->fetch_secret() != '\0';
-    info.in_game_ = get_game_type() != kNetLobby;
-    info.host_mode_ = static_cast<uint8_t>(manager->get_hosting_role());
-    info.logged_in_ = manager->in_internet_mode() && manager->presence_service_->authenticated_;
+    info.in_game = get_game_type() != kNetLobby;
+    info.host_mode = static_cast<uint8_t>(manager->get_hosting_role());
+    info.logged_in = manager->in_internet_mode() && manager->presence_service_->authenticated_;
     copy_name(info.name, name);
-    std::sprintf(info.level, "%s", manager->get_map_name(true));
-    std::sprintf(info.mode, "%s", manager->get_game_type_name());
+    // (NOT ORIGINAL: cut to their fields, terminated - the original's sprintf ran on into the next field)
+    std::snprintf(info.level, kServerInfoTextSize, "%s", manager->get_map_name(true));
+    std::snprintf(info.mode, kServerInfoTextSize, "%s", manager->get_game_type_name());
     // The players' names (not observers, unless 0x005434C0), then the new players' not among them yet.
     uint8_t ids[8] = {};
     int id_count = 0;
-    info.time = prop<uint32_t>(msg, 0);
+    info.time = query.u32();
+    // NOT ORIGINAL: no more than the message's 8 names (the original wrote on past them)
     int named = 0;
     for (PlayerRecord* player = start_roster_sweep(manager, &players, true); player;
          player = step_roster_sweep(manager, &players, true)) {
         if (is_observer(player) && !player->is_pending_observer())
             continue;
+        if (named >= kServerInfoPlayers)
+            break;
         if (player_skater(player))
             ids[id_count++] = static_cast<uint8_t>(get_skater_id(player_skater(player)));
         copy_name(info.players[named], player_name(player));
         ++named;
     }
-    char* slot = info.players[named];
-    for (JoinerRecord* added = first_new_player(manager, &new_players); added;
+    for (JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
          added = next_new_player(manager, &new_players)) {
         uint32_t flags = added->flag_bits_;
         if (!(flags & 0x18) && (flags & 4))
@@ -207,10 +187,15 @@ int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
         }
         if (known)
             continue;
-        std::sprintf(slot, reinterpret_cast<const char*>(added)); // (the name as the format, the original's)
-        slot += kNameSize;
+        // NOT ORIGINAL: the name copied as text (the original used it as sprintf's format: a name with a % in it
+        // read arguments that weren't there)
+        copy_name(info.players[named], reinterpret_cast<const char*>(added));
+        ++named;
     }
-    server->deliver_to(kMsgServerInfo, sizeof(info), &info, context->sender_conn_->remote_ip_,
+    uint8_t bytes[kServerInfoSize];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    write_server_info(writer, info);
+    server->deliver_to(kMsgServerInfo, static_cast<int>(writer.position()), bytes, context->sender_conn_->remote_ip_,
                        context->sender_conn_->port_no_, 0);
     return kContinue;
 }

@@ -6,6 +6,48 @@
 
 namespace online {
 
+bool read_server_info(util::ByteReader& reader, ServerInfo* message)
+{
+    message->num_players = reader.i8();
+    message->max_players = reader.i8();
+    message->num_observers = reader.i8();
+    message->max_observers = reader.i8();
+    message->password = reader.u8() != 0;
+    message->in_game = reader.u8() != 0;
+    message->host_mode = reader.u8();
+    message->logged_in = reader.u8() != 0;
+    reader.fixed_string(message->name, sizeof(message->name), kServerInfoNameSize);
+    reader.fixed_string(message->level, sizeof(message->level), kServerInfoTextSize);
+    reader.fixed_string(message->mode, sizeof(message->mode), kServerInfoTextSize);
+    message->skill_level = reader.u8();
+    reader.skip(3);
+    message->time = reader.u32();
+    for (auto& player : message->players)
+        reader.fixed_string(player, sizeof(player), kServerInfoNameSize);
+    return reader.ok();
+}
+
+bool write_server_info(util::ByteWriter& writer, const ServerInfo& message)
+{
+    writer.i8(message.num_players);
+    writer.i8(message.max_players);
+    writer.i8(message.num_observers);
+    writer.i8(message.max_observers);
+    writer.u8(message.password ? 1 : 0);
+    writer.u8(message.in_game ? 1 : 0);
+    writer.u8(message.host_mode);
+    writer.u8(message.logged_in ? 1 : 0);
+    writer.fixed_string(message.name, kServerInfoNameSize);
+    writer.fixed_string(message.level, kServerInfoTextSize);
+    writer.fixed_string(message.mode, kServerInfoTextSize);
+    writer.u8(message.skill_level);
+    writer.fill(0, 3);
+    writer.u32(message.time);
+    for (const auto& player : message.players)
+        writer.fixed_string(player, kServerInfoNameSize);
+    return writer.ok();
+}
+
 bool read_session_brief(util::ByteReader& reader, SessionBrief* message)
 {
     message->crown_start_slot = reader.u8();
