@@ -284,6 +284,19 @@ struct Chat {
 bool read_chat(util::ByteReader& reader, Chat* message);
 bool write_chat(util::ByteWriter& writer, const Chat& message);
 
+// --- The news (motd.dat, downloaded by the server list's news thread; each byte ^ 0x6D) ---
+//   the text's caseless CRC (u32), the size of what follows (i32), the message of the day (NUL-ended, padded to a
+//   word), then the rest of the data (pending_data_)
+struct News {
+    uint32_t checksum = 0;
+    int32_t size = 0;
+    const uint8_t* data = nullptr; // (the `size` bytes after the header, in place)
+    const char* motd = nullptr;    // (= data: ended inside them)
+    int32_t motd_size = 0;         // (with its NUL, padded to a word; at most `size`)
+};
+// (fails when the size is negative or past the end, or the text has no NUL within it)
+bool read_news(util::ByteReader& reader, News* news);
+
 namespace thugpro {
 
 // NOT ORIGINAL - THUGPRO's connection request trailer (after THUG2's 92 bytes; engine/net/thugpro_join.h, TP-R12):

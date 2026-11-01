@@ -388,6 +388,22 @@ bool write_chat(util::ByteWriter& writer, const Chat& message)
     return writer.ok();
 }
 
+bool read_news(util::ByteReader& reader, News* news)
+{
+    news->checksum = reader.u32();
+    news->size = reader.i32();
+    if (!reader.ok() || news->size < 0 || static_cast<size_t>(news->size) > reader.remaining())
+        return false;
+    news->data = reader.cursor();
+    util::ByteReader text(news->data, static_cast<size_t>(news->size));
+    news->motd = text.c_string();
+    if (!news->motd)
+        return false;
+    int32_t padded = static_cast<int32_t>((std::strlen(news->motd) + 4) & ~static_cast<size_t>(3));
+    news->motd_size = padded < news->size ? padded : news->size;
+    return reader.skip(static_cast<size_t>(news->size));
+}
+
 namespace thugpro {
 
 bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message)

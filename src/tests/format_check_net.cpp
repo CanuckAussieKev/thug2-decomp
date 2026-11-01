@@ -688,6 +688,38 @@ void check_chat_messages()
     }
 }
 
+// The news file's header and text (motd.dat, after its ^ 0x6D).
+void check_news()
+{
+    uint8_t file[8 + 12] = {};
+    const char text[] = "Hello!"; // 7 with its NUL: 8 as a word
+    int32_t size = 12;
+    std::memcpy(file + 4, &size, 4);
+    std::memcpy(file + 8, text, sizeof(text));
+    file[16] = 0xAB; // (the data after it)
+    {
+        util::ByteReader reader(file, sizeof(file));
+        online::News news;
+        check(online::read_news(reader, &news) && news.size == 12 && std::strcmp(news.motd, "Hello!") == 0 &&
+                  news.motd_size == 8 && news.data[news.motd_size] == 0xAB && reader.remaining() == 0,
+              "news: read");
+    }
+    {
+        size = 13; // past the end
+        std::memcpy(file + 4, &size, 4);
+        util::ByteReader reader(file, sizeof(file));
+        online::News news;
+        check(!online::read_news(reader, &news), "news: a size past the end refused");
+    }
+    {
+        size = 4; // the text has no NUL within it
+        std::memcpy(file + 4, &size, 4);
+        util::ByteReader reader(file, sizeof(file));
+        online::News news;
+        check(!online::read_news(reader, &news), "news: a text without its NUL refused");
+    }
+}
+
 } // namespace
 
 int run()
@@ -699,6 +731,7 @@ int run()
     check_join_messages();
     check_session_others();
     check_chat_messages();
+    check_news();
     return g_failures;
 }
 

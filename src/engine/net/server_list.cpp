@@ -43,6 +43,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
+#include "engine/util/byte_stream.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strncpy, kept)
 
@@ -556,20 +557,24 @@ int __cdecl news_callback(void* request, int result, uint8_t* buffer, uint32_t s
         return 1;
     }
     int64_t size = (static_cast<int64_t>(size_high) << 32) | size_low;
+    // NOT ORIGINAL: no more than the buffer holds (the download is limited to it; the original trusted the size)
+    if (size < 0 || size > static_cast<int64_t>(kNewsBufferSize))
+        size = kNewsBufferSize;
     for (int i = 0; static_cast<int64_t>(i) < size; ++i)
         buffer[i] ^= 0x6D;
-    uint32_t checksum = *reinterpret_cast<uint32_t*>(buffer);
-    int remaining = *reinterpret_cast<int*>(buffer + 4);
-    uint8_t* text = buffer + 8;
-    if (checksum != checksums::generate_crc_caseless(reinterpret_cast<const char*>(text), remaining)) {
+    // The file (gamenet_messages.h: News). NOT ORIGINAL: a size past the download's end, or a text without its NUL,
+    // fails the news (the original read past them).
+    util::ByteReader reader(buffer, static_cast<size_t>(size));
+    News news;
+    if (!read_news(reader, &news) ||
+        news.checksum != checksums::generate_crc_caseless(reinterpret_cast<const char*>(news.data), news.size)) {
         manager->service_state_ = kStateNewsFailed;
         return 1;
     }
+    uint8_t* text = buffer + (news.data - buffer);
     manager->motd_text_ = text;
-    int length =
-        (static_cast<int>(std::strlen(reinterpret_cast<const char*>(text))) + 4) & ~3; // (with its NUL, a word)
-    manager->pending_data_size_ = remaining - length;
-    manager->pending_data_ = text + length;
+    manager->pending_data_size_ = news.size - news.motd_size;
+    manager->pending_data_ = text + news.motd_size;
     manager->motd_received_ = true;
     manager->service_state_ = kStateNewsDone;
     return 1;

@@ -39,6 +39,7 @@
 #include "engine/net/stats_man.h"
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
+#include "engine/util/byte_stream.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's own)
 
@@ -212,7 +213,7 @@ void __cdecl RoomManager::player_key_callback(void*, int key, int index, void* b
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)
-                buffer_add(buffer, reinterpret_cast<const char*>(info)); // (its name, at +0)
+                buffer_add(buffer, info->label_); // (its name)
             else
                 buffer_add_int(buffer, info->skill_points_);
             return;
@@ -359,9 +360,14 @@ void __cdecl RoomManager::nat_negotiation_completed(int result, int, const void*
 {
     Hub* manager = net_session_slot();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
-        const auto* sockaddr = static_cast<const uint8_t*>(address);
-        uint16_t port = static_cast<uint16_t>(sockaddr[2] << 8 | sockaddr[3]); // (ntohs)
-        manager->join_server(*reinterpret_cast<const uint32_t*>(sockaddr + 4), port, 0);
+        // (the SDK's sockaddr_in: the family, the port in network order, the address as it is in memory)
+        util::ByteReader sockaddr(address, 8);
+        sockaddr.skip(2);
+        uint8_t port_high = sockaddr.u8();
+        uint8_t port_low = sockaddr.u8();
+        uint32_t ip = sockaddr.u32();
+        uint16_t port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
+        manager->join_server(ip, port, 0);
     }
     auto* lobby = manager->lobby_service_;
     if (manager->get_on_server()) {
