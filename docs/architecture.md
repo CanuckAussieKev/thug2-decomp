@@ -36,8 +36,8 @@ everything above it uses the game's own types and may change them freely.
 - `platform/`: the operating system and the SDKs - the window and input (SDL, DirectInput), Direct3D's device,
   DirectSound, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
-  Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`)
-  and the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records).
+  Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`),
+  the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records) and the registry's values (`registry.h`).
 
 `formats/` and `wire/` depend only on the standard library and `engine/core`'s leaf headers (`ints.h`,
 `checksums.h`, `pointer_cell.h`, `raw_view.h`); they build and are checked without the game.

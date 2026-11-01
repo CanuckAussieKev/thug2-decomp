@@ -35,11 +35,12 @@ Checks:
   # id types) and parameter structs once the boundary layer keeps the layouts apart.
   - '-bugprone-easily-swappable-parameters'
   # The singletons' owners are smart pointers (std::unique_ptr, memory::HeapUnique); the script structures and arrays
-  # have one factory / deleter and owner types (script::new_struct / free_struct, StructPtr / ArrayPtr). What is
-  # left (494) is each holder of a pooled or new'd object: ~150 script structures / arrays / components passed into
-  # the runtime and freed by hand, the rest scattered news (widgets, components, collision, textures) - marking holders
-  # gsl::owner spreads to every caller (measured: 496 -> 672 after two rounds of propagation, reverted). They move to
-  # StructPtr / unique_ptr holder by holder before this check can come on.
+  # have one factory / deleter and owner types (script::new_struct / free_struct, StructPtr / ArrayPtr); structures
+  # made and freed in one block are StructPtr / ArrayPtr. What is left (667, the check alone) is each holder of a
+  # pooled or new'd object: script structures handed to the runtime or members, ~90 deletes through members, the
+  # rest scattered news (widgets, components, collision, textures) - marking holders gsl::owner spreads to every
+  # caller (measured twice, reverted). They move to StructPtr / unique_ptr holder by holder before this check can
+  # come on.
   - '-cppcoreguidelines-owning-memory'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
