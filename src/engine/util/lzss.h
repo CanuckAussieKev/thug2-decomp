@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 // LZSS compression in the classic public-domain form (Haruhiko Okumura, 1989): a 4 KB sliding window,
@@ -17,6 +18,12 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats);
 // the last byte written). Callers use that pointer to get the decompressed size and to pad the end of the
 // data. Like the original, an odd byte count that runs out mid-reference isn't detected.
 uint8_t* decode(const uint8_t* in, uint8_t* out, int size);
+
+// NOT ORIGINAL (engine/util/lzss_unpack.cpp) - decode with both ends bounded: `in_size` bytes of compressed data
+// into at most `out_capacity` bytes; `*written` (if given) gets the bytes written. False (with what was written
+// so far) when the output would run past its capacity or the input ends inside a reference. A valid stream
+// gives exactly decode's bytes.
+bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity, size_t* written);
 
 // Encoder internals (exposed for the replacement table and tests).
 void reset_match_tree();

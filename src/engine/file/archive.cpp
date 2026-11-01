@@ -13,11 +13,14 @@
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
+#include "engine/file/pre_format.h"
 #include "engine/lists/key_map.h"
 #include "engine/audio/music_api.h"
 #include "engine/script/params.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_config.h"
+#include "engine/util/byte_stream.h"
+#include "engine/util/lzss.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/loading_console.h"
 
@@ -30,109 +33,60 @@ static_assert(offsetof(ArchiveFile, open_count_) == 0x10 && offsetof(ArchiveFile
 
 namespace {
 
-constexpr int kRingSize = 4096;
-constexpr int kMaxMatch = 18;
-
-uint8_t g_ring[kRingSize];
 ArchiveManager* g_manager_slot;
 ArchiveManager* g_instance_slot;
 int g_instance_refs;
 
-uint8_t* get_ring() { return g_ring; }
-
-[[noreturn]] void get_hang()
-{
-    // The original loops forever here (its assertion in release builds).
-    for (;;)
-        Sleep(INFINITE);
-}
-
 memory::Arena* get_file_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_heap() : memory::top_down_heap(); }
-
-// An entry header in the archive block; the name (name_size bytes) and then the data follow it.
-struct TableRow {
-    int size;
-    int compressed_size_;
-    int16_t name_size_; // read as a signed 16-bit value
-    uint16_t use_count_;
-    uint32_t checksum;
-};
 
 void move_memory_block(void* out, const void* in, unsigned int count) { std::memcpy(out, in, count); }
 
-} // namespace
-
-// 0x005B7DF0
-void decode(const uint8_t* in, uint8_t* out, int size)
+// Not original - a compressed file unpacked with both ends bounded: lzss::unpack, the same bytes as the archive's
+// own LZSS decoder (0x005B7DF0, the same algorithm as lzss::decode with its own 4 KB ring - replaced) for a valid
+// file; a damaged one stops at its size instead of writing past `out`.
+void unpack_file(const ArchiveFile::FileInfo& info, uint8_t* out)
 {
-    if (size < 0 || size >= 0x2000000)
-        get_hang();
-    uint8_t* ring = get_ring();
-    std::memset(ring, ' ', kRingSize - kMaxMatch);
-    int r = kRingSize - kMaxMatch;
-    unsigned int flags = 0;
-    for (;;) {
-        flags >>= 1;
-        if (!(flags & 0x100)) {
-            if (size == 0)
-                return;
-            flags = *in++ | 0xFF00u;
-            --size;
-        }
-        if (flags & 1) {
-            // Literal byte.
-            if (size == 0)
-                return;
-            uint8_t c = *in++;
-            --size;
-            *out++ = c;
-            ring[r] = c;
-            r = (r + 1) & (kRingSize - 1);
-        } else {
-            // Reference: 12-bit position, 4-bit length - 3. (Like the original, only checks for one byte left.)
-            if (size == 0)
-                return;
-            int position = in[0] | ((in[1] & 0xF0) << 4);
-            int last = (in[1] & 0x0F) + 2;
-            in += 2;
-            size -= 2;
-            for (int k = 0; k <= last; ++k) {
-                uint8_t c = ring[(position + k) & (kRingSize - 1)];
-                *out++ = c;
-                ring[r] = c;
-                r = (r + 1) & (kRingSize - 1);
-            }
-        }
-    }
+    if (!lzss::unpack(info.data, static_cast<size_t>(info.compressed_size_), out, static_cast<size_t>(info.size),
+                      nullptr))
+        debug::printf("pre archive: a damaged compressed file\n");
 }
 
+} // namespace
+
 // 0x005B8820
-ArchiveFile::ArchiveFile(uint8_t* block, bool bottom_up)
+ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up)
 {
     bottom_up_heap_ = bottom_up;
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     files_ = memory ? new (memory) lists::KeyMap(4) : nullptr;
     block_ = block;
-    entry_count_ = *reinterpret_cast<int*>(block + 8);
 
-    auto* entry = reinterpret_cast<TableRow*>(block + 12);
+    // Not original - read through pre_format's reader, bounded by the block: a count or size past the end stops
+    // at the damage (the original walked on past the block). Valid archives give the same files.
+    if (size == 0)
+        size = util::ByteReader(block, pre_format::kHeaderSize).u32();
+    util::ByteReader reader(block, size);
+    pre_format::ArchiveHeader header;
+    entry_count_ = pre_format::read_archive_header(reader, &header) ? header.file_count : 0;
     for (int i = 0; i < entry_count_; ++i) {
-        int stored = entry->compressed_size_ ? entry->compressed_size_ : entry->size;
+        pre_format::FileRecord record;
+        if (!pre_format::read_file_record(reader, &record)) {
+            debug::printf("pre archive damaged at file %d of %d\n", i, entry_count_);
+            entry_count_ = i;
+            break;
+        }
         auto* info = static_cast<FileInfo*>(memory::carve(sizeof(FileInfo), 1, get_file_heap(bottom_up_heap_)));
-        const char* name = reinterpret_cast<const char*>(entry + 1);
-        if (files_->fetch_entry(checksums::hash_from_text(name))) {
+        uint32_t checksum = checksums::hash_from_text(record.name);
+        if (files_->fetch_entry(checksum)) {
             memory::dealloc(info); // the same name twice: the first one wins
         } else {
-            uint32_t checksum = checksums::hash_from_text(name);
             files_->store_entry(checksum, info);
-            info->data = reinterpret_cast<uint8_t*>(entry + 1) + entry->name_size_;
+            info->data = const_cast<uint8_t*>(record.data);
             info->unpacked = nullptr;
             info->position = 0;
-            info->compressed_size_ = entry->compressed_size_;
-            info->size = entry->size;
+            info->compressed_size_ = record.compressed_size;
+            info->size = record.size;
         }
-        entry = reinterpret_cast<TableRow*>(reinterpret_cast<uint8_t*>(entry) + ((stored + 3) & ~3) +
-                                            entry->name_size_ + sizeof(TableRow));
     }
     open_entry_ = nullptr;
     open_count_ = 0;
@@ -164,7 +118,7 @@ uint8_t* ArchiveFile::read_entry_from_archive(const char* name, int* size, uint8
     else if (info->compressed_size_ == 0)
         move_memory_block(out, info->data, static_cast<unsigned int>(info->size));
     else
-        decode(info->data, out, info->compressed_size_);
+        unpack_file(*info, out);
     return out;
 }
 
@@ -197,7 +151,7 @@ ArchiveFile::FileInfo* ArchiveFile::find_entry_in_archive(const char* name)
         open_entry_->unpacked = static_cast<uint8_t*>(
             memory::carve(static_cast<unsigned int>(open_entry_->size), 1, get_file_heap(bottom_up_heap_)));
         memory::pop_mem_profile();
-        decode(open_entry_->data, open_entry_->unpacked, open_entry_->compressed_size_);
+        unpack_file(*open_entry_, open_entry_->unpacked);
     }
     return info;
 }
@@ -329,20 +283,6 @@ bool debug_checks() { return game_config::g_from_cd; }
 
 memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_heap() : memory::top_down_heap(); }
 
-// A localised archive patch (.ppf/.ppd): the patched archive's size, a record count, then the records -
-// {offset, length, `length` bytes to write at that offset}.
-void apply_patch(uint8_t* archive, const uint32_t* patch)
-{
-    const auto* p = reinterpret_cast<const uint8_t*>(patch + 2);
-    for (uint32_t i = 0; i < patch[1]; ++i) {
-        uint32_t offset = reinterpret_cast<const uint32_t*>(p)[0];
-        uint32_t length = reinterpret_cast<const uint32_t*>(p)[1];
-        p += 8;
-        std::memcpy(archive + offset, p, length);
-        p += length;
-    }
-}
-
 } // namespace
 
 // 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
@@ -391,6 +331,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
 
     uint8_t* data;
     int size = file::cached_file_size(path);
+    size_t block_size = static_cast<size_t>(size); // (not original: the archive's bound for its reader)
     if (size != 0) {
         memory::push_mem_profile(path);
         data = static_cast<uint8_t*>(memory::carve(static_cast<unsigned int>(size), 1, load_heap(bottom_up)));
@@ -402,6 +343,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         // English archive (.ppf/.ppd).
         size_t length = std::strlen(path);
         uint32_t* patch = nullptr;
+        uint32_t patch_size = 0;
         bool patched = false;
         char letter = get_language() == 3 ? 'f' : get_language() == 5 ? 'd' : '\0';
         if (letter) {
@@ -410,7 +352,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
                 path[length - 2] = 'p';
                 if (file::is_present(path)) {
                     file::Hdl file = file::unseal(path, "rb");
-                    uint32_t patch_size = file::get_file_size(file);
+                    patch_size = file::get_file_size(file);
                     patch = static_cast<uint32_t*>(memory::alloc(patch_size));
                     file::get_take_in(patch, 1, static_cast<int>(patch_size), file);
                     file::shut(file);
@@ -432,25 +374,32 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         memory::push_mem_profile(path);
         size = static_cast<int>(file_size);
         uint32_t allocated = file_size;
-        if (patched && file_size <= patch[0])
-            allocated = patch[0]; // room for the patched archive
+        pre_format::PatchHeader patch_header;
+        util::ByteReader patch_reader(patch, patch_size);
+        if (patched && pre_format::read_patch_header(patch_reader, &patch_header) &&
+            file_size <= patch_header.patched_size)
+            allocated = patch_header.patched_size; // room for the patched archive
         data = static_cast<uint8_t*>(memory::carve(allocated, 1, load_heap(bottom_up)));
         memory::pop_mem_profile();
         file::get_take_in(data, 1, static_cast<int>(file_size), file);
-        if (debug_checks() && file_size != *reinterpret_cast<uint32_t*>(data))
+        if (debug_checks() && file_size != util::ByteReader(data, file_size).u32())
             debug::printf("%s has incorrect file size\n", path);
         file::shut(file);
         if (patched) {
             if (allocated > file_size)
                 std::memset(data + file_size, 0, allocated - file_size);
-            apply_patch(data, patch);
+            // Not original - bounded by the archive's room and the patch's size (the original wrote each record
+            // where it said).
+            if (!pre_format::apply_patch(data, allocated, reinterpret_cast<const uint8_t*>(patch), patch_size))
+                debug::printf("%s: a damaged patch\n", path);
             memory::dealloc(patch);
         }
+        block_size = allocated;
     }
 
     debug::printf("load time for file %s size %d is %d ms\n", name, size, time_milliseconds() - start);
     void* memory = memory::alloc_zeroed(sizeof(ArchiveFile), load_heap(bottom_up), 1);
-    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, bottom_up) : nullptr;
+    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, block_size, bottom_up) : nullptr;
     pres_->store_entry(checksums::hash_from_text(name), pre);
 }
 
@@ -532,7 +481,7 @@ bool ArchiveManager::has_finished_loading(const char* name)
 }
 
 // 0x005B8DB0
-void ArchiveManager::finish_load(int handle, uint8_t* data, int /*size*/)
+void ArchiveManager::finish_load(int handle, uint8_t* data, int size)
 {
     int i = 0;
     while (i < queued_archive_count_ && pending_[i].handle != handle)
@@ -540,7 +489,8 @@ void ArchiveManager::finish_load(int handle, uint8_t* data, int /*size*/)
     if (i == queued_archive_count_)
         return;
     void* memory = memory::alloc_zeroed(sizeof(ArchiveFile), memory::top_down_heap(), 1);
-    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, false) : nullptr;
+    // (`size`: the bytes the read brought in - the file's)
+    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, size > 0 ? static_cast<size_t>(size) : 0, false) : nullptr;
     pres_->store_entry(checksums::hash_from_text(pending_[i].name), pre);
     --queued_archive_count_;
     pending_[i] = pending_[queued_archive_count_]; // the last pending load takes this one's place
@@ -741,7 +691,10 @@ bool __cdecl cfunc_in_pre_file(script::Struct* params, script::Script* /*script*
 namespace {
 
 struct PreFileAdapter {
-    pre::ArchiveFile* make_new(uint8_t* block, bool bottom_up) { return new (this) pre::ArchiveFile(block, bottom_up); }
+    pre::ArchiveFile* make_new(uint8_t* block, size_t size, bool bottom_up)
+    {
+        return new (this) pre::ArchiveFile(block, size, bottom_up);
+    }
     pre::ArchiveFile* teardown(unsigned int flags)
     {
         auto* self = reinterpret_cast<pre::ArchiveFile*>(this);

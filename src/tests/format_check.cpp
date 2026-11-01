@@ -1,7 +1,8 @@
 // NOT ORIGINAL - offline checks of the file, save and network format readers / writers (thug2_format_check.exe).
 //
-//   thug2_format_check [<save file or folder>...]
+//   thug2_format_check [<save file or folder> | <Data folder>...]
 //
+// A Data folder (one with a pre\ folder) has its archives and data files checked (format_check_files.cpp).
 // With no arguments only the self-contained checks run (the byte reader / writer, the wire messages' encode of a
 // decode, added with them). Each save file (.SKA, .NWS, .PRK, .CAS, .CAT, .GOA, .GRF) is checked: its header read, both CRCs, and
 // its summary and contents decoded into a plain tree and encoded again - byte for byte what the game wrote, by the
@@ -25,6 +26,7 @@
 #include "game/park_editing/park_map_format.h"
 #include "game/save_cards/save_file_format.h"
 #include "game/skate/skate_net_messages.h"
+#include "tests/format_check_files.h"
 
 namespace {
 
@@ -783,7 +785,9 @@ int main(int argc, char** argv)
     g_failures += format_check_net::run();
     for (int i = 1; i < argc; ++i) {
         std::filesystem::path path(argv[i]);
-        if (std::filesystem::is_directory(path)) {
+        if (std::filesystem::is_directory(path / "pre")) { // a Data folder: its archives and files
+            g_failures += format_check_files::run(path);
+        } else if (std::filesystem::is_directory(path)) {
             for (const auto& entry : std::filesystem::directory_iterator(path)) {
                 if (entry.is_regular_file() && is_save_file(entry.path()))
                     check_save_file(entry.path());

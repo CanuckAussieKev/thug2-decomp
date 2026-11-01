@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace script {
@@ -16,10 +17,6 @@ class KeyMap;
 // disk (see engine/file/file_load.h), which offer every call to the pre manager first.
 namespace pre {
 
-// Decompress `size` bytes of LZSS data (the archive variant: 4 KB window in a global ring buffer) from `in`
-// into `out`. A negative or absurd size (32 MB or more) hangs, as the original's assertion does.
-void decode(const uint8_t* in, uint8_t* out, int size);
-
 // One loaded archive.
 class ArchiveFile {
 public:
@@ -32,9 +29,11 @@ public:
         int size;             // uncompressed size
     };
 
-    // `block` is the whole archive as loaded (the ArchiveFile owns it from now on). `bottom_up` picks the heap
-    // that file information and decompressed files are allocated from.
-    ArchiveFile(uint8_t* block, bool bottom_up);
+    // `block` is the whole archive as loaded, `size` bytes (the ArchiveFile owns it from now on; 0: not known -
+    // the archive's own size word is the bound). `bottom_up` picks the heap that file information and
+    // decompressed files are allocated from. The files are read through engine/file/pre_format.h: a damaged
+    // archive keeps the files before the damage.
+    ArchiveFile(uint8_t* block, size_t size, bool bottom_up);
     // Frees the block and all file information.
     ~ArchiveFile();
 

@@ -11,9 +11,11 @@
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
+#include "engine/file/pre_format.h"
 #include "frontend/data_overlay.h"
 #include "engine/script/params.h"
 #include "engine/sys/game_config.h"
+#include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "engine/gfx/loading_console.h"
 
@@ -53,15 +55,8 @@ PackLeadIn* header_of(char* pre) { return reinterpret_cast<PackLeadIn*>(pre + ((
 
 PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(header + 1); }
 
-// Archives as stored on disk: the name follows the header directly, the data the name, padded to 4 bytes.
-// (Loaded archives are repacked with 16-byte aligned data - see next_entry.)
-PreEntry* next_raw_entry(PreEntry* entry)
-{
-    uint32_t stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
-    return reinterpret_cast<PreEntry*>(reinterpret_cast<uint8_t*>(entry + 1) + entry->name_size_ +
-                                       ((stored + 3) & ~3u));
-}
-
+// (Loaded archives are repacked with 16-byte aligned data - see next_entry; the archive format as stored is read
+// through engine/file/pre_format.h.)
 PreEntry* next_entry(PreEntry* entry)
 {
     uint32_t stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
@@ -227,9 +222,12 @@ void load_pre(const char* name)
     // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
     // English archive (.ppf/.ppd).
     uint32_t* patch = nullptr;
+    uint32_t patch_size = 0;
+    pre_format::PatchHeader patch_header;
     bool patched = false;
     uint8_t* block = nullptr;
     unsigned int file_size = 0, allocated = 0;
+    size_t archive_size = 0; // (not original: the archive's bytes in the block, the bound for its reader)
     bool loaded = false;
     char letter = game_config::g_language == 3 ? 'f' : game_config::g_language == 5 ? 'd' : '\0';
     if (letter) {
@@ -239,6 +237,7 @@ void load_pre(const char* name)
             if (file::is_present(path)) {
                 file::Hdl file = file::unseal(path, "rb");
                 file_size = file::get_file_size(file);
+                patch_size = file_size;
                 patch = static_cast<uint32_t*>(memory::alloc(file_size));
                 file::get_take_in(patch, 1, static_cast<int>(file_size), file);
                 file::shut(file);
@@ -268,7 +267,11 @@ void load_pre(const char* name)
     if (!loaded) {
         file::Hdl file = file::unseal(path, "rb");
         file_size = file::get_file_size(file);
-        unsigned int needed = patched && patch[0] >= file_size ? patch[0] : file_size;
+        util::ByteReader patch_reader(patch, patch_size);
+        if (patched && !pre_format::read_patch_header(patch_reader, &patch_header))
+            patch_header = {};
+        unsigned int needed = patched && patch_header.patched_size >= file_size ? patch_header.patched_size : file_size;
+        archive_size = needed;
         allocated = ((needed + 0x7FF) & ~0x7FFu) + prefix;
         block = static_cast<uint8_t*>(allocate_file_memory(allocated));
         std::memcpy(block, name, std::strlen(name) + 1);
@@ -276,65 +279,79 @@ void load_pre(const char* name)
         file::shut(file);
     }
 
+    if (!block) {
+        // (the console leftover above: the original carried on through the null block and crashed)
+        if (patch)
+            memory::dealloc(patch);
+        return;
+    }
     if (patched) {
-        // Through uintptr_t: on the path above `block` can be null, as in the original.
-        auto data = reinterpret_cast<uintptr_t>(block) + prefix;
+        uint8_t* data = block + prefix;
         if (allocated > file_size)
-            std::memset(reinterpret_cast<void*>(data + file_size), 0, allocated - file_size - prefix);
-        const auto* p = reinterpret_cast<const uint8_t*>(patch + 2);
-        for (uint32_t i = 0; i < patch[1]; ++i) {
-            uint32_t offset = reinterpret_cast<const uint32_t*>(p)[0];
-            uint32_t count = reinterpret_cast<const uint32_t*>(p)[1];
-            p += 8;
-            std::memcpy(reinterpret_cast<void*>(data + offset), p, count);
-            p += count;
-        }
+            std::memset(data + file_size, 0, allocated - file_size - prefix);
+        // Not original - bounded by the block and the patch's size (the original wrote each record where it said).
+        if (!pre_format::apply_patch(data, allocated - prefix, reinterpret_cast<const uint8_t*>(patch), patch_size))
+            debug::printf("%s: a damaged patch\n", path);
         memory::dealloc(patch);
     }
 
     // Repack: every file stored uncompressed, its data 16-byte aligned after its header and name, so files
-    // can be used in place. First the new size (plus slack), then the copy.
-    auto* old_header =
-        reinterpret_cast<PackLeadIn*>(block + ((std::strlen(reinterpret_cast<char*>(block)) + 0x10) & ~size_t(0xF)));
-    int count = old_header->num_files_;
+    // can be used in place. First the new size (plus slack), then the copy. Not original - the archive as loaded is
+    // read through pre_format's reader, bounded by its size: a damaged archive keeps the files before the damage
+    // (the original walked and copied on past the block).
+    util::ByteReader archive(block + prefix, archive_size);
+    pre_format::ArchiveHeader old_header;
+    if (!pre_format::read_archive_header(archive, &old_header))
+        old_header = {};
+    int count = 0;
     uintptr_t new_size = prefix + sizeof(PackLeadIn);
     {
-        auto* entry = reinterpret_cast<PreEntry*>(old_header + 1);
-        for (int n = count; n != 0; --n) {
-            new_size = ((entry->name_size_ + new_size + 0x1F) & ~uintptr_t(0xF)) + ((entry->size + 3) & ~3u);
-            entry = next_raw_entry(entry);
+        util::ByteReader sizing = archive;
+        for (; count < old_header.file_count; ++count) {
+            pre_format::FileRecord record;
+            if (!pre_format::read_file_record(sizing, &record))
+                break;
+            new_size = ((record.name_size + new_size + 0x1F) & ~uintptr_t(0xF)) +
+                       ((static_cast<uint32_t>(record.size) + 3) & ~3u);
         }
+        if (count != old_header.file_count)
+            debug::printf("%s: damaged at file %d of %d\n", path, count, old_header.file_count);
     }
     auto* repacked = static_cast<uint8_t*>(allocate_file_memory(static_cast<unsigned int>(new_size + 0xC00)));
     for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
         repacked[i] = block[i];
 
     auto* new_header = reinterpret_cast<PackLeadIn*>(repacked + prefix);
-    new_header->num_files_ = old_header->num_files_;
-    new_header->version = old_header->version;
-    auto* from = reinterpret_cast<PreEntry*>(old_header + 1);
-    auto* to = reinterpret_cast<PreEntry*>(new_header + 1);
-    for (int n = count; n != 0; --n) {
-        to->size = from->size;
-        to->checksum = from->checksum;
+    new_header->num_files_ = count;
+    new_header->version = static_cast<int>(old_header.version);
+    auto* to = first_entry(new_header);
+    for (int n = 0; n < count; ++n) {
+        pre_format::FileRecord from;
+        pre_format::read_file_record(archive, &from); // (read once already)
+        to->size = from.size;
+        to->checksum = from.checksum;
         to->compressed_size_ = 0;
         to->use_count_ = 0;
-        to->name_size_ = from->name_size_;
-        std::memcpy(to + 1, from + 1, from->name_size_);
+        to->name_size_ = from.name_size;
+        std::memcpy(to + 1, from.name, from.name_size);
 
-        PreEntry* next_from = next_raw_entry(from);
-        const uint8_t* source = reinterpret_cast<const uint8_t*>(from + 1) + from->name_size_;
         auto* target =
             reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) & ~uintptr_t(0xF));
-        if (from->compressed_size_) {
-            uint8_t* end = lzss::decode(source, target, from->compressed_size_);
-            for (uint32_t pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
-                *end++ = 0;
+        uint8_t* end;
+        if (from.compressed_size) {
+            // Not original - unpacked bounded by the file's size (lzss::unpack: decode's bytes for a valid file).
+            size_t written = 0;
+            if (!lzss::unpack(from.data, static_cast<size_t>(from.compressed_size), target,
+                              static_cast<size_t>(from.size), &written))
+                debug::printf("%s: %s is damaged\n", path, from.name);
+            end = target + written;
         } else {
-            std::memcpy(target, source, ((static_cast<uint32_t>(from->size) + 3) >> 2) * 4);
+            std::memcpy(target, from.data, static_cast<size_t>(from.size));
+            end = target + from.size;
         }
+        for (uint32_t pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
+            *end++ = 0;
         to = next_entry(to);
-        from = next_from;
     }
     new_header->total_size_ = static_cast<int>(reinterpret_cast<uint8_t*>(to) - reinterpret_cast<uint8_t*>(new_header));
     free_file_memory(block);
@@ -518,4 +535,5 @@ bool archive_is_busy(const char* name)
 
 } // namespace packs
 
-static_assert(sizeof(packs::PreEntry) == 16 && sizeof(packs::LoadedFile) == 16, "layout must match the original");
+static_assert(sizeof(packs::PreEntry) == pre_format::kFileHeaderSize,
+              "the repacked archive's file header: the archive format's (pre_format.h), used in place");
