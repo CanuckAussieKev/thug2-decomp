@@ -795,7 +795,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
             code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
             skate, static_cast<int>(static_cast<int8_t>(player->entity_key_)));
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
-        player->account_->decode_from_bytes(buffer);
+        player->account_->decode_from_bytes(buffer, kAppearanceSize);
         memory::Hub::get_pull()->dealloc(buffer);
         player->flag_bits_ = kPlayerLocal;
         late_player_arrival(manager, player, 0);
@@ -821,7 +821,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
             size = kAppearanceSize;
         std::memset(appearance, 0, kAppearanceSize);
         reader.bytes(appearance, size);
-        player->account_->decode_from_bytes(appearance);
+        player->account_->decode_from_bytes(appearance, sizeof(appearance));
     }
     late_player_arrival(manager, player, kDeferredJoinFrames);
     player->destroy_body();

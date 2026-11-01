@@ -330,13 +330,18 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
 }
 
 // 0x00489400
-uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer)
+uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer, size_t size)
 {
     script::Struct* read = new_temp_struct();
-    uint8_t* end = const_cast<uint8_t*>(script::decode_from_bytes(read, buffer));
+    uint8_t* end = const_cast<uint8_t*>(script::decode_from_bytes(read, buffer, size));
     structure_.get_clear();
     structure_.append_structure_if_any(read);
     delete_temp_struct(read);
+    // (Not original: within the size - none left, no face texture and the end where it is)
+    if (static_cast<size_t>(end - buffer) >= size) {
+        has_face_texture_ = false;
+        return buffer + size;
+    }
     has_face_texture_ = *end != 0;
     return end + 1;
 }

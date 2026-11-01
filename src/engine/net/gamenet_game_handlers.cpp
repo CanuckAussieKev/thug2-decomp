@@ -147,7 +147,7 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
         size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
         std::memset(appearance, 0, sizeof(appearance));
         reader.bytes(appearance, size);
-        info->account_->decode_from_bytes(appearance); // the appearance into its profile
+        info->account_->decode_from_bytes(appearance, sizeof(appearance)); // the appearance into its profile
     }
     int delay = 0;
     if (manager->cleared_to_start_) {

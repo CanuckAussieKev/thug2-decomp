@@ -82,9 +82,10 @@ struct RiderIdentity {
     // the chosen info names written to `buffer` (returns the bytes); 0x00586DC0 read back (returns the end).
     // 0x00586E70 / 0x00586A40: the info's part alone.
     int emit_into_buffer(uint8_t* buffer, int size, int flags);
-    uint8_t* decode_from_bytes(uint8_t* buffer);
+    // (Not original: `size` - the buffer's bytes; each part is decoded within them.)
+    uint8_t* decode_from_bytes(uint8_t* buffer, size_t size);
     int write_info_to_buffer(uint8_t* buffer, int size);
-    uint8_t* read_info_from_buffer(uint8_t* buffer);
+    uint8_t* read_info_from_buffer(uint8_t* buffer, const uint8_t* limit);
 };
 static_assert(sizeof(RiderIdentity) == 0x64, "layout must match the original");
 

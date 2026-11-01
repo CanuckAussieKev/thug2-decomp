@@ -56,7 +56,8 @@ public:
     // byte: whether it has a face texture (always 0 with `noFaceTexture`). Returns the bytes written.
     int emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture);
     // 0x00489400: read back: the slots replaced by the buffer's, then the face texture byte. Returns the end.
-    uint8_t* decode_from_bytes(uint8_t* buffer);
+    // (Not original: `size` - the buffer's bytes; nothing is read past them.)
+    uint8_t* decode_from_bytes(uint8_t* buffer, size_t size);
 
     script::Struct structure_; // +0x4C the slots
     FaceSkin* face_skin_;      // +0x54

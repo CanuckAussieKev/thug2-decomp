@@ -704,7 +704,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
             memory::ensure_manager();
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(0x1000, 1, nullptr));
         info->account_->emit_into_buffer(buffer, 0x1000, 0);
-        record->account_->decode_from_bytes(buffer);
+        record->account_->decode_from_bytes(buffer, 0x1000);
         memory::Hub::get_pull()->dealloc(buffer);
     }
     if (flag_bits_ & 1) {

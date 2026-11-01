@@ -70,9 +70,10 @@ int write_struct(script::Struct* s, uint8_t* buffer, int size)
 {
     return static_cast<int>(script::emit_into_buffer(s, buffer, static_cast<uint32_t>(size), 1, nullptr));
 }
-uint8_t* read_struct(script::Struct* s, uint8_t* buffer)
+uint8_t* read_struct(script::Struct* s, uint8_t* buffer, const uint8_t* limit)
 {
-    return const_cast<uint8_t*>(script::decode_from_bytes(s, buffer));
+    size_t size = buffer < limit ? static_cast<size_t>(limit - buffer) : 0;
+    return const_cast<uint8_t*>(script::decode_from_bytes(s, buffer, size));
 }
 
 void push_skater_info_heap() { memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_); }
@@ -454,10 +455,12 @@ RiderIdentity* RiderIdentity::make_new()
 }
 
 // 0x00586DC0
-uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer)
+uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
 {
+    // (Not original: `size` - each part decoded within the buffer's bytes)
+    const uint8_t* limit = buffer + size;
     push_script_heap();
-    uint8_t* at = reinterpret_cast<gfx::ModelLook*>(this)->decode_from_bytes(buffer); // the appearance
+    uint8_t* at = reinterpret_cast<gfx::ModelLook*>(this)->decode_from_bytes(buffer, size); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
     appearance_guard::sanitise(&appearance()->structure_);
@@ -465,20 +468,20 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     part->get_clear();
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
-    at = read_struct(part, at);
+    at = read_struct(part, at, limit);
     details_params()->read_sub_struct(kSpecials, &part, 1);
     part->get_clear();
-    at = read_struct(part, at);
-    uint8_t* end = read_info_from_buffer(at);
+    at = read_struct(part, at, limit);
+    uint8_t* end = read_info_from_buffer(at, limit);
     pop_heap();
     return end;
 }
 
 // 0x00586A40
-uint8_t* RiderIdentity::read_info_from_buffer(uint8_t* buffer)
+uint8_t* RiderIdentity::read_info_from_buffer(uint8_t* buffer, const uint8_t* limit)
 {
     script::Struct* read = new_empty_struct();
-    uint8_t* end = read_struct(read, buffer);
+    uint8_t* end = read_struct(read, buffer, limit);
     details_params()->append_structure_if_any(read);
     free_struct(read);
     return end;

@@ -61,9 +61,9 @@ void write_structure(script::Struct* structure, void* buffer, uint32_t size, int
 {
     script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a, reinterpret_cast<void (*)()>(b));
 }
-void read_structure(script::Struct* structure, void* buffer)
+void read_structure(script::Struct* structure, void* buffer, size_t size)
 {
-    script::decode_from_bytes(structure, static_cast<const uint8_t*>(buffer));
+    script::decode_from_bytes(structure, static_cast<const uint8_t*>(buffer), size);
 }
 
 // strcpy (inline in the original: no limit).
@@ -145,10 +145,11 @@ void ParkLayout::transfer_park_file(bool save, int slot)
     file::Hdl file = file::unseal(name, "rb");
     uint32_t size = file::get_file_size(file);
     void* buffer = memory::alloc_block(size);
-    file::get_take_in(buffer, static_cast<int>(size), 1, file);
+    int read = file::get_take_in(buffer, static_cast<int>(size), 1, file);
     file::shut(file);
     script::Struct* params = spawn_param_table();
-    read_structure(params, buffer);
+    // (Not original: decoded within what was read - the original decoded on to the end marker, past a file cut short)
+    read_structure(params, buffer, read > 0 ? static_cast<size_t>(read) : 0);
     memory::free_malloc(buffer);
     decode_from_struct(params, false);
     delete_structure(params);
