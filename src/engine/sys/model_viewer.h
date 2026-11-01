@@ -121,7 +121,7 @@ int handle_create_viewer_object(net::InboundMsgCtx* context);
 int on_remote_script_msg(net::InboundMsgCtx* context);
 // 0x00577140: the PC tool's "remove the object" message (0x24): the viewer object deleted (the viewer from the
 // message's first word, like 0x005775A0). Returns 1.
-int handle_remove_viewer_object(void** context);
+int handle_remove_viewer_object(net::InboundMsgCtx* context);
 // 0x00576E70 / 0x00576E80 / 0x00576E90: the script commands change_view_mode's, SetMovementVelocity's (400 to start
 // with) and SetRotateVelocity's (120) values. 0x00576EA0: the singleton (0x007CE4A8).
 void change_view_mode(int mode);
@@ -132,7 +132,7 @@ Viewer* get_live_viewer();
 script::Script* spawn_script_if_exists(uint32_t name);
 // 0x00576CF0: a script file reloaded by the PC tool: runnow.qb (or ..\runnow.qb) noted (0x007CE4A0), then the
 // file loaded (0x005A5960). Returns 1.
-int reload_script_file(const char** name);
+int reload_script_file(net::InboundMsgCtx* context);
 // 0x005772E0: `object` moved by `offset` along its own axes (its matrix's rotation).
 void move_object_local(objects::GameEntity* object, const maths::Vec4* offset);
 

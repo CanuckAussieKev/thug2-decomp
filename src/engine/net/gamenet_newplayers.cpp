@@ -102,8 +102,8 @@ void Hub::add_new_player(JoinerRecord* info)
             skater =
                 static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id), 0);
         } else {
-            auto* skaters = raw::as<modules::Skate>(skate);
-            const int count = raw::as<modules::Skate>(skate)->get_home_rider()
+            auto* skaters = skate;
+            const int count = skate->get_home_rider()
                                   ? skaters->count_riders()
                                   : (skaters->count_riders() + 1) & 7;
             skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(info->account_, false,
@@ -134,7 +134,7 @@ void Hub::add_new_player(JoinerRecord* info)
         player->accumulated_score_ = static_cast<int>(info->accumulated_score_);
         player->eliminated_time_ = info->eliminated_time_;
         auto* head = &players_;
-        auto* node = raw::as<memory::ListNode>(player);
+        memory::ListNode* node = player;
         node->prev = head->prev;
         node->next = head;
         head->prev->next = node;
@@ -308,7 +308,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             player->accumulated_score_ = 0;
             player->eliminated_time_ = 0;
             auto* head = &manager->players_;
-            auto* player_node = raw::as<memory::ListNode>(player);
+            memory::ListNode* player_node = player;
             player_node->prev = head->prev;
             player_node->next = head;
             head->prev->next = player_node;

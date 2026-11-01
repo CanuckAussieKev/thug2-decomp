@@ -67,7 +67,7 @@ PlayerRecord* find_player_slot_by_obj(int id)
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 int get_team(PlayerRecord* player) { return player->team_; }
-objects::Rider* skater_of(PlayerRecord* player) { return player->skater_; }
+objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 int current_object_id(objects::Entity* skater) { return static_cast<int>(skater->ident_); }
 
 // Team graffiti scored by team: the game mode netgraffiti, a team game, team_graffiti_mode graffiti_team_scoring.

@@ -105,14 +105,14 @@ void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
 // 0x00543910
 bool PlayerRecord::is_invulnerable()
 {
-    if (!(conn_->cur_standing_ & net::Conn::kConnReady) || !skater_->get_flag_2c_4())
+    if (!(conn_->cur_standing_ & net::Conn::kConnReady) || !rider()->get_flag_2c_4())
         return true;
-    if (skater_->state_history_->state_count_ < 10) // (its state history's frames)
+    if (rider()->state_history_->state_count_ < 10) // (its state history's frames)
         return true;
     if (frame_clock::get_time() - join_time_ < kJoinSettleTime)
         return true;
     if (get_game_type() == kNetFirefight) {
-        auto* skater = raw::as<objects::GameEntity>(skater_);
+        auto* skater = skater_;
         if (static_cast<modules::PointTally*>(
                 core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_)
                 ->get_total_score() <= 0)
@@ -274,7 +274,7 @@ void PlayerRecord::give_crown(bool king)
         flag_bits_ |= kPlayerKing;
         if (flag_bits_ & kPlayerLocal) {
             script::Struct* params = script::new_struct();
-            const uint32_t player = skater_->get_skater_number() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
+            const uint32_t player = rider()->get_skater_number() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
             params->put_name_key(player, player);
             get_run(kHideCrownArrow, params);
             script::free_struct(params);
@@ -290,7 +290,7 @@ void PlayerRecord::give_crown(bool king)
         // Split screen: the other screen's player is told too.
         if (!manager->in_net_game() && manager->find_player_slot_by_obj(get_skater_id(skater_) == 0 ? 1 : 0)) {
             script::Struct* params = script::new_struct();
-            params->append_word(kString0, skater_->fetch_shown_name()); // (its display name)
+            params->append_word(kString0, rider()->fetch_shown_name()); // (its display name)
             get_run(kNewKingOther, params);
             script::free_struct(params);
         }

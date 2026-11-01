@@ -9,6 +9,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "wire/gamenet_messages.h"
+#include "engine/script/preferences.h"
 
 namespace net {
 struct AppHost;
@@ -632,7 +633,7 @@ public:
     bool show_metrics_;           // +0x45 the net metrics shown (toggle_net_metrics)
     bool show_scores_;            // +0x46 the scores shown (toggle_scores)
     bool show_names_;             // +0x47 the players' names shown (toggle_player_names)
-    std::array<uint32_t, 8> start_points_{};  // +0x48 the skaters' starting points (choose_start_points; the start info's)
+    std::array<int, 8> start_points_{};      // +0x48 the skaters' starting points (choose_start_points; the start info's)
     int crown_start_{};           // +0x68 the crown's starting point (sent as a signed byte)
     objects::CrownObject* crown_{}; // +0x6C king of the hill's crown
     std::array<std::array<uint32_t, 5>, 4> team_objects_{}; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
@@ -655,8 +656,8 @@ public:
     int spectate_request_{};                                           // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
     // original, whose sets had a table): get_online_settings / get_taunt_settings.
-    alignas(4) std::array<uint8_t, 0xC> net_options_{};   // +0x104
-    alignas(4) std::array<uint8_t, 0xC> taunt_options_{}; // +0x110
+    prefs::Preferences net_options_;   // +0x104
+    prefs::Preferences taunt_options_; // +0x110
     memory::ListNode players_{};              // +0x11C lists::Foremost<PlayerRecord>
     memory::ListNode joiners_{};              // +0x130 lists::Foremost<JoinerRecord>: the joining players
     memory::ListNode queued_scripts_{};       // +0x144 the scripts to run once the level is up

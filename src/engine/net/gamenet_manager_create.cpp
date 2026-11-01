@@ -73,8 +73,6 @@ void* carve(uint32_t size)
 Hub::Hub()
 {
     // (flag_bits_: a word in the original - the three bytes after it are zero already)
-    new (net_options_.data()) prefs::Preferences;
-    auto* taunts = new (taunt_options_.data()) prefs::Preferences;
     setup_list_sentinel(&players_);        // the players
     setup_list_sentinel(&joiners_);        // the joining players
     setup_list_sentinel(&queued_scripts_); // the queued scripts
@@ -95,8 +93,8 @@ Hub::Hub()
     host_mode_ = 0;
     service_state_ = 2;
     next_service_state_ = 2;
-    raw::as<prefs::Preferences>(net_options_.data())->read_in(kNetSettingsKey);
-    taunts->read_in(kTauntSettingsKey);
+    net_options_.read_in(kNetSettingsKey);
+    taunt_options_.read_in(kTauntSettingsKey);
     connection_job_ = new_task(this, &Hub::connection_task, -2000);
     metrics_job_ = new_task(this, &net_metrics_task, 0);
     server_list_job_ = new_task(this, &online::server_list_task, 0);

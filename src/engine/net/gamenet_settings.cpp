@@ -415,7 +415,7 @@ const char* Hub::get_game_type_name()
         get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
         entry->read_hash_value(kChecksum, &mode, 0);
         if (type == mode) {
-            const char* name = cell::pointer<const char>(type);
+            const char* name = ""; // (on a miss the original returns the checksum as the text's address)
             entry->fetch_text(kName, &name, 1);
             return name;
         }

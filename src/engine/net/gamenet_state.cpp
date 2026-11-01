@@ -177,14 +177,14 @@ void Hub::scan_local_network()
 }
 
 // 0x00532F70 / 0x00532F80
-prefs::Preferences* Hub::get_online_settings() { return raw::as<prefs::Preferences>(net_options_.data()); }
-prefs::Preferences* Hub::get_taunt_settings() { return raw::as<prefs::Preferences>(taunt_options_.data()); }
+prefs::Preferences* Hub::get_online_settings() { return &net_options_; }
+prefs::Preferences* Hub::get_taunt_settings() { return &taunt_options_; }
 
 // 0x00532F90
 void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_.data(), words, 8 * sizeof(uint32_t)); }
 
 // 0x00532FD0
-uint32_t Hub::get_start_info_word(int index) { return core::at((start_points_), index); }
+uint32_t Hub::get_start_info_word(int index) { return static_cast<uint32_t>(core::at(start_points_, index)); }
 
 // 0x00532FE0
 bool Hub::is_untimed_game()

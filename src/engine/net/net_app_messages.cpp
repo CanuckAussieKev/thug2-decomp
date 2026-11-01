@@ -153,7 +153,7 @@ int dispatch_stream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* de
     whole.type_code_ = desc->msg_id_;
     whole.body_size_ = desc->extent_;
     whole.wire_options_ = 0;
-    whole.body_ = static_cast<char*>(memory::alloc(desc->extent_));
+    whole.body_ = static_cast<uint8_t*>(memory::alloc(desc->extent_));
     std::memcpy(whole.body_, desc->content_, desc->extent_);
     if (check_checksum && checksums::generate_crc_from_buffer(whole.body_, desc->extent_) != desc->checksum_)
         whole.wire_options_ |= kPacketChecksumMismatch;
@@ -356,7 +356,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
         memory::Hub::get_pull()->dealloc(data);
         return kResultConsumed;
     }
-    auto* copy = static_cast<char*>(memory::alloc(length));
+    auto* copy = static_cast<uint8_t*>(memory::alloc(length));
     expanded.bytes(copy, length);
     inner.body_ = copy;
     inner.receiver_app_ = context->receiver_app_;

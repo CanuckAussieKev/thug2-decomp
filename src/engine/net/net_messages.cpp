@@ -21,21 +21,21 @@ void release_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // `data` compressed with `method` (1 RLE, 2 LZSS) into a new block that starts with a message header; null (and
 // nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size. (net_compress.cpp)
-char* compress_message(uint8_t* id, uint16_t* length, const void* data, uint8_t method)
+uint8_t* compress_message(uint8_t* id, uint16_t* length, const void* data, uint8_t method)
 {
-    return raw::chars(net::compress_message(id, length, data, static_cast<char>(method)));
+    return net::compress_message(id, length, data, static_cast<char>(method));
 }
 
 // The data a queued message keeps: a copy, compressed if asked and smaller (then the id and length change).
-char* copy_data(uint8_t* id, uint16_t* length, const void* data, uint8_t compression)
+uint8_t* copy_data(uint8_t* id, uint16_t* length, const void* data, uint8_t compression)
 {
-    char* compressed = nullptr;
+    uint8_t* compressed = nullptr;
     if (compression) {
         compressed = compress_message(id, length, data, compression);
         if (compressed)
             data = compressed;
     }
-    auto* copy = static_cast<char*>(memory::alloc(*length));
+    auto* copy = static_cast<uint8_t*>(memory::alloc(*length));
     std::memcpy(copy, data, *length);
     if (compressed)
         release_memory(compressed);
@@ -69,6 +69,13 @@ SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, uint8_
 
 // 0x004550F0
 PendingMsg::~PendingMsg()
+{
+    if (content_)
+        release_memory(content_);
+}
+
+// (0x004550F0, PendingMsg's: the data freed)
+SeqQueuedMsg::~SeqQueuedMsg()
 {
     if (content_)
         release_memory(content_);

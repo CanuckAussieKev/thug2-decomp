@@ -38,7 +38,7 @@ struct InboundMsgCtx {
     // 0x00454A20 (net_descs.cpp): every field zeroed.
     InboundMsgCtx();
 
-    char* body_{nullptr};
+    uint8_t* body_{nullptr}; // the message (its body_size_ bytes; read through wire/)
     uint8_t type_code_{0};
     std::array<uint8_t, 3> spare_slot5_{};
     uint32_t body_size_{0};

@@ -49,6 +49,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "wire/net_wire.h"
 
 namespace online {
 
@@ -235,7 +236,7 @@ int handle_cd_key_challenge(net::InboundMsgCtx* context)
     std::array<char, 36> answer{};
     // 0x0054CA10: the answer to the challenge (the message itself). (Static: the original passes the online service,
     // +0x1C, in ECX, unused.)
-    RankingsManager::generate_auth(context->body_, password, answer.data());
+    RankingsManager::generate_auth(net::wire::text_of(context->body_), password, answer.data());
     desc.ident_ = kMsgCdKeyAnswer;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
@@ -339,8 +340,9 @@ int handle_checksum_request(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
     net::NetMessageInfo desc;
-    char* msg = context->body_;
-    *raw::field_at<uint32_t>(msg, 4) = static_cast<modules::Skate*>(skate)->get_cheats();
+    uint8_t* msg = context->body_;
+    const uint32_t cheats = static_cast<modules::Skate*>(skate)->get_cheats();
+    std::memcpy(msg + 4, &cheats, sizeof(cheats)); // (its second word)
     desc.group_id_ = kGroupGame;
     desc.byte_count_ = 8;
     desc.ident_ = kMsgDigest;
@@ -378,7 +380,7 @@ int handle_cd_key_answer(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     const uint32_t id = player->skater_->ident_; // its skater's id
-    manager->rating_service_->set_player_auth(static_cast<int>(id), context->body_);
+    manager->rating_service_->set_player_auth(static_cast<int>(id), net::wire::text_of(context->body_));
     return kContinue;
 }
 

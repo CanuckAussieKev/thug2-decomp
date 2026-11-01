@@ -88,14 +88,16 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
     auto* lobby = manager->lobby_service_.get();
     params->fetch_text(0u, &address, 0);
     params->fetch_int_value(0u, &port, 0);
-    params->read_hash_value(kCookie, raw::as<uint32_t>(&lobby->nat_cookie_), 0);
+    auto cookie = static_cast<uint32_t>(lobby->nat_cookie_);
+    params->read_hash_value(kCookie, &cookie, 0);
+    lobby->nat_cookie_ = static_cast<int>(cookie);
     net::AppHost* client = manager->start_client_session(false, false, true, 0);
     game_spy::peer_send_nat_negotiate_cookie(lobby->remote_, static_cast<uint32_t>(inet_addr(address)), port,
                                              lobby->nat_cookie_); // the cookie to the host
     const int error = game_spy::nat_begin_with_socket(
         client->get_socket(), lobby->nat_cookie_, kClientNatIndex,
         code_address(stubs::do_nothing) /* no progress callback */, &RoomManager::nat_negotiation_completed,
-        cell::pointer<void>(static_cast<intptr_t>(lobby->nat_cookie_))); // negotiation on the client's socket
+        lobby->nat_cookie_); // negotiation on the client's socket
     if (error) {
         nat_free_negotiations();
         pop_heap();

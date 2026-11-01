@@ -43,6 +43,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/gfx/rig.h"
+#include "wire/net_wire.h"
 
 namespace objects {
 
@@ -512,28 +513,28 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
 // 0x00589840
 int handle_play_animation(net::InboundMsgCtx* context)
 {
-    object_of(context)->play_animation(*raw::as<const uint32_t>(context->body_));
+    object_of(context)->play_animation(net::wire::value_at<uint32_t>(context->body_));
     return 1;
 }
 
 // 0x0058ACA0
 int on_clip_rate_msg(net::InboundMsgCtx* context)
 {
-    object_of(context)->scale_anim_rate(*raw::as<const float>(context->body_));
+    object_of(context)->scale_anim_rate(net::wire::value_at<float>(context->body_));
     return 1;
 }
 
 // 0x0058ACC0
 int handle_step_animation(net::InboundMsgCtx* context)
 {
-    object_of(context)->step_animation(*raw::as<const bool>(context->body_)); // (the byte as it is)
+    object_of(context)->step_animation(context->body_[0] != 0); // (the byte as a flag)
     return 1;
 }
 
 // 0x0058A1F0
 int handle_reload_animation(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
+    const char* message = net::wire::text_of(context->body_);
     object_of(context)->reload_animation(message, *raw::field_at<const uint32_t>(message, 0x80));
     return 1;
 }
@@ -541,7 +542,7 @@ int handle_reload_animation(net::InboundMsgCtx* context)
 // 0x0058ACE0
 int handle_reload_cam_animation(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
+    const char* message = net::wire::text_of(context->body_);
     script::Struct* params = script::new_struct();
     params->append_word(0u, message);
     params->put_name_key(0u, *raw::field_at<const uint32_t>(message, 0x80));
@@ -553,7 +554,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
 // 0x0058A210
 int handle_run_anim_view_script(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
+    const char* message = net::wire::text_of(context->body_);
     PreviewEntity* object = object_of(context);
     std::array<char, 260> path{};
     std::snprintf(path.data(), sizeof(path), "scripts\\animview\\%s.qb", message);

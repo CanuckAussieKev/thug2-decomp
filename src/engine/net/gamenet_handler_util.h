@@ -25,6 +25,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "wire/net_wire.h"
 
 namespace objects {
 class Entity;
@@ -52,11 +53,11 @@ T& prop(const void* object, uint32_t offset)
 inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content_); }
 inline const uint8_t* get_message(net::InboundMsgCtx* context)
 {
-    return raw::bytes(context->body_);
+    return context->body_;
 }
 inline uint32_t message_word(net::InboundMsgCtx* context, uint32_t offset)
 {
-    return *raw::field_at<const uint32_t>(context->body_, offset);
+    return net::wire::value_at<uint32_t>(context->body_, offset);
 }
 inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::Entity* object = nullptr)
 {
@@ -87,7 +88,7 @@ inline PlayerRecord* is_crown_rule_active(Hub* manager) { return manager->get_hi
 // (0 or 1 in EAX: the original's callers test AL)
 inline bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
 inline bool is_observer(PlayerRecord* player) { return player->is_observer() != 0; }
-inline objects::Entity* player_skater(const PlayerRecord* player) { return player->skater_; }
+inline objects::GameEntity* player_skater(const PlayerRecord* player) { return player->skater_; }
 inline uint32_t get_skater_id(const objects::Entity* skater) { return skater->ident_; }
 inline const char* player_name(const PlayerRecord* player) { return player->label_.data(); }
 inline int player_team(const PlayerRecord* player) { return player->team_; }

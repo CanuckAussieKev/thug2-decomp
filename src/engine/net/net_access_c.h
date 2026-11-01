@@ -169,7 +169,7 @@ inline void add_packet_metric(void* metrics, uint32_t size, uint32_t time)
 
 // Queued messages: the destructor frees the data (0x004550F0).
 inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->~PendingMsg(); }
-inline SeqQueuedMsg* construct_seq_msg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group,
+inline SeqQueuedMsg* construct_seq_msg(void* memory, uint8_t id, uint16_t length, const uint8_t* data, uint8_t group,
                                        bool compressed)
 {
     return new (memory) SeqQueuedMsg(id, length, data, group, compressed);

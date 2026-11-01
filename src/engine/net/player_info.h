@@ -13,6 +13,7 @@ struct Conn;
 } // namespace net
 namespace objects {
 class Rider;
+class GameEntity;
 struct RiderIdentity;
 } // namespace objects
 
@@ -200,7 +201,9 @@ public:
     // player's crown arrow shown again in netking / king).
     void give_crown(bool king);
 
-    objects::Rider* skater_;     // +0x14
+    objects::GameEntity* skater_; // +0x14 (a Rider)
+    // The skater as the Rider it is (null without one).
+    [[nodiscard]] objects::Rider* rider() const;
     net::Conn* conn_{};          // +0x18
     uint32_t eliminated_time_;   // +0x1C
     int accumulated_score_{};    // +0x20

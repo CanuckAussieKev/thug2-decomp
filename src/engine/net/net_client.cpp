@@ -16,6 +16,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "wire/net_wire.h"
 
 namespace net {
 
@@ -243,17 +244,17 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
     context->body_size_ = sizeof(uint16_t);
     if (context->wire_options_ & kPacketForeign)
         return kResultConsumed;
-    auto* stamp = raw::as<uint16_t>(context->body_);
+    const auto stamp = net::wire::value_at<uint16_t>(context->body_);
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
-    core::at(context->sequences_to_ack_, context->num_sequences_to_ack_) = *stamp;
+    core::at(context->sequences_to_ack_, context->num_sequences_to_ack_) = stamp;
     ++context->num_sequences_to_ack_;
     Conn* conn = context->sender_conn_;
     uint32_t& newest = conn->last_timestamp_in_;
     if (newest == 0) {
-        newest = *stamp;
+        newest = stamp;
         return kResultPassOn;
     }
-    const uint32_t timestamp = *stamp;
+    const uint32_t timestamp = stamp;
     bool late = false;
     if (timestamp < newest) {
         late = newest - timestamp <= kTimestampWindow; // (else it has wrapped around: newer)
@@ -264,7 +265,7 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
         const uint32_t gap = timestamp - newest;
         if (gap > 1 && gap <= kTimestampWindow) {
             context->receiver_app_->skipped_stamps_ += static_cast<int>(gap - 1);
-            context->sender_conn_->last_timestamp_in_ = *stamp;
+            context->sender_conn_->last_timestamp_in_ = stamp;
             return kResultPassOn;
         }
         late = gap > kTimestampWindow; // (so far ahead it has wrapped around: older)

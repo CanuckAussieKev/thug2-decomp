@@ -570,7 +570,7 @@ int handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) ||
-        !decode_server_info(raw::bytes(context->body_), context->body_size_, &info))
+        !decode_server_info(context->body_, context->body_size_, &info))
         return 1;
     g_session.have = true;
     g_session.applied = false;

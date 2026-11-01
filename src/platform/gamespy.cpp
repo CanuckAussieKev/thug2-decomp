@@ -41,6 +41,7 @@ THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN 
 #include "serverbrowsing/sb_serverbrowsing.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
+#include "engine/core/pointer_cell.h"
 THUG2_MSVC_WARNING(pop)
 
 // Host-name overrides the SDK keeps without declaring them in a header (pt/ptMain.c), and the one the build adds
@@ -185,12 +186,27 @@ void qr2_key_buffer_add(void* key_buffer, int key_id)
 
 // --- NAT negotiation ---
 
-int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, HookFn completed,
-                          void* user_data)
+namespace {
+
+NatCompleted g_nat_completed = nullptr;
+
+// The SDK's completion callback: the user data back to the integer it was made from.
+void nat_completed_relay(NegotiateResult result, SOCKET socket, sockaddr_in* address, void* user_data)
 {
-    return static_cast<int>(NNBeginNegotiationWithSocket(static_cast<SOCKET>(socket), cookie, client_index,
-                                                         as<NegotiateProgressFunc>(progress),
-                                                         as<NegotiateCompletedFunc>(completed), user_data));
+    if (g_nat_completed)
+        g_nat_completed(static_cast<int>(result), static_cast<int>(socket), address,
+                        static_cast<int>(cell::address(user_data)));
+}
+
+} // namespace
+
+int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, NatCompleted completed,
+                          int user_data)
+{
+    g_nat_completed = completed;
+    return static_cast<int>(NNBeginNegotiationWithSocket(
+        static_cast<SOCKET>(socket), cookie, client_index, as<NegotiateProgressFunc>(progress),
+        completed ? &nat_completed_relay : nullptr, cell::at_address<void>(static_cast<uintptr_t>(user_data))));
 }
 void nat_think() { NNThink(); }
 void nat_process_data(char* data, int length, void* from)

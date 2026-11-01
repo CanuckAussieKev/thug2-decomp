@@ -158,7 +158,7 @@ void enqueue(net::AppHost* app, PlayerRecord* player, net::NetMessageInfo* desc)
 }
 net::AppHost* server_app() { return net_link()->host_; }
 
-objects::Rider* skater_of(PlayerRecord* player) { return player->skater_; }
+objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 uint8_t get_skater_id(objects::Rider* skater) { return static_cast<uint8_t>(skater->ident_); }
 PointTally* get_score_of(objects::Rider* skater) { return static_cast<PointTally*>(skater->get_points_total()); }
 
@@ -579,7 +579,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
 int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
-    auto* msg = raw::bytes(context->body_);
+    auto* msg = context->body_;
     util::ByteReader reader(context->body_, context->body_size_);
     // (a client's server: the sender; a client: the player the last 0x96 named)
     auto from = [&]() -> PlayerRecord* {
@@ -682,7 +682,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     const online::Hub* net = net_link();
     void* memory = memory::alloc_zeroed(0x449C);
     void* texture = memory ? raw::as<void>(memory::construct_in<gfx::FaceSkin>(memory)) : nullptr;
-    auto* data = raw::bytes(context->body_);
+    auto* data = context->body_;
     uint32_t size = context->body_size_;
     PlayerRecord* player = nullptr;
     if (net->get_on_server()) {
@@ -712,7 +712,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
         PlayerSearch search;
         net::AppHost* app = context->receiver_app_;
         PlayerRecord* sender = by_connection(context->sender_conn_);
-        sender->set_face_texture_data(raw::bytes(context->body_), context->body_size_);
+        sender->set_face_texture_data(context->body_, context->body_size_);
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             if (other->is_own_player() || other == sender)
                 continue;
@@ -980,7 +980,7 @@ int SkateNet::handle_player_left(net::InboundMsgCtx* context)
         return 4;
     PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player) {
-        objects::Rider* skater = player->skater_;
+        objects::Rider* skater = player->rider();
         net->evict_player(player, reason);
         skate->drop_skater_from_roster(skater);
     } else {

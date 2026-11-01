@@ -3,6 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include "engine/core/raw_view.h"
+#include <cstring>
+#include <type_traits>
 
 namespace util {
 class ByteReader;
@@ -23,6 +26,18 @@ class ByteWriter;
 //                             3 zero bytes (the original sent its struct's 3 bytes past the piece)
 //   stream piece (id 0x0F)    stream id (i32), the piece (at most 256 bytes)
 namespace net::wire {
+
+// A message whose body is text (a NUL-terminated string it carries).
+inline const char* text_of(const uint8_t* body) { return raw::chars(body); }
+// The value of type T (a number, a flag byte) at `offset` in a message's body (little-endian, unaligned, as sent).
+template <typename T>
+T value_at(const uint8_t* body, size_t offset = 0)
+{
+    static_assert(std::is_trivially_copyable_v<T>);
+    T value{};
+    std::memcpy(&value, body + offset, sizeof(value));
+    return value;
+}
 
 constexpr size_t kMessageHeaderSize = 3;
 constexpr size_t kSequencedHeaderSize = 6;

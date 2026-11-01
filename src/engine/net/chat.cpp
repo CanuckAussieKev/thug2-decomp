@@ -34,6 +34,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "wire/net_wire.h"
 
 namespace online {
 
@@ -177,12 +178,12 @@ void run_script_with(uint32_t script, script::Struct* params)
 // 0x00532050 (online::Hub's chat handler, message 76; its data: none)
 int on_chat_msg(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
+    const char* message = net::wire::text_of(context->body_);
     std::array<char, 256> line{};
     if (thugpro::peer_mode()) {
         // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
         thugpro::ChatLine chat{};
-        if (!thugpro::decode_chat(raw::bytes(message), context->body_size_, true, &chat))
+        if (!thugpro::decode_chat(context->body_, context->body_size_, true, &chat))
             return 1;
         std::snprintf(line.data(), sizeof(line), "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name.data(), chat.text.data());
     } else {
@@ -253,9 +254,10 @@ bool handle_chat_command(Hub* manager, const char* text)
             get_log("where: no local skater");
         }
         // The camera of the last frame drawn (choose_camera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
-        const auto* camera = raw::as<const float>(&render::g_camera);
-        get_log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
-                camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
+        const render::RenderCamera& camera = render::g_camera;
+        get_log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera.angle,
+                std::get<0>(camera.position), std::get<1>(camera.position), std::get<2>(camera.position), std::get<0>(camera.backward), std::get<1>(camera.backward),
+                std::get<2>(camera.backward), std::get<0>(camera.up), std::get<1>(camera.up), std::get<2>(camera.up));
         std::array<char, 128> line{};
         if (skater)
             std::snprintf(line.data(), sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
@@ -357,10 +359,3 @@ bool cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
     return true;
 }
 
-namespace {
-
-struct ManagerAdapter {
-    void send_chat_message(const char* text) { online::send_chat_message(raw::as<online::Hub>(this), text); }
-};
-
-} // namespace

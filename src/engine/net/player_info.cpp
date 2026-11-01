@@ -38,10 +38,13 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "game/rider/rider.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
+
+objects::Rider* PlayerRecord::rider() const { return skater_ ? core::down_cast<objects::Rider>(skater_) : nullptr; }
 
 using namespace detail;
 
@@ -200,7 +203,7 @@ void PlayerRecord::set_custom_tag(bool custom)
 {
     if (!skater_)
         return;
-    if (objects::ObjectModule* tagging = skater_component(skater_, kTagging))
+    if (objects::ObjectModule* tagging = skater_component(rider(), kTagging))
         core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ = custom; // (0x004E4000, a setter folded there)
 }
 
@@ -209,7 +212,7 @@ bool PlayerRecord::has_custom_tag()
 {
     if (!skater_)
         return false;
-    objects::ObjectModule* tagging = skater_component(skater_, kTagging);
+    objects::ObjectModule* tagging = skater_component(rider(), kTagging);
     return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ : false; // (0x0051D850)
 }
 
@@ -218,7 +221,7 @@ void* PlayerRecord::get_graffiti_texture()
 {
     if (!skater_)
         return nullptr;
-    objects::ObjectModule* tagging = skater_component(skater_, kTagging);
+    objects::ObjectModule* tagging = skater_component(rider(), kTagging);
     return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->graffiti_
                    : nullptr; // (0x00553E90, a getter folded there)
 }
@@ -300,13 +303,13 @@ bool PlayerRecord::is_eliminated()
         return true;
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
-    objects::ObjectModule* score = skater_component(skater_, kSkaterScore);
+    objects::ObjectModule* score = skater_component(rider(), kSkaterScore);
     return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held_)
                             ->get_total_score() == 0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> 7) & 1); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl_ : 0; }
-uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(skater_->view_slot_); }
+uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(rider()->view_slot_); }
 int PlayerRecord::is_pending_observer() { return static_cast<int>((flag_bits_ >> 3) & 1); }
 
 // --- The score lines' list types ---

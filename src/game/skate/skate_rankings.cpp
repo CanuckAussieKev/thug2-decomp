@@ -151,7 +151,7 @@ void fill_elimination_ranking()
          player = net->step_player_walk(&search, false)) {
         online::PlayerRecord* info = as_player(player);
         online::ScoreEntry* entry = new_entry();
-        text::copy_unbounded(entry->text_.data(), info->skater_->fetch_shown_name());
+        text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
         entry->team_score_ =
             reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
         entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
@@ -248,7 +248,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             online::PlayerRecord* info = as_player(player);
             const uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();
-            text::copy_unbounded(entry->text_.data(), info->skater_->fetch_shown_name());
+            text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
             entry->priority = static_cast<int>(score);
             lists::append_vertex(list.head_, entry);
         }

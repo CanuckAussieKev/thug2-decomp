@@ -203,7 +203,7 @@ bool OnlineObjective::wants_to_end()
         return true;
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
-        objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->skater_;
+        objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->rider();
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         if (!end_run->run_done() && !skater->is_halted_ && run_ending_ != 2 && seconds_remaining_ <= 0) {
             flag_bits_ |= kFlagEndOfRunStarted;

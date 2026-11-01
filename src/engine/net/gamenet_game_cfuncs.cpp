@@ -155,7 +155,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
         return true;
     int team = capturer->get_flag_team(); // the flag it carries
     send_flag_message(manager, kMsgCapturedFlag, player, team, [&] {
-        auto* skater = raw::as<objects::GameEntity>(player_skater(capturer));
+        auto* skater = player_skater(capturer);
         modules::PointTally* score =
             core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
         score->set_grand_total(score->get_total_score() + 1); // its captures

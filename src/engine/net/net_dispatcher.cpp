@@ -121,7 +121,7 @@ int Router::dispatch_msg(InboundMsgCtx* context)
 int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
 {
     InboundMsgCtx context;
-    std::array<char, kConnReceiveBufferSize> buffer{};
+    std::array<uint8_t, kConnReceiveBufferSize> buffer{};
     construct_context(&context);
     context.receiver_app_ = conn->owner_app_;
     context.sender_conn_ = conn;
@@ -144,9 +144,9 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             if (!packet.ok() || context.body_size_ > packet.remaining())
                 break;
         } // (else the length stays what the previous message had)
-        const char* p = raw::chars(packet.cursor());
+        const uint8_t* p = packet.cursor();
         if (context.type_code_ == kMsgSequenced) // counted by the message inside
-            add_message_metric(metrics, static_cast<uint8_t>(p[5]), context.body_size_);
+            add_message_metric(metrics, p[5], context.body_size_);
         if (has_length) {
             if (context.body_size_)
                 std::memcpy(buffer.data(), p, context.body_size_);

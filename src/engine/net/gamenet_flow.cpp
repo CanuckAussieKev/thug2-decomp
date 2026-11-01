@@ -126,7 +126,7 @@ constexpr uint32_t kNewPlayerLocal = 1;
 constexpr uint32_t kNewPlayerObserver = 4;
 
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
-prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_.data()); }
+prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 prefs::Preferences* game_preferences(Hub* m)
 {

@@ -198,7 +198,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
             continue;
         // NOT ORIGINAL: the name copied as text (the original used it as sprintf's format: a name with a % in it
         // read arguments that weren't there)
-        copy_name(core::at(info.players, named).data(), raw::chars(added));
+        copy_name(core::at(info.players, named).data(), added->label_.data());
         ++named;
     }
     std::array<uint8_t, kServerInfoSize> bytes{};
@@ -629,10 +629,9 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         static std::array<uint8_t, 0x1000> selected;
         core::at(selected, 0) = 0;
         uint8_t* out = selected.data() + 1;
-        const int count = raw::as<goals::GoalManager>(goals)
-                              ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
+        const int count = goals->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
+            goals::Objective* goal = goals->get_objective_at(i);
             if (goal->is_picked()) {
                 uint32_t name = goal->get_objective_key();
                 std::memcpy(out, &name, 4);

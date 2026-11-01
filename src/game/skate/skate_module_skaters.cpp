@@ -957,10 +957,10 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     if (get_game_mode()->finish_rules_reached())
         return;
     auto* king = as_player(net->get_hill_ruler());
-    if (!king || king->skater_->is_halted_)
+    if (!king || king->rider()->is_halted_)
         return;
     // The king's time counts up; the beeps as the target comes near.
-    auto* score = static_cast<PointTally*>(king->skater_->get_points_total());
+    auto* score = static_cast<PointTally*>(king->rider()->get_points_total());
     const int total = score->get_total_score();
     score->set_grand_total(total -
                            ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));

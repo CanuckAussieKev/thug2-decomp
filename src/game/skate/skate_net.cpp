@@ -188,11 +188,6 @@ void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint
 {
     app->dispatcher_.append_listener(static_cast<uint8_t>(id), code, flags, data, priority);
 }
-// (a handler not rewritten yet, by address)
-void append_listener(net::AppHost* app, int id, uint32_t code, uint32_t flags, void* data, int priority = 0x80)
-{
-    append_listener(app, id, function_at<net::HandlerSlotValue>(code), flags, data, priority);
-}
 
 } // namespace
 

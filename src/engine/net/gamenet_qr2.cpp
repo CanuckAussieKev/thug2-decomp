@@ -79,7 +79,7 @@ void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(
 void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
 
 Hub* net_session_slot() { return g_online_hub; }
-prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_.data()); }
+prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 
 std::array<char, 128> g_fallback_map_name{{"Boston"}};
 

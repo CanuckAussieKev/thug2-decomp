@@ -46,7 +46,7 @@ void PointTally::note_tagged_prop_ask(int score)
     online::Hub* net = net_session_slot();
     net::NetMessageInfo desc;
     auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(rider_no_)));
-    auto* client = core::down_cast<net::Guest>(net->fetch_patron(info->skater_->view_slot_));
+    auto* client = core::down_cast<net::Guest>(net->fetch_patron(info->rider()->view_slot_));
     online::TrickObjectsMessage message;
     message.player = rider_no_;
     message.score = static_cast<uint32_t>(score);

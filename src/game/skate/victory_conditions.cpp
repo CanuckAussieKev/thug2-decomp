@@ -105,7 +105,7 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
         std::array<int, 4> totals = {};
         PlayerSearch search;
         for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
-            modules::PointTally* score = get_score_of(player->skater_);
+            modules::PointTally* score = get_score_of(player->rider());
             const int team = player->team_;
             core::at(totals, team) += total_score(score);
         }
@@ -179,7 +179,7 @@ bool SoleSurvivorWin::rule_satisfied()
 {
     PlayerRecord* player = find_own_player_record();
     if (player) {
-        objects::Rider* skater = player->skater_;
+        objects::Rider* skater = player->rider();
         if (skater && total_score(get_score_of(skater)) <= 0)
             return true;
     }
@@ -221,7 +221,7 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
     if (!total)
         return false;
     for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
-        if (total_score(get_score_of(player->skater_)) == total)
+        if (total_score(get_score_of(player->rider())) == total)
             return true;
     }
     return false;

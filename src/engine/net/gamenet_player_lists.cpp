@@ -289,7 +289,7 @@ JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
 // 0x00537140
 void Hub::set_ready_state(bool ready)
 {
-    if (static_cast<uint8_t>(ready) == *raw::bytes(&cleared_to_start_))
+    if (ready == cleared_to_start_)
         return;
     cleared_to_start_ = ready;
     modules::Skate* skate = modules::g_skate_module;
@@ -335,7 +335,7 @@ void Hub::clear_roster()
         player->accumulated_score_ = 0;
         player->eliminated_time_ = 0;
         player->num_placed_ = 0;
-        auto* skater = raw::as<objects::GameEntity>(player_skater(player));
+        auto* skater = player_skater(player);
         if (skater) {
             // (not checked for null, as in the original)
             auto* score = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
@@ -805,7 +805,7 @@ void carried_flags_task(tasks::Task<Hub>*)
         if (!flag)
             return;
         auto* skater = core::down_cast<objects::GameEntity>(player_skater(player));
-        auto* skeleton = raw::as<gfx::Rig>(core::down_cast<objects::BoneRigModule>(skater->fetch_module(kSkeleton))->bone_rig_);
+        gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(skater->fetch_module(kSkeleton))->bone_rig_;
         maths::Mat4* matrix = &flag->basis_frame_;
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};
@@ -817,11 +817,9 @@ void carried_flags_task(tasks::Task<Hub>*)
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
         maths::Vec4 moved{};
         const maths::Vec4& out = skater_matrix->xform(moved, offset);
-        auto* position = raw::as<float>(&flag->at_point_);
-        std::memcpy(position, &out, 16);
-        const auto* skater_position = raw::as<const float>(&skater->at_point_);
+        flag->at_point_ = out;
         for (int i = 0; i < 4; ++i)
-            position[i] = skater_position[i] + position[i];
+            flag->at_point_[i] = skater->at_point_[i] + flag->at_point_[i];
     }
 }
 

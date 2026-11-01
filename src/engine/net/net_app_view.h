@@ -26,20 +26,20 @@ struct PendingMsg {
 
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
-    char* content_{nullptr}; // +0x04
-    int share_count_{0};     // +0x08
+    uint8_t* content_{nullptr}; // +0x04
+    int share_count_{0};        // +0x08
 };
 struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
     SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, uint8_t byte8, uint8_t compression);
-    // (0x004550F0: PendingMsg's destructor - the data is at the same place)
-    ~SeqQueuedMsg() { raw::as<PendingMsg>(this)->~PendingMsg(); }
+    // (0x004550F0: PendingMsg's destructor - the data freed)
+    ~SeqQueuedMsg();
     SeqQueuedMsg(const SeqQueuedMsg&) = delete;
     SeqQueuedMsg& operator=(const SeqQueuedMsg&) = delete;
 
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
-    char* content_{nullptr}; // +0x04
+    uint8_t* content_{nullptr}; // +0x04
     uint8_t byte8_;       // +0x08 (the constructor's 4th argument)
     int share_count_{0};  // +0x0C
 };

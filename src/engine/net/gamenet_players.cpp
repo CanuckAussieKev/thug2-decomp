@@ -149,7 +149,7 @@ void Hub::spectate_player(PlayerRecord* player)
         viewed_player_ = nullptr;
         return;
     }
-    auto* skater = raw::as<objects::GameEntity>(player_skater(player));
+    auto* skater = player_skater(player);
     if (player != find_own_player_record(g_online_hub)) {
         // Someone else's skater: the skater camera onto it.
         set_camera_skater(skater_camera, skater);
@@ -200,8 +200,8 @@ void Hub::assign_first_come_first_served()
             continue;
         player->set_host_player(); // (its flag 0x200: first come, first served)
         uint32_t text = 0;
-        raw::as<prefs::Preferences>(net_options_.data())
-            ->fetch_setting(kFcfsPreference)
+        net_options_
+            .fetch_setting(kFcfsPreference)
             ->read_hash_value("Checksum", &text, 1);
         desc.content_ = &text;
         desc.byte_count_ = sizeof(text);

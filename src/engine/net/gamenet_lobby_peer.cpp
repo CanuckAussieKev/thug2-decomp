@@ -125,10 +125,10 @@ void nat_think() { game_spy::nat_think(); }
 void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }
 void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
 // (the cookie is the user data)
-int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, game_spy::HookFn completed, int user_data)
+int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, game_spy::NatCompleted completed,
+              int user_data)
 {
-    return game_spy::nat_begin_with_socket(socket, cookie, client_index, progress, completed,
-                                           cell::pointer<void>(static_cast<intptr_t>(user_data)));
+    return game_spy::nat_begin_with_socket(socket, cookie, client_index, progress, completed, user_data);
 }
 void* const kNoProgress = code_address(stubs::do_nothing); // (an empty function: no progress callback)
 
@@ -363,7 +363,7 @@ void RoomManager::start_hosting()
 }
 
 // 0x00540300
-void RoomManager::nat_negotiation_completed(int result, int, const void* address, void* user_data)
+void RoomManager::nat_negotiation_completed(int result, int, const void* address, int user_data)
 {
     Hub* manager = net_session_slot();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
@@ -382,7 +382,7 @@ void RoomManager::nat_negotiation_completed(int result, int, const void* address
             lobby->nat_task_->drop_out();
         return;
     }
-    nat_cancel(static_cast<int>(static_cast<intptr_t>(cell::address(user_data))));
+    nat_cancel(user_data);
     nat_think();
     nat_free_negotiations();
     manager->fetch_patron(0)->set_outside_packet_hook(nullptr);

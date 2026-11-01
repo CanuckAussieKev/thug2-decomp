@@ -45,6 +45,7 @@
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "wire/net_wire.h"
 
 namespace modules {
 
@@ -135,9 +136,9 @@ script::Script* spawn_script_if_exists(uint32_t name)
 }
 
 // 0x00576CF0
-int reload_script_file(const char** name)
+int reload_script_file(net::InboundMsgCtx* context)
 {
-    const char* file = *name;
+    const char* file = net::wire::text_of(context->body_);
     if (std::strcmp(file, "..\\runnow.qb") == 0 || std::strcmp(file, "runnow.qb") == 0)
         run_now_loaded() = true;
     script::load_qb_file(file, 0);
@@ -274,9 +275,10 @@ void handle_viewer_input(ViewerInputHandler* handler)
 }
 
 // 0x00577140
-int handle_remove_viewer_object(void** context)
+int handle_remove_viewer_object(net::InboundMsgCtx* context)
 {
-    static_cast<Viewer*>(*context)->drop_viewer_entity();
+    // (the original calls it on the message's body - the first word of the context; it does nothing either way)
+    static_cast<Viewer*>(context->content_)->drop_viewer_entity();
     return 1;
 }
 
@@ -351,7 +353,7 @@ void select_combo_task(ViewerTask* task)
 // 0x005774C0
 int handle_add_to_scene(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
+    const char* message = net::wire::text_of(context->body_);
     script::Struct* params = script::new_struct();
     params->append_word(kScene, script::kQbvalString, message);
     params->append_word(kAdd, script::kQbvalString, message + 0x80);
@@ -363,11 +365,12 @@ int handle_add_to_scene(net::InboundMsgCtx* context)
 // 0x005775A0
 int handle_create_viewer_object(net::InboundMsgCtx* context)
 {
-    auto* viewer = raw::as<Viewer>(context->body_); // (sic: see model_viewer.h)
+    // NOT ORIGINAL: the viewer the handler was registered with (its data). The original called create_viewer_object
+    // on the message's body as if it were the viewer - writing the new object's pointer into the packet buffer.
+    auto* viewer = static_cast<Viewer*>(context->content_);
     script::Struct* params = script::new_struct();
-    const char* message = context->body_;
-    params->append_word(kModelName, message);
-    params->put_name_key(kSkeletonName, *raw::field_at<const uint32_t>(message, 0x84));
+    params->append_word(kModelName, net::wire::text_of(context->body_));
+    params->put_name_key(kSkeletonName, net::wire::value_at<uint32_t>(context->body_, 0x84));
     viewer->create_viewer_object(params);
     script::free_struct(params);
     return 1;
@@ -376,10 +379,9 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
 // 0x00577670
 int on_remote_script_msg(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
-    const uint32_t name = *raw::as<const uint32_t>(message);
+    const auto name = net::wire::value_at<uint32_t>(context->body_);
     script::Struct* params = script::new_struct();
-    script::decode_from_bytes(params, raw::bytes(message + 4)); // the script reader
+    script::decode_from_bytes(params, context->body_ + 4); // the script reader
     script::launch_script(name, params, nullptr, false, nullptr);
     script::free_struct(params);
     return 1;
@@ -492,7 +494,7 @@ void free_camera_task(ViewerTask* task)
 // 0x00577CD0
 int handle_reload_scene(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
+    const char* message = net::wire::text_of(context->body_);
     script::Struct* params = script::new_struct();
     params->append_word(kScene, script::kQbvalString, message);
     script::launch_script(kReloadScene, params, nullptr, false, nullptr);
@@ -509,11 +511,11 @@ void Viewer::start_callback()
         net::Router& dispatcher = net_handler_->dispatcher_;
         dispatcher.append_listener(0x20, &handle_reload_scene, 3, nullptr, 0x80);
         dispatcher.append_listener(0x21, &online::handle_nothing, 3, nullptr, 0x80);
-        dispatcher.append_listener(0x22, function_at<net::HandlerSlotValue>(code_address(&reload_script_file)), 3, nullptr,
+        dispatcher.append_listener(0x22, &reload_script_file, 3, nullptr,
                                    0x80);
         dispatcher.append_listener(0x2A, &handle_add_to_scene, 3, nullptr, 0x80);
         dispatcher.append_listener(0x23, &handle_create_viewer_object, 3, this, 0x80);
-        dispatcher.append_listener(0x24, function_at<net::HandlerSlotValue>(code_address(&handle_remove_viewer_object)), 3, this,
+        dispatcher.append_listener(0x24, &handle_remove_viewer_object, 3, this,
                                    0x80);
         dispatcher.append_listener(0x2B, &on_remote_script_msg, 3, this, 0x80);
     }

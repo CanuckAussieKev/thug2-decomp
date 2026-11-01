@@ -97,9 +97,11 @@ void get_qr2_buffer_add_int(void* buffer, int value);
 void qr2_key_buffer_add(void* key_buffer, int key_id);
 
 // NAT negotiation
-// `progress`: void(int state, void* user_data); `completed`: void(int result, SOCKET, sockaddr_in*, void* user_data)
-int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, HookFn completed,
-                          void* user_data);
+// `progress`: void(int state, void* user_data); `completed` gets the result, the socket, the address found
+// (a sockaddr_in) and `user_data` (the game passes the negotiation's cookie). One negotiation's completion at a time.
+using NatCompleted = void (*)(int result, int socket, const void* address, int user_data);
+int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, NatCompleted completed,
+                          int user_data);
 void nat_think();
 void nat_process_data(char* data, int length, void* from);
 void nat_cancel(int cookie);

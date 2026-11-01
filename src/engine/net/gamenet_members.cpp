@@ -225,8 +225,9 @@ void Hub::set_max_observers_preference(int count)
 const char* Hub::fetch_secret()
 {
     script::Struct* preference = get_online_settings()->fetch_setting(kPassword);
-    // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
-    const char* password = raw::chars(this);
+    // On a miss the original returns its uninitialised local (the slot ECX was pushed into - the manager's bytes as
+    // text). NOT ORIGINAL: no text.
+    const char* password = "";
     preference->fetch_text(kUiString, &password, 1);
     return password;
 }
@@ -285,7 +286,7 @@ bool Hub::send_custom_tag_texture()
     auto* skate = detail::get_skate();
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
         return false;
-    auto* skater = raw::as<modules::Skate>(skate)->get_home_rider(); // the local skater
+    auto* skater = skate->get_home_rider(); // the local skater
     if (!skater)
         return false;
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
@@ -302,7 +303,8 @@ bool Hub::send_custom_tag_texture()
             logos |= 4;
         if (profile_has_part(profile, kDeckGraphic))
             logos |= 8;
-        void* texture = raw::as<goals::Objective>(tagging)->fetch_args(); // the custom tag texture
+        // the custom tag texture (the original reads it through Objective::fetch_args: the same +0x1C)
+        void* texture = tagging->graffiti_;
         if (texture) {
             net::NetMessageInfo desc;
             desc.ident_ = kMsgTagLogos;
@@ -361,7 +363,7 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
 // 0x005359F0
 void Hub::choose_start_points()
 {
-    int* points = raw::as<int>(start_points_.data());
+    int* points = start_points_.data();
     int offset = maths::rnd(256);
     int count = 0;
     if (in_net_game()) {
