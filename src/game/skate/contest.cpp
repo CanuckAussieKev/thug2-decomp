@@ -76,7 +76,7 @@ objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get()
 objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
     // (0x00557FB0 is the lookup table's by-index code, shared with the goal manager's: its first member is the table too)
-    return raw::as<objects::RiderIdentity>(raw::as<goals::GoalManager>(manager)->get_objective_at(index));
+    return manager->get_template_at(index);
 }
 
 // The goal manager (0x005591B0) and its active competition goal (0x00558D90; null: none).

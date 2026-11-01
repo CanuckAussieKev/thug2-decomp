@@ -98,7 +98,7 @@ uint32_t template_count() { return roster_handle()->templates_.num_; }
 objects::RiderIdentity* template_at(uint32_t index)
 {
     // (0x00557FB0: the lookup table's by-index code, shared with the goal manager's)
-    return raw::as<objects::RiderIdentity>(raw::as<goals::GoalManager>(roster_handle())->get_objective_at(static_cast<int>(index)));
+    return roster_handle()->get_template_at(static_cast<int>(index));
 }
 // The template named `name` (by its info's name), or null.
 objects::RiderIdentity* find_template(uint32_t name)
@@ -460,7 +460,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
     if (params->has_bare_flag(kAll)) {
         const int count = static_cast<int>(manager->templates_.num_);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
-            raw::as<objects::RiderIdentity>(raw::as<goals::GoalManager>(manager)->get_objective_at(i))
+            manager->get_template_at(i)
                 ->add_max_specials(1);
         return true;
     }

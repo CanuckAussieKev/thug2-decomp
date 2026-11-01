@@ -114,7 +114,7 @@ GoalManager::~GoalManager()
     }
     lists::unlink_all(active_goals_.list_link_);
     active_goals_.destroy_body();
-    raw::as<objects::ProfileTable>(&goals_)->get_clear();
+    goals_.free_nodes();
 }
 
 // 0x00557E30

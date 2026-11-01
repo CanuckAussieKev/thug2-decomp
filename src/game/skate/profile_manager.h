@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/script/param_struct.h"
+#include "engine/lists/lookup_table.h"
 
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
 // skaters, made by the init_pro_skaters script through add_template), keyed by name in a lookup table, and the
@@ -107,30 +108,9 @@ struct ChecksumSet {
     void get_fill();
 };
 
-// lists::ResolveMap<RiderIdentity> (0x14 bytes): a singly linked list of {key, item, next} nodes (0xC bytes) with a
-// cursor for walking it by index. Its generic code (0x00557F10 by index, 0x00561430 by key, 0x005628B0 add,
-// 0x00562970 remove) is outside this range: called through the game.
-struct ProfileTable {
-    struct Elem {
-        uint32_t key;
-        RiderIdentity* item;
-        Elem* next;
-    };
-    uint32_t num_;     // +0x00
-    Elem* first_;      // +0x04
-    Elem* last_;       // +0x08
-    Elem* cursor_;     // +0x0C
-    int cursor_index_; // +0x10
-
-    RiderIdentity* get_by_index(int index, uint32_t* key);
-    RiderIdentity* get_pull(uint32_t key);
-    bool place_in(uint32_t key, RiderIdentity* item);
-    void drop_out(uint32_t key);
-    // 0x0057B9E0: every node freed (not the items); no nodes, no cursor, none counted (last_ is left as it was).
-    void get_clear();
-    // 0x0057BBF0: the destructor (a jump to Clear).
-    void teardown();
-};
+// The profile templates' table (lists::ResolveMap's typed face; its generic code: 0x00557F10 by index, 0x00561430
+// by key, 0x005628B0 add, 0x00562970 remove, 0x0057B9E0 clear).
+using ProfileTable = lists::TypedLookupTable<RiderIdentity>;
 
 class ProfileRoster {
 public:
@@ -157,6 +137,8 @@ public:
     void set_current_index(int index);
     RiderIdentity* fetch_active_account();
     RiderIdentity* fetch_account(int index);
+    // (0x00557F10 through the goal manager's folded getter): the template at `index` in the table.
+    RiderIdentity* get_template_at(int index) { return templates_.get_by_index(index); }
     // 0x0057B680: the lock flag (+0x20).
     void set_locked(bool locked);
     // 0x0057BA20: the current skater made the template named `name`: for the first player the template itself,

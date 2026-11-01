@@ -4,6 +4,7 @@
 
 #include "engine/lists/lookup_table.h"
 
+#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 
 namespace lists {
@@ -101,6 +102,19 @@ void TableItemEraser::empty_table_items(void (*destroy)(void* item))
         if (item)
             destroy(item);
     }
+}
+
+// 0x0057B9E0
+void ResolveMap::free_nodes()
+{
+    for (Elem* node = first_; node;) {
+        Elem* next = node->next;
+        memory::Hub::get_pull()->dealloc(node);
+        node = next;
+    }
+    first_ = nullptr;
+    cursor_ = nullptr;
+    num_ = 0;
 }
 
 } // namespace lists

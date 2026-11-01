@@ -30,6 +30,8 @@ struct ResolveMap {
     bool store_entry(const uint32_t* key, void* item);
     // 0x00562970: the first node with key `*key` taken out and freed (the cursor cleared); nothing if none.
     void erase_entry(const uint32_t* key);
+    // 0x0057B9E0: every node freed (not the items); no nodes, no cursor, none counted (last_ is left as it was).
+    void free_nodes();
 };
 
 template <typename T>

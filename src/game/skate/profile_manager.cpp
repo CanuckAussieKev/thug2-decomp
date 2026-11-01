@@ -82,42 +82,6 @@ void RiderIdentity::erase_one()
     memory::Hub::get_pull()->dealloc(this);
 }
 
-// The lookup table's generic code.
-// (ProfileTable is run as lists::ResolveMap: its functions are that map's - the same fields)
-static_assert(sizeof(ProfileTable) == sizeof(lists::ResolveMap) && offsetof(ProfileTable, cursor_index_) ==
-                                                                   offsetof(lists::ResolveMap, cursor_index_),
-              "a view of lists::ResolveMap");
-
-RiderIdentity* ProfileTable::get_by_index(int index, uint32_t* key)
-{
-    return static_cast<RiderIdentity*>(raw::as<lists::ResolveMap>(this)->fetch_entry_at(&index, key));
-}
-RiderIdentity* ProfileTable::get_pull(uint32_t key)
-{
-    return static_cast<RiderIdentity*>(raw::as<lists::ResolveMap>(this)->fetch_entry(&key));
-}
-bool ProfileTable::place_in(uint32_t key, RiderIdentity* item)
-{
-    return raw::as<lists::ResolveMap>(this)->store_entry(&key, item);
-}
-void ProfileTable::drop_out(uint32_t key) { raw::as<lists::ResolveMap>(this)->erase_entry(&key); }
-
-// 0x0057B9E0
-void ProfileTable::get_clear()
-{
-    for (Elem* node = first_; node;) {
-        Elem* next = node->next;
-        memory::Hub::get_pull()->dealloc(node);
-        node = next;
-    }
-    first_ = nullptr;
-    cursor_ = nullptr;
-    num_ = 0;
-}
-
-// 0x0057BBF0
-void ProfileTable::teardown() { get_clear(); }
-
 // 0x0057BC00
 ProfileRoster::ProfileRoster()
 {
@@ -147,7 +111,7 @@ ProfileRoster::~ProfileRoster()
             extra->erase_one();
         core::at(extra_profiles_, i) = nullptr;
     }
-    templates_.get_clear();
+    templates_.free_nodes();
 }
 
 // 0x0057B620 / 0x0057B630 / 0x0057B640

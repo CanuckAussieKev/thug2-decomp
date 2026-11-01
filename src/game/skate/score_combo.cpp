@@ -280,7 +280,7 @@ PointTally::~PointTally()
 {
     get_reset();
     memory::free_malloc(static_cast<void*>(log_.items_));
-    raw::as<objects::ProfileTable>(&seen_)->get_clear(); // (the lookup table's shared destructor)
+    seen_.free_nodes(); // (the lookup table's shared destructor)
 }
 
 // 0x00563580
