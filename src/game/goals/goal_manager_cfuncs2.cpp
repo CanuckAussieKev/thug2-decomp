@@ -346,14 +346,14 @@ bool cfunc_goal_manager_un_pause_goal(script::Struct* params, script::Script*)
 // 0x0055A360 (the goal taken to be a competition)
 bool cfunc_goal_manager_pause_competition(script::Struct* params, script::Script*)
 {
-    reinterpret_cast<ContestObjective*>(name_then_goal(params))->freeze_contest();
+    static_cast<ContestObjective*>(name_then_goal(params))->freeze_contest();
     return true;
 }
 
 // 0x0055A3B0
 bool cfunc_goal_manager_un_pause_competition(script::Struct* params, script::Script*)
 {
-    reinterpret_cast<ContestObjective*>(name_then_goal(params))->thaw_contest();
+    static_cast<ContestObjective*>(name_then_goal(params))->thaw_contest();
     return true;
 }
 

@@ -8,6 +8,7 @@
 #include "engine/core/slab_bank.h"
 #include "engine/gfx/sector.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing::rail_editor_internal {
 
@@ -27,22 +28,22 @@ constexpr uint32_t kGraffitiColors = 0x7F1BA1AA; // graffitiColors
 // (0x0049E670); the viewports it shows in (0x0049E680, a mask); drawn and collided with or not (0x0049E9B0).
 inline uint32_t sector_key_from_spec(const uint8_t* sector)
 {
-    return *reinterpret_cast<const uint32_t*>(sector + 0x04);
+    return *raw::as<const uint32_t>(sector + 0x04);
 }
 inline void set_sector_colour(uint8_t* sector, uint32_t rgba)
 {
-    void* geometry = *reinterpret_cast<void**>(sector + 0x14);
+    void* geometry = *raw::as<void*>(sector + 0x14);
     if (geometry)
         static_cast<render::Geom*>(geometry)->change_tint(rgba);
 }
-inline void clear_sector_colour(uint8_t* sector) { reinterpret_cast<render::WorldCell*>(sector)->wipe_tint(); }
+inline void clear_sector_colour(uint8_t* sector) { raw::as<render::WorldCell>(sector)->wipe_tint(); }
 inline void set_sector_visibility(uint8_t* sector, uint32_t mask)
 {
-    reinterpret_cast<render::WorldCell*>(sector)->toggle_shown(mask);
+    raw::as<render::WorldCell>(sector)->toggle_shown(mask);
 }
 inline void enable_sector(uint8_t* sector, bool active)
 {
-    reinterpret_cast<render::WorldCell*>(sector)->change_live(active);
+    raw::as<render::WorldCell>(sector)->change_live(active);
 }
 
 } // namespace park_editing::rail_editor_internal

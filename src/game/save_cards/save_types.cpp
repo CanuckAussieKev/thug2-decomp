@@ -1,7 +1,7 @@
 // The save file types and the memory card commands' helpers (see save_types.h).
 
 #include "game/save_cards/save_types.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/net/buddy_status.h"
 
 #include <cstdint>
@@ -30,6 +30,7 @@
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
 #include "game/goals/create_a_trick.h"
+#include "engine/core/raw_view.h"
 
 namespace save_cards {
 
@@ -443,8 +444,8 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveNetworkSettings: {
-        auto* preferences = reinterpret_cast<uint8_t*>(online::g_online_hub->get_online_settings());
-        auto* settings = reinterpret_cast<Struct*>(preferences + 4);
+        auto* preferences = raw::bytes(online::g_online_hub->get_online_settings());
+        auto* settings = raw::as<Struct>(preferences + 4);
         Struct* network_id = nullptr;
         settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
         const char* text = empty;

@@ -21,6 +21,8 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace script {
 class Array;
@@ -69,7 +71,7 @@ struct CellBox {
     // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
     CellBox* assign_value(uint8_t cell_x, int8_t cell_y, uint8_t cell_z, uint8_t width, uint8_t height, uint8_t length);
     // 0x005901E0: byte `index` (x y z w h l)
-    uint8_t& operator[](int index) { return reinterpret_cast<uint8_t*>(this)[index]; }
+    uint8_t& operator[](int index) { return raw::bytes(this)[index]; }
     uint8_t* get_byte(int index);
     // 0x005901F0: make the box reach the top of the world (h = 127 - y)
     void stretch_vertically();
@@ -1204,7 +1206,7 @@ public:
     CellBox& get_area() { return cell_footprint_; } // the cells under the cursor
     int& get_rotation() { return quarter_turns_; }
     // An area is selected (the selection stage as a flag: written true / read non-zero).
-    bool& selecting() { return reinterpret_cast<bool&>(box_select_stage_); }
+    bool& selecting() { return memory::bits_as<bool>(box_select_stage_); }
     GapDetails& current_gap() { return gap_; } // the gap being made
     uint32_t& gap_counter() { return gap_counter_; }
     PieceGroup*& get_meta() { return piece_group_; } // the piece the cursor holds (flag 0x200 while it does)

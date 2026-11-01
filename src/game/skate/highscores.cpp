@@ -15,6 +15,8 @@
 #include "platform/run_log.h"
 #include "engine/core/owner.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace highscores {
 
@@ -56,7 +58,7 @@ char* new_initials()
     auto* memory = static_cast<uint32_t*>(memory::alloc_zeroed(4));
     if (memory)
         *memory = 0;
-    return reinterpret_cast<char*>(memory);
+    return raw::chars(memory);
 }
 
 script::Struct* spawn_param_table()
@@ -147,7 +149,7 @@ BestEntryList::BestEntryList(int count) : num_(count)
         return;
     }
     *memory = count;
-    auto* records = reinterpret_cast<BestEntry*>(memory + 1);
+    auto* records = raw::as<BestEntry>(memory + 1);
     for (int i = 0; i < count; ++i)
         new (&records[i]) BestEntry;
     records_ = records;
@@ -156,7 +158,7 @@ BestEntryList::BestEntryList(int count) : num_(count)
 void BestEntryList::erase_one()
 {
     if (BestEntry* records = records_) {
-        int* memory = reinterpret_cast<int*>(records) - 1;
+        int* memory = raw::as<int>(records) - 1;
         for (int i = *memory; i-- > 0;) // (as delete[]: the last first)
             memory::dealloc(records[i].tag_);
         memory::Hub::get_pull()->dealloc(memory);
@@ -207,7 +209,7 @@ void BestEntryList::decode_from_struct(script::Struct* params)
     if (num_ != ints::as_signed(array->extent_))
         return;
     for (int i = 0; i < num_; ++i)
-        records_[i].decode_from_struct(reinterpret_cast<script::Struct*>(array->fetch_part(i)));
+        records_[i].decode_from_struct(array->struct_at(i));
 }
 
 // 0x0057F4E0
@@ -217,8 +219,8 @@ void BestEntryList::write_to_structure(script::Struct* params)
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(num_, script::kQbvalStruct);
     for (int i = 0; i < num_; ++i)
-        array->set_element(i, reinterpret_cast<uint32_t>(record_structure(&records_[i])));
-    params->add_component_of_type(kRecordTable, script::kQbvalArray, reinterpret_cast<uint32_t>(array));
+        array->set_element(i, cell::of(record_structure(&records_[i])));
+    params->add_component_of_type(kRecordTable, script::kQbvalArray, cell::of(array));
 }
 
 // 0x0057F120
@@ -284,23 +286,23 @@ void StageBests::write_to_structure(script::Struct* params)
 {
     script::Struct* structure = spawn_param_table();
     high_scores_->write_to_structure(structure);
-    params->add_component_of_type(kHighScores, kStructureComponent, reinterpret_cast<uint32_t>(structure));
+    params->add_component_of_type(kHighScores, kStructureComponent, cell::of(structure));
     structure = spawn_param_table();
     best_combos_->write_to_structure(structure);
-    params->add_component_of_type(kBestCombos, kStructureComponent, reinterpret_cast<uint32_t>(structure));
+    params->add_component_of_type(kBestCombos, kStructureComponent, cell::of(structure));
     if (arcade_scores_) {
         structure = spawn_param_table();
         arcade_scores_->write_to_structure(structure);
-        params->add_component_of_type(kArcadeScores, kStructureComponent, reinterpret_cast<uint32_t>(structure));
+        params->add_component_of_type(kArcadeScores, kStructureComponent, cell::of(structure));
     }
     params->add_component_of_type(kLongestCombo, kStructureComponent,
-                                  reinterpret_cast<uint32_t>(record_structure(biggest_chain_)));
+                                  cell::of(record_structure(biggest_chain_)));
     params->add_component_of_type(kBestGrindKey, kStructureComponent,
-                                  reinterpret_cast<uint32_t>(record_structure(grind_record_)));
+                                  cell::of(record_structure(grind_record_)));
     params->add_component_of_type(kLongestLipTrick, kStructureComponent,
-                                  reinterpret_cast<uint32_t>(record_structure(longest_lip_trick_)));
+                                  cell::of(record_structure(longest_lip_trick_)));
     params->add_component_of_type(kLongestManual, kStructureComponent,
-                                  reinterpret_cast<uint32_t>(record_structure(longest_manual_)));
+                                  cell::of(record_structure(longest_manual_)));
 }
 
 // 0x0057EE70
@@ -323,7 +325,7 @@ void BestResults::init_levels(int count)
         return;
     }
     *memory = count;
-    auto* levels = reinterpret_cast<StageBests*>(memory + 1);
+    auto* levels = raw::as<StageBests>(memory + 1);
     for (int i = 0; i < count; ++i)
         new (&levels[i]) StageBests;
     levels_ = levels;
@@ -337,7 +339,7 @@ void BestResults::decode_from_struct(script::Struct* params)
     if (level_count_ != ints::as_signed(array->extent_))
         return;
     for (int i = 0; i < level_count_; ++i)
-        levels_[i].decode_from_struct(reinterpret_cast<script::Struct*>(array->fetch_part(i)));
+        levels_[i].decode_from_struct(array->struct_at(i));
     const char* initials = "ABC";
     params->fetch_text("DefaultInitials", &initials, 0);
     copy_initials(default_initials_, initials);
@@ -352,9 +354,9 @@ void BestResults::write_to_structure(script::Struct* params)
     for (int i = 0; i < level_count_; ++i) {
         script::Struct* structure = spawn_param_table();
         levels_[i].write_to_structure(structure);
-        array->set_element(i, reinterpret_cast<uint32_t>(structure));
+        array->set_element(i, cell::of(structure));
     }
-    params->add_component_of_type(kGameRecordsArray, script::kQbvalArray, reinterpret_cast<uint32_t>(array));
+    params->add_component_of_type(kGameRecordsArray, script::kQbvalArray, cell::of(array));
     params->append_word(kDefaultInitialsName, script::kQbvalString, default_initials_);
 }
 
@@ -378,7 +380,7 @@ void BestResults::get_release()
     }
     if (BestResults* records = sole()) {
         if (StageBests* levels = records->levels_) {
-            int* memory = reinterpret_cast<int*>(levels) - 1;
+            int* memory = raw::as<int>(levels) - 1;
             for (int i = *memory; i-- > 0;) // (as delete[]: the last first)
                 levels[i].destroy_body();
             memory::Hub::get_pull()->dealloc(memory);
@@ -400,7 +402,7 @@ bool update_records(bool edited_copy)
                 "records or the save)");
         return true;
     }
-    reinterpret_cast<modules::Skate*>(skate)->update_records();
+    skate->update_records();
     return true;
 }
 

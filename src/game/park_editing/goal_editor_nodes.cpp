@@ -11,6 +11,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
+#include "engine/core/pointer_cell.h"
 
 namespace park_editing {
 
@@ -34,7 +35,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
     int count = 0;
     if (!nodes) {
         // Added to the node manager's last array, grown for them, and hashed there.
-        nodes = reinterpret_cast<script::Array*>(level_nodes::get_node_owner_value58());
+        nodes = cell::pointer<script::Array>(level_nodes::get_node_owner_value58());
         manager = level_nodes::node_manager_instance();
         array_name = level_nodes::get_last_node_array_name();
         in_place = false;
@@ -45,14 +46,14 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
         else
             nodes->rescale(nodes->extent_ + 0x82);
     }
-    memory::Hub::get_pull()->enter_heap_scope(reinterpret_cast<memory::MemSource*>(heap));
+    memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(heap));
     char name[100];
     for (int goal = 0; goal < 10; ++goal) {
         // The pro, the restart, then eleven objects.
         for (int which = 0; which < 13; ++which) {
             script::Struct* node = nullptr;
             if (in_place) {
-                node = reinterpret_cast<script::Struct*>(nodes->fetch_part(static_cast<uint32_t>(*index)));
+                node = nodes->struct_at(static_cast<uint32_t>(*index));
             } else {
                 node = script::spawn_param_bag();
                 node = node ? new (node) script::Struct : nullptr;
@@ -69,8 +70,8 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
             node->put_name_key(0xA1DC81F9, checksums::hash_from_text(name));
             node->put_int(0xE50D6573, *index);
             if (!in_place) {
-                nodes->set_element(static_cast<uint32_t>(*index), reinterpret_cast<uint32_t>(node));
-                manager->hash_node_in(array_name, static_cast<uint32_t>(*index), reinterpret_cast<uint32_t>(node));
+                nodes->set_element(static_cast<uint32_t>(*index), cell::of(node));
+                manager->hash_node_in(array_name, static_cast<uint32_t>(*index), cell::of(node));
             }
             ++*index;
         }

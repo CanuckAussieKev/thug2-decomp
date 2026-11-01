@@ -11,6 +11,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park/park_memory.h"
+#include "engine/core/bits_as.h"
 
 namespace park_editing {
 
@@ -225,7 +226,7 @@ bool ParkLayout::is_area_blocked(CellBox area)
 namespace {
 
 // GapRegistry (0xA8 bytes): the instance in use (sSingleton, 0x0058CBB0), constructor, copying and destructor.
-void*& gap_manager_instance() { return reinterpret_cast<void*&>(g_gap_registry); }
+void*& gap_manager_instance() { return memory::bits_as<void*>(g_gap_registry); }
 
 } // namespace
 

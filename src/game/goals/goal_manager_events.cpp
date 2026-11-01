@@ -16,6 +16,7 @@
 #include "game/skate/trick_goals.h"
 #include "game/rider/rider.h"
 #include "game/skate/point_tally.h"
+#include "engine/core/pointer_cell.h"
 
 namespace goals {
 
@@ -147,9 +148,9 @@ void GoalManager::land()
             complete_objective(goal->get_objective_key());
             goal->fetch_args()->erase_module(kWinningScore);
         } else if (goal->fetch_args()->has_bare_flag(kTrickObjects)) {
-            reinterpret_cast<TrickObjectsGoal*>(goal)->evaluate_points();
+            static_cast<TrickObjectsGoal*>(goal)->evaluate_points();
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
-            reinterpret_cast<TrickBeatGoal*>(goal)->remove_landed_tricks();
+            static_cast<TrickBeatGoal*>(goal)->remove_landed_tricks();
         } else if (goal->fetch_args()->has_bare_flag(kSkateTheLine)) {
             static_cast<SkateLineGoal*>(goal)->land();
         } else if (goal->fetch_args()->has_entry_named(kArcadeCurrentScoreTotal)) {
@@ -184,7 +185,7 @@ void GoalManager::get_bail()
             if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && flag)
                 goal->fetch_args()->put_int(kTrickMarker, 0);
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
-            reinterpret_cast<TrickBeatGoal*>(goal)->clear_landed();
+            static_cast<TrickBeatGoal*>(goal)->clear_landed();
         }
     }
 }
@@ -259,7 +260,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
             script::Struct* copy = spawn_param_table();
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             copy->append_structure_if_any(element->structure);
-            list->set_element(index++, reinterpret_cast<uint32_t>(copy));
+            list->set_element(index++, cell::of(copy));
             element = next;
         }
         if (skater) {
@@ -350,7 +351,7 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
         script::Struct* entry = spawn_param_table();
         entry->put_name_key(kGoalIdKey, goal->get_objective_key());
         entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
-        list->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+        list->set_element(static_cast<uint32_t>(i), cell::of(entry));
     }
     script->args_->append_array_value(kGoalList, list);
     free_array(list);

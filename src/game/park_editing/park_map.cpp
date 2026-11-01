@@ -19,6 +19,7 @@
 #include "engine/script/struct_buffer.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
+#include "platform/code_address.h"
 
 namespace park_editing {
 
@@ -60,7 +61,7 @@ uint32_t structure_buffer_size(script::Struct* structure, uint32_t maximum)
 }
 void write_structure(script::Struct* structure, void* buffer, uint32_t size, int a, int b)
 {
-    script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a, reinterpret_cast<void (*)()>(b));
+    script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a, function_at<void (*)()>(static_cast<uint32_t>(b)));
 }
 void read_structure(script::Struct* structure, void* buffer, size_t size)
 {
@@ -160,7 +161,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
     if (script::Array* premade = script::fetch_list(kPremadeParksInfo)) {
         const int count = static_cast<int>(premade->extent_);
         for (int i = 0; i < count; ++i) {
-            auto* info = reinterpret_cast<script::Struct*>(premade->fetch_part(i));
+            auto* info = premade->struct_at(i);
             if (!info)
                 continue;
             int info_slot = 0;

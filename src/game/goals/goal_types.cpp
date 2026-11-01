@@ -23,6 +23,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/pointer_cell.h"
 
 namespace goals {
 
@@ -132,7 +133,7 @@ bool ContestObjective::is_frozen() { return (cur_phase_ & kStatePaused) || is_ha
 void ContestObjective::restore_save_block(script::Struct* data)
 {
     // (the first value's local is the argument's slot: a missing gotBronze leaves the pointer - set)
-    int got = static_cast<int>(reinterpret_cast<uintptr_t>(data));
+    int got = static_cast<int>(cell::address(data));
     data->fetch_int_value(kGotBronze, &got, 0);
     if (got)
         has_third_place_ = true;
@@ -347,7 +348,7 @@ void HuntGapsObjective::scan_for_gaps()
         // (modules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
         if (!score->is_gap(i))
             continue;
-        const uint32_t gap = reinterpret_cast<modules::PointTally*>(score)->get_trick_name(i);
+        const uint32_t gap = score->get_trick_name(i);
         if (found->has_entry_named(gap))
             continue;
         found->put_int(gap, 1);

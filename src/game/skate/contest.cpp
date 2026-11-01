@@ -16,6 +16,8 @@
 #include "engine/objects/anim_movies.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/gfx/loading_bar.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace modules {
 
@@ -72,8 +74,7 @@ objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
 objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
     // (0x00557FB0 is the lookup table's by-index code, shared with the goal manager's: its first member is the table too)
-    return reinterpret_cast<objects::RiderIdentity*>(
-        reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(index));
+    return raw::as<objects::RiderIdentity>(raw::as<goals::GoalManager>(manager)->get_objective_at(index));
 }
 
 // The goal manager (0x005591B0) and its active competition goal (0x00558D90; null: none).
@@ -359,7 +360,7 @@ void Contest::show_leader_board()
         entry->put_int(kScore, leader.best_two(runs_ + 1));
         if (leader.ident_ == 0)
             entry->put_name_key(kNoName, kPlayer);
-        board->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+        board->set_element(static_cast<uint32_t>(i), cell::of(entry));
     }
     params->append_array_value(kRankingList, board);
     free_array(board);
@@ -498,7 +499,7 @@ void Contest::end_run(int score)
         entry->put_int("score", current_round(judges[i])); // "score"
         if (is_leading_scorer(i))
             entry->put_name_key(kNoName, kTopJudge);
-        scores->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+        scores->set_element(static_cast<uint32_t>(i), cell::of(entry));
         debug::printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]), static_cast<int>(is_leading_scorer(i)));
     }
     params->append_array_value("scores", scores);                  // "scores"

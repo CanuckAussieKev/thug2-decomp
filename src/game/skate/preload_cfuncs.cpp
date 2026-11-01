@@ -19,7 +19,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_cfuncs.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/skate/skate_module_calls.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
@@ -29,6 +29,7 @@
 #include "engine/gfx/model_utils.h"
 #include "game/skate/cas_options.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/pointer_cell.h"
 
 namespace commands {
 
@@ -110,7 +111,7 @@ void matching_options(uint32_t part, uint32_t filter, script::Struct** out, int*
 
 script::Struct* get_element(script::Array* array, uint32_t index)
 {
-    return reinterpret_cast<script::Struct*>(array->fetch_part(index));
+    return array->struct_at(index);
 }
 // A pedestrian part chosen at random: allowed, not to be picked again, its place among the random choices.
 void get_choose(script::Struct* option, int index)
@@ -368,7 +369,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
         bool added = false;
         for (int i = 0; i < static_cast<render::RenderModel*>(model)->fetch_geom_total(); ++i) {
             auto textures = static_cast<uint32_t>(
-                reinterpret_cast<uintptr_t>(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
+                cell::address(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
             bool found = false;
             for (int k = 0; k < seen_count; ++k) {
                 if (seen[k] == textures)

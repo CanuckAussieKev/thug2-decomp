@@ -38,7 +38,7 @@ script::Array* part_list(uint32_t slot)
 bool list_has(script::Array* list, uint32_t desc)
 {
     for (uint32_t i = 0; i < list->extent_; ++i) {
-        auto* part = reinterpret_cast<script::Struct*>(list->fetch_part(i));
+        auto* part = list->struct_at(i);
         uint32_t id = 0;
         if (part && part->read_hash_value(kDescId, &id, 0) && id == desc)
             return true;
@@ -58,7 +58,7 @@ uint32_t get_fallback(uint32_t slot, script::Array* list)
             list_has(list, desc))
             return desc;
     }
-    auto* first = reinterpret_cast<script::Struct*>(list->fetch_part(0));
+    auto* first = list->struct_at(0);
     uint32_t desc = 0;
     if (first && first->read_hash_value(kDescId, &desc, 0))
         return desc;

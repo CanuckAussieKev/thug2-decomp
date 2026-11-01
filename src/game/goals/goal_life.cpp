@@ -19,7 +19,7 @@
 #include "game/skate/game_mode.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/net/player_info.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/rider.h"
@@ -227,7 +227,7 @@ void Objective::merge_skill_tier_args()
     if (!args_->fetch_list(kDifficultyLevelParams, &levels, 0))
         return;
     const int level = get_skill_tier(objective_board(), false);
-    args_->append_structure_if_any(reinterpret_cast<script::Struct*>(levels->fetch_part(static_cast<uint32_t>(level))));
+    args_->append_structure_if_any(levels->struct_at(static_cast<uint32_t>(level)));
     alloc_objective_bits(args_);
 }
 
@@ -241,7 +241,7 @@ void Objective::prepare_all()
     if (args_->fetch_list(kDifficultyLevelParams, &levels, 0)) {
         const int level = get_skill_tier(objective_board(), false);
         args_->append_structure_if_any(
-            reinterpret_cast<script::Struct*>(levels->fetch_part(static_cast<uint32_t>(level))));
+            levels->struct_at(static_cast<uint32_t>(level)));
         alloc_objective_bits(args_);
     }
     uint32_t script = 0;
@@ -589,7 +589,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
             goal_flags_->put_name_key(kNoName, kSkaterTraits);
             const int skaters = static_cast<int>(flags->extent_);
             for (int i = 0; i < skaters; ++i) {
-                auto* entry = reinterpret_cast<script::Struct*>(flags->fetch_part(static_cast<uint32_t>(i)));
+                auto* entry = flags->struct_at(static_cast<uint32_t>(i));
                 uint32_t skater = 0;
                 entry->read_hash_value(kSkater, &skater, 1);
                 script::Struct* own = spawn_param_table();

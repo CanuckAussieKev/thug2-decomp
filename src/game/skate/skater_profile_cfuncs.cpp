@@ -14,6 +14,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "game/goals/goal_manager.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -95,8 +96,7 @@ uint32_t template_count() { return roster_handle()->templates_.num_; }
 objects::RiderIdentity* template_at(uint32_t index)
 {
     // (0x00557FB0: the lookup table's by-index code, shared with the goal manager's)
-    return reinterpret_cast<objects::RiderIdentity*>(
-        reinterpret_cast<goals::GoalManager*>(roster_handle())->get_objective_at(static_cast<int>(index)));
+    return raw::as<objects::RiderIdentity>(raw::as<goals::GoalManager>(roster_handle())->get_objective_at(static_cast<int>(index)));
 }
 // The template named `name` (by its info's name), or null.
 objects::RiderIdentity* find_template(uint32_t name)
@@ -114,7 +114,7 @@ objects::RiderIdentity* find_template(uint32_t name)
 // An element of a global array of structures.
 script::Struct* table_row(script::Array* list, uint32_t index)
 {
-    return reinterpret_cast<script::Struct*>(list->fetch_part(index));
+    return list->struct_at(index);
 }
 script::Struct* new_params()
 {
@@ -149,8 +149,8 @@ bool cfunc_restore_temporary_appearance(script::Struct* params, script::Script*)
         appearance->append_structure_if_any(&remembered->appearance()->structure_);
         return true;
     }
-    reinterpret_cast<gfx::ModelLook*>(profile)->copy_from(
-        reinterpret_cast<gfx::ModelLook*>(remembered)); // (the appearance copied)
+    raw::as<gfx::ModelLook>(profile)->copy_from(
+        raw::as<gfx::ModelLook>(remembered)); // (the appearance copied)
     return true;
 }
 
@@ -472,8 +472,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
     if (params->has_bare_flag(kAll)) {
         const int count = static_cast<int>(manager->templates_.num_);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
-            reinterpret_cast<objects::RiderIdentity*>(
-                reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(i))
+            raw::as<objects::RiderIdentity>(raw::as<goals::GoalManager>(manager)->get_objective_at(i))
                 ->add_max_specials(1);
         return true;
     }

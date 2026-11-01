@@ -16,7 +16,10 @@
 #include "game/skate/career.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace goals {
 
@@ -55,7 +58,7 @@ GapTally*& building() { return g_building_gap_checklist; }
 // The list's nodes: the head's data is -1.
 GapEntry* gap_of(memory::ListNode* node)
 {
-    return node->data == reinterpret_cast<void*>(-1) ? nullptr : reinterpret_cast<GapEntry*>(node);
+    return node->data == memory::ListNode::head_marker() ? nullptr : raw::as<GapEntry>(node);
 }
 GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 
@@ -314,7 +317,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
         item->put_int("gap_number", index);
         item->put_vec3(kSkaterStartPos, gap->skater_start_pos_.x, gap->skater_start_pos_.y, gap->skater_start_pos_.z);
         item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
-        list->set_element(index, reinterpret_cast<uint32_t>(item));
+        list->set_element(index, cell::of(item));
     }
     script->args_->append_array_ref(kGapList, list);
     script->args_->put_int(kGapsFoundCount, got);

@@ -30,6 +30,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -85,7 +86,7 @@ constexpr float kMinTilt = 10.0f;                 // 0x00646710
 constexpr double kMaxTilt = 90.0;                 // 0x0064F340
 constexpr double kFullTurn = 360.0;               // 0x0064F348 (and 360.0f, 0x00645EA8)
 
-uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
 frame_loop::Hub* get_main_loop() { return assets::g_main_loop_manager; }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
@@ -441,8 +442,8 @@ void ParkBuilderMode::tick_frame()
     camera.row[3].x = static_cast<float>(static_cast<double>(camera.row[3].x) + get_cursor()->at_point_.x);
     camera.row[3].y = static_cast<float>(static_cast<double>(camera.row[3].y) + kCameraHeight);
     camera.row[3].z = static_cast<float>(static_cast<double>(cursor_pos.z) + camera.row[3].z);
-    auto* objects = reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
-    if (auto* cam = reinterpret_cast<objects::GameEntity*>(objects->look_up_entity(kParkedCam))) {
+    auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    if (auto* cam = static_cast<objects::GameEntity*>(objects->look_up_entity(kParkedCam))) {
         cam->at_point_ = camera.row[3];
         cam->basis_frame_ = camera;
     }
@@ -646,7 +647,7 @@ void ParkBuilderMode::logic_update()
     if (flag_bits_ & kFlagPaused)
         return;
     // The rail editor's flags (+0x08): bit 0.
-    auto rail_bit = []() { return (reinterpret_cast<uint8_t*>(get_rail_editor())[8] & 1) != 0; };
+    auto rail_bit = []() { return (raw::bytes(get_rail_editor())[8] & 1) != 0; };
     if (get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement) {
         if (rail_bit())
             launch_script(kSwitchOnRailEditor);
@@ -680,7 +681,7 @@ void ParkBuilderMode::change_phase(uint32_t state)
     }
     modules::FrontEnd* front_end = modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
     if (state == kStateEdit) {
-        reinterpret_cast<modules::Skate*>(skate_module())->tidy_before_park_build();
+        raw::as<modules::Skate>(skate_module())->tidy_before_park_build();
         front_end->hold_repeat_ms_ = 320;
         front_end->auto_repeat_rate_ = 100;
         hub()->highlight_gap_pieces(false, nullptr);

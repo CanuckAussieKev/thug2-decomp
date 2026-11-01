@@ -24,6 +24,8 @@
 #include "engine/script/struct_buffer.h"
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -102,7 +104,7 @@ memory::owner<objects::ObjectModule*> ObjectiveAuthoring::fabricate() { return n
 // 0x004E6FB0
 void ObjectiveAuthoring::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kGoalEditor), g_goal_editor_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kGoalEditor), g_goal_editor_member_functions, 0x18);
 }
 
 // 0x004EA230
@@ -135,8 +137,8 @@ void ObjectiveAuthoring::seal()
 // 0x004E8470
 ObjectiveAuthoring* ObjectiveAuthoring::get_pull()
 {
-    auto* manager = reinterpret_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
-    auto* object = reinterpret_cast<objects::GameEntity*>(manager->look_up_entity(kGoalEditor));
+    auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+    auto* object = static_cast<objects::GameEntity*>(manager->look_up_entity(kGoalEditor));
     return static_cast<ObjectiveAuthoring*>(object->fetch_module(kGoalEditor));
 }
 
@@ -231,7 +233,7 @@ void ObjectiveAuthoring::clear_level_goals()
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ != kParkEditorLevel)
-            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
+            init_edited_goal(raw::bytes(&goal));
     }
     active_node_ = nullptr;
 }
@@ -241,7 +243,7 @@ void ObjectiveAuthoring::clear_park_goals()
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == kParkEditorLevel)
-            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
+            init_edited_goal(raw::bytes(&goal));
     }
     active_node_ = nullptr;
 }
@@ -251,7 +253,7 @@ void ObjectiveAuthoring::clear_incomplete_goals()
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.vertex_total_ < goal.min_points_)
-            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
+            init_edited_goal(raw::bytes(&goal));
     }
 }
 
@@ -293,7 +295,7 @@ void ObjectiveAuthoring::drop_objective(EditedGoal* goal)
         if (manager->goal_exists(created_goal_id(goal->level_goal_number_)))
             manager->drop_objective(created_goal_id(goal->level_goal_number_));
     }
-    init_edited_goal(reinterpret_cast<uint8_t*>(goal));
+    init_edited_goal(raw::bytes(goal));
     if (active_node_ == goal)
         active_node_ = nullptr;
 }
@@ -383,7 +385,7 @@ void ObjectiveAuthoring::begin_fresh_objective()
         if (goal.taken_count_)
             continue;
         active_node_ = &goal;
-        init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
+        init_edited_goal(raw::bytes(&goal));
         active_node_->taken_count_ = true;
         active_node_->level_ = level;
         active_node_->level_goal_number_ = index;
@@ -414,7 +416,7 @@ void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
         return;
     const uint32_t count = goals->extent_;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(goals->fetch_part(i));
+        auto* entry = goals->struct_at(i);
         uint32_t level = 0;
         entry->read_hash_value(0x651533EC, &level, 0);
         const bool park = level == kParkEditorGameplayLevel || level == kParkEditorLevel;
@@ -439,7 +441,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
     const uint8_t* end = script::decode_from_bytes(params, buffer, size);
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == level)
-            init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
+            init_edited_goal(raw::bytes(&goal));
     }
     active_node_ = nullptr;
     script::Array* goals = nullptr;
@@ -451,7 +453,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
             break;
         if (goal.taken_count_)
             continue;
-        goal.decode_from_struct(reinterpret_cast<script::Struct*>(goals->fetch_part(next++)));
+        goal.decode_from_struct(goals->struct_at(next++));
         goal.level_ = level;
         --left;
     }
@@ -478,7 +480,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
             continue;
         script::Struct* entry = spawn_param_table();
         goal.export_to_struct(entry);
-        goals->set_element(index++, reinterpret_cast<uint32_t>(entry));
+        goals->set_element(index++, cell::of(entry));
     }
     out->append_array_ref(kGoalListName, goals);
 }
@@ -497,7 +499,7 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
             continue;
         script::Struct* entry = spawn_param_table();
         goal.export_to_struct(entry);
-        goals->set_element(index++, reinterpret_cast<uint32_t>(entry));
+        goals->set_element(index++, cell::of(entry));
     }
     out->append_array_ref(kGoalListName, goals);
 }
@@ -541,7 +543,7 @@ bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float 
 
 objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset)
 {
-    return reinterpret_cast<objects::ControlButton*>(reinterpret_cast<uint8_t*>(input) + offset);
+    return raw::field_at<objects::ControlButton>(input, offset);
 }
 
 } // namespace
@@ -627,7 +629,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
             continue;
         script::Struct* entry = spawn_param_table();
         goal.export_to_struct(entry);
-        goals->set_element(index++, reinterpret_cast<uint32_t>(entry));
+        goals->set_element(index++, cell::of(entry));
     }
     script->args_->append_array_ref("EditedGoalsInfo", goals);
     return true;

@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "game/skate/skate_module.h"
+#include "engine/core/pointer_cell.h"
 
 namespace modules {
 
@@ -15,7 +16,7 @@ int Skate::count_riders()
 {
     const memory::ListNode* node = riders_.list_link_.next;
     int count = 0;
-    while (reinterpret_cast<intptr_t>(node->data) != -1 && node) {
+    while (static_cast<intptr_t>(cell::address(node->data)) != -1 && node) {
         node = node->next;
         ++count;
     }

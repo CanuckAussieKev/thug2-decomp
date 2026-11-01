@@ -20,6 +20,7 @@
 #include "engine/objects/entity_hub.h"
 #include "game/park/park_memory.h"
 #include "engine/objects/compositemgr.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -57,7 +58,7 @@ uint32_t& next_rail_id() { return g_next_rail_id; }
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 
 // A pool pair's "made here" flags (one byte each, +0x04).
-uint8_t& get_owned(memory::PoolPair& pair, int which) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[which]; }
+uint8_t& get_owned(memory::PoolPair& pair, int which) { return raw::bytes(&pair.unknown4)[which]; }
 
 // A pool made for a pair's current slot (owned).
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
@@ -255,7 +256,7 @@ int EditedRail::count_points_inside(float x0, float z0, float x1, float z1) cons
 void EditedRail::change_colour(int index)
 {
     script::Array* colours = script::fetch_list(kGraffitiColors);
-    auto* colour = reinterpret_cast<script::Array*>(colours->fetch_part(static_cast<uint32_t>(index)));
+    auto* colour = colours->array_at(static_cast<uint32_t>(index));
     const uint32_t rgba = static_cast<uint8_t>(colour->fetch_part(0)) |
                           static_cast<uint8_t>(colour->fetch_part(1)) << 8 |
                           static_cast<uint32_t>(static_cast<uint8_t>(colour->fetch_part(2))) << 16 | 0x80000000u;
@@ -384,8 +385,7 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
 // 0x004F4970
 RailAuthoring* RailAuthoring::sole()
 {
-    auto* object = reinterpret_cast<objects::GameEntity*>(
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kType));
+    auto* object = static_cast<objects::GameEntity*>(static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kType));
     return static_cast<RailAuthoring*>(object->fetch_module(kType));
 }
 

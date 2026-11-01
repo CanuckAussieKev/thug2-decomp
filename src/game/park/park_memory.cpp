@@ -16,6 +16,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -55,7 +56,7 @@ memory::PoolPair& array_pools() { return script::g_array_pools; }
 // was made here (and is deleted by power_down).
 memory::PoolPair& clipboard_entry_pools() { return g_clipboard_entry_pools; }
 memory::PoolPair& map_list_node_pools() { return g_node_pools; }
-uint8_t& pool_made_here(memory::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
+uint8_t& pool_made_here(memory::PoolPair& pair) { return raw::bytes(&pair.unknown4)[pair.current]; }
 memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return pair.pools[pair.current]; }
 
 int& unknown_7c_e_68c() { return g_park_memory_unknown_7c_e_68c; }
@@ -221,7 +222,7 @@ void power_down()
     delete_pool(clipboard_pools());
     delete_pool(clipboard_entry_pools());
     delete_pool(map_list_node_pools());
-    memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(park_heap()));
+    memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(park_heap()));
     delete park_region();
     park_heap() = nullptr;
     park_region() = nullptr;

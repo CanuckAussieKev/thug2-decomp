@@ -11,6 +11,7 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -23,7 +24,7 @@ memory::PoolPair& string_pools() { return g_park_string_pools; }
 memory::PoolPair& point_pools() { return g_park_point_pools; }
 
 // Whether the pair's current pool was made by it (and so is deleted when it's taken away): a byte per pool at +4.
-uint8_t& pool_owned(memory::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
+uint8_t& pool_owned(memory::PoolPair& pair) { return raw::bytes(&pair.unknown4)[pair.current]; }
 
 // A pool deleted: its block (0x005BA4E0, ~Pool), then the pool.
 void delete_pool(memory::SlabBank* pool)

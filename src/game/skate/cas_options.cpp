@@ -24,7 +24,7 @@ constexpr uint32_t kAllowRandom = 0xF1E3CD22;     // allow_random
 constexpr uint32_t kAlreadySelected = 0x92BDDFD9; // already_selected
 constexpr uint32_t kShuffleIndex = 0x4B833E64;    // random_index
 
-Struct* current_option(Array* list, uint32_t index) { return reinterpret_cast<Struct*>(list->fetch_part(index)); }
+Struct* current_option(Array* list, uint32_t index) { return list->struct_at(index); }
 
 // allow_random, by default true unless no_random.
 int allow_random(Struct* option)

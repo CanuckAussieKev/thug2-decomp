@@ -287,7 +287,7 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
     params->read_hash_value(0u, &type, 0);
     script::Struct* best = nullptr;
     for (uint32_t i = 0; i < saves->extent_; ++i) {
-        auto* save = reinterpret_cast<script::Struct*>(saves->fetch_part(i));
+        auto* save = saves->struct_at(i);
         uint32_t file_type = 0;
         save->read_hash_value("file_type", &file_type, 0);
         if (type != 0 && file_type != type) // (any type when none is asked for)

@@ -15,6 +15,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "game/goals/create_a_trick.h"
+#include "engine/core/pointer_cell.h"
 
 namespace goals {
 
@@ -114,7 +115,7 @@ int Objective::pick_key_combo(script::Array* combos)
         if (combos->kind_tag_ == script::kQbvalName)
             combo = combos->fetch_part(index);
         else
-            reinterpret_cast<script::Struct*>(combos->fetch_part(index))->read_hash_value(kKeyCombo, &combo, 1);
+            combos->struct_at(index)->read_hash_value(kKeyCombo, &combo, 1);
         return combo;
     };
     uint32_t trick = 0;
@@ -182,16 +183,15 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
                                                                                                     1);
             }
         } else if (premade_cat > -1) {
-            auto* cat = reinterpret_cast<script::Struct*>(
-                script::fetch_list(kPremadeCats)->fetch_part(static_cast<uint32_t>(premade_cat)));
+            auto* cat = script::fetch_list(kPremadeCats)->struct_at(static_cast<uint32_t>(premade_cat));
             cat->fetch_text(kName, &trick_text, 1);
         } else {
             script::Struct* params = nullptr;
             script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
             params->fetch_text(kName, &trick_text, 1);
         }
-        key_texts->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(script::spawn_text(key_text)));
-        trick_texts->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(script::spawn_text(trick_text)));
+        key_texts->set_element(static_cast<uint32_t>(i), cell::of(script::spawn_text(key_text)));
+        trick_texts->set_element(static_cast<uint32_t>(i), cell::of(script::spawn_text(trick_text)));
     }
     return true;
 }
@@ -257,7 +257,7 @@ bool Objective::swap_move_caption()
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
             replace_trick_tokens(lines->find_inline_text(i), buffer, key_texts, trick_texts, kLabelPoints);
-            replaced->set_element(i, reinterpret_cast<uint32_t>(script::spawn_text(buffer)));
+            replaced->set_element(i, cell::of(script::spawn_text(buffer)));
         }
         args_->append_array_value(kGoalDescription, replaced);
         free_array(replaced);
@@ -321,7 +321,7 @@ void Objective::tint_tagged_props(int player, bool clear)
     const int count = static_cast<int>(clusters->extent_);
     for (int i = 0; i < count; ++i) {
         uint32_t id = 0;
-        reinterpret_cast<script::Struct*>(clusters->fetch_part(static_cast<uint32_t>(i)))->read_hash_value(kId, &id, 1);
+        clusters->struct_at(static_cast<uint32_t>(i))->read_hash_value(kId, &id, 1);
         if (!objects->get_cluster(id))
             continue;
         if (clear) {
@@ -344,8 +344,7 @@ bool Objective::award_special_trick()
     const char* name = nullptr;
     if (cat) {
         args_->fetch_int_value(kPremadeCatIndex, &premade, 1);
-        auto* premade_cat = reinterpret_cast<script::Struct*>(
-            script::fetch_list(kPremadeCats)->fetch_part(static_cast<uint32_t>(premade)));
+        auto* premade_cat = script::fetch_list(kPremadeCats)->struct_at(static_cast<uint32_t>(premade));
         premade_cat->fetch_text(kName, &name, 1);
     } else {
         args_->read_hash_value(kTrickName, &trick, 1);

@@ -22,6 +22,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -77,26 +78,26 @@ uint32_t flash_mask(int rate)
 }
 
 // The sector calls (the geometry's virtual functions; its collision is the word at +8).
-render::Geom* as_geom(uint8_t* geometry) { return reinterpret_cast<render::Geom*>(geometry); }
+render::Geom* as_geom(uint8_t* geometry) { return raw::as<render::Geom>(geometry); }
 uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
 uint8_t* fetch_shape(uint8_t* sector)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<render::WorldCell*>(sector)->geom_handle_);
+    return static_cast<uint8_t*>(raw::as<render::WorldCell>(sector)->geom_handle_);
 }
 int get_vertex_count(uint8_t* geometry) { return static_cast<int>(as_geom(geometry)->fetch_vertex_tally()); }
 void get_vertices(uint8_t* geometry, Vec4* out) { as_geom(geometry)->get_vertices(out); }
 void set_vertices(uint8_t* geometry, Vec4* vertices) { as_geom(geometry)->set_vertices(vertices); }
 render::TriMeshSource* get_hit_shape(uint8_t* geometry)
 {
-    return static_cast<render::TriMeshSource*>(reinterpret_cast<render::Geom*>(geometry)->hit_triangles_);
+    return static_cast<render::TriMeshSource*>(raw::as<render::Geom>(geometry)->hit_triangles_);
 }
 uint16_t collision_vertex_count(const render::TriMeshSource* collision)
 {
-    return *reinterpret_cast<const uint16_t*>(reinterpret_cast<const uint8_t*>(collision) + 6);
+    return *raw::field_at<const uint16_t>(collision, 6);
 }
 void set_collision_vertices(uint8_t* sector, Vec4* vertices)
 {
-    reinterpret_cast<render::WorldCell*>(sector)->choose_raw_verts(vertices);
+    raw::as<render::WorldCell>(sector)->choose_raw_verts(vertices);
 }
 
 // One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the differences (in double), the sine

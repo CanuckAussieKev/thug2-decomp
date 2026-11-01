@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
 // skaters, made by the init_pro_skaters script through add_template), keyed by name in a lookup table, and the
@@ -40,8 +41,8 @@ struct RiderIdentity {
     void write_to_save(script::Struct* save);                     // 0x00586B00
     bool get_reset(script::Struct* params);                       // 0x00586810 (its defaults, then `params`; true)
     void set_appearance(script::Struct* appearance, bool update); // 0x00488F40
-    script::Struct* details_params() { return reinterpret_cast<script::Struct*>(details_); }
-    gfx::ModelLook* appearance() { return reinterpret_cast<gfx::ModelLook*>(look_data_); }
+    script::Struct* details_params() { return raw::as<script::Struct>(details_); }
+    gfx::ModelLook* appearance() { return raw::as<gfx::ModelLook>(look_data_); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
     void erase_one();
     // 0x00543010: the destructor body (Delete without the free): the info cleared, the appearance's destructor body.

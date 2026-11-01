@@ -12,6 +12,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
+#include "engine/core/raw_view.h"
 
 namespace goals {
 
@@ -39,7 +40,7 @@ CreateATrick* created_trick(objects::Rider* skater, int index) { return skater->
 template <typename T>
 T& prop(objects::Rider* skater, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(skater) + offset);
+    return *raw::field_at<T>(skater, offset);
 }
 script::Struct* get_results(script::Script* script) { return script->args_; }
 

@@ -8,13 +8,14 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/sector.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/raw_view.h"
 
 // The engine's scene calls the park editor's pieces and generator make (Nx). Sectors are looked
 // up by name; the park's pieces are clones of the park editor's own sectors.
 namespace park_editing::scene {
 
-inline render::WorldCell* as_sector(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector); }
-inline render::WorldScene* as_scene(uint8_t* scene) { return reinterpret_cast<render::WorldScene*>(scene); }
+inline render::WorldCell* as_sector(uint8_t* sector) { return raw::as<render::WorldCell>(sector); }
+inline render::WorldScene* as_scene(uint8_t* scene) { return raw::as<render::WorldScene>(scene); }
 
 // A geometry (the original's calls go through the engine's dispatchers `MOV EAX,[ECX]; JMP [EAX + 4 * slot]`).
 inline render::Geom* as_geom(void* geometry) { return static_cast<render::Geom*>(geometry); }
@@ -22,7 +23,7 @@ inline render::Geom* as_geom(void* geometry) { return static_cast<render::Geom*>
 // 0x0048C510: the sector named `name` in any scene (null if none)
 inline uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
 // 0x0048C700: the scene named `name` (null if none)
-inline uint8_t* look_up_scene(uint32_t name) { return reinterpret_cast<uint8_t*>(render::engine::find_scene(name)); }
+inline uint8_t* look_up_scene(uint32_t name) { return raw::bytes(render::engine::find_scene(name)); }
 
 // WorldCell:
 // 0x0049E760: quarter turns about y

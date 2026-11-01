@@ -28,11 +28,13 @@
 #include "engine/objects/trick_objects.h"
 #include "game/skate/profile_manager.h"
 #include "game/rider/rider.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/trick_component.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace goals {
 
@@ -107,9 +109,9 @@ GoalManager::~GoalManager()
         data->get_clear();
         script::delete_struct(data);
     }
-    reinterpret_cast<objects::TrickObjectHead*>(&active_goals_)->unlink_all();
+    raw::as<objects::TrickObjectHead>(&active_goals_)->unlink_all();
     active_goals_.destroy_body();
-    reinterpret_cast<objects::ProfileTable*>(&goals_)->get_clear();
+    raw::as<objects::ProfileTable>(&goals_)->get_clear();
 }
 
 // 0x00557E30
@@ -396,9 +398,9 @@ void GoalManager::check_trick_goals()
             if (!params->has_bare_flag(kSpecialGap) && goal->did_trick_string())
                 complete_objective(goal->get_objective_key());
         } else if (goal->is_tetris()) {
-            reinterpret_cast<FallingTricksGoal*>(goal)->check_tricks();
+            static_cast<FallingTricksGoal*>(goal)->check_tricks();
         } else if (goal->is_find_gaps()) {
-            reinterpret_cast<HuntGapsObjective*>(goal)->scan_for_gaps();
+            static_cast<HuntGapsObjective*>(goal)->scan_for_gaps();
         }
     }
 }
@@ -658,7 +660,7 @@ void GoalManager::trick_object_hit(uint32_t cluster)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->fetch_args()->has_bare_flag(kTrickObjects))
-            reinterpret_cast<TrickObjectsGoal*>(goal)->get_object_hit(cluster);
+            static_cast<TrickObjectsGoal*>(goal)->get_object_hit(cluster);
     }
 }
 
@@ -687,7 +689,7 @@ void GoalManager::wipe_objectives()
 // 0x0055DBE0
 void GoalManager::add_active_goal(Objective* goal)
 {
-    reinterpret_cast<lists::Foremost*>(&active_goals_)->append_vertex(goal->list_node());
+    raw::as<lists::Foremost>(&active_goals_)->append_vertex(goal->list_node());
 }
 
 namespace {
@@ -696,13 +698,13 @@ namespace {
 int count_active(memory::ListNode* head)
 {
     const memory::ListNode* node = head->next;
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return 0;
     int count = 0;
     do {
         node = node->next;
         ++count;
-    } while (node->data != reinterpret_cast<void*>(-1) && node);
+    } while (node->data != memory::ListNode::head_marker() && node);
     return count;
 }
 
@@ -712,11 +714,11 @@ int count_active(memory::ListNode* head)
 memory::ListNode* GoalListHead::get_node_at(int index)
 {
     memory::ListNode* node = list_link_.next;
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return nullptr;
     while (index--) {
         node = node->next;
-        if (node->data == reinterpret_cast<void*>(-1) || !node)
+        if (node->data == memory::ListNode::head_marker() || !node)
             return nullptr;
     }
     return node;

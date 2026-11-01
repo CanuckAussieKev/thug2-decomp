@@ -109,7 +109,7 @@ void LetterGameObjective::land()
     int score = 0; // (both set before they're read)
     uint32_t flag = 0;
     for (; i < count; ++i) {
-        auto* spot = reinterpret_cast<script::Struct*>(spots->fetch_part(static_cast<uint32_t>(i)));
+        auto* spot = spots->struct_at(static_cast<uint32_t>(i));
         spot->read_hash_value(kFlag, &flag, 1);
         int set = 0;
         goal_flags_->fetch_int_value(flag, &set, 1);
@@ -283,7 +283,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
     script::Array* waypoints = nullptr;
     args_->fetch_list(kRaceWaypoints, &waypoints, 1);
     for (uint32_t i = 0; i < waypoints->extent_; ++i) {
-        auto* waypoint = reinterpret_cast<script::Struct*>(waypoints->fetch_part(i));
+        auto* waypoint = waypoints->struct_at(i);
         uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
         if (bit_matches(flag, 1, 0)) {

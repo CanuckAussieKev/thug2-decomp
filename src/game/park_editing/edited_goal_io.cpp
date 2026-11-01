@@ -16,6 +16,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 #include "platform/compiler.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -50,7 +52,7 @@ script::Array* new_array_of(uint32_t size, uint32_t type)
 }
 script::Struct* structure_element(script::Array* array, uint32_t index)
 {
-    return reinterpret_cast<script::Struct*>(array->fetch_part(index));
+    return array->struct_at(index);
 }
 
 } // namespace
@@ -127,7 +129,7 @@ bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, float height,
 // 0x004E96D0
 void EditedGoal::decode_from_struct(script::Struct* params)
 {
-    init_edited_goal(reinterpret_cast<uint8_t*>(this));
+    init_edited_goal(raw::bytes(this));
     taken_count_ = true;
     won_ = false;
     uint32_t level = 0;
@@ -159,7 +161,7 @@ void EditedGoal::decode_from_struct(script::Struct* params)
         vertex_total_ = static_cast<uint8_t>(points->extent_);
         for (uint32_t i = 0; i < vertex_total_; ++i) {
             script::Struct* point = structure_element(points, i);
-            point->fetch_vec(0x7F261953, reinterpret_cast<script::VectorValue*>(&path_vertices_[i].pos), 0);
+            point->fetch_vec(0x7F261953, raw::as<script::VectorValue>(&path_vertices_[i].pos), 0);
             point->fetch_float(0x0AB21AF0, &path_vertices_[i].height, 0);
             point->fetch_float(0xFF7EBAF6, &path_vertices_[i].angle, 0);
         }
@@ -181,7 +183,7 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
             entry->put_name_key(0u, 0x687E2C25u);
         entry->put_int(0xEDF5DB70, set.spin * 180);
         entry->put_int(0xA4BEE6A1, set.tap_total_);
-        sets->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+        sets->set_element(static_cast<uint32_t>(i), cell::of(entry));
     }
     out->append_array_ref(0x0490F171, sets);
 }
@@ -220,7 +222,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
                 entry->put_name_key(0u, 0x687E2C25u);
             if (twist_rate_)
                 entry->put_int(0x8C8ABD19, twist_rate_);
-            result->set_element(index++, reinterpret_cast<uint32_t>(entry));
+            result->set_element(index++, cell::of(entry));
         }
     }
     out->append_array_ref(kind_tag_ == kGoalTypeKeyCombo ? 0x548B4A38 : 0x7BE1E689, result);
@@ -348,7 +350,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
             get_sprintf(name, "TRG_EditedGoal%d_Object_%d", level_goal_number_, i);
             letter->put_name_key(0x99F6CCBB, checksums::hash_from_text(name));
             letter->append_word(0xC4745838, kLetters[i]);
-            letters->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(letter));
+            letters->set_element(static_cast<uint32_t>(i), cell::of(letter));
         }
         out->append_array_ref(0xB3C7F1B2, letters);
         break;
@@ -367,7 +369,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
             if (race_per_checkpoint_time_ > 0)
                 waypoint->put_int(0x906B67BA, race_per_checkpoint_time_);
             waypoint->put_int(0xC48391A5, 5);
-            waypoints->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(waypoint));
+            waypoints->set_element(static_cast<uint32_t>(i), cell::of(waypoint));
         }
         out->append_array_ref(0xA77B1F07, waypoints);
         out->append_array_ref(0xCC3C4CC4, flags);
@@ -433,7 +435,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
         entry->put_vec3(0x7F261953, point.pos.x, point.pos.y, point.pos.z);
         entry->push_float(0x0AB21AF0, point.height);
         entry->push_float(0xFF7EBAF6, point.angle);
-        points->set_element(i, reinterpret_cast<uint32_t>(entry));
+        points->set_element(i, cell::of(entry));
     }
     out->append_array_ref(0x32DF12E0, points);
 }

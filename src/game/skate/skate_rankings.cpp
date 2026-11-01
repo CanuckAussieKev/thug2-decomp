@@ -21,6 +21,8 @@
 #include "game/skate/game_mode.h"
 #include "game/rider/rider.h"
 #include "engine/core/ints.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace modules {
 
@@ -69,7 +71,7 @@ struct RankingList {
     static online::ScoreEntry* get_after(memory::ListNode* node)
     {
         const memory::ListNode* next = node->next;
-        return next->data == reinterpret_cast<void*>(-1) ? nullptr : static_cast<online::ScoreEntry*>(next->data);
+        return next->data == memory::ListNode::head_marker() ? nullptr : static_cast<online::ScoreEntry*>(next->data);
     }
 };
 
@@ -165,7 +167,7 @@ void fill_elimination_ranking()
             reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
         entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
         entry->priority = info->eliminated_time_ ? static_cast<int>(info->eliminated_time_) : 100000;
-        reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry); // (inlined there)
+        raw::as<lists::Foremost>(&list.head_)->append_vertex(entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
     for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
@@ -220,7 +222,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             std::snprintf(entry->text_, sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_), "\\c%d%s %s",
                           entry->shade_, team_name, total); // "\c%d%s %s" (unbounded there)
             entry->priority = net->get_squad_points(team);
-            reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry);
+            raw::as<lists::Foremost>(&list.head_)->append_vertex(entry);
         }
         uint32_t line = 0;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry;) {
@@ -259,7 +261,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             online::ScoreEntry* entry = new_entry();
             text::copy_unbounded(entry->text_, info->skater_->fetch_shown_name());
             entry->priority = static_cast<int>(score);
-            reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry);
+            raw::as<lists::Foremost>(&list.head_)->append_vertex(entry);
         }
         uint32_t id = kFirstLine;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {

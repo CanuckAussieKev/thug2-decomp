@@ -17,6 +17,7 @@
 #include "game/park_editing/goal_editor.h"
 #include "game/skate/skate_module.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's copies of the gap names)
 
@@ -32,13 +33,13 @@ constexpr uint32_t kText = 0xC4745838;          // text
 constexpr uint32_t kCombinedFlags = 0x2760DE9E; // combined_flags
 constexpr uint32_t kCancelGround = 0x9A27E74D;  // CANCEL_GROUND (the global integer: the default cancel flags)
 
-uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); } // modules::Skate
+uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); } // modules::Skate
 // The skate module's career (+0x20).
 objects::RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
 // 0x005656C0: the skate module's (the current level's) gap checklist.
 goals::GapTally* skate_checklist()
 {
-    return static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate_module())->fetch_gap_list());
+    return static_cast<goals::GapTally*>(raw::as<modules::Skate>(skate_module())->fetch_gap_list());
 }
 // The goal editor (0x004E8470 looks it up); 0x004E8420: gap `index` taken out of the created park's gap goals.
 void remove_gap_from_goals(int index) { ObjectiveAuthoring::get_pull()->remove_gap_from_park_goals(index); }

@@ -20,6 +20,7 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -69,13 +70,13 @@ constexpr auto kSetTrackTrickScore = &goals::MatchRules::set_trick_score_trackin
 // The competition (modules::Contest, no source for these yet): 0x00550560 started with the medal scores and the
 // bail penalty; 0x00550EF0 a run ended with the local skater's score; 0x00550B50 the standings sorted; 0x005501A0
 // the place is `place`; 0x005501C0 the round is `round` (the runs + 1); 0x005501E0 ended; 0x005501F0 whether ended.
-modules::Contest* the_competition() { return reinterpret_cast<modules::Contest*>(get_competition()); }
+modules::Contest* the_competition() { return raw::as<modules::Contest>(get_competition()); }
 
 // The horse game (no source yet): 0x00560100 started; 0x00560180 a run started; 0x00560720 a run ended; 0x005608B0
 // the next player; 0x00560380 whether it's over; 0x00560190 its status is the one `params` names; 0x00560440 one of
 // its strings (`which`); 0x005601F0 its word (H-O-R-S-E) set. The current skater's id is its +0x04 (0x005480C0).
-modules::LetterMatch* the_horse() { return reinterpret_cast<modules::LetterMatch*>(get_horse()); }
-uint32_t current_horse_skater() { return *reinterpret_cast<uint32_t*>(get_horse() + 4); }
+modules::LetterMatch* the_horse() { return raw::as<modules::LetterMatch>(get_horse()); }
+uint32_t current_horse_skater() { return *raw::as<uint32_t>(get_horse() + 4); }
 // The horse's string `which`, built in `storage` (the caller destroys it).
 text::Chars* get_horse_string(void* storage, uint32_t which)
 {
@@ -88,9 +89,9 @@ uint8_t* get_score_of(objects::GameEntity* skater)
 {
     return static_cast<uint8_t*>(static_cast<objects::Rider*>(skater)->get_points_total());
 }
-int total_score(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score)->get_total_score(); }
-void add_to_bonus(uint8_t* score, int bonus) { reinterpret_cast<modules::PointTally*>(score)->add_bonus(bonus); }
-int get_bonus(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score)->get_bonus(); }
+int total_score(uint8_t* score) { return raw::as<modules::PointTally>(score)->get_total_score(); }
+void add_to_bonus(uint8_t* score, int bonus) { raw::as<modules::PointTally>(score)->add_bonus(bonus); }
+int get_bonus(uint8_t* score) { return raw::as<modules::PointTally>(score)->get_bonus(); }
 
 // The skater info heap, current while the competition's standings change.
 void push_skater_info_heap()
@@ -275,7 +276,7 @@ bool cfunc_is_current_horse_skater(script::Struct* params, script::Script*)
 {
     int id = 0; // (uninitialised in the original)
     if (!params->fetch_int_value(0u, &id, 0))
-        params->read_hash_value(0u, reinterpret_cast<uint32_t*>(&id), 1);
+        params->read_hash_value(0u, raw::as<uint32_t>(&id), 1);
     return current_horse_skater() == static_cast<uint32_t>(id);
 }
 

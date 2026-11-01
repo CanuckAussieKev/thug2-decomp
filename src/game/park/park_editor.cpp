@@ -9,6 +9,7 @@
 #include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -20,8 +21,8 @@ constexpr uint32_t kMetaFloor = 0x8;      // a meta piece's flag: part of the fl
 constexpr uint32_t kMetaLocked = 0x100;   // (not destroyed by an area's deletion when asked)
 constexpr uint32_t kMetaInCursor = 0x200; // held by the cursor
 
-uint32_t& get_meta_flags(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0xC); }
-CellBox& meta_footprint(void* meta) { return *reinterpret_cast<CellBox*>(static_cast<uint8_t*>(meta) + 0x4); }
+uint32_t& get_meta_flags(void* meta) { return *raw::as<uint32_t>(static_cast<uint8_t*>(meta) + 0xC); }
+CellBox& meta_footprint(void* meta) { return *raw::as<CellBox>(static_cast<uint8_t*>(meta) + 0x4); }
 
 // The scene is rebuilt while this is set (0x0067F398; cleared around the floor's rebuild).
 bool& scene_updates() { return g_collision_allowed; }

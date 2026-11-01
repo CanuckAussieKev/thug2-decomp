@@ -18,6 +18,7 @@
 #include "game/park/park_memory.h"
 #include "engine/script/nodes.h"
 #include "game/park_editing/park_editor.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -57,7 +58,7 @@ void place_at_absolute_point(void* sector, const maths::Vec4* position)
 void spin_around_up(void* sector, int rot) { static_cast<render::WorldCell*>(sector)->spin_around_up(rot); }
 const maths::Vec4* get_local_bounds(void* sector)
 {
-    return reinterpret_cast<const maths::Vec4*>(static_cast<render::WorldCell*>(sector)->fetch_bounds());
+    return raw::as<const maths::Vec4>(static_cast<render::WorldCell*>(sector)->fetch_bounds());
 }
 void* fetch_shape(void* sector) { return static_cast<render::WorldCell*>(sector)->geom_handle_; }
 // The geometry's vertices: how many (through 0x0048DF70), their positions, their colours set and read (0x0049F3E0), its collision (the word at +8, 0x0049E810)
@@ -65,11 +66,11 @@ int get_vertex_count(void* geometry) { return static_cast<int>(scene::as_geom(ge
 void get_vertex_positions(void* geometry, maths::Vec4* out) { scene::as_geom(geometry)->get_vertices(out); }
 void set_vertex_colours(void* geometry, uint32_t* colours)
 {
-    scene::as_geom(geometry)->change_colors(reinterpret_cast<const uint8_t*>(colours));
+    scene::as_geom(geometry)->change_colors(raw::bytes(colours));
 }
 void get_vertex_colours(void* geometry, uint32_t* out)
 {
-    scene::as_geom(geometry)->plat_get_render_colors(reinterpret_cast<uint8_t*>(out));
+    scene::as_geom(geometry)->plat_get_render_colors(raw::bytes(out));
 }
 render::TriMeshSource* get_hit_shape(void* geometry)
 {
@@ -209,7 +210,7 @@ void ParkAssembler::light_piece(ParkTile* p)
         get_vertex_positions(geometry, positions);
         get_vertex_colours(source_geometry, colours);
         for (int i = 0; i < count; ++i)
-            sample_light_colour(&positions[i], reinterpret_cast<uint8_t*>(&colours[i]));
+            sample_light_colour(&positions[i], raw::bytes(&colours[i]));
         set_vertex_colours(geometry, colours);
         memory::dealloc(positions);
         memory::dealloc(colours);
@@ -434,7 +435,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     next_piece_id_ = 0x20;
     source_world_ = look_up_scene("sk5ed");
     // every sector of the scene (its sector table at +0xD0)
-    auto* sectors = *reinterpret_cast<lists::KeyMap**>(static_cast<uint8_t*>(source_world_) + 0xD0);
+    auto* sectors = *raw::as<lists::KeyMap*>(static_cast<uint8_t*>(source_world_) + 0xD0);
     sectors->iter_bucket_ = -1;
     sectors->iter_item_ = nullptr;
     void* sector = nullptr;
@@ -444,7 +445,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         memory::leave_heap_scope();
         source->following_ = sources_;
         sources_ = source;
-        source->sector_ = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(sector) + 4); // its checksum
+        source->sector_ = *raw::as<uint32_t>(static_cast<uint8_t*>(sector) + 4); // its checksum
         const maths::Vec4* box = get_local_bounds(sector);                                 // min, max
         const maths::Vec4& min = box[0];
         const maths::Vec4& max = box[1];
@@ -461,7 +462,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         if (height < kGridStepUp && height > 0.0)
             source->extent_.y = kGridStepUp; // (at least a step high)
     }
-    scene_handle_ = clone_scene("cloned", *reinterpret_cast<void**>(static_cast<uint8_t*>(source_world_) + 0x88), 1);
+    scene_handle_ = clone_scene("cloned", *raw::as<void*>(static_cast<uint8_t*>(source_world_) + 0x88), 1);
     park_editing::set_up_bounds(this);
     for (RestartPoint& restart : restarts_)
         restart.kind_tag_ = RestartPoint::kFree;

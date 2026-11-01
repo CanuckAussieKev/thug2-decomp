@@ -19,6 +19,8 @@
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/cas_options.h"
 #include "engine/objects/compositemgr.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -68,7 +70,7 @@ objects::RiderIdentity* rider_identity_from_params(script::Struct* params, int a
 // the slot's global part list. The appearance's own structure is at +0x4C.
 gfx::ModelLook* get_appearance(objects::RiderIdentity* profile)
 {
-    return reinterpret_cast<gfx::ModelLook*>(profile);
+    return raw::as<gfx::ModelLook>(profile);
 } // (its first member)
 script::Struct* actual_part(objects::RiderIdentity* profile, uint32_t part)
 {
@@ -106,20 +108,19 @@ bool refresh_skater(script::Struct* params, uint32_t build_script)
 void* face_of(objects::RiderIdentity* profile) { return objects::appearance_face(profile); }
 FacePoints* get_face_vertex_count(void* face, FacePoints* out)
 {
-    return reinterpret_cast<FacePoints*>(
-        static_cast<gfx::FaceSkin*>(face)->get_points(reinterpret_cast<gfx::FaceAnchors*>(out)));
+    return raw::as<FacePoints>(static_cast<gfx::FaceSkin*>(face)->get_points(raw::as<gfx::FaceAnchors>(out)));
 }
 void set_face_vertex_count(void* face, FacePoints* points)
 {
-    static_cast<gfx::FaceSkin*>(face)->set_points(reinterpret_cast<const gfx::FaceAnchors*>(points));
+    static_cast<gfx::FaceSkin*>(face)->set_points(raw::as<const gfx::FaceAnchors>(points));
 }
 bool write_face_points(FacePoints* points, script::Struct* to)
 {
-    return gfx::write_face_points(reinterpret_cast<const gfx::FaceAnchors*>(points), to);
+    return gfx::write_face_points(raw::as<const gfx::FaceAnchors>(points), to);
 }
 bool read_face_points(FacePoints* points, script::Struct* from)
 {
-    return gfx::read_face_points(reinterpret_cast<gfx::FaceAnchors*>(points), from);
+    return gfx::read_face_points(raw::as<gfx::FaceAnchors>(points), from);
 }
 
 } // namespace
@@ -245,7 +246,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     params->fetch_int_value(kSkater, &skater_index, 0);
     auto* skater = static_cast<objects::Rider*>(get_rider_at(skater_index));
     if (skater->view_slot_ == 0) {
-        auto* objects = reinterpret_cast<objects::MiscHub*>(objects::g_composite_registry);
+        auto* objects = static_cast<objects::MiscHub*>(objects::g_composite_registry);
         if (objects::Entity* board = objects->look_up_entity(kBailBoard)) {
             board->flag_as_dead();
             objects->flush_dead_objects();
@@ -286,7 +287,7 @@ bool cfunc_edit_player_appearance(script::Struct* params, script::Script*)
     params->read_hash_value(kTarget, &target, 1);
     script::Struct* target_params = nullptr;
     params->read_sub_struct(kDestArgs, &target_params, 0);
-    script::launch_script(target, target_params, reinterpret_cast<objects::Entity*>(profile), false, nullptr);
+    script::launch_script(target, target_params, raw::as<objects::Entity>(profile), false, nullptr);
     return true;
 }
 
@@ -335,7 +336,7 @@ bool cfunc_get_player_appearance_part(script::Struct* params, script::Script* sc
 bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
-    if (reinterpret_cast<uintptr_t>(profile) + 0x4C == 0) // (the original's check of the structure's address)
+    if (cell::address(profile) + 0x4C == 0) // (the original's check of the structure's address)
         return false;
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;

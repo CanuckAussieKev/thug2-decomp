@@ -21,6 +21,8 @@
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -42,8 +44,8 @@ float gap_grid_offset() { return g_park_gap_grid_offset; }
 // The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
 uint32_t editor_value78()
 {
-    auto* editor = reinterpret_cast<uint8_t*>(g_park_editor);
-    return *reinterpret_cast<uint32_t*>(editor + 0x78);
+    auto* editor = raw::bytes(g_park_editor);
+    return *raw::as<uint32_t>(editor + 0x78);
 }
 uint8_t generator_max_players(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
 
@@ -66,7 +68,7 @@ void ParkLayout::set_up_abstract_metas()
 {
     script::Array* all = script::fetch_list("Ed_standard_metapieces"); // (0x00479090, asserting)
     for (uint32_t i = 0; i < all->extent_; ++i) {
-        auto* desc = reinterpret_cast<script::Struct*>(all->fetch_part(i));
+        auto* desc = all->struct_at(i);
         uint32_t single = 0;
         if (desc->read_hash_value("single", &single, 0))
             piece_source(builder_, single); // (loads the piece)
@@ -75,7 +77,7 @@ void ParkLayout::set_up_abstract_metas()
     uint32_t piece_names[1000]; // every piece a metapiece uses
     uint32_t num_piece_names = 0;
     for (uint32_t n = 0; n < all->extent_; ++n) {
-        auto* desc = reinterpret_cast<script::Struct*>(all->fetch_part(n));
+        auto* desc = all->struct_at(n);
         PieceGroup* meta = new_abstract_meta();
         uint32_t single = 0;
         script::Array* pieces = nullptr;
@@ -145,7 +147,7 @@ void ParkLayout::set_up_abstract_metas()
             bool unslidable = false;
             meta->commission(static_cast<int>(pieces->extent_));
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
-                auto* entry = reinterpret_cast<script::Struct*>(pieces->fetch_part(i));
+                auto* entry = pieces->struct_at(i);
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 const uint32_t name = entry->step_to_entry(nullptr)->checksum; // the piece's name comes first
                 script::Array* at = nullptr;
@@ -170,7 +172,7 @@ void ParkLayout::set_up_abstract_metas()
         } else if (desc->fetch_list("ack", &pieces, 0)) { // made of other palette metapieces
             meta->commission(static_cast<int>(pieces->extent_));
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
-                auto* entry = reinterpret_cast<script::Struct*>(pieces->fetch_part(i));
+                auto* entry = pieces->struct_at(i);
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 const uint32_t name = entry->step_to_entry(nullptr)->checksum;
                 script::Array* at = nullptr;
@@ -336,7 +338,7 @@ void ParkLayout::set_up_road_mask()
     // (the first four rectangles are set elsewhere; this reads the array from element 4, past its end, as the
     // original does)
     for (uint32_t i = 4; i < num_blocked_areas_ + 4; ++i) {
-        auto* rect = reinterpret_cast<script::Array*>(roads->fetch_part(i));
+        auto* rect = roads->array_at(i);
         CellBox& mask = (&blocked_areas_[0])[i]; // (past the eighth: over the length itself, as in the original)
         *mask.get_byte(0) = byte_at(rect, 0);
         *mask.get_byte(2) = byte_at(rect, 1);
@@ -351,8 +353,8 @@ void ParkLayout::set_up_road_mask()
 void ParkLayout::set_up_lights()
 {
     script::Array* themes = script::fetch_list("Ed_Light_Info"); // (the original doesn't assert)
-    auto* theme = reinterpret_cast<script::Array*>(themes->fetch_part(0));
-    auto* info = reinterpret_cast<script::Struct*>(theme->fetch_part(0));
+    auto* theme = themes->array_at(0);
+    auto* info = theme->struct_at(0);
     float ambient_const = 0.0f, falloff_const = 0.0f, cursor_ambience = 0.0f;
     script::VectorValue ambient{}, falloff{};
     script::Array* positions = nullptr;
@@ -367,7 +369,7 @@ void ParkLayout::set_up_lights()
                                  ambient.y * ambient_const, ambient.z * ambient_const, falloff.x * falloff_const,
                                  falloff.y * falloff_const, falloff.z * falloff_const, cursor_ambience);
     for (int i = 0; i < ints::as_signed(positions->extent_); ++i) {
-        auto* v = reinterpret_cast<float*>(positions->fetch_part(static_cast<uint32_t>(i))); // a CVector (x at +4)
+        auto* v = cell::pointer<float>(positions->fetch_part(static_cast<uint32_t>(i))); // a CVector (x at +4)
         maths::Vec4 pos;
         pos.x = cell_size_x() * v[1];
         pos.y = cell_size_y() * v[2];
@@ -381,7 +383,7 @@ void ParkLayout::update_percent_bar()
 {
     uint8_t stats[0x6C];
     // 0x0059E730: the park's memory use (fills the stats at 0x007CE618, returns them)
-    auto* use = reinterpret_cast<uint8_t*>(get_memory_stats(reinterpret_cast<MemoryStats*>(stats)));
+    auto* use = raw::bytes(get_memory_stats(raw::as<MemoryStats>(stats)));
     float full = 0.0f;
     std::memcpy(&full, use + 0x2C, 4);
     float percent = full;

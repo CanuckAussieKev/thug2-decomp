@@ -16,6 +16,9 @@
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -44,13 +47,13 @@ constexpr uint32_t kStatCatalog = 0x61EB6BA9;    // the global array of stats (e
 constexpr uint32_t kOwnedStructure = 11;         // a component type: a structure it owns, by pointer
 
 // The appearance's code (0x00488xxx-0x00489xxx).
-void free_face_texture(RiderIdentity* p) { reinterpret_cast<gfx::ModelLook*>(p)->free_face_texture(); }
-void reset_appearance(RiderIdentity* p) { reinterpret_cast<gfx::ModelLook*>(p)->get_reset(); }
+void free_face_texture(RiderIdentity* p) { raw::as<gfx::ModelLook>(p)->free_face_texture(); }
+void reset_appearance(RiderIdentity* p) { raw::as<gfx::ModelLook>(p)->get_reset(); }
 void load_appearance(RiderIdentity* p, uint32_t name, bool update)
 {
-    reinterpret_cast<gfx::ModelLook*>(p)->load_by_name(name, update);
+    raw::as<gfx::ModelLook>(p)->load_by_name(name, update);
 }
-void make_face_texture(RiderIdentity* p) { reinterpret_cast<gfx::ModelLook*>(p)->make_face_texture(); }
+void make_face_texture(RiderIdentity* p) { raw::as<gfx::ModelLook>(p)->make_face_texture(); }
 
 // A new empty structure (pooled; null if none) / one cleared and freed.
 script::Struct* new_empty_struct()
@@ -87,7 +90,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 RiderIdentity* RiderIdentity::copy_from(RiderIdentity* other)
 {
     if (other != this) {
-        reinterpret_cast<gfx::ModelLook*>(this)->copy_from(reinterpret_cast<gfx::ModelLook*>(other)); // the appearance
+        raw::as<gfx::ModelLook>(this)->copy_from(raw::as<gfx::ModelLook>(other)); // the appearance
         details_params()->get_assign(other->details_params());
     }
     return this;
@@ -231,7 +234,7 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
         stubs::do_nothing();
         stubs::do_nothing();
     }
-    auto* slot = reinterpret_cast<script::Struct*>(slots->fetch_part(static_cast<uint32_t>(index)));
+    auto* slot = slots->struct_at(static_cast<uint32_t>(index));
     slot->read_hash_value(kTrickSlot, &trick.trick, 1);
     slot->read_hash_value(kTrickKeys, &trick.keys, 1);
     int flag = 0;
@@ -254,7 +257,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     uint32_t name = trick->trick, keys = trick->keys;
     if (trick->is_vacant())
         name = keys = kEmptyTrick;
-    auto* slot = reinterpret_cast<script::Struct*>(slots->fetch_part(static_cast<uint32_t>(index)));
+    auto* slot = slots->struct_at(static_cast<uint32_t>(index));
     slot->add_component_of_type(kTrickSlot, script::kQbvalName, name);
     slot->add_component_of_type(kTrickKeys, script::kQbvalName, keys);
     if (trick->flag)
@@ -263,7 +266,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
         slot->erase_module(kTrickMarker);
     if (apply) {
         // The current skater's trick state told.
-        auto* skater = reinterpret_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
+        auto* skater = raw::as<GameEntity>(modules::Skate::sole()->get_home_rider());
         if (skater)
             static_cast<MoveExecutor*>(skater->fetch_module(0x270F56E1))->apply_trick_bindings(this);
     }
@@ -300,7 +303,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
     if (!params)
         return true;
     // (the original keeps its values in its argument slots: what a lookup that finds nothing leaves)
-    auto checksum = reinterpret_cast<uint32_t>(params);     // the checksums, then the specials structure
+    auto checksum = cell::of(params);     // the checksums, then the specials structure
     uint32_t number = info;                                 // the integers, then the trick style structure
     uint32_t stat_name = specials;
     const char* text = nullptr;
@@ -317,13 +320,13 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             mine->append_word(name, text);
         }
         for (const uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
-            params->fetch_int_value(name, reinterpret_cast<int*>(&number), name != 0x27EB9B9D);
+            params->fetch_int_value(name, raw::as<int>(&number), name != 0x27EB9B9D);
             mine->put_int(name, static_cast<int>(number));
         }
         params->read_hash_value(kName, &checksum, 1);
         mine->put_name_key(kName, checksum);
         if (checksum == kCustomSkater) {
-            params->fetch_int_value(0xB78D4AAE, reinterpret_cast<int*>(&number), 1);
+            params->fetch_int_value(0xB78D4AAE, raw::as<int>(&number), 1);
             mine->put_int(0xB78D4AAE, static_cast<int>(number));
         }
         for (const uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
@@ -341,21 +344,21 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
     }
     if (!specials)
         return true;
-    params->read_sub_struct(kSpecials, reinterpret_cast<script::Struct**>(&checksum), 1);
-    mine->put_sub_struct(kSpecials, reinterpret_cast<script::Struct*>(checksum));
+    params->read_sub_struct(kSpecials, raw::as<script::Struct*>(&checksum), 1);
+    mine->put_sub_struct(kSpecials, cell::pointer<script::Struct>(checksum));
     int max_specials = 0;
     params->fetch_int_value(kMaxSpecials, &max_specials, 1);
     mine->put_int(kMaxSpecials, max_specials);
     uint32_t style_name = 0;
     params->read_hash_value(kTrickStyleName, &style_name, 1);
     script::Struct* style = script::read_sub_struct(style_name);
-    mine->read_sub_struct(kTrickStyle, reinterpret_cast<script::Struct**>(&number), 1);
-    reinterpret_cast<script::Struct*>(number)->get_clear();
-    reinterpret_cast<script::Struct*>(number)->append_structure_if_any(style);
+    mine->read_sub_struct(kTrickStyle, raw::as<script::Struct*>(&number), 1);
+    cell::pointer<script::Struct>(number)->get_clear();
+    cell::pointer<script::Struct>(number)->append_structure_if_any(style);
     // Every stat in the global list.
     script::Array* stats = script::fetch_list(kStatCatalog);
     for (uint32_t i = 0; i < stats->extent_; ++i) {
-        reinterpret_cast<script::Struct*>(stats->fetch_part(i))->read_hash_value(kName, &stat_name, 1);
+        stats->struct_at(i)->read_hash_value(kName, &stat_name, 1);
         params->fetch_int_value(stat_name, &stat, 1);
         mine->put_int(stat_name, stat);
     }
@@ -376,14 +379,14 @@ bool RiderIdentity::get_reset(script::Struct* params)
     script::Struct* memory = script::spawn_param_bag();
     mine->add_component_of_type(
         kTrickStyle, kOwnedStructure,
-        reinterpret_cast<uint32_t>(memory ? memory::construct_in<script::Struct>(memory) : nullptr));
+        cell::of(memory ? memory::construct_in<script::Struct>(memory) : nullptr));
     memory = script::spawn_param_bag();
     mine->add_component_of_type(kSpecials, kOwnedStructure,
-                                reinterpret_cast<uint32_t>(memory ? new (memory) script::Struct : nullptr));
+                                cell::of(memory ? new (memory) script::Struct : nullptr));
     pop_heap();
     if (!params)
         return true;
-    auto appearance = reinterpret_cast<uint32_t>(memory); // (the slot's last value, if there's none)
+    auto appearance = cell::of(memory); // (the slot's last value, if there's none)
     params->read_hash_value(kAppearanceName, &appearance, 1);
     load_appearance(this, appearance, true);
     mine->get_clear();
@@ -416,26 +419,26 @@ void RiderIdentity::write_to_save(script::Struct* save)
 {
     script::Struct* mine = new_empty_struct();
     mine->add_component_of_type(0x1902C8F0, script::kQbvalInteger, 2); // the version
-    int pro = static_cast<int>(reinterpret_cast<uint32_t>(mine));      // (the slot's last value, if is_pro isn't there)
+    int pro = static_cast<int>(cell::of(mine));      // (the slot's last value, if is_pro isn't there)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
         script::Struct* appearance = new_empty_struct();
         appearance->append_structure_if_any(&this->appearance()->structure_);
-        mine->add_component_of_type(kAppearance, kOwnedStructure, reinterpret_cast<uint32_t>(appearance));
+        mine->add_component_of_type(kAppearance, kOwnedStructure, cell::of(appearance));
     }
     void* face = appearance()->face_skin_; // (the appearance's face: 0x00576E60, a folded getter)
     if (face && static_cast<gfx::FaceSkin*>(face)->is_sound()) {
         script::Struct* texture = new_empty_struct();
         static_cast<gfx::FaceSkin*>(face)->save_to_structure(texture);
-        mine->add_component_of_type(0xF0D3BC94, kOwnedStructure, reinterpret_cast<uint32_t>(texture));
+        mine->add_component_of_type(0xF0D3BC94, kOwnedStructure, cell::of(texture));
     }
     script::Struct* info = new_empty_struct();
     info->append_structure_if_any(details_params());
-    mine->add_component_of_type(kInfo, kOwnedStructure, reinterpret_cast<uint32_t>(info));
+    mine->add_component_of_type(kInfo, kOwnedStructure, cell::of(info));
     uint32_t name = 0;
     details_params()->read_hash_value(kName, &name, 1);
     mine->add_component_of_type(kDeckFlags, script::kQbvalInteger, 0);
-    save->add_component_of_type(name, kOwnedStructure, reinterpret_cast<uint32_t>(mine));
+    save->add_component_of_type(name, kOwnedStructure, cell::of(mine));
 }
 
 // 0x00586D60
@@ -452,11 +455,11 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
     // (Not original: `size` - each part decoded within the buffer's bytes)
     const uint8_t* limit = buffer + size;
     push_script_heap();
-    uint8_t* at = reinterpret_cast<gfx::ModelLook*>(this)->decode_from_bytes(buffer, size); // the appearance
+    uint8_t* at = raw::as<gfx::ModelLook>(this)->decode_from_bytes(buffer, size); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
     appearance_guard::sanitise(&appearance()->structure_);
-    auto* part = reinterpret_cast<script::Struct*>(buffer); // (the argument's slot)
+    auto* part = raw::as<script::Struct>(buffer); // (the argument's slot)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     part->get_clear();
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
@@ -483,11 +486,11 @@ uint8_t* RiderIdentity::read_info_from_buffer(uint8_t* buffer, const uint8_t* li
 int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
 {
     push_script_heap();
-    int total = reinterpret_cast<gfx::ModelLook*>(this)->emit_into_buffer(
-        buffer, size, reinterpret_cast<bool&>(flags)); // the appearance
+    int total = raw::as<gfx::ModelLook>(this)->emit_into_buffer(
+        buffer, size, static_cast<uint8_t>(flags) != 0); // the appearance
     size -= total;
     buffer += total;
-    auto* part = reinterpret_cast<script::Struct*>(flags); // (the argument's slot)
+    auto* part = cell::pointer<script::Struct>(flags); // (the argument's slot)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     int written = write_struct(part, buffer, size);
     total += written;

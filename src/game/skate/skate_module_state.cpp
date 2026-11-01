@@ -46,7 +46,7 @@
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/gfx/viewport.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/mlp.h"
 

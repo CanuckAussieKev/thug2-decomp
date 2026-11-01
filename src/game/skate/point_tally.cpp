@@ -206,7 +206,7 @@ void PointTally::set_special_bar_colors()
 {
     script::Array* colors = script::fetch_list(kSpecialBarColors);
     for (uint32_t i = 0; i < 3; ++i) {
-        auto* color = reinterpret_cast<script::Array*>(colors->fetch_part(i));
+        auto* color = colors->array_at(i);
         for (uint32_t c = 0; c < 4; ++c)
             bar_colors_[i][c] = static_cast<uint8_t>(color->fetch_part(c));
     }
@@ -222,7 +222,7 @@ uint32_t PointTally::trick_name_after_taps(uint32_t trick, int taps)
         auto extra = static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
         for (int left = taps - 1; left; --left) {
             params->read_hash_value(kExtraTricks, &extra, 0);
-            reinterpret_cast<script::Struct*>(script::fetch_list(extra)->fetch_part(0))
+            script::fetch_list(extra)->struct_at(0)
                 ->read_sub_struct(kParams, &params, 1);
         }
     }
@@ -298,7 +298,7 @@ void PointTally::setup_balance_meter()
     info->fetch_list(kArrowPositions, &arrows, 0);
     arrow_count_ = static_cast<int>(arrows->extent_); // (no check: as the original)
     for (int i = 0; i < arrow_count_; ++i)
-        arrows_[i] = *reinterpret_cast<script::Pair*>(arrows->fetch_part(static_cast<uint32_t>(i)));
+        arrows_[i] = *arrows->pair_at(static_cast<uint32_t>(i));
     arrows_[arrow_count_] = arrows_[arrow_count_ - 1];
     arrow_step_ = static_cast<float>(1.0 / arrow_count_);
     script::Array* bars = nullptr;
@@ -308,7 +308,7 @@ void PointTally::setup_balance_meter()
         name = screen_mode() == 1 ? kBarPositionsMpV : kBarPositionsMpH;
     info->fetch_list(name, &bars, 0);
     for (uint32_t i = 0; i < 2; ++i)
-        bars_[i] = *reinterpret_cast<script::Pair*>(bars->fetch_part(i));
+        bars_[i] = *bars->pair_at(i);
 }
 
 // 0x00561890
@@ -390,7 +390,7 @@ uint32_t PointTally::trick_from_key_combo(uint32_t key_combo, int taps)
         profile->get_specials()->fetch_list(0u, &specials, 1);
         const int count = static_cast<int>(specials->extent_);
         for (int i = 0; i < count; ++i) {
-            auto* special = reinterpret_cast<script::Struct*>(specials->fetch_part(static_cast<uint32_t>(i)));
+            auto* special = specials->struct_at(static_cast<uint32_t>(i));
             uint32_t slot = 0;
             special->read_hash_value(kTrickSlot, &slot, 1);
             if (slot == key_combo) {
@@ -416,7 +416,7 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
     profile->get_specials()->fetch_list(0u, &specials, 1);
     const int count = static_cast<int>(specials->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* special = reinterpret_cast<script::Struct*>(specials->fetch_part(static_cast<uint32_t>(i)));
+        auto* special = specials->struct_at(static_cast<uint32_t>(i));
         int is_cat = 0;
         special->fetch_int_value(kIsCat, &is_cat, 0);
         if (!is_cat)

@@ -17,6 +17,7 @@
 #include "game/park/park_memory.h"
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -27,9 +28,9 @@ constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 constexpr uint32_t kHoldsClipboards = 0x45C6C158; // a piece set's flag: its entries are the clipboards
 constexpr uint32_t kMetaHasGap = 0x1000;          // a meta piece's flag
 
-uint32_t& get_meta_flags(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0xC); }
-uint32_t meta_type(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0x38); }
-CellBox& meta_footprint(void* meta) { return *reinterpret_cast<CellBox*>(static_cast<uint8_t*>(meta) + 0x4); }
+uint32_t& get_meta_flags(void* meta) { return *raw::as<uint32_t>(static_cast<uint8_t*>(meta) + 0xC); }
+uint32_t meta_type(void* meta) { return *raw::as<uint32_t>(static_cast<uint8_t*>(meta) + 0x38); }
+CellBox& meta_footprint(void* meta) { return *raw::as<CellBox>(static_cast<uint8_t*>(meta) + 0x4); }
 
 // The memory profiler's markers (compiled out of this build: the empty function 0x005480A0).
 inline void memory_marker(const char* /*what*/) {}
@@ -61,7 +62,7 @@ MapListNode* metas_within(ParkLayout* manager, CellBox area)
 void selected_area(BuildPointer* cursor, CellBox* area) { cursor->get_marquee_bounds(area); }
 int ground_level_cell(ParkLayout* manager, CellBox area, char* level)
 {
-    return manager->get_ground_level(area, reinterpret_cast<bool*>(level));
+    return manager->get_ground_level(area, raw::as<bool>(level));
 }
 ParkBuilderMode* get_park_editor() { return ParkBuilderMode::fabricate(false); }
 bool park_full(ParkBuilderMode* editor) { return editor->is_park_full() != 0; }
@@ -425,7 +426,7 @@ void ParkLayout::commission(uint32_t level)
     int end = static_cast<int>(standard->extent_);
     for (int i = num_sets() - 1; i >= 0; --i) {
         TileFamilyRef& set = get_sets(this)[i];
-        auto* description = reinterpret_cast<script::Struct*>(sets->fetch_part(static_cast<uint32_t>(i)));
+        auto* description = sets->struct_at(static_cast<uint32_t>(i));
         set.label_ = nullptr;
         description->fetch_text("name", &set.label_, 1); // "name"
         set.name_checksum_ = checksums::hash_from_text(set.label_);
@@ -457,7 +458,7 @@ void ParkLayout::commission(uint32_t level)
                 }
                 set.entries_[entry].checksum = meta_type(meta); // (no check for a missing piece, as in the original)
                 auto* piece_description =
-                    reinterpret_cast<script::Struct*>(standard->fetch_part(static_cast<uint32_t>(piece)));
+                    standard->struct_at(static_cast<uint32_t>(piece));
                 if (!piece_description->fetch_text("text_name", // "text_name"
                                                    &set.entries_[entry].name, 0))
                     set.entries_[entry].name = nullptr;

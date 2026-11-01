@@ -35,6 +35,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -142,27 +143,27 @@ void complete_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(
 void fail_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(manager)->fail_objective(id); }
 
 // The skate module (0x007CE478): the local skater, its score (modules::PointTally), the tricks the score has seen.
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-uint8_t* local_skater() { return reinterpret_cast<uint8_t*>(modules::Skate::sole()->get_home_rider()); }
+uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
+uint8_t* local_skater() { return raw::bytes(modules::Skate::sole()->get_home_rider()); }
 uint8_t* get_score_of(uint8_t* skater)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<objects::Rider*>(skater)->get_points_total());
+    return static_cast<uint8_t*>(raw::as<objects::Rider>(skater)->get_points_total());
 }
-int total_score(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score)->get_total_score(); }
+int total_score(uint8_t* score) { return raw::as<modules::PointTally>(score)->get_total_score(); }
 // The points of the trick in progress: the combo's base points times its multiplier (as a whole number).
 int pending_points(uint8_t* score)
 {
-    auto* tally = reinterpret_cast<modules::PointTally*>(score);
+    auto* tally = raw::as<modules::PointTally>(score);
     return ftol(static_cast<double>(tally->pot_) * tally->multiplier_);
 }
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
 int get_trick_count(uint8_t* score, uint32_t trick, int spin, bool perfect, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, spin, perfect, taps);
+    return raw::as<modules::PointTally>(score)->count_trick_after_taps(trick, spin, perfect, taps);
 }
 int key_combo_count(uint8_t* score, uint32_t key_combo, int spin, bool perfect, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_key_combo(key_combo, spin, perfect, taps);
+    return raw::as<modules::PointTally>(score)->count_key_combo(key_combo, spin, perfect, taps);
 }
 
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
@@ -509,7 +510,7 @@ void FallingTricksGoal::add_tricks(int count)
             script::Array* tricks = nullptr;
             args_->fetch_list(kStackTrickList, &tricks, 1);
             auto* trick =
-                reinterpret_cast<script::Struct*>(tricks->fetch_part(maths::rnd(static_cast<int>(tricks->extent_))));
+                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent_)));
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
@@ -531,7 +532,7 @@ void FallingTricksGoal::add_tricks(int count)
             if (key_combos->kind_tag_ == script::kQbvalName) {
                 key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
             } else {
-                auto* entry = reinterpret_cast<script::Struct*>(key_combos->fetch_part(static_cast<uint32_t>(index)));
+                auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
                 entry->read_hash_value(kKeyCombo, &key_combo, 1);
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
@@ -557,7 +558,7 @@ void FallingTricksGoal::add_tricks(int count)
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
                 uint8_t* skater = local_skater();
                 if (skater) {
-                    reinterpret_cast<objects::Rider*>(skater)->trick_slots_[special_slot]->other_params_->fetch_text(
+                    raw::as<objects::Rider>(skater)->trick_slots_[special_slot]->other_params_->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }
@@ -565,7 +566,7 @@ void FallingTricksGoal::add_tricks(int count)
             if (!trick_text) {
                 script::Struct* trick = script::read_sub_struct(trick_name);
                 if (!trick)
-                    trick = reinterpret_cast<script::Struct*>(script::fetch_list(trick_name)->fetch_part(0));
+                    trick = script::fetch_list(trick_name)->struct_at(0);
                 script::Struct* trick_params = nullptr;
                 trick->read_sub_struct(kParams, &trick_params, 1);
                 // A double tap: the trick's ExtraTricks' (if it has none, a single tap after all).
@@ -577,7 +578,7 @@ void FallingTricksGoal::add_tricks(int count)
                         t.taps = 1;
                         break;
                     }
-                    auto* extra_trick = reinterpret_cast<script::Struct*>(script::fetch_list(extra)->fetch_part(0));
+                    auto* extra_trick = script::fetch_list(extra)->struct_at(0);
                     extra_trick->read_sub_struct(kParams, &trick_params, 1);
                 }
                 trick_params->fetch_text(kName, &trick_text, true);
@@ -634,7 +635,7 @@ void FallingTricksGoal::add_tricks(int count)
             change_owner(manager, container, key_text);
             delete_structure(params);
         }
-        t.element = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(container) + 0x14); // its id
+        t.element = *raw::as<uint32_t>(static_cast<uint8_t*>(container) + 0x14); // its id
         ++trick_total_;
 
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
@@ -1031,12 +1032,12 @@ void TrickBeatGoal::update_beat()
     auto beat = static_cast<float>(inverse * beat_length_);
     if (!(time <= beat)) {
         // A beat: its sounds, then on to the next.
-        auto* step = reinterpret_cast<script::Struct*>(pattern_->fetch_part(static_cast<uint32_t>(beat_)));
+        auto* step = pattern_->struct_at(static_cast<uint32_t>(beat_));
         script::Array* sounds = nullptr;
         if (step->fetch_list(kSounds, &sounds, 0)) {
             const int count = static_cast<int>(sounds->extent_);
             for (int i = 0; i < count; ++i) {
-                auto* sound = reinterpret_cast<script::Struct*>(sounds->fetch_part(static_cast<uint32_t>(i)));
+                auto* sound = sounds->struct_at(static_cast<uint32_t>(i));
                 uint32_t name = 0;
                 sound->read_hash_value(0u, &name, 1);
                 float volume = 100.0f;
@@ -1045,7 +1046,7 @@ void TrickBeatGoal::update_beat()
                 sound->fetch_float(kPitch, &pitch, 0);
                 pitch = static_cast<float>(static_cast<double>(pitch) * slomo);
                 SoundVolume level{};
-                auto* volume_of = reinterpret_cast<sound::VolumeRef*>(&level);
+                auto* volume_of = raw::as<sound::VolumeRef>(&level);
                 new (volume_of) sound::VolumeRef;
                 volume_of->change_muted();
                 level.channels[0] = volume;
@@ -1060,7 +1061,7 @@ void TrickBeatGoal::update_beat()
         } else {
             beat_time_ -= ftol(static_cast<double>(scale) * beat_length_);
         }
-        step = reinterpret_cast<script::Struct*>(pattern_->fetch_part(static_cast<uint32_t>(beat_)));
+        step = pattern_->struct_at(static_cast<uint32_t>(beat_));
         pulse_ = step->has_bare_flag(kPulse);
         return;
     }
@@ -1111,7 +1112,7 @@ void TrickBeatGoal::add_tricks(int count)
             script::Array* tricks = nullptr;
             args_->fetch_list(kBeatTricks, &tricks, 1);
             auto* trick =
-                reinterpret_cast<script::Struct*>(tricks->fetch_part(maths::rnd(static_cast<int>(tricks->extent_))));
+                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent_)));
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
@@ -1132,7 +1133,7 @@ void TrickBeatGoal::add_tricks(int count)
             if (key_combos->kind_tag_ == script::kQbvalName) {
                 key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
             } else {
-                auto* entry = reinterpret_cast<script::Struct*>(key_combos->fetch_part(static_cast<uint32_t>(index)));
+                auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
                 entry->read_hash_value(kKeyCombo, &key_combo, 1);
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
@@ -1157,7 +1158,7 @@ void TrickBeatGoal::add_tricks(int count)
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
                 uint8_t* skater = local_skater();
                 if (skater) {
-                    reinterpret_cast<objects::Rider*>(skater)->trick_slots_[special_slot]->other_params_->fetch_text(
+                    raw::as<objects::Rider>(skater)->trick_slots_[special_slot]->other_params_->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }
@@ -1165,7 +1166,7 @@ void TrickBeatGoal::add_tricks(int count)
             if (!trick_text) {
                 script::Struct* trick = script::read_sub_struct(trick_name);
                 if (!trick)
-                    trick = reinterpret_cast<script::Struct*>(script::fetch_list(trick_name)->fetch_part(0));
+                    trick = script::fetch_list(trick_name)->struct_at(0);
                 script::Struct* trick_params = nullptr;
                 trick->read_sub_struct(kParams, &trick_params, 1);
                 while (taps > 1) {
@@ -1176,7 +1177,7 @@ void TrickBeatGoal::add_tricks(int count)
                         t.taps = 1;
                         break;
                     }
-                    auto* extra_trick = reinterpret_cast<script::Struct*>(script::fetch_list(extra)->fetch_part(0));
+                    auto* extra_trick = script::fetch_list(extra)->struct_at(0);
                     extra_trick->read_sub_struct(kParams, &trick_params, 1);
                 }
                 trick_params->fetch_text(kName, &trick_text, true);
@@ -1231,7 +1232,7 @@ void TrickBeatGoal::add_tricks(int count)
             change_owner(manager, container, key_text);
             delete_structure(params);
         }
-        t.element = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(container) + 0x14);
+        t.element = *raw::as<uint32_t>(static_cast<uint8_t*>(container) + 0x14);
         ++trick_total_;
         params = spawn_param_table();
         if (!key_combo_text)
@@ -1327,7 +1328,7 @@ script::Struct* TrickObjectsGoal::get_object_by_cluster(uint32_t cluster)
     const int count = static_cast<int>(objects->extent_);
     uint32_t found = cluster; // (kept from the last entry with a cluster_id: an entry without one matches that)
     for (int i = 0; i < count; ++i) {
-        auto* object = reinterpret_cast<script::Struct*>(objects->fetch_part(static_cast<uint32_t>(i)));
+        auto* object = objects->struct_at(static_cast<uint32_t>(i));
         object->read_hash_value(kClusterId, &found, 1);
         if (found == cluster)
             return object;
@@ -1345,12 +1346,12 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     if (!skater)
         return;
     auto component = [skater](uint32_t type) {
-        return reinterpret_cast<uint8_t*>(reinterpret_cast<objects::GameEntity*>(skater)->fetch_module(type));
+        return raw::bytes(raw::as<objects::GameEntity>(skater)->fetch_module(type));
     };
-    auto* state = reinterpret_cast<objects::RiderPoseState*>(component(kSkaterState));
+    auto* state = raw::as<objects::RiderPoseState>(component(kSkaterState));
     uint8_t* score_component = component(kSkaterScore);
     auto* score =
-        reinterpret_cast<uint8_t*>(reinterpret_cast<objects::RiderPointKeeper*>(score_component)->points_held_);
+        raw::bytes(raw::as<objects::RiderPointKeeper>(score_component)->points_held_);
     // Only while the skater is in the air (+0xE0) or has points pending.
     if (!state->in_trick_move_ && pending_points(score) <= 0)
         return;

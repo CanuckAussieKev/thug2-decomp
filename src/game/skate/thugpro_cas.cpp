@@ -24,6 +24,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/util/unique_handle.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects::thugpro_cas {
 
@@ -127,15 +129,15 @@ void collect_array_paths(script::Array* array, std::vector<const char*>* out, in
     if (!array || depth > 4)
         return;
     for (uint32_t i = 0; i < array->extent_; ++i) {
-        uint32_t element = array->fetch_part(i);
+        const uint32_t element = array->fetch_part(i);
         if (!element)
             continue;
-        if (array->kind_tag_ == script::kQbvalString && is_path(reinterpret_cast<const char*>(element)))
-            out->push_back(reinterpret_cast<const char*>(element));
+        if (array->kind_tag_ == script::kQbvalString && is_path(cell::pointer<const char>(element)))
+            out->push_back(cell::pointer<const char>(element));
         else if (array->kind_tag_ == script::kQbvalStruct)
-            collect_paths(reinterpret_cast<script::Struct*>(element), out, depth + 1);
+            collect_paths(cell::pointer<script::Struct>(element), out, depth + 1);
         else if (array->kind_tag_ == script::kQbvalArray)
-            collect_array_paths(reinterpret_cast<script::Array*>(element), out, depth + 1);
+            collect_array_paths(cell::pointer<script::Array>(element), out, depth + 1);
     }
 }
 void collect_paths(script::Struct* part, std::vector<const char*>* out, int depth)
@@ -169,7 +171,7 @@ bool is_part_list(script::Array* array)
 {
     if (!array || array->kind_tag_ != script::kQbvalStruct || array->extent_ == 0)
         return false;
-    auto* first = reinterpret_cast<script::Struct*>(array->fetch_part(0));
+    auto* first = array->struct_at(0);
     uint32_t desc = 0;
     return first && first->read_hash_value(kDescId, &desc, 0);
 }
@@ -269,8 +271,8 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         const size_t stored = compressed ? compressed : size;
         if (body > archive.size() || stored > archive.size() - body)
             return false;
-        const std::string name(reinterpret_cast<const char*>(archive.data() + offset + 16),
-                               strnlen(reinterpret_cast<const char*>(archive.data() + offset + 16), name_size));
+        const std::string name(raw::chars(archive.data() + offset + 16),
+                               strnlen(raw::chars(archive.data() + offset + 16), name_size));
         const std::string key = get_relative(name.c_str());
         for (const std::string& wanted : names) {
             if (key != wanted)
@@ -351,13 +353,13 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
         return picked;
     std::set<uint32_t> descs;
     for (uint32_t i = 0; i < ours->extent_; ++i) {
-        auto* part = reinterpret_cast<script::Struct*>(ours->fetch_part(i));
+        auto* part = ours->struct_at(i);
         uint32_t desc = 0;
         if (part && part->read_hash_value(kDescId, &desc, 0))
             descs.insert(desc);
     }
     for (uint32_t i = 0; i < theirs->extent_; ++i) {
-        auto* part = reinterpret_cast<script::Struct*>(theirs->fetch_part(i));
+        auto* part = theirs->struct_at(i);
         uint32_t desc = 0;
         if (!part || !part->read_hash_value(kDescId, &desc, 0) || descs.count(desc))
             continue;
@@ -441,7 +443,7 @@ void load_once()
     for (const Target& target : targets) {
         for (uint32_t i = 0; i < target.ours->extent_; ++i) {
             std::vector<const char*> paths;
-            collect_paths(reinterpret_cast<script::Struct*>(target.ours->fetch_part(i)), &paths);
+            collect_paths(target.ours->struct_at(i), &paths);
             for (const char* path : paths)
                 our_keys().insert(path_key(path));
         }
@@ -461,13 +463,13 @@ void load_once()
             std::set<uint32_t> descs;
             for (uint32_t i = 0; i < target.ours->extent_; ++i) {
                 uint32_t desc = 0;
-                auto* part = reinterpret_cast<script::Struct*>(target.ours->fetch_part(i));
+                auto* part = target.ours->struct_at(i);
                 if (part && part->read_hash_value(kDescId, &desc, 0))
                     descs.insert(desc);
             }
             for (uint32_t i = 0; i < theirs->extent_; ++i) {
                 uint32_t desc = 0;
-                auto* part = reinterpret_cast<script::Struct*>(theirs->fetch_part(i));
+                auto* part = theirs->struct_at(i);
                 if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.count(desc))
                     ++their_new;
             }
@@ -477,13 +479,13 @@ void load_once()
             target.ours->rescale(old + static_cast<uint32_t>(picked.size()));
             uint32_t* elements = theirs->find_array_value();
             for (size_t k = 0; k < picked.size(); ++k) {
-                auto* part = reinterpret_cast<script::Struct*>(elements[picked[k]]);
+                auto* part = cell::pointer<script::Struct>(elements[picked[k]]);
                 elements[picked[k]] = 0; // (now ours: not freed with THUGPRO's array)
                 if (setting == 1 && !part->has_bare_flag(kHidden))
                     part->put_name_key(0u, kHidden);
                 if (setting == 1 && !part->has_bare_flag(kNoRandom))
                     part->put_name_key(0u, kNoRandom);
-                target.ours->set_element(old + static_cast<uint32_t>(k), reinterpret_cast<uint32_t>(part));
+                target.ours->set_element(old + static_cast<uint32_t>(k), cell::of(part));
             }
             ++lists;
         }

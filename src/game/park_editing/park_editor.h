@@ -20,6 +20,7 @@
 #include "engine/objects/signal.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
+#include "engine/core/raw_view.h"
 
 namespace pad_input {
 struct Payload;
@@ -161,7 +162,7 @@ public:
     struct Listener final : objects::SignalReceiver {
         ParkBuilderMode* get_editor()
         {
-            return reinterpret_cast<ParkBuilderMode*>(reinterpret_cast<uint8_t*>(this) - 0x14);
+            return raw::owner_of<ParkBuilderMode>(this, 0x14);
         }
         // 0x0058DE40: the menus' pad events (to root_window) while editing with a cursor, not paused: up / down the
         // previous / next set, left / right the previous / next piece.

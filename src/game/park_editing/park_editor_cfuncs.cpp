@@ -520,7 +520,7 @@ bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct
 // 0x0058F750
 bool cfunc_switch_to_park_editor_camera(script::Struct*, script::Script*)
 {
-    auto* objects = reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
     if (!objects->look_up_entity(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
         script::Struct* memory = script::spawn_param_bag();

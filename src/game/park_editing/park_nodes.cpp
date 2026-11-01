@@ -24,6 +24,7 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -114,14 +115,14 @@ void parse_node_array() { commands::cfunc_parse_node_array(nullptr, nullptr); }
 
 assets::NodeTableResource* node_table_resource(ParkAssembler& d)
 {
-    return reinterpret_cast<assets::NodeTableResource*>(d.node_array_);
+    return raw::as<assets::NodeTableResource>(d.node_array_);
 }
 Struct* elem(Array* nodes, int index)
 {
-    return reinterpret_cast<Struct*>(nodes->fetch_part(static_cast<uint32_t>(index)));
+    return nodes->struct_at(static_cast<uint32_t>(index));
 }
 script::VectorValue get_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
-script::VectorValue* get_out(maths::Vec4* v) { return reinterpret_cast<script::VectorValue*>(v); }
+script::VectorValue* get_out(maths::Vec4* v) { return v; }
 // A restart's angles: (rot + 2) quarter turns about y.
 float restart_angle(int rot) { return static_cast<float>((rot + 2.0) * static_cast<double>(kHalfPi)); }
 

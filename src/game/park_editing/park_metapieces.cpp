@@ -14,6 +14,8 @@
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
 
 namespace park_editing {
 
@@ -78,7 +80,7 @@ int PieceGroup::count_pieces()
 {
     int count = 0;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto name = reinterpret_cast<uint32_t>(get_descriptor(static_cast<int>(i))->piece);
+        auto name = cell::of(get_descriptor(static_cast<int>(i))->piece);
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
         if (entry->flag_bits_ & kSector) // a single piece
             ++count;
@@ -120,7 +122,7 @@ void PieceGroup::set_quarter_turns(int rot)
         uint8_t along = 0;
         if (flag_bits_ & kAbstract) {
             const PieceGroup* entry =
-                ParkLayout::singleton()->fetch_meta_template(reinterpret_cast<uint32_t>(from->piece), nullptr);
+                ParkLayout::singleton()->fetch_meta_template(cell::of(from->piece), nullptr);
             const CellBox size = entry->cell_footprint_;
             if (from->rot & 1) {
                 along = size.w;
@@ -293,11 +295,11 @@ void PieceGroup::get_piece_list(script::Array* out)
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         piece->put_name_key(0u,
-                            reinterpret_cast<uint32_t>(entry->piece)); // (out of memory crashes, as in the original)
+                            cell::of(entry->piece)); // (out of memory crashes, as in the original)
         maths::Vec4 position;
         get_relative_position(&position, i);
         piece->put_vec3(0u, position.x, position.y, position.z);
-        out->set_element(i, reinterpret_cast<uint32_t>(piece));
+        out->set_element(i, cell::of(piece));
     }
 }
 
@@ -418,7 +420,7 @@ TileTemplate* PieceBlueprint::get_piece(uint32_t index)
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
     const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
-    return ParkLayout::singleton()->builder_->get_piece_source(reinterpret_cast<uint32_t>(entry->piece));
+    return ParkLayout::singleton()->builder_->get_piece_source(cell::of(entry->piece));
 }
 
 namespace {
@@ -450,7 +452,7 @@ void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool s
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
     entry->sets_floor_ = sets_floor;
-    entry->piece = reinterpret_cast<void*>(source->sector_);
+    entry->piece = cell::pointer<void>(source->sector_);
     grow_to_take(cell_footprint_, pos);
     if (cell_footprint_.h < 1)
         cell_footprint_.h = 1;
@@ -465,8 +467,8 @@ void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uin
     entry->y = pos->y;
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
-    reinterpret_cast<uint8_t&>(entry->sets_floor_) = sets_floor;
-    entry->piece = reinterpret_cast<void*>(meta->name_key_);
+    memory::bits_as<uint8_t>(entry->sets_floor_) = sets_floor;
+    entry->piece = cell::pointer<void>(meta->name_key_);
     grow_to_take(cell_footprint_, pos);
 }
 
@@ -478,7 +480,7 @@ PieceGroupDesc* PieceBlueprint::get_entry(PieceGroupDesc* out, int index)
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PieceGroupDesc* outer = get_descriptor(static_cast<int>(i));
         PieceGroup* entry =
-            ParkLayout::singleton()->fetch_meta_template(reinterpret_cast<uint32_t>(outer->piece), nullptr);
+            ParkLayout::singleton()->fetch_meta_template(cell::of(outer->piece), nullptr);
         if (entry->flag_bits_ & kSector) { // a single piece
             if (n == index) {
                 *out = *outer;

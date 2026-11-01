@@ -17,6 +17,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -44,7 +45,7 @@ uint32_t current_level() { return modules::Skate::sole()->level_; }
 } // namespace
 
 // 0x004E93C0
-EditedGoal::EditedGoal() { init_edited_goal(reinterpret_cast<uint8_t*>(this)); }
+EditedGoal::EditedGoal() { init_edited_goal(raw::bytes(this)); }
 
 // 0x004E6B80
 void EditedGoal::drop_gap_entry(uint8_t gap)
@@ -358,7 +359,7 @@ void EditedGoal::read_key_combo_sets(script::Struct* params)
         return;
     num_key_combo_sets_ = static_cast<int>(sets->extent_);
     for (int i = 0; i < num_key_combo_sets_; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(sets->fetch_part(static_cast<uint32_t>(i)));
+        auto* entry = sets->struct_at(static_cast<uint32_t>(i));
         KeyComboSet& set = key_combo_sets_[i];
         int value = 0;
         entry->fetch_int_value(0xEB7D6498, &value, 0);

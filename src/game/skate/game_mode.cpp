@@ -16,6 +16,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
+#include "engine/core/pointer_cell.h"
 
 namespace goals {
 
@@ -62,10 +63,10 @@ constexpr uint32_t kModeInfo = 0xCA5F7FFB;           // mode_info
 constexpr uint32_t kDefinition = 0x97CFD027;         // definition
 constexpr uint32_t kFreeskate = 0x34861A16;          // freeskate
 
-WinRule* const kHeadMarker = reinterpret_cast<WinRule*>(-1);
+WinRule* const kHeadMarker = cell::pointer<WinRule>(-1);
 
 // (the getters' local when an asserted integer isn't there: the original's is the pushed `this`)
-int unset(const void* mode) { return static_cast<int>(reinterpret_cast<uintptr_t>(mode)); }
+int unset(const void* mode) { return static_cast<int>(cell::address(mode)); }
 
 MatchRules*& the_game_mode() { return g_game_mode; }
 uint32_t& ref_tally() { return g_game_mode_references; }
@@ -226,7 +227,7 @@ void MatchRules::build_victory_conditions()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
     for (uint32_t i = 0; i < conditions->extent_; ++i) {
-        WinRule* condition = create_victory_condition(reinterpret_cast<script::Struct*>(conditions->fetch_part(i)));
+        WinRule* condition = create_victory_condition(conditions->struct_at(i));
         auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));
         if (node) {
             node->condition_ = condition;
@@ -295,7 +296,7 @@ bool MatchRules::apply_match_style(uint32_t type)
     args_.get_clear();
     script::Array* modes = script::fetch_list(kModeInfo);
     for (uint32_t i = 0; i < modes->extent_; ++i) {
-        auto* mode = reinterpret_cast<script::Struct*>(modes->fetch_part(i));
+        auto* mode = modes->struct_at(i);
         uint32_t name = 0;
         mode->read_hash_value(kChecksum, &name, true);
         if (name != type)

@@ -17,6 +17,7 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace goals {
 
@@ -147,7 +148,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
         return false;
     }
     const uint32_t count =
-        *reinterpret_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
+        *raw::as<uint32_t>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         auto* skater = get_rider_at(skate, i);
         if (count == 0)

@@ -28,6 +28,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/pointer_cell.h"
 
 namespace goals {
 
@@ -182,7 +183,7 @@ bool Objective::is_expired_at_end_of_run(bool force)
     // Out of time: the run is ended, the goal expires once it's done.
     if (run_ending_ == 0) {
         flag_bits_ |= kFlagEndOfRunStarted;
-        end_run->finish_objective_run(reinterpret_cast<void*>(static_cast<uintptr_t>(force)));
+        end_run->finish_objective_run(cell::pointer<void>(static_cast<uintptr_t>(force)));
     } else if (run_ending_ == 1) {
         flag_bits_ |= kFlagEndOfRunStarted;
         end_run->end_run(force);
@@ -272,7 +273,7 @@ bool Objective::step_to_next_waypoint()
     if (!args_->fetch_list(kWaypoints, &waypoints, 0))
         args_->fetch_list(kWaypoints2, &waypoints, 1);
     for (uint32_t i = 0; i < waypoints->extent_; ++i) {
-        auto* waypoint = reinterpret_cast<script::Struct*>(waypoints->fetch_part(i));
+        auto* waypoint = waypoints->struct_at(i);
         uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
         if (goal_flags_->has_entry_named(flag)) {
@@ -313,7 +314,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
     script::Array* clusters = nullptr;
     args_->fetch_list(kKillClusters, &clusters, 1);
     for (uint32_t i = 0; i < clusters->extent_; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(clusters->fetch_part(i));
+        auto* entry = clusters->struct_at(i);
         uint32_t id = 0;
         entry->read_hash_value(kIdName, &id, 1);
         int needed = 0;
@@ -438,7 +439,7 @@ bool Objective::test_longest_jump()
     uint32_t id = 0;
     args_->read_hash_value(kDistanceObject, &id, 1);
     objects::Entity* object =
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(id);
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(id);
     const objects::GameEntity* skater = local_skater();
     if (!skater || !object)
         return false;

@@ -67,6 +67,8 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/balance_trick.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace modules {
 
@@ -127,7 +129,7 @@ constexpr uint32_t kTeamRestarts[4] = {0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
-objects::MiscHub* entity_hub_handle() { return reinterpret_cast<objects::MiscHub*>(objects::g_composite_registry); }
+objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::g_composite_registry); }
 objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
 script::Struct*& cat_info() { return g_cat_info; }
 script::Struct*& stat_goal_params_ref() { return g_stat_target_info; }
@@ -166,7 +168,7 @@ void unlink_skater_node(memory::ListNode* node)
 
 memory::ListNode* Skate::skater_node(uint32_t index)
 {
-    return reinterpret_cast<goals::GoalListHead*>(&riders_)->get_node_at(
+    return raw::as<goals::GoalListHead>(&riders_)->get_node_at(
         static_cast<int>(index)); // (lists::Foremost's fetch_entry)
 }
 
@@ -251,7 +253,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
     if (local) {
         objects::RiderIdentity* source = objects::g_profile_roster->fetch_account(
             static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) ? viewport : 0);
-        reinterpret_cast<gfx::ModelLook*>(profile)->copy_from(reinterpret_cast<gfx::ModelLook*>(source));
+        raw::as<gfx::ModelLook>(profile)->copy_from(raw::as<gfx::ModelLook>(source));
         script::launch_script(kShowPanelStuff, nullptr, nullptr, false, nullptr);
         objects::Rider* skater = get_home_rider();
         if (skater) {
@@ -265,7 +267,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
                 auto* node = skater->get_skater_link();
                 node->priority = static_cast<int>(id);
                 unlink_skater_node(node);
-                reinterpret_cast<lists::Foremost*>(&riders_)->insert_by_unique_order(node);
+                riders_.insert_by_unique_order(node);
                 memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
                 script::launch_script(kDestroySkaterParticles, nullptr, skater, false, nullptr);
                 skater->change_serial(id);
@@ -289,7 +291,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
     const int heap = find_free_rider_heap(local);
     memory::enter_heap_scope(rider_heap_at(heap));
     auto* skater =
-        new objects::Rider(viewport, reinterpret_cast<objects::EntityHub*>(entity_hub_handle()), local, id, heap, 1);
+        new objects::Rider(viewport, static_cast<objects::EntityHub*>(entity_hub_handle()), local, id, heap, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
         script::Struct* params = spawn_param_table();
@@ -301,7 +303,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
         script::launch_script(kClientSkaterInit, nullptr, skater, false, nullptr);
     auto* node = skater->get_skater_link();
     node->priority = static_cast<int>(skater->ident_);
-    reinterpret_cast<lists::Foremost*>(&riders_)->insert_by_unique_order(node);
+    riders_.insert_by_unique_order(node);
     bind_controllers();
     if (skater->is_local_skater_ && skater->view_slot_ == 0) {
         if (cat_info()) {
@@ -792,7 +794,7 @@ void Skate::debug_rails()
     if (!skate->debug_rails_)
         return;
     stubs::ignore_argument(0); // (the rail manager's debug drawing)
-    auto* manager = reinterpret_cast<objects::EntityHub*>(entity_hub_handle());
+    auto* manager = static_cast<objects::EntityHub*>(entity_hub_handle());
     for (objects::ObjectModule* component = manager->find_first_module_of_kind(kRailManagerType); component;
          component = component->next_of_type_) {
         objects::GameEntity* object = component->entity_;
@@ -805,7 +807,7 @@ void Skate::debug_rails()
         matrix[15] = 1.0f;
         const void* rails = static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
         if (rails)
-            stubs::ignore_argument(static_cast<int>(reinterpret_cast<uintptr_t>(matrix)));
+            stubs::ignore_argument(static_cast<int>(cell::address(matrix)));
     }
 }
 
@@ -984,7 +986,7 @@ Skate::Skate()
 {
     riders_.list_link_.make_head();
     update_job_ = std::make_unique<tasks::Task<Skate>>(&front_end_tick, this, 0);
-    reinterpret_cast<SkateNet*>(this)->create_network_tasks();
+    raw::as<SkateNet>(this)->create_network_tasks();
     objects::g_profile_roster->reset_templates();
     game_flow_ = std::make_unique<goals::MatchFlow>();
     goal_manager_ = memory::make_zeroed<goals::GoalManager>();
@@ -1030,7 +1032,7 @@ Skate::~Skate()
     memory::destroy_then_clear(object_movies_);
     memory::destroy_then_clear(rail_manager_);
     memory::destroy_then_clear(career_);
-    reinterpret_cast<SkateNet*>(this)->delete_network_tasks();
+    raw::as<SkateNet>(this)->delete_network_tasks();
     memory::destroy_then_clear(game_flow_);
     memory::destroy_then_clear(goal_manager_);
     memory::destroy_then_clear(update_job_);

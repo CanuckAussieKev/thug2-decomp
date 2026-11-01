@@ -31,6 +31,8 @@
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace save_cards {
 
@@ -49,7 +51,7 @@ Struct* result_params(Script* script) { return script->args_; }
 const char* save_folder() { return game_config::get_path_prefix(); }
 
 // The card's delete of a console file or folder entry: on the PC the shared always-true method (0x005BC7F0).
-bool delete_card_file(SaveCard* card, const char* name) { return card->always_true(reinterpret_cast<int>(name)); }
+bool delete_card_file(SaveCard* card, const char* name) { return card->always_true(static_cast<int>(cell::of(name))); }
 
 // A save file's handle deleted (its scalar deleting destructor).
 void DeleteFile(FileLoad* file) { file->teardown(1); }
@@ -71,7 +73,7 @@ void delete_reserve_pool(memory::PoolPair& pools)
 {
     ++pools.current;
     if (memory::SlabBank* pool = pools.pools[pools.current]) {
-        if (reinterpret_cast<uint8_t*>(&pools.unknown4)[pools.current]) {
+        if (raw::bytes(&pools.unknown4)[pools.current]) {
             memory::Hub::get_pull()->dealloc(pool->outset_); // (its destructor body, 0x005BA4E0)
             memory::Hub::get_pull()->dealloc(pool);
         }
@@ -413,7 +415,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     // the card's files (a lists::Foremost<File> on the stack)
     memory::ListNode head;
     head.make_head();
-    card->list_save_files("*", reinterpret_cast<FileLoad*>(&head));
+    card->list_save_files("*", raw::as<FileLoad>(&head));
 
     // into the temporary component and structure pools, if they exist
     bool switched = false;
@@ -427,7 +429,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     const char* folder = save_folder();
     const int folder_length = static_cast<int>(std::strlen(folder));
     int file_count = 0;
-    for (const memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1 && node;
+    for (const memory::ListNode* node = head.next; static_cast<intptr_t>(cell::address(node->data)) != -1 && node;
          node = node->next)
         ++file_count;
     debug::printf(
@@ -500,9 +502,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         --struct_pools().current;
     }
     // the list's nodes deleted (each file is its own node)
-    for (const memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1;) {
+    for (const memory::ListNode* node = head.next; static_cast<intptr_t>(cell::address(node->data)) != -1;) {
         const memory::ListNode* next = node->next;
-        const memory::ListNode* following = reinterpret_cast<intptr_t>(next->data) == -1 ? nullptr : next;
+        const memory::ListNode* following = static_cast<intptr_t>(cell::address(next->data)) == -1 ? nullptr : next;
         static_cast<FileLoad*>(node->data)->teardown(1);
         node = following;
         if (!node)
@@ -530,7 +532,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             listing = new (listing) script::Array;
         listing->configure_size_kind(static_cast<uint32_t>(listed), script::kQbvalStruct);
         for (int j = 0; j < listed; ++j)
-            listing->set_element(static_cast<uint32_t>(j), reinterpret_cast<uint32_t>(entries[j]));
+            listing->set_element(static_cast<uint32_t>(j), cell::of(entries[j]));
         result_params(script)->append_array_ref(kDirectoryListing, listing);
     }
     // the head unlinked (its destructor's body)

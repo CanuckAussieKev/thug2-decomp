@@ -24,6 +24,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
+#include "engine/core/raw_view.h"
 
 namespace goals {
 
@@ -216,7 +217,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     bool female = false;
     if (suffix && checksums::hash_from_text(suffix) == kSkater) {
         int male = 0;
-        reinterpret_cast<script::Struct*>(current_profile()->details_)->fetch_int_value(kIsMale, &male, 1);
+        raw::as<script::Struct>(current_profile()->details_)->fetch_int_value(kIsMale, &male, 1);
         if (!male)
             female = true;
     }

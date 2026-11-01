@@ -9,6 +9,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -180,7 +181,7 @@ int goal_editor_constant82() { return 0x82; }
 // 0x004E69D0
 void init_edited_goal(uint8_t* goal)
 {
-    auto u32 = [goal](uint32_t offset) -> uint32_t& { return *reinterpret_cast<uint32_t*>(goal + offset); };
+    auto u32 = [goal](uint32_t offset) -> uint32_t& { return *raw::as<uint32_t>(goal + offset); };
     u32(0x2A4) = 5;
     u32(0x2B0) = 5;
     goal[0x28A] = 0;

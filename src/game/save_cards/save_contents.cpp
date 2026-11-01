@@ -1,7 +1,7 @@
 // What a save holds and how it is put back (see save_contents.h).
 
 #include "game/save_cards/save_contents.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/net/buddy_status.h"
 
 #include <cstdint>
@@ -29,6 +29,8 @@
 #include "engine/sys/game_config.h"
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace save_cards {
 
@@ -78,7 +80,7 @@ prefs::Preferences* split_screen_preferences() { return get_skate()->get_split_v
 // A preferences object's structure (+4).
 Struct* preferences_structure(prefs::Preferences* preferences)
 {
-    return reinterpret_cast<Struct*>(reinterpret_cast<uint8_t*>(preferences) + 4);
+    return raw::field_at<Struct>(preferences, 4);
 }
 
 // The goal editor's component (its object's, both named GoalEditor).
@@ -146,7 +148,7 @@ void write_global_info(Struct* global)
             controller->put_name_key(0u, kSpinTapsOn);
         if (flags.vibration_)
             controller->put_name_key(0u, kVibrationOn);
-        controllers->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(controller));
+        controllers->set_element(static_cast<uint32_t>(i), cell::of(controller));
     }
     options->append_array_ref(kPadSettingsKey, controllers);
     options->put_sub_struct(kTaunts, preferences_structure(online_hub_handle()->get_taunt_settings()));
@@ -213,7 +215,7 @@ void read_save_header(Struct* global, Script* script)
     if (options->fetch_list(kPadSettingsKey, &controllers, 0)) {
         modules::Skate* skate = get_skate();
         for (int i = 0; i < kControllers; ++i) {
-            auto* controller = reinterpret_cast<Struct*>(controllers->fetch_part(static_cast<uint32_t>(i)));
+            auto* controller = controllers->struct_at(static_cast<uint32_t>(i));
             // the skate module's setters (no source yet): vibration, autokick, spin taps
             skate->change_rumble(i, controller->has_bare_flag(kVibrationOn));
             skate->set_auto_eject(i, controller->has_bare_flag(kAutokickOn));

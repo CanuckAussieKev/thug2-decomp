@@ -16,6 +16,7 @@
 #include "game/park/park_memory.h"
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -70,7 +71,7 @@ ParkAssembler::~ParkAssembler()
     if (source_world_)
         source_world_ = nullptr;
     // (the node array's owner, made in place by make_new)
-    reinterpret_cast<assets::NodeTableResource*>(node_array_)->~NodeTableResource();
+    raw::as<assets::NodeTableResource>(node_array_)->~NodeTableResource();
     destroy_empty_member(&rails_);
     destroy_empty_member(&source_rails_);
 }
@@ -345,7 +346,7 @@ void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
 void ParkAssembler::read_piece_flags(script::Array* nodes)
 {
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(0x12B4E660u, &node_class, 0);         // Class
         if (node_class != 0xBF4D3536u && node_class != 0xEF59C100u) // LevelGeometry, GameObject

@@ -14,6 +14,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/stubs.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace park_editing {
 
@@ -54,11 +56,11 @@ constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
 // The input component's pad (+0x20) and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140).
 objects::PadSnapshot* pad_of(void* input)
 {
-    return reinterpret_cast<objects::PadSnapshot*>(static_cast<uint8_t*>(input) + 0x20);
+    return raw::as<objects::PadSnapshot>(static_cast<uint8_t*>(input) + 0x20);
 }
 objects::ControlButton* get_button(void* input, uint32_t offset)
 {
-    return reinterpret_cast<objects::ControlButton*>(static_cast<uint8_t*>(input) + 0x20 + offset);
+    return raw::as<objects::ControlButton>(static_cast<uint8_t*>(input) + 0x20 + offset);
 }
 
 script::Struct* spawn_param_bag()
@@ -88,10 +90,10 @@ int rail_pool_used()
 // The editor camera's (0xAC8946E2) target: +0x3C its position, +0x78 its heading (radians), +0x88 the height over it.
 const Vec4& viewer_location(void* camera)
 {
-    return *reinterpret_cast<const Vec4*>(static_cast<uint8_t*>(camera) + 0x3C);
+    return *raw::as<const Vec4>(static_cast<uint8_t*>(camera) + 0x3C);
 }
-float camera_heading(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x78); }
-float camera_height(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x88); }
+float camera_heading(void* camera) { return *raw::as<const float>(static_cast<uint8_t*>(camera) + 0x78); }
+float camera_height(void* camera) { return *raw::as<const float>(static_cast<uint8_t*>(camera) + 0x88); }
 
 // The structure a script's member function writes its results to (CScript +0x14).
 script::Struct* get_results(script::Script* script) { return script->args_; }
@@ -155,11 +157,11 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
         rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
         uint32_t i = 0;
         for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
-            rails->set_element(i++, reinterpret_cast<uint32_t>(spawn_param_bag()));
+            rails->set_element(i++, cell::of(spawn_param_bag()));
         info->append_array_ref(kRails, rails);
     }
     // (then the base's - the empty 0x005BAB90)
-    stubs::ignore_argument(reinterpret_cast<int>(info));
+    stubs::ignore_argument(static_cast<int>(cell::of(info)));
 }
 
 // 0x004F6680
@@ -185,10 +187,10 @@ void RailAuthoring::write_to_structure(script::Struct* params)
             // (a post drawn, not has_post_)
             if (p->post_)
                 point->put_name_key(0u, kHasPost);
-            points->set_element(i++, reinterpret_cast<uint32_t>(point));
+            points->set_element(i++, cell::of(point));
         }
         rail_info->append_array_ref(kPoints, points);
-        rails->set_element(r++, reinterpret_cast<uint32_t>(rail_info));
+        rails->set_element(r++, cell::of(rail_info));
     }
     params->append_array_ref(kCreatedRails, rails);
 }
@@ -202,15 +204,15 @@ void RailAuthoring::decode_from_struct(script::Struct* params)
     if (!rails)
         return;
     for (uint32_t r = 0; r < rails->extent_; ++r) {
-        auto* rail_info = reinterpret_cast<script::Struct*>(rails->fetch_part(r));
+        auto* rail_info = rails->struct_at(r);
         get_new_rail();
         script::Array* points = nullptr;
         rail_info->fetch_list(kPoints, &points, 1);
         for (uint32_t i = 0; i < points->extent_; ++i) {
             EditedRailPoint* p = active_node_->append_rail_vertex();
-            auto* point = reinterpret_cast<script::Struct*>(points->fetch_part(i));
+            auto* point = points->struct_at(i);
             // (a full pool: written through null, as the original)
-            point->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&p->at_point_), 0);
+            point->fetch_vec(kPos, &p->at_point_, 0);
             if (point->has_bare_flag(kHasPost))
                 p->has_post_ = true;
         }
@@ -224,7 +226,7 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
     int rail_index = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++rail_index) {
         for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
-            auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(static_cast<uint32_t>(next)));
+            auto* node = nodes->struct_at(static_cast<uint32_t>(next));
             ++next;
             node->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
             node->put_name_key(kName, name++);
@@ -269,7 +271,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     }
     case kAddNewPosition: {
         Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-        params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 0);
+        params->fetch_vec(kPos, &pos, 0);
         if (!active_node_)
             return 0;
         const EditedRailPoint* head = active_node_->point_chain_;
@@ -318,7 +320,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         int index = 0;
         params->fetch_int_value(kRailPointIndex, &index, 0);
         Vec4 pos; // (left unset without a pos, as the original's)
-        params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 0);
+        params->fetch_vec(kPos, &pos, 0);
         EditedRail* rail = find_rail(id);
         if (!rail)
             return 1;
@@ -350,7 +352,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     }
     case kDrawDottedLine: {
         Vec4 pos; // (left unset without a pos, as the original's)
-        params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 0);
+        params->fetch_vec(kPos, &pos, 0);
         draw_dotted_line(&pos);
         return 1;
     }

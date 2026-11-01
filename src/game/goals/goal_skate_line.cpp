@@ -62,7 +62,7 @@ void SkateLineGoal::next_cluster()
 {
     script::Array* objects = nullptr;
     args_->fetch_list(kGoalObjects, &objects, 1);
-    auto* cluster = reinterpret_cast<script::Struct*>(objects->fetch_part(static_cast<uint32_t>(num_flags_set_)));
+    auto* cluster = objects->struct_at(static_cast<uint32_t>(num_flags_set_));
     int time = 0;
     if (cluster->fetch_int_value(kTime, &time, 1))
         set_seconds_remaining(time);
@@ -71,7 +71,7 @@ void SkateLineGoal::next_cluster()
     params->append_structure_if_any(cluster);
     params->put_int(kGoalObjectsIndex, num_flags_set_);
     if (num_flags_set_ == 1)
-        params->put_sub_struct(kFirstSpotParams, reinterpret_cast<script::Struct*>(objects->fetch_part(0)));
+        params->put_sub_struct(kFirstSpotParams, objects->struct_at(0));
     script::launch_script(kNextCluster, params, nullptr, false, nullptr);
     delete_structure(params);
 }
@@ -86,7 +86,7 @@ bool SkateLineGoal::set_flag(uint32_t flag, int value, uint32_t sub)
     script::Array* objects = nullptr;
     args_->fetch_list(kGoalObjects, &objects, 1);
     uint32_t cluster_flag = 0;
-    reinterpret_cast<script::Struct*>(objects->fetch_part(static_cast<uint32_t>(num_flags_set_)))
+    objects->struct_at(static_cast<uint32_t>(num_flags_set_))
         ->read_hash_value(kFlag, &cluster_flag, 1);
     bool set = false;
     if (cluster_flag != flag)

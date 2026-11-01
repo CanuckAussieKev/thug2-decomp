@@ -50,7 +50,7 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/model_component.h"
 #include "formats/byte_stream.h"
@@ -58,6 +58,7 @@
 #include "wire/skater_messages.h"
 #include "wire/play_messages.h"
 #include "engine/gfx/tod_manager.h"
+#include "engine/core/raw_view.h"
 
 namespace modules {
 
@@ -123,7 +124,7 @@ online::Hub* net_link() { return online::g_online_hub; }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 objects::ObjectHubBase* entity_hub_handle()
 {
-    return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
 }
 
 PlayerRecord* by_connection(net::Conn* conn) { return net_link()->find_player_by_sender(conn); }
@@ -152,7 +153,7 @@ void enqueue(net::AppHost* app, PlayerRecord* player, net::NetMessageInfo* desc)
     const int handle = player->get_link_handle();
     app->put_on_outbox(handle, desc);
 }
-net::AppHost* server_app() { return reinterpret_cast<net::AppHost*>(net_link()->host_); }
+net::AppHost* server_app() { return net_link()->host_; }
 
 objects::Rider* skater_of(PlayerRecord* player) { return player->skater_; }
 uint8_t get_skater_id(objects::Rider* skater) { return static_cast<uint8_t>(skater->ident_); }
@@ -243,7 +244,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         for (int i = 0; i < 8; ++i) {
             if (!(mask & (1u << i)))
                 continue;
-            write_object_update(reinterpret_cast<objects::Entity*>(skater_of(by_object_id(i))), &out);
+            write_object_update(static_cast<objects::Entity*>(skater_of(by_object_id(i))), &out);
             player->set_last_sent_skater(i);
         }
         out.feed_.drain();
@@ -587,7 +588,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
 int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
-    auto* msg = reinterpret_cast<uint8_t*>(context->body_);
+    auto* msg = raw::bytes(context->body_);
     util::ByteReader reader(context->body_, context->body_size_);
     // (a client's server: the sender; a client: the player the last 0x96 named)
     auto from = [&]() -> PlayerRecord* {
@@ -689,8 +690,8 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
 {
     const online::Hub* net = net_link();
     void* memory = memory::alloc_zeroed(0x449C);
-    void* texture = memory ? reinterpret_cast<void*>(memory::construct_in<gfx::FaceSkin>(memory)) : nullptr;
-    auto* data = reinterpret_cast<uint8_t*>(context->body_);
+    void* texture = memory ? raw::as<void>(memory::construct_in<gfx::FaceSkin>(memory)) : nullptr;
+    auto* data = raw::bytes(context->body_);
     uint32_t size = context->body_size_;
     PlayerRecord* player = nullptr;
     if (net->get_on_server()) {
@@ -720,7 +721,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
         PlayerSearch search;
         net::AppHost* app = context->receiver_app_;
         PlayerRecord* sender = by_connection(context->sender_conn_);
-        sender->set_face_texture_data(reinterpret_cast<const uint8_t*>(context->body_), context->body_size_);
+        sender->set_face_texture_data(raw::bytes(context->body_), context->body_size_);
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             if (other->is_own_player() || other == sender)
                 continue;
@@ -775,8 +776,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
     auto skater = [&](uint8_t id) -> objects::Entity* {
         if (!object(id))
             return nullptr;
-        return reinterpret_cast<objects::Entity*>(
-            skate->get_rider_by_number(static_cast<uint32_t>(static_cast<int8_t>(id))));
+        return static_cast<objects::Entity*>(skate->get_rider_by_number(static_cast<uint32_t>(static_cast<int8_t>(id))));
     };
     // (the messages: wire/skater_messages.h; NOT ORIGINAL: one too short for its fields is dropped - the
     // original read on past its end)
@@ -1064,7 +1064,7 @@ int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
     const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
-    auto* object = reinterpret_cast<objects::Rider*>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
+    auto* object = static_cast<objects::Rider*>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
     if (!object)
         return 1;
     if (context->type_code_ == 0x37)
@@ -1165,7 +1165,7 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     params->put_vec3(kPos, {message.position[0], message.position[1], message.position[2], message.position[3]});
     params->put_vec3(kVel, {message.velocity[0], message.velocity[1], message.velocity[2], message.velocity[3]});
     const uint32_t launch = message.type == kFireball ? kClientLaunchFireball : kClientLaunchProjectile;
-    script::launch_script(launch, params, reinterpret_cast<objects::Entity*>(skater), false, nullptr);
+    script::launch_script(launch, params, static_cast<objects::Entity*>(skater), false, nullptr);
     delete_structure(params);
     return 1;
 }
@@ -1280,7 +1280,7 @@ void Skate::send_cheats(online::PlayerRecord* player)
     desc.byte_count_ = static_cast<uint16_t>(writer.position());
     get_sequence(desc, 8);
     const int handle = player->get_link_handle();
-    reinterpret_cast<net::AppHost*>(net->host_)->put_on_outbox(handle, &desc);
+    net->host_->put_on_outbox(handle, &desc);
 }
 
 // 0x0056BB70

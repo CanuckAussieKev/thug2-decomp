@@ -17,6 +17,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -93,7 +94,7 @@ void preload_meshes(uint32_t array_name)
 {
     script::Array* list = script::fetch_list(array_name);
     for (uint32_t i = 0; i < list->extent_; ++i) {
-        auto* entry = reinterpret_cast<Struct*>(list->fetch_part(i));
+        auto* entry = list->struct_at(i);
         int allow_random = 0;
         entry->fetch_int_value(0xF1E3CD22u, &allow_random, 0); // allow_random
         if (!allow_random)
@@ -146,7 +147,7 @@ bool cfunc_get_next_level_requirements(Struct*, Script* script)
     const int medals = career->count_levels_with_goals();
     script::Array* steps = script::fetch_list(0x1D8F1A7Eu); // (name unknown) the level steps
     for (uint32_t i = 0; i < steps->extent_; ++i) {
-        auto* step = reinterpret_cast<Struct*>(steps->fetch_part(i));
+        auto* step = steps->struct_at(i);
         int goals_needed = 0;
         int medals_needed = 0;
         if (step->has_bare_flag(0x38DBE1D0u) || step->has_bare_flag(0x032314D1u)) // goals / goal
@@ -199,20 +200,20 @@ bool cfunc_remember_temporary_appearance(Struct* params, Script*)
     Struct* structure = nullptr;
     if (params->read_sub_struct(0xEFC8944Cu, &structure, 0)) { // appearance_structure
         appearance.read_in(structure, true);
-        source = reinterpret_cast<uint8_t*>(&appearance);
+        source = raw::bytes(&appearance);
     } else {
         int player = 0;                                   // (asserted: used as it is)
         params->fetch_int_value(0x67E6859Au, &player, 1); // player
-        source = reinterpret_cast<uint8_t*>(profiles->fetch_account(player));
+        source = raw::bytes(profiles->fetch_account(player));
     }
-    auto* temporary = reinterpret_cast<uint8_t*>(profiles->get_extra_profile(name));
+    auto* temporary = raw::bytes(profiles->get_extra_profile(name));
     if (params->has_bare_flag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure (+0x4C)
-        auto* own = &reinterpret_cast<gfx::ModelLook*>(temporary)->structure_;
+        auto* own = &raw::as<gfx::ModelLook>(temporary)->structure_;
         own->get_clear();
-        own->append_structure_if_any(&reinterpret_cast<gfx::ModelLook*>(source)->structure_);
+        own->append_structure_if_any(&raw::as<gfx::ModelLook>(source)->structure_);
     } else {
-        reinterpret_cast<gfx::ModelLook*>(temporary)->copy_from(
-            reinterpret_cast<gfx::ModelLook*>(source)); // the appearance copied
+        raw::as<gfx::ModelLook>(temporary)->copy_from(
+            raw::as<gfx::ModelLook>(source)); // the appearance copied
     }
     return true;
 }

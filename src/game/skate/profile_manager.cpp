@@ -15,6 +15,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/lists/lookup_table.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -68,7 +69,7 @@ void* face_of(RiderIdentity* profile) { return profile->appearance()->face_skin_
 
 void RiderIdentity::set_appearance(script::Struct* appearance, bool update)
 {
-    reinterpret_cast<gfx::ModelLook*>(this)->read_in(appearance, update);
+    raw::as<gfx::ModelLook>(this)->read_in(appearance, update);
 }
 // 0x00543010
 RiderIdentity::~RiderIdentity()
@@ -91,17 +92,17 @@ static_assert(sizeof(ProfileTable) == sizeof(lists::ResolveMap) && offsetof(Prof
 
 RiderIdentity* ProfileTable::get_by_index(int index, uint32_t* key)
 {
-    return static_cast<RiderIdentity*>(reinterpret_cast<lists::ResolveMap*>(this)->fetch_entry_at(&index, key));
+    return static_cast<RiderIdentity*>(raw::as<lists::ResolveMap>(this)->fetch_entry_at(&index, key));
 }
 RiderIdentity* ProfileTable::get_pull(uint32_t key)
 {
-    return static_cast<RiderIdentity*>(reinterpret_cast<lists::ResolveMap*>(this)->fetch_entry(&key));
+    return static_cast<RiderIdentity*>(raw::as<lists::ResolveMap>(this)->fetch_entry(&key));
 }
 bool ProfileTable::place_in(uint32_t key, RiderIdentity* item)
 {
-    return reinterpret_cast<lists::ResolveMap*>(this)->store_entry(&key, item);
+    return raw::as<lists::ResolveMap>(this)->store_entry(&key, item);
 }
-void ProfileTable::drop_out(uint32_t key) { reinterpret_cast<lists::ResolveMap*>(this)->erase_entry(&key); }
+void ProfileTable::drop_out(uint32_t key) { raw::as<lists::ResolveMap>(this)->erase_entry(&key); }
 
 // 0x0057B9E0
 void ProfileTable::get_clear()

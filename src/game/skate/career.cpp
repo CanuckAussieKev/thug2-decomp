@@ -15,6 +15,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -387,7 +388,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
         for (int level = 0; level < kLevels; ++level) {
             goals::GapTally* checklist = gaps_[level];
             checklist->get_clear();
-            auto* entry = reinterpret_cast<script::Struct*>(gap_levels->fetch_part(level));
+            auto* entry = gap_levels->struct_at(level);
             int saved_level = 0, built = 0;
             entry->fetch_int_value(kGapLevel, &saved_level, 1);
             entry->fetch_int_value(kGapsBuilt, &built, 1);
@@ -397,7 +398,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
             entry->fetch_list(kGapList, &list, 0);
             const int count = static_cast<int>(list->extent_);
             for (int i = 0; i < count; ++i) {
-                auto* gap = reinterpret_cast<script::Struct*>(list->fetch_part(i));
+                auto* gap = list->struct_at(i);
                 const char* name = nullptr;
                 int got = 0, score = 0;
                 gap->fetch_text(kGapName, &name, 0);
@@ -494,7 +495,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                     gap->put_int(kGapScore, g.score);
                     gap->put_vec3(kGapPos, g.pos[0], g.pos[1], g.pos[2]);
                     gap->put_vec3(kGapDir, g.dir[0], g.dir[1], g.dir[2]);
-                    list->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(gap));
+                    list->set_element(static_cast<uint32_t>(i), cell::of(gap));
                 }
                 entry->append_array_ref(kGapList, list);
             }
@@ -514,20 +515,20 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                     checklist->get_gap_positions(i, &pos, &dir);
                 gap->put_vec3(kGapPos, pos.x, pos.y, pos.z);
                 gap->put_vec3(kGapDir, dir.x, dir.y, dir.z);
-                list->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(gap));
+                list->set_element(static_cast<uint32_t>(i), cell::of(gap));
             }
             entry->append_array_ref(kGapList, list);
         }
-        gap_levels->set_element(static_cast<uint32_t>(level), reinterpret_cast<uint32_t>(entry));
+        gap_levels->set_element(static_cast<uint32_t>(level), cell::of(entry));
     }
     script::Array* visited = alloc_script_array(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level)
         visited->set_element(static_cast<uint32_t>(level), visited_[level]);
     script::Struct* career = spawn_param_table();
-    career->add_component_of_type(kGoalListName, script::kQbvalArray, reinterpret_cast<uint32_t>(goals));
-    career->add_component_of_type(kFlagsArray, script::kQbvalArray, reinterpret_cast<uint32_t>(flags));
-    career->add_component_of_type(kGlobalFlagsArray, script::kQbvalArray, reinterpret_cast<uint32_t>(globals));
-    career->add_component_of_type(kGapLevelList, script::kQbvalArray, reinterpret_cast<uint32_t>(gap_levels));
+    career->add_component_of_type(kGoalListName, script::kQbvalArray, cell::of(goals));
+    career->add_component_of_type(kFlagsArray, script::kQbvalArray, cell::of(flags));
+    career->add_component_of_type(kGlobalFlagsArray, script::kQbvalArray, cell::of(globals));
+    career->add_component_of_type(kGapLevelList, script::kQbvalArray, cell::of(gap_levels));
     career->append_array_ref(kVisitedArray, visited);
     career->put_name_key(0xE3335D2F, modules::g_skate_module->level_);
     career->put_name_key(0x2CC06F5E, goals::g_game_mode->get_name_key());
@@ -555,7 +556,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->put_int(kValue634, value634_);
     career->put_int(kMaxValue634, max_value634_);
     career->put_sub_struct(kCareerInfoKey, details_);
-    save->add_component_of_type(kCareerStructure, 11, reinterpret_cast<uint32_t>(career));
+    save->add_component_of_type(kCareerStructure, 11, cell::of(career));
 }
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.

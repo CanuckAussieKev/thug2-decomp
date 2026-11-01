@@ -51,6 +51,9 @@
 #include "engine/sys/mlp.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
+#include "platform/code_address.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -137,9 +140,9 @@ online::Hub* net_session_slot() { return online::g_online_hub; }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 objects::ObjectHubBase* entity_hub_handle()
 {
-    return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
 }
-uint8_t* objective_board() { return reinterpret_cast<uint8_t*>(goals::get_objective_board()); }
+uint8_t* objective_board() { return raw::bytes(goals::get_objective_board()); }
 
 Struct* spawn_param_table()
 {
@@ -178,11 +181,11 @@ objects::Entity* player_skater(const PlayerRecord* player) { return player->skat
 // A goal by name (the goal manager's 0x00557F90) and two of its virtuals: +0xC is it active, +0x14 its update.
 uint8_t* get_goal(uint8_t* manager, uint32_t name)
 {
-    return reinterpret_cast<uint8_t*>(reinterpret_cast<goals::GoalManager*>(manager)->get_goal(name, 1));
+    return raw::bytes(raw::as<goals::GoalManager>(manager)->get_goal(name, 1));
 }
 // A goal active (the original's vtable +0x0C) / expired (+0x14).
-bool goal_active(uint8_t* goal) { return reinterpret_cast<goals::Objective*>(goal)->is_operative(); }
-void expire_goal(uint8_t* goal) { reinterpret_cast<goals::Objective*>(goal)->expire(); }
+bool goal_active(uint8_t* goal) { return raw::as<goals::Objective>(goal)->is_operative(); }
+void expire_goal(uint8_t* goal) { raw::as<goals::Objective>(goal)->expire(); }
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
 using PlayerSearch = online::PlayerSearch;
@@ -202,7 +205,7 @@ void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint
 // (a handler not rewritten yet, by address)
 void append_listener(net::AppHost* app, int id, uint32_t code, uint32_t flags, void* data, int priority = 0x80)
 {
-    append_listener(app, id, reinterpret_cast<net::HandlerSlotValue>(code), flags, data, priority);
+    append_listener(app, id, function_at<net::HandlerSlotValue>(code), flags, data, priority);
 }
 
 } // namespace
@@ -210,7 +213,7 @@ void append_listener(net::AppHost* app, int id, uint32_t code, uint32_t flags, v
 // 0x0056E2B0
 void SkateNet::create_network_tasks()
 {
-    auto* skate = reinterpret_cast<Skate*>(this);
+    auto* skate = raw::as<Skate>(this);
     skate->server_tasks_[0] = new tasks::Task<Skate>(&SkateNet::server_task, skate, -1000);
     skate->server_tasks_[1] = new tasks::Task<Skate>(&SkateNet::score_task, skate, -1000);
 }
@@ -218,7 +221,7 @@ void SkateNet::create_network_tasks()
 // 0x00569530
 void SkateNet::delete_network_tasks()
 {
-    for (const tasks::Task<Skate>* task : reinterpret_cast<Skate*>(this)->server_tasks_)
+    for (const tasks::Task<Skate>* task : raw::as<Skate>(this)->server_tasks_)
         delete task;
 }
 
@@ -235,9 +238,9 @@ void SkateNet::launch_host()
     auto* server = net->start_host_session(!auto_serving, true);
     if (!server)
         return;
-    auto* skate = reinterpret_cast<uint8_t*>(this);
-    mlp->logic_tasks_.queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[0]);
-    mlp->logic_tasks_.queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[1]);
+    auto* skate = raw::bytes(this);
+    mlp->logic_tasks_.queue_job(raw::as<Skate>(skate)->server_tasks_[0]);
+    mlp->logic_tasks_.queue_job(raw::as<Skate>(skate)->server_tasks_[1]);
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
     append_listener(server, 0x52, handle_combo_score, 0, this);
     append_listener(server, 0x86, handle_game_stats, 0, this);
@@ -315,7 +318,7 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
     // The handlers of this client's own skaters.
     for (uint32_t i = 0; i < 8; ++i) {
         auto* skater =
-            static_cast<objects::Rider*>(reinterpret_cast<modules::Skate*>(this)->get_rider_at(static_cast<int>(i)));
+            static_cast<objects::Rider*>(raw::as<modules::Skate>(this)->get_rider_at(static_cast<int>(i)));
         if (!skater || !skater->is_local_skater_ || skater->get_skater_number() != index)
             continue;
         append_listener(client, 0x3B, &modules::PointTally::on_score_msg, 0, skater);
@@ -702,7 +705,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
             if (mode != kFirefight && mode != kNetFirefight) {
                 Array* conditions = new_array_init();
                 script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
-                auto* condition = reinterpret_cast<Struct*>(conditions->fetch_part(0));
+                auto* condition = conditions->struct_at(0);
                 condition->add_component_of_type(kScore, script::kQbvalInteger, brief.target_score);
                 victory->append_array_value(kVictoryConditions, conditions);
             }
@@ -724,7 +727,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     // The mode's goal_script.
     Array* types = script::fetch_list(net->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
-        auto* type = reinterpret_cast<Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
+        auto* type = types->struct_at(static_cast<uint32_t>(i));
         uint32_t checksum = 0;
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != brief.game_type)
@@ -734,7 +737,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         goal_params->put_int(kScore, static_cast<int>(brief.target_score));
         goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
         // (the original keeps the script in its argument's slot: with no goal_script, the skate module's address)
-        auto script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
+        auto script = static_cast<uint32_t>(cell::address(skate));
         const uint8_t variant = brief.variant;
         if (!variant)
             type->read_hash_value("goal_script", &script, 1);

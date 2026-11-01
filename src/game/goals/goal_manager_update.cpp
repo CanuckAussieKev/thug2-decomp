@@ -21,6 +21,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/trick_goals.h"
+#include "engine/core/arena_alloc.h"
 
 namespace goals {
 
@@ -62,13 +63,13 @@ script::Array* alloc_script_array()
 int count_active(memory::ListNode* head)
 {
     const memory::ListNode* node = head->next;
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return 0;
     int count = 0;
     do {
         node = node->next;
         ++count;
-    } while (node->data != reinterpret_cast<void*>(-1) && node);
+    } while (node->data != memory::ListNode::head_marker() && node);
     return count;
 }
 
@@ -241,7 +242,7 @@ void GoalManager::trick_landed(script::Struct* trick)
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (goal->fetch_args()->has_bare_flag(kTrickBeat))
-            reinterpret_cast<TrickBeatGoal*>(goal)->trick_landed(trick);
+            static_cast<TrickBeatGoal*>(goal)->trick_landed(trick);
     }
 }
 

@@ -9,6 +9,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "game/park/park_memory.h"
+#include "engine/core/pointer_cell.h"
 
 namespace park_editing {
 
@@ -97,7 +98,7 @@ PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t pi
     for (int i = 0; i < count; ++i) {
         PieceGroupDesc entry{};
         static_cast<PieceBlueprint*>(abstract_meta)->get_entry(&entry, i); // entry `i`, copied
-        TileTemplate* source = get_piece_source(singleton()->builder_, reinterpret_cast<uint32_t>(entry.piece));
+        TileTemplate* source = get_piece_source(singleton()->builder_, cell::of(entry.piece));
         ParkTile* piece = create_piece(builder_, source, piece_flags);
         piece->set_quarter_turns(entry.rot, 0); // turn it
         CellBox pos{};
