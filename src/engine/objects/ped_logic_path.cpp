@@ -19,6 +19,8 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -235,9 +237,9 @@ void PedestrianBrainModule::run_waypoint_actions(script::Struct* node)
 {
     // (Both values are read over the `node` argument's slot - missing, both are asserted, it keeps what it held: the
     // pointer's bits, or the percent read before.)
-    auto slot = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(node));
+    auto slot = static_cast<uint32_t>(cell::address(node));
     if (node->has_bare_flag(kChangePaceFlag) && get_chance(node, kAdjustSpeedWeight)) {
-        node->fetch_float(kAdjustSpeedPercent, reinterpret_cast<float*>(&slot), 1);
+        node->fetch_float(kAdjustSpeedPercent, raw::as<float>(&slot), 1);
         auto percent = std::bit_cast<float>(slot);
         KinematicsModule* motion = get_motion(entity_);
         motion->path_max_speed_ = percent * motion->path_max_speed_;
@@ -258,7 +260,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
     twist_rate_ = 0.0f;
     script::Struct* out = get_state_params(params);
     // (The height is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
-    auto height = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
+    auto height = std::bit_cast<float>(cell::address(params));
     params->fetch_float(kJumpHeight, &height, 1);
     const float gravity = script::fetch_float(kLeapGravity);
     float jump_time = 0.0f;
@@ -710,7 +712,7 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     float height = 0.0f;
     params->fetch_float(kHeight, &height, 1);
     // (The gravity is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
-    auto gravity = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
+    auto gravity = std::bit_cast<float>(cell::address(params));
     params->fetch_float(kGravity, &gravity, 1);
     const maths::Vec4& at = entity_->at_point_;
     float dx = next_node_pos_.x - at.x, dy = next_node_pos_.y - at.y, dz = next_node_pos_.z - at.z,

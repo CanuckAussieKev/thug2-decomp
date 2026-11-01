@@ -19,6 +19,7 @@
 #include "engine/objects/trigger_events.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
 
 // The event lists (trigger_events.h).
 const int kWheelLeavesEvents[3]{1, 4, 0};
@@ -110,8 +111,8 @@ void ActivationZoneModule::tick_frame()
     feeler.line_.start = last_pos_;
     feeler.line_.end = entity_->at_point_;
     feeler.set_excluded(0, kTriggerFaces);
-    feeler.callback_ = reinterpret_cast<render::FeelerCallback>(&feeler_hit);
-    feeler.unknowna8_ = reinterpret_cast<uint32_t>(this);
+    feeler.callback_ = [](render::ProbeRay* hit) { (void)feeler_hit(hit); };
+    feeler.unknowna8_ = cell::of(this);
     feeler.get_hit_shape(true, false);
     last_pos_ = entity_->at_point_;
 }
@@ -133,7 +134,7 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
     }
     for (uint32_t i = 0; i < count; ++i) {
         if (arrays)
-            array = reinterpret_cast<script::Array*>(arrays->fetch_part(i));
+            array = arrays->array_at(i);
         if (array->kind_tag_ != script::kQbvalInteger)
             return 0;
         uint32_t wanted = 0;
@@ -156,7 +157,7 @@ bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, sc
     } else {
         // (from the last; none named so leaves the first one checked - element 0 -, as the original)
         for (uint32_t i = nodes->extent_; i > 0;) {
-            node = reinterpret_cast<script::Struct*>(nodes->fetch_part(--i));
+            node = nodes->struct_at(--i);
             if (level_nodes::get_node_name(node) == name)
                 break;
         }
@@ -207,7 +208,7 @@ bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRa
         return false;
     if (feeler->get_tested_owner()) {
         // A movable object's face, while it's being tested: through its own nodes.
-        auto* owner = reinterpret_cast<GameEntity*>(feeler->get_tested_owner());
+        auto* owner = cell::pointer<GameEntity>(feeler->get_tested_owner());
         script::Array* nodes = node_array_of(owner);
         const uint32_t name = feeler->hit_.object_checksum_;
         return get_trigger_node(events, name, nodes, owner);
@@ -243,7 +244,7 @@ void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProb
 // 0x00434D70
 bool ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
 {
-    auto* component = reinterpret_cast<ActivationZoneModule*>(feeler->unknowna8_);
+    auto* component = cell::pointer<ActivationZoneModule>(feeler->unknowna8_);
     return component->probe_touches_zone(kNoEvents, feeler);
 }
 

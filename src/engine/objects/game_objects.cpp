@@ -32,6 +32,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/path_follower.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -140,7 +141,7 @@ void spawn_pedestrian(script::Struct* params)
     motion->path_deceleration_ = 12.0f;
     motion->path_turn_distance_ = 24.0f;
     motion->init_path_follower(ped);
-    auto* path = static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    auto* path = static_cast<PathFollower*>(raw::as<MotionPathMembers>(motion)->get_path_follower());
     path->corner_distance_ = 24.0f;
     motion->motion_flags2_ |= 0x400;
     update_model(ped->fetch_module(kModel));
@@ -158,7 +159,7 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
     motion->path_deceleration_ = 384.0f;
     motion->ground_height_only_ = false;
     motion->init_path_follower(car);
-    auto* extra = static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    auto* extra = static_cast<PathFollower*>(raw::as<MotionPathMembers>(motion)->get_path_follower());
     extra->corner_distance_ = 240.0f;
     script::launch_script(kCarAddComponents, params, car, false, nullptr);
     car->seal();
@@ -248,7 +249,7 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).
         alignas(text::Chars) uint8_t storage[sizeof(text::Chars)];
-        auto* path = gfx::make_model_path(reinterpret_cast<text::Chars*>(storage), "crown", ".mdl");
+        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage), "crown", ".mdl");
         file = *path;
         path->~Chars();
     }

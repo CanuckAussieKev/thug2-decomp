@@ -26,6 +26,8 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -96,7 +98,7 @@ memory::owner<ObjectModule*> EffectsEmitterModule::fabricate() { return new Effe
 // 0x00429940
 void EffectsEmitterModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_particle_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_particle_component_member_functions, 0x18);
 }
 
 // 0x00429B20
@@ -178,7 +180,7 @@ bool set_reach(EffectsEmitterModule* component, script::Struct* params, int whic
 bool change_location(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     maths::Vec4 pos{};
-    params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 1);
+    params->fetch_vec(0u, &pos, 1);
     if (component->effect_handle_) {
         component->effect_handle_->change_place(which, &pos);
         get_refresh(component->effect_handle_);
@@ -188,7 +190,7 @@ bool change_location(EffectsEmitterModule* component, script::Struct* params, in
 bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     maths::Vec4 box{};
-    params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&box), 1);
+    params->fetch_vec(0u, &box, 1);
     if (component->effect_handle_)
         component->effect_handle_->set_box(which, &box);
     return true;
@@ -199,7 +201,7 @@ bool change_colour(EffectsEmitterModule* component, script::Struct* params, int 
     params->fetch_list(0u, &array, 1);
     if (component->effect_handle_) {
         Colour colour = colour_of(array);
-        component->effect_handle_->change_colour(which, reinterpret_cast<const uint32_t*>(&colour));
+        component->effect_handle_->change_colour(which, raw::as<const uint32_t>(&colour));
     }
     return true;
 }
@@ -280,7 +282,7 @@ bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::S
     params->fetch_list(0u, &array, 1);
     if (effect_handle_) {
         Colour colour = colour_of(array);
-        effect_handle_->change_colour(reinterpret_cast<const uint8_t*>(&colour));
+        effect_handle_->change_colour(raw::bytes(&colour));
     }
     return true;
 }
@@ -295,7 +297,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         p.emit_script_ = emit_target_;
         p.entity_key_ = entity_->ident_;
     }
-    params->fetch_int_value(0x5A235299u, reinterpret_cast<int*>(&lifespan_), 0);
+    params->fetch_int_value(0x5A235299u, raw::as<int>(&lifespan_), 0);
     params->read_hash_value(0xA1DC81F9u, &p.label_, 1);
     params->read_hash_value("GroupID", &p.group_id_, 0);
     params->read_hash_value(0x7321A8D6u, &p.unknown04_, 0);
@@ -314,7 +316,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     orient.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->has_bare_flag(0x7045843Au)) {
         maths::Vec4 at{};
-        params->fetch_vec(0x0C4C809Eu, reinterpret_cast<script::VectorValue*>(&at), 1);
+        params->fetch_vec(0x0C4C809Eu, &at, 1);
         at.make_unit();
         orient.row[2] = at;
         const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
@@ -364,7 +366,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         }
     };
     auto vector = [&](uint32_t name, maths::Vec4* out) {
-        params->fetch_vec(name, reinterpret_cast<script::VectorValue*>(out), 0);
+        params->fetch_vec(name, out, 0);
     };
     vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &p.at_point_[0]);
     vector(0x004B51A2u, &p.at_point_[1]);
@@ -386,7 +388,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             get_rgb(array, p.shade_[i], &value);
     static const uint32_t kAlphas[3] = {0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu};
     for (int i = 0; i < 3; ++i) {
-        if (params->fetch_int_value(kAlphas[i], reinterpret_cast<int*>(&value), 0)) {
+        if (params->fetch_int_value(kAlphas[i], raw::as<int>(&value), 0)) {
             auto alpha = static_cast<uint8_t>(value);
             p.shade_[i][3] = alpha > 0x80 ? 0x80 : alpha;
         }
@@ -408,7 +410,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.orientation_turn_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     p.orientation_turn_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 angles = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->fetch_vec(0x9D2D0915u, reinterpret_cast<script::VectorValue*>(&angles), 0);
+    params->fetch_vec(0x9D2D0915u, &angles, 0);
     maths::Mat4 rotation{};
     matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_pitch_matrix(rotation, angles.x));
     matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_yaw_matrix(rotation, angles.y));

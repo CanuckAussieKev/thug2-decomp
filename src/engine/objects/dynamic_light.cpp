@@ -17,6 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/wait_and_die.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -50,7 +51,7 @@ void fetch_tint(script::Struct* params, uint32_t name, uint32_t* color, int asse
 {
     if (!params->fetch_list(name, &bytes, assert))
         return;
-    auto* out = reinterpret_cast<uint8_t*>(color);
+    auto* out = raw::bytes(color);
     for (uint32_t i = 0; i < 4; ++i)
         out[i] = static_cast<uint8_t>(bytes->fetch_part(i));
 }
@@ -93,7 +94,7 @@ void DynamicLightComponent::configure_from_data(script::Struct* params)
     params->fetch_float(kStartRadius, &start_radius_, 1);
     params->fetch_float(kStartIntensity, &start_intensity_, 1);
     params->fetch_list(kStartColor, &bytes, 1);
-    auto* start = reinterpret_cast<uint8_t*>(&start_color_);
+    auto* start = raw::bytes(&start_color_);
     for (uint32_t i = 0; i < 4; ++i) // (read whether found or not, as the original does)
         start[i] = static_cast<uint8_t>(bytes->fetch_part(i));
     middle_radius_ = start_radius_;
@@ -113,7 +114,7 @@ void DynamicLightComponent::configure_from_data(script::Struct* params)
 }
 
 // 0x0041CDA0
-void DynamicLightComponent::seal() { wait_and_die_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kWaitAndDie)); }
+void DynamicLightComponent::seal() { wait_and_die_ = raw::bytes(entity_->fetch_module(kWaitAndDie)); }
 
 // 0x0041CDC0
 void DynamicLightComponent::tick_frame()
@@ -123,7 +124,7 @@ void DynamicLightComponent::tick_frame()
         light_->owner = entity_->ident_;
     }
     // The life's fraction.
-    const auto* life = reinterpret_cast<const WaitAndDieComponent*>(wait_and_die_);
+    const auto* life = raw::as<const WaitAndDieComponent>(wait_and_die_);
     double t = as_unsigned(life->elapsed_) / as_unsigned(life->lifespan_);
     uint32_t from_color = start_color_, to_color = end_color_;
     float from_radius = start_radius_, to_radius = end_radius_;
@@ -180,7 +181,7 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
         script::Array* bytes = nullptr;
         params->fetch_list(kColor, &bytes, 1);
         uint32_t color = 0;
-        auto* out = reinterpret_cast<uint8_t*>(&color);
+        auto* out = raw::bytes(&color);
         for (uint32_t i = 0; i < 4; ++i)
             out[i] = static_cast<uint8_t>(bytes->fetch_part(i));
         light_->colour = color;

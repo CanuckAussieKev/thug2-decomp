@@ -20,6 +20,9 @@
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -69,7 +72,7 @@ memory::owner<ObjectModule*> AudioEmitterModule::fabricate() { return new AudioE
 // 0x00432C80
 void AudioEmitterModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_sound_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_sound_component_member_functions, 0x18);
 }
 
 // 0x00432D90
@@ -86,7 +89,7 @@ AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_so
 // 0x00432CA0
 void AudioEmitterModule::configure_from_data(script::Struct* params)
 {
-    auto node = reinterpret_cast<uint32_t>(params);     // (read into the parameters' own argument slot)
+    auto node = cell::of(params);     // (read into the parameters' own argument slot)
     if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }
@@ -173,12 +176,12 @@ void AudioEmitterModule::update_props(sound::PlaybackProps* props)
 {
     if (props->pitch3 != props->pitch) { // (not a number: moved too)
         auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
-                                       reinterpret_cast<float&>(props->unknown20));
+                                       memory::bits_as<float>(props->unknown20));
         props->pitch = maths::keep_within(props->pitch3, props->pitch, step);
     }
     if (props->volume3 != props->volume) {
         auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
-                                       reinterpret_cast<float&>(props->unknown24));
+                                       memory::bits_as<float>(props->unknown24));
         props->volume = maths::keep_within(props->volume3, props->volume, step);
     }
 }
@@ -207,7 +210,7 @@ void AudioEmitterModule::update_waiting_sounds()
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
-                reinterpret_cast<float&>(playing->unknown24) = playing->volume3 * kPercent;
+                memory::bits_as<float>(playing->unknown24) = playing->volume3 * kPercent;
                 playing->unknown20 = props.unknown20;
                 playing->volume = 0.0f;
             }
@@ -273,7 +276,7 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
 {
     float loudness_percent = 100.0f, pitch_percent = 100.0f;
     // (read into the parameters' own argument slot: none, the pointer's value)
-    auto sound = reinterpret_cast<uint32_t>(params);
+    auto sound = cell::of(params);
     params->read_hash_value(0u, &sound, 0);
     sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(this, sound, true);
     if (!props) {
@@ -288,12 +291,12 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
     }
     if (params->fetch_float(0x330F3415, &loudness_percent, 0)) { // loudness_percent
         props->volume3 = static_cast<float>(static_cast<double>(loudness_percent) * props->volume2 * kPercent);
-        if (!params->fetch_float(0xDAA9A3C2, reinterpret_cast<float*>(&props->unknown24), 0)) // volumeStep
+        if (!params->fetch_float(0xDAA9A3C2, raw::as<float>(&props->unknown24), 0)) // volumeStep
             props->volume = props->volume3;
     }
     if (params->fetch_float(0xEE616C13, &pitch_percent, 0)) { // pitchPercent
         props->pitch3 = static_cast<float>(static_cast<double>(pitch_percent) * props->pitch2 * kPercent);
-        if (!params->fetch_float(0x7B090774, reinterpret_cast<float*>(&props->unknown20), 0)) // pitchStep
+        if (!params->fetch_float(0x7B090774, raw::as<float>(&props->unknown20), 0)) // pitchStep
             props->pitch = props->pitch3;
     }
 }

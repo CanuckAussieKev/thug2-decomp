@@ -28,6 +28,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -66,9 +67,9 @@ constexpr uint32_t kBoneVolumeHeap = 0xA432DC41;
 void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 uint32_t get_skeleton_name(void* skeleton)
 {
-    return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14);
+    return *raw::as<uint32_t>(static_cast<uint8_t*>(skeleton) + 0x14);
 }
-void* rig_definition(void* skeleton) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08); }
+void* rig_definition(void* skeleton) { return *raw::as<void*>(static_cast<uint8_t*>(skeleton) + 0x08); }
 
 // Nx (not rewritten yet): a new model (0x0048BFA0) and its deletion (0x0048C3C0); the model's geoms cleared
 // (0x00494BA0), counted (0x00492E40), by index (0x00494640) and name (0x00493CD0), their names (0x00494680), one added
@@ -94,7 +95,7 @@ void add_geom(render::RenderModel* model, void* geom, uint32_t name) { model->ad
 bool fetch_magnification(maths::Vec4* scale, script::Struct* params) { return gfx::scale_from_args(scale, params); }
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-void* sector_geom(void* sector) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(sector) + 0x14); }
+void* sector_geom(void* sector) { return *raw::as<void*>(static_cast<uint8_t*>(sector) + 0x14); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 // The model's lights' brightness (0x0048E660).
@@ -149,13 +150,13 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
             static_cast<render::ModelLights*>(lights)->bind_position_source(&entity_->at_point_);
             int count = 1;
             params->fetch_int_value(kMaxSceneLights, &count, 0);
-            *reinterpret_cast<int*>(static_cast<uint8_t*>(lights) + 4) = count; // (0x00407700)
+            *raw::as<int>(static_cast<uint8_t*>(lights) + 4) = count; // (0x00407700)
         }
     } else if (model_lights(mesh_instance_)) {
         mesh_instance_->destroy_lights();
     }
     if (ObjectModule* skeleton = entity_->fetch_module(kSkeleton))
-        mesh_instance_->choose_rig(reinterpret_cast<uint8_t*>(skeleton_of(skeleton)));
+        mesh_instance_->choose_rig(raw::bytes(skeleton_of(skeleton)));
     int shadow = 0;
     params->fetch_int_value(kShadowVolume, &shadow, 0);
     mesh_instance_->activate_shadow_volume(shadow != 0);
@@ -173,8 +174,8 @@ void MeshInstanceModule::tick_frame()
         render::RenderModel* model = static_cast<MeshInstanceModule*>(source->fetch_module(kModel))->mesh_instance_;
         ObjectModule* skeleton = object->fetch_module(kSkeleton);
         get_draw_matrix(&matrix);
-        model->render(&matrix, false, reinterpret_cast<uint8_t*>(skeleton_of(skeleton)));
-        model->copy_bones(reinterpret_cast<uint8_t*>(skeleton_of(skeleton)));
+        model->render(&matrix, false, raw::bytes(skeleton_of(skeleton)));
+        model->copy_bones(raw::bytes(skeleton_of(skeleton)));
         return;
     }
     const uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits_ : 0;
@@ -185,7 +186,7 @@ void MeshInstanceModule::tick_frame()
     bool ready = bone_rig_ != nullptr;
     if (anim_blender_ptr_)
         ready = static_cast<AnimBlenderComponent*>(anim_blender_ptr_)->model_ready();
-    mesh_instance_->render(&matrix, !ready, reinterpret_cast<uint8_t*>(skeleton));
+    mesh_instance_->render(&matrix, !ready, raw::bytes(skeleton));
 }
 
 // 0x00420480
@@ -262,7 +263,7 @@ void MeshInstanceModule::init_bone_volumes()
     void* data = rig_definition(skeleton);
     void* volumes = find_bone_volumes(get_skeleton_name(skeleton));
     if (volumes) {
-        ++*reinterpret_cast<int*>(static_cast<uint8_t*>(volumes) + 8); // (another user)
+        ++*raw::as<int>(static_cast<uint8_t*>(volumes) + 8); // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
         void* made = memory::alloc(0x0C);
@@ -271,7 +272,7 @@ void MeshInstanceModule::init_bone_volumes()
         static_cast<gfx::BoneVolumes*>(made)->enrol(get_skeleton_name(skeleton));
         static_cast<gfx::BoneVolumes*>(made)->get_fill(static_cast<gfx::RigData*>(data));
     }
-    mesh_instance_->set_bone_volumes(reinterpret_cast<uint8_t*>(volumes));
+    mesh_instance_->set_bone_volumes(raw::bytes(volumes));
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

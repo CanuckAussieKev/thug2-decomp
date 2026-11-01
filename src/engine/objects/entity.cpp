@@ -13,6 +13,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -288,7 +290,7 @@ bool Entity::get_tag(Struct* params, Struct* dest)
     if (!tag_table_)
         return false;
     // The name is read into the argument's own slot: with no unnamed checksum, the pointer `params` is the name.
-    auto name = reinterpret_cast<uint32_t>(params);
+    auto name = cell::of(params);
     params->read_hash_value(kUnnamed, &name, 1);
     Component* tag = tag_table_->find_component(name);
     if (!tag)
@@ -430,7 +432,7 @@ bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag
 // pointer `params` is taken for one [bug].
 bool Entity::obj_get_named_tags(Struct* params, Script* script)
 {
-    auto* names = reinterpret_cast<Array*>(params);
+    auto* names = raw::as<Array>(params);
     params->fetch_list(kUnnamed, &names, 1);
     return fetch_labels(names, script->args_);
 }

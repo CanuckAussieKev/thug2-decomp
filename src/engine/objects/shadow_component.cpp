@@ -19,6 +19,8 @@
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -57,14 +59,14 @@ render::BlobShadow* as_blob(render::ShadowBase* shadow) { return static_cast<ren
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
 uint8_t* model_of(ObjectModule* component)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
+    return raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
 }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
-void set_model_shadow(uint8_t* model, bool on) { reinterpret_cast<render::RenderModel*>(model)->activate_shadow(on); }
+void set_model_shadow(uint8_t* model, bool on) { raw::as<render::RenderModel>(model)->activate_shadow(on); }
 // 0x00493040 (not rewritten yet): the model's hierarchy (0x50-byte objects from +0x50; the root's matrix at +0x10).
 const uint8_t* hierarchy_of(uint8_t* model)
 {
-    return reinterpret_cast<const uint8_t*>(reinterpret_cast<render::RenderModel*>(model)->get_asset_hierarchy());
+    return cell::pointer<const uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
 }
 
 } // namespace
@@ -92,10 +94,10 @@ GroundShadowModule::~GroundShadowModule()
 void GroundShadowModule::seal()
 {
     mesh_instance_ = entity_->fetch_module(kModel);
-    const uint32_t checksum = *reinterpret_cast<uint32_t*>(model_of(mesh_instance_) + 0x30);
+    const uint32_t checksum = *raw::as<uint32_t>(model_of(mesh_instance_) + 0x30);
     void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
     if (shadow_handle_)
-        shadow_handle_->change_mesh(reinterpret_cast<render::RenderModel*>(model_of(mesh_instance_)),
+        shadow_handle_->change_mesh(raw::as<render::RenderModel>(model_of(mesh_instance_)),
                                     static_cast<uint8_t*>(asset));
 }
 
@@ -118,7 +120,7 @@ void GroundShadowModule::refresh_shadow()
         const maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
-                reinterpret_cast<render::ModelLights*>(reinterpret_cast<render::RenderModel*>(model)->lights_ptr_)) {
+                raw::as<render::ModelLights>(raw::as<render::RenderModel>(model)->lights_ptr_)) {
             const maths::Vec4* v = lights->read_light_aim(0);
             const maths::Vec4 unused = *v * -1.0f;
             (void)unused;
@@ -127,7 +129,7 @@ void GroundShadowModule::refresh_shadow()
         break;
     }
     case kShadowSimple:
-        as_blob(shadow_handle_.get())->size_factor_ = reinterpret_cast<render::RenderModel*>(model)->size_factor_.x;
+        as_blob(shadow_handle_.get())->size_factor_ = raw::as<render::RenderModel>(model)->size_factor_.x;
         [[fallthrough]];
     case kShadowVolume:
         shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
@@ -159,19 +161,19 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     switch (type) {
     case kShadowDetailed:
         shadow_handle_ =
-            std::make_unique<render::FullShadow>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
+            std::make_unique<render::FullShadow>(raw::as<render::RenderModel>(model), kDown, kCastDistance);
         return;
     case kShadowSimple: {
         auto* shadow = new render::BlobShadow();
         // (no shadow - out of memory - is written through regardless, as the original)
-        shadow->size_factor_ = reinterpret_cast<render::RenderModel*>(model)->size_factor_.x;
+        shadow->size_factor_ = raw::as<render::RenderModel>(model)->size_factor_.x;
         shadow->load_mesh(model_name);
         shadow_handle_.reset(shadow);
         break;
     }
     case kShadowVolume:
         shadow_handle_ =
-            std::make_unique<render::ShadowVolume>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
+            std::make_unique<render::ShadowVolume>(raw::as<render::RenderModel>(model), kDown, kCastDistance);
         break;
     default:
         return;
@@ -250,12 +252,12 @@ void GroundShadowModule::tick_frame()
             uint8_t* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
-                const auto* root = reinterpret_cast<const float*>(hierarchy_of(model) + 0x40);
+                const auto* root = raw::as<const float>(hierarchy_of(model) + 0x40);
                 pos = {root[0], root[1], root[2], 0.0f};
-                const maths::Mat4 base_mat = *reinterpret_cast<const maths::Mat4*>(hierarchy_of(model) + 0x10);
+                const maths::Mat4 base_mat = *raw::as<const maths::Mat4>(hierarchy_of(model) + 0x10);
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity_->at_point_;
-                matrix = maths::MatrixProduct{reinterpret_cast<const maths::Mat4*>(hierarchy_of(model) + 0x10),
+                matrix = maths::MatrixProduct{raw::as<const maths::Mat4>(hierarchy_of(model) + 0x10),
                                               &entity_->display_matrix_};
             }
             matrix.row[3] = pos;

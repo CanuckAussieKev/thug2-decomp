@@ -15,6 +15,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/arena_alloc.h"
 
 namespace objects {
 
@@ -49,7 +50,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 memory::ListNode* next_object_node(memory::ListNode* node)
 {
     memory::ListNode* next = node->next;
-    return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return next->data == memory::ListNode::head_marker() ? nullptr : next;
 }
 
 } // namespace
@@ -377,7 +378,7 @@ void KinematicsModule::look_at_node(script::Struct* params, script::Script*)
 void KinematicsModule::look_at_position(script::Struct* params, bool absolute)
 {
     maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 0);
+    params->fetch_vec(0u, &pos, 0);
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();
     if (!absolute) {
@@ -486,7 +487,7 @@ bool KinematicsModule::obj_look_at_node_stored(script::Struct* params, script::S
 bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script*)
 {
     maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 0);
+    params->fetch_vec(0u, &pos, 0);
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();
     get_look_at(params, &pos);

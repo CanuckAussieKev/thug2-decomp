@@ -287,7 +287,7 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script*)
     params->fetch_float(kColDistAbove, &jump_col_above_, 0);
     jump_col_below_ = 6.0f;
     params->fetch_float(kColDistBelow, &jump_col_below_, 0);
-    bool heading = params->fetch_vec(kHeading, reinterpret_cast<script::VectorValue*>(&leap_direction_), 0);
+    bool heading = params->fetch_vec(kHeading, &leap_direction_, 0);
     if (!heading && params->has_bare_flag(kUseCurrentHeading)) {
         leap_direction_ = entity_->display_matrix_.row[2];
         heading = true;

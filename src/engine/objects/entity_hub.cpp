@@ -13,6 +13,8 @@
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/entity.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -28,7 +30,7 @@ uint32_t& tracker_references() { return g_tracker_references; }
 // lists::Foremost<Entity>'s insert by priority (the highest first, equal ones newest first).
 void add_node_by_priority(memory::ListNode* head, memory::ListNode* node)
 {
-    reinterpret_cast<lists::Foremost*>(head)->append_vertex(node);
+    raw::as<lists::Foremost>(head)->append_vertex(node);
 }
 // tasks::Task's constructor and the main loop's system task list's add.
 void queue_engine_job(tasks::SchedulerTask* task) { assets::g_main_loop_manager->system_tasks_.queue_job(task); }
@@ -37,7 +39,7 @@ void queue_engine_job(tasks::SchedulerTask* task) { assets::g_main_loop_manager-
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
     memory::ListNode* next = node->next;
-    return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return next->data == memory::ListNode::head_marker() ? nullptr : next;
 }
 Entity* object_of(memory::ListNode* node) { return node ? static_cast<Entity*>(node->data) : nullptr; }
 
@@ -160,7 +162,7 @@ void MiscHub::remove_entity(Entity* object)
 void MiscHub::flush_dead_objects()
 {
     memory::ListNode* node = dead_objects_.next;
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return;
     do {
         memory::ListNode* next = get_next_node(node);

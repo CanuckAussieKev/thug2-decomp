@@ -16,12 +16,14 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity_hub.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/objects/cutscene_list_cfuncs.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -97,7 +99,7 @@ void register_logic_task(tasks::SchedulerTask* task) { assets::g_main_loop_manag
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
     memory::ListNode* next = node->next;
-    return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return next->data == memory::ListNode::head_marker() ? nullptr : next;
 }
 GameEntity* object_of(memory::ListNode* node) { return node ? static_cast<GameEntity*>(node->data) : nullptr; }
 
@@ -141,9 +143,9 @@ EntityHub::EntityHub()
 {
     update_job_ = std::make_unique<tasks::Task<EntityHub>>(&composite_object_manager_task, this, kLogicTaskPriority);
     register_logic_task(update_job_.get());
-    script::register_member_function_table(reinterpret_cast<void*>(kObjectMemberFunctionType),
+    script::register_member_function_table(cell::pointer<void>(kObjectMemberFunctionType),
                                            g_object_member_functions, 0x18);
-    script::register_member_function_table(reinterpret_cast<void*>(kCompositeMemberFunctionType),
+    script::register_member_function_table(cell::pointer<void>(kCompositeMemberFunctionType),
                                            g_composite_object_member_functions, 0x18);
 }
 
@@ -307,9 +309,9 @@ uint32_t& instance_count() { return g_instance_count; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void erase_instances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
 {
-    reinterpret_cast<PointerList*>(&g_instance_list_head)
-        ->get_erase(reinterpret_cast<PointerListNode**>(result), reinterpret_cast<PointerListNode*>(first),
-                    reinterpret_cast<PointerListNode*>(last));
+    raw::as<PointerList>(&g_instance_list_head)
+        ->get_erase(raw::as<PointerListNode*>(result), raw::as<PointerListNode>(first),
+                    raw::as<PointerListNode>(last));
 }
 
 memory::Zone*& coim_region() { return g_coim_region; }
@@ -411,6 +413,6 @@ commands::PointerList g_spare_object_list;
 void construct_spare_object_list() { g_spare_object_list.make_new(); }
 
 // 0x00640A10 (a static initialiser): the instance list (its head and the count after it), empty.
-void construct_instance_list() { reinterpret_cast<commands::PointerList*>(&g_instance_list_head)->make_new(); }
+void construct_instance_list() { raw::as<commands::PointerList>(&g_instance_list_head)->make_new(); }
 
 } // namespace objects

@@ -18,6 +18,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -37,7 +38,7 @@ constexpr uint32_t kOrientY = 0xE19E310A;         // OrientY
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;        // the pedlogic component
 
 // The speed along a path (motion_path.h).
-void update_path_speed(KinematicsModule* motion) { reinterpret_cast<MotionPathMembers*>(motion)->update_path_speed(); }
+void update_path_speed(KinematicsModule* motion) { raw::as<MotionPathMembers>(motion)->update_path_speed(); }
 
 // The velocity of a step from where the object was (`back`: minus that position) to where it is now: x from the
 // unrounded difference and reciprocal, the others from the rounded ones (as the original's x87 code).

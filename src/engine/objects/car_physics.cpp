@@ -28,6 +28,8 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/rig.h"
 #include "engine/objects/motion.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -66,26 +68,25 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // The model's skeleton description (0x00493040, no source yet).
 AutomobileDynamicsModule::BoneDesc* model_bones(void* model)
 {
-    return reinterpret_cast<AutomobileDynamicsModule::BoneDesc*>(
-        static_cast<render::RenderModel*>(model)->get_asset_hierarchy());
+    return cell::pointer<AutomobileDynamicsModule::BoneDesc>(static_cast<render::RenderModel*>(model)->get_asset_hierarchy());
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
 maths::Mat4* rig_matrix_block(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->matrix_array_; }
 int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->bone_total_; }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
-float motion_speed(uint8_t* motion) { return reinterpret_cast<KinematicsModule*>(motion)->path_speed_; }
+float motion_speed(uint8_t* motion) { return raw::as<KinematicsModule>(motion)->path_speed_; }
 PathFollower* motion_path_follower(uint8_t* motion)
 {
-    return static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    return static_cast<PathFollower*>(raw::as<MotionPathMembers>(motion)->get_path_follower());
 }
 
 // The suspend component (no source yet): suspended (+0x30, the getter 0x00433E90), and whether its object should be
 // updated this frame (0x00433EA0).
-bool suspend_suspended(uint8_t* suspend) { return reinterpret_cast<DormancyModule*>(suspend)->far_; }
+bool suspend_suspended(uint8_t* suspend) { return raw::as<DormancyModule>(suspend)->far_; }
 bool suspend_should_update(uint8_t* suspend, float* distance)
 {
-    return reinterpret_cast<DormancyModule*>(suspend)->wants_animating(distance);
+    return raw::as<DormancyModule>(suspend)->wants_animating(distance);
 }
 
 } // namespace
@@ -96,7 +97,7 @@ memory::owner<ObjectModule*> AutomobileDynamicsModule::fabricate() { return new 
 // 0x0041B910
 void AutomobileDynamicsModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_car_physics_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_car_physics_member_functions, 0x18);
 }
 
 // 0x0041BAD0
@@ -121,8 +122,8 @@ void AutomobileDynamicsModule::configure_from_data(script::Struct* params)
 // 0x0041BE10
 void AutomobileDynamicsModule::seal()
 {
-    motion_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kMotion));
-    suspend_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSuspend));
+    motion_ = raw::bytes(entity_->fetch_module(kMotion));
+    suspend_ = raw::bytes(entity_->fetch_module(kSuspend));
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     if (!skeleton)
         return;

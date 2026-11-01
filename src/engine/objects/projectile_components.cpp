@@ -34,6 +34,7 @@
 #include "game/rider/core_physics.h"
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -93,8 +94,7 @@ void delete_params(script::Struct* params)
 
 modules::PointTally* get_score_of(GameEntity* skater)
 {
-    return reinterpret_cast<modules::PointTally*>(
-        static_cast<RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_);
+    return (static_cast<RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_);
 }
 
 } // namespace
@@ -140,7 +140,7 @@ void ShotImpactModule::tick_frame()
     if (net->in_net_game() && projectile_type_ != kFireball && !net->players_can_collide())
         return;
     auto reach = static_cast<float>(static_cast<double>(radius_) + kReach);
-    if (reinterpret_cast<DormancyModule*>(suspend_)->is_far() || hit_)
+    if (raw::as<DormancyModule>(suspend_)->is_far() || hit_)
         return;
     modules::Skate* skate = skate_module();
     auto count = static_cast<uint32_t>(skate->count_riders());
@@ -150,9 +150,8 @@ void ShotImpactModule::tick_frame()
         if (skater->ident_ == holder_key_)
             continue;
         auto* owner =
-            reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
-        auto* victim = reinterpret_cast<online::PlayerRecord*>(
-            net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+            (net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
+        auto* victim = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
         if (!victim->can_be_hit_again())
             continue;
         modules::PointTally* score = get_score_of(skater);

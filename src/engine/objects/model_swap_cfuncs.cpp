@@ -21,6 +21,8 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -48,7 +50,7 @@ struct SwapEntry {
 };
 static_assert(sizeof(SwapEntry) == 12, "layout must match the original");
 static_assert(sizeof(commands::SwapSlot) == sizeof(SwapEntry), "one table, two views");
-SwapEntry* get_swaps() { return reinterpret_cast<SwapEntry*>(commands::g_swap_table); } // (profile_cfuncs.cpp owns it)
+SwapEntry* get_swaps() { return raw::as<SwapEntry>(commands::g_swap_table); } // (profile_cfuncs.cpp owns it)
 constexpr int kSwapCount = 5;
 
 // 0x005AA930 (commands::swap_mapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
@@ -62,15 +64,15 @@ uint8_t* skeleton_of(objects::ObjectModule* component)
 }
 void copy_skeleton(uint8_t* to, uint8_t* from)
 {
-    reinterpret_cast<gfx::Rig*>(to)->copy_bone_scales(reinterpret_cast<gfx::Rig*>(from), true);
+    raw::as<gfx::Rig>(to)->copy_bone_scales(raw::as<gfx::Rig>(from), true);
 }
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t model_get(render::RenderModel* model) { return reinterpret_cast<uint32_t>(model->fetch_skinning_palette()); }
+uint32_t model_get(render::RenderModel* model) { return cell::of(model->fetch_skinning_palette()); }
 void model_set(render::RenderModel* model, uint32_t value)
 {
-    model->upload_skinning_palette(reinterpret_cast<uint8_t*>(value));
+    model->upload_skinning_palette(cell::pointer<uint8_t>(value));
 }
 void follow_position(render::RenderModel* model, maths::Vec4* position)
 {
@@ -136,15 +138,15 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     void* memory = memory::alloc(0x1C);
-    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(memory::construct_in<gfx::Rig>(
-                                 memory, *reinterpret_cast<gfx::RigData**>(skeleton_a + 8)))
+    uint8_t* temp = memory ? raw::bytes(memory::construct_in<gfx::Rig>(
+                                 memory, *raw::as<gfx::RigData*>(skeleton_a + 8)))
                            : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     copy_skeleton(temp, skeleton_a);
     copy_skeleton(skeleton_a, skeleton_b);
     copy_skeleton(skeleton_b, temp);
     if (temp) {
-        reinterpret_cast<gfx::Rig*>(temp)->~Rig();
+        raw::as<gfx::Rig>(temp)->~Rig();
         memory::Hub::get_pull()->dealloc(temp);
     }
 

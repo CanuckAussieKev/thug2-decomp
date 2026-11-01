@@ -60,7 +60,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     }
     lock_flags_ |= kLockFlagLocked;
     params->read_hash_value(kObjectName, &entity_label_, 0);
-    auto* offset = reinterpret_cast<script::VectorValue*>(&shift_);
+    auto* offset = &shift_;
     if (!params->fetch_vec(0u, offset, 0))
         params->fetch_vec(kBoneOffset, offset, 0);
     params->read_hash_value(kId, &target_id_, 0);
@@ -72,7 +72,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
         target = manager->look_up_entity(entity_label_);
     if (target) {
         const int priority = get_truncated(static_cast<double>(target->list_link_.priority) - 1.0);
-        manager->set_entity_rank(reinterpret_cast<Entity*>(entity_), priority);
+        manager->set_entity_rank(static_cast<Entity*>(entity_), priority);
     }
     lock_flags_ &= ~kLockFlagLag;
     lag_min_ = 1.0f;

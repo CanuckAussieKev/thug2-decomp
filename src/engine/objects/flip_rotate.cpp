@@ -12,11 +12,12 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/vehicle_component.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/flip_and_rotate.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -46,20 +47,19 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
     uint8_t* skeleton = fetch_rig();
-    void* bones = *reinterpret_cast<void**>(skeleton + 8);
+    void* bones = *raw::as<void*>(skeleton + 8);
     auto* object = fetch_subject();
     ObjectModule* flip_and_rotate = object->fetch_module(0x488AF07A);
     if (flip_and_rotate && static_cast<RiderSpinAndFlip*>(flip_and_rotate)->deck_turned_) {
-        const int bone = reinterpret_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(0x98971FAF);
+        const int bone = raw::as<gfx::Rig>(skeleton)->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
-            auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);
+            auto* rotation = raw::as<float>(pose + 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
             float product[4];
-            const auto* result = reinterpret_cast<const float*>(
-                quat_product(reinterpret_cast<maths::Vec4*>(product), reinterpret_cast<const maths::Vec4*>(turn),
-                             reinterpret_cast<const maths::Vec4*>(rotation)));
+            const auto* result = raw::as<const float>(quat_product(raw::as<maths::Vec4>(product), raw::as<const maths::Vec4>(turn),
+                             raw::as<const maths::Vec4>(rotation)));
             std::memcpy(rotation, result, 16);
-            reinterpret_cast<maths::QuatRotation*>(rotation)->make_unit(1.0f); // (to length 1)
+            raw::as<maths::QuatRotation>(rotation)->make_unit(1.0f); // (to length 1)
         }
     }
     if (!mirrored_)
@@ -70,14 +70,14 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
         r[0] = r[1] = r[2] = 0.0f;
         r[3] = 1.0f;
     }
-    const int count = reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones();
+    const int count = raw::as<gfx::Rig>(skeleton)->get_num_bones();
     std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {
         const int mirror = static_cast<gfx::RigData*>(bones)->fetch_mirror_slot(i);
         const int from = mirror == -1 ? i : mirror;
-        auto* rotation = reinterpret_cast<float*>(pose + 0x10 * i);
-        auto* translation = reinterpret_cast<float*>(pose + 0x400 + 0x10 * i);
+        auto* rotation = raw::as<float>(pose + 0x10 * i);
+        auto* translation = raw::as<float>(pose + 0x400 + 0x10 * i);
         std::memcpy(rotation, rotations[from], 16);
         std::memcpy(translation, translations[from], 16);
         rotation[0] = -rotation[0];

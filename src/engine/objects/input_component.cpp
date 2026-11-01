@@ -27,6 +27,8 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/owner.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -118,7 +120,7 @@ memory::owner<ObjectModule*> PadInputModule::fabricate() { return new PadInputMo
 // 0x0041E6F0
 void PadInputModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_input_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_input_component_member_functions, 0x18);
 }
 
 // 0x0041E850
@@ -180,13 +182,13 @@ void PadInputModule::link_to_pad(int controller)
 // 0x0041F170
 void PadInputModule::handler_code(Responder* handler)
 {
-    handler->content_->update_pad(reinterpret_cast<const uint8_t*>(handler->control_data_));
+    handler->content_->update_pad(raw::bytes(handler->control_data_));
 }
 
 // 0x0041F190
 void PadInputModule::handler_code2(Responder* handler)
 {
-    handler->content_->update_pad2(reinterpret_cast<const uint8_t*>(handler->control_data_));
+    handler->content_->update_pad2(raw::bytes(handler->control_data_));
 }
 
 // 0x0041F090
@@ -253,7 +255,7 @@ void PadInputModule::update_events(const uint8_t* data)
         ControlButton* button =
             event.button < 0
                 ? nullptr
-                : reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(&pad_primary_) + event.button);
+                : raw::field_at<ControlButton>(&pad_primary_, event.button);
         read_button_state(data, event.index, event.bit, event.down, event.up, button);
     }
 }

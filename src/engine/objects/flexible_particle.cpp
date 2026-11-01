@@ -20,6 +20,8 @@
 #include "engine/gfx/engine.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -143,9 +145,9 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // getter 0x00433E90), told to start (0x00433E70).
 bool suspend_should_update(uint8_t* suspend)
 {
-    return reinterpret_cast<DormancyModule*>(suspend)->wants_animating(nullptr);
+    return raw::as<DormancyModule>(suspend)->wants_animating(nullptr);
 }
-void suspend_start(uint8_t* suspend) { reinterpret_cast<DormancyModule*>(suspend)->disable_lod(); }
+void suspend_start(uint8_t* suspend) { raw::as<DormancyModule>(suspend)->disable_lod(); }
 
 // The object dies.
 void get_kill(GameEntity* object) { object->flag_as_dead(); }
@@ -161,7 +163,7 @@ memory::owner<ObjectModule*> FlexibleParticleComponent::fabricate() { return new
 // 0x0041D6E0
 void FlexibleParticleComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(FlexibleParticleComponent::kType),
+    script::register_member_function_table(cell::pointer<void>(FlexibleParticleComponent::kType),
                                            g_flexible_particle_member_functions, 0x18);
 }
 
@@ -223,8 +225,8 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
         found = system_.get_pull() != nullptr;
     }
     if (!found) {
-        label_ = reinterpret_cast<uint32_t>(this);
-        system_.assign_value(start_subsystem(reinterpret_cast<uint32_t>(this), type, max, max_streams, texture,
+        label_ = cell::of(this);
+        system_.assign_value(start_subsystem(cell::of(this), type, max, max_streams, texture,
                                              blend_mode, unknowna605b89f, segments, unknown4e0a65ee, history, perm,
                                              use_global_color_modulation, model));
         if (!system_.get_pull())
@@ -277,7 +279,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
 // 0x0041D740
 void FlexibleParticleComponent::seal()
 {
-    suspend_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSuspend));
+    suspend_ = raw::bytes(entity_->fetch_module(kSuspend));
     if (suspend_)
         suspend_start(suspend_);
 }
@@ -293,7 +295,7 @@ void FlexibleParticleComponent::tick_frame()
     bool update = true;
     if (suspend_ && !suspend_should_update(suspend_))
         update = false;
-    if (suspend_ && reinterpret_cast<DormancyModule*>(suspend_)->far_ && !g_online_hub->in_net_game()) {
+    if (suspend_ && raw::as<DormancyModule>(suspend_)->far_ && !g_online_hub->in_net_game()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
         if (clock_ >= particle_update_time()) {
             render::EmitterInstance* system = system_.get_pull();
@@ -367,7 +369,7 @@ int ObjectModule::dispatch_named_script_method(script::MemberFunctionEntry* entr
                                                script::Script* script)
 {
     if (entry->method_code_) {
-        return entry->method_code_(reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_, entry->callsign_, params,
+        return entry->method_code_(raw::bytes(this) + entry->this_adjustment_, entry->callsign_, params,
                                    script);
     }
     return invoke_method_by_name(entry->callsign_, params, script);

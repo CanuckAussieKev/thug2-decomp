@@ -75,7 +75,7 @@ void CinematicTable::set_subtitles(script::Array* subtitles)
 {
     subtitles_ = subtitles;
     next_subtitle_ = 0;
-    auto* first = reinterpret_cast<script::Struct*>(subtitles->fetch_part(0));
+    auto* first = subtitles->struct_at(0);
     first->fetch_float(kTime, &next_subtitle_time_, 1);
 }
 
@@ -100,7 +100,7 @@ void CinematicTable::update_subtitles()
     // (comparisons as the original's: a NaN time never shows a subtitle)
     if (!subtitles_ || !(next_subtitle_time_ >= 0.0f) || !(clock_ >= next_subtitle_time_))
         return;
-    auto* subtitle = reinterpret_cast<script::Struct*>(subtitles_->fetch_part(next_subtitle_));
+    auto* subtitle = subtitles_->struct_at(next_subtitle_);
     subtitle_duration_ = 0.0f;
     subtitle->fetch_float(kDuration, &subtitle_duration_, 0);
     script::launch_script(kSubtitleScript, subtitle, nullptr, false, nullptr);
@@ -108,7 +108,7 @@ void CinematicTable::update_subtitles()
     ++next_subtitle_;
     next_subtitle_time_ = -1.0f;
     if (next_subtitle_ < subtitles_->extent_) {
-        auto* next = reinterpret_cast<script::Struct*>(subtitles_->fetch_part(next_subtitle_));
+        auto* next = subtitles_->struct_at(next_subtitle_);
         // (a subtitle without a time leaves the local as it was: the original's holds this object's address)
         float time = 0.0f;
         const CinematicTable* self = this;

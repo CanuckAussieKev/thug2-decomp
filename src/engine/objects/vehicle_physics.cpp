@@ -785,7 +785,7 @@ void DrivableModule::update_skater()
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     objects::RiderPoseState* flags = core->state_;
     const float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;
-    auto* blender = reinterpret_cast<AnimBlenderComponent*>(anim_blender_ptr_);
+    auto* blender = static_cast<AnimBlenderComponent*>(anim_blender_ptr_);
     const double duration = blender->fetch_value(rider_anim_name_);
     auto frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     auto frame_bits = std::bit_cast<uint32_t>(frame);

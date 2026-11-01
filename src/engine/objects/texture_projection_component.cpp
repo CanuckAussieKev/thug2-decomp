@@ -11,13 +11,14 @@
 #include "engine/gfx/pc_texture_projection.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/owner.h"
+#include "engine/core/arena_alloc.h"
 
 namespace objects {
 
@@ -29,7 +30,7 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 // its structure (0x004A04C0) and updated from an object (0x0049FFE0).
 memory::owner<render::TextureProjection*> new_projection() { return new render::PcTextureProjection; }
 
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 
 } // namespace
 
@@ -58,7 +59,7 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
     params->fetch_list(kTextureProjections, &projections, 1);
     memory::ListNode& head = projections_;
     for (uint32_t i = 0; i < projections->extent_; ++i) {
-        auto* settings = reinterpret_cast<script::Struct*>(projections->fetch_part(i));
+        auto* settings = projections->struct_at(i);
         uint32_t name = 0; // (read into the parameters' own argument slot)
         settings->read_hash_value(0x1EE8B7B9, &name, 1);
         render::TextureProjection* projection = new_projection();

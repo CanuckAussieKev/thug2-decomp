@@ -25,6 +25,8 @@
 #include "engine/sys/mlp.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -57,18 +59,18 @@ int& interleave4_count() { return g_suspend_interleave4_count; }
 void set_no_lod(float* distances)
 {
     for (int i = 0; i < 4; ++i)
-        reinterpret_cast<uint32_t*>(distances)[i] = kNoLodBits[i];
+        raw::as<uint32_t>(distances)[i] = kNoLodBits[i];
 }
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 uint8_t* model_of(ObjectModule* component)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
+    return raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
 }
 void change_model_enabled(uint8_t* model, bool active)
 {
-    reinterpret_cast<render::RenderModel*>(model)->change_live(active);
+    raw::as<render::RenderModel>(model)->change_live(active);
 }
 
 } // namespace
@@ -79,7 +81,7 @@ memory::owner<ObjectModule*> DormancyModule::fabricate() { return new DormancyMo
 // 0x00434610
 void DormancyModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_suspend_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_suspend_component_member_functions, 0x18);
     create_suspend_task();
 }
 
@@ -117,8 +119,8 @@ void DormancyModule::configure_from_data(script::Struct* params)
     }
     float* lod = lod_distances_;
     lod[0] = 50.0f;
-    reinterpret_cast<uint32_t*>(lod)[2] = kNoLodBits[1];
-    reinterpret_cast<uint32_t*>(lod)[3] = kNoLodBits[2];
+    raw::as<uint32_t>(lod)[2] = kNoLodBits[1];
+    raw::as<uint32_t>(lod)[3] = kNoLodBits[2];
     params->fetch_float(kLodDist[0], &lod[0], 0);
     lod[1] = lod[0] + kLod2Beyond1;
     params->fetch_float(kLodDist[1], &lod[1], 0);
@@ -192,7 +194,7 @@ void DormancyModule::refresh_shown_state()
     if (!(entity_->object_flags_ & kEntityHiddenBit)) {
         uint8_t* model = model_of(mesh_instance_);
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        if (reinterpret_cast<const uint32_t*>(lod_distances_)[2] == kNoLodBits[2]) {
+        if (raw::as<const uint32_t>(lod_distances_)[2] == kNoLodBits[2]) {
             visible = true;
         } else if (modules::g_viewport_count > 1) {
             visible = true;
@@ -203,8 +205,8 @@ void DormancyModule::refresh_shown_state()
             if (distance_squared_ < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 float sphere[4];
-                reinterpret_cast<render::RenderModel*>(model)->fetch_bound_sphere(
-                    reinterpret_cast<maths::Vec4*>(sphere));
+                raw::as<render::RenderModel>(model)->fetch_bound_sphere(
+                    raw::as<maths::Vec4>(sphere));
                 maths::Vec4 centre = {sphere[0], sphere[1], sphere[2], 1.0f};
                 centre.multiply_by(entity_->basis_frame_);
                 centre += entity_->at_point_;
@@ -273,7 +275,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
                 --component->frames_before_lod_;
             } else {
                 const maths::Vec4& pos = component->entity_->at_point_;
-                const auto* at = reinterpret_cast<const float*>(&camera->viewer_pos_);
+                const auto* at = raw::as<const float>(&camera->viewer_pos_);
                 const double dx = static_cast<double>(pos.x) - at[0];
                 const double dy = static_cast<double>(pos.y) - at[1];
                 const double dz = static_cast<double>(pos.z) - at[2];

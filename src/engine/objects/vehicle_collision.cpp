@@ -21,6 +21,7 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -60,7 +61,7 @@ bool get_interrupted(const DrivableModule* vehicle)
 // A slerp between two matrices, on the stack without a constructor (as the original's).
 struct SlerpStorage {
     alignas(maths::ArcRotationBlender) uint8_t bytes[sizeof(maths::ArcRotationBlender)];
-    maths::ArcRotationBlender* get_pull() { return reinterpret_cast<maths::ArcRotationBlender*>(bytes); }
+    maths::ArcRotationBlender* get_pull() { return raw::as<maths::ArcRotationBlender>(bytes); }
 };
 
 } // namespace

@@ -145,7 +145,7 @@ void EngineAudioModule::read_settings()
     settings_->fetch_list(0x83273E6B, &gears, 1);
     gear_count_ = static_cast<int>(gears->extent_);
     for (int i = 0; i < gear_count_; ++i) {
-        auto* gear = reinterpret_cast<script::Struct*>(gears->fetch_part(static_cast<uint32_t>(i)));
+        auto* gear = gears->struct_at(static_cast<uint32_t>(i));
         gear->fetch_float(0xFAD20901, &gear_steps_[i].up_at_, 1);
         gear->fetch_float(0xFCF5C8A2, &gear_steps_[i].down_at_, 1);
         gear->fetch_float(0x735B5CE4, &gear_steps_[i].low_rpm_, 1);

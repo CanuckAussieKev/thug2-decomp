@@ -15,6 +15,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/maths/random.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -26,7 +27,7 @@ ObjectModule* path_component(GameEntity* owner) { return owner->fetch_module(kPa
 // The component's choice: a random link (true) or the first (not rewritten yet).
 bool picks_random_link(ObjectModule* component)
 {
-    return reinterpret_cast<MotionPathMembers*>(component)->picks_random_link();
+    return raw::as<MotionPathMembers>(component)->picks_random_link();
 }
 // The component told that `node` has been passed (not rewritten yet).
 void node_passed(ObjectModule* component, uint32_t node)

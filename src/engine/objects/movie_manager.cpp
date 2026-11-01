@@ -20,9 +20,12 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -36,7 +39,7 @@ constexpr uint32_t kObjectCameraAsset = 0x12743EDB;
 constexpr uint32_t kCutscene = 0x66B7DD11;
 constexpr uint32_t kSkaterCamera = 0xF5012F52;
 
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 
 void delete_movie(Movie* movie) { delete movie; }
 bool has_camera(Movie* movie) { return movie->has_camera(); }
@@ -48,7 +51,7 @@ uint32_t get_name_of(Movie* movie) { return movie_key_from_params(movie); }
 // The movie at `index` of the list (lists::Foremost<Movie>::fetch_entry, 0x0055D990; null past the end).
 Movie* movie_at(memory::ListNode* head, int index)
 {
-    const memory::ListNode* node = reinterpret_cast<goals::GoalListHead*>(head)->get_node_at(index);
+    const memory::ListNode* node = raw::as<goals::GoalListHead>(head)->get_node_at(index);
     return node ? static_cast<Movie*>(node->data) : nullptr;
 }
 void set_game_camera(gfx::ViewCam* camera) { render::choose_camera(0, camera); }
@@ -81,7 +84,7 @@ Entity* ObjectAssignment::get_assign(const Entity* other)
 {
     // Every field but the tables (the vptr, the original's list node table word and ref_'s vptr), the smart pointer
     // lists and the list node's links copied as they are.
-    auto* to = reinterpret_cast<Entity*>(this);
+    auto* to = raw::as<Entity>(this);
     to->smart_pointers_ = other->smart_pointers_;
     to->object_flags_ = other->object_flags_;
     to->park_owner_ = other->park_owner_;
@@ -101,8 +104,8 @@ Entity* ObjectAssignment::get_assign(const Entity* other)
 // 0x0057A220
 gfx::ViewCam* CameraAssignment::get_assign(const gfx::ViewCam* other)
 {
-    auto* camera = reinterpret_cast<gfx::ViewCam*>(this);
-    reinterpret_cast<ObjectAssignment*>(this)->get_assign(other);
+    auto* camera = raw::as<gfx::ViewCam>(this);
+    raw::as<ObjectAssignment>(this)->get_assign(other);
     camera->old_pos_ = other->old_pos_;
     camera->at_point_ = other->at_point_;
     camera->basis_frame_ = other->basis_frame_;
@@ -165,7 +168,7 @@ void VideoHub::keep_camera(Movie* movie)
         return;
     if (modules::g_skate_module->level_ == 0xE92ECAFE)
         return;
-    reinterpret_cast<CameraAssignment*>(&viewer_)->get_assign(movie->viewer_);
+    raw::as<CameraAssignment>(&viewer_)->get_assign(movie->viewer_);
     keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;
     keep_camera_ = true;
 }
@@ -346,12 +349,12 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
         bool skater;
     };
     auto skater_context = [](bool skater) {
-        auto* info = reinterpret_cast<uint8_t*>(modules::g_skate_module->fetch_account(0));
+        auto* info = raw::bytes(modules::g_skate_module->fetch_account(0));
         return CameraContext{info, info + 0x5C, skater};
     };
     auto new_object_camera = [](CameraContext* context) -> Movie* {
         // (the constructor reads the context as its three settings' words)
-        return new CinematicEntry(reinterpret_cast<const uint32_t*>(context));
+        return new CinematicEntry(raw::as<const uint32_t>(context));
     };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
         const assets::Resource* asset = assets::g_asset_manager->obtain_loaded_item(name, 0);
@@ -427,7 +430,7 @@ uint32_t VideoHub::movie_value(uint32_t name)
     Movie* movie = name ? find_movie(name) : get_movie(0);
     if (!movie)
         return 0;
-    return reinterpret_cast<uint32_t>(get_details(movie)->get_settings());
+    return cell::of(get_details(movie)->get_settings());
 }
 
 // 0x0057AFC0
@@ -474,6 +477,6 @@ VideoHub::~VideoHub()
 }
 
 // (no address: the getter folded at 0x00543150 - movie_manager.h)
-uint32_t movie_key_from_params(const void* movie) { return reinterpret_cast<const VideoEntry*>(movie)->value20_; }
+uint32_t movie_key_from_params(const void* movie) { return static_cast<const VideoEntry*>(movie)->value20_; }
 
 } // namespace objects

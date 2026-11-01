@@ -6,6 +6,7 @@
 
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -49,7 +50,7 @@ void read_feet(script::Struct* params, uint32_t name, float& value)
 // 0x00434F00
 void register_vehicle_member_functions()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kVehicle), g_vehicle_wheel_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kVehicle), g_vehicle_wheel_member_functions, 0x18);
 }
 
 // 0x00434F20
@@ -57,7 +58,7 @@ void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
 {
     // (each checksum is read into the parameters' own argument slot: a steering= that isn't a name leaves the
     // pointer's value there)
-    auto choice = reinterpret_cast<uint32_t>(params);
+    auto choice = cell::of(params);
     if (params->has_entry_named(kSteering)) {
         params->read_hash_value(kSteering, &choice, 0);
         if (choice == kRight)

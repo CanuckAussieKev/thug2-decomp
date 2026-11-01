@@ -23,6 +23,8 @@
 #include "game/park_editing/piece_menu.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -65,13 +67,13 @@ void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_scri
 // The object with this id (the object manager 0x006F0FB8's look_up_entity).
 Entity* find_object_by_id(uint32_t id)
 {
-    return reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id);
+    return static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id);
 }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool get_object_id(script::Struct* params, uint32_t name, uint32_t* id)
 {
-    return reinterpret_cast<frontend::UiTree*>(frontend::g_ui_element_hub)->resolve_id(params, name, id);
+    return frontend::g_ui_element_hub->resolve_id(params, name, id);
 }
 
 // 0x004A1090: give an event listener the event (the subclass's filter).
@@ -384,7 +386,7 @@ void EventWaitBoard::add_listener(uint32_t type, script::Script* script)
     if (!list) {
         list = static_cast<ScriptList*>(ScriptList::operator new(sizeof(ScriptList)));
         if (list) {
-            list->payload_ = reinterpret_cast<script::Script*>(-1);
+            list->payload_ = cell::pointer<script::Script>(-1);
             list->rank_ = 0;
             list->following_ = list;
             list->preceding_ = list;
@@ -531,7 +533,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             if (auto* block =
                     static_cast<uint32_t*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
                 block[0] = static_cast<uint32_t>(count);
-                pointers = reinterpret_cast<Pointer*>(block + 1);
+                pointers = raw::as<Pointer>(block + 1);
                 for (int i = 0; i < count; ++i)
                     new (&pointers[i]) Pointer();
             }
@@ -548,7 +550,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
                     scripts[i]->receive_event(&event);
             }
             if (pointers) {
-                uint32_t* block = reinterpret_cast<uint32_t*>(pointers) - 1;
+                uint32_t* block = raw::as<uint32_t>(pointers) - 1;
                 for (int i = static_cast<int>(block[0]) - 1; i >= 0; --i)
                     pointers[i].get_release(); // (the destructors, last first)
                 memory::dealloc(block);

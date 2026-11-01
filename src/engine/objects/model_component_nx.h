@@ -19,6 +19,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 class RenderModel;
@@ -30,11 +31,11 @@ namespace objects::model_nx {
 inline void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 inline uint32_t get_skeleton_name(void* skeleton)
 {
-    return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14);
+    return *raw::as<uint32_t>(static_cast<uint8_t*>(skeleton) + 0x14);
 }
 inline void* rig_definition(void* skeleton)
 {
-    return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08);
+    return *raw::as<void*>(static_cast<uint8_t*>(skeleton) + 0x08);
 }
 
 // The model's lights (+0x2C, the folded getter 0x00532EB0), its file checksum (+0x30) and flags (+0x44: 2 active, 4
@@ -45,7 +46,7 @@ inline uint8_t get_model_flags(render::RenderModel* model) { return model->flag_
 
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
 inline void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-inline void* sector_geom(void* sector) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(sector) + 0x14); }
+inline void* sector_geom(void* sector) { return *raw::as<void*>(static_cast<uint8_t*>(sector) + 0x14); }
 // A geom cloned for a model (0x0048DDC0) or from a sector (0x0048DD80), and activated (0x0048DE60); one added to a
 // model (0x004938E0).
 inline void* clone_model_geom(void* geom, render::RenderModel* to)
@@ -79,7 +80,7 @@ inline void update_lights_brightness(void* lights)
 
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-inline void* net_session_slot() { return reinterpret_cast<void*>(online::g_online_hub); }
+inline void* net_session_slot() { return raw::as<void>(online::g_online_hub); }
 inline void* find_player_slot_by_obj(void* manager, uint32_t id)
 {
     return static_cast<online::Hub*>(manager)->find_player_slot_by_obj(static_cast<uint16_t>(id));

@@ -20,6 +20,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -41,7 +42,7 @@ memory::owner<ObjectModule*> AudioStreamModule::fabricate() { return new AudioSt
 // 0x00433870
 void AudioStreamModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_stream_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_stream_component_member_functions, 0x18);
 }
 
 // 0x00433C10
@@ -59,7 +60,7 @@ AudioStreamModule::~AudioStreamModule()
 // 0x00433900
 void AudioStreamModule::configure_from_data(script::Struct* params)
 {
-    auto node = reinterpret_cast<uint32_t>(params);     // (read into the parameters' own argument slot)
+    auto node = cell::of(params);     // (read into the parameters' own argument slot)
     if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }

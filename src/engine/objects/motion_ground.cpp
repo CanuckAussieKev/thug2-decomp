@@ -15,6 +15,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -73,7 +74,7 @@ bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::
         if (geometry->small_faces_)
             vertex = geometry->faces_[face * 8 + 4 + corner];
         else
-            vertex = *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * 10 + 4 + 2 * corner);
+            vertex = *raw::as<const uint16_t>(geometry->faces_ + face * 10 + 4 + 2 * corner);
         triangle[corner] = vertex_position3(object, vertex);
     }
     *out = feeler.contact_pos_;
@@ -299,7 +300,7 @@ void KinematicsModule::glide_to_node(script::Struct* params, script::Script* scr
 void KinematicsModule::move_to_position(script::Struct* params, script::Script* script, bool absolute)
 {
     maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 0);
+    params->fetch_vec(0u, &pos, 0);
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();
     if (!absolute) {

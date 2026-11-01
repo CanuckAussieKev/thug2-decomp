@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "platform/stopwatch.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -53,7 +54,7 @@ void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat
 void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 
 // The matrix's element at row `r`, column `c`.
-double get_at(const maths::Mat4& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
+double get_at(const maths::Mat4& m, int r, int c) { return raw::as<const float>(&m.row[r])[c]; }
 
 } // namespace
 

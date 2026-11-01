@@ -22,6 +22,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -47,7 +48,7 @@ bool skin_matrix_ptr(void* skeleton, uint32_t bone, maths::Mat4* out)
 int bone_index(void* skeleton, uint32_t bone) { return static_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(bone); }
 uint32_t parent_bone(void* skeleton, int index)
 {
-    void* data = *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 8);
+    void* data = *raw::as<void*>(static_cast<uint8_t*>(skeleton) + 8);
     return static_cast<gfx::RigData*>(data)->fetch_parent_hash(index);
 }
 // The model component's 0x004215F0: its matrix into `out`.

@@ -22,6 +22,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -98,7 +99,7 @@ void bone_position(ObjectModule* skeleton, uint32_t bone, maths::Vec4* out)
 // The skeleton component's skeleton (its +0x18, the shared getter 0x005480F0) and that skeleton's bone matrix.
 void skin_matrix_ptr(ObjectModule* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    auto* data = reinterpret_cast<void*>(static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
+    auto* data = raw::as<void>(static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
     static_cast<gfx::Rig*>(data)->read_joint_matrix(bone, out);
 }
 
@@ -106,9 +107,9 @@ void skin_matrix_ptr(ObjectModule* skeleton, uint32_t bone, maths::Mat4* out)
 void erase_nodes(ChainComponent::ChainList* list, ChainComponent::Elem* first, ChainComponent::Elem* last)
 {
     ChainComponent::Elem* result = nullptr;
-    reinterpret_cast<objects::PointerList*>(list)->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
-                                                             reinterpret_cast<objects::PointerListNode*>(first),
-                                                             reinterpret_cast<objects::PointerListNode*>(last));
+    raw::as<objects::PointerList>(list)->get_erase(raw::as<objects::PointerListNode*>(&result),
+                                                             raw::as<objects::PointerListNode>(first),
+                                                             raw::as<objects::PointerListNode>(last));
 }
 ChainComponent::Elem* get_first(ChainComponent::Elem* head) { return head ? head->next : nullptr; }
 
@@ -231,7 +232,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
     }
     params->fetch_list(kChains, &chains, 1);
     for (uint32_t i = 0; i < chains->extent_; ++i) {
-        auto* description = reinterpret_cast<script::Struct*>(chains->fetch_part(i));
+        auto* description = chains->struct_at(i);
         int segments = 0;
         description->fetch_int_value(kSegments, &segments, 1);
         float length = 0.0f;
@@ -245,7 +246,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         chain->links_ = segments + 1;
         chain->move_with_object_ = description->has_bare_flag(kMoveWithObject);
         description->read_hash_value(kBoneStart, &chain->bone_start_, 0);
-        description->fetch_vec(kStartOffset, reinterpret_cast<script::VectorValue*>(&chain->start_offset_), 1);
+        description->fetch_vec(kStartOffset, &chain->start_offset_, 1);
         description->read_hash_value(kBoneEnd, &chain->bone_end_, 1);
         description->read_hash_value(kObjEnd, &chain->obj_end_, 1);
         description->fetch_float(kGravityForce, &chain->sag_force_, 1);
@@ -316,7 +317,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         uint32_t id = 0;
         params->read_hash_value(kChainId, &id, 1);
         maths::Vec4 pos{};
-        params->fetch_vec(kLinkPos, reinterpret_cast<script::VectorValue*>(&pos), 1);
+        params->fetch_vec(kLinkPos, &pos, 1);
         for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
             Chain* chain = node->chain;
             if (chain->ident_ != id)

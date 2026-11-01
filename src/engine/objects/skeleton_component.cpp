@@ -25,6 +25,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "platform/crt.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -48,28 +50,28 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
 // count, +0x08 the bones' names), +0x10 the bone-skipping level of detail.
 bool skeleton_bone_position(uint8_t* skeleton, uint32_t bone, maths::Vec4* out)
 {
-    return reinterpret_cast<gfx::Rig*>(skeleton)->get_bone_position(bone, out);
+    return raw::as<gfx::Rig>(skeleton)->get_bone_position(bone, out);
 }
 bool skeleton_bone_matrix(uint8_t* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    return reinterpret_cast<gfx::Rig*>(skeleton)->read_joint_matrix(bone, out);
+    return raw::as<gfx::Rig>(skeleton)->read_joint_matrix(bone, out);
 }
 void change_bone_sizing(uint8_t* skeleton, uint32_t bone, const maths::Vec4* scale, bool alone)
 {
-    reinterpret_cast<gfx::Rig*>(skeleton)->change_bone_sizing(bone, scale, alone);
+    raw::as<gfx::Rig>(skeleton)->change_bone_sizing(bone, scale, alone);
 }
 // The skeleton data's index of the bone named `bone` (0x004A2C70), and whether bone `index` is `parent` or under it
 // (0x004A3100).
 uint32_t bone_index(uint8_t* data, uint32_t bone)
 {
-    return static_cast<uint32_t>(reinterpret_cast<gfx::RigData*>(data)->fetch_slot_no(bone));
+    return static_cast<uint32_t>(raw::as<gfx::RigData>(data)->fetch_slot_no(bone));
 }
 bool is_bone_under(uint8_t* data, uint32_t index, uint32_t parent)
 {
-    return reinterpret_cast<gfx::RigData*>(data)->is_descendant(index, parent);
+    return raw::as<gfx::RigData>(data)->is_descendant(index, parent);
 }
-uint32_t get_bone_count(uint8_t* data) { return *reinterpret_cast<uint32_t*>(data + 0x04); }
-uint32_t bone_name(uint8_t* data, uint32_t index) { return reinterpret_cast<uint32_t*>(data + 0x08)[index]; }
+uint32_t get_bone_count(uint8_t* data) { return *raw::as<uint32_t>(data + 0x04); }
+uint32_t bone_name(uint8_t* data, uint32_t index) { return raw::as<uint32_t>(data + 0x08)[index]; }
 
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
 void* texture_named(const char* name) { return render::g_particle_texture_dict->get_texture_by_name(name); }
@@ -91,14 +93,14 @@ BoneRigModule::BoneRigModule() { kind_tag_ = kType; }
 // 0x00431BE0
 void BoneRigModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_skeleton_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_skeleton_component_member_functions, 0x18);
 }
 
 // 0x00431FE0 (0x00432790 the deleting one)
 BoneRigModule::~BoneRigModule()
 {
     if (uint8_t* skeleton = bone_rig_) {
-        reinterpret_cast<gfx::Rig*>(skeleton)->~Rig();
+        raw::as<gfx::Rig>(skeleton)->~Rig();
         memory::Hub::get_pull()->dealloc(skeleton);
     }
 }
@@ -109,7 +111,7 @@ void BoneRigModule::prepare_rig(uint32_t name)
     void* asset = assets::g_asset_manager->get_asset_data(name, 0);
     void* memory = memory::alloc(0x1C);
     bone_rig_ =
-        memory ? reinterpret_cast<uint8_t*>(memory::construct_in<gfx::Rig>(memory, static_cast<gfx::RigData*>(asset)))
+        memory ? raw::bytes(memory::construct_in<gfx::Rig>(memory, static_cast<gfx::RigData*>(asset)))
                : nullptr;
 }
 
@@ -118,22 +120,22 @@ void BoneRigModule::configure_from_data(script::Struct* params)
 {
     uint32_t from = 0;
     if (params->read_hash_value(kCopySkeletonFrom, &from, 0)) {
-        auto* other = reinterpret_cast<GameEntity*>(object_hub_slot()->look_up_entity(from));
-        auto* other_skeleton = reinterpret_cast<BoneRigModule*>(other->fetch_module(kType));
+        auto* other = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(from));
+        auto* other_skeleton = static_cast<BoneRigModule*>(other->fetch_module(kType));
         void* memory = memory::alloc(0x1C);
-        bone_rig_ = memory ? reinterpret_cast<uint8_t*>(static_cast<gfx::Rig*>(memory)->construct_copy(
-                                 reinterpret_cast<const gfx::Rig*>(other_skeleton->bone_rig_)))
+        bone_rig_ = memory ? raw::bytes(static_cast<gfx::Rig*>(memory)->construct_copy(
+                                 raw::as<const gfx::Rig>(other_skeleton->bone_rig_)))
                            : nullptr;
         return;
     }
     // (the name is read into the parameters' own argument slot: neither given leaves the pointer's value)
-    auto name = reinterpret_cast<uint32_t>(params);
+    auto name = cell::of(params);
     if (!params->read_hash_value(kType, &name, 0))
         params->read_hash_value(kSkeletonName, &name, 1);
     prepare_rig(name);
     int skip = 0;
     if (params->fetch_int_value(kMaxBoneSkipLod, &skip, 0) && bone_rig_)
-        reinterpret_cast<gfx::Rig*>(bone_rig_)->max_lod_ = static_cast<uint32_t>(skip);
+        raw::as<gfx::Rig>(bone_rig_)->max_lod_ = static_cast<uint32_t>(skip);
 }
 
 // 0x00431C60
@@ -219,7 +221,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
                                                    float velocity_scale, const maths::Vec4* velocity,
                                                    const maths::Vec4* rotational_velocity, maths::Vec4* offset)
 {
-    auto* skeleton = reinterpret_cast<BoneRigModule*>(entity_->fetch_module(kType));
+    auto* skeleton = static_cast<BoneRigModule*>(entity_->fetch_module(kType));
     maths::Mat4 joint_mat;
     skeleton_bone_matrix(skeleton->bone_rig_, bone, &joint_mat);
     // The object's matrix at its position (the rows' w cleared).
@@ -240,7 +242,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
 
     params->put_vec3(0x7F261953, to_value(joint_mat.row[3])); // pos
     maths::Vec4 quat;
-    reinterpret_cast<maths::QuatRotation*>(&quat)->from_matrix(joint_mat);
+    raw::as<maths::QuatRotation>(&quat)->from_matrix(joint_mat);
     if (quat.w > 0.0f)
         params->put_vec3(0xC97F3AA9, to_value(quat)); // Orientation (w kept positive)
     else
@@ -260,12 +262,12 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
 // 0x00431C00
 bool BoneRigModule::obj_set_bone_active(script::Struct* params, script::Script* /*script*/)
 {
-    auto bone = reinterpret_cast<uint32_t>(this); // (the slot PUSH ECX made: missing, the component's address)
+    auto bone = cell::of(this); // (the slot PUSH ECX made: missing, the component's address)
     params->read_hash_value(kBone, &bone, 1);
     // (read into the parameters' own argument slot: missing, the pointer's value)
-    int active = static_cast<int>(reinterpret_cast<uint32_t>(params));
+    int active = static_cast<int>(cell::of(params));
     params->fetch_int_value(0xB4E103FD, &active, 1); // active
-    reinterpret_cast<gfx::Rig*>(bone_rig_)->enable_bone(bone, active != 0);
+    raw::as<gfx::Rig>(bone_rig_)->enable_bone(bone, active != 0);
     return true;
 }
 
@@ -284,15 +286,15 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
         return true;
     }
     // Every bone but this one and those under it.
-    auto* data = reinterpret_cast<uint8_t*>(reinterpret_cast<gfx::Rig*>(bone_rig_)->payload_);
+    auto* data = raw::bytes(raw::as<gfx::Rig>(bone_rig_)->payload_);
     const uint32_t index = bone_index(data, bone);
     for (uint32_t i = 1; i < get_bone_count(data); ++i) {
         if (!is_bone_under(data, i, index) && i != index)
             change_bone_sizing(bone_rig_, bone_name(data, i), &scales, true);
     }
-    *reinterpret_cast<uint32_t*>(bone_rig_) |= 0x8000000;
+    *raw::as<uint32_t>(bone_rig_) |= 0x8000000;
     if (params->has_bare_flag(0x734AD918)) // force_update
-        reinterpret_cast<gfx::Rig*>(bone_rig_)->collapse_zero_scaled_bones();
+        raw::as<gfx::Rig>(bone_rig_)->collapse_zero_scaled_bones();
     return true;
 }
 
@@ -301,7 +303,7 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
 {
     maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
     // (the bone is read into the parameters' own argument slot)
-    auto bone = reinterpret_cast<uint32_t>(params);
+    auto bone = cell::of(params);
     params->read_hash_value(kBone, &bone, 1);
     const bool found = get_bone_position(bone, &pos);
     script->args_->push_float(0x7323E97C, pos.x); // x

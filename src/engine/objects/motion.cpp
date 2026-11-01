@@ -19,7 +19,7 @@ constexpr uint32_t kConvert = 0x26AF9DC9;  // FLAG_MAX_COORDS: the angles conver
 bool read_turn_angles(script::Struct* params, uint32_t name, maths::Vec4* angles)
 {
     *angles = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (!params->fetch_vec(name, reinterpret_cast<script::VectorValue*>(angles), 0))
+    if (!params->fetch_vec(name, angles, 0))
         return false;
     if (params->has_bare_flag(kConvert)) {
         angles->z = -angles->z;

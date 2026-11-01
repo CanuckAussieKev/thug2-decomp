@@ -26,6 +26,8 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -134,7 +136,7 @@ memory::owner<ObjectModule*> PedestrianBrainModule::fabricate() { return new Ped
 // 0x004ECFB0
 void PedestrianBrainModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_ped_logic_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_ped_logic_member_functions, 0x18);
 }
 
 // 0x004ECFD0
@@ -214,7 +216,7 @@ void PedestrianBrainModule::initialize_movement()
 void PedestrianBrainModule::no_move_update()
 {
     GameEntity* object = entity_;
-    if (reinterpret_cast<MotionPathMembers*>(get_motion(object))->is_spinning())
+    if (raw::as<MotionPathMembers>(get_motion(object))->is_spinning())
         saved_matrix_ = object->basis_frame_;
     else
         object->display_matrix_ = saved_matrix_;
@@ -382,7 +384,7 @@ bool PedestrianBrainModule::get_bail()
 const char* profile_voice()
 {
     RiderIdentity* profile = g_profile_roster->fetch_active_account();
-    auto* info = reinterpret_cast<script::Struct*>(profile->details_);
+    auto* info = raw::as<script::Struct>(profile->details_);
     uint32_t voice = 0;
     if (!info->read_hash_value(kVoice, &voice, 0)) {
         int male = 0; // (the original's is uninitialised: is_male is asserted)
@@ -392,7 +394,7 @@ const char* profile_voice()
     script::Array* voices = script::fetch_list(kPlayerVoices);
     const int count = static_cast<int>(voices->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(voices->fetch_part(static_cast<uint32_t>(i)));
+        auto* entry = voices->struct_at(static_cast<uint32_t>(i));
         uint32_t id = 0;
         entry->read_hash_value(kId, &id, 1);
         if (id == voice) {
@@ -477,7 +479,7 @@ bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::
 bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::Script*)
 {
     // (The original reads the value over its `params` argument: missing - it's asserted - it stays that pointer.)
-    int bailing = static_cast<int>(reinterpret_cast<uintptr_t>(params));
+    int bailing = static_cast<int>(cell::address(params));
     params->fetch_int_value(0u, &bailing, 1);
     if (params->has_bare_flag(kGrind)) {
         if (bailing)
@@ -546,7 +548,7 @@ bool PedestrianBrainModule::ped_remove_speed_boost(script::Struct*, script::Scri
 bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Script*)
 {
     // (The value is read over the `params` argument: missing - it's asserted - it stays that pointer.)
-    int skater = static_cast<int>(reinterpret_cast<uintptr_t>(params));
+    int skater = static_cast<int>(cell::address(params));
     params->fetch_int_value(0u, &skater, 1);
     if (!skater) {
         kind_ = 0;
@@ -644,12 +646,12 @@ bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script
             script::Array* skaters = script::fetch_list(kMasterSkaterList);
             const int count = static_cast<int>(skaters->extent_);
             for (int i = 0; i < count; ++i) {
-                auto* skater = reinterpret_cast<script::Struct*>(skaters->fetch_part(static_cast<uint32_t>(i)));
+                auto* skater = skaters->struct_at(static_cast<uint32_t>(i));
                 uint32_t name = 0;
                 skater->read_hash_value(kName, &name, 1);
                 if (name == profile_name) {
                     // (Read over the slot that held `this`: missing - it's asserted - it stays that pointer.)
-                    const char* last_name = reinterpret_cast<const char*>(this);
+                    const char* last_name = raw::chars(this);
                     skater->fetch_text(kLastName, &last_name, 1);
                     script->args_->append_word(kVoicePrefix, last_name);
                     return true;

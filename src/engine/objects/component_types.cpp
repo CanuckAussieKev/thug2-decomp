@@ -83,7 +83,7 @@
 #include "engine/objects/vehicle_wheel.h"
 #include "engine/objects/walk_hang.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 
 namespace objects {
 
@@ -220,8 +220,8 @@ void register_component_types()
 {
     EntityHub* manager = object_hub_slot();
     for (const ComponentType& t : kComponentTypes) {
-        manager->enrol_module(t.type, reinterpret_cast<ComponentCreateFunction>(t.create),
-                              reinterpret_cast<ComponentRegisterFunction>(t.register_functions_));
+        manager->enrol_module(t.type, function_at<ComponentCreateFunction>(t.create),
+                              function_at<ComponentRegisterFunction>(t.register_functions_));
     }
 }
 

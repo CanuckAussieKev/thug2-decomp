@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -143,8 +144,8 @@ public:
     SharedRef* following_ = nullptr;
 
 private:
-    [[nodiscard]] SharedBase* get_object() const { return reinterpret_cast<SharedBase*>(owner_object_); }
-    SharedRef<SharedBase>* get_generic() { return reinterpret_cast<SharedRef<SharedBase>*>(this); }
+    [[nodiscard]] SharedBase* get_object() const { return raw::as<SharedBase>(owner_object_); }
+    SharedRef<SharedBase>* get_generic() { return raw::as<SharedRef<SharedBase>>(this); }
 };
 static_assert(sizeof(SharedRef<SharedBase>) == 12, "a smart pointer is 12 bytes");
 

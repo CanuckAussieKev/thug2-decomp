@@ -23,6 +23,8 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -56,7 +58,7 @@ float* pusher_reach() { return g_rigid_body_pusher_reach; }
 // The matrix's element at byte offset `offset` from its start.
 double get_m(const maths::Mat4& m, int offset)
 {
-    return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset);
+    return *raw::field_at<const float>(&m, offset);
 }
 
 } // namespace
@@ -78,7 +80,7 @@ bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 // 0x0042BB00
 void BodyDynamicsModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_rigid_body_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_rigid_body_member_functions, 0x18);
 }
 
 // 0x0042BB20
@@ -86,7 +88,7 @@ int ObjectModule::dispatch_script_method(script::MemberFunctionEntry* entry, scr
                                          script::Script* script)
 {
     if (entry->method_code_) {
-        void* self = reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_;
+        void* self = raw::bytes(this) + entry->this_adjustment_;
         return entry->method_code_(self, entry->callsign_, params, script);
     }
     return invoke_method_by_name(entry->callsign_, params, script);

@@ -22,10 +22,12 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -101,7 +103,7 @@ GameEntity* level_object_of(GameEntity* object)
 }
 void model_set_offset(void* model, const float* offset)
 {
-    static_cast<render::RenderModel*>(model)->change_bound_sphere(reinterpret_cast<const maths::Vec4*>(offset));
+    static_cast<render::RenderModel*>(model)->change_bound_sphere(raw::as<const maths::Vec4>(offset));
 }
 // The skater's appearance (+0x34A8) and its parts.
 void* appearance_part(void* appearance, uint32_t part)
@@ -150,7 +152,7 @@ void CinematicTable::add_objects(script::Struct* params)
     bool wants_skater = false; // (an object of kind 0x6218C3C9: script 0xF37D9F53 runs...)
     bool has_skater = false;   // (...unless a skater object was added)
     for (uint32_t i = 0; i < objects->extent_; ++i) {
-        auto* object = reinterpret_cast<script::Struct*>(objects->fetch_part(i));
+        auto* object = objects->struct_at(i);
         script::Struct* params2 = make_struct();
         uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
         bool is_skater = false, is_skater2 = false, special = false;
@@ -249,9 +251,8 @@ void CinematicTable::add_objects(script::Struct* params)
                     void* model2 = model_of(level_model);
                     if (!lent_saved_) {
                         float saved[4];
-                        const auto* settings = reinterpret_cast<const float*>(
-                            static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
-                                reinterpret_cast<maths::Vec4*>(saved)));
+                        const auto* settings = raw::as<const float>(static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
+                                raw::as<maths::Vec4>(saved)));
                         std::memcpy(lent_2c_, settings, 16);
                         const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
                         lent_3c_ = flags >> 2 & 1;
@@ -264,13 +265,12 @@ void CinematicTable::add_objects(script::Struct* params)
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);
                     auto mine =
-                        reinterpret_cast<uint32_t>(static_cast<render::RenderModel*>(model2)->fetch_skinning_palette());
-                    auto theirs = reinterpret_cast<uint32_t>(
-                        static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette());
+                        cell::of(static_cast<render::RenderModel*>(model2)->fetch_skinning_palette());
+                    auto theirs = cell::of(static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette());
                     static_cast<render::RenderModel*>(model2)->upload_skinning_palette(
-                        reinterpret_cast<uint8_t*>(theirs));
+                        cell::pointer<uint8_t>(theirs));
                     static_cast<render::RenderModel*>(model_of(stand_in))
-                        ->upload_skinning_palette(reinterpret_cast<uint8_t*>(mine));
+                        ->upload_skinning_palette(cell::pointer<uint8_t>(mine));
                     static_cast<MeshInstanceModule*>(level_model)->get_update_brightness();
                 }
                 stand_in->hold_off(true);
@@ -337,7 +337,7 @@ void CinematicTable::add_objects(script::Struct* params)
                 apply_skater_look(entry);
         }
         void* anims = anim_list_;
-        for (int j = 0; j < *reinterpret_cast<int*>(static_cast<uint8_t*>(anims) + 8); ++j) {
+        for (int j = 0; j < *raw::as<int>(static_cast<uint8_t*>(anims) + 8); ++j) {
             if (entry.name == static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j)) {
                 entry.anim_index_ = j;
                 break;

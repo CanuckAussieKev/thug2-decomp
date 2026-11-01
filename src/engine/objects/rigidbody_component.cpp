@@ -24,6 +24,8 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/render/coll_cache.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -80,7 +82,7 @@ T* reallocate(T* old, uint32_t size)
 }
 
 // A script vector's coordinates (x at +4).
-const float* vector_of(uint32_t element) { return reinterpret_cast<const float*>(element) + 1; }
+const float* vector_of(uint32_t element) { return cell::pointer<const float>(element) + 1; }
 
 } // namespace
 
@@ -197,8 +199,8 @@ void BodyDynamicsModule::set_spheres(script::Array* spheres)
     spheres_ = reallocate(spheres_, sphere_count_ * sizeof(Sphere));
     const uint32_t* elements = spheres->find_array_value();
     for (uint32_t i = 0; i < sphere_count_; ++i) {
-        auto* settings = reinterpret_cast<script::Struct*>(elements[i]);
-        settings->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&spheres_[i].center), 1);
+        auto* settings = cell::pointer<script::Struct>(elements[i]);
+        settings->fetch_vec(0u, &spheres_[i].center, 1);
         settings->fetch_float(0xC48391A5, &spheres_[i].radius, 1); // radius
     }
 }
@@ -224,7 +226,7 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
     bounce_sfx_ = copy_of(sound);
     if (sounds->has_entry_named(0x3818EE47)) { // CollideMuteDelay
         // (read into the argument slot, which then holds the copy's allocation)
-        int delay = static_cast<int>(reinterpret_cast<uint32_t>(bounce_sfx_));
+        int delay = static_cast<int>(cell::of(bounce_sfx_));
         sounds->fetch_int_value(0x3818EE47, &delay, 0);
         impact_quiet_ms_ = delay;
     }
@@ -262,7 +264,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     quat_to_matrix(&orientation_, &basis_frame_);
 
     auto vector = [params](uint32_t name, maths::Vec4* out) {
-        return params->fetch_vec(name, reinterpret_cast<script::VectorValue*>(out), 0);
+        return params->fetch_vec(name, out, 0);
     };
     vector(0x0C4C809E, &vel_);                                 // vel
     vector(0xFB1A83B2, &rot_vel_);                             // rotvel
@@ -352,10 +354,10 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     switch (shape) {
     case 0: {
         maths::Vec4 top = {32.0f, 32.0f, 16.0f, 1.0f};
-        params->fetch_vec("dimensions", reinterpret_cast<script::VectorValue*>(&top), 0);
+        params->fetch_vec("dimensions", &top, 0);
         maths::Vec4 bottom = top;
-        params->fetch_vec("top_dimensions", reinterpret_cast<script::VectorValue*>(&top), 0);
-        params->fetch_vec("bottom_dimensions", reinterpret_cast<script::VectorValue*>(&bottom), 0);
+        params->fetch_vec("top_dimensions", &top, 0);
+        params->fetch_vec("bottom_dimensions", &bottom, 0);
         top = {top.x * kHalf, top.y * kHalf, top.z * kHalf, top.w * kHalf};
         bottom = {bottom.x * kHalf, bottom.y * kHalf, bottom.z * kHalf, bottom.w * kHalf};
         set_box(&top, &bottom);
@@ -385,7 +387,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
     case 3: {
         maths::Vec4 dimensions = {32.0f, 32.0f, 16.0f, 1.0f};
-        params->fetch_vec(0x1D82745A, reinterpret_cast<script::VectorValue*>(&dimensions), 0); // Dimensions
+        params->fetch_vec(0x1D82745A, &dimensions, 0); // Dimensions
         dimensions = {dimensions.x * kHalf, dimensions.y * kHalf, dimensions.z * kHalf, dimensions.w * kHalf};
         set_triangle(&dimensions);
         break;
@@ -401,12 +403,12 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         const uint32_t* elements = friction->find_array_value();
         for (int i = contact_count_; i != 0;) {
             --i;
-            auto* settings = reinterpret_cast<script::Struct*>(elements[i]);
+            auto* settings = cell::pointer<script::Struct>(elements[i]);
             if (settings->has_entry_named(0x806FFF30)) { // none
                 steer_friction_[i].active = false;
             } else {
                 steer_friction_[i].active = true;
-                settings->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&steer_friction_[i].direction), 1);
+                settings->fetch_vec(0u, &steer_friction_[i].direction, 1);
             }
         }
     }
@@ -416,7 +418,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         level_nodes::read_turn_angles(params, &angles);
         maths::Mat4 turn;
         turn.init_from_angles(angles);
-        auto m = [&turn](int r, int c) { return static_cast<double>(reinterpret_cast<const float*>(&turn.row[r])[c]); };
+        auto m = [&turn](int r, int c) { return static_cast<double>(raw::as<const float>(&turn.row[r])[c]); };
         for (int i = contact_count_; i != 0;) {
             maths::Vec4& p = contacts_[--i];
             const double x = p.x;
@@ -522,7 +524,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The position is the centre of mass: moved by the (turned) model offset.
     auto r = [this](int row, int c) {
-        return static_cast<double>(reinterpret_cast<const float*>(&basis_frame_.row[row])[c]);
+        return static_cast<double>(raw::as<const float>(&basis_frame_.row[row])[c]);
     };
     const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
     const double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
@@ -630,7 +632,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
 {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     const uint32_t id = params->step_to_entry(nullptr)->checksum;
-    auto* other = reinterpret_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
+    auto* other = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
     const bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
     vel_ = other->vel_;
     if (adjust) {

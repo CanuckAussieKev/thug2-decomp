@@ -18,7 +18,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/viewport.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
@@ -281,7 +281,7 @@ void ClassNodeList::set_nodes(script::Array* nodes)
 {
     nodes_ = nodes;
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(0x12B4E660, &node_class, 0);
         if (node_class == 0xD18719D5)

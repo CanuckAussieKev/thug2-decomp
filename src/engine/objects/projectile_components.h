@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace script {
 class Struct;
@@ -45,7 +46,7 @@ public:
     ~ShotImpactModule() override;
     void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
     // 0x0041C330 (slot 3, the collide-and-die component's Finalize, folded): the object's suspend component kept.
-    void seal() override { suspend_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(0xCE0CA665)); }
+    void seal() override { suspend_ = raw::bytes(entity_->fetch_module(0xCE0CA665)); }
     // 0x004F2F80 (vtable slot 2): radius, scale, owner_id, death_script, projectile_type (each asserted); vel
     // (0, 0, 1) normalised - not read from the parameters.
     void configure_from_data(script::Struct* params) override;

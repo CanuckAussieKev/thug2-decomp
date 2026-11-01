@@ -35,10 +35,13 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/cutscene.h"
 #include "engine/core/owner.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -210,7 +213,7 @@ bool CinematicEntry::read_in(script::Struct* params)
                 loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
                 CinematicTable* data = content_;
                 data->unknown3474_ = 1;
-                data->unknown3488_ = *reinterpret_cast<uint32_t*>(&data->clock_);
+                data->unknown3488_ = *raw::as<uint32_t>(&data->clock_);
                 data->unknown348c_ = static_cast<float>(static_cast<double>(loop) + data->clock_);
                 audio::pause_music(1);
             }
@@ -236,7 +239,7 @@ void CinematicEntry::stop()
     }
     get_run(0xE7BC7EFD);
     get_run(0x4C0FD1D7);
-    reinterpret_cast<render::FlexibleParticleManager*&>(render::g_flexible_particle_manager)->delete_temp_heap();
+    memory::bits_as<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->delete_temp_heap();
     if (content_) {
         discard_loaded_item(asset_);
         content_ = nullptr;
@@ -251,7 +254,7 @@ void CinematicEntry::stop()
     if (skater) {
         script::Struct* flag = make_struct();
         flag->put_name_key(kUnnamed, kFlagParam);
-        get_run(0xABF617EE, flag, reinterpret_cast<Entity*>(skater));
+        get_run(0xABF617EE, flag, static_cast<Entity*>(skater));
         free_struct(flag);
     }
     get_run(0xBCA1791C, args_);
@@ -322,7 +325,7 @@ void CinematicTable::load_from_bundle()
             break;
         case kTypeCameraAnim: {
             const uint32_t name = hash_of_name("_CAM", static_cast<int>(entry->name)); // (the game's 0x00647914)
-            load_asset(name, reinterpret_cast<uint32_t>(data), entry->size);
+            load_asset(name, cell::of(data), entry->size);
             ++camera_parts_;
             if (!camera_source_) {
                 camera_source_ = new_anim_source();
@@ -338,7 +341,7 @@ void CinematicTable::load_from_bundle()
         }
         case kTypeObjectAnim: {
             const uint32_t name = hash_of_name("_OBA", static_cast<int>(entry->name)); // (the game's 0x0064790C)
-            load_asset(name, reinterpret_cast<uint32_t>(data), entry->size);
+            load_asset(name, cell::of(data), entry->size);
             ++object_parts_;
             if (!object_source_) {
                 object_source_ = new_anim_source();
@@ -362,7 +365,7 @@ void CinematicTable::load_from_bundle()
             objects_from_table(call_args_, static_cast<const uint32_t*>(data));
             break;
         case kTypeAnim:
-            load_animation(entry->name, reinterpret_cast<uint32_t>(data), entry->size);
+            load_animation(entry->name, cell::of(data), entry->size);
             break;
         case kTypeModel:
         case kTypeSkin:
@@ -388,7 +391,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
 {
     const uint32_t model_name = entry->name + kTypeModel; // (the original prints name + type, compiled out)
     LoadParams params{};
-    reinterpret_cast<assets::SkinParams*>(&params)->get_clear(); // (the skinned model's load parameters, 0x14 bytes)
+    raw::as<assets::SkinParams>(&params)->get_clear(); // (the skinned model's load parameters, 0x14 bytes)
     void* texture_data = bundle_ptr_->find_asset(entry->name, kTypeTextures, 1);
     const file::AssetBundle::TableRow* textures = bundle_ptr_->find_entry(entry->name, kTypeTextures, 1);
     const uint32_t texture_size = textures->size;

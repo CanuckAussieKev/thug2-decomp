@@ -336,7 +336,7 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
         return 1;
     }
     if (name == 0xF362BBBF) {
-        params->fetch_vec(0xB9D31B0A, reinterpret_cast<script::VectorValue*>(&cursor_), 0);
+        params->fetch_vec(0xB9D31B0A, &cursor_, 0);
         focus_ = cursor_;
         zoom_ = 700.0f;
         params->fetch_float(0xC48391A5, &zoom_, 0);

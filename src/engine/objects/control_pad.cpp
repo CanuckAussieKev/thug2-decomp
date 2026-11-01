@@ -11,6 +11,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -215,7 +216,7 @@ void PadSnapshot::tick_frame(const uint8_t* data)
     shoulder_right_a_.tick_frame(get_full(data[0xD] != 0));
     shoulder_left_b_.tick_frame(get_full(data[0xE] != 0));
     shoulder_right_b_.tick_frame(get_full(data[0xF] != 0));
-    const uint32_t bits = *reinterpret_cast<const uint32_t*>(data + 0x1C);
+    const uint32_t bits = *raw::as<const uint32_t>(data + 0x1C);
     stick_click_left_.tick_frame(get_full((bits & 0x200) != 0));
     stick_click_right_.tick_frame(get_full((bits & 0x400) != 0));
     button_choose_.tick_frame(get_full((bits & 0x100) != 0));

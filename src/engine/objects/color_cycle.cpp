@@ -17,6 +17,8 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -62,7 +64,7 @@ ColorCycleComponent::ColorCycleComponent() { kind_tag_ = kType; }
 // 0x0041B280
 void ColorCycleComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_color_cycle_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_color_cycle_member_functions, 0x18);
 }
 
 // 0x0041B2A0 (0x0041B2E0 the deleting one)
@@ -74,7 +76,7 @@ void ColorCycleComponent::change_colors(script::Array* colors)
     const int count = static_cast<int>(colors->extent_);
     color_count_ = count;
     for (int i = 0; i < count; ++i) {
-        auto* vector = reinterpret_cast<const float*>(colors->fetch_part(static_cast<uint32_t>(i)));
+        auto* vector = cell::pointer<const float>(colors->fetch_part(static_cast<uint32_t>(i)));
         colors_[i] = {vector[1], vector[2], vector[3], 1.0f}; // (a CVector: its coordinates from +4)
     }
     ongoing_ = 0;
@@ -154,7 +156,7 @@ int ColorCycleComponent::set_period_from_script(script::Struct* params, script::
 // 0x0041B390
 int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::Script*)
 {
-    auto* colors = reinterpret_cast<script::Array*>(params); // (the original's slot for it: the params argument)
+    auto* colors = raw::as<script::Array>(params); // (the original's slot for it: the params argument)
     params->fetch_list(0u, &colors, 1);
     change_colors(colors);
     return 1;

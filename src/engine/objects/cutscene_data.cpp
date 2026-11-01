@@ -24,11 +24,14 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/ints.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -60,11 +63,11 @@ constexpr uint32_t kBlue = 0x9D2D8850;
 void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
 uint32_t model_get(void* model)
 {
-    return reinterpret_cast<uint32_t>(static_cast<render::RenderModel*>(model)->fetch_skinning_palette());
+    return cell::of(static_cast<render::RenderModel*>(model)->fetch_skinning_palette());
 }
 void model_set(void* model, uint32_t value)
 {
-    static_cast<render::RenderModel*>(model)->upload_skinning_palette(reinterpret_cast<uint8_t*>(value));
+    static_cast<render::RenderModel*>(model)->upload_skinning_palette(cell::pointer<uint8_t>(value));
 }
 
 // The asset manager (0x006918DC).
@@ -72,7 +75,7 @@ assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
 // (from memory, a2 the data and a3 its size: not permanent, copied)
 void load_asset_file(uint32_t name, uint32_t a2, uint32_t a3)
 {
-    asset_manager()->read_resource_from_stream(name, 5, 0, reinterpret_cast<void*>(a2), a3, false, true, nullptr, 0);
+    asset_manager()->read_resource_from_stream(name, 5, 0, cell::pointer<void>(a2), a3, false, true, nullptr, 0);
 }
 
 } // namespace
@@ -124,7 +127,7 @@ const char* skater_model_name(script::Struct* params)
     if (params->read_hash_value(kProfile, &profile, 0)) {
         script::Array* profiles = script::fetch_list(kProfiles);
         for (int i = 0; i < ints::as_signed(profiles->extent_); ++i) {
-            auto* entry = reinterpret_cast<script::Struct*>(profiles->fetch_part(static_cast<uint32_t>(i)));
+            auto* entry = profiles->struct_at(static_cast<uint32_t>(i));
             uint32_t name = 0; // (asserted: the original's is uninitialised)
             entry->read_hash_value(kProfileName, &name, 1);
             if (name == profile) {
@@ -194,7 +197,7 @@ void set_up_cutscene_heaps()
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    reinterpret_cast<render::FlexibleParticleManager*&>(render::g_flexible_particle_manager)->create_temp_heap(0x25800);
+    memory::bits_as<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->create_temp_heap(0x25800);
     const uint32_t available = memory::Hub::get_pull()->obtainable();
     memory::Hub::get_pull()->init_cutscene_heaps(available - 0x32000);
     memory::Hub::get_pull()->leave_heap_scope();
@@ -212,7 +215,7 @@ void CinematicTable::destroy_objects()
             auto* original = static_cast<GameEntity*>(find_object(id));
             void* model = model_of(original->fetch_module(kModelModuleName));
             static_cast<render::RenderModel*>(model)->change_bound_sphere(
-                reinterpret_cast<const maths::Vec4*>(lent_2c_));
+                raw::as<const maths::Vec4>(lent_2c_));
             static_cast<render::RenderModel*>(model)->conceal(lent_3c_);
             static_cast<render::RenderModel*>(model)->allow_resizing(lent_3d_);
             const uint32_t mine = model_get(model);
@@ -290,15 +293,15 @@ void CinematicTable::refresh_viewer(void* camera)
     if (!flag_34b_0_)
         return;
     static_cast<gfx::ViewCam*>(camera)->remember_prev_pos();
-    auto* position = reinterpret_cast<float*>(static_cast<gfx::ViewCam*>(camera)->fetch_location());
-    auto* matrix = reinterpret_cast<float*>(static_cast<gfx::ViewCam*>(camera)->fetch_mat());
+    auto* position = raw::as<float>(static_cast<gfx::ViewCam*>(camera)->fetch_location());
+    auto* matrix = raw::as<float>(static_cast<gfx::ViewCam*>(camera)->fetch_mat());
     float rotation[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     float translation[4];
     bool flag = false;
     static_cast<gfx::JointClipFrames*>(camera_anim_)
         ->get_float_key_pose(rotation, translation, &flag,
                              static_cast<float>(clock_ - static_cast<double>(camera_start_)),
-                             static_cast<int>(reinterpret_cast<uint32_t>(camera_source_)));
+                             static_cast<int>(cell::of(camera_source_)));
     std::memcpy(position, translation, 16);
     float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     quat_to_matrix(rotation, origin, matrix);
@@ -327,22 +330,22 @@ void CinematicTable::update_object_poses()
         uint8_t* skeleton = static_cast<objects::BoneRigModule*>(component)->bone_rig_;
         auto* source = static_cast<render::FrameSource*>(entry.animation->source);
         void* animation = entry.animation->data;
-        reinterpret_cast<gfx::Rig*>(skeleton)->set_lod(0.0f);
-        auto* rig = reinterpret_cast<gfx::Rig*>(skeleton);
+        raw::as<gfx::Rig>(skeleton)->set_lod(0.0f);
+        auto* rig = raw::as<gfx::Rig>(skeleton);
         gfx::RigData* data = rig->payload_;
         source->bone_masks_ = data ? data->lod_masks_ : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
-        const auto* base_pose = reinterpret_cast<const uint8_t*>(rig->payload_->bind_translations_);
+        const auto* base_pose = raw::bytes(rig->payload_->bind_translations_);
         auto count = static_cast<uint32_t>(rig->get_num_bones());
         std::memcpy(translations, base_pose, count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
-            reinterpret_cast<maths::QuatRotation*>(rotations), reinterpret_cast<maths::Vec4*>(translations),
+            raw::as<maths::QuatRotation>(rotations), raw::as<maths::Vec4>(translations),
             g_cutscene_camera_slot, static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
-        reinterpret_cast<gfx::Rig*>(skeleton)->tick_frame(reinterpret_cast<const float (*)[4]>(rotations),
-                                                          reinterpret_cast<const float (*)[4]>(translations));
+        raw::as<gfx::Rig>(skeleton)->tick_frame(raw::as<const float[4]>(rotations),
+                                                          raw::as<const float[4]>(translations));
     }
 }
 

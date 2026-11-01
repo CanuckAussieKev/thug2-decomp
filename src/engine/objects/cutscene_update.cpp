@@ -24,12 +24,14 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/stubs.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -106,7 +108,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
             object->put_name_key(kUnnamed, kIsSkaterMarker);
         if (flags >> 31 & 1)
             object->put_name_key(kUnnamed, kSkaterFlag2);
-        objects->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(object));
+        objects->set_element(static_cast<uint32_t>(i), cell::of(object));
     }
     params->append_array_ref(kObjects, objects);
     return true;
@@ -115,7 +117,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
 // 0x004656E0
 void CinematicTable::update_time(int /*unused*/)
 {
-    unknown3478_ = *reinterpret_cast<uint32_t*>(&clock_);
+    unknown3478_ = *raw::as<uint32_t>(&clock_);
     if (script::fetch_int_value(kFixedTime) != 0) {
         clock_ = static_cast<float>(g_cutscene_fixed_frame * static_cast<double>(kFrame));
     } else if (unknown3474_) {
@@ -123,7 +125,7 @@ void CinematicTable::update_time(int /*unused*/)
         const double time = static_cast<double>(unknown3470_) * kStep + clock_;
         clock_ = static_cast<float>(time);
         if (unknown348c_ > 0.0f && !(time < unknown348c_) && !std::isnan(time)) {
-            clock_ = *reinterpret_cast<float*>(&unknown3488_);
+            clock_ = *raw::as<float>(&unknown3488_);
             unknown3478_ = 0;
             script::launch_script(kEndScript, nullptr, nullptr, false, nullptr);
             script::launch_script(kEndScript2, nullptr, nullptr, false, nullptr);
@@ -202,10 +204,10 @@ void CinematicTable::update_stand_in(GameEntity* object)
             static_cast<MeshInstanceModule*>(level_component)->get_update_brightness();
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
             float matrix[16];
-            *reinterpret_cast<maths::Mat4*>(matrix) = object->display_matrix_;
+            *raw::as<maths::Mat4>(matrix) = object->display_matrix_;
             std::memcpy(matrix + 12, &object->at_point_, 16);
             static_cast<render::RenderModel*>(level_model)
-                ->render(reinterpret_cast<maths::Mat4*>(matrix), false,
+                ->render(raw::as<maths::Mat4>(matrix), false,
                          static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
             std::memcpy(&level->at_point_, &object->at_point_, 16);
         } else {
@@ -228,9 +230,9 @@ void CinematicTable::update_object_transforms()
     static_cast<gfx::JointClipFrames*>(anim_list_)
         ->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot,
                              static_cast<float>(clock_ - static_cast<double>(camera_start_)),
-                             static_cast<int>(reinterpret_cast<uint32_t>(object_source_)));
+                             static_cast<int>(cell::of(object_source_)));
     // the animated objects of the level (not the cutscene's own)
-    for (int j = 0; j < *reinterpret_cast<int*>(get_bytes(anim_list_) + 8); ++j) {
+    for (int j = 0; j < *raw::as<int>(get_bytes(anim_list_) + 8); ++j) {
         const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
         bool own = false;
         for (int k = object_count_ - 1; k >= 0; --k) {
@@ -255,9 +257,9 @@ void CinematicTable::update_object_transforms()
             // hanging from the parent's bone 0x5A0E0860
             void* skeleton = static_cast<objects::BoneRigModule*>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
             float bone[4], turned[4];
-            static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, reinterpret_cast<maths::Vec4*>(bone));
-            *reinterpret_cast<maths::Vec4*>(turned) =
-                *reinterpret_cast<const maths::Vec4*>(bone) * parent->display_matrix_;
+            static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, raw::as<maths::Vec4>(bone));
+            *raw::as<maths::Vec4>(turned) =
+                *raw::as<const maths::Vec4>(bone) * parent->display_matrix_;
             const float* offset = turned;
             const float* at = &parent->at_point_.x;
             auto* position = &object->at_point_.x;
@@ -267,7 +269,7 @@ void CinematicTable::update_object_transforms()
             position[1] = static_cast<float>(static_cast<double>(at[1]) + offset[1]);
             position[3] = 1.0f;
             float joint_mat[16];
-            static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, reinterpret_cast<maths::Mat4*>(joint_mat));
+            static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, raw::as<maths::Mat4>(joint_mat));
             float owner_mat[16];
             std::memcpy(owner_mat, &parent->display_matrix_, 64);
             std::memcpy(owner_mat + 12, at, 16);

@@ -27,6 +27,8 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -81,9 +83,9 @@ bool anim_complete(ObjectModule* blender) { return get_blender(blender)->is_clip
 // The motion component's (0x0A015E17) path follower, 0x00423510 (or null).
 PathFollower* motion_path(ObjectModule* motion)
 {
-    return static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    return static_cast<PathFollower*>(raw::as<MotionPathMembers>(motion)->get_path_follower());
 }
-uint32_t& motion_flags(ObjectModule* motion) { return reinterpret_cast<MotionPathMembers*>(motion)->path_flags_; }
+uint32_t& motion_flags(ObjectModule* motion) { return raw::as<MotionPathMembers>(motion)->path_flags_; }
 
 // `out` = `in` (all four) times `m`, summed as 0x0040AF60 does.
 void xform(const maths::Mat4& m, maths::Vec4& out, const maths::Vec4& in) { m.xform(out, in); }
@@ -150,7 +152,7 @@ memory::owner<ObjectModule*> ObstacleDodgeModule::fabricate() { return new Obsta
 // 0x004E3310
 void ObstacleDodgeModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kAvoid), g_avoid_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kAvoid), g_avoid_member_functions, 0x18);
 }
 
 // 0x004E3660
@@ -238,7 +240,7 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, f
 void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
 {
     // The checksum is read into the parameters' own argument slot: without one it's the pointer's value.
-    auto anim = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(params));
+    auto anim = static_cast<uint32_t>(cell::address(params));
     switch (get_quarter(angle)) {
     case 0:
     case 4:

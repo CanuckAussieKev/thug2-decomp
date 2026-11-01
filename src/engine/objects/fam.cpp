@@ -22,6 +22,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -70,7 +71,7 @@ FamComponent::FamComponent() { kind_tag_ = kType; }
 // 0x0041D170
 void FamComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_fam_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_fam_member_functions, 0x18);
 }
 
 // 0x0041D190 (0x0041D1A0 the deleting one)

@@ -31,6 +31,7 @@
 #include "game/rider/looping_sound.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/entity_hub.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -106,7 +107,7 @@ KinematicsModule* get_motion(GameEntity* object)
 {
     return static_cast<KinematicsModule*>(object->fetch_module(kMotion));
 }
-MotionPathMembers* motion_path(KinematicsModule* motion) { return reinterpret_cast<MotionPathMembers*>(motion); }
+MotionPathMembers* motion_path(KinematicsModule* motion) { return raw::as<MotionPathMembers>(motion); }
 
 GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider()); }
 
@@ -297,7 +298,7 @@ bool PedestrianBrainModule::avoid_peds()
     if (count <= 0)
         return false;
     for (; count; --count, ++slot) {
-        auto* other = reinterpret_cast<GameEntity*>(slot->owner_object_);
+        auto* other = static_cast<GameEntity*>(slot->owner_object_);
         if (!other || other == entity_)
             continue;
         const double max_y = script::fetch_float(kMaxYDistance);
@@ -588,7 +589,7 @@ bool PedestrianBrainModule::probe_ground(const maths::Vec4* start, const maths::
     for (int i = 0; i < 3; ++i) {
         const uint32_t vertex = geometry->small_faces_
                                     ? geometry->faces_[face * 8 + 4 + i]
-                                    : *reinterpret_cast<uint16_t*>(geometry->faces_ + face * 10 + 4 + 2 * i);
+                                    : *raw::as<uint16_t>(geometry->faces_ + face * 10 + 4 + 2 * i);
         triangle->corners[i] = object->read_vertex_point(static_cast<int>(static_cast<uint16_t>(vertex)));
     }
     *point = f->contact_pos_;
@@ -633,7 +634,7 @@ void PedestrianBrainModule::stick_to_ground_ped()
                              static_cast<float>(static_cast<double>(dy) + pos.y), static_cast<float>(dz + pos.z),
                              static_cast<float>(static_cast<double>(dw) + pos.w)};
     maths::Vec4 point;
-    if (probe_ground(&start, &end, &point, reinterpret_cast<GroundTriangle*>(&motion->ground_triangle_[0])))
+    if (probe_ground(&start, &end, &point, raw::as<GroundTriangle>(&motion->ground_triangle_[0])))
         entity_->at_point_ = point;
 }
 
@@ -644,7 +645,7 @@ void PedestrianBrainModule::align_to_ground()
     if (!motion)
         return;
     GroundTriangle t{};
-    t.get_assign(*reinterpret_cast<GroundTriangle*>(&motion->ground_triangle_[0]));
+    t.get_assign(*raw::as<GroundTriangle>(&motion->ground_triangle_[0]));
     const maths::Vec4* c = t.corners;
     const double e1x = static_cast<double>(c[1].x) - c[0].x;
     const double e1y = static_cast<double>(c[1].y) - c[0].y;

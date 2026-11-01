@@ -7,6 +7,7 @@
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/objects/signal.h"
+#include "engine/core/pointer_cell.h"
 
 // The object tracker (GameObjects::EventWaitBoard, 0xB21C bytes, the singleton 0x006F0FC0 with its use count 0x006F0FC4):
 // - the game objects by id (+0x08) and their aliases (+0x0C) - find_object / ObjectExists / AssignAlias;
@@ -40,7 +41,7 @@ public:
     // 0x00462530 (0x00462550 the deleting destructor): out of its list (linked to itself again).
     void uncouple();
 
-    [[nodiscard]] bool is_head() const { return payload_ == reinterpret_cast<script::Script*>(-1); }
+    [[nodiscard]] bool is_head() const { return payload_ == cell::pointer<script::Script>(-1); }
 
     script::Script* payload_; // the head: -1
     int rank_;                // always 0

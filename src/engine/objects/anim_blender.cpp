@@ -20,7 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/lists/chain_start.h"
 #include "game/rider/thaw_bmx.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -29,6 +29,9 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -50,11 +53,11 @@ constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
 constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
 constexpr float kMinWeight = 0.00001f;
 
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 
 using Channel = gfx::BlendChannel;
-memory::ListNode* get_link(Channel* channel) { return reinterpret_cast<memory::ListNode*>(channel); }
-Channel* as_channel(memory::ListNode* node) { return reinterpret_cast<Channel*>(node); }
+memory::ListNode* get_link(Channel* channel) { return raw::as<memory::ListNode>(channel); }
+Channel* as_channel(memory::ListNode* node) { return raw::as<Channel>(node); }
 // A node as the original masks it: null when it's the head.
 Channel* masked(memory::ListNode* node) { return is_head(node) ? nullptr : as_channel(node); }
 // The next channel after `channel` (or the head).
@@ -65,7 +68,7 @@ bool is_over(memory::ListNode* node) { return is_head(node) || !node; }
 template <typename T>
 T& prop(void* object, int offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 uint32_t& ident_no(Channel* channel) { return channel->ident_; }
 
@@ -81,7 +84,7 @@ memory::owner<ObjectModule*> AnimBlenderComponent::fabricate() { return new Anim
 // 0x00419690
 void AnimBlenderComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_anim_blender_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_anim_blender_member_functions, 0x18);
 }
 
 // 0x0041A410
@@ -110,10 +113,10 @@ AnimBlenderComponent::~AnimBlenderComponent()
     for (int pass = 0; pass < 2; ++pass) {
         auto** head = static_cast<void**>(observers_);
         void* result = nullptr;
-        reinterpret_cast<objects::PointerList*>(&observers_)
-            ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
-                        reinterpret_cast<objects::PointerListNode*>(head ? head[1] : nullptr),
-                        reinterpret_cast<objects::PointerListNode*>(head));
+        raw::as<objects::PointerList>(&observers_)
+            ->get_erase(raw::as<objects::PointerListNode*>(&result),
+                        raw::as<objects::PointerListNode>(head ? head[1] : nullptr),
+                        raw::as<objects::PointerListNode>(head));
     }
     memory::Hub::get_pull()->dealloc(observers_);
     lanes_.uncouple(); // (0x00419D70)
@@ -157,7 +160,7 @@ void AnimBlenderComponent::tick_frame()
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     auto skeleton = [this]() {
-        return reinterpret_cast<gfx::Rig*>(static_cast<objects::BoneRigModule*>(bone_rig_)->bone_rig_);
+        return raw::as<gfx::Rig>(static_cast<objects::BoneRigModule*>(bone_rig_)->bone_rig_);
     };
     if (count == 1) {
         notify_observers(gfx::g_blend_buffer);

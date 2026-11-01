@@ -31,7 +31,7 @@
 #include "game/rider/rider.h"
 #include "platform/stopwatch.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
@@ -40,6 +40,8 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -307,8 +309,8 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script*)
     still_frames_ = 0;
     // (Without linear or angular the original uses whatever was on its stack.)
     maths::Vec4 linear, angular, turned;
-    params->fetch_vec("linear", reinterpret_cast<script::VectorValue*>(&linear), 0);
-    params->fetch_vec("angular", reinterpret_cast<script::VectorValue*>(&angular), 0);
+    params->fetch_vec("linear", &linear, 0);
+    params->fetch_vec("angular", &angular, 0);
     linear = basis_frame_.rotate_vector(turned, linear);
     angular = basis_frame_.rotate_vector(turned, angular);
     const double mass = 1.0 / inv_mass_;
@@ -361,7 +363,7 @@ bool DrivableModule::all_wheels_are_in_contact(script::Struct*, script::Script*)
 bool DrivableModule::kick_randomly(script::Struct* params, script::Script*)
 {
     maths::Vec4 along;
-    params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&along), 1);
+    params->fetch_vec(kOffset, &along, 1);
     kick_randomly_along(&along);
     return true;
 }
@@ -408,11 +410,11 @@ uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_resta
 const uint8_t* model_geometry(ObjectModule* model)
 {
     void* instance = static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_;
-    return reinterpret_cast<const uint8_t*>(static_cast<render::RenderModel*>(instance)->get_asset_hierarchy());
+    return cell::pointer<const uint8_t>(static_cast<render::RenderModel*>(instance)->get_asset_hierarchy());
 }
 const float* wheel_place(const uint8_t* geometry, int i)
 {
-    return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50);
+    return raw::as<const float>(geometry + 0xE0 + i * 0x50);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
 void* skeleton_of(ObjectModule* skeleton) { return static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_; }
@@ -442,7 +444,7 @@ DrivableModule::~DrivableModule()
 {
     if (wheels_) {
         // (as `delete[]`: the count before the array, the wheels destroyed last to first)
-        int* block = reinterpret_cast<int*>(wheels_) - 1;
+        int* block = raw::as<int>(wheels_) - 1;
         for (int i = *block - 1; i >= 0; --i)
             wheels_[i].~Wheel();
         memory::Hub::get_pull()->dealloc(block);
@@ -462,7 +464,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         debug_mode_ = 0;
     if (params->has_entry_named(0x93346B8C)) {
         // (read into the original's argument slot: missing, the height is that pointer's bits)
-        auto height = std::bit_cast<float>(reinterpret_cast<uint32_t>(params));
+        auto height = std::bit_cast<float>(cell::of(params));
         params->fetch_float(0x93346B8C, &height, 0);
         balance_point_ = {0.0f, height, 0.0f, 1.0f};
     }
@@ -471,7 +473,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         inv_mass_ = static_cast<float>(static_cast<double>(kGravity) / inv_mass_);
     }
     if (params->has_entry_named(0x8C6473EC)) { // moment_of_inertia (its w into +0x168)
-        params->fetch_vec(0x8C6473EC, reinterpret_cast<script::VectorValue*>(inv_moments_), 0);
+        params->fetch_vec(0x8C6473EC, raw::as<script::VectorValue>(inv_moments_), 0);
         for (float& moment : inv_moments_)
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
     }
@@ -502,10 +504,10 @@ void DrivableModule::configure_from_data(script::Struct* params)
         const int count = static_cast<int>(colliders->extent_);
         float sum = 0.0f;
         for (int k = count - 1; k >= 0; --k) {
-            auto* points = reinterpret_cast<script::Array*>(colliders->fetch_part(static_cast<uint32_t>(k)));
+            auto* points = colliders->array_at(static_cast<uint32_t>(k));
             Collider& c = colliders_[k];
             auto point = [points](int i) {
-                return reinterpret_cast<const float*>(points->fetch_part(static_cast<uint32_t>(i))) + 1; // (x, y, z)
+                return cell::pointer<const float>(points->fetch_part(static_cast<uint32_t>(i))) + 1; // (x, y, z)
             };
             const float* p = point(0);
             c.corner.x = p[0];
@@ -536,7 +538,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
             c.lengths[1] = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
         }
         auto distance = static_cast<float>(static_cast<double>(sum) * kThird / count - kCameraBack);
-        reinterpret_cast<Rider*>(local_skater())->set_42b_d60(distance);
+        static_cast<Rider*>(local_skater())->set_42b_d60(distance);
     }
 
     // engine: drive_torque and 0xB2268648 in foot-pounds, upshift_rpm, differential_ratio, reverse_torque_ratio,
@@ -582,14 +584,14 @@ void DrivableModule::configure_from_data(script::Struct* params)
             Wheel* array = nullptr;
             if (block) {
                 *block = count;
-                array = reinterpret_cast<Wheel*>(block + 1);
+                array = raw::as<Wheel>(block + 1);
                 for (int i = 0; i < count; ++i)
                     new (&array[i]) Wheel; // (default-initialised: only the feeler is set up)
             }
             wheels_ = array;
         }
         for (int i = wheel_count_ - 1; i >= 0; --i)
-            read_wheel(&wheels_[i], reinterpret_cast<script::Struct*>(wheels->fetch_part(static_cast<uint32_t>(i))));
+            read_wheel(&wheels_[i], wheels->struct_at(static_cast<uint32_t>(i)));
     }
     if (params->has_entry_named(0x371BADFF)) {
         script::Struct* all = nullptr;
@@ -610,7 +612,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     quat_normalize(&orientation_, 1.0f);
     if (params->has_entry_named(0xAA99C521)) {
         maths::Vec4 saved{0.0f, 0.0f, 0.0f, 1.0f};
-        params->fetch_vec(0xC97F3AA9, reinterpret_cast<script::VectorValue*>(&saved), 0);
+        params->fetch_vec(0xC97F3AA9, &saved, 0);
         orientation_.x = saved.x;
         orientation_.y = saved.y;
         orientation_.z = saved.z;
@@ -622,12 +624,12 @@ void DrivableModule::configure_from_data(script::Struct* params)
     }
     at_point_ = entity_->at_point_;
     if (params->has_entry_named(0x7F261953)) {
-        params->fetch_vec(0x7F261953, reinterpret_cast<script::VectorValue*>(&at_point_), 0);
+        params->fetch_vec(0x7F261953, &at_point_, 0);
         entity_->at_point_ = at_point_;
     }
     rider_shown_ = rider_shown_ || params->has_bare_flag(kSkater);
     if (params->has_bare_flag(kSkater)) {
-        params->fetch_vec(0xEC86EF7A, reinterpret_cast<script::VectorValue*>(&skater_pos_), 1); // skater_pos
+        params->fetch_vec(0xEC86EF7A, &skater_pos_, 1); // skater_pos
         params->read_hash_value(0xDA75A33E, &rider_anim_name_, 1);                              // skater_anim
     }
     params->read_hash_value(0x0EDCF90E, &sounds_name_, 0); // sounds
@@ -669,7 +671,7 @@ void DrivableModule::seal()
         const float* place = wheel_place(geometry, i);
         wheels_[i].offset = {-place[0], place[2], -place[1], 1.0f};
     }
-    const maths::Mat4 bone = *reinterpret_cast<const maths::Mat4*>(geometry + 0x60);
+    const maths::Mat4 bone = *raw::as<const maths::Mat4>(geometry + 0x60);
     skater_bone_ = {-bone.row[3].x, bone.row[3].z, -bone.row[3].y, 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).

@@ -20,6 +20,8 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/walk_physics.h"
 #include "game/park_editing/park_editor.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -250,7 +252,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
         feeler.entity_.get_release();
         return false;
     }
-    reinterpret_cast<BoxPair*>(&feeler)->get_exchange();
+    raw::as<BoxPair>(&feeler)->get_exchange();
     if (feeler.get_hit_shape(true, false)) {
         feeler.entity_.get_release();
         return false;
@@ -397,7 +399,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
 maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* node)
 {
     maths::Mat4 local;
-    reinterpret_cast<const maths::QuatRotation*>(&node->climb_)->fetch_mat(&local); // the quaternion's
+    raw::as<const maths::QuatRotation>(&node->climb_)->fetch_mat(&local); // the quaternion's
     local.row[0].w = 0.0f;
     local.row[1].w = 0.0f;
     local.row[2].w = 0.0f;
@@ -457,7 +459,7 @@ void GrindRailHub::append_vertex(uint32_t name, script::Struct* params)
         maths::Mat4 matrix;
         const maths::Mat4* built = &matrix.init_from_angles(angles);
         maths::Vec4 quat;
-        reinterpret_cast<maths::QuatRotation*>(&quat)->from_matrix(*built);
+        raw::as<maths::QuatRotation>(&quat)->from_matrix(*built);
         node->climb_ = quat;
     } else {
         node->surface_type_ = 0;
@@ -621,14 +623,14 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
         if (up) {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, node);
             if (static_cast<FootMovement*>(checker)->check_ladder_bottom(
-                    &node->at_point_, &other->at_point_, orientation, reinterpret_cast<Record24*>(extra))) {
+                    &node->at_point_, &other->at_point_, orientation, cell::pointer<Record24>(extra))) {
                 *found = node;
                 return true;
             }
         } else {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, other);
             if (static_cast<FootMovement*>(checker)->check_ladder_top(&other->at_point_, &node->at_point_, orientation,
-                                                                      reinterpret_cast<Record24*>(extra))) {
+                                                                      cell::pointer<Record24>(extra))) {
                 *found = other;
                 return true;
             }
@@ -752,7 +754,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         if (!rail_clear(node_world, next_world))
             continue;
         Record34 record;
-        record.words[12] = reinterpret_cast<uint32_t>(node);
+        record.words[12] = cell::of(node);
         maths::Vec4 line_world, rail_world, next_at, node_at;
         const maths::Vec4* line_at = to_world(&line_world, &on_line);
         const maths::Vec4* rail_at = to_world(&rail_world, &on_rail);
@@ -819,7 +821,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
     };
     num_ = 0;
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         if (!skipped(node) && is_rail(node))
             ++num_;
     }
@@ -846,7 +848,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
     adding_ = 0;
     const bool all_trick_objects = script::fetch_int_value(kAllRailsTrickObjects) != 0;
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+        auto* node = nodes->struct_at(i);
         if (skipped(node) || !is_rail(node))
             continue;
         const uint32_t name = level_nodes::get_node_name(node);

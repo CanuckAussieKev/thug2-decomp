@@ -28,6 +28,8 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -49,7 +51,7 @@ void model_hide(render::RenderModel* model, bool hide) { model->conceal(hide); }
 void model_hide_geom(render::RenderModel* model, uint32_t name, bool hide) { model->conceal_mesh(name, hide); }
 bool model_replace_texture(render::RenderModel* model, uint32_t mesh, const char* src, const char* dest)
 {
-    return model->replace_texture_with(mesh, src, reinterpret_cast<uint32_t>(dest));
+    return model->replace_texture_with(mesh, src, cell::of(dest));
 }
 void** model_geom(render::RenderModel* model, int index) { return static_cast<void**>(model->fetch_geom(index)); }
 void* model_bone_volumes(render::RenderModel* model) { return model->get_bone_volumes(); }
@@ -58,8 +60,8 @@ int model_test_collision(render::RenderModel* model, maths::Vec4* line, void* sk
 {
     // (the original's seven stack arguments: the line, skeleton and matrix pointers, then a, b, c and d - the extra
     // result's pointer)
-    return model->test_bone_volumes(reinterpret_cast<uint32_t>(line), reinterpret_cast<uint32_t>(skeleton),
-                                    reinterpret_cast<uint32_t>(matrix), a, b, c, reinterpret_cast<uint32_t*>(d));
+    return model->test_bone_volumes(cell::of(line), cell::of(skeleton),
+                                    cell::of(matrix), a, b, c, cell::pointer<uint32_t>(d));
 }
 void* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
@@ -83,7 +85,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-void* net_session_slot() { return reinterpret_cast<void*>(online::g_online_hub); }
+void* net_session_slot() { return raw::as<void>(online::g_online_hub); }
 void* find_player_slot_by_obj(uint32_t id)
 {
     return static_cast<online::Hub*>(net_session_slot())->find_player_slot_by_obj(static_cast<uint16_t>(id));
@@ -326,7 +328,7 @@ void MeshInstanceModule::change_tint(uint32_t color)
     if (!sector_model_)
         return;
     void** geom = model_geom(mesh_instance_, 0);
-    reinterpret_cast<render::Geom*>(geom)->change_tint(color);
+    raw::as<render::Geom>(geom)->change_tint(color);
 }
 
 // 0x00420730

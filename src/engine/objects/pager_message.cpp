@@ -16,6 +16,8 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -46,7 +48,7 @@ void delete_structure(script::Struct* structure)
 // std::list<PagerMessage*>::push_back (0x004964A0, the game's: inserts before the sentinel).
 void get_push_back(PointerList* list, PagerMessage** message)
 {
-    list->splice(list->head, reinterpret_cast<void* const*>(message));
+    list->splice(list->head, raw::as<void* const>(message));
 }
 
 } // namespace
@@ -74,7 +76,7 @@ memory::owner<ObjectModule*> PagerMessageComponent::fabricate() { return new Pag
 // 0x004EC960
 void PagerMessageComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kPagerMessage), g_pager_message_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kPagerMessage), g_pager_message_member_functions,
                                            0x18);
 }
 

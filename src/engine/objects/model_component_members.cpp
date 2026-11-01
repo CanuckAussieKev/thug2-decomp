@@ -20,6 +20,8 @@
 #include "engine/gfx/engine_geom.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -117,12 +119,12 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // (0x0048E480), on (0x0048E4C0) and direction (0x004E3F90).
 void change_ambient_tint(void* lights, const uint8_t* rgba)
 {
-    static_cast<render::ModelLights*>(lights)->change_ambient_tint(reinterpret_cast<const uint32_t*>(rgba));
+    static_cast<render::ModelLights*>(lights)->change_ambient_tint(raw::as<const uint32_t>(rgba));
 }
 void enable_ambient(void* lights, bool on) { static_cast<render::ModelLights*>(lights)->switch_ambient_light(on); }
 void change_diffuse_hue(void* lights, int index, const uint8_t* rgba)
 {
-    static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, reinterpret_cast<const uint32_t*>(rgba));
+    static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, raw::as<const uint32_t>(rgba));
 }
 void enable_diffuse(void* lights, int index, bool on)
 {
@@ -197,7 +199,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjGetScaling:
         if (mesh_instance_) {
-            const maths::Vec4 scale = reinterpret_cast<VectorAt1c*>(mesh_instance_)->get_pull();
+            const maths::Vec4 scale = raw::as<VectorAt1c>(mesh_instance_)->get_pull();
             script->args_->put_vec3(kScaling, script::VectorValue{scale.x, scale.y, scale.z, scale.w});
         }
         break;
@@ -239,7 +241,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         int index = 0; // (unset when not given)
         params->fetch_int_value(kIndex, &index, 0);
         maths::Vec4 direction = {0.0f, 0.0f, 1.0f, 0.0f};
-        if (params->fetch_vec(kDirection, reinterpret_cast<script::VectorValue*>(&direction), 0)) {
+        if (params->fetch_vec(kDirection, &direction, 0)) {
             direction.w = 0.0f;
         } else {
             float heading = 0.0f, pitch = 0.0f;
@@ -282,7 +284,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         int power = 0;
         params->fetch_int_value(kSinePower, &power, 0);
         pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
-        params->fetch_vec(kRotationOffset, reinterpret_cast<script::VectorValue*>(&pivot_), 0);
+        params->fetch_vec(kRotationOffset, &pivot_, 0);
         const bool hold = params->has_bare_flag(kHoldOnLastAngle);
         const bool dont_pause = params->has_bare_flag(kDontPause);
         const uint32_t now = dont_pause ? frame_clock::get_time()
@@ -443,7 +445,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         if (params->fetch_list(kArray, &array, 0)) {
             // Each of the array's structures.
             for (uint32_t i = 0; i < array->extent_; ++i) {
-                auto* entry = reinterpret_cast<script::Struct*>(array->fetch_part(i));
+                auto* entry = array->struct_at(i);
                 const char* src = nullptr;
                 const char* dest = nullptr;
                 entry->fetch_text(kSrc, &src, true);
@@ -484,8 +486,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             script::Struct* line_params = nullptr;
             if (params->read_sub_struct(kLine, &line_params, false)) {
                 maths::Vec4 line[2];
-                line_params->fetch_vec(kStart, reinterpret_cast<script::VectorValue*>(&line[0]), 1);
-                line_params->fetch_vec(kEnd, reinterpret_cast<script::VectorValue*>(&line[1]), 1);
+                line_params->fetch_vec(kStart, &line[0], 1);
+                line_params->fetch_vec(kEnd, &line[1], 1);
                 const int hit = test_collision(line, arg, 0, 0, 0);
                 if (hit)
                     script->args_->put_name_key(kCollisionResult, static_cast<uint32_t>(hit));
@@ -497,8 +499,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         const void* skeleton = skeleton_of(bone_rig_);
         maths::Mat4 matrix;
         get_draw_matrix(&matrix);
-        auto volume = static_cast<float>(mesh_instance_->get_bone_volume(reinterpret_cast<uint32_t>(skeleton),
-                                                                         reinterpret_cast<uint32_t>(&matrix), bone));
+        auto volume = static_cast<float>(mesh_instance_->get_bone_volume(cell::of(skeleton),
+                                                                         cell::of(&matrix), bone));
         script->args_->push_float(kBoneVolume, volume);
         break;
     }

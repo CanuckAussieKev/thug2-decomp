@@ -20,6 +20,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -69,17 +70,17 @@ void ImpactDestructModule::configure_from_data(script::Struct* params)
     params->fetch_float(kScale, &size_factor_, 1);
     params->read_hash_value(kOnDestroyScript, &on_collide_script_, 1);
     vel_ = {0.0f, 0.0f, 1.0f, 1.0f};
-    params->fetch_vec(kVel, reinterpret_cast<script::VectorValue*>(&vel_), 1);
+    params->fetch_vec(kVel, &vel_, 1);
     vel_.make_unit();
 }
 
 // 0x0041C330
-void ImpactDestructModule::seal() { suspend_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSuspend)); }
+void ImpactDestructModule::seal() { suspend_ = raw::bytes(entity_->fetch_module(kSuspend)); }
 
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
 {
-    if (!g_online_hub->in_net_game() && reinterpret_cast<DormancyModule*>(suspend_)->far_)
+    if (!g_online_hub->in_net_game() && raw::as<DormancyModule>(suspend_)->far_)
         return;
     const int& offset = g_clock_offset;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
@@ -119,8 +120,8 @@ void ImpactDestructModule::tick_frame()
                 script::Struct* params = script::spawn_param_bag();
                 if (params)
                     new (params) script::Struct;
-                params->put_vec3(kPos, *reinterpret_cast<script::VectorValue*>(&point));
-                params->put_vec3(kVel, *reinterpret_cast<script::VectorValue*>(&vel_));
+                params->put_vec3(kPos, *&point);
+                params->put_vec3(kVel, *&vel_);
                 params->push_float(kScale, size_factor_);
                 script::launch_script(on_collide_script_, params, nullptr, false, nullptr);
                 if (params) {

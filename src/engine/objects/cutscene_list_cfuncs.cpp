@@ -11,6 +11,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -191,10 +192,10 @@ bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
         delete_entry(entry_of(node));
     }
     Elem* result = nullptr;
-    reinterpret_cast<objects::PointerList*>(&list)->get_erase(
-        reinterpret_cast<objects::PointerListNode**>(&result),
-        reinterpret_cast<objects::PointerListNode*>(list.head_ ? list.head_->next : nullptr),
-        reinterpret_cast<objects::PointerListNode*>(list.head_));
+    raw::as<objects::PointerList>(&list)->get_erase(
+        raw::as<objects::PointerListNode*>(&result),
+        raw::as<objects::PointerListNode>(list.head_ ? list.head_->next : nullptr),
+        raw::as<objects::PointerListNode>(list.head_));
     flushing() = false;
     return true;
 }

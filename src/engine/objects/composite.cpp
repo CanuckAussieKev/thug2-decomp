@@ -21,6 +21,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/entity_hub.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -89,11 +91,11 @@ Struct* fetch_vertex(uint32_t name, int assert) { return level_nodes::fetch_vert
 // the quaternion).
 void quat_to_matrix(const float* quat, maths::Mat4* matrix)
 {
-    reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix);
+    raw::as<const maths::QuatRotation>(quat)->fetch_mat(matrix);
 }
 void matrix_to_quat(float* quat, const maths::Mat4* matrix)
 {
-    reinterpret_cast<maths::QuatRotation*>(quat)->from_matrix(*matrix);
+    raw::as<maths::QuatRotation>(quat)->from_matrix(*matrix);
 }
 // A manager's object list.
 memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->fetch_object_set(); }
@@ -174,7 +176,7 @@ float feet_as_inches() { return g_composite_feet_to_inches; } // 12
 bool Entity::invoke_method(MemberFunctionEntry* entry, Struct* params, Script* script)
 {
     if (entry->method_code_) {
-        void* self = reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_;
+        void* self = raw::bytes(this) + entry->this_adjustment_;
         return entry->method_code_(self, entry->callsign_, params, script) != 0;
     }
     return invoke_method_by_name(entry->callsign_, params, script);
@@ -334,14 +336,14 @@ void GameEntity::build_modules_from_list(Array* components, Struct* extra)
     const uint32_t* elements = components->find_array_value();
     const int count = static_cast<int>(components->extent_);
     for (int i = 0; i < count; ++i)
-        create_component_from_structure(reinterpret_cast<Struct*>(elements[i]), extra);
+        create_component_from_structure(cell::pointer<Struct>(elements[i]), extra);
 }
 
 // 0x0045EE20. With no component= the type looked up is `params`' own address [quirk]; a type the manager can't
 // make gives a null component, added all the same [bug: crash]; so does a failed allocation of the merged copy.
 void GameEntity::create_component_from_structure(Struct* params, Struct* extra)
 {
-    auto type = reinterpret_cast<uint32_t>(params);
+    auto type = cell::of(params);
     params->read_hash_value(kComponent, &type, 1);
     ObjectModule* component = spawn_module(type);
     attach_module(component);
@@ -411,7 +413,7 @@ bool GameEntity::invoke_method_by_name(uint32_t name, Struct* params, Script* sc
 // 0x0045D7F0: the unnamed string (the details' title) is read for the debug output.
 bool GameEntity::obj_print_details(Struct* params, Script* /*script*/)
 {
-    const char* text = reinterpret_cast<const char*>(params);
+    const char* text = raw::chars(params);
     params->fetch_text(kUnnamed, &text, 0);
     print_object_details(text);
     return true;
@@ -427,7 +429,7 @@ bool GameEntity::obj_create_component(Struct* params, Script* /*script*/)
 // 0x0045D830: position= (if given) as the position.
 bool GameEntity::obj_set_position(Struct* params, Script* /*script*/)
 {
-    params->fetch_vec(kPosition, reinterpret_cast<script::VectorValue*>(&at_point_), 0);
+    params->fetch_vec(kPosition, &at_point_, 0);
     return true;
 }
 
@@ -569,7 +571,7 @@ bool GameEntity::obj_get_type(Struct* /*params*/, Script* script)
 // is `params`' own address [quirk].
 bool GameEntity::obj_has_component(Struct* params, Script* /*script*/)
 {
-    auto type = reinterpret_cast<uint32_t>(params);
+    auto type = cell::of(params);
     params->read_hash_value(kUnnamed, &type, 1);
     return fetch_module(type) != nullptr;
 }

@@ -103,7 +103,7 @@ void CbBoxComponent::init_rect(Rect2* rect, script::Struct* params)
     rect->level_y_ = 0.0f;
     maths::Vec4 offset;
     offset.w = 0.0f; // (x, y and z uninitialised in the original until found)
-    if (params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&offset), 0)) {
+    if (params->fetch_vec(kOffset, &offset, 0)) {
         offset.feet_as_inches();
         rect->shift_.x = offset.x + rect->shift_.x;
         rect->shift_.y = offset.y + rect->shift_.y;

@@ -29,7 +29,7 @@
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/objects/wait_and_die.h"
 #include "game/rider/skater_state.h"
@@ -38,6 +38,8 @@
 #include "engine/objects/model_component.h"
 #include "game/rider/tagging.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace {
 
@@ -167,7 +169,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
     get_rails_of(walk) = get_level_rails();
     const maths::Vec4* towards = direction(walk, &buffer);
     float snap = script::fetch_float(margin);
-    auto* record = reinterpret_cast<objects::Record34*>(found);
+    auto* record = raw::as<objects::Record34>(found);
     if (get_rails_of(walk)->find_rail(start, end, towards, walk, record, snap)) {
         stop_riding(walk);
         return true;
@@ -184,7 +186,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
         towards = direction(walk, &buffer);
         snap = script::fetch_float(margin);
         if (get_rails_of(walk)->find_rail(&local_start, &local_end, towards, walk, record, snap)) {
-            reinterpret_cast<walk::MovableContact*>(walk->ride_)->start_riding(component->entity_);
+            raw::as<walk::MovableContact>(walk->ride_)->start_riding(component->entity_);
             return true;
         }
     }
@@ -854,7 +856,7 @@ void objects::FootMovement::place_on_hang()
 // 0x0043FE30
 bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Vec4* point, Record34* record)
 {
-    auto* rail = reinterpret_cast<RailHit*>(record);
+    auto* rail = raw::as<RailHit>(record);
     rail->point = *point;
     const GrindPoint* node = rail->node;
     const maths::Vec4 side = {-rail->facing.z, 0.0f, rail->facing.x, 1.0f};
@@ -995,7 +997,7 @@ void objects::FootMovement::shimmy(float move)
 bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* on_rail,
                                        const maths::Vec4* on_line, float along, Record34* record, bool away)
 {
-    auto* rail = reinterpret_cast<RailHit*>(record);
+    auto* rail = raw::as<RailHit>(record);
     const float origin = get_param(kHangVertOriginOffset);
     // in the air: only rails at or below the line, and close to it
     if (state_ == 1) {
@@ -1231,7 +1233,7 @@ bool objects::FootMovement::check_ladder_top(const maths::Vec4* bottom, const ma
         return false;
     // ladder_top_offset_up below the top, ladder_climb_offset out of the ladder (x and y's products unrounded, as the
     // x87 code subtracts them)
-    auto* ladder = reinterpret_cast<FoundLadder*>(record);
+    auto* ladder = raw::as<FoundLadder>(record);
     const float offset = get_param(kLadderTopOffsetUp);
     const float oy = offset * up.y;
     const float oz = offset * up.z;
@@ -1271,7 +1273,7 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     if (top->y - static_cast<double>(up_y) * get_param(kLadderTopOffsetUp) < on_ladder->y)
         return false;
     // the point ladder_climb_offset out of it there, if nothing is in the way
-    auto* ladder = reinterpret_cast<FoundLadder*>(record);
+    auto* ladder = raw::as<FoundLadder>(record);
     const float climb = get_param(kLadderClimbOffset);
     const maths::Vec4& at = orientation->row[2];
     const float cx = climb * at.x;
@@ -1340,7 +1342,7 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
     if (dot < std::cos(static_cast<double>(max_angle) * 0.017453292384743690))
         return false;
     // ladder_bottom_offset_up above the bottom, ladder_climb_offset out of the ladder
-    auto* ladder = reinterpret_cast<FoundLadder*>(record);
+    auto* ladder = raw::as<FoundLadder>(record);
     const float offset = get_param(kLadderBottomOffsetUp);
     const float ox = offset * up.x;
     const float oy = offset * up.y;
@@ -1409,7 +1411,7 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
     const float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
     const float height = get_param(kMaxVertSnapDistance);
     FoundLadder ladder{};
-    if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, reinterpret_cast<uint32_t>(&ladder),
+    if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, cell::of(&ladder),
                                         &hang_node_))
         return false;
     grabbed_ladder(this);
@@ -1435,7 +1437,7 @@ bool objects::FootMovement::climb_onto_top()
     const float height = get_param(kMaxVertSnapDistance);
     const float radius = get_param(kMaxHorizSnapDistance);
     FoundLadder ladder{};
-    if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, reinterpret_cast<uint32_t>(&ladder),
+    if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, cell::of(&ladder),
                                         &hang_node_))
         return false;
     grabbed_ladder(this);
@@ -1457,7 +1459,7 @@ bool objects::FootMovement::climb_onto_top()
 bool objects::FootMovement::grab_ladder(const maths::Vec4* start, const maths::Vec4* end)
 {
     FoundLadder ladder{};
-    if (!get_level_rails()->find_ladder_on_line(start, end, this, reinterpret_cast<Record24*>(&ladder), &hang_node_))
+    if (!get_level_rails()->find_ladder_on_line(start, end, this, raw::as<Record24>(&ladder), &hang_node_))
         return false;
     get_rails_of(this) = get_level_rails();
     let_go_of_ride(ride_);
@@ -1557,9 +1559,9 @@ void objects::FootMovement::update_ladder()
 // 0x0043EB80
 void walk::MovableContact::start_riding(objects::GameEntity* object)
 {
-    let_go_of_ride(reinterpret_cast<objects::MovingSurfaceModule*>(this));
+    let_go_of_ride(raw::as<objects::MovingSurfaceModule>(this));
     void* memory = memory::alloc(sizeof(objects::RideTracker));
-    reinterpret_cast<objects::MovingSurfaceModule*>(this)->ride_ =
+    raw::as<objects::MovingSurfaceModule>(this)->ride_ =
         memory ? memory::construct_in<objects::RideTracker>(memory, object) : nullptr;
 }
 

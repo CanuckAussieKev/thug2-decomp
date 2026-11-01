@@ -30,9 +30,12 @@
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -90,7 +93,7 @@ void release_trick_object_manager()
 // 0x00588120
 ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter)
 {
-    const auto* cluster = reinterpret_cast<const TrickObjectCluster*>(object);
+    const auto* cluster = raw::as<const TrickObjectCluster>(object);
     if (cluster->owned_ && counter->cluster == ints::as_unsigned(cluster->owner_))
         counter->count += 1;
     return counter;
@@ -188,18 +191,17 @@ constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the sk
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
 // (r, g, b, a; zero without a mesh), the mesh's (+0x14) vtable +0x18 set.
 uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-void clear_sector_color(uint8_t* sector) { reinterpret_cast<render::WorldCell*>(sector)->wipe_tint(); }
+void clear_sector_color(uint8_t* sector) { raw::as<render::WorldCell>(sector)->wipe_tint(); }
 uint32_t* get_sector_color(uint8_t* sector, uint32_t* out)
 {
-    return reinterpret_cast<uint32_t*>(
-        reinterpret_cast<render::WorldCell*>(sector)->fetch_tint(reinterpret_cast<uint8_t*>(out)));
+    return raw::as<uint32_t>(raw::as<render::WorldCell>(sector)->fetch_tint(raw::bytes(out)));
 }
 
 // Graffiti colour `index`: graffitiColors[index]'s r, g, b.
 script::Array* graffiti_color(int index)
 {
     script::Array* colors = script::fetch_list("graffitiColors");
-    return reinterpret_cast<script::Array*>(colors->fetch_part(static_cast<uint32_t>(index)));
+    return colors->array_at(static_cast<uint32_t>(index));
 }
 
 } // namespace
@@ -214,7 +216,7 @@ bool TrickSpot::set_graffiti_color(int index)
     rgba[1] = static_cast<uint8_t>(color->fetch_part(1));
     rgba[2] = static_cast<uint8_t>(color->fetch_part(2));
     rgba[3] = 0x80;
-    if (auto* geom = static_cast<render::Geom*>(reinterpret_cast<render::WorldCell*>(sector)->geom_handle_)) {
+    if (auto* geom = static_cast<render::Geom*>(raw::as<render::WorldCell>(sector)->geom_handle_)) {
         uint32_t packed = 0;
         std::memcpy(&packed, rgba, 4);
         geom->change_tint(packed);
@@ -274,7 +276,7 @@ TrickObjectCluster* TrickSpotHub::get_cluster(uint32_t name)
 int TrickSpotHub::count_clusters_held_by(int player)
 {
     ClusterCount counter = {0, static_cast<uint32_t>(player)};
-    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&count_object_in_cluster), &counter);
+    clusters_.run_hook<&count_object_in_cluster>(&counter);
     return counter.count;
 }
 
@@ -306,7 +308,7 @@ void find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search)
 uint32_t TrickSpotHub::get_cluster_name(uint8_t index)
 {
     ClusterAtIndex search = {0, index, false};
-    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&find_cluster_at_index), &search);
+    clusters_.run_hook<&find_cluster_at_index>(&search);
     return search.name;
 }
 
@@ -316,7 +318,7 @@ void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer
     if (!cluster->owned_ || cluster->owner_ != writer->player)
         return;
     ClusterIndexSearch search = {cluster->label_, 0, false};
-    writer->manager->clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&find_cluster_index), &search);
+    writer->manager->clusters_.run_hook<&find_cluster_index>(&search);
     writer->buffer[writer->count + 8] = search.index; // (a byte: past 255 clusters it wraps, as THUG2's and THUGPRO's)
     ++writer->count;
     ++writer->buffer[writer->player];
@@ -329,7 +331,7 @@ int TrickSpotHub::write_graffiti_state(uint8_t* buffer)
     for (int player = 0; player < 8; ++player) {
         buffer[player] = 0;
         writer.player = player;
-        clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&write_held_cluster), &writer);
+        clusters_.run_hook<&write_held_cluster>(&writer);
         debug::printf("Building graffiti state message %d\n", buffer[player]);
     }
     return writer.count + 8;
@@ -402,7 +404,7 @@ void TrickObjectHead::unlink_all()
 {
     // (The original reads the first node's data before checking the node for null.)
     ListNode* node = next;
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return;
     while (node) {
         ListNode* following = node->next;
@@ -410,7 +412,7 @@ void TrickObjectHead::unlink_all()
         following->prev = node->prev;
         node->next = node;
         node->prev = node;
-        node = following->data == reinterpret_cast<void*>(-1) ? nullptr : following;
+        node = following->data == memory::ListNode::head_marker() ? nullptr : following;
     }
 }
 
@@ -430,13 +432,13 @@ namespace {
 uint32_t count_objects(const memory::ListNode& head)
 {
     uint32_t count = 0;
-    for (const memory::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+    for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker() && node; node = node->next)
         ++count;
     return count;
 }
 memory::ListNode* object_at(const memory::ListNode& head, uint32_t index)
 {
-    for (memory::ListNode* node = head.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+    for (memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker() && node; node = node->next) {
         if (index-- == 0)
             return node;
     }
@@ -452,7 +454,7 @@ TrickObjectCluster::~TrickObjectCluster()
         if (auto* object = static_cast<TrickSpot*>(object_at(entities_, 0)->data))
             object->teardown(1);
     }
-    reinterpret_cast<TrickObjectHead&>(entities_).unlink_all();
+    memory::bits_as<TrickObjectHead>(entities_).unlink_all();
     entities_.uncouple();
     list_link_.uncouple();
 }
@@ -593,7 +595,7 @@ bool TrickSpotHub::release_player_clusters(int player)
         static HeldClusterRelease release;
         release.player = player;
         release.count = 0;
-        clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&release_held_cluster), &release);
+        clusters_.run_hook<&release_held_cluster>(&release);
         if (release.count == 0)
             return false;
         modules::g_skate_module->broadcast_points(false);
@@ -613,7 +615,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
         net::AppHost* server = net->host_;
         net::Conn* conn = nullptr;
         if (const objects::Entity* skater =
-                reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player))) {
+                static_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player))) {
             if (const online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)))
                 conn = info->conn_;
         }
@@ -675,7 +677,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
                 server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data,
                                           "TrickObj Buffer", kGroupGame, true, false);
         }
-        reinterpret_cast<modules::Skate*>(skate)->broadcast_points(false);
+        static_cast<modules::Skate*>(skate)->broadcast_points(false);
         if (conn->is_host_local()) // (no null check: as the original)
             return;
     }
@@ -691,7 +693,7 @@ void TrickSpotHub::give_free_clusters(int player)
 {
     FreeClusterList list{};
     list.count = 0;
-    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&list_free_cluster), &list);
+    clusters_.run_hook<&list_free_cluster>(&list);
     if (list.count)
         score_trick_objects(player, 1000, list.count, list.names, true);
 }

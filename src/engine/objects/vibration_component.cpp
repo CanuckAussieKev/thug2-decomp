@@ -18,6 +18,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -53,7 +54,7 @@ PadRumbleModule::PadRumbleModule()
 // 0x0043D490
 void PadRumbleModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_vibration_component_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kType), g_vibration_component_member_functions,
                                            0x18);
 }
 

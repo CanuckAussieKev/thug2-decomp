@@ -26,6 +26,8 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -40,18 +42,18 @@ constexpr uint32_t kName = 0xA1DC81F9;            // Name
 // The model component's model (+0x208).
 uint8_t* model_of(ObjectModule* model)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
+    return raw::bytes(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
 }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
 uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-render::HitMesh* sector_collision(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->hit_body_; }
+render::HitMesh* sector_collision(uint8_t* sector) { return raw::as<render::WorldCell>(sector)->hit_body_; }
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
 const uint8_t* bone_of(uint8_t* model)
 {
-    return reinterpret_cast<const uint8_t*>(reinterpret_cast<render::RenderModel*>(model)->get_asset_hierarchy());
+    return cell::pointer<const uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
 }
 
 void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -101,18 +103,18 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
 void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geometry)
 {
     if (geometry) {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, reinterpret_cast<int>(entity_));
+        hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, static_cast<int>(cell::of(entity_)));
         return;
     }
     uint8_t* model = model_of(entity_->fetch_module(kModelModuleName));
     auto* data = static_cast<uint8_t*>(
-        assets::asset_manager()->get_asset_data(reinterpret_cast<render::RenderModel*>(model)->source_path_, 0));
+        assets::asset_manager()->get_asset_data(raw::as<render::RenderModel>(model)->source_path_, 0));
     if (data) {
         hit_shape_ =
-            render::build_dynamic_hit_mesh(type, *reinterpret_cast<render::TriMeshSource**>(data + 0x8C),
-                                           *reinterpret_cast<int*>(data + 0x88), reinterpret_cast<int>(entity_));
+            render::build_dynamic_hit_mesh(type, *raw::as<render::TriMeshSource*>(data + 0x8C),
+                                           *raw::as<int>(data + 0x88), static_cast<int>(cell::of(entity_)));
     } else {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, reinterpret_cast<int>(entity_));
+        hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, static_cast<int>(cell::of(entity_)));
     }
 }
 
@@ -129,12 +131,12 @@ void ContactShapeModule::tick_frame()
         collision->change_facing(&entity_->display_matrix_);
         return;
     }
-    const auto* translation = reinterpret_cast<const float*>(bone + 0x40);
+    const auto* translation = raw::as<const float>(bone + 0x40);
     const maths::Vec4& pos = entity_->at_point_;
     const maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
-    d3dx_multiply(&orientation, reinterpret_cast<const maths::Mat4*>(bone + 0x10), &entity_->display_matrix_);
+    d3dx_multiply(&orientation, raw::as<const maths::Mat4>(bone + 0x10), &entity_->display_matrix_);
     collision->change_facing(&orientation);
 }
 

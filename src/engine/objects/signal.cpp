@@ -353,7 +353,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
     auto* entries = static_cast<TableRow*>(memory::alloc((num_ + count) * sizeof(TableRow)));
     int used = 0;
     for (int i = 0; i < count; ++i) {
-        auto* handler = reinterpret_cast<Struct*>(handlers->fetch_part(static_cast<uint32_t>(i)));
+        auto* handler = handlers->struct_at(static_cast<uint32_t>(i));
         script::Component* type = handler->step_to_entry(nullptr);
         const script::Component* script = handler->step_to_entry(type);
         if (replace)

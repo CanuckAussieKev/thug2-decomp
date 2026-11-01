@@ -21,6 +21,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
@@ -77,7 +79,7 @@ void CinematicTable::mark_loaded_models()
     script::Array* objects = nullptr;
     call_args_->fetch_list(kObjects, &objects, 1);
     for (uint32_t i = 0; i < objects->extent_; ++i) {
-        auto* object = reinterpret_cast<script::Struct*>(objects->fetch_part(i));
+        auto* object = objects->struct_at(i);
         uint32_t model = 0;
         if (object->read_hash_value(version >= 2 ? kName : kModel, &model, 0) &&
             bundle_ptr_->has_asset(model, kTypeModel))
@@ -118,8 +120,8 @@ bool CinematicTable::finish_loading(int /*unused*/)
 bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const uint32_t* settings)
 {
     if (settings) {
-        unknown34a8_ = reinterpret_cast<void*>(settings[0]);
-        unknown34ac_ = reinterpret_cast<void*>(settings[1]);
+        unknown34a8_ = cell::pointer<void>(settings[0]);
+        unknown34ac_ = cell::pointer<void>(settings[1]);
         flag_34b_0_ = static_cast<uint8_t>(settings[2]);
     } else {
         unknown34a8_ = nullptr;
@@ -187,7 +189,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
 {
     const bool fixed = script::fetch_int_value(kFixedTime) != 0;
     if (!flag_34b_0_) {
-        unknown3478_ = *reinterpret_cast<uint32_t*>(&clock_);
+        unknown3478_ = *raw::as<uint32_t>(&clock_);
         clock_ = static_cast<float>(frame_clock::get_frame_seconds() + clock_);
     } else {
         if (!can_skip_) { // (the first update: started)
@@ -200,7 +202,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         }
         const int rate = game_config::g_frame_rate;
         audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
-        update_time(reinterpret_cast<int>(camera));
+        update_time(static_cast<int>(cell::of(camera)));
         check_skip();
         refresh_viewer(camera);
         update_subtitles();

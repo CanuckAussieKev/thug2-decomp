@@ -17,6 +17,8 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -64,7 +66,7 @@ memory::owner<ObjectModule*> ObjectProximityComponent::fabricate() { return new 
 // 0x004EC220
 void ObjectProximityComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kObjectProximity),
+    script::register_member_function_table(cell::pointer<void>(kObjectProximity),
                                            g_object_proximity_member_functions, 0x18);
 }
 
@@ -77,7 +79,7 @@ ObjectProximityComponent::~ObjectProximityComponent() = default;
 // 0x004EC3C0
 double ObjectProximityComponent::local_skater_distance_squared(uint32_t* skater_id)
 {
-    auto* skater = reinterpret_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
+    auto* skater = raw::as<GameEntity>(modules::Skate::sole()->get_home_rider());
     if (!skater || skater == entity_)
         return far_away();
     *skater_id = skater->ident_;

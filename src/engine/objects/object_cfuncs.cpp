@@ -24,6 +24,7 @@
 #include "engine/objects/particle_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/particle_sets.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -73,7 +74,7 @@ render::ViewRegion* viewport_camera(int index) { return render::fetch_current_vi
 // (the depth is written as an integer into the float, as the original)
 float project_to_screen(render::ViewRegion* camera, const maths::Vec4* position, float* x, float* y, float* depth)
 {
-    return camera->project_to_screen(position, x, y, reinterpret_cast<int*>(depth));
+    return camera->project_to_screen(position, x, y, raw::as<int>(depth));
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
@@ -92,7 +93,7 @@ uint32_t particle_group(objects::ObjectModule* component)
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
 void angles_to_matrix(maths::Mat4* matrix, const script::VectorValue* angles)
 {
-    matrix->init_from_angles(*reinterpret_cast<const maths::Vec4*>(angles));
+    matrix->init_from_angles(*angles);
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.

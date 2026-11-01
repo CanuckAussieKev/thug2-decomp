@@ -14,6 +14,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/trigger_component.h"
+#include "engine/core/raw_view.h"
 
 namespace objects::vehicle {
 
@@ -38,19 +39,19 @@ inline void trigger_rect(ObjectModule* trigger, const int* events, render::BoxPr
 // quaternion, 0x0042E310 normalised to a length, 0x00420140 *=.
 inline void quat_to_matrix(const maths::Vec4* quat, maths::Mat4* matrix)
 {
-    reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix);
+    raw::as<const maths::QuatRotation>(quat)->fetch_mat(matrix);
 }
 inline void matrix_to_quat(maths::Vec4* quat, const maths::Mat4* matrix)
 {
-    reinterpret_cast<maths::QuatRotation*>(quat)->from_matrix(*matrix);
+    raw::as<maths::QuatRotation>(quat)->from_matrix(*matrix);
 }
 inline void quat_normalize(maths::Vec4* quat, float length)
 {
-    reinterpret_cast<maths::QuatRotation*>(quat)->make_unit(length);
+    raw::as<maths::QuatRotation>(quat)->make_unit(length);
 }
 inline void quat_multiply(maths::Vec4* a, const maths::Vec4* b)
 {
-    *reinterpret_cast<maths::QuatRotation*>(a) *= *reinterpret_cast<const maths::QuatRotation*>(b);
+    *raw::as<maths::QuatRotation>(a) *= *raw::as<const maths::QuatRotation>(b);
 }
 
 // D3DXMatrixMultiply (linked library code; stdcall).

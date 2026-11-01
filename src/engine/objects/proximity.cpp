@@ -18,6 +18,8 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -38,7 +40,7 @@ constexpr uint32_t kRestart = 0x1806DDF8;        // Restart
 // The skaters by object id (0-31).
 constexpr int kSkaterSlots = 32;
 
-ProximityRegistry*& hub() { return reinterpret_cast<ProximityRegistry*&>(g_proximity_hub); }
+ProximityRegistry*& hub() { return memory::bits_as<ProximityRegistry*>(g_proximity_hub); }
 EntityHub* entity_hub_handle() { return g_composite_registry; }
 Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(id); }
 
@@ -50,7 +52,7 @@ const maths::Mat4* sector_world_matrix(void* sector) { return static_cast<render
 bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* offset)
 {
     render::HitMesh* collision = static_cast<render::WorldCell*>(sector)->hit_body_;
-    return collision->is_point_behind_faces(point, reinterpret_cast<int>(offset));
+    return collision->is_point_behind_faces(point, static_cast<int>(cell::of(offset)));
 }
 // The level sector named `name` (null if none).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }

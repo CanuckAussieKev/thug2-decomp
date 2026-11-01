@@ -11,6 +11,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -63,7 +65,7 @@ void get_speed(script::Struct* params, float* value, uint32_t feet, uint32_t inc
 // The script waits on the component (CScript::set_wait_on_component).
 int wait_on(script::Script* script, MotionPathMembers* component, script::BlockReason type)
 {
-    script->set_wait_on_component(type, reinterpret_cast<ObjectModule*>(component), 0);
+    script->set_wait_on_component(type, raw::as<ObjectModule>(component), 0);
     return 1;
 }
 
@@ -72,7 +74,7 @@ int wait_on(script::Script* script, MotionPathMembers* component, script::BlockR
 // 0x00423130
 void MotionPathMembers::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_motion_path_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_motion_path_member_functions, 0x18);
 }
 
 // 0x00423150
