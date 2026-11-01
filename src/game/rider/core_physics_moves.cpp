@@ -373,7 +373,7 @@ bool SkaterPhysicsModule::jump_released()
     objects::ControlButton* button = &input_->pad_primary_.pos_x_;
     if (!flags->flag(PoseFlag::kCrouched).on || button->held_down_)
         return false;
-    jump_charge_ms_ = get_since(static_cast<uint32_t>(flags->flag(PoseFlag::kCrouched).changed_at));
+    jump_charge_ms_ = static_cast<int>(get_since(static_cast<uint32_t>(flags->flag(PoseFlag::kCrouched).changed_at)));
     set_timed_flag(this, PoseFlag::kCrouched, 0);
     reinterpret_cast<objects::ControlButton*>(button)->forget_let_go();
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kJumpReleaseEvent, nullptr);

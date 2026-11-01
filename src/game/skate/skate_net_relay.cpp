@@ -306,7 +306,7 @@ int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
         return 4;
     if (get_game_mode()->get_name_key() == kNetLobby || net->get_game_id() != message.game_id)
         return 4;
-    player->best_combo_ = static_cast<uint32_t>(message.points);
+    player->best_combo_ = message.points;
     return 1;
 }
 
@@ -349,7 +349,7 @@ int SkateNet::handle_player_value48(net::InboundMsgCtx* context)
     online::BoardVehicle message;
     if (!online::read_board_vehicle(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    player->drive_control_mode_ = message.control_type;
+    player->drive_control_mode_ = static_cast<int32_t>(message.control_type);
     return 1;
 }
 
@@ -661,11 +661,11 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             enqueue(app, other, &desc);
             // (the texture's palette and pixels: through the geoms' jumps 0x0048DF20 / 0x0048DF30 and 0x0048DF00 /
             // 0x0049F3A0 - the same stub in the engine's and the PC's tables: none)
-            auto* palette = const_cast<void*>(texture->get_palette());
+            void* palette = texture->get_palette();
             uint32_t palette_size = texture->get_palette_size();
             app->send_bulk_to_conn(other->conn_, 0x98, static_cast<uint16_t>(palette_size), palette, "CAG Palette", 10,
                                    false, true); // "CAG Palette"
-            auto* pixels = const_cast<void*>(texture->get_pixels());
+            void* pixels = texture->get_pixels();
             uint32_t pixels_size = texture->get_pixels_size();
             app->send_bulk_to_conn(other->conn_, 0x97, static_cast<uint16_t>(pixels_size), pixels, "CAG Texture", 10,
                                    false, true); // "CAG Texture"

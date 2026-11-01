@@ -319,7 +319,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
-        size = static_cast<int>(reinterpret_cast<char*>(lzss::decode(const_cast<uint8_t*>(stream),
+        size = static_cast<int>(reinterpret_cast<char*>(lzss::decode(stream,
                                                                      reinterpret_cast<uint8_t*>(data), stream_size)) -
                                 data);
         if (expected_size != size) {

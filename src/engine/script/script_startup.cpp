@@ -62,7 +62,7 @@ void load_qb_file(const char* filename, int unused)
 }
 
 // 0x005A5990
-void load_qb_file_data(const char* filename, const uint8_t* data, int unused, int use_qb_names)
+void load_qb_file_data(const char* filename, uint8_t* data, int unused, int use_qb_names)
 {
     load_qb_data(filename, data, unused, use_qb_names, 0);
 }

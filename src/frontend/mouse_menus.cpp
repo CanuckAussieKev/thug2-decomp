@@ -318,7 +318,7 @@ int child_count(const UiWidget* element)
 
 bool item_focusable(const UiWidget* item)
 {
-    if (const_cast<objects::Entity*>(as_object(item))->contains_tag_flag(kTagNotFocusable))
+    if (as_object(item)->contains_tag_flag(kTagNotFocusable))
         return false;
     return !flag_in_chain(item, kFlagBlockEvents);
 }
@@ -525,7 +525,7 @@ bool menu_takes_pad_events(UiWidget* menu)
 {
     if (!menu_has_focus(menu))
         return false;
-    auto* manager = static_cast<const UiTree*>(as_object(menu)->park_owner_);
+    auto* manager = static_cast<UiTree*>(as_object(menu)->park_owner_);
     if (!manager)
         return false;
     if (manager->num_priorities_ > 0) {
@@ -537,7 +537,7 @@ bool menu_takes_pad_events(UiWidget* menu)
         if (listed) {
             if (!flag_in_chain(menu, kFlagPriority))
                 return false;
-            if (!const_cast<UiTree*>(manager)->has_top_precedence(ident_no(menu)))
+            if (!manager->has_top_precedence(ident_no(menu)))
                 return false;
         }
     }

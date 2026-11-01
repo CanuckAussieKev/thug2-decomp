@@ -23,7 +23,7 @@ void restart_changed_scripts();
 // Whether `script` is running `name` or has it on its call stack.
 bool script_refers_to(const Script* script, uint32_t name);
 // Define a .qb file already in memory (old or pre-compiled format), then restart changed scripts.
-void load_qb_data(const char* filename, const uint8_t* data, int unused, int use_qb_names, int temporary);
+void load_qb_data(const char* filename, uint8_t* data, int unused, int use_qb_names, int temporary);
 // Load and define the .qb file `filename`.
 void load_qb(const char* filename, int unused, int temporary);
 // Remove every symbol defined by the .qb file whose name's checksum is `file_checksum` (nothing for 0), stop the

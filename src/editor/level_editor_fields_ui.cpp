@@ -478,7 +478,8 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_ambient_);
         const int* shown = props.has_ambient_ ? props.ambient : own.ambient;
-        float colour[3] = {shown[0] / 255.0f, shown[1] / 255.0f, shown[2] / 255.0f};
+        float colour[3] = {static_cast<float>(shown[0]) / 255.0f, static_cast<float>(shown[1]) / 255.0f,
+                           static_cast<float>(shown[2]) / 255.0f};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::ColorEdit3("##ambientcolour", colour, ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
@@ -505,7 +506,8 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_fog_);
         const int* f = props.has_fog_ ? props.fog : own.fog;
-        float fog_colour[4] = {f[0] / 255.0f, f[1] / 255.0f, f[2] / 255.0f, f[3] / 255.0f};
+        float fog_colour[4] = {static_cast<float>(f[0]) / 255.0f, static_cast<float>(f[1]) / 255.0f,
+                               static_cast<float>(f[2]) / 255.0f, static_cast<float>(f[3]) / 255.0f};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         bool changed = false;
         if (ImGui::ColorEdit4("##fogcolour", fog_colour,

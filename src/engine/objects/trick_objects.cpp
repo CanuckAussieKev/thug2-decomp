@@ -665,7 +665,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
         desc.group_id_ = kGroupGame;
         for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
              info = net->step_player_walk(&search, false))
-            server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
+            server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data,
                                       "TrickObj Buffer", kGroupGame, true, false);
 
         util::ByteWriter observed_writer(data, sizeof(data));
@@ -676,7 +676,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
         for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
              info = net->step_player_walk(&search, true)) {
             if (info->is_observer())
-                server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
+                server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data,
                                           "TrickObj Buffer", kGroupGame, true, false);
         }
         reinterpret_cast<modules::Skate*>(skate)->broadcast_points(false);

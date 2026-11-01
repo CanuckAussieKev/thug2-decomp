@@ -32,7 +32,7 @@ void call_destroy_concrete_meta(ParkLayout* manager, void* meta, int flags)
 }
 void rebuild_floor_and_pieces(ParkLayout* manager, const CellBox* area, int flags)
 {
-    manager->regenerate_ground(const_cast<CellBox*>(area), flags);
+    manager->regenerate_ground(area, flags);
 }
 MapListNode* get_metas_within(ParkLayout* manager, CellBox area) { return manager->collect_pieces_in_region(area); }
 // The generator's update of the pieces it builds and its rebuild of the scene.

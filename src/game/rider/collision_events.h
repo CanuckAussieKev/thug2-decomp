@@ -113,7 +113,7 @@ struct Face {
     uint8_t terrain = 0;
     float point[3] = {};
     float normal[3] = {};
-    const void* coll_obj_ = nullptr; // (not printed: the render::HitMesh hit, for its geometry)
+    void* coll_obj_ = nullptr;       // (not printed: the render::HitMesh hit, for its geometry)
 };
 
 struct Occurrence {

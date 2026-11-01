@@ -187,27 +187,27 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
             std::sprintf(text, "...");
         else
             std::sprintf(text, "%d", server->ping_);
-        return const_cast<const char*>(text);
+        return text;
     });
     info_line(kTitleMode, [server](char* text) {
         std::sprintf(text, "%s", server->mode_sel_);
-        return const_cast<const char*>(text);
+        return text;
     });
     const char* skill = nullptr;
     script::Array* skills = script::fetch_list(kSkillLevelInfo);
     reinterpret_cast<script::Struct*>(skills->fetch_part(server->skill_level_))->fetch_text(kName, &skill, 0);
     info_line(kTitleSkill, [skill](char* text) {
         std::sprintf(text, "%s", skill);
-        return const_cast<const char*>(text);
+        return text;
     });
     info_line(kTitleLevel, [server](char* text) {
         std::sprintf(text, "%s", server->level_);
-        return const_cast<const char*>(text);
+        return text;
     });
     if (manager->in_internet_mode()) {
         info_line(kTitleRanked, [server](char* text) {
             std::sprintf(text, "%s", script::fetch_text(server->ranked_ ? kYes : kNo));
-            return const_cast<const char*>(text);
+            return text;
         });
     }
     char value[128];

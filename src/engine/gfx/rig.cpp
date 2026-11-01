@@ -63,7 +63,7 @@ bool in_exceptions(uint32_t name)
     return found;
 }
 
-Joint* find_bone(Rig* skeleton, uint32_t name)
+Joint* find_bone(const Rig* skeleton, uint32_t name)
 {
     for (int i = 0; i < skeleton->bone_total_; ++i) {
         if (skeleton->bone_array_[i].name == name)
@@ -277,7 +277,7 @@ void Rig::reset_bone_scales()
 }
 
 // 0x004A2D20
-bool Rig::fetch_bone_sizing(uint32_t name, maths::Vec4* scale)
+bool Rig::fetch_bone_sizing(uint32_t name, maths::Vec4* scale) const
 {
     Joint* bone = find_bone(this, name);
     if (!bone)
@@ -311,7 +311,7 @@ void Rig::copy_bone_scales(const Rig* other, bool check_list)
         if (!find_bone(this, name))
             continue;
         maths::Vec4 scale;
-        if (!const_cast<Rig*>(other)->fetch_bone_sizing(name, &scale))
+        if (!other->fetch_bone_sizing(name, &scale))
             continue;
         bool local = true;
         if (check_list && in_exceptions(name))

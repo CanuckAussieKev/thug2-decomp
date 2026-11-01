@@ -247,10 +247,10 @@ void restart_changed_scripts()
 }
 
 // 0x0046ED90
-void load_qb_data(const char* filename, const uint8_t* data, int unused, int use_qb_names, int temporary)
+void load_qb_data(const char* filename, uint8_t* data, int unused, int use_qb_names, int temporary)
 {
     if (fetch_word32(data) == 0xB075EF6F)
-        parse_precompiled_qb(filename, const_cast<uint8_t*>(data), unused); // (relocated in place)
+        parse_precompiled_qb(filename, data, unused); // (relocated in place)
     else
         read_qb_file(filename, data, unused, use_qb_names, temporary);
     restart_changed_scripts();

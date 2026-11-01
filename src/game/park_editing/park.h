@@ -993,7 +993,7 @@ public:
     // 0x0059C520: raise or lower (or with `level`, set to `target`) the floor of `area` and what's on it
     bool raise_or_lower_floor(CellBox area, int y, int target, bool raise, bool level);
     // 0x0059C600: the floor pieces of `area` and round it (null: the whole park, after clearing what's outside)
-    bool regenerate_ground(CellBox* area, int unused); // (the callers pass 0 as `unused`)
+    bool regenerate_ground(const CellBox* area, int unused); // (the callers pass 0 as `unused`)
     // 0x00599880: delete the metapieces intersecting `area` (`flags`: 2 not the inner shell, 4 not kFlag20 ones;
     // passed on to free_placed_piece). Returns the count of metapieces << 16 | the count of their pieces.
     uint32_t free_piece_groups_in_region(CellBox area, uint32_t flags);

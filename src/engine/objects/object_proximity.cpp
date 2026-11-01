@@ -129,7 +129,7 @@ void ObjectProximityComponent::tick_frame()
             // The local skater inside: the enter event, and the any-skater one.
             script::Struct* data = new_data();
             data->put_name_key(0xF79C90AE, id);
-            data->put_int(0xDB1E28CD, id);
+            data->put_int(0xDB1E28CD, static_cast<int>(id));
             event(0x7048029A, data);
             if (!(entity_->object_flags_ & kObjectFlagDead))
                 event(0xF5B2A042, data);
@@ -139,7 +139,7 @@ void ObjectProximityComponent::tick_frame()
             if (nearest_skater_distance_squared(&id) <= inner_radius_squared_) {
                 script::Struct* data = new_data();
                 data->put_name_key(0xF79C90AE, id);
-                data->put_int(0xDB1E28CD, id);
+                data->put_int(0xDB1E28CD, static_cast<int>(id));
                 event(0xF5B2A042, data);
                 delete_data(data);
             }
@@ -152,7 +152,7 @@ void ObjectProximityComponent::tick_frame()
         if (distance >= outer_radius_squared_ && !(entity_->object_flags_ & kObjectFlagDead)) {
             script::Struct* data = new_data();
             data->put_name_key(0x873A40D0, id);
-            data->put_int(0x5F3602F5, id);
+            data->put_int(0x5F3602F5, static_cast<int>(id));
             event(0x91BCAD1D, data);
             delete_data(data);
         }

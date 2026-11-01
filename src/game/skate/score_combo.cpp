@@ -376,7 +376,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     }
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
     uint32_t name = checksums::hash_from_text(text);
-    int kind = (flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6;
+    int kind = static_cast<int>((flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6);
     if (log_.num_ < 250) {
         log_.append_one(memory::alloc(sizeof(TrickLog)));
         newest_logged_trick()->points_held_ = 0;

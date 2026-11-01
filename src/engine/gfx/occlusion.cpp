@@ -1,6 +1,7 @@
 // Occlusion polygons and view culling: see occlusion.h. The plane maths follows the original's x87 code: some
 // intermediate values stay in double precision (in registers), the rest are rounded to floats where it stored them.
 
+#include "engine/core/within.h"
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/d3dx.h"
 
@@ -114,8 +115,9 @@ bool inside_frustum(const float* view, float radius)
 // 0x004D8BB0
 int compare_occluders(const void* a, const void* b)
 {
-    auto* first = static_cast<Occluder*>(const_cast<void*>(a));
-    auto* second = static_cast<Occluder*>(const_cast<void*>(b));
+    // (qsort hands out const pointers; the occluders are the array's own)
+    Occluder* first = mutable_within(occluder_array(), static_cast<const Occluder*>(a));
+    Occluder* second = mutable_within(occluder_array(), static_cast<const Occluder*>(b));
     if (!first->poly->enabled)
         first->hidden[0] = 0;
     if (!second->poly->enabled)

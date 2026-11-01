@@ -94,7 +94,7 @@ int connection_type(void* manager) { return static_cast<Hub*>(manager)->get_net_
 // --- Messages ---------------------------------------------------------------------------------------------------
 // PendingMsg (0x0C) and SeqQueuedMsg (0x10, made by AppHost::new_queued_msg): a copy of a message shared by the
 // links that send it to each connection; freed with the last.
-PendingMsg* construct_queued_msg(void* memory, uint8_t id, uint16_t length, void* data, uint8_t compression)
+PendingMsg* construct_queued_msg(void* memory, uint8_t id, uint16_t length, const void* data, uint8_t compression)
 {
     return new (memory) PendingMsg(id, length, data, compression);
 }

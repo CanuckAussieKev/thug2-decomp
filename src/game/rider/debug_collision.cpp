@@ -143,7 +143,7 @@ bool should_log(uintptr_t what, int face)
         }
     }
     g_recent[g_next_recent] = {what, face, now};
-    g_next_recent = (g_next_recent + 1) % (sizeof(g_recent) / sizeof(g_recent[0]));
+    g_next_recent = static_cast<int>((g_next_recent + 1) % (sizeof(g_recent) / sizeof(g_recent[0])));
     ++g_lines_this_second;
     return true;
 }

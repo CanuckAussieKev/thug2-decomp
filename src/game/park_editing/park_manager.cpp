@@ -199,7 +199,7 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
         }
     }
     for (uint32_t i = 0; i < meta->filled_slots_; ++i)
-        builder_->destroy_piece(meta->get_descriptor(i)->piece);
+        builder_->destroy_piece(meta->get_descriptor(static_cast<int>(i))->piece);
     remove_piece_cost(meta);
     delete meta;
     --num_concrete_metas_;

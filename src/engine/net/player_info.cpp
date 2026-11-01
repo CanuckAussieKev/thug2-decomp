@@ -269,10 +269,10 @@ int PlayerRecord::get_accumulated_score() { return accumulated_score_; }
 void PlayerRecord::add_to_accumulated_score(int score) { accumulated_score_ += score; }
 
 // 0x00543300 - 0x005434C0: the flags.
-int PlayerRecord::is_own_player() { return flag_bits_ & kPlayerLocal; }
-int PlayerRecord::is_host_player() { return (flag_bits_ >> 9) & 1; }
-int PlayerRecord::is_observer() { return (flag_bits_ >> 2) & 1; }
-int PlayerRecord::is_scouting_level() { return (flag_bits_ >> 16) & 1; }
+int PlayerRecord::is_own_player() { return static_cast<int>(flag_bits_ & kPlayerLocal); }
+int PlayerRecord::is_host_player() { return static_cast<int>((flag_bits_ >> 9) & 1); }
+int PlayerRecord::is_observer() { return static_cast<int>((flag_bits_ >> 2) & 1); }
+int PlayerRecord::is_scouting_level() { return static_cast<int>((flag_bits_ >> 16) & 1); }
 void PlayerRecord::mark_face_texture_sent() { flag_bits_ |= kPlayerFaceTextureSent; }
 void PlayerRecord::mark_just_joined()
 {
@@ -308,10 +308,10 @@ bool PlayerRecord::is_eliminated()
     return score && static_cast<modules::PointTally*>(static_cast<objects::RiderPointKeeper*>(score)->points_held_)
                             ->get_total_score() == 0; // (its score's lives)
 }
-int PlayerRecord::holds_crown() { return (flag_bits_ >> 7) & 1; }
+int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> 7) & 1); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl_ : 0; }
 uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(skater_->view_slot_); }
-int PlayerRecord::is_pending_observer() { return (flag_bits_ >> 3) & 1; }
+int PlayerRecord::is_pending_observer() { return static_cast<int>((flag_bits_ >> 3) & 1); }
 
 // --- The score lines' list types ---
 

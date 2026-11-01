@@ -144,7 +144,7 @@ TextureRef* read_texture_file(const char* name)
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
         static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
-        file::get_take_in(locked.pBits, hd_dxt_size(header), 1, file);
+        file::get_take_in(locked.pBits, static_cast<int>(hd_dxt_size(header)), 1, file);
         file::shut(file);
         get_finish(hd);
         apply_hd_scale(hd, header);
@@ -164,7 +164,7 @@ TextureRef* read_texture_file(const char* name)
     texture->palette = nullptr;
     uint8_t palette[image_format::kPaletteCapacity];
     if (palettized)
-        file::get_take_in(palette, header.palette_size, 1, file);
+        file::get_take_in(palette, static_cast<int>(header.palette_size), 1, file);
     input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                                 reinterpret_cast<IDirect3DTexture9**>(&texture->texture), nullptr);
     set_sizes(texture, header, plain);
@@ -172,10 +172,10 @@ TextureRef* read_texture_file(const char* name)
     D3DLOCKED_RECT locked;
     static_cast<IDirect3DTexture9*>(texture->texture)->LockRect(0, &locked, nullptr, 0);
     if (plain && !palettized) {
-        file::get_take_in(locked.pBits, size, 1, file);
+        file::get_take_in(locked.pBits, static_cast<int>(size), 1, file);
     } else {
         void* buffer = new_texel_buffer(size, header);
-        file::get_take_in(buffer, size, 1, file);
+        file::get_take_in(buffer, static_cast<int>(size), 1, file);
         void* indices = nullptr;
         void* texels = nullptr;
         if (plain) {

@@ -350,7 +350,7 @@ void ValueResolver::intake(const Component* value)
             return;
         }
     }
-    duplicate_component(&values_[value_top_], const_cast<Component*>(value), 0);
+    duplicate_component(&values_[value_top_], value, 0);
 }
 
 // 0x0046D370

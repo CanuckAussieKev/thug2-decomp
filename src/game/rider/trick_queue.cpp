@@ -548,7 +548,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
             continue;
         grind_.array_ = array;
         grind_.index_ = i;
-        grind_.time_ = frame_clock::get_time();
+        grind_.time_ = static_cast<int>(frame_clock::get_time());
         grind_.is_special_ = special;
         grind_.duration_ = -1;
         trick->fetch_int_value(kDuration, &grind_.duration_, 0);

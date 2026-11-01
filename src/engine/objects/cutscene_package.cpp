@@ -83,9 +83,9 @@ constexpr uint32_t kColourNames[4] = {0xA28FAB7F, 0xB90F08D0, 0x1DBCFAE8, 0x0442
 
 assets::ResourceRegistry* get_assets() { return assets::g_asset_manager; }
 // The asset manager's load (0x00408060: not permanent, copied), unload (0x00407B90 + 0x00407B20) and find.
-void* load_asset_data(uint32_t name, int type, uint32_t textures, const void* data, uint32_t size, void* params)
+void* load_asset_data(uint32_t name, int type, uint32_t textures, void* data, uint32_t size, void* params)
 {
-    return get_assets()->read_resource_from_stream(name, type, textures, const_cast<void*>(data), size, false, true,
+    return get_assets()->read_resource_from_stream(name, type, textures, data, size, false, true,
                                                    params, 0);
 }
 void discard_loaded_item(uint32_t name)
@@ -318,7 +318,7 @@ void CinematicTable::load_from_bundle()
             if (flag_34b_0_) {
                 char file_name[256];
                 std::snprintf(file_name, sizeof(file_name), "%08x.qb", label_);
-                script::load_qb_data(file_name, static_cast<const uint8_t*>(data), 1, 0, 0);
+                script::load_qb_data(file_name, static_cast<uint8_t*>(data), 1, 0, 0);
             }
             break;
         case kTypeCameraAnim: {

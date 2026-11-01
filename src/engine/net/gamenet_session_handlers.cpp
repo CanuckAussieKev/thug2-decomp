@@ -457,9 +457,9 @@ int handle_start_game(net::InboundMsgCtx* context)
     victory->add_component_of_type(kStopAtZero, script::kQbvalInteger, static_cast<uint32_t>(start.stop_at_zero));
     victory->add_component_of_type(kShouldResetScores, script::kQbvalInteger,
                                    static_cast<uint32_t>(start.reset_scores));
-    static_cast<modules::Skate*>(skate)->set_unknown370(start.time_limit);
+    static_cast<modules::Skate*>(skate)->set_unknown370(static_cast<int>(start.time_limit));
     get_game_mode()->force_match_settings(victory);
-    get_game_mode()->set_num_teams(start.teams);
+    get_game_mode()->set_num_teams(static_cast<int>(start.teams));
     get_game_mode()->set_goals_mode(start.goals);
     get_game_mode()->set_team_graffiti_mode(start.team_graffiti_mode);
     delete_params(victory);

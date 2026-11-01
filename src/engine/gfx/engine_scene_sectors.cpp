@@ -36,7 +36,7 @@ WorldCell* scene_sector(WorldScene* scene, uint32_t name)
     return static_cast<WorldCell*>(scene->look_up_sector(name));
 }
 bool delete_scene_sector(WorldScene* scene, WorldCell* sector) { return scene->remove_scene_sector(sector); }
-bool scene_load_collision_data(WorldScene* scene, const uint8_t* data, size_t size, int* count,
+bool scene_load_collision_data(WorldScene* scene, uint8_t* data, size_t size, int* count,
                                StaticCollider** statics, uint8_t** objects, maths::BBox* box, int flag)
 {
     return scene->load_collision_data(data, size, count, statics, objects, box, flag);
@@ -226,7 +226,7 @@ uint32_t WorldScene::clone_sector_named(uint32_t section_id, WorldScene* scene, 
 }
 
 // 0x0049D590 (the original's SEH frame around the grid's `new` left out)
-bool WorldScene::add_collision_data(const uint8_t* data, size_t size, int flag)
+bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
 {
     scene_load_collision_data(this, data, size, &coll_static_count_, &coll_statics_, &collision_blob_, &collision_box_,
                               flag);
@@ -262,7 +262,7 @@ bool WorldScene::add_collision_data(const uint8_t* data, size_t size, int flag)
 bool WorldScene::load_collision_file(const char* name, int flag)
 {
     std::snprintf(pip_name_, sizeof(pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
-    auto* data = static_cast<const uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr));
+    auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr));
     if (!data)
         return false;
     add_collision_data(data, static_cast<size_t>(packs::get_file_size(pip_name_)), flag); // (not original: sized)
@@ -349,7 +349,7 @@ bool WorldScene::load_add_scene(const char* name)
         return false;
     std::snprintf(add_pip_name_, sizeof(add_pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
     // (the base's collision file, not the one just named - as the original)
-    if (auto* data = static_cast<const uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr)))
+    if (auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr)))
         scene_load_collision_data(this, data, static_cast<size_t>(packs::get_file_size(pip_name_)),
                                   &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
     if (add_coll_static_count_ > 0) {

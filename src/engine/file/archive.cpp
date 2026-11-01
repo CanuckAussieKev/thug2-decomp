@@ -81,7 +81,7 @@ ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up)
             memory::dealloc(info); // the same name twice: the first one wins
         } else {
             files_->store_entry(checksum, info);
-            info->data = const_cast<uint8_t*>(record.data);
+            info->data = block + (record.data - block); // (our own block, through the reader's const view)
             info->unpacked = nullptr;
             info->position = 0;
             info->compressed_size_ = record.compressed_size;

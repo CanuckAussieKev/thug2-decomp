@@ -420,10 +420,10 @@ int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t 
         if (!volumes)
             continue;
         float distance = nearest;
-        int result = reinterpret_cast<gfx::BoneVolumes*>(volumes)->segment_hits_bone(
+        int result = static_cast<int>(reinterpret_cast<gfx::BoneVolumes*>(volumes)->segment_hits_bone(
             reinterpret_cast<const maths::Seg*>(a), reinterpret_cast<gfx::Rig*>(b),
             reinterpret_cast<const maths::Mat4*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
-            reinterpret_cast<float*>(&extra));
+            reinterpret_cast<float*>(&extra)));
         if (!hit || distance < nearest) {
             nearest = distance;
             hit_extra = extra;

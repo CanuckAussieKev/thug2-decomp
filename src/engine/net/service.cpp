@@ -166,7 +166,7 @@ void service_task(tasks::Task<online::Hub>* task)
     case 6:
     case 0xA: { // the news: a message (with the count of messages, if any), then the download thread
         freeze_stream(1);
-        int count = online::g_news_message_count;
+        int count = static_cast<int>(online::g_news_message_count);
         if (count == 0) {
             spawn_script(0xBDA86A12);
         } else {

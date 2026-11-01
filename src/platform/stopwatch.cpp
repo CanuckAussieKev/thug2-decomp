@@ -148,7 +148,7 @@ void update_frame_length()
     int clamped = get_clamped(h[0]) + get_clamped(h[1]) + get_clamped(h[2]) + get_clamped(h[3]);
     int raw = static_cast<int>(static_cast<uint32_t>(h[0]) + h[1] + h[2] + h[3]); // (wraps, as the original)
     get_slomo() = next_slomo();
-    get_frame_length() = static_cast<float>(clamped * 0.25f);
+    get_frame_length() = static_cast<float>(clamped) * 0.25f;
     if (clamped * 0.25 < 1.0)
         get_frame_length() = 1.0f;
     raw_frame_duration() = raw * 0.25;

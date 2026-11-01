@@ -475,7 +475,7 @@ void RankingsManager::start_game()
         set_player_int(game_, key, profile, id);
         if (profile > 0) {
             // The player's client answers with its response to the challenge.
-            desc.content_ = const_cast<char*>(challenge);
+            desc.content_ = challenge;
             desc.byte_count_ = static_cast<uint16_t>(std::strlen(challenge) + 1);
             desc.ident_ = 0x7C;
             desc.queue_ = 2;

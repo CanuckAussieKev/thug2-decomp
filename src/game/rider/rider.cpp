@@ -539,7 +539,7 @@ void Rider::update_shadow_light(int, int)
         shadow_fade_ = shadow_fade_ < 16 ? shadow_fade_ + 1 : 16;
     maths::Vec4 direction;
     walk::get_lerp(&direction, reinterpret_cast<const maths::Vec4*>(light), reinterpret_cast<const maths::Vec4*>(down),
-                   static_cast<float>(shadow_fade_ * 0.0625f));
+                   static_cast<float>(shadow_fade_) * 0.0625f);
     static_cast<GroundShadowModule*>(shadow_)->set_light_direction(&direction);
 }
 

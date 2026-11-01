@@ -556,8 +556,9 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
         // (the frame's time from SDL's clock: the editor caps a frame at a tenth of a second)
         static uint64_t last;
         uint64_t now = SDL_GetPerformanceCounter();
-        double seconds =
-            g_flight.t == 0.0f || !last ? 1.0 / 60.0 : static_cast<double>(now - last) / SDL_GetPerformanceFrequency();
+        double seconds = g_flight.t == 0.0f || !last
+                             ? 1.0 / 60.0
+                             : static_cast<double>(now - last) / static_cast<double>(SDL_GetPerformanceFrequency());
         last = now;
         g_flight.t += static_cast<float>(std::min(seconds, 0.1)) / g_flight.duration;
         Pose to = g_flight.to;

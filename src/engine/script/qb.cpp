@@ -1,3 +1,4 @@
+#include "engine/core/within.h"
 #include "engine/script/qb.h"
 
 #include <cstddef>
@@ -247,7 +248,7 @@ uint32_t calculate_script_checksum(const uint8_t* token)
 // 0x0046FF00
 void prepare_script_tokens(uint8_t* token)
 {
-    token = const_cast<uint8_t*>(skip_to_end_of_statement(token));
+    token = mutable_within(token, skip_to_end_of_statement(token));
     while (*token != 0x24) {
         if (*token == 0x16) {
             // A statement starting with a name: a call?
@@ -266,13 +267,13 @@ void prepare_script_tokens(uint8_t* token)
                     }
                 }
             }
-            token = const_cast<uint8_t*>(skip_to_end_of_statement(token));
+            token = mutable_within(token, skip_to_end_of_statement(token));
         } else if (*token == 0x47) {
-            token = const_cast<uint8_t*>(step_over_token(token));
+            token = mutable_within(token, step_over_token(token));
             if (*token == 0x39)
                 ++token;
         } else {
-            token = const_cast<uint8_t*>(skip_to_end_of_statement(token));
+            token = mutable_within(token, skip_to_end_of_statement(token));
         }
     }
 }
@@ -547,7 +548,7 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     switch (symbol->type) {
     case kQbvalString:
     case kQbvalInlineText:
-        free_string(reinterpret_cast<const char*>(symbol->raw));
+        free_string(reinterpret_cast<char*>(symbol->raw));
         break;
     case kQbvalPair:
         free_pair(reinterpret_cast<void*>(symbol->raw));

@@ -141,7 +141,7 @@ public:
     bool read_int_tag(uint32_t name, int* value);
     bool read_hash_tag(uint32_t name, uint32_t* value);
     // 0x00460800: whether the tags hold the flag `flag` (no tags: false).
-    bool contains_tag_flag(uint32_t flag);
+    bool contains_tag_flag(uint32_t flag) const;
     // 0x00460820: the tags added to `dest` (no tags: nothing).
     void copy_tags_to(script::Struct* dest);
     // 0x004607A0: its script's handler for events of `type` goes (no script: nothing).

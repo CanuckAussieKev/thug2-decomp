@@ -129,7 +129,7 @@ int ViewRegion::fetch_shown(int)
 }
 
 // 0x004A0D20
-float ViewRegion::fetch_width_over_height()
+float ViewRegion::fetch_width_over_height() const
 {
     float width = span_, height = level_y_;
     double aspect = fetch_view_ratio();

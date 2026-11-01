@@ -422,7 +422,7 @@ void load_registry_options(const char* key)
         place_at_range(value);
     if (RegQueryValueExA(options, "resolution", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        render::g_resolution_setting = value > 3 ? 0 : value;
+        render::g_resolution_setting = value > 3 ? 0 : static_cast<int>(value);
 
     // The joystick each port plays with (the text buffer isn't cleared before the first: a short value leaves
     // whatever was there after it).

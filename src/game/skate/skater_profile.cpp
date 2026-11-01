@@ -73,7 +73,7 @@ int write_struct(script::Struct* s, uint8_t* buffer, int size)
 uint8_t* read_struct(script::Struct* s, uint8_t* buffer, const uint8_t* limit)
 {
     size_t size = buffer < limit ? static_cast<size_t>(limit - buffer) : 0;
-    return const_cast<uint8_t*>(script::decode_from_bytes(s, buffer, size));
+    return script::decode_from_bytes(s, buffer, size);
 }
 
 void push_skater_info_heap() { memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_); }

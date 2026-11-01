@@ -519,9 +519,9 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         V3 normal = perpendicular(p[1] - p[0], p[2] - p[0]);
         float length = std::sqrt(get_dot(normal, normal));
         float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
-        auto r = static_cast<uint32_t>(((argb >> 16) & 0xFF) * shade);
-        auto g = static_cast<uint32_t>(((argb >> 8) & 0xFF) * shade);
-        auto b = static_cast<uint32_t>((argb & 0xFF) * shade);
+        auto r = static_cast<uint32_t>(static_cast<float>((argb >> 16) & 0xFF) * shade);
+        auto g = static_cast<uint32_t>(static_cast<float>((argb >> 8) & 0xFF) * shade);
+        auto b = static_cast<uint32_t>(static_cast<float>(argb & 0xFF) * shade);
         poly.argb = (argb & 0xFF000000) | (r << 16) | (g << 8) | b;
         polygons.push_back(poly);
         if (style.edge && lines) {

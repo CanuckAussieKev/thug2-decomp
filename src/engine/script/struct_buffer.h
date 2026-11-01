@@ -10,6 +10,7 @@
 // strings with their terminator, pairs / vectors as their floats, structures recursively, arrays as their type,
 // two-byte count and elements; scripts are written as the checksum 0xB9C4F664. A zero byte ends a structure.
 
+#include "engine/core/within.h"
 #include <cstddef>
 #include <cstdint>
 
@@ -47,6 +48,11 @@ uint32_t measure_buffer_bytes(Struct* structure, uint32_t max_size);
 // marker); a buffer cut short ends the structure there - kUnknownSize for callers that don't know it.
 constexpr size_t kUnknownSize = ~static_cast<size_t>(0);
 const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer, size_t size = kUnknownSize);
+// The same for a buffer the caller may change: the end as a pointer into it.
+inline uint8_t* decode_from_bytes(Struct* structure, uint8_t* buffer, size_t size = kUnknownSize)
+{
+    return mutable_within(buffer, decode_from_bytes(structure, static_cast<const uint8_t*>(buffer), size));
+}
 // 0x0047A440: the array emptied and filled from the buffer; returns the end.
 const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer, size_t size = kUnknownSize);
 

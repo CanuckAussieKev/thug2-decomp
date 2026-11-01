@@ -133,7 +133,7 @@ int Hub::get_entrant_points(uint32_t id)
 {
     PlayerRecord* local = find_own_player_record(this);
     if (get_game_type() == kNetGoalAttack && !(local->flag_bits_ & kPlayerObserver))
-        return objective_board()->count_cleared_by_player(id);
+        return objective_board()->count_cleared_by_player(static_cast<int>(id));
     auto* player = find_player_slot_by_obj(static_cast<uint16_t>(id));
     return points_of(get_score_of(player));
 }

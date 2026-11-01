@@ -2180,7 +2180,8 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
     float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
     float nx = length > 0.0f ? -dy / length : 0.0f, ny = length > 0.0f ? dx / length : 0.0f;
     for (int k = -(thickness / 2); k <= thickness / 2; ++k)
-        add_pixel_line(ax + nx * k, ay + ny * k, bx + nx * k, by + ny * k, color, out);
+        add_pixel_line(ax + nx * static_cast<float>(k), ay + ny * static_cast<float>(k),
+                       bx + nx * static_cast<float>(k), by + ny * static_cast<float>(k), color, out);
 }
 
 void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
@@ -2293,8 +2294,10 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 float t = is_selected || is_hovered ? 3.0f : n.family == nodes::Family::kRail ? 2.0f : 1.5f;
                 if (n.family == nodes::Family::kLadder) {
                     for (int piece = 0; piece < 8; piece += 2) // (dashed)
-                        line(ax + (bx - ax) * piece / 8.0f, ay + (by - ay) * piece / 8.0f,
-                             ax + (bx - ax) * (piece + 1) / 8.0f, ay + (by - ay) * (piece + 1) / 8.0f, c, t);
+                        line(ax + (bx - ax) * static_cast<float>(piece) / 8.0f,
+                             ay + (by - ay) * static_cast<float>(piece) / 8.0f,
+                             ax + (bx - ax) * static_cast<float>(piece + 1) / 8.0f,
+                             ay + (by - ay) * static_cast<float>(piece + 1) / 8.0f, c, t);
                 } else {
                     line(ax, ay, bx, by, c, t);
                 }
@@ -5483,7 +5486,9 @@ void tick_frame()
         hud::get_message("Autosave found: Ctrl+R restores, Ctrl+Shift+R discards", 20.0);
     }
     uint64_t now = SDL_GetPerformanceCounter();
-    double seconds = g_last_counter ? static_cast<double>(now - g_last_counter) / SDL_GetPerformanceFrequency() : 0.0;
+    double seconds =
+        g_last_counter ? static_cast<double>(now - g_last_counter) / static_cast<double>(SDL_GetPerformanceFrequency())
+                       : 0.0;
     g_last_counter = now;
     seconds = std::min(seconds, 0.1);
     Mouse input = g_mouse;
@@ -5985,8 +5990,9 @@ void tick_frame()
                 begin_change();
             auto step = static_cast<float>(kObjectSpeed * boost * seconds);
             V3 pos = selection_pos();
-            place_selection({pos.x + (forward.x * f + right.x * r) * step, pos.y + u * step,
-                             pos.z + (forward.z * f + right.z * r) * step});
+            place_selection({pos.x + (forward.x * static_cast<float>(f) + right.x * static_cast<float>(r)) * step,
+                             pos.y + static_cast<float>(u) * step,
+                             pos.z + (forward.z * static_cast<float>(f) + right.z * static_cast<float>(r)) * step});
             g_key_moving = true;
         } else {
             if (g_key_moving) {

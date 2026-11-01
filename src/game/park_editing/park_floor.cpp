@@ -145,8 +145,8 @@ void ParkLayout::destroy_metas_below(CellBox area)
     below.y = static_cast<int8_t>(area.y - 1);
     below.h = 1;
     uint32_t destroyed = free_piece_groups_in_region(below, 4);
-    riser_metas_ += destroyed >> 16;
-    riser_pieces_ += destroyed & 0xFFFF;
+    riser_metas_ += static_cast<int>(destroyed >> 16);
+    riser_pieces_ += static_cast<int>(destroyed & 0xFFFF);
 }
 
 // 0x0059B280
@@ -392,7 +392,7 @@ bool ParkLayout::raise_or_lower_floor(CellBox area, int y, int target, bool rais
 }
 
 // 0x0059C600
-bool ParkLayout::regenerate_ground(CellBox* area, int /*unused*/)
+bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
 {
     if (!area) {
         // The inner shell's pieces outside the park go first.

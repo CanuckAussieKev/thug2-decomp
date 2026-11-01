@@ -1662,8 +1662,10 @@ void apply_speeds()
     // The scripts: the fixed two (once - they stay defined), the points' when they change.
     static const uint32_t kRailSpeed = name_hash("ed_RailSpeed");
     script::SymbolTableEntry* fixed = script::resolve_symbol(kRailSpeed);
-    if (!fixed || fixed->type != script::kQbvalScriptBody)
-        script::load_qb_data("editor\\thug2_decomp_railspeed.qb", rail_speed_qb().data(), 0, 0, 0);
+    if (!fixed || fixed->type != script::kQbvalScriptBody) {
+        std::vector<uint8_t> qb = rail_speed_qb(); // (the loader may relocate a pre-compiled file in place)
+        script::load_qb_data("editor\\thug2_decomp_railspeed.qb", qb.data(), 0, 0, 0);
+    }
     std::vector<uint8_t> file = speed_qb_file(scripts);
     if (file != g_speed_defined) {
         script::load_qb_data("editor\\thug2_decomp_railspeeds.qb", file.data(), 0, 0, 0);

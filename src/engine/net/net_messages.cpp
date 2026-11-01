@@ -20,13 +20,13 @@ void release_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // `data` compressed with `method` (1 RLE, 2 LZSS) into a new block that starts with a message header; null (and
 // nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size. (net_compress.cpp)
-char* compress_message(uint8_t* id, uint16_t* length, void* data, uint8_t method)
+char* compress_message(uint8_t* id, uint16_t* length, const void* data, uint8_t method)
 {
     return reinterpret_cast<char*>(net::compress_message(id, length, data, static_cast<char>(method)));
 }
 
 // The data a queued message keeps: a copy, compressed if asked and smaller (then the id and length change).
-char* copy_data(uint8_t* id, uint16_t* length, void* data, uint8_t compression)
+char* copy_data(uint8_t* id, uint16_t* length, const void* data, uint8_t compression)
 {
     char* compressed = nullptr;
     if (compression) {
@@ -48,7 +48,7 @@ void init_node(memory::ListNode* node) { node->make_node(node); }
 // --- Queued messages -----------------------------------------------------------------------------------------
 
 // 0x00454FA0
-PendingMsg::PendingMsg(uint8_t id, uint16_t length, void* data, uint8_t compression)
+PendingMsg::PendingMsg(uint8_t id, uint16_t length, const void* data, uint8_t compression)
 {
     share_count_ = 0;
     content_ = nullptr;
@@ -59,7 +59,7 @@ PendingMsg::PendingMsg(uint8_t id, uint16_t length, void* data, uint8_t compress
 }
 
 // 0x00455040
-SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression)
+SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, uint8_t byte8, uint8_t compression)
 {
     share_count_ = 0;
     content_ = nullptr;

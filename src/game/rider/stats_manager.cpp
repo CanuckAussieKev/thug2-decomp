@@ -582,7 +582,7 @@ void AttributeTracker::check_balance_time(uint32_t trick_type, float time, int)
             kind = kLipTime;
         else
             continue;
-        if (goal.kind_ != kind || !(target <= time))
+        if (goal.kind_ != kind || !(static_cast<float>(target) <= time))
             continue;
         meet_goal(i);
         met = true;

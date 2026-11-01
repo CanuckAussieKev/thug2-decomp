@@ -75,7 +75,7 @@ int glyph_for_button_tag(char tag, const char* digit)
     }
     // Originally from PartyMod Fixes (its call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
     // explicit button tags are turned back into the controller's. The original: TextUtil::hex_digit_value(digit).
-    return static_cast<int>(button_for_tag(reinterpret_cast<uint8_t*>(const_cast<char*>(digit))));
+    return static_cast<int>(button_for_tag(reinterpret_cast<const uint8_t*>(digit)));
 }
 
 // Whether a button is drawn as a glyph of the button font (otherwise its key's name is spelled out).

@@ -537,15 +537,15 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
     if (cursor != -1 && cursors_[cursor] && cursors_[cursor][bone]) {
         uint8_t* key = cursors_[cursor][bone];
         uint8_t* next = key + stride;
-        if (quat_key_time(key) <= frame) {
-            if (quat_key_time(next) >= frame) {
+        if (static_cast<float>(quat_key_time(key)) <= frame) {
+            if (static_cast<float>(quat_key_time(next)) >= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
                 return cursor;
             }
             uint8_t* after = next + stride;
-            if (after < end && quat_key_time(after) >= frame) {
+            if (after < end && static_cast<float>(quat_key_time(after)) >= frame) {
                 cursors_[cursor][bone] = next;
                 *first = next;
                 *second = after;
@@ -557,7 +557,7 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
     // From the bone's first key.
     uint8_t* key = start;
     uint8_t* next = start + stride;
-    if (quat_key_time(next) <= frame) {
+    if (static_cast<float>(quat_key_time(next)) <= frame) {
         for (;;) {
             key = next;
             next += stride;
@@ -565,7 +565,7 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
                 next = key; // (past the last: the last alone)
                 break;
             }
-            if (!(quat_key_time(next) <= frame))
+            if (!(static_cast<float>(quat_key_time(next)) <= frame))
                 break;
         }
     }
@@ -604,15 +604,15 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
     if (cursor != -1 && cursors_[cursor] && cursors_[cursor][60 + bone]) {
         uint8_t* key = cursors_[cursor][60 + bone];
         uint8_t* next = key + stride;
-        if (trans_key_time(key) <= frame) {
-            if (trans_key_time(next) >= frame) {
+        if (static_cast<float>(trans_key_time(key)) <= frame) {
+            if (static_cast<float>(trans_key_time(next)) >= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
                 return cursor;
             }
             uint8_t* after = next + stride;
-            if (after < end && trans_key_time(after) >= frame) {
+            if (after < end && static_cast<float>(trans_key_time(after)) >= frame) {
                 cursors_[cursor][60 + bone] = next;
                 *first = next;
                 *second = after;
@@ -623,7 +623,7 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
     }
     uint8_t* key = start;
     uint8_t* next = start + stride;
-    if (trans_key_time(next) <= frame) {
+    if (static_cast<float>(trans_key_time(next)) <= frame) {
         for (;;) {
             key = next;
             next += stride;
@@ -634,7 +634,7 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
                 flag_bits_ &= ~0x4000;
                 return cursor;
             }
-            if (!(trans_key_time(next) <= frame))
+            if (!(static_cast<float>(trans_key_time(next)) <= frame))
                 break;
         }
     }
@@ -665,15 +665,16 @@ int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** f
     if (cursor != -1 && cursors_[cursor] && cursors_[cursor][bone]) {
         uint8_t* key = cursors_[cursor][bone];
         uint8_t* next = key + stride;
-        if (quat_key_time(next) >= frame) {
-            if (quat_key_time(key) <= frame) {
+        if (static_cast<float>(quat_key_time(next)) >= frame) {
+            if (static_cast<float>(quat_key_time(key)) <= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
                 return cursor;
             }
             uint8_t* before = key - stride;
-            if (!(before < quat_keys_ + offset) && quat_key_time(before) <= frame && quat_key_time(key) >= frame) {
+            if (!(before < quat_keys_ + offset) && static_cast<float>(quat_key_time(before)) <= frame &&
+                static_cast<float>(quat_key_time(key)) >= frame) {
                 cursors_[cursor][bone] = before;
                 *first = before;
                 *second = key;
@@ -684,7 +685,7 @@ int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** f
     }
     uint8_t* key = quat_keys_ + quat_offsets_[bone];
     uint8_t* next = key + stride;
-    if (quat_key_time(next) <= frame) {
+    if (static_cast<float>(quat_key_time(next)) <= frame) {
         uint8_t* end = quat_keys_ + end_offset;
         for (;;) {
             key = next;
@@ -697,7 +698,7 @@ int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** f
                 flag_bits_ &= ~0x4000;
                 return cursor;
             }
-            if (!(quat_key_time(next) <= frame))
+            if (!(static_cast<float>(quat_key_time(next)) <= frame))
                 break;
         }
     }
@@ -726,16 +727,16 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
     if (cursor != -1 && cursors_[cursor] && cursors_[cursor][60 + bone]) {
         uint8_t* key = cursors_[cursor][60 + bone];
         uint8_t* next = key + stride;
-        if (trans_key_time(next) >= frame) {
-            if (trans_key_time(key) <= frame) {
+        if (static_cast<float>(trans_key_time(next)) >= frame) {
+            if (static_cast<float>(trans_key_time(key)) <= frame) {
                 *first = key;
                 *second = next;
                 flag_bits_ &= ~0x4000;
                 return cursor;
             }
             uint8_t* before = key - stride;
-            if (!(before < trans_keys_ + trans_offsets_[bone]) && trans_key_time(before) <= frame &&
-                trans_key_time(key) >= frame) {
+            if (!(before < trans_keys_ + trans_offsets_[bone]) && static_cast<float>(trans_key_time(before)) <= frame &&
+                static_cast<float>(trans_key_time(key)) >= frame) {
                 cursors_[cursor][60 + bone] = before;
                 *first = before;
                 *second = key;
@@ -746,7 +747,7 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
     }
     uint8_t* key = trans_keys_ + trans_offsets_[bone];
     uint8_t* next = key + stride;
-    if (trans_key_time(next) <= frame) {
+    if (static_cast<float>(trans_key_time(next)) <= frame) {
         uint8_t* end = trans_keys_ + end_offset;
         for (;;) {
             key = next;
@@ -757,7 +758,7 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
                 flag_bits_ &= ~0x4000;
                 return cursor;
             }
-            if (!(trans_key_time(next) <= frame))
+            if (!(static_cast<float>(trans_key_time(next)) <= frame))
                 break;
         }
     }
@@ -858,7 +859,7 @@ bool JointClipFrames::get_float_key_pose(float* rotations, float* translations, 
                 break;
             }
             int from = quat_key_time(key), to = quat_key_time(key + 16);
-            if (from <= quat_frame && to >= quat_frame) {
+            if (static_cast<float>(from) <= quat_frame && static_cast<float>(to) >= quat_frame) {
                 quat_from = key;
                 quat_to = key + 16;
                 quat_t =
@@ -875,7 +876,7 @@ bool JointClipFrames::get_float_key_pose(float* rotations, float* translations, 
                 break;
             }
             int from = trans_key_time(key), to = trans_key_time(key + 16);
-            if (from <= trans_frame && to >= trans_frame) {
+            if (static_cast<float>(from) <= trans_frame && static_cast<float>(to) >= trans_frame) {
                 trans_from = key;
                 trans_to = key + 16;
                 trans_t =
@@ -946,9 +947,9 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                             interpolate_float_quat(rotations, reinterpret_cast<FloatKey*>(first),
                                                    reinterpret_cast<FloatKey*>(second), 0.0f);
                         } else {
-                            if (quat_frame < from)
+                            if (quat_frame < static_cast<float>(from))
                                 quat_frame = static_cast<float>(from);
-                            else if (quat_frame > to)
+                            else if (quat_frame > static_cast<float>(to))
                                 quat_frame = static_cast<float>(to);
                             auto t = static_cast<float>((static_cast<double>(quat_frame) - from) /
                                                         (static_cast<double>(to) - from));
@@ -1034,12 +1035,12 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                         }
                         decompress_trans_key(at, &b);
                         int from = trans_key_time(reinterpret_cast<const uint8_t*>(&a.time));
-                        if (!(from <= trans_frame)) { // (the frame before this key: this key alone)
+                        if (!(static_cast<float>(from) <= trans_frame)) { // (the frame before this key: this key alone)
                             b = a;
                             break;
                         }
                         int to = trans_key_time(reinterpret_cast<const uint8_t*>(&b.time));
-                        if (to >= trans_frame) {
+                        if (static_cast<float>(to) >= trans_frame) {
                             t = static_cast<float>((static_cast<double>(trans_frame) - from) /
                                                    (static_cast<double>(to) - from));
                             break;

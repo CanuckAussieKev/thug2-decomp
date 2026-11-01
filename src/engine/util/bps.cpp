@@ -130,13 +130,13 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
         case 2: // the input's bytes from elsewhere
             source_at += decode_varint(patch, &at);
             std::memcpy(out + output_at, input + source_at, length);
-            source_at += length;
+            source_at += static_cast<int32_t>(length);
             output_at += length;
             break;
         case 3: // the output's own earlier bytes
             target_at += decode_varint(patch, &at);
             std::memcpy(out + output_at, out + target_at, length);
-            target_at += length;
+            target_at += static_cast<int32_t>(length);
             output_at += length;
             break;
         }

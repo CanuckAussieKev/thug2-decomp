@@ -1025,7 +1025,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         has_next_blend_ = true;
         return 1;
     case 0x6ECEB234: // whether it's flipped
-        return (flag_bits_ >> 29) & 1;
+        return static_cast<int>((flag_bits_ >> 29) & 1);
     case 0x74CF5C94: // wait_anim
         return wait_anim(params);
     case 0x80FDBDF2: // whether it cycles

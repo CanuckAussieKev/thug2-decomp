@@ -97,7 +97,7 @@ void delete_params(script::Struct* params)
 // one back and returns the end of what it read) - the summary and the contents.
 uint8_t* read_structure(script::Struct* into, uint8_t* data, size_t size)
 {
-    return const_cast<uint8_t*>(script::decode_from_bytes(into, data, size));
+    return script::decode_from_bytes(into, data, size);
 }
 
 constexpr uint32_t kNoApply = 0x8C6808D4;        // integer parameter: keep the contents in 0x007CECD4 instead

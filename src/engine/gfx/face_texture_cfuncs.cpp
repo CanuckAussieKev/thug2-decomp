@@ -126,11 +126,11 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
     uint8_t image[0x4420];
     std::memset(image, 0, sizeof(image));
     texture->set_pixels(static_cast<void*>(image));
-    int palette_size = texture->get_palette_size();
+    int palette_size = static_cast<int>(texture->get_palette_size());
     uint8_t bits_per_pixel = texture->get_unknown_e();
     texture->set_palette(static_cast<void*>(image + 0x20), palette_size / (bits_per_pixel >> 3));
     const void* pixels = texture->get_pixels();
-    int pixel_size = texture->get_pixels_size();
+    int pixel_size = static_cast<int>(texture->get_pixels_size());
     std::memcpy(image + 0x20 + palette_size, pixels, pixel_size);
     static_cast<gfx::FaceSkin*>(face)->set_image(image, pixel_size + palette_size + 0x20);
     return true;
@@ -151,7 +151,7 @@ bool cfunc_offset_texture(script::Struct* params, script::Script*)
     params->fetch_int_value(kYOffset, &y, 0);
     bool given = false;
     uint32_t colour = read_colour(params, &given);
-    texture->get_offset(x, y, given, colour);
+    texture->get_offset(x, y, given, static_cast<int>(colour));
     return true;
 }
 

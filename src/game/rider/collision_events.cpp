@@ -288,7 +288,7 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
 {
     if (!face.hit || face.object || !face.coll_obj_)
         return;
-    auto* object = static_cast<render::HitMesh*>(const_cast<void*>(face.coll_obj_));
+    auto* object = static_cast<render::HitMesh*>(face.coll_obj_);
     const render::TriMeshSource* geometry = object->geometry_;
     if (!geometry || face.index < 0 || face.index >= geometry->tri_count_)
         return;

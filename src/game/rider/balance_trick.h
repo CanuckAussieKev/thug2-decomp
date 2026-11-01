@@ -80,6 +80,7 @@ public:
 
     // The balance of the current type (null for none).
     Balance* at_hand();
+    const Balance* at_hand() const;
 
     uint32_t trick_; // +0x18 the balance trick being balanced (0: none)
     bool started_;   // +0x1C StartBalanceTrick
@@ -90,6 +91,11 @@ public:
     Balance lip_;                            // +0xD4
     Balance skitch_;                         // +0x12C
     AnimBlenderComponent* anim_blender_ptr_; // +0x184
+
+private:
+    // at_hand's choice, for both constnesses
+    template <typename Self>
+    static auto* balance_of(Self* self);
 };
 
 } // namespace objects

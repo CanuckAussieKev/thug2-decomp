@@ -523,7 +523,7 @@ void draw_viewport(int index)
     }
     set_viewport();
     clear_world_transform();
-    float aspect = reinterpret_cast<ViewRegion*>(const_cast<Viewport*>(view))->fetch_width_over_height();
+    float aspect = reinterpret_cast<const ViewRegion*>(view)->fetch_width_over_height();
 
     // Not original - the level editor's ortho views (editor/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).

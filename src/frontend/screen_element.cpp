@@ -398,7 +398,7 @@ void UiWidget::change_rgba(uint32_t rgba, int now)
 // 0x004A8870
 void UiWidget::start_morph(int ms)
 {
-    morph_start_ = frame_clock::get_time();
+    morph_start_ = static_cast<int>(frame_clock::get_time());
     morph_length_ = ms;
     morph_curve_done_ = 0.0f;
     morph_done_ = 0.0f;
@@ -581,7 +581,7 @@ void UiWidget::change_owner(const ElementPtr* parent, int)
 // 0x004A9D30
 void UiWidget::update_layout()
 {
-    int now = frame_clock::get_time();
+    int now = static_cast<int>(frame_clock::get_time());
     ++alias_count_; // (the object's use count while the pass runs)
     if (!(object_flags_ & kFocusSent)) {
         object_flags_ |= kFocusSent;

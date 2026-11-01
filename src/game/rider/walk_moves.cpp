@@ -169,7 +169,8 @@ void put_off(maths::Vec4* position, const render::ProbeRay* feeler, float gap)
 // One of the eight contacts (+0xA0, 0xCC each): what feeler 0-6 (around it, a seventh of a turn apart from the facing)
 // or 7 (along the fall) found.
 using Contact = WalkContact;
-Contact& contact_at(const FootMovement* walk, int index) { return const_cast<FootMovement*>(walk)->contacts_[index]; }
+Contact& contact_at(FootMovement* walk, int index) { return walk->contacts_[index]; }
+const Contact& contact_at(const FootMovement* walk, int index) { return walk->contacts_[index]; }
 
 // Where it hangs along the hang's facing (+0x18B4): (the position plus the ride check's offset) . that facing.
 float hang_plane(const FootMovement* walk)

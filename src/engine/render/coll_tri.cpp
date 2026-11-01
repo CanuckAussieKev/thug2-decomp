@@ -42,8 +42,9 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
 {
     if (compressed_) {
         const uint16_t* v = static_cast<const uint16_t*>(vertices_) + 3 * index;
-        return {v[0] * 0.0625f + lower_limit_.x, v[1] * 0.0625f + lower_limit_.y, v[2] * 0.0625f + lower_limit_.z,
-                0.0f};
+        return {static_cast<float>(v[0]) * 0.0625f + lower_limit_.x,
+                static_cast<float>(v[1]) * 0.0625f + lower_limit_.y,
+                static_cast<float>(v[2]) * 0.0625f + lower_limit_.z, 0.0f};
     }
     const float* v = static_cast<const float*>(vertices_) + 3 * index;
     return {v[0], v[1], v[2], 0.0f};
@@ -54,9 +55,9 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 {
     if (compressed_) {
         const uint16_t* v = static_cast<const uint16_t*>(vertices_) + 3 * index;
-        out->x = v[0] * 0.0625f + lower_limit_.x;
-        out->y = v[1] * 0.0625f + lower_limit_.y;
-        out->z = v[2] * 0.0625f + lower_limit_.z;
+        out->x = static_cast<float>(v[0]) * 0.0625f + lower_limit_.x;
+        out->y = static_cast<float>(v[1]) * 0.0625f + lower_limit_.y;
+        out->z = static_cast<float>(v[2]) * 0.0625f + lower_limit_.z;
         out->w = 0.0f;
         return;
     }
@@ -102,9 +103,9 @@ void TriMeshSource::choose_raw_verts(const maths::Vec4* positions)
 // 0x00414D80 (one of the edge's z kept unrounded for the normal's x, as the original's x87 code does)
 maths::Vec4 TriMeshSource::get_triangle_normal(int face) const
 {
-    maths::Vec4 v0 = read_stored_vertex(face_vertex(face, 0));
-    maths::Vec4 v1 = read_stored_vertex(face_vertex(face, 1));
-    maths::Vec4 v2 = read_stored_vertex(face_vertex(face, 2));
+    maths::Vec4 v0 = read_stored_vertex(static_cast<int>(face_vertex(face, 0)));
+    maths::Vec4 v1 = read_stored_vertex(static_cast<int>(face_vertex(face, 1)));
+    maths::Vec4 v2 = read_stored_vertex(static_cast<int>(face_vertex(face, 2)));
     auto ax = static_cast<float>(static_cast<double>(v1.x) - v0.x);
     auto ay = static_cast<float>(static_cast<double>(v1.y) - v0.y);
     auto az = static_cast<float>(static_cast<double>(v1.z) - v0.z);
@@ -332,9 +333,9 @@ void TriMeshSource::add_occlusion_polys()
             if (matches != 2)
                 continue;
             // both normals ((v1 - v0) x (v2 - v0)), rounded where the original's x87 code stores them
-            maths::Vec4 a = read_stored_vertex(face_vertex(i, 0));
-            maths::Vec4 b = read_stored_vertex(face_vertex(i, 1));
-            maths::Vec4 c = read_stored_vertex(face_vertex(i, 2));
+            maths::Vec4 a = read_stored_vertex(static_cast<int>(face_vertex(i, 0)));
+            maths::Vec4 b = read_stored_vertex(static_cast<int>(face_vertex(i, 1)));
+            maths::Vec4 c = read_stored_vertex(static_cast<int>(face_vertex(i, 2)));
             double cx = static_cast<double>(c.x) - a.x;
             double cy = static_cast<double>(c.y) - a.y;
             double cz = static_cast<double>(c.z) - a.z;
@@ -344,9 +345,9 @@ void TriMeshSource::add_occlusion_polys()
             auto n1x = static_cast<float>(by * cz - bz * cy);
             auto n1y = static_cast<float>(bz * cx - cz * bx);
             auto n1z = static_cast<float>(cy * bx - by * cx);
-            maths::Vec4 a2 = read_stored_vertex(face_vertex(j, 0));
-            maths::Vec4 b2 = read_stored_vertex(face_vertex(j, 1));
-            maths::Vec4 c2 = read_stored_vertex(face_vertex(j, 2));
+            maths::Vec4 a2 = read_stored_vertex(static_cast<int>(face_vertex(j, 0)));
+            maths::Vec4 b2 = read_stored_vertex(static_cast<int>(face_vertex(j, 1)));
+            maths::Vec4 c2 = read_stored_vertex(static_cast<int>(face_vertex(j, 2)));
             points[0] = a2;
             points[1] = b2;
             points[2] = c2;
@@ -384,7 +385,7 @@ void TriMeshSource::add_occlusion_polys()
                     break;
                 }
             }
-            auto corner = [this, i](int k) { return read_stored_vertex(face_vertex(i, k)); };
+            auto corner = [this, i](int k) { return read_stored_vertex(static_cast<int>(face_vertex(i, k))); };
             if (shared[0] >= 0 && shared[1] >= 0) {
                 points[0] = corner(0);
                 points[1] = read_stored_vertex(extra);
@@ -447,7 +448,7 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
     }
     uint32_t n = node->leaf_face_count();
     uint16_t* out = s_face_buffer + s_face_count;
-    s_face_count += n;
+    s_face_count += static_cast<int>(n);
     if (s_face_count > tri_count_) {
         s_face_count = -1;
         return;
@@ -481,7 +482,7 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
     for (uint32_t i = 0; i < n; ++i) {
         int face = node->get_leaf_faces()[i];
         maths::Vec4 normal = get_triangle_normal(face);
-        maths::Vec4 corner = read_stored_vertex(face_vertex(node->get_leaf_faces()[i], 0));
+        maths::Vec4 corner = read_stored_vertex(static_cast<int>(face_vertex(node->get_leaf_faces()[i], 0)));
         auto dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
         double dy = static_cast<double>(point->y) - corner.y;
         double dz = static_cast<double>(point->z) - corner.z;

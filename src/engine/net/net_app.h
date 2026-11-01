@@ -42,7 +42,7 @@ struct NetMessageInfo {
     uint8_t ident_;         // 0x00
     uint8_t feed_;          // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
     uint16_t byte_count_;   // 0x02
-    void* content_;         // 0x04
+    const void* content_;   // 0x04 (copied when the message is queued)
     int rank_;              // 0x08 (0x80 by default)
     int queue_;             // 0x0C
     uint8_t group_id_;      // 0x10 sequenced messages: each group has its own sequence
@@ -144,7 +144,7 @@ struct AppHost {
     // note the address it got. (`address` isn't used.) False (reported) on failure.
     bool get_bind(uint32_t address, uint16_t port);
     // 0x00456D90: a new SeqQueuedMsg (null if out of memory).
-    SeqQueuedMsg* new_queued_msg(uint8_t id, uint16_t length, void* data, uint8_t arg4, uint8_t arg5);
+    SeqQueuedMsg* new_queued_msg(uint8_t id, uint16_t length, const void* data, uint8_t arg4, uint8_t arg5);
     // 0x00456E20: a datagram to ip:port (scrambled first if secure). True if sent or it would block.
     bool transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags);
     // 0x00456F10: a packet on the connected socket (scrambled first if secure). False if not connected or

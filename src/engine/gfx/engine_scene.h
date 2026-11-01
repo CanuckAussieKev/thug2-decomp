@@ -107,7 +107,7 @@ struct WorldScene : public memory::HeapObject {
     // vertices - (-100, -100, -100) - (100, 100, 100) when none has. True.
     // (Not original: `size` - the file's bytes, util::ByteReader::kUnknownSize if not known - bounds its reader;
     // a damaged file is refused: no objects.)
-    bool load_collision_data(const uint8_t* data, size_t size, int* count, StaticCollider** statics, uint8_t** objects,
+    bool load_collision_data(uint8_t* data, size_t size, int* count, StaticCollider** statics, uint8_t** objects,
                              maths::BBox* box, int unused);
     // 0x0049CE60: with collision, `box` kept and the collision grid made over it. Whether there's collision.
     bool init_collision_grid(const maths::BBox* box);
@@ -134,7 +134,7 @@ struct WorldScene : public memory::HeapObject {
     // 0x0049D590: the collision from a scene file's collision data - the static objects (and with builds_collision_grid_
     // their grid), each given to its sector (a new one, shown, if there's none of its name) and the sector put in the
     // grid (0x40); the weather told (0x004A1090) when the script integer 0xBA1E4254 is set. True.
-    bool add_collision_data(const uint8_t* data, size_t size, int flag);
+    bool add_collision_data(uint8_t* data, size_t size, int flag);
     // 0x0049DF70: the collision file "levels\<name>\<name>.col.<ext>" (its name kept) loaded and added. Whether it
     // was there.
     bool load_collision_file(const char* name, int flag);

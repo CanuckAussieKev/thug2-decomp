@@ -124,14 +124,14 @@ bool PcTexture::end_edit()
 }
 
 // 0x004C7FB0
-uint16_t PcTexture::fetch_breadth()
+uint16_t PcTexture::fetch_breadth() const
 {
     TextureRef* texture = get_texture();
     return texture ? texture->image_width_ : 0;
 }
 
 // 0x004C7FE0
-uint16_t PcTexture::fetch_tallness()
+uint16_t PcTexture::fetch_tallness() const
 {
     TextureRef* texture = get_texture();
     return texture ? texture->image_height_ : 0;
@@ -168,8 +168,8 @@ PcTexture::PcTexture(const PcTexture* source)
         copy = memory ? static_cast<TextureRef*>(memory)->construct_copy(source->get_texture()) : nullptr;
     }
     // (the source's size through its virtual functions)
-    uint32_t width = const_cast<PcTexture*>(source)->fetch_breadth();
-    uint32_t height = const_cast<PcTexture*>(source)->fetch_tallness();
+    uint32_t width = source->fetch_breadth();
+    uint32_t height = source->fetch_tallness();
     if (!(source->flag_bits_ & 1)) {
         image_ = copy;
         return;
@@ -435,7 +435,8 @@ uint8_t PcTexture::nearest_palette_index(uint32_t colour)
         reinterpret_cast<const uint8_t*>(get_texture()->palette_owner()); // (its entries, as the original)
     uint8_t nearest = 0;
     int best = 0x7FFFFFFF;
-    int c0 = colour & 0xFF, c1 = colour >> 8 & 0xFF, c2 = colour >> 16 & 0xFF, c3 = colour >> 24;
+    int c0 = static_cast<int>(colour & 0xFF), c1 = static_cast<int>(colour >> 8 & 0xFF),
+        c2 = static_cast<int>(colour >> 16 & 0xFF), c3 = static_cast<int>(colour >> 24);
     for (int i = 0; i < count; ++i, entry += 4) {
         int d0 = entry[0] - c0, d1 = entry[1] - c1, d2 = entry[2] - c2, d3 = entry[3] - c3;
         int distance = d2 * d2 + d3 * d3 * 2 + d1 * d1 + d0 * d0;
@@ -726,8 +727,8 @@ bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bo
     int count = fetch_tallness() * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
         float h = 0.0f, s = 0.0f, v = 0.0f;
-        rgb_to_hsv(static_cast<float>(from[0] * (1.0f / 255.0f)), static_cast<float>(from[1] * (1.0f / 255.0f)),
-                   static_cast<float>(from[2] * (1.0f / 255.0f)), &h, &s, &v);
+        rgb_to_hsv(static_cast<float>(from[0]) * (1.0f / 255.0f), static_cast<float>(from[1]) * (1.0f / 255.0f),
+                   static_cast<float>(from[2]) * (1.0f / 255.0f), &h, &s, &v);
         double turned = static_cast<double>(h) + hue;
         h = static_cast<float>(turned);
         if (!(turned <= 360.0f))

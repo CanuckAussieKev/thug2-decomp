@@ -57,7 +57,7 @@ public:
     void change_float(uint32_t index, float value);
     uint32_t fetch_part(uint32_t index);
     const char* fetch_text(uint32_t index);
-    const char* find_inline_text(uint32_t index);
+    char* find_inline_text(uint32_t index);
     // An integer array's elements are converted.
     float fetch_float(uint32_t index);
 
@@ -104,7 +104,7 @@ struct Component {
     union {
         int32_t integer;
         float float_value_;
-        const char* string;
+        char* string; // (spawn_text's: owned)
         uint32_t checksum;
         Struct* structure;
         Array* array;
@@ -177,7 +177,7 @@ inline void dump_to_log(const Struct* /*structure*/, int /*indent*/ = 0) {}
 // Strings owned by components: copied to the script heap (or, while the permanent string cache is on, shared
 // in its block).
 char* spawn_text(const char* string);
-void free_string(const char* string);
+void free_string(char* string);
 // While on, spawn_text puts strings in the permanent block, sharing equal ones (startup scripts).
 void begin_permanent_strings();
 // Off again; the lookup table is freed (the strings stay).
@@ -193,7 +193,7 @@ void release_component(Component* component);
 // Free an array's elements (whatever they own too) and empty it.
 void release_array_storage(Array* array);
 // Make `dest` a deep copy of `source` (with `reference`, structures and arrays are referred to, not copied).
-void duplicate_component(Component* dest, Component* source, int reference);
+void duplicate_component(Component* dest, const Component* source, int reference);
 // Make `dest` a deep copy of `source`.
 void duplicate_array(Array* dest, Array* source);
 // Deep copies of `count` elements of `type` (null elements are skipped).

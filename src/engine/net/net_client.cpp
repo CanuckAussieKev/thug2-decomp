@@ -260,7 +260,7 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
     } else {
         uint32_t gap = timestamp - newest;
         if (gap > 1 && gap <= kTimestampWindow) {
-            context->receiver_app_->skipped_stamps_ += gap - 1;
+            context->receiver_app_->skipped_stamps_ += static_cast<int>(gap - 1);
             context->sender_conn_->last_timestamp_in_ = *stamp;
             return kResultPassOn;
         }

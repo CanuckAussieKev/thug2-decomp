@@ -45,13 +45,13 @@ void* SubMesh::fetch_bone_tree() { return hierarchy_; }
 uint32_t SubMesh::get_hierarchy_count() { return hierarchy_count_; }
 
 // 0x00490B80
-bool SubMesh::add_collision(const uint8_t* data, size_t size)
+bool SubMesh::add_collision(uint8_t* data, size_t size)
 {
     // Laid out through collision_format.h, as the scene's. Not original - a damaged file (its sections, objects or
     // trees not within it) is refused: no collision objects.
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
-    hit_shape_ = const_cast<uint8_t*>(data) + collision_format::kHeaderSize;
+    hit_shape_ = data + collision_format::kHeaderSize;
     if (!collision_format::lay_out_collision(data, size, &header, &layout) ||
         !collision_format::check_collision_objects(data, header, layout)) {
         collision_count_ = 0;

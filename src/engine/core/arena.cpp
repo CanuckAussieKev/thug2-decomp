@@ -70,8 +70,8 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         best->allocator = this;
         --free_blocks_;
         count_up(used_blocks_, max_used_blocks_, 1);
-        free_size_ -= best->size;
-        count_up(used_size_, max_used_size_, best->size);
+        free_size_ -= static_cast<int>(best->size);
+        count_up(used_size_, max_used_size_, static_cast<int>(best->size));
 
         // Split off what isn't needed, as a free block of its own.
         int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
@@ -204,7 +204,7 @@ void Arena::dealloc(ChunkPrefix* header)
     count_up(free_blocks_, max_free_blocks_, 1);
     count_up(free_size_, max_free_size_, static_cast<int>(header->size));
     --used_blocks_;
-    used_size_ -= header->size;
+    used_size_ -= static_cast<int>(header->size);
     if (this == find_heap(0x502D3FD2))
         debug::printf(" *********************************************************************************** FREE %d\n",
                       header->size);
@@ -256,7 +256,7 @@ void Arena::dealloc(ChunkPrefix* header)
         return;
     }
     --free_blocks_;
-    free_size_ -= header->size;
+    free_size_ -= static_cast<int>(header->size);
     used_size_ -= kBlockHeaderSize;
 }
 

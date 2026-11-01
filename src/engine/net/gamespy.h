@@ -16,11 +16,11 @@ using PeerCallbacks = uint32_t[0x1D];
 
 // A callback given to the SDK: any function (its signature the SDK's) or code address (GAME_CODE), or null.
 struct HookFn {
-    const void* code;
+    uintptr_t code; // (as an integer: a function's or a data pointer's address alike)
     template <typename F>
-    HookFn(F* function) : code(reinterpret_cast<const void*>(function))
+    HookFn(F* function) : code(reinterpret_cast<uintptr_t>(function))
     {}
-    HookFn(std::nullptr_t) : code(nullptr) {}
+    HookFn(std::nullptr_t) : code(0) {}
 };
 
 // peerFixNick with the rules of the SDK the game was built with: a '_' before a leading digit or '-', and every

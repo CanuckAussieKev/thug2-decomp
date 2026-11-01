@@ -28,7 +28,7 @@ void load_glyph_settings()
     s_glyph_style = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "GlyphStyle", 1));
 }
 
-uint32_t button_for_tag(uint8_t* digit)
+uint32_t button_for_tag(const uint8_t* digit)
 {
     if (!key_names()) {
         switch (*digit) {

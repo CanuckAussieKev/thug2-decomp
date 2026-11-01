@@ -145,7 +145,7 @@ bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_cr
 // (On the PC all four are the shared stubs: null / 0.)
 void* texture_pixels(void* texture)
 {
-    return const_cast<void*>(static_cast<render::BitmapTexture*>(texture)->get_pixels());
+    return static_cast<render::BitmapTexture*>(texture)->get_pixels();
 }
 uint16_t get_texture_size(void* texture)
 {
@@ -153,7 +153,7 @@ uint16_t get_texture_size(void* texture)
 }
 void* texture_palette(void* texture)
 {
-    return const_cast<void*>(static_cast<render::BitmapTexture*>(texture)->get_palette());
+    return static_cast<render::BitmapTexture*>(texture)->get_palette();
 }
 uint16_t texture_palette_size(void* texture)
 {
@@ -288,7 +288,7 @@ void Hub::set_ready_state(bool ready)
     modules::Skate* skate = modules::g_skate_module;
     unsigned int count = tally_nodes(skate->riders_.list_link_.next);
     for (unsigned int i = 0; i < count; ++i) {
-        auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(i));
+        auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
         if (skater) { // (the original's skater slots 12 / 11)
             if (ready)
                 skater->unpause();
@@ -577,7 +577,7 @@ void Hub::disconnect_clients()
         modules::Skate* skate = modules::g_skate_module;
         unsigned int count = tally_nodes(skate->riders_.list_link_.next);
         for (unsigned int i = 0; i < count; ++i) {
-            auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(i));
+            auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
             if (skater)
                 skater->get_freeze(); // (the original's skater slot 11)
         }

@@ -154,7 +154,7 @@ bool WorldScene::delete_sector_named(uint32_t name)
 }
 
 // 0x0049CBB0
-bool WorldScene::load_collision_data(const uint8_t* data, size_t size, int* count, StaticCollider** statics,
+bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, StaticCollider** statics,
                                      uint8_t** objects, maths::BBox* box, int)
 {
     // The header read and the sections laid out through collision_format.h (+4 objects, +8 vertex bytes, +0xC / +0x10
@@ -170,7 +170,7 @@ bool WorldScene::load_collision_data(const uint8_t* data, size_t size, int* coun
         header.object_count = 0;
     }
     *count = header.object_count;
-    *objects = const_cast<uint8_t*>(data) + collision_format::kHeaderSize;
+    *objects = data + collision_format::kHeaderSize;
     uintptr_t vertices = layout.vertices;
     uintptr_t vertex_bytes = layout.vertex_bytes;
     uintptr_t faces = layout.faces;

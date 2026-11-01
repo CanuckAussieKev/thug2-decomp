@@ -67,7 +67,7 @@ char s_domain[64] = "gamespy.com";
 template <typename Fn>
 Fn as(HookFn callback)
 {
-    return reinterpret_cast<Fn>(const_cast<void*>(callback.code));
+    return reinterpret_cast<Fn>(callback.code);
 }
 
 void set_host(char* out, size_t size, const char* format, const char* name)
@@ -151,6 +151,7 @@ void cd_key_disconnect_all(int game_id) { gcd_disconnect_all(game_id); }
 void cd_key_compute_response(const char* cd_key, const char* challenge, char* response)
 {
     // (the game's SDK had only the normal response: method 0)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's parameter is a non-const char* it only reads
     gcd_compute_response(const_cast<char*>(cd_key), const_cast<char*>(challenge), response, CDResponseMethod_NEWAUTH);
 }
 
@@ -211,7 +212,9 @@ int peer_set_title(void* peer, const char* title, const char* qr_secret_key, con
     set_master_server(sb_name);
     return static_cast<int>(peerSetTitle(peer, title, qr_secret_key, sb_name, sb_secret_key, sb_game_version,
                                          sb_max_updates, static_cast<PEERBool>(nat_negotiate),
+                                         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the SDK's PEERBool arrays, only read
                                          reinterpret_cast<PEERBool*>(const_cast<int*>(ping_rooms)),
+                                         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the SDK's PEERBool arrays, only read
                                          reinterpret_cast<PEERBool*>(const_cast<int*>(cross_ping_rooms))));
 }
 void peer_clear_title(void* peer) { peerClearTitle(peer); }
@@ -432,6 +435,7 @@ void stats_free_game(void* game) { FreeGame(static_cast<statsgame_t>(game)); }
 const char* stats_get_challenge(void* game) { return GetChallenge(static_cast<statsgame_t>(game)); }
 void stats_new_player(void* game, int number, const char* name)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's parameter is a non-const char* it only reads
     NewPlayer(static_cast<statsgame_t>(game), number, const_cast<char*>(name));
 }
 void stats_remove_player(void* game, int number) { RemovePlayer(static_cast<statsgame_t>(game), number); }
@@ -442,6 +446,7 @@ int stats_send_snap_shot(void* game, const char* snapshot, int final)
 void stats_get_persist_data_values(int local_id, int profile, int type, int index, const char* keys, HookFn callback,
                                    void* instance)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's parameter is a non-const char* it only reads
     ::GetPersistDataValues(local_id, profile, static_cast<persisttype_t>(type), index, const_cast<char*>(keys),
                            as<PersDataCallbackFn>(callback), instance);
 }
@@ -451,23 +456,23 @@ void stats_generate_auth(const char* challenge, const char* password, char* resp
 }
 void set_server_int_bucket(void* game, const char* key, int value)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
     BucketIntOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, value, bl_server, 0);
 }
 void set_server_string_bucket(void* game, const char* key, const char* value)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
     BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value), bl_server,
                    0);
 }
 void set_player_int_bucket(void* game, const char* key, int value, int player)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
     BucketIntOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, value, bl_player, player);
 }
 void set_player_string_bucket(void* game, const char* key, const char* value, int player)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
     BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value), bl_player,
                    player);
 }

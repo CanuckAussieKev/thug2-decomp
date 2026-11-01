@@ -107,7 +107,8 @@ void current_settings(const Goal& goal, ImFont* mono)
         }
         if (gaps.empty())
             ImGui::TextDisabled("No gaps");
-        ImGui::BeginChild("##goalgaps", ImVec2(0.0f, std::min(160.0f, 22.0f * gaps.size() + 4.0f)), true);
+        ImGui::BeginChild("##goalgaps", ImVec2(0.0f, std::min(160.0f, 22.0f * static_cast<float>(gaps.size()) + 4.0f)),
+                          true);
         for (const std::string& name : gaps) {
             auto it = std::find(g.gaps.begin(), g.gaps.end(), name);
             bool on = it != g.gaps.end();
@@ -154,7 +155,7 @@ void current_settings(const Goal& goal, ImFont* mono)
                 changed = true;
             int percent = static_cast<int>(g.accel_percent_ * 100.0f + 0.01f);
             if (int_field("Accel. percent##goal", &percent, 0.2f, 1, 100, "%d%%", &done)) {
-                g.accel_percent_ = percent / 100.0f;
+                g.accel_percent_ = static_cast<float>(percent) / 100.0f;
                 changed = true;
             }
             if (int_field("Trick time##goal", &g.combo_time_, 5.0f, 5, 3000, "%d", &done))

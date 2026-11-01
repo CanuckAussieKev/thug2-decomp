@@ -127,7 +127,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = objects::kGroupGame;
         for (void* info = net->begin_player_walk(&search, false); info; info = net->step_player_walk(&search, false))
-            server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
+            server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, data,
                                       kTrickObjBuffer, objects::kGroupGame, true, false);
 
         util::ByteWriter observed_writer(data, sizeof(data));
@@ -138,7 +138,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
             if (static_cast<uint8_t>(as_player(info)->is_observer()))
                 server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_,
-                                          desc.content_, kTrickObjBuffer, objects::kGroupGame, true, false);
+                                          data, kTrickObjBuffer, objects::kGroupGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false); // the skate module's score updates
         if (conn->is_host_local())                                    // (no check: as the original)

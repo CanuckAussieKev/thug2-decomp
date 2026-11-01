@@ -32,7 +32,7 @@ int pop_count(uint32_t word)
 {
     int count = 0;
     for (int i = 0; i < 32; ++i, word >>= 1)
-        count += word & 1;
+        count += static_cast<int>(word & 1);
     return count;
 }
 

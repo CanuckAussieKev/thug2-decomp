@@ -1418,7 +1418,7 @@ void run(int count, std::mt19937_64& random)
             compare(t_skin_f, out_fresh[k], out_ref[k], k);
     }
     // The edges: +-1, 0, NaN, outside [-1, 1] for asin / acos.
-    const double edges[] = {1.0, -1.0, 0.0, -0.0, 1.0000001, -1.5, 2.0, NAN, INFINITY, -INFINITY};
+    const double edges[] = {1.0, -1.0, 0.0, -0.0, 1.0000001, -1.5, 2.0, NAN, INFINITY, -static_cast<double>(INFINITY)};
     for (double e : edges) {
         compare(t_asin, fresh::asin(e), ref::asin(e), e);
         compare(t_acos, fresh::acos(e), ref::acos(e), e);

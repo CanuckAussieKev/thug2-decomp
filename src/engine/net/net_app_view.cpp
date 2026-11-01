@@ -178,7 +178,7 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
 }
 
 // 0x00456D90
-SeqQueuedMsg* AppHost::new_queued_msg(uint8_t id, uint16_t length, void* data, uint8_t arg4, uint8_t arg5)
+SeqQueuedMsg* AppHost::new_queued_msg(uint8_t id, uint16_t length, const void* data, uint8_t arg4, uint8_t arg5)
 {
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
     if (!memory)

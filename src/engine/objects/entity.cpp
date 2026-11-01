@@ -337,7 +337,7 @@ bool Entity::read_hash_tag(uint32_t name, uint32_t* value)
 }
 
 // 0x00460800
-bool Entity::contains_tag_flag(uint32_t flag) { return tag_table_ ? tag_table_->has_bare_flag(flag) : false; }
+bool Entity::contains_tag_flag(uint32_t flag) const { return tag_table_ ? tag_table_->has_bare_flag(flag) : false; }
 
 // 0x00460820
 void Entity::copy_tags_to(Struct* dest)

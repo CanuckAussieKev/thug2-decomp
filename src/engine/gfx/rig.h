@@ -100,7 +100,7 @@ public:
     // 0x004A2CE0: every bone's scale back to 1 (unflagged).
     void reset_bone_scales();
     // 0x004A2D20: the scale of the bone named `name`. Whether it was found.
-    bool fetch_bone_sizing(uint32_t name, maths::Vec4* scale);
+    bool fetch_bone_sizing(uint32_t name, maths::Vec4* scale) const;
     // 0x004A2D80: the bone's scale set; unless it's exactly 1 (x, y, z), flagged local (`local`) or not. Whether it
     // was found.
     bool change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local);

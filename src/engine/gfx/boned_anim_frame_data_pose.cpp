@@ -37,13 +37,13 @@ int cache_format(void* manager) { return static_cast<ClipStore*>(manager)->fetch
 // The compressed keys' decoders: the next rotation key (0x00482C20) / translation key (0x00482E70) into `key`,
 // returning where the next one starts; a rotation key as a quaternion (0x00482A70, 0x00483D00 - the quaternion at +4
 // of its output).
-uint8_t* decode_rotation(uint8_t* cursor, void* key, uint32_t flags, uint8_t* table)
+const uint8_t* decode_rotation(const uint8_t* cursor, void* key, uint32_t flags, const uint8_t* table)
 {
-    return const_cast<uint8_t*>(decompress_quat_key(cursor, static_cast<ShortKey*>(key), flags, table));
+    return decompress_quat_key(cursor, static_cast<ShortKey*>(key), flags, table);
 }
-uint8_t* decode_translation(uint8_t* cursor, void* key, uint32_t)
+const uint8_t* decode_translation(const uint8_t* cursor, void* key, uint32_t)
 {
-    return const_cast<uint8_t*>(decompress_trans_key(cursor, static_cast<ShortKey*>(key)));
+    return decompress_trans_key(cursor, static_cast<ShortKey*>(key));
 }
 void rotation_to_quat_a(void* out, const void* key)
 {
@@ -206,8 +206,8 @@ void JointClipFrames::build_cache(int format)
 
     // The rotations: each bone's keys one after another, the bones' starts in rot_offsets
     uint16_t* sizes = quat_sizes_;
-    uint8_t* cursor = quat_keys_;
-    uint8_t* end = cursor + *sizes;
+    const uint8_t* cursor = quat_keys_;
+    const uint8_t* end = cursor + *sizes;
     uint32_t offset = 0;
     uint32_t bone = 0;
     rot_offsets[0] = 0;

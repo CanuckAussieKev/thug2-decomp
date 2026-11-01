@@ -572,12 +572,12 @@ int set_script_string(int index, const char* string)
 char* get_script_string(int index) { return script_string_slot(index); }
 
 // 0x00476340 (strings in the permanent block are never freed)
-void free_string(const char* string)
+void free_string(char* string)
 {
     const char* start = permanent_strings_start();
     if (string >= start && string < start + permanent_strings_size())
         return;
-    memory::free_malloc(const_cast<char*>(string));
+    memory::free_malloc(string);
 }
 
 // 0x00409030 / 0x00409070
@@ -635,7 +635,7 @@ void release_array_storage(Array* array)
         switch (type) {
         case kQbvalString:
         case kQbvalInlineText:
-            free_string(reinterpret_cast<const char*>(element));
+            free_string(reinterpret_cast<char*>(element));
             break;
         case kQbvalPair:
             delete_pair(reinterpret_cast<Pair*>(element));
@@ -707,7 +707,7 @@ void release_component(Component* component)
 }
 
 // 0x004773E0
-void duplicate_component(Component* dest, Component* source, int reference)
+void duplicate_component(Component* dest, const Component* source, int reference)
 {
     if (dest->raw)
         release_component(dest);
@@ -1316,7 +1316,7 @@ uint32_t Array::fetch_part(uint32_t index) { return extent_ == 1 ? single_ : ele
 const char* Array::fetch_text(uint32_t index) { return reinterpret_cast<const char*>(fetch_part(index)); }
 
 // 0x0046CB70
-const char* Array::find_inline_text(uint32_t index) { return reinterpret_cast<const char*>(fetch_part(index)); }
+char* Array::find_inline_text(uint32_t index) { return reinterpret_cast<char*>(fetch_part(index)); }
 
 // 0x0046CBF0
 float Array::fetch_float(uint32_t index)

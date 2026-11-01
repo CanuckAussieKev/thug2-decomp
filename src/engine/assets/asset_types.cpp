@@ -54,7 +54,7 @@ bool load_skeleton_data(void* skeleton, void* buffer, uint32_t size)
 // Scripts: 0x005A5990 parses a .qb file's contents, 0x005A59B0 unloads one (by its name's checksum).
 void parse_qb_file(const char* name, void* buffer)
 {
-    script::load_qb_file_data(name, static_cast<const uint8_t*>(buffer), 1, 1);
+    script::load_qb_file_data(name, static_cast<uint8_t*>(buffer), 1, 1);
 }
 void unload_qb_file(uint32_t name) { script::unload_qb_file(name); }
 // Scenes (Nx): the file name, made from the buffer (with the textures), unloaded.
@@ -80,7 +80,7 @@ void collision_file_name(char* out, const char* name, uint8_t flag)
 }
 void add_collision(void* scene, void* buffer, uint32_t size, uint8_t flag)
 {
-    static_cast<render::WorldScene*>(scene)->add_collision_data(static_cast<const uint8_t*>(buffer), size, flag);
+    static_cast<render::WorldScene*>(scene)->add_collision_data(static_cast<uint8_t*>(buffer), size, flag);
 }
 void* scene_collision(void* scene) { return static_cast<render::WorldScene*>(scene)->fetch_static_collision(0); }
 void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unload_collision(); }
@@ -101,7 +101,7 @@ void unload_skinned_model(void* model, int flag)
 void skin_collision_file_name(char* out, const char* name) { render::skin_collision_file_name(out, name); }
 void add_skin_collision(void* model, void* buffer, uint32_t size)
 {
-    static_cast<render::SubMesh*>(model)->add_collision(static_cast<const uint8_t*>(buffer), size);
+    static_cast<render::SubMesh*>(model)->add_collision(static_cast<uint8_t*>(buffer), size);
 }
 void remove_skin_collision(void* model) { static_cast<render::SubMesh*>(model)->detach_hit_mesh(); }
 // Texture dictionaries: the file name, made, unloaded.

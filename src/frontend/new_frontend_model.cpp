@@ -823,9 +823,9 @@ void Menu::clamp_scroll(bool snap)
     if (row >= 0) {
         // (a row of margin kept above and below the selection while the list goes on)
         float top = scroll_target_;
-        if (row - 1 < top)
+        if (static_cast<float>(row - 1) < top)
             top = static_cast<float>(row - 1);
-        if (row + 2 > top + visible_rows_)
+        if (static_cast<float>(row + 2) > top + static_cast<float>(visible_rows_))
             top = static_cast<float>(row + 2 - visible_rows_);
         scroll_target_ = std::clamp(top, 0.0f, max_top);
     } else {

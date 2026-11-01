@@ -140,28 +140,32 @@ void RiderTeeterMoves::halt()
     started_ = false;
 }
 
-Balance* RiderTeeterMoves::at_hand()
+template <typename Self>
+auto* RiderTeeterMoves::balance_of(Self* self)
 {
-    switch (trick_) {
+    using Result = decltype(&self->manual_);
+    switch (self->trick_) {
     case kManual:
     case kNoseManual:
-        return &manual_;
+        return &self->manual_;
     case kGrind:
     case kSlide:
-        return &grind_;
+        return &self->grind_;
     case kSkitch:
-        return &skitch_;
+        return &self->skitch_;
     case kLip:
-        return &lip_;
+        return &self->lip_;
     default:
-        return nullptr;
+        return static_cast<Result>(nullptr);
     }
 }
+Balance* RiderTeeterMoves::at_hand() { return balance_of(this); }
+const Balance* RiderTeeterMoves::at_hand() const { return balance_of(this); }
 
 // 0x004F8E20
 void RiderTeeterMoves::get_buttons(int* count, uint32_t* buttons) const
 {
-    const Balance* balance = const_cast<RiderTeeterMoves*>(this)->at_hand();
+    const Balance* balance = at_hand();
     if (!balance) {
         *count = 0;
         return;
@@ -174,7 +178,7 @@ void RiderTeeterMoves::get_buttons(int* count, uint32_t* buttons) const
 // 0x004F8F20
 float RiderTeeterMoves::get_lean() const
 {
-    const Balance* balance = const_cast<RiderTeeterMoves*>(this)->at_hand();
+    const Balance* balance = at_hand();
     return balance ? balance->lean_ : 0.0f;
 }
 

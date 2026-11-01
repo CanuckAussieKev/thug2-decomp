@@ -86,7 +86,8 @@ void ghttp_cleanup() { game_spy::http_cleanup(); }
 int ghttp_get_ex(const char* url, const char* headers, char* buffer, uint32_t size, void* post, int throttle,
                  int blocking, const void* progress, const void* completed, void* param)
 {
-    return game_spy::http_get_ex(url, headers, buffer, size, post, throttle, blocking, progress, completed, param);
+    return game_spy::http_get_ex(url, headers, buffer, static_cast<int>(size), post, throttle, blocking, progress,
+                                 completed, param);
 }
 void* ghttp_new_post() { return game_spy::http_new_post(); }
 void ghttp_post_add_string(void* post, const char* name, const char* value)
@@ -96,7 +97,7 @@ void ghttp_post_add_string(void* post, const char* name, const char* value)
 void ghttp_post_add_file_from_memory(void* post, const char* name, const char* buffer, uint32_t size,
                                      const char* report_name, const char* content_type)
 {
-    game_spy::http_post_add_file_from_memory(post, name, buffer, size, report_name, content_type);
+    game_spy::http_post_add_file_from_memory(post, name, buffer, static_cast<int>(size), report_name, content_type);
 }
 int ghttp_post_ex(const char* url, const char* headers, void* post, int throttle, int blocking, const void* progress,
                   const void* completed, void* param)

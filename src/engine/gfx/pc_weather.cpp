@@ -229,10 +229,10 @@ void PcWeather::render_rain(float x, float z)
                 uint8_t at = stage[cell];
                 if (at == 0xFF)
                     continue;
-                auto px = static_cast<float>((spread[offset_x_[cell]] + column_x) * 0.0625f);
-                auto py = static_cast<float>((fall[at] + ground) * 0.0625f);
-                auto pz = static_cast<float>((spread[offset_z_[cell]] + row_z) * 0.0625f);
-                auto py2 = static_cast<float>(length * 0.0625f + py);
+                auto px = static_cast<float>(spread[offset_x_[cell]] + column_x) * 0.0625f;
+                auto py = static_cast<float>(fall[at] + ground) * 0.0625f;
+                auto pz = static_cast<float>(spread[offset_z_[cell]] + row_z) * 0.0625f;
+                auto py2 = static_cast<float>(length) * 0.0625f + py;
                 if (!out)
                     out = lines;
                 out[0] = px, out[1] = py, out[2] = pz;

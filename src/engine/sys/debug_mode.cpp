@@ -158,17 +158,17 @@ bool keyboard_viewer(float* left_x, float* left_y, float* right_x, float* right_
     float turn_x = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT), turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
     bool up = keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_PAGEUP];
     bool down = keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_PAGEDOWN];
-    if (!move_x && !move_z && !turn_x && !turn_y && !up && !down)
+    if (move_x == 0.0f && move_z == 0.0f && turn_x == 0.0f && turn_y == 0.0f && !up && !down)
         return false;
     // (the right stick moves - x across, y along the view: up is -127 -, the left stick turns; a key held wins over
     // the stick)
-    if (move_x)
+    if (move_x != 0.0f)
         *right_x = move_x;
-    if (move_z)
+    if (move_z != 0.0f)
         *right_y = move_z;
-    if (turn_x)
+    if (turn_x != 0.0f)
         *left_x = turn_x;
-    if (turn_y)
+    if (turn_y != 0.0f)
         *left_y = turn_y;
     if (up)
         *commands |= 0x2;

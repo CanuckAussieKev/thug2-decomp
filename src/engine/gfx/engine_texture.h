@@ -58,8 +58,8 @@ public:
     virtual bool get_stretch(uint16_t, int, int) { return false; }                                     // [21]
     virtual bool squash(uint16_t, int, int, bool, uint32_t) { return false; }                          // [22]
     virtual bool shift_hue_sat_value(float, float, float, bool) { return false; }                      // [24]
-    virtual uint16_t fetch_breadth() { return 0; }                  // [33] the image's width
-    virtual uint16_t fetch_tallness() { return 0; }                 // [34] its height
+    virtual uint16_t fetch_breadth() const { return 0; }            // [33] the image's width
+    virtual uint16_t fetch_tallness() const { return 0; }           // [34] its height
     virtual uint8_t get_depth() { return 0; }                       // [35] bits per pixel
     virtual uint8_t get_unknown_e() { return 0; }                   // [38]
     virtual uint8_t get_unknown_c() { return 0; }                   // [39]
@@ -70,9 +70,9 @@ public:
     bool flip_vertically() { return false; }                                // [14] (FlipTexture's vert)
     bool adjust_region(int, int, int, int, int, int, int) { return false; } // [20] (AdjustTextureRegion)
     bool adjust_brightness(float, bool) { return false; }                   // [23] (AdjustTextureBrightness)
-    const void* get_pixels() { return nullptr; }                            // [25]
+    void* get_pixels() { return nullptr; }                                  // [25]
     uint32_t get_pixels_size() { return 0; }                                // [26]
-    const void* get_palette() { return nullptr; }                           // [27]
+    void* get_palette() { return nullptr; }                                 // [27]
     uint32_t get_palette_size() { return 0; }                               // [28]
     void set_palette(const void*, int) {}                                   // [29]
     bool set_pixels(const void*) { return false; }                          // [30]

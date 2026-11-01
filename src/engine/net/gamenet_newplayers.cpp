@@ -126,7 +126,7 @@ void Hub::add_new_player(JoinerRecord* info)
         player->profile_id_ = info->profile_id_;
         player->skill_points_ = info->skill_points_;
         player->drive_control_mode_ = info->drive_control_mode_;
-        player->accumulated_score_ = info->accumulated_score_;
+        player->accumulated_score_ = static_cast<int>(info->accumulated_score_);
         player->eliminated_time_ = info->eliminated_time_;
         auto* head = &players_;
         auto* node = reinterpret_cast<memory::ListNode*>(player);
