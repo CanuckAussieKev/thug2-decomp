@@ -102,7 +102,10 @@ keep a check carry a `NOLINT` with their reason:
   `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`engine/core/raw_view.h`: one of the original's in-memory
   layouts read through another type or at a byte offset), `memory::bits_as<T>` (a field's bits as another type of
   its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).
-  New code uses none of them: a field gets its member, a pointer its type. Byte layouts that stay (file records used
+  New code uses none of them: a field gets its member, a pointer its type (`npm test` fails when a file outside the
+  boundary has more than `tools/layering_budget.json` allows). A script value is a `script::Cell`, read by its
+  holder's kind (`value.structure()`, `value.word()`...); a missing script parameter's default is written out (the
+  original's reads of an argument's stack slot are 0 for a name, on for a flag, 0 for a number). Byte layouts that stay (file records used
   in place, vertex buffers) are read through the boundary's accessors instead: `collision_format::FaceTable`
   (`formats/`), `gpu::VertexView` / `VertexWriter` (`gpu/`).
 - **Downcasts** go through `core::down_cast<Derived>(base)` (`engine/core/down_cast.h`): code that has checked an
@@ -125,8 +128,10 @@ keep a check carry a `NOLINT` with their reason:
   owners; their accessors return the owner (`std::unique_ptr<T>&`), readers take `.get()`. Teardown in the original's
   order goes through `memory::destroy_then_clear` (the object destroyed while its owner still points at it); a
   custom teardown takes the object out with `release()`. `memory::construct_in` returns `gsl::owner<T*>` (a factory:
-  the caller ends the object). `gsl::owner<T*>` (Microsoft GSL) marks the raw owners left where a smart pointer
-  can't be used yet (cppcoreguidelines-owning-memory is still off: .clang-tidy says why).
+  the caller ends the object). Script structures and arrays: `script::new_struct()` / `free_struct()` (and the array
+  pair), `script::StructPtr` / `ArrayPtr` for a scope's or member's own - never a per-file copy of the pool
+  factory. `gsl::owner<T*>` (Microsoft GSL) marks the raw owners left where a smart pointer can't be used yet
+  (cppcoreguidelines-owning-memory is still off: .clang-tidy says why).
 - **Pools** (`memory::PoolPair`, `SlabBank`) are sized by `sizeof` of what they hold; a pool's `carve` refuses an
   object bigger than its items (a class that grew past the original's byte size ends the game with a report).
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy

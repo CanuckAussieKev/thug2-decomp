@@ -42,8 +42,21 @@ everything above it uses the game's own types and may change them freely.
 **What is left of the original's layouts above the boundary** is spelled with named helpers, never a cast:
 `cell::` (`engine/core/pointer_cell.h`) where a pointer still travels in a 32-bit integer (the script values' cells,
 callbacks' user words), `raw::` (`engine/core/raw_view.h`) where an in-memory structure is still read through another
-type or at a byte offset. Each use is a place still to be given its real type or member; their number only goes down.
+type or at a byte offset. Each use is a place still to be given its real type or member; their number only goes down -
+`npm test` checks it (`tools/layering.ts`: no file over its count in `tools/layering_budget.json`, which `--update`
+only lowers; at zero the helpers are forbidden above the boundary). The QB bytecode readers (`engine/script/qb.cpp`,
+`token_reader.cpp`, `precompiled.cpp`) count as boundary until the script runtime is replaced.
 `.clang-tidy` keeps `reinterpret_cast` and integer-to-pointer casts out of `src/` entirely.
+
+**The script values** are `script::Cell`s (`engine/script/cell.h`): a component's, a global symbol's or an array
+element's 32 bits, read and written by the accessor of the kind its holder records (an externally tagged union -
+the holders are pooled records of the original's sizes). The union access is inside `Cell` only. Structures and
+arrays are made and freed by `script::new_struct` / `new_array` / `free_struct` / `free_array` (the pools'
+factory and deleter), held in a scope or member by `script::StructPtr` / `ArrayPtr`.
+
+**Fatal exits** (no Direct3D device, a texture that can't be made) end the process with `crt::exit_fatal`
+(std::quick_exit after the C streams are flushed), as the normal end (`sys::fast_exit`) does: the static owners of
+the singletons are never destroyed under the game's live objects.
 
 **Layouts freed above the boundary change sizes**: the game's fixed-size pools (`memory::PoolPair` / `SlabBank`:
 blend channels, animation slots, script structures...) are sized by `sizeof` of what they hold, and a pool refuses
