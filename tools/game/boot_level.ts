@@ -8,14 +8,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
-import { NS_DEFAULT, nsMissing } from "thug2-level-converter-core/lib/decomp.ts";
 import { resolveInstall } from "thug2-level-converter-core/lib/install.ts";
+import { requireNs } from "thug2-level-converter-core/lib/neverscript.ts";
 import { decodeCp1252, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 // subprocess.run(..., text=True)'s text: cp1252, universal newlines
 const textOutput = (data: Buffer): string => decodeCp1252(data).replace(/\r\n?/g, "\n");
-
-const NS = NS_DEFAULT;
 
 function main(): number {
     const [level, game] = process.argv.slice(2);
@@ -28,7 +26,7 @@ function main(): number {
         "mainmenu",
         "mainmenu_scripts.qb",
     );
-    if (!fs.existsSync(NS)) pyExit(nsMissing(NS));
+    const NS = requireNs();
     const src = path.join(os.tmpdir(), "mainmenu_scripts.q");
     let r = spawnSync(NS, ["-d", F, "-o", src]);
     if (r.error) throw r.error;

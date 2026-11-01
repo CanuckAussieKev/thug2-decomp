@@ -13,8 +13,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
-import { NS_DEFAULT, needDecomp, nsMissing } from "thug2-level-converter-core/lib/decomp.ts";
+import { needDecomp } from "thug2-level-converter-core/lib/decomp.ts";
 import { findInstall } from "thug2-level-converter-core/lib/install.ts";
+import { requireNs } from "thug2-level-converter-core/lib/neverscript.ts";
 import { isMain, print, pyExit, pyStrRepr, readTextPy, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 const USAGE = "usage: make_automation_tables.ts [--game GAME] [--ns NS] [--out OUT]";
@@ -191,16 +192,7 @@ function main(): number {
     // (the install root, the game folder itself - thug2-level-converter-core/lib/install.ts - or its Data folder)
     const install = findInstall(values.game, "thug2");
     const data = install === null ? values.game : path.join(install, "Data");
-    let ns = values.ns;
-    if (!ns) {
-        for (const cand of [NS_DEFAULT, "C:\\Dev\\thug2-decomp\\out\\neverscript\\ns.exe"]) {
-            if (fs.existsSync(cand)) {
-                ns = cand;
-                break;
-            }
-        }
-    }
-    if (!ns) pyExit(nsMissing(NS_DEFAULT));
+    const ns = requireNs(values.ns);
     const OUT = values.out ?? defaultOut();
 
     const deniedScripts = new Set<string>();

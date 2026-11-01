@@ -24,6 +24,10 @@ ns -d levels\mainmenu\mainmenu_scripts.qb -o mainmenu_scripts.ns      decompile
 ns -c mainmenu_scripts.ns -o mainmenu_scripts.qb -targetGame thug2    compile
 ```
 
+The level converters find `ns` with thug2-level-converter-core's `lib/neverscript.ts`: here this build
+(`out\neverscript\ns.exe`); used on their own, outside this repo, `npx thug2-neverscript fetch` downloads the fork's
+release (`thug2-v1`: Windows, Linux and macOS builds, SHA-256 checked). A new release means new hashes in that file.
+
 To change NeverScript: commit to the fork (a fix meant for violetvandal's on a branch of its own from `master`, then
 merged into `thug2`), push, and move `$pin` in `tools\build_neverscript.ps1` to the new `thug2` commit.
 
