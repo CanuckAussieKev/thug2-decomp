@@ -1,10 +1,15 @@
 #include "engine/file/packs.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -32,15 +37,27 @@ constexpr int kMaxLoadedFiles = 200;
 constexpr int kPreloadCapacity = 100;
 
 std::array<LoadedFile, kMaxLoadedFiles> g_loaded_files;
-std::array<char*, kPreloadCapacity> g_pre_files;
 
 LoadedFile* loaded_files() { return g_loaded_files.data(); }
-// Each loaded .pre archive's memory starts with the archive's name (see PackLeadIn).
-char** pre_files() { return g_pre_files.data(); }
 
 void* allocate_file_memory(unsigned int size) { return memory::alloc_block(size); }
 void shrink_file_memory(unsigned int size, void* memory) { memory::trim_block_end(size, memory); }
 void free_file_memory(void* memory) { memory::free_malloc(memory); }
+// A block from allocate_file_memory, owned.
+struct FileMemoryFree {
+    void operator()(uint8_t* memory) const noexcept { free_file_memory(memory); }
+};
+// `size` rounded up to 16 bytes (each packed file's data starts 16-byte aligned).
+constexpr size_t aligned16(size_t size) { return (size + 0xF) & ~static_cast<size_t>(0xF); }
+
+// A loaded .pre archive: its name, its files' data in one block, each file's record.
+struct LoadedArchive {
+    std::string name;
+    std::unique_ptr<uint8_t, FileMemoryFree> block;
+    std::vector<PackedFile> files;
+};
+std::array<std::unique_ptr<LoadedArchive>, kPreloadCapacity> g_archives;
+std::array<std::unique_ptr<LoadedArchive>, kPreloadCapacity>& archives() { return g_archives; }
 
 // Buffers are allocated in whole 2 KB sectors.
 unsigned int sector_aligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu; }
@@ -49,41 +66,17 @@ unsigned int sector_aligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu
 // assumes it exists.)
 void* pre_manager_load_file(const char* name, int* size) { return pre::sole()->ingest_file(name, size, nullptr); }
 
-// A loaded .pre archive: its name, padded to 16 bytes, then the archive's own header and its files.
-struct PackLeadIn {
-    int total_size_;
-    int version;
-    int num_files_;
-};
-
-PackLeadIn* header_of(char* pre) { return raw::field_at<PackLeadIn>(pre, ((std::strlen(pre) + 0x10) & ~0xFu)); }
-
-PreEntry* first_entry(PackLeadIn* header) { return raw::as<PreEntry>(header + 1); }
-
-// (Loaded archives are repacked with 16-byte aligned data - see next_entry; the archive format as stored is read
-// through formats/pre_format.h.)
-PreEntry* next_entry(PreEntry* entry)
-{
-    auto stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
-    const uintptr_t after_name =
-        (cell::address(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
-    return cell::pointer<PreEntry>(after_name + ((stored + 3) & ~3u));
-}
-
 } // namespace
 
 // 0x005B7180
-PreEntry* find_pre_entry(uint32_t checksum)
+PackedFile* find_pre_entry(uint32_t checksum)
 {
-    for (int i = 0; i < kPreloadCapacity; ++i) {
-        char* pre = pre_files()[i];
-        if (!pre)
+    for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
+        if (!archive)
             continue;
-        PackLeadIn* header = header_of(pre);
-        PreEntry* entry = first_entry(header);
-        for (int n = 0; n < header->num_files_; ++n, entry = next_entry(entry)) {
-            if (entry->checksum == checksum)
-                return entry;
+        for (PackedFile& file : archive->files) {
+            if (file.checksum == checksum)
+                return &file;
         }
     }
     return nullptr;
@@ -100,11 +93,9 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
 
     // Already loaded?
-    if (PreEntry* entry = overlay ? nullptr : find_pre_entry(checksum)) {
+    if (PackedFile* entry = overlay ? nullptr : find_pre_entry(checksum)) {
         ++entry->use_count_;
-        auto after_name =
-            (cell::address(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
-        return cell::pointer<void>(after_name);
+        return entry->data;
     }
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
         LoadedFile& file = loaded_files()[i];
@@ -208,13 +199,13 @@ void* load_file_into(const char* name, int* size, void* buffer)
 // 0x005B75A0
 void load_pre(const char* name)
 {
-    for (int i = 0; i < kPreloadCapacity; ++i) {
-        if (pre_files()[i] && _stricmp(pre_files()[i], name) == 0)
+    for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
+        if (archive && _stricmp(archive->name.c_str(), name) == 0)
             return; // already loaded
     }
     int slot = -1;
     for (int i = 0; i < kPreloadCapacity; ++i) {
-        if (!pre_files()[i]) {
+        if (!core::at(archives(), i)) {
             slot = i;
             break;
         }
@@ -303,70 +294,65 @@ void load_pre(const char* name)
         memory::dealloc(patch);
     }
 
-    // Repack: every file stored uncompressed, its data 16-byte aligned after its header and name, so files
-    // can be used in place. First the new size (plus slack), then the copy. Not original - the archive as loaded is
+    // Unpacked: every file's data uncompressed and 16-byte aligned in one block, so files can be used in place;
+    // first the block's size (plus the original's slack), then the copies. Not original - the archive as loaded is
     // read through pre_format's reader, bounded by its size: a damaged archive keeps the files before the damage
     // (the original walked and copied on past the block).
     util::ByteReader archive(block + prefix, archive_size);
     pre_format::ArchiveHeader old_header;
     if (!pre_format::read_archive_header(archive, &old_header))
         old_header = {};
-    int count = 0;
-    uintptr_t new_size = prefix + sizeof(PackLeadIn);
+    auto loaded_archive = std::make_unique<LoadedArchive>();
+    loaded_archive->name = name;
+    size_t data_size = 0;
     {
         util::ByteReader sizing = archive;
-        for (; count < old_header.file_count; ++count) {
+        for (int count = 0; count < old_header.file_count; ++count) {
             pre_format::FileRecord record;
-            if (!pre_format::read_file_record(sizing, &record))
+            if (!pre_format::read_file_record(sizing, &record)) {
+                debug::printf("%s: damaged at file %d of %d\n", path.data(), count, old_header.file_count);
                 break;
-            new_size = ((record.name_size + new_size + 0x1F) & ~static_cast<uintptr_t>(0xF)) +
-                       ((static_cast<uint32_t>(record.size) + 3) & ~3u);
+            }
+            data_size += aligned16(static_cast<size_t>(record.size));
+            PackedFile file;
+            file.checksum = record.checksum;
+            file.size = record.size;
+            file.name.assign(record.name, std::strlen(record.name));
+            loaded_archive->files.push_back(std::move(file));
         }
-        if (count != old_header.file_count)
-            debug::printf("%s: damaged at file %d of %d\n", path.data(), count, old_header.file_count);
     }
-    auto* repacked = static_cast<uint8_t*>(allocate_file_memory(static_cast<unsigned int>(new_size + 0xC00)));
-    for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
-        repacked[i] = block[i];
-
-    auto* new_header = raw::field_at<PackLeadIn>(repacked, prefix);
-    new_header->num_files_ = count;
-    new_header->version = static_cast<int>(old_header.version);
-    auto* to = first_entry(new_header);
-    for (int n = 0; n < count; ++n) {
+    const size_t allocation = data_size + 0x10 + 0xC00;
+    loaded_archive->block.reset(static_cast<uint8_t*>(allocate_file_memory(static_cast<unsigned int>(allocation))));
+    void* aligned = loaded_archive->block.get();
+    size_t space = allocation;
+    const std::span<uint8_t> data(static_cast<uint8_t*>(std::align(0x10, data_size, aligned, space)), data_size);
+    size_t offset = 0;
+    for (PackedFile& file : loaded_archive->files) {
         pre_format::FileRecord from;
         pre_format::read_file_record(archive, &from); // (read once already)
-        to->size = from.size;
-        to->checksum = from.checksum;
-        to->compressed_size_ = 0;
-        to->use_count_ = 0;
-        to->name_size_ = from.name_size;
-        std::memcpy(to + 1, from.name, from.name_size);
-
-        auto* target = cell::pointer<uint8_t>((cell::address(to) + to->name_size_ + 0x1F) &
-                                                  ~static_cast<uintptr_t>(0xF));
-        uint8_t* end = nullptr;
+        const std::span<uint8_t> target = data.subspan(offset, aligned16(static_cast<size_t>(file.size)));
+        file.data = target.data();
         if (from.compressed_size) {
             // Not original - unpacked bounded by the file's size (lzss::unpack: decode's bytes for a valid file).
             size_t written = 0;
-            if (!lzss::unpack(from.data, static_cast<size_t>(from.compressed_size), target,
+            if (!lzss::unpack(from.data, static_cast<size_t>(from.compressed_size), target.data(),
                               static_cast<size_t>(from.size), &written))
                 debug::printf("%s: %s is damaged\n", path.data(), from.name);
-            end = target + written;
+            std::ranges::fill(target.subspan(written), uint8_t{0});
         } else {
-            std::memcpy(target, from.data, static_cast<size_t>(from.size));
-            end = target + from.size;
+            std::memcpy(target.data(), from.data, static_cast<size_t>(from.size));
+            std::ranges::fill(target.subspan(static_cast<size_t>(from.size)), uint8_t{0});
         }
-        for (auto pad = static_cast<uint32_t>(to->size); pad & 3; ++pad) {
-            *end = 0;
-            ++end;
-        }
-        to = next_entry(to);
+        offset += target.size();
     }
-    new_header->total_size_ = static_cast<int>(raw::bytes(to) - raw::bytes(new_header));
     free_file_memory(block);
-    // With all 100 slots taken the original writes to slot -1 (the last loaded file's reference count).
-    (&pre_files()[0])[slot] = raw::chars(repacked);
+    if (slot < 0) {
+        // Not original - with all 100 slots taken the original wrote to slot -1 (the last loaded file's reference
+        // count, past the start of its table); the archive isn't kept.
+        debug::printf("%s: no room for another archive\n", path.data());
+        return;
+    }
+    core::at(archives(), slot) = std::move(loaded_archive);
 }
 
 // --- script functions -----------------------------------------------------------------------------------
@@ -414,18 +400,15 @@ bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*
     const bool show_loose_files = script::has_bare_flag(params, "ShowUnPreedFiles");
     const bool only_open = script::has_bare_flag(params, "ShowOnlyOpenFiles");
     debug::printf("Currently loaded pre files:\n");
-    for (int i = 0; i < kPreloadCapacity; ++i) {
-        char* pre = pre_files()[i];
-        if (!pre)
+    for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
+        if (!archive)
             continue;
-        debug::printf("### %s ###\n", pre);
+        debug::printf("### %s ###\n", archive->name.c_str());
         if (!show_files)
             continue;
-        PackLeadIn* header = header_of(pre);
-        PreEntry* entry = first_entry(header);
-        for (int n = header->num_files_; n > 0; --n, entry = next_entry(entry)) {
-            if (!only_open || entry->use_count_ != 0) {
-                debug::printf("Usage:%d  File: %s\n", entry->use_count_, raw::chars(entry + 1));
+        for (const PackedFile& entry : archive->files) {
+            if (!only_open || entry.use_count_ != 0) {
+                debug::printf("Usage:%d  File: %s\n", entry.use_count_, entry.name.c_str());
                 for (volatile int wait = 0; wait < 100000; ++wait) {
                     // the original pauses after each line (presumably so the debug output keeps up)
                 }
@@ -458,7 +441,7 @@ void offload(uint32_t checksum)
             file = {};
         }
     }
-    if (PreEntry* entry = find_pre_entry(checksum)) {
+    if (PackedFile* entry = find_pre_entry(checksum)) {
         if (entry->use_count_ != 0)
             --entry->use_count_;
     }
@@ -475,7 +458,7 @@ int get_file_size(uint32_t checksum)
         if (file.data && file.checksum == checksum)
             return file.size;
     }
-    const PreEntry* entry = find_pre_entry(checksum);
+    const PackedFile* entry = find_pre_entry(checksum);
     return entry ? entry->size : 0;
 }
 
@@ -485,8 +468,8 @@ int get_file_size(const char* name) { return get_file_size(checksums::hash_from_
 // 0x005B70F0
 FileTables::FileTables()
 {
-    for (int i = 0; i < kPreloadCapacity; ++i)
-        pre_files()[i] = nullptr;
+    for (std::unique_ptr<LoadedArchive>& archive : archives())
+        archive.reset();
     for (int i = 0; i < kMaxLoadedFiles; ++i)
         loaded_files()[i] = {};
 }
@@ -495,11 +478,9 @@ FileTables::FileTables()
 bool unload_pre(const char* name)
 {
     bool unloaded = false;
-    for (int i = 0; i < kPreloadCapacity; ++i) {
-        char*& pre = pre_files()[i];
-        if (pre && _stricmp(pre, name) == 0) {
-            free_file_memory(pre);
-            pre = nullptr;
+    for (std::unique_ptr<LoadedArchive>& archive : archives()) {
+        if (archive && _stricmp(archive->name.c_str(), name) == 0) {
+            archive.reset();
             unloaded = true;
         }
     }
@@ -510,13 +491,12 @@ bool unload_pre(const char* name)
 const char* take_next_finished_archive(const char* previous)
 {
     bool found_previous = previous == nullptr;
-    for (int i = 0; i < kPreloadCapacity; ++i) {
-        const char* pre = pre_files()[i];
-        if (!pre)
+    for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
+        if (!archive)
             continue;
         if (found_previous)
-            return pre;
-        if (_stricmp(pre, previous) == 0)
+            return archive->name.c_str();
+        if (_stricmp(archive->name.c_str(), previous) == 0)
             found_previous = true;
     }
     return nullptr;
@@ -525,21 +505,14 @@ const char* take_next_finished_archive(const char* previous)
 // 0x005B7370
 bool archive_is_busy(const char* name)
 {
-    for (int i = 0; i < kPreloadCapacity; ++i) {
-        char* pre = pre_files()[i];
-        if (!pre || _stricmp(pre, name) != 0)
+    for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
+        if (!archive || _stricmp(archive->name.c_str(), name) != 0)
             continue;
-        PackLeadIn* header = header_of(pre);
-        PreEntry* entry = first_entry(header);
-        for (int n = 0; n < header->num_files_; ++n, entry = next_entry(entry)) {
-            if (entry->use_count_ != 0)
-                return true;
-        }
+        if (std::ranges::any_of(archive->files, [](const PackedFile& file) { return file.use_count_ != 0; }))
+            return true;
     }
     return false;
 }
 
 } // namespace packs
 
-static_assert(sizeof(packs::PreEntry) == pre_format::kFileHeaderSize,
-              "the repacked archive's file header: the archive format's (pre_format.h), used in place");

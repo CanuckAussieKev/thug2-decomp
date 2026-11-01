@@ -15,8 +15,8 @@
 // A patch (.ppf / .ppd, French / German): u32 the patched archive's size, u32 record count, then each record
 //   {u32 offset, u32 length, `length` bytes written at that offset of the archive}.
 //
-// The archive readers (engine/file/archive.cpp, packs.cpp) walk an archive through these; packs.cpp's repacked copy
-// (every file uncompressed, 16-byte aligned) is its own in-memory view (packs::PreEntry).
+// The archive readers (engine/file/archive.cpp, packs.cpp) walk an archive through these; packs.cpp unpacks each
+// file into one block (16-byte aligned) and indexes them with plain records (packs::PackedFile).
 namespace pre_format {
 
 constexpr size_t kHeaderSize = 12;

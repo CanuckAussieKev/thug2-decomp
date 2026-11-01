@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace script {
 class Struct;
@@ -12,14 +13,15 @@ class Script;
 // the checksum of their name.
 namespace packs {
 
-// A file inside a loaded .pre archive. The file's name (nameSize bytes) follows this header, then its data
-// (compressedSize bytes if compressed, else size), each padded.
-struct PreEntry {
-    int size;             // uncompressed
-    int compressed_size_; // 0 if stored uncompressed
-    uint16_t name_size_;
-    uint16_t use_count_; // how many packs::ReadIn calls are using it
-    uint32_t checksum;
+// A file of a loaded .pre archive: unpacked into the archive's block (16-byte aligned) and used in place. (The
+// original kept these records in the block, in the archive's own file-header layout, before each file's name and
+// data; the archive as stored is read by formats/pre_format.h.)
+struct PackedFile {
+    uint32_t checksum{};
+    int size{};           // unpacked
+    std::string name;     // as the archive names it
+    uint8_t* data{};      // in the archive's block
+    uint16_t use_count_{}; // how many packs::read_in calls are using it
 };
 
 // A file loaded on its own.
@@ -64,7 +66,7 @@ const char* take_next_finished_archive(const char* previous);
 bool archive_is_busy(const char* name);
 
 // Look a file up in the loaded .pre archives.
-PreEntry* find_pre_entry(uint32_t checksum);
+PackedFile* find_pre_entry(uint32_t checksum);
 
 // Script functions (in the Function table)
 bool cfunc_load_pip_pre(script::Struct* params, script::Script* script);
