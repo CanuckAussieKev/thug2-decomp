@@ -857,7 +857,7 @@ add_custom_command(TARGET thug2 POST_BUILD
 
 # THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
 # (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
-# install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as tools/pipeline/lib/install.ts).
+# install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as thug2-level-converter-core/lib/install.ts).
 # When it exists, every build copies the exe, its PDB and the DLLs above into it.
 set(THUG2_DEPLOY_DIR "${THUG2_GAME_DIR}")
 function(thug2_is_game_folder dir out)

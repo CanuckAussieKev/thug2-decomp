@@ -1,10 +1,10 @@
 // A zoomed before / after picture: the same rectangle of two screenshots side by side (nearest-neighbour, so every
 // screen pixel stays visible) - what the HD UI checks look at.
-//   node tools/pipeline/game/crop_compare.ts <before.png> <after.png> <x,y,w,h> <out.png> [--zoom 3]
+//   node tools/game/crop_compare.ts <before.png> <after.png> <x,y,w,h> <out.png> [--zoom 3]
 import * as fs from "node:fs";
-import { parseCli } from "../lib/cli.ts";
-import { decodePng, encodePng } from "../lib/frame_diff.ts";
-import { isMain, print, runMain } from "../lib/py.ts";
+import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { decodePng, encodePng } from "thug2-level-converter-core/lib/frame_diff.ts";
+import { isMain, print, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 const USAGE = "usage: crop_compare.ts before.png after.png x,y,w,h out.png [--zoom N]";
 

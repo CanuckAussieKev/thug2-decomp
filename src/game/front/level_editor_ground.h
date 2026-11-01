@@ -16,7 +16,7 @@ struct Painter;
 // become quarter pipes or banks).
 //
 // THUG2's levels are fixed shipped meshes: nothing can be cut or reshaped. So a raise / lower is a GENERATED PIECE - a
-// new scene sector made at run time (and baked into the level's files by tools/pipeline/game/apply_layout.ts):
+// new scene sector made at run time (and baked into the level's files by tools/game/apply_layout.ts):
 //   - Raise: a platform over a rectangle on the ground (snapped to a grid), `height` high, each of its four sides a
 //     plain wall (wall-ridable) or a ramp up to its deck, outside the rectangle: a kicker (a straight bank) or a quarter
 //     pipe (a circular transition, vert at its top) - `length` long (0: a kicker twice the height, a quarter pipe its
@@ -45,7 +45,7 @@ struct Painter;
 // measured on the donor when the piece was made, so the bake gives the same piece). hides: the floor tiles a pit hides.
 namespace Front::LevelEditor::Ground {
 
-// --- the pure parts (tools/pipeline/game/ground_pieces.ts is their port) -------------------------------------------------------
+// --- the pure parts (tools/game/ground_pieces.ts is their port) -------------------------------------------------------
 
 enum class Ramp : uint8_t { None, Kicker, Quarter };
 enum Side { kMinusX, kPlusX, kMinusZ, kPlusZ };

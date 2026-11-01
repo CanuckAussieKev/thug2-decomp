@@ -15,7 +15,7 @@ constexpr Pools kOriginal = {300, 86000, 19800, 9500, 800, 7000, 12500, 300, 100
 // 0x004E211B (CStoredRandom untouched).
 constexpr Pools kThugpro = {1200, 184000, 49600, 19000, 1600, 16000, 45000, 1200, 100, 0x100000, 28000, 40000};
 // Ours: THUGPRO's, the CComponent / CStruct / CVector / CArray / HashItem pools bigger - THP8's whole town
-// (tools/pipeline/thp8_levels, ~34,000 nodes) took 284,043 / 43,362 / 37,294 / 19,691 / 39,923 at its peak (THUGPRO's: 184,000 /
+// (thug2-thp8-level-converter/thp8_levels, ~34,000 nodes) took 284,043 / 43,362 / 37,294 / 19,691 / 39,923 at its peak (THUGPRO's: 184,000 /
 // 49,600 / 19,000 / 16,000 / 40,000); a quarter or more as headroom. They cost ~3.7 MB more of the main block.
 constexpr Pools kDefaults = {1200, 360000, 64000, 48000, 1600, 26000, 45000, 1200, 100, 0x100000, 28000, 56000};
 

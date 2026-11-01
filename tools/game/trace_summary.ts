@@ -5,13 +5,13 @@
 // with the later columns also bails, combos landed or lost (the combo so far back to 0), air blips (in the air for
 // 3 frames or less between ground) and the ground's collision object changing (a seam).
 //
-//   node tools/pipeline/game/trace_summary.ts <trace.txt> [--every N | --trials]
+//   node tools/game/trace_summary.ts <trace.txt> [--every N | --trials]
 //       --every N: also every Nth line as it is. --trials: a trace of several rides (teleports between them), a line
 //       a ride - bail or not, how its combo ended.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { helpFromHeader } from "../lib/cli.ts";
+import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
 
 export interface TraceLine {
     frame: number;

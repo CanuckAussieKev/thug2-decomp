@@ -1,14 +1,14 @@
 // NOT ORIGINAL - bake a level editor layout into a copy of the level's files (phase 6 of the editor plan).
 //
-//   node tools/pipeline/game/apply_layout.ts <layout.txt> [--level <name>] [--game <folder>] [--out <folder>] [--dry-run]
-//   node tools/pipeline/game/apply_layout.ts --level <name> ...            (the layout: <game>\thug2-decomp-layouts\<scene>.txt)
+//   node tools/game/apply_layout.ts <layout.txt> [--level <name>] [--game <folder>] [--out <folder>] [--dry-run]
+//   node tools/game/apply_layout.ts --level <name> ...            (the layout: <game>\thug2-decomp-layouts\<scene>.txt)
 //   [--install]                                                    write into <game>\thug2-decomp-data\levels\<level>
-//   node tools/pipeline/game/apply_layout.ts --uninstall --level <name> [--game <folder>]   the newest install's backup put back
+//   node tools/game/apply_layout.ts --uninstall --level <name> [--game <folder>]   the newest install's backup put back
 //
-// --install first backs up every file it replaces (tools/pipeline/game/bake_backup.ts: <game>\thug2-decomp-bake-backups); each
+// --install first backs up every file it replaces (tools/game/bake_backup.ts: <game>\thug2-decomp-bake-backups); each
 // --uninstall puts the newest backup back and removes it, so repeating it undoes the installs one by one.
 //
-// A layout (src/game/front/level_editor_layout.h - tools/pipeline/game/layout_file.ts reads it) is what the editor changed in a
+// A layout (src/game/front/level_editor_layout.h - tools/game/layout_file.ts reads it) is what the editor changed in a
 // level, put in place by the game only when the level's EDITED copy loads. Baked, the changes are in the level's own
 // files instead - its scene (.scn.xbx), collision (.col.xbx) and node array (.qb) - written as a new copy:
 //   - read from the game folder (--game, default C:\Games\THUG2\Game; a stock install's Game folder is stepped into):
@@ -28,7 +28,7 @@
 //     QuarterTurn(PerAxis(x, scale), quarters) + offset of the place as loaded (scale= one number or x,y,z along the
 //     piece's own axes); normals as the editor's Rebuild: n / scale made unit length, then turned (unscaled: turned);
 //     boxes and spheres made again, the collision's
-//     BSP tree and reaches built again (tools/pipeline/level_port/thug2_col.ts); a hidden sector left out of both files; a clone
+//     BSP tree and reaches built again (thug2-level-converter-core/level_port/thug2_col.ts); a hidden sector left out of both files; a clone
 //     is a new sector and collision object (named ed_clone_<source>_<n>); a wall's `off`: its collision object left
 //     out (the render sector stays); a rail point's pos= moved (hidden: its node hidden as below, links to it cut);
 //   object / copy: the object's node's pos= and angles= (its heading - the editor only turns objects about up); a copy
@@ -55,7 +55,7 @@
 //     tod_state, time= tod_manager_active, ambient= ambient_red / _green / _blue, fog= fog_red / _green / _blue /
 //     _alpha / _dist; and name= its name= (the level select's sign text is gamemenu_levelselect.qb's - not changed).
 //     start= has no key there (the game puts the skater at it with ResetSkaters once the level is up): reported;
-//   trigger (phase 5, tools/pipeline/game/triggers.ts): a node appended to the node array (the game's: GenericNode, type
+//   trigger (phase 5, tools/game/triggers.ts): a node appended to the node array (the game's: GenericNode, type
 //     ed_trigger, TriggerScript <name>Script), a trigger box in the collision named after it (12 faces, flags 0x1150
 //     as THUG2's own boxes) and its script (the game's bytes) in the level's scripts .qb (<level>_scripts.qb, else the
 //     node array's .qb - the ported levels'). The gap list, built as the level's nodes are parsed (every EndGap a
@@ -66,7 +66,7 @@
 //     per-frame leaving test does; (the feature map) a jump boost (boost: trigger_jump_boost speed=) and a breakable
 //     (break: Shatter + Kill of its piece, the piece's collision left out - `replaces` - so the skater goes into it as
 //     into THUG2's glass) the same way;
-//   (the feature map, tools/pipeline/game/map_features.ts) a ledge point (type=Ledge): ClimbingNode, Type Ledge, HangLeft /
+//   (the feature map, tools/game/map_features.ts) a ledge point (type=Ledge): ClimbingNode, Type Ledge, HangLeft /
 //     HangRight; a speed-up (a point's speed=, a `railspeed` record): the node's TriggerScript ed_railspeed_<node> (its own
 //     script called first) and the editor's ed_RailSpeed / ed_RailSpeedLoop in the scripts; a `proxim` record: the node's
 //     TriggerScript ed_proxim_<node> (if Inside {enter} else {exit}) and its sphere's Radius - a box is the game's alone
@@ -77,24 +77,45 @@
 //     taken out - a shared structure's TrickObject can't be: warned, the game unregisters it at run time); camera
 //     (level_editor_cameras.h): a node appended (GenericNode, Type ed_camera, Pos, Angles, targetOffset /
 //     positionOffset as a virtual_cam takes them); level sky= (level_editor_level_props.h): Levels.qb's sky=;
-//   (UX9, tools/pipeline/game/ground_pieces.ts) ground: a raised / lowered ground piece - a new sector (its material piece's
+//   (UX9, tools/game/ground_pieces.ts) ground: a raised / lowered ground piece - a new sector (its material piece's
 //     first mesh's format and material, the game's generated vertices, a strip drawing each face both ways) and
 //     collision object (its faces, flags and terrain), named after the piece; a pit's floor tiles (hides=) left out;
 //   anything else (a later record kind): "unsupported record", listed.
-// THUGPRO parity: a level shared with THUGPRO (a ported level in tools/pipeline/compat/thugpro's register, or THUG2's own -
+// THUGPRO parity: a level shared with THUGPRO (a ported level in thug2-level-converter-core/compat/thugpro's register, or THUG2's own -
 // THUGPRO players have those as shipped) gets a warning for every edit that changes spawns, crowns (King of the Hill),
 // flags / CTF / team nodes, gaps or geometry: "this breaks online parity".
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { checksum, Local, Name, QbFile, type QbValue, Struct, Vector } from "../level_port/qb.ts";
-import { type Element, putScripts, replaceGlobalArray, setStructEntries } from "../level_port/qb_write.ts";
-import { buildTree, type ColFile, type ColObject, readCol, setReaches, writeCol } from "../level_port/thug2_col.ts";
-import { readScene, type Scene, type Sector, writeScene } from "../level_port/thug2_scene.ts";
-import { parseCli } from "../lib/cli.ts";
-import { NEVER_WRITTEN, PIPELINE, WORK } from "../lib/decomp.ts";
-import { Float, hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
-import { f32 } from "../lib/struct.ts";
+import { profileFolder } from "thug2-level-converter-core/compat/compat.ts";
+import {
+    checksum,
+    Local,
+    Name,
+    QbFile,
+    type QbValue,
+    Struct,
+    Vector,
+} from "thug2-level-converter-core/level_port/qb.ts";
+import {
+    type Element,
+    putScripts,
+    replaceGlobalArray,
+    setStructEntries,
+} from "thug2-level-converter-core/level_port/qb_write.ts";
+import {
+    buildTree,
+    type ColFile,
+    type ColObject,
+    readCol,
+    setReaches,
+    writeCol,
+} from "thug2-level-converter-core/level_port/thug2_col.ts";
+import { readScene, type Scene, type Sector, writeScene } from "thug2-level-converter-core/level_port/thug2_scene.ts";
+import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { NEVER_WRITTEN, WORK } from "thug2-level-converter-core/lib/decomp.ts";
+import { Float, hex8, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { f32 } from "thug2-level-converter-core/lib/struct.ts";
 import { backUp, listBackups, restoreLatest } from "./bake_backup.ts";
 import { resolveGameFolder } from "./edit_level.ts";
 import { groundSector } from "./ground_pieces.ts";
@@ -1066,8 +1087,8 @@ export interface Shared {
     why: string; // "a ported THPS3 level in THUGPRO's register" / "THUG2's own level"
 }
 
-// The ported levels the THUGPRO register names (tools/pipeline/compat/thugpro/<game>_levels.json: every section's level keys).
-export function registerLevels(folder: string = path.join(PIPELINE, "compat", "thugpro")): Map<string, string> {
+// The ported levels the THUGPRO register names (thug2-level-converter-core/compat/thugpro/<game>_levels.json: every section's level keys).
+export function registerLevels(folder: string = profileFolder("thugpro")): Map<string, string> {
     const out = new Map<string, string>();
     if (!fs.existsSync(folder)) return out;
     for (const file of fs.readdirSync(folder)) {
@@ -1290,7 +1311,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         array.names.set(name, `ed_clone_${hex8(c.source)}_${n}`);
         breaks(`a copy of scenery ${label(c.source)} added`);
     }
-    // (UX9) Raised / lowered ground pieces (tools/pipeline/game/ground_pieces.ts): a new sector and collision object each, in
+    // (UX9) Raised / lowered ground pieces (tools/game/ground_pieces.ts): a new sector and collision object each, in
     // their material's piece's format; a pit's floor tiles left out.
     for (const g of layout.grounds) {
         const at = sectorAt.get(g.material);
@@ -2030,7 +2051,10 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     const portedGame = ported.get(name.toLowerCase());
     const own = dir.toLowerCase().includes(`${path.sep}data${path.sep}levels`.toLowerCase());
     const shared: Shared | null = portedGame
-        ? { level: name, why: `a ported ${portedGame} level in THUGPRO's register (tools/pipeline/compat/thugpro)` }
+        ? {
+              level: name,
+              why: `a ported ${portedGame} level in THUGPRO's register (thug2-level-converter-core/compat/thugpro)`,
+          }
         : own
           ? { level: name, why: "THUG2's own level - THUGPRO players have it as shipped" }
           : null;

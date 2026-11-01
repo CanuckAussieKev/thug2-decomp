@@ -1,14 +1,14 @@
 # Dot-sourced by the game scripts: which exe a game folder has - THUG2.exe, or another name listed in the decomp's
-# local.json (exeNames; tools/pipeline/lib/decomp.ts) - which marks it as a game folder (never run or changed), and the
+# local.json (exeNames; thug2-level-converter-core/lib/decomp.ts) - which marks it as a game folder (never run or changed), and the
 # exe the scripts start there: the game built from the decomp's source, thug2-decomp.exe ($LaunchExeName), copied into
 # the game folder with its DLLs (the decomp's README, "Running"). A stock install keeps the game in a Game
 # subfolder; some players delete what's around it (launcher, docs) and keep Game's contents at the top:
 # Resolve-GameFolder takes either.
 $GameExeNames = @('THUG2.exe')
-$localJson = Join-Path $PSScriptRoot '..\..\..\local.json'
+$localJson = Join-Path $PSScriptRoot '..\..\local.json'
 # (a linked git worktree has no local.json of its own - it's gitignored: its .git file's gitdir has a commondir naming
 # the main checkout's .git, where it is)
-$dotGit = Join-Path $PSScriptRoot '..\..\..\.git'
+$dotGit = Join-Path $PSScriptRoot '..\..\.git'
 if (-not (Test-Path -LiteralPath $localJson) -and (Test-Path -LiteralPath $dotGit -PathType Leaf)) {
     $gitdir = ((Get-Content -LiteralPath $dotGit -Raw) -replace '^gitdir:\s*', '').Trim()
     if (-not [IO.Path]::IsPathRooted($gitdir)) { $gitdir = Join-Path (Split-Path $dotGit -Parent) $gitdir }
@@ -30,7 +30,7 @@ $GameProcessNames = @(@($LaunchExeName) + $GameExeNames | ForEach-Object { [IO.P
 # earlier development build's dinput8.dll.
 $DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'd3dx9_43.dll', 'dinput8.dll')
 
-# Each game's marker files / folders (the PowerShell twin of tools/pipeline/lib/install.ts's INSTALLS - keep them the same): any
+# Each game's marker files / folders (the PowerShell twin of thug2-level-converter-core/lib/install.ts's INSTALLS - keep them the same): any
 # one entry identifies the game's folder; an entry is one or more paths that must all be in it (case doesn't matter on
 # Windows).
 $InstallMarkers = @{
@@ -100,7 +100,7 @@ function Get-GameProcesses { Get-Process -Name $GameProcessNames -ErrorAction Si
 function Test-Workspace([string]$folder) { $folder.TrimEnd('\', '/') -match '^C:\\Games\\THUG2-\d+(\\Game)?$' }
 
 # An ini's text with <key>=<value> in [<section>]: the key's line there replaced, else added under the section's
-# header, else the section added at the end (the TypeScript twin: tools/pipeline/game/workspace_ini.ts setIniValue).
+# header, else the section added at the end (the TypeScript twin: tools/game/workspace_ini.ts setIniValue).
 function Set-IniValue([string]$text, [string]$section, [string]$key, [string]$value) {
     $nl = if ($text -match "`r`n") { "`r`n" } else { "`n" }
     $lines = [Collections.Generic.List[string]]::new()

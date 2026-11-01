@@ -1,9 +1,10 @@
 // NOT ORIGINAL - extracts THUG2's script member functions and who runs them from the reference build (or THUG2.exe:
-// the same layout) into tools/pipeline/level_port/thug2_members.ts, the table the level converters' script translator
-// (tools/pipeline/level_port/script_port.ts) reads to know which member functions an object running a script has.
+// the same layout) into thug2-level-converter-core's level_port/thug2_members.ts (written to out/ by default: copy it
+// into a clone of that repository), the table the level converters' script translator (its level_port/script_port.ts)
+// reads to know which member functions an object running a script has.
 //
 //   node tools/extract_members.ts [--exe <reference build exe>] [--thug2 C:\Games\THUG2\Game]
-//                                 [--out tools/pipeline/level_port/thug2_members.ts]
+//                                 [--out out/thug2_members.ts]
 //
 // (--thug2: the game folder whose scripts' checksum names - Data\pre\*.prx - name the components and table members in
 // the output's comments; the data itself comes from the exe alone.)
@@ -32,12 +33,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
-import * as prx from "./pipeline/level_port/prx.ts";
-import { checksum } from "./pipeline/level_port/qb.ts";
-import { REFERENCE_EXE } from "./pipeline/lib/decomp.ts";
-import { resolveInstall } from "./pipeline/lib/install.ts";
-import { decodeLatin1, hex8, isMain, print, pyExit, runMain } from "./pipeline/lib/py.ts";
-import { unpackNumbers } from "./pipeline/lib/struct.ts";
+import * as prx from "thug2-level-converter-core/level_port/prx.ts";
+import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
+import { REFERENCE_EXE } from "thug2-level-converter-core/lib/decomp.ts";
+import { resolveInstall } from "thug2-level-converter-core/lib/install.ts";
+import { decodeLatin1, hex8, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { unpackNumbers } from "thug2-level-converter-core/lib/struct.ts";
 
 const REGISTER_TABLE = 0x46f060;
 const REGISTER_NAMES_CALL = 0x5a5f62; // call RegisterMemberFunctions
@@ -382,7 +383,7 @@ function main(): number {
         options: {
             exe: { type: "string", default: REFERENCE_EXE },
             thug2: { type: "string", default: "C:\\Games\\THUG2\\Game" },
-            out: { type: "string", default: path.join("tools", "pipeline", "level_port", "thug2_members.ts") },
+            out: { type: "string", default: path.join("out", "thug2_members.ts") },
         },
     });
     if (!fs.existsSync(values.exe)) pyExit(`${values.exe} not found`);

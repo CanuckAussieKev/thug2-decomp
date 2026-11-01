@@ -1,5 +1,5 @@
 {
-  "_about": "Named lists of standing spots for tools/pipeline/game/try_spot.ts --list <list>: the level (its load name, as -level takes it), what is there, and the spot (x, y, z, heading in degrees: 0 = +z, 90 = +x). collfix: in front of THUGPRO's collision overlays in the THPS3 ports (TPN-THPS3-1 / -2), from `node tools/pipeline/thps3_levels/collfix.ts --json`.",
+  "_about": "Named lists of standing spots for tools/game/try_spot.ts --list <list>: the level (its load name, as -level takes it), what is there, and the spot (x, y, z, heading in degrees: 0 = +z, 90 = +x). collfix: in front of THUGPRO's collision overlays in the THPS3 ports (TPN-THPS3-1 / -2), from `node tools/pipeline/run.ts thps3_levels/collfix.ts --json`.",
   "collfix": [
     { "level": "sub", "name": "SUB_TRamp06_collfix", "at": [-1584, 25.8, -723.9, -90], "note": "trailer-park launch ramp (SUB_TRamp06): skate straight up it" },
     { "level": "sub", "name": "SUB_TRamp04_collfix", "at": [-2243.7, 26.3, -1198.5, 90], "note": "trailer-park launch ramp (SUB_TRamp04): skate straight up it" },

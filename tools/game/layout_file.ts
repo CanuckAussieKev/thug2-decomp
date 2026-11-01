@@ -1,13 +1,13 @@
 // NOT ORIGINAL - the level editor's saved layouts (thug2-decomp-layouts\<scene>.txt) read as the game reads them
 // (src/game/front/level_editor_layout.h has the format; level_editor_fields.h the `set` record's f.<field>= values,
 // level_editor_level_props.h the `level` record, level_editor_chains.h the phase 4 records, level_editor_walls.h the
-// `wall` record). Pure: tools/pipeline/game/apply_layout.ts bakes a layout into a level's files with it.
+// `wall` record). Pure: tools/game/apply_layout.ts bakes a layout into a level's files with it.
 //
 // A record the game would refuse (malformed) is an error here too, with its line; a record of a kind this reader
 // doesn't know (a later version's) is kept in `unknown` - the bake warns about each instead of skipping it silently.
-// Phase 5's `trigger` records are read by tools/pipeline/game/triggers.ts (the game's Triggers::ReadRecord, ported).
+// Phase 5's `trigger` records are read by tools/game/triggers.ts (the game's Triggers::ReadRecord, ported).
 
-import { checksum } from "../level_port/qb.ts";
+import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
 import { type GroundSpec, readGroundRecord } from "./ground_pieces.ts";
 import { readTriggerRecord, type TriggerSpec } from "./triggers.ts";
 
@@ -258,7 +258,7 @@ export interface Layout {
     // (UX7) linked copies' groups - the copies are `clone` / `copy` records of their own; the bake writes them as they
     // are (plain copies): a link only matters to the editor
     linkGroups: LinkRecord[];
-    // (UX9) raised / lowered ground pieces (level_editor_ground.h - tools/pipeline/game/ground_pieces.ts); a record the game
+    // (UX9) raised / lowered ground pieces (level_editor_ground.h - tools/game/ground_pieces.ts); a record the game
     // wouldn't read is skipped there (logged) - here listed as unknown
     grounds: GroundSpec[];
 }

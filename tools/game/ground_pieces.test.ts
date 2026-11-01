@@ -1,4 +1,4 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/ground_pieces.ts: the port of the game's generator (the same numbers as
+// NOT ORIGINAL - tests of tools/game/ground_pieces.ts: the port of the game's generator (the same numbers as
 // the game's), the record as the game writes it, the strip, the vertex layouts.
 
 import assert from "node:assert/strict";

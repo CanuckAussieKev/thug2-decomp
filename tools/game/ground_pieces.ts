@@ -9,9 +9,18 @@
 //   ground <name> raise|lower rect=x0,z0,x1,z1 base=y height=h ramps=<-x>,<+x>,<-z>,<+z> length=l material=<sector>
 //          uv=u color=AARRGGBB terrain=t [hides=<sector>,...]
 
-import { checksum } from "../level_port/qb.ts";
-import { buildTree, type Face as ColFace, type ColObject, setReaches } from "../level_port/thug2_col.ts";
-import { type Mesh as SceneMesh, SEC_BILLBOARD, type Sector } from "../level_port/thug2_scene.ts";
+import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
+import {
+    buildTree,
+    type Face as ColFace,
+    type ColObject,
+    setReaches,
+} from "thug2-level-converter-core/level_port/thug2_col.ts";
+import {
+    type Mesh as SceneMesh,
+    SEC_BILLBOARD,
+    type Sector,
+} from "thug2-level-converter-core/level_port/thug2_scene.ts";
 
 export interface V3 {
     x: number;

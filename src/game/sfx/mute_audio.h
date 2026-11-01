@@ -1,7 +1,7 @@
 #pragma once
 
 // NOT ORIGINAL: thug2-decomp.ini [features] mute_audio=1 (default 0: unchanged) silences all of the game's sound
-// from the first frame - for test games in the agents' workspaces (tools/pipeline/game/game_lock.ps1 and the launchers set
+// from the first frame - for test games in the agents' workspaces (tools/game/game_lock.ps1 and the launchers set
 // it there), never the user's own install.
 //
 // Two layers, so nothing leaks even through code that isn't ours yet (or a [replacements] disable):

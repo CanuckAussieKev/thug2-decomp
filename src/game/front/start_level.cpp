@@ -296,7 +296,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     }
     if (s_done) {
         // (once the level is up and settled: what it costs the script pools - for the converters' load checks,
-        // tools/pipeline/game/load_check.ps1)
+        // tools/game/load_check.ps1)
         if (!s_poolsLogged && s_started) {
             bool up = Nx::CurrentLevel() != 0 && Obj::FindObject(kSkater) != nullptr &&
                       !(frontEnd && frontEnd->m_paused);

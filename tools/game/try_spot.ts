@@ -1,13 +1,13 @@
 // NOT ORIGINAL - start the game in a level with the skater standing at a spot, to try something there by hand
 // (src/game/front/start_level.h: `-level <level> -at x,y,z[,heading]`).
 //
-//   node tools/pipeline/game/try_spot.ts <level> <x,y,z[,heading]>   THUG2 started in free skate there; once the level is up
+//   node tools/game/try_spot.ts <level> <x,y,z[,heading]>   THUG2 started in free skate there; once the level is up
 //                                                            the skater stands at the spot (on the ground below it),
 //                                                            facing `heading` (degrees: 0 = +z, 90 = +x)
-//   node tools/pipeline/game/try_spot.ts --list <list>               a list of spots (tools/pipeline/game/spots.json) and the command
+//   node tools/game/try_spot.ts --list <list>               a list of spots (tools/game/spots.json) and the command
 //                                                            for each - `collfix`: THUGPRO's collision overlays in the
 //                                                            THPS3 ports
-//   node tools/pipeline/game/try_spot.ts --list <list> <n>           start the list's n-th spot (1-based)
+//   node tools/game/try_spot.ts --list <list> <n>           start the list's n-th spot (1-based)
 //   [--game <folder>]                                       default C:\Games\THUG2 (a stock install: its Game folder)
 //
 // A spot is what the screenshot sidecar's skater position gives (x, y, z, or "(x, y, z)") and optionally its heading.
@@ -18,9 +18,9 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseCli } from "../lib/cli.ts";
-import { getCloseMatches } from "../lib/difflib.ts";
-import { isMain, print, pyExit, runMain } from "../lib/py.ts";
+import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { getCloseMatches } from "thug2-level-converter-core/lib/difflib.ts";
+import { isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 import {
     clearAutomationFiles,
     findLevel,
@@ -42,7 +42,7 @@ positional arguments:
 options:
   -h, --help   show this help message and exit
   --game GAME  the game folder (default C:\\Games\\THUG2): the install root or its Game folder (before the spot)
-  --list LIST  print a list of spots from tools/pipeline/game/spots.json (collfix: THUGPRO's collision overlays) with the
+  --list LIST  print a list of spots from tools/game/spots.json (collfix: THUGPRO's collision overlays) with the
                command for each; with a number instead of the level, start that spot of the list`;
 
 export interface Spot {
@@ -105,8 +105,8 @@ export function formatList(name: string, spots: readonly ListedSpot[]): string[]
     spots.forEach((s, i) => {
         const spot = parseSpot(s.at.join(","));
         lines.push(`${i + 1}. ${s.level} ${s.name}${s.note ? ` - ${s.note}` : ""}`);
-        lines.push(`   node tools/pipeline/game/try_spot.ts ${s.level} ${spot ? formatSpot(spot) : s.at.join(",")}`);
-        lines.push(`   (or: node tools/pipeline/game/try_spot.ts --list ${name} ${i + 1})`);
+        lines.push(`   node tools/game/try_spot.ts ${s.level} ${spot ? formatSpot(spot) : s.at.join(",")}`);
+        lines.push(`   (or: node tools/game/try_spot.ts --list ${name} ${i + 1})`);
     });
     return lines;
 }
@@ -125,7 +125,7 @@ function main(): number {
     if (values.list !== undefined) {
         const spots = readList(values.list);
         if (positionals.length === 0) {
-            print(`Spots in the list ${values.list} (tools/pipeline/game/spots.json) - start one with its command:`);
+            print(`Spots in the list ${values.list} (tools/game/spots.json) - start one with its command:`);
             for (const line of formatList(values.list, spots)) print(line);
             return 0;
         }

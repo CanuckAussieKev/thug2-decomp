@@ -1,7 +1,7 @@
 // NOT ORIGINAL - reads the game's [debug] collision_events lines (src/game/skater/collision_events.h) out of a
 // thug2-decomp.log and groups them: the spots in a level where the skater's velocity turned round, with what did it.
 //
-//   node tools/pipeline/game/collision_events.ts <thug2-decomp.log> [--level <name>] [--col <level | file.col.xbx>]
+//   node tools/game/collision_events.ts <thug2-decomp.log> [--level <name>] [--col <level | file.col.xbx>]
 //                                       [--root <game or staging folder>]... [--radius <inches>] [--json]
 //
 // Each line "collision-event: key=value ..." is one reversal: the level, the reason (the physics path that ran, or
@@ -24,10 +24,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
-import { checksum } from "../level_port/qb.ts";
-import * as col from "../level_port/thug2_col.ts";
-import { helpFromHeader } from "../lib/cli.ts";
-import { isMain, runMain } from "../lib/py.ts";
+import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
+import * as col from "thug2-level-converter-core/level_port/thug2_col.ts";
+import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
+import { isMain, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 export type Vec3 = [number, number, number];
 
@@ -304,7 +304,7 @@ function nameChecksum(name: string): number {
 }
 
 // Names the converters give collision objects that no node names (the game can't name them: it logs 0x<checksum>):
-// THP8's gap fills, <level>_GapFill_<n> (tools/pipeline/thp8_levels GAP_FILL), and its bodies no node or volume owns,
+// THP8's gap fills, <level>_GapFill_<n> (thug2-thp8-level-converter/thp8_levels GAP_FILL), and its bodies no node or volume owns,
 // <level>_Col_<n> (convertCollision: n counts every body).
 export function converterNames(level: string, most = 20000): Map<number, string> {
     const names = new Map<number, string>();

@@ -1,4 +1,4 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/collision_events.ts. LINE is a line as the game writes it
+// NOT ORIGINAL - tests of tools/game/collision_events.ts. LINE is a line as the game writes it
 // (src/game/skater/collision_events.h): the format both sides agree on.
 
 import assert from "node:assert/strict";
@@ -6,8 +6,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
-import { checksum } from "../level_port/qb.ts";
-import type * as col from "../level_port/thug2_col.ts";
+import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
+import type * as col from "thug2-level-converter-core/level_port/thug2_col.ts";
 import {
     describeFace,
     fileMismatches,

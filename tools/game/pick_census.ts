@@ -3,7 +3,7 @@
 // (src/game/front/level_editor_picking.h) make of it - see-through, structure, and the "level top" measure (how much
 // of its upward-facing surface is level) the low-and-flat rule uses.
 //
-//   node tools/pipeline/game/pick_census.ts <level> [--game <folder>] [--all] [--name <substring>]
+//   node tools/game/pick_census.ts <level> [--game <folder>] [--all] [--name <substring>]
 //       [--ray x,y,z --ray dx,dy,dz]
 //
 // <level>: TR, BO, foun, z_ma ... (looked for in the game's Data\levels and our overlays). Prints the pieces whose
@@ -15,12 +15,18 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { tokens } from "../level_port/qb.ts";
-import { readCol } from "../level_port/thug2_col.ts";
-import { type Material, type Mesh, materialSeeThrough, readScene, type Sector } from "../level_port/thug2_scene.ts";
-import { parseCli } from "../lib/cli.ts";
-import { resolveInstall } from "../lib/install.ts";
-import { hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
+import { tokens } from "thug2-level-converter-core/level_port/qb.ts";
+import { readCol } from "thug2-level-converter-core/level_port/thug2_col.ts";
+import {
+    type Material,
+    type Mesh,
+    materialSeeThrough,
+    readScene,
+    type Sector,
+} from "thug2-level-converter-core/level_port/thug2_scene.ts";
+import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { resolveInstall } from "thug2-level-converter-core/lib/install.ts";
+import { hex8, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 // level_editor_picking.h
 const kWideSpan = 1500;
@@ -142,7 +148,7 @@ interface Piece {
 }
 
 const USAGE =
-    "usage: node tools/pipeline/game/pick_census.ts <level> [--game <folder>] [--all] [--lowflat] [--name <text>] [--ray x,y,z --ray dx,dy,dz]";
+    "usage: node tools/game/pick_census.ts <level> [--game <folder>] [--all] [--lowflat] [--name <text>] [--ray x,y,z --ray dx,dy,dz]";
 
 function main(): number {
     const { values, positionals } = parseCli(USAGE, {

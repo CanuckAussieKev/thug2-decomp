@@ -18,7 +18,7 @@ class CStruct;
 // tests drive the menus by commands instead of posted key presses, and read where the game is from a status file.
 //
 // thug2-decomp.ini [features] automation=1 turns it on (default 0: off - the main install never has it on;
-// tools/pipeline/game/make_workspace.ps1 turns it on in the workspaces). While it's on, once a frame (the front end's input
+// tools/game/make_workspace.ps1 turns it on in the workspaces). While it's on, once a frame (the front end's input
 // logic, also paused and in a level) the game looks at <game folder>\thug2-decomp-commands.txt (its size and time
 // first) and runs the lines added since, in order; each command and its result go to the log and to
 // <game folder>\thug2-decomp-status.json (rewritten when something in it changes, readable while the game runs).
@@ -65,7 +65,7 @@ class CStruct;
 //                                         3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing,
 //                                         doing a trick, the score's combo so far, multiplier and +0x20, the last
 //                                         ground face's flags and collision object; a `teleport` while it runs
-//                                         adds a "# teleport ..." line (tools/pipeline/game/trace_summary.ts). Done at
+//                                         adds a "# teleport ..." line (tools/game/trace_summary.ts). Done at
 //                                         once: the trace runs on under the next commands (`press up 120`...); a
 //                                         new trace replaces a running one
 //   fe select <screen>/<item> [seconds]   the new front end (game/front/new_frontend.h, [features] new_frontend=1):
@@ -95,7 +95,7 @@ class CStruct;
 // focus (the focused elements' ids), selected (the focused menus' selected items), lines_read, lines_done, queued,
 // current (the command running), last (the last command finished), result ("ok", "error: ...", "refused: ...",
 // or the echo's text), errors, refusals. Ids show as names when the name is known (the game's menu ids, game
-// modes, levels, names used in commands; tools/pipeline/game/make_automation_tables.ts), else 0x<hex>.
+// modes, levels, names used in commands; tools/game/make_automation_tables.ts), else 0x<hex>.
 //
 // Command line: -run <script> (or --run <script>, --run=<script>) runs that script once the main menu is up (with
 // or without [features] automation; the same safety rules).
@@ -166,7 +166,7 @@ const Button* FindButton(const std::string& name);
 bool ButtonChooses(const Button& button);
 
 // An online-looking name: one of the online words between underscores, or internet / lobby / gamespy / network /
-// login anywhere (any case; tools/pipeline/game/make_automation_tables.ts has the same rule).
+// login anywhere (any case; tools/game/make_automation_tables.ts has the same rule).
 bool NameLooksOnline(const std::string& name);
 // A script `run` refuses: online-looking, or one of the denied scripts.
 bool ScriptDenied(const std::string& name);

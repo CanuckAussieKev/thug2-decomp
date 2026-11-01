@@ -1,11 +1,11 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/map_features.ts (the game's rail speed-up and proximity scripts, ported) and of the
-// feature map's layout records in tools/pipeline/game/layout_file.ts. The expected bytes are the game's
+// NOT ORIGINAL - tests of tools/game/map_features.ts (the game's rail speed-up and proximity scripts, ported) and of the
+// feature map's layout records in tools/game/layout_file.ts. The expected bytes are the game's
 // (as its self-test had them): NeverScript's output for the same statements.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checksum, tokens } from "../level_port/qb.ts";
-import { putScripts } from "../level_port/qb_write.ts";
+import { checksum, tokens } from "thug2-level-converter-core/level_port/qb.ts";
+import { putScripts } from "thug2-level-converter-core/level_port/qb_write.ts";
 import { LayoutError, readLayout, readProximRecord } from "./layout_file.ts";
 import {
     proximBody,

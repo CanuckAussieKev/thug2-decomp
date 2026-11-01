@@ -1,16 +1,16 @@
 // NOT ORIGINAL - TEST ONLY (under the game lock): the installed overlay's SKATE NOW loads the named level instead
 // (free skate).
-//   node tools/pipeline/game/boot_level.ts foun C:\Games\THUG2-1
+//   node tools/game/boot_level.ts foun C:\Games\THUG2-1
 // (make_menu_level --game <folder> puts the real SKATE NOW back)
 
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { helpFromHeader } from "../lib/cli.ts";
-import { NS_DEFAULT, nsMissing } from "../lib/decomp.ts";
-import { resolveInstall } from "../lib/install.ts";
-import { decodeCp1252, isMain, print, pyExit, runMain } from "../lib/py.ts";
+import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
+import { NS_DEFAULT, nsMissing } from "thug2-level-converter-core/lib/decomp.ts";
+import { resolveInstall } from "thug2-level-converter-core/lib/install.ts";
+import { decodeCp1252, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 // subprocess.run(..., text=True)'s text: cp1252, universal newlines
 const textOutput = (data: Buffer): string => decodeCp1252(data).replace(/\r\n?/g, "\n");

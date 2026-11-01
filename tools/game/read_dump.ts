@@ -3,7 +3,7 @@
 // addresses found on the faulting thread's stack - the same report the game's crash logger writes (src/game/sys/crash.cpp),
 // for crashes it couldn't log (a /GS fast-fail ends the process before any handler runs).
 //
-//     node tools/pipeline/game/read_dump.ts <file.dmp> [--threads] [--modules]
+//     node tools/game/read_dump.ts <file.dmp> [--threads] [--modules]
 //
 // --threads: every thread's EIP and stack scan, not only the faulting one. --modules: the module list. --image <file>:
 // a module file with the dump's PE timestamp (the crashed build's thug2-decomp.exe) - WER's dumps leave module code out, so
@@ -16,8 +16,8 @@
 // it, and only the stack scan from the thread's recorded stack range is given.
 
 import * as fs from "node:fs";
-import { parseCli } from "../lib/cli.ts";
-import { isMain, print, pyExit, runMain } from "../lib/py.ts";
+import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 const USAGE = `usage: read_dump.ts [-h] [--threads] [--modules] [--image FILE] dump
 

@@ -1,4 +1,4 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/edit_level.ts's pure parts (no game data).
+// NOT ORIGINAL - tests of tools/game/edit_level.ts's pure parts (no game data).
 
 import assert from "node:assert/strict";
 import * as fs from "node:fs";

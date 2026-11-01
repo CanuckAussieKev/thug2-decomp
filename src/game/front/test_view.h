@@ -22,7 +22,7 @@ class Camera;
 //   frame until unlocked - the game's camera keeps running underneath. Frames from the same pose are comparable
 //   pixel for pixel. Wins over the level editor's camera while set. With a drift, the position moves by it every game
 //   frame (from the frame it was locked): a slow, exact camera move - surfaces barely change from frame to frame,
-//   z-fighting ones flip (tools/pipeline/game/frame_diff.ts).
+//   z-fighting ones flip (thug2-level-converter-core/lib/frame_diff.ts).
 // - Script command (for level scripts and the console): TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>] -
 //   false when there's no local skater.
 namespace Front::TestView {

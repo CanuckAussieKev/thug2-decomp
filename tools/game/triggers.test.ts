@@ -1,4 +1,4 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/triggers.ts (the game's trigger records and scripts, ported) and the qb_write
+// NOT ORIGINAL - tests of tools/game/triggers.ts (the game's trigger records and scripts, ported) and the qb_write
 // helpers the bake uses for them (scripts added / replaced, a level structure's entries set). The script bytes are the
 // game's (Boston's compiled gap scripts); with the game's files at
 // C:\Games\THUG2\Game they're also compared with Boston's own (skipped without them - nothing is written there).
@@ -6,10 +6,16 @@
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import { test } from "node:test";
-import { checksum, Name, QbFile, Struct, tokens } from "../level_port/qb.ts";
-import { addNames, encodeValue, putScripts, scriptSpans, setStructEntries } from "../level_port/qb_write.ts";
-import { readCol, writeCol } from "../level_port/thug2_col.ts";
-import { pack } from "../lib/struct.ts";
+import { checksum, Name, QbFile, Struct, tokens } from "thug2-level-converter-core/level_port/qb.ts";
+import {
+    addNames,
+    encodeValue,
+    putScripts,
+    scriptSpans,
+    setStructEntries,
+} from "thug2-level-converter-core/level_port/qb_write.ts";
+import { readCol, writeCol } from "thug2-level-converter-core/level_port/thug2_col.ts";
+import { pack } from "thug2-level-converter-core/lib/struct.ts";
 import {
     BOX_FACES,
     body,

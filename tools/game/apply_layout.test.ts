@@ -1,15 +1,22 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/apply_layout.ts, layout_file.ts and tools/pipeline/level_port/qb_write.ts on a small level
+// NOT ORIGINAL - tests of tools/game/apply_layout.ts, layout_file.ts and thug2-level-converter-core/level_port/qb_write.ts on a small level
 // made here (a scene of two sectors, their collision and an invisible wall, a node array with a shared structure) and
 // small layouts covering every record kind. No game data.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checksum, Name, QbFile, type QbValue, Struct, Vector } from "../level_port/qb.ts";
-import { encodeValue, replaceGlobalArray } from "../level_port/qb_write.ts";
-import { buildTree, type ColFile, type ColObject, readCol, setReaches, writeCol } from "../level_port/thug2_col.ts";
-import { readScene, type Scene, type Sector, writeScene } from "../level_port/thug2_scene.ts";
-import { Float } from "../lib/py.ts";
-import { pack } from "../lib/struct.ts";
+import { checksum, Name, QbFile, type QbValue, Struct, Vector } from "thug2-level-converter-core/level_port/qb.ts";
+import { encodeValue, replaceGlobalArray } from "thug2-level-converter-core/level_port/qb_write.ts";
+import {
+    buildTree,
+    type ColFile,
+    type ColObject,
+    readCol,
+    setReaches,
+    writeCol,
+} from "thug2-level-converter-core/level_port/thug2_col.ts";
+import { readScene, type Scene, type Sector, writeScene } from "thug2-level-converter-core/level_port/thug2_scene.ts";
+import { Float } from "thug2-level-converter-core/lib/py.ts";
+import { pack } from "thug2-level-converter-core/lib/struct.ts";
 import {
     anglesOfRows,
     applyCrownOrder,

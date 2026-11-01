@@ -32,9 +32,11 @@ source is a trustworthy base. On top of that base:
   source: an SDL2 window and input, controller and keyboard bindings, widescreen, the OpenSpy online service.
 - **Additions:** a level editor, a new front end, graphics options, a loading console, a screenshot key with the
   game's state alongside, debugging aids.
-- **Level converters** (in the [thug2-content-pipeline](https://github.com/CanuckAussieKev/thug2-content-pipeline)
-  submodule): THPS2, THPS3, THPS4, THUG, THAW and Project 8 levels, generated from your own copies of those games -
-  plus THAW's BMX, rideable in any level.
+- **Level converters** (installed by the [thug2-content-pipeline](https://github.com/CanuckAussieKev/thug2-content-pipeline)
+  submodule: one repository per game, on
+  [thug2-level-converter-core](https://github.com/CanuckAussieKev/thug2-level-converter-core)): THPS2, THPS3, THPS4,
+  THUG, THAW, Project 8 and Proving Ground levels, generated from your own copies of those games - plus THAW's BMX,
+  rideable in any level.
 
 ## Status
 
@@ -68,11 +70,11 @@ supported first milestone and remaining work.
 | THUG (PC) | Porting THUG's levels | `C:\Games\THUG1` | `Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
 | THAW (PC, version 1.01) | Porting THAW's levels and its BMX | `C:\Games\THAW` | `data\worlds\worldzones\`, `data\pak\`, `data\skies\` |
 | Tony Hawk's Project 8 (Xbox 360 data) | Porting Project 8's levels | `C:\Games\THP8` | `game\DATA\` (`ZONES\`, `PAK\`) |
-| THUGPRO (optional) | THUGPRO's additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`tools/pipeline/compat/thugpro`) |
+| THUGPRO (optional) | THUGPRO's additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`thug2-level-converter-core/compat/thugpro`) |
 
 Every folder you give a tool (`--thug2`, `--thps3`, `--thps4`, `--thug1`, `--thaw`, `--game`, CMake's `THUG2_GAME_DIR`)
 may be the install root, with the game in a `Game` subfolder, or the game folder itself; the tools find either
-(`tools/pipeline/lib/install.ts`).
+(`thug2-level-converter-core/lib/install.ts`).
 
 **Software:**
 
@@ -99,7 +101,7 @@ Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 From the command line:
 
 ```
-npm install                          (once: the TypeScript tools' dependencies)
+npm install                          (once: the TypeScript tools' dependencies, the level converters among them)
 tools\build_neverscript.ps1          (once: out\neverscript\ns.exe)
 tools\verify_build.cmd               (builds out\build\verify\thug2-decomp.exe; nothing copied)
 npm run typecheck && npm run lint && npm test
@@ -129,7 +131,7 @@ Useful start-up switches:
 | `-level <name>` or `[features] start_level=<name>` | Skips the menus and starts that level in free skate. `<name>` is the level's folder name (`TR`, `BO`, `foun`, `z_ma`...). |
 | `-edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there. |
 | `-level <name> -at x,y,z[,heading]` or `[features] start_at=` | Once the level is up, the skater stands at that spot, facing `heading` (degrees, 0 = +z, 90 = +x). |
-| `node tools/pipeline/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
+| `node tools/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
 
 ### The level editor
 
@@ -146,29 +148,31 @@ in career / story, classic, the park editor or network games).
 - **Nodes and scripts it makes:** nodes the editor adds (spawns, crowns, flags, lights, rails, ladders, paths,
   triggers, cameras, goals...) go into an extra node array; trigger volumes, rail speed-ups, jump boosts, breakables
   and proximity nodes get small QB scripts generated at run time. Goals use THUG2's own Create-a-Goal records.
-- **Baking a layout into a level's files:** `node tools/pipeline/game/apply_layout.ts --level <name> [--dry-run]` writes a
+- **Baking a layout into a level's files:** `node tools/game/apply_layout.ts --level <name> [--dry-run]` writes a
   copy of the level's files with the layout built in, to `out\baked\<name>`; `--install --game <folder>` puts it in
   that folder's overlay. It warns about every edit that would break online parity with THUGPRO.
 
 ### Other games' levels (optional)
 
 Each converter reads your install of that game and writes a staging folder next to THUG2; the menu tool then installs
-everything into the data overlay and the level select:
+everything into the data overlay and the level select. The converters are repositories of their own, which `npm
+install` puts in `node_modules` (the pipeline's dependencies); `tools\pipeline\run.ts` runs a converter's tool by its
+path in its repository:
 
 ```
-node tools\pipeline\thps2_levels\thps2_levels.ts convert --thug2 C:\Games\THUG2 --thps2 C:\Games\THPS2
-node tools\pipeline\thps3_levels\thps3_levels.ts convert --thug2 C:\Games\THUG2 --thps3 C:\Games\THPS3
-node tools\pipeline\thps4_levels\thps4_levels.ts convert --thug2 C:\Games\THUG2 --thps4 C:\Games\THPS4
-node tools\pipeline\thug1_levels\thug1_levels.ts --thug2 C:\Games\THUG2 --thug1 C:\Games\THUG1 convert
-node tools\pipeline\thaw_levels\thaw_levels.ts   convert --thug2 C:\Games\THUG2 --thaw  C:\Games\THAW
-node tools\pipeline\thp8_levels\thp8_levels.ts   convert --thug2 C:\Games\THUG2 --thp8  C:\Games\THP8
+node tools\pipeline\run.ts thps2_levels\thps2_levels.ts convert --thug2 C:\Games\THUG2 --thps2 C:\Games\THPS2
+node tools\pipeline\run.ts thps3_levels\thps3_levels.ts convert --thug2 C:\Games\THUG2 --thps3 C:\Games\THPS3
+node tools\pipeline\run.ts thps4_levels\thps4_levels.ts convert --thug2 C:\Games\THUG2 --thps4 C:\Games\THPS4
+node tools\pipeline\run.ts thug1_levels\thug1_levels.ts --thug2 C:\Games\THUG2 --thug1 C:\Games\THUG1 convert
+node tools\pipeline\run.ts thaw_levels\thaw_levels.ts   convert --thug2 C:\Games\THUG2 --thaw  C:\Games\THAW
+node tools\pipeline\run.ts thp8_levels\thp8_levels.ts   convert --thug2 C:\Games\THUG2 --thp8  C:\Games\THP8
 node tools\pipeline\thaw_bmx\convert.ts         convert --thug2 C:\Games\THUG2 --ns out\neverscript\ns.exe
 node tools\pipeline\menu_level\make_menu_level.ts --game C:\Games\THUG2
 ```
 
 THPS4 must be converted before `make_menu_level.ts` for the playable skate shop. Each
-converter's README (`tools/pipeline/<game>_levels/README.md`) lists its switches; the THUGPRO compatibility register is
-explained in `tools/pipeline/compat/thugpro/README.md`. `make_menu_level.ts` empties and rebuilds the overlay each run.
+converter's README (`thug2-<game>-level-converter`: its `<game>_levels/README.md`) lists its switches; the THUGPRO compatibility register is
+explained in `thug2-level-converter-core/compat/thugpro/README.md`. `make_menu_level.ts` empties and rebuilds the overlay each run.
 `docs/level-port-compromises.md` lists what the ports do differently from the originals. Optional: Anteara Mod
 (`tools/anteara/README.md`).
 
@@ -201,14 +205,14 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `create_100_cas` | 1 | GAME OPTIONS > CREATE 100% CAS |
 | `thugpro_parts` | 1 | THUGPRO's extra CAS parts and boards, read from your THUGPRO install by reference (2 also shows them in CAS, 0 off; `thugpro_folder=` another install) |
 | `allow_multiple_instances` | 0 | Lets a second copy run (its log is `thug2-decomp-2.log`) |
-| `automation` | 0 | The test-automation channel (`tools/pipeline/game/README.md`); never online |
+| `automation` | 0 | The test-automation channel (`tools/game/README.md`); never online |
 | `debug_rail_speed`, `debug_collision`, `debug_sprites` | 0 | Extra log lines for those systems |
 
 **`[debug]`**
 
 | Key | Default | Effect |
 |---|---|---|
-| `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/pipeline/game/collision_events.ts <log> [--col <level>]` groups them by spot |
+| `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 
@@ -301,7 +305,7 @@ Online goes through OpenSpy (`OnlineDomain=openspy.net`), the community replacem
 default the game uses THUG2's own identity and lobby. `OnlineGameName=thugpro` (key left empty) joins THUGPRO's lobbies
 instead; joining THUGPRO players' sessions may not work, as their scripts and DLL differ. The ported levels keep online
 parity with THUGPRO's ports where both players must agree (spawns, crowns, flags, gaps, geometry they collide with):
-that's what the compatibility register in `tools/pipeline/compat/thugpro` records, edit by edit. Level editor edits and
+that's what the compatibility register in `thug2-level-converter-core/compat/thugpro` records, edit by edit. Level editor edits and
 edited levels are never used online. Online play is only ever tested by hand: no tool, script or automation joins,
 hosts or enters a lobby.
 
@@ -317,7 +321,7 @@ hosts or enters a lobby.
 4. **Report it with the screenshot key:** it saves a PNG and a `.txt` with the level, mode, skater and camera
    positions, the editor's state and the log's last lines.
 
-A level that crashes on load in only one ported game is usually a converter problem (`tools/pipeline/<game>_levels`).
+A level that crashes on load in only one ported game is usually a converter problem (`thug2-<game>-level-converter`).
 
 ## Contributing
 
@@ -340,7 +344,8 @@ each borrowed idea is credited where it's used.
 | `src/main.cpp` | The program's entry point |
 | `src/game/` | The game's code, by subsystem: engine (`gfx`, `nx`), scripts (`script`), objects and skater (`obj`, `skater`), goals, park editor (`ed`), networking (`net`), front end (`front`)... |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |
-| `tools/pipeline/` | Submodule: level converters, menus, test runs, layouts, the THUGPRO compatibility register |
+| `tools/game/` | The scripts that run and drive the game for tests, the layout baker, the level editor's offline tools |
+| `tools/pipeline/` | Submodule: the data overlay and menus, HD art, THAW's BMX; its dependencies are the level converters and their core (with the THUGPRO compatibility register) |
 | `tools/anteara/` | Submodule: Anteara Mod, stored as edits to the game's scripts |
 | `docs/` | The script runtime, the GameSpy SDK notes, the level ports, tool conventions, the front end's design |
 

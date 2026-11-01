@@ -1,4 +1,4 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/bake_backup.ts in a temporary folder: installs backed up one after another, and
+// NOT ORIGINAL - tests of tools/game/bake_backup.ts in a temporary folder: installs backed up one after another, and
 // restores undoing them newest first (files the install made deleted, files it replaced put back).
 
 import assert from "node:assert/strict";

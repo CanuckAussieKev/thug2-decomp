@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the level editor's feature map rows as level data: the pure parts of the game's rail speed-ups
 // (src/game/front/level_editor_chains.{h,cpp}: RailSpeedQb, SpeedScriptName, SpeedBody) and proximity nodes' enter /
-// exit scripts (level_editor_triggers.{h,cpp}: ProximScriptName, ProximBody) ported, for tools/pipeline/game/apply_layout.ts.
+// exit scripts (level_editor_triggers.{h,cpp}: ProximScriptName, ProximBody) ported, for tools/game/apply_layout.ts.
 //
 // - A rail speed-up (THAW's RailAccelerate): the rail point's TriggerScript becomes ed_railspeed_<node> - its own
 //   script before (called first, its arguments passed on: `<script> <...>`) then `ed_RailSpeed rate=<r>` - and the
@@ -13,8 +13,8 @@
 //   TriggerScript (Proxim_AddNode reads that at the level's load). A box shape is the game's alone (the game's
 //   PROXIM_SHAPE_BOX takes its box from a sector named like the node): baked as a sphere around the box.
 
-import { checksum } from "../level_port/qb.ts";
-import { pack } from "../lib/struct.ts";
+import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
+import { pack } from "thug2-level-converter-core/lib/struct.ts";
 
 const NAME = 0x16;
 

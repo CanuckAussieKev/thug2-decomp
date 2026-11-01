@@ -144,7 +144,7 @@ function Write-GameOutcome([string]$folder, [string]$what, [string]$closed, [dat
         Where-Object { $_.LastWriteTime -ge $since } | ForEach-Object FullName)
     $tail = Get-GameLogTail $folder
     $block = @("=== $(Get-Date -Format s) $folder", "GAME IN TROUBLE: $what", "then: $closed") +
-        $(if ($dumps.Count) { @("crash dump: $($dumps -join ', ') (node tools/pipeline/game/read_dump.ts <dump>)") } else { @() }) +
+        $(if ($dumps.Count) { @("crash dump: $($dumps -join ', ') (node tools/game/read_dump.ts <dump>)") } else { @() }) +
         @('the log ends:') + ($tail | ForEach-Object { "  $_" }) +
         @('(an EXCEPTION / RUN-TIME CHECK / ... report in it: node tools/symbolize.ts --pdb-dir <your build dir> <the log>)')
     $block

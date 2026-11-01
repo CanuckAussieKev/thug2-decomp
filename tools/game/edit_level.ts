@@ -1,15 +1,15 @@
 // NOT ORIGINAL - start the game straight into the level editor (src/game/front/start_level.h: `-edit <level>`).
 //
-//   node tools/pipeline/game/edit_level.ts                     the installed levels, by game (as --list)
-//   node tools/pipeline/game/edit_level.ts --list              the same - prints only
-//   node tools/pipeline/game/edit_level.ts <level>             THUG2 started with -edit <level>: free skate there, the level
+//   node tools/game/edit_level.ts                     the installed levels, by game (as --list)
+//   node tools/game/edit_level.ts --list              the same - prints only
+//   node tools/game/edit_level.ts <level>             THUG2 started with -edit <level>: free skate there, the level
 //                                                     editor opened once the level is up
 //   [--game <folder>]                                 default C:\Games\THUG2 (a stock install: its Game folder)
 //
 // <level>: a level's load script without Load_ (foun, z_ma, BO, TR...) or with it, as the list shows it. The levels
 // are the ones the game knows: the data overlay's Levels.qb (tools/pipeline/menu_level/make_menu_level.ts: THUG2's own, the
 // skate shop, TEST LEVEL and the ported levels), else the game's own Data\scripts\game\Levels.qb; the ported levels'
-// games come from the converters' levels.json files (tools/pipeline/level_port/ported_levels.ts). A level whose scene file
+// games come from the converters' levels.json files (thug2-level-converter-core/level_port/ported_levels.ts). A level whose scene file
 // isn't there (Default: the PC release ships only its scripts) is left out - the game would refuse it too.
 //
 // Refuses when a game is already running from that folder (the user may be playing) - it never closes or kills one.
@@ -19,13 +19,13 @@
 import { execFileSync, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { readManifest, STAGINGS } from "../level_port/ported_levels.ts";
-import { Name, QbFile, Struct } from "../level_port/qb.ts";
-import { parseCli } from "../lib/cli.ts";
-import { GAME_EXE_NAMES, GAME_PROCESS_NAMES, LAUNCH_EXE_NAME } from "../lib/decomp.ts";
-import { getCloseMatches } from "../lib/difflib.ts";
-import { findInstall } from "../lib/install.ts";
-import { isMain, print, pyExit, runMain } from "../lib/py.ts";
+import { readManifest, STAGINGS } from "thug2-level-converter-core/level_port/ported_levels.ts";
+import { Name, QbFile, Struct } from "thug2-level-converter-core/level_port/qb.ts";
+import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { GAME_EXE_NAMES, GAME_PROCESS_NAMES, LAUNCH_EXE_NAME } from "thug2-level-converter-core/lib/decomp.ts";
+import { getCloseMatches } from "thug2-level-converter-core/lib/difflib.ts";
+import { findInstall } from "thug2-level-converter-core/lib/install.ts";
+import { isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 import { ensureWorkspaceMuted } from "./workspace_ini.ts";
 
 const USAGE = `usage: edit_level.ts [-h] [--game GAME] [--list] [level]
@@ -40,7 +40,7 @@ options:
   --game GAME  the game folder (default C:\\Games\\THUG2): the install root or its Game folder
   --list       only list the installed levels`;
 
-const EXE_NAMES = GAME_EXE_NAMES; // (tools/pipeline/game/game_exe.ps1's order)
+const EXE_NAMES = GAME_EXE_NAMES; // (tools/game/game_exe.ps1's order)
 const OVERLAY = "thug2-decomp-data";
 // Not editor levels: the front end, and the park editor's created park.
 const SKIPPED = new Set(["load_mainmenu", "load_sk5ed"]);
@@ -52,7 +52,7 @@ export interface Level {
     installed: boolean;
 }
 
-// The game folder: `folder` itself or its Game folder (a stock install) - tools/pipeline/lib/install.ts; `folder` (without
+// The game folder: `folder` itself or its Game folder (a stock install) - thug2-level-converter-core/lib/install.ts; `folder` (without
 // trailing separators) when neither holds THUG2.
 export function resolveGameFolder(folder: string): string {
     return findInstall(folder, "thug2") ?? folder.replace(/[\\/]+$/, "");
@@ -220,7 +220,7 @@ function main(): number {
     const wanted = positionals[0];
     if (values.list || wanted === undefined) {
         print(
-            `Levels in ${game} (from ${path.relative(game, source)}) - edit one with: node tools/pipeline/game/edit_level.ts <level>`,
+            `Levels in ${game} (from ${path.relative(game, source)}) - edit one with: node tools/game/edit_level.ts <level>`,
         );
         for (const line of formatList(levels)) print(line);
         return 0;

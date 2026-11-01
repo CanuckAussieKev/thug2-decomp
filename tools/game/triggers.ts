@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the level editor's trigger volumes (phase 5) as level data: the pure parts of
 // src/game/front/level_editor_triggers.{h,cpp} ported (the record, the compiled script - byte for byte the game's
 // Triggers::Body / QbFile, which its self-test compares with Boston's own compiled gap scripts) and what
-// tools/pipeline/game/apply_layout.ts bakes from them (a node, a trigger box in the collision, the script).
+// tools/game/apply_layout.ts bakes from them (a node, a trigger box in the collision, the script).
 //
 // In the game (the game) an editor trigger is a run-time thing: a node in the editor's overlay node array (GenericNode,
 // type ed_trigger, TriggerScript=<name>Script), a movable collision box (Nx::CCollMovBBox, every face 0x50, named
@@ -22,9 +22,9 @@
 // place every frame - Triggers::Play) is baked with the 12 faces again, wound the other way: a line leaving the box
 // meets those, and the node's TriggerScript runs again, as the game runs it on leaving.
 
-import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
-import { buildTree, type ColObject, type Face, setReaches } from "../level_port/thug2_col.ts";
-import { f32, pack } from "../lib/struct.ts";
+import { checksum, Name, Struct, Vector } from "thug2-level-converter-core/level_port/qb.ts";
+import { buildTree, type ColObject, type Face, setReaches } from "thug2-level-converter-core/level_port/thug2_col.ts";
+import { f32, pack } from "thug2-level-converter-core/lib/struct.ts";
 
 // (the feature map added boost - a jump boost: trigger_jump_boost speed=<strength> - and break - a breakable: its piece
 // shattered and killed, its collision off while it's breakable through `replaces`)

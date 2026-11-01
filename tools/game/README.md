@@ -1,11 +1,11 @@
-# tools/pipeline/game - running the game for tests
+# tools/game - running the game for tests
 
 Scripts for testing builds of the game (thug2-decomp.exe, built from the decomp's source and copied into a game
 folder with its DLLs - the decomp's README, "Running") and converted levels in it. Test runs go to workspace copies of an
 install (C:\Games\THUG2-1 ... THUG2-4, made by make_workspace.ps1), not the install you play. Every script takes
 `-Game <folder>` (default C:\Games\THUG2 - a stock install: the scripts step into its Game folder; a folder with the
-game at the top works too; tools/pipeline/game/game_exe.ps1's Resolve-GameFolder - the
-TypeScript tools' --game / --thug2 the same, tools/pipeline/lib/install.ts).
+game at the top works too; tools/game/game_exe.ps1's Resolve-GameFolder - the
+TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/install.ts).
 
 - `make_workspace.ps1 -Number <n>` - makes or refreshes C:\Games\THUG2-<n> as a mirror of the main install (1280x720
   window, allow_multiple_instances=1, debug_collision=0). Refuses while its lock is held or a game runs. Refresh a
@@ -67,11 +67,11 @@ TypeScript tools' --game / --thug2 the same, tools/pipeline/lib/install.ts).
     while it runs adds a `# teleport ...` line. It's done at once and runs on under the next commands, so
     `teleport <x> <y> <z> <heading> board;trace 600;press up 60;wait 300` pushes off and records the ride (a manual:
     `press up 2;press down 2`; `run client_toggle_cheat cheat_flag=CHEAT_PERFECT_MANUAL on` holds its balance).
-    `node tools/pipeline/game/trace_summary.ts <trace.txt> [--every N | --trials]` gives the runs of one state (where, the
+    `node tools/game/trace_summary.ts <trace.txt> [--every N | --trials]` gives the runs of one state (where, the
     highest point, the top speed), the frames where the skater bounced off something, stopped, bailed, ended or lost
     a combo, was in the air for 3 frames or less, or crossed onto another collision object; `--trials` a line per
     ride between teleports (riding at quarter pipes).
-  - `node tools/pipeline/game/frame_diff.ts <series folder> [--threshold N] [--region name:x,y,w,h]... [--heatmap out.png]`:
+  - `node tools/pipeline/run.ts lib/frame_diff.ts <series folder> [--threshold N] [--region name:x,y,w,h]... [--heatmap out.png]`:
     how much a series flickers - per pixel the frame-to-frame changes over the threshold (summed |dRGB|, default 24),
     the share of pixels that flicker (>= 2% of the steps) per region, the mean difference, and a heat map. With the
     camera still only animation changes pixels; with a slow drift surfaces change a little and z-fighting / crawling
@@ -83,7 +83,7 @@ TypeScript tools' --game / --thug2 the same, tools/pipeline/lib/install.ts).
     net / online / internet / lobby / login / buddy / homie / gamespy / network / server / join / host / lan), `choose` /
     `focus` / `press` refuse items whose ids or event handlers lead there (MULTIPLAYER, Network / Online Play...), and
     nothing but wait / echo / quit runs while the game is online or in a network game mode. The tables are generated:
-    `node tools/pipeline/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/game/front/automation_tables.inc.
+    `node tools/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/game/front/automation_tables.inc.
   - With the channel on, the game also keeps drawing while its window is in the background (PrintWindow pictures show
     the current frame; without it the main loop stops drawing when the window loses the focus).
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
@@ -95,11 +95,11 @@ TypeScript tools' --game / --thug2 the same, tools/pipeline/lib/install.ts).
   (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
   (src/game/sys/debug_mode.h).
-- `node tools/pipeline/game/edit_level.ts [<level>] [--game <folder>] [--list]` - for the user: no level lists the installed
+- `node tools/game/edit_level.ts [<level>] [--game <folder>] [--list]` - for the user: no level lists the installed
   levels by game (load names and names); a level starts the game with `-edit <level>` (free skate there, intro movies
   skipped, the level editor opened once it's up - also `[features] edit_level=`). Refuses while a game runs from that
   folder; never closes one. Not for agents' test runs (no lock, no workspace handling).
-- `node tools/pipeline/game/try_spot.ts <level> <x,y,z[,heading]> [--game <folder>]` - for the user: the game started with
+- `node tools/game/try_spot.ts <level> <x,y,z[,heading]> [--game <folder>]` - for the user: the game started with
   `-level <level> -at <spot>`: free skate there, and once the level is up the skater stands still at the spot (on the
   ground below it, facing `heading` degrees: 0 = +z, 90 = +x; src/game/front/start_level.h - also
   `[features] start_at=`). `--game` goes before a spot that starts with a minus. `--list collfix` prints the spots in
@@ -107,15 +107,15 @@ TypeScript tools' --game / --thug2 the same, tools/pipeline/lib/install.ts).
   with each one's command; `--list collfix <n>` starts the n-th. Refuses while a game
   runs from that folder. In a workspace run, `run_game.ps1 -Level` plus the automation channel's `teleport` does the
   same.
-- `node tools/pipeline/game/apply_layout.ts <layout.txt> | --level <name> [--game <folder>] [--out <folder>] [--dry-run]
+- `node tools/game/apply_layout.ts <layout.txt> | --level <name> [--game <folder>] [--out <folder>] [--dry-run]
   [--install [--allow-main]]` - bakes a level editor layout into a copy of the level's .scn.xbx / .col.xbx / .qb
   (default out\baked\<level>; `--install` writes the game folder's overlay - a workspace; the main install only with
   `--allow-main`, the user's own runs). Lists what isn't baked (level properties, trigger records) and every edit that
   breaks THUGPRO online parity. Header of apply_layout.ts has the record-by-record meaning.
   `--install` first backs up every file it replaces into `<game>\thug2-decomp-bake-backups\<level>\<time>`;
   `--uninstall --level <name>` puts the newest backup back (deleting files that install made) and removes it, so
-  repeating it undoes the installs one by one (tools/pipeline/game/bake_backup.ts).
-- `node tools/pipeline/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
+  repeating it undoes the installs one by one (tools/game/bake_backup.ts).
+- `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
   load a level in free skate. `make_menu_level.ts --game <folder>` puts the real one back.
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
   `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
@@ -123,7 +123,7 @@ TypeScript tools' --game / --thug2 the same, tools/pipeline/lib/install.ts).
   src/game/front/start_level.cpp; and any `pool ... full` / `80% full` line).
 
 Reference sources the agents read (re-fetch anonymously if needed; none of their code is in the repo except where
-THIRD_PARTY_NOTICES.md - this repository's and the decomp's - say): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene
+the THIRD_PARTY_NOTICES.md files - the decomp's, the content pipeline's and the converters' - say): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene
 (no licence: documentation only), https://github.com/Morten1337/thugpro-tools (public; looked at, nothing used).
 
 After every run read `<folder>\thug2-decomp.log` (locked while the game runs): no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
@@ -144,7 +144,7 @@ ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
 - **Then:** read the log, `node tools/symbolize.ts --pdb-dir <the build that crashed> <folder>\thug2-decomp.log`
   (the last report of any kind), record it in your pending doc, carry on.
 - **A dump** (`%LOCALAPPDATA%\CrashDumps\THUG2*.dmp`, written by WER when LocalDumps is on - a crash from before the
-  game logged it, or a fast fail): `node tools/pipeline/game/read_dump.ts <dmp> [--image <build>\thug2-decomp.exe] [--threads]`
+  game logged it, or a fast fail): `node tools/game/read_dump.ts <dmp> [--image <build>\thug2-decomp.exe] [--threads]`
   gives the exception, registers and return addresses (checked against the module files: with --image, the build's
   exe whose PE timestamp the dump names - each agent's build dir has one; `?` = not checked); save it to a file and
   `node tools/symbolize.ts --pdb-dir <that build> <file>` names our functions.
@@ -156,7 +156,7 @@ Anything a player has to judge (does a script fire when skated into, does a menu
 scripted keys: hand it to the user with a list of what to try.
 
 ## install_manifest.ts - which version of the game is this?
-`node tools/pipeline/game/install_manifest.ts make` writes `notes/data/install_manifest.json` (the private notes repo): the size and SHA-256 of every file
+`node tools/game/install_manifest.ts make` writes `notes/data/install_manifest.json` (the private notes repo): the size and SHA-256 of every file
 of the reference install (made from C:\Games\THUG2 when it held the reference build; our files,
 Backup, Save and Faces left out). `... check --game <folder>`
 compares another install with it - identical / changed / missing / extra, by kind (exe, partymod, game) - and names

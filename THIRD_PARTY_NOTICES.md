@@ -72,7 +72,7 @@ Thanks to byxor for the compiler and decompiler, and to violetvandal for making 
 
 Source: https://github.com/Morten1337/thps-formats (commit e0a6e06), MIT licence (its pyproject.toml; author "MK").
 Its experimental RenderWare reader for THPS3 (`thps_formats/experimental/chunky.py`, `enums.py`) was read as
-documentation for tools/pipeline/thps3_levels (the chunk ids, the geometry and atomic sector field order); no code was copied.
+documentation for thug2-thps3-level-converter/thps3_levels (the chunk ids, the geometry and atomic sector field order); no code was copied.
 Thanks to Morten1337.
 
 ```

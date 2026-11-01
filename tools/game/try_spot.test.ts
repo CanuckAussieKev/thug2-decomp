@@ -1,4 +1,4 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/try_spot.ts's pure parts (no game data).
+// NOT ORIGINAL - tests of tools/game/try_spot.ts's pure parts (no game data).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -36,6 +36,6 @@ test("the collfix list: every spot parses, and each has a command", () => {
     for (const s of spots) assert.ok(parseSpot(s.at.join(",")), `${s.name}: ${s.at.join(",")}`);
     const lines = formatList("collfix", spots);
     assert.equal(lines.length, spots.length * 3);
-    assert.match(lines[1]!, /^ {3}node tools\/pipeline\/game\/try_spot\.ts sub -?\d/);
-    assert.equal(lines[2], "   (or: node tools/pipeline/game/try_spot.ts --list collfix 1)");
+    assert.match(lines[1]!, /^ {3}node tools\/game\/try_spot\.ts sub -?\d/);
+    assert.equal(lines[2], "   (or: node tools/game/try_spot.ts --list collfix 1)");
 });

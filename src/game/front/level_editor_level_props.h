@@ -37,7 +37,7 @@ struct TODParams;
 //     state changes or is refreshed. So the edited copy's are put over the state's there (Gfx::SetTODParamsFilter -
 //     Override below), and sent again at once when they change (Reapply: the manager's ApplyTODParams with its current
 //     parameters). Kept in the level structure as ed_ambient=[r g b] / ed_fog=[r g b alpha distance] (keys of ours -
-//     a bake writes the same: tools/pipeline/game/apply_layout.ts), read once a level is up (OnLevelUp) - offline only;
+//     a bake writes the same: tools/game/apply_layout.ts), read once a level is up (OnLevelUp) - offline only;
 //     the edited copy's own record wins over them;
 //   - its sky (the feature map's "sky" row): another level's sky scene - the level structure's sky= ("TR_Sky"), which
 //     load_level loads before the level's own scene (Levels.qb: `if gotparam sky { LoadScene scene=<sky> }`; a scene

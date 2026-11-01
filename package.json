@@ -6,12 +6,18 @@
   "engines": {
     "node": ">=24"
   },
+  "workspaces": [
+    "tools/pipeline"
+  ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "lint": "biome check tools",
     "format": "biome check --write tools",
-    "test": "node --test \"tools/**/*.test.ts\"",
-    "zfight-raster": "node tools/pipeline/level_port/zfight_raster.ts"
+    "test": "node --test \"tools/**/*.test.ts\" && node tools/dependency_tests.ts",
+    "zfight-raster": "node tools/pipeline/run.ts level_port/zfight_raster.ts"
+  },
+  "dependencies": {
+    "thug2-level-converter-core": "github:CanuckAussieKev/thug2-level-converter-core#ef964ed703c1875e744a6750a8b9ad9e5c5c4e13"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

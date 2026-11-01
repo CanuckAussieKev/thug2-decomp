@@ -44,7 +44,7 @@ class CStruct;
 //   i:<int>  f:<float>  n:<name>  s:<text>  l:<text> (a local string)  v:x,y,z  p:x,y  flag:1 / flag:0
 //   an:<name>,<name>...  ai:<int>,...  af:<float>,...  (an empty array: the prefix alone)  del (the field removed)
 // Text is %-escaped (%20 a space; anything but letters, digits and _ . - / : escaped). An older reader skips the f.
-// keys (it already skipped unknown key=value fields). tools/pipeline/game/apply_layout.ts reads them the same way.
+// keys (it already skipped unknown key=value fields). tools/game/apply_layout.ts reads them the same way.
 namespace Front::LevelEditor::Fields {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------

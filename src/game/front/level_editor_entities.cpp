@@ -699,7 +699,7 @@ void UpdateSpeeds()
     }
 }
 
-// The baked fields (tools/pipeline/game/apply_layout.ts): ed_sound / ed_volume on emitters, ed_path_speed on moving objects.
+// The baked fields (tools/game/apply_layout.ts): ed_sound / ed_volume on emitters, ed_path_speed on moving objects.
 void ScanBaked()
 {
     g_baked = State{};

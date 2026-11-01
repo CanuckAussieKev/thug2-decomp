@@ -5,7 +5,7 @@ online games with THUGPRO players?* Each item says what THUGPRO does (with evide
 matters (**blocks join**, **blocks host**, **blocks play** = crash, desync or refusal; **visible** = only looks or
 plays differently) and the work to close it (S = a day or less, M = a few days, L = a week or more).
 
-Sources: our repo (src/game/net, tools/pipeline/compat/thugpro);
+Sources: our repo (src/game/net, thug2-level-converter-core/compat/thugpro);
 THUGPRO's install (`%LOCALAPPDATA%\THUG Pro`: thugpro.dll, data\pre); Morten1337's sources in the session scratchpad
 (`thugpro_proxy` = the DLL, `thugpro` = scripts and level data, `thugpro_toolchain`): used for insight only, per his
 permission. Nothing here is copied from them. Addresses are the reference build's; THUGPRO's DLL patches the same layout (its
@@ -95,7 +95,7 @@ no buffer-size change on the wire.
 
 ## 5. Level content parity
 
-What the register (tools/pipeline/compat/thugpro/README.md) covers, all build time, under `--compat thugpro` (the default):
+What the register (thug2-level-converter-core/compat/thugpro/README.md) covers, all build time, under `--compat thugpro` (the default):
 TP-1..TP-41 (names, frames, spawns, CTF / team nodes, KOTH crowns, node moves / flags / renames, rails, collision and
 face flags for the THAW, THPS3, THPS4 and THUG1 ports), TPN-* (THUGPRO's own meshes, nodes, scripts, models,
 level-option scripts) and PC-* (our own deviations). Spawns and flags don't travel; positions do - so parity is about
@@ -105,7 +105,7 @@ Still open:
 
 | Item | Evidence | Impact | Work |
 |---|---|---|---|
-| **THUG2's own 15 levels** | Compared (TP-42, `tools/pipeline/thug2_levels/thugpro_compare.ts`): THUGPRO replaces the node arrays of TR, BO, BA, AU, LA, the collision of AP, TR, DJ, SC, and applies LevelChanges / host options after loading; NO, SE, SE2 are THUG2's. 78 entries, 29 parity (AU's secret areas in net games, BA's kill triggers and passable bridge, BO's ledge rails, AP / SC / DJ one-sided faces and wall-rides, host options' state); spawns, crowns and CTF nodes identical | Until switched on, a THUGPRO player and ours disagree on those rails, walls and kill zones | The user picks entries (`enabled` in tools/pipeline/compat/thugpro/thug2_levels.json); `thugpro_apply.ts` / make_menu_level.ts build them into the overlay; a load check per level (S each) |
+| **THUG2's own 15 levels** | Compared (TP-42, `tools/pipeline/thug2_levels/thugpro_compare.ts`): THUGPRO replaces the node arrays of TR, BO, BA, AU, LA, the collision of AP, TR, DJ, SC, and applies LevelChanges / host options after loading; NO, SE, SE2 are THUG2's. 78 entries, 29 parity (AU's secret areas in net games, BA's kill triggers and passable bridge, BO's ledge rails, AP / SC / DJ one-sided faces and wall-rides, host options' state); spawns, crowns and CTF nodes identical | Until switched on, a THUGPRO player and ours disagree on those rails, walls and kill zones | The user picks entries (`enabled` in thug2-level-converter-core/compat/thugpro/thug2_levels.json); `thugpro_apply.ts` / make_menu_level.ts build them into the overlay; a load check per level (S each) |
 | Host level options | TPN-THAW-5 / TPN-THPS4-2 / TPN-THUG1-4: we run THUGPRO's defaults at load; a host who changes them (messages 155-158) changes geometry and rails | **Blocks parity** whenever a host uses them | Item 3's 155-158 handler (M) |
 | Pending hack decisions with online impact | `tok-trains-forcecreate-online` (Tokyo's trains / planes run online in THUGPRO, not in ours; THUGPRO clients disagree among themselves on timing); `collfix-overlay-collision` (Sub / Foun extra collision, copied); `sm-ferris-wheel-static-rails` (copied; whether our cars draw needs checking); `thaw-el-sm-hand-offsets` (TP-2 / TP-3 frames, copied - must stay as THUGPRO's for positions to agree); `level-option-default-by-script` (copied); `ma-collidable-light-glows` (copied); `vc-sj-death-zone-and-arrows`, `class-swaps`, `occlusion` (client-side only) | Tokyo trains: **visible** (moving hazards only THUGPRO players hit); the rest agree today because we copy them | Keep the copies until both sides change; Tokyo: decide whether to run the trains online (L, and timing never agrees) |
 | Applied, never run | TP-5..TP-9, TP-13..TP-19, TP-22..TP-39: "Applied (awaits a game run)" | Unknown | Load checks per level in a workspace (S each) |

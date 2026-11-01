@@ -2,8 +2,8 @@
 // install against it, to see how a different version of the game (another release, a patch, a different PartyMod
 // build) differs from the one this project is built against.
 //
-//     node tools/pipeline/game/install_manifest.ts make  [--game C:\Games\THUG2] [--out notes/data/install_manifest.json]
-//     node tools/pipeline/game/install_manifest.ts check --game D:\Other\THUG2 [--manifest notes/data/install_manifest.json]
+//     node tools/game/install_manifest.ts make  [--game C:\Games\THUG2] [--out notes/data/install_manifest.json]
+//     node tools/game/install_manifest.ts check --game D:\Other\THUG2 [--manifest notes/data/install_manifest.json]
 //
 // Left out: what this project or the player made, not the game - thug2-decomp* (the exe and its PDB, ini, logs,
 // overlays, layouts, converted levels), d3dx9_43.dll, an earlier build's dinput8.dll, the game lock, Backup, Save and
@@ -14,10 +14,18 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
-import { helpFromHeader } from "../lib/cli.ts";
-import { DECOMP, GAME_EXE_NAMES, LOCAL } from "../lib/decomp.ts";
-import { findInstall } from "../lib/install.ts";
-import { formatFixed, isMain, print, pyExit, pyJsonDumps, pyParseInt, runMain } from "../lib/py.ts";
+import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
+import { DECOMP, GAME_EXE_NAMES, LOCAL } from "thug2-level-converter-core/lib/decomp.ts";
+import { findInstall } from "thug2-level-converter-core/lib/install.ts";
+import {
+    formatFixed,
+    isMain,
+    print,
+    pyExit,
+    pyJsonDumps,
+    pyParseInt,
+    runMain,
+} from "thug2-level-converter-core/lib/py.ts";
 
 // (the decomp's notes/data/install_manifest.json - the private notes repo, lib/decomp.ts; on its own, --manifest / --out)
 const DEFAULT_MANIFEST = DECOMP ? path.join(DECOMP, "notes", "data", "install_manifest.json") : "";
@@ -51,7 +59,7 @@ function skipped(top: string): boolean {
 }
 
 // A stock install keeps the game in a Game subfolder (Game\Data, Game\THUG2.exe); PartyMod's, ours and a stock one
-// whose launcher and docs were deleted have it at the top (tools/pipeline/lib/install.ts).
+// whose launcher and docs were deleted have it at the top (thug2-level-converter-core/lib/install.ts).
 export function gameRoot(folder: string): string {
     return findInstall(folder, "thug2") ?? folder;
 }
@@ -118,7 +126,7 @@ function make(game: string, out: string): number {
     const manifest = new Map<string, unknown>([
         [
             "about",
-            "THUG2 install manifest (tools/pipeline/game/install_manifest.ts): every game file's size and SHA-256; " +
+            "THUG2 install manifest (tools/game/install_manifest.ts): every game file's size and SHA-256; " +
                 "this project's files, Backup, Save and Faces left out",
         ],
         ["source", path.resolve(game)],

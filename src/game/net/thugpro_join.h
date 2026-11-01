@@ -6,7 +6,7 @@
 #include "game/net/gamenet_manager.h"
 
 // NOT ORIGINAL - the join handshake of the THUGPRO peer mode (thugpro_peer.h: PeerMode()), as THUGPRO's release
-// (thugpro.dll, its protocol version 0.7) speaks it. Register: tools/pipeline/compat/thugpro/README.md, TP-R11 ... TP-R13.
+// (thugpro.dll, its protocol version 0.7) speaks it. Register: thug2-level-converter-core/compat/thugpro/README.md, TP-R11 ... TP-R13.
 //
 // What THUGPRO's release changes in THUG2's join (read from the installed thugpro.dll, with the insight of Morten1337's
 // thugpro_proxy - used with his permission, written here in this project's terms):
@@ -27,7 +27,7 @@ namespace GameNet::Thugpro {
 // calculate_qb_prx_hash.bat). The user's decision (2026-10-21): our client sends THUGPRO's release hash, hard-coded,
 // updated when THUGPRO releases new scripts. To update it: the CRC-32 (zlib's, as `crc32` tools print it) of the new
 // %LOCALAPPDATA%\THUG Pro\data\pre\thugpro_qb.prx -
-//   node tools/pipeline/compat/thugpro/scripts_hash.ts
+//   node tools/pipeline/run.ts compat/thugpro/scripts_hash.ts
 // (or 7-Zip's "CRC-32" of the file), written here, or set in the ini without a rebuild: [online] thugpro_scripts_hash=<hex>.
 // (scripts_hash.ts says whether this value is still the installed THUGPRO's.)
 constexpr uint32_t kReleaseScriptsHash = 0x09FC08B0; // THUGPRO's release scripts (thugpro_qb.prx of 2026-10-17)
