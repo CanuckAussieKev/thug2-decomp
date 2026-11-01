@@ -14,6 +14,7 @@
 #include "engine/core/stubs.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard.h"
+#include "game/save_cards/save_file_format.h"
 #include "game/save_cards/save_contents.h"
 #include "game/save_cards/save_types.h"
 #include "engine/audio/music_player.h"
@@ -22,6 +23,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/sys/game_config.h"
+#include "engine/util/byte_stream.h"
 
 namespace save_cards {
 
@@ -91,19 +93,11 @@ void delete_params(script::Struct* params)
     }
 }
 
-// A save file: this header, then two structures written by the script writer (0x0047A0C0 reads one back and
-// returns the end of what it read).
-struct SaveHeader {
-    uint32_t checksum; // CRC of the whole file with this field 0
-    uint32_t unknown4;
-    uint32_t unknown8;
-    int size;    // of the whole file
-    int version; // must match the save type's (0x005A6210)
-};
-static_assert(sizeof(SaveHeader) == 0x14, "the structures follow at +0x14");
-uint8_t* read_structure(script::Struct* into, uint8_t* data)
+// A save file: its header (save_file_format.h), then two structures written by the script writer (0x0047A0C0 reads
+// one back and returns the end of what it read) - the summary and the contents.
+uint8_t* read_structure(script::Struct* into, uint8_t* data, size_t size)
 {
-    return const_cast<uint8_t*>(script::decode_from_bytes(into, data));
+    return const_cast<uint8_t*>(script::decode_from_bytes(into, data, size));
 }
 
 constexpr uint32_t kNoApply = 0x8C6808D4;        // integer parameter: keep the contents in 0x007CECD4 instead
@@ -182,20 +176,26 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                 data = static_cast<uint8_t*>(memory::alloc_block(size));
                 file->seek_to(0, 0);
                 if (file->get_take_in(data, size) == size) {
-                    auto* file_header = reinterpret_cast<SaveHeader*>(data);
-                    file_header->checksum = 0;
+                    util::ByteReader reader(data, static_cast<size_t>(size));
+                    SaveFileHeader file_header;
+                    read_save_file_header(reader, &file_header);
                     // The original also rejected the file unless
-                    //     Checksums::generate_crc_from_buffer(data, file_header->size) == <the checksum read>
-                    // - the test PartyMod NOPs (its patch at 0x005A8A01).
-                    bad = file_header->size > 500000 || file_header->version != type_version(type);
+                    //     Checksums::generate_crc_from_buffer(data, file_header.size) == <the checksum read>
+                    // (with the checksum field cleared) - the test PartyMod NOPs (its patch at 0x005A8A01).
+                    // NOT ORIGINAL: a header claiming more bytes than the file has is rejected too (the original
+                    // then unmasked the NetworkSettings contents past the end of its buffer).
+                    bad = !reader.ok() || file_header.size > 500000 || file_header.size > size ||
+                          file_header.version != type_version(type);
                     if (!bad) {
-                        uint8_t* rest = read_structure(header, data + sizeof(SaveHeader));
+                        auto end = static_cast<size_t>(file_header.size);
+                        uint8_t* rest = read_structure(header, data + kSaveFileHeaderSize, end - kSaveFileHeaderSize);
+                        auto used = static_cast<size_t>(rest - data);
+                        size_t count = used < end ? end - used : 0;
                         if (type == kObfuscatedType) {
-                            int count = static_cast<int>(data + file_header->size - rest);
-                            for (int i = 0; i < count; ++i)
-                                rest[i] -= 0x69;
+                            for (size_t i = 0; i < count; ++i)
+                                rest[i] -= kSaveFileMask;
                         }
-                        read_structure(contents, rest);
+                        read_structure(contents, rest, count);
                         if (no_apply == 0) {
                             apply_loaded_contents(type, contents, script, params);
                         } else {

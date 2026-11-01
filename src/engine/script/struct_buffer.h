@@ -10,6 +10,7 @@
 // strings with their terminator, pairs / vectors as their floats, structures recursively, arrays as their type,
 // two-byte count and elements; scripts are written as the checksum 0xB9C4F664. A zero byte ends a structure.
 
+#include <cstddef>
 #include <cstdint>
 
 namespace script {
@@ -36,10 +37,12 @@ uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, int
 // 0x0047A070: how many bytes emit_into_buffer takes for the structure, written into a scratch block of `maxSize`
 // (from the top-down heap): 0 if it doesn't fit.
 uint32_t measure_buffer_bytes(Struct* structure, uint32_t max_size);
-// 0x0047A0C0: the structure emptied and filled from the buffer (structures and arrays made from the script
-// heap); returns the end of what was read.
-const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer);
+// 0x0047A0C0: the structure emptied and filled from the buffer's first `size` bytes (structures and arrays made from
+// the script heap); returns the end of what was read. NOT ORIGINAL: the size (the original read on to the end
+// marker); a buffer cut short ends the structure there - kUnknownSize for callers that don't know it.
+constexpr size_t kUnknownSize = ~static_cast<size_t>(0);
+const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer, size_t size = kUnknownSize);
 // 0x0047A440: the array emptied and filled from the buffer; returns the end.
-const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer);
+const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer, size_t size = kUnknownSize);
 
 } // namespace script

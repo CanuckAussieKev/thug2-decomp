@@ -769,6 +769,7 @@ add_executable(thug2 WIN32
     src/game/save_cards/memcard.cpp
     src/game/save_cards/memcard_cfuncs.cpp
     src/game/save_cards/save_types.cpp
+    src/game/save_cards/save_file_format.cpp
     src/game/save_cards/save_files_cfuncs.cpp
     src/game/save_cards/save_contents.cpp
     src/engine/gfx/texture_cfuncs.cpp
@@ -857,6 +858,15 @@ add_custom_command(TARGET thug2 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "$<TARGET_FILE_DIR:thug2>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "$<TARGET_FILE_DIR:thug2>"
     COMMENT "Copying d3dx9_43.dll, SDL2.dll and gamecontrollerdb.txt next to thug2-decomp.exe")
+
+# NOT ORIGINAL - thug2_format_check.exe: offline checks of the file, save and network format readers / writers
+# (src/tests/format_check.cpp; give it save files or folders: `thug2_format_check <game>/Save`).
+add_executable(thug2_format_check
+    src/tests/format_check.cpp
+    src/engine/core/checksums.cpp
+    src/game/save_cards/save_file_format.cpp)
+target_include_directories(thug2_format_check PRIVATE src)
+target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 
 # THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
 # (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached

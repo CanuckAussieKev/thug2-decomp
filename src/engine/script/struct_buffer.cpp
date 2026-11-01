@@ -9,6 +9,7 @@
 #include "engine/core/mem.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/util/byte_stream.h"
 
 namespace script {
 
@@ -33,12 +34,6 @@ uint32_t float_bits(float value)
     uint32_t bits;
     std::memcpy(&bits, &value, sizeof(bits));
     return bits;
-}
-float bits_float(uint32_t bits)
-{
-    float value;
-    std::memcpy(&value, &bits, sizeof(value));
-    return value;
 }
 
 uint32_t get_written(const uint8_t* end, const uint8_t* start) { return static_cast<uint32_t>(end - start); }
@@ -349,64 +344,69 @@ uint32_t measure_buffer_bytes(Struct* structure, uint32_t max_size)
     return size;
 }
 
-// 0x0047A0C0
-const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer)
+namespace {
+
+void decode_structure(Struct* structure, util::ByteReader& reader);
+void decode_array(Array* array, util::ByteReader& reader);
+
+// A component's name after its type byte: an index into one of the two name arrays, or the name itself.
+uint32_t read_name(util::ByteReader& reader, uint8_t type)
+{
+    if (type & 0x80)
+        return fetch_list(kShortNames)->fetch_part(reader.u8());
+    if (type & 0x40)
+        return fetch_list(kMediumNames)->fetch_part(reader.u16());
+    return reader.u32();
+}
+
+// A string value in place ("" past the end of the buffer).
+const char* read_text(util::ByteReader& reader)
+{
+    const char* text = reader.c_string();
+    return text ? text : "";
+}
+
+void decode_structure(Struct* structure, util::ByteReader& reader)
 {
     structure->get_clear();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
-    const uint8_t* p = buffer;
-    for (uint8_t type = *p++; type != 0; type = *p++) {
-        uint32_t name;
-        if (type & 0x80) {
-            Array* names = fetch_list(kShortNames);
-            name = names->fetch_part(*p);
-            p += 1;
-        } else if (type & 0x40) {
-            Array* names = fetch_list(kMediumNames);
-            name = names->fetch_part(fetch_word16(p));
-            p += 2;
-        } else {
-            name = fetch_word32(p);
-            p += 4;
-        }
+    // (a buffer cut short reads as zeros: its type byte ends the structure)
+    for (uint8_t type = reader.u8(); type != 0; type = reader.u8()) {
+        uint32_t name = read_name(reader, type);
+        if (!reader.ok())
+            break;
         switch (type & 0x3F) {
         case kQbvalInteger:
-            structure->put_int(name, static_cast<int>(fetch_word32(p)));
-            p += 4;
+            structure->put_int(name, reader.i32());
             break;
         case kQbvalFloat:
-            structure->push_float(name, bits_float(fetch_word32(p)));
-            p += 4;
+            structure->push_float(name, reader.f32());
             break;
         case kQbvalString:
-            structure->append_word(name, reinterpret_cast<const char*>(p));
-            p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
+            structure->append_word(name, read_text(reader));
             break;
         case kQbvalInlineText:
-            structure->append_inline_text(name, reinterpret_cast<const char*>(p));
-            p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
+            structure->append_inline_text(name, read_text(reader));
             break;
         case kQbvalPair: {
-            uint32_t x = fetch_word32(p);
-            uint32_t y = fetch_word32(p + 4);
-            p += 8;
-            structure->insert_pair(name, bits_float(x), bits_float(y));
+            float x = reader.f32();
+            float y = reader.f32();
+            structure->insert_pair(name, x, y);
             break;
         }
         case kQbvalVector: {
-            uint32_t x = fetch_word32(p);
-            uint32_t y = fetch_word32(p + 4);
-            uint32_t z = fetch_word32(p + 8);
-            p += 12;
-            structure->put_vec3(name, bits_float(x), bits_float(y), bits_float(z));
+            float x = reader.f32();
+            float y = reader.f32();
+            float z = reader.f32();
+            structure->put_vec3(name, x, y, z);
             break;
         }
         case kQbvalStruct: {
             Struct* inner = spawn_param_bag();
             if (inner)
                 inner->prepare_all();
-            p = decode_from_bytes(inner, p);
+            decode_structure(inner, reader);
             structure->append_struct_ref(name, inner);
             break;
         }
@@ -414,29 +414,24 @@ const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer)
             Array* inner = alloc_script_array();
             if (inner)
                 inner->prepare_all();
-            p = read_array_from_buffer(inner, p);
+            decode_array(inner, reader);
             structure->append_array_ref(name, inner);
             break;
         }
         case kQbvalName:
-            structure->put_name_key(name, fetch_word32(p));
-            p += 4;
+            structure->put_name_key(name, reader.u32());
             break;
         case kSignedByte:
-            structure->put_int(name, static_cast<int8_t>(*p));
-            p += 1;
+            structure->put_int(name, reader.i8());
             break;
         case kSignedShort:
-            structure->put_int(name, static_cast<int16_t>(fetch_word16(p)));
-            p += 2;
+            structure->put_int(name, reader.i16());
             break;
         case kUnsignedByte:
-            structure->put_int(name, *p);
-            p += 1;
+            structure->put_int(name, reader.u8());
             break;
         case kUnsignedShort:
-            structure->put_int(name, fetch_word16(p));
-            p += 2;
+            structure->put_int(name, reader.u16());
             break;
         case kZeroInteger:
             structure->put_int(name, 0);
@@ -449,16 +444,15 @@ const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer)
         }
     }
     memory::Hub::get_pull()->leave_heap_scope();
-    return p;
 }
 
-// 0x0047A440
-const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer)
+// (past the end of the buffer every element is still made - zeros, empty strings and structures - so that no
+// element is left null)
+void decode_array(Array* array, util::ByteReader& reader)
 {
     release_array_storage(array);
-    uint8_t type = buffer[0];
-    uint32_t count = buffer[1] | static_cast<uint32_t>(buffer[2]) << 8;
-    const uint8_t* p = buffer + 3;
+    uint8_t type = reader.u8();
+    uint32_t count = reader.u16();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     array->configure_size_kind(count, static_cast<QbValueKind>(type));
@@ -466,28 +460,25 @@ const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer)
     switch (type) {
     case kQbvalInteger:
     case kQbvalName:
-        for (uint32_t i = 0; i < count; ++i, p += 4)
-            array->set_element(i, fetch_word32(p));
+        for (uint32_t i = 0; i < count; ++i)
+            array->set_element(i, reader.u32());
         break;
     case kQbvalFloat:
-        for (uint32_t i = 0; i < count; ++i, p += 4)
-            array->change_float(i, bits_float(fetch_word32(p)));
+        for (uint32_t i = 0; i < count; ++i)
+            array->change_float(i, reader.f32());
         break;
     case kQbvalString:
     case kQbvalInlineText:
-        for (uint32_t i = 0; i < count; ++i) {
-            array->set_element(i, reinterpret_cast<uint32_t>(spawn_text(reinterpret_cast<const char*>(p))));
-            p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
-        }
+        for (uint32_t i = 0; i < count; ++i)
+            array->set_element(i, reinterpret_cast<uint32_t>(spawn_text(read_text(reader))));
         break;
     case kQbvalPair:
         for (uint32_t i = 0; i < count; ++i) {
             Pair* pair = new_pair();
             if (pair)
                 pair->prepare_all();
-            pair->x = bits_float(fetch_word32(p));
-            pair->y = bits_float(fetch_word32(p + 4));
-            p += 8;
+            pair->x = reader.f32();
+            pair->y = reader.f32();
             array->set_element(i, reinterpret_cast<uint32_t>(pair));
         }
         break;
@@ -496,10 +487,9 @@ const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer)
             Vector* vector = alloc_script_vector();
             if (vector)
                 vector->prepare_all();
-            vector->x = bits_float(fetch_word32(p));
-            vector->y = bits_float(fetch_word32(p + 4));
-            vector->z = bits_float(fetch_word32(p + 8));
-            p += 12;
+            vector->x = reader.f32();
+            vector->y = reader.f32();
+            vector->z = reader.f32();
             array->set_element(i, reinterpret_cast<uint32_t>(vector));
         }
         break;
@@ -508,7 +498,7 @@ const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer)
             Struct* inner = spawn_param_bag();
             if (inner)
                 inner->prepare_all();
-            p = decode_from_bytes(inner, p);
+            decode_structure(inner, reader);
             array->set_element(i, reinterpret_cast<uint32_t>(inner));
         }
         break;
@@ -517,14 +507,31 @@ const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer)
             Array* inner = alloc_script_array();
             if (inner)
                 inner->prepare_all();
-            p = read_array_from_buffer(inner, p);
+            decode_array(inner, reader);
             array->set_element(i, reinterpret_cast<uint32_t>(inner));
         }
         break;
     default:
         break;
     }
-    return p;
+}
+
+} // namespace
+
+// 0x0047A0C0
+const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer, size_t size)
+{
+    util::ByteReader reader(buffer, size);
+    decode_structure(structure, reader);
+    return reader.cursor();
+}
+
+// 0x0047A440
+const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer, size_t size)
+{
+    util::ByteReader reader(buffer, size);
+    decode_array(array, reader);
+    return reader.cursor();
 }
 
 } // namespace script

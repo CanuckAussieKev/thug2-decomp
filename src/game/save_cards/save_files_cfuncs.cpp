@@ -17,6 +17,7 @@
 #include "game/save_cards/memcard.h"
 #include "game/save_cards/memcard_cfuncs.h"
 #include "game/save_cards/save_contents.h"
+#include "game/save_cards/save_file_format.h"
 #include "game/save_cards/save_types.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/audio/music_player.h"
@@ -26,6 +27,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
+#include "engine/util/byte_stream.h"
 
 namespace save_cards {
 
@@ -333,24 +335,9 @@ constexpr int kMaxFiles = 75;
 constexpr uint32_t kCorrupt = 0x492676A6;  // "corrupt"
 constexpr uint32_t kFileName = 0xC3F4169A; // "FileName"
 
-// A save file's header (0x14 bytes, then the summary and the contents).
-struct SaveFileHeader {
-    uint32_t checksum;     // of the whole file, this field 0
-    uint32_t summary_crc_; // of the summary
-    int summary_size_;
-    int size; // the header, the summary and the contents
-    int version;
-};
-static_assert(sizeof(SaveFileHeader) == 0x14, "the summary follows at +0x14");
-
-// The first 0x78 bytes of a listed file are read here (0x007CEC58): the header and the start of the summary.
-struct ListedFile {
-    SaveFileHeader header;
-    uint8_t summary[0x78 - sizeof(SaveFileHeader)]; // (0x007CEC6C)
-};
-ListedFile g_listed_file;
-SaveFileHeader& listed_header() { return g_listed_file.header; }
-const uint8_t* listed_summary() { return g_listed_file.summary; }
+// The first bytes of a listed file are read here (0x007CEC58): the header (save_file_format.h) and the start of the
+// summary (0x007CEC6C).
+uint8_t g_listed_file[kListedFileBytes];
 
 // The i-th file of a list (its nodes from the head's next; each file is its own node).
 FileLoad* list_entry(memory::ListNode* head, int index)
@@ -475,19 +462,23 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             mark_corrupt(entry, kDamagedFile);
         } else {
             opened->seek_to(0, 0);
-            opened->get_take_in(&g_listed_file, 0x78);
-            int summary_size = listed_header().summary_size_;
-            bool bad = summary_size > 100 || checksums::generate_crc_from_buffer(listed_summary(), summary_size) !=
-                                                 listed_header().summary_crc_;
+            opened->get_take_in(g_listed_file, static_cast<int>(kListedFileBytes));
+            util::ByteReader reader(g_listed_file, sizeof(g_listed_file));
+            SaveFileHeader listed_header;
+            read_save_file_header(reader, &listed_header);
+            const uint8_t* listed_summary = reader.cursor();
+            int summary_size = listed_header.summary_size;
+            bool bad = summary_size > kMaxSummarySize ||
+                       checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
             int size = static_cast<int>(opened->seek_to(0, 2));
             entry->put_int(0x3D1BCFEDu, save_blocks(type, size)); // total_file_size
-            if (bad || listed_header().version != type_version(type)) {
+            if (bad || listed_header.version != type_version(type)) {
                 mark_corrupt(entry, os_layer() == 5 ? kNgcDamagedFile : kDamagedFile);
             } else {
                 Struct* summary = script::spawn_param_bag();
                 if (summary)
                     summary = summary->prepare_all();
-                script::decode_from_bytes(summary, listed_summary());
+                script::decode_from_bytes(summary, listed_summary, reader.remaining());
                 entry->append_structure_if_any(summary);
                 if (summary) {
                     summary->get_clear();
@@ -600,13 +591,13 @@ bool save_to_memory_card(Struct* params, Script*)
     bool saved = false;
     int file_size = type_file_size(type);
     uint32_t main_size = script::measure_buffer_bytes(contents, static_cast<uint32_t>(file_size));
-    uint32_t summary_size = script::measure_buffer_bytes(summary, 100);
-    uint32_t total = main_size + summary_size + sizeof(SaveFileHeader);
+    uint32_t summary_size = script::measure_buffer_bytes(summary, kMaxSummarySize);
+    uint32_t total = main_size + summary_size + kSaveFileHeaderSize;
     uint32_t padding_size = static_cast<uint32_t>(file_size) - total;
     if (padding_size != 0 && os_layer() != 5) {
         padding = static_cast<uint8_t*>(memory::alloc_block(padding_size));
         if (padding_size > 0)
-            std::memset(padding, 0x69, padding_size);
+            std::memset(padding, kSaveFileMask, padding_size);
     }
     SaveCard* card = the_card();
     // (the second test is a card method that's the shared always-true stub, 0x005B9760)
@@ -639,23 +630,27 @@ bool save_to_memory_card(Struct* params, Script*)
         }
         if (file) {
             header = static_cast<uint8_t*>(memory::alloc_block(total));
-            std::memset(header, 0, sizeof(SaveFileHeader));
+            std::memset(header, 0, kSaveFileHeaderSize);
             if (os_layer() != 5) {
-                auto* file_header = reinterpret_cast<SaveFileHeader*>(header);
-                file_header->version = type_version(type);
-                file_header->size = static_cast<int>(total);
-                file_header->summary_size_ = static_cast<int>(summary_size);
-                uint8_t* data = header + sizeof(SaveFileHeader);
+                SaveFileHeader file_header;
+                file_header.version = type_version(type);
+                file_header.size = static_cast<int>(total);
+                file_header.summary_size = static_cast<int>(summary_size);
+                uint8_t* data = header + kSaveFileHeaderSize;
                 bool pc = os_layer() == 4 || os_layer() == 7;
                 script::emit_into_buffer(summary, data, summary_size, 0, pc ? keep_sound_going : nullptr);
-                file_header->summary_crc_ = checksums::generate_crc_from_buffer(data, static_cast<int>(summary_size));
+                file_header.summary_crc = checksums::generate_crc_from_buffer(data, static_cast<int>(summary_size));
                 data += summary_size;
                 script::emit_into_buffer(contents, data, main_size, 0, nullptr);
                 if (type == kSaveNetworkSettings) {
                     for (uint32_t i = 0; i < main_size; ++i)
-                        data[i] += 0x69; // (read back with 0x69 taken off)
+                        data[i] += kSaveFileMask; // (read back with the mask taken off)
                 }
-                file_header->checksum = checksums::generate_crc_from_buffer(header, static_cast<int>(total));
+                util::ByteWriter header_writer(header, kSaveFileHeaderSize);
+                write_save_file_header(header_writer, file_header);
+                file_header.checksum = checksums::generate_crc_from_buffer(header, static_cast<int>(total));
+                header_writer.seek(0);
+                write_save_file_header(header_writer, file_header);
                 int written = file->emit_out(header, static_cast<int>(total));
                 out_of_space = card->fault_ == 2;
                 if (written == static_cast<int>(total)) {
