@@ -83,8 +83,14 @@ keep a check carry a `NOLINT` with their reason:
 - **The C runtime's allocator** where a library or the original's file reader wants `malloc` / `free`.
 - **Macros**: libraries' configuration macros (`DIRECTINPUT_VERSION`) and `src/platform/compiler.h`, the one place
   for compiler specifics.
-- Checks still being worked through are listed as such in `.clang-tidy` (narrowing conversions, member and variable
-  initialisation, the rule of five, the script values' unions, plain enums, internal linkage, `const_cast`).
+- **Plain enums** that stay plain say why: bit flags or-ed together, indexes into tables, values fixed by a file, a
+  script, the wire or an SDK, or closed sets still held in the original's integer fields.
+- **The script values' cells** (`engine/script/param_struct.h`): 32-bit unions tagged from outside, read by their
+  tag - the script runtime's own files as a whole, single places elsewhere.
+- **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
+  but don't move; a class with a destructor of its own deletes its copies unless it really copies.
+- Checks still being worked through are listed as such in `.clang-tidy` (narrowing conversions, member
+  initialisation in constructors, `const_cast`).
 
 ## Tools
 
