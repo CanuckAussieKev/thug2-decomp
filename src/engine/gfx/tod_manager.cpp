@@ -268,7 +268,7 @@ bool lights_locked() { return is_multiplayer() && !(g_multiplayer_unlock && g_mu
 } // namespace
 
 void set_tod_params_filter(TodParamsFilter filter) { g_params_filter = filter; }
-void set_multiplayer_unlock(MultiplayerUnlock unlock) { g_multiplayer_unlock = unlock; }
+void set_multiplayer_unlock(MultiplayerUnlock unlock) noexcept { g_multiplayer_unlock = unlock; }
 MultiplayerUnlock get_multiplayer_unlock() { return g_multiplayer_unlock; }
 bool tod_lights_locked() { return lights_locked(); }
 

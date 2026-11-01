@@ -113,7 +113,11 @@ void get_message(const char* text, const char* id = "restart_tester_message", fl
 }
 
 uint32_t s_level;             // the level (its restarts' names) the visited set is for
-std::set<uint32_t> s_visited; // its restarts visited this round
+std::set<uint32_t>& visited_state()
+{
+    static std::set<uint32_t> value; // its restarts visited this round
+    return value;
+}
 bool s_key_up = true;
 
 void get_next()
@@ -125,34 +129,34 @@ void get_next()
         level = level * 31 + r.name;
     if (level != s_level) {
         s_level = level;
-        s_visited.clear();
+        visited_state().clear();
     }
     if (restarts.empty()) {
         get_log("restart tester: this level has no restarts");
         get_message("No restarts in this level");
         return;
     }
-    if (s_visited.size() >= restarts.size())
-        s_visited.clear(); // (a new round)
+    if (visited_state().size() >= restarts.size())
+        visited_state().clear(); // (a new round)
     for (size_t i = 0; i < restarts.size(); ++i) {
         const Relaunch& r = restarts[i];
-        if (s_visited.count(r.name))
+        if (visited_state().count(r.name))
             continue;
-        s_visited.insert(r.name);
+        visited_state().insert(r.name);
         auto* params = new (script::spawn_param_bag()) script::Struct;
         params->put_name_key(name_hash("node_name"), r.name);
         script::launch_script(name_hash("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->get_clear();
         script::delete_struct(params);
         get_log("restart tester: %u / %u %s at (%.0f, %.0f, %.0f), types [%s]%s",
-                static_cast<unsigned>(s_visited.size()), static_cast<unsigned>(restarts.size()), r.text.c_str(),
+                static_cast<unsigned>(visited_state().size()), static_cast<unsigned>(restarts.size()), r.text.c_str(),
                 r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
-                s_visited.size() == restarts.size() ? " - all restarts visited" : "");
+                visited_state().size() == restarts.size() ? " - all restarts visited" : "");
         char text[160];
-        std::snprintf(text, sizeof(text), "Restart %u / %u: %s", static_cast<unsigned>(s_visited.size()),
+        std::snprintf(text, sizeof(text), "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
                       static_cast<unsigned>(restarts.size()), r.text.c_str());
         get_message(text);
-        if (s_visited.size() == restarts.size())
+        if (visited_state().size() == restarts.size())
             get_message("All restarts visited", "restart_tester_done", 95.0f);
         return;
     }

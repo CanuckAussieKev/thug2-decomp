@@ -27,21 +27,14 @@ void configure(bool to_console)
     s_configured = true;
 }
 
-void printf(StageMap level, const char* format, ...)
+bool wants(StageMap level) { return s_configured && static_cast<int>(level) <= s_level; }
+
+bool console_on() { return s_to_console; }
+
+void write_message(const char* message)
 {
-    if (!s_configured || static_cast<int>(level) > s_level)
-        return;
-    va_list args = nullptr;
-    if (s_to_console) {
-        va_start(args, format);
-        std::vprintf(format, args);
-        va_end(args);
-    }
-    // Into thug2-decomp.log, one line per message (Log adds the line end the messages carry).
     char text[1024];
-    va_start(args, format);
-    std::vsnprintf(text, sizeof(text), format, args);
-    va_end(args);
+    std::snprintf(text, sizeof(text), "%s", message);
     size_t length = std::strlen(text);
     while (length > 0 && (text[length - 1] == '\n' || text[length - 1] == '\r'))
         text[--length] = '\0';

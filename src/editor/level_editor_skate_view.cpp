@@ -124,7 +124,11 @@ struct Cached {
     std::vector<V3> points;
     std::vector<uint8_t> kinds;
 };
-std::unordered_map<uint32_t, Cached> g_cache;
+std::unordered_map<uint32_t, Cached>& cache()
+{
+    static std::unordered_map<uint32_t, Cached> value;
+    return value;
+}
 int g_counts[kKinds];
 bool g_capped;
 int g_rail_segments;
@@ -155,7 +159,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     const float threshold = game_threshold();
-    Cached& c = g_cache[checksum];
+    Cached& c = cache()[checksum];
     if (c.tri == tri && std::cmp_equal(c.faces, tri->tri_count_) && c.threshold == threshold && same(c.min, min) &&
         same(c.max, max) && same(c.first, first) && same(c.last, last))
         return c;
@@ -192,7 +196,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
 
 bool get_shown() { return overlays::get_shown(overlays::kSkateability); }
 void set_shown(bool on) { overlays::assign_value(overlays::kSkateability, on); }
-void halt() { g_cache.clear(); }
+void halt() { cache().clear(); }
 
 void add_overlay(const overlays::Painter& painter)
 {

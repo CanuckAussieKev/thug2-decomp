@@ -503,11 +503,18 @@ struct Recording {
 };
 Recording g_rec;
 
-std::map<uint32_t, LevelTrails> g_levels;
-std::set<uint32_t> g_file_tried;
+std::map<uint32_t, LevelTrails>& levels()
+{
+    static std::map<uint32_t, LevelTrails> value;
+    return value;
+}
+std::set<uint32_t>& file_tried()
+{
+    static std::set<uint32_t> value;
+    return value;
+}
 uint32_t g_editor_scene; // (the level the editor shows)
 bool g_show_trails = true;
-bool g_record_on = config_int("editor", "trail_record", 1) != 0;
 bool g_window_open;
 Ask g_ask = Ask::kNone;
 
@@ -547,11 +554,11 @@ bool ingest_file(uint32_t scene, bool quiet)
         get_log("level editor: %s isn't a trails file - not read", trails_path(scene).c_str());
         return false;
     }
-    g_levels[scene] = std::move(read);
+    levels()[scene] = std::move(read);
     if (!quiet)
         hud::get_message("Trails read from " + get_file_name(scene));
     get_log("level editor: trails read: %u runs, %u gaps landed (%s)",
-            static_cast<unsigned>(g_levels[scene].runs.size()), static_cast<unsigned>(g_levels[scene].landed.size()),
+            static_cast<unsigned>(levels()[scene].runs.size()), static_cast<unsigned>(levels()[scene].landed.size()),
             trails_path(scene).c_str());
     return true;
 }
@@ -562,7 +569,7 @@ bool save_file(uint32_t scene)
     std::ofstream file(trails_path(scene), std::ios::binary | std::ios::trunc);
     if (!file)
         return false;
-    file << get_format(g_levels[scene]);
+    file << get_format(levels()[scene]);
     return static_cast<bool>(file);
 }
 
@@ -598,7 +605,7 @@ void close_run(const char* why)
         get_log("level editor: trail - a run too short to keep (%s)", why);
         return;
     }
-    LevelTrails& level = g_levels[g_rec.scene];
+    LevelTrails& level = levels()[g_rec.scene];
     g_rec.run.number = level.next_number_;
     get_log("level editor: trail run %d recorded (%s): %.1f s, %u points, %d gaps landed, %d bails, best combo %d%s",
             g_rec.run.number, why, g_rec.run.seconds, static_cast<unsigned>(g_rec.run.samples.size()),
@@ -618,11 +625,11 @@ void open_run(int load)
 void link_record(modules::FrontEnd* front_end)
 {
     const int load = layout::level_loads();
-    if (g_rec.open && (g_rec.load != load || !g_record_on))
+    if (g_rec.open && (g_rec.load != load || !recording()))
         close_run(g_rec.load != load ? "another level loaded" : "recording turned off");
     const bool paused = front_end && front_end->is_halted_;
     auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
-    if (!g_record_on || paused || !skater || render::current_level() == 0 || !layout::editing_copy()) {
+    if (!recording() || paused || !skater || render::current_level() == 0 || !layout::editing_copy()) {
         g_rec.last_ticks_ = 0;
         return;
     }
@@ -654,7 +661,7 @@ void link_record(modules::FrontEnd* front_end)
         run.events.push_back({EventKind::kBail, now.pos, "", 0, GapStatus::kLost});
     g_rec.was_bailing_ = now.bailing;
     // The gaps: got, landed, lost.
-    LevelTrails& level = g_levels[g_rec.scene];
+    LevelTrails& level = levels()[g_rec.scene];
     for (const GapChange& c : g_rec.gaps.tick_frame(read_gaps())) {
         if (c.kind == GapChange::Kind::kGot) {
             run.events.push_back({EventKind::kGap, now.pos, c.name, c.score, GapStatus::kAwaiting});
@@ -854,9 +861,9 @@ void on_editor_start()
 {
     close_run("the editor opened");
     g_editor_scene = scene_now();
-    if (g_editor_scene && g_file_tried.insert(g_editor_scene).second) {
-        auto it = g_levels.find(g_editor_scene);
-        if (it == g_levels.end() || it->second.runs.empty())
+    if (g_editor_scene && file_tried().insert(g_editor_scene).second) {
+        auto it = levels().find(g_editor_scene);
+        if (it == levels().end() || it->second.runs.empty())
             ingest_file(g_editor_scene, true);
     }
 }
@@ -887,7 +894,7 @@ void tick(bool dragging)
             start_simulation();
         break;
     case Ask::kClear: {
-        g_levels[g_editor_scene] = LevelTrails{};
+        levels()[g_editor_scene] = LevelTrails{};
         hud::get_message("Trails cleared");
         break;
     }
@@ -922,8 +929,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     }
     if (!g_show_trails)
         return;
-    auto it = g_levels.find(g_editor_scene);
-    if (it == g_levels.end())
+    auto it = levels().find(g_editor_scene);
+    if (it == levels().end())
         return;
     const std::vector<Run>& runs = it->second.runs;
     auto to_screen = [&](V3 p, float* x, float* y) {
@@ -1010,8 +1017,8 @@ bool get_simulating() { return g_simulating; }
 
 bool gap_landed(const std::string& name)
 {
-    auto it = g_levels.find(g_editor_scene ? g_editor_scene : scene_now());
-    return it != g_levels.end() && it->second.landed.count(name) != 0;
+    auto it = levels().find(g_editor_scene ? g_editor_scene : scene_now());
+    return it != levels().end() && it->second.landed.count(name) != 0;
 }
 
 const char* gap_note(const std::string& name) { return gap_landed(name) ? "landed" : "untested"; }
@@ -1032,8 +1039,8 @@ void get_request(Ask ask) { g_ask = ask; }
 
 void delete_run(int number)
 {
-    auto it = g_levels.find(g_editor_scene);
-    if (it == g_levels.end())
+    auto it = levels().find(g_editor_scene);
+    if (it == levels().end())
         return;
     std::vector<Run>& runs = it->second.runs;
     runs.erase(std::remove_if(runs.begin(), runs.end(), [number](const Run& r) { return r.number == number; }),
@@ -1042,8 +1049,8 @@ void delete_run(int number)
 
 void set_run_visible(int number, bool visible)
 {
-    auto it = g_levels.find(g_editor_scene);
-    if (it == g_levels.end())
+    auto it = levels().find(g_editor_scene);
+    if (it == levels().end())
         return;
     for (Run& r : it->second.runs) {
         if (r.number == number)
@@ -1055,18 +1062,22 @@ bool& show_trails() { return g_show_trails; }
 
 const LevelTrails* current_trails()
 {
-    auto it = g_levels.find(g_editor_scene);
-    return it == g_levels.end() ? nullptr : &it->second;
+    auto it = levels().find(g_editor_scene);
+    return it == levels().end() ? nullptr : &it->second;
 }
 
 std::vector<GapRead> get_level_gaps() { return read_gaps(); }
-bool& recording() { return g_record_on; }
+bool& recording()
+{
+    static bool on = config_int("editor", "trail_record", 1) != 0;
+    return on;
+}
 bool& keep_simulation() { return g_keep_simulation; }
 
 std::string get_standing()
 {
     const LevelTrails* t = current_trails();
-    std::string s = g_record_on ? "recording runs in play" : "not recording";
+    std::string s = recording() ? "recording runs in play" : "not recording";
     s += ", " + std::to_string(t ? t->runs.size() : 0) + " runs kept";
     if (g_simulating)
         s += ", simulating";

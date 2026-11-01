@@ -7,7 +7,7 @@
 
 // The code address of a free function or a simple member function.
 template <typename F>
-void* code_address(F f)
+void* code_address(F f) noexcept
 {
     static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
     void* p = nullptr;

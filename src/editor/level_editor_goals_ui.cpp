@@ -20,11 +20,15 @@ struct TextBuffer {
     char text[128] = {};
     bool editing = false;
 };
-std::map<std::string, TextBuffer> g_buffers;
+std::map<std::string, TextBuffer>& buffers()
+{
+    static std::map<std::string, TextBuffer> value;
+    return value;
+}
 
 bool text_field(const char* label, const std::string& key, std::string* value, size_t limit, bool multiline)
 {
-    TextBuffer& b = g_buffers[key];
+    TextBuffer& b = buffers()[key];
     if (!b.editing)
         std::snprintf(b.text, sizeof(b.text), "%s", value->c_str());
     const size_t size = std::min(sizeof(b.text), limit + 1);

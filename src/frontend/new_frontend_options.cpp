@@ -36,7 +36,11 @@ bool get_number(const std::string& text, double* out)
     return end && *end == '\0';
 }
 
-const std::vector<Choice> kOffOn = {{"0", text_tools::kOff}, {"1", text_tools::kOn}};
+const std::vector<Choice>& off_on()
+{
+    static const std::vector<Choice> kValue = {{"0", text_tools::kOff}, {"1", text_tools::kOn}};
+    return kValue;
+}
 
 // One line of the text: where it starts, ends (before its line break) and what it is.
 struct Seg {
@@ -119,20 +123,20 @@ const std::vector<Spec>& get_specs()
          0,
          Apply::kRelaunch},
         // Interface
-        {"features", "new_frontend", text_tools::kOptNewFrontend, text_tools::kOptNewFrontendHelp, kOffOn, 0,
+        {"features", "new_frontend", text_tools::kOptNewFrontend, text_tools::kOptNewFrontendHelp, off_on(), 0,
          Apply::kRelaunch},
-        {"features", "hd_ui", text_tools::kOptHdUi, text_tools::kOptHdUiHelp, kOffOn, 0, Apply::kRelaunch},
-        {"features", "mouse_menus", text_tools::kOptMouse, text_tools::kOptMouseHelp, kOffOn, 1, Apply::kLive},
-        {"features", "loading_console", text_tools::kOptLoadingConsole, text_tools::kOptLoadingConsoleHelp, kOffOn, 1,
+        {"features", "hd_ui", text_tools::kOptHdUi, text_tools::kOptHdUiHelp, off_on(), 0, Apply::kRelaunch},
+        {"features", "mouse_menus", text_tools::kOptMouse, text_tools::kOptMouseHelp, off_on(), 1, Apply::kLive},
+        {"features", "loading_console", text_tools::kOptLoadingConsole, text_tools::kOptLoadingConsoleHelp, off_on(), 1,
          Apply::kRelaunch},
         // Gameplay
-        {"features", "skip_intro_movies", text_tools::kOptSkipIntro, text_tools::kOptSkipIntroHelp, kOffOn, 0,
+        {"features", "skip_intro_movies", text_tools::kOptSkipIntro, text_tools::kOptSkipIntroHelp, off_on(), 0,
          Apply::kRelaunch},
-        {"features", "restart_tester", text_tools::kOptRestartTester, text_tools::kOptRestartTesterHelp, kOffOn, 1,
+        {"features", "restart_tester", text_tools::kOptRestartTester, text_tools::kOptRestartTesterHelp, off_on(), 1,
          Apply::kLive},
-        {"features", "level_editor", text_tools::kOptLevelEditor, text_tools::kOptLevelEditorHelp, kOffOn, 1,
+        {"features", "level_editor", text_tools::kOptLevelEditor, text_tools::kOptLevelEditorHelp, off_on(), 1,
          Apply::kLive},
-        {"features", "screenshots", text_tools::kOptScreenshots, text_tools::kOptScreenshotsHelp, kOffOn, 1,
+        {"features", "screenshots", text_tools::kOptScreenshots, text_tools::kOptScreenshotsHelp, off_on(), 1,
          Apply::kRelaunch},
         {"frontend",
          "respect_locks",
@@ -149,7 +153,7 @@ const std::vector<Spec>& get_specs()
          {{"", text_tools::kIdentityThug2}, {"thugpro", text_tools::kIdentityThugpro}},
          0,
          Apply::kRelaunch},
-        {"online", "thugpro_peer", text_tools::kOptThugproChat, text_tools::kOptThugproChatHelp, kOffOn, 0,
+        {"online", "thugpro_peer", text_tools::kOptThugproChat, text_tools::kOptThugproChatHelp, off_on(), 0,
          Apply::kRelaunch},
         {"features",
          "thugpro_parts",
@@ -159,9 +163,10 @@ const std::vector<Spec>& get_specs()
          1,
          Apply::kRelaunch},
         // Mods
-        {"features", "anteara_mod", text_tools::kOptAnteara, text_tools::kOptAntearaHelp, kOffOn, 0, Apply::kRelaunch},
-        {"features", "thaw_bmx", text_tools::kOptBmx, text_tools::kOptBmxHelp, kOffOn, 0, Apply::kRelaunch},
-        {"features", "debug_mode", text_tools::kOptDebug, text_tools::kOptDebugHelp, kOffOn, 0, Apply::kRelaunch},
+        {"features", "anteara_mod", text_tools::kOptAnteara, text_tools::kOptAntearaHelp, off_on(), 0,
+         Apply::kRelaunch},
+        {"features", "thaw_bmx", text_tools::kOptBmx, text_tools::kOptBmxHelp, off_on(), 0, Apply::kRelaunch},
+        {"features", "debug_mode", text_tools::kOptDebug, text_tools::kOptDebugHelp, off_on(), 0, Apply::kRelaunch},
     };
     return kSpecs;
 }

@@ -19,7 +19,7 @@ public:
     // An "empty" box: min at +10,000,000 and max at -10,000,000, so the first append_spot sets both.
     BBox();
     // A zero-size box at `point`.
-    explicit BBox(const Vec4& point);
+    explicit BBox(const Vec4& point) noexcept;
 
     // (0x0040AB00: the copy assignment - the implicit one; BBox stays trivially copyable)
     // Grow the box to include `point` (x, y, z only).

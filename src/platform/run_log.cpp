@@ -25,10 +25,10 @@ constexpr size_t kTailWidth = 320;
 char g_tail[kTailLines][kTailWidth];
 std::atomic<unsigned> g_tail_count{0};
 
-const char* keep_tail(const char* fmt, va_list args)
+const char* keep_tail(const char* line)
 {
     const unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
-    vsnprintf(g_tail[slot], kTailWidth, fmt, args);
+    std::snprintf(g_tail[slot], kTailWidth, "%s", line);
     return g_tail[slot];
 }
 
@@ -78,30 +78,21 @@ void* log_file_handle()
     return g_log ? reinterpret_cast<void*>(_get_osfhandle(_fileno(g_log))) : INVALID_HANDLE_VALUE;
 }
 
-void get_log(const char* fmt, ...)
+void log_line(const char* line)
 {
     {
-        va_list args = nullptr;
-        va_start(args, fmt);
-        const char* line = keep_tail(fmt, args);
-        va_end(args);
+        const char* kept = keep_tail(line);
         if (void (*listener)(const char*) = g_listener.load())
-            listener(line);
+            listener(kept);
     }
     if (g_console) {
-        va_list args = nullptr;
-        va_start(args, fmt);
-        vprintf(fmt, args);
-        va_end(args);
+        std::fputs(line, stdout);
         std::putchar('\n');
         return;
     }
     if (!g_log)
         return;
-    va_list args = nullptr;
-    va_start(args, fmt);
-    vfprintf(g_log, fmt, args);
-    va_end(args);
+    std::fputs(line, g_log);
     fputc('\n', g_log);
     fflush(g_log);
 }

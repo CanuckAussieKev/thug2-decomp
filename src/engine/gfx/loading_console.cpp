@@ -405,15 +405,10 @@ void screen_hidden()
     get_log("loading console: the loading screen was up %.1f s", now - g_start);
 }
 
-void get_note(const char* format, ...)
+void note_text(const char* text)
 {
     if (!g_active)
         return;
-    char text[kLineWidth];
-    va_list args = nullptr;
-    va_start(args, format);
-    std::vsnprintf(text, sizeof(text), format, args);
-    va_end(args);
     add_line(text);
 }
 

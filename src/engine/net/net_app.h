@@ -287,6 +287,6 @@ struct AppHost {
 // engine/net/thugpro_peer.h). The filter may queue other messages itself (through put_on_outbox) and returns true
 // when it has queued this one itself (put_on_outbox then does nothing more). Null (the default): the original.
 using EnqueueFilter = bool (*)(AppHost* app, int handle, NetMessageInfo* desc);
-void set_enqueue_filter(EnqueueFilter filter);
+void set_enqueue_filter(EnqueueFilter filter) noexcept;
 
 } // namespace net

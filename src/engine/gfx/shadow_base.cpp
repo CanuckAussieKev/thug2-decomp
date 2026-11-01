@@ -66,22 +66,30 @@ static_assert(sizeof(ShadowCornerPoint) == 0x14, "the draw's stride");
 // bytes - 1024 vertices - of triangles at 0x00796640) and unchecked: enough for THUG2's own scene meshes, but a
 // ported level's mesh under a shadow (Proving Ground's: more than 4096 vertices) ran past them into the globals
 // after them (a call through g_shadow_companion holding a vertex's float). Their first sizes are the original's.
-std::vector<ProjectedVertex> g_projected_vertices(4096);
-std::vector<ShadowCornerPoint> g_shadow_vertices(kShadowTriangleBytes / sizeof(ShadowCornerPoint));
+std::vector<ProjectedVertex>& projected_vertices()
+{
+    static std::vector<ProjectedVertex> value(4096);
+    return value;
+}
+std::vector<ShadowCornerPoint>& shadow_vertices()
+{
+    static std::vector<ShadowCornerPoint> value(kShadowTriangleBytes / sizeof(ShadowCornerPoint));
+    return value;
+}
 ProjectedVertex* get_projected(uint32_t count)
 {
-    if (g_projected_vertices.size() < count)
-        g_projected_vertices.resize(count);
-    return g_projected_vertices.data();
+    if (projected_vertices().size() < count)
+        projected_vertices().resize(count);
+    return projected_vertices().data();
 }
-ProjectedVertex* get_projected() { return g_projected_vertices.data(); }
+ProjectedVertex* get_projected() { return projected_vertices().data(); }
 ShadowCornerPoint* shadow_triangles(uint32_t vertices)
 {
-    if (g_shadow_vertices.size() < vertices)
-        g_shadow_vertices.resize(vertices);
-    return g_shadow_vertices.data();
+    if (shadow_vertices().size() < vertices)
+        shadow_vertices().resize(vertices);
+    return shadow_vertices().data();
 }
-ShadowCornerPoint* shadow_triangles() { return g_shadow_vertices.data(); }
+ShadowCornerPoint* shadow_triangles() { return shadow_vertices().data(); }
 constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0, -1e-4
 
 ShadowCompanionFn g_shadow_companion = nullptr; // NOT ORIGINAL (set_shadow_companion)

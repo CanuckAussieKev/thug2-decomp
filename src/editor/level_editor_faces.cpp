@@ -182,7 +182,11 @@ bool g_picking;
 std::vector<FaceKey> g_selection;
 bool g_have_hover;
 FaceKey g_hover;
-std::map<FaceKey, uint16_t> g_origins; // (each face the editor changed: its flags as the level has them)
+std::map<FaceKey, uint16_t>& origins()
+{
+    static std::map<FaceKey, uint16_t> value; // (each face the editor changed: its flags as the level has them)
+    return value;
+}
 std::vector<std::function<void()>> g_queue;
 
 // The sector's collision geometry (its StaticCollider's), null for none.
@@ -207,11 +211,11 @@ bool emit_out(FaceKey key, uint16_t flags)
     render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count_)
         return false;
-    if (!g_origins.count(key)) {
+    if (!origins().count(key)) {
         uint16_t origin = 0;
         if (!get_take_in(key, &origin))
             return false;
-        g_origins[key] = origin;
+        origins()[key] = origin;
     }
     if (!shared_collision::set_taken_flags(tri, key.face, flags))
         *get_raw(tri, key.face) = flags;
@@ -473,9 +477,9 @@ bool home_selection()
     const std::shared_ptr<Step> before = get_capture(g_selection);
     int faces = 0;
     for (const FaceKey& key : g_selection) {
-        auto origin = g_origins.find(key);
+        auto origin = origins().find(key);
         uint16_t now = 0;
-        if (origin != g_origins.end() && get_take_in(key, &now) && now != origin->second &&
+        if (origin != origins().end() && get_take_in(key, &now) && now != origin->second &&
             emit_out(key, origin->second))
             ++faces;
     }
@@ -490,7 +494,7 @@ bool home_selection()
 std::vector<SectorFaces> get_changed()
 {
     std::vector<Change> changes;
-    for (const auto& origin : g_origins) {
+    for (const auto& origin : origins()) {
         uint16_t now = 0;
         if (get_take_in(origin.first, &now))
             changes.push_back({origin.first, origin.second, now});
@@ -518,7 +522,7 @@ int get_apply(const std::vector<SectorFaces>& sectors)
 
 void reset_all()
 {
-    for (const auto& origin : g_origins) {
+    for (const auto& origin : origins()) {
         uint16_t now = 0;
         if (get_take_in(origin.first, &now) && now != origin.second)
             emit_out(origin.first, origin.second);
@@ -529,7 +533,7 @@ void reset_all()
 
 void forget_level()
 {
-    g_origins.clear();
+    origins().clear();
     g_selection.clear();
     g_have_hover = false;
     g_queue.clear();

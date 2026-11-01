@@ -663,7 +663,11 @@ void move_last_to(script::Struct* s, int index)
 
 namespace {
 
-std::unordered_map<uint32_t, std::string> g_names; // (names typed in this session)
+std::unordered_map<uint32_t, std::string>& names_state()
+{
+    static std::unordered_map<uint32_t, std::string> value; // (names typed in this session)
+    return value;
+}
 
 script::Struct* get_included(const script::Component* c)
 {
@@ -951,8 +955,8 @@ void put_in(script::Struct* s, uint32_t key, bool flag, const Own& own) { put_ow
 
 const char* get_name_of(uint32_t checksum)
 {
-    auto it = g_names.find(checksum);
-    if (it != g_names.end())
+    auto it = names_state().find(checksum);
+    if (it != names_state().end())
         return it->second.c_str();
     return object_edit::get_name_of(checksum);
 }
@@ -960,7 +964,7 @@ const char* get_name_of(uint32_t checksum)
 void remember(const std::string& name)
 {
     if (is_identifier(name))
-        g_names[hash_of_name(name)] = name;
+        names_state()[hash_of_name(name)] = name;
 }
 
 std::vector<Row> rows_of(const nodes::Elem& node)

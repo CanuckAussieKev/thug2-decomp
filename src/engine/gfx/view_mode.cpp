@@ -101,7 +101,11 @@ struct Twin {
     void* shader = nullptr; // (the twin; the original itself when its text has no vertex colour)
     bool tried = false;
 };
-std::unordered_map<void*, Twin> g_twins;
+std::unordered_map<void*, Twin>& twins()
+{
+    static std::unordered_map<void*, Twin> value;
+    return value;
+}
 
 // D3DXAssembleShader (linked library code; stdcall), as engine/gfx/pixel_shaders.cpp calls it.
 long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)
@@ -182,8 +186,8 @@ void* device_shader(void* shader)
 {
     if (!g_in_world || g_mode != Mode::kUnlit || !shader)
         return shader;
-    auto found = g_twins.find(shader);
-    if (found == g_twins.end())
+    auto found = twins().find(shader);
+    if (found == twins().end())
         return shader; // (its source wasn't seen: drawn lit)
     Twin& twin = found->second;
     return twin.tried ? twin.shader : make_twin(shader, &twin);
@@ -193,7 +197,7 @@ void note_shader_source(void* shader, const char* source)
 {
     if (!shader || !source)
         return;
-    Twin& twin = g_twins[shader];
+    Twin& twin = twins()[shader];
     if (twin.tried && twin.shader && twin.shader != shader)
         static_cast<IDirect3DPixelShader9*>(twin.shader)->Release();
     twin = Twin{};
@@ -203,11 +207,11 @@ void note_shader_source(void* shader, const char* source)
 void forget_shaders()
 {
     // NOLINTNEXTLINE(bugprone-nondeterministic-pointer-iteration-order): each one released: order doesn't matter
-    for (auto& entry : g_twins) {
+    for (auto& entry : twins()) {
         if (entry.second.tried && entry.second.shader && entry.second.shader != entry.first)
             static_cast<IDirect3DPixelShader9*>(entry.second.shader)->Release();
     }
-    g_twins.clear();
+    twins().clear();
 }
 
 } // namespace render::view_mode

@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -790,7 +791,7 @@ namespace format_check_net {
 int run(); // format_check_net.cpp
 } // namespace format_check_net
 
-int main(int argc, char** argv)
+static int run_checks(int argc, char** argv)
 {
     check_byte_stream();
     check_wire_messages();
@@ -811,4 +812,15 @@ int main(int argc, char** argv)
     }
     std::printf(g_failures ? "%d FAILED\n" : "all passed\n", g_failures);
     return g_failures ? 1 : 0;
+}
+
+int main(int argc, char** argv)
+{
+    // (a stream or locale failure while reading the files: reported, not left to std::terminate)
+    try {
+        return run_checks(argc, argv);
+    } catch (const std::exception& error) {
+        std::printf("format check stopped: %s\n", error.what());
+        return 2;
+    }
 }

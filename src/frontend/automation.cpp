@@ -1706,13 +1706,17 @@ void write_status(Runner& runner)
 
 // The command line as the process got it, read at start-up: the game's own parsing cuts the process's command
 // line buffer into words later (a 0 after the first word: "... -run").
-const std::string kCommandLine = GetCommandLineA();
+const std::string& command_line()
+{
+    static const std::string kValue = GetCommandLineA();
+    return kValue;
+}
 
 // -run <script>, --run <script> or --run=<script> ("" if none).
 const std::string& requested_run()
 {
     static const std::string kScript = [] {
-        const std::string& line = kCommandLine;
+        const std::string& line = command_line();
         for (const char* option : {"--run=", "--run ", "-run "}) {
             const size_t at = line.find(option);
             if (at == std::string::npos)

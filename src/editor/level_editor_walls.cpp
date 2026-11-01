@@ -116,7 +116,11 @@ struct Track {
     bool off0, off;
     maths::Vec4 min, max;
 };
-std::map<uint32_t, Track> g_tracks;
+std::map<uint32_t, Track>& tracks_state()
+{
+    static std::map<uint32_t, Track> value;
+    return value;
+}
 
 // Whether a track is still of the sector that has that checksum now, as the editor left it.
 bool at_hand(uint32_t checksum, const Track& t)
@@ -140,11 +144,11 @@ Track* track_of(uint32_t checksum)
     if (!tri)
         return nullptr;
     const bool wall = geom_of(sector) == nullptr;
-    auto it = g_tracks.find(checksum);
-    if (it != g_tracks.end()) {
+    auto it = tracks_state().find(checksum);
+    if (it != tracks_state().end()) {
         if (at_hand(checksum, it->second))
             return &it->second;
-        g_tracks.erase(it); // (another level, or moved by something else: started again from where it is)
+        tracks_state().erase(it); // (another level, or moved by something else: started again from where it is)
     }
     Track t = {};
     t.sector = sector;
@@ -156,7 +160,7 @@ Track* track_of(uint32_t checksum)
     t.off0 = t.off = flag_off(coll) && (wall || geom_active(geom_of(sector)));
     t.min = tri->lower_limit_;
     t.max = tri->upper_limit_;
-    return &g_tracks.emplace(checksum, t).first->second;
+    return &tracks_state().emplace(checksum, t).first->second;
 }
 
 // The collision's flag as the track wants it.
@@ -258,8 +262,8 @@ bool set_off(uint32_t checksum, bool off)
 
 bool disengaged(uint32_t checksum)
 {
-    auto it = g_tracks.find(checksum);
-    if (it != g_tracks.end()) {
+    auto it = tracks_state().find(checksum);
+    if (it != tracks_state().end()) {
         const Track* t = track_of(checksum);
         if (t)
             return t->off;
@@ -271,8 +275,8 @@ bool disengaged(uint32_t checksum)
 
 bool get_moved(uint32_t checksum, Placement* placement)
 {
-    auto it = g_tracks.find(checksum);
-    if (it == g_tracks.end() || !track_of(checksum))
+    auto it = tracks_state().find(checksum);
+    if (it == tracks_state().end() || !track_of(checksum))
         return false;
     *placement = it->second.placement;
     return !is_home(*placement);
@@ -306,7 +310,7 @@ void apply_states(const std::vector<WallState>& states)
 std::vector<WallState> get_changed()
 {
     std::vector<WallState> changed;
-    for (const auto& entry : g_tracks) {
+    for (const auto& entry : tracks_state()) {
         const Track& t = entry.second;
         if (scenery::is_clone(entry.first) || !at_hand(entry.first, t))
             continue;
@@ -320,9 +324,9 @@ void reset_all()
 {
     // (tracks of another level - the sector gone or not the one tracked - are forgotten, not applied)
     std::vector<WallState> home;
-    for (auto it = g_tracks.begin(); it != g_tracks.end();) {
+    for (auto it = tracks_state().begin(); it != tracks_state().end();) {
         if (!at_hand(it->first, it->second)) {
-            it = g_tracks.erase(it);
+            it = tracks_state().erase(it);
             continue;
         }
         home.push_back({it->first, {0, {0.0f, 0.0f, 0.0f}}, it->second.off0});
@@ -333,7 +337,7 @@ void reset_all()
 
 void tick()
 {
-    for (auto& entry : g_tracks) {
+    for (auto& entry : tracks_state()) {
         const Track& t = entry.second;
         if (t.wall || !t.off || !at_hand(entry.first, t))
             continue;

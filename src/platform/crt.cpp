@@ -44,14 +44,6 @@ void* get_host_by_name(const char* name) { return gethostbyname(name); }
 void c_exit() { _cexit(); }
 unsigned get_instant() { return linked_time(nullptr); }
 
-int linked_sprintf(char* out, const char* format, ...)
-{
-    va_list args = nullptr;
-    va_start(args, format);
-    const int written = std::vsnprintf(out, static_cast<size_t>(INT_MAX), format, args); // (unbounded, as sprintf)
-    va_end(args);
-    return written;
-}
 
 // --- atof ---
 

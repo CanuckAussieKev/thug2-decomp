@@ -418,7 +418,11 @@ struct Series {
     std::string error; // the first failure (under `mutex`)
 };
 std::shared_ptr<Series> g_series;
-std::string g_series_result = "none";
+std::string& series_result_state()
+{
+    static std::string value = "none";
+    return value;
+}
 
 bool write_new_file(const std::string& path, const void* data, size_t size)
 {
@@ -507,11 +511,12 @@ void tick_series(bool rendering)
     {
         const std::scoped_lock lock(series->mutex);
         if (series->error.empty())
-            g_series_result = "ok: " + std::to_string(series->written.load()) + " frames in " + series->folder;
+            series_result_state() = "ok: " + std::to_string(series->written.load()) + " frames in " + series->folder;
         else
-            g_series_result = "error: " + series->error + " (" + std::to_string(series->written.load()) + " written)";
+            series_result_state() =
+                "error: " + series->error + " (" + std::to_string(series->written.load()) + " written)";
     }
-    get_log("screenshot: series - %s", g_series_result.c_str());
+    get_log("screenshot: series - %s", series_result_state().c_str());
     g_series.reset();
 }
 
@@ -632,7 +637,7 @@ std::string start_series(int frames, const std::string& folder)
     series->folder = path;
     series->total = frames;
     g_series = series;
-    g_series_result = "running";
+    series_result_state() = "running";
     get_log("screenshot: series of %d frames into %s", frames, path.c_str());
     return {};
 }
@@ -655,7 +660,7 @@ bool request_event_shot(const std::string& note)
 
 bool series_running() { return g_series != nullptr; }
 
-std::string series_result() { return g_series_result; }
+std::string series_result() { return series_result_state(); }
 
 bool last_view(float position[3], float forward[3])
 {

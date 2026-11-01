@@ -310,12 +310,20 @@ struct Track {
     std::shared_ptr<scale_tool::Original>
         original; // (once scaled: its vertices and collision then - level_editor_scale.h)
 };
-std::map<uint32_t, Track> g_tracks;
+std::map<uint32_t, Track>& tracks_state()
+{
+    static std::map<uint32_t, Track> value;
+    return value;
+}
 std::vector<uint32_t> g_selection;
 V3 g_pivot;
 float g_half_extent_y; // (the selection's bottom is this far below the pivot - quarter turns keep it)
 // The shadows groups have taken (level_editor_shadows.h): each with the member whose name it carries (0: by place).
-std::unordered_map<uint32_t, uint32_t> g_shadow_of;
+std::unordered_map<uint32_t, uint32_t>& shadow_of()
+{
+    static std::unordered_map<uint32_t, uint32_t> value;
+    return value;
+}
 std::vector<render::WorldScene*> g_dirty_scenes;
 
 bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
@@ -330,15 +338,15 @@ Track* track_of(uint32_t checksum)
     render::PcGeom* geom = geom_of(sector);
     if (!plain_geom(geom))
         return nullptr;
-    auto it = g_tracks.find(checksum);
-    if (it != g_tracks.end()) {
+    auto it = tracks_state().find(checksum);
+    if (it != tracks_state().end()) {
         Track& track = it->second;
         if (track.sector == sector && track.geom == geom && track.scene == scene &&
             track.quarters == quarters_of(sector) && same_v3(track.position, geom_position(geom)))
             return &track;
         if (track.sector == sector && track.geom == geom && track.scene == scene)
             shared_collision::rebase(checksum); // (moved by something else: its shared collision's base is now too)
-        g_tracks.erase(it); // (another level, or moved by something else: start again from where it is)
+        tracks_state().erase(it); // (another level, or moved by something else: start again from where it is)
     }
     Track track = {};
     track.checksum = checksum;
@@ -350,14 +358,14 @@ Track* track_of(uint32_t checksum)
     track.quarters0 = track.quarters = quarters_of(sector);
     track.position0 = track.position = geom_position(geom);
     track.placement = {0, {0.0f, 0.0f, 0.0f}};
-    return &g_tracks.emplace(checksum, track).first->second;
+    return &tracks_state().emplace(checksum, track).first->second;
 }
 
 // A sector's box now, without making a track for it.
 bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
 {
-    auto it = g_tracks.find(checksum);
-    if (it != g_tracks.end() && it->second.geom == geom) {
+    auto it = tracks_state().find(checksum);
+    if (it != tracks_state().end() && it->second.geom == geom) {
         *box = placed_box(it->second.min0, it->second.max0, it->second.placement);
         return true;
     }
@@ -450,21 +458,25 @@ std::string caption(uint32_t checksum)
 
 // A node's TrickObject Cluster= (0: none), by its name (0x0045C1B0) - kept, as looked up (the level doesn't change
 // while the editor is on; Reset forgets them).
-std::unordered_map<uint32_t, uint32_t> g_clusters;
+std::unordered_map<uint32_t, uint32_t>& clusters_state()
+{
+    static std::unordered_map<uint32_t, uint32_t> value;
+    return value;
+}
 uint32_t cluster_of(uint32_t checksum)
 {
     // (a cluster the editor set - level_editor_clusters.h: its group follows it)
     uint32_t edited = 0;
     if (clusters::get_override(checksum, &edited))
         return edited;
-    auto it = g_clusters.find(checksum);
-    if (it != g_clusters.end())
+    auto it = clusters_state().find(checksum);
+    if (it != clusters_state().end())
         return it->second;
     auto* node = level_nodes::fetch_vertex(checksum, false);
     uint32_t cluster = 0;
     if (node)
         node->read_hash_value(kCluster, &cluster, 0);
-    g_clusters.emplace(checksum, cluster);
+    clusters_state().emplace(checksum, cluster);
     return cluster;
 }
 
@@ -500,7 +512,11 @@ struct RailTrack {
     Placement placement;
     V3 pos;
 };
-std::map<uint32_t, RailTrack> g_rail_tracks;
+std::map<uint32_t, RailTrack>& rail_tracks()
+{
+    static std::map<uint32_t, RailTrack> value;
+    return value;
+}
 std::vector<uint32_t> g_rails;         // (the selection's rail nodes, by name)
 std::vector<uint32_t> g_dropped_rails; // (Ctrl+click / the Inspector's x: not carried until another group is selected)
 
@@ -523,15 +539,15 @@ RailTrack* rail_track_of(uint32_t name)
     RailNode* node = find_rail(name);
     if (!node)
         return nullptr;
-    auto it = g_rail_tracks.find(name);
-    if (it != g_rail_tracks.end()) {
+    auto it = rail_tracks().find(name);
+    if (it != rail_tracks().end()) {
         if (it->second.node == node && same_v3(it->second.pos, rail_pos(node)))
             return &it->second;
-        g_rail_tracks.erase(it);
+        rail_tracks().erase(it);
     }
     const RailTrack track = {
         node, (node->flag_bits_ & 4) != 0, rail_pos(node), {0, {0.0f, 0.0f, 0.0f}}, rail_pos(node)};
-    return &g_rail_tracks.emplace(name, track).first->second;
+    return &rail_tracks().emplace(name, track).first->second;
 }
 
 uint32_t g_rail_generation = 1;
@@ -547,8 +563,8 @@ void apply_rails(const std::vector<uint32_t>& names)
     ++g_rail_generation; // (the node layer reads the places again)
     std::vector<RailNode*> moved;
     for (const uint32_t name : names) {
-        auto it = g_rail_tracks.find(name);
-        if (it == g_rail_tracks.end())
+        auto it = rail_tracks().find(name);
+        if (it == rail_tracks().end())
             continue;
         RailTrack& track = it->second;
         const V3 pos = get_apply(track.placement, track.pos0);
@@ -578,9 +594,9 @@ void compute_pivot()
     bool have = false;
     // (its shadows left out while it has anything else: a shadow lies wider than its caster, on the floor below)
     const bool casters = std::any_of(g_selection.begin(), g_selection.end(),
-                                     [](uint32_t checksum) { return !g_shadow_of.count(checksum); });
+                                     [](uint32_t checksum) { return !shadow_of().count(checksum); });
     for (const uint32_t checksum : g_selection) {
-        if (casters && g_shadow_of.count(checksum))
+        if (casters && shadow_of().count(checksum))
             continue;
         OrientedBox box{};
         if (!cuboid(checksum, &box))
@@ -613,7 +629,7 @@ void select_rails()
             clusters.push_back(cluster);
         OrientedBox box{};
         V3 min{}, max{};
-        if (!g_shadow_of.count(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
+        if (!shadow_of().count(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             bounds_of(box, &min, &max);
             boxes.emplace_back(min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f});
         }
@@ -643,8 +659,8 @@ void select_rails()
 // Where the editor has put a sector (none yet: where the level has it).
 Placement placement_of(uint32_t checksum, render::PcGeom* geom)
 {
-    auto it = g_tracks.find(checksum);
-    if (it != g_tracks.end() && it->second.geom == geom)
+    auto it = tracks_state().find(checksum);
+    if (it != tracks_state().end() && it->second.geom == geom)
         return it->second.placement;
     return {0, {0.0f, 0.0f, 0.0f}};
 }
@@ -802,7 +818,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
                     others.emplace_back(other.min, other.max);
             }
             for (const Piece& member : pieces) {
-                if (member.in && !g_shadow_of.count(member.checksum) &&
+                if (member.in && !shadow_of().count(member.checksum) &&
                     shadows::falls_under(piece.min, piece.max, member.min, member.max) &&
                     shadows::nearest_to_group(piece.min, piece.max, member.min, member.max, others)) {
                     how = "by place";
@@ -815,7 +831,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
             continue;
         piece.in = true;
         group.push_back(piece.checksum);
-        g_shadow_of[piece.checksum] = caster;
+        shadow_of()[piece.checksum] = caster;
         if (debug_enabled())
             get_log("level editor:   shadow %s: %s (%.0f x %.0f x %.0f)%s%s", how, caption(piece.checksum).c_str(),
                     piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z,
@@ -904,12 +920,16 @@ bool geom_see_through(render::PcGeom* geom)
 
 // The level part of a geometry's upward-facing surface (its meshes' first index buffers as strips, as ray_meshes reads
 // them; billboards left out), measured once a piece while the editor runs (moves and quarter turns don't change it).
-std::unordered_map<uint32_t, std::pair<render::PcGeom*, float>> g_level_shares;
+std::unordered_map<uint32_t, std::pair<render::PcGeom*, float>>& level_shares()
+{
+    static std::unordered_map<uint32_t, std::pair<render::PcGeom*, float>> value;
+    return value;
+}
 
 float geom_level_share(uint32_t checksum, render::PcGeom* geom)
 {
-    auto it = g_level_shares.find(checksum);
-    if (it != g_level_shares.end() && it->second.first == geom)
+    auto it = level_shares().find(checksum);
+    if (it != level_shares().end() && it->second.first == geom)
         return it->second.second;
     picking::TopArea area;
     auto* const* meshes = geom->meshes;
@@ -926,7 +946,7 @@ float geom_level_share(uint32_t checksum, render::PcGeom* geom)
                                mesh->index_counts_[0]);
     }
     const float share = picking::get_level_share(area);
-    g_level_shares[checksum] = {geom, share};
+    level_shares()[checksum] = {geom, share};
     return share;
 }
 
@@ -1104,8 +1124,8 @@ std::string describe_selection()
     char more[160];
     int quarters = 0;
     V3 scale = {1.0f, 1.0f, 1.0f};
-    auto it = g_tracks.find(g_selection[0]);
-    if (it != g_tracks.end()) {
+    auto it = tracks_state().find(g_selection[0]);
+    if (it != tracks_state().end()) {
         quarters = it->second.placement.quarters;
         scale = it->second.placement.scale;
     }
@@ -1139,8 +1159,8 @@ void clear_selection()
 
 bool is_shadow(uint32_t checksum, uint32_t* caster)
 {
-    auto it = g_shadow_of.find(checksum);
-    if (it == g_shadow_of.end())
+    auto it = shadow_of().find(checksum);
+    if (it == shadow_of().end())
         return false;
     if (caster)
         *caster = it->second;
@@ -1414,12 +1434,12 @@ uint32_t rail_generation() { return g_rail_generation; }
 void rails_rebuilt()
 {
     // (the tracks keep their nodes by address: found again by name in the new array - places and flags were copied)
-    for (auto it = g_rail_tracks.begin(); it != g_rail_tracks.end();) {
+    for (auto it = rail_tracks().begin(); it != rail_tracks().end();) {
         if (RailNode* node = find_rail(it->first)) {
             it->second.node = node;
             ++it;
         } else {
-            it = g_rail_tracks.erase(it);
+            it = rail_tracks().erase(it);
         }
     }
     ++g_rail_generation;
@@ -1511,7 +1531,7 @@ void restore_state(const State& state)
 std::vector<SectorState> changed_sectors()
 {
     std::vector<SectorState> changed;
-    for (const auto& entry : g_tracks) {
+    for (const auto& entry : tracks_state()) {
         const Track& track = entry.second;
         if (is_clone(entry.first) || find_sector(entry.first, nullptr) != track.sector)
             continue;
@@ -1527,7 +1547,7 @@ std::vector<SectorState> changed_sectors()
 std::vector<RailState> changed_rails()
 {
     std::vector<RailState> changed;
-    for (const auto& entry : g_rail_tracks) {
+    for (const auto& entry : rail_tracks()) {
         const RailTrack& track = entry.second;
         if (find_rail(entry.first) != track.node)
             continue;
@@ -1698,11 +1718,11 @@ bool selection_moved(Placement* placement)
 void get_reset()
 {
     clear_selection();
-    g_clusters.clear();
-    g_shadow_of.clear();
+    clusters_state().clear();
+    shadow_of().clear();
     g_hover_group_of = 0;
     g_hover_group.clear();
-    g_level_shares.clear();
+    level_shares().clear();
 }
 
 render::PcGeom* sector_geometry(uint32_t checksum)
@@ -1848,7 +1868,7 @@ void note_collision_moved(uint32_t checksum)
 int get_moved_count()
 {
     int count = 0;
-    for (const auto& entry : g_tracks)
+    for (const auto& entry : tracks_state())
         count += entry.second.moved ? 1 : 0;
     return count;
 }

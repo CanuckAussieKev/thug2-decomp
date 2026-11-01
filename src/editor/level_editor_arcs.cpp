@@ -286,7 +286,11 @@ constexpr uint32_t kDefaultStats = 0x6357D57C; // Skater_Default_Stats
 constexpr uint32_t kLimit = 0x8069179F;        // limit
 constexpr int kStatOllie = 2, kStatSpeed = 3;  // (STATS_OLLIE, STATS_SPEED)
 
-Physics g_physics = arcs_fallback();
+Physics& physics_state()
+{
+    static Physics value = arcs_fallback();
+    return value;
+}
 bool g_have_read;
 
 // A stat structure's value at `stat` (its pair, its limit), from the physics structure or the global one; false:
@@ -313,7 +317,7 @@ void read_physics()
     auto* skater = static_cast<objects::Rider*>(objects::find_object(kSkater));
     script::Struct* physics = objects::get_physics_structure(skater);
     if (!physics) {
-        g_physics = p;
+        physics_state() = p;
         return;
     }
     const float default_stat = script::fetch_float(kDefaultStats);
@@ -334,7 +338,7 @@ void read_physics()
     std::snprintf(source, sizeof(source), "%s, speed stat %.1f, ollie stat %.1f",
                   skater ? "the skater's physics" : "skater_physics", p.speed_stat_, p.ollie_stat_);
     p.source = source;
-    g_physics = p;
+    physics_state() = p;
 }
 
 // A sector's collision faces in world space (none: no collision, or it's switched off).
@@ -445,15 +449,15 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
         LipArcs arcs;
         arcs.lip = lip;
         for (int i = 0; i < kSpeeds; ++i) {
-            const V3 v = launch_velocity(lip, g_physics.speeds[i], g_physics.jump);
+            const V3 v = launch_velocity(lip, physics_state().speeds[i], physics_state().jump);
             if (lip.vert) {
-                arcs.rise[i] = rise_height(v.y, g_physics.vert_gravity_);
+                arcs.rise[i] = rise_height(v.y, physics_state().vert_gravity_);
                 continue;
             }
             uint32_t* landed_on = &arcs.landed_on_[i];
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
-            arcs.flights[i] = get_fly(lip.point + V3{0.0f, 2.0f, 0.0f}, v, g_physics.air_gravity_, 1.0f / 60.0f, 6.0f,
-                                      1.0f / 60.0f, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
+            arcs.flights[i] = get_fly(lip.point + V3{0.0f, 2.0f, 0.0f}, v, physics_state().air_gravity_, 1.0f / 60.0f,
+                                      6.0f, 1.0f / 60.0f, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
                                           return cast_feeler(from, to, hit, normal, landed_on);
                                       });
         }
@@ -461,8 +465,9 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
     }
     if (debug_enabled())
         get_log("level editor: jump arcs - %d lips (%s; g %.0f / vert %.0f, jump %.0f, speeds %.0f / %.0f / %.0f)",
-                static_cast<int>(g_cache.arcs.size()), g_physics.source.c_str(), g_physics.air_gravity_,
-                g_physics.vert_gravity_, g_physics.jump, g_physics.speeds[0], g_physics.speeds[1], g_physics.speeds[2]);
+                static_cast<int>(g_cache.arcs.size()), physics_state().source.c_str(), physics_state().air_gravity_,
+                physics_state().vert_gravity_, physics_state().jump, physics_state().speeds[0],
+                physics_state().speeds[1], physics_state().speeds[2]);
 }
 
 } // namespace
@@ -473,7 +478,7 @@ const Physics& current_physics(bool refresh)
         read_physics();
         g_have_read = true;
     }
-    return g_physics;
+    return physics_state();
 }
 
 void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& sectors)

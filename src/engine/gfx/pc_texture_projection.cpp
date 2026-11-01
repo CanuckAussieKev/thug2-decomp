@@ -33,7 +33,11 @@
 namespace render {
 
 static uint32_t g_projection_batch_count;
-static ProjectionBatch g_projection_batches[10]; // (kBatchLimit)
+static auto& projection_batches()
+{
+    static ProjectionBatch value[10]; // (kBatchLimit)
+    return value;
+}
 
 namespace {
 
@@ -43,7 +47,7 @@ constexpr uint32_t kBatchVertices = 0x600;
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* draw_device() { return g_draw_device; } // (the same device, kept twice)
 uint32_t& batch_count() { return g_projection_batch_count; }
-ProjectionBatch* get_batches() { return g_projection_batches; }
+ProjectionBatch* get_batches() { return projection_batches(); }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 void transform_coord(float* out, const float* v, const maths::Mat4* m)
@@ -288,7 +292,7 @@ namespace render {
 // 0x00640D30 (a static initialiser): the ten projection batches (their materials).
 void construct_projection_batches()
 {
-    for (ProjectionBatch& batch : g_projection_batches)
+    for (ProjectionBatch& batch : projection_batches())
         batch.make_new();
 }
 

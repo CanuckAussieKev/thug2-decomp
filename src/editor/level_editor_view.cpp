@@ -245,7 +245,11 @@ struct Cached {
     std::vector<uint8_t> taken; // (each face: turned off for a moved piece's shared collision)
     std::vector<int> index;     // (each face: its index in the collision - faces with bad corners are left out)
 };
-std::unordered_map<uint32_t, Cached> g_cache;
+std::unordered_map<uint32_t, Cached>& cache_state()
+{
+    static std::unordered_map<uint32_t, Cached> value;
+    return value;
+}
 
 const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const render::TriMeshSource* tri)
 {
@@ -258,7 +262,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     const bool collision_only = geom_of(sector) == nullptr;
-    Cached& c = g_cache[checksum];
+    Cached& c = cache_state()[checksum];
     const uint32_t generation = shared_collision::get_generation();
     if (c.sector == sector && c.tri == tri && std::cmp_equal(c.faces, tri->tri_count_) &&
         c.collision_only_ == collision_only && c.generation == generation && same(c.min, min) && same(c.max, max) &&
@@ -394,7 +398,7 @@ void kickoff()
         g_show_collision = config_int("editor", "collision", 0) != 0;
         g_setting_read = true;
     }
-    g_cache.clear();
+    cache_state().clear();
     g_drawn.clear();
     g_wall = 0;
     g_hover_wall = 0;
@@ -405,7 +409,7 @@ void kickoff()
 void halt()
 {
     show_all();
-    g_cache.clear();
+    cache_state().clear();
     g_drawn.clear();
     g_wall = 0;
 }
@@ -668,7 +672,7 @@ bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
     return true;
 }
 
-void stale_cache() { g_cache.clear(); }
+void stale_cache() { cache_state().clear(); }
 
 void set_hover_wall(uint32_t checksum) { g_hover_wall = g_show_collision ? checksum : 0; }
 uint32_t hover_wall() { return g_hover_wall; }

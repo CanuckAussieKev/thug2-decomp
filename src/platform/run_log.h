@@ -1,11 +1,30 @@
 #pragma once
 
+#include <cstdio>
 #include <string>
 #include <vector>
 
 // Appends to thug2-decomp.log next to the game exe.
 void log_open();
-void get_log(const char* fmt, ...);
+// A line, as it is: kept for get_log_tail, passed to the listener, written to the log (or the console) with its
+// line end.
+void log_line(const char* line);
+// A printf-style line (as log_line).
+template <typename... Args>
+void get_log(const char* fmt, Args... args)
+{
+    // (a stack buffer for the usual line - no allocation: a crash is logged through here - the heap for a longer one)
+    constexpr int kLineSize = 1024;
+    char line[kLineSize];
+    const int length = std::snprintf(line, sizeof(line), fmt, args...);
+    if (length >= kLineSize) {
+        std::string longer(static_cast<size_t>(length), ' ');
+        std::snprintf(longer.data(), longer.size() + 1, fmt, args...);
+        log_line(longer.c_str());
+        return;
+    }
+    log_line(length < 0 ? "" : line);
+}
 // The last `lines` lines logged (at most 32, oldest first; each cut at 319 characters) - kept in memory: the log file
 // itself can't be opened again while it's written.
 std::vector<std::string> get_log_tail(size_t lines);

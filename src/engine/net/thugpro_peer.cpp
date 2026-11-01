@@ -532,7 +532,7 @@ bool unlock_time_of_day()
 }
 
 struct Install {
-    Install()
+    Install() noexcept
     {
         net::set_enqueue_filter(filter_outgoing);
         gfx::set_multiplayer_unlock(unlock_time_of_day);

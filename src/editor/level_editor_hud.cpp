@@ -23,7 +23,11 @@ constexpr uint32_t kText = 0xC4745838u; // text
 constexpr float kSpriteUnit = 640.0f / 200.5f, kSpriteUnitDown = 8.0f;
 constexpr float kLineHeight = 12.5f;
 
-std::map<std::string, std::string> g_shown; // element id -> text
+std::map<std::string, std::string>& shown()
+{
+    static std::map<std::string, std::string> value; // element id -> text
+    return value;
+}
 std::string g_message;
 uint32_t g_message_until;
 bool g_panel;
@@ -36,10 +40,10 @@ void change_caption(const std::string& id, const std::string& full)
     if (!g_elements)
         return;
     const std::string text = full.size() > kMaxText ? full.substr(0, kMaxText) : full;
-    auto it = g_shown.find(id);
-    if (it != g_shown.end() && it->second == text)
+    auto it = shown().find(id);
+    if (it != shown().end() && it->second == text)
         return;
-    g_shown[id] = text;
+    shown()[id] = text;
     alignas(4) uint8_t memory[8];
     auto* params = new (memory) script::Struct;
     params->put_name_key(kId, checksums::hash_from_text(id.c_str()));
@@ -52,7 +56,7 @@ void change_caption(const std::string& id, const std::string& full)
 
 void get_reset(bool screen_elements)
 {
-    g_shown.clear();
+    shown().clear();
     g_message.clear();
     g_message_until = 0;
     g_panel = false;
@@ -96,8 +100,8 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         params->put_int(checksums::hash_from_text("lines"), static_cast<int>(lines.size()));
         script::launch_script("level_editor_panel_show", params, nullptr, false);
         params->get_clear();
-        for (auto it = g_shown.begin(); it != g_shown.end();)
-            it = it->first.starts_with("level_editor_panel_") ? g_shown.erase(it) : std::next(it);
+        for (auto it = shown().begin(); it != shown().end();)
+            it = it->first.starts_with("level_editor_panel_") ? shown().erase(it) : std::next(it);
         g_panel = true;
         g_panel_x = x;
         g_panel_y = y;
@@ -116,8 +120,8 @@ void hide_panel()
     if (!g_panel)
         return;
     script::launch_script("level_editor_panel_hide", nullptr, nullptr, false);
-    for (auto it = g_shown.begin(); it != g_shown.end();)
-        it = it->first.starts_with("level_editor_panel_") ? g_shown.erase(it) : std::next(it);
+    for (auto it = shown().begin(); it != shown().end();)
+        it = it->first.starts_with("level_editor_panel_") ? shown().erase(it) : std::next(it);
     g_panel = false;
 }
 

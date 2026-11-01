@@ -210,7 +210,7 @@ namespace {
 EnqueueFilter g_enqueue_filter = nullptr; // NOT ORIGINAL - set_enqueue_filter's
 }
 
-void set_enqueue_filter(EnqueueFilter filter) { g_enqueue_filter = filter; }
+void set_enqueue_filter(EnqueueFilter filter) noexcept { g_enqueue_filter = filter; }
 
 // 0x00457EB0
 void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <climits>
 #include <ctime>
 
 #include "platform/compiler.h"
@@ -59,7 +60,11 @@ inline double get_atof(const char* text) { return game_atof(text); }
 
 // sprintf: the compiler's - the same as the game's for integer and string conversions. Not for floats: the game's C runtime prints those differently (-0 as 0, halves rounded up in
 // the last digit, digits past the 17th as zeros, 1.#INF00 / 1.#QNAN0), and no call here formats one.
-int linked_sprintf(char* out, const char* format, ...);
+template <typename... Args>
+int linked_sprintf(char* out, const char* format, Args... args)
+{
+    return std::snprintf(out, static_cast<size_t>(INT_MAX), format, args...); // (unbounded, as sprintf)
+}
 template <typename... Args>
 int get_sprintf(char* out, const char* format, Args... args)
 {

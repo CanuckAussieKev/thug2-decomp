@@ -80,7 +80,16 @@ int g_sample_total = 0, g_next = 0; // (a ring: g_next the slot for the next sam
 PathRecord g_paths[kPathRecords];
 int g_path_count = 0, g_path_next = 0;
 int g_events = 0;
-std::string g_col_file = "-", g_scn_file = "-";
+std::string& col_file_stamp()
+{
+    static std::string value = "-";
+    return value;
+}
+std::string& scn_file_stamp()
+{
+    static std::string value = "-";
+    return value;
+}
 
 // The checkpoints (a ring).
 constexpr int kMarks = 512;
@@ -536,8 +545,8 @@ void get_emit(int before)
         std::memcpy(detail.ray_end_, ray->end, sizeof(detail.ray_end_));
     }
     face_geometry(event.face, event.spot, &detail);
-    detail.col_file_ = g_col_file;
-    detail.scn_file_ = g_scn_file;
+    detail.col_file_ = col_file_stamp();
+    detail.scn_file_ = scn_file_stamp();
     detail.approach.clear();
     for (int age = 50; age >= 0; age -= 10) {
         if (age >= g_sample_total)
@@ -712,10 +721,10 @@ void end_frame(SkaterPhysicsModule* component)
     if (load != s_logged_load) {
         s_logged_load = load;
         const std::string level = get_level_name();
-        g_col_file = level_file_stamp(level, "col");
-        g_scn_file = level_file_stamp(level, "scn");
-        get_log("collision-event: logging on in %s (col %s, scn %s)", level.c_str(), g_col_file.c_str(),
-                g_scn_file.c_str());
+        col_file_stamp() = level_file_stamp(level, "col");
+        scn_file_stamp() = level_file_stamp(level, "scn");
+        get_log("collision-event: logging on in %s (col %s, scn %s)", level.c_str(), col_file_stamp().c_str(),
+                scn_file_stamp().c_str());
     }
     const objects::GameEntity* object = object_of(component);
     Sample s = {};

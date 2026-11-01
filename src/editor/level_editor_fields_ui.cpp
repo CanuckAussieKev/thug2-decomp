@@ -23,10 +23,10 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
-const ImVec4 kError = ImVec4(1.0f, 0.45f, 0.4f, 1.0f);
-const ImVec4 kWarn = ImVec4(1.0f, 0.78f, 0.45f, 1.0f);
-const ImVec4 kLive = ImVec4(0.45f, 0.85f, 0.55f, 1.0f);
-const ImVec4 kReload = ImVec4(0.56f, 0.71f, 0.92f, 1.0f);
+constexpr ImVec4 kError = ImVec4(1.0f, 0.45f, 0.4f, 1.0f);
+constexpr ImVec4 kWarn = ImVec4(1.0f, 0.78f, 0.45f, 1.0f);
+constexpr ImVec4 kLive = ImVec4(0.45f, 0.85f, 0.55f, 1.0f);
+constexpr ImVec4 kReload = ImVec4(0.56f, 0.71f, 0.92f, 1.0f);
 
 using ScratchBuf = std::array<char, 512>;
 
@@ -40,7 +40,12 @@ struct Typing {
     // The "add a field" row.
     ScratchBuf new_name_ = {}, new_value_ = {};
     int new_kind_ = 0;
-} g_typing;
+};
+Typing& typing()
+{
+    static Typing value;
+    return value;
+}
 
 void dup_from(ScratchBuf* buffer, const std::string& text)
 {
@@ -116,13 +121,13 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     if (node_index < 0 || std::cmp_greater_equal(node_index, nodes.size()))
         return;
     const nodes::Elem& node = nodes[node_index];
-    if (g_typing.node != node_index || g_typing.generation != nodes::get_generation()) {
-        if (g_typing.node != node_index) {
-            g_typing.buffers.clear();
-            g_typing.active_set_ = false;
+    if (typing().node != node_index || typing().generation != nodes::get_generation()) {
+        if (typing().node != node_index) {
+            typing().buffers.clear();
+            typing().active_set_ = false;
         }
-        g_typing.node = node_index;
-        g_typing.generation = nodes::get_generation();
+        typing().node = node_index;
+        typing().generation = nodes::get_generation();
     }
     const std::vector<fields::Row> rows = fields::rows_of(node);
     bool any_edited = false;
@@ -171,8 +176,8 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 if (ImGui::Checkbox("##flag", &on))
                     set_field(requests, node.name, row.key, fields::Kind::kBitMark, on ? "on" : "off");
             } else {
-                const bool active = g_typing.active_set_ && g_typing.active == row.key;
-                ScratchBuf& buffer = g_typing.buffers[row.key];
+                const bool active = typing().active_set_ && typing().active == row.key;
+                ScratchBuf& buffer = typing().buffers[row.key];
                 if (!active)
                     dup_from(&buffer, text);
                 const bool enter =
@@ -180,8 +185,8 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                                      ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
                 const bool left = ImGui::IsItemDeactivatedAfterEdit();
                 if (ImGui::IsItemActive()) {
-                    g_typing.active = row.key;
-                    g_typing.active_set_ = true;
+                    typing().active = row.key;
+                    typing().active_set_ = true;
                     still_active = true;
                 }
                 std::string note;
@@ -190,9 +195,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
                     if (error.empty())
                         set_field(requests, node.name, row.key, row.value.kind, buffer.data());
-                    g_typing.active_set_ = false;
+                    typing().active_set_ = false;
                 } else if (enter || left) {
-                    g_typing.active_set_ = false;
+                    typing().active_set_ = false;
                 }
                 if (!error.empty() || !note.empty()) {
                     ImGui::PushFont(small_font);
@@ -233,12 +238,12 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::PopFont();
         ImGui::EndTable();
     }
-    if (!still_active && g_typing.active_set_) {
+    if (!still_active && typing().active_set_) {
         // (the active box went away without being let go: a row that's gone)
         bool there = false;
         for (const fields::Row& row : rows)
-            there = there || row.key == g_typing.active;
-        g_typing.active_set_ = there && g_typing.active_set_;
+            there = there || row.key == typing().active;
+        typing().active_set_ = there && typing().active_set_;
     }
     // A field the node doesn't have yet.
     if (!node.added) {
@@ -247,26 +252,26 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::PopFont();
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(130.0f * ImGui::GetFontSize() / 13.0f);
-        ImGui::InputTextWithHint("##newname", "name", g_typing.new_name_.data(), g_typing.new_name_.size());
+        ImGui::InputTextWithHint("##newname", "name", typing().new_name_.data(), typing().new_name_.size());
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::BeginCombo("##newkind", fields::kind_name(kAddKinds[g_typing.new_kind_]))) {
+        if (ImGui::BeginCombo("##newkind", fields::kind_name(kAddKinds[typing().new_kind_]))) {
             for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(kAddKinds[0])); ++i) {
-                if (ImGui::Selectable(fields::kind_name(kAddKinds[i]), i == g_typing.new_kind_))
-                    g_typing.new_kind_ = i;
+                if (ImGui::Selectable(fields::kind_name(kAddKinds[i]), i == typing().new_kind_))
+                    typing().new_kind_ = i;
             }
             ImGui::EndCombo();
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-60.0f * ImGui::GetFontSize() / 13.0f);
-        ImGui::InputTextWithHint("##newvalue", "value", g_typing.new_value_.data(), g_typing.new_value_.size());
+        ImGui::InputTextWithHint("##newvalue", "value", typing().new_value_.data(), typing().new_value_.size());
         ImGui::PopFont();
         uint32_t key = 0;
         fields::Value value;
         std::string error;
-        std::string name = g_typing.new_name_.data();
+        std::string name = typing().new_name_.data();
         const bool name_ok = fields::parse_name(name, &key) && name[0] != '#' && name[0] != '0';
-        const bool value_ok = fields::parse(kAddKinds[g_typing.new_kind_], g_typing.new_value_.data(), &value, &error);
+        const bool value_ok = fields::parse(kAddKinds[typing().new_kind_], typing().new_value_.data(), &value, &error);
         bool exists = false;
         for (const fields::Row& row : rows)
             exists = exists || row.key == key;
@@ -282,9 +287,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::SameLine();
         ImGui::BeginDisabled(why != nullptr);
         if (ImGui::Button("Add")) {
-            set_field(requests, node.name, key, kAddKinds[g_typing.new_kind_], g_typing.new_value_.data(), name);
-            g_typing.new_name_ = {};
-            g_typing.new_value_ = {};
+            set_field(requests, node.name, key, kAddKinds[typing().new_kind_], typing().new_value_.data(), name);
+            typing().new_name_ = {};
+            typing().new_value_ = {};
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))

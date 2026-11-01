@@ -19,14 +19,14 @@ namespace {
 
 constexpr uint32_t kSetHfovRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians
 
-constexpr float float_from_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
+constexpr float float_from_bits(uint32_t bits) noexcept { return std::bit_cast<float>(bits); }
 // The original's constants (0x00648800 pi / 360, 0x00648804 360 / pi, 0x006453BC 0.5, 0x00645464 pi / 180,
 // 0x00645468 180 / pi).
-const float kDegreesToHalfRadians = float_from_bits(0x3C0EFA35);
-const float kHalfRadiansToDegrees = float_from_bits(0x42E52EE0);
+constexpr float kDegreesToHalfRadians = float_from_bits(0x3C0EFA35);
+constexpr float kHalfRadiansToDegrees = float_from_bits(0x42E52EE0);
 const float kHalf = 0.5f;
-const float kRadiansPerDegree = float_from_bits(0x3C8EFA35);
-const float kDegreesPerRadian = float_from_bits(0x42652EE0);
+constexpr float kRadiansPerDegree = float_from_bits(0x3C8EFA35);
+constexpr float kDegreesPerRadian = float_from_bits(0x42652EE0);
 
 } // namespace
 

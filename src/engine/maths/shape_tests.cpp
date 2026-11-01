@@ -17,7 +17,7 @@ constexpr float kPi = 3.14159265f;
 BBox::BBox() : min{kHuge, kHuge, kHuge, 1.0f}, max{-kHuge, -kHuge, -kHuge, 1.0f} {}
 
 // 0x00403410
-BBox::BBox(const Vec4& point) : min(point), max(point) {}
+BBox::BBox(const Vec4& point) noexcept : min(point), max(point) {}
 
 // 0x00403450
 void BBox::append_spot(const Vec4& point)

@@ -259,6 +259,7 @@ int crt_report_hook(int type, char* message, int* return_value)
 }
 
 // Run-time check failures (e.g. "ESP was not properly saved across a function call"): logged, the process ends.
+// NOLINTNEXTLINE(modernize-avoid-variadic-functions): the C runtime's callback type (_RTC_error_fnW) is variadic
 int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
 {
     wchar_t text[512] = L"";

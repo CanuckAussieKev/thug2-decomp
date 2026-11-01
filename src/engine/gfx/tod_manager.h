@@ -254,7 +254,7 @@ void set_tod_params_filter(TodParamsFilter filter);
 // always take the multiplayer branch - what it already does in a multiplayer game). When the unlock is set and says
 // true, those three run in a multiplayer game too. Null (the default): the original behaviour.
 using MultiplayerUnlock = bool (*)();
-void set_multiplayer_unlock(MultiplayerUnlock unlock);
+void set_multiplayer_unlock(MultiplayerUnlock unlock) noexcept;
 MultiplayerUnlock get_multiplayer_unlock();
 // What those three test: a multiplayer game (0x005651F0) not unlocked.
 bool tod_lights_locked();

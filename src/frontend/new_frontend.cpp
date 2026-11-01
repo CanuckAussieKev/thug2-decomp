@@ -264,7 +264,11 @@ uint32_t s_launch_level = 0; // the level up when a launch started (in a level: 
 
 Catalogue s_catalogue;
 bool s_catalogue_tried = false, s_catalogue_ok = false;
-Menu s_menu;
+Menu& menu_state()
+{
+    static Menu value;
+    return value;
+}
 SavedState s_saved;
 uint32_t s_last_load = 0;
 
@@ -310,7 +314,11 @@ struct SessionState {
     level_editor::play_test::ComboTracker combo;
     level_editor::play_test::GapTracker gaps;
 };
-SessionState s_session;
+SessionState& session_state()
+{
+    static SessionState value;
+    return value;
+}
 
 template <typename T>
 T get_at(const void* base, uint32_t offset)
@@ -321,16 +329,16 @@ T get_at(const void* base, uint32_t offset)
 void update_session(float dt)
 {
     const uint32_t level = current_load_state();
-    if (level != s_session.level) {
-        s_session = SessionState{};
-        s_session.level = level;
+    if (level != session_state().level) {
+        session_state() = SessionState{};
+        session_state().level = level;
     }
     if (!level || level == kLoadMainMenu || get_paused() || level_editor::live_now())
         return;
     auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
     if (!skater)
         return;
-    s_session.seconds += dt;
+    session_state().seconds += dt;
     // The combo's points pending (the score's pot times its multiplier - level_editor_playtest.h), bails.
     int pending = 0;
     bool bailing = false;
@@ -343,8 +351,8 @@ void update_session(float dt)
                 pending = static_cast<int>(points);
         }
     level_editor::play_test::ComboEnd end;
-    if (s_session.combo.tick_frame(pending, bailing, &end) && end.landed)
-        s_session.best_combo_ = std::max(s_session.best_combo_, end.points);
+    if (session_state().combo.tick_frame(pending, bailing, &end) && end.landed)
+        session_state().best_combo_ = std::max(session_state().best_combo_, end.points);
     // The gaps (the skate module's checklist: the level's).
     std::vector<level_editor::play_test::GapRead> read;
     uint8_t* skate = skate_module();
@@ -361,10 +369,10 @@ void update_session(float dt)
                 {gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
         }
     }
-    s_session.gaps_total_ = static_cast<int>(read.size());
-    for (const level_editor::play_test::GapChange& change : s_session.gaps.tick_frame(read))
+    session_state().gaps_total_ = static_cast<int>(read.size());
+    for (const level_editor::play_test::GapChange& change : session_state().gaps.tick_frame(read))
         if (change.kind == level_editor::play_test::GapChange::Kind::kLanded)
-            s_session.gaps_landed_.insert(change.name);
+            session_state().gaps_landed_.insert(change.name);
 }
 
 // --- the pictures ---
@@ -374,15 +382,19 @@ struct CachedArt {
     uint32_t used = 0;
     bool failed = false;
 };
-std::map<std::string, CachedArt> s_art;
+std::map<std::string, CachedArt>& art_state()
+{
+    static std::map<std::string, CachedArt> value;
+    return value;
+}
 uint32_t s_art_clock = 0;
 constexpr size_t kArtCached = 10;
 
 void free_art()
 {
-    for (auto& [name, cached] : s_art)
+    for (auto& [name, cached] : art_state())
         ui_backend::release_texture(cached.art.texture);
-    s_art.clear();
+    art_state().clear();
 }
 
 // The image file (the game's .img.xbx: a 32-byte header, a palette for 8-bit images, the texels - swizzled when both
@@ -469,22 +481,22 @@ paint::Art load_image_file(const std::string& name)
 
 paint::Art art_for(const std::string& image)
 {
-    auto it = s_art.find(image);
-    if (it == s_art.end()) {
-        if (s_art.size() >= kArtCached) {
-            auto oldest = s_art.begin();
-            for (auto i = s_art.begin(); i != s_art.end(); ++i)
+    auto it = art_state().find(image);
+    if (it == art_state().end()) {
+        if (art_state().size() >= kArtCached) {
+            auto oldest = art_state().begin();
+            for (auto i = art_state().begin(); i != art_state().end(); ++i)
                 if (i->second.used < oldest->second.used)
                     oldest = i;
             ui_backend::release_texture(oldest->second.art.texture);
-            s_art.erase(oldest);
+            art_state().erase(oldest);
         }
         CachedArt cached;
         cached.art = load_image_file(image);
         cached.failed = !cached.art.texture;
         if (cached.failed)
             get_log("new front end: no picture images\\%s.img.xbx", image.c_str());
-        it = s_art.emplace(image, cached).first;
+        it = art_state().emplace(image, cached).first;
     }
     it->second.used = ++s_art_clock;
     return it->second.art;
@@ -579,7 +591,7 @@ void load_catalogue()
 // Q / E on the level select: the highlighted level's next / previous picture, kept for the next start.
 bool cycle_level_art(int step)
 {
-    const StageMap* level = s_menu.selected_level();
+    const StageMap* level = menu_state().selected_level();
     if (!level || !s_catalogue.cycle_art(level->load, step))
         return false;
     write_atomically(art_choices_path(), format_art_choices(s_catalogue.art_choices()));
@@ -655,7 +667,7 @@ void load_option_values()
         if (first)
             s_start_values[i] = specs[i].choices[choices[i]].value;
     }
-    s_menu.set_option_values(std::move(choices));
+    menu_state().set_option_values(std::move(choices));
 }
 
 void apply_option(int option, int choice)
@@ -684,7 +696,7 @@ void apply_option(int option, int choice)
         else if (std::strcmp(spec.key, "level_editor") == 0)
             level_editor::is_switched_on() = on;
         else if (std::strcmp(spec.key, "respect_locks") == 0)
-            s_menu.set_views(get_views());
+            menu_state().set_views(get_views());
     } else if (std::cmp_less(option, s_restart_pending.size())) {
         s_restart_pending[option] = s_start_values[option] != value;
     }
@@ -1529,7 +1541,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
     }
 }
 
-// The cover over a hand-off's end (Cover in new_frontend_model.h): what it draws meanwhile - ours (s_menu as it was)
+// The cover over a hand-off's end (Cover in new_frontend_model.h): what it draws meanwhile - ours (menu_state() as it was)
 // or the restyled screen last up (a copy: the tracker forgets it as it goes).
 Cover s_cover;
 mirror::Tracker s_cover_tracker;
@@ -1641,7 +1653,7 @@ void get_show(Anchor anchor)
         get_log("new front end: the restyled screen gone (ours up)");
     s_mirror.get_reset();
     s_mirror_hits.clear();
-    s_menu.get_reset(&s_catalogue, get_views(), s_saved.last_level_, stack, levels);
+    menu_state().get_reset(&s_catalogue, get_views(), s_saved.last_level_, stack, levels);
     load_option_values();
     s_skater_name = root == Screen::kFreeze ? std::string() : get_skater_name();
     s_hits.clear();
@@ -1698,7 +1710,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
         }
         if (begin_level::read_in(action.load.c_str(), &why)) {
             s_saved.last_level_ = action.load;
-            s_menu.set_last_level(action.load);
+            menu_state().set_last_level(action.load);
             save_state();
             s_launch_level = current_load_state();
             if (action.levels == LevelsFor::kEdit) {
@@ -1710,7 +1722,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             change_phase(State::kLaunching);
         } else {
             get_log("new front end: %s didn't start: %s", action.load.c_str(), why.c_str());
-            s_menu.cancel_launch();
+            menu_state().cancel_launch();
         }
         return;
     }
@@ -1721,7 +1733,10 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
 
 bool get_key_down(SDL_Scancode key) { return SDL_GetKeyboardState(nullptr)[key] != 0; }
 
-void press_direction(modules::FrontEnd* front_end, Intake input) { run_action(front_end, s_menu.get_press(input)); }
+void press_direction(modules::FrontEnd* front_end, Intake input)
+{
+    run_action(front_end, menu_state().get_press(input));
+}
 
 void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
 {
@@ -1762,36 +1777,36 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         case SDL_SCANCODE_KP_ENTER:
         case SDL_SCANCODE_SPACE:
             if (!repeat)
-                run_action(front_end, s_menu.get_press(Intake::kConfirm));
+                run_action(front_end, menu_state().get_press(Intake::kConfirm));
             break;
         case SDL_SCANCODE_ESCAPE:
         case SDL_SCANCODE_BACKSPACE:
             if (!repeat)
-                run_action(front_end, s_menu.get_press(Intake::kBack));
+                run_action(front_end, menu_state().get_press(Intake::kBack));
             break;
         case SDL_SCANCODE_Q:
             // (on the level select Q / E change the picture; the tabs keep Page Up / Down, 1 / 2, Tab and the shoulders)
-            if (s_menu.get_shown() == Screen::kLevels)
+            if (menu_state().get_shown() == Screen::kLevels)
                 cycle_level_art(-1);
             else
-                run_action(front_end, s_menu.get_press(Intake::kPrevTab));
+                run_action(front_end, menu_state().get_press(Intake::kPrevTab));
             break;
         case SDL_SCANCODE_PAGEUP:
         case SDL_SCANCODE_1:
-            run_action(front_end, s_menu.get_press(Intake::kPrevTab));
+            run_action(front_end, menu_state().get_press(Intake::kPrevTab));
             break;
         case SDL_SCANCODE_E:
-            if (s_menu.get_shown() == Screen::kLevels)
+            if (menu_state().get_shown() == Screen::kLevels)
                 cycle_level_art(1);
             else
-                run_action(front_end, s_menu.get_press(Intake::kNextTab));
+                run_action(front_end, menu_state().get_press(Intake::kNextTab));
             break;
         case SDL_SCANCODE_PAGEDOWN:
         case SDL_SCANCODE_2:
-            run_action(front_end, s_menu.get_press(Intake::kNextTab));
+            run_action(front_end, menu_state().get_press(Intake::kNextTab));
             break;
         case SDL_SCANCODE_TAB:
-            run_action(front_end, s_menu.get_press(shift ? Intake::kPrevTab : Intake::kNextTab));
+            run_action(front_end, menu_state().get_press(shift ? Intake::kPrevTab : Intake::kNextTab));
             break;
         default:
             break;
@@ -1817,22 +1832,23 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             s_repeat = {static_cast<int>(Intake::kRight), kRepeatDelay};
             break;
         case SDL_CONTROLLER_BUTTON_A:
-            run_action(front_end, s_menu.get_press(Intake::kConfirm));
+            run_action(front_end, menu_state().get_press(Intake::kConfirm));
             break;
         case SDL_CONTROLLER_BUTTON_START:
             // (Start on the pause menu resumes, as the original's; elsewhere it chooses)
-            run_action(front_end, s_menu.get_press(s_menu.get_shown() == Screen::kFreeze && s_menu.deepness() <= 1
-                                                       ? Intake::kBack
-                                                       : Intake::kConfirm));
+            run_action(front_end, menu_state().get_press(menu_state().get_shown() == Screen::kFreeze &&
+                                                                 menu_state().deepness() <= 1
+                                                             ? Intake::kBack
+                                                             : Intake::kConfirm));
             break;
         case SDL_CONTROLLER_BUTTON_B:
-            run_action(front_end, s_menu.get_press(Intake::kBack));
+            run_action(front_end, menu_state().get_press(Intake::kBack));
             break;
         case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
-            run_action(front_end, s_menu.get_press(Intake::kPrevTab));
+            run_action(front_end, menu_state().get_press(Intake::kPrevTab));
             break;
         case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
-            run_action(front_end, s_menu.get_press(Intake::kNextTab));
+            run_action(front_end, menu_state().get_press(Intake::kNextTab));
             break;
         default:
             break;
@@ -1867,14 +1883,14 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
     case SDL_MOUSEMOTION:
         if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
             if (hit->kind == paint::Hit::Kind::kItem)
-                run_action(front_end, s_menu.hover_item(hit->index));
+                run_action(front_end, menu_state().hover_item(hit->index));
             else if (hit->kind == paint::Hit::Kind::kStageMap)
-                run_action(front_end, s_menu.hover_level(hit->index));
+                run_action(front_end, menu_state().hover_level(hit->index));
         }
         return;
     case SDL_MOUSEBUTTONDOWN:
         if (e.button.button == SDL_BUTTON_RIGHT) {
-            run_action(front_end, s_menu.get_press(Intake::kBack));
+            run_action(front_end, menu_state().get_press(Intake::kBack));
             return;
         }
         if (e.button.button != SDL_BUTTON_LEFT)
@@ -1883,32 +1899,33 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             const paint::Hit clicked = *hit;
             switch (clicked.kind) {
             case paint::Hit::Kind::kItem:
-                run_action(front_end, s_menu.click_item(clicked.index));
+                run_action(front_end, menu_state().click_item(clicked.index));
                 break;
             case paint::Hit::Kind::kStageMap:
-                run_action(front_end, s_menu.click_level(clicked.index));
+                run_action(front_end, menu_state().click_level(clicked.index));
                 break;
             case paint::Hit::Kind::kTab:
-                run_action(front_end, s_menu.click_tab(clicked.index));
+                run_action(front_end, menu_state().click_tab(clicked.index));
                 break;
             case paint::Hit::Kind::kBack:
-                run_action(front_end, s_menu.click_back());
+                run_action(front_end, menu_state().click_back());
                 break;
             case paint::Hit::Kind::kSkate:
-                run_action(front_end, s_menu.get_shown() == Screen::kOptions ? s_menu.get_press(Intake::kConfirm)
-                                                                             : s_menu.click_skate());
+                run_action(front_end, menu_state().get_shown() == Screen::kOptions
+                                          ? menu_state().get_press(Intake::kConfirm)
+                                          : menu_state().click_skate());
                 break;
             case paint::Hit::Kind::kContinue:
                 break; // (the restyled main menu's - mirror_mouse)
             case paint::Hit::Kind::kChoice:
-                run_action(front_end, s_menu.click_choice(clicked.index / 16, clicked.index % 16));
+                run_action(front_end, menu_state().click_choice(clicked.index / 16, clicked.index % 16));
                 break;
             }
         }
         return;
     case SDL_MOUSEWHEEL:
         if (e.wheel.y)
-            run_action(front_end, s_menu.get_wheel(e.wheel.y));
+            run_action(front_end, menu_state().get_wheel(e.wheel.y));
         return;
     default:
         return;
@@ -2061,7 +2078,7 @@ Awaiting s_pending;
 
 bool shown_and_idle(Screen screen)
 {
-    return s_state == State::kShown && !s_menu.occupied() && s_menu.get_shown() == screen;
+    return s_state == State::kShown && !menu_state().occupied() && menu_state().get_shown() == screen;
 }
 
 // The things the channel never does through ours: anything online (none of ours goes online now - the game's ONLINE
@@ -2177,7 +2194,7 @@ void tick_frame(modules::FrontEnd* front_end)
         keep_root_hidden();
         return;
     case State::kLaunching:
-        s_menu.tick(dt);
+        menu_state().tick(dt);
         if ((s_launch_level == kLoadMainMenu && !in_front_end()) ||
             (s_launch_level != kLoadMainMenu && current_load_state() != s_launch_level) ||
             (s_launch_level != kLoadMainMenu && loading_screen_up())) {
@@ -2185,7 +2202,7 @@ void tick_frame(modules::FrontEnd* front_end)
             free_device_objects();
         } else if (s_state_time > 30.0f) {
             get_log("new front end: the level didn't start in 30 seconds - back to the menus");
-            s_menu.cancel_launch();
+            menu_state().cancel_launch();
             change_phase(State::kIdle);
         }
         return;
@@ -2193,7 +2210,7 @@ void tick_frame(modules::FrontEnd* front_end)
         break;
     }
     keep_root_hidden();
-    if (s_menu.get_shown() == s_open_root && !s_menu.occupied()) {
+    if (menu_state().get_shown() == s_open_root && !menu_state().occupied()) {
         // (back from the screen a menu's item asked for: that menu - the game's, restyled - again, or the script it
         // gave for Back when its menu went - the skate shop's)
         get_log("new front end: back from our screen%s", s_shown_back ? " - its back script" : "");
@@ -2235,19 +2252,19 @@ void tick_frame(modules::FrontEnd* front_end)
     // The automation channel's command waiting for its screen.
     if (s_pending.active && shown_and_idle(s_pending.screen)) {
         s_pending.active = false;
-        if (s_menu.select_id(s_pending.item)) {
+        if (menu_state().select_id(s_pending.item)) {
             get_log("new front end: automation - %s/%s %s", get_screen_name(s_pending.screen), s_pending.item.c_str(),
                     s_pending.confirm ? "chosen" : "selected");
             s_pending.result = "ok";
             if (s_pending.confirm)
-                run_action(front_end, s_menu.get_press(Intake::kConfirm));
+                run_action(front_end, menu_state().get_press(Intake::kConfirm));
         } else {
             s_pending.result = "error: no item " + s_pending.item + " on " + get_screen_name(s_pending.screen);
             get_log("new front end: automation - %s", s_pending.result.c_str());
         }
     }
     if (s_state == State::kShown)
-        run_action(front_end, s_menu.tick(dt));
+        run_action(front_end, menu_state().tick(dt));
 }
 
 bool owns_mouse() { return is_switched_on() && !showing() && s_mirror.get_up(); }
@@ -2307,11 +2324,11 @@ static paint::Extras pause_extras()
         extras.level_kicker_ = section->tab;
         extras.level_colour_ = section->colour;
     }
-    extras.session.seconds = s_session.seconds;
-    extras.session.best_combo_ = s_session.best_combo_;
-    if (s_session.gaps_total_ > 0) {
-        extras.session.gaps = static_cast<int>(s_session.gaps_landed_.size());
-        extras.session.gaps_total_ = s_session.gaps_total_;
+    extras.session.seconds = session_state().seconds;
+    extras.session.best_combo_ = session_state().best_combo_;
+    if (session_state().gaps_total_ > 0) {
+        extras.session.gaps = static_cast<int>(session_state().gaps_landed_.size());
+        extras.session.gaps_total_ = session_state().gaps_total_;
     }
     return extras;
 }
@@ -2481,7 +2498,7 @@ void blit()
         extras.options_note_ = s_options_note;
         static const bool kShowIniKeys = text::to_int(ini_string("show_ini_keys", "0").c_str()) != 0;
         extras.show_ini_keys_ = kShowIniKeys;
-        if (s_menu.over_pause()) {
+        if (menu_state().over_pause()) {
             const paint::Extras pause = pause_extras();
             extras.level_name_ = pause.level_name_;
             extras.level_kicker_ = pause.level_kicker_;
@@ -2489,9 +2506,9 @@ void blit()
             extras.session = pause.session;
         }
         int rows = 0;
-        paint::get_screen(s_menu, frame, static_cast<float>(w), static_cast<float>(h), extras, &s_hits, &rows);
+        paint::get_screen(menu_state(), frame, static_cast<float>(w), static_cast<float>(h), extras, &s_hits, &rows);
         if (rows > 0)
-            s_menu.set_visible_rows(rows);
+            menu_state().set_visible_rows(rows);
         ImGui::Render();
         ui_backend::render();
     }
@@ -2547,9 +2564,9 @@ std::string automation_command(const std::string& line, bool* done)
         return "";
     }
     if (verb == "back") {
-        if (s_state != State::kShown || s_menu.occupied())
+        if (s_state != State::kShown || menu_state().occupied())
             return "error: the new front end isn't up";
-        run_action(the_front_end(), s_menu.get_press(Intake::kBack));
+        run_action(the_front_end(), menu_state().get_press(Intake::kBack));
         return "ok";
     }
     if (verb == "press") {
@@ -2561,11 +2578,11 @@ std::string automation_command(const std::string& line, bool* done)
             return "error: fe press <up|down|left|right|confirm|back|resume|prevtab|nexttab>";
         for (const auto& [name, input] : kInputs)
             if (_stricmp(words[1].c_str(), name) == 0) {
-                if (s_state != State::kShown || s_menu.occupied())
+                if (s_state != State::kShown || menu_state().occupied())
                     return "error: the new front end isn't up";
-                if (input == Intake::kConfirm && get_refused(s_menu.get_shown(), s_menu.chosen_item_id()))
+                if (input == Intake::kConfirm && get_refused(menu_state().get_shown(), menu_state().chosen_item_id()))
                     return "refused: online";
-                run_action(the_front_end(), s_menu.get_press(input));
+                run_action(the_front_end(), menu_state().get_press(input));
                 return "ok";
             }
         return "error: no input " + words[1];
@@ -2598,8 +2615,8 @@ std::string automation_status()
         return {};
     std::string text = std::string(get_state_name(s_state));
     if (s_state == State::kShown || s_state == State::kLaunching) {
-        text += std::string(" ") + get_screen_name(s_menu.get_shown());
-        const std::string item = s_menu.chosen_item_id();
+        text += std::string(" ") + get_screen_name(menu_state().get_shown());
+        const std::string item = menu_state().chosen_item_id();
         if (!item.empty())
             text += "/" + item;
     }

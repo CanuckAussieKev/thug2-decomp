@@ -974,14 +974,26 @@ struct OriginalLinks {
     script::Struct* node{};
     std::vector<uint32_t> links;
 };
-std::map<uint32_t, OriginalLinks> g_original_links;
+std::map<uint32_t, OriginalLinks>& original_links()
+{
+    static std::map<uint32_t, OriginalLinks> value;
+    return value;
+}
 std::vector<uint32_t> g_dropped;
-std::map<uint32_t, bool> g_drop_active;
+std::map<uint32_t, bool>& drop_active()
+{
+    static std::map<uint32_t, bool> value;
+    return value;
+}
 struct TerrainSet {
     std::string terrain;
     uint8_t original{};
 };
-std::map<uint32_t, TerrainSet> g_terrains;
+std::map<uint32_t, TerrainSet>& terrains_state()
+{
+    static std::map<uint32_t, TerrainSet> value;
+    return value;
+}
 // The rail manager's node arrays replaced by rebuild_rails (freed with the level).
 std::vector<void*> g_retired;
 objects::GrindPoint* g_built; // (the node array rebuild_rails made last)
@@ -1006,7 +1018,11 @@ struct Extras {
 };
 constexpr uint32_t kTriggerScriptKey = 0x2CA8A299; // TriggerScript
 // Level rail points given a speed-up (their rates).
-std::map<uint32_t, float> g_level_speeds;
+std::map<uint32_t, float>& level_speeds()
+{
+    static std::map<uint32_t, float> value;
+    return value;
+}
 // The speed-ups in place: each node's structure, its own TriggerScript before ours (to put back) and the script that
 // counted then (called first by ours); the per-point scripts last defined.
 struct SpeedApplied {
@@ -1014,7 +1030,11 @@ struct SpeedApplied {
     fields::Own original;
     uint32_t original_script_ = 0;
 };
-std::map<uint32_t, SpeedApplied> g_speed_applied;
+std::map<uint32_t, SpeedApplied>& speed_applied()
+{
+    static std::map<uint32_t, SpeedApplied> value;
+    return value;
+}
 std::vector<uint8_t> g_speed_defined;
 // The level's own speed-ups (a RailAccelerate in a rail point's TriggerScript): found once for each rail manager
 // array (name, rate).
@@ -1024,17 +1044,29 @@ struct LevelSpeedCache {
     std::vector<std::pair<uint32_t, float>> found;
 };
 LevelSpeedCache g_level_speed_cache;
-std::unordered_map<uint32_t, Extras> g_extras;
+std::unordered_map<uint32_t, Extras>& extras_state()
+{
+    static std::unordered_map<uint32_t, Extras> value;
+    return value;
+}
 // Level ladder points turned: their facing and the rail manager's orientation as the level had it.
 struct FacingSet {
     float facing;
     maths::Vec4 original;
 };
-std::map<uint32_t, FacingSet> g_facings;
+std::map<uint32_t, FacingSet>& facings_state()
+{
+    static std::map<uint32_t, FacingSet> value;
+    return value;
+}
 // Level rail points marked grindable on flat ground.
 std::vector<uint32_t> g_level_flat;
 // The trick objects the editor registered (name -> cluster).
-std::map<uint32_t, uint32_t> g_trick;
+std::map<uint32_t, uint32_t>& trick_state()
+{
+    static std::map<uint32_t, uint32_t> value;
+    return value;
+}
 // RailClear's override (flat_grindable): the rail manager's nodes whose segment to the next is grindable on flat
 // ground, found again when the nodes or the marks change.
 struct FlatCache {
@@ -1071,8 +1103,8 @@ std::vector<Point> added_points()
                 }
             }
         }
-        auto extras = g_extras.find(name_hash(spec.name));
-        if (extras != g_extras.end()) {
+        auto extras = extras_state().find(name_hash(spec.name));
+        if (extras != extras_state().end()) {
             p.cluster = extras->second.cluster;
             p.grind_flat_ = extras->second.grind_flat_;
             p.speed = extras->second.speed;
@@ -1143,8 +1175,8 @@ float facing_now(uint32_t name)
 // A level ladder point's heading as the level has it.
 float facing_original(uint32_t name)
 {
-    auto it = g_facings.find(name);
-    return it != g_facings.end() ? heading_of_climb(it->second.original) : facing_now(name);
+    auto it = facings_state().find(name);
+    return it != facings_state().end() ? heading_of_climb(it->second.original) : facing_now(name);
 }
 
 bool same_facing(float a, float b) { return std::fabs(node_edit::wrap_angle(a - b)) < 1e-4f; }
@@ -1152,8 +1184,8 @@ bool same_facing(float a, float b) { return std::fabs(node_edit::wrap_angle(a - 
 std::vector<uint32_t> level_links_now(uint32_t name) { return own_links(look_up_node_params(name)); }
 std::vector<uint32_t> level_links_original(uint32_t name)
 {
-    auto it = g_original_links.find(name);
-    return it != g_original_links.end() ? it->second.links : level_links_now(name);
+    auto it = original_links().find(name);
+    return it != original_links().end() ? it->second.links : level_links_now(name);
 }
 
 void set_level_links(uint32_t name, const std::vector<uint32_t>& links)
@@ -1161,8 +1193,8 @@ void set_level_links(uint32_t name, const std::vector<uint32_t>& links)
     script::Struct* node = look_up_node_params(name);
     if (!node || node_create::is_added(name))
         return;
-    if (!g_original_links.count(name))
-        g_original_links[name] = {node, own_links(node)};
+    if (!original_links().count(name))
+        original_links()[name] = {node, own_links(node)};
     if (own_links(node) != links)
         set_own_links(node, links);
 }
@@ -1196,28 +1228,28 @@ void register_trick_objects()
     std::map<uint32_t, uint32_t> want;
     for (const node_create::Spec& spec : node_create::at_hand()) {
         const uint32_t name = name_hash(spec.name);
-        auto extras = g_extras.find(name);
-        if (same_text(spec.cls, "RailNode") && extras != g_extras.end() && extras->second.cluster &&
+        auto extras = extras_state().find(name);
+        if (same_text(spec.cls, "RailNode") && extras != extras_state().end() && extras->second.cluster &&
             rail_node_named(name))
             want[name] = extras->second.cluster;
     }
     lists::KeyMap* objects = &reinterpret_cast<objects::TrickSpotHub*>(manager)->object_clusters_;
-    for (const auto& entry : g_trick) {
+    for (const auto& entry : trick_state()) {
         auto it = want.find(entry.first);
         if (it == want.end() || it->second != entry.second)
             objects->erase_entry(entry.first);
     }
     for (const auto& entry : want) {
-        auto it = g_trick.find(entry.first);
-        if (it != g_trick.end() && it->second == entry.second)
+        auto it = trick_state().find(entry.first);
+        if (it != trick_state().end() && it->second == entry.second)
             continue;
         auto* trick_objects = reinterpret_cast<objects::TrickSpotHub*>(manager);
         trick_objects->add_cluster(entry.second); // (false: there already)
         trick_objects->add_object_to_cluster(entry.first, entry.second);
     }
-    if (debug_enabled() && want != g_trick)
+    if (debug_enabled() && want != trick_state())
         get_log("level editor: %u drawn rail points are trick objects", static_cast<unsigned>(want.size()));
-    g_trick = want;
+    trick_state() = want;
 }
 
 } // namespace
@@ -1277,15 +1309,15 @@ void rebuild_rails()
         index.emplace(node->label_, i);
         node->succ_ = node->last_value_ = nullptr;
         const bool dropped = std::find(g_dropped.begin(), g_dropped.end(), node->label_) != g_dropped.end();
-        auto was = g_drop_active.find(node->label_);
+        auto was = drop_active().find(node->label_);
         if (dropped) {
-            if (was == g_drop_active.end())
-                g_drop_active[node->label_] = (node->flag_bits_ & objects::kRailFlagActive) != 0;
+            if (was == drop_active().end())
+                drop_active()[node->label_] = (node->flag_bits_ & objects::kRailFlagActive) != 0;
             node->flag_bits_ &= ~objects::kRailFlagActive;
-        } else if (was != g_drop_active.end()) {
+        } else if (was != drop_active().end()) {
             node->flag_bits_ = was->second ? node->flag_bits_ | objects::kRailFlagActive
                                            : node->flag_bits_ & ~objects::kRailFlagActive;
-            g_drop_active.erase(was);
+            drop_active().erase(was);
         }
     }
     // The links, as add_from_node_array makes them: a node's next is its first link (or a DefaultLine one), the linked
@@ -1320,7 +1352,7 @@ void rebuild_rails()
             params->read_hash_value(kSurfaceKindKey, &terrain, 0) && known_terrain(terrain))
             node->surface_type_ = surface_kind::get_terrain_index(terrain);
     }
-    for (const auto& entry : g_terrains) {
+    for (const auto& entry : terrains_state()) {
         auto it = index.find(entry.first);
         uint8_t value = 0;
         if (it != index.end() && terrain_byte(entry.second.terrain, &value))
@@ -1336,8 +1368,8 @@ void rebuild_rails()
             maths::Vec4 angles;
             level_nodes::read_turn_angles(look_up_node_params(node->label_), &angles);
             node->climb_ = climb_of(angles.y);
-        } else if (g_facings.count(node->label_)) {
-            node->climb_ = climb_of(g_facings[node->label_].facing);
+        } else if (facings_state().count(node->label_)) {
+            node->climb_ = climb_of(facings_state()[node->label_].facing);
         }
     }
     if (old)
@@ -1358,7 +1390,7 @@ State at_hand()
     if (!in_level())
         return state;
     state.points = added_points();
-    for (const auto& entry : g_original_links) {
+    for (const auto& entry : original_links()) {
         script::Struct* node = look_up_node_params(entry.first);
         if (node != entry.second.node)
             continue;
@@ -1368,13 +1400,13 @@ State at_hand()
     }
     state.dropped = g_dropped;
     std::sort(state.dropped.begin(), state.dropped.end());
-    for (const auto& entry : g_terrains)
+    for (const auto& entry : terrains_state())
         state.terrains.push_back({entry.first, entry.second.terrain});
-    for (const auto& entry : g_facings)
+    for (const auto& entry : facings_state())
         state.facings.push_back({entry.first, entry.second.facing});
     state.grind_flat_ = g_level_flat;
     std::sort(state.grind_flat_.begin(), state.grind_flat_.end());
-    for (const auto& entry : g_level_speeds)
+    for (const auto& entry : level_speeds())
         state.speeds.push_back({entry.first, entry.second}); // (a map: sorted by name)
     return state;
 }
@@ -1429,26 +1461,27 @@ bool change_phase(const State& target)
                 write_angles(node, {0.0f, t.facing, 0.0f}); // (a ladder turned: rebuild_rails turns its rail node)
         }
     }
-    g_extras.clear();
+    extras_state().clear();
     for (const Point& t : target.points) {
         if (t.cluster || t.grind_flat_ || t.speed > 0.0f)
-            g_extras[name_hash(t.name)] = {t.cluster, t.grind_flat_, t.speed > 0.0f ? clamp_speed(t.speed) : 0.0f};
+            extras_state()[name_hash(t.name)] = {t.cluster, t.grind_flat_,
+                                                 t.speed > 0.0f ? clamp_speed(t.speed) : 0.0f};
     }
-    g_level_speeds.clear();
+    level_speeds().clear();
     for (const SpeedEdit& e : target.speeds) {
         if (!node_create::is_added(e.name) && look_up_node_params(e.name))
-            g_level_speeds[e.name] = clamp_speed(e.rate);
+            level_speeds()[e.name] = clamp_speed(e.rate);
     }
     // Level ladders turned (the rail manager's orientation as the level had it kept to put back), level rails marked
     // grindable on flat ground.
-    for (auto it = g_facings.begin(); it != g_facings.end();) {
+    for (auto it = facings_state().begin(); it != facings_state().end();) {
         bool wanted = false;
         for (const FacingEdit& f : target.facings)
             wanted = wanted || f.name == it->first;
         if (!wanted) {
             if (objects::GrindPoint* node = rail_node_named(it->first))
                 node->climb_ = it->second.original;
-            it = g_facings.erase(it);
+            it = facings_state().erase(it);
         } else {
             ++it;
         }
@@ -1457,9 +1490,9 @@ bool change_phase(const State& target)
         const objects::GrindPoint* node = rail_node_named(f.name);
         if (!node || !(node->flag_bits_ & objects::kRailFlagClimbing) || node_create::is_added(f.name))
             continue;
-        if (!g_facings.count(f.name))
-            g_facings[f.name] = {f.facing, node->climb_};
-        g_facings[f.name].facing = f.facing;
+        if (!facings_state().count(f.name))
+            facings_state()[f.name] = {f.facing, node->climb_};
+        facings_state()[f.name].facing = f.facing;
     }
     g_level_flat.clear();
     for (const uint32_t name : target.grind_flat_) {
@@ -1468,7 +1501,7 @@ bool change_phase(const State& target)
     }
     // The level's links: as the target has them, else as the level had them.
     std::set<uint32_t> names;
-    for (const auto& entry : g_original_links)
+    for (const auto& entry : original_links())
         names.insert(entry.first);
     for (const LinkEdit& l : target.links)
         names.insert(l.name);
@@ -1500,14 +1533,14 @@ bool change_phase(const State& target)
     }
     g_dropped = kept;
     // Terrains (level points): put back where no longer set.
-    for (auto it = g_terrains.begin(); it != g_terrains.end();) {
+    for (auto it = terrains_state().begin(); it != terrains_state().end();) {
         bool wanted = false;
         for (const TerrainEdit& t : target.terrains)
             wanted = wanted || t.name == it->first;
         if (!wanted) {
             if (objects::GrindPoint* node = rail_node_named(it->first))
                 node->surface_type_ = it->second.original;
-            it = g_terrains.erase(it);
+            it = terrains_state().erase(it);
         } else {
             ++it;
         }
@@ -1517,9 +1550,9 @@ bool change_phase(const State& target)
         uint8_t value = 0;
         if (!node || !terrain_byte(t.terrain, &value))
             continue;
-        if (!g_terrains.count(t.name))
-            g_terrains[t.name] = {t.terrain, node->surface_type_};
-        g_terrains[t.name].terrain = t.terrain;
+        if (!terrains_state().count(t.name))
+            terrains_state()[t.name] = {t.terrain, node->surface_type_};
+        terrains_state()[t.name].terrain = t.terrain;
     }
     rebuild_rails();
     // The added points' places in the rail manager (a point made before keeps its node there).
@@ -1534,34 +1567,34 @@ bool change_phase(const State& target)
 
 void forget_level()
 {
-    for (const auto& entry : g_original_links) {
+    for (const auto& entry : original_links()) {
         script::Struct* node = look_up_node_params(entry.first);
         if (node && node == entry.second.node)
             set_own_links(node, entry.second.links);
     }
-    g_original_links.clear();
+    original_links().clear();
     g_dropped.clear();
-    g_drop_active.clear();
-    g_terrains.clear();
+    drop_active().clear();
+    terrains_state().clear();
     g_remake.clear();
     g_draw = Blit::kNone;
     g_draw_last = 0;
     g_pick = kOpCancel;
     g_ladder_have_foot = false;
     // (the rail manager and the trick object manager are the level's: they go with it)
-    g_extras.clear();
-    g_facings.clear();
+    extras_state().clear();
+    facings_state().clear();
     g_level_flat.clear();
-    g_trick.clear();
+    trick_state().clear();
     ++g_flat_generation;
     // (the speed-ups' TriggerScripts: the level's nodes put back while its array is the one loaded)
-    for (const auto& entry : g_speed_applied) {
+    for (const auto& entry : speed_applied()) {
         script::Struct* node = look_up_node_params(entry.first);
         if (node && node == entry.second.node)
             fields::put_in(node, kTriggerScriptKey, false, entry.second.original);
     }
-    g_speed_applied.clear();
-    g_level_speeds.clear();
+    speed_applied().clear();
+    level_speeds().clear();
     g_level_speed_cache = LevelSpeedCache{};
 }
 
@@ -1585,8 +1618,8 @@ void refresh_flat(objects::GrindRailHub* rails)
         const objects::GrindPoint* node = &rails->nodes_[i];
         if ((node->flag_bits_ & objects::kRailFlagClimbing) || !node->succ_)
             continue;
-        auto extras = g_extras.find(node->label_);
-        bool marked = (extras != g_extras.end() && extras->second.grind_flat_) ||
+        auto extras = extras_state().find(node->label_);
+        bool marked = (extras != extras_state().end() && extras->second.grind_flat_) ||
                       std::find(g_level_flat.begin(), g_level_flat.end(), node->label_) != g_level_flat.end();
         if (!marked) {
             script::Struct* params = look_up_node_params(node->label_);
@@ -1617,29 +1650,29 @@ bool is_ledge_node(uint32_t name)
 void apply_speeds()
 {
     if (!level_nodes::node_manager_instance() ||
-        (g_speed_applied.empty() && g_extras.empty() && g_level_speeds.empty()))
+        (speed_applied().empty() && extras_state().empty() && level_speeds().empty()))
         return;
     // What's wanted (none in a network session: the edited level's changes are offline only).
     std::map<uint32_t, float> want;
     if (!layout::get_refused()) {
-        for (const auto& entry : g_extras) {
+        for (const auto& entry : extras_state()) {
             if (entry.second.speed > 0.0f)
                 want[entry.first] = entry.second.speed;
         }
-        for (const auto& entry : g_level_speeds)
+        for (const auto& entry : level_speeds())
             want[entry.first] = entry.second;
     }
     // Those no longer wanted put back; a node whose structure was made again (the overlay registered again) forgotten
     // (its new structure has no TriggerScript of ours).
-    for (auto it = g_speed_applied.begin(); it != g_speed_applied.end();) {
+    for (auto it = speed_applied().begin(); it != speed_applied().end();) {
         script::Struct* node = look_up_node_params(it->first);
         if (node != it->second.node) {
-            it = g_speed_applied.erase(it);
+            it = speed_applied().erase(it);
             continue;
         }
         if (!want.count(it->first)) {
             fields::put_in(node, kTriggerScriptKey, false, it->second.original);
-            it = g_speed_applied.erase(it);
+            it = speed_applied().erase(it);
             continue;
         }
         ++it;
@@ -1650,15 +1683,15 @@ void apply_speeds()
         if (!node)
             continue;
         const uint32_t ours = name_hash(speed_script_name(w.first));
-        auto it = g_speed_applied.find(w.first);
-        if (it == g_speed_applied.end()) {
+        auto it = speed_applied().find(w.first);
+        if (it == speed_applied().end()) {
             SpeedApplied a;
             a.node = node;
             a.original = fields::own_in(node, kTriggerScriptKey, false);
             node->read_hash_value(kTriggerScriptKey, &a.original_script_, 0);
             if (a.original_script_ == ours)
                 a.original_script_ = 0;
-            it = g_speed_applied.emplace(w.first, a).first;
+            it = speed_applied().emplace(w.first, a).first;
         }
         scripts.push_back({w.first, it->second.original_script_, w.second});
     }
@@ -1711,8 +1744,8 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
             uint32_t script = 0;
             if (!params || !params->read_hash_value(kTriggerScriptKey, &script, 0) || !script)
                 continue;
-            auto applied = g_speed_applied.find(node->label_);
-            if (applied != g_speed_applied.end())
+            auto applied = speed_applied().find(node->label_);
+            if (applied != speed_applied().end())
                 script = applied->second.original_script_; // (the level's own script, under ours)
             const triggers::Calls calls = triggers::script_calls(script);
             if (calls.rail_speed_)
@@ -1731,17 +1764,17 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
             return;
         out.push_back({a, b, rate, level});
     };
-    for (const auto& entry : g_speed_applied) {
-        auto extras = g_extras.find(entry.first);
-        auto level = g_level_speeds.find(entry.first);
-        const float rate = extras != g_extras.end()        ? extras->second.speed
-                           : level != g_level_speeds.end() ? level->second
+    for (const auto& entry : speed_applied()) {
+        auto extras = extras_state().find(entry.first);
+        auto level = level_speeds().find(entry.first);
+        const float rate = extras != extras_state().end()  ? extras->second.speed
+                           : level != level_speeds().end() ? level->second
                                                            : 0.0f;
         if (rate > 0.0f)
             add(rail_node_named(entry.first), rate, false);
     }
     for (const auto& found : g_level_speed_cache.found) {
-        if (!g_speed_applied.count(found.first))
+        if (!speed_applied().count(found.first))
             add(rail_node_named(found.first), found.second, true);
     }
     return out;
@@ -2725,7 +2758,7 @@ View view_of(uint32_t name)
     if (view.ladder) {
         view.can_turn_ = view.can_delete_ = true;
         view.facing_degrees_ = node_edit::get_heading_degrees({0.0f, facing_now(name), 0.0f});
-        view.turned = !node.added && g_facings.count(name) != 0;
+        view.turned = !node.added && facings_state().count(name) != 0;
         return view;
     }
     Graph graph = graph_of(node.family);
@@ -2752,15 +2785,15 @@ View view_of(uint32_t name)
         }
     }
     if (view.rail) {
-        auto speed = g_extras.find(name);
-        auto level_speed = g_level_speeds.find(name);
-        view.speed = speed != g_extras.end()               ? speed->second.speed
-                     : level_speed != g_level_speeds.end() ? level_speed->second
+        auto speed = extras_state().find(name);
+        auto level_speed = level_speeds().find(name);
+        view.speed = speed != extras_state().end()         ? speed->second.speed
+                     : level_speed != level_speeds().end() ? level_speed->second
                                                            : 0.0f;
         script::Struct* own = look_up_node_params(name);
         uint32_t script = 0;
-        auto applied = g_speed_applied.find(name);
-        if (applied != g_speed_applied.end())
+        auto applied = speed_applied().find(name);
+        if (applied != speed_applied().end())
             script = applied->second.original_script_;
         else if (own)
             own->read_hash_value(kTriggerScriptKey, &script, 0);
@@ -2769,13 +2802,13 @@ View view_of(uint32_t name)
             view.level_speed_ = calls.rail_speed_;
             view.level_rate_ = calls.rail_rate_;
         }
-        auto extras = g_extras.find(name);
+        auto extras = extras_state().find(name);
         if (node.added) {
             view.can_trick_object_ = true;
-            view.trick_object_ = extras != g_extras.end() && extras->second.cluster;
+            view.trick_object_ = extras != extras_state().end() && extras->second.cluster;
             if (view.trick_object_)
                 view.cluster = object_edit::caption(extras->second.cluster);
-            view.grind_flat_ = extras != g_extras.end() && extras->second.grind_flat_;
+            view.grind_flat_ = extras != extras_state().end() && extras->second.grind_flat_;
         } else {
             view.trick_object_ = node.trick_object_;
             static const uint32_t kCluster = name_hash("Cluster"), kFlag = name_hash("ed_grind_flat");

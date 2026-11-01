@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -54,8 +55,8 @@ void screen_shown(bool freeze, bool blank);
 // HideLoadingScreen (0x004908C0's callers): the screen gone, the console stopped.
 void screen_hidden();
 
-// A line for the panel (printf-style; cut to kLineWidth characters). Nothing while not Active.
-void get_note(const char* format, ...);
+// A line for the panel, as it is (cut to kLineWidth characters). Nothing while not Active.
+void note_text(const char* text);
 // A file: `what` ("open", "load"...), the file's name without its folder, its size if known (< 0: not known).
 void note_file(const char* what, const char* path, long long size);
 // A script command or script being run (by checksum; only the interesting ones are kept - see above), with what it
@@ -71,6 +72,17 @@ void draw_panel();
 // --- pure helpers, for the self-test ---
 constexpr size_t kLineWidth = 96;
 constexpr size_t kRingLines = 64;
+
+// A line for the panel (printf-style; cut to kLineWidth characters). Nothing while not Active.
+template <typename... Args>
+void get_note(const char* format, Args... args)
+{
+    if (!live_now())
+        return;
+    char text[kLineWidth];
+    std::snprintf(text, sizeof(text), format, args...);
+    note_text(text);
+}
 // "name.ext" of "folder\\sub/name.ext".
 const char* get_file_name(const char* path);
 // "512 B", "12.3 KB", "4.5 MB".

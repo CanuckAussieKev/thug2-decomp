@@ -174,7 +174,11 @@ bool read_record(std::istringstream& in, ViewCam* out)
 
 namespace {
 
-std::map<std::string, float> g_distances; // (each camera's target distance, by name)
+std::map<std::string, float>& distances_state()
+{
+    static std::map<std::string, float> value; // (each camera's target distance, by name)
+    return value;
+}
 std::vector<std::function<void()>> g_queue;
 // A field being dragged (pitch / distance): the cameras before its first change (one undo step).
 bool g_dragging;
@@ -183,8 +187,8 @@ bool same_text(const std::string& a, const std::string& b) { return _stricmp(a.c
 
 float distance_of(const std::string& name)
 {
-    auto it = g_distances.find(name);
-    return it == g_distances.end() ? kDefaultDistance : it->second;
+    auto it = distances_state().find(name);
+    return it == distances_state().end() ? kDefaultDistance : it->second;
 }
 
 node_create::Spec spec_of(const ViewCam& c)
@@ -226,7 +230,7 @@ struct Step : ModuleStep {
         }
         std::string message;
         for (const ViewCam& c : cameras) {
-            g_distances[c.name] = c.distance;
+            distances_state()[c.name] = c.distance;
             const uint32_t name = node_create::name_hash(c.name);
             if (!node_create::is_added(name)) {
                 node_create::fabricate(spec_of(c), -1, &message);
@@ -435,7 +439,7 @@ std::string create_from_view()
     c.distance = kDefaultDistance;
     push_undo();
     std::string message;
-    g_distances[c.name] = c.distance;
+    distances_state()[c.name] = c.distance;
     if (!node_create::fabricate(spec_of(c), -1, &message)) {
         hud::get_message(message.empty() ? "Couldn't create the camera" : message, 4.0);
         return "";
@@ -496,7 +500,7 @@ bool place_at_range(uint32_t name, float distance, bool done)
     if (!g_dragging)
         push_undo();
     g_dragging = !done;
-    g_distances[c->name] = clamp_distance(distance);
+    distances_state()[c->name] = clamp_distance(distance);
     return true;
 }
 
@@ -523,7 +527,7 @@ int get_apply(const std::vector<ViewCam>& cameras)
     int made = 0;
     std::string message;
     for (const ViewCam& c : cameras) {
-        g_distances[c.name] = clamp_distance(c.distance);
+        distances_state()[c.name] = clamp_distance(c.distance);
         const uint32_t name = node_create::name_hash(c.name);
         if (node_create::is_added(name))
             continue;
@@ -548,7 +552,7 @@ void reset_all()
 
 void forget_level()
 {
-    g_distances.clear();
+    distances_state().clear();
     g_queue.clear();
     g_dragging = false;
 }

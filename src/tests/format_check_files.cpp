@@ -144,7 +144,11 @@ std::map<std::string, FileCheck>& file_checks()
     static std::map<std::string, FileCheck> checks;
     return checks;
 }
-std::map<std::string, int> g_checked_by_extension;
+std::map<std::string, int>& checked_by_extension()
+{
+    static std::map<std::string, int> value;
+    return value;
+}
 
 // The format's extension: the last, or the one before a platform's ".xbx" ("x.scn.xbx": ".scn").
 std::string format_extension(const std::string& name)
@@ -162,7 +166,7 @@ void check_file(const std::string& name, const uint8_t* data, size_t size)
     auto found = file_checks().find(extension);
     if (found == file_checks().end())
         return;
-    ++g_checked_by_extension[extension];
+    ++checked_by_extension()[extension];
     found->second(name, data, size);
 }
 
@@ -786,24 +790,29 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
 struct WaveStats {
     int files = 0, looping = 0, short_data = 0, long_format = 0;
     std::map<uint32_t, int> format_sizes;
-} g_waves;
+};
 // NOLINTEND(readability-identifier-naming)
+WaveStats& wave_stats()
+{
+    static WaveStats value;
+    return value;
+}
 
 void check_wave(const std::string& name, const uint8_t* data, size_t size)
 {
-    ++g_waves.files;
+    ++wave_stats().files;
     util::ByteReader reader(data, size);
     wave_format::Wave wave;
     if (!wave_format::read_wave(reader, &wave)) {
         check(false, name + ": wave");
         return;
     }
-    ++g_waves.format_sizes[wave.format_size];
-    g_waves.looping += wave.looping;
+    ++wave_stats().format_sizes[wave.format_size];
+    wave_stats().looping += wave.looping;
     if (wave.format_size > wave_format::kFormatSize)
-        ++g_waves.long_format;
+        ++wave_stats().long_format;
     if (wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes)
-        ++g_waves.short_data;
+        ++wave_stats().short_data;
     // the original's reading (fread chunk by chunk while 8 header bytes come)
     size_t at = 12;
     const uint8_t* samples = nullptr;
@@ -1026,11 +1035,12 @@ int run(const std::filesystem::path& data)
     std::printf("fonts: %d (%d glyphs; %d special glyphs, %d past the special map; %d upscaled pages)\n", g_fonts.files,
                 g_fonts.glyphs, g_fonts.specials, g_fonts.specials_past_map, g_fonts.hd_pages);
     std::printf("sound effects: %d (%d looping; %d with less data than they decode, %d formats past 0x14 bytes);"
-                " format sizes:", g_waves.files, g_waves.looping, g_waves.short_data, g_waves.long_format);
-    for (const auto& [format_size, count] : g_waves.format_sizes)
+                " format sizes:",
+                wave_stats().files, wave_stats().looping, wave_stats().short_data, wave_stats().long_format);
+    for (const auto& [format_size, count] : wave_stats().format_sizes)
         std::printf(" 0x%X x%d", format_size, count);
     std::printf("\n");
-    for (const auto& [extension, count] : g_checked_by_extension)
+    for (const auto& [extension, count] : checked_by_extension())
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());
     return g_failures;

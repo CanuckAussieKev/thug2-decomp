@@ -453,7 +453,11 @@ struct Playing {
 std::vector<Playing> g_playing;
 
 // Speeds put on objects (the object each was put on, so one made again gets it again).
-std::unordered_map<uint32_t, std::pair<const void*, float>> g_speed_applied;
+std::unordered_map<uint32_t, std::pair<const void*, float>>& speed_applied()
+{
+    static std::unordered_map<uint32_t, std::pair<const void*, float>> value;
+    return value;
+}
 double g_next_slow_tick;
 
 // Objects made again: killed, and once the game has removed them, made from their nodes (put back where they were).
@@ -475,10 +479,18 @@ struct ParticleOrigin {
     V3 at = {};
     float at_yaw_ = 0.0f;
 };
-std::unordered_map<uint32_t, ParticleOrigin> g_particle_at;
+std::unordered_map<uint32_t, ParticleOrigin>& particle_at()
+{
+    static std::unordered_map<uint32_t, ParticleOrigin> value;
+    return value;
+}
 
 // Objects whose model the editor swapped: the model each was made with.
-std::unordered_map<uint32_t, std::string> g_made_with;
+std::unordered_map<uint32_t, std::string>& made_with()
+{
+    static std::unordered_map<uint32_t, std::string> value;
+    return value;
+}
 
 // The preview.
 struct Preview {
@@ -565,7 +577,7 @@ void run_remakes()
             commands::create_from_node(node);
             if (r.keep)
                 object_edit::get_restore(r.state);
-            g_speed_applied.erase(r.name); // (its speed put on it again)
+            speed_applied().erase(r.name); // (its speed put on it again)
             if (debug_enabled())
                 get_log("level editor: %s made again from its node", object_edit::caption(r.name).c_str());
         }
@@ -736,11 +748,11 @@ void update_speeds()
         objects::GameEntity* object = live_object(s.name);
         if (!object)
             continue;
-        auto it = g_speed_applied.find(s.name);
-        if (it != g_speed_applied.end() && it->second.first == object && it->second.second == s.mph)
+        auto it = speed_applied().find(s.name);
+        if (it != speed_applied().end() && it->second.first == object && it->second.second == s.mph)
             continue;
         apply_speed(object, s.mph);
-        g_speed_applied[s.name] = {object, s.mph};
+        speed_applied()[s.name] = {object, s.mph};
         if (debug_enabled())
             get_log("level editor: %s's path speed %.1f mph", object_edit::caption(s.name).c_str(), s.mph);
     }
@@ -996,7 +1008,7 @@ void change_phase(const State& state)
     // (radii no longer set: back to the node's own - an added emitter's spec, a level emitter's Radius as loaded is
     // what its node had; the radius written into a level node stays until the level loads again)
     g_state = state;
-    g_speed_applied.clear();
+    speed_applied().clear();
     for (const EmitterSound& e : g_state.emitters)
         apply_radius(e);
 }
@@ -1062,7 +1074,7 @@ void tick(bool editor_active, uint32_t selected, bool dragging)
     run_remakes();
     // The objects whose model was swapped: made again when their node's model= isn't the one they were made with
     // (the swap, its undo, Home).
-    for (auto& [id, made] : g_made_with) {
+    for (auto& [id, made] : made_with()) {
         const std::string model = model_of(look_up_node_params(id));
         if (model != made && live_object(id)) {
             made = model;
@@ -1090,8 +1102,8 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         return;
     static const uint32_t kMid = get_key("MidPosition"), kEnd = get_key("EndPosition");
     static const uint32_t kBoxes[3] = {get_key("BoxDimsStart"), get_key("BoxDimsMid"), get_key("BoxDimsEnd")};
-    auto it = g_particle_at.find(name);
-    if (it == g_particle_at.end()) {
+    auto it = particle_at().find(name);
+    if (it == particle_at().end()) {
         // (first seen: the node's emitter now is the one its origin - the level's place, or a copy's as made - had)
         const node_edit::Values* origin = node_edit::get_origin(name);
         ParticleOrigin o;
@@ -1111,7 +1123,7 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         }
         o.at = o.from;
         o.at_yaw_ = o.from_yaw_;
-        it = g_particle_at.emplace(name, o).first;
+        it = particle_at().emplace(name, o).first;
     }
     ParticleOrigin& o = it->second;
     if (pos.x == o.at.x && pos.y == o.at.y && pos.z == o.at.z && angles.y == o.at_yaw_)
@@ -1297,9 +1309,9 @@ void forget_level()
     g_have_undo = false;
     g_queue.clear();
     g_remakes.clear();
-    g_particle_at.clear();
-    g_made_with.clear();
-    g_speed_applied.clear();
+    particle_at().clear();
+    made_with().clear();
+    speed_applied().clear();
     g_scanned = false;
     g_palette_generation = 0xFFFFFFFF;
     g_models_generation = 0xFFFFFFFF;
@@ -1318,8 +1330,8 @@ const std::vector<std::string>& get_models()
 }
 void watch_model(uint32_t id, const std::string& made)
 {
-    if (!g_made_with.count(id))
-        g_made_with[id] = made;
+    if (!made_with().count(id))
+        made_with()[id] = made;
 }
 } // namespace detail
 
@@ -1327,7 +1339,7 @@ void model_edited(uint32_t id)
 {
     // (a copy is made from its source's node, then a layout's field edit gives it its own model: made again)
     if (object_edit::is_copy(id))
-        g_made_with[id] = "\x01";
+        made_with()[id] = "\x01";
 }
 
 namespace detail {

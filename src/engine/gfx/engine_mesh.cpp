@@ -95,7 +95,7 @@ int SplatSlots::oldest_slot(uint32_t count)
 }
 
 // 0x00490D20
-VertexStack::VertexStack() { std::memset(data, 3, sizeof(data)); }
+VertexStack::VertexStack() noexcept { std::memset(data, 3, sizeof(data)); }
 
 // 0x00490D50
 void VertexStack::stack_on(const uint8_t* in)

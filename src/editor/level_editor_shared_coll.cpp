@@ -241,7 +241,11 @@ struct TableRow {
     bool in_grid_ = false;
     bool moved = false;
 };
-std::map<uint32_t, TableRow> g_entries;
+std::map<uint32_t, TableRow>& entries()
+{
+    static std::map<uint32_t, TableRow> value;
+    return value;
+}
 uint32_t g_generation; // (faces taken or given back: the collision view's cache made again)
 
 bool is_switched_on()
@@ -524,13 +528,13 @@ void get_drop(const std::map<uint32_t, TableRow>::iterator& it)
         render::remove_from_caches(entry.companion->get_object());
         ++g_generation;
     }
-    g_entries.erase(it);
+    entries().erase(it);
 }
 
 TableRow* get_find(uint32_t checksum)
 {
-    auto it = g_entries.find(checksum);
-    if (it == g_entries.end())
+    auto it = entries().find(checksum);
+    if (it == entries().end())
         return nullptr;
     if (!get_live(it->second, checksum)) {
         get_drop(it);
@@ -542,7 +546,7 @@ TableRow* get_find(uint32_t checksum)
 void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::PcGeom* geom,
                 const std::vector<FaceCopy>& faces, std::vector<Taken> taken)
 {
-    TableRow& entry = g_entries[checksum];
+    TableRow& entry = entries()[checksum];
     entry.scene = scene;
     entry.sector = sector;
     entry.geom = geom;
@@ -610,8 +614,8 @@ void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t c
 {
     if (!faces || faces->empty() || !scene || !sector || !geom)
         return;
-    auto it = g_entries.find(copy);
-    if (it != g_entries.end())
+    auto it = entries().find(copy);
+    if (it != entries().end())
         get_drop(it);
     append_one(copy, scene, sector, geom, *faces, {});
     if (debug_enabled())
@@ -622,7 +626,7 @@ void finalise(render::WorldScene* scene)
 {
     std::vector<render::HitMesh*> added, moved;
     void* grid = nullptr;
-    for (auto it = g_entries.begin(); it != g_entries.end();) {
+    for (auto it = entries().begin(); it != entries().end();) {
         auto next = std::next(it);
         if (!get_live(it->second, it->first)) {
             get_drop(it);
@@ -644,7 +648,7 @@ void finalise(render::WorldScene* scene)
 int total_of(int* faces)
 {
     int pieces = 0, total = 0;
-    for (const auto& entry : g_entries) {
+    for (const auto& entry : entries()) {
         if (entry.second.companion) {
             ++pieces;
             total += entry.second.companion->face_count();
@@ -657,7 +661,7 @@ int total_of(int* faces)
 
 void for_each_companion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context)
 {
-    for (auto it = g_entries.begin(); it != g_entries.end();) {
+    for (auto it = entries().begin(); it != entries().end();) {
         auto next = std::next(it);
         if (!get_live(it->second, it->first))
             get_drop(it); // (its level gone: forgotten, nothing touched)
@@ -670,7 +674,7 @@ void for_each_companion(void (*each)(void* context, uint32_t checksum, const Com
 std::vector<int> taken_faces(const render::TriMeshSource* geometry)
 {
     std::vector<int> faces;
-    for (const auto& entry : g_entries) {
+    for (const auto& entry : entries()) {
         for (const Taken& t : entry.second.taken) {
             if (t.geometry == geometry)
                 faces.push_back(t.face);
@@ -683,7 +687,7 @@ uint32_t get_generation() { return g_generation; }
 
 bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
 {
-    for (const auto& entry : g_entries) {
+    for (const auto& entry : entries()) {
         const std::vector<Taken>& taken = entry.second.taken;
         for (size_t i = 0; i < taken.size(); ++i) {
             if (taken[i].geometry == geometry && taken[i].face == face) {
@@ -719,7 +723,7 @@ const Companion* companion_of(uint32_t piece)
 
 bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t flags)
 {
-    for (auto& entry : g_entries) {
+    for (auto& entry : entries()) {
         std::vector<Taken>& taken = entry.second.taken;
         for (size_t i = 0; i < taken.size(); ++i) {
             if (taken[i].geometry != geometry || taken[i].face != face)

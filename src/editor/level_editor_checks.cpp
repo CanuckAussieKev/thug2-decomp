@@ -311,8 +311,16 @@ namespace {
 
 std::vector<Issue> g_issues;        // the last check's
 std::vector<Issue> g_layout_issues; // the loaded layout's unresolved records
-std::unordered_set<uint32_t> g_ignored;
-std::unordered_map<uint32_t, uint8_t> g_marks;
+std::unordered_set<uint32_t>& ignored_state()
+{
+    static std::unordered_set<uint32_t> value;
+    return value;
+}
+std::unordered_map<uint32_t, uint8_t>& marks_state()
+{
+    static std::unordered_map<uint32_t, uint8_t> value;
+    return value;
+}
 int g_changes = -1;
 uint32_t g_generation = 0;
 int g_loads = -1;
@@ -333,8 +341,8 @@ std::string get_name(uint32_t checksum) { return nodes::caption(checksum); }
 
 bool get_marked(uint32_t name, uint8_t bits)
 {
-    auto it = g_marks.find(name);
-    return it != g_marks.end() && (it->second & bits);
+    auto it = marks_state().find(name);
+    return it != marks_state().end() && (it->second & bits);
 }
 
 // Whether the editor changed scenery near a point (moved pieces, copies): then a problem there isn't the level's own.
@@ -374,7 +382,11 @@ struct Placed {
     float up_in_ = -1.0f; // (the surface above, from the point - kBelowGround's Fix)
     bool ground = true;   // (a face within kGroundReach below)
 };
-std::unordered_map<uint32_t, Placed> g_placed;
+std::unordered_map<uint32_t, Placed>& placed_state()
+{
+    static std::unordered_map<uint32_t, Placed> value;
+    return value;
+}
 
 // A number that changes when the static collision the probes meet may have: scenery moved / hidden / copied, walls
 // switched or moved, faces taken along or their flags edited.
@@ -409,7 +421,7 @@ uint32_t world_signature()
 
 const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
 {
-    Placed& placed = g_placed[name];
+    Placed& placed = placed_state()[name];
     if (placed.world == world && placed.point.x == point.x && placed.point.y == point.y && placed.point.z == point.z)
         return placed;
     // (the sides only kSideReach: a wall's thickness - farther faces belong to other things; up and down kReach)
@@ -1112,12 +1124,12 @@ void note_model(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
         g_changes = changes;
         g_generation = generation;
         g_loads = loads;
-        g_marks = marks;
+        marks_state() = marks;
         // (a moment after a change: changes come in bursts - a drag, a typed field)
         g_due = first ? now : now + 0.4;
     }
     if (g_due >= 0.0 && now >= g_due) {
-        g_marks = marks;
+        marks_state() = marks;
         g_due = -1.0;
         get_run();
     }
@@ -1133,11 +1145,11 @@ void tick_frame()
 
 void forget_level()
 {
-    g_placed.clear();
+    placed_state().clear();
     g_issues.clear();
     g_layout_issues.clear();
-    g_ignored.clear();
-    g_marks.clear();
+    ignored_state().clear();
+    marks_state().clear();
     g_checked_once = false;
     g_due = -1.0;
 }
@@ -1148,7 +1160,7 @@ namespace {
 
 bool get_shown(const Issue& issue)
 {
-    return (g_show_own || !issue.level_own_) && (g_show_ignored || !g_ignored.count(issue.key));
+    return (g_show_own || !issue.level_own_) && (g_show_ignored || !ignored_state().count(issue.key));
 }
 
 } // namespace
@@ -1157,7 +1169,7 @@ void shown_counts(int* errors, int* warnings, int* infos)
 {
     *errors = *warnings = *infos = 0;
     for (const Issue& issue : g_issues) {
-        if (issue.level_own_ || g_ignored.count(issue.key))
+        if (issue.level_own_ || ignored_state().count(issue.key))
             continue;
         (issue.severity == Severity::kError ? *errors : issue.severity == Severity::kWarning ? *warnings : *infos) += 1;
     }
@@ -1215,7 +1227,7 @@ void problems_tab(float scale, ImFont* mono)
     int own = 0, ignored = 0;
     for (const Issue& issue : g_issues) {
         own += issue.level_own_;
-        ignored += g_ignored.count(issue.key) != 0;
+        ignored += ignored_state().count(issue.key) != 0;
     }
     char label[64];
     std::snprintf(label, sizeof(label), "Original Level (%d)", own);
@@ -1250,7 +1262,7 @@ void problems_tab(float scale, ImFont* mono)
         const Issue& issue = g_issues[i];
         if (!get_shown(issue))
             continue;
-        const bool is_ignored = g_ignored.count(issue.key) != 0;
+        const bool is_ignored = ignored_state().count(issue.key) != 0;
         ImGui::PushID(static_cast<int>(i));
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -1287,9 +1299,9 @@ void problems_tab(float scale, ImFont* mono)
         ImGui::SameLine();
         if (ImGui::SmallButton(is_ignored ? "Unignore" : "Ignore")) {
             if (is_ignored)
-                g_ignored.erase(issue.key);
+                ignored_state().erase(issue.key);
             else
-                g_ignored.insert(issue.key);
+                ignored_state().insert(issue.key);
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Ignore until the level reloads");

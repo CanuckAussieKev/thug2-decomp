@@ -42,9 +42,17 @@ const char* const kFiles[] = {
 };
 
 std::string s_data;                  // THUGPRO's data folder, ending in '\'
-std::set<std::string> s_our_keys;    // the path keys our own parts name (never served from THUGPRO's install)
-std::set<std::string> s_their_files; // the path keys of THUGPRO's loose files the added parts name (while loading)
-// What file_path serves: s_their_files once the load is done (published once - the file system's threads read it).
+std::set<std::string>& our_keys()
+{
+    static std::set<std::string> value; // the path keys our own parts name (never served from THUGPRO's install)
+    return value;
+}
+std::set<std::string>& their_files()
+{
+    static std::set<std::string> value; // the path keys of THUGPRO's loose files the added parts name (while loading)
+    return value;
+}
+// What file_path serves: their_files() once the load is done (published once - the file system's threads read it).
 std::atomic<const std::set<std::string>*> s_served{nullptr};
 bool s_done;
 int s_frames;
@@ -95,17 +103,17 @@ bool game_has(const std::string& name)
 bool get_found(const char* path)
 {
     const std::string key = path_key(path);
-    if (s_their_files.count(key))
+    if (their_files().count(key))
         return true;
     for (const std::string& candidate : get_candidates(path)) {
         if (game_has(candidate))
             return true;
     }
-    if (s_our_keys.count(key))
+    if (our_keys().count(key))
         return false; // (one of our own parts' files: never taken from THUGPRO's install)
     for (const std::string& candidate : get_candidates(path)) {
         if (is_file(s_data + candidate)) {
-            s_their_files.insert(key);
+            their_files().insert(key);
             return true;
         }
     }
@@ -435,7 +443,7 @@ void load_once()
             std::vector<const char*> paths;
             collect_paths(reinterpret_cast<script::Struct*>(target.ours->fetch_part(i)), &paths);
             for (const char* path : paths)
-                s_our_keys.insert(path_key(path));
+                our_keys().insert(path_key(path));
         }
     }
     int added = 0, lists = 0, skipped = 0;
@@ -486,13 +494,13 @@ void load_once()
         script::delete_array(theirs);
     }
     memory::leave_heap_scope();
-    s_served.store(new std::set<std::string>(s_their_files)); // (kept for the game's life)
+    s_served.store(new std::set<std::string>(their_files())); // (kept for the game's life)
     get_log(
         "THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
         "the install's loose data); %d of its loose files to read from there when asked for",
         added, lists, archive_path.c_str(),
         setting == 1 ? "hidden from our menus" : "offered in our CAS menus too: thugpro_parts=2", skipped,
-        static_cast<int>(s_their_files.size()));
+        static_cast<int>(their_files().size()));
 }
 
 } // namespace objects::thugpro_cas

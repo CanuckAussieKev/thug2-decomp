@@ -1418,7 +1418,11 @@ struct ProximOriginal {
     float radius;
     V3 min, max;
 };
-std::map<uint32_t, ProximOriginal> g_proxim_originals;
+std::map<uint32_t, ProximOriginal>& proxim_originals()
+{
+    static std::map<uint32_t, ProximOriginal> value;
+    return value;
+}
 std::vector<uint8_t> g_proxim_defined;
 
 bool have_proxim_manager() { return objects::g_proximity_hub != nullptr; }
@@ -1446,7 +1450,7 @@ void put_proxim_back(objects::ProximNode* p, const ProximOriginal& o)
 // no longer edited (or in a network session) put back.
 void sync_proxims()
 {
-    if (!have_proxim_manager() || (g_proxims.empty() && g_proxim_originals.empty()))
+    if (!have_proxim_manager() || (g_proxims.empty() && proxim_originals().empty()))
         return;
     const bool refused = layout::get_refused();
     std::vector<ProximScript> scripts;
@@ -1455,27 +1459,27 @@ void sync_proxims()
         objects::ProximNode* p = refused || !proxim_edited(e) ? nullptr : objects::proxim_get_node(e.node);
         if (!p)
             continue;
-        auto o = g_proxim_originals.find(e.node);
-        if (o == g_proxim_originals.end()) {
+        auto o = proxim_originals().find(e.node);
+        if (o == proxim_originals().end()) {
             const ProximOriginal original = {p->own_script_,
                                              p->form_,
                                              p->radius_,
                                              {p->box_.min.x, p->box_.min.y, p->box_.min.z},
                                              {p->box_.max.x, p->box_.max.y, p->box_.max.z}};
-            o = g_proxim_originals.emplace(e.node, original).first;
+            o = proxim_originals().emplace(e.node, original).first;
         }
         if (!e.enter.empty() || !e.exit.empty())
             scripts.push_back({e.node, checksum_of(e.enter), checksum_of(e.exit), o->second.script});
         live.emplace_back(&e, p);
     }
     // (put back: those not edited now)
-    for (auto it = g_proxim_originals.begin(); it != g_proxim_originals.end();) {
+    for (auto it = proxim_originals().begin(); it != proxim_originals().end();) {
         const bool kept =
             std::any_of(live.begin(), live.end(), [&](const auto& l) { return l.first->node == it->first; });
         if (!kept) {
             if (objects::ProximNode* p = objects::proxim_get_node(it->first))
                 put_proxim_back(p, it->second);
-            it = g_proxim_originals.erase(it);
+            it = proxim_originals().erase(it);
         } else {
             ++it;
         }
@@ -1488,7 +1492,7 @@ void sync_proxims()
     for (const auto& l : live) {
         const ProximEdit& e = *l.first;
         objects::ProximNode* p = l.second;
-        const ProximOriginal& o = g_proxim_originals[e.node];
+        const ProximOriginal& o = proxim_originals()[e.node];
         const uint32_t script =
             !e.enter.empty() || !e.exit.empty() ? get_checksums(proxim_script_name(e.node).c_str()) : o.script;
         if (p->own_script_ != script)
@@ -1675,13 +1679,13 @@ void get_forget()
     g_level_array = 0;
     // (proximity nodes: put back while the level's are still there - none once nearby_zone_shutdown has run)
     if (have_proxim_manager()) {
-        for (const auto& o : g_proxim_originals) {
+        for (const auto& o : proxim_originals()) {
             if (objects::ProximNode* p = objects::proxim_get_node(o.first))
                 put_proxim_back(p, o.second);
         }
     }
     g_proxims.clear();
-    g_proxim_originals.clear();
+    proxim_originals().clear();
 }
 
 void on_array_removed(uint32_t name)

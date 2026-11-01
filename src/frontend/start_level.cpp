@@ -42,7 +42,11 @@ bool is_script(uint32_t name)
 
 // The command line as the process got it, read at start-up: the game's own parsing cuts the process's command
 // line buffer into words later (a 0 after the first word, "... -level" - seen with THUG2.exe, 2026-10-20).
-const std::string kCommandLine = GetCommandLineA();
+const std::string& command_line()
+{
+    static const std::string kValue = GetCommandLineA();
+    return kValue;
+}
 
 std::string from_ini(const char* key)
 {
@@ -61,11 +65,11 @@ const Request& the_request()
     static const Request kRequest = [] {
         Request r;
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-        if (!(r.level = option_value(kCommandLine, "edit")).empty())
+        if (!(r.level = option_value(command_line(), "edit")).empty())
             // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
             r.edit = true;
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-        else if (!(r.level = option_value(kCommandLine, "level")).empty())
+        else if (!(r.level = option_value(command_line(), "level")).empty())
             r.edit = false;
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
         else if (!(r.level = from_ini("edit_level")).empty())
@@ -118,7 +122,7 @@ int s_at_frames;
 const std::string& at_text()
 {
     static const std::string kText = [] {
-        const std::string t = option_value(kCommandLine, "at");
+        const std::string t = option_value(command_line(), "at");
         return t.empty() ? from_ini("start_at") : t;
     }();
     return kText;

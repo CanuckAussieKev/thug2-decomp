@@ -379,12 +379,10 @@ view_cam::Rig rig_now();
 perform::Resume resume_now();
 void apply_resume(const perform::Resume& resume);
 
-void note_action(const char* format, ...)
+template <typename... Args>
+void note_action(const char* format, Args... args)
 {
-    va_list args = nullptr;
-    va_start(args, format);
-    std::vsnprintf(g_last_action, sizeof(g_last_action), format, args);
-    va_end(args);
+    std::snprintf(g_last_action, sizeof(g_last_action), format, args...);
 }
 
 // A change not saved yet (undo / redo steps, layouts restored).

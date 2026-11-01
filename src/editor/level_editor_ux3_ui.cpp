@@ -27,9 +27,9 @@ namespace frontend::level_editor::ux3 {
 namespace {
 
 Fonts g_fonts;
-const ImVec4 kAccent(0.82f, 0.34f, 0.11f, 0.85f);
-const ImVec4 kKeyColour(1.0f, 0.78f, 0.45f, 1.0f);
-const ImVec4 kMuted(0.6f, 0.61f, 0.63f, 1.0f);
+constexpr ImVec4 kAccent(0.82f, 0.34f, 0.11f, 0.85f);
+constexpr ImVec4 kKeyColour(1.0f, 0.78f, 0.45f, 1.0f);
+constexpr ImVec4 kMuted(0.6f, 0.61f, 0.63f, 1.0f);
 
 float current_s() { return g_fonts.scale > 0.0f ? g_fonts.scale : 1.0f; }
 

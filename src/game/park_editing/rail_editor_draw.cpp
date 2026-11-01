@@ -32,7 +32,7 @@ static int g_rail_flash_counter;
 
 namespace {
 
-float float_bits(uint32_t bits)
+constexpr float float_bits(uint32_t bits) noexcept
 {
     auto value = std::bit_cast<float>(bits);
     return value;
@@ -54,10 +54,10 @@ constexpr uint32_t kRedLineFlashRate = 0xEEBE4394;  // RailEditorRedLineFlashRat
 constexpr uint32_t kHighlightR = 0xAD28B18B, kHighlightG = 0xC0F55560, kHighlightB = 0xB09FA1EF;
 constexpr uint32_t kBadR = 0x89B66FB9, kBadG = 0xE46B8B52, kBadB = 0x94017FDD;
 
-const float kAngleScaleToRad = float_bits(0x3C8EFA35); // 0x00645464
+constexpr float kAngleScaleToRad = float_bits(0x3C8EFA35); // 0x00645464
 constexpr float kMaxSegment = 4000.0f;                 // 0x0064B8F8
 constexpr float kMaxReach = 4500.0f;                   // 0x0064B8FC
-const float kNearlyVertical = float_bits(0x3F7FFF58);  // 0x0064B900 (0.99999)
+constexpr float kNearlyVertical = float_bits(0x3F7FFF58); // 0x0064B900 (0.99999)
 constexpr float kPostWidth = 2.625f;                   // 0x0064B908 (also the least post height drawn)
 constexpr float kGroundProbe = 10000.0f;               // 0x0064B308
 constexpr float kFar = 1e6f;                           // 0x0064B904

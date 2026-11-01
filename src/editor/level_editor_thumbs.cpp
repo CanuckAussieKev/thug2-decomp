@@ -164,11 +164,19 @@ namespace {
 
 constexpr uint32_t kBackground = 0xFF2A2C30;
 
-CellCache g_cells;
+CellCache& cells_state()
+{
+    static CellCache value;
+    return value;
+}
 uint32_t g_generation; // (the atlas's: a new one - every cell to draw again)
 uint64_t g_frame = 1;
 std::vector<uint64_t> g_wanted;                  // (the grid's entries shown last frame, in order)
-std::unordered_map<uint64_t, uint64_t> g_failed; // (entries that couldn't be drawn: the frame tried)
+std::unordered_map<uint64_t, uint64_t>& failed_state()
+{
+    static std::unordered_map<uint64_t, uint64_t> value; // (entries that couldn't be drawn: the frame tried)
+    return value;
+}
 std::string g_level;                             // (the lists' level)
 std::vector<std::string> g_recent, g_favourites;
 bool g_grid_read, g_grid = true;
@@ -212,12 +220,12 @@ void tick_cycle(const ui::ShapeMesh& model)
     ++g_frame;
     if (model.level != g_level) {
         load_lists(model.level);
-        g_cells.get_clear();
-        g_failed.clear();
+        cells_state().get_clear();
+        failed_state().clear();
     }
     if (ui_backend::atlas_generation() != g_generation) {
         g_generation = ui_backend::atlas_generation();
-        std::fill(g_cells.drawn.begin(), g_cells.drawn.end(), 0);
+        std::fill(cells_state().drawn.begin(), cells_state().drawn.end(), 0);
     }
     if (!model.browser || !grid_mode()) {
         g_wanted.clear();
@@ -228,11 +236,11 @@ void tick_cycle(const ui::ShapeMesh& model)
     for (const uint64_t key : g_wanted) {
         if (drawn_now >= kPerFrame)
             break;
-        const int cell = g_cells.get_find(key);
-        if (cell < 0 || g_cells.drawn[cell])
+        const int cell = cells_state().get_find(key);
+        if (cell < 0 || cells_state().drawn[cell])
             continue;
-        auto failed = g_failed.find(key);
-        if (failed != g_failed.end() && g_frame - failed->second < 300)
+        auto failed = failed_state().find(key);
+        if (failed != failed_state().end() && g_frame - failed->second < 300)
             continue;
         int x = 0, y = 0;
         cell_rect(cell, &x, &y);
@@ -243,9 +251,9 @@ void tick_cycle(const ui::ShapeMesh& model)
         const bool drew =
             preview::draw_view(tab == 0 ? preview::Kind::kSector : preview::Kind::kObject, id, preview::Orbit{});
         ui_backend::end_atlas_cell();
-        g_cells.drawn[cell] = 1;
+        cells_state().drawn[cell] = 1;
         if (!drew)
-            g_failed[key] = g_frame;
+            failed_state()[key] = g_frame;
         ++drawn_now;
     }
 }
@@ -253,9 +261,9 @@ void tick_cycle(const ui::ShapeMesh& model)
 void halt()
 {
     ui_backend::free_atlas();
-    g_cells.get_clear();
+    cells_state().get_clear();
     g_wanted.clear();
-    g_failed.clear();
+    failed_state().clear();
 }
 
 void note_used(int tab, uint32_t id)
@@ -510,9 +518,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
                 const uint64_t key = get_key(tab, items[i].id);
-                const int c = g_cells.get_take(key, g_frame);
+                const int c = cells_state().get_take(key, g_frame);
                 wanted.push_back(key);
-                if (c >= 0 && texture && g_cells.drawn[c]) {
+                if (c >= 0 && texture && cells_state().drawn[c]) {
                     float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
                     cell_uv(c, &u0, &v0, &u1, &v1);
                     draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));

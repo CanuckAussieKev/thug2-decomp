@@ -102,8 +102,16 @@ constexpr uint32_t kTrickObject = 0x1645B830;     // TrickObject
 constexpr uint32_t kCluster = 0x1A3A966B;         // Cluster
 constexpr uint32_t kAllTrickObjects = 0xB675F8F6; // (a script integer: every node a trick object)
 
-std::map<uint32_t, Membership> g_set;   // (the pieces the editor changed: as they are now)
-std::map<uint32_t, Membership> g_level; // (those pieces as the level has them)
+std::map<uint32_t, Membership>& set_state()
+{
+    static std::map<uint32_t, Membership> value; // (the pieces the editor changed: as they are now)
+    return value;
+}
+std::map<uint32_t, Membership>& level_state()
+{
+    static std::map<uint32_t, Membership> value; // (those pieces as the level has them)
+    return value;
+}
 std::vector<std::function<void()>> g_queue;
 std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept until the level goes)
 // The Inspector's typed cluster name.
@@ -166,17 +174,17 @@ void get_live(const Membership& from, const Membership& to)
 void place_in(const Membership& to)
 {
     const Membership now = get_now(to.sector);
-    if (!g_level.count(to.sector)) {
+    if (!level_state().count(to.sector)) {
         Membership level;
         if (!stage_map(to.sector, &level))
             level = Membership{to.sector, false, 0};
-        g_level[to.sector] = level;
+        level_state()[to.sector] = level;
     }
     get_live(now, to);
-    if (get_same(to, g_level[to.sector]))
-        g_set.erase(to.sector);
+    if (get_same(to, level_state()[to.sector]))
+        set_state().erase(to.sector);
     else
-        g_set[to.sector] = to;
+        set_state()[to.sector] = to;
 }
 
 struct Step : ModuleStep {
@@ -223,8 +231,8 @@ bool stage_map(uint32_t sector, Membership* m)
 
 Membership get_now(uint32_t sector)
 {
-    auto it = g_set.find(sector);
-    if (it != g_set.end())
+    auto it = set_state().find(sector);
+    if (it != set_state().end())
         return it->second;
     Membership m;
     if (!stage_map(sector, &m))
@@ -234,8 +242,8 @@ Membership get_now(uint32_t sector)
 
 bool get_override(uint32_t sector, uint32_t* cluster)
 {
-    auto it = g_set.find(sector);
-    if (it == g_set.end())
+    auto it = set_state().find(sector);
+    if (it == set_state().end())
         return false;
     *cluster = it->second.trick ? it->second.cluster : 0;
     return true;
@@ -275,14 +283,14 @@ bool get_home(const std::vector<uint32_t>& sectors)
 {
     std::vector<uint32_t> pieces;
     for (const uint32_t s : sectors) {
-        if (g_set.count(s))
+        if (set_state().count(s))
             pieces.push_back(s);
     }
     if (pieces.empty())
         return false;
     push_module_undo(get_capture(pieces));
     for (const uint32_t s : pieces)
-        place_in(g_level[s]);
+        place_in(level_state()[s]);
     hud::get_message("Trick object reverted");
     return true;
 }
@@ -290,8 +298,8 @@ bool get_home(const std::vector<uint32_t>& sectors)
 std::vector<Membership> get_changed()
 {
     std::vector<Membership> out;
-    out.reserve(g_set.size());
-    for (const auto& entry : g_set)
+    out.reserve(set_state().size());
+    for (const auto& entry : set_state())
         out.push_back(entry.second);
     return out;
 }
@@ -311,18 +319,18 @@ int get_apply(const std::vector<Membership>& records)
 void reset_all()
 {
     std::vector<Membership> set;
-    set.reserve(g_set.size());
-    for (const auto& entry : g_set)
+    set.reserve(set_state().size());
+    for (const auto& entry : set_state())
         set.push_back(entry.second);
     for (const Membership& m : set)
-        place_in(g_level.count(m.sector) ? g_level[m.sector] : Membership{m.sector, false, 0});
-    g_set.clear();
+        place_in(level_state().count(m.sector) ? level_state()[m.sector] : Membership{m.sector, false, 0});
+    set_state().clear();
 }
 
 void forget_level()
 {
-    g_set.clear();
-    g_level.clear();
+    set_state().clear();
+    level_state().clear();
     g_queue.clear();
     g_detached.clear(); // (the manager and its lists went with the level)
 }
@@ -356,7 +364,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     bool edited = false;
     for (const uint32_t s : sectors) {
         now.push_back(get_now(s));
-        edited = edited || g_set.count(s);
+        edited = edited || set_state().count(s);
     }
     const bool same = std::all_of(now.begin(), now.end(), [&](const Membership& m) {
         return m.trick == now[0].trick && m.cluster == now[0].cluster;

@@ -117,9 +117,17 @@ struct Touched {
     script::Struct* node;
 };
 std::vector<Touched> g_touched;
-std::unordered_map<uint32_t, size_t> g_touched_index;
+std::unordered_map<uint32_t, size_t>& touched_index()
+{
+    static std::unordered_map<uint32_t, size_t> value;
+    return value;
+}
 // Rail points' places as the level has them (Origin's answer: the rail manager keeps them - Scenery::rail_origin).
-std::unordered_map<uint32_t, Values> g_rail_origins;
+std::unordered_map<uint32_t, Values>& rail_origins()
+{
+    static std::unordered_map<uint32_t, Values> value;
+    return value;
+}
 
 // The node's own pos= / angles= component (the last, as CStruct::Hunt reads them - never one in an included
 // structure, which the game doesn't read for these either).
@@ -318,12 +326,12 @@ void note_origin(uint32_t name)
 {
     if (is_rail(name) && !node_create::is_added(name))
         return; // (the rail manager notes where the level has it)
-    if (g_touched_index.count(name))
+    if (touched_index().count(name))
         return;
     Values origin;
     if (!get_take_in(name, &origin))
         return;
-    g_touched_index[name] = g_touched.size();
+    touched_index()[name] = g_touched.size();
     g_touched.push_back({name, origin, struct_named(name)});
 }
 
@@ -331,12 +339,12 @@ const Values* get_origin(uint32_t name)
 {
     V3 origin{};
     if (is_rail(name) && !node_create::is_added(name) && scenery::rail_origin(name, &origin)) {
-        Values& values = g_rail_origins[name];
+        Values& values = rail_origins()[name];
         values = {origin, {0.0f, 0.0f, 0.0f}};
         return &values;
     }
-    auto it = g_touched_index.find(name);
-    return it == g_touched_index.end() ? nullptr : &g_touched[it->second].origin;
+    auto it = touched_index().find(name);
+    return it == touched_index().end() ? nullptr : &g_touched[it->second].origin;
 }
 
 bool assign_value(uint32_t name, const Values& values)
@@ -384,13 +392,13 @@ std::vector<LinkRecord> get_changed()
 
 void get_forget(uint32_t name)
 {
-    auto it = g_touched_index.find(name);
-    if (it == g_touched_index.end())
+    auto it = touched_index().find(name);
+    if (it == touched_index().end())
         return;
     g_touched.erase(g_touched.begin() + static_cast<std::ptrdiff_t>(it->second));
-    g_touched_index.clear();
+    touched_index().clear();
     for (size_t i = 0; i < g_touched.size(); ++i)
-        g_touched_index[g_touched[i].name] = i;
+        touched_index()[g_touched[i].name] = i;
 }
 
 void reset_all()
@@ -412,8 +420,8 @@ void forget_level()
         }
     }
     g_touched.clear();
-    g_touched_index.clear();
-    g_rail_origins.clear();
+    touched_index().clear();
+    rail_origins().clear();
 }
 
 } // namespace frontend::level_editor::node_edit

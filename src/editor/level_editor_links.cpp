@@ -196,7 +196,11 @@ struct Watch {
     V3 scale = {1.0f, 1.0f, 1.0f};
     std::string fields;
 };
-std::map<uint32_t, Watch> g_watch;
+std::map<uint32_t, Watch>& watch()
+{
+    static std::map<uint32_t, Watch> value;
+    return value;
+}
 // Copies being made again from their source's node (waiting for the game to remove the old one).
 struct Remake {
     uint32_t name, source;
@@ -275,7 +279,7 @@ void propagate_scenery(const GroupSet& group)
 {
     if (scenery::get_hidden(group.source) || !scenery::sector_of(group.source))
         return;
-    Watch& w = g_watch[group.source];
+    Watch& w = watch()[group.source];
     const V3 scale = placement_of(group.source).scale;
     if (!w.init) {
         w.init = true;
@@ -310,7 +314,7 @@ void propagate_objects(const GroupSet& group)
     objects::GameEntity* source = live_object(group.source);
     if (!source)
         return;
-    Watch& w = g_watch[group.source];
+    Watch& w = watch()[group.source];
     const V3 scale = scale_tool::get_object_scale(source);
     const std::string fields = fields_of(group.source);
     if (!w.init) {
@@ -442,10 +446,10 @@ std::string describe()
 void tick()
 {
     // (watches of groups gone forgotten: a group linked again starts afresh)
-    for (auto it = g_watch.begin(); it != g_watch.end();) {
+    for (auto it = watch().begin(); it != watch().end();) {
         bool is_source = false;
         const int index = group_of(g_state, it->first, &is_source);
-        it = index >= 0 && is_source ? std::next(it) : g_watch.erase(it);
+        it = index >= 0 && is_source ? std::next(it) : watch().erase(it);
     }
     run_remakes();
     if (edit::get_dragging())
@@ -517,14 +521,14 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
         get_join(&g_state, record.scenery, source, members);
         ++groups;
     }
-    g_watch.clear();
+    watch().clear();
     return groups;
 }
 
 void reset_all()
 {
     g_state.clear();
-    g_watch.clear();
+    watch().clear();
     g_remakes.clear();
 }
 

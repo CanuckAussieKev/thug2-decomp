@@ -98,9 +98,21 @@ struct Made {
     uint32_t sector = 0; // the sector made for it (Checksums(name + "_" + material) - a new donor: a new copy)
     Spec built;
 };
-std::map<std::string, Made> g_made;   // (the pieces in place)
-std::set<uint32_t> g_pool;            // (every sector made this level - kept, hidden, when its piece goes)
-std::map<uint32_t, int> g_tile_hides; // (tiles hidden by pits, and by how many)
+std::map<std::string, Made>& made_state()
+{
+    static std::map<std::string, Made> value; // (the pieces in place)
+    return value;
+}
+std::set<uint32_t>& pool()
+{
+    static std::set<uint32_t> value; // (every sector made this level - kept, hidden, when its piece goes)
+    return value;
+}
+std::map<uint32_t, int>& tile_hides()
+{
+    static std::map<uint32_t, int> value; // (tiles hidden by pits, and by how many)
+    return value;
+}
 render::WorldScene* g_scene;
 uint32_t g_active_scene_key;
 
@@ -121,9 +133,9 @@ void note_level()
     g_scene = scene;
     g_active_scene_key = name;
     g_specs.clear();
-    g_made.clear();
-    g_pool.clear();
-    g_tile_hides.clear();
+    made_state().clear();
+    pool().clear();
+    tile_hides().clear();
 }
 
 void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
@@ -132,7 +144,7 @@ void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
         render::WorldCell* sector = scenery::sector_of(tile);
         if (!sector)
             continue;
-        int& count = g_tile_hides[tile];
+        int& count = tile_hides()[tile];
         if (hide) {
             if (count++ == 0)
                 change_live(sector, false);
@@ -314,7 +326,7 @@ bool get_make(const Spec& spec, std::string* why)
     }
     uint32_t name = sector_key_from_spec(spec);
     render::WorldCell* sector = lookup_sector(scene, name);
-    if (sector && !g_pool.count(name)) {
+    if (sector && !pool().count(name)) {
         *why = "a sector of that name is the level's";
         return false;
     }
@@ -329,7 +341,7 @@ bool get_make(const Spec& spec, std::string* why)
             *why = "the material's piece wasn't copied";
             return false;
         }
-        g_pool.insert(made);
+        pool().insert(made);
         name = made;
     }
     if (!emit_out(sector, spec, mesh, why)) {
@@ -340,15 +352,15 @@ bool get_make(const Spec& spec, std::string* why)
     scenery::note_collision_moved(name);
     scenery::finalise();
     // (a piece already there under this name: its old sector hidden when it was another, its tiles shown again)
-    auto it = g_made.find(spec.name);
-    if (it != g_made.end()) {
+    auto it = made_state().find(spec.name);
+    if (it != made_state().end()) {
         if (it->second.sector != name)
             if (render::WorldCell* old = lookup_sector(scene, it->second.sector))
                 change_live(old, false);
         hide_tiles(it->second.built.hides, false);
     }
     hide_tiles(spec.hides, true);
-    g_made[spec.name] = {name, spec};
+    made_state()[spec.name] = {name, spec};
     get_log("level editor: ground piece %s (%s, %.0f x %.0f, %.0f %s, %u faces) in place - material %s",
             spec.name.c_str(), spec.lower ? "pit" : "platform", spec.x1 - spec.x0, spec.z1 - spec.z0, spec.height,
             spec.lower ? "deep" : "high", static_cast<unsigned>(mesh.faces.size()),
@@ -358,20 +370,20 @@ bool get_make(const Spec& spec, std::string* why)
 
 void unmake(const std::string& piece_name)
 {
-    auto it = g_made.find(piece_name);
-    if (it == g_made.end())
+    auto it = made_state().find(piece_name);
+    if (it == made_state().end())
         return;
     if (render::WorldCell* sector = lookup_sector(scenery::main_scene(), it->second.sector))
         change_live(sector, false);
     hide_tiles(it->second.built.hides, false);
-    g_made.erase(it);
+    made_state().erase(it);
 }
 
 } // namespace
 
 const std::vector<Spec>& get_all() { return g_specs; }
 
-bool is_piece(uint32_t sector) { return g_pool.count(sector) != 0; }
+bool is_piece(uint32_t sector) { return pool().count(sector) != 0; }
 
 const Spec* get_find(const std::string& name)
 {
@@ -391,7 +403,7 @@ const char* why_not_donor(uint32_t checksum)
     render::WorldCell* sector = lookup_sector(scene, checksum);
     if (!sector)
         return "not a piece of the level's main scene";
-    if (g_pool.count(checksum))
+    if (pool().count(checksum))
         return "a generated piece";
     render::PcGeom* geom = geom_of(sector);
     if (!render::is_pc_geom(geom))
@@ -530,8 +542,8 @@ bool find_pit_tiles(Spec* spec, std::string* why)
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
             // (a tile a pit hides now still counts - the pit being edited)
-            const bool mine = g_tile_hides.count(checksum) && g_tile_hides[checksum] > 0;
-            if (!w->refused.empty() || g_pool.count(checksum) || (!is_operative(sector) && !mine))
+            const bool mine = tile_hides().count(checksum) && tile_hides()[checksum] > 0;
+            if (!w->refused.empty() || pool().count(checksum) || (!is_operative(sector) && !mine))
                 return;
             const render::StaticCollider* coll = static_of(sector);
             const render::TriMeshSource* tri = coll ? coll->geometry_ : nullptr;
@@ -635,7 +647,7 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message)
     note_level();
     // (gone: taken out; changed or new: made; the same: left)
     std::vector<std::string> gone;
-    for (const auto& made : g_made) {
+    for (const auto& made : made_state()) {
         if (std::none_of(specs.begin(), specs.end(), [&](const Spec& s) { return s.name == made.first; }))
             gone.push_back(made.first);
     }
@@ -644,9 +656,9 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message)
     std::vector<Spec> kept;
     int placed = 0;
     for (const Spec& spec : specs) {
-        auto it = g_made.find(spec.name);
+        auto it = made_state().find(spec.name);
         std::string why;
-        if ((it != g_made.end() && same_spec(it->second.built, spec)) || get_make(spec, &why)) {
+        if ((it != made_state().end() && same_spec(it->second.built, spec)) || get_make(spec, &why)) {
             ++placed;
         } else {
             get_log("level editor: ground piece %s not made: %s", spec.name.c_str(), why.c_str());
@@ -692,15 +704,15 @@ void reset_all()
     render::WorldScene* scene = scenery::main_scene();
     if (scene == g_scene && scenery::world_scene_key(scene) == g_active_scene_key) {
         std::vector<std::string> names;
-        names.reserve(g_made.size());
-        for (const auto& made : g_made)
+        names.reserve(made_state().size());
+        for (const auto& made : made_state())
             names.push_back(made.first);
         for (const std::string& name : names)
             unmake(name);
     }
     g_specs.clear();
-    g_made.clear();
-    g_tile_hides.clear();
+    made_state().clear();
+    tile_hides().clear();
     if (scene != g_scene || scenery::world_scene_key(scene) != g_active_scene_key)
         note_level();
 }

@@ -188,7 +188,11 @@ constexpr uint32_t kPos = 0x7F261953;    // pos
 constexpr uint32_t kAngles = 0x9D2D0915; // angles
 
 std::vector<Elem> g_nodes;
-std::unordered_map<uint32_t, int> g_by_name;
+std::unordered_map<uint32_t, int>& by_name()
+{
+    static std::unordered_map<uint32_t, int> value;
+    return value;
+}
 int g_counts[kFamilies];
 std::vector<uint32_t> g_signature; // (the arrays' names and sizes when scanned)
 int g_walked_crowns, g_walked_spawns;
@@ -235,7 +239,7 @@ V3 get_heading_of(V3 angles)
 void get_scan()
 {
     g_nodes.clear();
-    g_by_name.clear();
+    by_name().clear();
     std::memset(g_counts, 0, sizeof(g_counts));
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager)
@@ -356,7 +360,7 @@ void get_scan()
             node.trigger_script_ = s->has_entry_named(kTriggerScript);
             ++g_counts[static_cast<int>(node.family)];
             if (node.name)
-                g_by_name.emplace(node.name, static_cast<int>(g_nodes.size()));
+                by_name().emplace(node.name, static_cast<int>(g_nodes.size()));
             g_nodes.push_back(std::move(node));
         }
     }
@@ -369,8 +373,8 @@ void get_scan()
         if (!s || !s->fetch_list(kLinks, &links, 0) || !links)
             continue;
         for (uint32_t l = 0; l < links->extent_; ++l) {
-            auto it = g_by_name.find(links->fetch_part(l));
-            if (it != g_by_name.end())
+            auto it = by_name().find(links->fetch_part(l));
+            if (it != by_name().end())
                 node.links.push_back(it->second);
         }
     }
@@ -471,8 +475,8 @@ uint32_t hidden_type_key()
 int get_find(uint32_t name)
 {
     get_refresh();
-    auto it = g_by_name.find(name);
-    return it == g_by_name.end() ? -1 : it->second;
+    auto it = by_name().find(name);
+    return it == by_name().end() ? -1 : it->second;
 }
 
 script::Struct* struct_of(const Elem& node)

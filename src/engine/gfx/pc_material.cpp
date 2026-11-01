@@ -460,7 +460,11 @@ namespace {
 
 // A material nothing uses but its static initialiser (0x00640D70: its constructor - run by C++ static
 // initialisation here) and exit function.
-MaterialRef g_spare_material;
+MaterialRef& spare_material()
+{
+    static MaterialRef value;
+    return value;
+}
 
 } // namespace
 

@@ -130,13 +130,11 @@ void update_scale()
 
 // --- small pieces ---
 
-void get_mono(const char* format, ...)
+template <typename... Args>
+void get_mono(const char* format, Args... args)
 {
     ImGui::PushFont(g_mono);
-    va_list args = nullptr;
-    va_start(args, format);
-    ImGui::TextV(format, args);
-    va_end(args);
+    ImGui::Text(format, args...);
     ImGui::PopFont();
 }
 
