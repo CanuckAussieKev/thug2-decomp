@@ -8,6 +8,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Array;
@@ -31,7 +32,7 @@ public:
     static constexpr uint32_t kType = 0xC472ECC5;
 
     // 0x00428010 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     WaypointListModule();
     // 0x00427EA0: the destructor body (the base's - the node array stays the asset manager's).
@@ -58,7 +59,7 @@ public:
     static constexpr uint32_t kType = 0x27443708;
 
     // 0x00428130 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     HookPointRegistryModule();
     // 0x004281B0: the destructor body: the hook list cleared and freed, then the base's.
@@ -83,7 +84,7 @@ public:
     static constexpr uint32_t kType = 0x1CDFB2A3;
 
     // 0x0042B920 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     GrindPathLinkModule();
     // 0x0042B9A0: the destructor body: the rail manager cleaned up and freed, then the base's.

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -42,7 +43,7 @@ public:
     };
 
     // 0x0051B880 (registered with the composite object manager): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x0051AD90 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684648) registered.
     static void __cdecl publish_method_table();

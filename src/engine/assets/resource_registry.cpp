@@ -15,12 +15,13 @@
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/owner.h"
 
 namespace assets {
 
 assets::ResourceRegistry* g_asset_manager;
 int g_ass_man_references;
-frame_loop::Hub* g_main_loop_manager;
+memory::owner<frame_loop::Hub*> g_main_loop_manager;
 
 namespace {
 

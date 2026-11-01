@@ -90,7 +90,7 @@ LoopingSoundVolume* LoopingSoundVolume::get_assign(const sound::VolumeRef* other
 }
 
 // 0x00513AD0
-ObjectModule* __cdecl RiderRollingAudio::fabricate() { return new RiderRollingAudio; }
+memory::owner<ObjectModule*> __cdecl RiderRollingAudio::fabricate() { return new RiderRollingAudio; }
 
 // 0x00513860
 void __cdecl RiderRollingAudio::publish_method_table()

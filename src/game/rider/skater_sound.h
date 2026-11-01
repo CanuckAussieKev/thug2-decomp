@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -22,7 +23,7 @@ class RiderSfxPlayer final : public ObjectModule {
 public:
     // 0x00518E20 (registered by register_component_types): a new one (0 if out of memory): full speed 1, volume_mult 1,
     // not sliding.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderSfxPlayer();
     // 0x00518C80: the destructor body (the base's).

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -24,7 +25,7 @@ public:
     static constexpr int kItems = 2;
 
     // 0x0051BD80 (registered with the composite object manager): a new one, no items (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     PickupItemHandler();
     // 0x0051BF20: the destructor body: both items destroyed, then the base's.

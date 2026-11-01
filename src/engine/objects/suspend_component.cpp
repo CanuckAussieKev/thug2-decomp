@@ -24,6 +24,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/mlp.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -31,7 +32,7 @@ uint32_t g_suspend_component_member_functions[12]{0xA0B7E09B, 0xCE0CA665, 0, 0, 
 int g_suspend_frame_count;
 int g_suspend_interleave2_count;
 int g_suspend_interleave4_count;
-SuspendTaskHolder* g_suspend_task_holder;
+memory::owner<SuspendTaskHolder*> g_suspend_task_holder;
 
 namespace {
 
@@ -74,7 +75,7 @@ void change_model_enabled(uint8_t* model, bool active)
 } // namespace
 
 // 0x00434290
-ObjectModule* __cdecl DormancyModule::fabricate() { return new DormancyModule; }
+memory::owner<ObjectModule*> __cdecl DormancyModule::fabricate() { return new DormancyModule; }
 
 // 0x00434610
 void __cdecl DormancyModule::publish_method_table()

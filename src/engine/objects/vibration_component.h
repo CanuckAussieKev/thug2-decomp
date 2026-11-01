@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -39,7 +40,7 @@ public:
     };
 
     // 0x0043D670 (registered with the composite object manager): a new one (0 if out of memory): off, no runs.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     PadRumbleModule();
     // 0x0043D490 (not a Ghidra function; registered with Create): its script member functions (the table at

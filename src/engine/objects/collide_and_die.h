@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace online {
 class Hub;
@@ -29,7 +30,7 @@ public:
     static constexpr uint32_t kType = 0x6259B52B;
 
     // 0x0041C370 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x0041C210: its type; no radius, scale or script, made now (the game clock),
     // not dying, the first update to come.
     ImpactDestructModule();

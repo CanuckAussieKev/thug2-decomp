@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -27,7 +28,7 @@ public:
     enum State : int { kClockIdle = 0, kClockTicking = 1, kActivePaused = 2, kActiveTimeUp = 3 };
 
     // 0x005185D0 (registered by register_component_types): a new one (0 if out of memory). Nothing else is set.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderRunClock();
     // 0x00518240 (registered with Create): its script member functions (the table at 0x006849C0) registered.

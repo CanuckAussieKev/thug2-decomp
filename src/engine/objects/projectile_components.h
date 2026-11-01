@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Struct;
@@ -35,7 +36,7 @@ public:
 
     // 0x004F3010 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type, no radius, scale, death script or owner, not hit.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     ShotImpactModule();
     // 0x004F2F10: the base's body.
@@ -80,7 +81,7 @@ public:
     static constexpr uint32_t kType = 0x3618B878;
 
     // 0x004F3550 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     ProjectileProximityComponent();
     // 0x004F34E0: the base's body.

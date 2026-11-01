@@ -171,7 +171,7 @@ int get_half_turns(int degrees) { return degrees / 180; }
 } // namespace
 
 // 0x00512C60
-ObjectModule* __cdecl RiderGapTracker::fabricate() { return new RiderGapTracker; }
+memory::owner<ObjectModule*> __cdecl RiderGapTracker::fabricate() { return new RiderGapTracker; }
 
 // 0x005122A0
 RiderGapTracker::RiderGapTracker()

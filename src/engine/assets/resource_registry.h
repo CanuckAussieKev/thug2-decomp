@@ -6,6 +6,7 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/sys/game_module.h"
+#include "engine/core/owner.h"
 
 namespace frame_loop {
 struct Hub;
@@ -115,6 +116,6 @@ void release_asset_manager();
 extern ResourceRegistry* g_asset_manager;
 inline ResourceRegistry*& asset_manager() { return g_asset_manager; }
 
-extern frame_loop::Hub* g_main_loop_manager;
+extern memory::owner<frame_loop::Hub*> g_main_loop_manager;
 
 } // namespace assets

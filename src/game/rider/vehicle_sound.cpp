@@ -101,7 +101,7 @@ float get_fraction(double value)
 } // namespace
 
 // 0x0051B880
-ObjectModule* __cdecl SkaterVehicleSoundComponent::fabricate() { return new SkaterVehicleSoundComponent; }
+memory::owner<ObjectModule*> __cdecl SkaterVehicleSoundComponent::fabricate() { return new SkaterVehicleSoundComponent; }
 
 // 0x0051AD90
 void __cdecl SkaterVehicleSoundComponent::publish_method_table()

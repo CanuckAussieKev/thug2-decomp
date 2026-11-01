@@ -129,7 +129,7 @@ const float* vector_of(uint32_t element) { return reinterpret_cast<const float*>
 } // namespace
 
 // 0x0042EF00
-ObjectModule* __cdecl BodyDynamicsModule::fabricate() { return new BodyDynamicsModule; }
+memory::owner<ObjectModule*> __cdecl BodyDynamicsModule::fabricate() { return new BodyDynamicsModule; }
 
 // 0x0042E3F0
 BodyDynamicsModule::BodyDynamicsModule()

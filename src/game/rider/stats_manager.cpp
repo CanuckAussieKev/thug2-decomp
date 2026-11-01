@@ -127,7 +127,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0051CB90
-ObjectModule* __cdecl AttributeTracker::fabricate() { return new AttributeTracker; }
+memory::owner<ObjectModule*> __cdecl AttributeTracker::fabricate() { return new AttributeTracker; }
 
 // 0x0051C440
 void __cdecl AttributeTracker::publish_method_table()

@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -16,7 +17,7 @@ public:
     static constexpr uint32_t kType = 0x1BBF844D;
 
     // 0x004312A0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     FaceHeadingModule();
     // 0x00431240: the destructor body (the base's).

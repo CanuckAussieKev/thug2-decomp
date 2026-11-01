@@ -10,6 +10,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
 #include "engine/render/coll_cache.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Array;
@@ -63,7 +64,7 @@ public:
     static constexpr uint32_t kFlagNoPlayerCollision = 0x2;
 
     // 0x0042EF00 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x0042E3F0: its type, the capsule (+0x64) constructed, the defaults (see the
     // fields).
     BodyDynamicsModule();

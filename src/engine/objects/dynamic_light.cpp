@@ -70,7 +70,7 @@ render::DynamicLightBase* new_dynamic_light(int kind) { return render::new_dynam
 } // namespace
 
 // 0x0041D0F0
-ObjectModule* __cdecl DynamicLightComponent::fabricate() { return new DynamicLightComponent; }
+memory::owner<ObjectModule*> __cdecl DynamicLightComponent::fabricate() { return new DynamicLightComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 DynamicLightComponent::DynamicLightComponent()

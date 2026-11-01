@@ -84,7 +84,7 @@ void play_sound_from_structure(ObjectModule* sound, script::Struct* description)
 } // namespace
 
 // 0x0043CFC0
-ObjectModule* __cdecl EngineAudioModule::fabricate() { return new EngineAudioModule; }
+memory::owner<ObjectModule*> __cdecl EngineAudioModule::fabricate() { return new EngineAudioModule; }
 
 // 0x0043C590
 EngineAudioModule::EngineAudioModule()

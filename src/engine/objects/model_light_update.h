@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Struct;
@@ -30,7 +31,7 @@ public:
 
     // 0x00422DC0 (registered with the composite object manager): a new one (the constructor inlined: the base's, its
     // vtable, no flags, interval or brightness, its type; 0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     MeshLightingModule();
     // 0x00422D00: the base's.

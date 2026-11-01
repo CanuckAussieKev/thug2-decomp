@@ -6,6 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -37,7 +38,7 @@ public:
 
     // 0x0041FF20 (registered with the composite object manager): a new one (Construct on zeroed memory; 0 if out of
     // memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x0041F500: not locked, its type.
     PinnedObjectModule();
     // 0x0041F400: the base's.

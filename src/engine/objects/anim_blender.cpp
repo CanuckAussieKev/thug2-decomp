@@ -76,7 +76,7 @@ bool bool_arg(float word) { return bool_arg(std::bit_cast<uint32_t>(word)); }
 } // namespace
 
 // 0x0041A5B0
-ObjectModule* __cdecl AnimBlenderComponent::fabricate() { return new AnimBlenderComponent; }
+memory::owner<ObjectModule*> __cdecl AnimBlenderComponent::fabricate() { return new AnimBlenderComponent; }
 
 // 0x00419690
 void __cdecl AnimBlenderComponent::publish_method_table()

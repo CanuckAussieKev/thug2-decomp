@@ -13,6 +13,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_module.h"
 #include "engine/util/lzss.h"
+#include "engine/core/owner.h"
 
 namespace script {
 
@@ -22,7 +23,7 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
                   offsetof(ScriptStore, oldest_unused_) == 0x1C && offsetof(ScriptStore, delete_unused_) == 0x20,
               "layout must match the original");
 
-script::ScriptStore* g_script_store;
+memory::owner<script::ScriptStore*> g_script_store;
 uint32_t g_cache_references;
 memory::PoolPair g_cache_entry_pools;
 

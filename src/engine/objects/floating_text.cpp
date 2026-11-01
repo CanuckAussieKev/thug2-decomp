@@ -78,7 +78,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041E3C0
-ObjectModule* __cdecl FloatingTextComponent::fabricate() { return new FloatingTextComponent; }
+memory::owner<ObjectModule*> __cdecl FloatingTextComponent::fabricate() { return new FloatingTextComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 FloatingTextComponent::FloatingTextComponent()

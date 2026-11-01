@@ -39,6 +39,7 @@
 #include "engine/objects/cutscene.h"
 #include "game/park_editing/park_editor.h"
 #include "frontend/screen_element_manager.h"
+#include "engine/core/owner.h"
 
 namespace sio {
 
@@ -264,7 +265,7 @@ void clear_keyboard_chars() { keyboard_char_count() = 0; }
 
 // --- the manager's lifetime --------------------------------------------------------------------------------
 
-Hub* g_manager;
+memory::owner<Hub*> g_manager;
 
 Hub*& manager_instance() { return g_manager; }
 

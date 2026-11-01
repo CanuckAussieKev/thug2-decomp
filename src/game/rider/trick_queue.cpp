@@ -159,7 +159,7 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 } // namespace
 
 // 0x00523490
-ObjectModule* __cdecl MoveExecutor::fabricate() { return new MoveExecutor; }
+memory::owner<ObjectModule*> __cdecl MoveExecutor::fabricate() { return new MoveExecutor; }
 
 // 0x00522390
 MoveExecutor::MoveExecutor()

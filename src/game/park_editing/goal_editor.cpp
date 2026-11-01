@@ -96,7 +96,7 @@ bool get_outside(float x, float z, float x0, float z0, float x1, float z1)
 } // namespace
 
 // 0x004EB7F0
-objects::ObjectModule* __cdecl ObjectiveAuthoring::fabricate() { return new ObjectiveAuthoring; }
+memory::owner<objects::ObjectModule*> __cdecl ObjectiveAuthoring::fabricate() { return new ObjectiveAuthoring; }
 
 // 0x004E6FB0
 void __cdecl ObjectiveAuthoring::publish_method_table()

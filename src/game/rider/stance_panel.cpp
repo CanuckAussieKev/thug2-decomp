@@ -37,7 +37,7 @@ const uint32_t* stance_textures() { return g_stance_textures; }
 } // namespace
 
 // 0x005193B0
-ObjectModule* __cdecl RiderStanceDisplay::fabricate() { return new RiderStanceDisplay; }
+memory::owner<ObjectModule*> __cdecl RiderStanceDisplay::fabricate() { return new RiderStanceDisplay; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderStanceDisplay::RiderStanceDisplay()

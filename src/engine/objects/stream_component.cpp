@@ -36,7 +36,7 @@ const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewC
 } // namespace
 
 // 0x00433D90
-ObjectModule* __cdecl AudioStreamModule::fabricate() { return new AudioStreamModule; }
+memory::owner<ObjectModule*> __cdecl AudioStreamModule::fabricate() { return new AudioStreamModule; }
 
 // 0x00433870
 void __cdecl AudioStreamModule::publish_method_table()

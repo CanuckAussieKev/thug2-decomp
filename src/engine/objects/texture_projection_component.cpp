@@ -33,7 +33,7 @@ bool is_head(const memory::ListNode* node) { return node->data == reinterpret_ca
 } // namespace
 
 // 0x00434870
-ObjectModule* __cdecl TextureProjectionComponent::fabricate() { return new TextureProjectionComponent; }
+memory::owner<ObjectModule*> __cdecl TextureProjectionComponent::fabricate() { return new TextureProjectionComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 TextureProjectionComponent::TextureProjectionComponent()

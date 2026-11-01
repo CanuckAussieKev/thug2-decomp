@@ -389,7 +389,7 @@ RailAuthoring* __cdecl RailAuthoring::sole()
 }
 
 // 0x004F7FB0
-objects::ObjectModule* __cdecl RailAuthoring::fabricate() { return new RailAuthoring; }
+memory::owner<objects::ObjectModule*> __cdecl RailAuthoring::fabricate() { return new RailAuthoring; }
 
 // 0x004F7C90
 RailAuthoring::RailAuthoring()

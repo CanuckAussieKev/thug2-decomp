@@ -174,7 +174,7 @@ void Chain::update_lines()
 // --- life ---
 
 // 0x004298B0
-ObjectModule* __cdecl ChainComponent::fabricate() { return new ChainComponent; }
+memory::owner<ObjectModule*> __cdecl ChainComponent::fabricate() { return new ChainComponent; }
 
 // 0x004296E0
 ChainComponent::ChainComponent()

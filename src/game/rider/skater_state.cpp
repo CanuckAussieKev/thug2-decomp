@@ -60,7 +60,7 @@ int find_powerup(script::Struct* params)
 } // namespace
 
 // 0x00519740
-ObjectModule* __cdecl RiderPoseState::fabricate() { return new RiderPoseState; }
+memory::owner<ObjectModule*> __cdecl RiderPoseState::fabricate() { return new RiderPoseState; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPoseState::RiderPoseState()

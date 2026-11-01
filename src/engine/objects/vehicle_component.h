@@ -9,6 +9,7 @@
 #include "engine/render/coll_rect.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -122,7 +123,7 @@ public:
 
     // --- the component ---
     // 0x0043AA30 (registered with the composite object manager): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x00437C00: identity orientation, the collision cache, no input, no debug drawing, no
     // wheels, no contacts, awake; the sounds' name 0x1CA1FF20.
     DrivableModule();

@@ -83,7 +83,7 @@ script::VectorValue to_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}
 } // namespace
 
 // 0x00431F60
-ObjectModule* __cdecl BoneRigModule::fabricate() { return new BoneRigModule; }
+memory::owner<ObjectModule*> __cdecl BoneRigModule::fabricate() { return new BoneRigModule; }
 
 // (the constructor: inlined in fabricate in the original)
 BoneRigModule::BoneRigModule()

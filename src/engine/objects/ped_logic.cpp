@@ -130,7 +130,7 @@ GroundTriangle& GroundTriangle::get_assign(const GroundTriangle& source)
 }
 
 // 0x004F0B10
-ObjectModule* __cdecl PedestrianBrainModule::fabricate() { return new PedestrianBrainModule; }
+memory::owner<ObjectModule*> __cdecl PedestrianBrainModule::fabricate() { return new PedestrianBrainModule; }
 
 // 0x004ECFB0
 void __cdecl PedestrianBrainModule::publish_method_table()

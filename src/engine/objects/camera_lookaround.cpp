@@ -54,7 +54,7 @@ void get_ease(float& angle, double target, float frame)
 } // namespace
 
 // 0x004E42E0
-ObjectModule* __cdecl FreeLookModule::fabricate() { return new FreeLookModule; }
+memory::owner<ObjectModule*> __cdecl FreeLookModule::fabricate() { return new FreeLookModule; }
 
 // (the constructor: inlined in fabricate in the original)
 FreeLookModule::FreeLookModule() { kind_tag_ = kCameraLookAround; }

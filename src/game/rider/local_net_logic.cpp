@@ -218,7 +218,7 @@ void RiderHostSync::send_update()
 }
 
 // 0x00513630
-ObjectModule* __cdecl RiderHostSync::fabricate() { return new RiderHostSync; }
+memory::owner<ObjectModule*> __cdecl RiderHostSync::fabricate() { return new RiderHostSync; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderHostSync::RiderHostSync()

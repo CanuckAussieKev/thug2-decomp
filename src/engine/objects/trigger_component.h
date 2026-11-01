@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace render {
 class BoxProbe;
@@ -33,7 +34,7 @@ public:
 
     // 0x00434B90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type; the rest zero (a cleared allocation).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     ActivationZoneModule();
     // 0x00434900: the destructor body (the base's).

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/owner.h"
+
 namespace script {
 class Struct;
 class Script;
@@ -61,5 +63,5 @@ bool __cdecl cfunc_set_screen_effects_dof_params(script::Struct* params, script:
 // 0x005A5950: IsPal: whether the game's region / language setting (0x007CEFA0) isn't 2.
 bool __cdecl cfunc_is_pal(script::Struct* params, script::Script* script);
 
-extern modules::Hub* g_module_manager;
+extern memory::owner<modules::Hub*> g_module_manager;
 } // namespace commands

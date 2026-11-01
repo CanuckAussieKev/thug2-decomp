@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace render {
 struct EffectsDirector;
@@ -30,7 +31,7 @@ public:
     static constexpr uint32_t kType = 0xA9DB601E;
 
     // 0x0042A000 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x00429940: its member function table registered.
     static void __cdecl publish_method_table();
     // 0x00429B20: its type, no particle system, no
@@ -104,6 +105,6 @@ public:
     uint32_t lifespan_;              // +0x2C ms (0: for ever)
 };
 
-extern render::EffectsDirector* g_particle_hub;
+extern memory::owner<render::EffectsDirector*> g_particle_hub;
 
 } // namespace objects

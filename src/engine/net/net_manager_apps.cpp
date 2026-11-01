@@ -14,10 +14,11 @@
 #include "engine/core/mem.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_server.h"
+#include "engine/core/owner.h"
 
 namespace net {
 
-Hub* g_net_core;
+memory::owner<Hub*> g_net_core;
 
 namespace {
 

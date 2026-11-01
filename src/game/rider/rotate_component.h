@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -34,7 +35,7 @@ public:
     };
 
     // 0x00517D40 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderTurning();
     // 0x00517CC0: the destructor body (the base's).

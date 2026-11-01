@@ -25,7 +25,7 @@ constexpr int kCameraPriority = -1000;
 } // namespace
 
 // 0x0041B840
-ObjectModule* __cdecl ViewpointModule::fabricate() { return new ViewpointModule; }
+memory::owner<ObjectModule*> __cdecl ViewpointModule::fabricate() { return new ViewpointModule; }
 
 // 0x0041B730
 ViewpointModule::ViewpointModule()

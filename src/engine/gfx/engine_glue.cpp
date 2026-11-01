@@ -36,15 +36,16 @@
 #include "engine/maths/vec4.h"
 #include "engine/gfx/pc_particles.h"
 #include "engine/objects/particle_component.h"
+#include "engine/core/owner.h"
 
 namespace render {
 
 namespace {} // namespace
 
 bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
-WeatherSystem* g_weather;
+memory::owner<WeatherSystem*> g_weather;
 
-ScreenEffects* g_screen_effects;
+memory::owner<ScreenEffects*> g_screen_effects;
 uint32_t g_fog_colour;
 uint32_t g_screen_blur_frames;
 uint32_t g_screen_blur;

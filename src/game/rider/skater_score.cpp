@@ -68,7 +68,7 @@ int number_parameter(script::Struct* params)
 } // namespace
 
 // 0x00518B60
-ObjectModule* __cdecl RiderPointKeeper::fabricate() { return new RiderPointKeeper; }
+memory::owner<ObjectModule*> __cdecl RiderPointKeeper::fabricate() { return new RiderPointKeeper; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPointKeeper::RiderPointKeeper()

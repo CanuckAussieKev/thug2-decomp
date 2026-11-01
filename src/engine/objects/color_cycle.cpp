@@ -54,7 +54,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041B3C0
-ObjectModule* __cdecl ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
+memory::owner<ObjectModule*> __cdecl ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 ColorCycleComponent::ColorCycleComponent()

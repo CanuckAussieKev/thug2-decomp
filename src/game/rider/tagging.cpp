@@ -160,7 +160,7 @@ float tag_setting(uint32_t name) { return FootMovement::get_param(name); }
 // --- TaggingComponent ---
 
 // 0x0051DA80
-ObjectModule* __cdecl TaggingComponent::fabricate() { return new TaggingComponent; }
+memory::owner<ObjectModule*> __cdecl TaggingComponent::fabricate() { return new TaggingComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 TaggingComponent::TaggingComponent()
@@ -284,7 +284,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
 // --- TaggingControlComponent ---
 
 // 0x0051E280
-ObjectModule* __cdecl TaggingControlComponent::fabricate() { return new TaggingControlComponent; }
+memory::owner<ObjectModule*> __cdecl TaggingControlComponent::fabricate() { return new TaggingControlComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 TaggingControlComponent::TaggingControlComponent()

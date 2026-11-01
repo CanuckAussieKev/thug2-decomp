@@ -50,7 +50,7 @@ maths::Vec4 from_model(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
 } // namespace
 
 // 0x00433690
-ObjectModule* __cdecl ParkedVehicleModule::fabricate() { return new ParkedVehicleModule; }
+memory::owner<ObjectModule*> __cdecl ParkedVehicleModule::fabricate() { return new ParkedVehicleModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ParkedVehicleModule::ParkedVehicleModule() { kind_tag_ = kType; }

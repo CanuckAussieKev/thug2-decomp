@@ -17,10 +17,11 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
+#include "engine/core/owner.h"
 
 namespace level_nodes {
 
-level_nodes::NodeManager* g_node_manager;
+memory::owner<level_nodes::NodeManager*> g_node_manager;
 
 using script::Array;
 using script::Struct;

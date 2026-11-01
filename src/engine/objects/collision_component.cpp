@@ -59,7 +59,7 @@ void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 } // namespace
 
 // 0x0041C920
-ObjectModule* __cdecl ContactShapeModule::fabricate() { return new ContactShapeModule; }
+memory::owner<ObjectModule*> __cdecl ContactShapeModule::fabricate() { return new ContactShapeModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ContactShapeModule::ContactShapeModule() { kind_tag_ = kType; }

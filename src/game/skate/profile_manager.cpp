@@ -14,10 +14,11 @@
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/lists/lookup_table.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
-objects::ProfileRoster* g_profile_roster;
+memory::owner<objects::ProfileRoster*> g_profile_roster;
 uint32_t g_profile_manager_references;
 
 namespace {

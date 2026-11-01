@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace render {
 class PcPrimitive;
@@ -87,7 +88,7 @@ public:
     };
 
     // 0x004298B0 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x004296E0: its type, an empty list, nothing found yet,
     // the last frame's length (the slow motion frame) taken now.
     ChainComponent();

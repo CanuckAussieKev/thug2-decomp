@@ -6,6 +6,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/owner.h"
 
 namespace net {
 struct InboundMsgCtx;
@@ -63,7 +64,7 @@ public:
     static constexpr int kEntries = 20;
 
     // 0x0051AD30 (registered with the composite object manager): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x0051ACB0: its type, every entry and the counts cleared.
     RiderFrameLog();
     // 0x005197C0: the destructor body (the base's; in skater_state.cpp).

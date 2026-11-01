@@ -5,6 +5,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -42,7 +43,7 @@ struct TrickNameEntry;
 class RiderGapTracker final : public ObjectModule {
 public:
     // 0x00512C60 (registered by register_component_types): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x005122A0: its type, two empty lists, no core physics or balance trick yet.
     RiderGapTracker();
     // 0x00511F10: the two lists' heads unlinked (their entries aren't freed: clear_gaps), then the base's.

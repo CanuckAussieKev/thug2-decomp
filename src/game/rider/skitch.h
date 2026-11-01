@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace maths {
 class Vec4;
@@ -26,7 +27,7 @@ public:
     static constexpr uint32_t kType = 0x3506CE64;
 
     // 0x0051BA10 (registered with the composite object manager): a new one, skitching allowed (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     TowRideHandler();
     // 0x0051B960: the destructor body (the base's).

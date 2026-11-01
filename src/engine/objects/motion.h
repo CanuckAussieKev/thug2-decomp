@@ -6,6 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -62,7 +63,7 @@ public:
 
     // --- life ---
     // 0x00426650 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x00424AA0: its type, no path follower or path group,
     // only the ground's height taken (+0x70), no ground offset; then Reset.
     KinematicsModule();

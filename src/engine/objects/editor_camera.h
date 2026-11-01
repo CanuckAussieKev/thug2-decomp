@@ -6,6 +6,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -32,7 +33,7 @@ class PadInputModule;
 class EditorViewModule final : public ObjectModule {
 public:
     // 0x004E5940 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x004E5060: the points (0, 0, 0, 1), everything else 0.
     EditorViewModule();
     // 0x004E5100: the shadow deleted, then the base's destructor body.

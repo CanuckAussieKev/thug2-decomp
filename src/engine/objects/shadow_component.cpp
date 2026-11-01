@@ -69,7 +69,7 @@ const uint8_t* hierarchy_of(uint8_t* model)
 } // namespace
 
 // 0x00431800
-ObjectModule* __cdecl GroundShadowModule::fabricate() { return new GroundShadowModule; }
+memory::owner<ObjectModule*> __cdecl GroundShadowModule::fabricate() { return new GroundShadowModule; }
 
 // 0x00431380
 GroundShadowModule::GroundShadowModule()

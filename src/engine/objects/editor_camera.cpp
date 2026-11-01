@@ -180,7 +180,7 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
 }
 
 // 0x004E5940
-ObjectModule* __cdecl EditorViewModule::fabricate() { return new EditorViewModule; }
+memory::owner<ObjectModule*> __cdecl EditorViewModule::fabricate() { return new EditorViewModule; }
 
 // 0x004E5060
 EditorViewModule::EditorViewModule()

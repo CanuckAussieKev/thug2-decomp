@@ -86,7 +86,7 @@ void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 } // namespace
 
 // 0x0041FF20
-ObjectModule* __cdecl PinnedObjectModule::fabricate() { return new PinnedObjectModule; }
+memory::owner<ObjectModule*> __cdecl PinnedObjectModule::fabricate() { return new PinnedObjectModule; }
 
 // 0x0041F500
 PinnedObjectModule::PinnedObjectModule()

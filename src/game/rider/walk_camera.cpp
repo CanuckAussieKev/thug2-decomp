@@ -108,7 +108,7 @@ maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const
 }
 
 // 0x00525DC0
-ObjectModule* __cdecl FootView::fabricate() { return new FootView; }
+memory::owner<ObjectModule*> __cdecl FootView::fabricate() { return new FootView; }
 
 // (the constructor: inlined in fabricate in the original)
 FootView::FootView()

@@ -33,10 +33,11 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/owner.h"
 
 namespace modules {
 
-modules::FrontEnd* g_front_end_instance;
+memory::owner<modules::FrontEnd*> g_front_end_instance;
 
 bool g_menus_active;
 bool g_pending_script;

@@ -104,7 +104,7 @@ double x87_acos(double x)
 } // namespace
 
 // 0x005147F0
-ObjectModule* __cdecl RiderRemoteSync::fabricate() { return new RiderRemoteSync; }
+memory::owner<ObjectModule*> __cdecl RiderRemoteSync::fabricate() { return new RiderRemoteSync; }
 
 // 0x005144E0
 RiderRemoteSync::RiderRemoteSync()

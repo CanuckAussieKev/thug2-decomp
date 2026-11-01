@@ -18,6 +18,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "game/park_editing/rail_buffer_format.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Array;
@@ -174,7 +175,7 @@ public:
     // 0x004F4970: the rail editor (the component of the object 0x5B509AD3).
     static RailAuthoring* __cdecl sole();
     // 0x004F7FB0 (registered by register_component_types): a new one (0 if out of memory).
-    static objects::ObjectModule* __cdecl fabricate();
+    static memory::owner<objects::ObjectModule*> __cdecl fabricate();
     // 0x004F7C90: the pools made, no rails, the buffer cleared.
     RailAuthoring();
     // 0x004F7D20: the destructor body: cleared, the current pools freed (when made here).

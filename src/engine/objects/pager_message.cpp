@@ -69,7 +69,7 @@ PointerListNode** PointerList::get_erase(PointerListNode** out, PointerListNode*
 }
 
 // 0x004ECF20
-ObjectModule* __cdecl PagerMessageComponent::fabricate() { return new PagerMessageComponent; }
+memory::owner<ObjectModule*> __cdecl PagerMessageComponent::fabricate() { return new PagerMessageComponent; }
 
 // 0x004EC960
 void __cdecl PagerMessageComponent::publish_method_table()

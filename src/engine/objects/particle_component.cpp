@@ -25,6 +25,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -36,7 +37,7 @@ uint32_t g_particle_component_member_functions[126]{
     0x9E100F60, 0xA9DB601E, 0, 0, 0, 0, 0x2F0DA461, 0xA9DB601E, 0, 0, 0, 0, 0xEEFFAE18, 0xA9DB601E, 0, 0, 0, 0,
     0x0FE869E8, 0xA9DB601E, 0, 0, 0, 0, 0x19AA4CD3, 0xA9DB601E, 0, 0, 0, 0, 0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
     0x55835CF2, 0xA9DB601E, 0, 0, 0, 0, 0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0, 0,          0xA9DB601E, 0, 0, 0, 0};
-render::EffectsDirector* g_particle_hub;
+memory::owner<render::EffectsDirector*> g_particle_hub;
 
 namespace {
 
@@ -90,7 +91,7 @@ Colour colour_of(script::Array* array)
 // --- life ---
 
 // 0x0042A000
-ObjectModule* __cdecl EffectsEmitterModule::fabricate() { return new EffectsEmitterModule; }
+memory::owner<ObjectModule*> __cdecl EffectsEmitterModule::fabricate() { return new EffectsEmitterModule; }
 
 // 0x00429940
 void __cdecl EffectsEmitterModule::publish_method_table()

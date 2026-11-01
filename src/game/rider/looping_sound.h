@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/sound/sfx.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -27,7 +28,7 @@ class RiderBoardPhysics;
 class RiderRollingAudio final : public ObjectModule {
 public:
     // 0x00513AD0 (registered by register_component_types): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x00513860 (registered with Create): its script member functions (the table at 0x00684A68) registered.
     static void __cdecl publish_method_table();
     // 0x005138E0: its type; on, the sound to be chosen (changed), in the air, volume_mult 1.

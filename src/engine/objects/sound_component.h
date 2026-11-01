@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/sound/sfx.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -38,7 +39,7 @@ public:
     };
 
     // 0x00433100 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x00432C80 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl publish_method_table();
     // 0x00432D90: its type; no emitter or proxim node; at the origin (w 1) now and

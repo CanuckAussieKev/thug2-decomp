@@ -38,7 +38,7 @@ script::Array* node_array_of(ObjectModule* component)
 // --- the node array ---
 
 // 0x00428010
-ObjectModule* __cdecl WaypointListModule::fabricate() { return new WaypointListModule; }
+memory::owner<ObjectModule*> __cdecl WaypointListModule::fabricate() { return new WaypointListModule; }
 
 // (the constructor: inlined in fabricate in the original)
 WaypointListModule::WaypointListModule()
@@ -77,7 +77,7 @@ void WaypointListModule::reapply_from_data(script::Struct* params)
 // --- the object hooks ---
 
 // 0x00428130
-ObjectModule* __cdecl HookPointRegistryModule::fabricate() { return new HookPointRegistryModule; }
+memory::owner<ObjectModule*> __cdecl HookPointRegistryModule::fabricate() { return new HookPointRegistryModule; }
 
 // (the constructor: inlined in fabricate in the original)
 HookPointRegistryModule::HookPointRegistryModule()
@@ -111,7 +111,7 @@ void HookPointRegistryModule::configure_from_data(script::Struct*)
 // --- the rails ---
 
 // 0x0042B920
-ObjectModule* __cdecl GrindPathLinkModule::fabricate() { return new GrindPathLinkModule; }
+memory::owner<ObjectModule*> __cdecl GrindPathLinkModule::fabricate() { return new GrindPathLinkModule; }
 
 // (the constructor: inlined in fabricate in the original)
 GrindPathLinkModule::GrindPathLinkModule()

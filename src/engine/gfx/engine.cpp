@@ -33,6 +33,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/weather.h"
+#include "engine/core/owner.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
@@ -40,8 +41,8 @@ namespace render {
 
 bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
 
-void* g_flexible_particle_manager;
-void* g_imposter_manager;
+memory::owner<void*> g_flexible_particle_manager;
+memory::owner<void*> g_imposter_manager;
 int g_render_mode;
 // The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
 memory::ListNode g_scene_list;

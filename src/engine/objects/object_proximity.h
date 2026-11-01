@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -18,7 +19,7 @@ namespace objects {
 class ObjectProximityComponent final : public ObjectModule {
 public:
     // 0x004EC420: a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x004EC220 (not a Ghidra function): its script member functions (the table at 0x00682620) registered.
     static void __cdecl publish_method_table();
     // 0x004EC370: its type.

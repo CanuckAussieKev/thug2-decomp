@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -29,7 +30,7 @@ public:
     static constexpr uint32_t kType = 0x0F1641E3;
 
     // 0x00433D90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x00433870 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl publish_method_table();
     // 0x00433C10: its type; no emitter or proxim node.

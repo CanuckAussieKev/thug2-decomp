@@ -192,7 +192,7 @@ void StateHistoryMessage::change_moment(uint32_t time)
 // --- RiderFrameLog ---
 
 // 0x0051AD30
-ObjectModule* __cdecl RiderFrameLog::fabricate() { return new RiderFrameLog; }
+memory::owner<ObjectModule*> __cdecl RiderFrameLog::fabricate() { return new RiderFrameLog; }
 
 // 0x0051ACB0
 RiderFrameLog::RiderFrameLog()

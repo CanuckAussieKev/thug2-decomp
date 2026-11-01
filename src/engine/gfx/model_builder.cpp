@@ -21,6 +21,7 @@
 #include "engine/core/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace gfx {
 
@@ -28,7 +29,7 @@ namespace {
 
 render::RenderModel* g_built_model;
 Rig* g_built_skeleton;
-ModelLook* g_built_appearance;
+memory::owner<ModelLook*> g_built_appearance;
 
 // While Build runs: the model, its skeleton and the appearance's copy.
 render::RenderModel*& built_model() { return g_built_model; }

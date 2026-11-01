@@ -66,7 +66,7 @@ maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths:
 } // namespace
 
 // 0x005248C0
-ObjectModule* __cdecl CarView::fabricate() { return new CarView; }
+memory::owner<ObjectModule*> __cdecl CarView::fabricate() { return new CarView; }
 
 // (the constructor: inlined in fabricate in the original)
 CarView::CarView()

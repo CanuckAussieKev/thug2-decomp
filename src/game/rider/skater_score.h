@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -24,7 +25,7 @@ namespace objects {
 class RiderPointKeeper final : public ObjectModule {
 public:
     // 0x00518B60 (registered by register_component_types): a new one (0 if out of memory), no score yet.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderPointKeeper();
     // 0x00518BE0: the score destroyed and freed, then the base's.

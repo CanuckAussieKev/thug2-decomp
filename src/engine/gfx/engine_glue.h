@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "engine/core/owner.h"
+
 namespace maths {
 class Vec4;
 }
@@ -74,12 +76,12 @@ void __cdecl remove_texture_shadow_caster(const uint8_t* texture);
 
 extern bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
 
-extern WeatherSystem* g_weather;
+extern memory::owner<WeatherSystem*> g_weather;
 
 extern uint32_t g_fog_colour;
 extern uint32_t g_screen_blur;
 extern uint32_t g_screen_blur_frames;
 extern bool g_screen_shot_name_exact;
 extern char g_pending_screen_shot[128];
-extern ScreenEffects* g_screen_effects;
+extern memory::owner<ScreenEffects*> g_screen_effects;
 } // namespace render

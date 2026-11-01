@@ -39,7 +39,7 @@ bool is_game_halted() { return g_simulation_halted; }
 } // namespace
 
 // 0x0043D670
-ObjectModule* __cdecl PadRumbleModule::fabricate() { return new PadRumbleModule; }
+memory::owner<ObjectModule*> __cdecl PadRumbleModule::fabricate() { return new PadRumbleModule; }
 
 // (the constructor: inlined in fabricate in the original)
 PadRumbleModule::PadRumbleModule()

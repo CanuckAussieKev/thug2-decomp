@@ -435,7 +435,7 @@ void clear_to_w1(maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
 } // namespace
 
 // 0x0043AA30
-ObjectModule* __cdecl DrivableModule::fabricate() { return new DrivableModule; }
+memory::owner<ObjectModule*> __cdecl DrivableModule::fabricate() { return new DrivableModule; }
 
 // 0x00437C00
 DrivableModule::DrivableModule()

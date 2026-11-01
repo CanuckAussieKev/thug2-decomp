@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Struct;
@@ -38,7 +39,7 @@ public:
     };
 
     // 0x0043CFC0 (registered with the composite object manager): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x0043C590: its type; no components, settings or sounds.
     EngineAudioModule();
     // 0x0043C5F0: the destructor body: both sounds stopped, then the base's.

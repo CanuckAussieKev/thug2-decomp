@@ -110,7 +110,7 @@ frontend::UiWidget* find_element(uint32_t id)
 } // namespace
 
 // 0x0041EEC0
-ObjectModule* __cdecl PadInputModule::fabricate() { return new PadInputModule; }
+memory::owner<ObjectModule*> __cdecl PadInputModule::fabricate() { return new PadInputModule; }
 
 // 0x0041E6F0
 void __cdecl PadInputModule::publish_method_table()

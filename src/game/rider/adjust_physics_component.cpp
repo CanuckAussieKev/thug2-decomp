@@ -51,7 +51,7 @@ void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModu
 } // namespace
 
 // 0x004F80E0
-ObjectModule* __cdecl RiderPhysicsTweaks::fabricate() { return new RiderPhysicsTweaks; }
+memory::owner<ObjectModule*> __cdecl RiderPhysicsTweaks::fabricate() { return new RiderPhysicsTweaks; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPhysicsTweaks::RiderPhysicsTweaks()

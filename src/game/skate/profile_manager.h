@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/owner.h"
+
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
 // skaters, made by the init_pro_skaters script through add_template), keyed by name in a lookup table, and the
 // profiles in use: the first player's is one of those templates itself, the second player's a copy (made by Init),
@@ -180,6 +182,6 @@ public:
     RiderIdentity* extra_profiles_[3]; // +0x34
 };
 
-extern objects::ProfileRoster* g_profile_roster;
+extern memory::owner<objects::ProfileRoster*> g_profile_roster;
 
 } // namespace objects

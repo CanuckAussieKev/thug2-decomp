@@ -64,7 +64,7 @@ struct SoundParams {
 } // namespace
 
 // 0x00433100
-ObjectModule* __cdecl AudioEmitterModule::fabricate() { return new AudioEmitterModule; }
+memory::owner<ObjectModule*> __cdecl AudioEmitterModule::fabricate() { return new AudioEmitterModule; }
 
 // 0x00432C80
 void __cdecl AudioEmitterModule::publish_method_table()

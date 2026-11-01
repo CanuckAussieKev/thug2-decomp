@@ -104,7 +104,7 @@ bool suspend_should_update(uint8_t* suspend, float* distance)
 } // namespace
 
 // 0x0041BD90
-ObjectModule* __cdecl AutomobileDynamicsModule::fabricate() { return new AutomobileDynamicsModule; }
+memory::owner<ObjectModule*> __cdecl AutomobileDynamicsModule::fabricate() { return new AutomobileDynamicsModule; }
 
 // 0x0041B910
 void __cdecl AutomobileDynamicsModule::publish_method_table()

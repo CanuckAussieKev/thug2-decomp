@@ -21,6 +21,7 @@
 #include "frontend/screen_element_manager.h"
 #include "engine/objects/cutscene_list_cfuncs.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/owner.h"
 
 namespace objects {
 
@@ -51,12 +52,12 @@ int g_coim_integer1{2};
 int g_coim_a;
 int g_coim_b;
 int g_coim_c;
-memory::Zone* g_coim_region;
+memory::owner<memory::Zone*> g_coim_region;
 memory::Arena* g_coim_heap;
 uint32_t g_instance_count;
 // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
 ObjectModule* g_component_list[objects::EntityHub::kMaxComponentTypes];
-objects::EntityHub* g_composite_registry;
+memory::owner<objects::EntityHub*> g_composite_registry;
 uint32_t g_composite_mgr_references;
 
 namespace {

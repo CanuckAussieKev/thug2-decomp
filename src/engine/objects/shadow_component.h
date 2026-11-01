@@ -6,6 +6,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -33,7 +34,7 @@ public:
     static constexpr uint32_t kType = 0x8A897DD2;
 
     // 0x00431800 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x00431380: its type; no shadow, at the origin (w 1) with the ground normal
     // (0, 1, 0, 1), type none, following its object.
     GroundShadowModule();

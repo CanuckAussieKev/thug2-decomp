@@ -62,7 +62,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041D200
-ObjectModule* __cdecl FamComponent::fabricate() { return new FamComponent; }
+memory::owner<ObjectModule*> __cdecl FamComponent::fabricate() { return new FamComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 FamComponent::FamComponent()

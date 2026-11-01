@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -24,7 +25,7 @@ class PadInputModule;
 class FreeLookModule final : public ObjectModule {
 public:
     // 0x004E42E0: a new one (0 if out of memory): the base's constructor, its vtable and type.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     FreeLookModule();
     // 0x004E3F60: the destructor body (the base's).

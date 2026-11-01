@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Array;
@@ -193,7 +194,7 @@ void __cdecl add_goal_editor_nodes(script::Array* nodes, int* index, memory::Are
 class ObjectiveAuthoring final : public objects::ObjectModule {
 public:
     // 0x004EB7F0: a new one (0 if out of memory).
-    static objects::ObjectModule* __cdecl fabricate();
+    static memory::owner<objects::ObjectModule*> __cdecl fabricate();
     // 0x004E6FB0 (not a Ghidra function): its script member functions (the table at 0x00684270) registered.
     static void __cdecl publish_method_table();
     // 0x004EA230: its type, every goal's defaults (the array constructor with

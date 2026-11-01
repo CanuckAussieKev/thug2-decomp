@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/owner.h"
+
 // The records (0x0057ECD0-0x0057FE27): each level's high scores, best combos and (some levels) arcade scores - tables
 // of records kept sorted, best first - and its longest combo, grind, lip trick and manual; the game's records are
 // every level's plus the default initials. They go into and come out of the save as structures (records' value,
@@ -124,6 +126,6 @@ bool __cdecl cfunc_update_initials(script::Struct* params, script::Script* scrip
 // 0x005AFB30: NewRecord - whether the last UpdateRecords set a record (the skate module's +0x384).
 bool __cdecl cfunc_new_record(script::Struct* params, script::Script* script);
 
-extern highscores::BestResults* g_game_records;
+extern memory::owner<highscores::BestResults*> g_game_records;
 
 } // namespace highscores

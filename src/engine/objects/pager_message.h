@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace script {
 class Script;
@@ -43,7 +44,7 @@ struct PagerMessage {
 class PagerMessageComponent final : public ObjectModule {
 public:
     // 0x004ECF20: a new one (0 if out of memory).
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     // 0x004EC960 (not a Ghidra function): its script member functions (the table at 0x006831A8) registered.
     static void __cdecl publish_method_table();
     // 0x004ECE10: its type, an empty list.

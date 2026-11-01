@@ -90,7 +90,7 @@ void walk_camera_restore(ObjectModule* camera, void* state)
 } // namespace
 
 // 0x00517830
-ObjectModule* __cdecl RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
+memory::owner<ObjectModule*> __cdecl RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderBoardPhysics::RiderBoardPhysics()

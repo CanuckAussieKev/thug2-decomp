@@ -170,6 +170,6 @@ void release_manager();
 uint32_t __cdecl button_hash(int index);
 int __cdecl glyph_for_button_tag(uint32_t checksum);
 
-extern pad_input::Hub* g_input_manager;
+extern memory::owner<pad_input::Hub*> g_input_manager;
 
 } // namespace pad_input

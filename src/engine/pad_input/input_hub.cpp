@@ -10,10 +10,11 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/pad_input/device.h"
+#include "engine/core/owner.h"
 
 namespace pad_input {
 
-pad_input::Hub* g_input_manager;
+memory::owner<pad_input::Hub*> g_input_manager;
 
 namespace {
 

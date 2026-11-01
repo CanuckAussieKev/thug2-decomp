@@ -7,6 +7,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
+#include "engine/core/owner.h"
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
@@ -165,6 +166,6 @@ Hub* create_manager(bool create);
 void release_manager();
 Hub*& manager_instance();
 
-extern Hub* g_manager;
+extern memory::owner<Hub*> g_manager;
 
 } // namespace sio

@@ -10,6 +10,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace gfx {
 class BlendChannel;
@@ -29,7 +30,7 @@ public:
 
     // 0x0041A5B0: a new one (zeroed memory, Construct). 0x00419690 (not a Ghidra function; registered with Create):
     // its script member functions (the table at 0x00682350, 0x18 bytes a record) registered.
-    static ObjectModule* __cdecl fabricate();
+    static memory::owner<ObjectModule*> __cdecl fabricate();
     static void __cdecl publish_method_table();
     // 0x0041A410: an empty channel list, an empty observer list (its
     // sentinel node allocated), its type.

@@ -82,7 +82,7 @@ script::Array* node_array_of(GameEntity* object)
 } // namespace
 
 // 0x00434B90
-ObjectModule* __cdecl ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
+memory::owner<ObjectModule*> __cdecl ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ActivationZoneModule::ActivationZoneModule() { kind_tag_ = kType; }

@@ -45,7 +45,7 @@ void place_nodes(ClassNodeList* nodes, GameEntity* object)
 } // namespace
 
 // 0x0051BA10
-ObjectModule* __cdecl TowRideHandler::fabricate() { return new TowRideHandler; }
+memory::owner<ObjectModule*> __cdecl TowRideHandler::fabricate() { return new TowRideHandler; }
 
 // (the constructor: inlined in fabricate in the original)
 TowRideHandler::TowRideHandler()

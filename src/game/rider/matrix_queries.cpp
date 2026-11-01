@@ -51,7 +51,7 @@ double cos_degrees(float degrees) { return skater::x87_cos(static_cast<double>(d
 } // namespace
 
 // 0x00514430
-ObjectModule* __cdecl RiderFrameLookups::fabricate() { return new RiderFrameLookups; }
+memory::owner<ObjectModule*> __cdecl RiderFrameLookups::fabricate() { return new RiderFrameLookups; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderFrameLookups::RiderFrameLookups()
