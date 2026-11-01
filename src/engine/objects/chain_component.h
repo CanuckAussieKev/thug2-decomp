@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace render {
 class PcPrimitive;
@@ -50,7 +51,7 @@ struct Chain {
     uint32_t bone_end_{0};            // +0x018 bone_end
     uint32_t obj_end_{0};             // +0x01C obj_end (the object whose bone_end the chain ends at)
     int links_{0};                    // +0x020 segments + 1
-    ChainLink chain_link_[kMaxLinks]; // +0x024
+    std::array<ChainLink, kMaxLinks> chain_link_; // +0x024
     int iterations_{0};               // +0x664 (0x41E56E7B): constraint passes a second
     float damping_{0.0f};             // +0x668 damp_force
     float sag_force_{0.0f};           // +0x66C gravity_force
@@ -121,7 +122,7 @@ public:
     uint32_t axis_to_bone_;       // +0x3C collision_info's 0xD962E451: ... to it
     uint32_t plane_bone_;         // +0x40 collision_info's 0x94291927: the plane's point
     bool invisible_;              // +0x44
-    uint8_t pad45[3]{};
+    std::array<uint8_t, 3> pad45{};
 };
 
 } // namespace objects

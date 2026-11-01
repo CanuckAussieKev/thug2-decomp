@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/maths/mat4.h"
@@ -93,10 +94,10 @@ constexpr uint32_t kWalkParameters = 0x6775E538;    // walk_parameters
 constexpr const char* kWallplantTrick = "bike_Wallplant_Trick";
 constexpr uint32_t kThugWallplantTrick = 0x5D1F84A7; // Wallplant_Trick
 constexpr const char* kBikeObject = "ThawBmx";
-const char* const kSoundTables[] = {
+constexpr auto kSoundTables = std::to_array<const char*>({
     "thaw_bmx_terrain_land", "thaw_bmx_terrain_grindland", "thaw_bmx_terrain_ollie", "thaw_bmx_terrain_grindjump",
     "thaw_bmx_terrain_bonk", "thaw_bmx_terrain_roll",      "thaw_bmx_terrain_grind",
-};
+});
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 objects::GameEntity* object_of(const SkaterPhysicsModule* core) { return core->entity_; }
@@ -578,11 +579,11 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
     if (!surface_kind::get_sound_info(entry, static_cast<surface_kind::SoundInfo*>(info)))
         return 0;
     // (the first of each kind logged: the bike's sounds can be checked from the log)
-    static bool s_logged[8] = {};
+    static std::array<bool, 8> s_logged = {};
     const int k = static_cast<int>(kind);
     if (!s_logged[k]) {
         s_logged[k] = true;
-        get_log("thaw_bmx: bike sound %s -> %s", kSoundTables[k], static_cast<surface_kind::SoundInfo*>(info)->name);
+        get_log("thaw_bmx: bike sound %s -> %s", kSoundTables[k], static_cast<surface_kind::SoundInfo*>(info)->name.data());
     }
     return 1;
 }

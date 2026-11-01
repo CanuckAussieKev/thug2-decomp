@@ -6,6 +6,7 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/d3dx.h"
@@ -46,8 +47,8 @@ Singleton* g_instances;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 Singleton*& instances() { return g_instances; }
-Singleton* g_visible_instances[4096]; // draw_instance_batch' list
-Singleton** get_visible() { return g_visible_instances; }
+std::array<Singleton*, 4096> g_visible_instances; // draw_instance_batch' list
+Singleton** get_visible() { return g_visible_instances.data(); }
 const maths::Mat4* last_bones() { return g_last_bones; }
 void set_last_bones(const maths::Mat4* bones) { g_last_bones = bones; }
 const D3DMATRIX* get_view_world()
@@ -188,7 +189,7 @@ void Singleton::render(uint32_t draw_bits)
         } else {
             if (flags & 4) {
                 g_instance_colour_on = 1; // the instance's colour on
-                std::memcpy(g_instance_colour, color, 4);
+                std::memcpy(g_instance_colour.data(), color.data(), 4);
             }
             draw_scene(scene, draw_bits | kRenderNoCulling, 0);
             if (flags & 4)
@@ -245,7 +246,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
     if (!instance->active)
         return;
     set_world_transform(raw::as<const float>(&instance->transform));
-    const auto* centre = raw::as<const maths::Vec4>(instance->scene->centre);
+    const auto* centre = raw::as<const maths::Vec4>(instance->scene->centre.data());
     if ((flags & 8) ||
         (sphere_in_view(centre, instance->scene->radius) && !sphere_occluded(centre, instance->scene->radius, 1))) {
         if (instance->bones) {
@@ -264,7 +265,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
 void draw_instance_batch(uint32_t flags, int viewport)
 {
     const uint32_t mask = 1u << (viewport & 0x1F);
-    float culling[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}; // the identity at each one's position
+    std::array<float, 16> culling = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}; // the identity at each one's position
     int count = 0;
     set_last_bones(nullptr);
     if (instances()) {
@@ -278,11 +279,11 @@ void draw_instance_batch(uint32_t flags, int viewport)
             const auto* position = raw::as<const float>(get_position(instance));
             for (int k = 0; k < 4; ++k)
                 culling[12 + k] = position[k];
-            set_world_transform(culling);
+            set_world_transform(culling.data());
             float radius = instance->scene->radius;
             if (instance->bones && bones_on_device(instance->scene) == 0 && radius < 72.0f)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
-            if (!sphere_occluded(raw::as<const maths::Vec4>(instance->scene->centre), radius, 1))
+            if (!sphere_occluded(raw::as<const maths::Vec4>(instance->scene->centre.data()), radius, 1))
                 get_visible()[count++] = instance;
         }
         if (count > 0) {
@@ -302,7 +303,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
                     instance->render(flags);
             }
             clear_flag_786e_b4();
-            const float camera[3] = {g_camera.position[0], g_camera.position[1], g_camera.position[2]};
+            const std::array<float, 3> camera = {{g_camera.position[0], g_camera.position[1], g_camera.position[2]}};
             const double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
             auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {

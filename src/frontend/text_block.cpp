@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -118,13 +119,13 @@ void ParagraphWidget::add_words(const char* text)
     int previous = 0;
     int result = 0;
     do {
-        char word[0x64];
-        result = text::next_word(word, cursor);
+        std::array<char, 0x64> word{};
+        result = text::next_word(word.data(), cursor);
         float width = 0.0f, height = 0.0f;
-        read_string_param(font, word, &width, &height);
+        read_string_param(font, word.data(), &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span_;
-        if (full || previous == 1 || std::strlen(word) + static_cast<size_t>(line_length_) >= kLineChars) {
+        if (full || previous == 1 || std::strlen(word.data()) + static_cast<size_t>(line_length_) >= kLineChars) {
             char* last = lines_[line_] + line_length_ - 1;
             if (*last == ' ')
                 *last = 0;
@@ -134,8 +135,8 @@ void ParagraphWidget::add_words(const char* text)
             line_length_ = 0;
             line_width_ = 0.0f;
         }
-        copy_text(lines_[line_] + line_length_, word);
-        line_length_ += static_cast<int>(std::strlen(word));
+        copy_text(lines_[line_] + line_length_, word.data());
+        line_length_ += static_cast<int>(std::strlen(word.data()));
         line_width_ = static_cast<float>(static_cast<double>(width) + line_width_);
         previous = result;
     } while (result != 2);
@@ -280,13 +281,13 @@ bool ParagraphWidget::backspace()
     const int length = fetch_magnitude();
     if (length == 0)
         return false;
-    char text[0x200];
-    fetch_caption(text, sizeof(text));
+    std::array<char, 0x200> text{};
+    fetch_caption(text.data(), sizeof(text));
     if (length > 1 && text[length - 1] == '\\' && text[length - 2] == '\\')
         text[length - 2] = 0;
-    const char* texts[1] = {text};
+    std::array<const char*, 1> texts = {{text.data()}};
     text[length - 1] = 0;
-    change_caption(texts, 1);
+    change_caption(texts.data(), 1);
     return true;
 }
 
@@ -300,19 +301,19 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
         // the last word must fit the width
         void* font = get_font(font_name_);
         const char* cursor = joined;
-        char word[0x64];
-        while (text::next_word(word, cursor) != 2) {
+        std::array<char, 0x64> word{};
+        while (text::next_word(word.data(), cursor) != 2) {
         }
         float width = 0.0f, height = 0.0f;
-        read_string_param(font, word, &width, &height);
+        read_string_param(font, word.data(), &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         if (width > span_) {
             memory::dealloc(joined);
             return false;
         }
     }
-    const char* texts[1] = {joined};
-    change_caption(texts, 1);
+    std::array<const char*, 1> texts = {{joined}};
+    change_caption(texts.data(), 1);
     memory::dealloc(joined);
     return true;
 }
@@ -339,7 +340,7 @@ void ParagraphWidget::update_lines()
         }
         line->shadow_x_ = shadow_x_;
         line->shadow_y_ = shadow_y_;
-        std::memcpy(line->shadow_rgba_, shadow_rgba_, 4);
+        std::memcpy(line->shadow_rgba_.data(), shadow_rgba_.data(), 4);
         line->override_rgba_ = override_rgba_;
         child.assign_value(child->following_.owner_object_);
     }
@@ -359,21 +360,21 @@ void ParagraphWidget::change_traits(Struct* params)
         object_flags_ |= kVisibleNow;
     if (params->has_bare_flag(kMayGrow))
         may_grow_ = true;
-    const char* texts[kMaxTexts];
+    std::array<const char*, kMaxTexts> texts{};
     script::Array* array = nullptr;
     if (params->fetch_text(kText, &texts[0], 0)) {
-        change_caption(texts, 1);
+        change_caption(texts.data(), 1);
     } else if (params->fetch_list(kText, &array, 0)) {
         const int count = static_cast<int>(array->extent_);
         for (int i = 0; i < count && i < kMaxTexts; ++i)
             texts[i] = array->fetch_text(static_cast<uint32_t>(i));
-        change_caption(texts, count < kMaxTexts ? count : kMaxTexts);
+        change_caption(texts.data(), count < kMaxTexts ? count : kMaxTexts);
     }
     if (params->has_bare_flag(kBlurEffect) && !blur_) {
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap_);
         blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
-        std::memcpy(&blur_->rgba_value_, shown_.rgba, 4);
+        std::memcpy(&blur_->rgba_value_, shown_.rgba.data(), 4);
         memory::Hub::get_pull()->leave_heap_scope();
     } else if (params->has_bare_flag(kNoBlurEffect) && blur_) {
         delete_blur(blur_);
@@ -392,7 +393,7 @@ void ParagraphWidget::change_traits(Struct* params)
     if (params->has_bare_flag(kShadowOffFlag))
         shadow_ = false;
     if (uint32_t shadow = 0; read_colour_param(params, kShadowRgba, &shadow))
-        std::memcpy(shadow_rgba_, &shadow, 4); // (RGBA, red the low byte)
+        std::memcpy(shadow_rgba_.data(), &shadow, 4); // (RGBA, red the low byte)
     if (params->has_bare_flag(kRememberOverrideRgbaState))
         remembered_override_ = override_rgba_;
     if (params->has_bare_flag(kRestoreOverrideRgbaState))
@@ -445,7 +446,7 @@ void ParagraphWidget::tick_frame()
     for (int i = 0; i < rows_filled_; ++i) {
         child->change_alignment(inner_align_h_, -1.0f);
         uint32_t rgba = 0;
-        std::memcpy(&rgba, shown_.rgba, 4);
+        std::memcpy(&rgba, shown_.rgba.data(), 4);
         child->change_rgba(rgba, 1);
         auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span_ * get_half());
         child->change_location(x, y, 0);

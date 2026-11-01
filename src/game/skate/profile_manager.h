@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
@@ -25,8 +26,8 @@ namespace objects {
 // info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code is in
 // skater_profile.cpp (0x00585ED0-0x005871A0); the appearance's (0x00488xxx-0x00489xxx) is called through the game.
 struct RiderIdentity {
-    alignas(4) uint8_t look_data_[0x5C]{}; // a gfx::ModelLook, made in place by make_new (appearance())
-    uint8_t details_[8]{};                 // +0x5C (a Scripts::CStruct)
+    alignas(4) std::array<uint8_t, 0x5C> look_data_{}; // a gfx::ModelLook, made in place by make_new (appearance())
+    std::array<uint8_t, 8> details_{};                 // +0x5C (a Scripts::CStruct)
 
     RiderIdentity();                                    // 0x00586D60
     uint32_t fetch_title();                                       // 0x00586150 (its info's name)
@@ -41,8 +42,8 @@ struct RiderIdentity {
     void write_to_save(script::Struct* save);                     // 0x00586B00
     bool get_reset(script::Struct* params);                       // 0x00586810 (its defaults, then `params`; true)
     void set_appearance(script::Struct* appearance, bool update); // 0x00488F40
-    script::Struct* details_params() { return raw::as<script::Struct>(details_); }
-    gfx::ModelLook* appearance() { return raw::as<gfx::ModelLook>(look_data_); }
+    script::Struct* details_params() { return raw::as<script::Struct>(details_.data()); }
+    gfx::ModelLook* appearance() { return raw::as<gfx::ModelLook>(look_data_.data()); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
     void erase_one();
     // 0x00543010: the destructor body (Delete without the free): the info cleared, the appearance's destructor body.
@@ -69,7 +70,7 @@ struct RiderIdentity {
         uint32_t trick{};
         uint32_t keys{};
         bool flag{false};
-        uint8_t pad9[3]{};
+        std::array<uint8_t, 3> pad9{};
         // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
         SpecialTrick();
         bool is_vacant();
@@ -97,7 +98,7 @@ static_assert(sizeof(RiderIdentity) == 0x64, "layout must match the original");
 // 0x00587120 / 0x00587130: a list of distinct checksums (up to 256, its count at +0x400): emptied / filled from the
 // global array 0x5004A967.
 struct ChecksumSet {
-    uint32_t items_[256]{};
+    std::array<uint32_t, 256> items_{};
     int num_{0}; // +0x400
     ChecksumSet();
     void get_fill();
@@ -179,12 +180,12 @@ public:
     static void get_release();
 
     ProfileTable templates_{};     // +0x00
-    RiderIdentity* profiles_[2]{}; // +0x14 (the first: a template; the second: a copy)
+    std::array<RiderIdentity*, 2> profiles_{}; // +0x14 (the first: a template; the second: a copy)
     int cursor_pos_{0};            // +0x1C
     bool locked_{false};           // +0x20
     int extra_count_{0};           // +0x24
-    uint32_t extra_names_[3]{};        // +0x28
-    RiderIdentity* extra_profiles_[3]{}; // +0x34
+    std::array<uint32_t, 3> extra_names_{};        // +0x28
+    std::array<RiderIdentity*, 3> extra_profiles_{}; // +0x34
 };
 
 extern gsl::owner<objects::ProfileRoster*> g_profile_roster;

@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/texture_dict.h"
@@ -69,7 +70,7 @@ uint32_t pack_colour(int c0, int c1, int c2, int c3)
 // The four optional colour components (0x80 each by default) and whether any was given (every one is read).
 uint32_t read_colour(Struct* params, bool* given)
 {
-    int c[4] = {0x80, 0x80, 0x80, 0x80};
+    std::array<int, 4> c = {{0x80, 0x80, 0x80, 0x80}};
     bool any = params->fetch_int_value(kColour0, &c[0], 0);
     if (params->fetch_int_value(kColour1, &c[1], 0))
         any = true;
@@ -124,16 +125,16 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
     params->read_hash_value(kCapturedTexture, &name, 1);
     void* face = get_face_texture();
     render::BitmapTexture* texture = find_texture(name);
-    uint8_t image[0x4420];
-    std::memset(image, 0, sizeof(image));
-    texture->set_pixels(static_cast<void*>(image));
+    std::array<uint8_t, 0x4420> image{};
+    std::memset(image.data(), 0, sizeof(image));
+    texture->set_pixels(static_cast<void*>(image.data()));
     const int palette_size = static_cast<int>(texture->get_palette_size());
     const uint8_t bits_per_pixel = texture->get_unknown_e();
-    texture->set_palette(static_cast<void*>(image + 0x20), palette_size / (bits_per_pixel >> 3));
+    texture->set_palette(static_cast<void*>(image.data() + 0x20), palette_size / (bits_per_pixel >> 3));
     const void* pixels = texture->get_pixels();
     const int pixel_size = static_cast<int>(texture->get_pixels_size());
-    std::memcpy(image + 0x20 + palette_size, pixels, pixel_size);
-    static_cast<gfx::FaceSkin*>(face)->set_image(image, pixel_size + palette_size + 0x20);
+    std::memcpy(image.data() + 0x20 + palette_size, pixels, pixel_size);
+    static_cast<gfx::FaceSkin*>(face)->set_image(image.data(), pixel_size + palette_size + 0x20);
     return true;
 }
 

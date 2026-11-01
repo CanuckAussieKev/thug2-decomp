@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/str.h"
 #include "frontend/screen_element.h"
@@ -79,7 +80,7 @@ int count_active(memory::ListNode* head)
 // 0x0055DD10
 void GoalManager::update_time_display()
 {
-    char text[64];
+    std::array<char, 64> text{};
     text[0] = 0;
     const int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
@@ -92,13 +93,13 @@ void GoalManager::update_time_display()
             minutes = time / 60000;
             seconds = (time - minutes * 60000) / 1000;
         }
-        std::snprintf(text, sizeof(text), "%2i:%.2i", minutes, seconds); // "%2i:%.2i"
+        std::snprintf(text.data(), sizeof(text), "%2i:%.2i", minutes, seconds); // "%2i:%.2i"
         break;
     }
     frontend::ElementPtr element;
     frontend::UiTree::sole()->fetch_part(&element, kTheTime, 0);
     if (element)
-        core::down_cast<frontend::LabelWidget>(element.owner_object_)->change_caption(text);
+        core::down_cast<frontend::LabelWidget>(element.owner_object_)->change_caption(text.data());
 }
 
 // 0x0055DEA0
@@ -190,33 +191,33 @@ void GoalManager::append_objective_list_entries()
         item->put_name_key(kGoalIdChecksum, goal->get_objective_key());
         item->append_word(kText, text);
         if (goal->has_won()) {
-            char record[128];
+            std::array<char, 128> record{};
             int value = 0;
             if (goal->is_contest_objective()) {
                 params->fetch_int_value(kWinRecord, &value, 0);
-                std::snprintf(record, sizeof(record), "%i", value); // "%i"
+                std::snprintf(record.data(), sizeof(record), "%i", value); // "%i"
                 const char* suffix = value == 1   ? "st place"      // "st place"
                                      : value == 2 ? "nd place"      // "nd place"
                                      : value == 3 ? "rd place"      // "rd place"
                                                   : "";
-                std::size_t length = std::strlen(record);
-                std::snprintf(record + length, sizeof(record) - length, "%s", suffix);
-                item->append_word(kRecordText, record);
+                std::size_t length = std::strlen(record.data());
+                std::snprintf(record.data() + length, sizeof(record) - length, "%s", suffix);
+                item->append_word(kRecordText, record.data());
             } else {
                 uint32_t type = 0;
                 if (params->read_hash_value(kRecordType, &type, 0)) {
                     if (type == kScore) {
                         params->fetch_int_value(kWinRecord, &value, 0);
-                        std::snprintf(record, sizeof(record), "%s", text::format_with_separators(value)); // "%s"
-                        item->append_word(kRecordText, record);
+                        std::snprintf(record.data(), sizeof(record), "%s", text::format_with_separators(value)); // "%s"
+                        item->append_word(kRecordText, record.data());
                     } else if (type == kTime) {
                         int ms = 0;
                         params->fetch_int_value(kWinRecord, &ms, 0);
                         const int total_seconds = ms / 1000;
                         const int minutes = total_seconds / 60;
-                        std::snprintf(record, sizeof(record), "%i:%02i.%02i", minutes, total_seconds - minutes * 60,
+                        std::snprintf(record.data(), sizeof(record), "%i:%02i.%02i", minutes, total_seconds - minutes * 60,
                                       (ms % 1000) / 10); // "%i:%02i.%02i"
-                        item->append_word(kRecordText, record);
+                        item->append_word(kRecordText, record.data());
                     }
                 } else {
                     item->put_name_key(0u, kNoRecord);

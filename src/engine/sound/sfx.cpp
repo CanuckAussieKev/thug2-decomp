@@ -15,6 +15,7 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/objects/movie_manager.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 
@@ -24,9 +25,9 @@ float g_default_dropoff{1020.0f};
 namespace {
 float g_volume_scale{100.0f};
 } // namespace
-SoundWaveSlot g_permanent_waves[256];
-SoundWaveSlot g_level_waves[256];
-PlayingSound g_playing_sounds[48];
+std::array<SoundWaveSlot, 256> g_permanent_waves;
+std::array<SoundWaveSlot, 256> g_level_waves;
+std::array<PlayingSound, 48> g_playing_sounds;
 gsl::owner<AudioMixer*> g_audio_mixer;
 PositionalSound* g_positional_head;
 int g_permanent_count;
@@ -43,18 +44,18 @@ constexpr int kMaxWaves = 256;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-PlayingSound* get_playing() { return g_playing_sounds; }
+PlayingSound* get_playing() { return g_playing_sounds.data(); }
 
 float g_master_gain{100.0f};
 float g_pitch{1.0f};
-PositionalSound g_spatial_voices[128];
+std::array<PositionalSound, 128> g_spatial_voices;
 
-PositionalSound* positional_pool() { return g_spatial_voices; }
+PositionalSound* positional_pool() { return g_spatial_voices.data(); }
 PositionalSound*& positional_head() { return g_positional_head; }
 int& positional_count() { return g_positional_count; }
-SoundWaveSlot* permanent_waves() { return g_permanent_waves; }
+SoundWaveSlot* permanent_waves() { return g_permanent_waves.data(); }
 int& permanent_count() { return g_permanent_count; }
-SoundWaveSlot* level_waves() { return g_level_waves; }
+SoundWaveSlot* level_waves() { return g_level_waves.data(); }
 int& get_level_count() { return g_level_count; }
 float& default_dropoff() { return g_default_dropoff; }
 float& master_loudness() { return g_master_gain; }

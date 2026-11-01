@@ -11,6 +11,7 @@
 #include <cstring>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -35,9 +36,9 @@ namespace render {
 namespace {
 float g_unpack_z_scale{0.0019569471f};
 float g_unpack11_scale{0.0009775171f};
-uint32_t g_fvf_by_set_count[5]{0, 0x100, 0x200, 0x300, 0x400};
+std::array<uint32_t, 5> g_fvf_by_set_count{{0, 0x100, 0x200, 0x300, 0x400}};
 } // namespace
-uint32_t g_vertex_shaders[6];
+std::array<uint32_t, 6> g_vertex_shaders;
 
 namespace {
 
@@ -46,11 +47,11 @@ void* alloc_block(size_t size) { return crt::alloc_block(size); } // the game's 
 // A vertex's bone-scaled position record (0x84 bytes): 12 bytes unused, the three bones' weights, then each bone's
 // position (P, Q, R) and the vertex's offset from it (A, B, C), four floats each, and the three bones (-1: none).
 struct ScaledVertex {
-    uint32_t unused[3];
-    float weights[3];
+    std::array<uint32_t, 3> unused;
+    std::array<float, 3> weights;
     float p[4], q[4], r[4];
     float a[4], b[4], c[4];
-    int bones[3];
+    std::array<int, 3> bones;
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
@@ -83,7 +84,7 @@ void scaled_position(const ScaledVertex& v, float* out)
     const float ax = v.p[0] + e0[0] * v.a[0], ay = v.p[1] + e0[2] * v.a[1], az = v.p[2] + e0[1] * v.a[2];
     const float bx = v.q[0] + e1[0] * v.b[0], by = v.q[1] + e1[2] * v.b[1], bz = v.q[2] + e1[1] * v.b[2];
     const float cx = v.r[0] + e2[0] * v.c[0], cy = v.r[1] + e2[2] * v.c[1], cz = v.r[2] + e2[1] * v.c[2];
-    const float* s = v.weights;
+    const float* s = v.weights.data();
     out[0] = ax * s[0] + bx * s[1] + cx * s[2];
     out[1] = ay * s[0] + by * s[1] + cy * s[2];
     out[2] = az * s[0] + bz * s[1] + cz * s[2];
@@ -144,7 +145,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     if (!body.scaled.empty())
         apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride);
     mesh->fvf = vertex_format(body.vertex_types[0]);
-    *raw::as<uint32_t>(mesh->unknown3c_) = vertex_format(body.vertex_types[1]);
+    *raw::as<uint32_t>(mesh->unknown3c_.data()) = vertex_format(body.vertex_types[1]);
     mesh->unknown1c_[1] = body.offsets[0];
     mesh->unknown1c_[0] = body.offsets[1];
     mesh->unknown1c_[2] = body.offsets[2];

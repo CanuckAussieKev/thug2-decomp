@@ -7,6 +7,7 @@
 #include <cstring>
 #include <new>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -22,13 +23,13 @@ namespace level_nodes {
 using script::Array;
 
 namespace {
-uint32_t g_node_names[1000];
+std::array<uint32_t, 1000> g_node_names;
 PrefixTables* g_node_prefixes;
 
 constexpr uint32_t kName = 0xA1DC81F9; // name
 constexpr int kGrowBy = 100;           // indices
 
-uint32_t* node_names() { return g_node_names; } // (room for 1000)
+uint32_t* node_names() { return g_node_names.data(); } // (room for 1000)
 
 // The PrefixNodes stored under `prefix` (lists::KeyMap's lookup, inlined in the original).
 PrefixNodes* get_find(lists::KeyMap* table, uint32_t prefix)
@@ -143,10 +144,10 @@ void PrefixTables::add_node_array(uint32_t name)
         // The name is copied as it is read (the copy isn't terminated until a prefix is cut off): at each '_', the
         // part before it is a prefix (unless it's "TRG"), and both it and it with the '_' become known names; a
         // name ending in digits has the part before them as a prefix too.
-        char buffer[1000];
+        std::array<char, 1000> buffer{};
         char* digits = nullptr;
         for (const char* p = text; *p; ++p) {
-            char* at = buffer + (p - text);
+            char* at = buffer.data() + (p - text);
             *at = *p;
             const char c = *p;
             if (c < '0' || c > '9')
@@ -155,19 +156,19 @@ void PrefixTables::add_node_array(uint32_t name)
                 digits = at;
             if (c == '_') {
                 *at = '\0';
-                if (_stricmp(buffer, "TRG") != 0)
-                    table->append_one(checksums::hash_from_text(buffer), static_cast<uint16_t>(i));
-                script::register_name_hash(checksums::hash_from_text(buffer), buffer);
+                if (_stricmp(buffer.data(), "TRG") != 0)
+                    table->append_one(checksums::hash_from_text(buffer.data()), static_cast<uint16_t>(i));
+                script::register_name_hash(checksums::hash_from_text(buffer.data()), buffer.data());
                 at[0] = '_';
                 at[1] = '\0';
-                script::register_name_hash(checksums::hash_from_text(buffer), buffer);
+                script::register_name_hash(checksums::hash_from_text(buffer.data()), buffer.data());
             }
         }
         if (digits) {
             *digits = '\0';
-            const uint32_t prefix = checksums::hash_from_text(buffer);
+            const uint32_t prefix = checksums::hash_from_text(buffer.data());
             table->append_one(prefix, static_cast<uint16_t>(i));
-            script::register_name_hash(prefix, buffer);
+            script::register_name_hash(prefix, buffer.data());
         }
     }
     table->compact();
@@ -241,12 +242,12 @@ uint32_t* collect_nodes_by_prefix(uint32_t prefix, uint16_t* count)
 // 0x0045BFB0
 uint32_t* collect_nodes_by_prefix(const char* prefix, uint16_t* count)
 {
-    char buffer[100];
+    std::array<char, 100> buffer{};
     const size_t length = std::strlen(prefix);
     if (length && prefix[length - 1] == '_') {
-        std::memcpy(buffer, prefix, length + 1); // (unchecked: the original's too)
+        std::memcpy(buffer.data(), prefix, length + 1); // (unchecked: the original's too)
         buffer[length - 1] = '\0';
-        prefix = buffer;
+        prefix = buffer.data();
     }
     return node_prefixes()->get_nodes(checksums::hash_from_text(prefix), count);
 }

@@ -7,6 +7,7 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/surface_material.h"
@@ -22,7 +23,7 @@
 namespace render {
 
 namespace {
-MeshRef* g_drawn_meshes[4096];
+std::array<MeshRef*, 4096> g_drawn_meshes;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 uint8_t& get_z_write() { return g_z_write; }
@@ -30,14 +31,14 @@ float sphere_depth() { return g_last_sphere_distance; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
-MeshRef** get_drawn() { return g_drawn_meshes; }
+MeshRef** get_drawn() { return g_drawn_meshes.data(); }
 struct DepthOrderedMesh {
     MeshRef* mesh;
     float depth;
     uint32_t unused;
 };
-DepthOrderedMesh g_sorted_meshes[1000];
-DepthOrderedMesh* get_sorted() { return g_sorted_meshes; }
+std::array<DepthOrderedMesh, 1000> g_sorted_meshes;
+DepthOrderedMesh* get_sorted() { return g_sorted_meshes.data(); }
 
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t mesh_traits(const MeshRef* mesh) { return mesh->flags; }
@@ -72,7 +73,7 @@ struct Lap {
             return true;
         if (!(mesh->viewports & viewport_bit_))
             return false;
-        auto* centre = raw::as<const maths::Vec4>(mesh->centre); // (the sphere: centre and radius)
+        auto* centre = raw::as<const maths::Vec4>(mesh->centre.data()); // (the sphere: centre and radius)
         const float radius = mesh->radius;
         if (!sphere_in_view(centre, radius))
             return false;

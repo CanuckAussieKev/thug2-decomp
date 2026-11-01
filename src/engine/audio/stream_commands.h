@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 // Streams: sounds streamed from data\streams\pcm\pcm.wad (speech, effects) on the three stream channels; the
 // records of what each plays are audio::Stream (music_player.h). Each command does nothing (returns 0 / false) while
@@ -13,7 +14,7 @@ namespace audio {
 struct StreamAmpCurve {
     uint32_t checksum;
     int size;
-    uint8_t data[0x1000];
+    std::array<uint8_t, 0x1000> data;
 };
 static_assert(sizeof(StreamAmpCurve) == 0x1008, "layout must match the original");
 

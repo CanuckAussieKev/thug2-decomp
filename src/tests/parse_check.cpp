@@ -10,6 +10,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "engine/core/parse_number.h"
 
@@ -66,7 +67,7 @@ int main(int argc, char** argv)
     // the same texts every run unless another seed is given
     const auto seed = static_cast<std::mt19937::result_type>(argc > 2 ? text::to_int(argv[2]) : 12345);
     std::mt19937 random(seed);
-    const char alphabet[] = " \t+-0123456789012345678901234567890123456789..eEexXpPabcfinINFNAN";
+    const auto alphabet = std::to_array(" \t+-0123456789012345678901234567890123456789..eEexXpPabcfinINFNAN");
     std::uniform_int_distribution<int> length(0, 24);
     std::uniform_int_distribution<int> pick(0, static_cast<int>(sizeof(alphabet)) - 2);
     for (int i = 0; i < count; ++i) {

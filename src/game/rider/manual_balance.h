@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 // The balance of a balance trick (0x00579850-0x0057A177): a manual, a grind, a lip trick or a skitch - the skater's
 // balance trick component keeps one each (0x004F8D00-). The skater leans (lean_, degrees) and the lean speeds up
@@ -51,7 +52,7 @@ public:
     RiderTeeterMoves* balance_trick_{}; // +0x08 SkaterBalanceTrick
     RiderPointKeeper* points_held_{};   // +0x0C SkaterScore
     PadInputModule* input_{};           // +0x10 input
-    uint8_t unknown14_[0x10]{};
+    std::array<uint8_t, 0x10> unknown14_{};
     float clock_{};           // +0x24
     float on_rail_seconds_{}; // +0x28
     float best_time_{};       // +0x2C
@@ -59,7 +60,7 @@ public:
     float lean_speed_{};      // +0x34
     float cheese_{};          // +0x38
     bool pushed_{};           // +0x3C a button was let go, or the "no input" time passed
-    uint8_t pad3d_[3]{};
+    std::array<uint8_t, 3> pad3d_{};
     uint32_t start_time_{};  // +0x40 the game clock at the start
     uint32_t left_button_{}; // +0x44
     uint32_t right_press_{}; // +0x48

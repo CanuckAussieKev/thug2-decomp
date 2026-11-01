@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_chains.h"
@@ -149,10 +150,10 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
     }
     if (chain.ledge) {
         // (the feature map: a ledge's side to hang from - THUG2's HangLeft / HangRight flags, the whole ledge)
-        static const char* const kSides[3] = {"Auto", "Left", "Right"};
+        static const std::array<const char*, 3> kSides = {{"Auto", "Left", "Right"}};
         int side = chain.hang >= 0 && chain.hang <= 2 ? chain.hang : 0;
         ImGui::BeginDisabled(!chain.added);
-        if (ImGui::Combo("Hang from", &side, kSides, 3) && side != chain.hang)
+        if (ImGui::Combo("Hang from", &side, kSides.data(), 3) && side != chain.hang)
             get_ask(requests, chains::kOpHang, static_cast<uint32_t>(side));
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))

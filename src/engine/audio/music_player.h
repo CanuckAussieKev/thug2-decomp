@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 // Music: playlists of streamed tracks.
 namespace audio {
@@ -8,13 +9,13 @@ namespace audio {
 // A playlist (0xCB0 bytes; three at 0x00698098, the current one's index at 0x0069BA9C): up to 80 tracks, and
 // 128-bit masks of the tracks switched off (in the music menu) and those already played this round.
 struct Playlist {
-    uint8_t tracks[80][40]; // a track's name first (the rest unknown)
+    std::array<std::array<uint8_t, 40>, 80> tracks; // a track's name first (the rest unknown)
     int count;
     uint32_t unknownc84_;
-    uint64_t off[2]; // tracks 0-63, 64-127
-    uint64_t played[2];
+    std::array<uint64_t, 2> off; // tracks 0-63, 64-127
+    std::array<uint64_t, 2> played;
     uint8_t unknownca8_; // set: no next track (cleared by queue_track, set by empty_queue / ChangeTrackState)
-    uint8_t padca9_[7];
+    std::array<uint8_t, 7> padca9_;
 };
 static_assert(sizeof(Playlist) == 0xCB0, "layout must match the original");
 
@@ -56,24 +57,25 @@ struct Stream {
     int name_count_;       // +0x20 names in use
     uint32_t begin_frame_; // +0x24 the frame it started (frame_clock::get_draw_frame)
     uint8_t use_pos_info_; // +0x28 its volume follows the owner's position (play_stream_at_object)
-    uint8_t pad29[3];
+    std::array<uint8_t, 3> pad29;
     int falloff_curve_; // +0x2C
     uint32_t*
         listener; // +0x30 the stream's frame amplitudes (a StreamAmpCurve: checksum and size cleared when it ends)
-    struct {
+    struct Name {
         uint32_t checksum;
         StreamAmpCurve* frame_amp_;
-    } names[8]; // +0x34 its names (AddStream adds more) and their frame amplitudes
+    };
+    std::array<Name, 8> names; // +0x34 its names (AddStream adds more) and their frame amplitudes
 };
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
 // The music's data (music_player.cpp): the playlists and their track titles (100 characters per track, those of playlist 0),
 // the three streams and the objects that started them, and the user soundtrack's shuffled order.
-extern Playlist g_playlists[2];
-extern char g_track_titles[80][100];
-extern Stream g_streams[3];
-extern void* g_stream_owners[3];
-extern int g_user_order[600];
+extern std::array<Playlist, 2> g_playlists;
+extern std::array<std::array<char, 100>, 80> g_track_titles;
+extern std::array<Stream, 3> g_streams;
+extern std::array<void*, 3> g_stream_owners;
+extern std::array<int, 600> g_user_order;
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
 // 0x00450220: whether no stream with this id is playing.

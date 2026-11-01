@@ -15,6 +15,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
@@ -47,12 +48,12 @@ constexpr uint32_t kX = 0x7323E97C;               // "x"
 constexpr uint32_t kY = 0x0424D9EA;               // "Y"
 constexpr uint32_t kSkaterMHead = 0x650FAB6D;     // "skater_m_head"
 constexpr uint32_t kSkaterFHead = 0x0FC85BAE;     // "skater_f_head"
-constexpr uint32_t kHeadBoneGroups[4] = {
+constexpr std::array<uint32_t, 4> kHeadBoneGroups = {{
     0xA28FAB7F, // "head_bone_group"
     0x1DBCFAE8, // "nose_bone_group"
     0x0442D3C1, // "jaw_bone_group"
     0xB90F08D0, // "headtop_bone_group"
-};
+}};
 
 // The texture dictionaries (0x00700F1C the game's, 0x00700F20 the skater's) and a texture by checksum (0x0049F540),
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
@@ -84,7 +85,7 @@ float g_degree_to_radian_ratio{0.017453292f}; // pi / 180
 // texture; with Test, the result also shown on cag_workspace_sprite. Always true.
 bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
 {
-    uint8_t palette[0x400]; // (filled by the tag's palette call, not here)
+    std::array<uint8_t, 0x400> palette{}; // (filled by the tag's palette call, not here)
     Array* layers = nullptr;
     params->fetch_list(kLayerInfoList, &layers, 1);
     render::BitmapTexture* tag = find_texture(skater_textures(), kCustomTag);
@@ -153,7 +154,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
 
     tag->get_border(0u);
     if (!translucent && tag->get_depth() == 8)
-        tag->write_back(0, static_cast<void*>(palette));
+        tag->write_back(0, static_cast<void*>(palette.data()));
     else
         tag->write_back(1, static_cast<void*>(nullptr));
     static_cast<render::TextureSet*>(get_textures())->unload_texture(static_cast<render::BitmapTexture*>(workspace));
@@ -261,7 +262,7 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
         if (!head)
             return false;
     }
-    void* has[4];
+    std::array<void*, 4> has{};
     for (int i = 0; i < 4; ++i)
         has[i] = profile->appearance()->get_part(kHeadBoneGroups[i]);
     Struct* appearance = &profile->appearance()->structure_;

@@ -34,6 +34,7 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
 #include <gsl/pointers>
+#include <array>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 
@@ -231,10 +232,10 @@ void run_on(script::Script* script, void* object)
 // "<prefix><name>": a grind's front and back side names.
 uint32_t prefixed_checksum(const char* prefix, const char* name)
 {
-    char buffer[512];
-    std::strcpy(buffer, prefix);
-    std::strcat(buffer, name);
-    return checksums::hash_from_text(buffer);
+    std::array<char, 512> buffer{};
+    std::strcpy(buffer.data(), prefix);
+    std::strcat(buffer.data(), name);
+    return checksums::hash_from_text(buffer.data());
 }
 
 } // namespace
@@ -504,7 +505,7 @@ void FallingTricksGoal::add_tricks(int count)
         StackedTrickEntry& t = tricks_[slot];
         const char* key_combo_text = nullptr;
         int taps = 1;
-        char text[512];
+        std::array<char, 512> text{};
         if (!key_combos) {
             // A random trick of goal_tetris_tricks.
             script::Array* tricks = nullptr;
@@ -521,7 +522,7 @@ void FallingTricksGoal::add_tricks(int count)
             }
             const char* trick_text = nullptr;
             trick->fetch_text(kText, &trick_text, 1);
-            std::strcpy(text, trick_text);
+            std::strcpy(text.data(), trick_text);
             if (!trick->read_hash_value(kKeyCombo, &key_combo, 0))
                 trick->fetch_text(kKeyCombo, &key_combo_text, 0);
         } else {
@@ -587,12 +588,12 @@ void FallingTricksGoal::add_tricks(int count)
             if (t.spin) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
-                    std::sprintf(text, "Perfect ");
+                    std::sprintf(text.data(), "Perfect ");
                 // (written over "Perfect ": the original's too)
                 THUG2_MSVC_WARNING(suppress : 4996)
-                std::sprintf(text, "\\c5%i\\c0 ", t.spin * 180);
+                std::sprintf(text.data(), "\\c5%i\\c0 ", t.spin * 180);
             }
-            std::strcat(text, trick_text);
+            std::strcat(text.data(), trick_text);
             t.key_combo_ = key_combo;
         }
 
@@ -610,7 +611,7 @@ void FallingTricksGoal::add_tricks(int count)
         delete_structure(params);
 
         params = spawn_param_table();
-        params->append_word(kText, text);
+        params->append_word(kText, text.data());
         params->put_name_key(kFont, kNewTrickFont);
         params->put_name_key(0u, kNotFocusable);
         void* text_element = new_text();
@@ -997,9 +998,9 @@ namespace {
 // A sound's volume (sound::VolumeRef, 0x2C bytes; 0x0047B030 constructs it, 0x0047AD60 silences it; its destructor is
 // the empty function 0x005480A0).
 struct SoundVolume {
-    float channels[5];
+    std::array<float, 5> channels;
     int type;
-    uint8_t unknown18[0x14];
+    std::array<uint8_t, 0x14> unknown18;
 };
 static_assert(sizeof(SoundVolume) == 0x2C, "layout must match the original");
 inline void destroy_sound_volume(SoundVolume*) {}
@@ -1107,7 +1108,7 @@ void TrickBeatGoal::add_tricks(int count)
         BeatTrick& t = tricks_[slot];
         const char* key_combo_text = nullptr;
         int taps = 1;
-        char text[512];
+        std::array<char, 512> text{};
         if (!key_combos) {
             script::Array* tricks = nullptr;
             args_->fetch_list(kBeatTricks, &tricks, 1);
@@ -1123,7 +1124,7 @@ void TrickBeatGoal::add_tricks(int count)
             }
             const char* trick_text = nullptr;
             trick->fetch_text(kText, &trick_text, 1);
-            std::strcpy(text, trick_text);
+            std::strcpy(text.data(), trick_text);
             if (!trick->read_hash_value(kKeyCombo, &key_combo, 0))
                 trick->fetch_text(kKeyCombo, &key_combo_text, 0);
         } else {
@@ -1186,11 +1187,11 @@ void TrickBeatGoal::add_tricks(int count)
             if (t.spin) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
-                    std::sprintf(text, "Perfect ");
+                    std::sprintf(text.data(), "Perfect ");
                 THUG2_MSVC_WARNING(suppress : 4996)
-                std::sprintf(text, "\\c5%i\\c0 ", t.spin * 180); // (over "Perfect ", as in the original)
+                std::sprintf(text.data(), "\\c5%i\\c0 ", t.spin * 180); // (over "Perfect ", as in the original)
             }
-            std::strcat(text, trick_text);
+            std::strcat(text.data(), trick_text);
             t.key_combo_ = key_combo;
             t.trick = checksums::hash_from_text(trick_text); // (trick_landed matches by the trick's name)
         }
@@ -1207,7 +1208,7 @@ void TrickBeatGoal::add_tricks(int count)
         delete_structure(params);
 
         params = spawn_param_table();
-        params->append_word(kText, text);
+        params->append_word(kText, text.data());
         params->put_name_key(kFont, kNewTrickFont);
         params->put_name_key(0u, kNotFocusable);
         void* text_element = new_text();

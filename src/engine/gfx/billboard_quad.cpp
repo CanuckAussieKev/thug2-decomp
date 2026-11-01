@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/draw2d.h"
@@ -25,7 +26,7 @@ namespace render {
 
 namespace {
 // Two triangles of a quad: 0 1 2, 1 3 2.
-uint16_t g_sprite_quad_indices[6]{0, 1, 2, 1, 3, 2};
+std::array<uint16_t, 6> g_sprite_quad_indices{{0, 1, 2, 1, 3, 2}};
 
 // The 640x480 layout -> back buffer conversion (set_letterbox) and the back buffer's size.
 float horiz_screen_ratio() { return g_display_factor_x; }
@@ -43,7 +44,7 @@ void set_texture_stage_state(int stage, int type, int value)
     g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
-const uint16_t* quad_indices() { return g_sprite_quad_indices; }
+const uint16_t* quad_indices() { return g_sprite_quad_indices.data(); }
 
 struct Vertex {
     float x, y, z, rhw;
@@ -120,7 +121,7 @@ void QuadSprite::draw()
 
     const bool front_end_widescreen = get_front_end_widescreen();
     auto screen_right = static_cast<float>(get_back_buffer_width());
-    Vertex vertices[4]; // top left, bottom left, top right, bottom right
+    std::array<Vertex, 4> vertices{}; // top left, bottom left, top right, bottom right
     if (rotation == 0.0f) {
         auto x0 = static_cast<float>(left + x);
         auto y0 = static_cast<float>(static_cast<double>(top) + y);
@@ -159,10 +160,10 @@ void QuadSprite::draw()
         vertices[0].y = vertices[2].y = y0;
         vertices[1].y = vertices[3].y = static_cast<float>(y1);
     } else {
-        Vector4 corners[4] = {{static_cast<float>(left), top, 0.0f, 0.0f},
+        std::array<Vector4, 4> corners = {{{static_cast<float>(left), top, 0.0f, 0.0f},
                               {static_cast<float>(left), bottom, 0.0f, 0.0f},
                               {right, top, 0.0f, 0.0f},
-                              {right, bottom, 0.0f, 0.0f}};
+                              {right, bottom, 0.0f, 0.0f}}};
         // (in the original's order: top left, top right, bottom left, bottom right)
         for (const int i : {0, 2, 1, 3})
             spin_around_z(corners[i], rotation);
@@ -172,7 +173,7 @@ void QuadSprite::draw()
         const bool upright = std::fabs(quarter_turns - std::round(quarter_turns)) * 1.5707963267948966 <= 0.01;
         const double offset_x = screen_offset_x();
         auto offset_y = static_cast<float>(screen_offset_y());
-        double layout_x[4];
+        std::array<double, 4> layout_x{};
         for (int i = 0; i < 4; ++i) {
             // (truncated to whole pixels, unlike the upright ones)
             layout_x[i] = static_cast<double>(corners[i].x) + x;
@@ -185,7 +186,7 @@ void QuadSprite::draw()
             // The sprite's left side is its two leftmost corners in the layout, the right side the two rightmost
             // (a turned sprite's own left corners can be on the right); each side reaching past its layout edge
             // goes to the screen's edge, as for upright sprites.
-            int order[4] = {0, 1, 2, 3};
+            std::array<int, 4> order = {{0, 1, 2, 3}};
             for (int a = 0; a < 4; ++a)
                 for (int b = a + 1; b < 4; ++b)
                     if (layout_x[order[b]] < layout_x[order[a]])
@@ -207,7 +208,7 @@ void QuadSprite::draw()
             reach_right = x + reach_left; // (rotated: anything whose extent could cross an edge)
             reach_left = x - reach_left;
         }
-        static uint32_t s_seen[256];
+        static std::array<uint32_t, 256> s_seen;
         static int tally = 0;
         const uint32_t key = static_cast<uint32_t>(x * 16.0f) * 2654435761u ^ static_cast<uint32_t>(y * 16.0f) ^
                              static_cast<uint32_t>(width) << 20;
@@ -223,8 +224,8 @@ void QuadSprite::draw()
                     vertices[1].x, vertices[2].x, vertices[3].x, vertices[0].y, vertices[1].y);
         }
     }
-    const float u[4] = {u0, u0, u1, u1};
-    const float v[4] = {v_top, v_bottom, v_top, v_bottom};
+    const std::array<float, 4> u = {{u0, u0, u1, u1}};
+    const std::array<float, 4> v = {{v_top, v_bottom, v_top, v_bottom}};
     for (int i = 0; i < 4; ++i) {
         vertices[i].z = 0.0f;
         vertices[i].rhw = 1.0f;
@@ -239,7 +240,7 @@ void QuadSprite::draw()
     if (!g_suppress_draw) {           // (rendering not skipped)
         ++g_draw_calls;               // draw calls
         g_drawn_triangles += 2;       // triangles
-        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices(), D3DFMT_INDEX16, vertices,
+        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices(), D3DFMT_INDEX16, vertices.data(),
                                              sizeof(Vertex));
     }
 }

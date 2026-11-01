@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -32,7 +33,7 @@ void sync_music_to_time(float seconds);
 namespace objects {
 
 namespace {
-char g_cutscene_shot_name[256];
+std::array<char, 256> g_cutscene_shot_name;
 } // namespace
 bool g_cutscene_playing;
 int g_cutscene_fixed_frame;
@@ -54,7 +55,7 @@ constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
 int& fixed_frame() { return g_cutscene_fixed_frame; }
-char* shot_name() { return g_cutscene_shot_name; }
+char* shot_name() { return g_cutscene_shot_name.data(); }
 
 void get_run(uint32_t script, script::Struct* params = nullptr)
 {
@@ -139,13 +140,13 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const uin
     label_ = checksums::hash_from_text(name);
     if (flag_34b_0_) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
-        char stream[256];
-        std::snprintf(stream, sizeof(stream), "%s_%s", name,
+        std::array<char, 256> stream{};
+        std::snprintf(stream.data(), sizeof(stream), "%s_%s", name,
                       skater_model_name(static_cast<script::Struct*>(unknown34ac_)));
-        if (!audio::prime_music_track(checksums::hash_from_text(stream))) {
+        if (!audio::prime_music_track(checksums::hash_from_text(stream.data()))) {
             audio::stop_music();
-            std::snprintf(stream, sizeof(stream), "%s", name);
-            if (!audio::prime_music_track(checksums::hash_from_text(stream)))
+            std::snprintf(stream.data(), sizeof(stream), "%s", name);
+            if (!audio::prime_music_track(checksums::hash_from_text(stream.data())))
                 ready_ = true;
         }
         if (flag_34b_0_)
@@ -215,22 +216,22 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
         script::Struct* info = make_struct();
         const int frame = fixed_frame();
-        char line[128];
-        std::snprintf(line, sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
-        info->append_word("line1", line);
-        char line2[128];
-        std::snprintf(line2, sizeof(line2), "time = %f sec. / %f sec.", static_cast<double>(clock_),
+        std::array<char, 128> line{};
+        std::snprintf(line.data(), sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
+        info->append_word("line1", line.data());
+        std::array<char, 128> line2{};
+        std::snprintf(line2.data(), sizeof(line2), "time = %f sec. / %f sec.", static_cast<double>(clock_),
                       static_cast<double>(end_time_));
-        info->append_word("line2", line2);
+        info->append_word("line2", line2.data());
         script::launch_script(kInfoScript, info, nullptr, false, nullptr);
         if (info) {
             info->get_clear();
             script::delete_struct(info);
         }
         if (fixed && fixed_frame() > 0) {
-            char shot[128];
-            std::snprintf(shot, sizeof(shot), "%s%04d", shot_name(), fixed_frame() - 1);
-            render::screen_shot(shot, 1); // (a screenshot)
+            std::array<char, 128> shot{};
+            std::snprintf(shot.data(), sizeof(shot), "%s%04d", shot_name(), fixed_frame() - 1);
+            render::screen_shot(shot.data(), 1); // (a screenshot)
         }
     }
     ++fixed_frame();

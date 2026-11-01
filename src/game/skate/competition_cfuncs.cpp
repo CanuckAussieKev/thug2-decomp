@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/text_store.h"
@@ -247,8 +248,8 @@ bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Script*)
     uint32_t which = 0, id = 0;
     params->read_hash_value(kWhichString, &which, 1);
     params->read_hash_value(kId, &id, 1);
-    alignas(4) uint8_t storage[sizeof(text::Chars)];
-    text::Chars* text = get_horse_string(storage, which);
+    alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
+    text::Chars* text = get_horse_string(storage.data(), which);
     objects::GameEntity* skater = get_rider_by_number(current_horse_skater());
     script::Struct* panel = new_params();
     panel->merge_structure(params);
@@ -265,8 +266,8 @@ bool cfunc_get_horse_string(script::Struct* params, script::Script* script)
 {
     uint32_t which = 0;
     params->read_hash_value(kWhichString, &which, 1);
-    alignas(4) uint8_t storage[sizeof(text::Chars)];
-    text::Chars* text = get_horse_string(storage, which);
+    alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
+    text::Chars* text = get_horse_string(storage.data(), which);
     script->args_->append_word(kText, text->c_str());
     text->~Chars();
     return true;

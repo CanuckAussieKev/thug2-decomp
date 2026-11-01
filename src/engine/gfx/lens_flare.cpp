@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "frontend/screen_element_cfuncs.h"
@@ -133,7 +134,7 @@ struct QueryRequest {
     int (*callback)(void*, uint8_t){nullptr};
     void* data{nullptr};
     bool unknownc_{false};
-    uint8_t padd_[3]{};
+    std::array<uint8_t, 3> padd_{};
 
     // 0x004426C0
     QueryRequest();
@@ -173,7 +174,7 @@ void free_params(Struct* structure)
 maths::Vec4 screen_centre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
 
 // The sun's colour scaled into bytes for each of the quad's four corners.
-void corner_colors(uint8_t colors[4][4], double scale)
+void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
 {
     for (int corner = 0; corner < 4; ++corner) {
         for (int i = 0; i < 4; ++i)
@@ -373,12 +374,12 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         quad->set_texture(static_cast<const uint8_t*>(sun_texture()), 0, 0);
     const float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
     float half = size / 2.0f;
-    maths::Vec4 quad_corners[4] = {
+    std::array<maths::Vec4, 4> quad_corners = {{
         {-half, -half, 0.0f, 1.0f},
         {half, -half, 0.0f, 1.0f},
         {half, half, 0.0f, 1.0f},
         {-half, half, 0.0f, 1.0f},
-    };
+    }};
     for (maths::Vec4& corner : quad_corners)
         transform_in_place(&corner, &facing);
     for (maths::Vec4& corner : quad_corners) {
@@ -440,7 +441,7 @@ void render(gfx::ViewCam* camera)
     sun_pos = sun_pos + get_radius() * direction;
     sun_pos[3] = 1.0f;
     get_position() = sun_pos;
-    uint8_t colors[4][4];
+    std::array<std::array<uint8_t, 4>, 4> colors{};
     corner_colors(colors, 1.0);
 
     // behind the camera, or off the projection: the lens flare hidden
@@ -460,10 +461,10 @@ void render(gfx::ViewCam* camera)
 
     // the sun, and a query for how much of it shows
     Prim sun(2);
-    float corners[12] = {};
-    const float uvs[8] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
-    build_sun_quad(camera, &sun, &sun_pos, corners);
-    blit_quad(&sun, corners, &colors[0][0], uvs);
+    std::array<float, 12> corners = {};
+    const std::array<float, 8> uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
+    build_sun_quad(camera, &sun, &sun_pos, corners.data());
+    blit_quad(&sun, corners.data(), &colors[0][0], uvs.data());
     QueryRequest request;
     request.callback = query_sun_visibility;
     request.data = nullptr;
@@ -481,14 +482,14 @@ void render(gfx::ViewCam* camera)
             const float left = 1.0f - fade;
             corner_colors(colors, left);
             Prim corona(2);
-            float corona_corners[12] = {};
-            const float corona_uvs[8] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
-            build_sun_quad(camera, &corona, &sun_pos, corona_corners);
+            std::array<float, 12> corona_corners = {};
+            const std::array<float, 8> corona_uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
+            build_sun_quad(camera, &corona, &sun_pos, corona_corners.data());
             if (get_corona_texture())
                 corona.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
             set_prim_state(1, 2);
             set_prim_state(4, 0);
-            blit_quad(&corona, corona_corners, &colors[0][0], corona_uvs);
+            blit_quad(&corona, corona_corners.data(), &colors[0][0], corona_uvs.data());
         }
         if (!flare_hidden()) {
             Struct* params = new_params();
@@ -509,7 +510,7 @@ void render(gfx::ViewCam* camera)
         if (get_corona_texture())
             sun.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
         sun.blend_mode_ = kAdd;
-        blit_quad(&sun, corners, &colors[0][0], uvs);
+        blit_quad(&sun, corners.data(), &colors[0][0], uvs.data());
         if (static_cast<double>(morph_in_time()) * 1000.0f < static_cast<double>(unseen))
             show_flare(&screen, 0.0f);
         else

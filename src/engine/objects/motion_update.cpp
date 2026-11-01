@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -138,8 +139,8 @@ void KinematicsModule::tick_frame()
 // 0x00424200
 bool KinematicsModule::update_move_to()
 {
-    float back[4];
-    get_back(entity_, back);
+    std::array<float, 4> back{};
+    get_back(entity_, back.data());
     if (!(move_acceleration_ == 0.0f)) {
         const double speed = frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_ + move_speed_;
         move_speed_ = static_cast<float>(speed);
@@ -171,7 +172,7 @@ bool KinematicsModule::update_move_to()
     pos.w = static_cast<float>(static_cast<double>(w) + move_start_.w);
     pos.x = static_cast<float>(static_cast<double>(x) + move_start_.x);
     pos.y = static_cast<float>(static_cast<double>(y) + move_start_.y);
-    set_step_velocity(entity_, back, step_seconds_);
+    set_step_velocity(entity_, back.data(), step_seconds_);
     return false;
 }
 
@@ -180,8 +181,8 @@ void KinematicsModule::update_path()
 {
     if (entity_->fetch_module(kPedLogic))
         return;
-    float back[4];
-    get_back(entity_, back);
+    std::array<float, 4> back{};
+    get_back(entity_, back.data());
     update_path_speed(this);
     if (!(path_speed_ == 0.0f)) {
         maths::Mat4& matrix = entity_->basis_frame_;
@@ -212,7 +213,7 @@ void KinematicsModule::update_path()
             entity_->at_point_.y = height;
         }
     }
-    set_step_velocity(entity_, back, step_seconds_);
+    set_step_velocity(entity_, back.data(), step_seconds_);
 }
 
 // 0x004246A0

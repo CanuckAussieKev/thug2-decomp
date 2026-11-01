@@ -4,6 +4,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace objects {
 
@@ -32,7 +33,7 @@ public:
     // (0, 1, 0)) at the next of the hierarchy's objects 1-4.
     void seal() override;
 
-    uint8_t unused18_[0x40]{};
+    std::array<uint8_t, 0x40> unused18_{};
 };
 
 } // namespace objects

@@ -10,6 +10,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/gfx/debug_lines.h"
@@ -61,8 +62,8 @@ bool get_interrupted(const DrivableModule* vehicle)
 
 // A slerp between two matrices, on the stack without a constructor (as the original's).
 struct SlerpStorage {
-    alignas(maths::ArcRotationBlender) uint8_t bytes[sizeof(maths::ArcRotationBlender)];
-    maths::ArcRotationBlender* get_pull() { return raw::as<maths::ArcRotationBlender>(bytes); }
+    alignas(maths::ArcRotationBlender) std::array<uint8_t, sizeof(maths::ArcRotationBlender)> bytes;
+    maths::ArcRotationBlender* get_pull() { return raw::as<maths::ArcRotationBlender>(bytes.data()); }
 };
 
 } // namespace
@@ -461,7 +462,7 @@ void DrivableModule::collide()
         rect.rect_.side_a_ = collider.world_edges_[0];
         rect.rect_.side_b_ = collider.world_edges_[1];
         if (rect.get_query(0)) {
-            trigger_rect(trigger_ptr_, kCrossingEvents, &rect);
+            trigger_rect(trigger_ptr_, kCrossingEvents.data(), &rect);
             if (get_interrupted(this))
                 return;
             rect.join_hits();
@@ -504,7 +505,7 @@ void DrivableModule::collide()
                                     static_cast<float>(static_cast<double>(feeler.line_.end.w) - rect.rect_.side_a_.w)};
             }
             if (feeler.get_hit_shape(false, false)) {
-                trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
+                trigger_feeler(trigger_ptr_, kCrossingEvents.data(), &feeler);
                 if (get_interrupted(this))
                     return;
                 Contact& contact = contacts[contact_count_];

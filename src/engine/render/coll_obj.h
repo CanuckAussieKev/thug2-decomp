@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
@@ -190,7 +191,7 @@ public:
     maths::BBox box_;             // +0x14
     bool dirty_{true};            // +0x34
     bool box_valid_{};            // +0x35
-    uint8_t pad36[2]{};
+    std::array<uint8_t, 2> pad36{};
     int owner_{0}; // +0x38
 };
 static_assert(sizeof(HitMeshGroup) == 0x3C && offsetof(HitMeshGroup, box_) == 0x14, "layout must match the original");

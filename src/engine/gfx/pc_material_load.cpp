@@ -63,12 +63,12 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
     }
     m->specular_power_ = record.specular_power;
     if (m->specular_power_ > 0.0f)
-        std::memcpy(m->specular, record.specular, sizeof(m->specular));
+        std::memcpy(m->specular.data(), record.specular.data(), sizeof(m->specular));
     bool all_half = true;
     for (uint32_t pass = 0; pass < m->pass_count_; ++pass) {
         const scene_format::MaterialPass& in = record.passes[pass];
         m->pass_flags_[pass] = in.flags;
-        std::memcpy(m->pass_color_[pass], in.color, sizeof(in.color));
+        std::memcpy(m->pass_color_[pass].data(), in.color.data(), sizeof(in.color));
         const uint32_t half = 0x3F000000;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         if (all_half && (std::memcmp(&m->pass_color_[pass][0], &half, 4) != 0 ||
@@ -83,14 +83,14 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         if (pass == 0 && !keep_culling && (m->blend_modes_[0] & 0xFFFFFF))
             m->two_sided_ = 1;
         m->address_modes_[pass] = in.address_v << 16 | in.address_u;
-        std::memcpy(m->reflection_tiling_[pass], in.reflection_tiling, sizeof(in.reflection_tiling));
+        std::memcpy(m->reflection_tiling_[pass].data(), in.reflection_tiling.data(), sizeof(in.reflection_tiling));
         m->unknownc0_[pass] = in.unknown_c0;
         if (in.flags & scene_format::kPassUvWibble) {
             m->has_uv_wibble_ = true;
             void* w = memory::alloc(sizeof(UvOscillator));
             UvOscillator* wibble = w ? memory::construct_in<UvOscillator>(w) : nullptr;
             m->uv_wibble_[pass] = wibble;
-            std::memcpy(wibble, in.uv_wibble, sizeof(in.uv_wibble));
+            std::memcpy(wibble, in.uv_wibble.data(), sizeof(in.uv_wibble));
         }
         if (pass == 0 && (in.flags & scene_format::kPassColorAnims)) {
             auto anims = static_cast<uint32_t>(record.color_anims.size());

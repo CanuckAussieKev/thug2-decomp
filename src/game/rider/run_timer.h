@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -69,7 +70,7 @@ public:
     int cur_phase_{};           // +0x18 State
     float seconds_remaining_{}; // +0x1C seconds
     int16_t resumes_{};         // +0x20
-    uint8_t pad22[2]{};
+    std::array<uint8_t, 2> pad22{};
     uint8_t* walk_{}; // +0x24 Walk (0x726E85AA)
 };
 
@@ -77,5 +78,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_run_timer_member_functions[42];
+extern std::array<uint32_t, 42> g_run_timer_member_functions;
 } // namespace objects

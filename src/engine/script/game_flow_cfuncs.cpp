@@ -11,6 +11,7 @@
 
 #include <cstdio>
 #include <utility>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -112,7 +113,7 @@ inline void compiled_out_debug_call() {}
 // A .qb file's scripts unloaded and the global 0xC472ECC5 cleared (0x005A59B0).
 void unload_qb_file(uint32_t file) { script::unload_qb_file(file); }
 // The level's .qb files to unload with it (0x00696900, 15).
-uint32_t* level_qb_files() { return g_level_qb_files; }
+uint32_t* level_qb_files() { return g_level_qb_files.data(); }
 constexpr int kLevelQbFiles = 15;
 
 // What a manager walk does to the objects of a name (0x005A01D0's structure; the object's part from +4).
@@ -206,11 +207,11 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     objects::destroy_coim_heap();
     MEMORYSTATUS memory;
     GlobalMemoryStatus(&memory);
-    char text[0x400];
+    std::array<char, 0x400> text{};
     const int length =
-        wsprintfA(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);          // "%4d total kb..."
-    wsprintfA(text + length, "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);     // "%4d  free kb..."
-    OutputDebugStringA(text);
+        wsprintfA(text.data(), "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);          // "%4d total kb..."
+    wsprintfA(text.data() + length, "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);     // "%4d  free kb..."
+    OutputDebugStringA(text.data());
     if (skate_module()->in_net_game_level())
         mem_manager()->create_net_scratch_zone();
     if (skate_module()->in_front_end_or_net_mode())
@@ -475,11 +476,11 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
         viewport = core::down_cast<objects::Rider>(script->entity_.get_pull())->view_slot_;
     if (params->has_bare_flag(kFlashFlag8))
         flags |= 8;
-    uint8_t start[4];
-    uint8_t end[4];
+    std::array<uint8_t, 4> start{};
+    std::array<uint8_t, 4> end{};
     int value = 0;
-    static const char* const kStart[4] = {"start_r", "start_g", "start_b", "start_a"}; // "start_r" ... "start_a"
-    static const char* const kEnd[4] = {"end_r", "end_g", "end_b", "end_a"};           // "end_r" ... "end_a"
+    static const std::array<const char*, 4> kStart = {{"start_r", "start_g", "start_b", "start_a"}}; // "start_r" ... "start_a"
+    static const std::array<const char*, 4> kEnd = {{"end_r", "end_g", "end_b", "end_a"}};           // "end_r" ... "end_a"
     for (int i = 0; i < 4; ++i) {
         params->fetch_int_value(kStart[i], &value, 0);
         start[i] = static_cast<uint8_t>(value);
@@ -490,8 +491,8 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
     }
     uint32_t start_colour = 0;
     uint32_t end_colour = 0;
-    std::memcpy(&start_colour, start, 4);
-    std::memcpy(&end_colour, end, 4);
+    std::memcpy(&start_colour, start.data(), 4);
+    std::memcpy(&end_colour, end.data(), 4);
     render::engine::add_flash(viewport, start_colour, end_colour, duration, z, static_cast<uint32_t>(flags), texture);
     return true;
 }
@@ -584,11 +585,11 @@ bool cfunc_game_flow(script::Struct* params, script::Script*)
 namespace {
 
 // The globals naming the career's Omnigon flags ClearOmnigons clears (in this order).
-constexpr uint32_t kOmnigonFlags[] = {
+constexpr auto kOmnigonFlags = std::to_array<uint32_t>({
     0x13D5B5DB, 0x8ADCE461, 0xFDDBD4F7, 0x63BF4154, 0x14B871C2, 0x8DB12078, 0xFAB610EE, 0x6A090D7F,
     0x1D0E3DE9, 0x37CBEE45, 0x40CCDED3, 0xD9C58F69, 0xAEC2BFFF, 0x30A62A5C, 0x47A11ACA, 0xDEA84B70,
     0xA9AF7BE6, 0x39106677, 0x4E1756E1, 0x1CE6BD86, 0x6BE18D10, 0xF2E8DCAA, 0x85EFEC3C,
-};
+});
 
 constexpr uint32_t kOmnigon = 0xAE94C183;     // (name unknown) the Omnigon (as LastBroadcastedOmnigonWas)
 constexpr uint32_t kOmnigonFlag = 0xF649D637; // (name unknown) sent with it
@@ -635,10 +636,10 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         online::ToggleCheat message; // (wire/play_messages.h)
         message.cheat = omnigon;
         message.on = flag;
-        uint8_t data[online::kToggleCheatSize];
-        util::ByteWriter writer(data, sizeof(data));
+        std::array<uint8_t, online::kToggleCheatSize> data{};
+        util::ByteWriter writer(data.data(), sizeof(data));
         online::write_toggle_cheat(writer, message);
-        desc.content_ = data;
+        desc.content_ = data.data();
         desc.ident_ = online::kMsgToggleCheat;
         desc.byte_count_ = sizeof(data);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -700,23 +701,23 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
         script::launch_script(kCheatFailed, nullptr, nullptr, false, nullptr);
         return false;
     }
-    char buffer[0x80];
+    std::array<char, 0x80> buffer{};
     THUG2_MSVC_WARNING(push)
     THUG2_MSVC_WARNING(disable : 4996)            // (unbounded, and the text is the format: as in the original)
-    std::sprintf(buffer, "12345678901234567890"); // "12345678901234567890"
-    std::sprintf(buffer, text);
+    std::sprintf(buffer.data(), "12345678901234567890"); // "12345678901234567890"
+    std::sprintf(buffer.data(), text);
     uint32_t checksum = checksums::hash_from_text(text);
     int sum = 0;
     for (int round = 0; round < 100000; ++round) {
-        std::sprintf(buffer, "%d", static_cast<int>(round + checksum));
-        buffer[std::strlen(buffer)] = 'X';
-        for (const char* c = buffer; *c; ++c)
+        std::sprintf(buffer.data(), "%d", static_cast<int>(round + checksum));
+        buffer[std::strlen(buffer.data())] = 'X';
+        for (const char* c = buffer.data(); *c; ++c)
             sum += static_cast<signed char>(*c) * 0x3FF;
-        checksum = checksums::hash_from_text(buffer);
+        checksum = checksums::hash_from_text(buffer.data());
     }
     THUG2_MSVC_WARNING(pop)
     const uint32_t c1 = checksums::hash_from_text(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
-    const uint32_t c2 = checksums::hash_from_text(buffer) ^ static_cast<uint32_t>(sum);
+    const uint32_t c2 = checksums::hash_from_text(buffer.data()) ^ static_cast<uint32_t>(sum);
     debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2,
                   text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
     script::Array* cheats = script::fetch_list(kCheatList);

@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include <SDL2/SDL.h>
+#include <array>
 
 #include "frontend/automation.h"
 #include "frontend/front_end.h"
@@ -128,7 +129,7 @@ Rect2 turned_box_rect(const Cuboid& box)
     const double c = std::cos(box.angle);
     const double s = std::sin(box.angle);
     Rect2 rect = {box.x, box.y, box.x, box.y};
-    const float corners[3][2] = {{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}};
+    const std::array<std::array<float, 2>, 3> corners = {{{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}}};
     for (const auto& corner : corners) {
         auto x = static_cast<float>(box.x + c * corner[0] - s * corner[1]);
         auto y = static_cast<float>(box.y + s * corner[0] + c * corner[1]);

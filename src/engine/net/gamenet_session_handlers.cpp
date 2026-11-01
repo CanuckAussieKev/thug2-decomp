@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
@@ -145,8 +146,8 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     // (the answer: gamenet_messages.h)
     util::ByteReader query(context->body_, context->body_size_);
     ServerInfo info;
-    char name[kNameSize];
-    copy_name(name, server_name);
+    std::array<char, kNameSize> name{};
+    copy_name(name.data(), server_name);
     net::AppHost* server = manager->host_;
     info.skill_level = static_cast<uint8_t>(manager->get_difficulty_tier());
     info.num_players = static_cast<int8_t>(manager->count_players());
@@ -161,12 +162,12 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     info.in_game = get_game_type() != kNetLobby;
     info.host_mode = static_cast<uint8_t>(manager->get_hosting_role());
     info.logged_in = manager->in_internet_mode() && manager->presence_service_->authenticated_;
-    copy_name(info.name, name);
+    copy_name(info.name.data(), name.data());
     // (NOT ORIGINAL: cut to their fields, terminated - the original's sprintf ran on into the next field)
-    std::snprintf(info.level, kServerInfoTextSize, "%s", manager->get_map_name(true));
-    std::snprintf(info.mode, kServerInfoTextSize, "%s", manager->get_game_type_name());
+    std::snprintf(info.level.data(), kServerInfoTextSize, "%s", manager->get_map_name(true));
+    std::snprintf(info.mode.data(), kServerInfoTextSize, "%s", manager->get_game_type_name());
     // The players' names (not observers, unless 0x005434C0), then the new players' not among them yet.
-    uint8_t ids[8] = {};
+    std::array<uint8_t, 8> ids = {};
     int id_count = 0;
     info.time = query.u32();
     // NOT ORIGINAL: no more than the message's 8 names (the original wrote on past them)
@@ -179,7 +180,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
             break;
         if (player_skater(player))
             ids[id_count++] = static_cast<uint8_t>(get_skater_id(player_skater(player)));
-        copy_name(info.players[named], player_name(player));
+        copy_name(info.players[named].data(), player_name(player));
         ++named;
     }
     for (const JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
@@ -196,13 +197,13 @@ int on_server_query_msg(net::InboundMsgCtx* context)
             continue;
         // NOT ORIGINAL: the name copied as text (the original used it as sprintf's format: a name with a % in it
         // read arguments that weren't there)
-        copy_name(info.players[named], raw::chars(added));
+        copy_name(info.players[named].data(), raw::chars(added));
         ++named;
     }
-    uint8_t bytes[kServerInfoSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, kServerInfoSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
-    server->deliver_to(kMsgServerInfo, static_cast<uint16_t>(writer.position()), bytes,
+    server->deliver_to(kMsgServerInfo, static_cast<uint16_t>(writer.position()), bytes.data(),
                        context->sender_conn_->remote_ip_, context->sender_conn_->port_no_, 0);
     return kContinue;
 }
@@ -295,7 +296,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         }
         if (!player)
             return kDone;
-        if (_stricmp(request.name, player_name(player)) != 0)
+        if (_stricmp(request.name.data(), player_name(player)) != 0)
             return kDone;
         objects::Entity* skater = player_skater(player);
         const bool observer = is_observer(player);
@@ -347,8 +348,8 @@ int handle_host_options(net::InboundMsgCtx* context)
         script::Struct* count = new_params();
         count->put_int(0u, teams);
         script::Struct* params = new_params();
-        static const char* const kTexts[] = {"None", nullptr, "2", "3", "4"};
-        static const uint32_t kTeams[] = {kTeamsNone, 0, kTeamsTwo, kTeamsThree, kTeamsFour};
+        static const auto kTexts = std::to_array<const char*>({"None", nullptr, "2", "3", "4"});
+        static const auto kTeams = std::to_array<uint32_t>({kTeamsNone, 0, kTeamsTwo, kTeamsThree, kTeamsFour});
         if (teams >= 0 && teams <= 4 && teams != 1) {
             params->append_word(kUiString, kTexts[teams]);
             params->put_name_key(kChecksum, kTeams[teams]);
@@ -423,7 +424,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     util::ByteReader reader(context->body_, context->body_size_);
     StartGame start;
     read_start_game(reader, &start);
-    manager->set_start_info_words(start.start_points);
+    manager->set_start_info_words(start.start_points.data());
     manager->crown_start_ = int{start.crown_start_slot}; // the crown's spawn point
     manager->awaiting_start_ = false;
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
@@ -570,12 +571,12 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         info.pro_option_bits = static_cast<uint8_t>(manager->script_flag_bits_);
         info.crown_start_slot = static_cast<uint8_t>(manager->crown_start_);
         static_assert(sizeof(info.start_points) == sizeof(manager->start_points_));
-        std::memcpy(info.start_points, manager->start_points_, sizeof(info.start_points));
+        std::memcpy(info.start_points.data(), manager->start_points_.data(), sizeof(info.start_points));
         info.not_lan = net->get_net_link_kind() != 1;
-        uint8_t bytes[kSessionBriefSize];
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        std::array<uint8_t, kSessionBriefSize> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         write_session_brief(writer, info);
-        desc.content_ = bytes;
+        desc.content_ = bytes.data();
         desc.byte_count_ = static_cast<uint16_t>(writer.position());
         desc.ident_ = kMsgSessionBrief;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -597,10 +598,10 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             queued.name = item->own_script_;
             queued.object_id = item->entity_key_;
             queued.node = item->list_link_;
-            uint8_t spawned[kSpawnScriptSize];
-            util::ByteWriter spawned_writer(spawned, sizeof(spawned));
+            std::array<uint8_t, kSpawnScriptSize> spawned{};
+            util::ByteWriter spawned_writer(spawned.data(), sizeof(spawned));
             write_spawn_script(spawned_writer, queued);
-            desc.content_ = spawned;
+            desc.content_ = spawned.data();
             desc.byte_count_ = sizeof(spawned);
             desc.ident_ = kMsgSpawnedScript;
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -616,17 +617,17 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         if (is_observer(player) && get_game_type() == kNetGraffiti) {
             // An observer of graffiti: the trick objects' state.
             desc = net::NetMessageInfo();
-            static uint8_t buffer[0x1100]; // (the original's is on its stack)
-            const int size = objects::g_trick_spot_hub->write_graffiti_state(buffer);
-            server->send_bulk_message(player_handle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer,
+            static std::array<uint8_t, 0x1100> buffer; // (the original's is on its stack)
+            const int size = objects::g_trick_spot_hub->write_graffiti_state(buffer.data());
+            server->send_bulk_message(player_handle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer.data(),
                                       "TrickObj Buffer", kGroupGame, true, false);
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.
         desc = net::NetMessageInfo();
         auto* goals = objective_board();
-        static uint8_t selected[0x1000];
+        static std::array<uint8_t, 0x1000> selected;
         selected[0] = 0;
-        uint8_t* out = selected + 1;
+        uint8_t* out = selected.data() + 1;
         const int count = raw::as<goals::GoalManager>(goals)
                               ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
@@ -638,9 +639,9 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             }
         }
         std::memset(out, 0, 4);
-        desc.content_ = selected;
+        desc.content_ = selected.data();
         desc.ident_ = kMsgSelectedGoals;
-        desc.byte_count_ = static_cast<uint16_t>(out - selected + 4);
+        desc.byte_count_ = static_cast<uint16_t>(out - selected.data() + 4);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         server->put_on_outbox(player_handle(player), &desc);

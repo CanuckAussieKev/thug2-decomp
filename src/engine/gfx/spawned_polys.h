@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -18,12 +19,12 @@ class PcPrimitive;
 struct SpawnedPoly {
     maths::Vec4 pos{};              // +0x00
     maths::Mat4 matrix{};           // +0x10: its turn (row 0 the direction, rows 1 / 2 across; row 3 (0, 0, 0, 1))
-    float dims[2]{};                // +0x50: the size now
-    float start_dims_[2]{};         // +0x58
-    float end_dims_[2]{};           // +0x60
-    uint8_t start_colours_[4][4]{}; // +0x68: per corner (RGBA)
-    uint8_t end_colours_[4][4]{};   // +0x78
-    uint8_t colours[4][4]{};        // +0x88: now
+    std::array<float, 2> dims{};                // +0x50: the size now
+    std::array<float, 2> start_dims_{};         // +0x58
+    std::array<float, 2> end_dims_{};           // +0x60
+    std::array<std::array<uint8_t, 4>, 4> start_colours_{}; // +0x68: per corner (RGBA)
+    std::array<std::array<uint8_t, 4>, 4> end_colours_{};   // +0x78
+    std::array<std::array<uint8_t, 4>, 4> colours{};        // +0x88: now
     uint32_t flags{};               // +0x98: 1 done; 2 the primitive's +0x14
     float age{};                    // +0x9C: seconds
     float lifetime{};               // +0xA0

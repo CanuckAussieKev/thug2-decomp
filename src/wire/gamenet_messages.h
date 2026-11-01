@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace util {
 class ByteReader;
@@ -59,12 +60,12 @@ struct ServerInfo {
     uint8_t host_mode = 0;
     bool logged_in = false;
     // (terminated here; on the wire their whole fields, terminated when shorter)
-    char name[kServerInfoNameSize + 1] = {};
-    char level[kServerInfoTextSize + 1] = {};
-    char mode[kServerInfoTextSize + 1] = {};
+    std::array<char, kServerInfoNameSize + 1> name = {};
+    std::array<char, kServerInfoTextSize + 1> level = {};
+    std::array<char, kServerInfoTextSize + 1> mode = {};
     uint8_t skill_level = 0;
     uint32_t time = 0;
-    char players[kServerInfoPlayers][kServerInfoNameSize + 1] = {};
+    std::array<std::array<char, kServerInfoNameSize + 1>, kServerInfoPlayers> players = {};
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_server_info(util::ByteReader& reader, ServerInfo* message);
@@ -85,7 +86,7 @@ struct SessionBrief {
     uint32_t team_graffiti_mode = 0;
     uint32_t time_limit = 0;
     uint32_t target_score = 0;
-    uint32_t start_points[kStartPoints] = {};
+    std::array<uint32_t, kStartPoints> start_points = {};
     uint32_t round = 0;
     uint8_t variant = 0;
 };
@@ -106,7 +107,7 @@ struct StartGame {
     uint32_t goals = 0;
     uint32_t team_graffiti_mode = 0;
     int8_t crown_start_slot = 0;
-    uint32_t start_points[kStartPoints] = {};
+    std::array<uint32_t, kStartPoints> start_points = {};
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_start_game(util::ByteReader& reader, StartGame* message);
@@ -139,10 +140,10 @@ struct ConnectInfo {
     int32_t version;
     bool observer;
     bool can_queue_up_;
-    char password[kPasswordSize]; // (terminated: on the wire its 10 bytes)
+    std::array<char, kPasswordSize> password; // (terminated: on the wire its 10 bytes)
     bool broadband;
     int8_t rank;
-    char cd_key_response_[kCdKeyResponseSize];
+    std::array<char, kCdKeyResponseSize> cd_key_response_;
 };
 bool read_connect_info(util::ByteReader& reader, ConnectInfo* message);
 bool write_connect_info(util::ByteWriter& writer, const ConnectInfo& message);
@@ -152,10 +153,10 @@ struct JoinRequestHeader : ConnectInfo {
     int32_t profile;
     int32_t rating;
     int32_t drive_scheme_;
-    char name[kNameSize];
+    std::array<char, kNameSize> name;
 };
 struct JoinRequestBlock : JoinRequestHeader {
-    uint8_t appearance[kAppearanceSize]; // (RiderIdentity::emit_into_buffer)
+    std::array<uint8_t, kAppearanceSize> appearance; // (RiderIdentity::emit_into_buffer)
 };
 bool read_join_request(util::ByteReader& reader, JoinRequestHeader* message);
 bool write_join_request(util::ByteWriter& writer, const JoinRequestHeader& message);
@@ -164,7 +165,7 @@ struct ProceedInfo {
     uint32_t public_ip_;
     uint32_t private_ip_;
     int32_t port;
-    char server_name_[kServerNameSize];
+    std::array<char, kServerNameSize> server_name_;
     int8_t max_players_;
     bool broadband; // (the host's: the client's connection to it is narrowband if not)
 };
@@ -217,7 +218,7 @@ struct PlayerArrived {
     int8_t object_id = 0;
     int8_t team = 0;
     int32_t drive_scheme = 0;
-    char name[kNameSize + 1] = {}; // (terminated here)
+    std::array<char, kNameSize + 1> name = {}; // (terminated here)
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_player_arrived(util::ByteReader& reader, PlayerArrived* message);
@@ -227,8 +228,8 @@ struct HudNotice {
     uint32_t properties = 0;
     uint32_t text = 0;
     int32_t time = 0;
-    char string1[kHudNoticeTextSize + 1] = {}; // (terminated here)
-    char string2[kHudNoticeTextSize + 1] = {};
+    std::array<char, kHudNoticeTextSize + 1> string1 = {}; // (terminated here)
+    std::array<char, kHudNoticeTextSize + 1> string2 = {};
 };
 bool read_hud_notice(util::ByteReader& reader, HudNotice* message);
 bool write_hud_notice(util::ByteWriter& writer, const HudNotice& message);
@@ -255,7 +256,7 @@ bool write_start_request(util::ByteWriter& writer, const StartRequest& message);
 struct KickRequest {
     uint8_t kick = 0;
     int8_t index = 0;
-    char name[kNameSize + 1] = {}; // (terminated here)
+    std::array<char, kNameSize + 1> name = {}; // (terminated here)
 };
 bool read_kick_request(util::ByteReader& reader, KickRequest* message);
 bool write_kick_request(util::ByteWriter& writer, const KickRequest& message);
@@ -287,8 +288,8 @@ constexpr size_t kChatSize = kChatHeaderSize + kChatTextSize; // 0x94
 
 struct Chat {
     uint8_t color = 0;
-    char name[kChatNameSize + 1] = {}; // (terminated here; on the wire its 16 bytes)
-    char text[kChatTextSize] = {};     // (the text, cut to 130 characters, and its NUL)
+    std::array<char, kChatNameSize + 1> name = {}; // (terminated here; on the wire its 16 bytes)
+    std::array<char, kChatTextSize> text = {};     // (the text, cut to 130 characters, and its NUL)
 };
 // (the text: what is left of the message, up to its NUL - cut there when it has none)
 bool read_chat(util::ByteReader& reader, Chat* message);
@@ -316,9 +317,9 @@ namespace thugpro {
 //   +0x70 u32 its scripts' hash   +0x74 u32 its machine id   +0x78 u8 modified scripts   (0) x3
 constexpr size_t kConnectTrailerSize = 32;
 constexpr size_t kConnectRequestSize = kConnectInfoSize + kConnectTrailerSize; // 124
-constexpr char kMagic[10] = {'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'};
+constexpr std::array<char, 10> kMagic = {{'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'}};
 struct ConnectTrailer {
-    char magic[10];
+    std::array<char, 10> magic;
     uint32_t version;
     uint32_t release;
     uint32_t scripts_hash_;
@@ -345,8 +346,8 @@ constexpr size_t kChangeLevelThugproSize = kLevelSwitchSize + kChangeLevelNameSi
 struct ChatMessage {
     uint32_t machine_id_ = 0;
     uint8_t obj_id_ = 0;
-    char name[16] = {};                    // (ended inside its field)
-    char text[kChatMessageTextSize] = {}; // (at most 127 characters and the NUL)
+    std::array<char, 16> name = {};                    // (ended inside its field)
+    std::array<char, kChatMessageTextSize> text = {}; // (at most 127 characters and the NUL)
 };
 // (fails - as THUGPRO drops them - when the message is no longer than its header or longer than 149 bytes, or its
 // name or text doesn't end inside it)

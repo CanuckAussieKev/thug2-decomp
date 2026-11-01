@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <array>
 
 #include "editor/level_editor_prefs.h"
 
@@ -113,7 +114,7 @@ float get_heading_of(V3 at) { return std::atan2(at.x, at.z); }
 
 void unit_axes(const V3 rows[3], V3 out[3])
 {
-    static const V3 kWorld[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
+    static const std::array<V3, 3> kWorld = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
     for (int i = 0; i < 3; ++i)
         out[i] = get_dot(rows[i], rows[i]) > 1e-12f ? make_unit(rows[i]) : kWorld[i];
 }
@@ -193,7 +194,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
     case Mode::kScale: {
         float cube = length * 0.06f;
         auto add_cube = [&](V3 c, int handle) {
-            V3 corners[8];
+            std::array<V3, 8> corners{};
             for (int i = 0; i < 8; ++i)
                 corners[i] = c + V3{(i & 1) ? cube : -cube, (i & 2) ? cube : -cube, (i & 4) ? cube : -cube};
             for (int i = 0; i < 8; ++i) {
@@ -308,7 +309,7 @@ bool typed_value(const Typed& typed, float* value)
 
 std::string describe(Mode mode, const Typed& typed, int default_axis)
 {
-    static const char* const kAxisNames[3] = {"X", "Y", "Z"};
+    static const std::array<const char*, 3> kAxisNames = {{"X", "Y", "Z"}};
     const int axis = typed.axis >= 0 ? typed.axis : default_axis;
     std::string text;
     switch (mode) {

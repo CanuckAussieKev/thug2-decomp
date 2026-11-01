@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
@@ -88,11 +89,11 @@ bool try_walk_acid_drop(objects::FootMovement* walk)
 {
     if (!buttons_held(walk))
         return false;
-    float velocity[4] = {walk->vel_.x, walk->up_speed_, walk->vel_.z, 1.0f};
-    if (!find_acid_drop(walk, velocity))
+    std::array<float, 4> velocity = {{walk->vel_.x, walk->up_speed_, walk->vel_.z, 1.0f}};
+    if (!find_acid_drop(walk, velocity.data()))
         return false;
     walk->ride_->start_riding(&walk->feeler_);
-    begin_drop_in(walk, velocity);
+    begin_drop_in(walk, velocity.data());
     return true;
 }
 
@@ -101,18 +102,18 @@ bool try_acid_drop(objects::FootMovement* walk)
 {
     if (!buttons_held(walk))
         return false;
-    float velocity[4] = {walk->vel_.x, walk->vel_.y, walk->vel_.z, walk->vel_.w};
+    std::array<float, 4> velocity = {{walk->vel_.x, walk->vel_.y, walk->vel_.z, walk->vel_.w}};
     // (a physics value, 0xC0491D2E, as the second component)
     velocity[1] = objects::FootMovement::get_param(0xC0491D2E);
-    if (!find_acid_drop(walk, velocity))
+    if (!find_acid_drop(walk, velocity.data()))
         return false;
     if (walk->feeler_hit_) {
-        walk->trigger_->probe_touches_zone(kWalkEvents0064c63c, &walk->feeler_);
+        walk->trigger_->probe_touches_zone(kWalkEvents0064c63c.data(), &walk->feeler_);
         if (walk->physics_control_->flag26_)
             return true;
     }
     walk->change_phase(1);
-    begin_drop_in(walk, velocity);
+    begin_drop_in(walk, velocity.data());
     return true;
 }
 

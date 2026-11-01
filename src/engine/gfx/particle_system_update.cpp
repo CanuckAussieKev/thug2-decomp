@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine.h"
@@ -109,9 +110,9 @@ constexpr uint32_t kLodDist1 = 0x4EEDFAE7;
 constexpr uint32_t kLodDist2 = 0xD7E4AB5D;
 
 // The colour channels setColor reads: start, mid and end; the alphas halved.
-const uint32_t kEndChannels[4] = {0x18A762F2, 0x757A8619, 0x05107296, 0x9C19232C};   // er, eg, eb, ea
-const uint32_t kMidChannels[4] = {0xD07EE8FA, 0xBDA30C11, 0xCDC9F89E, 0x54C0A924};   // mr, mg, mb, ma
-const uint32_t kStartChannels[4] = {0x043FD725, 0x69E233CE, 0x1988C741, 0x808196FB}; // sr, sg, sb, sa
+const std::array<uint32_t, 4> kEndChannels = {{0x18A762F2, 0x757A8619, 0x05107296, 0x9C19232C}};   // er, eg, eb, ea
+const std::array<uint32_t, 4> kMidChannels = {{0xD07EE8FA, 0xBDA30C11, 0xCDC9F89E, 0x54C0A924}};   // mr, mg, mb, ma
+const std::array<uint32_t, 4> kStartChannels = {{0x043FD725, 0x69E233CE, 0x1988C741, 0x808196FB}}; // sr, sg, sb, sa
 
 // A vector parameter, or x, y and z ones.
 void get_vector_or_xyz(script::Struct* params, uint32_t name, float& x, float& y, float& z)
@@ -188,8 +189,8 @@ void EmitterInstance::get_emit(int count)
         auto dir_y = static_cast<float>(static_cast<double>(sum_y) + zy);
         auto dir_z = static_cast<float>(static_cast<double>(sum_z) + zz);
         const double speed = random_between(speed_[0], speed_[1]);
-        const float velocity[3] = {static_cast<float>(dir_x * speed), static_cast<float>(dir_y * speed),
-                                   static_cast<float>(dir_z * speed)};
+        const std::array<float, 3> velocity = {{static_cast<float>(dir_x * speed), static_cast<float>(dir_y * speed),
+                                   static_cast<float>(dir_z * speed)}};
         // the position in the emit box (a new random point with the random spread; on its circle when circular)
         if (random_direction_) {
             a = random_signed();
@@ -579,8 +580,8 @@ uint32_t* ModelParticles::lerp_colour(uint32_t* out, const uint8_t* from, const 
             value = 255.0;
         return static_cast<uint8_t>(truncate(value));
     };
-    uint8_t bytes[4] = {clamp(red * r), clamp(green * g), clamp(static_cast<double>(b) * blue), a};
-    std::memcpy(out, bytes, 4);
+    std::array<uint8_t, 4> bytes = {{clamp(red * r), clamp(green * g), clamp(static_cast<double>(b) * blue), a}};
+    std::memcpy(out, bytes.data(), 4);
     return out;
 }
 

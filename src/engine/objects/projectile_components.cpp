@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -188,18 +189,18 @@ void ShotImpactModule::tick_frame()
         hit.object_id = static_cast<uint8_t>(holder_key_);
         hit.score = projectile_type_ == kFireball ? static_cast<int>(size_factor_) * 10 : 0;
         hit.fireball = projectile_type_ == kFireball;
-        uint8_t bytes[online::kHitSize];
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        std::array<uint8_t, online::kHitSize> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         online::write_hit(writer, hit);
         msg.ident_ = kMsgHit;
-        msg.content_ = bytes;
+        msg.content_ = bytes.data();
         msg.byte_count_ = sizeof(bytes);
         msg.queue_ = net::NetMessageInfo::kLaneOrdered;
         msg.group_id_ = 8;
         victim->change_recent_hit_stamp(frame_clock::get_time());
         server->put_on_outbox(victim->get_link_handle(), &msg);
         hit.object_id = static_cast<uint8_t>(skater->ident_);
-        util::ByteWriter owner_writer(bytes, sizeof(bytes));
+        util::ByteWriter owner_writer(bytes.data(), sizeof(bytes));
         online::write_hit(owner_writer, hit);
         msg.ident_ = kMsgHitOwner;
         server->put_on_outbox(owner->get_link_handle(), &msg);

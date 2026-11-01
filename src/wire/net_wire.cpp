@@ -38,7 +38,7 @@ bool read_message_header(util::ByteReader& reader, MessageHeader* header)
 
 bool read_stream_start(util::ByteReader& reader, StreamStart* start)
 {
-    reader.fixed_string(start->desc, sizeof(start->desc), kStreamDescSize);
+    reader.fixed_string(start->desc.data(), sizeof(start->desc), kStreamDescSize);
     start->total_size = reader.i32();
     start->stream_id = reader.i32();
     start->checksum = reader.u32();
@@ -48,7 +48,7 @@ bool read_stream_start(util::ByteReader& reader, StreamStart* start)
 
 bool write_stream_start(util::ByteWriter& writer, const StreamStart& start, const void* piece, size_t piece_size)
 {
-    writer.fixed_string(start.desc, kStreamDescSize);
+    writer.fixed_string(start.desc.data(), kStreamDescSize);
     writer.i32(start.total_size);
     writer.i32(start.stream_id);
     writer.u32(start.checksum);

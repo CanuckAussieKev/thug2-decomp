@@ -12,6 +12,7 @@
 #include <cstring>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/model.h"
@@ -62,7 +63,7 @@ float get_axis(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z;
 
 V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3>& limits, bool uniform)
 {
-    double out[3];
+    std::array<double, 3> out{};
     for (int a = 0; a < 3; ++a) {
         const double f = get_axis(factor, a);
         if (!(f > 0.0) || !std::isfinite(f)) {
@@ -132,12 +133,12 @@ int nearest_axis(const V3 axes[3], int world_axis)
 
 std::string describe(V3 scale)
 {
-    char text[48];
+    std::array<char, 48> text{};
     if (is_uniform_scale(scale))
-        std::snprintf(text, sizeof(text), "%.2fx", scale.x);
+        std::snprintf(text.data(), sizeof(text), "%.2fx", scale.x);
     else
-        std::snprintf(text, sizeof(text), "%.2f x %.2f x %.2f", scale.x, scale.y, scale.z);
-    return text;
+        std::snprintf(text.data(), sizeof(text), "%.2f x %.2f x %.2f", scale.x, scale.y, scale.z);
+    return text.data();
 }
 
 RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, int quarters, V3 position, V3 scale)
@@ -195,19 +196,19 @@ std::string get_token(V3 scale)
 {
     if (is_unit_scale(scale))
         return "";
-    char text[64];
+    std::array<char, 64> text{};
     if (is_uniform_scale(scale))
-        std::snprintf(text, sizeof(text), " scale=%.9g", scale.x);
+        std::snprintf(text.data(), sizeof(text), " scale=%.9g", scale.x);
     else
-        std::snprintf(text, sizeof(text), " scale=%.9g,%.9g,%.9g", scale.x, scale.y, scale.z);
-    return text;
+        std::snprintf(text.data(), sizeof(text), " scale=%.9g,%.9g,%.9g", scale.x, scale.y, scale.z);
+    return text.data();
 }
 
 bool read_token(const std::string& field, V3* scale)
 {
     if (!field.starts_with("scale=") || field.size() == 6)
         return false;
-    float values[3];
+    std::array<float, 3> values{};
     const char* at = field.c_str() + 6;
     // (one number, or exactly three separated by commas)
     for (int count = 0;;) {

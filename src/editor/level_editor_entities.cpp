@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_layout.h"
@@ -138,9 +139,9 @@ bool path_sample(const std::vector<V3>& points, bool closed, float distance, V3*
 
 std::string type_key(uint32_t cls, uint32_t type, uint32_t profile, const std::string& model)
 {
-    char text[40];
-    std::snprintf(text, sizeof(text), "%08X:%08X:%08X:", cls, type, profile);
-    std::string key = text;
+    std::array<char, 40> text{};
+    std::snprintf(text.data(), sizeof(text), "%08X:%08X:%08X:", cls, type, profile);
+    std::string key = text.data();
     for (const char c : model)
         key += static_cast<char>(std::tolower(static_cast<unsigned char>(c == '/' ? '\\' : c)));
     return key;
@@ -221,16 +222,16 @@ namespace {
 
 void get_number(std::ostringstream& out, float value)
 {
-    char text[32];
-    std::snprintf(text, sizeof(text), "%.9g", value);
-    out << text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "%.9g", value);
+    out << text.data();
 }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
-    char text[12];
-    std::snprintf(text, sizeof(text), "%08X", value);
-    out << text;
+    std::array<char, 12> text{};
+    std::snprintf(text.data(), sizeof(text), "%08X", value);
+    out << text.data();
 }
 
 bool parse_hex(const std::string& text, uint32_t* out)
@@ -944,15 +945,15 @@ void build_palette()
             continue; // (a single bouncy object: the browser's objects copy it)
         if (names.size() > 24)
             names.resize(24);
-        char label[160];
-        std::snprintf(label, sizeof(label), "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
-        g_palette.push_back({label, 0xFFFFB060, ""});
+        std::array<char, 160> label{};
+        std::snprintf(label.data(), sizeof(label), "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
+        g_palette.push_back({label.data(), 0xFFFFB060, ""});
         g_sources.push_back({SourceKind::kAssignValue, names});
     }
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
     const char* why = node_create::get_why_not(node_create::Kind::kSound, node_create::Team::kRed);
-    auto* waves = sound::g_level_waves;
+    auto* waves = sound::g_level_waves.data();
     const int count = std::clamp(sound::g_level_count, 0, 256);
     std::vector<std::pair<std::string, Source>> sounds;
     for (int i = 0; i < count && !sound::no_sound(); ++i) {
@@ -1101,7 +1102,7 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
     if (!node)
         return;
     static const uint32_t kMid = get_key("MidPosition"), kEnd = get_key("EndPosition");
-    static const uint32_t kBoxes[3] = {get_key("BoxDimsStart"), get_key("BoxDimsMid"), get_key("BoxDimsEnd")};
+    static const std::array<uint32_t, 3> kBoxes = {{get_key("BoxDimsStart"), get_key("BoxDimsMid"), get_key("BoxDimsEnd")}};
     auto it = particle_at().find(name);
     if (it == particle_at().end()) {
         // (first seen: the node's emitter now is the one its origin - the level's place, or a copy's as made - had)
@@ -1223,9 +1224,9 @@ Placed get_place(int index, V3 at, float yaw)
         if (const objects::GameEntity* copy = object_edit::make_copy(source.names[i], at + (places[i] - anchor)))
             placed.copies.push_back(copy->ident_);
     }
-    char text[96];
-    std::snprintf(text, sizeof(text), "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));
-    placed.message = text;
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));
+    placed.message = text.data();
     return placed;
 }
 
@@ -1284,9 +1285,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         const V3 at = n->forward;
         const V3 up = {0.0f, 1.0f, 0.0f};
         const V3 right = make_unit(perpendicular(up, at));
-        V3 axes[3] = {right * 20.0f, up * 40.0f, at * 20.0f};
-        V3 corners[8];
-        box_corners(n->pos, axes, {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners);
+        std::array<V3, 3> axes = {{right * 20.0f, up * 40.0f, at * 20.0f}};
+        std::array<V3, 8> corners{};
+        box_corners(n->pos, axes.data(), {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners.data());
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
@@ -1390,7 +1391,7 @@ std::vector<std::pair<uint32_t, std::string>> get_sounds()
     std::vector<std::pair<uint32_t, std::string>> out;
     if (sound::no_sound())
         return out;
-    auto* waves = sound::g_level_waves;
+    auto* waves = sound::g_level_waves.data();
     const int count = std::clamp(sound::g_level_count, 0, 256);
     for (int i = 0; i < count; ++i)
         out.emplace_back(waves[i].checksum, nodes::caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : ""));

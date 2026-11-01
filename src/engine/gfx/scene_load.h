@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
+#include <array>
 
 // The PC engine's scene and mesh loaders (Nx engine's platform calls, cdecl): a scene's geometry from a file
 // or from memory - its materials (with the texture dictionary's textures), its sectors (each with a PC geom), the
@@ -19,7 +20,7 @@ struct HierarchyNode {
     uint8_t bone_slot_{0};
     uint8_t pad0b_{};
     uint32_t unknown0c_{};
-    float matrix[16]{};
+    std::array<float, 16> matrix{};
 
     // 0x004B2D30 (Ghidra never made it: the array constructor's callback): the checksums 0, no parent, bone 0, the
     // identity matrix (+0x0C left).

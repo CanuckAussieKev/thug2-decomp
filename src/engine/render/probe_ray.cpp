@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/debug_lines.h"
 #include "engine/maths/shape_tests.h"
@@ -163,8 +164,8 @@ double ProbeRay::get_hit_vertex_value() const
     const HitMesh* object = hit_.object;
     const TriMeshSource* geometry = object->geometry_;
     const maths::Vec4& at = hit_.point;
-    maths::Vec4 corner[3];
-    float value[3];
+    std::array<maths::Vec4, 3> corner{};
+    std::array<float, 3> value{};
     for (int k = 0; k < 3; ++k) {
         const uint32_t vertex = geometry->face_vertex(static_cast<int>(hit_.face), k);
         const maths::Vec4 position = object->read_vertex_point(static_cast<int>(vertex));

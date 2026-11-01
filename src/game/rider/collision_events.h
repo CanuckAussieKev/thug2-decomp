@@ -46,6 +46,7 @@
 
 #include <cstdint>
 #include <string>
+#include <array>
 
 #include "engine/maths/vec4.h"
 
@@ -92,7 +93,7 @@ void checkpoint(SkaterPhysicsModule* component, const char* label);
 struct Motion {
     uint32_t frame = 0;
     int state = 0; // the SkaterState state: 0 ground, 1 air, 2 wall ride, 3 lip, 4 rail, 5 wallplant
-    float vel[3] = {};
+    std::array<float, 3> vel = {};
 };
 // The reversal's earlier frame (an index into `frames`, oldest first, the newest last), or -1 for none.
 int find_reversal(const Motion* frames, int count);
@@ -111,8 +112,8 @@ struct Face {
     int index = -1;
     uint16_t flags = 0;
     uint8_t terrain = 0;
-    float point[3] = {};
-    float normal[3] = {};
+    std::array<float, 3> point = {};
+    std::array<float, 3> normal = {};
     void* coll_obj_ = nullptr;       // (not printed: the render::HitMesh hit, for its geometry)
 };
 
@@ -122,16 +123,16 @@ struct Occurrence {
     uint32_t frame = 0;
     const char* reason = "";
     std::string paths;  // the paths that ran, comma-separated ("-": none)
-    float spot[3] = {}; // where to look: the face's hit point, or the skater
+    std::array<float, 3> spot = {}; // where to look: the face's hit point, or the skater
     float pos_before_[3] = {}, pos[3] = {};
     float vel_before_[3] = {}, vel_after_[3] = {};
     float heading_before_ = 0, heading = 0;
-    float ground_normal_[3] = {};
+    std::array<float, 3> ground_normal_ = {};
     float ground_min_y_ = 1; // the ground normal's lowest y between the two frames
     int frames = 0;          // frames between the two
     Face face;
-    Face probes[6];           // down at the hit, down beyond, ahead - each as the skater sees, then every face
-    float probe_dir_[3] = {}; // the direction of the beyond / ahead probes: the travel before the reversal
+    std::array<Face, 6> probes;           // down at the hit, down beyond, ahead - each as the skater sees, then every face
+    std::array<float, 3> probe_dir_ = {}; // the direction of the beyond / ahead probes: the travel before the reversal
     std::string flipped;      // the checkpoints the velocity turned round between ("-": not seen)
     int repeats = 0;          // events left out at this spot since the last line (the rate limit)
     std::string screenshot;   // "-", "requested" or "busy"
@@ -146,11 +147,11 @@ struct Detail {
     const char* balance = "-";       // manual / nose_manual / skitch
     std::string input = "-";         // the buttons held at the event ('+'-joined)
     std::string input_window_ = "-"; // ... at any frame of the window
-    float stick[2] = {};
+    std::array<float, 2> stick = {};
     bool ray = false; // the feeler that decided it
     float probe_origin_[3] = {}, ray_end_[3] = {};
     bool geometry = false; // the face's corners and object
-    float corners[3][3] = {};
+    std::array<std::array<float, 3>, 3> corners = {};
     float bounds_low_[3] = {}, bounds_high_[3] = {};
     int edge = -1; // the face's edge nearest the spot (corner k to k+1)
     float edge_distance_ = 0;

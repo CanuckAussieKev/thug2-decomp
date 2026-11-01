@@ -32,6 +32,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/path_follower.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
@@ -249,8 +250,8 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     text::Chars file;
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).
-        alignas(text::Chars) uint8_t storage[sizeof(text::Chars)];
-        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage), "crown", ".mdl");
+        alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
+        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), "crown", ".mdl");
         file = *path;
         path->~Chars();
     }

@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -91,14 +92,14 @@ public:
     PadInputModule* input_{};                   // +0x20
     script::Struct* settings_{nullptr};         // +0x24
     bool park_editor_level_{false};             // +0x28
-    uint8_t pad29[3]{};
+    std::array<uint8_t, 3> pad29{};
     uint32_t engine_sound_{0};   // +0x2C the playing engine sound's id (0: none)
     uint32_t skid_sound_{0};     // +0x30 the playing skid sound's id
     script::Struct* extra_{};    // +0x34 (0xBF8E0ACE of the settings)
     uint32_t engine_sound_name_{}; // +0x38
     uint32_t skid_sound_name_{};   // +0x3C
     int gear_count_{};             // +0x40
-    Gear gear_steps_[kMaxGears]{}; // +0x44
+    std::array<Gear, kMaxGears> gear_steps_{}; // +0x44
     float speed_{0.0f};            // +0xA4 the smoothed speed (mph)
     int gear_{0};                  // +0xA8
     float rpm_{};                // +0xAC
@@ -108,12 +109,12 @@ public:
     uint32_t unknownbc_{0};
     uint32_t settings_name_{0x1CA1FF20}; // +0xC0
     bool silenced_{true};                // +0xC4
-    uint8_t padc5_[3]{};
+    std::array<uint8_t, 3> padc5_{};
 };
 
 } // namespace objects
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_vehicle_sound_member_functions[24];
+extern std::array<uint32_t, 24> g_vehicle_sound_member_functions;
 } // namespace objects

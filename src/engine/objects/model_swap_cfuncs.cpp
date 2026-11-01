@@ -3,6 +3,7 @@
 #include "engine/objects/model_swap_cfuncs.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -45,13 +46,13 @@ const char* const kPedShadow = "Ped_Shadow";        // "Ped_Shadow"
 // The swaps made (0x007CEDE0, five entries): each object's id and the id of the object whose model it wears now.
 struct SwapEntry {
     bool used;
-    uint8_t pad1[3];
+    std::array<uint8_t, 3> pad1;
     uint32_t id;
     uint32_t current;
 };
 static_assert(sizeof(SwapEntry) == 12, "layout must match the original");
 static_assert(sizeof(commands::SwapSlot) == sizeof(SwapEntry), "one table, two views");
-SwapEntry* get_swaps() { return raw::as<SwapEntry>(commands::g_swap_table); } // (profile_cfuncs.cpp owns it)
+SwapEntry* get_swaps() { return raw::as<SwapEntry>(commands::g_swap_table.data()); } // (profile_cfuncs.cpp owns it)
 constexpr int kSwapCount = 5;
 
 // 0x005AA930 (commands::swap_mapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.

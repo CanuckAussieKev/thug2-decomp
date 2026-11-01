@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
@@ -67,14 +68,14 @@ std::string active_ruleset_label()
     if (!mode)
         return {};
     const uint32_t name = mode->get_name_key();
-    static const char* const kNames[] = {"singlesession", "freeskate", "career",       "classic",   "creategoals",
-                                         "net",           "netlobby",  "freeskate_2p", "parkeditor"};
+    static const auto kNames = std::to_array<const char*>({"singlesession", "freeskate", "career",       "classic",   "creategoals",
+                                         "net",           "netlobby",  "freeskate_2p", "parkeditor"});
     for (const char* known : kNames)
         if (name_hash(known) == name)
             return known;
-    char hex[16];
-    std::snprintf(hex, sizeof(hex), "0x%08X", name);
-    return hex;
+    std::array<char, 16> hex{};
+    std::snprintf(hex.data(), sizeof(hex), "0x%08X", name);
+    return hex.data();
 }
 
 bool net_session()

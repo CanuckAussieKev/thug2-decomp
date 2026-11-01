@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -37,7 +38,7 @@ struct ReliableMsgNode {
     PendingMsg* shared_msg_;
     uint32_t packet_clock_{}; // the connection's timestamp it went out with (the ack names it)
     uint8_t retry_count_{0};
-    uint8_t pad21[3]{};
+    std::array<uint8_t, 3> pad21{};
     uint32_t due_time_{0};
 };
 struct OrderedMsgNode {

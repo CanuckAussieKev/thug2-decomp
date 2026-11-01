@@ -31,6 +31,7 @@
 #include "engine/render/coll_movable.h"
 #include "engine/gfx/device.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -247,7 +248,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         geometry->mesh_count_ = count_loaded_meshes(geometry);
         return false;
     }
-    float centre[4] = {}; // (its w not read)
+    std::array<float, 4> centre = {}; // (its w not read)
     scene_format::SectorMesh fields;
     for (uint32_t i = 0; i < geometry->mesh_count_; ++i) {
         if (!scene_format::read_sector_mesh(in, &fields)) {
@@ -256,7 +257,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             break;
         }
         MeshRef* mesh = new_mesh();
-        std::memcpy(centre, fields.centre, sizeof(fields.centre));
+        std::memcpy(centre.data(), fields.centre.data(), sizeof(fields.centre));
         std::memcpy(&min, fields.min, sizeof(fields.min));
         std::memcpy(&max, fields.max, sizeof(fields.max));
         if (fields.flags & 0x400)
@@ -269,7 +270,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;
         }
-        set_mesh_sphere_and_box(mesh, centre, fields.radius, &min, &max);
+        set_mesh_sphere_and_box(mesh, centre.data(), fields.radius, &min, &max);
         finish_mesh(sector, geometry, mesh, billboard_type, &pivot, &axis, &min, &max,
                     static_cast<uint8_t>(record.light_group));
     }

@@ -2,6 +2,7 @@
 // (the renderer-independence rules: level_editor_ui_backend.h); the settings are plain data the editor reads next frame.
 
 #include <cstdio>
+#include <array>
 
 #include "editor/level_editor_transform.h"
 #include "imgui.h"
@@ -12,8 +13,8 @@ void options_menu_items()
 {
     Settings& settings = at_hand();
     if (ImGui::BeginMenu("Pivot")) {
-        static const char* const kTips[3] = {"Objects: first object; scenery: its pivot; nodes: their position",
-                                             "Centre of the selection's bounds", "Each object about its own position"};
+        static const std::array<const char*, 3> kTips = {{"Objects: first object; scenery: its pivot; nodes: their position",
+                                             "Centre of the selection's bounds", "Each object about its own position"}};
         int i = 0;
         for (const Pivot pivot : {Pivot::kBase, Pivot::kCentre, Pivot::kOwn}) {
             if (ImGui::MenuItem(pivot_name(pivot), nullptr, settings.pivot == pivot))
@@ -26,15 +27,15 @@ void options_menu_items()
     }
     if (ImGui::BeginMenu("Rotation Snap")) {
         for (const float step : angle_steps()) {
-            char label[16];
-            std::snprintf(label, sizeof(label), "%g\xC2\xB0", step);
-            if (ImGui::MenuItem(label, nullptr, angle_step() == step))
+            std::array<char, 16> label{};
+            std::snprintf(label.data(), sizeof(label), "%g\xC2\xB0", step);
+            if (ImGui::MenuItem(label.data(), nullptr, angle_step() == step))
                 set_angle_step(step);
         }
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Snap To")) {
-        static const char* const kKeys[4] = {"Ctrl", "Ctrl+Shift", "Alt+Shift", "Ctrl+Alt"};
+        static const std::array<const char*, 4> kKeys = {{"Ctrl", "Ctrl+Shift", "Alt+Shift", "Ctrl+Alt"}};
         int i = 0;
         for (const SnapTarget target :
              {SnapTarget::kGrid, SnapTarget::kWorldGrid, SnapTarget::kSurface, SnapTarget::kVertex}) {

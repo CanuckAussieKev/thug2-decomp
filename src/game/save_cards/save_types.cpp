@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
@@ -71,18 +72,18 @@ uint32_t& kept_type() { return g_kept_type; }
 
 // A summary's date: year, month, day, hour, minutes, seconds (missing ones 0).
 struct SaveDate {
-    int fields[6];
+    std::array<int, 6> fields;
 };
 SaveDate read_stamped_date(Struct* summary)
 {
-    static const uint32_t kNames[6] = {
+    static const std::array<uint32_t, 6> kNames = {{
         0x447D8CC8, // "year"
         0x7149EFF9, // "month"
         0x1A5FD66F, // "day"
         0x8FE1EEB1, // "hour"
         0x5F94B55C, // "minutes"
         0xD029F619, // "seconds"
-    };
+    }};
     SaveDate date = {};
     for (int i = 0; i < 6; ++i)
         summary->fetch_int_value(kNames[i], &date.fields[i], 0);
@@ -191,13 +192,13 @@ int type_version(uint32_t type)
 }
 
 namespace {
-char g_save_file_name[0x68]; // (the cutscene list's flag follows)
+std::array<char, 0x68> g_save_file_name; // (the cutscene list's flag follows)
 } // namespace
 
 // 0x005A62A0
 const char* get_type_file_name(uint32_t type, const char* name)
 {
-    char* buffer = g_save_file_name;
+    char* buffer = g_save_file_name.data();
     const char* pattern = nullptr;
     switch (type) {
     case kSaveCat:
@@ -233,10 +234,10 @@ const char* get_type_file_name(uint32_t type, const char* name)
 // 0x005A6390
 int make_folder_file_name(uint32_t type, const char* name, char* buffer)
 {
-    char file[20];
-    make_file_name(name, file, type);
+    std::array<char, 20> file{};
+    make_file_name(name, file.data(), type);
     const char* folder = game_config::get_path_prefix();
-    return std::snprintf(buffer, 0x100, "/%s%s", folder, file); // (no limit in the original)
+    return std::snprintf(buffer, 0x100, "/%s%s", folder, file.data()); // (no limit in the original)
 }
 
 // 0x005A63E0

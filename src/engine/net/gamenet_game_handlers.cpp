@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
@@ -131,8 +132,8 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     JoinerRecord record; // (on the stack; its constructor: a skater profile)
     JoinerRecord* info = &record;
     // (15 characters at most, the rest zeroed)
-    std::memset(info->label_, 0, sizeof(info->label_));
-    std::memcpy(info->label_, arrived.name, strnlen(arrived.name, 15));
+    std::memset(info->label_.data(), 0, sizeof(info->label_));
+    std::memcpy(info->label_.data(), arrived.name.data(), strnlen(arrived.name.data(), 15));
     info->entity_key_ = static_cast<uint8_t>(arrived.object_id); // the object id
     info->conn_ = nullptr;                                       // the connection
     info->flag_bits_ = arrived.flags;                            // flags
@@ -143,15 +144,15 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     info->drive_control_mode_ = arrived.drive_scheme;
     info->score_ = arrived.score;
     if (!(info->flag_bits_ & 5)) {
-        static uint8_t appearance[kAppearanceSize];
+        static std::array<uint8_t, kAppearanceSize> appearance;
         const size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
-        std::memset(appearance, 0, sizeof(appearance));
-        reader.bytes(appearance, size);
-        info->account_->decode_from_bytes(appearance, sizeof(appearance)); // the appearance into its profile
+        std::memset(appearance.data(), 0, sizeof(appearance));
+        reader.bytes(appearance.data(), size);
+        info->account_->decode_from_bytes(appearance.data(), sizeof(appearance)); // the appearance into its profile
     }
     int delay = 0;
     if (manager->cleared_to_start_) {
-        manager->build_net_notice(false, kNetMessageNewPlayer, info->label_, nullptr, nullptr, nullptr, false,
+        manager->build_net_notice(false, kNetMessageNewPlayer, info->label_.data(), nullptr, nullptr, nullptr, false,
                                   kPanelTime);
         delay = 10;
     }
@@ -237,11 +238,11 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     if (!player || !player->is_carrying_flag()) // (carrying a flag: 0 / 1)
         return kContinue;
     const int team = player->get_flag_team(); // the flag's team
-    char name[64];
-    team_name_key(name, team);
+    std::array<char, 64> name{};
+    team_name_key(name.data(), team);
     script::Struct* params = new_params();
     params->put_int(kTeam, team);
-    params->append_word(kString0, script::kQbvalString, script::fetch_text(name));
+    params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
     get_run(kFlagReturned, params);
     delete_params(params);
     if (is_own_player(player))
@@ -379,24 +380,24 @@ int handle_joined_team(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
     util::ByteReader reader(context->body_, context->body_size_);
-    uint8_t msg[2];
-    if (!reader.bytes(msg, sizeof(msg)))
+    std::array<uint8_t, 2> msg{};
+    if (!reader.bytes(msg.data(), sizeof(msg)))
         return kDone;
-    PlayerRecord* player = find_player_slot_by_obj(manager, msg);
+    PlayerRecord* player = find_player_slot_by_obj(manager, msg.data());
     if (!player)
         return kContinue;
     player->team_ = int{static_cast<int8_t>(msg[1])};
-    char name[64];
-    team_name_key(name, static_cast<int8_t>(msg[1]));
+    std::array<char, 64> name{};
+    team_name_key(name.data(), static_cast<int8_t>(msg[1]));
     script::Struct* params = new_params();
     if (is_own_player(player)) {
         if (is_squad_match()) {
-            params->append_word(kString0, script::kQbvalString, script::fetch_text(name));
+            params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
             get_run(kJoinedTeamYou, params);
         }
     } else if (is_squad_match()) {
         params->append_word(kString0, script::kQbvalString, player_name(player));
-        params->append_word(kString1, script::kQbvalString, script::fetch_text(name));
+        params->append_word(kString1, script::kQbvalString, script::fetch_text(name.data()));
         get_run(kJoinedTeamOther, params);
     }
     delete_params(params);

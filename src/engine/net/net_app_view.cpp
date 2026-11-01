@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -116,22 +117,22 @@ bool AppHost::decrypt(const uint8_t* packet, uint8_t* out, int length)
     uint16_t checksum = 0;
     std::memcpy(&checksum, packet, sizeof(checksum));
     length -= 2;
-    uint8_t buffer[kMaxPacketSize]; // (a longer packet overruns it, as in the original)
-    std::memcpy(buffer, packet + 2, length);
+    std::array<uint8_t, kMaxPacketSize> buffer{}; // (a longer packet overruns it, as in the original)
+    std::memcpy(buffer.data(), packet + 2, length);
     for (int i = 0; i < length; ++i)
         buffer[i] ^= static_cast<uint8_t>(checksum);
-    if (name_hash(buffer, length) != checksum)
+    if (name_hash(buffer.data(), length) != checksum)
         return false;
-    std::memcpy(out, buffer, length);
+    std::memcpy(out, buffer.data(), length);
     return true;
 }
 
 // 0x00456A90
 void AppHost::raise_fault()
 {
-    char message[0x400];
-    std::snprintf(message, sizeof(message), "%s: Error %d\n", label_, WSAGetLastError());
-    OutputDebugStringA(message);
+    std::array<char, 0x400> message{};
+    std::snprintf(message.data(), sizeof(message), "%s: Error %d\n", label_.data(), WSAGetLastError());
+    OutputDebugStringA(message.data());
 }
 
 // 0x00456B00
@@ -173,7 +174,7 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
         }
     }
     int length = sizeof(sockaddr_in);
-    if (getsockname(sock_, raw::as<sockaddr>(local_address_), &length) < 0) {
+    if (getsockname(sock_, raw::as<sockaddr>(local_address_.data()), &length) < 0) {
         raise_fault();
         return false;
     }
@@ -199,8 +200,8 @@ bool AppHost::transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int l
     to.sin_addr.s_addr = ip;
     int result = 0;
     if (flag_bits_ & kSecure) {
-        encrypt(data, scrambled_, length, &length);
-        result = sendto(sock_, raw::chars(scrambled_), length, flags,
+        encrypt(data, scrambled_.data(), length, &length);
+        result = sendto(sock_, raw::chars(scrambled_.data()), length, flags,
                         raw::as<sockaddr>(&to), sizeof(to));
     } else {
         result = sendto(sock_, raw::chars(data), length, flags, raw::as<sockaddr>(&to),
@@ -220,8 +221,8 @@ bool AppHost::post_out(const uint8_t* data, int length, int flags)
     if (!linked_up_)
         return false;
     if (flag_bits_ & kSecure) {
-        encrypt(data, scrambled_, length, &length);
-        return send(sock_, raw::chars(scrambled_), length, flags) != SOCKET_ERROR;
+        encrypt(data, scrambled_.data(), length, &length);
+        return send(sock_, raw::chars(scrambled_.data()), length, flags) != SOCKET_ERROR;
     }
     return send(sock_, raw::chars(data), length, flags) != SOCKET_ERROR;
 }
@@ -270,12 +271,12 @@ bool AppHost::prepare_all()
 // 0x00457280
 bool AppHost::deliver_to(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags)
 {
-    uint8_t packet[kMaxPacketSize];
+    std::array<uint8_t, kMaxPacketSize> packet{};
     packet[0] = id;
-    std::memcpy(packet + 1, &length, sizeof(length));
+    std::memcpy(packet.data() + 1, &length, sizeof(length));
     if (length > 0)
-        std::memcpy(packet + 3, data, length);
-    return transmit_to(ip, port, packet, length + 3, flags);
+        std::memcpy(packet.data() + 3, data, length);
+    return transmit_to(ip, port, packet.data(), length + 3, flags);
 }
 
 // 0x00457300

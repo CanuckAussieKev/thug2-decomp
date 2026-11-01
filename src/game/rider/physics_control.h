@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -80,7 +81,7 @@ public:
     bool is_force_walk_on(script::Struct* params, script::Script* script);                    // 0x00517730
 
     bool is_halted_{}; // +0x18
-    uint8_t pad19[3]{};
+    std::array<uint8_t, 3> pad19{};
     int switch_time_{};       // +0x1C the game clock when the physics last switched
     int previous_duration_{}; // +0x20 how long the physics before it ran (ms)
     bool board_missing_{};    // +0x24
@@ -95,5 +96,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_physics_control_member_functions[66];
+extern std::array<uint32_t, 66> g_physics_control_member_functions;
 } // namespace objects

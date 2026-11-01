@@ -6,6 +6,7 @@
 #include <cstring>
 #include <utility>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "game/rider/vehicle_sound.h"
@@ -31,7 +32,7 @@
 
 namespace park_editing {
 
-uint32_t g_goal_editor_member_functions[216]{
+std::array<uint32_t, 216> g_goal_editor_member_functions{{
     0x0AB710F3, 0x81F01058, 0, 0, 0, 0, 0x5C155A29, 0x81F01058, 0, 0, 0, 0, 0xFB279560, 0x81F01058, 0, 0, 0, 0,
     0xCCA11C78, 0x81F01058, 0, 0, 0, 0, 0x1D30A7B6, 0x81F01058, 0, 0, 0, 0, 0xE5ED63B7, 0x81F01058, 0, 0, 0, 0,
     0x03EBD2C9, 0x81F01058, 0, 0, 0, 0, 0x47208C6D, 0x81F01058, 0, 0, 0, 0, 0x769309E1, 0x81F01058, 0, 0, 0, 0,
@@ -43,7 +44,7 @@ uint32_t g_goal_editor_member_functions[216]{
     0x4A569426, 0x81F01058, 0, 0, 0, 0, 0x410821DF, 0x81F01058, 0, 0, 0, 0, 0x60288ABE, 0x81F01058, 0, 0, 0, 0,
     0x831ECA10, 0x81F01058, 0, 0, 0, 0, 0xDBA8E3FC, 0x81F01058, 0, 0, 0, 0, 0xD7258335, 0x81F01058, 0, 0, 0, 0,
     0x9E5A634A, 0x81F01058, 0, 0, 0, 0, 0x7D5073F6, 0x81F01058, 0, 0, 0, 0, 0xEC316A9C, 0x81F01058, 0, 0, 0, 0,
-    0x20B566B1, 0x81F01058, 0, 0, 0, 0, 0xD5F6EA3B, 0x81F01058, 0, 0, 0, 0, 0,          0x81F01058, 0, 0, 0, 0};
+    0x20B566B1, 0x81F01058, 0, 0, 0, 0, 0xD5F6EA3B, 0x81F01058, 0, 0, 0, 0, 0,          0x81F01058, 0, 0, 0, 0}};
 
 namespace {
 
@@ -60,7 +61,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 // The game's _stricmp (0x00626EFB).
 int compare_no_case(const char* a, const char* b) { return crt::stricmp(a, b); }
 
-char* created_goal_name() { return g_created_goal_name; }
+char* created_goal_name() { return g_created_goal_name.data(); }
 uint32_t created_goal_id(int index)
 {
     get_sprintf(created_goal_name(), "CreatedGoal%d", index);
@@ -106,7 +107,7 @@ gsl::owner<objects::ObjectModule*> ObjectiveAuthoring::fabricate() { return new 
 // 0x004E6FB0
 void ObjectiveAuthoring::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kGoalEditor), g_goal_editor_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kGoalEditor), g_goal_editor_member_functions.data(), 0x18);
 }
 
 // 0x004EA230
@@ -149,7 +150,7 @@ EditedGoal* ObjectiveAuthoring::find_goal_by_name(const char* name)
 {
     const uint32_t level = current_level();
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count_ && goal.level_ == level && compare_no_case(goal.label_, name) == 0)
+        if (goal.taken_count_ && goal.level_ == level && compare_no_case(goal.label_.data(), name) == 0)
             return &goal;
     }
     return nullptr;

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <array>
 
 #include "engine/sys/game_config.h"
 
@@ -39,9 +40,9 @@ bool g_rate_set;
 float& get_frame_length() { return g_frame_length; }
 double& raw_frame_duration() { return g_raw_step_seconds; }
 
-int g_history[4];
+std::array<int, 4> g_history;
 
-int (&get_history())[4] { return g_history; }
+std::array<int, 4>& get_history() { return g_history; }
 uint64_t& last_frame_vblank() { return g_last_frame_vblank; }
 uint64_t& previous_frame_vblank() { return g_previous_frame_vblank; }
 int& history_index() { return g_history_index; }
@@ -50,7 +51,7 @@ struct TimingBlock {
     float frame_length_;
     uint32_t pad;
     double raw_step_;
-    int history[4];
+    std::array<int, 4> history;
     uint64_t last_frame_vblank_;
     uint64_t previous_frame_vblank_;
     int history_index_;
@@ -104,7 +105,7 @@ void get_reset()
     history_index() = 0;
     g_saved_timing_block.frame_length_ = get_frame_length();
     g_saved_timing_block.raw_step_ = raw_frame_duration();
-    std::memcpy(g_saved_timing_block.history, get_history(), sizeof(g_saved_timing_block.history));
+    std::memcpy(g_saved_timing_block.history.data(), get_history().data(), sizeof(g_saved_timing_block.history));
     g_saved_timing_block.last_frame_vblank_ = last_frame_vblank();
     g_saved_timing_block.previous_frame_vblank_ = previous_frame_vblank();
     g_saved_timing_block.history_index_ = history_index();
@@ -144,7 +145,7 @@ void once_every_draw()
 // 0x005BE7F0
 void update_frame_length()
 {
-    const int (&h)[4] = get_history();
+    const std::array<int, 4>& h = get_history();
     const int clamped = get_clamped(h[0]) + get_clamped(h[1]) + get_clamped(h[2]) + get_clamped(h[3]);
     const int raw = static_cast<int>(static_cast<uint32_t>(h[0]) + h[1] + h[2] + h[3]); // (wraps, as the original)
     get_slomo() = next_slomo();

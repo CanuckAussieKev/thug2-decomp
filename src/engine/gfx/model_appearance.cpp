@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -48,7 +49,7 @@ constexpr uint32_t kSetChecksum = 0xD27427FF; // SetChecksum
 constexpr uint32_t kOwnedStructure = 11; // add_component_of_type's type: a structure it takes over, by pointer
 constexpr int kMaxBufferBytes = 0x2BC;   // (more: the tattoos are left out)
 
-const uint32_t kTattoos[] = {
+constexpr auto kTattoos = std::to_array<uint32_t>({
     0x3FA9B96E, // head_tattoo
     0x283DEA37, // left_bicep_tattoo
     0xDE55864B, // left_forearm_tattoo
@@ -58,7 +59,7 @@ const uint32_t kTattoos[] = {
     0x233B7BBA, // back_tattoo
     0x2B359A94, // left_leg_tattoo
     0x609432CA, // right_leg_tattoo
-};
+});
 
 // The CAS part lists (not rewritten yet, cdecl): the option `descriptor_id` of the slot `part`'s list; a random option of
 // it (made with `random_set`); the option at `index`.

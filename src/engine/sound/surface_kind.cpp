@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -57,12 +58,12 @@ constexpr float kPercent = 0.0099999998f;
 // The two tables' items.
 struct TypeItem {
     uint8_t index; // +0 the terrain's index
-    uint8_t pad[3];
+    std::array<uint8_t, 3> pad;
     uint32_t checksum; // +4 its checksum (the item's key points here)
 };
 struct ActionItem {
     uint8_t index; // +0 the table's index (its key)
-    uint8_t pad[3];
+    std::array<uint8_t, 3> pad;
     uint32_t type;   // +4 TABLE_*
     uint32_t action; // +8 TA_*
 };
@@ -89,7 +90,7 @@ float scaled_percent(float percent, float max, float min)
 // The soundAction's sound loaded: permanent (load type 1), its load pitch and volume.
 void ingest_sound(const SoundInfo& info)
 {
-    sound_manager()->ingest_sound(info.name, 0, 1, 0, 0.0f, info.load_pitch_, info.load_vol_);
+    sound_manager()->ingest_sound(info.name.data(), 0, 1, 0, 0.0f, info.load_pitch_, info.load_vol_);
 }
 
 } // namespace
@@ -202,10 +203,10 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
     while ((info->name[length] = sound[length]) != '\0')
         ++length;
     // the checksum of the name without its folders
-    const char* base = info->name;
+    const char* base = info->name.data();
     for (int i = 0; i < length; ++i) {
         if (info->name[i] == '\\' || info->name[i] == '/')
-            base = info->name + i + 1;
+            base = info->name.data() + i + 1;
     }
     info->checksum = checksums::hash_from_text(base);
     sound_action->fetch_float(kMaxPitch, &info->max_pitch_, 0);
@@ -371,10 +372,10 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
         message.volume = static_cast<int8_t>(get_truncated(loudness_percent));
         message.pitch = static_cast<int8_t>(get_truncated(pitch_percent));
         message.value = static_cast<int8_t>(get_truncated(value));
-        uint8_t data[online::kTerrainSoundSize];
-        util::ByteWriter writer(data, sizeof(data));
+        std::array<uint8_t, online::kTerrainSoundSize> data{};
+        util::ByteWriter writer(data.data(), sizeof(data));
         online::write_terrain_sound(writer, message);
-        desc.content_ = data;
+        desc.content_ = data.data();
         desc.byte_count_ = sizeof(data);
         desc.ident_ = online::kMsgTerrainSound;
         client->send_to_host(&desc);

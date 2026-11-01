@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -37,7 +38,7 @@ BillboardSet g_billboard_pool;
 uint8_t g_billboard_flag;
 
 namespace {
-float g_billboard_constants[12]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+std::array<float, 12> g_billboard_constants{{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool vertex_shaders() { return g_shaders_available; }
@@ -57,7 +58,7 @@ memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 
 void order_batches(BillboardSet* manager)
 {
-    crt::get_qsort(static_cast<void*>(manager->batches), static_cast<uint32_t>(manager->count), 4,
+    crt::get_qsort(static_cast<void*>(manager->batches.data()), static_cast<uint32_t>(manager->count), 4,
                    compare_batches); // (the C runtime's qsort)
 }
 
@@ -147,7 +148,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     uint8_t* into = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
     const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
-    const float* pivot = mesh->billboard->pivot;
+    const float* pivot = mesh->billboard->pivot.data();
     const float px = pivot[0];
     const float py = pivot[1];
     const float pz = pivot[2];
@@ -174,9 +175,9 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         a = static_cast<float>(static_cast<double>(z) * z_axis[0] + a);
         auto b2 = static_cast<float>(static_cast<double>(z) * z_axis[1] + sum_y);
         const double c2 = t3 + sum_z;
-        float out[3] = {static_cast<float>(static_cast<double>(px) + a),
-                        static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)};
-        std::memcpy(into, out, 0xC);
+        std::array<float, 3> out = {{static_cast<float>(static_cast<double>(px) + a),
+                        static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)}};
+        std::memcpy(into, out.data(), 0xC);
         into += 0xC;
         if (table) {
             auto index = static_cast<uint32_t>(int{static_cast<int8_t>(mesh->per_vertex_bytes_[i])});
@@ -206,7 +207,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < mesh->material->pass_count_; ++pass) {
-            mesh->material->submit_pass(pass, mesh->flags & 4 ? mesh->color : nullptr);
+            mesh->material->submit_pass(pass, mesh->flags & 4 ? mesh->color.data() : nullptr);
             input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
         }
     }
@@ -294,8 +295,8 @@ void BillboardSet::setup_axes()
         out[3] = 1.0f;
         out[2] = static_cast<float>(fz);
     };
-    flatten(view[0], view[2], flat_forward_);
-    flatten(right[0], right[2], flat_right_);
+    flatten(view[0], view[2], flat_forward_.data());
+    flatten(right[0], right[2], flat_right_.data());
 }
 
 // 0x004CEB30
@@ -377,13 +378,13 @@ void BillboardBatch::render()
     multiply(all, projection, view_world);
     input_port()->SetVertexShaderConstantF(0, all, 4);
     auto* manager = &g_billboard_pool;
-    float* constants = g_billboard_constants; // c4-c6
+    float* constants = g_billboard_constants.data(); // c4-c6
     auto set_axes = [&](const float* x, const float* y, const float* z) {
         std::memcpy(constants, x, 12);
         std::memcpy(constants + 4, y, 12);
         std::memcpy(constants + 8, z, 12);
     };
-    set_axes(manager->right, manager->up, manager->view);
+    set_axes(manager->right.data(), manager->up.data(), manager->view.data());
     input_port()->SetVertexShaderConstantF(4, constants, 3);
     {
         float x_axis[3], y_axis[3], z_axis[3];
@@ -393,11 +394,11 @@ void BillboardBatch::render()
         draw_list(lists[0], y_axis, x_axis, z_axis);
     }
     {
-        const float flat_up[3] = {0.0f, 1.0f, 0.0f};
-        set_axes(manager->flat_right_, flat_up, manager->flat_forward_);
+        const std::array<float, 3> flat_up = {{0.0f, 1.0f, 0.0f}};
+        set_axes(manager->flat_right_.data(), flat_up.data(), manager->flat_forward_.data());
         float x_axis[3], y_axis[3] = {0.0f, 1.0f, 0.0f}, z_axis[3];
-        std::memcpy(x_axis, manager->flat_right_, 12);
-        std::memcpy(z_axis, manager->flat_forward_, 12);
+        std::memcpy(x_axis, manager->flat_right_.data(), 12);
+        std::memcpy(z_axis, manager->flat_forward_.data(), 12);
         draw_list(lists[1], y_axis, x_axis, z_axis);
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
@@ -405,8 +406,8 @@ void BillboardBatch::render()
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40) {
-            const float* axis = mesh->billboard->axis;
-            const float* d = manager->view;
+            const float* axis = mesh->billboard->axis.data();
+            const float* d = manager->view.data();
             double rx = static_cast<double>(d[1]) * axis[2] - static_cast<double>(d[2]) * axis[1];
             auto ry = static_cast<float>(static_cast<double>(d[2]) * axis[0] - static_cast<double>(d[0]) * axis[2]);
             auto rz = static_cast<float>(static_cast<double>(d[0]) * axis[1] - static_cast<double>(d[1]) * axis[0]);
@@ -429,11 +430,11 @@ void BillboardBatch::render()
                 uz *= inverse;
                 uz_stored = static_cast<float>(uz);
             }
-            float across[3] = {static_cast<float>(rx), ry, rz};
-            float out[3] = {static_cast<float>(ux), static_cast<float>(uy), uz_stored};
-            float along[3] = {axis[0], axis[1], axis[2]};
-            set_axes(across, along, out);
-            draw_billboard_mesh(mesh, along, across, out);
+            std::array<float, 3> across = {{static_cast<float>(rx), ry, rz}};
+            std::array<float, 3> out = {{static_cast<float>(ux), static_cast<float>(uy), uz_stored}};
+            std::array<float, 3> along = {{axis[0], axis[1], axis[2]}};
+            set_axes(across.data(), along.data(), out.data());
+            draw_billboard_mesh(mesh, along.data(), across.data(), out.data());
         }
         node = next;
     }

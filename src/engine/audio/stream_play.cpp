@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/movie.h"
@@ -25,13 +26,13 @@ WadEntry* wad_entries() { return g_wad_entries; }
 uint32_t g_last_music_track;
 
 uint32_t& last_music_track() { return g_last_music_track; }
-uint32_t g_last_streams[3];
-uint32_t* last_streams() { return g_last_streams; }
+std::array<uint32_t, 3> g_last_streams;
+uint32_t* last_streams() { return g_last_streams.data(); }
 // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
-uint8_t g_user_track_buffer[0x14000];
-void* user_track_buffer() { return g_user_track_buffer; }
-uint8_t g_stream_buffers[3 * 0x14000];
-void* stream_buffer(int slot) { return g_stream_buffers + slot * 0x14000; }
+std::array<uint8_t, 0x14000> g_user_track_buffer;
+void* user_track_buffer() { return g_user_track_buffer.data(); }
+std::array<uint8_t, 3 * 0x14000> g_stream_buffers;
+void* stream_buffer(int slot) { return g_stream_buffers.data() + slot * 0x14000; }
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
 const char* data_root() { return game_config::get_bootstrap_prefix(); }
@@ -100,9 +101,9 @@ bool load_music_track(uint32_t checksum)
         return false;
     WaitForSingleObject(stream_lock(), INFINITE);
     music.fabricate(1, false, 1);
-    char path[256];
-    std::snprintf(path, sizeof(path), "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
-    const Result result = music.bink ? music.bink->unseal(path) : -1;
+    std::array<char, 256> path{};
+    std::snprintf(path.data(), sizeof(path), "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
+    const Result result = music.bink ? music.bink->unseal(path.data()) : -1;
     if (music.wad)
         music.wad->change_loudness(music.volume);
     else if (music.bink)
@@ -218,7 +219,7 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
         case 2: {
             // Five channels; the slot's volume is their mean (the last added unrounded, as the original's x87
             // still held it).
-            float level[5];
+            std::array<float, 5> level{};
             double last = 0;
             for (int i = 0; i < 5; ++i) {
                 const double scaled = static_cast<double>(sound_volume()) * volume->level[i] * kPercent;
@@ -268,9 +269,9 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
     slot.fabricate(1, true, plays);
     if (preload)
         set_started(slot, false);
-    char path[256];
-    std::snprintf(path, sizeof(path), "%s%s", data_root(), R"(data\streams\pcm\pcm.wad)");
-    if (slot.unseal(checksum, path, get_wad_file(), offset, size, stream_buffer(slot_index)) != 0) {
+    std::array<char, 256> path{};
+    std::snprintf(path.data(), sizeof(path), "%s%s", data_root(), R"(data\streams\pcm\pcm.wad)");
+    if (slot.unseal(checksum, path.data(), get_wad_file(), offset, size, stream_buffer(slot_index)) != 0) {
         slot.dealloc();
         ReleaseMutex(stream_lock());
         return false;

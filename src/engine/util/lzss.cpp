@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
@@ -15,7 +16,7 @@ constexpr int kF = 18;              // longest match
 constexpr int kLiteralRunLimit = 2; // matches this short or shorter are stored as literals
 constexpr int kNil = kN;            // "no node" in the search tree
 
-uint8_t g_decode_window[4096];
+std::array<uint8_t, 4096> g_decode_window;
 int* g_tree_parent;
 int* g_tree_right;
 int* g_tree_left;
@@ -38,7 +39,7 @@ uint32_t& bytes_out() { return g_bytes_out; }
 uint32_t& emit_counter() { return g_emit_counter; }
 
 // The decoder's window is a fixed array in the exe.
-uint8_t* decode_window() { return g_decode_window; }
+uint8_t* decode_window() { return g_decode_window.data(); }
 
 void free_tree()
 {
@@ -171,7 +172,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     uint8_t* window = pane();
 
     // code[0] holds the flag bits for up to 8 items; each item takes 1 byte (literal) or 2 (reference).
-    uint8_t code[17];
+    std::array<uint8_t, 17> code{};
     code[0] = 0;
     int code_size = 1;
     uint8_t mask = 1;
@@ -208,7 +209,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
         const bool group_full = (mask & 0x80) != 0;
         mask = static_cast<uint8_t>(mask << 1);
         if (group_full) {
-            std::memcpy(out, code, code_size);
+            std::memcpy(out, code.data(), code_size);
             out += code_size;
             bytes_out() += code_size;
             code[0] = 0;
@@ -239,7 +240,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     } while (length > 0);
 
     if (code_size > 1) {
-        std::memcpy(out, code, code_size);
+        std::memcpy(out, code.data(), code_size);
         bytes_out() += code_size;
     }
 

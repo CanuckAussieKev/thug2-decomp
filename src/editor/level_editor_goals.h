@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
@@ -177,7 +178,7 @@ bool read_record(const std::string& text, Goal* out);
 // left out).
 constexpr size_t kTexelEdge = 0x338;
 struct GoalImage {
-    alignas(4) uint8_t bytes[kTexelEdge];
+    alignas(4) std::array<uint8_t, kTexelEdge> bytes;
 };
 void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers,
                 GoalImage* out);

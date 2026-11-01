@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "wire/gamenet_messages.h"
@@ -67,7 +68,7 @@ struct ArrayValue {
 struct Value {
     uint8_t type = 0; // the component type (the integer / float forms folded into kInteger / kFloat)
     uint32_t bits = 0;
-    float floats[3] = {};
+    std::array<float, 3> floats = {};
     std::string text;
     Structure structure;
     ArrayValue array;
@@ -378,7 +379,7 @@ void check_structure_file(const std::filesystem::path& path, const std::vector<u
 
 bool is_save_file(const std::filesystem::path& path)
 {
-    static const char* const kExtensions[] = {".SKA", ".NWS", ".PRK", ".CAS", ".CAT", ".GOA", ".GRF"};
+    static const auto kExtensions = std::to_array<const char*>({".SKA", ".NWS", ".PRK", ".CAS", ".CAT", ".GOA", ".GRF"});
     std::string extension = path.extension().string();
     for (char& c : extension)
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
@@ -414,9 +415,9 @@ void check_save_file(const std::filesystem::path& path)
           name + ": summary CRC");
 
     // the header written again
-    uint8_t again[save_cards::kSaveFileHeaderSize];
-    util::ByteWriter writer(again, sizeof(again));
-    check(save_cards::write_save_file_header(writer, header) && std::memcmp(again, file.data(), sizeof(again)) == 0,
+    std::array<uint8_t, save_cards::kSaveFileHeaderSize> again{};
+    util::ByteWriter writer(again.data(), sizeof(again));
+    check(save_cards::write_save_file_header(writer, header) && std::memcmp(again.data(), file.data(), sizeof(again)) == 0,
           name + ": header encoded again");
 
     const size_t summary_used =
@@ -447,23 +448,23 @@ void check_save_file(const std::filesystem::path& path)
 void check_byte_stream()
 {
     std::printf("byte stream\n");
-    uint8_t buffer[16] = {};
-    util::ByteWriter writer(buffer, 11);
+    std::array<uint8_t, 16> buffer = {};
+    util::ByteWriter writer(buffer.data(), 11);
     writer.u8(0x12);
     writer.u16(0x3456);
     writer.u32(0x789ABCDE);
     writer.f32(1.5f);
     check(writer.ok() && writer.position() == 11, "writer: 11 bytes");
     check(!writer.u8(0) && !writer.ok() && writer.position() == 11, "writer: past the capacity fails");
-    const uint8_t expected[11] = {0x12, 0x56, 0x34, 0xDE, 0xBC, 0x9A, 0x78, 0x00, 0x00, 0xC0, 0x3F};
-    check(std::memcmp(buffer, expected, 11) == 0, "writer: little-endian");
-    util::ByteReader reader(buffer, 11);
+    const std::array<uint8_t, 11> expected = {{0x12, 0x56, 0x34, 0xDE, 0xBC, 0x9A, 0x78, 0x00, 0x00, 0xC0, 0x3F}};
+    check(std::memcmp(buffer.data(), expected.data(), 11) == 0, "writer: little-endian");
+    util::ByteReader reader(buffer.data(), 11);
     check(reader.u8() == 0x12 && reader.u16() == 0x3456 && reader.u32() == 0x789ABCDE && reader.f32() == 1.5f,
           "reader: the values back");
     check(reader.ok() && reader.remaining() == 0, "reader: at the end");
     check(reader.u32() == 0 && !reader.ok() && reader.position() == 11, "reader: past the end fails");
-    const char text[] = {'a', 'b', 0, 'c', 'd'};
-    util::ByteReader strings(text, sizeof(text));
+    const auto text = std::to_array<char>({'a', 'b', 0, 'c', 'd'});
+    util::ByteReader strings(text.data(), sizeof(text));
     const char* first = strings.c_string();
     check(first && std::strcmp(first, "ab") == 0 && strings.position() == 3, "reader: a string");
     check(!strings.c_string() && !strings.ok(), "reader: a string without its terminator fails");
@@ -475,12 +476,12 @@ void check_byte_stream()
 // bytes more (zeros: our sender clears the struct).
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceStreamStart {
-    char desc[32];
+    std::array<char, 32> desc;
     int32_t total_size;
     int32_t stream_id;
     uint32_t checksum;
     uint8_t msg_id;
-    uint8_t content[0x100];
+    std::array<uint8_t, 0x100> content;
 };
 // NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceStreamStart) == 0x130 && offsetof(ReferenceStreamStart, content) == 0x2D,
@@ -494,73 +495,73 @@ void check_wire_messages()
         for (size_t i = 0; i < piece_size; ++i)
             piece[i] = static_cast<uint8_t>(i * 7 + 3);
         ReferenceStreamStart reference = {};
-        std::snprintf(reference.desc, sizeof(reference.desc), "%s", "Appearance");
+        std::snprintf(reference.desc.data(), sizeof(reference.desc), "%s", "Appearance");
         reference.total_size = 0x1234;
         reference.stream_id = 77;
         reference.checksum = 0xDEADBEEF;
         reference.msg_id = 0x5A;
         if (piece_size)
-            std::memcpy(reference.content, piece.data(), piece_size);
+            std::memcpy(reference.content.data(), piece.data(), piece_size);
         const size_t reference_size = piece_size + 0x30;
 
         net::wire::StreamStart start;
-        std::snprintf(start.desc, sizeof(start.desc), "%s", "Appearance");
+        std::snprintf(start.desc.data(), sizeof(start.desc), "%s", "Appearance");
         start.total_size = 0x1234;
         start.stream_id = 77;
         start.checksum = 0xDEADBEEF;
         start.msg_id = 0x5A;
-        uint8_t bytes[net::wire::kStreamStartMaxSize];
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        std::array<uint8_t, net::wire::kStreamStartMaxSize> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         net::wire::write_stream_start(writer, start, piece.data(), piece_size);
         const std::string what = "stream start, piece " + std::to_string(piece_size);
-        check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes, &reference, reference_size) == 0,
+        check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes.data(), &reference, reference_size) == 0,
               what + ": as the original's struct");
 
-        util::ByteReader reader(bytes, writer.position());
+        util::ByteReader reader(bytes.data(), writer.position());
         net::wire::StreamStart back;
-        check(net::wire::read_stream_start(reader, &back) && std::strcmp(back.desc, "Appearance") == 0 &&
+        check(net::wire::read_stream_start(reader, &back) && std::strcmp(back.desc.data(), "Appearance") == 0 &&
                   back.total_size == 0x1234 && back.stream_id == 77 && back.checksum == 0xDEADBEEF &&
                   back.msg_id == 0x5A && reader.remaining() == piece_size + 3,
               what + ": decoded");
-        uint8_t again[net::wire::kStreamStartMaxSize];
-        util::ByteWriter again_writer(again, sizeof(again));
+        std::array<uint8_t, net::wire::kStreamStartMaxSize> again{};
+        util::ByteWriter again_writer(again.data(), sizeof(again));
         net::wire::write_stream_start(again_writer, back, reader.cursor(), piece_size);
-        check(again_writer.position() == writer.position() && std::memcmp(again, bytes, writer.position()) == 0,
+        check(again_writer.position() == writer.position() && std::memcmp(again.data(), bytes.data(), writer.position()) == 0,
               what + ": encoded again");
 
-        uint8_t piece_bytes[net::wire::kStreamPieceMaxSize];
-        util::ByteWriter piece_writer(piece_bytes, sizeof(piece_bytes));
+        std::array<uint8_t, net::wire::kStreamPieceMaxSize> piece_bytes{};
+        util::ByteWriter piece_writer(piece_bytes.data(), sizeof(piece_bytes));
         net::wire::write_stream_piece(piece_writer, 77, piece.data(), piece_size);
-        uint8_t reference_piece[4 + 0x100];
+        std::array<uint8_t, 4 + 0x100> reference_piece{};
         int32_t id = 77;
-        std::memcpy(reference_piece, &id, 4);
+        std::memcpy(reference_piece.data(), &id, 4);
         if (piece_size)
-            std::memcpy(reference_piece + 4, piece.data(), piece_size);
+            std::memcpy(reference_piece.data() + 4, piece.data(), piece_size);
         check(piece_writer.position() == piece_size + 4 &&
-                  std::memcmp(piece_bytes, reference_piece, piece_size + 4) == 0,
+                  std::memcmp(piece_bytes.data(), reference_piece.data(), piece_size + 4) == 0,
               "stream piece " + std::to_string(piece_size) + ": as the original's struct");
     }
     // (a description of 32 characters or more: the original overran its field; cut to 32 here)
     net::wire::StreamStart long_desc;
-    std::memset(long_desc.desc, 'x', 32);
-    uint8_t bytes[net::wire::kStreamStartMaxSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::memset(long_desc.desc.data(), 'x', 32);
+    std::array<uint8_t, net::wire::kStreamStartMaxSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     net::wire::write_stream_start(writer, long_desc, nullptr, 0);
     check(writer.position() == 0x30 && bytes[31] == 'x' && bytes[32] == 0, "stream start: a 32-character description");
 
     // the sequenced wrapper: group, sequence, id
-    const uint8_t sequenced[] = {0x03, 0x78, 0x56, 0x34, 0x12, 0x2A};
-    util::ByteReader reader(sequenced, sizeof(sequenced));
+    const auto sequenced = std::to_array<uint8_t>({0x03, 0x78, 0x56, 0x34, 0x12, 0x2A});
+    util::ByteReader reader(sequenced.data(), sizeof(sequenced));
     net::wire::SequencedHeader header;
     check(net::wire::read_sequenced_header(reader, &header) && header.group == 3 && header.sequence == 0x12345678 &&
               header.id == 0x2A,
           "sequenced header decoded");
-    uint8_t again[sizeof(sequenced)];
-    util::ByteWriter again_writer(again, sizeof(again));
+    std::array<uint8_t, sizeof(sequenced)> again{};
+    util::ByteWriter again_writer(again.data(), sizeof(again));
     check(net::wire::write_sequenced_header(again_writer, header) &&
-              std::memcmp(again, sequenced, sizeof(sequenced)) == 0,
+              std::memcmp(again.data(), sequenced.data(), sizeof(sequenced)) == 0,
           "sequenced header encoded again");
-    util::ByteReader short_reader(sequenced, 5);
+    util::ByteReader short_reader(sequenced.data(), 5);
     check(!net::wire::read_sequenced_header(short_reader, &header), "sequenced header: too short fails");
 }
 
@@ -574,10 +575,11 @@ struct ReferenceScores {
     uint32_t cheats;
     uint8_t final;
     uint8_t count;
-    struct {
+    struct Entry {
         uint8_t id;
         int32_t score;
-    } entries[52];
+    };
+    std::array<Entry, 52> entries;
 };
 // NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
@@ -588,7 +590,7 @@ static_assert(sizeof(ReferenceScores) == 0x10E, "the wire layout of the original
 struct ReferenceSessionBrief {
     uint8_t crown_start_slot, not_lan, game_id, pro_option_bits, max_players, pad5[3];
     uint32_t time_left, game_type, level, teams, goals, team_graffiti_mode, time_limit, target_score;
-    uint32_t start_points[8];
+    std::array<uint32_t, 8> start_points;
     uint32_t round;
     uint8_t variant, pad4d[3];
 };
@@ -602,8 +604,8 @@ struct ReferenceStartGame {
     uint8_t game_id, unused17;
     uint32_t teams, goals, team_graffiti_mode;
     int8_t crown_start_slot;
-    uint8_t unused25[3];
-    uint32_t start_points[8];
+    std::array<uint8_t, 3> unused25;
+    std::array<uint32_t, 8> start_points;
 };
 // NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceStartGame) == 0x48 && offsetof(ReferenceStartGame, stop_at_zero) == 0x14 &&
@@ -618,7 +620,7 @@ struct ReferenceServerInfo {
     char name[16], level[32], mode[32];
     uint8_t skill_level, pad59[3];
     uint32_t time;
-    char players[8][16];
+    std::array<std::array<char, 16>, 8> players;
 };
 // NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
@@ -636,37 +638,37 @@ void check_server_info()
     info.password = true;
     reference.host_mode = info.host_mode = 2;
     std::snprintf(reference.name, sizeof(reference.name), "%s", "Kevin's park");
-    std::snprintf(info.name, sizeof(info.name), "%s", "Kevin's park");
+    std::snprintf(info.name.data(), sizeof(info.name), "%s", "Kevin's park");
     std::snprintf(reference.level, sizeof(reference.level), "%s", "Barcelona");
-    std::snprintf(info.level, sizeof(info.level), "%s", "Barcelona");
+    std::snprintf(info.level.data(), sizeof(info.level), "%s", "Barcelona");
     std::snprintf(reference.mode, sizeof(reference.mode), "%s", "Trick Attack");
-    std::snprintf(info.mode, sizeof(info.mode), "%s", "Trick Attack");
+    std::snprintf(info.mode.data(), sizeof(info.mode), "%s", "Trick Attack");
     reference.skill_level = info.skill_level = 4;
     reference.time = info.time = 123456;
-    const char* const names[3] = {"one", "fifteen_chars__", "x"};
+    const std::array<const char*, 3> names = {{"one", "fifteen_chars__", "x"}};
     for (int i = 0; i < 3; ++i) {
-        std::snprintf(reference.players[i], sizeof(reference.players[i]), "%s", names[i]);
-        std::snprintf(info.players[i], sizeof(info.players[i]), "%s", names[i]);
+        std::snprintf(reference.players[i].data(), sizeof(reference.players[i]), "%s", names[i]);
+        std::snprintf(info.players[i].data(), sizeof(info.players[i]), "%s", names[i]);
     }
-    uint8_t bytes[0xE0];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, 0xE0> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     online::write_server_info(writer, info);
-    check(writer.ok() && writer.position() == sizeof(bytes) && std::memcmp(bytes, &reference, sizeof(bytes)) == 0,
+    check(writer.ok() && writer.position() == sizeof(bytes) && std::memcmp(bytes.data(), &reference, sizeof(bytes)) == 0,
           "server info: as the original's struct");
-    util::ByteReader reader(bytes, sizeof(bytes));
+    util::ByteReader reader(bytes.data(), sizeof(bytes));
     auto back = std::make_unique<online::ServerInfo>();
     online::read_server_info(reader, back.get());
-    uint8_t again[0xE0];
-    util::ByteWriter again_writer(again, sizeof(again));
+    std::array<uint8_t, 0xE0> again{};
+    util::ByteWriter again_writer(again.data(), sizeof(again));
     online::write_server_info(again_writer, *back);
-    check(reader.ok() && std::memcmp(again, bytes, sizeof(bytes)) == 0 &&
-              std::strcmp(back->players[1], "fifteen_chars__") == 0,
+    check(reader.ok() && std::memcmp(again.data(), bytes.data(), sizeof(bytes)) == 0 &&
+              std::strcmp(back->players[1].data(), "fifteen_chars__") == 0,
           "server info: decoded and encoded again");
     // a name filling its field without a terminator: cut there when read
-    std::memset(bytes + 8, 'n', 16);
-    util::ByteReader unterminated(bytes, sizeof(bytes));
+    std::memset(bytes.data() + 8, 'n', 16);
+    util::ByteReader unterminated(bytes.data(), sizeof(bytes));
     online::read_server_info(unterminated, back.get());
-    check(std::strlen(back->name) == 16 && std::strcmp(back->level, "Barcelona") == 0,
+    check(std::strlen(back->name.data()) == 16 && std::strcmp(back->level.data(), "Barcelona") == 0,
           "server info: an unterminated name stops at its field");
 }
 
@@ -693,21 +695,21 @@ void check_session_messages()
         brief_ref.start_points[i] = brief.start_points[i] = static_cast<uint32_t>(i * 5 + 1);
     brief_ref.round = brief.round = 4;
     brief_ref.variant = brief.variant = 2;
-    uint8_t bytes[0x50];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, 0x50> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     online::write_session_brief(writer, brief);
-    check(writer.ok() && writer.position() == sizeof(brief_ref) && std::memcmp(bytes, &brief_ref, sizeof(bytes)) == 0,
+    check(writer.ok() && writer.position() == sizeof(brief_ref) && std::memcmp(bytes.data(), &brief_ref, sizeof(bytes)) == 0,
           "session brief: as the original's struct");
-    util::ByteReader reader(bytes, sizeof(bytes));
+    util::ByteReader reader(bytes.data(), sizeof(bytes));
     online::SessionBrief brief_back;
     online::read_session_brief(reader, &brief_back);
-    uint8_t again[0x50];
-    util::ByteWriter again_writer(again, sizeof(again));
+    std::array<uint8_t, 0x50> again{};
+    util::ByteWriter again_writer(again.data(), sizeof(again));
     online::write_session_brief(again_writer, brief_back);
-    check(reader.ok() && reader.remaining() == 0 && std::memcmp(again, bytes, sizeof(bytes)) == 0,
+    check(reader.ok() && reader.remaining() == 0 && std::memcmp(again.data(), bytes.data(), sizeof(bytes)) == 0,
           "session brief: decoded and encoded again");
     uint32_t mode = 0;
-    std::memcpy(&mode, bytes + online::kSessionBriefGameTypeAt, 4);
+    std::memcpy(&mode, bytes.data() + online::kSessionBriefGameTypeAt, 4);
     check(mode == brief.game_type, "session brief: the guards' game type offset");
 
     ReferenceStartGame start_ref = {};
@@ -725,19 +727,19 @@ void check_session_messages()
     start_ref.crown_start_slot = start.crown_start_slot = -1;
     for (int i = 0; i < 8; ++i)
         start_ref.start_points[i] = start.start_points[i] = static_cast<uint32_t>(7 - i);
-    uint8_t start_bytes[0x48];
-    util::ByteWriter start_writer(start_bytes, sizeof(start_bytes));
+    std::array<uint8_t, 0x48> start_bytes{};
+    util::ByteWriter start_writer(start_bytes.data(), sizeof(start_bytes));
     online::write_start_game(start_writer, start);
     check(start_writer.ok() && start_writer.position() == sizeof(start_ref) &&
-              std::memcmp(start_bytes, &start_ref, sizeof(start_bytes)) == 0,
+              std::memcmp(start_bytes.data(), &start_ref, sizeof(start_bytes)) == 0,
           "start game: as the original's struct");
-    util::ByteReader start_reader(start_bytes, sizeof(start_bytes));
+    util::ByteReader start_reader(start_bytes.data(), sizeof(start_bytes));
     online::StartGame start_back;
     online::read_start_game(start_reader, &start_back);
-    uint8_t start_again[0x48];
-    util::ByteWriter start_again_writer(start_again, sizeof(start_again));
+    std::array<uint8_t, 0x48> start_again{};
+    util::ByteWriter start_again_writer(start_again.data(), sizeof(start_again));
     online::write_start_game(start_again_writer, start_back);
-    check(start_reader.ok() && std::memcmp(start_again, start_bytes, sizeof(start_bytes)) == 0 &&
+    check(start_reader.ok() && std::memcmp(start_again.data(), start_bytes.data(), sizeof(start_bytes)) == 0 &&
               start_back.crown_start_slot == -1,
           "start game: decoded and encoded again");
 }
@@ -763,23 +765,23 @@ void check_skate_messages()
             message->entries[i].score = i == 1 ? -5 : 100000 * (i + 1);
         }
         auto reference_size = static_cast<size_t>((count + 2) * 5);
-        uint8_t bytes[sizeof(ReferenceScores)];
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        std::array<uint8_t, sizeof(ReferenceScores)> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         skate_net::write_scores(writer, *message);
         const std::string what = "scores, " + std::to_string(count);
-        check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes, &reference, reference_size) == 0,
+        check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes.data(), &reference, reference_size) == 0,
               what + ": as the original's struct");
-        util::ByteReader reader(bytes, writer.position());
+        util::ByteReader reader(bytes.data(), writer.position());
         auto back = std::make_unique<skate_net::ScoresMessage>();
         check(skate_net::read_scores(reader, back.get()) && back->count == count && back->final &&
                   back->time_left == 95 && back->cheats == 0x10 && reader.remaining() == 0,
               what + ": decoded");
-        uint8_t again[sizeof(ReferenceScores)];
-        util::ByteWriter again_writer(again, sizeof(again));
+        std::array<uint8_t, sizeof(ReferenceScores)> again{};
+        util::ByteWriter again_writer(again.data(), sizeof(again));
         skate_net::write_scores(again_writer, *back);
-        check(again_writer.position() == reference_size && std::memcmp(again, bytes, reference_size) == 0,
+        check(again_writer.position() == reference_size && std::memcmp(again.data(), bytes.data(), reference_size) == 0,
               what + ": encoded again");
-        util::ByteReader short_reader(bytes, reference_size - 1);
+        util::ByteReader short_reader(bytes.data(), reference_size - 1);
         check(!skate_net::read_scores(short_reader, back.get()) && back->count == count - 1,
               what + ": cut short keeps the whole entries");
     }

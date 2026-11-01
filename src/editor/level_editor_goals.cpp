@@ -14,6 +14,7 @@
 #include <initializer_list>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "game/park_editing/goal_editor.h"
@@ -50,22 +51,22 @@ struct TypeInfo {
     const char* title; // goals_menu_info's
     uint32_t checksum;
 };
-const TypeInfo kTypeInfo[kTypes] = {
+const std::array<TypeInfo, kTypes> kTypeInfo = {{
     {"Skate", "SKATE letters", 0x54166ACD},    {"Combo", "COMBO letters", 0x4EC3CFB5},
     {"HighScore", "High Score", 0x6FE44C6D},   {"HighCombo", "High Combo", 0xEC414B76},
     {"Skatetris", "Skate-Tricks", 0x7FE2238A}, {"ComboSkatetris", "Combo Skate-Tricks", 0x0FC6F698},
     {"TrickTris", "Tricktris", 0xEA7BA666},    {"TrickBeat", "Trick to the Beat", 0xD0DD047B},
     {"Race", "Checkpoint / Race", 0x25904450}, {"Gap", "Gap", 0x61C5D092},
-};
+}};
 
 // goal_editor.qb's cag_key_combos (the sets' texts).
-const char* const kComboSets[] = {"Basic Flip Tricks",      "Diagonal Flip Tricks",     "Basic Grab Tricks",
+constexpr auto kComboSets = std::to_array<const char*>({"Basic Flip Tricks",      "Diagonal Flip Tricks",     "Basic Grab Tricks",
                                   "Diagonal Grab Tricks",   "Double Tap Basic Flips",   "Double Tap Diagonal Flips",
-                                  "Double Tap Basic Grabs", "Double Tap Diagonal Grabs"};
+                                  "Double Tap Basic Grabs", "Double Tap Diagonal Grabs"});
 
-const char* const kSkateLetters[] = {"S", "K", "A", "T", "E"};
-const char* const kComboLetters[] = {"C", "O", "M", "B", "O"};
-const char* const kComboSuffixes[] = {"c", "o", "m", "b", "o2"};
+constexpr auto kSkateLetters = std::to_array<const char*>({"S", "K", "A", "T", "E"});
+constexpr auto kComboLetters = std::to_array<const char*>({"C", "O", "M", "B", "O"});
+constexpr auto kComboSuffixes = std::to_array<const char*>({"c", "o", "m", "b", "o2"});
 
 int get_index(KindTag type) { return static_cast<int>(type); }
 
@@ -345,12 +346,12 @@ std::string write_record(const Goal& g)
     number("time", g.time);
     number("score", g.score);
     out += std::string(" control=") + (g.walk ? "Walk" : "Skate");
-    char buffer[200];
+    std::array<char, 200> buffer{};
     for (size_t i = 0; i < g.points.size(); ++i) {
         const Point& p = g.points[i];
-        std::snprintf(buffer, sizeof(buffer), " p%u=%.9g,%.9g,%.9g,%.9g,%.9g", static_cast<unsigned>(i), p.pos.x,
+        std::snprintf(buffer.data(), sizeof(buffer), " p%u=%.9g,%.9g,%.9g,%.9g,%.9g", static_cast<unsigned>(i), p.pos.x,
                       p.pos.y, p.pos.z, p.heading, p.height);
-        out += buffer;
+        out += buffer.data();
     }
     if (g.type == KindTag::kRace) {
         number("laps", g.laps);
@@ -372,8 +373,8 @@ std::string write_record(const Goal& g)
         out += " sets=" + (sets.empty() ? std::string("none") : sets);
         number("spin", g.spin);
         number("accel", g.accel_interval_);
-        std::snprintf(buffer, sizeof(buffer), " accelpct=%.9g", g.accel_percent_);
-        out += buffer;
+        std::snprintf(buffer.data(), sizeof(buffer), " accelpct=%.9g", g.accel_percent_);
+        out += buffer.data();
         number("tricktime", g.combo_time_);
         number("stopat", g.stop_at_);
         number("maxtricks", g.max_tricks_);
@@ -472,8 +473,8 @@ bool read_record(const std::string& text, Goal* out)
             ok = read_numbers(value, &g.accel_percent_, 1);
         } else if (key.size() >= 2 && key[0] == 'p' && key.find_first_not_of("0123456789", 1) == std::string::npos) {
             int index = 0;
-            float v[5];
-            ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints && read_numbers(value, v, 5);
+            std::array<float, 5> v{};
+            ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints && read_numbers(value, v.data(), 5);
             if (ok)
                 points.emplace_back(index, Point{{v[0], v[1], v[2]}, v[3], v[4]});
         } else {
@@ -481,7 +482,7 @@ bool read_record(const std::string& text, Goal* out)
                 const char* key;
                 int* field;
             };
-            const IntKey ints[] = {{"time", &g.time},
+            const auto ints = std::to_array<IntKey>({{"time", &g.time},
                                    {"score", &g.score},
                                    {"laps", &g.laps},
                                    {"cptime", &g.checkpoint_time_},
@@ -492,7 +493,7 @@ bool read_record(const std::string& text, Goal* out)
                                    {"maxtricks", &g.max_tricks_},
                                    {"combo", &g.combo_size_},
                                    {"block", &g.block_size_},
-                                   {"towin", &g.to_win_}};
+                                   {"towin", &g.to_win_}});
             bool known = false;
             for (const IntKey& k : ints) {
                 if (key == k.key) {
@@ -532,7 +533,7 @@ float get_heading_of(float image_angle) { return image_angle - kPi; }
 void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers,
                 GoalImage* out)
 {
-    uint8_t* b = out->bytes;
+    uint8_t* b = out->bytes.data();
     std::memset(b, 0, kTexelEdge);
     auto u32 = [b](uint32_t offset) -> uint32_t& { return *raw::field_at<uint32_t>(b, offset); };
     auto f32 = [b](uint32_t offset) -> float& { return *raw::field_at<float>(b, offset); };
@@ -632,14 +633,14 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
 
 std::string play_node_name(int which, int index)
 {
-    char name[64];
+    std::array<char, 64> name{};
     if (which == 0)
-        std::snprintf(name, sizeof(name), "TRG_EditedGoal%d_Pro", index);
+        std::snprintf(name.data(), sizeof(name), "TRG_EditedGoal%d_Pro", index);
     else if (which == 1)
-        std::snprintf(name, sizeof(name), "TRG_EditedGoal%d_Restart", index);
+        std::snprintf(name.data(), sizeof(name), "TRG_EditedGoal%d_Restart", index);
     else
-        std::snprintf(name, sizeof(name), "TRG_EditedGoal%d_Object_%d", index, which - 2);
-    return name;
+        std::snprintf(name.data(), sizeof(name), "TRG_EditedGoal%d_Object_%d", index, which - 2);
+    return name.data();
 }
 
 std::string get_goal_id(int index) { return "CreatedGoal" + std::to_string(index); }
@@ -909,8 +910,8 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
             s.cls = "GameObject";
             const uint32_t kind_hash = get_kind_hash(g.type);
             const char* model = park_editing::goal_object_model(kind_hash, static_cast<int>(k) - 2);
-            static const char* const kLetterTypes[2][5] = {{"Letter_S", "Letter_K", "Letter_A", "Letter_T", "Letter_E"},
-                                                           {"Combo_C", "Combo_O", "Combo_M", "Combo_B", "Combo_O"}};
+            static const std::array<std::array<const char*, 5>, 2> kLetterTypes = {{{"Letter_S", "Letter_K", "Letter_A", "Letter_T", "Letter_E"},
+                                                           {"Combo_C", "Combo_O", "Combo_M", "Combo_B", "Combo_O"}}};
             if (kind == 3 && k >= 2 && k < 7)
                 s.type = kLetterTypes[g.type == KindTag::kCombo ? 1 : 0][k - 2];
             s.extra = {integer("SuspendDistance", 0), integer("lod_dist1", 400), integer("lod_dist2", 401)};
@@ -1002,7 +1003,7 @@ void put_in_play()
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
         GoalImage image{};
         fill_image(*goal, level, index, gap_ordinals(*goal), &image);
-        raw::as<park_editing::EditedGoal>(image.bytes)->add_to_goal_manager(true);
+        raw::as<park_editing::EditedGoal>(image.bytes.data())->add_to_goal_manager(true);
         const uint32_t id = get_checksums(get_goal_id(index));
         if (!goal_exists(id)) {
             get_log("level editor: goal %s - the goal manager didn't take it", goal->id.c_str());
@@ -1260,7 +1261,7 @@ bool export_goal(const std::string& id, std::string* message)
     }
     GoalImage image{};
     fill_image(g, level, index, gap_ordinals(g), &image);
-    std::memcpy(slots + slot * kSlotSize, image.bytes, kSlotSize);
+    std::memcpy(slots + slot * kSlotSize, image.bytes.data(), kSlotSize);
     *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) + "";
     get_log("level editor: goal %s exported to the goal editor (slot %d, CreatedGoal%d)", g.id.c_str(), slot, index);
     return true;
@@ -1434,10 +1435,10 @@ std::string describe()
     int complete = 0;
     for (const Goal& g : g_goals)
         complete += get_complete(g) ? 1 : 0;
-    char text[96];
-    std::snprintf(text, sizeof(text), "%u goals (%d complete, %u in play)", static_cast<unsigned>(g_goals.size()),
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), "%u goals (%d complete, %u in play)", static_cast<unsigned>(g_goals.size()),
                   complete, static_cast<unsigned>(g_in_play.size()));
-    return text;
+    return text.data();
 }
 
 } // namespace frontend::level_editor::goal_edit

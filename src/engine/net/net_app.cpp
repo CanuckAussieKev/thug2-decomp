@@ -24,6 +24,7 @@
 #include "formats/byte_stream.h"
 #include "platform/stopwatch.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
@@ -161,11 +162,11 @@ void pop_heap() { ram_stats()->leave_heap_scope(); }
 // checksum of all the data, the message id and the first 256 bytes) and the pieces after it, each built in a buffer
 // of its own.
 struct StreamPieceMessage {
-    uint8_t bytes[wire::kStreamPieceMaxSize]{};
+    std::array<uint8_t, wire::kStreamPieceMaxSize> bytes{};
     uint16_t size = 0;
     void build(int stream_id, const void* piece, int length)
     {
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         wire::write_stream_piece(writer, stream_id, piece, static_cast<size_t>(length));
         size = static_cast<uint16_t>(writer.position());
     }
@@ -339,13 +340,13 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
     start.stream_id = alloc_stream_key(conn);
     start.msg_id = msg_id;
     start.checksum = checksums::generate_crc_from_buffer(data, size);
-    std::snprintf(start.desc, sizeof(start.desc), "%s", desc);
+    std::snprintf(start.desc.data(), sizeof(start.desc), "%s", desc);
     const int first = size > kStreamPieceSize ? kStreamPieceSize : size;
-    uint8_t start_bytes[wire::kStreamStartMaxSize];
-    util::ByteWriter start_writer(start_bytes, sizeof(start_bytes));
+    std::array<uint8_t, wire::kStreamStartMaxSize> start_bytes{};
+    util::ByteWriter start_writer(start_bytes.data(), sizeof(start_bytes));
     wire::write_stream_start(start_writer, start, data, static_cast<size_t>(first));
     message.byte_count_ = static_cast<uint16_t>(start_writer.position());
-    message.content_ = start_bytes;
+    message.content_ = start_bytes.data();
     message.group_id_ = group_id;
     message.ident_ = kMsgBulkBegin;
     message.queue_ = NetMessageInfo::kLaneOrdered;
@@ -362,7 +363,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
                 piece.build(alloc_stream_key(conn), next, length);
-                message.content_ = piece.bytes;
+                message.content_ = piece.bytes.data();
                 message.byte_count_ = piece.size;
                 message.group_id_ = group_id;
                 message.ident_ = kMsgBulkChunk;
@@ -391,7 +392,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
             stream->extent_ = size;
             stream->stream_id_ = alloc_stream_key(conn);
             stream->msg_id_ = msg_id;
-            copy_string(stream->desc_, desc);
+            copy_string(stream->desc_.data(), desc);
             stream->content_ = copy;
             stream->group_id_ = group_id;
             stream->succ_ = next;
@@ -572,7 +573,7 @@ void AppHost::pump_stream_traffic()
                 message.ident_ = kMsgBulkChunk;
                 message.byte_count_ = piece.size;
                 message.queue_ = NetMessageInfo::kLaneOrdered;
-                message.content_ = piece.bytes;
+                message.content_ = piece.bytes.data();
                 message.group_id_ = stream->group_id_;
                 message.feed_ = 1;
                 message.fixed_seq_no_ = stream->order_number_++;

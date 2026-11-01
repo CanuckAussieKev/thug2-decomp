@@ -15,6 +15,7 @@
 #include "engine/sys/game_module.h"
 #include "engine/core/mem.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace objects {
 class GameEntity;
@@ -232,25 +233,25 @@ public:
     objects::Rider* get_skater_at(uint32_t index);
 
     std::unique_ptr<tasks::Task<Skate>> update_job_;         // +0x14 (front_end_tick)
-    tasks::Task<Skate>* server_tasks_[2]{};                  // +0x18 (SkateNet::create_network_tasks)
+    std::array<tasks::Task<Skate>*, 2> server_tasks_{};                  // +0x18 (SkateNet::create_network_tasks)
     std::unique_ptr<objects::RiderStoryProgress> career_;    // +0x20
     memory::HeapUnique<objects::GrindRailHub> rail_manager_; // +0x24
     lists::Foremost riders_{}; // +0x28 (their nodes' data the skaters, in object id order)
     bool watch_for_unplug_{false}; // +0x3C
-    uint8_t pad3d_[3]{};
+    std::array<uint8_t, 3> pad3d_{};
     int unplugged_frames_{0};       // +0x40
     bool running_queued_scripts_{}; // +0x44
     bool level_launched_;         // +0x45 (enter_stage)
     bool run_over_{};             // +0x46
-    uint8_t pad47[5]{};
+    std::array<uint8_t, 5> pad47{};
     uint32_t match_style_; // +0x4C (freeskate)
     bool movie_camera_{};  // +0x50 a movie's camera in use
-    uint8_t pad51[3]{};
+    std::array<uint8_t, 3> pad51{};
     memory::HeapUnique<objects::ChecksumSet> checksums_;          // +0x54 (0x404 bytes)
     std::unique_ptr<prefs::Preferences> splitscreen_preferences_; // +0x58
     bool stage_switched_{};                                       // +0x5C
-    uint8_t pad5d_[3]{};
-    ScoreGoal score_goals_[64]{};                         // +0x60
+    std::array<uint8_t, 3> pad5d_{};
+    std::array<ScoreGoal, 64> score_goals_{};                         // +0x60
     memory::HeapUnique<modules::Contest> competition_;    // +0x360
     memory::HeapUnique<modules::LetterMatch> horse_;      // +0x364
     std::unique_ptr<objects::VideoHub> movies_;           // +0x368
@@ -263,7 +264,7 @@ public:
     bool new_record_{};                                   // +0x384 a record was set by the last UpdateRecords
     std::unique_ptr<goals::MatchFlow> game_flow_;         // +0x388
     memory::HeapUnique<goals::GoalManager> goal_manager_; // +0x38C
-    PlayerSettings participants_[8]{};                    // +0x390
+    std::array<PlayerSettings, 8> participants_{};                    // +0x390
     float forced_stat_{};                                 // +0x3D0 every skater's stats, forced (unless 0)
     bool debug_rails_{};                                  // +0x3D4
     script::Script* own_script_;                          // +0x3D8

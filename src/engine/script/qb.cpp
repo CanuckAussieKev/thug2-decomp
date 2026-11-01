@@ -8,6 +8,7 @@
 #include <new>
 #include <string>
 #include <unordered_map>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -456,10 +457,10 @@ void log_script_pool_use(const char* when)
         const char* name;
         memory::PoolPair* pair;
     };
-    const Named pools[] = {{"CComponent", &g_component_pools}, {"CStruct", &g_struct_pools},
+    const auto pools = std::to_array<Named>({{"CComponent", &g_component_pools}, {"CStruct", &g_struct_pools},
                            {"CVector", &g_vector_pools},       {"CPair", &g_pair_pools},
                            {"CArray", &g_array_pools},         {"CSymbolTableEntry", &g_symbol_pools},
-                           {"CScript", &g_script_pools}};
+                           {"CScript", &g_script_pools}});
     std::string line;
     for (const Named& p : pools) {
         int used = 0, peak = 0, count = 0;
@@ -470,17 +471,17 @@ void log_script_pool_use(const char* when)
             peak += pool->peak_used_;
             count += pool->num_;
         }
-        char part[96];
-        std::snprintf(part, sizeof(part), "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak,
+        std::array<char, 96> part{};
+        std::snprintf(part.data(), sizeof(part), "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak,
                       count);
-        line += part;
+        line += part.data();
     }
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
     if (const memory::SlabBank* items = memory::slot_pool_setup::get_pool(0)) {
-        char part[96];
-        std::snprintf(part, sizeof(part), ", HashItem %d (peak %d) of %d", items->taken_count_, items->peak_used_,
+        std::array<char, 96> part{};
+        std::snprintf(part.data(), sizeof(part), ", HashItem %d (peak %d) of %d", items->taken_count_, items->peak_used_,
                       items->num_);
-        line += part;
+        line += part.data();
     }
     get_log("script pools in use %s: %s", when, line.c_str());
 }
@@ -503,8 +504,8 @@ struct PendingSymbol {
     SymbolTableEntry* symbol;
     bool owned;
 };
-PendingSymbol g_pending_symbols[500];
-PendingSymbol* pending_symbols() { return g_pending_symbols; }
+std::array<PendingSymbol, 500> g_pending_symbols;
+PendingSymbol* pending_symbols() { return g_pending_symbols.data(); }
 int& pending_symbol_count() { return g_pending_symbol_count; }
 
 void add_pending_symbol(SymbolTableEntry* symbol, bool owned)

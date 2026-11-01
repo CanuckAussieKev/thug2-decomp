@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
@@ -30,8 +31,8 @@
 namespace commands {
 
 namespace {
-char g_level_name[64];
-uint32_t g_debounce_times[22];
+std::array<char, 64> g_level_name;
+std::array<uint32_t, 22> g_debounce_times;
 
 constexpr uint32_t kTime = 0x906B67BA;               // "time"
 constexpr uint32_t kId = 0x40C698AF;                 // "id"
@@ -56,8 +57,8 @@ int glyph_for_button_tag(uint32_t button) { return pad_input::glyph_for_button_t
 uint32_t& last_broadcasted_omnigon() { return g_last_broadcasted_omnigon; }
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
-char* node_table_key_text() { return g_node_list_name; }
-char* get_level_name() { return g_level_name; }
+char* node_table_key_text() { return g_node_list_name.data(); }
+char* get_level_name() { return g_level_name.data(); }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
 void* get_viewer() { return modules::get_live_viewer(); }
@@ -67,7 +68,7 @@ inline void dump_scripts_list(bool /*flag*/) {}
 
 } // namespace
 
-uint32_t* debounce_times() { return g_debounce_times; }
+uint32_t* debounce_times() { return g_debounce_times.data(); }
 
 // 0x0059EE80
 bool controller_pressed(const void* controller, uint32_t button)

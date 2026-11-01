@@ -12,6 +12,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -35,9 +36,9 @@
 namespace objects {
 
 namespace {
-uint32_t g_editor_camera_skip_names[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
+std::array<uint32_t, 4> g_editor_camera_skip_names{{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205}};
 uint32_t g_editor_camera_name{0x43BFAB74};
-uint32_t g_editor_camera_seen[20];
+std::array<uint32_t, 20> g_editor_camera_seen;
 uint8_t g_editor_camera_flagged;
 int g_editor_camera_seen_count;
 
@@ -58,7 +59,7 @@ float get_global(uint32_t name) { return script::fetch_float(name); }
 
 uint8_t& get_flagged() { return g_editor_camera_flagged; }
 int& get_seen_count() { return g_editor_camera_seen_count; }
-uint32_t* get_seen() { return g_editor_camera_seen; }
+uint32_t* get_seen() { return g_editor_camera_seen.data(); }
 
 // The collision feeler (render::ProbeRay): its line, a hit callback, the hit's point and normal; what it hit held by
 // a smart pointer (let go of by its destructor).

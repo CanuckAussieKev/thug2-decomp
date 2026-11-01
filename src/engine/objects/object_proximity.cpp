@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -23,10 +24,10 @@
 
 namespace objects {
 
-uint32_t g_object_proximity_member_functions[42]{
+std::array<uint32_t, 42> g_object_proximity_member_functions{{
     0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0, 0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0, 0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0,
     0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0, 0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0, 0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
-    0,          0x1D5B1AE6, 0, 0, 0, 0};
+    0,          0x1D5B1AE6, 0, 0, 0, 0}};
 
 namespace {
 
@@ -68,7 +69,7 @@ gsl::owner<ObjectModule*> ObjectProximityComponent::fabricate() { return new Obj
 void ObjectProximityComponent::publish_method_table()
 {
     script::register_member_function_table(cell::pointer<void>(kObjectProximity),
-                                           g_object_proximity_member_functions, 0x18);
+                                           g_object_proximity_member_functions.data(), 0x18);
 }
 
 // 0x004EC370

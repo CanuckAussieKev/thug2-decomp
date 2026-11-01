@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_model_lights.h"
@@ -202,7 +203,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
     maths::Mat4 rotation;
     bool none = true;
     using CreateFn = maths::Mat4& (*)(maths::Mat4&, float);
-    static const CreateFn kCreate[3] = {maths::make_pitch_matrix, maths::make_yaw_matrix, maths::make_roll_matrix};
+    static const std::array<CreateFn, 3> kCreate = {{maths::make_pitch_matrix, maths::make_yaw_matrix, maths::make_roll_matrix}};
     for (int axis = 0; axis < 3; ++axis) {
         if (!twist_rate_[axis].active_)
             continue;
@@ -294,10 +295,10 @@ bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
         sent.hide = hide;
         sent.name = name;
         sent.object_id = static_cast<uint8_t>(entity_->ident_);
-        uint8_t data[online::kHideGeomSize];
-        util::ByteWriter writer(data, sizeof(data));
+        std::array<uint8_t, online::kHideGeomSize> data{};
+        util::ByteWriter writer(data.data(), sizeof(data));
         online::write_hide_geom(writer, sent);
-        send_to_server(entity_, online::kMsgHideGeom, sizeof(data), data);
+        send_to_server(entity_, online::kMsgHideGeom, sizeof(data), data.data());
     }
     if (mesh_instance_)
         model_hide_geom(mesh_instance_, name, hide);
@@ -340,7 +341,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
     auto now = static_cast<uint32_t>(frame_clock::game_clock_time());
     uint8_t axes = 0;
-    const bool flags[3] = {x, y, z};
+    const std::array<bool, 3> flags = {{x, y, z}};
     for (int axis = 0; axis < 3; ++axis) {
         if (!flags[axis])
             continue;
@@ -361,10 +362,10 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     sent.object_id = static_cast<uint8_t>(entity_->ident_);
     sent.hold = hold;
     sent.axes = axes;
-    uint8_t data[online::kSpinModelSize];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, online::kSpinModelSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_spin_model(writer, sent);
-    message.content_ = data;
+    message.content_ = data.data();
     message.byte_count_ = sizeof(data);
     message.ident_ = online::kMsgSpinModel;
     app->send_to_host(&message);

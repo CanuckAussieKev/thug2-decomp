@@ -7,6 +7,7 @@
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace lists {
 class KeyMap;
@@ -106,7 +107,7 @@ public:
 
     uint8_t unknownc_ = 0; // +0x0C
     uint8_t unknownd_ = 0; // +0x0D
-    uint8_t pade_[2]{};
+    std::array<uint8_t, 2> pade_{};
     void* image_ = nullptr; // +0x10: the TextureRef, or the edit holding it (flag_bits_ & 1: a TextureEdit)
 };
 static_assert(offsetof(PcTexture, flag_bits_) == 8 && offsetof(PcTexture, image_) == 0x10 && sizeof(PcTexture) == 0x14,

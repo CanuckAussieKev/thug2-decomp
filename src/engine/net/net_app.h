@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
@@ -50,7 +51,7 @@ struct NetMessageInfo {
     int delay_{0};                 // 0x14 added to the app's timestamp: when the message may go
     uint32_t fixed_seq_no_{0};     // 0x18 sequenced: this id instead of the group's next one (0 = the next)
     uint8_t compression_{0};       // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
-    uint8_t pad1d_[3]{};
+    std::array<uint8_t, 3> pad1d_{};
 };
 
 // A streamed message not sent all at once (0x44 bytes, constructor 0x004549D0, destructor body 0x00454E00): sent
@@ -66,15 +67,15 @@ struct StreamDesc {
     int extent_{0};    // 0x00
     int stream_id_{};  // 0x04
     uint8_t msg_id_{}; // 0x08
-    char desc_[32]{};  // 0x09 the sender's description of the data
-    uint8_t pad29_[3]{};
+    std::array<char, 32> desc_{};  // 0x09 the sender's description of the data
+    std::array<uint8_t, 3> pad29_{};
     uint8_t* content_{nullptr}; // 0x2C
     uint8_t* succ_{nullptr};    // 0x30 the first byte not sent yet
     uint8_t group_id_{0};       // 0x34
     uint32_t order_number_{}; // 0x38 the next piece's sequence id (reserved when the stream was queued)
     uint32_t checksum_{};     // 0x3C received streams: the whole message's checksum
     bool borrowed_payload_{false}; // 0x40 content_ is the caller's (not freed)
-    uint8_t pad41_[3]{};
+    std::array<uint8_t, 3> pad41_{};
 };
 
 // NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it). The
@@ -259,7 +260,7 @@ struct AppHost {
     int frame_count_{};             // +0x1410 frames processed (pump_incoming_traffic)
     memory::ListNode list1414_{};   // +0x1414 lists::Elem<App> (data = the app)
     uint32_t sock_{};               // +0x1428
-    uint8_t local_address_[0x10]{}; // +0x142C sockaddr_in (Bind)
+    std::array<uint8_t, 0x10> local_address_{}; // +0x142C sockaddr_in (Bind)
     bool linked_up_{};              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     void* supervisor_{};            // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
@@ -270,17 +271,17 @@ struct AppHost {
     tasks::SchedulerTask* metrics_task_; // +0x1450
     int open_links_{};                   // +0x1454 (zeroed by Init)
     int peer_cap_{};                     // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
-    uint8_t scrambled_[0x514]{};         // +0x145C a secure packet being sent
-    char receive_buffer_[0x514]{};       // +0x1970
+    std::array<uint8_t, 0x514> scrambled_{};         // +0x145C a secure packet being sent
+    std::array<char, 0x514> receive_buffer_{};       // +0x1970
     uint32_t flag_bits_;                 // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
     memory::ListNode circuits_{};               // +0x1E8C head (data -1)
     memory::ListNode banned_{};                 // +0x1EA0 head
     uint32_t unknown1eb4_{};
-    char label_[0x48]{}; // +0x1EB8 ("server", "client"...)
+    std::array<char, 0x48> label_{}; // +0x1EB8 ("server", "client"...)
     // +0x1F00 a double (0.0 from the constructor; not used by the library), as two words: an 8-aligned member would
     // move MSVC's first member after the vptr to +8.
-    uint32_t unknown1f00_[2]{};
+    std::array<uint32_t, 2> unknown1f00_{};
 };
 
 // NOT ORIGINAL - a look at every message AppHost::put_on_outbox queues, first (THUGPRO's additions to messages we send:

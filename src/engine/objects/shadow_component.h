@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -83,7 +84,7 @@ public:
     uint32_t shadow_kind_{kNoShadow};                   // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
     ObjectModule* mesh_instance_{};                     // +0x40 the model component (Finalize)
     bool follow_object_{true};                          // +0x44 each update puts it at the object's position
-    uint8_t pad45[3]{};
+    std::array<uint8_t, 3> pad45{};
 };
 
 } // namespace objects

@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_cameras.h"
 #include "editor/level_editor_chains.h"
@@ -127,15 +128,15 @@ namespace frontend::level_editor::layout {
 
 struct ObjectRecord {
     uint32_t id{};
-    float pos[3]{};
-    float rows[9]{};
+    std::array<float, 3> pos{};
+    std::array<float, 9> rows{};
     V3 scale = {1.0f, 1.0f, 1.0f};
 };
 struct CopyRecord {
     uint32_t name{};
     uint32_t source{};
-    float pos[3]{};
-    float rows[9]{};
+    std::array<float, 3> pos{};
+    std::array<float, 9> rows{};
     V3 scale = {1.0f, 1.0f, 1.0f};
 };
 struct CloneRecord {
@@ -145,8 +146,8 @@ struct CloneRecord {
 struct SetRecord {
     uint32_t name;
     bool has_pos_, has_angles_;
-    float pos[3];
-    float angles[3];
+    std::array<float, 3> pos;
+    std::array<float, 3> angles;
     // (phase 6) the node's other fields as edited: f.<field>=<value> (level_editor_fields.h)
     std::vector<fields::Edit> fields;
 };

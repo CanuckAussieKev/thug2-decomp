@@ -53,7 +53,7 @@ void HostEnd::pull_inbound()
         return;
     int received = 0;
     do {
-        char* buffer = receive_buffer_;
+        char* buffer = receive_buffer_.data();
         received = recvfrom(sock_, buffer, kReceiveBufferSize, 0, raw::as<sockaddr>(&from), &from_length);
         if (received < 0) {
             WSAGetLastError();

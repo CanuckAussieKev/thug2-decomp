@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <unordered_map>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/objects/control_pad.h"
@@ -19,13 +20,13 @@ namespace {
 
 // THAW's pad button names (by StickButtonIndex) and its trick component's (by stick, by direction 1-8: up, down,
 // left, right, up-left, up-right, down-left, down-right - d_pad_direction's numbers).
-const char* const kPadNames[8] = {"leftup",  "leftdown",  "leftleft",  "leftright",
-                                  "rightup", "rightdown", "rightleft", "rightright"};
-const char* const kStickTrickTable[2][8] = {
+const std::array<const char*, 8> kPadNames = {{"leftup",  "leftdown",  "leftleft",  "leftright",
+                                  "rightup", "rightdown", "rightleft", "rightright"}};
+const std::array<std::array<const char*, 8>, 2> kStickTrickTable = {{
     {"leftup", "leftdown", "leftleft", "leftright", "leftupleft", "leftupright", "leftdownleft", "leftdownright"},
     {"rightup", "rightdown", "rightleft", "rightright", "rightupleft", "rightupright", "rightdownleft",
      "rightdownright"},
-};
+}};
 
 uint32_t get_name(const char* text) { return checksums::hash_from_text(text); }
 
@@ -35,7 +36,7 @@ constexpr uint8_t kRightOver = 0xCB, kRightUnder = 0x35;
 
 // A pad's eight stick buttons (THAW's pad +0x200..+0x2E0), beside it.
 struct PadSticks {
-    objects::ControlButton buttons[8] = {};
+    std::array<objects::ControlButton, 8> buttons = {};
 };
 std::unordered_map<const void*, PadSticks>& get_pads()
 {
@@ -102,7 +103,7 @@ uint32_t stick_directions(const uint8_t* data)
 
 uint32_t stick_button_name(int index)
 {
-    static uint32_t names[8] = {};
+    static std::array<uint32_t, 8> names = {};
     if (!names[index])
         names[index] = get_name(kPadNames[index]);
     return names[index];
@@ -136,7 +137,7 @@ int stick_direction(uint32_t directions, bool right)
 
 uint32_t trick_stick_name(bool right, int direction)
 {
-    static uint32_t names[2][8] = {};
+    static std::array<std::array<uint32_t, 8>, 2> names = {};
     if (direction < 1 || direction > 8)
         return 0;
     uint32_t& name = names[right ? 1 : 0][direction - 1];

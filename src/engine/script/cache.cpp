@@ -1,4 +1,5 @@
 #include "engine/script/cache.h"
+#include "formats/byte_stream.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,6 +15,7 @@
 #include "engine/sys/game_module.h"
 #include "formats/lzss.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
@@ -38,13 +40,25 @@ ScriptStore*& the_cache() { return g_script_store; }
 uint32_t& cache_references() { return g_cache_references; }
 memory::PoolPair& entry_pools() { return g_cache_entry_pools; }
 
-// Scripts in the symbol table: {checksum, size, stored size, code - LZSS-compressed when stored < size}.
+// A script in the symbol table: the loaded QB file's record {u32 checksum, u32 size, u32 stored size, the code -
+// LZSS-compressed when stored < size}, read from its bytes.
 struct StoredScript {
-    uint32_t checksum;
-    uint32_t size;
-    uint32_t stored_size_;
-    uint8_t code[1];
+    uint32_t size_ = 0;
+    uint32_t stored_size_ = 0;
+    const uint8_t* code_ = nullptr; // `stored_size_` bytes
 };
+constexpr size_t kStoredScriptHeader = 12;
+
+StoredScript read_stored_script(const uint8_t* record)
+{
+    util::ByteReader header(record, kStoredScriptHeader);
+    header.skip(4); // (the checksum)
+    StoredScript out;
+    out.size_ = header.u32();
+    out.stored_size_ = header.u32();
+    out.code_ = header.cursor();
+    return out;
+}
 
 } // namespace
 
@@ -159,9 +173,9 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     if (!symbol)
         return nullptr;
 
-    const auto* stored = cell::pointer<const StoredScript>(symbol->raw);
-    const uint32_t size = stored->size;
-    const uint32_t stored_size = stored->stored_size_;
+    const StoredScript stored = read_stored_script(cell::pointer<const uint8_t>(symbol->raw));
+    const uint32_t size = stored.size_;
+    const uint32_t stored_size = stored.stored_size_;
     make_room(static_cast<int>(size), name);
     auto* entry = new ScriptCacheEntry{};
     memory::Hub* manager = memory::Hub::get_pull();
@@ -170,10 +184,10 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     memory::Hub::get_pull()->leave_heap_scope();
     if (stored_size < size) {
         // (not original: bounded by the script's size - lzss::unpack, decode's bytes for valid code)
-        lzss::unpack(stored->code, stored_size, code, size, nullptr);
+        lzss::unpack(stored.code_, stored_size, code, size, nullptr);
     } else {
         for (uint32_t i = 0; i < size; ++i)
-            code[i] = stored->code[i];
+            code[i] = stored.code_[i];
     }
     prepare_script_tokens(code);
     // (a null entry - the pool full - is written through, as in the original)

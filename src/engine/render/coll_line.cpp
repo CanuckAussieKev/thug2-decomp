@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -175,8 +176,8 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         return false;
 
     int count = 0;
-    uint16_t buffer[0x800];
-    const uint16_t* faces = geometry->get_faces_in_box(line_box, &count, buffer, 0x800);
+    std::array<uint16_t, 0x800> buffer{};
+    const uint16_t* faces = geometry->get_faces_in_box(line_box, &count, buffer.data(), 0x800);
     bool any = false;
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
@@ -221,8 +222,8 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
     maths::BBox around(local.start);
     around.append_spot(local.end);
     int count = 0;
-    uint16_t buffer[0x800];
-    const uint16_t* faces = geometry_->get_faces_in_box(&around, &count, buffer, 0x800);
+    std::array<uint16_t, 0x800> buffer{};
+    const uint16_t* faces = geometry_->get_faces_in_box(&around, &count, buffer.data(), 0x800);
     bool any = false;
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
@@ -258,7 +259,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
                                  static_cast<float>(static_cast<double>(v0.z) * size_factor_.z),
                                  static_cast<float>(static_cast<double>(v0.w) * size_factor_.w)};
         basis_frame_.carry_point_through(face_hit.point, scaled);
-        const maths::Vec4* r = basis_frame_.row;
+        const maths::Vec4* r = basis_frame_.row.data();
         face_hit.normal = {static_cast<float>((static_cast<double>(nz) * r[2].x + static_cast<double>(ny) * r[1].x) +
                                               static_cast<double>(nx) * r[0].x),
                            static_cast<float>((static_cast<double>(nx) * r[0].y + static_cast<double>(nz) * r[2].y) +
@@ -302,8 +303,8 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
             return false;
     }
     int count = 0;
-    uint16_t buffer[0x800];
-    const uint16_t* faces = geometry->get_faces_in_box(&around, &count, buffer, 0x800);
+    std::array<uint16_t, 0x800> buffer{};
+    const uint16_t* faces = geometry->get_faces_in_box(&around, &count, buffer.data(), 0x800);
     bool any = false;
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
@@ -337,7 +338,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
             nz = static_cast<float>(static_cast<double>(nz) * inverse);
         }
         // the corner turned and placed (z rounded before it's placed), the normal turned
-        const maths::Vec4* r = orientation_.row;
+        const maths::Vec4* r = orientation_.row.data();
         const double placed_x = (static_cast<double>(v0.z) * r[2].x + static_cast<double>(v0.y) * r[1].x) +
                                 static_cast<double>(v0.x) * r[0].x;
         const double placed_y = (static_cast<double>(v0.z) * r[2].y + static_cast<double>(v0.y) * r[1].y) +

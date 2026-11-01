@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <string>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
@@ -48,31 +49,31 @@ void log_memory_use(const char* when)
         return;
     Zone* main = manager->primary_zone_;
     std::string line;
-    char part[160];
-    std::snprintf(part, sizeof(part),
+    std::array<char, 160> part{};
+    std::snprintf(part.data(), sizeof(part),
                   "main block %d KB, free %d KB (least %d KB); heaps:", kb(sizes::main_block_size()),
                   kb(main->free_byte_count()), kb(main->min_available_));
-    line += part;
+    line += part.data();
     for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         if (heap->max_used_size_ < 64 * 1024)
             continue; // (the small ones: themes, skater info...)
-        std::snprintf(part, sizeof(part), " %s %d KB (peak %d KB)", heap->label_ ? heap->label_ : "?",
+        std::snprintf(part.data(), sizeof(part), " %s %d KB (peak %d KB)", heap->label_ ? heap->label_ : "?",
                       kb(heap->used_size_), kb(heap->max_used_size_));
-        line += part;
+        line += part.data();
     }
     PROCESS_MEMORY_COUNTERS counters = {};
     counters.cb = sizeof(counters);
     uint64_t total = 0, largest = 0;
     address_space(total, largest);
     if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) {
-        std::snprintf(part, sizeof(part), "; process: private %d MB (peak %d MB)",
+        std::snprintf(part.data(), sizeof(part), "; process: private %d MB (peak %d MB)",
                       static_cast<int>(counters.PagefileUsage >> 20),
                       static_cast<int>(counters.PeakPagefileUsage >> 20));
-        line += part;
+        line += part.data();
     }
-    std::snprintf(part, sizeof(part), ", address space free %d MB (largest %d MB)", static_cast<int>(total >> 20),
+    std::snprintf(part.data(), sizeof(part), ", address space free %d MB (largest %d MB)", static_cast<int>(total >> 20),
                   static_cast<int>(largest >> 20));
-    line += part;
+    line += part.data();
     get_log("memory %s: %s", when, line.c_str());
 }
 

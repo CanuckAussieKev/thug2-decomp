@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -115,8 +116,8 @@ void AnimCacheSlot::dealloc(AnimCacheSlot* slot) { slot_pools().dealloc(slot); }
 
 void AnimCacheSlot::get_clear()
 {
-    std::memset(rotation_keys_, 0, sizeof(rotation_keys_));
-    std::memset(translation_keys_, 0, sizeof(translation_keys_));
+    std::memset(rotation_keys_.data(), 0, sizeof(rotation_keys_));
+    std::memset(translation_keys_.data(), 0, sizeof(translation_keys_));
     clock_ = 0x8000;
 }
 
@@ -199,8 +200,8 @@ int AnimCacheEntry::new_slot()
             slot->clock_ = 0x8000;
         slots_ptr_[i] = slot;
         slot->clock_ &= 0x7FFF; // (null: a crash, as the original)
-        std::memset(slots_ptr_[i]->rotation_keys_, 0, sizeof(slot->rotation_keys_));
-        std::memset(slots_ptr_[i]->translation_keys_, 0, sizeof(slot->translation_keys_));
+        std::memset(slots_ptr_[i]->rotation_keys_.data(), 0, sizeof(slot->rotation_keys_));
+        std::memset(slots_ptr_[i]->translation_keys_.data(), 0, sizeof(slot->translation_keys_));
         return i;
     }
     return -1;
@@ -211,8 +212,10 @@ void AnimCacheEntry::free_slot(int index)
 {
     if (!(flag_bits_ & kUserMask))
         return;
-    AnimCacheSlot* slot = slots_ptr_[index];
-    if (slot && index > 0) {
+    // (the original reads slots_ptr_[index] first - with -1, a user that never had a slot, the field before it - and
+    // then ignores it unless index > 0)
+    AnimCacheSlot* slot = index > 0 && std::cmp_less(index, slots_ptr_.size()) ? slots_ptr_[index] : nullptr;
+    if (slot) {
         slot->get_clear();
         if (slots_ptr_[index])
             AnimCacheSlot::dealloc(slots_ptr_[index]);
@@ -246,10 +249,10 @@ uint8_t* AnimCacheEntry::get_rotation_keys(int /*unused*/) { return rotation_key
 uint8_t* AnimCacheEntry::get_translation_keys(int /*unused*/) { return translation_keys_ptr_; }
 
 // 0x00480620
-uint16_t* AnimCacheEntry::get_rotation_offsets() { return rotation_offsets_; }
+uint16_t* AnimCacheEntry::get_rotation_offsets() { return rotation_offsets_.data(); }
 
 // 0x00480630
-uint16_t* AnimCacheEntry::get_translation_offsets() { return translation_offsets_; }
+uint16_t* AnimCacheEntry::get_translation_offsets() { return translation_offsets_.data(); }
 
 // 0x00480640
 void AnimCacheEntry::set_release_callback(void (*callback)(void*), void* arg)
@@ -273,7 +276,7 @@ void ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int type)
                   heap_size >> 10); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<ClipStore*>(memory::alloc_zeroed(sizeof(ClipStore)));
     if (cache) {
-        std::memset(static_cast<void*>(cache->slot_array_), 0, sizeof(cache->slot_array_));
+        std::memset(static_cast<void*>(cache->slot_array_.data()), 0, sizeof(cache->slot_array_));
         cache->taken_count_ = 0;
         cache->granularity_ = 0;
         cache->kind_tag_ = 0;

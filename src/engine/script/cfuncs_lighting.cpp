@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/lens_flare.h"
 #include "engine/script/cscript.h"
@@ -78,10 +79,10 @@ struct SunProps {
     float size;               // +0x0C (0x08)
     uint32_t texture;         // +0x10 (0x20)
     uint32_t corona_texture_; // +0x14 (0x40)
-    float colour[4];          // +0x18 (0x10: never set by the command)
-    uint8_t unknown28[0x18];
+    std::array<float, 4> colour;          // +0x18 (0x10: never set by the command)
+    std::array<uint8_t, 0x18> unknown28;
     bool enabled; // +0x40 (0x80)
-    uint8_t pad41[3];
+    std::array<uint8_t, 3> pad41;
 };
 static_assert(sizeof(SunProps) == 0x44, "layout must match the original");
 

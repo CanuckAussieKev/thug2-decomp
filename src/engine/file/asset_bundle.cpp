@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
@@ -56,9 +57,9 @@ bool AssetBundle::get_split(int /*unused*/, int size)
     // within the file. The original copied `count` entries into its 450 before checking the table against the file
     // (a count past 450 wrote past the table) and never checked the assets' offsets / sizes.
     util::ByteReader reader(loaded_data_, size > 0 ? static_cast<size_t>(size) : 0);
-    bundle_format::Entry table[kBundleCapacity];
+    std::array<bundle_format::Entry, kBundleCapacity> table;
     int count = 0;
-    const bool ok = bundle_format::read_bundle_table(reader, table, kBundleCapacity, &count);
+    const bool ok = bundle_format::read_bundle_table(reader, table.data(), kBundleCapacity, &count);
     num_ = 0;
     if (!ok)
         return false;

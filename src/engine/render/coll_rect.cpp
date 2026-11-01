@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/debug_lines.h"
 #include "engine/maths/shape_tests.h"
@@ -114,8 +115,8 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
                         const CollScaled* placed)
 {
     int count = 0;
-    uint16_t buffer[0x800];
-    const uint16_t* faces = object->geometry_->get_faces_in_box(box, &count, buffer, 0x800);
+    std::array<uint16_t, 0x800> buffer{};
+    const uint16_t* faces = object->geometry_->get_faces_in_box(box, &count, buffer.data(), 0x800);
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = object->geometry_;
         const uint32_t face = faces[i];
@@ -127,13 +128,13 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
-        maths::Vec4 points[2];
-        int kinds[2];
-        if (!rect_hits_triangle(*rect, v0, v1, v2, points, kinds))
+        std::array<maths::Vec4, 2> points{};
+        std::array<int, 2> kinds{};
+        if (!rect_hits_triangle(*rect, v0, v1, v2, points.data(), kinds.data()))
             continue;
         if (hits->count == RectHits::kMost)
             return true;
-        add_rect_hit(hits, v0, v1, v2, points, kinds, flags, object->checksum_, placed);
+        add_rect_hit(hits, v0, v1, v2, points.data(), kinds.data(), flags, object->checksum_, placed);
     }
     return hits->count > 0;
 }
@@ -301,9 +302,9 @@ bool BoxProbe::get_query(int)
 void BoxProbe::join_hits()
 {
     const int count = hits_.count;
-    const RectHit* hits = hits_.hits;
-    bool used[RectHits::kMost];
-    maths::Vec4 direction[RectHits::kMost];
+    const RectHit* hits = hits_.hits.data();
+    std::array<bool, RectHits::kMost> used{};
+    std::array<maths::Vec4, RectHits::kMost> direction{};
     // each hit's direction (x, y, z made unit when they have a length; w as it is)
     for (int i = count - 1; i >= 0; --i) {
         used[i] = false;
@@ -389,7 +390,7 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
     gfx::push_diag_line(&oa, &oab, colour, colour, frames);
     gfx::push_diag_line(&oab, &ob, colour, colour, frames);
     gfx::push_diag_line(&ob, &o, colour, colour, frames);
-    const RectHit* hits = joined_count_ > 0 ? joined_ : hits_.hits;
+    const RectHit* hits = (joined_count_ > 0 ? joined_ : hits_.hits).data();
     const int count = joined_count_ > 0 ? joined_count_ : hits_.count;
     for (int i = count - 1; i >= 0; --i) {
         b += 0x1F;

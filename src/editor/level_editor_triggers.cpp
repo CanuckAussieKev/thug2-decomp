@@ -50,6 +50,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/ints.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/raw_view.h"
@@ -180,7 +181,7 @@ bool read_number(const std::string& text, float* out)
 
 bool read_triple(const std::string& text, V3* out)
 {
-    float v[3];
+    std::array<float, 3> v{};
     size_t at = 0;
     for (int i = 0; i < 3; ++i) {
         const size_t comma = i < 2 ? text.find(',', at) : text.size();
@@ -196,9 +197,9 @@ bool read_triple(const std::string& text, V3* out)
 
 std::string triple(V3 v)
 {
-    char text[96];
-    std::snprintf(text, sizeof(text), "%.9g,%.9g,%.9g", v.x, v.y, v.z);
-    return text;
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), "%.9g,%.9g,%.9g", v.x, v.y, v.z);
+    return text.data();
 }
 
 } // namespace
@@ -344,9 +345,9 @@ std::string name_for(uint32_t checksum, const char* known)
 {
     if (known && *known && valid_name(known) && get_checksums(known) == checksum)
         return known;
-    char text[16];
-    std::snprintf(text, sizeof(text), "0x%08X", checksum);
-    return text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+    return text.data();
 }
 
 std::string get_script_name(const Spec& spec) { return spec.name + "Script"; }
@@ -643,9 +644,9 @@ std::string link_record(const Placed& placed)
     const Spec& s = placed.spec;
     std::ostringstream out;
     out << s.name << ' ' << kind_word(s.kind) << " pos=" << triple(placed.pos);
-    char number[48];
-    std::snprintf(number, sizeof(number), " yaw=%.9g", placed.yaw);
-    out << number << " size=" << triple(s.size);
+    std::array<char, 48> number{};
+    std::snprintf(number.data(), sizeof(number), " yaw=%.9g", placed.yaw);
+    out << number.data() << " size=" << triple(s.size);
     if (!s.target.empty())
         out << " target=" << s.target;
     if (s.water)
@@ -662,8 +663,8 @@ std::string link_record(const Placed& placed)
     if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd)
         out << " score=" << s.score;
     if (s.replaces) {
-        std::snprintf(number, sizeof(number), " replaces=%08X", s.replaces);
-        out << number;
+        std::snprintf(number.data(), sizeof(number), " replaces=%08X", s.replaces);
+        out << number.data();
     }
     if (s.exit)
         out << " exit=1";
@@ -672,10 +673,10 @@ std::string link_record(const Placed& placed)
     if (!s.sound.empty())
         out << " sound=" << s.sound;
     if (s.kind == Kind::kViewCam) {
-        std::snprintf(number, sizeof(number), " seconds=%.9g", clamp_seconds(s.seconds));
-        out << number;
+        std::snprintf(number.data(), sizeof(number), " seconds=%.9g", clamp_seconds(s.seconds));
+        out << number.data();
     }
-    const std::string text = clean_text(s.text);
+    const std::string text = clean_text(s.text.data());
     if (!text.empty())
         out << " text=\"" << text << '"';
     return out.str();
@@ -816,9 +817,9 @@ bool proxim_edited(const ProximEdit& edit) { return !edit.enter.empty() || !edit
 std::string proxim_record(const ProximEdit& e, const char* known)
 {
     std::ostringstream out;
-    char hex[16];
-    std::snprintf(hex, sizeof(hex), "%08X", e.node);
-    out << hex;
+    std::array<char, 16> hex{};
+    std::snprintf(hex.data(), sizeof(hex), "%08X", e.node);
+    out << hex.data();
     if (!e.enter.empty())
         out << " enter=" << e.enter;
     if (!e.exit.empty())
@@ -828,9 +829,9 @@ std::string proxim_record(const ProximEdit& e, const char* known)
         if (e.box) {
             out << " size=" << triple(e.size) << " offset=" << triple(e.offset);
         } else {
-            char radius[48];
-            std::snprintf(radius, sizeof(radius), " radius=%.9g", e.radius);
-            out << radius;
+            std::array<char, 48> radius{};
+            std::snprintf(radius.data(), sizeof(radius), " radius=%.9g", e.radius);
+            out << radius.data();
         }
     }
     if (known && *known)
@@ -894,9 +895,9 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
 
 std::string proxim_script_name(uint32_t node)
 {
-    char text[32];
-    std::snprintf(text, sizeof(text), "ed_proxim_%08X", node);
-    return text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "ed_proxim_%08X", node);
+    return text.data();
 }
 
 std::vector<uint8_t> proxim_body(uint32_t enter, uint32_t exit, uint32_t own)
@@ -969,7 +970,7 @@ namespace {
 
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater passes through
-constexpr char kFileName[] = "editor\\thug2_decomp_triggers.qb";
+constexpr auto kFileName = std::to_array("editor\\thug2_decomp_triggers.qb");
 constexpr float kDrawRadius = 8000.0f; // (level triggers drawn within this of the camera)
 constexpr float kLabelRadius = 3000.0f;
 constexpr int kMaxLevelDrawn = 300, kMaxLabels = 48, kMaxFacesKept = 64;
@@ -1128,8 +1129,8 @@ Calls get_walk(uint32_t script)
     if (!is_script(script))
         return calls;
     g_calls = &calls;
-    static const uint32_t kKills[] = {kill_skater(), get_checksums("SK3_KillSkater_Pungee"),
-                                      get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")};
+    static const auto kKills = std::to_array<uint32_t>({kill_skater(), get_checksums("SK3_KillSkater_Pungee"),
+                                      get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")});
     script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
     for (const uint32_t target : kKills)
         level_nodes::for_each_script_call(script, target, &on_kill, nullptr, 0);
@@ -1182,7 +1183,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
             t->all_trigger_ = false;
             continue;
         }
-        V3 p[3];
+        std::array<V3, 3> p{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
@@ -1197,7 +1198,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
             any = true;
         }
         if (t->face_count_ < kMaxFacesKept)
-            t->faces.insert(t->faces.end(), p, p + 3);
+            t->faces.insert(t->faces.end(), p.data(), p.data() + 3);
         ++t->face_count_;
     }
     return any;
@@ -1552,7 +1553,7 @@ void get_sync()
     std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);
     bool redefined = false;
     if (file != g_defined && !file.empty()) {
-        script::load_qb_data(kFileName, file.data(), 0, 0, 0);
+        script::load_qb_data(kFileName.data(), file.data(), 0, 0, 0);
         g_defined = file;
         redefined = true;
     }
@@ -1971,9 +1972,9 @@ void register_gap_entry()
     start.spec.gap = gap;
     start.spec.flags = {"CANCEL_GROUND"};
     const int number = text::to_int(gap.c_str() + 6);
-    char text[32];
-    std::snprintf(text, sizeof(text), "Editor Gap %d", number > 0 ? number : 1);
-    start.spec.text = text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "Editor Gap %d", number > 0 ? number : 1);
+    start.spec.text = text.data();
     start.spec.score = 100;
     start.pos = place_ahead(start.spec.size, 0.0f);
     start.yaw = g_yaw;
@@ -2127,7 +2128,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
             continue;
         OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
         float t = 0.0f;
-        if (ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
+        if (ray_box(origin, unit_dir, box.origin, box.axes.data(), box.min, box.max, &t) && t < best) {
             best = t;
             *node = nodes::get_find(hash_of_name(a.spec.name));
             *sector = 0;
@@ -2135,10 +2136,10 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         }
     }
     for (const LevelTrigger& l : g_level) {
-        V3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
+        std::array<V3, 3> axes = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
         const V3 grow = {2.0f, 2.0f, 2.0f};
         float t = 0.0f;
-        if (!ray_box(origin, unit_dir, {0.0f, 0.0f, 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
+        if (!ray_box(origin, unit_dir, {0.0f, 0.0f, 0.0f}, axes.data(), l.min - grow, l.max + grow, &t) || t >= best)
             continue;
         // (the faces themselves when there are few; a big water plane by its box)
         float hit = t;
@@ -2190,8 +2191,8 @@ struct Painter {
     }
     void cuboid(const OrientedBox& box, uint32_t argb, float thickness) const
     {
-        V3 c[8];
-        box_corners(box.origin, box.axes, box.min, box.max, c);
+        std::array<V3, 8> c{};
+        box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
         for (int i = 0; i < 8; ++i) {
             for (const int bit : {1, 2, 4}) {
                 if (!(i & bit))
@@ -2254,12 +2255,12 @@ std::string describe(const Calls& calls, Kind kind)
             text += ": " + get_label_of(calls.gap_id_);
         break;
     case Kind::kBoost: {
-        char value[48];
+        std::array<char, 48> value{};
         if (calls.boost_speed_ > 0.0f)
-            std::snprintf(value, sizeof(value), " (speed %.0f)", calls.boost_speed_);
+            std::snprintf(value.data(), sizeof(value), " (speed %.0f)", calls.boost_speed_);
         else
-            std::snprintf(value, sizeof(value), " (x%.1f)", calls.boost_multi_ > 0.0f ? calls.boost_multi_ : 7.5f);
-        text += value;
+            std::snprintf(value.data(), sizeof(value), " (x%.1f)", calls.boost_multi_ > 0.0f ? calls.boost_multi_ : 7.5f);
+        text += value.data();
         break;
     }
     case Kind::kViewCam:
@@ -2327,7 +2328,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             }
         } else {
             const OrientedBox box = {
-                {0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, l.min, l.max};
+                {0.0f, 0.0f, 0.0f}, {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}}, l.min, l.max};
             paint.cuboid(box, colour, thickness);
         }
         const V3 centre = (l.min + l.max) * 0.5f;
@@ -2413,9 +2414,9 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
         const V3 middle = (a + b) * 0.5f;
         const V3 m = middle - camera;
         if (get_dot(m, m) < 1500.0f * 1500.0f) {
-            char text[64];
-            std::snprintf(text, sizeof(text), "%s+%.1f%%", s.level ? "level speed-up " : "speed-up ", s.rate * 100.0f);
-            label(middle + up * 14.0f, colour, text);
+            std::array<char, 64> text{};
+            std::snprintf(text.data(), sizeof(text), "%s+%.1f%%", s.level ? "level speed-up " : "speed-up ", s.rate * 100.0f);
+            label(middle + up * 14.0f, colour, text.data());
         }
     }
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
@@ -2434,7 +2435,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
         V3 top = at;
         if (p->form_ == objects::kProximShapeSphere && p->radius_ > 0.0f) {
             constexpr int kSides = 32;
-            const V3 axes[3][2] = {{{1, 0, 0}, {0, 0, 1}}, {{1, 0, 0}, {0, 1, 0}}, {{0, 1, 0}, {0, 0, 1}}};
+            const std::array<std::array<V3, 2>, 3> axes = {{{{{1, 0, 0}, {0, 0, 1}}}, {{{1, 0, 0}, {0, 1, 0}}}, {{{0, 1, 0}, {0, 0, 1}}}}};
             for (const auto& plane : axes) {
                 V3 previous = at + plane[0] * p->radius_;
                 for (int i = 1; i <= kSides; ++i) {
@@ -2450,7 +2451,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
             const V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z};
             const V3 max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
             const OrientedBox box = {
-                {0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, min, max};
+                {0.0f, 0.0f, 0.0f}, {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}}, min, max};
             paint.cuboid(box, colour, 1.5f);
             top = {(min.x + max.x) * 0.5f, max.y, (min.z + max.z) * 0.5f};
         }
@@ -2480,7 +2481,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
         if (a.spec.kind == Kind::kBreak) {
             const uint32_t colour = a.broken ? 0x90A0A0A0u : 0xFFE8F4FFu;
             const V3 half = a.spec.size * 0.5f;
-            const V3 normals[4] = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
+            const std::array<V3, 4> normals = {{{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}}};
             for (const V3& n : normals) {
                 const V3 across = {n.z, 0.0f, -n.x};
                 const float width = std::fabs(across.x) * half.x + std::fabs(across.z) * half.z;
@@ -2523,7 +2524,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
 
 namespace {
 
-constexpr uint32_t kHandleColours[3] = {0xFFFF4040u, 0xFF40E040u, 0xFF4080FFu}; // (x, y, z: as the move arrows)
+constexpr std::array<uint32_t, 3> kHandleColours = {{0xFFFF4040u, 0xFF40E040u, 0xFF4080FFu}}; // (x, y, z: as the move arrows)
 
 // The selected editor trigger's node, the view add_overlay last drew with, the handles where they were drawn, the one
 // under the cursor, and a resize under way.
@@ -2533,7 +2534,7 @@ struct LastView {
     V3 camera = {};
     TickCycle frame = {};
     Lens lens = {};
-    uint32_t viewport[4] = {};
+    std::array<uint32_t, 4> viewport = {};
     float near_z_ = 1.0f;
 } g_last_view;
 struct DrawnHandle {
@@ -2643,7 +2644,7 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
         float nx = 0.0f, ny = 0.0f, x = 0.0f, y = 0.0f;
         if (!cast_onto(g_last_view.camera, g_last_view.frame, g_last_view.lens, p, g_last_view.near_z_, &nx, &ny))
             continue;
-        ndc_to_pixel(g_last_view.viewport, nx, ny, &x, &y);
+        ndc_to_pixel(g_last_view.viewport.data(), nx, ny, &x, &y);
         const bool lit = h == g_hover_handle || (g_resize.on && h == g_resize.handle);
         const uint32_t colour = lit ? 0xFFFFFF40u : kHandleColours[h >> 1];
         circles->push_back({x, y, lit ? 7.0f : 5.5f, colour, true, 1.0f});
@@ -3091,10 +3092,10 @@ std::string describe()
     int off = 0;
     for (const LevelTrigger& l : g_level)
         off += l.off ? 1 : 0;
-    char text[160];
-    std::snprintf(text, sizeof(text), "%u level trigger volumes (%d off), %d added",
+    std::array<char, 160> text{};
+    std::snprintf(text.data(), sizeof(text), "%u level trigger volumes (%d off), %d added",
                   static_cast<unsigned>(g_level.size()), off, alive);
-    return text;
+    return text.data();
 }
 
 std::string describe_level_trigger(const LevelTrigger& l) { return describe(l.calls, l.kind); }

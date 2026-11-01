@@ -445,7 +445,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
 // 0x00586D60
 RiderIdentity::RiderIdentity()
 {
-    new (look_data_) gfx::ModelLook; // the appearance
+    new (look_data_.data()) gfx::ModelLook; // the appearance
     new (details_params()) script::Struct;
     get_reset(nullptr);
 }

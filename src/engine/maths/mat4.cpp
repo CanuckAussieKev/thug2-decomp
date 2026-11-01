@@ -4,6 +4,7 @@
 #include <cmath>
 #include <initializer_list>
 #include <utility>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/maths/maths.h"
@@ -278,7 +279,7 @@ bool Mat4::operator==(const Mat4& other) const
 // 0x0040B100
 Mat4& Mat4::scale_rows(const Vec4& scale)
 {
-    const float factors[3] = {scale.x, scale.y, scale.z};
+    const std::array<float, 3> factors = {{scale.x, scale.y, scale.z}};
     for (int i = 0; i < 3; ++i) {
         row[i].x *= factors[i];
         row[i].y *= factors[i];

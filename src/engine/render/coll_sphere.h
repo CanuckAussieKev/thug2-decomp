@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tests.h"
@@ -21,7 +22,7 @@ struct SphereHit {
     maths::Vec4 normal;   // +0x14
     uint32_t checksum;    // +0x24
     uint8_t face_flag40_; // +0x28
-    uint8_t pad[3];
+    std::array<uint8_t, 3> pad;
 };
 static_assert(sizeof(SphereHit) == 0x2C, "layout must match the original");
 
@@ -31,7 +32,7 @@ struct SphereHits {
     static constexpr int kMost = 32;
 
     uint32_t unknown00;
-    SphereHit hits[kMost];   // +0x004
+    std::array<SphereHit, kMost> hits;   // +0x004
     maths::Vec4 direction;   // +0x584
     float sweep;             // +0x594
     int count;               // +0x598
@@ -87,9 +88,9 @@ public:
 
     CollSphere bound_ball_{};     // +0x000
     SphereHits hits_{};           // +0x014
-    uint8_t unknown5b8_[0x598]{}; // +0x5B8
+    std::array<uint8_t, 0x598> unknown5b8_{}; // +0x5B8
     uint32_t unknownb50_{0};      // +0xB50
-    uint32_t unknownb54_[2]{};  // +0xB54
+    std::array<uint32_t, 2> unknownb54_{};  // +0xB54
     HitMeshCache* hit_cache_{nullptr}; // +0xB5C
 };
 static_assert(offsetof(SphereFeeler, hits_) == 0x14 && offsetof(SphereFeeler, hit_cache_) == 0xB5C,

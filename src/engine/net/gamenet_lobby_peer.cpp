@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -77,7 +78,7 @@ constexpr int kKeyRating = 57;
 
 constexpr int kPacketQuery = 1;
 constexpr int kPacketNatNegotiation = 2;
-constexpr uint8_t kNatMagic[6] = {0xFD, 0xFC, 0x1E, 0x66, 0x6A, 0xB2};
+constexpr std::array<uint8_t, 6> kNatMagic = {{0xFD, 0xFC, 0x1E, 0x66, 0x6A, 0xB2}};
 
 // PlayerRecord flags (+0x1D0) / JoinerRecord flags (+0x20).
 constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer reported as a player)
@@ -86,7 +87,7 @@ constexpr uint32_t kNewPlayerObserver = 0x04;
 
 Hub* net_session_slot() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
-QueuedPacket* get_queue() { return g_queued_packets; }
+QueuedPacket* get_queue() { return g_queued_packets.data(); }
 int& queued_count() { return g_queued_count; }
 RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }
 
@@ -171,7 +172,7 @@ void RoomManager::queue_packet(char* data, int length, const void* from)
     int type = 0;
     if ((bytes[0] == 0xFE && bytes[1] == 0xFD) || bytes[0] == '\\')
         type = kPacketQuery;
-    else if (length >= 6 && std::memcmp(bytes, kNatMagic, sizeof(kNatMagic)) == 0)
+    else if (length >= 6 && std::memcmp(bytes, kNatMagic.data(), sizeof(kNatMagic)) == 0)
         type = kPacketNatNegotiation;
     else
         return;
@@ -179,7 +180,7 @@ void RoomManager::queue_packet(char* data, int length, const void* from)
     packet.data = static_cast<char*>(game_malloc(length + 1));
     std::memcpy(packet.data, data, length);
     packet.data[length] = '\0';
-    std::memcpy(packet.from, from, sizeof(packet.from));
+    std::memcpy(packet.from.data(), from, sizeof(packet.from));
     packet.type = type;
     packet.length = length;
     ++queued_count();
@@ -219,7 +220,7 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)
-                buffer_add(buffer, info->label_); // (its name)
+                buffer_add(buffer, info->label_.data()); // (its name)
             else
                 buffer_add_int(buffer, info->skill_points_);
             return;
@@ -244,28 +245,28 @@ void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, voi
     manager->set_join_private_ip(peer_private_ip(lobby->remote_));
     const char* name = nullptr;
     manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &name, 1);
-    char location[1024];
-    std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
-                 lobby->room_name_);
+    std::array<char, 1024> location{};
+    std::sprintf(location.data(), "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
+                 lobby->room_name_.data());
     if (buddy->authenticated_) // (logged in to the presence)
         static_cast<FriendsManager*>(buddy)->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting),
-                                                             location);
+                                                             location.data());
 }
 
 // 0x0053FEE0
 void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick, int, const char**, void*)
 {
     push_internet_heap();
-    char retry[128];
+    std::array<char, 128> retry{};
     if (type == kNickInUse) {
         const char* id = net_session_slot()->get_online_settings()->get_preference_string(kNetworkId, kUiString);
         debug::printf("Nick Error. Nick %s In Use\n", nick);
-        std::sprintf(retry, "a%d_%s", frame_clock::get_time(), id);
-        game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry)); // retried with that nick
+        std::sprintf(retry.data(), "a%d_%s", frame_clock::get_time(), id);
+        game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry.data())); // retried with that nick
     } else if (type == kNickInvalid) {
         debug::printf("Nick Error. Nick %s is Invalid\n", nick);
-        game_spy::peer_fix_nick(static_cast<char*>(retry), nick); // the nick made valid
-        game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry));
+        game_spy::peer_fix_nick(static_cast<char*>(retry.data()), nick); // the nick made valid
+        game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry.data()));
     }
     pop_heap();
 }
@@ -320,9 +321,9 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
         QueuedPacket& packet = get_queue()[i];
         if (packet.type == kPacketQuery)
             game_spy::peer_parse_query(lobby->remote_, static_cast<char*>(packet.data), packet.length,
-                                       static_cast<void*>(packet.from));
+                                       static_cast<void*>(packet.from.data()));
         else if (packet.type == kPacketNatNegotiation)
-            game_spy::nat_process_data(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
+            game_spy::nat_process_data(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from.data()));
         game_free(packet.data);
     }
     queued_count() = 0;
@@ -410,13 +411,13 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->internet_bottom_up_heap_);
     Hub* manager = net_session_slot();
-    char nick[128];
-    std::strcpy(nick, manager->get_online_settings()->get_preference_string(kNetworkId, kUiString));
+    std::array<char, 128> nick{};
+    std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string(kNetworkId, kUiString));
     auto* lobby = static_cast<RoomManager*>(lobby_data);
     lobby->connecting_ = true;
     auto nick_error = &RoomManager::get_nick_error_callback;
     auto connected = &RoomManager::get_connect_callback;
-    game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick),
+    game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick.data()),
                            manager->presence_service_->account_ /* its profile */, nick_error, connected, lobby_data,
                            0); // peer connect (not blocking)
     memory::Hub::get_pull()->leave_heap_scope();

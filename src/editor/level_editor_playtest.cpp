@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <windows.h>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
@@ -54,11 +55,11 @@ namespace frontend::level_editor::play_test {
 
 namespace {
 
-const char* const kMotionNames[kMotions] = {"ground", "air", "grind", "lip", "wall", "manual", "bail", "walk", "drive"};
+const std::array<const char*, kMotions> kMotionNames = {{"ground", "air", "grind", "lip", "wall", "manual", "bail", "walk", "drive"}};
 // (ARGB: ground grey, air sky blue, grind orange, lip pink, wall violet, manual green, bail red, walking olive,
 // driving cyan)
-const uint32_t kMotionColours[kMotions] = {0xFFB4B4B4, 0xFF48A8FF, 0xFFFF9A20, 0xFFFF60C8, 0xFFB070FF,
-                                           0xFF40E070, 0xFFFF3030, 0xFFA0A060, 0xFF50E0E0};
+const std::array<uint32_t, kMotions> kMotionColours = {{0xFFB4B4B4, 0xFF48A8FF, 0xFFFF9A20, 0xFFFF60C8, 0xFFB070FF,
+                                           0xFF40E070, 0xFFFF3030, 0xFFA0A060, 0xFF50E0E0}};
 
 float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
@@ -286,21 +287,21 @@ std::string one_line(const std::string& text)
 std::string get_format(const LevelTrails& trails)
 {
     std::string out = std::string(kHeader) + "\n";
-    char line[256];
+    std::array<char, 256> line{};
     for (const std::string& gap : trails.landed)
         out += "gap " + one_line(gap) + "\n";
     for (const Run& run : trails.runs) {
-        std::snprintf(line, sizeof(line), "run %d %.2f %d\n", run.number, run.seconds, run.visible ? 1 : 0);
-        out += line;
+        std::snprintf(line.data(), sizeof(line), "run %d %.2f %d\n", run.number, run.seconds, run.visible ? 1 : 0);
+        out += line.data();
         for (const Sample& s : run.samples) {
-            std::snprintf(line, sizeof(line), "s %.1f %.1f %.1f %s %d\n", s.pos.x, s.pos.y, s.pos.z,
+            std::snprintf(line.data(), sizeof(line), "s %.1f %.1f %.1f %s %d\n", s.pos.x, s.pos.y, s.pos.z,
                           motion_name(s.motion), s.jump ? 1 : 0);
-            out += line;
+            out += line.data();
         }
         for (const Occurrence& e : run.events) {
-            std::snprintf(line, sizeof(line), "e %s %.1f %.1f %.1f %d %s ", event_word(e.kind), e.pos.x, e.pos.y,
+            std::snprintf(line.data(), sizeof(line), "e %s %.1f %.1f %.1f %d %s ", event_word(e.kind), e.pos.x, e.pos.y,
                           e.pos.z, e.value, status_word(e.status));
-            out += line + one_line(e.name) + "\n";
+            out += line.data() + one_line(e.name) + "\n";
         }
     }
     return out;
@@ -380,9 +381,9 @@ bool parse(const std::string& text, LevelTrails* trails)
 
 std::string get_file_name(uint32_t scene)
 {
-    char name[32];
-    std::snprintf(name, sizeof(name), "%08X.trails.txt", scene);
-    return name;
+    std::array<char, 32> name{};
+    std::snprintf(name.data(), sizeof(name), "%08X.trails.txt", scene);
+    return name.data();
 }
 
 bool simulate_key_keeps(int scancode, bool ctrl, bool alt, bool fly_keys_safe)

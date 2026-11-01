@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hints.h"
@@ -84,10 +85,10 @@ void token_glyph(const std::string& token, const Fonts& fonts)
                                                         : IM_COL32(220, 180, 40, 255);
         const float r = h * 0.5f;
         draw->AddCircleFilled(ImVec2(pos.x + r, pos.y + r), r, colour);
-        const char letter[2] = {token.back(), 0};
-        const ImVec2 size = ImGui::CalcTextSize(letter);
+        const std::array<char, 2> letter = {{token.back(), 0}};
+        const ImVec2 size = ImGui::CalcTextSize(letter.data());
         draw->AddText(ImVec2(pos.x + r - size.x * 0.5f, pos.y + r - size.y * 0.5f), IM_COL32(255, 255, 255, 255),
-                      letter);
+                      letter.data());
         width = 2.0f * r;
         break;
     }
@@ -296,10 +297,10 @@ void sets_menu(const Fonts& fonts)
         const std::string name = nav::quick_set_name(i);
         const int at = nav::find_group(state, name);
         ImGui::PushID(i);
-        char label[64];
-        std::snprintf(label, sizeof(label), "%s  %s", name.c_str(),
+        std::array<char, 64> label{};
+        std::snprintf(label.data(), sizeof(label), "%s  %s", name.c_str(),
                       at >= 0 ? ("(" + std::to_string(state.groups[at].members.size()) + ")").c_str() : "-");
-        ImGui::TextUnformatted(label);
+        ImGui::TextUnformatted(label.data());
         ImGui::SameLine(110.0f * s);
         if (ImGui::SmallButton("Store"))
             ux3::get_queue([name] { store_set(name); });

@@ -3,6 +3,7 @@
 // Parameters the original reads without giving them a default are left as they were (unset) - noted where so.
 
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/model.h"
@@ -208,8 +209,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kR, &r, 0);
         params->fetch_int_value(kG, &g, 0);
         params->fetch_int_value(kB, &b, 0);
-        uint8_t rgba[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
-        change_ambient_tint(model_lights(mesh_instance_), rgba);
+        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
+        change_ambient_tint(model_lights(mesh_instance_), rgba.data());
         enable_ambient(model_lights(mesh_instance_), true);
         break;
     }
@@ -225,8 +226,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kR, &r, 0);
         params->fetch_int_value(kG, &g, 0);
         params->fetch_int_value(kB, &b, 0);
-        uint8_t rgba[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
-        change_diffuse_hue(model_lights(mesh_instance_), index, rgba);
+        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
+        change_diffuse_hue(model_lights(mesh_instance_), index, rgba.data());
         enable_diffuse(model_lights(mesh_instance_), index, true);
         break;
     }
@@ -290,7 +291,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         const uint32_t now = dont_pause ? frame_clock::get_time()
                                         : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
         uint8_t axes = 0;
-        static const uint32_t kAxes[3] = {kX, kY, kZ};
+        static const std::array<uint32_t, 3> kAxes = {{kX, kY, kZ}};
         for (int axis = 0; axis < 3; ++axis) {
             if (!params->has_bare_flag(kAxes[axis]))
                 continue;
@@ -310,10 +311,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             sent.object_id = static_cast<uint8_t>(entity_->ident_);
             sent.hold = hold;
             sent.axes = axes;
-            uint8_t data[online::kSpinModelSize];
-            util::ByteWriter writer(data, sizeof(data));
+            std::array<uint8_t, online::kSpinModelSize> data{};
+            util::ByteWriter writer(data.data(), sizeof(data));
             online::write_spin_model(writer, sent);
-            message.content_ = data;
+            message.content_ = data.data();
             message.byte_count_ = sizeof(data);
             message.ident_ = online::kMsgSpinModel;
             app->send_to_host(&message);
@@ -485,10 +486,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->read_hash_value(kCollisionArg, &arg, false);
             script::Struct* line_params = nullptr;
             if (params->read_sub_struct(kLine, &line_params, false)) {
-                maths::Vec4 line[2];
+                std::array<maths::Vec4, 2> line{};
                 line_params->fetch_vec(kStart, &line[0], 1);
                 line_params->fetch_vec(kEnd, &line[1], 1);
-                const int hit = test_collision(line, arg, 0, 0, 0);
+                const int hit = test_collision(line.data(), arg, 0, 0, 0);
                 if (hit)
                     script->args_->put_name_key(kCollisionResult, static_cast<uint32_t>(hit));
             }

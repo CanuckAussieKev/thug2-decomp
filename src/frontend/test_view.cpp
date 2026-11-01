@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/view_cam.h"
 #include "engine/maths/mat4.h"
@@ -187,10 +188,10 @@ void place_camera(gfx::ViewCam* camera, int viewport)
 
 void register_script_functions()
 {
-    static const script::NativeCommand kFunctions[] = {
+    static const auto kFunctions = std::to_array<script::NativeCommand>({
         {"TeleportSkaterStanding", code_address(&cfunc_teleport_skater_standing)},
-    };
-    script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
+    });
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
 } // namespace frontend::test_view

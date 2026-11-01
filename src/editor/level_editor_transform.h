@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 
@@ -95,7 +96,7 @@ float snap_factor(float factor);
 struct Gizmo {
     Mode mode = Mode::kShiftBy;
     V3 pivot = {};
-    V3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
+    std::array<V3, 3> axes = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
     float length = 100.0f;
     bool rotates = true; // (Rotate: false - nothing selected turns: a chain's point)
 };

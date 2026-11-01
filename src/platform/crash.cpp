@@ -18,6 +18,7 @@
 #ifdef _DEBUG
 #include <crtdbg.h>
 #include <rtcapi.h>
+#include <array>
 #endif
 
 #include "platform/run_log.h"
@@ -62,16 +63,16 @@ void run_crash_hook()
 namespace {
 
 // The module an address is in (its file name only) and the address relative to it; false if in none.
-bool module_of(uintptr_t address, char (&name)[MAX_PATH], uintptr_t* offset)
+bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* offset)
 {
     HMODULE module = nullptr;
     if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                             cell::pointer<const char>(static_cast<uint32_t>(address)), &module) ||
         !module)
         return false;
-    GetModuleFileNameA(module, name, MAX_PATH);
-    if (const char* slash = strrchr(name, '\\'))
-        memmove(name, slash + 1, strlen(slash));
+    GetModuleFileNameA(module, name.data(), MAX_PATH);
+    if (const char* slash = strrchr(name.data(), '\\'))
+        memmove(name.data(), slash + 1, strlen(slash));
     *offset = address - cell::address(module);
     return true;
 }
@@ -110,7 +111,7 @@ bool after_call(uintptr_t address)
 void crash_log_stack_scan(uintptr_t esp)
 {
     get_log("  return addresses on the stack (newest first):");
-    char name[MAX_PATH] = "?";
+    std::array<char, MAX_PATH> name = {"?"};
     uintptr_t offset = 0;
     int found = 0;
     for (uintptr_t slot = esp; found < 24 && slot < esp + 0x2000; slot += 4) {
@@ -119,7 +120,7 @@ void crash_log_stack_scan(uintptr_t esp)
         const uintptr_t value = *cell::pointer<const uint32_t>(slot);
         if (!after_call(value) || !module_of(value, name, &offset))
             continue;
-        get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name, static_cast<unsigned>(offset),
+        get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name.data(), static_cast<unsigned>(offset),
                 static_cast<unsigned>(value));
         ++found;
     }
@@ -131,13 +132,13 @@ namespace {
 // game's as they are.
 void log_backtrace()
 {
-    void* frames[24];
-    const USHORT count = CaptureStackBackTrace(2, 24, frames, nullptr);
+    std::array<void*, 24> frames{};
+    const USHORT count = CaptureStackBackTrace(2, 24, frames.data(), nullptr);
     for (USHORT i = 0; i < count; ++i) {
-        char name[MAX_PATH] = "?";
+        std::array<char, MAX_PATH> name = {"?"};
         auto offset = cell::address(frames[i]);
         module_of(cell::address(frames[i]), name, &offset);
-        get_log("    at %s+0x%X (%p)", name, static_cast<unsigned>(offset), frames[i]);
+        get_log("    at %s+0x%X (%p)", name.data(), static_cast<unsigned>(offset), frames[i]);
     }
 }
 
@@ -146,10 +147,10 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
 {
     const CONTEXT* c = info->ContextRecord;
     const DWORD code = info->ExceptionRecord->ExceptionCode;
-    char name[MAX_PATH] = "?";
+    std::array<char, MAX_PATH> name = {"?"};
     uintptr_t offset = c->Eip;
     module_of(c->Eip, name, &offset);
-    get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name, static_cast<unsigned>(offset),
+    get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name.data(), static_cast<unsigned>(offset),
             static_cast<unsigned>(c->Eip), note);
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2)
         get_log("  %s address %08X",
@@ -246,11 +247,11 @@ void abort_signal(int)
 // on the console it ends the run); an error (heap corruption...) ends the process.
 int crt_report_hook(int type, char* message, int* return_value)
 {
-    char text[1024];
-    strncpy_s(text, message ? message : "", _TRUNCATE);
-    for (size_t n = strlen(text); n && (text[n - 1] == '\n' || text[n - 1] == '\r'); --n)
+    std::array<char, 1024> text{};
+    strncpy_s(text.data(), text.size(), message ? message : "", _TRUNCATE);
+    for (size_t n = strlen(text.data()); n && (text[n - 1] == '\n' || text[n - 1] == '\r'); --n)
         text[n - 1] = '\0';
-    get_log("DEBUG CRT REPORT (type %d): %s", type, text);
+    get_log("DEBUG CRT REPORT (type %d): %s", type, text.data());
     if (type == _CRT_WARN)
         return TRUE;
     log_backtrace();
@@ -292,13 +293,13 @@ struct FaultName {
     TestFault fault;
     const char* name;
 };
-constexpr FaultName kFaultNames[] = {
+constexpr auto kFaultNames = std::to_array<FaultName>({
     {TestFault::kAccess, "access"},       {TestFault::kRunTimeCheck, "rtc"},
     {TestFault::kCrtError, "crterror"},   {TestFault::kInvalidParameter, "invalidparam"},
     {TestFault::kPureCall, "purecall"},   {TestFault::kCancelNow, "abort"},
     {TestFault::kGameOverrun, "overrun"}, {TestFault::kGameCrtMessage, "crtbox"},
     {TestFault::kFastFail, "fastfail"},   {TestFault::kHang, "hang"},
-};
+});
 
 } // namespace
 

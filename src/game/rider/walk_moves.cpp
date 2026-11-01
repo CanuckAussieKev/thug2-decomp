@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -747,7 +748,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
     render::ProbeRay* ground = &feeler_;
     ground->get_assign(*feeler); // (the feeler copied)
     feeler_hit_ = true;
-    static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c648, ground);
+    static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c648.data(), ground);
     if (!halted(this)) {
         floor_normal_ = feeler->surface_dir_;
         objects::MovingSurfaceModule* ride = ride_;
@@ -812,12 +813,12 @@ void FootMovement::settle_onto_floor()
         render::ProbeRay* ground = &feeler_;
         if (ground->hit_.object != feeler->hit_.object) {
             if (feeler_hit_) {
-                static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c660, ground);
+                static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c660.data(), ground);
                 if (halted(this)) {
                     return;
                 }
             }
-            static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c654, feeler);
+            static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c654.data(), feeler);
             if (halted(this)) {
                 return;
             }
@@ -837,7 +838,7 @@ void FootMovement::settle_onto_floor()
     if (feeler->get_hit_shape(true, false))
         put_off(&position, feeler, kWallGap);
     if (feeler_hit_) {
-        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c630, &feeler_);
+        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c630.data(), &feeler_);
         if (halted(this)) {
             release_hit(feeler);
             return;
@@ -960,7 +961,7 @@ void FootMovement::get_jump()
         break;
     }
     if (state_ == 0 && feeler_hit_) {
-        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
+        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c.data(),
                                                                          &feeler_); // (the ground's jump triggers)
         if (halted(this))
             return;
@@ -1045,7 +1046,7 @@ bool FootMovement::try_barrier_jump()
 {
     if (core_physics_->state_->flag(PoseFlag::kBailing).on)
         return false;
-    static const int kAhead[3] = {0, 1, 6}; // the contacts ahead: straight on and either side of it
+    static const std::array<int, 3> kAhead = {{0, 1, 6}}; // the contacts ahead: straight on and either side of it
 
     const float highest = walk_parameter(kBarrierJumpHighestBarrier);
     const float reach = walk_parameter(kFeelerLength) * 3.0f;
@@ -1139,7 +1140,7 @@ bool FootMovement::try_barrier_jump()
     const double gravity = static_cast<float>(get_gravity());
     auto speed = static_cast<float>(std::sqrt(gravity * rise * 2.0));
     if (feeler_hit_) {
-        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
+        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c.data(),
                                                                          &feeler_); // (the ground's jump triggers)
         if (halted(this)) {
             release_hit(feeler);
@@ -1355,7 +1356,7 @@ bool FootMovement::update_contacts()
 
     // Slid along them: the part of the velocity into each taken off (the fall's first, then the front ones'); stopped
     // if that turns it back.
-    static const int kOrder[8] = {7, 4, 3, 5, 2, 6, 1, 0};
+    static const std::array<int, 8> kOrder = {{7, 4, 3, 5, 2, 6, 1, 0}};
     double x = velocity.x; // (x and w are kept unrounded, as on the x87's stack)
     float y = velocity.y;
     float z = velocity.z;

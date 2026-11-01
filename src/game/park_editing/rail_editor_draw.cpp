@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "game/park_editing/park.h"
@@ -134,8 +135,8 @@ struct Colour {
 
 // The template's vertices of the segment as Stretch turns them: the 10 at the start of the piece, then the 10 at its
 // end (0x0064... built on the stack by the original).
-const int kStartVertices[10] = {1, 9, 3, 10, 14, 19, 0, 13, 2, 16};
-const int kEndVertices[10] = {6, 11, 7, 8, 15, 18, 4, 12, 5, 17};
+const std::array<int, 10> kStartVertices = {{1, 9, 3, 10, 14, 19, 0, 13, 2, 16}};
+const std::array<int, 10> kEndVertices = {{6, 11, 7, 8, 15, 18, 4, 12, 5, 17}};
 
 } // namespace
 
@@ -313,7 +314,7 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
         Vec4 halfway = {static_cast<float>(static_cast<double>(sx) * 0.5f),
                         static_cast<float>(static_cast<double>(sy) * 0.5f), static_cast<float>(sz * 0.5f),
                         static_cast<float>(static_cast<double>(sw) * 0.5f)};
-        orient_rail_vertices(&halfway, from, vertices, kStartVertices, 10);
+        orient_rail_vertices(&halfway, from, vertices, kStartVertices.data(), 10);
         uint8_t* previous_geometry = fetch_shape(previous_sector);
         auto* previous_vertices =
             static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(get_vertex_count(previous_geometry)) << 4));
@@ -324,13 +325,13 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
         memory::free_malloc(previous_vertices);
     } else {
         Vec4 direction = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
-        orient_rail_vertices(&direction, from, vertices, kStartVertices, 10);
+        orient_rail_vertices(&direction, from, vertices, kStartVertices.data(), 10);
     }
     Vec4 direction = {static_cast<float>(static_cast<double>(to->x) - from->x),
                       static_cast<float>(static_cast<double>(to->y) - from->y),
                       static_cast<float>(static_cast<double>(to->z) - from->z),
                       static_cast<float>(static_cast<double>(to->w) - from->w)};
-    orient_rail_vertices(&direction, to, vertices, kEndVertices, 10);
+    orient_rail_vertices(&direction, to, vertices, kEndVertices.data(), 10);
     set_vertices(fetch_shape(sector), vertices);
     if (update_collision) {
         // The collision's vertices moved as the drawn ones were: each found among the source geometry's (as read

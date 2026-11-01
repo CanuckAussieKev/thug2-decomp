@@ -26,20 +26,21 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/model_component.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {
 
-uint32_t g_particle_component_member_functions[126]{
+std::array<uint32_t, 126> g_particle_component_member_functions{{
     0x88BE2262, 0xA9DB601E, 0, 0, 0, 0, 0xBB6018F4, 0xA9DB601E, 0, 0, 0, 0, 0xE5134689, 0xA9DB601E, 0, 0, 0, 0,
     0xF71D696E, 0xA9DB601E, 0, 0, 0, 0, 0x0AAB006D, 0xA9DB601E, 0, 0, 0, 0, 0xE2B99038, 0xA9DB601E, 0, 0, 0, 0,
     0xC036F4D0, 0xA9DB601E, 0, 0, 0, 0, 0xC6525C4E, 0xA9DB601E, 0, 0, 0, 0, 0x31FCC8ED, 0xA9DB601E, 0, 0, 0, 0,
     0x19AF74D1, 0xA9DB601E, 0, 0, 0, 0, 0x4AA40FB5, 0xA9DB601E, 0, 0, 0, 0, 0x234CEABB, 0xA9DB601E, 0, 0, 0, 0,
     0x9E100F60, 0xA9DB601E, 0, 0, 0, 0, 0x2F0DA461, 0xA9DB601E, 0, 0, 0, 0, 0xEEFFAE18, 0xA9DB601E, 0, 0, 0, 0,
     0x0FE869E8, 0xA9DB601E, 0, 0, 0, 0, 0x19AA4CD3, 0xA9DB601E, 0, 0, 0, 0, 0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
-    0x55835CF2, 0xA9DB601E, 0, 0, 0, 0, 0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0, 0,          0xA9DB601E, 0, 0, 0, 0};
+    0x55835CF2, 0xA9DB601E, 0, 0, 0, 0, 0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0, 0,          0xA9DB601E, 0, 0, 0, 0}};
 gsl::owner<render::EffectsDirector*> g_particle_hub;
 
 namespace {
@@ -79,7 +80,7 @@ constexpr uint32_t kGroundTest = 0x96896315; // (its name unknown)
 
 // The unnamed array's first four integers' low bytes (r, g, b, a).
 struct Colour {
-    uint8_t rgba[4];
+    std::array<uint8_t, 4> rgba;
 };
 Colour colour_of(script::Array* array)
 {
@@ -99,7 +100,7 @@ gsl::owner<ObjectModule*> EffectsEmitterModule::fabricate() { return new Effects
 // 0x00429940
 void EffectsEmitterModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_particle_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_particle_component_member_functions.data(), 0x18);
 }
 
 // 0x00429B20
@@ -372,22 +373,22 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &p.at_point_[0]);
     vector(0x004B51A2u, &p.at_point_[1]);
     vector(0x5854AB9Eu, &p.at_point_[2]);
-    scale_and_turn(p.at_point_);
+    scale_and_turn(p.at_point_.data());
     vector(0x9656F775u, &p.box_[0]);
     vector(0xC3CD20A2u, &p.box_[1]);
     vector(0x829FE7DDu, &p.box_[2]);
-    scale_and_turn(p.box_);
+    scale_and_turn(p.box_.data());
     p.colour_use_mid_ = params->has_bare_flag(0x454962EFu);
     params->fetch_float(0x59463C93u, &p.mid_percent_, 0);
 
     // The colours (rgb from three arrays; the alphas at most 128).
     uint32_t value = 0;
     script::Array* array = nullptr;
-    static const uint32_t kColours[3] = {0xDAB75B6Cu, 0x0444769Au, 0x5A3728E7u};
+    static const std::array<uint32_t, 3> kColours = {{0xDAB75B6Cu, 0x0444769Au, 0x5A3728E7u}};
     for (int i = 0; i < 3; ++i)
         if (params->fetch_list(kColours[i], &array, 0))
-            get_rgb(array, p.shade_[i], &value);
-    static const uint32_t kAlphas[3] = {0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu};
+            get_rgb(array, p.shade_[i].data(), &value);
+    static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu}};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(kAlphas[i], raw::as<int>(&value), 0)) {
             auto alpha = static_cast<uint8_t>(value);
@@ -511,14 +512,14 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     result->put_name_key(0xA1DC81F9u, own->label_);
     result->push_float(0x35B65BD4u, own->rate_);
     result->push_float(0xC218CF77u, own->lifetime_);
-    script::Array* colours[3];
+    std::array<script::Array*, 3> colours{};
     for (script::Array*& array : colours) {
         array = script::alloc_script_array();
         if (array)
             array = new (array) script::Array;
     }
-    uint8_t colour[3][4];
-    std::memcpy(colour, own->shade_, sizeof(colour));
+    std::array<std::array<uint8_t, 4>, 3> colour{};
+    std::memcpy(colour.data(), own->shade_.data(), sizeof(colour));
     for (script::Array* array : colours)
         array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 3; ++i)

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "formats/byte_stream.h"
 
@@ -24,7 +25,7 @@ constexpr size_t kFormatSize = 0x14;        // the format's bytes the game keeps
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Wave {
-    uint8_t format[kFormatSize] = {};
+    std::array<uint8_t, kFormatSize> format = {};
     uint32_t format_size = 0; // as stored (0: none)
     const uint8_t* samples = nullptr;
     uint32_t sample_bytes = 0;

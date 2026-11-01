@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
@@ -130,7 +131,7 @@ std::unordered_map<uint32_t, Cached>& cache()
     static std::unordered_map<uint32_t, Cached> value;
     return value;
 }
-int g_counts[kKinds];
+std::array<int, kKinds> g_counts;
 bool g_capped;
 int g_rail_segments;
 float g_threshold = -1.0f;
@@ -170,7 +171,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
     if (!tri->faces_ || !tri->vertices_)
         return c;
     for (int f = 0; f < c.faces; ++f) {
-        V3 p[3];
+        std::array<V3, 3> p{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
@@ -187,7 +188,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         Kind kind = get_classify(flags, ny, threshold, (flags & 0x40) ? trigger : 0);
         if (kind == Kind::kNone)
             continue;
-        c.points.insert(c.points.end(), p, p + 3);
+        c.points.insert(c.points.end(), p.data(), p.data() + 3);
         c.kinds.push_back(static_cast<uint8_t>(kind));
     }
     return c;
@@ -201,7 +202,7 @@ void halt() { cache().clear(); }
 
 void add_overlay(const overlays::Painter& painter)
 {
-    std::memset(g_counts, 0, sizeof(g_counts));
+    std::memset(g_counts.data(), 0, sizeof(g_counts));
     g_capped = false;
     g_rail_segments = 0;
     if (!get_shown() || !painter.overlay)
@@ -251,9 +252,9 @@ void add_overlay(const overlays::Painter& painter)
                 g_capped = true;
                 break;
             }
-            V3 clipped[4];
+            std::array<V3, 4> clipped{};
             const int count =
-                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &c.points[f * 3], clipped);
+                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &c.points[f * 3], clipped.data());
             if (!count)
                 continue;
             Polygon poly = {};
@@ -265,7 +266,7 @@ void add_overlay(const overlays::Painter& painter)
                 cast_onto(painter.camera, painter.frame, painter.lens, clipped[k], painter.near_z_ * 0.5f, &nx, &ny);
                 left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
                 above = above && ny > 1.0f;
-                ndc_to_pixel(painter.viewport, nx, ny, &poly.x[k], &poly.y[k]);
+                ndc_to_pixel(painter.viewport.data(), nx, ny, &poly.x[k], &poly.y[k]);
                 depth += -get_dot(clipped[k] - painter.camera, painter.frame.back);
             }
             if (left || right || below || above)
@@ -291,10 +292,10 @@ void add_overlay(const overlays::Painter& painter)
         if (!a.alive || a.spec.kind != triggers::Kind::kKill)
             continue;
         OrientedBox box = triggers::box_of(a.pos, a.yaw, a.spec.size);
-        V3 corner[8];
-        box_corners(box.origin, box.axes, box.min, box.max, corner);
-        const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
-                                  {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+        std::array<V3, 8> corner{};
+        box_corners(box.origin, box.axes.data(), box.min, box.max, corner.data());
+        const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
+                                  {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
         const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
         for (const auto& e : edges)
             (void)painter.get_seg(corner[e[0]], corner[e[1]], colour, 2.0f);

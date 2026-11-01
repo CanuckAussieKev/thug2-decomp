@@ -36,6 +36,7 @@
 // the default-parameters line (the call counts as true). `obj:Name args` runs Name on the object called obj.
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -509,7 +510,7 @@ ScriptOutcome Script::tick_frame()
     uint32_t steps = 0;
     while (pc_) {
         if (++steps == 5000000u) {
-            static uint32_t s_logged[16];
+            static std::array<uint32_t, 16> s_logged;
             static int tally;
             bool seen = false;
             for (int i = 0; i < tally; ++i)

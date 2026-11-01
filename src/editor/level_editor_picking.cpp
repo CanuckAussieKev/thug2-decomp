@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <array>
 
 // NOT ORIGINAL - the level editor's picking rules (ours; level_editor_picking.h).
 namespace frontend::level_editor::picking {
@@ -16,10 +17,10 @@ bool is_structure(V3 min, V3 max, V3 camera, float level_share)
     if (camera.x >= min.x - kInsideMargin && camera.x <= max.x + kInsideMargin && camera.y >= min.y - kInsideMargin &&
         camera.y <= max.y + kInsideMargin && camera.z >= min.z - kInsideMargin && camera.z <= max.z + kInsideMargin)
         return true;
-    float e[3] = {max.x - min.x, max.y - min.y, max.z - min.z};
+    std::array<float, 3> e = {{max.x - min.x, max.y - min.y, max.z - min.z}};
     if (e[1] <= kLowHeight && std::min(e[0], e[2]) >= kLowSpan && level_share >= kLevelTopShare)
         return true;
-    std::sort(e, e + 3); // e[0] thinnest .. e[2] longest
+    std::sort(e.begin(), e.begin() + 3); // e[0] thinnest .. e[2] longest
     if (e[1] >= kWideSpan)
         return true;
     return e[1] >= kSlabSpan && e[0] <= e[1] * kSlabThickness;

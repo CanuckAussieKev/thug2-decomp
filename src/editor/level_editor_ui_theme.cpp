@@ -3,6 +3,7 @@
 #include "editor/level_editor_ui_theme.h"
 
 #include <cstdio>
+#include <array>
 
 #include "editor/level_editor_ui_fonts.h"
 #include "editor/level_editor_ui_layout.h"
@@ -13,7 +14,7 @@ namespace frontend::level_editor::ui_theme {
 namespace {
 
 // The characters the editor shows: Latin-1, dashes and bullets, arrows and triangles.
-const ImWchar kRanges[] = {0x0020, 0x00FF, 0x2013, 0x2026, 0x2190, 0x2193, 0x25B2, 0x25C0, 0};
+constexpr auto kRanges = std::to_array<ImWchar>({0x0020, 0x00FF, 0x2013, 0x2026, 0x2190, 0x2193, 0x25B2, 0x25C0, 0});
 
 ImFont* add_font(ui_fonts::CompressedFont font, float size)
 {
@@ -22,7 +23,7 @@ ImFont* add_font(ui_fonts::CompressedFont font, float size)
     config.OversampleV = 1;
     config.PixelSnapH = true;
     std::snprintf(config.Name, sizeof(config.Name), "%.0fpx", size);
-    return ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(font.data, font.size, size, &config, kRanges);
+    return ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(font.data, font.size, size, &config, kRanges.data());
 }
 
 } // namespace

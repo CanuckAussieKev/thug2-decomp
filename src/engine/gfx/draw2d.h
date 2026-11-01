@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 
@@ -24,7 +25,7 @@ public:
 
     OverlayDraw* next{nullptr};
     uint8_t hidden; // not in the list (a byte: change_concealed keeps any value it's given)
-    uint8_t pad[3]{};
+    std::array<uint8_t, 3> pad{};
     float priority;
     float z{0.0f}; // above 0: the next frame's z test on (0x007CC24C)
 

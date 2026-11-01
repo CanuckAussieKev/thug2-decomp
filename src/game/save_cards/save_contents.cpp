@@ -5,6 +5,7 @@
 #include "engine/net/buddy_status.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "game/park_editing/goal_editor.h"
@@ -124,7 +125,7 @@ void write_global_info(Struct* global)
     Struct* sound = spawn_param_table();
     sound->push_float(kMasterGainKey, sound::fetch_master_loudness());
     sound->push_float(kMusicVolume, script::fetch_float(kMusicVolOutsideBox));
-    uint64_t tracks_off[2];
+    std::array<uint64_t, 2> tracks_off{};
     audio::get_tracks_off(&tracks_off[0], &tracks_off[1]);
     sound->put_int(kForbiddenTracks1, static_cast<int>(tracks_off[0] >> 32));
     sound->put_int(kForbiddenTracks2, static_cast<int>(tracks_off[0]));
@@ -188,7 +189,7 @@ void read_save_header(Struct* global, Script* script)
         script::launch_script("Change", change, nullptr, false);
         delete_structure(change);
     }
-    int tracks[4] = {};
+    std::array<int, 4> tracks = {};
     if (sound->fetch_int_value(kForbiddenTracks1, &tracks[0], 0)) {
         sound->fetch_int_value(kForbiddenTracks2, &tracks[1], 0);
         sound->fetch_int_value(kForbiddenTracks3, &tracks[2], 0);

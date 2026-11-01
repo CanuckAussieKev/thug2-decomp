@@ -6,6 +6,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -31,7 +32,7 @@ namespace online {
 // A line of a top-score list (0x3C bytes in the original): lists::Elem<TopEntry>.
 struct TopEntry {
     memory::ListNode list_link_; // +0x00 data = this
-    char label_[0x20];           // +0x10
+    std::array<char, 0x20> label_;           // +0x10
     int skill_points_;           // +0x30
     int points_held_;            // +0x34
 
@@ -58,7 +59,7 @@ static_assert(sizeof(LevelScores) == 0x24 && offsetof(LevelScores, entries_) == 
 struct TopList {
     memory::ListNode levels_{};  // +0x00 lists::Foremost<LevelScores>
     memory::ListNode entries_{}; // +0x10 lists::Foremost<TopEntry>: the ratings list's
-    char title_[0x20]{};         // +0x20 the file's first line (the lists of combos)
+    std::array<char, 0x20> title_{};         // +0x20 the file's first line (the lists of combos)
 
     // 0x0054D8B0: two empty heads.
     TopList();
@@ -81,7 +82,7 @@ static_assert(sizeof(TopList) == 0x40 && offsetof(TopList, title_) == 0x20);
 // the score.
 struct SortEntry {
     memory::ListNode list_link_; // +0x00 data = this, priority = the sort key
-    char label_[0x20];           // +0x10
+    std::array<char, 0x20> label_;           // +0x10
     uint32_t level_;             // +0x30
     int points_held_;            // +0x34
     int skill_points_;           // +0x38
@@ -97,8 +98,8 @@ static_assert(sizeof(SortEntry) == 0x3C);
 // The player's own stats from persistent storage (RankingsManager +0x14).
 struct PersonalStats {
     int skill_points_;    // +0x00
-    int high_scores_[15]; // +0x04 by level (1-14 filled: index i at high_scores_[i - 1])
-    int high_combos_[15]; // +0x40
+    std::array<int, 15> high_scores_; // +0x04 by level (1-14 filled: index i at high_scores_[i - 1])
+    std::array<int, 15> high_combos_; // +0x40
 
     // 0x0054DDB0: the levels' high scores (the level checksums at 0x0067F260), best first, into the menu (script
     // 0xA6111F30: score, level name; its parameters are never freed - kept).
@@ -177,13 +178,13 @@ public:
 
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
     bool authenticated_;                         // +0x004
-    uint8_t pad5_[3]{};
+    std::array<uint8_t, 3> pad5_{};
     int cur_phase_;          // +0x008 State
     void* game_;             // +0x00C the SDK's game being reported
     uint32_t last_report_{}; // +0x010
     PersonalStats personal_{}; // +0x014
     int top_file_{};           // +0x090 the top-score file being downloaded (RetrieveTopStats)
-    TopList top_lists_[5];   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
+    std::array<TopList, 5> top_lists_;   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
     bool need_top_stats_;    // +0x1D4 (the original's +0x1FC: the lists' heads had table words)
 };
 

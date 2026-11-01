@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/viewport.h"
@@ -14,19 +15,19 @@ namespace render {
 // 0x0049F220 (the original sprintfs into its 512 bytes unbounded)
 bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
 {
-    char path[0x200];
-    std::snprintf(path, sizeof(path), "%s", name);
+    std::array<char, 0x200> path{};
+    std::snprintf(path.data(), sizeof(path), "%s", name);
     if (static_cast<uint8_t>(in_images)) {
         if (name[0] == '.' && name[1] == '.' && name[2] == '/')
-            std::snprintf(path, sizeof(path), "%s", name + 3);
+            std::snprintf(path.data(), sizeof(path), "%s", name + 3);
         else
-            std::snprintf(path, sizeof(path), "images/%s", name);
+            std::snprintf(path.data(), sizeof(path), "images/%s", name);
     }
-    int start = static_cast<int>(std::strlen(path));
+    int start = static_cast<int>(std::strlen(path.data()));
     while (start > 0 && path[start - 1] != '\\' && path[start - 1] != '/')
         --start;
-    checksum_ = checksums::hash_from_text(path + start);
-    return ingest_file(path, in_images, argument);
+    checksum_ = checksums::hash_from_text(path.data() + start);
+    return ingest_file(path.data(), in_images, argument);
 }
 
 // 0x0049F300

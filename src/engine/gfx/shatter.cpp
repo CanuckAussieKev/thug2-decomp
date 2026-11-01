@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -178,9 +179,9 @@ void update_shatter(PcShatter* shatter, float step)
         const maths::Mat4& m = shatter->rotations[i];
         for (int v = 0; v < 3; ++v) {
             float* n = get_at(n0 + v * stride);
-            float turned[3];
-            get_turn(m, n[0], n[1], n[2], turned);
-            std::memcpy(n, turned, 12);
+            std::array<float, 3> turned{};
+            get_turn(m, n[0], n[1], n[2], turned.data());
+            std::memcpy(n, turned.data(), 12);
         }
     }
 }
@@ -248,10 +249,10 @@ void shatter_geom(PcGeom* geom)
         auto speed = static_cast<float>(std::sqrt(static_cast<double>(direction[1]) * direction[1] +
                                                   static_cast<double>(direction[2]) * direction[2] +
                                                   static_cast<double>(direction[0]) * direction[0]));
-        const float from[4] = {static_cast<float>(mesh->centre[0] + back_x),
+        const std::array<float, 4> from = {{static_cast<float>(mesh->centre[0] + back_x),
                                static_cast<float>(static_cast<double>(mesh->centre[1]) + back_y),
                                static_cast<float>(static_cast<double>(mesh->centre[2]) + back_z),
-                               static_cast<float>(static_cast<double>(back_w) + 1.0f)};
+                               static_cast<float>(static_cast<double>(back_w) + 1.0f)}};
         auto key = cell::of(shatter);
         g_shatters->store_entry(key, shatter);
         uint8_t* cursor = shatter->vertices;

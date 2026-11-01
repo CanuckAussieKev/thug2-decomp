@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
@@ -81,11 +82,11 @@ void read_in()
 {
     s_options.anisotropy = parse_anisotropy(build_info::get_int(build_info::kGraphics, "anisotropy", 0));
     s_options.msaa = parse_multisample(build_info::get_int(build_info::kGraphics, "msaa", 0));
-    char text[32];
-    build_info::fetch_text(build_info::kGraphics, "draw_distance_scale", "1", text, sizeof(text));
-    s_options.draw_distance_scale_ = parse_scale(text);
-    build_info::fetch_text(build_info::kGraphics, "lod_distance_scale", "1", text, sizeof(text));
-    s_options.lod_distance_scale_ = parse_scale(text);
+    std::array<char, 32> text{};
+    build_info::fetch_text(build_info::kGraphics, "draw_distance_scale", "1", text.data(), sizeof(text));
+    s_options.draw_distance_scale_ = parse_scale(text.data());
+    build_info::fetch_text(build_info::kGraphics, "lod_distance_scale", "1", text.data(), sizeof(text));
+    s_options.lod_distance_scale_ = parse_scale(text.data());
     if (s_options.anisotropy || s_options.msaa || s_options.draw_distance_scale_ != 1.0f ||
         s_options.lod_distance_scale_ != 1.0f)
         get_log("graphics options: anisotropy=%d msaa=%d draw_distance_scale=%.3g lod_distance_scale=%.3g",

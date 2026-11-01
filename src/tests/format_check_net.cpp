@@ -11,6 +11,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <array>
 
 #include "wire/gamenet_messages.h"
 #include "wire/play_messages.h"
@@ -69,7 +70,7 @@ void check_message(const std::string& what, const Message& message, const Refere
 struct ReferencePlayAnim {
     uint8_t loop_type, object;
     uint32_t anim;
-    int16_t times[4];
+    std::array<int16_t, 4> times;
 };
 // NOLINTEND(readability-identifier-naming)
 struct ReferenceHideGeom {
@@ -110,7 +111,7 @@ void check_skater_messages()
         check_message("play anim 0x29", m, ref, online::write_play_anim, online::read_play_anim);
     }
     {
-        const uint8_t ref[2] = {3, 0xFE};
+        const std::array<uint8_t, 2> ref = {{3, 0xFE}};
         online::PairMessage m;
         m.first = 3;
         m.second = 0xFE;
@@ -234,7 +235,7 @@ void check_graffiti_messages()
 struct ReferenceHuntPlacements {
     uint8_t id, pad[3];
     int32_t count;
-    float positions[5][4];
+    std::array<std::array<float, 4>, 5> positions;
 };
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceBoardVehicle {
@@ -267,7 +268,7 @@ struct ReferenceToggleCheat {
 };
 struct ReferenceCheats {
     int32_t count;
-    uint32_t cheats[3];
+    std::array<uint32_t, 3> cheats;
 };
 struct ReferenceRunScript {
     uint32_t name, object;
@@ -293,32 +294,32 @@ bool read_hunt_placements_whole(util::ByteReader& reader, online::HuntPlacements
 {
     online::read_hunt_placements(reader, message);
     for (auto& position : message->positions)
-        online::read_hunt_position(reader, position);
+        online::read_hunt_position(reader, position.data());
     return reader.ok();
 }
 
 void check_play_messages()
 {
     {
-        ReferenceHuntPlacements ref = {3, {}, 2, {{1, 2, 3, 0}, {-4, 5.5f, 6, 1}, {}, {}, {}}};
+        ReferenceHuntPlacements ref = {3, {}, 2, {{{{1, 2, 3, 0}}, {{-4, 5.5f, 6, 1}}, {}, {}, {}}}};
         online::HuntPlacements m;
         m.player_id = 3;
         m.count = 2;
-        std::memcpy(m.positions, ref.positions, sizeof(ref.positions));
+        std::memcpy(m.positions.data(), ref.positions.data(), sizeof(ref.positions));
         check_message("hunt placements 0x8F", m, ref, online::write_hunt_placements, read_hunt_placements_whole);
-        float at[4];
+        std::array<float, 4> at{};
         util::ByteReader reader(&ref, sizeof(ref));
         online::HuntPlacements back;
         online::read_hunt_placements(reader, &back);
-        online::read_hunt_position(reader, at);
-        online::read_hunt_position(reader, at);
+        online::read_hunt_position(reader, at.data());
+        online::read_hunt_position(reader, at.data());
         check(reader.ok() && at[1] == 5.5f && back.count == 2, "hunt placements 0x8F: the positions read");
-        const float one[4] = {7, 8, 9, 1};
-        uint8_t bytes[16];
-        util::ByteWriter writer(bytes, sizeof(bytes));
-        online::write_hunt_position(writer, one);
+        const std::array<float, 4> one = {{7, 8, 9, 1}};
+        std::array<uint8_t, 16> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
+        online::write_hunt_position(writer, one.data());
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        check(writer.ok() && std::memcmp(bytes, one, 16) == 0, "hunt placement 0x8F: as the original's vector");
+        check(writer.ok() && std::memcmp(bytes.data(), one.data(), 16) == 0, "hunt placement 0x8F: as the original's vector");
     }
     {
         const ReferenceBoardVehicle ref = {5, {}, 0x8A6B04AD};
@@ -330,8 +331,8 @@ void check_play_messages()
     {
         ReferenceProjectile ref = {0, {1, 2, 3, 0}, {4, 5, 6, 0}, 0xD039432C, 0x11223344, 0xF0, 2.5f, 6, {}};
         online::Projectile m;
-        std::memcpy(m.position, ref.pos, 16);
-        std::memcpy(m.velocity, ref.vel, 16);
+        std::memcpy(m.position.data(), ref.pos, 16);
+        std::memcpy(m.velocity.data(), ref.vel, 16);
         m.type = 0xD039432C;
         m.ammo_type = 0x11223344;
         m.radius = 0xF0;
@@ -344,8 +345,8 @@ void check_play_messages()
         online::PlaceTag m;
         m.object_id = 2;
         m.sticker = true;
-        std::memcpy(m.start, ref.start, 16);
-        std::memcpy(m.end, ref.end, 16);
+        std::memcpy(m.start.data(), ref.start, 16);
+        std::memcpy(m.end.data(), ref.end, 16);
         m.size = 64;
         check_message("place tag 0x99", m, ref, online::write_place_tag, online::read_place_tag);
     }
@@ -373,7 +374,7 @@ void check_play_messages()
         ReferenceCheats ref = {3, {0xEEFECF1B, 0xB38341C9, 0xCD09E062}};
         online::Cheats m;
         m.count = 3;
-        std::memcpy(m.cheats, ref.cheats, sizeof(ref.cheats));
+        std::memcpy(m.cheats.data(), ref.cheats.data(), sizeof(ref.cheats));
         check_message("cheats 0x82", m, ref, online::write_cheats, online::read_cheats);
         ref.count = -1;
         util::ByteReader reader(&ref, sizeof(ref));
@@ -403,32 +404,32 @@ void check_play_messages()
 struct ReferenceConnectInfo {
     int32_t version;
     uint8_t observer, can_queue_up;
-    char password[10];
+    std::array<char, 10> password;
     uint8_t broadband;
     int8_t rank;
-    char cd_key_response[74];
+    std::array<char, 74> cd_key_response;
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceJoinHeader {
     ReferenceConnectInfo connect;
     int32_t profile, rating, drive_scheme;
-    char name[16];
+    std::array<char, 16> name;
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceProceed {
     uint32_t public_ip, private_ip;
     int32_t port;
-    char server_name[16];
+    std::array<char, 16> server_name;
     int8_t max_players;
     uint8_t broadband, pad[2];
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceTrailer {
-    char magic[10];
-    uint8_t pad[2];
+    std::array<char, 10> magic;
+    std::array<uint8_t, 2> pad;
     uint32_t version, release, scripts_hash, machine_id;
     uint8_t modified, pad79[3];
 };
@@ -449,18 +450,18 @@ void check_join_messages()
     ref.version = online::kVersion;
     ref.observer = 1;
     ref.can_queue_up = 1;
-    std::strcpy(ref.password, "secret123");
+    std::strcpy(ref.password.data(), "secret123");
     ref.broadband = 1;
     ref.rank = -3;
-    std::memset(ref.cd_key_response, 'k', 72);
+    std::memset(ref.cd_key_response.data(), 'k', 72);
     online::ConnectInfo info = {};
     info.version = online::kVersion;
     info.observer = true;
     info.can_queue_up_ = true;
-    std::strcpy(info.password, "secret123");
+    std::strcpy(info.password.data(), "secret123");
     info.broadband = true;
     info.rank = -3;
-    std::memset(info.cd_key_response_, 'k', 72);
+    std::memset(info.cd_key_response_.data(), 'k', 72);
     check_message("connection request 3", info, ref, online::write_connect_info, online::read_connect_info);
 
     ReferenceJoinHeader join_ref = {};
@@ -468,36 +469,36 @@ void check_join_messages()
     join_ref.profile = 123456;
     join_ref.rating = 900;
     join_ref.drive_scheme = 2;
-    std::strcpy(join_ref.name, "fifteen_letters");
+    std::strcpy(join_ref.name.data(), "fifteen_letters");
     online::JoinRequestHeader join = {};
     static_cast<online::ConnectInfo&>(join) = info;
     join.profile = 123456;
     join.rating = 900;
     join.drive_scheme_ = 2;
-    std::strcpy(join.name, "fifteen_letters");
+    std::strcpy(join.name.data(), "fifteen_letters");
     check_message("join request 80", join, join_ref, online::write_join_request, online::read_join_request);
 
     ReferenceProceed proceed_ref = {0x0100007F, 0x0A00000A, 5150, {}, 8, 1, {}};
-    std::strcpy(proceed_ref.server_name, "Skate Shop");
+    std::strcpy(proceed_ref.server_name.data(), "Skate Shop");
     online::ProceedInfo proceed = {};
     proceed.public_ip_ = 0x0100007F;
     proceed.private_ip_ = 0x0A00000A;
     proceed.port = 5150;
-    std::strcpy(proceed.server_name_, "Skate Shop");
+    std::strcpy(proceed.server_name_.data(), "Skate Shop");
     proceed.max_players_ = 8;
     proceed.broadband = true;
     check_message("join proceed 79", proceed, proceed_ref, online::write_proceed_info, online::read_proceed_info, 30);
     // a server name filling its field (no terminator): cut there
-    std::memset(proceed_ref.server_name, 'N', 16);
+    std::memset(proceed_ref.server_name.data(), 'N', 16);
     util::ByteReader reader(&proceed_ref, sizeof(proceed_ref));
     online::ProceedInfo back{};
-    check(online::read_proceed_info(reader, &back) && std::strlen(back.server_name_) == 15 && back.max_players_ == 8,
+    check(online::read_proceed_info(reader, &back) && std::strlen(back.server_name_.data()) == 15 && back.max_players_ == 8,
           "join proceed 79: an unterminated name cut to its field");
 
     const ReferenceTrailer trailer_ref = {
         {'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'}, {}, 0x00070000, 0x32475554, 0x09FC08B0, 0xA1B2C3D4, 1, {}};
     online::thugpro::ConnectTrailer trailer = {};
-    std::memcpy(trailer.magic, online::thugpro::kMagic, sizeof(trailer.magic));
+    std::memcpy(trailer.magic.data(), online::thugpro::kMagic.data(), sizeof(trailer.magic));
     trailer.version = 0x00070000;
     trailer.release = 0x32475554;
     trailer.scripts_hash_ = 0x09FC08B0;
@@ -517,9 +518,9 @@ struct ReferencePlayerArrived {
     int32_t score;
     uint32_t value10, value14;
     int8_t obj_id, team;
-    uint8_t pad[2];
+    std::array<uint8_t, 2> pad;
     int32_t drive_scheme;
-    char name[16];
+    std::array<char, 16> name;
 };
 // NOLINTEND(readability-identifier-naming)
 struct ReferenceHudNotice {
@@ -528,11 +529,11 @@ struct ReferenceHudNotice {
     char string1[16], string2[16];
 };
 struct ReferenceStartRequest {
-    uint32_t words[13];
+    std::array<uint32_t, 13> words;
 };
 struct ReferenceKickRequest {
     uint8_t request, index;
-    char name[16];
+    std::array<char, 16> name;
 };
 struct ReferenceGoalMessage {
     uint8_t id, pad[3];
@@ -556,7 +557,7 @@ void check_session_others()
 {
     {
         ReferencePlayerArrived ref = {4242, 1500, 0x11, 9000, 77, 31337, 3, 1, {}, 2, {}};
-        std::strcpy(ref.name, "player_one");
+        std::strcpy(ref.name.data(), "player_one");
         online::PlayerArrived m;
         m.profile_id = 4242;
         m.rating = 1500;
@@ -567,7 +568,7 @@ void check_session_others()
         m.object_id = 3;
         m.team = 1;
         m.drive_scheme = 2;
-        std::strcpy(m.name, "player_one");
+        std::strcpy(m.name.data(), "player_one");
         check_message("player arrived 0x22", m, ref, online::write_player_arrived, online::read_player_arrived);
     }
     {
@@ -578,15 +579,15 @@ void check_session_others()
         m.properties = 0x11112222;
         m.text = 0x33334444;
         m.time = 5000;
-        std::strcpy(m.string1, "Skater 1");
-        std::strcpy(m.string2, "Team Red");
+        std::strcpy(m.string1.data(), "Skater 1");
+        std::strcpy(m.string2.data(), "Team Red");
         check_message("hud notice 0x3F", m, ref, online::write_hud_notice, online::read_hud_notice);
         // string 1 filling its field (no terminator): cut there, string 2 still read
         std::memset(ref.string1, 'x', 16);
         util::ByteReader reader(&ref, sizeof(ref));
         online::HudNotice back;
-        check(online::read_hud_notice(reader, &back) && std::strlen(back.string1) == 16 &&
-                  std::strcmp(back.string2, "Team Red") == 0,
+        check(online::read_hud_notice(reader, &back) && std::strlen(back.string1.data()) == 16 &&
+                  std::strcmp(back.string2.data(), "Team Red") == 0,
               "hud notice 0x3F: an unterminated string ends in its field");
     }
     {
@@ -608,11 +609,11 @@ void check_session_others()
     }
     {
         ReferenceKickRequest ref = {1, 2, {}};
-        std::strcpy(ref.name, "griefer");
+        std::strcpy(ref.name.data(), "griefer");
         online::KickRequest m;
         m.kick = 1;
         m.index = 2;
-        std::strcpy(m.name, "griefer");
+        std::strcpy(m.name.data(), "griefer");
         check_message("kick request 0x61", m, ref, online::write_kick_request, online::read_kick_request);
     }
     {
@@ -635,15 +636,15 @@ void check_session_others()
 #pragma pack(push, 1)
 struct ReferenceChat {
     uint8_t color;
-    char name[16];
-    char text[9]; // "hi there" and its NUL: the message is 0x12 + strlen(text) bytes
+    std::array<char, 16> name;
+    std::array<char, 9> text; // "hi there" and its NUL: the message is 0x12 + strlen(text) bytes
 };
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceThugproChat {
     uint32_t machine_id;
     uint8_t obj_id;
-    char name[16];
-    char text[6]; // "hello" and its NUL
+    std::array<char, 16> name;
+    std::array<char, 6> text; // "hello" and its NUL
 };
 // NOLINTEND(readability-identifier-naming)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
@@ -655,7 +656,7 @@ struct ReferenceThugproServerInfo {
 struct ReferenceThugproChangeLevel {
     uint32_t level;
     uint8_t flag, pad[3];
-    char name[32];
+    std::array<char, 32> name;
 };
 #pragma pack(pop)
 static_assert(sizeof(ReferenceChat) == 0x12 + 8 && sizeof(ReferenceThugproChat) == 21 + 6 &&
@@ -666,35 +667,35 @@ void check_chat_messages()
 {
     {
         ReferenceChat ref = {3, {}, {}};
-        std::strcpy(ref.name, "skater");
-        std::strcpy(ref.text, "hi there");
+        std::strcpy(ref.name.data(), "skater");
+        std::strcpy(ref.text.data(), "hi there");
         online::Chat m;
         m.color = 3;
-        std::strcpy(m.name, "skater");
-        std::strcpy(m.text, "hi there");
+        std::strcpy(m.name.data(), "skater");
+        std::strcpy(m.text.data(), "hi there");
         check_message("chat 0x4C", m, ref, online::write_chat, online::read_chat, 17);
         // a text without its NUL: cut at the message's end
         ReferenceChat open = ref;
         open.text[8] = '!';
         util::ByteReader reader(&open, sizeof(open));
         online::Chat back;
-        check(online::read_chat(reader, &back) && std::strcmp(back.text, "hi there!") == 0,
+        check(online::read_chat(reader, &back) && std::strcmp(back.text.data(), "hi there!") == 0,
               "chat 0x4C: an unended text cut at the message's end");
     }
     {
         ReferenceThugproChat ref = {0xDEADBEEF, 2, {}, {}};
-        std::strcpy(ref.name, "pro");
-        std::strcpy(ref.text, "hello");
+        std::strcpy(ref.name.data(), "pro");
+        std::strcpy(ref.text.data(), "hello");
         online::thugpro::ChatMessage m;
         m.machine_id_ = 0xDEADBEEF;
         m.obj_id_ = 2;
-        std::strcpy(m.name, "pro");
-        std::strcpy(m.text, "hello");
+        std::strcpy(m.name.data(), "pro");
+        std::strcpy(m.text.data(), "hello");
         check_message("THUGPRO chat 76 (TP-R2)", m, ref, online::thugpro::write_chat_message,
                       online::thugpro::read_chat_message);
         // THUGPRO's drops: a name filling its field, a text without its NUL
         ReferenceThugproChat bad = ref;
-        std::memset(bad.name, 'n', 16);
+        std::memset(bad.name.data(), 'n', 16);
         util::ByteReader name_reader(&bad, sizeof(bad));
         online::thugpro::ChatMessage back;
         check(!online::thugpro::read_chat_message(name_reader, &back), "THUGPRO chat 76: an unended name dropped");
@@ -714,13 +715,13 @@ void check_chat_messages()
     }
     {
         ReferenceThugproChangeLevel ref = {0xB664035D, 0, {}, {}};
-        std::strcpy(ref.name, "Custom Park\n");
+        std::strcpy(ref.name.data(), "Custom Park\n");
         online::LevelSwitch level;
         level.level = 0xB664035D;
-        uint8_t bytes[online::thugpro::kChangeLevelThugproSize];
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        std::array<uint8_t, online::thugpro::kChangeLevelThugproSize> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         online::thugpro::write_change_level(writer, level, "Custom Park\n");
-        check(writer.ok() && writer.position() == sizeof(ref) && std::memcmp(bytes, &ref, sizeof(ref)) == 0,
+        check(writer.ok() && writer.position() == sizeof(ref) && std::memcmp(bytes.data(), &ref, sizeof(ref)) == 0,
               "THUGPRO change level 70 (TP-R5): as THUGPRO's");
     }
 }
@@ -728,14 +729,14 @@ void check_chat_messages()
 // The news file's header and text (motd.dat, after its ^ 0x6D).
 void check_news()
 {
-    uint8_t file[8 + 12] = {};
-    const char text[] = "Hello!"; // 7 with its NUL: 8 as a word
+    std::array<uint8_t, 8 + 12> file = {};
+    const auto text = std::to_array("Hello!"); // 7 with its NUL: 8 as a word
     int32_t size = 12;
-    std::memcpy(file + 4, &size, 4);
-    std::memcpy(file + 8, text, sizeof(text));
+    std::memcpy(file.data() + 4, &size, 4);
+    std::memcpy(file.data() + 8, text.data(), sizeof(text));
     file[16] = 0xAB; // (the data after it)
     {
-        util::ByteReader reader(file, sizeof(file));
+        util::ByteReader reader(file.data(), sizeof(file));
         online::News news;
         check(online::read_news(reader, &news) && news.size == 12 && std::strcmp(news.motd, "Hello!") == 0 &&
                   news.motd_size == 8 && news.data[news.motd_size] == 0xAB && reader.remaining() == 0,
@@ -743,15 +744,15 @@ void check_news()
     }
     {
         size = 13; // past the end
-        std::memcpy(file + 4, &size, 4);
-        util::ByteReader reader(file, sizeof(file));
+        std::memcpy(file.data() + 4, &size, 4);
+        util::ByteReader reader(file.data(), sizeof(file));
         online::News news;
         check(!online::read_news(reader, &news), "news: a size past the end refused");
     }
     {
         size = 4; // the text has no NUL within it
-        std::memcpy(file + 4, &size, 4);
-        util::ByteReader reader(file, sizeof(file));
+        std::memcpy(file.data() + 4, &size, 4);
+        util::ByteReader reader(file.data(), sizeof(file));
         online::News news;
         check(!online::read_news(reader, &news), "news: a text without its NUL refused");
     }
@@ -765,7 +766,7 @@ struct ReferenceHit {
 };
 struct ReferenceRanInto {
     uint8_t id, pad[3];
-    float push[4];
+    std::array<float, 4> push;
 };
 #pragma pack(pop)
 static_assert(sizeof(ReferenceHit) == online::kHitSize && sizeof(ReferenceRanInto) == online::kRanIntoSize);
@@ -781,7 +782,7 @@ void check_collision_messages()
     ReferenceRanInto ran_ref = {0x83, {}, {10, -2, 30.5f, 0}};
     online::RanInto ran;
     ran.object_id = 0x83;
-    std::memcpy(ran.push, ran_ref.push, sizeof(ran.push));
+    std::memcpy(ran.push.data(), ran_ref.push.data(), sizeof(ran.push));
     check_message("ran into 0x43", ran, ran_ref, online::write_ran_into, online::read_ran_into);
 }
 

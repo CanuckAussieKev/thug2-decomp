@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -155,7 +156,7 @@ constexpr float kKnockUp = 200.0f;
 constexpr float kTooClose = 0.0001f; // 0x006453D4
 
 // strncpy(name, from, 0x20) (the game's C runtime's 0x006239E0): up to 0x20 characters, the rest zeroed.
-void copy_name(char (&name)[0x20], const char* from)
+void copy_name(std::array<char, 0x20>& name, const char* from)
 {
     size_t i = 0;
     for (; i < sizeof(name) && from[i]; ++i)
@@ -202,8 +203,8 @@ RiderFrameLog::RiderFrameLog()
 {
     // (The original clears each state entry's +0x68 / +0x6C and the entry, the messages, the counts, then the
     // entries and the messages again.)
-    std::memset(states_, 0, sizeof(states_));
-    std::memset(messages_, 0, sizeof(messages_));
+    std::memset(states_.data(), 0, sizeof(states_));
+    std::memset(messages_.data(), 0, sizeof(messages_));
     kind_tag_ = kType;
 }
 
@@ -365,14 +366,14 @@ void RiderFrameLog::check_for_collisions(int first)
             ran_into.push[1] = push.y;
             ran_into.push[2] = push.z;
             ran_into.push[3] = push.w;
-            uint8_t ran_into_bytes[online::kRanIntoSize];
-            util::ByteWriter ran_into_writer(ran_into_bytes, sizeof(ran_into_bytes));
+            std::array<uint8_t, online::kRanIntoSize> ran_into_bytes{};
+            util::ByteWriter ran_into_writer(ran_into_bytes.data(), sizeof(ran_into_bytes));
             online::write_ran_into(ran_into_writer, ran_into);
             if (ObjectModule* input = entity_->fetch_module(kInput))
                 core::down_cast<PadInputModule>(input)->disabled_ = true;
             mark_tag_time(me);
             msg.ident_ = kMsgRanInto;
-            msg.content_ = ran_into_bytes;
+            msg.content_ = ran_into_bytes.data();
             msg.byte_count_ = sizeof(ran_into_bytes);
             msg.queue_ = net::NetMessageInfo::kLaneOrdered;
             msg.group_id_ = 8;
@@ -415,7 +416,7 @@ void RiderFrameLog::check_for_collisions(int first)
             if (!on_a_team(me))
                 continue;
             net::NetMessageInfo msg;
-            uint8_t tagged[2];
+            std::array<uint8_t, 2> tagged{};
             tagged[0] = static_cast<uint8_t>(skater->ident_);
             tagged[1] = static_cast<uint8_t>(get_team(me));
             const bool same_team = get_team(me) == them->team_;
@@ -430,7 +431,7 @@ void RiderFrameLog::check_for_collisions(int first)
                     continue;
                 }
                 msg.ident_ = same_team ? kMsgTeamTagged : kMsgTeamConverted;
-                msg.content_ = tagged;
+                msg.content_ = tagged.data();
                 msg.group_id_ = 8;
                 msg.queue_ = net::NetMessageInfo::kLaneOrdered;
                 msg.byte_count_ = 2;
@@ -450,8 +451,8 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
         return net::kResultConsumed;
     const bool other_driving = hit.fireball;
     auto* skater = static_cast<GameEntity*>(context->content_);
-    char name[0x20] = {};
-    std::memcpy(name, kSomeone, 8);
+    std::array<char, 0x20> name = {};
+    std::memcpy(name.data(), kSomeone, 8);
     if (context->type_code_ == kMsgHit) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id))) {
             GameEntity* other = player_object(player);
@@ -494,11 +495,11 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
                 }
             }
         }
-        send_event(skater, 0x915E5E39, name, other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
+        send_event(skater, 0x915E5E39, name.data(), other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
     } else if (context->type_code_ == kMsgHitAck) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id)))
             copy_name(name, get_skater_name(player_object(player)));
-        send_event(skater, 0xA1021AF0, name, other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
+        send_event(skater, 0xA1021AF0, name.data(), other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
     }
     return net::kResultConsumed;
 }
@@ -523,8 +524,8 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     }
     if (!read)
         return net::kResultPassOn;
-    char name[0x20] = {};
-    std::memcpy(name, kSomeone, 8);
+    std::array<char, 0x20> name = {};
+    std::memcpy(name.data(), kSomeone, 8);
     const bool other_driving = (ran_into.object_id >> 7) & 1;
     // (the driving bit cleared in the message itself, as the original: the next local skater's handler sees it so)
     context->body_[0] = static_cast<char>(ran_into.object_id & 0x7F);
@@ -532,7 +533,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     if (id == kMsgRanIntoAck) {
         if (player)
             copy_name(name, get_skater_name(player_object(player)));
-        send_event(skater, 0xA1021AF0, name, 0x7FD0663D, other_driving, nullptr);
+        send_event(skater, 0xA1021AF0, name.data(), 0x7FD0663D, other_driving, nullptr);
         return net::kResultPassOn;
     }
     if (player) {
@@ -542,8 +543,8 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             const double dw = static_cast<double>(skater->at_point_.w) - other->at_point_.w;
             const double dz = static_cast<double>(skater->at_point_.z) - other->at_point_.z;
             const double dy = static_cast<double>(skater->at_point_.y) - other->at_point_.y;
-            float away[4] = {get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy),
-                             static_cast<float>(dz), static_cast<float>(dw)};
+            std::array<float, 4> away = {{get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy),
+                             static_cast<float>(dz), static_cast<float>(dw)}};
             const double length = std::sqrt((static_cast<double>(away[0]) * away[0] + dy * dy) + dz * dz);
             double w = 0.0, z = 0.0;
             if (!(length < kTooClose)) {
@@ -578,7 +579,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
         copy_name(name, get_skater_name(player_object(player)));
     }
     const script::VectorValue push = {ran_into.push[0], ran_into.push[1], ran_into.push[2], ran_into.push[3]};
-    send_event(skater, 0x915E5E39, name, 0x2F679251, other_driving, &push);
+    send_event(skater, 0x915E5E39, name.data(), 0x2F679251, other_driving, &push);
     return net::kResultPassOn;
 }
 

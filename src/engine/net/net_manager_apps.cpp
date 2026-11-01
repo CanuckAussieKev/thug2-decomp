@@ -70,9 +70,9 @@ Hub::Hub()
         message_flags_[id] = 0;
     message_flags_[kMsgClockStamp] = kMsgNoLength;
     message_flags_[kMsgAck] = kMsgNoLength;
-    copy_string(local_ip_, "<Unknown>");
-    copy_string(router_addr_, "192.168.55.99");
-    copy_string(subnet_mask_, "255.255.0.0");
+    copy_string(local_ip_.data(), "<Unknown>");
+    copy_string(router_addr_.data(), "192.168.55.99");
+    copy_string(subnet_mask_.data(), "255.255.0.0");
     num_apps_ = 0;
     connection_type_ = 0;
     use_dhcp_ = false;
@@ -81,7 +81,7 @@ Hub::Hub()
     last_error_ = 0;
     dialup_phase_ = 5;
     unknown2ec_ = 0;
-    for (char* server : resolver_ips_)
+    for (std::array<char, 0x10>& server : resolver_ips_)
         server[0] = '\0';
     dialup_number_index_ = 0;
     link_speed_ = 400000;
@@ -99,12 +99,12 @@ HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
-        address = static_cast<int>(inet_addr(local_ip_));
+        address = static_cast<int>(inet_addr(local_ip_.data()));
     auto* server = new HostEnd(flags);
     server->supervisor_ = this;
     server->prepare_all();
     server->unknown1eb4_ = static_cast<uint32_t>(id);
-    copy_name(server->label_, name);
+    copy_name(server->label_.data(), name);
     server->peer_cap_ = max_clients;
     append_last(&hosts_, &server->list1414_);
     if (server->is_host_local()) {
@@ -129,9 +129,9 @@ Guest* Hub::make_client_app(int id, const char* name, uint16_t port, int address
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
-        address = static_cast<int>(inet_addr(local_ip_));
+        address = static_cast<int>(inet_addr(local_ip_.data()));
     auto* client = new Guest(flags);
-    copy_name(client->label_, name);
+    copy_name(client->label_.data(), name);
     client->supervisor_ = this;
     client->prepare_all();
     client->unknown1eb4_ = static_cast<uint32_t>(id);

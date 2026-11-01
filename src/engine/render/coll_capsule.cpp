@@ -2,6 +2,7 @@
 // floats where it stores them, kept in double precision where it keeps them on its stack.
 
 #include <cstdint>
+#include <array>
 
 #include "engine/render/coll_capsule.h"
 
@@ -91,8 +92,8 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
 bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits)
 {
     int count = 0;
-    uint16_t buffer[0x800];
-    const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer, 0x800);
+    std::array<uint16_t, 0x800> buffer{};
+    const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer.data(), 0x800);
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
         const uint32_t face = faces[i];

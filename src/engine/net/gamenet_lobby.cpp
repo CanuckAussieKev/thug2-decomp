@@ -79,11 +79,11 @@ void RoomManager::stop_hosting()
 // 0x0053F810
 bool RoomManager::is_hosting() { return hosting_; }
 // 0x0053F820
-char* RoomManager::get_room_name() { return room_name_; }
+char* RoomManager::get_room_name() { return room_name_.data(); }
 // 0x0053F830
-void RoomManager::change_host_name(const char* name) { std::strcpy(server_name_, name); }
+void RoomManager::change_host_name(const char* name) { std::strcpy(server_name_.data(), name); }
 // 0x0053F850
-char* RoomManager::fetch_host_name() { return server_name_; }
+char* RoomManager::fetch_host_name() { return server_name_.data(); }
 // 0x0053F860
 void RoomManager::clear_lost_connection() { lost_connection_ = false; }
 // 0x0053F870

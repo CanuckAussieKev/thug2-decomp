@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 #include "gpu/vertex_buffers.h"
@@ -25,35 +26,35 @@ struct MaterialRef; // (surface_material.h)
 // A billboard (0x24 bytes): how it turns (0 / 1 towards the camera about any axis, 2 about `axis`), its pivot.
 struct Billboard {
     uint32_t type;
-    float pivot[4];
-    float axis[4];
+    std::array<float, 4> pivot;
+    std::array<float, 4> axis;
 };
 
 struct MeshRef {
     uint32_t flags{0}; // 1: shares another mesh's buffers; 0x10: a billboard
-    float centre[3]{}; // the bounding sphere
+    std::array<float, 3> centre{}; // the bounding sphere
     float radius{};
     MaterialRef* material{};
     uint8_t stride;                 // bytes per vertex
     uint8_t current_vertex_buffer_{0}; // +0x19
     uint8_t vertex_buffer_count_{1};   // +0x1A
     uint8_t viewports;              // +0x1B: a bit per viewport it shows in
-    uint8_t unknown1c_[4]{};        // +0x1C: the colour's offset in a vertex, the normal's, ?, the bone (-1: none)
+    std::array<uint8_t, 4> unknown1c_{};        // +0x1C: the colour's offset in a vertex, the normal's, ?, the bone (-1: none)
     uint16_t load_index_{};         // +0x20
     uint16_t vertex_count_{};       // +0x22
-    uint16_t index_counts_[8]{};    // +0x24
-    uint8_t unknown34[4]{};
+    std::array<uint16_t, 8> index_counts_{};    // +0x24
+    std::array<uint8_t, 4> unknown34{};
     uint32_t fvf; // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
-    uint8_t unknown3c_[8]{};
+    std::array<uint8_t, 8> unknown3c_{};
     void* pixel_shader_;              // +0x44
     void* unknown48;                  // +0x48 (from the heap)
     Billboard* billboard;             // +0x4C
     uint32_t primitive_type_;         // +0x50 (5 when constructed)
-    IdxStore* index_buffers_[8]{};    // +0x54
+    std::array<IdxStore*, 8> index_buffers_{};    // +0x54
     uint32_t buffer_usage_{};         // +0x74: the vertex buffers' usage and flags
     uint32_t buffer_flags_{};         // +0x78
     float depth{};                    // +0x7C (the render's)
-    float color[3]{};                 // +0x80: its colour (doubled when used: 0.5 leaves the passes as they are)
+    std::array<float, 3> color{};                 // +0x80: its colour (doubled when used: 0.5 leaves the passes as they are)
     uint8_t* per_vertex_bytes_;       // +0x8C: a byte per vertex
     float* transform;                 // +0x90: 16 floats, made on first use
     uint8_t* per_vertex_data_;        // +0x94: 0x4C bytes per vertex
@@ -65,9 +66,9 @@ struct MeshRef {
     float* positions;                 // +0xB0: three floats each
     uint32_t triangle_count_;         // +0xB4
     uint16_t* triangles;              // +0xB8: three indices each
-    VertexBuffer* extra_buffers_[3]{}; // +0xBC: destroyed with it (each beside its vertex buffer)
+    std::array<VertexBuffer*, 3> extra_buffers_{}; // +0xBC: destroyed with it (each beside its vertex buffer)
     VertexBuffer* last_buffer_;       // +0xC8: destroyed with it
-    VertexBuffer* vertex_buffers_[3]{}; // +0xCC
+    std::array<VertexBuffer*, 3> vertex_buffers_{}; // +0xCC
 
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,
     // primitive type 5.

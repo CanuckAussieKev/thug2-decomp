@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
@@ -20,7 +21,7 @@ struct CapsuleHit {
     maths::Vec4 normal;   // +0x24
     uint32_t checksum;    // +0x34
     uint8_t face_flag40_; // +0x38
-    uint8_t pad[3];
+    std::array<uint8_t, 3> pad;
 };
 static_assert(sizeof(CapsuleHit) == 0x3C, "layout must match the original");
 
@@ -31,7 +32,7 @@ struct CapsuleHits {
     static constexpr int kMost = 32;
 
     uint32_t unknown00;
-    CapsuleHit hits[kMost];  // +0x004
+    std::array<CapsuleHit, kMost> hits;  // +0x004
     maths::Vec4 direction;   // +0x784
     float sweep;             // +0x794
     int count;               // +0x798

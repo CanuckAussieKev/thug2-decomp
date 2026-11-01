@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 
@@ -51,10 +52,10 @@ public:
     uint8_t* loaded_data_{nullptr};      // the start of the file
     int num_{};                 // number of entries
     int unknown14_{};
-    TableRow entries_[kBundleCapacity]{};
-    void* assets_[kBundleCapacity]{}; // each asset's own copy
+    std::array<TableRow, kBundleCapacity> entries_{};
+    std::array<void*, kBundleCapacity> assets_{}; // each asset's own copy
     bool ready_flag_{false};
-    uint8_t pad2341_[3]{};
+    std::array<uint8_t, 3> pad2341_{};
     memory::Arena* asset_heap_{nullptr};
     memory::Arena* file_heap_{nullptr};
     int unknown234c_{0};

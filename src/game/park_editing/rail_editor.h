@@ -19,6 +19,7 @@
 #include "engine/objects/entity.h"
 #include "formats/rail_buffer_format.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Array;
@@ -33,7 +34,7 @@ struct EditedRailPoint {
     maths::Vec4 at_point_; // +0x00 (w = 1)
     bool has_post_;        // +0x10 a post stands under it
     bool highlighted_;     // +0x11 its sectors coloured (Highlight)
-    uint8_t pad12[2];
+    std::array<uint8_t, 2> pad12;
     float level_y_;              // +0x14 how far over the ground below it is (where its post stands)
     EditedRailPoint* following_; // +0x18
     EditedRailPoint* preceding_; // +0x1C
@@ -290,7 +291,7 @@ public:
     uint32_t dotted_line_name_; // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
     uint8_t* dotted_line_;      // +0x30 its sector
     RailBuffer packed_{};       // +0x34
-    uint8_t pad1166[2]{};
+    std::array<uint8_t, 2> pad1166{};
 };
 static_assert(offsetof(RailAuthoring, input_ptr_) == 0x18 && offsetof(RailAuthoring, rail_groups_) == 0x20 &&
                   offsetof(RailAuthoring, active_node_) == 0x24 && offsetof(RailAuthoring, mode_sel_) == 0x28 &&

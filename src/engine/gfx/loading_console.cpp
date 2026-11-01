@@ -20,6 +20,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_ui_fonts.h"
 #include "engine/gfx/movie.h"
@@ -47,14 +48,14 @@ const char* get_file_name(const char* path)
 
 std::string size_text(long long bytes)
 {
-    char text[32];
+    std::array<char, 32> text{};
     if (bytes < 1024)
-        std::snprintf(text, sizeof(text), "%lld B", bytes);
+        std::snprintf(text.data(), sizeof(text), "%lld B", bytes);
     else if (bytes < 1024LL * 1024)
-        std::snprintf(text, sizeof(text), "%.1f KB", static_cast<double>(bytes) / 1024.0);
+        std::snprintf(text.data(), sizeof(text), "%.1f KB", static_cast<double>(bytes) / 1024.0);
     else
-        std::snprintf(text, sizeof(text), "%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
-    return text;
+        std::snprintf(text.data(), sizeof(text), "%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
+    return text.data();
 }
 
 bool interesting_command(const char* name)
@@ -86,14 +87,14 @@ void Ring::append_one(const char* text, double time)
 {
     if (count != 0) {
         Seg& newest = lines[(count - 1) % kRingLines];
-        if (std::strncmp(newest.text, text, kLineWidth - 1) == 0) {
+        if (std::strncmp(newest.text.data(), text, kLineWidth - 1) == 0) {
             ++newest.repeat;
             newest.time = time;
             return;
         }
     }
     Seg& line = lines[count % kRingLines];
-    strncpy_s(line.text, text, _TRUNCATE);
+    strncpy_s(line.text.data(), line.text.size(), text, _TRUNCATE);
     line.time = time;
     line.repeat = 1;
     ++count;
@@ -106,12 +107,12 @@ std::vector<std::string> Ring::final_one(size_t n) const
     out.reserve(shown);
     for (size_t i = shown; i > 0; --i) {
         const Seg& line = lines[(count - i) % kRingLines];
-        char text[kLineWidth + 32];
+        std::array<char, kLineWidth + 32> text{};
         if (line.repeat > 1)
-            std::snprintf(text, sizeof(text), "[%6.1f] %s (x%u)", line.time, line.text, line.repeat);
+            std::snprintf(text.data(), sizeof(text), "[%6.1f] %s (x%u)", line.time, line.text.data(), line.repeat);
         else
-            std::snprintf(text, sizeof(text), "[%6.1f] %s", line.time, line.text);
-        out.emplace_back(text);
+            std::snprintf(text.data(), sizeof(text), "[%6.1f] %s", line.time, line.text.data());
+        out.emplace_back(text.data());
     }
     return out;
 }
@@ -164,7 +165,7 @@ struct Glyph {
     float x0, y0, x1, y1, u0, v0, u1, v1, advance;
     bool visible;
 };
-Glyph g_glyphs[128];
+std::array<Glyph, 128> g_glyphs;
 float g_advance = 0.0f;     // the font's one advance (monospace)
 float g_line_height = 0.0f; // pixels
 float g_white_u = 0.0f, g_white_v = 0.0f;
@@ -183,9 +184,9 @@ void build_font()
     ImFontConfig config;
     config.PixelSnapH = true;
     config.OversampleH = 2;
-    static const ImWchar kRanges[] = {0x0020, 0x007E, 0};
+    static const auto kRanges = std::to_array<ImWchar>({0x0020, 0x007E, 0});
     const frontend::level_editor::ui_fonts::CompressedFont mono = frontend::level_editor::ui_fonts::get_mono();
-    ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges);
+    ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges.data());
     unsigned char* rgba = nullptr;
     int width = 0, height = 0;
     if (!font || !atlas.Build()) {
@@ -459,13 +460,13 @@ void note_log_line(const char* line)
 {
     if (!g_active || !interesting_log_line(line))
         return;
-    char text[kLineWidth];
-    strncpy_s(text, line, _TRUNCATE);
+    std::array<char, kLineWidth> text{};
+    strncpy_s(text.data(), text.size(), line, _TRUNCATE);
     // (a log line can come from any thread, also while a crash is being logged: never wait for the lock)
     const double now = get_now();
     if (!TryAcquireSRWLockExclusive(&g_lock))
         return;
-    g_ring.append_one(text, now - g_start);
+    g_ring.append_one(text.data(), now - g_start);
     g_last_activity = now;
     ReleaseSRWLockExclusive(&g_lock);
 }

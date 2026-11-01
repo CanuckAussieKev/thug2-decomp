@@ -21,6 +21,7 @@
 #include "platform/platform_system.h"
 #include "engine/gfx/device.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 
 namespace render {
@@ -132,9 +133,9 @@ TextureRef* read_texture_file(const char* name)
     file::Hdl file = file::unseal(name, "rb");
     if (!file)
         return nullptr;
-    uint8_t header_bytes[image_format::kHeaderSize] = {};
-    file::get_take_in(header_bytes, image_format::kHeaderSize, 1, file);
-    util::ByteReader header_reader(header_bytes, sizeof(header_bytes));
+    std::array<uint8_t, image_format::kHeaderSize> header_bytes = {};
+    file::get_take_in(header_bytes.data(), image_format::kHeaderSize, 1, file);
+    util::ByteReader header_reader(header_bytes.data(), sizeof(header_bytes));
     ImageHeader header;
     image_format::read_image_header(header_reader, &header);
     if (is_hd_dxt(header)) { // (not original - hd_ui.h)
@@ -163,9 +164,9 @@ TextureRef* read_texture_file(const char* name)
     }
     TextureRef* texture = alloc_pc_texture();
     texture->palette = nullptr;
-    uint8_t palette[image_format::kPaletteCapacity];
+    std::array<uint8_t, image_format::kPaletteCapacity> palette{};
     if (palettized)
-        file::get_take_in(palette, static_cast<int>(header.palette_size), 1, file);
+        file::get_take_in(palette.data(), static_cast<int>(header.palette_size), 1, file);
     input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                                 raw::as<IDirect3DTexture9*>(&texture->texture), nullptr);
     set_sizes(texture, header, plain);
@@ -186,7 +187,7 @@ TextureRef* read_texture_file(const char* name)
             unswizzle(texels, buffer, header.width, header.height, bits >> 3);
         }
         if (palettized)
-            expand_palette(locked.pBits, texels, size, palette);
+            expand_palette(locked.pBits, texels, size, palette.data());
         free_texel_buffer(buffer, header);
         memory::Hub::sole()->dealloc(indices);
     }
@@ -232,9 +233,9 @@ TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
         return nullptr;
     TextureRef* texture = alloc_pc_texture();
     texture->palette = nullptr;
-    uint8_t palette[image_format::kPaletteCapacity];
+    std::array<uint8_t, image_format::kPaletteCapacity> palette{};
     if (palettized)
-        reader.bytes(palette, image_format::kPaletteCapacity);
+        reader.bytes(palette.data(), image_format::kPaletteCapacity);
     input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                                 raw::as<IDirect3DTexture9*>(&texture->texture), nullptr);
     if (!texture->texture)
@@ -264,7 +265,7 @@ TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
             unswizzle(texels, buffer, header.width, header.height, bytes_per_pixel);
         }
         if (palettized)
-            expand_palette(locked.pBits, texels, size, palette);
+            expand_palette(locked.pBits, texels, size, palette.data());
         free_texel_buffer(buffer, header);
         memory::Hub::sole()->dealloc(indices);
     }

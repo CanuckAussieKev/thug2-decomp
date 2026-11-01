@@ -25,6 +25,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -68,15 +69,15 @@ struct FrontEnd final : public PartUnit {
     std::unique_ptr<FrontEndTask>
         keyboard_task_; // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
     uint32_t unknown1c_{};
-    std::unique_ptr<FrontEndInputHandler> pad_listeners_[2]; // +0x20: input_logic, priority -1000
-    int device_server_map_[2]{};                             // +0x28: which controller each handler listens to (0, 1)
+    std::array<std::unique_ptr<FrontEndInputHandler>, 2> pad_listeners_; // +0x20: input_logic, priority -1000
+    std::array<int, 2> device_server_map_{};                             // +0x28: which controller each handler listens to (0, 1)
     bool is_halted_;                                         // +0x30
     int hold_repeat_ms_;                                     // +0x34: ms (300)
     int auto_repeat_rate_;                                   // +0x38: ms (50)
     int keyboard_device_{};                                  // +0x3C: the device_num the typed keys are reported with
-    PadMapping pad_mappings_[2]{};                           // +0x40
+    std::array<PadMapping, 2> pad_mappings_{};                           // +0x40
     bool block_menu_input_;                                  // +0x58
-    PadPressRecord pad_event_queue_[kMaxButtonEvents]{};     // +0x5C
+    std::array<PadPressRecord, kMaxButtonEvents> pad_event_queue_{};     // +0x5C
     bool check_startup_script_;  // +0x15C: the first input frame looks at the global below once
     bool startup_script_on_;     // +0x15D
     uint32_t startup_script_id_; // +0x160: the spawned script's unique id

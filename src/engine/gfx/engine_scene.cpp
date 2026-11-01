@@ -78,14 +78,14 @@ void for_each_sector(lists::KeyMap* table, Body body)
 // 0x0049C910
 void WorldScene::finish_load(const char* name, void* arena)
 {
-    copy_string(label_, name);
+    copy_string(label_.data(), name);
     post_load(arena);
 }
 
 // 0x0049C940
 void WorldScene::finish_add(const char* name, uint32_t data)
 {
-    copy_string(add_name_, name);
+    copy_string(add_name_.data(), name);
     add_data_ = data;
     added_ = true;
     post_add();
@@ -233,7 +233,7 @@ bool WorldScene::unload_collision()
         coll_statics_ = nullptr;
     }
     if (pip_name_[0]) {
-        packs::offload(pip_name_);
+        packs::offload(pip_name_.data());
         pip_name_[0] = 0;
     }
     return true;

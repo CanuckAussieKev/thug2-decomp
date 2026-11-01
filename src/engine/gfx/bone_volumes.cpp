@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -29,10 +30,10 @@ constexpr float kDefaultRadius = 3.0f;             // 0x40400000
 // The shared sets, by bone count.
 lists::KeyMap g_bone_volume_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 lists::KeyMap& get_table() { return g_bone_volume_table; }
-maths::Vec4 g_bone_world_pos[64]; // each bone's world position as segment_hits_bone found it
+std::array<maths::Vec4, 64> g_bone_world_pos; // each bone's world position as segment_hits_bone found it
 
 // Each bone's world position as segment_hits_bone found it (64 of them).
-maths::Vec4* joint_point_array() { return g_bone_world_pos; }
+maths::Vec4* joint_point_array() { return g_bone_world_pos.data(); }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }

@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
@@ -171,9 +172,9 @@ void service_task(tasks::Task<online::Hub>* task)
             spawn_script(0xBDA86A12);
         } else {
             script::Struct* params = new_params();
-            char text[256];
-            std::snprintf(text, sizeof(text), "(%d) %s", count, script::fetch_text(0x78D25623));
-            params->append_word(kText, script::kQbvalString, text);
+            std::array<char, 256> text{};
+            std::snprintf(text.data(), sizeof(text), "(%d) %s", count, script::fetch_text(0x78D25623));
+            params->append_word(kText, script::kQbvalString, text.data());
             spawn_script(0xC072AC4E, params);
             delete_params(params);
         }

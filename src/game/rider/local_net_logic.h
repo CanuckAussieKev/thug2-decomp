@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -59,9 +60,9 @@ public:
     uint32_t last_transmit_at_{0}; // +0x18 the client app's time when the last update went
     uint8_t sent_value_7c_{0xFF};  // +0x1C (the core component's +0xE1)
     uint8_t pad1d_{};
-    int16_t sent_pos_[3]{};    // +0x1E (x, z in half units - y in quarters; whole units in a big level)
-    int16_t sent_angles_[3]{}; // +0x24 (in 1/4096ths)
-    uint8_t pad2a_[2]{};
+    std::array<int16_t, 3> sent_pos_{};    // +0x1E (x, z in half units - y in quarters; whole units in a big level)
+    std::array<int16_t, 3> sent_angles_{}; // +0x24 (in 1/4096ths)
+    std::array<uint8_t, 2> pad2a_{};
     uint32_t sent_controls_;             // +0x2C (a bit per control the core component holds)
     uint32_t sent_value_6c_{0};          // +0x30 (the 0xB1D5A3E1 component's +0x18)
     uint8_t sent_state_{0};              // +0x34 (the core component's +0x18)

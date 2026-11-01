@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/maths/quat_rotation.h"
@@ -55,9 +56,9 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
         const int bone = raw::as<gfx::Rig>(skeleton)->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
             auto* rotation = raw::field_at<float>(pose, 0x10 * bone);
-            const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
-            float product[4];
-            const auto* result = raw::as<const float>(quat_product(raw::as<maths::Vec4>(product), raw::as<const maths::Vec4>(turn),
+            const std::array<float, 4> turn = {{0.0f, 0.0f, 1.0f, 0.0f}};
+            std::array<float, 4> product{};
+            const auto* result = raw::as<const float>(quat_product(raw::as<maths::Vec4>(product.data()), raw::as<const maths::Vec4>(turn.data()),
                              raw::as<const maths::Vec4>(rotation)));
             std::memcpy(rotation, result, 16);
             raw::as<maths::QuatRotation>(rotation)->make_unit(1.0f); // (to length 1)

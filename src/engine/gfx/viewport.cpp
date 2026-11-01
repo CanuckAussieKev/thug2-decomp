@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -21,23 +22,23 @@ namespace render {
 namespace {
 uint32_t g_occlusion_request_count;
 } // namespace
-OcclusionRequest g_occlusion_requests[4];
+std::array<OcclusionRequest, 4> g_occlusion_requests;
 namespace {
 float g_screen_angle;
 } // namespace
 int g_screen_mode;
-ViewRegion* g_viewports[10];
+std::array<ViewRegion*, 10> g_viewports;
 
 namespace {
 float g_minus_one{-1.0f};
 float g_half_degree_radians{0.008726646f};
-float g_split_layouts[40]{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f,
+std::array<float, 40> g_split_layouts{{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f,
                           0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f,
-                          0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
-int g_mode_viewport_counts[6]{1, 2, 2, 4, 1, 1};
-int g_mode_maps[24]{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1};
+                          0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f}};
+std::array<int, 6> g_mode_viewport_counts{{1, 2, 2, 4, 1, 1}};
+std::array<int, 24> g_mode_maps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};
 } // namespace
-const int* g_mode_map{g_mode_maps};
+const int* g_mode_map{g_mode_maps.data()};
 
 namespace {
 
@@ -47,14 +48,14 @@ constexpr int kOcclusionRequests = 4;
 
 constexpr uint32_t kScreenMode = 0x688B4DDB; // screen_mode
 // The modes' names, by number.
-constexpr uint32_t kModeNames[6] = {
+constexpr std::array<uint32_t, 6> kModeNames = {{
     0x6F70EA65, // one_camera
     0x9B62E5A6, // split_vertical
     0xB07B580E, // split_horizontal
     0xB6624A73, // split_quarters
     0x6F2D1231, // horse1
     0xF624438B, // horse2
-};
+}};
 constexpr uint32_t kScaleNumerator = 0x33AA4915;
 constexpr uint32_t kMaxScale = 0xA0A0DB70; // max_scale
 constexpr uint32_t kMinScale = 0x774B6931; // min_scale
@@ -65,7 +66,7 @@ const int*& mode_map() { return g_mode_map; }
 int& screen_mode() { return g_screen_mode; }
 int& active_viewport_count() { return modules::g_viewport_count; }
 int mode_viewport_count(int mode) { return g_mode_viewport_counts[mode]; }
-const int* mode_map_of(int mode) { return g_mode_maps + 4 * mode; }
+const int* mode_map_of(int mode) { return g_mode_maps.data() + 4 * mode; }
 
 // The n-th mapped entry's viewport - the map's ten words are scanned (past the mode's four: the next modes'),
 // null when there's none.
@@ -83,8 +84,8 @@ ViewRegion* current_view_slot(int n)
     return nullptr;
 }
 
-uint8_t* occlusion_slots() { return g_occlusion_slots; }
-OcclusionRequest* occlusion_requests() { return g_occlusion_requests; }
+uint8_t* occlusion_slots() { return g_occlusion_slots.data(); }
+OcclusionRequest* occlusion_requests() { return g_occlusion_requests.data(); }
 uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
 
 } // namespace
@@ -171,9 +172,9 @@ void purge_doomed_cameras()
 void create_viewports()
 {
     for (int i = 0; i < kViewports; ++i) {
-        const float* table = g_split_layouts + 4 * i;
-        float rect[4] = {table[0], table[1], table[2], table[3]};
-        get_viewport(i) = create_viewport(rect, nullptr);
+        const float* table = g_split_layouts.data() + 4 * i;
+        std::array<float, 4> rect = {{table[0], table[1], table[2], table[3]}};
+        get_viewport(i) = create_viewport(rect.data(), nullptr);
     }
 }
 

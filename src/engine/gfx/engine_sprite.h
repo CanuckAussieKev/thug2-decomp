@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 
@@ -72,8 +73,8 @@ public:
     bool use_depth_{false};         // +0x35: layer_ rather than rank_
     bool z_write_{};          // +0x36: (not set when made)
     bool flip_v_{false}, flip_u_{false}; // +0x37
-    uint8_t rgba_value_[4]{}; // +0x39 (unaligned)
-    uint8_t pad3d_[3]{};
+    std::array<uint8_t, 4> rgba_value_{}; // +0x39 (unaligned)
+    std::array<uint8_t, 3> pad3d_{};
     void* screen_region_; // +0x40: its 2D window (set by 0x0048D1B0)
 };
 static_assert(offsetof(BillboardQuad, orientation_turn_) == 0x24 && offsetof(BillboardQuad, span_) == 0x30 &&
@@ -105,12 +106,12 @@ public:
     void* screen_region_; // (the original's offsets: +0x04)
     uint8_t* bitmap_{nullptr}; // +0x08
     bool invisible_{true};     // +0x0C
-    uint8_t padd_[3]{};
+    std::array<uint8_t, 3> padd_{};
     float rank_{};   // +0x10
     bool use_depth_{false}; // +0x14: (always cleared)
-    uint8_t pad15[3]{};
+    std::array<uint8_t, 3> pad15{};
     uint32_t mix_mode_{};     // +0x18: (not set when made)
-    uint8_t rgba_value_[4]{}; // +0x1C
+    std::array<uint8_t, 4> rgba_value_{}; // +0x1C
 };
 static_assert(sizeof(TexturedQuad) == 0x1C, "layout must match the original");
 

@@ -75,14 +75,14 @@ void GapRegistry::update_checklist()
     checklist->get_clear();
     for (Gap* gap : gaps_ptr_) {
         if (gap)
-            checklist->register_gap_entry(gap->details_.text_, 0, gap->details_.points_held_);
+            checklist->register_gap_entry(gap->details_.text_.data(), 0, gap->details_.points_held_);
     }
 }
 
 // 0x0058CDA0
 void GapRegistry::store_gap_details(int index, GapDetails* info)
 {
-    std::sprintf(gaps_ptr_[index]->label_, "%s", info->text_);
+    std::sprintf(gaps_ptr_[index]->label_.data(), "%s", info->text_.data());
     gaps_ptr_[index]->details_ = *info;
     update_checklist();
 }
@@ -96,7 +96,7 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
             park_owner_->builder_->destroy_piece(piece);
     }
     if (forget) {
-        const int checklist_index = skate_checklist()->find_gap(gap->details_.text_);
+        const int checklist_index = skate_checklist()->find_gap(gap->details_.text_.data());
         if (checklist_index >= 0)
             remove_gap_from_goals(checklist_index);
     }
@@ -156,7 +156,7 @@ void GapRegistry::copy_from(GapRegistry* other)
             gap->ids_[1] = source->ids_[1];
             gap->pieces_[0] = gap->pieces_[1] = nullptr;
             gap->metas_[0] = gap->metas_[1] = nullptr;
-            std::strcpy(gap->label_, source->label_);
+            std::strcpy(gap->label_.data(), source->label_.data());
             gap->details_ = source->details_;
             gaps_ptr_[i] = gap;
         } else {
@@ -189,7 +189,7 @@ void GapRegistry::fire_gap(int index, script::Script* script)
         const Gap* gap = gaps_ptr_[index];
         params->put_name_key(kGapId, gap->ids_[half]);
         params->put_int(kScore, gaps_ptr_[index]->details_.points_held_);
-        params->append_word(kText, gaps_ptr_[index]->label_);
+        params->append_word(kText, gaps_ptr_[index]->label_.data());
         uint32_t name = kEndGap;
         if (i == 0) {
             uint32_t flags = gaps_ptr_[index]->details_.cancel_flags_;

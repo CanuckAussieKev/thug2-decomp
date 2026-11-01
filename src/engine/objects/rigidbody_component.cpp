@@ -8,6 +8,7 @@
 #include <new>
 #include <utility>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -31,18 +32,18 @@
 
 namespace objects {
 
-float g_rigid_body_pusher_reach[8];
+std::array<float, 8> g_rigid_body_pusher_reach;
 RigidBodyCacheStorage g_rigid_body_cache;
-BodyDynamicsModule::Contact g_rigid_body_contacts[24];
-maths::Vec4 g_rigid_body_world_contact_points[24];
-maths::Vec4 g_rigid_body_world_sphere_centers[24];
-maths::Vec4 g_rigid_body_world_spring_points[2];
-SharedRef<GameEntity> g_rigid_body_pushers[8];
+std::array<BodyDynamicsModule::Contact, 24> g_rigid_body_contacts;
+std::array<maths::Vec4, 24> g_rigid_body_world_contact_points;
+std::array<maths::Vec4, 24> g_rigid_body_world_sphere_centers;
+std::array<maths::Vec4, 2> g_rigid_body_world_spring_points;
+std::array<SharedRef<GameEntity>, 8> g_rigid_body_pushers;
 
-maths::Vec4* BodyDynamicsModule::world_contact_points() { return g_rigid_body_world_contact_points; }
-maths::Vec4* BodyDynamicsModule::world_sphere_centers() { return g_rigid_body_world_sphere_centers; }
-maths::Vec4* BodyDynamicsModule::world_spring_points() { return g_rigid_body_world_spring_points; }
-BodyDynamicsModule::Contact* BodyDynamicsModule::get_contacts() { return g_rigid_body_contacts; }
+maths::Vec4* BodyDynamicsModule::world_contact_points() { return g_rigid_body_world_contact_points.data(); }
+maths::Vec4* BodyDynamicsModule::world_sphere_centers() { return g_rigid_body_world_sphere_centers.data(); }
+maths::Vec4* BodyDynamicsModule::world_spring_points() { return g_rigid_body_world_spring_points.data(); }
+BodyDynamicsModule::Contact* BodyDynamicsModule::get_contacts() { return g_rigid_body_contacts.data(); }
 float g_rigid_body_pusher_height;
 
 namespace {
@@ -660,7 +661,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
 // 0x0042E380
 void add_rigid_body_pusher(GameEntity* object)
 {
-    auto* pushers = g_rigid_body_pushers;
+    auto* pushers = g_rigid_body_pushers.data();
     for (int i = 7; i >= 0; --i) {
         if (pushers[i].owner_object_)
             continue;

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <memory>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -154,19 +155,19 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
     }
     flag_bits_ = skeleton->flags;
     num_ = skeleton->count;
-    std::memcpy(names_, skeleton->names, sizeof(names_));
-    std::memcpy(parent_names_, skeleton->parents, sizeof(parent_names_));
-    std::memcpy(flip_names_, skeleton->mirrors, sizeof(flip_names_));
+    std::memcpy(names_.data(), skeleton->names.data(), sizeof(names_));
+    std::memcpy(parent_names_.data(), skeleton->parents.data(), sizeof(parent_names_));
+    std::memcpy(flip_names_.data(), skeleton->mirrors.data(), sizeof(flip_names_));
     inverse_bind_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(num_) << 6));
     bind_translations_ = static_cast<maths::Vec4*>(memory::alloc(static_cast<uint32_t>(num_) << 4));
     for (int i = 0; i < num_; ++i) {
         const skeleton_format::BindPose& bind = skeleton->poses[i];
-        float rotation[4] = {bind.rotation[0], bind.rotation[1], bind.rotation[2], bind.rotation[3]};
+        std::array<float, 4> rotation = {{bind.rotation[0], bind.rotation[1], bind.rotation[2], bind.rotation[3]}};
         const maths::Vec4 translation = {bind.translation[0], bind.translation[1], bind.translation[2],
                                          bind.translation[3]};
         bind_translations_[i] = translation;
         maths::Mat4 matrix{};
-        objects::quat_to_matrix(rotation, &translation.x, &matrix.row[0].x);
+        objects::quat_to_matrix(rotation.data(), &translation.x, &matrix.row[0].x);
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
             maths::Mat4 parent{};
@@ -468,7 +469,7 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, const
 }
 
 // 0x004A4240
-void Rig::tick_frame(const float (*rotations)[4], const float (*translations)[4])
+void Rig::tick_frame(const std::array<float, 4>* rotations, const std::array<float, 4>* translations)
 {
     const uint32_t lod_bit = 1u << (lod_ & 31);
     for (int i = 0; i < bone_total_; ++i) {
@@ -480,7 +481,7 @@ void Rig::tick_frame(const float (*rotations)[4], const float (*translations)[4]
             matrix = *bone.parent;
             continue;
         }
-        quat_to_bone_matrix(&matrix, raw::as<const maths::Vec4>(translations[i]), rotations[i], false, false);
+        quat_to_bone_matrix(&matrix, raw::as<const maths::Vec4>(translations[i].data()), rotations[i].data(), false, false);
         if (bone.flags & Joint::kScaled) {
             matrix.scale_tool(bone.scale);
             if (zero_scale(bone.scale)) {
@@ -519,7 +520,7 @@ void Rig::tick_frame(const float (*rotations)[4], const float (*translations)[4]
 }
 
 // 0x004A44E0
-void Rig::tick_frame(const Stance* pose) { tick_frame(pose->rotations, pose->translations); }
+void Rig::tick_frame(const Stance* pose) { tick_frame(pose->rotations.data(), pose->translations.data()); }
 
 // 0x004A4000
 void Rig::collapse_zero_scaled_bones()

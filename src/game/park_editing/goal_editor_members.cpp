@@ -196,7 +196,7 @@ bool ObjectiveAuthoring::set_editor_goal_description(script::Struct* params, scr
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
     if (EditedGoal* goal = get_goal_from_params(params))
-        std::strcpy(goal->summary_text_, text);
+        std::strcpy(goal->summary_text_.data(), text);
     return true;
 }
 
@@ -206,7 +206,7 @@ bool ObjectiveAuthoring::set_editor_goal_win_message(script::Struct* params, scr
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
     if (EditedGoal* goal = get_goal_from_params(params))
-        std::strcpy(goal->win_message_, text);
+        std::strcpy(goal->win_message_.data(), text);
     return true;
 }
 
@@ -229,7 +229,7 @@ bool ObjectiveAuthoring::get_current_edited_goal_id(script::Struct* /*params*/, 
 {
     script->args_->erase_module("goal_id");
     if (active_node_) {
-        char* name = g_created_goal_name;
+        char* name = g_created_goal_name.data();
         get_sprintf(name, "CreatedGoal%d", active_node_->level_goal_number_);
         script->args_->put_name_key("goal_id", checksums::hash_from_text(name));
     }
@@ -250,7 +250,7 @@ bool ObjectiveAuthoring::set_editor_goal_name(script::Struct* params, script::Sc
     const char* text = vacant();
     if (active_node_ && params->fetch_text("Name", &text, 0)) {
         active_node_ = get_goal_from_params(params); // (none named: a null write, as the original)
-        std::strcpy(active_node_->label_, text);
+        std::strcpy(active_node_->label_.data(), text);
     }
     return true;
 }
@@ -261,7 +261,7 @@ bool ObjectiveAuthoring::set_editor_ped_name(script::Struct* params, script::Scr
     const char* text = vacant();
     if (active_node_ && params->fetch_text("Name", &text, 0)) {
         active_node_ = get_goal_from_params(params);
-        std::strcpy(active_node_->ped_name_, text);
+        std::strcpy(active_node_->ped_name_.data(), text);
     }
     return true;
 }

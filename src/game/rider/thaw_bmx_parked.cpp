@@ -3,6 +3,7 @@
 #include "game/rider/thaw_bmx_parked.h"
 
 #include <cmath>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
@@ -86,8 +87,8 @@ bool get_clear(Point a, Point b)
 // The start spot: the first candidate with ground near the start's height and a clear line from the start.
 Kickoff find_start_spot(Point pos, float heading)
 {
-    Point candidates[4];
-    start_spot_candidates(pos, heading, kStartSpotDistance, candidates);
+    std::array<Point, 4> candidates{};
+    start_spot_candidates(pos, heading, kStartSpotDistance, candidates.data());
     for (const Point& c : candidates) {
         Point ground{};
         if (!get_hit({c.x, pos.y + kGroundAbove, c.z}, {c.x, pos.y - kGroundBelow, c.z}, &ground))
@@ -266,12 +267,12 @@ void start_spot_candidates(Point pos, float heading, float distance, Point out[4
 
 void register_parked_functions()
 {
-    static const script::NativeCommand kFunctions[] = {
+    static const auto kFunctions = std::to_array<script::NativeCommand>({
         {"ThawBmx_HomeSpot", code_address(&cfunc_home_spot)},
         {"ThawBmx_WalkToBike", code_address(&cfunc_walk_to_bike)},
         {"ThawBmx_BikeReachable", code_address(&cfunc_bike_reachable)},
-    };
-    script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
+    });
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
 void update_parked(modules::FrontEnd* front_end)

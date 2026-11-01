@@ -245,7 +245,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
         return;
     }
     // The third level: the call stack moves from inside the script to 16 on the script heap (no check beyond).
-    if (frame_records_ == inline_return_addresses_ && call_depth_ == 2) {
+    if (frame_records_ == inline_return_addresses_.data() && call_depth_ == 2) {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
         frame_records_ = static_cast<CallFrame*>(memory::alloc_block(16 * sizeof(CallFrame)));
         memory::leave_heap_scope();

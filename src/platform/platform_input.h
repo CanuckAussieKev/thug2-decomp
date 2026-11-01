@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 // The Win32 platform layer's DirectInput side (0x005F2E00-0x005F4280): the two ports' joysticks, the keyboard and
 // the mouse - set up by init_input (platform.h), read once a frame by the pad read - the controls each port has
@@ -25,16 +26,16 @@ constexpr int kBindings = 24;
 
 // A port's controls (0x130 bytes, 0x007D6770 + 0x130 * port; -1 = none). init_input sets them all to -1.
 struct PortControls {
-    int32_t keys[kBindings];    // +0x00 the keyboard's key (DIK code) for each action: registry "k<port>_<n>"
+    std::array<int32_t, kBindings> keys;    // +0x00 the keyboard's key (DIK code) for each action: registry "k<port>_<n>"
     GUID joystick;              // +0x60 the joystick playing as this port: registry "pad<port>"
-    int32_t gamepad[kBindings]; // +0x70 the joystick's control for each action: registry "gp<port>_<n>"
-    int32_t mouse[kBindings];   // +0xD0 the mouse's control for each action (nothing here sets them)
+    std::array<int32_t, kBindings> gamepad; // +0x70 the joystick's control for each action: registry "gp<port>_<n>"
+    std::array<int32_t, kBindings> mouse;   // +0xD0 the mouse's control for each action (nothing here sets them)
 };
 static_assert(offsetof(PortControls, joystick) == 0x60 && offsetof(PortControls, gamepad) == 0x70 &&
                   offsetof(PortControls, mouse) == 0xD0 && sizeof(PortControls) == 0x130,
               "layout must match the original");
-extern int32_t g_input_map[0x98];
-inline PortControls* get_controls() { return raw::as<PortControls>(g_input_map); }
+extern std::array<int32_t, 0x98> g_input_map;
+inline PortControls* get_controls() { return raw::as<PortControls>(g_input_map.data()); }
 
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
 // [Graphics] in thug2-decomp.ini, engine/gfx/settings.h).
@@ -123,13 +124,13 @@ void set_default_escape_control(int control);
 
 extern IDirectInput8A* g_direct_input;
 extern IDirectInputDevice8A* g_keyboard_device;
-extern int32_t g_input_map[0x98];
-extern DIJOYSTATE2 g_joystick_states[2];
-extern DIJOYSTATE2 g_last_joystick_states[2];
-extern IDirectInputDevice8A* g_joysticks[kPorts];
-extern IDirectInputEffect* g_effects[kPorts];
-extern uint32_t g_force_axis_counts[kPorts];
-extern uint32_t g_force_resolutions[2 * kPorts];
+extern std::array<int32_t, 0x98> g_input_map;
+extern std::array<DIJOYSTATE2, 2> g_joystick_states;
+extern std::array<DIJOYSTATE2, 2> g_last_joystick_states;
+extern std::array<IDirectInputDevice8A*, kPorts> g_joysticks;
+extern std::array<IDirectInputEffect*, kPorts> g_effects;
+extern std::array<uint32_t, kPorts> g_force_axis_counts;
+extern std::array<uint32_t, 2 * kPorts> g_force_resolutions;
 extern uint8_t g_option37; // the graphics options' other bytes (the named ones are in gfx/settings.h)
 extern uint16_t g_options38_and39;
 extern uint8_t g_unknown643b;

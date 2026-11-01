@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/render/coll_static.h"
 #include "engine/gfx/engine_geom.h"
@@ -98,7 +99,7 @@ const char* surface_name(Surface surface)
 int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, const V3 in[3], V3 out[4])
 {
     // (Sutherland-Hodgman against one plane: depth = (p - camera) . -back)
-    float depth[3];
+    std::array<float, 3> depth{};
     for (int i = 0; i < 3; ++i)
         depth[i] = -get_dot(in[i] - camera_pos, frame.back);
     int count = 0;
@@ -286,7 +287,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
     c.flags.reserve(c.faces);
     for (int f = 0; f < c.faces; ++f) {
         bool ok = true;
-        V3 p[3];
+        std::array<V3, 3> p{};
         for (int k = 0; k < 3; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
             if (index >= tri->num_vertices_) {
@@ -297,7 +298,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
         }
         if (!ok)
             continue;
-        c.points.insert(c.points.end(), p, p + 3);
+        c.points.insert(c.points.end(), p.data(), p.data() + 3);
         c.flags.push_back(tri->face_flags(f));
         c.taken.push_back(std::ranges::find(taken, f) != taken.end() ? 1 : 0);
         c.index.push_back(f);
@@ -502,8 +503,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
     const V3 light = make_unit({0.35f, 0.85f, 0.4f});
     // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
     auto add_face = [&](const V3* p, const FaceFacts& facts) {
-        V3 clipped[4];
-        const int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped);
+        std::array<V3, 4> clipped{};
+        const int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped.data());
         if (!count)
             return false;
         Polygon poly = {};
@@ -605,7 +606,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         bool any = false;
         for (int f = 0;
              std::cmp_less(f, tri.tri_count_) && tri.faces_ && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
-            V3 p[3];
+            std::array<V3, 3> p{};
             bool ok = true;
             for (int k = 0; k < 3 && ok; ++k) {
                 const uint32_t index = tri.face_vertex(f, k);
@@ -616,7 +617,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             FaceFacts facts;
             facts.flags = tri.face_flags(f);
             facts.companion = true;
-            const bool drawn = ok && add_face(p, facts);
+            const bool drawn = ok && add_face(p.data(), facts);
             if (drawn)
                 g_drawn.push_back({entry.first, false, p[0], p[1], p[2], f, true});
             any = drawn || any;
@@ -696,18 +697,18 @@ std::string describe_wall(uint32_t checksum)
         else
             ++it->second;
     }
-    char text[256];
+    std::array<char, 256> text{};
     std::snprintf(
-        text, sizeof(text),
+        text.data(), sizeof(text),
         "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
         "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
         tri->tri_count_, tri->num_vertices_, tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z,
         tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z, tri->upper_limit_.x - tri->lower_limit_.x,
         tri->upper_limit_.y - tri->lower_limit_.y, tri->upper_limit_.z - tri->lower_limit_.z);
-    std::string out = text;
+    std::string out = text.data();
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
-        std::snprintf(text, sizeof(text), " 0x%04X x%d", counts[i].first, counts[i].second);
-        out += text;
+        std::snprintf(text.data(), sizeof(text), " 0x%04X x%d", counts[i].first, counts[i].second);
+        out += text.data();
     }
     if (counts.size() > 8)
         out += " ...";

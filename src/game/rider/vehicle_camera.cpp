@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -30,7 +31,7 @@
 
 namespace objects {
 
-uint32_t g_vehicle_camera_member_functions[12]{0x000469FD, 0x2C747D8A, 0, 0, 0, 0, 0, 0x2C747D8A, 0, 0, 0, 0};
+std::array<uint32_t, 12> g_vehicle_camera_member_functions{{0x000469FD, 0x2C747D8A, 0, 0, 0, 0, 0, 0x2C747D8A, 0, 0, 0, 0}};
 
 namespace {
 
@@ -79,7 +80,7 @@ CarView::CarView() { kind_tag_ = kVehicleCamera; }
 // 0x00524420
 void CarView::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kVehicleCamera), g_vehicle_camera_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kVehicleCamera), g_vehicle_camera_member_functions.data(),
                                            0x18);
 }
 

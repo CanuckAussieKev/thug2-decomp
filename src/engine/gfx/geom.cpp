@@ -10,6 +10,7 @@
 #include <memory>
 #include <new>
 #include <utility>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -52,7 +53,7 @@ uint8_t color_offset(const MeshRef* mesh) { return mesh->unknown1c_[0]; }
 void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(raw::as<float>(out)); }
 MaterialRef* material_of(MeshRef* mesh) { return mesh->material; }
 // A mesh's colour (flag 4) and its vertex shader (its vertex format's place).
-float* mesh_tint_ptr(MeshRef* mesh) { return mesh->color; }
+float* mesh_tint_ptr(MeshRef* mesh) { return mesh->color.data(); }
 uint32_t& mesh_vertex_shader(MeshRef* mesh) { return mesh->fvf; }
 
 // The instance's meshes (its mesh list's).
@@ -341,7 +342,7 @@ void PcGeom::change_tint(uint32_t rgba)
     }
     if (instance) {
         instance->flags |= 4;
-        std::memcpy(instance->color, &rgba, 4);
+        std::memcpy(instance->color.data(), &rgba, 4);
         return;
     }
     if (!meshes)
@@ -361,7 +362,7 @@ void PcGeom::change_tint(uint32_t rgba)
 // 0x004B4B20
 uint32_t* PcGeom::plat_get_color(uint32_t* out)
 {
-    uint8_t color[4] = {0, 0, 0, 0};
+    std::array<uint8_t, 4> color = {{0, 0, 0, 0}};
     MeshRef* mesh = nullptr;
     if (instance) {
         if (instance->scene->mesh_count_ > 0)
@@ -374,7 +375,7 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
         color[1] = float_to_channel(mesh_tint_ptr(mesh)[1]);
         color[2] = float_to_channel(mesh_tint_ptr(mesh)[2]);
     }
-    std::memcpy(out, color, 4);
+    std::memcpy(out, color.data(), 4);
     return out;
 }
 
@@ -382,7 +383,7 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
 void PcGeom::wipe_tint()
 {
     if (instance) {
-        std::memset(instance->color, 0x80, 4);
+        std::memset(instance->color.data(), 0x80, 4);
         instance->flags &= ~4u;
         return;
     }
@@ -454,7 +455,7 @@ void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
 {
     if (instance && instance->scene) {
         SceneRef* list = instance->scene;
-        std::memcpy(list->centre, sphere, 12);
+        std::memcpy(list->centre.data(), sphere, 12);
         std::memcpy(&list->radius, &sphere->w, 4);
     }
 }

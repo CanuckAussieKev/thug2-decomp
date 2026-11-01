@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/file/archive.h"
@@ -97,22 +98,22 @@ void make_disk_path(std::span<char, 256> path, const char* name)
 // 0x005B9CB0
 Hdl open_on_disk(const char* name)
 {
-    char path[256];
+    std::array<char, 256> path{};
     make_disk_path(path, name);
 
     HANDLE file = INVALID_HANDLE_VALUE;
     if (use_alternate_drive()) {
         path[0] = 'Z';
-        file = CreateFileA(path, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        file = CreateFileA(path.data(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     }
     if (file == INVALID_HANDLE_VALUE)
-        file = CreateFileA(path, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        file = CreateFileA(path.data(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file != INVALID_HANDLE_VALUE)
         return file;
 
     const DWORD error = GetLastError();
     if (error != ERROR_FILE_NOT_FOUND) {
-        debug::printf("FatalFileError: %x %s\n", error, path);
+        debug::printf("FatalFileError: %x %s\n", error, path.data());
         fatal_file_error(static_cast<DWORD>(-1));
     }
     return nullptr;
@@ -124,10 +125,10 @@ Hdl unseal(const char* name, const char* mode)
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is opened from it,
     // before any archive (its handle isn't an archive's: Read, Seek, Close... fall through to the disk's).
     // Original behaviour: archives first, then the data folder.
-    char overlay[260];
+    std::array<char, 260> overlay{};
     if (frontend::data_overlay::get_overlay_path(name, overlay)) {
         HANDLE file =
-            CreateFileA(overlay, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            CreateFileA(overlay.data(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (file != INVALID_HANDLE_VALUE) {
             note_opened(name, file, false);
             return file;
@@ -214,7 +215,7 @@ bool is_present(const char* name)
 {
     // Not original - the data overlay (frontend/data_overlay.h): its files exist.
     // Original behaviour: archives first, then the data folder.
-    char overlay[260];
+    std::array<char, 260> overlay{};
     if (frontend::data_overlay::get_overlay_path(name, overlay))
         return true;
     if (archives_active()) {

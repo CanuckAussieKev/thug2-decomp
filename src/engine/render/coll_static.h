@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -192,7 +193,7 @@ public:
 
     float radius_{}; // +0xA4
     bool box_dirty_; // +0xA8
-    uint8_t pada9_[3]{};
+    std::array<uint8_t, 3> pada9_{};
     maths::BBox box_;    // +0xAC
     uint32_t unknowncc_{}; // +0xCC
     uint32_t unknownd0_; // +0xD0 the geometry's +0x3C

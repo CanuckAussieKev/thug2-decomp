@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/stubs.h"
 #include "engine/core/task_list.h"
@@ -82,8 +83,8 @@ constexpr uint32_t kHorse = 0x9D65D0E7;          // horse
 constexpr uint32_t kNetCtf = 0x6C5FF266;         // netctf
 // Game types without a time limit (0 sent): netgoalattack, king, netking, netscorechallenge, scorechallenge, firefight,
 // netfirefight.
-constexpr uint32_t kUntimedTypes[] = {0xEC200EAA, 0x5D32129C, 0x6EF8FDA0, 0x1498240A,
-                                      0xF135ECB6, 0x3D6D444F, 0xBFF33600};
+constexpr auto kUntimedTypes = std::to_array<uint32_t>({0xEC200EAA, 0x5D32129C, 0x6EF8FDA0, 0x1498240A,
+                                      0xF135ECB6, 0x3D6D444F, 0xBFF33600});
 
 // Scripts.
 constexpr uint32_t kLoadPendingPlayers = 0x895819F7;         // LoadPendingPlayers
@@ -125,7 +126,7 @@ constexpr uint32_t kNewPlayerLocal = 1;
 constexpr uint32_t kNewPlayerObserver = 4;
 
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
-prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_); }
+prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_.data()); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 prefs::Preferences* game_preferences(Hub* m)
 {
@@ -182,7 +183,7 @@ void Hub::start_network_game()
     remove_all_new_players();
     game_type_ = preference_checksum(game_preferences(this), kGameType, kChecksum);
     choose_start_points(); // the skaters' starting points shuffled
-    std::memset(team_objects_, 0, sizeof(team_objects_));
+    std::memset(team_objects_.data(), 0, sizeof(team_objects_));
     const uint32_t game_type = game_type_;
     const uint32_t time_limit = prefs->get_setting_value(game_type == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
     level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
@@ -212,11 +213,11 @@ void Hub::start_network_game()
     while (info.game_id == ended_game_id_);
     info.crown_start_slot = static_cast<int8_t>(crown_start_);
     static_assert(sizeof(info.start_points) == sizeof(start_points_));
-    std::memcpy(info.start_points, start_points_, sizeof(info.start_points));
-    uint8_t bytes[kStartGameSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::memcpy(info.start_points.data(), start_points_.data(), sizeof(info.start_points));
+    std::array<uint8_t, kStartGameSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_start_game(writer, info);
-    desc.content_ = bytes;
+    desc.content_ = bytes.data();
     desc.byte_count_ = static_cast<uint16_t>(writer.position());
     desc.ident_ = kMsgStartGame;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -255,7 +256,7 @@ void Hub::cancel_join()
     remove_all_new_players();
     if (presence_service_->authenticated_) // (logged in to the presence)
         presence_service_->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
-                                           lobby_service_->room_name_);
+                                           lobby_service_->room_name_.data());
 }
 
 // 0x0053BED0

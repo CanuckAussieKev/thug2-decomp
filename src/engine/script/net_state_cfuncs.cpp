@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -39,10 +40,10 @@
 
 namespace commands {
 
-char g_network_id[16];
-char g_network_password[12];
+std::array<char, 16> g_network_id;
+std::array<char, 12> g_network_password;
 // The hosted game's name: "Beenox" unless -HOSTNAME gives another (winmain.cpp).
-char g_hosted_game_name[16]{"Beenox"};
+std::array<char, 16> g_hosted_game_name{{"Beenox"}};
 
 namespace {
 
@@ -616,10 +617,10 @@ void init_beenox_preferences()
 {
     online::Hub* game_net = online_hub_handle();
     prefs::Preferences* prefs = game_net->get_online_settings();
-    set_string_preference(prefs, "server_name", g_hosted_game_name); // "server_name"
-    set_string_preference(prefs, "password", g_network_password);    // "password"
+    set_string_preference(prefs, "server_name", g_hosted_game_name.data()); // "server_name"
+    set_string_preference(prefs, "password", g_network_password.data());    // "password"
     if (g_network_id[0] != '\0')
-        set_string_preference(prefs, "network_id", g_network_id); // "network_id"
+        set_string_preference(prefs, "network_id", g_network_id.data()); // "network_id"
     game_net->set_max_players_preference(online::g_net_max_players);
     script::Struct* teams = new_preference();
     switch (online::g_network_team_mode) {

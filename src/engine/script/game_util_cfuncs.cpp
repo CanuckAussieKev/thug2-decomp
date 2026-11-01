@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cmath>
 #include <cstring>
+#include <array>
 
 #include "game/park_editing/park_editor.h"
 #include "engine/gfx/debug_lines.h"
@@ -178,7 +179,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
 {
     const char* path = nullptr;
     params->fetch_text(kPath, &path, 1);
-    char name[32];
+    std::array<char, 32> name{};
     const int length = static_cast<int>(std::strlen(path));
     int i = length;
     for (; i >= 0; --i)
@@ -186,7 +187,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
             break;
     for (int from = i + 1; from <= length; ++from)
         name[from - (i + 1)] = path[from];
-    script->args_->append_word(kTexture, name);
+    script->args_->append_word(kTexture, name.data());
     return true;
 }
 
@@ -249,7 +250,7 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
 bool cfunc_get_park_name(script::Struct*, script::Script* script)
 {
-    script->args_->append_word(kParkName, commands::g_park_name);
+    script->args_->append_word(kParkName, commands::g_park_name.data());
     return false;
 }
 

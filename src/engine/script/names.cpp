@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -19,7 +20,7 @@
 namespace script {
 
 namespace {
-char g_checksum_name_buffer[100];
+std::array<char, 100> g_checksum_name_buffer;
 char* g_names_start;
 char* g_names_next;
 
@@ -107,7 +108,7 @@ const char* find_checksum_name_or_unknown(uint32_t checksum)
 {
     if (const char* name = look_up_hash_name(checksum))
         return name;
-    char* buffer = g_checksum_name_buffer;
+    char* buffer = g_checksum_name_buffer.data();
     std::snprintf(buffer, 32, "Unknown(0x%08x)", checksum);
     return buffer;
 }
@@ -122,12 +123,12 @@ void parse_checksum_names(const char* text, int size, void (*add)(uint32_t check
         for (int i = 0; i < 8; ++i)
             checksum = (checksum << 4) + static_cast<uint32_t>(hex_digit(text[i]));
         text += 8 + 1; // and the separator
-        char name[256];
+        std::array<char, 256> name{};
         int length = 0;
         while (*text != '\r')
             name[length++] = *text++;
         name[length] = 0;
-        add(checksum, name);
+        add(checksum, name.data());
         text += 2; // "\r\n"
     }
 }
@@ -137,17 +138,17 @@ void load_checksum_names(const char* file)
 {
     if (!checksum_names_enabled())
         return;
-    char name[260];
-    std::memcpy(name, file, std::strlen(file) + 1);
-    char* extension = name;
+    std::array<char, 260> name{};
+    std::memcpy(name.data(), file, std::strlen(file) + 1);
+    char* extension = name.data();
     while (*extension && *extension != '.')
         ++extension;
     std::memcpy(extension, ".chk", 5);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-    auto* text = static_cast<const char*>(packs::read_in(name, false, nullptr, nullptr, nullptr));
+    auto* text = static_cast<const char*>(packs::read_in(name.data(), false, nullptr, nullptr, nullptr));
     memory::leave_heap_scope();
-    parse_checksum_names(text, packs::get_file_size(name), register_name_hash);
-    packs::offload(name);
+    parse_checksum_names(text, packs::get_file_size(name.data()), register_name_hash);
+    packs::offload(name.data());
 }
 
 // 0x0046EFD0

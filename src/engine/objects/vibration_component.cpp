@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -23,8 +24,8 @@
 
 namespace objects {
 
-uint32_t g_vibration_component_member_functions[12]{0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
-                                                           0,          0x404EB936, 0, 0, 0, 0};
+std::array<uint32_t, 12> g_vibration_component_member_functions{{0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
+                                                           0,          0x404EB936, 0, 0, 0, 0}};
 
 namespace {
 
@@ -55,7 +56,7 @@ PadRumbleModule::PadRumbleModule()
 // 0x0043D490
 void PadRumbleModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_vibration_component_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kType), g_vibration_component_member_functions.data(),
                                            0x18);
 }
 

@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/lists/chain_start.h"
@@ -39,13 +40,13 @@ struct InboundMsgCtx {
 
     char* body_{nullptr};
     uint8_t type_code_{0};
-    uint8_t spare_slot5_[3]{};
+    std::array<uint8_t, 3> spare_slot5_{};
     uint32_t body_size_{0};
     AppHost* receiver_app_{nullptr};
     Conn* sender_conn_{nullptr};
     uint32_t wire_options_{0};
     void* content_{nullptr};          // the handler's own data (NoteHandler::content_)
-    uint32_t sequences_to_ack_[32]{}; // the timestamps to acknowledge after the packet (low 16 bits)
+    std::array<uint32_t, 32> sequences_to_ack_{}; // the timestamps to acknowledge after the packet (low 16 bits)
     int num_sequences_to_ack_{0};
     bool acknowledge_{false}; // send those acks
 };

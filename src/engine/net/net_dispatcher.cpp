@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -119,12 +120,12 @@ int Router::dispatch_msg(InboundMsgCtx* context)
 int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
 {
     InboundMsgCtx context;
-    char buffer[kConnReceiveBufferSize];
+    std::array<char, kConnReceiveBufferSize> buffer{};
     construct_context(&context);
     context.receiver_app_ = conn->owner_app_;
     context.sender_conn_ = conn;
     context.wire_options_ = flags;
-    context.body_ = buffer;
+    context.body_ = buffer.data();
     context.body_size_ = 0;
     char*& read_buffer = conn->read_buffer_;
     char*& read_ptr = conn->read_ptr_;
@@ -147,12 +148,12 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             add_message_metric(metrics, static_cast<uint8_t>(p[5]), context.body_size_);
         if (has_length) {
             if (context.body_size_)
-                std::memcpy(buffer, p, context.body_size_);
+                std::memcpy(buffer.data(), p, context.body_size_);
         } else {
             // a whole buffer's worth, whatever the message's size (NOT ORIGINAL: no further than the packet's end -
             // the original read on past the connection's receive buffer)
             const size_t copy = packet.remaining() < kFixedSizeCopy ? packet.remaining() : kFixedSizeCopy;
-            std::memcpy(buffer, p, copy);
+            std::memcpy(buffer.data(), p, copy);
         }
         if (is_outsider(conn))
             context.wire_options_ |= kPacketForeign;

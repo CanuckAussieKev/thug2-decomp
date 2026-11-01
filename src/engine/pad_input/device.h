@@ -8,6 +8,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include <gsl/pointers>
+#include <array>
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
@@ -68,13 +69,13 @@ public:
     int port_no_;
     int seat_;
     uint8_t is_usable_;
-    uint8_t pad15_[3]{};
+    std::array<uint8_t, 3> pad15_{};
     uint32_t octets_;          // buffer_raw_ rounded up to 64
-    uint8_t control_data_[32]{}; // PS2 format: buttons (inverted bits), sticks, pressures
-    uint8_t align_data_[32]{};
-    uint8_t rumble_raw_[32]{}; // each motor's level
-    uint8_t rumble_cap_[32]{};
-    uint8_t actuator_saved_[32]{}; // levels while paused
+    std::array<uint8_t, 32> control_data_{}; // PS2 format: buttons (inverted bits), sticks, pressures
+    std::array<uint8_t, 32> align_data_{};
+    std::array<uint8_t, 32> rumble_raw_{}; // each motor's level
+    std::array<uint8_t, 32> rumble_cap_{};
+    std::array<uint8_t, 32> actuator_saved_{}; // levels while paused
     int pause_count_{0};
     uint8_t rumble_off_{};
     uint32_t capabilities_;
@@ -85,12 +86,12 @@ public:
     int next_state_; // after kSettle
     int ordinal_;
     bool is_connected_{};
-    uint8_t pade1_[3]{};
+    std::array<uint8_t, 3> pade1_{};
     int disconnected_ticks_{};
     int reconnect_delay_;      // rand() & 63
     uint8_t held_down_{};      // any button down
     uint8_t keyboard_control_{}; // set by the original read (start, the keyboard's char 0x19...)
-    uint8_t padee_[2]{};
+    std::array<uint8_t, 2> padee_{};
     // Not original: PartyMod's "start or A pressed", written by its pad read (sdl_input.cpp) and never read. (PartyMod
     // wrote it just past the end of the original's 0xF0-byte device.)
     uint32_t start_or_a_ = 0;
@@ -100,9 +101,9 @@ public:
 struct PadSnapshot {
     uint32_t unknown0;
     uint16_t buttons;    // bits: 0x10 start...; 0x01 / 0x02 / 0x04 / 0x08 the d-pad
-    uint8_t pressure[8]; // analogue buttons and triggers, 0-255
-    int16_t sticks[4];   // -32768..32767
-    uint8_t unknown16[2];
+    std::array<uint8_t, 8> pressure; // analogue buttons and triggers, 0-255
+    std::array<int16_t, 4> sticks;   // -32768..32767
+    std::array<uint8_t, 2> unknown16;
 };
 static_assert(offsetof(PadSnapshot, sticks) == 0x0E && sizeof(PadSnapshot) == 0x18, "layout must match the original");
 

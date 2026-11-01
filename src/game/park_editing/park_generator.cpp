@@ -72,7 +72,7 @@ ParkAssembler::~ParkAssembler()
     if (source_world_)
         source_world_ = nullptr;
     // (the node array's owner, made in place by make_new)
-    raw::as<assets::NodeTableResource>(node_array_)->~NodeTableResource();
+    raw::as<assets::NodeTableResource>(node_array_.data())->~NodeTableResource();
     destroy_empty_member(&rails_);
     destroy_empty_member(&source_rails_);
 }

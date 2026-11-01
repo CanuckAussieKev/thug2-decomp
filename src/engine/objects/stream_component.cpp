@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -25,9 +26,9 @@
 
 namespace objects {
 
-uint32_t g_stream_component_member_functions[30]{
+std::array<uint32_t, 30> g_stream_component_member_functions{{
     0xDB05A233, 0x0F1641E3, 0, 0, 0, 0, 0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0, 0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0,
-    0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0, 0,          0x0F1641E3, 0, 0, 0, 0};
+    0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0, 0,          0x0F1641E3, 0, 0, 0, 0}};
 
 namespace {
 
@@ -43,7 +44,7 @@ gsl::owner<ObjectModule*> AudioStreamModule::fabricate() { return new AudioStrea
 // 0x00433870
 void AudioStreamModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_stream_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_stream_component_member_functions.data(), 0x18);
 }
 
 // 0x00433C10

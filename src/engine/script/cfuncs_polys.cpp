@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
@@ -62,12 +63,12 @@ constexpr uint32_t kMetrics = 0xDD755518;      // "Metrics"
 // blend mode 0x54628ED7). The fields not named are set elsewhere (0x00492450).
 struct SpawnedPolyDetails {
     script::VectorValue pos; // +0x00
-    uint8_t unknown10[0x48];
-    float start_dims_[2];         // +0x58
-    float end_dims_[2];           // +0x60
-    uint8_t start_colours_[4][4]; // +0x68 (r, g, b, a per corner)
-    uint8_t end_colours_[4][4];   // +0x78
-    uint8_t unknown88[0x10];
+    std::array<uint8_t, 0x48> unknown10;
+    std::array<float, 2> start_dims_;         // +0x58
+    std::array<float, 2> end_dims_;           // +0x60
+    std::array<std::array<uint8_t, 4>, 4> start_colours_; // +0x68 (r, g, b, a per corner)
+    std::array<std::array<uint8_t, 4>, 4> end_colours_;   // +0x78
+    std::array<uint8_t, 0x10> unknown88;
     uint32_t flags; // +0x98
     uint32_t unknown9c_;
     float lifetime; // +0xA0

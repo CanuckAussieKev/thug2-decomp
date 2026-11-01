@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -27,7 +28,7 @@
 
 namespace skater {
 
-uint32_t g_core_member_functions[660]{
+std::array<uint32_t, 660> g_core_member_functions{{
     0x584CF9E9, 0x5BD63B29, 0, 0, 0, 0, 0x0C7A712C, 0x5BD63B29, 0, 0, 0, 0, 0x8F66B80B, 0x5BD63B29, 0, 0, 0, 0,
     0x4ADC6C2A, 0x5BD63B29, 0, 0, 0, 0, 0x262D42D5, 0x5BD63B29, 0, 0, 0, 0, 0xCA6B3809, 0x5BD63B29, 0, 0, 0, 0,
     0x9C6A7E41, 0x5BD63B29, 0, 0, 0, 0, 0x32DCC9CF, 0x5BD63B29, 0, 0, 0, 0, 0x5E8F9E77, 0x5BD63B29, 0, 0, 0, 0,
@@ -64,7 +65,7 @@ uint32_t g_core_member_functions[660]{
     0x3981FBF0, 0x5BD63B29, 0, 0, 0, 0, 0x821BF006, 0x5BD63B29, 0, 0, 0, 0, 0x2C30B07A, 0x5BD63B29, 0, 0, 0, 0,
     0x1EB4121A, 0x5BD63B29, 0, 0, 0, 0, 0xA751E3D8, 0x5BD63B29, 0, 0, 0, 0, 0x03B9946F, 0x5BD63B29, 0, 0, 0, 0,
     0xADCA7EE6, 0x5BD63B29, 0, 0, 0, 0, 0x0898E60F, 0x5BD63B29, 0, 0, 0, 0, 0xB17D17CD, 0x5BD63B29, 0, 0, 0, 0,
-    0xF22B4480, 0x5BD63B29, 0, 0, 0, 0, 0,          0x5BD63B29, 0, 0, 0, 0};
+    0xF22B4480, 0x5BD63B29, 0, 0, 0, 0, 0,          0x5BD63B29, 0, 0, 0, 0}};
 
 using namespace physics;
 
@@ -196,7 +197,7 @@ bool hit_wall(const render::ProbeRay& feeler)
 // 0x004FBE80
 void SkaterPhysicsModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kSkaterCorePhysics), g_core_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kSkaterCorePhysics), g_core_member_functions.data(), 0x18);
 }
 
 // 0x004FBEA0

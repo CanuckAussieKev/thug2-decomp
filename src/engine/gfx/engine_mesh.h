@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/maths/shape_tests.h"
@@ -32,7 +33,7 @@ public:
     uint32_t get_hierarchy_count();
 
     void* textures_{};            // +0x04: its texture dictionary (the PC loaders set it)
-    char collision_name_[0x80]{}; // +0x08: the .col file kept loaded (Pip)
+    std::array<char, 0x80> collision_name_{}; // +0x08: the .col file kept loaded (Pip)
     int collision_count_{};       // +0x88
     uint8_t* hit_shape_{};        // +0x8C: the objects (0x40 bytes each)
     maths::BBox box_;           // +0x90
@@ -50,8 +51,8 @@ void skin_collision_file_name(char* out, const char* name);
 // The splat sets' slots (0x00490CD0, thiscall on a set): the first free one of the first `count` (the alive word 0),
 // else the one with the most steps past its start (the first on ties).
 struct SplatSlots {
-    uint32_t alive[0x100];
-    int steps[0x100];
+    std::array<uint32_t, 0x100> alive;
+    std::array<int, 0x100> steps;
 
     int oldest_slot(uint32_t count);
 };

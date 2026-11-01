@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -15,14 +16,14 @@
 
 namespace render {
 
-char g_glyph_alias_table[32];
-FontSlot g_font_slots[16];
+std::array<char, 32> g_glyph_alias_table;
+std::array<FontSlot, 16> g_font_slots;
 
 namespace {
 
-FontSlot* get_slots() { return g_font_slots; }
+FontSlot* get_slots() { return g_font_slots.data(); }
 lists::KeyMap& font_table() { return g_font_table; }
-char* glyph_escape_table() { return g_glyph_alias_table; }
+char* glyph_escape_table() { return g_glyph_alias_table.data(); }
 
 } // namespace
 
@@ -48,7 +49,7 @@ void unload_font(const char* name)
 {
     FontSlot* slots = get_slots();
     int index = 0;
-    while (std::strcmp(slots[index].name, name) != 0) {
+    while (std::strcmp(slots[index].name.data(), name) != 0) {
         if (++index >= kFontSlots)
             return;
     }

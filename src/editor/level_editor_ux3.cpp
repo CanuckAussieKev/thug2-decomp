@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_clip.h"
@@ -25,7 +26,7 @@ namespace frontend::level_editor::ux3 {
 namespace {
 
 std::vector<std::function<void()>> g_tasks;
-bool g_open[kWindowCount];
+std::array<bool, kWindowCount> g_open;
 bool g_similar_menu, g_group_name;
 Settings g_settings;
 
@@ -121,9 +122,9 @@ void prepare_all()
         const char *id, *name;
         uint32_t bit;
     };
-    static const PickToggle kPicks[] = {{"pick_nodes", "Pick Nodes", picking::kNodes},
+    static const auto kPicks = std::to_array<PickToggle>({{"pick_nodes", "Pick Nodes", picking::kNodes},
                                         {"pick_objects", "Pick Objects", picking::kObjects},
-                                        {"pick_scenery", "Pick Scenery", picking::kScenery}};
+                                        {"pick_scenery", "Pick Scenery", picking::kScenery}});
     // (UX4: the Overlays menu's switches; UX5: a note where the view looks, the budget meter)
     for (const overlays::BitInfo& info : overlays::get_bits()) {
         const uint32_t bit = info.bit;

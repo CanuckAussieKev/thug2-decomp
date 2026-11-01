@@ -10,6 +10,7 @@
 #include <initializer_list>
 #include <memory>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -397,28 +398,28 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     }
     // Objects left (wire/play_messages.h): [0] the player (or the team), [1] how many.
     util::ByteReader reader(context->body_, context->body_size_);
-    int8_t data[2];
+    std::array<int8_t, 2> data{};
     data[0] = reader.i8();
     data[1] = reader.i8();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
     online::Hub* net = net_session_slot();
     Struct* params = nullptr;
-    char text[128];
+    std::array<char, 128> text{};
     if ((get_game_mode()->is_squad_match() != 0)) { // teams
         int local_team = -1;
         PlayerRecord* local = net->get_own_player();
         if (local && !local->is_observer() && local->has_finished_joining())
             local_team = local->team_;
         params = spawn_param_table();
-        params->append_word(kName, local->label_); // (no local player: read through null, as the original)
+        params->append_word(kName, local->label_.data()); // (no local player: read through null, as the original)
         if (data[1] == 1 || data[1] == 5) {
             const bool one = data[1] == 1;
             if (data[0] == local_team) {
                 get_run(one ? kOneLeftYou : kFiveLeftYou);
             } else {
-                std::sprintf(text, "team_%d_name", data[0] + 1);
-                params->append_word(kName, script::fetch_text(text));
+                std::sprintf(text.data(), "team_%d_name", data[0] + 1);
+                params->append_word(kName, script::fetch_text(text.data()));
                 get_run(one ? kOneLeftOtherTeam : kFiveLeftOtherTeam, params);
             }
         }
@@ -427,7 +428,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         if (!player)
             return 1;
         params = spawn_param_table();
-        params->append_word(kName, player->label_);
+        params->append_word(kName, player->label_.data());
         if (data[1] == 1 || data[1] == 5) {
             const bool one = data[1] == 1;
             if (is_own_player(player))
@@ -466,9 +467,9 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
         return 4;
     player->num_placed_ = message.count;
     for (int i = 0; i < player->num_placed_; ++i) {
-        float at[4];
+        std::array<float, 4> at{};
         // NOT ORIGINAL: no positions past the message's end (the original read on)
-        if (!online::read_hunt_position(reader, at))
+        if (!online::read_hunt_position(reader, at.data()))
             break;
         const script::VectorValue position = {at[0], at[1], at[2], at[3]};
         Struct* params = spawn_param_table();
@@ -493,7 +494,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     }
     if (!skate_net::read_graffiti_colors(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    const uint8_t* counts = message.counts;
+    const uint8_t* counts = message.counts.data();
     objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
@@ -506,9 +507,9 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
         for (int j = 0; std::cmp_less(j, counts[i]); ++j)
             array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(reader.u8()));
-        char name[32];
-        std::sprintf(name, "Skater%d", i);
-        params->append_array_value(checksums::hash_from_text(name),
+        std::array<char, 32> name{};
+        std::sprintf(name.data(), "Skater%d", i);
+        params->append_array_value(checksums::hash_from_text(name.data()),
                                    array); // (the array isn't freed: the original's too)
     }
     trick_objects->change_args(params);
@@ -568,7 +569,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         net->note_cheating();
     }
     const bool final = message->final;
-    char text[128];
+    std::array<char, 128> text{};
     if ((get_game_mode()->is_squad_match() != 0) && get_game_mode()->get_name_key() != kNetElimiskate) {
         // The leading team (none on a tie).
         const int teams = get_game_mode()->current_num_teams();
@@ -598,10 +599,10 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         if (player_skater(local) && local->team_ == best) {
             get_run(kLeaderYourTeam, nullptr, player_skater(local));
         } else {
-            std::sprintf(text, "team_%d_name", best + 1);
+            std::sprintf(text.data(), "team_%d_name", best + 1);
             Struct* params = spawn_param_table();
             params->get_clear();
-            params->append_word(kString0, kSymbolString, script::fetch_text(text));
+            params->append_word(kString0, kSymbolString, script::fetch_text(text.data()));
             get_run(kLeaderOtherTeam, params, player_skater(local));
             delete_structure(params);
         }
@@ -643,7 +644,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     } else {
         Struct* params = spawn_param_table();
         params->get_clear();
-        params->append_word(kString0, kSymbolString, best->label_);
+        params->append_word(kString0, kSymbolString, best->label_.data());
         get_run(kLeaderOther, params, player_skater(local));
         delete_structure(params);
     }
@@ -669,7 +670,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     net->set_game_id(brief.game_id);
     net->change_arena(brief.level);
     net->set_crown_start_spot(static_cast<char>(brief.crown_start_slot));
-    net->set_start_info_words(brief.start_points);
+    net->set_start_info_words(brief.start_points.data());
     Struct* params = spawn_param_table();
     params->get_clear();
     params->add_component_of_type(kLevel, kSymbolChecksum, brief.level);
@@ -787,8 +788,8 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             continue;
         auto time = static_cast<uint16_t>(stream.read_bits(16));
         const uint32_t fields = stream.read_bits(9);
-        int16_t pos[3] = {};
-        float angles[3] = {};
+        std::array<int16_t, 3> pos = {};
+        std::array<float, 3> angles = {};
         uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
         uint32_t value68 = 0, value_6c = 0, value80 = 0;
         for (int k = 0; k < 3; ++k) {
@@ -848,8 +849,8 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         for (int k = 0; k < 3; ++k)
             cur.pos[k] = pos[k];
         // (TP-R6: whole units in a big level)
-        const float position[3] = {thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]),
-                                   thugpro::unpack_horizontal(pos[2])};
+        const std::array<float, 3> position = {{thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]),
+                                   thugpro::unpack_horizontal(pos[2])}};
         for (int k = 0; k < 3; ++k) {
             if (!(fields & (8u << k)))
                 angles[k] = prev.angles[k];
@@ -920,7 +921,7 @@ uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t
     const bool force = since >= 60;
     if (force)
         sent->forced_frame_[index] = server_frame();
-    const float angles[3] = {entry->angles[0], entry->angles[1], entry->angles[2]};
+    const std::array<float, 3> angles = {{entry->angles[0], entry->angles[1], entry->angles[2]}};
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
@@ -954,7 +955,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent_;
     util::PackedBitBuffer& stream = out->feed_;
     sent->time_[index] = entry_time(entry);
-    const float angles[3] = {entry.angles[0], entry.angles[1], entry.angles[2]};
+    const std::array<float, 3> angles = {{entry.angles[0], entry.angles[1], entry.angles[2]}};
     stream.write_bits(entry.time, 16);
     const uint32_t flags = get_relay_flags(sent, &entry, index);
     stream.write_bits(flags, 9);
@@ -1034,8 +1035,8 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     StateEntry& cur = history->states_[history->state_count_ % 20];
     // What isn't sent stays as it was (nothing yet: zero).
     const StateEntry* prev = nullptr;
-    int16_t pos[3] = {};
-    float angles[3] = {};
+    std::array<int16_t, 3> pos = {};
+    std::array<float, 3> angles = {};
     uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
     uint32_t value68 = 0, value_6c = 0, value80 = 0;
     if (history->state_count_ > 0) {

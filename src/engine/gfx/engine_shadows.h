@@ -3,6 +3,7 @@
 #include <memory>
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -145,7 +146,7 @@ ShadowEdges* find_shadow_edges(uint32_t key);
 // 0x004A1F30: one user fewer of the edges under `key`; with none left they're freed and taken out of the table.
 void release_shadow_edges(uint32_t key);
 
-extern ShadowVolume* g_shadow_volumes[16];
+extern std::array<ShadowVolume*, 16> g_shadow_volumes;
 extern lists::KeyMap g_shadow_edge_table; // 0x00701418: the silhouette edges by model
 
 } // namespace render

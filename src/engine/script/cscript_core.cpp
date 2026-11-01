@@ -69,7 +69,7 @@ Script* Script::make_new()
     ++next_script_unique_id();
     list_link_ = 0;
     signal_routes_ = nullptr;
-    frame_records_ = inline_return_addresses_;
+    frame_records_ = inline_return_addresses_.data();
     on_exception_script_ = 0;
     on_exit_script_ = 0;
     loops_ = &inline_loop_;
@@ -157,9 +157,9 @@ void Script::reset_script_state()
         }
     }
     call_depth_ = 0;
-    if (frame_records_ != inline_return_addresses_)
+    if (frame_records_ != inline_return_addresses_.data())
         memory::free_malloc(frame_records_);
-    frame_records_ = inline_return_addresses_;
+    frame_records_ = inline_return_addresses_.data();
     innermost_repeat_ = nullptr;
     if (loops_ != &inline_loop_)
         memory::free_malloc(loops_);

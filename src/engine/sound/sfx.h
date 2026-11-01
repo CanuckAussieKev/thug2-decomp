@@ -17,6 +17,7 @@
 
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace objects {
 class AudioEmitterModule;
@@ -47,7 +48,7 @@ struct VolumeRef {
 
     [[nodiscard]] int channel_count() const { return kind_tag_ == kTypeSurround ? 5 : 2; }
 
-    float lanes_[5]{};         // +0x00
+    std::array<float, 5> lanes_{};         // +0x00
     int kind_tag_;             // +0x14
     maths::Vec4 anchor_point_{}; // +0x18: 3D: where the sound is
     float dropoff_{};            // +0x28: 3D: its range
@@ -74,7 +75,7 @@ struct PcWave {
     uint32_t desc_bytes_;           // +0x1C
     uint32_t desc_reserved_;        // +0x20
     PcWave* desc_format_;           // +0x24: this (the WAVEFORMATEX at its start)
-    uint32_t desc_3d_algorithm_[4]; // +0x28
+    std::array<uint32_t, 4> desc_3d_algorithm_; // +0x28
     uint32_t data_size_;            // +0x38
     uint8_t* data;                  // +0x3C
     bool looping;                   // +0x40: the file's smpl chunk has loops
@@ -94,7 +95,7 @@ struct SoundWaveSlot {
     PcWave* wave;       // +0x14
     bool looping;       // +0x18
     bool not_streamed_; // +0x19
-    uint8_t unknown1a_[2];
+    std::array<uint8_t, 2> unknown1a_;
 };
 static_assert(sizeof(SoundWaveSlot) == 0x1C, "layout must match the original");
 
@@ -142,7 +143,7 @@ struct Voice {
     int base_frequency_; // +0x08
     int frequency;       // +0x0C: the last set
     bool playing;        // +0x10
-    uint8_t unknown11[3];
+    std::array<uint8_t, 3> unknown11;
     PcWave* wave; // +0x14
 };
 
@@ -231,7 +232,7 @@ public:
     void tick_positional_sounds();
 
     uint8_t mute_override_{}; // +0x00
-    uint8_t unknown1_[3]{};
+    std::array<uint8_t, 3> unknown1_{};
     int fallback_channel_mode_; // +0x04
 };
 
@@ -280,9 +281,9 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch);
 void silence_voices();
 
 extern float g_default_dropoff;
-extern SoundWaveSlot g_permanent_waves[256];
-extern SoundWaveSlot g_level_waves[256];
-extern PlayingSound g_playing_sounds[48];
+extern std::array<SoundWaveSlot, 256> g_permanent_waves;
+extern std::array<SoundWaveSlot, 256> g_level_waves;
+extern std::array<PlayingSound, 48> g_playing_sounds;
 extern gsl::owner<AudioMixer*> g_audio_mixer;
 extern PositionalSound* g_positional_head;
 extern int g_permanent_count;

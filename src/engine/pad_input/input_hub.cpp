@@ -11,6 +11,7 @@
 #include "engine/core/task_list.h"
 #include "engine/pad_input/device.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace pad_input {
 
@@ -22,20 +23,20 @@ Hub*& sole() { return g_input_manager; }
 
 unsigned int g_input_manager_references;
 // The buttons' name checksums (index 0: none).
-uint32_t g_pad_button_keys[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95,
+std::array<uint32_t, 22> g_pad_button_keys{{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95,
                                0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C,
                                0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4,
-                               0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
+                               0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850}};
 
 unsigned int& ref_tally() { return g_input_manager_references; }
 
 // Each device index's buttons this frame: down, pressed, released (two of each).
-uint32_t g_device_makes[2];
-uint32_t g_device_breaks[2];
-uint32_t g_device_buttons[2];
-uint32_t* device_makes() { return g_device_makes; }
-uint32_t* device_breaks() { return g_device_breaks; }
-uint32_t* device_buttons() { return g_device_buttons; }
+std::array<uint32_t, 2> g_device_makes;
+std::array<uint32_t, 2> g_device_breaks;
+std::array<uint32_t, 2> g_device_buttons;
+uint32_t* device_makes() { return g_device_makes.data(); }
+uint32_t* device_breaks() { return g_device_breaks.data(); }
+uint32_t* device_buttons() { return g_device_buttons.data(); }
 
 // The digital-to-analogue table: a button mask and the analogue value its pressure goes to.
 struct DigitalToAnalog {
@@ -43,11 +44,11 @@ struct DigitalToAnalog {
     int event;
 };
 // (pairs of {mask, event} up to and including the first with a mask of 0 or less)
-DigitalToAnalog g_digital_to_analog[18]{{0x200, 16},   {0x400, 17},   {0x1, 14},   {0x2, 15},   {0x4, 12},
+std::array<DigitalToAnalog, 18> g_digital_to_analog{{{0x200, 16},   {0x400, 17},   {0x1, 14},   {0x2, 15},   {0x4, 12},
                                         {0x8, 13},     {0x10, 8},     {0x20, 9},   {0x40, 10},  {0x80, 11},
                                         {0x1000, 6},   {0x2000, 4},   {0x4000, 7}, {0x8000, 5}, {0x10000, 22},
-                                        {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
-const DigitalToAnalog* digital_to_analog_table() { return g_digital_to_analog; }
+                                        {0x20000, 23}, {0x40000, 24}, {0x0, 0}}};
+const DigitalToAnalog* digital_to_analog_table() { return g_digital_to_analog.data(); }
 
 bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
@@ -144,7 +145,7 @@ void Payload::pad_follows_stick()
 HostEnd::HostEnd()
 {
     // (the handler list made first by its constructor)
-    std::memset(content_.incident_, 0, sizeof(content_.incident_));
+    std::memset(content_.incident_.data(), 0, sizeof(content_.incident_));
     content_.buttons_ = 0;
     content_.ongoing_ = 0;
     content_.changes_ = 0;
@@ -156,7 +157,7 @@ void HostEnd::poll_input_sinks()
 {
     if (data_in_ && data_in_->is_usable_) {
         set_buttons(content_, data_in_->buttons_);
-        std::memcpy(content_.incident_, data_in_->incident_, sizeof(content_.incident_));
+        std::memcpy(content_.incident_.data(), data_in_->incident_.data(), sizeof(content_.incident_));
         handlers_.work_on(nullptr);
         ++data_in_;
         return;
@@ -167,7 +168,7 @@ void HostEnd::poll_input_sinks()
     Hub* manager = sole();
     if (data_out_)
         data_out_->is_usable_ = 0;
-    const uint8_t* control = device->control_data_;
+    const uint8_t* control = device->control_data_.data();
     if (control[0] != 0) // no pad
         return;
     const int type = control[1] >> 4;
@@ -179,17 +180,17 @@ void HostEnd::poll_input_sinks()
         content_.digital_as_stick();
         break;
     case 5: // the sticks, no pressures
-        std::memcpy(content_.incident_, control + 4, 4);
+        std::memcpy(content_.incident_.data(), control + 4, 4);
         content_.digital_as_stick();
         if (pad_follows_stick(manager))
             content_.pad_follows_stick();
         break;
     case 7: // the sticks, and pressures if the device reads them
         if (device->unknownc8_ == 1) {
-            std::memcpy(content_.incident_, control + 4, Payload::kQueueCapacity);
+            std::memcpy(content_.incident_.data(), control + 4, Payload::kQueueCapacity);
             break;
         }
-        std::memcpy(content_.incident_, control + 4, 4);
+        std::memcpy(content_.incident_.data(), control + 4, 4);
         content_.digital_as_stick();
         content_.apply_deadzone_rules();
         if (pad_follows_stick(manager))
@@ -199,7 +200,7 @@ void HostEnd::poll_input_sinks()
     if (data_out_) {
         data_out_->buttons_ = content_.ongoing_;
         data_out_->is_usable_ = 1;
-        std::memcpy(data_out_->incident_, content_.incident_, sizeof(content_.incident_));
+        std::memcpy(data_out_->incident_.data(), content_.incident_.data(), sizeof(content_.incident_));
         ++data_out_;
     }
     if (dev_) {
@@ -295,7 +296,7 @@ uint32_t button_hash(int index) { return g_pad_button_keys[index]; }
 // 0x0044E5A0
 int glyph_for_button_tag(uint32_t checksum)
 {
-    const uint32_t* table = g_pad_button_keys;
+    const uint32_t* table = g_pad_button_keys.data();
     for (int i = 1; i < 22; ++i) {
         if (table[i] == checksum)
             return i;

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -21,9 +22,9 @@ namespace objects {
 
 namespace {
 // Levels left out of the totals (a byte each, up to the cheat flag at 0x007CE4FD).
-bool g_career_left_out[RiderStoryProgress::kLevels];
+std::array<bool, RiderStoryProgress::kLevels> g_career_left_out;
 
-bool* left_out() { return g_career_left_out; }
+bool* left_out() { return g_career_left_out.data(); }
 
 uint32_t get_bit(int index) { return 1u << (index & 0x1F); }
 int get_word(int index) { return index >> 5; }

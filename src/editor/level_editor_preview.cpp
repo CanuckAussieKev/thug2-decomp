@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
@@ -96,7 +97,7 @@ struct SavedRange {
     void* (*address)(); // (a function: the globals are set up after this table)
     uint32_t size;
 };
-constexpr SavedRange kSaved[] = {
+constexpr auto kSaved = std::to_array<SavedRange>({
     {[]() -> void* { return &render::g_world_matrix; }, sizeof(maths::Mat4)},
     {[]() -> void* { return &render::g_view_matrix; }, sizeof(maths::Mat4)},
     {[]() -> void* { return &render::g_projection_matrix; }, sizeof(maths::Mat4)},
@@ -107,7 +108,7 @@ constexpr SavedRange kSaved[] = {
     {[]() -> void* { return static_cast<void*>(&render::g_world_transform); },
      sizeof(void*)}, // (the culling world matrix: none or the copy)
     {[]() -> void* { return &render::g_world_transform_copy; }, sizeof(float[16])},
-};
+});
 constexpr uint32_t kSavedBytes = 4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) +
                                  sizeof(render::RenderCamera) + sizeof(render::ViewShape) + sizeof(void*) +
                                  sizeof(float[16]);
@@ -116,10 +117,10 @@ static_assert(4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) + sizeof(
                   sizeof(render::ViewShape) == 0x18,
               "the saved camera globals");
 struct SavedView {
-    uint8_t bytes[kSavedBytes];
+    std::array<uint8_t, kSavedBytes> bytes;
     void store_away()
     {
-        uint8_t* at = bytes;
+        uint8_t* at = bytes.data();
         for (const SavedRange& range : kSaved) {
             std::memcpy(at, range.address(), range.size);
             at += range.size;
@@ -127,7 +128,7 @@ struct SavedView {
     }
     void get_restore() const
     {
-        const uint8_t* at = bytes;
+        const uint8_t* at = bytes.data();
         for (const SavedRange& range : kSaved) {
             std::memcpy(range.address(), at, range.size);
             at += range.size;
@@ -306,10 +307,10 @@ void tick_cycle(ui::ShapeMesh* model)
     view.name = object_edit::caption(id);
     OrientedBox box{};
     if (subject_box(&box)) {
-        char size[96];
-        std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x,
+        std::array<char, 96> size{};
+        std::snprintf(size.data(), sizeof(size), "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x,
                       box.max.y - box.min.y, box.max.z - box.min.z);
-        view.size = size;
+        view.size = size.data();
     }
     if (g_kind == Kind::kSector) {
         view.type = "scene sector (scenery)";

@@ -3,6 +3,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"
@@ -36,9 +37,9 @@
 
 namespace objects {
 
-uint8_t g_cutscene_camera_slot[5];
-float g_cutscene_rotations[512];
-float g_cutscene_translations[512];
+std::array<uint8_t, 5> g_cutscene_camera_slot;
+std::array<float, 512> g_cutscene_rotations;
+std::array<float, 512> g_cutscene_translations;
 
 namespace {
 
@@ -216,7 +217,7 @@ void CinematicTable::destroy_objects()
             auto* original = core::down_cast<GameEntity>(find_object(id));
             void* model = model_of(original->fetch_module(kModelModuleName));
             static_cast<render::RenderModel*>(model)->change_bound_sphere(
-                raw::as<const maths::Vec4>(lent_2c_));
+                raw::as<const maths::Vec4>(lent_2c_.data()));
             static_cast<render::RenderModel*>(model)->conceal(lent_3c_);
             static_cast<render::RenderModel*>(model)->allow_resizing(lent_3d_);
             const uint32_t mine = model_get(model);
@@ -296,16 +297,16 @@ void CinematicTable::refresh_viewer(void* camera)
     static_cast<gfx::ViewCam*>(camera)->remember_prev_pos();
     auto* position = raw::as<float>(static_cast<gfx::ViewCam*>(camera)->fetch_location());
     auto* matrix = raw::as<float>(static_cast<gfx::ViewCam*>(camera)->fetch_mat());
-    float rotation[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    float translation[4];
+    std::array<float, 4> rotation = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> translation{};
     bool flag = false;
     static_cast<gfx::JointClipFrames*>(camera_anim_)
-        ->get_float_key_pose(rotation, translation, &flag,
+        ->get_float_key_pose(rotation.data(), translation.data(), &flag,
                              static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                              static_cast<int>(cell::of(camera_source_)));
-    std::memcpy(position, translation, 16);
-    float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    quat_to_matrix(rotation, origin, matrix);
+    std::memcpy(position, translation.data(), 16);
+    std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    quat_to_matrix(rotation.data(), origin.data(), matrix);
     if (skipped_)
         return;
     memory::Hub* manager = memory::Hub::get_pull();
@@ -318,8 +319,8 @@ void CinematicTable::refresh_viewer(void* camera)
 // 0x00464360
 void CinematicTable::update_object_poses()
 {
-    float* rotations = g_cutscene_rotations;
-    float* translations = g_cutscene_translations;
+    float* rotations = g_cutscene_rotations.data();
+    float* translations = g_cutscene_translations.data();
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = entities_[i];
         if (!entry.animation)
@@ -334,7 +335,7 @@ void CinematicTable::update_object_poses()
         raw::as<gfx::Rig>(skeleton)->set_lod(0.0f);
         auto* rig = raw::as<gfx::Rig>(skeleton);
         gfx::RigData* data = rig->payload_;
-        source->bone_masks_ = data ? data->lod_masks_ : nullptr;
+        source->bone_masks_ = data ? data->lod_masks_.data() : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
         const auto* base_pose = raw::bytes(rig->payload_->bind_translations_);
         auto count = static_cast<uint32_t>(rig->get_num_bones());
@@ -344,9 +345,9 @@ void CinematicTable::update_object_poses()
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
             raw::as<maths::QuatRotation>(rotations), raw::as<maths::Vec4>(translations),
-            g_cutscene_camera_slot, static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
-        raw::as<gfx::Rig>(skeleton)->tick_frame(raw::as<const float[4]>(rotations),
-                                                          raw::as<const float[4]>(translations));
+            g_cutscene_camera_slot.data(), static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
+        raw::as<gfx::Rig>(skeleton)->tick_frame(raw::as<const std::array<float, 4>>(rotations),
+                                                          raw::as<const std::array<float, 4>>(translations));
     }
 }
 

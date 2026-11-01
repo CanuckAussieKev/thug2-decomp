@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "frontend/screen_element.h"
 
@@ -67,7 +68,7 @@ public:
     bool shadow_{};                       // +0x1B0
     bool may_grow_{false};                // +0x1B1
     float shadow_x_{}, shadow_y_{};       // +0x1B4
-    uint8_t shadow_rgba_[4]{};            // +0x1BC
+    std::array<uint8_t, 4> shadow_rgba_{};            // +0x1BC
     bool override_rgba_{false};           // +0x1C0
     bool remembered_override_{false};     // +0x1C1
     bool override_alpha_{};               // +0x1C2

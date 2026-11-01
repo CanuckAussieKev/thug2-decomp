@@ -15,6 +15,7 @@
 #include <memory>
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "game/park_editing/park.h"
 #include "engine/objects/signal.h"
@@ -171,7 +172,7 @@ public:
 
     Listener listener_;    // +0x14
     bool action_finished_; // +0x30: a command that changes the park was carried out
-    uint8_t pad31[3]{};
+    std::array<uint8_t, 3> pad31{};
     std::unique_ptr<ParkEditorTask> editor_update_job_;           // +0x34 (0x0058FFC0, priority 0)
     std::unique_ptr<ParkEditorTask> draw_job_;                    // +0x38 (the empty 0x005480A0, priority -1000)
     std::unique_ptr<ParkEditorInputHandler> editor_pad_listener_; // +0x3C (process_pad_input, priority 0)

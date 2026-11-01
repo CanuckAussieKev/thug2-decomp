@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -107,11 +108,11 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 template <typename F>
 void info_line(uint32_t title, F value)
 {
-    char text[128];
+    std::array<char, 128> text{};
     script::Struct* params = new_params();
-    std::sprintf(text, "%s:", script::fetch_text(title));
-    params->append_word(kName, text);
-    if (const char* shown = value(text))
+    std::sprintf(text.data(), "%s:", script::fetch_text(title));
+    params->append_word(kName, text.data());
+    if (const char* shown = value(text.data()))
         params->append_word(kValue, shown);
     get_run(kAddInfoItem, params);
     delete_params(params);
@@ -129,8 +130,8 @@ int rank_of(int rating)
 // A server's details from GameSpy (the add and update messages alike): level, mode, counts, flags, skill.
 void read_server_keys(HostListing* server, void* sb)
 {
-    std::strcpy(server->level_, game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
-    std::strcpy(server->mode_sel_, game_spy::server_get_string_value(sb, "gametype", "..."));
+    std::strcpy(server->level_.data(), game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
+    std::strcpy(server->mode_sel_.data(), game_spy::server_get_string_value(sb, "gametype", "..."));
     server->num_players_ = game_spy::server_get_int_value(sb, "numplayers", 1); // (integer keys)
     server->max_players_ = game_spy::server_get_int_value(sb, "maxplayers", 8);
     server->num_observers_ = game_spy::server_get_int_value(sb, "numobservers", 0);
@@ -196,7 +197,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
         return text;
     });
     info_line(kTitleMode, [server](char* text) {
-        std::sprintf(text, "%s", server->mode_sel_);
+        std::sprintf(text, "%s", server->mode_sel_.data());
         return text;
     });
     const char* skill = nullptr;
@@ -207,7 +208,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
         return text;
     });
     info_line(kTitleLevel, [server](char* text) {
-        std::sprintf(text, "%s", server->level_);
+        std::sprintf(text, "%s", server->level_.data());
         return text;
     });
     if (manager->in_internet_mode()) {
@@ -216,20 +217,20 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
             return text;
         });
     }
-    char value[128];
+    std::array<char, 128> value{};
     script::Struct* title = new_params();
-    std::sprintf(value, ": %d/%d", server->num_players_, server->max_players_);
-    title->append_word(kText, value);
+    std::sprintf(value.data(), ": %d/%d", server->num_players_, server->max_players_);
+    title->append_word(kText, value.data());
     get_run(kUpdatePlayerTitle, title);
     delete_params(title);
     for (int i = 0; i < server->num_players_; ++i) {
         const int rank = rank_of(server->get_entrant_rank(i));
         script::Struct* player = new_params();
-        std::sprintf(value, "%d:", i + 1);
+        std::sprintf(value.data(), "%d:", i + 1);
         player->put_int(kRank, rank);
-        player->append_word(kName, value);
-        std::sprintf(value, "%s", server->get_entrant_name(i));
-        player->append_word(kValue, value);
+        player->append_word(kName, value.data());
+        std::sprintf(value.data(), "%s", server->get_entrant_name(i));
+        player->append_word(kValue, value.data());
         get_run(kInfoAddPlayerText, player);
         delete_params(player);
     }
@@ -264,7 +265,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         get_run(kJoinRefusedDialog, reply);
     } else {
         if (manager->presence_service_->authenticated_) // (0x005480B0: logged in to presence)
-            manager->lobby_service_->change_host_name(server->label_);
+            manager->lobby_service_->change_host_name(server->label_.data());
         const char* ip = crt::get_inet_ntoa(server->remote_ip_);
         if (!server->can_reach_)
             reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(0x7FFF) * maths::rnd(0x7FFF));
@@ -316,16 +317,16 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     util::ByteReader reader(context->body_, context->body_size_);
     auto reply = std::make_unique<ServerInfo>();
     read_server_info(reader, reply.get());
-    if (manager->has_server(reply->name, context->sender_conn_->remote_ip_))
+    if (manager->has_server(reply->name.data(), context->sender_conn_->remote_ip_))
         return kDone;
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
-    std::snprintf(server->label_, sizeof(server->label_), "%s", reply->name);
+    std::snprintf(server->label_.data(), sizeof(server->label_), "%s", reply->name.data());
     server->remote_ip_ = context->sender_conn_->remote_ip_;
     server->ping_ = static_cast<int>(frame_clock::get_time() - reply->time);
-    std::snprintf(server->level_, sizeof(server->level_), "%s", reply->level);
-    std::snprintf(server->mode_sel_, sizeof(server->mode_sel_), "%s", reply->mode);
+    std::snprintf(server->level_.data(), sizeof(server->level_), "%s", reply->level.data());
+    std::snprintf(server->mode_sel_.data(), sizeof(server->mode_sel_), "%s", reply->mode.data());
     server->max_players_ = int{reply->max_players};
     server->num_players_ = int{reply->num_players};
     server->max_observers_ = int{reply->max_observers};
@@ -337,7 +338,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     server->skill_level_ = static_cast<int8_t>(reply->skill_level);
     server->port_no_ = kPort;
     for (int i = 0; i < server->num_players_ && i < kServerInfoPlayers; ++i)
-        server->enroll_player(reply->players[i], 0);
+        server->enroll_player(reply->players[i].data(), 0);
     get_append(&manager->waiting_servers_, server);
     ram_stats()->leave_heap_scope();
     return kContinue;
@@ -365,7 +366,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         void* block = memory::alloc_zeroed(sizeof(HostListing));
         HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
         server->sb_server_ = sb;
-        std::strncpy(server->label_, name, 15);
+        std::strncpy(server->label_.data(), name, 15);
         server->label_[15] = '\0';
         server->ping_ = game_spy::server_get_ping(sb); // (its ping)
         bool same_network = false;
@@ -420,7 +421,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         HostListing* server = find_by_sb(manager, sb);
         if (!server)
             break;
-        std::strncpy(server->label_, name, 15);
+        std::strncpy(server->label_.data(), name, 15);
         server->label_[15] = '\0';
         if (server->can_reach_)
             server->ping_ = game_spy::server_get_ping(sb);

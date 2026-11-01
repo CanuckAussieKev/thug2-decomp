@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/audio/stream_commands.h"
 
@@ -18,11 +19,11 @@ namespace audio {
 
 bool g_bink_sound_set;
 uint32_t g_stream_file_uses;
-CachedStreamFile g_stream_files[12];
+std::array<CachedStreamFile, 12> g_stream_files;
 
 namespace {
 
-CachedStreamFile* stream_files() { return g_stream_files; }
+CachedStreamFile* stream_files() { return g_stream_files.data(); }
 constexpr int kStreamFiles = 12;
 
 bool g_stream_files_ready;
@@ -142,7 +143,7 @@ long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size
         return kInvalidArg;
     bink_set_video_on_off(bink, 0);
     // (the file's first four bytes, "BIKi")
-    std::memcpy(from_where_, stream_files()[slot].data, sizeof(uint32_t));
+    std::memcpy(from_where_.data(), stream_files()[slot].data, sizeof(uint32_t));
     wad_entry_ = slot;
     from_handle_ = true;
     return 0;

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/net/gamespy.h"
@@ -125,7 +126,7 @@ void Hub::add_new_player(JoinerRecord* info)
     }
     if (!player) {
         player = new_player(skater, info->conn_, info->flag_bits_ & kNewPlayerFlags);
-        std::strcpy(player->label_, info->label_);
+        std::strcpy(player->label_.data(), info->label_.data());
         player->team_ = info->team_;
         player->profile_id_ = info->profile_id_;
         player->skill_points_ = info->skill_points_;
@@ -200,7 +201,7 @@ namespace {
 // gamenet_messages.h): the header's fields and the appearance (RiderIdentity::emit_into_buffer, at most 0x1000 bytes).
 struct NewPlayerMessage {
     PlayerArrived header;
-    uint8_t appearance[kAppearanceSize]{};
+    std::array<uint8_t, kAppearanceSize> appearance{};
 };
 constexpr uint16_t kNewPlayerHeader = static_cast<uint16_t>(kPlayerArrivedHeaderSize);
 constexpr uint8_t kMsgReadyQuery = 0x25;
@@ -229,8 +230,8 @@ uint16_t fill_new_player_message(NewPlayerMessage& msg, PlayerRecord* player, in
     msg.header.score = 0;
     msg.header.accumulated_score = 0;
     msg.header.eliminated_time = 0;
-    std::strncpy(msg.header.name, player->label_, kNameSize - 1);
-    const int size = player->account_->emit_into_buffer(msg.appearance, kAppearanceSize, broadband ? 1 : 0);
+    std::strncpy(msg.header.name.data(), player->label_.data(), kNameSize - 1);
+    const int size = player->account_->emit_into_buffer(msg.appearance.data(), kAppearanceSize, broadband ? 1 : 0);
     return static_cast<uint16_t>(size + kNewPlayerHeader);
 }
 
@@ -241,16 +242,16 @@ uint16_t write_new_player(const NewPlayerMessage& msg, uint16_t length, uint8_t*
     util::ByteWriter writer(bytes, kNewPlayerHeader + kAppearanceSize);
     write_player_arrived(writer, msg.header);
     if (length > kNewPlayerHeader)
-        writer.bytes(msg.appearance, length - kNewPlayerHeader);
+        writer.bytes(msg.appearance.data(), length - kNewPlayerHeader);
     return static_cast<uint16_t>(writer.position());
 }
 
 void send_new_player(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* to, NewPlayerMessage& msg,
                      uint16_t length)
 {
-    static uint8_t bytes[kNewPlayerHeader + kAppearanceSize];
-    desc.content_ = bytes;
-    desc.byte_count_ = write_new_player(msg, length, bytes);
+    static std::array<uint8_t, kNewPlayerHeader + kAppearanceSize> bytes;
+    desc.content_ = bytes.data();
+    desc.byte_count_ = write_new_player(msg, length, bytes.data());
     desc.ident_ = kMsgPlayerArrived;
     desc.rank_ = kMidPriority;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -298,7 +299,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_);
             PlayerRecord* player = manager->new_player(nullptr, conn, info->flag_bits_);
             memory::Hub::get_pull()->leave_heap_scope();
-            std::strcpy(player->label_, info->label_);
+            std::strcpy(player->label_.data(), info->label_.data());
             player->set_profile(info->account_); // its appearance (a copy of the profile)
             player->rejoin_group_ = info->rejoin_group_;
             player->profile_id_ = info->profile_id_;
@@ -324,8 +325,8 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 msg.header.score = 0;
                 msg.header.accumulated_score = 0;
                 msg.header.eliminated_time = 0;
-                std::memset(msg.header.name, 0, sizeof(msg.header.name));
-                std::strncpy(msg.header.name, info->label_, kNameSize - 1);
+                std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
+                std::strncpy(msg.header.name.data(), info->label_.data(), kNameSize - 1);
                 msg.header.flags = 1;
                 if (player->flag_bits_ & kNewResync)
                     msg.header.flags = 0x11;
@@ -336,10 +337,10 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 desc.ident_ = kMsgFlushImportant;
                 desc.rank_ = kTopRank;
                 server->put_on_outbox(player_handle(player), &desc);
-                uint8_t own[kNewPlayerHeader];
-                util::ByteWriter own_writer(own, sizeof(own));
+                std::array<uint8_t, kNewPlayerHeader> own{};
+                util::ByteWriter own_writer(own.data(), sizeof(own));
                 write_player_arrived(own_writer, msg.header);
-                desc.content_ = own;
+                desc.content_ = own.data();
                 desc.byte_count_ = kNewPlayerHeader;
                 desc.ident_ = kMsgPlayerArrived;
                 desc.compression_ = kCompressionLzss;
@@ -380,10 +381,10 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     msg.header.score = manager->get_entrant_points(get_skater_id(player_skater(other))); // (its score)
                     msg.header.accumulated_score = other->accumulated_score_;
                     msg.header.eliminated_time = other->eliminated_time_;
-                    std::memset(msg.header.name, 0, sizeof(msg.header.name));
-                    std::strncpy(msg.header.name, other->label_, kNameSize - 1);
+                    std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
+                    std::strncpy(msg.header.name.data(), other->label_.data(), kNameSize - 1);
                     const int size =
-                        other->account_->emit_into_buffer(msg.appearance, kAppearanceSize, broadband ? 1 : 0);
+                        other->account_->emit_into_buffer(msg.appearance.data(), kAppearanceSize, broadband ? 1 : 0);
                     send_new_player(server, desc, player, msg, static_cast<uint16_t>(size + kNewPlayerHeader));
                 }
                 uint32_t level = manager->level_;

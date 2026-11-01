@@ -41,6 +41,7 @@
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
+#include <array>
 #include "platform/compiler.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
@@ -107,7 +108,7 @@ LobbyPlayer* find_player(RoomManager* lobby, const char* nick)
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
-        if (_stricmp(player->nick_, nick) == 0)
+        if (_stricmp(player->nick_.data(), nick) == 0)
             return player;
     }
     return nullptr;
@@ -124,7 +125,7 @@ LobbyPlayer* enroll_player(RoomManager* lobby, void* peer, const char* nick, boo
         player->skill_points_ = 0;
         player->listed_ = false;
     }
-    std::strcpy(player->nick_, nick);
+    std::strcpy(player->nick_.data(), nick);
     game_spy::peer_get_player_info_no_wait(peer, nick, nullptr, &player->account_); // (the player's profile id)
     if (listed)
         player->listed_ = true;
@@ -158,7 +159,7 @@ void update_rank(LobbyPlayer* player, const char* value)
     if (shown > kMaxRank)
         shown = kMaxRank;
     script::Struct* params = new_params();
-    params->put_name_key(kId, checksums::hash_from_text(player->nick_));
+    params->put_name_key(kId, checksums::hash_from_text(player->nick_.data()));
     params->put_int(kRank, shown);
     get_run(kUpdateRank, params);
     delete_params(params);
@@ -167,14 +168,14 @@ void update_rank(LobbyPlayer* player, const char* value)
 // "<nick> <text>" to the console, with the flag `kind` (by name).
 void console_message(const char* nick, uint32_t text_name, bool by_name)
 {
-    char line[1024];
-    std::sprintf(line, "%s %s", nick, script::fetch_text(text_name));
+    std::array<char, 1024> line{};
+    std::sprintf(line.data(), "%s %s", nick, script::fetch_text(text_name));
     script::Struct* params = new_params();
     if (by_name) {
-        params->append_word("text", line);
+        params->append_word("text", line.data());
         params->put_name_key("join", 0);
     } else {
-        params->append_word(kText, line);
+        params->append_word(kText, line.data());
         params->put_name_key(kLeft, 0);
     }
     get_run(kConsoleMessage, params);
@@ -215,10 +216,10 @@ void RoomManager::init_peer()
 {
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     // The SDK's callbacks (0x74 bytes; those not set stay null).
-    uint32_t callbacks[0x1D] = {};
+    std::array<uint32_t, 0x1D> callbacks = {};
     callbacks[0x00 / 4] =
         cell::of(code_address(online::RoomManager::disconnected_callback)); // disconnected
-    callbacks[0x04 / 4] =
+    callbacks[1] = // (+0x04)
         cell::of(code_address(online::RoomManager::room_message_callback)); // roomMessage
     callbacks[0x14 / 4] = cell::of(code_address(stubs::do_nothing)); // (nothing: the empty function)
     callbacks[0x24 / 4] = cell::of(&player_joined_callback);
@@ -234,7 +235,7 @@ void RoomManager::init_peer()
     callbacks[0x64 / 4] = cell::of(code_address(stubs::do_nothing));
     callbacks[0x6C / 4] = cell::of(code_address(online::RoomManager::public_address_callback));
     callbacks[0x70 / 4] = cell::of(this); // (their parameter)
-    remote_ = game_spy::peer_initialize(callbacks);         // (the peer made)
+    remote_ = game_spy::peer_initialize(callbacks.data());         // (the peer made)
     in_group_room_ = false;
     drop_is_expected_ = true;
     hosting_ = false;
@@ -435,7 +436,7 @@ void RoomManager::room_keys_callback(void* peer, int success, int room_type, con
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
-        if (_stricmp(player->nick_, nick) == 0)
+        if (_stricmp(player->nick_.data(), nick) == 0)
             update_rank(player, values[0]); // (every player of that nick)
     }
 }
@@ -471,18 +472,18 @@ void RoomManager::join_room_callback(void* peer, int success, int result, int ro
     if (!manager->presence_service_->authenticated_) // (0x005480B0: logged in to GameSpy presence)
         return;
     // Our status: chatting in the lobby (0x00548320).
-    manager->presence_service_->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_);
+    manager->presence_service_->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_.data());
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
-    char key[64];
-    char value[64];
-    std::sprintf(key, "b_rating");
+    std::array<char, 64> key{};
+    std::array<char, 64> value{};
+    std::sprintf(key.data(), "b_rating");
     const int* rating = &manager->rating_service_->get_personal_stats()->skill_points_;
-    std::sprintf(value, "%d", *rating);
-    const char* keys[1] = {key};
-    const char* values[1] = {value};
+    std::sprintf(value.data(), "%d", *rating);
+    std::array<const char*, 1> keys = {{key.data()}};
+    std::array<const char*, 1> values = {{value.data()}};
     const char* our_nick = game_spy::peer_get_nick(peer);                     // (our nick)
-    game_spy::peer_set_room_keys(peer, room_type, our_nick, 1, keys, values); // (our room keys set)
-    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys, &room_keys_callback, lobby,
+    game_spy::peer_set_room_keys(peer, room_type, our_nick, 1, keys.data(), values.data()); // (our room keys set)
+    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys.data(), &room_keys_callback, lobby,
                                  0); // (everyone's asked for)
 }
 
@@ -578,7 +579,7 @@ bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
     lobby->group_id_ = chosen->group_id_;
     lobby->unknown30_ = chosen->num_players_;
     lobby->unknown2c_ = chosen->max_players_;
-    std::strcpy(lobby->room_name_, chosen->label_);
+    std::strcpy(lobby->room_name_.data(), chosen->label_.data());
     lobby->restricted_hosting_ = chosen->neversoft_;
     game_spy::peer_join_group_room(lobby->remote_, lobby->group_id_, &RoomManager::join_room_callback, lobby, 0);
     lobby->clear_lobbies();
@@ -600,15 +601,15 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
     Hub* manager = the_manager();
     auto* logic = (&assets::g_main_loop_manager->logic_tasks_); // (the logic tasks)
     DWORD thread_id = 0;
-    BOOL ping_rooms[3] = {FALSE, TRUE, FALSE};
-    BOOL cross_ping_rooms[3] = {FALSE, FALSE, FALSE};
+    std::array<BOOL, 3> ping_rooms = {{FALSE, TRUE, FALSE}};
+    std::array<BOOL, 3> cross_ping_rooms = {{FALSE, FALSE, FALSE}};
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     RoomManager* lobby = manager->lobby_service_.get();
     lobby->init_peer();
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const char* name = net::get_game_name();
-    game_spy::peer_set_title(manager->lobby_service_->remote_, name, key, name, key, 6, 15, 1, ping_rooms,
-                             cross_ping_rooms);
+    game_spy::peer_set_title(manager->lobby_service_->remote_, name, key, name, key, 6, 15, 1, ping_rooms.data(),
+                             cross_ping_rooms.data());
     HANDLE thread = CreateThread(nullptr, 0x8000, &online::RoomManager::connect_thread, manager->lobby_service_.get(),
                                  CREATE_SUSPENDED, &thread_id);
     manager->set_room_id(thread_id);

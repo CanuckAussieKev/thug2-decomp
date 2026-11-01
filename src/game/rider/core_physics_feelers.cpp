@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/maths.h"
 #include "engine/gfx/d3dx.h"
@@ -145,7 +146,7 @@ bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
 bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any_time)
 {
     struct RailNode {
-        uint8_t unknown[0x40];
+        std::array<uint8_t, 0x40> unknown;
         const RailNode* previous; // +0x40
         const RailNode* next;     // +0x44
     };
@@ -541,8 +542,8 @@ bool SkaterPhysicsModule::apply_model_rotations()
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
         maths::Vec4& velocity = entity_->vel_;
-        alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
-        auto* quat = raw::as<maths::QuatRotation>(rotation);
+        alignas(16) std::array<uint8_t, 0x10> rotation{}; // (a quaternion, it seems)
+        auto* quat = raw::as<maths::QuatRotation>(rotation.data());
         quat->init_from_axis_angle(axis, angle);
         velocity = *quat->spin_by(&axis, velocity);
     }

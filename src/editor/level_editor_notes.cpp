@@ -10,6 +10,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <array>
 
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_hud.h"
@@ -32,9 +33,9 @@ std::string pack_up(const std::string& text)
     std::string out;
     for (const unsigned char c : text.substr(0, kMaxText)) {
         if (c == '%' || c == '"' || c == '#' || c < 0x20 || c == 0x7F) {
-            char hex[4];
-            std::snprintf(hex, sizeof(hex), "%%%02X", c);
-            out += hex;
+            std::array<char, 4> hex{};
+            std::snprintf(hex.data(), sizeof(hex), "%%%02X", c);
+            out += hex.data();
         } else {
             out += static_cast<char>(c);
         }
@@ -79,7 +80,7 @@ bool valid_name(const std::string& name)
 
 bool read_triple(const std::string& text, V3* out)
 {
-    float v[3];
+    std::array<float, 3> v{};
     const char* at = text.c_str();
     for (int i = 0; i < 3; ++i) {
         char* end = nullptr;
@@ -103,10 +104,10 @@ bool read_triple(const std::string& text, V3* out)
 
 std::string write_record(const Note& note)
 {
-    char text[160];
-    std::snprintf(text, sizeof(text), "note %s pos=%.9g,%.9g,%.9g color=%06X text=\"", note.name.c_str(), note.pos.x,
+    std::array<char, 160> text{};
+    std::snprintf(text.data(), sizeof(text), "note %s pos=%.9g,%.9g,%.9g color=%06X text=\"", note.name.c_str(), note.pos.x,
                   note.pos.y, note.pos.z, note.colour & 0xFFFFFF);
-    return text + pack_up(note.text) + "\"";
+    return text.data() + pack_up(note.text) + "\"";
 }
 
 bool read_record(std::istringstream& in, Note* out)
@@ -163,10 +164,10 @@ bool read_record(std::istringstream& in, Note* out)
 std::string fresh_name(const std::vector<Note>& notes)
 {
     for (int n = 1;; ++n) {
-        char name[32];
-        std::snprintf(name, sizeof(name), "%s%02d", kStem, n);
-        if (std::ranges::none_of(notes, [&](const Note& note) { return note.name == name; }))
-            return name;
+        std::array<char, 32> name{};
+        std::snprintf(name.data(), sizeof(name), "%s%02d", kStem, n);
+        if (std::ranges::none_of(notes, [&](const Note& note) { return note.name == name.data(); }))
+            return name.data();
     }
 }
 
@@ -190,7 +191,7 @@ namespace {
 
 std::vector<Note> g_notes;
 std::string g_selected;         // (the note whose window is open; "" none)
-char g_edit_text[kMaxText + 1]; // (the window's text while typed)
+std::array<char, kMaxText + 1> g_edit_text; // (the window's text while typed)
 std::string g_edit_for;         // (the note the text buffer holds)
 std::vector<Note> g_before;     // (the notes as they were when a field was taken: its undo step)
 std::vector<std::function<void()>> g_queue;
@@ -388,7 +389,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (!note)
         return;
     if (g_edit_for != note->name) {
-        std::snprintf(g_edit_text, sizeof(g_edit_text), "%s", note->text.c_str());
+        std::snprintf(g_edit_text.data(), sizeof(g_edit_text), "%s", note->text.c_str());
         g_edit_for = note->name;
     }
     ImGui::SetNextWindowPos(ImVec2(view_x + 12.0f * scale, view_y + view_height - 12.0f * scale),
@@ -418,9 +419,9 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
                     push_module_undo(std::make_shared<NotesStep>(g_before));
             });
     };
-    ImGui::InputTextMultiline("##text", g_edit_text, sizeof(g_edit_text), ImVec2(-1.0f, 90.0f * scale));
+    ImGui::InputTextMultiline("##text", g_edit_text.data(), sizeof(g_edit_text), ImVec2(-1.0f, 90.0f * scale));
     if (ImGui::IsItemEdited()) {
-        const std::string text = g_edit_text;
+        const std::string text = g_edit_text.data();
         g_queue.emplace_back([name, text] {
             if (Note* n = get_find(name))
                 n->text = text;
@@ -454,9 +455,9 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         ImGui::PopID();
     }
     // Its place.
-    float pos[3] = {note->pos.x, note->pos.y, note->pos.z};
+    std::array<float, 3> pos = {{note->pos.x, note->pos.y, note->pos.z}};
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::DragFloat3("##pos", pos, 5.0f, 0.0f, 0.0f, "%.0f")) {
+    if (ImGui::DragFloat3("##pos", pos.data(), 5.0f, 0.0f, 0.0f, "%.0f")) {
         const V3 to = {pos[0], pos[1], pos[2]};
         g_queue.emplace_back([name, to] {
             if (Note* n = get_find(name))

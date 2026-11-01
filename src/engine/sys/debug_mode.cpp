@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include <SDL2/SDL.h>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
@@ -34,8 +35,8 @@ bool is_startup_script(const script::Script* script)
         return false;
     // (the script it's running now: CScript +0xC8)
     const uint32_t name = script->script_title_;
-    static const uint32_t kStartup[] = {name_hash("default_system_startup"), name_hash("autolaunch"),
-                                        name_hash("startup_loading_screen")};
+    static const auto kStartup = std::to_array<uint32_t>({name_hash("default_system_startup"), name_hash("autolaunch"),
+                                        name_hash("startup_loading_screen")});
     for (const uint32_t startup : kStartup) {
         if (name == startup)
             return true;

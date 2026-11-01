@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <cstdio>
+#include <array>
 
 #include "imgui.h"
 
@@ -91,8 +92,8 @@ std::string elide(const std::string& text, float max_width)
 {
     if (ImGui::CalcTextSize(text.c_str()).x <= max_width)
         return text;
-    static const char kEllipsis[] = "\xE2\x80\xA6";
-    if (ImGui::CalcTextSize(kEllipsis).x > max_width)
+    static const auto kEllipsis = std::to_array("\xE2\x80\xA6");
+    if (ImGui::CalcTextSize(kEllipsis.data()).x > max_width)
         return "";
     // The longest prefix that fits with the ellipsis, cut at a character's start (UTF-8 continuation bytes are
     // 10xxxxxx) and trimmed of trailing spaces. (Status and strip texts are short: a plain scan.)
@@ -102,11 +103,11 @@ std::string elide(const std::string& text, float max_width)
         std::string cut = text.substr(0, length);
         while (!cut.empty() && cut.back() == ' ')
             cut.pop_back();
-        std::string candidate = cut + kEllipsis;
+        std::string candidate = cut + kEllipsis.data();
         if (ImGui::CalcTextSize(candidate.c_str()).x <= max_width)
             return candidate;
     }
-    return kEllipsis;
+    return kEllipsis.data();
 }
 
 // --- the recorder ----------------------------------------------------------------------------------------------------
@@ -136,7 +137,7 @@ void get_note(const char* what)
 
 namespace {
 
-const char kDown[] = " \xE2\x96\xBC"; // (" ▼": a button that opens a list - Inter has no small ▾)
+constexpr auto kDown = std::to_array(" \xE2\x96\xBC"); // (" ▼": a button that opens a list - Inter has no small ▾)
 
 float button_width(const char* label)
 {
@@ -176,9 +177,9 @@ std::string get_key_of(const State& s, const char* id) { return s.key_of_ ? s.ke
 
 std::string grid_text(float grid)
 {
-    char text[24];
-    std::snprintf(text, sizeof(text), "%g%s###stripgrid", grid, kDown);
-    return text;
+    std::array<char, 24> text{};
+    std::snprintf(text.data(), sizeof(text), "%g%s###stripgrid", grid, kDown.data());
+    return text.data();
 }
 
 const char* pick_text(uint32_t bits)
@@ -202,12 +203,12 @@ const char* pick_text(uint32_t bits)
 std::string problems_text(const State& s)
 {
     const int count = s.errors + s.warnings;
-    char text[48];
+    std::array<char, 48> text{};
     if (count > 0)
-        std::snprintf(text, sizeof(text), "Problems %d###stripproblems", count);
+        std::snprintf(text.data(), sizeof(text), "Problems %d###stripproblems", count);
     else
-        std::snprintf(text, sizeof(text), "Problems###stripproblems");
-    return text;
+        std::snprintf(text.data(), sizeof(text), "Problems###stripproblems");
+    return text.data();
 }
 
 std::string get_level_text(const State& s, float scale)
@@ -220,9 +221,9 @@ std::string get_level_text(const State& s, float scale)
 
 std::string show_all_text(const State& s)
 {
-    char text[48];
-    std::snprintf(text, sizeof(text), "Show All (%d)###stripshowall", s.hidden);
-    return text;
+    std::array<char, 48> text{};
+    std::snprintf(text.data(), sizeof(text), "Show All (%d)###stripshowall", s.hidden);
+    return text.data();
 }
 
 // The controls, in the order they sit; their slots, and how each is drawn.
@@ -256,7 +257,7 @@ std::vector<Item> get_items(const State& s, float scale)
     add(kTools, button_width("Move") + inner + button_width("Rotate") + inner + button_width("Scale"), false, 9);
     add(kSpace, std::max(button_width("World"), button_width("Local")), false, 6);
     add(kSnapGrid, button_width("Snap") + inner + button_width(grid_text(s.grid).c_str()), false, 8);
-    add(kPickItem, button_width((std::string(pick_text(s.pick_filter_)) + kDown).c_str()), false, 4);
+    add(kPickItem, button_width((std::string(pick_text(s.pick_filter_)) + kDown.data()).c_str()), false, 4);
     if (s.hidden > 0)
         add(kShowAllItem, button_width(show_all_text(s).c_str()), false, 2);
     if (s.simulating)
@@ -283,9 +284,9 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         get_note("Select");
         break;
     case kTools: {
-        static const char* const kLabels[3] = {"Move", "Rotate", "Scale"};
-        static const char* const kIds[3] = {"tool_move", "tool_rotate", "tool_scale"};
-        static const char* const kTips[3] = {"Move tool", "Rotate tool", "Scale tool"};
+        static const std::array<const char*, 3> kLabels = {{"Move", "Rotate", "Scale"}};
+        static const std::array<const char*, 3> kIds = {{"tool_move", "tool_rotate", "tool_scale"}};
+        static const std::array<const char*, 3> kTips = {{"Move tool", "Rotate tool", "Scale tool"}};
         for (int t = 0; t < 3; ++t) {
             if (t)
                 ImGui::SameLine(0.0f, inner);
@@ -318,9 +319,9 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         get_note("Grid");
         if (ImGui::BeginPopup("##stripgridlist")) {
             for (const float size : s.grids) {
-                char label[16];
-                std::snprintf(label, sizeof(label), "%g", size);
-                if (ImGui::Selectable(label, size == s.grid))
+                std::array<char, 16> label{};
+                std::snprintf(label.data(), sizeof(label), "%g", size);
+                if (ImGui::Selectable(label.data(), size == s.grid))
                     out->events.push_back({Occurrence::Kind::kGrid, size});
             }
             ImGui::EndPopup();
@@ -328,7 +329,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         break;
     }
     case kPickItem: {
-        const std::string label = std::string(pick_text(s.pick_filter_)) + kDown + "###strippick";
+        const std::string label = std::string(pick_text(s.pick_filter_)) + kDown.data() + "###strippick";
         if (ImGui::Button(label.c_str()))
             ImGui::OpenPopup("##strippicklist");
         get_tip("What a click in the view selects");

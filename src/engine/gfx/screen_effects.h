@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 
@@ -54,7 +55,7 @@ public:
     bool set_dof_params(script::Struct* params, script::Script* script);
 
     bool on_{true}; // +0x04
-    uint8_t spare_slot5_[3]{};
+    std::array<uint8_t, 3> spare_slot5_{};
 };
 static_assert(sizeof(ScreenEffects) == 8, "layout must match the original");
 

@@ -2,6 +2,7 @@
 // table reaches.
 
 #include <cstdint>
+#include <array>
 
 #include "engine/objects/proximity_component.h"
 
@@ -132,7 +133,7 @@ namespace objects {
 namespace {
 
 // The proximity component's script member functions (three records and the terminator; no table registers them).
-uint32_t g_proximity_member_functions[24];
+std::array<uint32_t, 24> g_proximity_member_functions;
 
 } // namespace
 
@@ -141,19 +142,19 @@ uint32_t g_proximity_member_functions[24];
 void fill_proximity_member_functions()
 {
     constexpr uint32_t kProximityType = 0xE54DB2EE;
-    uint32_t* records = g_proximity_member_functions;
+    uint32_t* records = g_proximity_member_functions.data();
     records[0] = checksums::hash_from_text("Proximity_Init");
     records[6] = checksums::hash_from_text("Proximity_SetActive");
     records[12] = checksums::hash_from_text("Proximity_EnterProximityNotHandled");
     records[18] = 0;
     for (int i = 0; i < 4; ++i)
         records[6 * i + 1] = kProximityType;
-    const script::MemberCode code[] = {
+    const auto code = std::to_array<script::MemberCode>({
         script::member_code<&objects::ProximityComponent::proximity_init>(),
         script::member_code<&objects::ProximityComponent::proximity_set_active>(),
         script::member_code<&objects::ProximityComponent::proximity_enter_proximity_not_handled>(),
-    };
-    script::fill_member_function_code(records, code, 3);
+    });
+    script::fill_member_function_code(records, code.data(), 3);
 }
 
 } // namespace objects

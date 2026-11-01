@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -183,7 +184,7 @@ void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint3
         names_ptr_ = new_hash_table(8);
         script::Array* names = script::fetch_list(kEventNames);
         for (int i = 0; i < ints::as_signed(names->extent_); ++i) {
-            char* name = names_[i];
+            char* name = names_[i].data();
             const char* string = names->find_inline_text(i);
             std::memcpy(name, string, std::strlen(string) + 1);
             const uint32_t checksum = checksums::hash_from_text(names->find_inline_text(i));
@@ -287,11 +288,11 @@ uint32_t EventWaitBoard::fetch_distinct_id()
 {
     uint32_t checksum = 0;
     do {
-        char name[64];
-        std::snprintf(name, sizeof(name), "autoid%d", next_auto_id_++); // "autoid%d"
+        std::array<char, 64> name{};
+        std::snprintf(name.data(), sizeof(name), "autoid%d", next_auto_id_++); // "autoid%d"
         if (next_auto_id_ >= 1000000)
             next_auto_id_ = 0;
-        checksum = checksums::hash_from_text(name);
+        checksum = checksums::hash_from_text(name.data());
     } while (entity_list_->fetch_entry(checksum));
     return checksum;
 }
@@ -497,10 +498,10 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
         // Every script listening for the type, in the order they started listening; with a radius (>= 0), only
         // those whose object is nearer the source than that (scripts without an object, or whose object has no
         // position, always get it).
-        float source_position[4];
+        std::array<float, 4> source_position{};
         if (radius >= 0.0f) {
             const float* position = get_position(find_object_by_id(source)); // (not checked for null)
-            std::memcpy(source_position, position, sizeof(source_position));
+            std::memcpy(source_position.data(), position, sizeof(source_position));
         }
         auto in_range = [&](script::Script* script) {
             if (!(radius >= 0.0f))
@@ -508,7 +509,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             Entity* object = script->entity_.get_pull();
             if (!object || !has_position(object))
                 return true;
-            const double distance = get_distance_squared(source_position, get_position(object));
+            const double distance = get_distance_squared(source_position.data(), get_position(object));
             return static_cast<double>(radius) * radius > distance;
         };
         int count = 0;

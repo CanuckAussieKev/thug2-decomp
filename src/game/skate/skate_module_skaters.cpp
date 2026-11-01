@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -126,7 +127,7 @@ constexpr uint32_t kDefaultSplitscreenPreferences = 0x0076EAE3; // default_split
 constexpr uint8_t kMsgKing = 0x55;                              // the new king of the hill (its id)
 constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
-constexpr uint32_t kTeamRestarts[4] = {0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}; // TRG_CTF_Restart_<colour>
+constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
@@ -799,16 +800,16 @@ void Skate::debug_rails()
     for (objects::ObjectModule* component = manager->find_first_module_of_kind(kRailManagerType); component;
          component = component->next_of_type_) {
         objects::GameEntity* object = component->entity_;
-        float matrix[16];
-        std::memcpy(matrix, &object->basis_frame_, sizeof(matrix));
+        std::array<float, 16> matrix{};
+        std::memcpy(matrix.data(), &object->basis_frame_, sizeof(matrix));
         matrix[3] = 0.0f;
         matrix[7] = 0.0f;
         matrix[11] = 0.0f;
-        std::memcpy(matrix + 12, &object->at_point_, 12);
+        std::memcpy(matrix.data() + 12, &object->at_point_, 12);
         matrix[15] = 1.0f;
         const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)
-            stubs::ignore_argument(static_cast<int>(cell::address(matrix)));
+            stubs::ignore_argument(static_cast<int>(cell::address(matrix.data())));
     }
 }
 
@@ -1050,8 +1051,8 @@ void Skate::end_queued_scripts() { running_queued_scripts_ = false; }
 // 0x005695A0: the cheats on, as one value (their checksums OR-ed together, as the original).
 uint32_t Skate::get_cheats()
 {
-    static const uint32_t kCheats[] = {0xEEFECF1B, 0xB38341C9, 0xCD09E062, 0x69A1CE96, 0x6B0F24BC,
-                                       0x520A66EF, 0xEBA89179, 0xC4FFC672, 0xD5982173};
+    static const auto kCheats = std::to_array<uint32_t>({0xEEFECF1B, 0xB38341C9, 0xCD09E062, 0x69A1CE96, 0x6B0F24BC,
+                                       0x520A66EF, 0xEBA89179, 0xC4FFC672, 0xD5982173});
     uint32_t cheats = 0;
     for (const uint32_t cheat : kCheats)
         if (career_->is_code_on(cheat))

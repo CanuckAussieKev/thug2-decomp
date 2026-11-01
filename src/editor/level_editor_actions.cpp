@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "platform/run_log.h"
 
@@ -23,7 +24,7 @@ struct KeyEntry {
     const char* name;
 };
 // The keys the keymap names (SDL scan codes - the positions on a US layout, as the editor reads them).
-const KeyEntry kKeyNames[] = {
+constexpr auto kKeyNames = std::to_array<KeyEntry>({
     {SDL_SCANCODE_A, "A"},
     {SDL_SCANCODE_B, "B"},
     {SDL_SCANCODE_C, "C"},
@@ -111,7 +112,7 @@ const KeyEntry kKeyNames[] = {
     {SDL_SCANCODE_KP_7, "Keypad7"},
     {SDL_SCANCODE_KP_8, "Keypad8"},
     {SDL_SCANCODE_KP_9, "Keypad9"},
-};
+});
 
 std::string get_lower(std::string text)
 {
@@ -563,7 +564,7 @@ std::vector<ActStep> builtins()
     struct Hint {
         const char *id, *name, *category, *keys, *tip;
     };
-    static const Hint kHints[] = {
+    static const auto kHints = std::to_array<Hint>({
         {"hint_look", "Look / Orbit", "Camera", "Right mouse", "Orbit the selection, or look around"},
         {"hint_wheel", "Dolly", "Camera", "Wheel", "Move forward or back; while dragging, push or pull"},
         {"hint_fast", "Fast Move", "Camera", "Shift (held)", "Fly and nudge 4x faster"},
@@ -588,7 +589,7 @@ std::vector<ActStep> builtins()
         {"hint_browser", "Add Piece Keys", "Panels", "Up / Down, Left / Right, F, Enter",
          "Choose, switch tab, focus, place"},
         {"hint_outliner", "Outliner", "Panels", "Click, double-click", "Select; double-click to focus"},
-    };
+    });
     for (const Hint& h : kHints) {
         ActStep a = get_make(h.id, h.name, h.category, Kind::kDetailsOf, {}, h.tip);
         a.keys_text_ = h.keys;
@@ -610,7 +611,7 @@ std::vector<ActStep>& get_registry()
 }
 
 // The keymap's frame: the keys down last frame, the actions fired this frame, those triggered for the next.
-uint8_t g_was[SDL_NUM_SCANCODES];
+std::array<uint8_t, SDL_NUM_SCANCODES> g_was;
 std::vector<bool> g_fired, g_triggered;
 int g_capture = -1, g_capture_slot = 0;
 
@@ -674,10 +675,10 @@ int enrol(const ActStep& action)
     }
     r.push_back(action);
     // (its keys from the ini, as the built-ins')
-    char text[160] = "";
-    GetPrivateProfileStringA("editor_keys", action.id.c_str(), "", text, sizeof(text), ini_path().c_str());
+    std::array<char, 160> text = {""};
+    GetPrivateProfileStringA("editor_keys", action.id.c_str(), "", text.data(), sizeof(text), ini_path().c_str());
     std::vector<Chord> keys;
-    if (text[0] && parse_keys(text, &keys))
+    if (text[0] && parse_keys(text.data(), &keys))
         r.back().keys = keys;
     return static_cast<int>(r.size()) - 1;
 }
@@ -806,7 +807,7 @@ void begin_frame(const uint8_t* keys)
 
 void seed_keys(const uint8_t* keys)
 {
-    std::memcpy(g_was, keys, sizeof(g_was));
+    std::memcpy(g_was.data(), keys, sizeof(g_was));
     g_triggered.assign(g_triggered.size(), false);
 }
 
@@ -871,15 +872,15 @@ void load_keys()
     for (ActStep& a : r) {
         if (!a.rebindable)
             continue;
-        char text[160] = "";
-        GetPrivateProfileStringA("editor_keys", a.id.c_str(), "", text, sizeof(text), path.c_str());
+        std::array<char, 160> text = {""};
+        GetPrivateProfileStringA("editor_keys", a.id.c_str(), "", text.data(), sizeof(text), path.c_str());
         if (!text[0])
             continue;
         std::vector<Chord> keys;
-        if (parse_keys(text, &keys))
+        if (parse_keys(text.data(), &keys))
             a.keys = keys;
         else
-            get_log("level editor: [editor_keys] %s=%s isn't a key list - the default kept", a.id.c_str(), text);
+            get_log("level editor: [editor_keys] %s=%s isn't a key list - the default kept", a.id.c_str(), text.data());
     }
 }
 

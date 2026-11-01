@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -83,27 +84,27 @@ constexpr int kParkMapSize = 15000;
 // 0x0052D6A0
 void get_cd_key(char* key)
 {
-    static const char kPath[] = "Software\\Activision\\Tony Hawk's Underground 2";
-    char value[100] = {};
+    static const auto kPath = std::to_array("Software\\Activision\\Tony Hawk's Underground 2");
+    std::array<char, 100> value = {};
     DWORD size = sizeof(value);
     DWORD type = 0;
     HKEY handle = nullptr;
-    auto query = [&] { RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value), &size); };
+    auto query = [&] { RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value.data()), &size); };
     bool opened = false;
-    if (RegCreateKeyA(HKEY_CURRENT_USER, kPath, &handle) == ERROR_SUCCESS &&
-        RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value), &size) == ERROR_SUCCESS) {
+    if (RegCreateKeyA(HKEY_CURRENT_USER, kPath.data(), &handle) == ERROR_SUCCESS &&
+        RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value.data()), &size) == ERROR_SUCCESS) {
         opened = true;
     } else {
         // (an opened HKEY_CURRENT_USER key without the value is left open: the original's)
-        opened = RegCreateKeyA(HKEY_LOCAL_MACHINE, kPath, &handle) == ERROR_SUCCESS;
+        opened = RegCreateKeyA(HKEY_LOCAL_MACHINE, kPath.data(), &handle) == ERROR_SUCCESS;
         if (opened)
             query();
     }
     if (opened)
         RegCloseKey(handle);
     // (a value filling all 100 bytes has no terminator: the original's strcpy runs on into its stack - here it stops)
-    const size_t length = strnlen(value, sizeof(value));
-    std::memcpy(key, value, length);
+    const size_t length = strnlen(value.data(), sizeof(value));
+    std::memcpy(key, value.data(), length);
     key[length] = '\0';
 }
 
@@ -186,7 +187,7 @@ int on_hud_notice_msg(net::InboundMsgCtx* context)
     if (!read_hud_notice(reader, &notice))
         return kDone;
     // 0x005376F0: (broadcast, text, string 1, string 2, object, properties, important, time)
-    manager_of(context)->build_net_notice(false, notice.text, notice.string1, notice.string2, nullptr, nullptr, false,
+    manager_of(context)->build_net_notice(false, notice.text, notice.string1.data(), notice.string2.data(), nullptr, nullptr, false,
                                           notice.time);
     return kContinue;
 }
@@ -230,14 +231,14 @@ int handle_cd_key_challenge(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
     const char* password = manager->get_online_settings()->get_preference_string(kProfilePassword, kUiString);
-    char answer[36];
+    std::array<char, 36> answer{};
     // 0x0054CA10: the answer to the challenge (the message itself). (Static: the original passes the online service,
     // +0x1C, in ECX, unused.)
-    RankingsManager::generate_auth(context->body_, password, answer);
+    RankingsManager::generate_auth(context->body_, password, answer.data());
     desc.ident_ = kMsgCdKeyAnswer;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    desc.content_ = answer;
+    desc.content_ = answer.data();
     desc.byte_count_ = kCdKeyAnswerSize;
     send_to_server(context->receiver_app_, &desc);
     return kContinue;
@@ -358,7 +359,7 @@ int handle_team_object(net::InboundMsgCtx* context)
     if (!player)
         return kDone;
     const uint32_t object = message_word(context, 0);
-    uint32_t* objects = manager->team_objects_[player->team_]; // five per team
+    uint32_t* objects = manager->team_objects_[player->team_].data(); // five per team
     for (int i = 0; i < 5; ++i) {
         if (!objects[i]) {
             objects[i] = object;

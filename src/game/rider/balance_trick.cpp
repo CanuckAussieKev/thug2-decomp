@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <new>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -25,7 +26,7 @@
 
 namespace objects {
 
-uint32_t g_balance_trick_member_functions[12]{0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0, 0, 0x589E5FB3, 0, 0, 0, 0};
+std::array<uint32_t, 12> g_balance_trick_member_functions{{0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0, 0, 0x589E5FB3, 0, 0, 0, 0}};
 
 namespace {
 
@@ -43,9 +44,9 @@ constexpr uint32_t kTimeAdd = 0x3A4E9413, kLeanAdd = 0x0B4CECC1, kPaceBoost = 0x
                    kIsATap = 0x2335E1E1, kDoFlipCheck = 0x1304E677, kPlayRangeAnimBackwards = 0x08FE31ED,
                    kClearCheese = 0xBBDB0F78;
 // The wobble's values (each a structure for get_scaled_value).
-constexpr uint32_t kWobbleNames[5] = {0xFD266A26 /* WobbleAmpA */, 0x642F3B9C /* WobbleAmpB */,
+constexpr std::array<uint32_t, 5> kWobbleNames = {{0xFD266A26 /* WobbleAmpA */, 0x642F3B9C /* WobbleAmpB */,
                                       0x0F43FD49 /* WobbleK1 */, 0x964AACF3 /* WobbleK2 */,
-                                      0xF90B0824 /* SpazFactor */};
+                                      0xF90B0824 /* SpazFactor */}};
 // The physics structures of the types.
 constexpr uint32_t kGrindParams = 0x6B7FDADD, kManualParams = 0xB8CC8633, kSkitchParams = 0xFC87CC01,
                    kLipParams = 0xBE615D0A;
@@ -66,7 +67,7 @@ gsl::owner<ObjectModule*> RiderTeeterMoves::fabricate() { return new RiderTeeter
 // 0x004F8CD0
 void RiderTeeterMoves::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_balance_trick_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_balance_trick_member_functions.data(), 0x18);
 }
 
 // 0x004F8F80
@@ -237,13 +238,13 @@ void RiderTeeterMoves::set_wobble(script::Struct* wobble)
         void* memory = script::g_script_pools.carve(0xF4);
         entity_->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
-    float values[5];
+    std::array<float, 5> values{};
     script::Struct* value = nullptr; // (not cleared again: a missing one leaves the last found)
     for (int i = 0; i < 5; ++i) {
         wobble->read_sub_struct(kWobbleNames[i], &value, 1);
         values[i] = skater_of(entity_)->get_scaled_value(value);
     }
-    anim_blender_ptr_->first_channel_47e_450(values, 1);
+    anim_blender_ptr_->first_channel_47e_450(values.data(), 1);
 }
 
 // 0x004F9420

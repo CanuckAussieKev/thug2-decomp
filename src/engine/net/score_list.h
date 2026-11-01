@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -21,7 +22,7 @@ struct ScoreEntry : memory::ListNode {
     // 0x00544720: the scalar deleting destructor (out of its list; freed with flag 1).
     ScoreEntry* teardown(unsigned int flags);
 
-    char text_[32];      // +0x14 the player's (or team's) name; "> " before the local one
+    std::array<char, 32> text_;      // +0x14 the player's (or team's) name; "> " before the local one
     bool king_;          // +0x34 has the crown
     bool local_;         // +0x35
     bool has_flag_;      // +0x36 carries a flag

@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_budget.h"
@@ -72,9 +73,9 @@ uint32_t g_ui_buttons, g_editor_buttons;
 
 std::vector<Request> g_requests;
 bool g_offer_closed;
-char g_outliner_search[96];
+std::array<char, 96> g_outliner_search;
 bool g_changed_only; // (the Outliner's "Changed only")
-char g_browser_search[96];
+std::array<char, 96> g_browser_search;
 int g_browser_shown_index = -1;
 // The preview's entry: the list's row under the mouse (-1: none) and whether the keys moved the highlight since the
 // mouse last moved onto a row (then the highlighted one shows); the entry asked for last.
@@ -87,8 +88,8 @@ void get_ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.pu
 // The accent colour ([editor] accent - level_editor_prefs.h) at `alpha`.
 ImVec4 get_accent(float alpha)
 {
-    float rgb[3];
-    prefs::get_accent_rgb(prefs::get_pull().accent, rgb);
+    std::array<float, 3> rgb{};
+    prefs::get_accent_rgb(prefs::get_pull().accent, rgb.data());
     return {rgb[0], rgb[1], rgb[2], alpha};
 }
 int g_style_generation = -1; // (the preferences' scale / accent the style was built for)
@@ -121,9 +122,9 @@ void update_scale()
     g_mono = fonts.mono;
     g_heading = fonts.heading;
     ui_backend::invalidate_device_objects(); // (the font texture is made again)
-    float rgb[3];
-    prefs::get_accent_rgb(prefs::get_pull().accent, rgb);
-    ui_theme::apply_style(scale, rgb);
+    std::array<float, 3> rgb{};
+    prefs::get_accent_rgb(prefs::get_pull().accent, rgb.data());
+    ui_theme::apply_style(scale, rgb.data());
     get_log("level editor UI: scale %.2f for a %dx%d window (Inter %.0f px, JetBrains Mono %.0f px)", scale, width,
             height, sizes.ui, sizes.mono);
 }
@@ -443,7 +444,7 @@ void get_toolbar(const ShapeMesh& model)
 struct OutlinerCache {
     uint32_t generation = 0;
     std::vector<std::string> labels;
-    std::vector<int> by_family_[nodes::kFamilies];
+    std::array<std::vector<int>, nodes::kFamilies> by_family_;
 };
 OutlinerCache g_cache;
 int g_last_selected = -1;
@@ -476,7 +477,7 @@ std::string row_tag(const nodes::Elem& node)
 }
 std::string row_tag_of(const nodes::Elem& node)
 {
-    char text[48] = "";
+    std::array<char, 48> text = {""};
     switch (node.family) {
     case nodes::Family::kSpawn: {
         std::string tags;
@@ -496,8 +497,8 @@ std::string row_tag_of(const nodes::Elem& node)
     case nodes::Family::kCrown:
         if (node.order < 0)
             return "";
-        std::snprintf(text, sizeof(text), "#%d", node.order);
-        return text;
+        std::snprintf(text.data(), sizeof(text), "#%d", node.order);
+        return text.data();
     case nodes::Family::kRail:
     case nodes::Family::kRouteWay:
     case nodes::Family::kLadder:
@@ -551,8 +552,8 @@ void get_outliner(const ShapeMesh& model)
     ImGui::SetNextItemWidth(-1.0f);
     // (Select similar on a node asks for its family here - level_editor_ux3.h)
     if (const std::string asked = ux3::take_outliner_search(); !asked.empty())
-        std::snprintf(g_outliner_search, sizeof(g_outliner_search), "%s", asked.c_str());
-    ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6", g_outliner_search, sizeof(g_outliner_search));
+        std::snprintf(g_outliner_search.data(), sizeof(g_outliner_search), "%s", asked.c_str());
+    ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6", g_outliner_search.data(), sizeof(g_outliner_search));
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Filter by name. Prefixes: rail: spawn: object: group:<name> label: locked: hidden:");
     // (only the rows the editor has changed - those with markers)
@@ -586,7 +587,7 @@ void get_outliner(const ShapeMesh& model)
         shown.clear();
         for (const int i : members) {
             auto found = model.marks.find(nodes[i].name);
-            if (ux3::row_passes(nodes[i], g_cache.labels[i], g_outliner_search) &&
+            if (ux3::row_passes(nodes[i], g_cache.labels[i], g_outliner_search.data()) &&
                 mark_shown(found == model.marks.end() ? 0 : found->second, g_changed_only))
                 shown.push_back(i);
         }
@@ -595,9 +596,9 @@ void get_outliner(const ShapeMesh& model)
         const bool holds_selected = follow && std::cmp_less(selected, nodes.size()) && nodes[selected].family == family;
         if (holds_selected || g_outliner_search[0] || g_changed_only)
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
-        char header[64];
-        std::snprintf(header, sizeof(header), "%s###family%d", nodes::family_name(family), f);
-        const bool open = ImGui::TreeNodeEx(header, ImGuiTreeNodeFlags_SpanAvailWidth);
+        std::array<char, 64> header{};
+        std::snprintf(header.data(), sizeof(header), "%s###family%d", nodes::family_name(family), f);
+        const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
         ImGui::SameLine();
         ImGui::PushFont(g_mono);
         ImGui::TextDisabled("%d", static_cast<int>(shown.size()));
@@ -689,7 +690,7 @@ void get_outliner(const ShapeMesh& model)
         ImGui::PopFont();
         ImGui::TreePop();
     }
-    notes::outliner_section(g_mono, g_outliner_search); // (UX5: note pins - level_editor_notes.h)
+    notes::outliner_section(g_mono, g_outliner_search.data()); // (UX5: note pins - level_editor_notes.h)
     ImGui::EndChild();
     ImGui::End();
 }
@@ -771,12 +772,12 @@ void node_section(const ShapeMesh& model, int index)
         ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch);
         if (editable) {
             // Typed or dragged to scrub (Ctrl+click or a double-click types a number); one undo step a field.
-            float pos[3] = {model.nodes.pos.x, model.nodes.pos.y, model.nodes.pos.z};
+            std::array<float, 3> pos = {{model.nodes.pos.x, model.nodes.pos.y, model.nodes.pos.z}};
             float heading = node_edit::get_heading_degrees(model.nodes.angles);
             ImGui::PushFont(g_mono);
             field_label("Position");
             ImGui::SetNextItemWidth(-FLT_MIN);
-            const bool moved = ImGui::DragFloat3("##pos", pos, 1.0f, 0.0f, 0.0f, "%.1f");
+            const bool moved = ImGui::DragFloat3("##pos", pos.data(), 1.0f, 0.0f, 0.0f, "%.1f");
             bool done = ImGui::IsItemDeactivated();
             bool turned = false;
             if (!model.nodes.rail) {
@@ -790,10 +791,10 @@ void node_section(const ShapeMesh& model, int index)
                 // A rail point: alone, or its whole rail (the points linked to it) by as much (L).
                 field_label("Moves");
                 bool whole = model.nodes.entire_rail_;
-                char label[64];
-                std::snprintf(label, sizeof(label), "Whole %s (%d point%s)", model.nodes.chain_noun_,
+                std::array<char, 64> label{};
+                std::snprintf(label.data(), sizeof(label), "Whole %s (%d point%s)", model.nodes.chain_noun_,
                               model.nodes.rail_points_, model.nodes.rail_points_ == 1 ? "" : "s");
-                if (ImGui::Checkbox(label, &whole))
+                if (ImGui::Checkbox(label.data(), &whole))
                     get_ask(Request::Kind::kReqEntireRail, whole ? 1 : 0);
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Move all points together  (L)");
@@ -957,9 +958,9 @@ void lock_list(const ShapeMesh& model)
         return;
     ImGui::Spacing();
     ImGui::Separator();
-    char title[48];
-    std::snprintf(title, sizeof(title), "Locked (%d)###locks", static_cast<int>(model.locks.size()));
-    if (!ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen))
+    std::array<char, 48> title{};
+    std::snprintf(title.data(), sizeof(title), "Locked (%d)###locks", static_cast<int>(model.locks.size()));
+    if (!ImGui::CollapsingHeader(title.data(), ImGuiTreeNodeFlags_DefaultOpen))
         return;
     for (size_t i = 0; i < model.locks.size(); ++i) {
         const ShapeMesh::LockView& lock = model.locks[i];
@@ -1061,9 +1062,9 @@ void get_inspector(const ShapeMesh& model)
                 ImGui::TableNextColumn();
                 get_muted("Scale");
                 ImGui::TableNextColumn();
-                const float values[3] = {s.scale.x, s.scale.y, s.scale.z};
-                static const char* const kIds[3] = {"##scalex", "##scaley", "##scalez"};
-                static const char* const kFormats[3] = {"x %.3f", "y %.3f", "z %.3f"};
+                const std::array<float, 3> values = {{s.scale.x, s.scale.y, s.scale.z}};
+                static const std::array<const char*, 3> kIds = {{"##scalex", "##scaley", "##scalez"}};
+                static const std::array<const char*, 3> kFormats = {{"x %.3f", "y %.3f", "z %.3f"}};
                 ImGui::PushFont(g_mono);
                 for (int axis = 0; axis < 3; ++axis) {
                     ImGui::SetNextItemWidth(110.0f * g_scale);
@@ -1163,9 +1164,9 @@ void status_bar(const ShapeMesh& model)
     ImGui::Begin("##status", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
     // Right: unsaved, the changes, the camera (elided before the hints are crowded out).
-    char right[224];
+    std::array<char, 224> right{};
     const std::string view = view_cam::get_standing(); // (an ortho view, orbiting - level_editor_camera.h)
-    std::snprintf(right, sizeof(right),
+    std::snprintf(right.data(), sizeof(right),
                   "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  %.0f, %.0f, %.0f  \xC2\xB7  speed %.0f%s%s",
                   model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
                   model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
@@ -1175,7 +1176,7 @@ void status_bar(const ShapeMesh& model)
     const float y = bar.y + std::max(0.0f, (bar.height - ImGui::GetTextLineHeight()) * 0.5f);
     ImGui::PopFont();
     // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
-    ui_strip::status_row(model.message, model.keys, right, bar.x + pad_x, y, bar.width - 2.0f * pad_x, ux8_fonts());
+    ui_strip::status_row(model.message, model.keys, right.data(), bar.x + pad_x, y, bar.width - 2.0f * pad_x, ux8_fonts());
     ImGui::End();
 }
 void get_help(const ShapeMesh& model)
@@ -1203,7 +1204,7 @@ void get_help(const ShapeMesh& model)
             const char* keys;
             const char* what;
         };
-        static const Row kRows[] = {
+        static const auto kRows = std::to_array<Row>({
             {"Camera", "RMB + W A S D / Q E", "Fly"},
             {"", "RMB + Wheel", "Fly speed"},
             {"", "Alt+drag", "Orbit"},
@@ -1227,7 +1228,7 @@ void get_help(const ShapeMesh& model)
             {"", "Alt+click", "Add point without edge snapping"},
             {"Collision", "Shift+click", "Select invisible wall (collision shown)"},
             {"Panels", "Mouse over a panel", "Panel input; keys stay with the editor unless typing"},
-        };
+        });
         // (the columns' widths set, not fitted: a long key list would otherwise squeeze the explanations to a letter a
         // line - the keys wrap within theirs)
         if (ImGui::BeginTable("##keys", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
@@ -1330,9 +1331,9 @@ void get_browser(const ShapeMesh& model)
     ImGui::SetNextWindowSize(
         ImVec2(360.0f * g_scale, std::min(760.0f * g_scale, g_layout.viewport.height - 16.0f * g_scale)));
     bool open = true;
-    char title[64];
-    std::snprintf(title, sizeof(title), "Add Piece (%d)###browser", static_cast<int>(model.browser_items_->size()));
-    ImGui::Begin(title, &open,
+    std::array<char, 64> title{};
+    std::snprintf(title.data(), sizeof(title), "Add Piece (%d)###browser", static_cast<int>(model.browser_items_->size()));
+    ImGui::Begin(title.data(), &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     browser_preview(model);
@@ -1348,7 +1349,7 @@ void get_browser(const ShapeMesh& model)
             ImGui::PopStyleColor();
     }
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_browser_search, sizeof(g_browser_search));
+    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_browser_search.data(), sizeof(g_browser_search));
     const float buttons = ImGui::GetFrameHeightWithSpacing() * 3.0f; // (UX7: a row of the arrange tools')
     const std::vector<BrowserItem>& items = *model.browser_items_;
     const bool follow = model.browser_index_ != g_browser_shown_index; // (the keys moved it: keep it in view)
@@ -1357,7 +1358,7 @@ void get_browser(const ShapeMesh& model)
         g_browser_keys_won = true;
     // The entries: a grid of thumbnails or the list, All / Recent / Favourites (level_editor_thumbs.h).
     const int hovered =
-        thumbs::items_panel(model, g_browser_search, follow, -buttons, g_mono, g_small, g_scale, &g_requests);
+        thumbs::items_panel(model, g_browser_search.data(), follow, -buttons, g_mono, g_small, g_scale, &g_requests);
     // The preview follows the mouse over the list, or the keys when they moved the highlight since.
     if (hovered != g_browser_hovered) {
         g_browser_hovered = hovered;
@@ -1435,7 +1436,7 @@ void online_warning(const ShapeMesh& model)
 
 // The Place palette (N): what can be added. A click on an entry arms it - the next click in the view places it there
 // (Shift+click: keep placing); its button places one where the view looks.
-char g_place_search[64];
+std::array<char, 64> g_place_search;
 void get_place(const ShapeMesh& model)
 {
     if (!model.place.open)
@@ -1447,7 +1448,7 @@ void get_place(const ShapeMesh& model)
     ImGui::Begin("Place Node###place", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##placesearch", "Search\xE2\x80\xA6", g_place_search, sizeof(g_place_search));
+    ImGui::InputTextWithHint("##placesearch", "Search\xE2\x80\xA6", g_place_search.data(), sizeof(g_place_search));
     const std::vector<ShapeMesh::PlaceView::TableRow>& entries = model.place.entries;
     // (a list that scrolls: the level's peds, cars, sets, particles and sounds make it long - level_editor_entities.h)
     const float list_height =
@@ -1456,7 +1457,7 @@ void get_place(const ShapeMesh& model)
     ImGui::BeginChild("##placelist", ImVec2(0.0f, list_height));
     for (int i = 0; std::cmp_less(i, entries.size()); ++i) {
         const ShapeMesh::PlaceView::TableRow& e = entries[i];
-        if (!get_matches(e.label, g_place_search))
+        if (!get_matches(e.label, g_place_search.data()))
             continue;
         ImGui::PushID(i);
         const ImVec2 pos = ImGui::GetCursorScreenPos();

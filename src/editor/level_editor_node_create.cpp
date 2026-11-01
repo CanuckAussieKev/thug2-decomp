@@ -10,6 +10,7 @@
 #include <initializer_list>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_entities.h"
@@ -61,7 +62,7 @@ bool ends_with(const std::string& text, const char* suffix)
     return text.size() >= n && same_text(text.substr(text.size() - n), suffix);
 }
 
-const char* const kTeamNames[kTeams] = {"Red", "Blue", "Green", "Yellow"};
+const std::array<const char*, kTeams> kTeamNames = {{"Red", "Blue", "Green", "Yellow"}};
 
 // The team a name-driven node's name or type ends in ("Red"...; -1: none).
 int team_of(const std::string& text)
@@ -253,9 +254,9 @@ const char* name_stem(Kind kind)
 std::string fresh_name(const std::string& stem, const std::function<bool(const std::string&)>& taken)
 {
     for (int n = 1; n < 100000; ++n) {
-        char number[16];
-        std::snprintf(number, sizeof(number), "%02d", n);
-        std::string name = stem + number;
+        std::array<char, 16> number{};
+        std::snprintf(number.data(), sizeof(number), "%02d", n);
+        std::string name = stem + number.data();
         if (!taken(name))
             return name;
     }

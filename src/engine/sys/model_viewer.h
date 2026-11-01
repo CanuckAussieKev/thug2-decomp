@@ -7,6 +7,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
 #include <gsl/pointers>
+#include <array>
 
 // The viewer module (modules::Viewer: the debug viewer for looking at models and levels, driven from a PC tool over
 // the network, and the pad's viewer buttons) - 0x00576CB0-0x00577F20: its constructor, start and stop callbacks and
@@ -51,10 +52,10 @@ struct Viewer final : public PartUnit {
     std::unique_ptr<ViewerTask> task20_;                // +0x20 select_combo_task (0x00577380)
     float pad_rx_{};                                    // +0x24 the sticks (raw, -128..127)
     float pad_ry_{};                                    // +0x28
-    uint8_t unknown2c_[8]{};
+    std::array<uint8_t, 8> unknown2c_{};
     float pad_lx_{}; // +0x34
     float pad_ly_{}; // +0x38
-    uint8_t unknown3c_[8]{};
+    std::array<uint8_t, 8> unknown3c_{};
     uint32_t actions_{0};                           // +0x44 the buttons' commands (bits; add_commands)
     uint32_t shift_makes_{0};                       // +0x48 the buttons pressed with select held
     int mode_sel_{};                                // +0x4C 0: object mode, 1: ...

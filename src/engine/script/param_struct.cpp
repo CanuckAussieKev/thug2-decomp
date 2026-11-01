@@ -13,6 +13,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
+#include <array>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 
@@ -568,15 +569,15 @@ namespace {
 // indexes past it into the structure pools that follow; the game's scripts use only index 0. Not original: 16 slots,
 // an index outside them ignored (an empty string read back).
 constexpr int kScriptStringSlots = 16;
-char g_script_strings[kScriptStringSlots][128];
-char g_no_script_string[128];
+std::array<std::array<char, 128>, kScriptStringSlots> g_script_strings;
+std::array<char, 128> g_no_script_string;
 char* script_string_slot(int index)
 {
     if (index < 0 || index >= kScriptStringSlots) {
         g_no_script_string[0] = 0;
-        return g_no_script_string;
+        return g_no_script_string.data();
     }
-    return g_script_strings[index];
+    return g_script_strings[index].data();
 }
 } // namespace
 

@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -74,9 +75,9 @@ bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
-    char text[16];
-    std::snprintf(text, sizeof(text), "%08X", value);
-    out << text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "%08X", value);
+    out << text.data();
 }
 
 bool parse_hex(const std::string& text, uint32_t* value)
@@ -138,7 +139,7 @@ bool valid_word(const std::string& name)
 
 bool read_triple(const std::string& text, V3* out)
 {
-    float v[3];
+    std::array<float, 3> v{};
     const char* at = text.c_str();
     for (int i = 0; i < 3; ++i) {
         char* end = nullptr;
@@ -227,9 +228,9 @@ std::string write_records(const State& state)
 {
     std::ostringstream out;
     for (const Point& p : state.points) {
-        char pos[96];
-        std::snprintf(pos, sizeof(pos), " pos=%.9g,%.9g,%.9g", p.pos.x, p.pos.y, p.pos.z);
-        out << "point " << p.name << ' ' << p.cls << pos;
+        std::array<char, 96> pos{};
+        std::snprintf(pos.data(), sizeof(pos), " pos=%.9g,%.9g,%.9g", p.pos.x, p.pos.y, p.pos.z);
+        out << "point " << p.name << ' ' << p.cls << pos.data();
         if (p.like) {
             out << " like=";
             get_hex(out, p.like);
@@ -241,9 +242,9 @@ std::string write_records(const State& state)
             get_names(out, p.links);
         }
         if (same_text(p.cls, "ClimbingNode") || p.facing != 0.0f) {
-            char facing[48];
-            std::snprintf(facing, sizeof(facing), " facing=%.9g", p.facing);
-            out << facing;
+            std::array<char, 48> facing{};
+            std::snprintf(facing.data(), sizeof(facing), " facing=%.9g", p.facing);
+            out << facing.data();
         }
         if (p.cluster) {
             out << " cluster=";
@@ -256,9 +257,9 @@ std::string write_records(const State& state)
         if (p.hang)
             out << " hang=" << hang_word(p.hang);
         if (p.speed > 0.0f) {
-            char speed[48];
-            std::snprintf(speed, sizeof(speed), " speed=%.9g", p.speed);
-            out << speed;
+            std::array<char, 48> speed{};
+            std::snprintf(speed.data(), sizeof(speed), " speed=%.9g", p.speed);
+            out << speed.data();
         }
         out << '\n';
     }
@@ -283,11 +284,11 @@ std::string write_records(const State& state)
         out << ' ' << t.terrain << '\n';
     }
     for (const FacingEdit& f : state.facings) {
-        char facing[48];
-        std::snprintf(facing, sizeof(facing), " %.9g", f.facing);
+        std::array<char, 48> facing{};
+        std::snprintf(facing.data(), sizeof(facing), " %.9g", f.facing);
         out << "facing ";
         get_hex(out, f.name);
-        out << facing << '\n';
+        out << facing.data() << '\n';
     }
     for (const uint32_t name : state.grind_flat_) {
         out << "grindflat ";
@@ -295,11 +296,11 @@ std::string write_records(const State& state)
         out << '\n';
     }
     for (const SpeedEdit& e : state.speeds) {
-        char rate[48];
-        std::snprintf(rate, sizeof(rate), " %.9g", e.rate);
+        std::array<char, 48> rate{};
+        std::snprintf(rate.data(), sizeof(rate), " %.9g", e.rate);
         out << "railspeed ";
         get_hex(out, e.name);
-        out << rate << '\n';
+        out << rate.data() << '\n';
     }
     return out.str();
 }
@@ -505,9 +506,9 @@ const std::vector<uint8_t>& rail_speed_qb()
 
 std::string speed_script_name(uint32_t node)
 {
-    char text[32];
-    std::snprintf(text, sizeof(text), "ed_railspeed_%08X", node);
-    return text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "ed_railspeed_%08X", node);
+    return text.data();
 }
 
 namespace {
@@ -685,9 +686,9 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
     float best = reach + 1.0f;
     V3 best_at = hit;
     constexpr float kHalf = 0.70710678f;
-    static const V3 kDirections[8] = {{0.0f, 0.0f, 1.0f},    {kHalf, 0.0f, kHalf}, {1.0f, 0.0f, 0.0f},
+    static const std::array<V3, 8> kDirections = {{{0.0f, 0.0f, 1.0f},    {kHalf, 0.0f, kHalf}, {1.0f, 0.0f, 0.0f},
                                       {kHalf, 0.0f, -kHalf}, {0.0f, 0.0f, -1.0f},  {-kHalf, 0.0f, -kHalf},
-                                      {-1.0f, 0.0f, 0.0f},   {-kHalf, 0.0f, kHalf}};
+                                      {-1.0f, 0.0f, 0.0f},   {-kHalf, 0.0f, kHalf}}};
     for (const V3& dir : kDirections) {
         // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
         for (float t = kStep; t <= reach; t += kStep) {
@@ -2101,10 +2102,10 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
         for (const uint32_t point : points)
             set_facing(&state, point, facing);
         *select = name;
-        char text[96];
-        std::snprintf(text, sizeof(text), "Ladder facing %.0f degrees",
+        std::array<char, 96> text{};
+        std::snprintf(text.data(), sizeof(text), "Ladder facing %.0f degrees",
                       static_cast<double>(node_edit::get_heading_degrees({0.0f, facing, 0.0f})));
-        const std::string done = text;
+        const std::string done = text.data();
         return get_apply(state, message, done.c_str());
     }
     case kOpFacingHome: {
@@ -2371,13 +2372,13 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         }
         sort_by_name(&state.speeds);
         *select = name;
-        char text[160];
+        std::array<char, 160> text{};
         if (rate > 0.0f)
-            std::snprintf(text, sizeof(text), "Speed-up on %d segment%s: %.1f%% per frame", changed,
+            std::snprintf(text.data(), sizeof(text), "Speed-up on %d segment%s: %.1f%% per frame", changed,
                           changed == 1 ? "" : "s", rate * 100.0f);
         else
-            std::snprintf(text, sizeof(text), "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
-        return get_apply(state, message, text);
+            std::snprintf(text.data(), sizeof(text), "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
+        return get_apply(state, message, text.data());
     }
     case kOpHang: {
         if (!ledge) {
@@ -2600,9 +2601,9 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     }
     stop_drawing();
     *select = name_hash(foot.name);
-    char text[128];
-    std::snprintf(text, sizeof(text), "Ladder added (%.0f high)", static_cast<double>(top.y - g_ladder_foot.y));
-    *message = text;
+    std::array<char, 128> text{};
+    std::snprintf(text.data(), sizeof(text), "Ladder added (%.0f high)", static_cast<double>(top.y - g_ladder_foot.y));
+    *message = text.data();
     get_log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
             static_cast<double>(node_edit::get_heading_degrees({0.0f, g_ladder_facing, 0.0f})));
     return true;

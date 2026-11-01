@@ -274,7 +274,7 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
         if (particle->args_.flag158_) {
             for (int i = 0; i < 4; ++i)
                 particle->args_.colour_scale_[i] = shade_[i];
-            particle->set_colour_scale(shade_);
+            particle->set_colour_scale(shade_.data());
         }
         systems_.splice(systems_.head, raw::as<void* const>(&particle));
     }

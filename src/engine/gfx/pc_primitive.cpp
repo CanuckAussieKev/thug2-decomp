@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -29,7 +30,7 @@ namespace render {
 
 namespace {
 // The game's buffer for the vertices of a primitive drawn without one of its own.
-uint8_t g_primitive_vertex_buffer[0x100];
+std::array<uint8_t, 0x100> g_primitive_vertex_buffer;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
@@ -41,17 +42,17 @@ int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 // XYZ | TEX1 (0x102), XYZ | DIFFUSE | TEX1 (0x142) and XYZ | NORMAL | DIFFUSE | TEX1 (0x152). Every layout starts with
 // the position.
 struct VertexColour {
-    float pos[3];
+    std::array<float, 3> pos;
     uint32_t colour; // BGRA
 };
 struct VertexColourUv {
-    float pos[3];
+    std::array<float, 3> pos;
     uint32_t colour;
     float u, v;
 };
 struct VertexNormalColourUv {
-    float pos[3];
-    float normal[3];
+    std::array<float, 3> pos;
+    std::array<float, 3> normal;
     uint32_t colour;
     float u, v;
 };
@@ -234,7 +235,7 @@ void PcPrimitive::blit(const float* positions, const uint32_t* colours, const fl
     }
     if (size) {
         stride_ = size;
-        vertices_ = g_primitive_vertex_buffer; // (a buffer of the game's)
+        vertices_ = g_primitive_vertex_buffer.data(); // (a buffer of the game's)
     }
     for (int i = 0; i < vertex_count_; ++i) {
         change_place(i, positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]);

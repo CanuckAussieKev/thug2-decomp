@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <SDL2/SDL.h>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
@@ -32,7 +33,7 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 // A restart type's name (THUG2's and the ported games' restart_types).
 const char* current_type_name(uint32_t type)
 {
-    static const char* const kTypesKey[] = {"Player1",
+    static const auto kTypesKey = std::to_array<const char*>({"Player1",
                                             "Player2",
                                             "Multiplayer",
                                             "Horse",
@@ -46,7 +47,7 @@ const char* current_type_name(uint32_t type)
                                             "PriorityRestart",
                                             "Player1TrickAttack",
                                             "Player1_Level_Event",
-                                            "KingOfTheHill"};
+                                            "KingOfTheHill"});
     for (const char* name : kTypesKey) {
         if (name_hash(name) == type)
             return name;
@@ -79,9 +80,9 @@ std::vector<Relaunch> level_restarts()
         const char* text = script::look_up_hash_name(name);
         const char* label = nullptr;
         node->fetch_text(restart_name, &label, 0);
-        char hex[16];
-        std::snprintf(hex, sizeof(hex), "#%08X", name);
-        r.text = text ? text : (label && *label ? std::string(label) + " (" + hex + ")" : std::string(hex));
+        std::array<char, 16> hex{};
+        std::snprintf(hex.data(), sizeof(hex), "#%08X", name);
+        r.text = text ? text : (label && *label ? std::string(label) + " (" + hex.data() + ")" : std::string(hex.data()));
         node->fetch_vec(pos, &r.pos, 0);
         script::Array* types = nullptr;
         if (node->fetch_list(types_key, &types, 0) && types) {
@@ -152,10 +153,10 @@ void get_next()
                 static_cast<unsigned>(visited_state().size()), static_cast<unsigned>(restarts.size()), r.text.c_str(),
                 r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
                 visited_state().size() == restarts.size() ? " - all restarts visited" : "");
-        char text[160];
-        std::snprintf(text, sizeof(text), "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
+        std::array<char, 160> text{};
+        std::snprintf(text.data(), sizeof(text), "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
                       static_cast<unsigned>(restarts.size()), r.text.c_str());
-        get_message(text);
+        get_message(text.data());
         if (visited_state().size() == restarts.size())
             get_message("All restarts visited", "restart_tester_done", 95.0f);
         return;

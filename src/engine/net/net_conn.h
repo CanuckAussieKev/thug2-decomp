@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/net/net_latency.h"
@@ -107,7 +108,7 @@ struct Conn {
     uint32_t remote_ip_{};              // +0x40
     uint32_t ident_;                  // +0x44 a running number (0x0067D800, counted by the constructor)
     uint16_t port_no_{};              // +0x48
-    uint8_t pad4a_[2]{};
+    std::array<uint8_t, 2> pad4a_{};
     char* outgoing_bytes_;      // +0x4C the packet being built (0x514 bytes): its start
     char* write_ptr_;           // +0x50 and end
     char* read_buffer_;         // +0x54 received data (0xA28 bytes): its start
@@ -119,12 +120,12 @@ struct Conn {
     uint32_t last_heard_from_{}; // +0x6C the last communication (AppHost::opened_link: the creation time)
     uint32_t last_transmit_at_; // +0x70
     uint32_t tx_spacing_ms_;    // +0x74
-    uint32_t next_sequence_ids_[kChannelGroups]{}; // +0x78 outgoing: the next sequence id of each group
-    uint32_t sequence_numbers_[kChannelGroups]{};  // +0x478 the next sequence number expected in each group
+    std::array<uint32_t, kChannelGroups> next_sequence_ids_{}; // +0x78 outgoing: the next sequence id of each group
+    std::array<uint32_t, kChannelGroups> sequence_numbers_{};  // +0x478 the next sequence number expected in each group
     int stream_counter_;                         // +0x878
     // +0x87C sequenced messages received ahead of their turn, by group: links with the group at +0x15, the
     // sequence number at +0x20, SeqQueuedMsg* at +0x28.
-    memory::ListNode received_queues_[kChannelGroups]{};
+    std::array<memory::ListNode, kChannelGroups> received_queues_{};
     memory::ListNode received_streams_{}; // +0x1C7C lists::Foremost<BulkStreamNode>: streams being received
     memory::ListNode send_streams_{};     // +0x1C90 lists::Foremost<BulkStreamNode>: streams being sent
     PingProbe ping_probe_;              // +0x1CA4

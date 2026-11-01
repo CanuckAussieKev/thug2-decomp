@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace maths {
 class ArcRotationBlender;
@@ -90,12 +91,12 @@ public:
     // down). Nothing without a skater.
     void get_zoomed_offsets(float* height, float* distance);
 
-    uint8_t unknown18_[0x24 - 0x18]{};
+    std::array<uint8_t, 0x24 - 0x18> unknown18_{};
     int mode_sel_{0};            // +0x24 the camera mode (an index of Skater_Camera_Array)
     int instant_frames_{};       // +0x28 frames that jump straight to the target
     float turn_cosine_;          // +0x2C the last turn's cosine (the new facing against the old)
     maths::Vec4 aim_point_{};    // +0x30 the point followed
-    maths::Vec4 orientation_[3]{}; // +0x40 (the view's first three rows)
+    std::array<maths::Vec4, 3> orientation_{}; // +0x40 (the view's first three rows)
     int wall_ride_frames_{};       // +0x70
     maths::Mat4 skater_matrix_{};  // +0x74 the skater's orientation last frame
     maths::Vec4 wall_facing_{};    // +0xB4 the wall's facing when the wall ride began (flat)
@@ -116,7 +117,7 @@ public:
     float rate_rise_{};          // +0xFC
     float rate_scale_{};         // +0x100
     uint8_t vert_zoom_on_{};     // +0x104 the vert-air zoom on (0 / 1)
-    uint8_t pad105[3]{};
+    std::array<uint8_t, 3> pad105{};
     float zoom_;                  // +0x108 the zoom now
     float zoom_target_{};         // +0x10C
     float zoom_ease_rate_;        // +0x110 zoom_lerp
@@ -130,7 +131,7 @@ public:
     float air_tilt_{};              // +0x130
     float lip_trick_tilt_{};        // +0x134 lip_trick_tilt
     float lip_trick_above_{};       // +0x138 lip_trick_above
-    uint8_t unknown13c_[4]{};
+    std::array<uint8_t, 4> unknown13c_{};
     float slerp_{};                          // +0x140 slerp
     float vert_air_slerp_{};                 // +0x144 vert_air_slerp
     float vert_air_landed_slerp_{};          // +0x148 vert_air_landed_slerp (while settling)

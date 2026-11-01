@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -88,8 +89,8 @@ public:
     maths::BBox box_;         // +0xA4
     uint32_t poly_attr_bits_{0}; // +0xC4
     uint16_t surface_type_{0};   // +0xC8
-    uint8_t unknownca_[4]{};     // +0xCA (copied, not otherwise used here)
-    uint8_t padce_[2]{};
+    std::array<uint8_t, 4> unknownca_{};     // +0xCA (copied, not otherwise used here)
+    std::array<uint8_t, 2> padce_{};
 };
 static_assert(sizeof(HitMovingBox) == 0xD0 && offsetof(HitMovingBox, poly_attr_bits_) == 0xC4, "layout must match");
 

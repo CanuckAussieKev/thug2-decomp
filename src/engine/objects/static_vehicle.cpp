@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -64,7 +65,7 @@ void ParkedVehicleModule::seal()
 {
     const uint8_t* hierarchy = hierarchy_of(entity_->fetch_module(kModel));
     // The wheels: the hierarchy's objects 1-4 (their matrices' translations).
-    maths::Vec4 wheels[4];
+    std::array<maths::Vec4, 4> wheels{};
     for (int k = 0; k < 4; ++k)
         wheels[k] = from_model(raw::field_at<const float>(hierarchy, 0xE0 + 0x50 * k));
     // The body: the root's (object 0's) translation.

@@ -6,6 +6,7 @@
 #include <memory>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/manager.h"
@@ -24,7 +25,7 @@ namespace render {
 
 namespace {
 
-ShadowVolume** shadow_volumes() { return g_shadow_volumes; }
+ShadowVolume** shadow_volumes() { return g_shadow_volumes.data(); }
 lists::KeyMap& edge_table() { return g_shadow_edge_table; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
@@ -132,9 +133,9 @@ void BlobShadow::load_mesh(const char* name)
         mesh_instance_ = nullptr;
     }
     mesh_instance_ = spawn_model();
-    char file_name[0x200] = {};
-    add_extension(name, ".mdl", file_name);
-    mesh_instance_->add_file_geom(file_name, 0, true, 0, false, false, true, false);
+    std::array<char, 0x200> file_name = {};
+    add_extension(name, ".mdl", file_name.data());
+    mesh_instance_->add_file_geom(file_name.data(), 0, true, 0, false, false, true, false);
 }
 
 // 0x004A1CD0

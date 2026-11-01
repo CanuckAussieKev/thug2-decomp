@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/slab_bank.h"
@@ -154,10 +155,10 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 // unset when the profile's voice isn't in the list). Always true.
 bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
 {
-    char voice[128];
+    std::array<char, 128> voice{};
     voice[0] = 0; // (left as the stack had it in the original when the voice is not found)
-    char stream[128];
-    char first_name[128];
+    std::array<char, 128> stream{};
+    std::array<char, 128> first_name{};
     auto* skater = core::down_cast<objects::Rider>(script->entity_.owner_object_);
     const char* type = nullptr;
     params->fetch_text(kType, &type, 1);
@@ -177,12 +178,12 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         order->set_element(i, a);
     }
 
-    copy_string(first_name, skater->given_name_); // (copied and not used)
+    copy_string(first_name.data(), skater->given_name_.data()); // (copied and not used)
     objects::RiderIdentity* profile = objects::g_profile_roster->get_template(skater->label_);
     if (skater->pro_) {
         const char* last_name = nullptr;
         profile->details_params()->fetch_text(kLastName, &last_name, 1);
-        copy_string(voice, last_name);
+        copy_string(voice.data(), last_name);
     } else {
         uint32_t voice_name = 0;
         if (profile->details_params()->read_hash_value(kVoice, &voice_name, 0)) {
@@ -195,25 +196,25 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
                 if (id == voice_name) {
                     const char* name = nullptr;
                     entry->fetch_text(kStreamName, &name, 1);
-                    copy_string(voice, name);
+                    copy_string(voice.data(), name);
                     break;
                 }
             }
         } else {
             int male = 0;
             params->fetch_int_value(kIsMale, &male, 1);
-            std::memcpy(voice, male == 1 ? "customM" : "customF", 8);
+            std::memcpy(voice.data(), male == 1 ? "customM" : "customF", 8);
         }
     }
 
     for (int i = 0; i < count; ++i) {
         // "%s_%s%02i" (the original's sprintf is unbounded)
-        std::snprintf(stream, sizeof(stream), "%s_%s%02i", voice, type, static_cast<int>(order->fetch_part(i)));
-        if (!audio::stream_exists(checksums::hash_from_text(stream)))
+        std::snprintf(stream.data(), sizeof(stream), "%s_%s%02i", voice.data(), type, static_cast<int>(order->fetch_part(i)));
+        if (!audio::stream_exists(checksums::hash_from_text(stream.data())))
             continue;
         Struct* struct_memory = script::spawn_param_bag();
         Struct* stream_params = struct_memory ? new (struct_memory) script::Struct : nullptr;
-        stream_params->put_name_key(kStreamChecksum, checksums::hash_from_text(stream));
+        stream_params->put_name_key(kStreamChecksum, checksums::hash_from_text(stream.data()));
         script::launch_script(kSkaterPlayBailStream, stream_params, script->entity_.owner_object_, false, nullptr);
         if (stream_params) {
             // (delete inlined: the structure pool pair's Free)

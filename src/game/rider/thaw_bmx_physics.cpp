@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/anim_blend.h"
@@ -782,7 +783,7 @@ void get_brake(SkaterPhysicsModule* core)
         core->braking_ = 0;
         return;
     }
-    static const uint32_t kNames[] = {0, kBrakeAcceleration, kFrontBrakeAcceleration, kSkidAcceleration};
+    static const auto kNames = std::to_array<uint32_t>({0, kBrakeAcceleration, kFrontBrakeAcceleration, kSkidAcceleration});
     const float slowing = get_frame_length(core) * tuning_float_lookup(kNames[choice], core);
     maths::Vec4& velocity = object_of(core)->vel_;
     if (length3(velocity) < static_cast<double>(slowing) * 2.0) {

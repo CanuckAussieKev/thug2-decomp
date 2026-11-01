@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -116,9 +117,9 @@ template <typename Format>
 void add_score_line(Format format, uint32_t id, bool team_score, bool font_first = false)
 {
     script::Struct* params = spawn_param_table();
-    char text[0x40];
-    format(text, sizeof(text));
-    params->append_word(kText, text);
+    std::array<char, 0x40> text{};
+    format(text.data(), sizeof(text));
+    params->append_word(kText, text.data());
     if (font_first)
         params->put_name_key(kFont, kDialog);
     params->put_name_key(kId, id);
@@ -162,7 +163,7 @@ void fill_elimination_ranking()
          player = net->step_player_walk(&search, false)) {
         online::PlayerRecord* info = as_player(player);
         online::ScoreEntry* entry = new_entry();
-        text::copy_unbounded(entry->text_, info->skater_->fetch_shown_name());
+        text::copy_unbounded(entry->text_.data(), info->skater_->fetch_shown_name());
         entry->team_score_ =
             reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
         entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
@@ -172,9 +173,9 @@ void fill_elimination_ranking()
     uint32_t id = kFirstLine;
     for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
         online::ScoreEntry* next = RankingList::get_after(entry);
-        char text[0x40];
-        std::snprintf(text, sizeof(text), "\\c%d%s", entry->shade_, entry->text_); // "\c%d%s"
-        add_player_line(text, false);
+        std::array<char, 0x40> text{};
+        std::snprintf(text.data(), sizeof(text), "\\c%d%s", entry->shade_, entry->text_.data()); // "\c%d%s"
+        add_player_line(text.data(), false);
         add_score_line(
             [&](char* score, size_t size) {
                 std::snprintf(score, size, "%d", entry->team_score_); // "%d"
@@ -215,11 +216,11 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             entry->shade_ = team + 2;
             entry->unknown44_ = static_cast<uint32_t>(team);
             entry->team_score_ = net->get_squad_points(team);
-            char name[0x40];
-            std::snprintf(name, sizeof(name), "team_%d_name", team + 1); // "team_%d_name"
+            std::array<char, 0x40> name{};
+            std::snprintf(name.data(), sizeof(name), "team_%d_name", team + 1); // "team_%d_name"
             const char* total = script::fetch_text("total_str");         // "total_str"
-            const char* team_name = script::fetch_text(name);
-            std::snprintf(entry->text_, sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_), "\\c%d%s %s",
+            const char* team_name = script::fetch_text(name.data());
+            std::snprintf(entry->text_.data(), sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_), "\\c%d%s %s",
                           entry->shade_, team_name, total); // "\c%d%s %s" (unbounded there)
             entry->priority = net->get_squad_points(team);
             raw::as<lists::Foremost>(&list.head_)->append_vertex(entry);
@@ -233,17 +234,17 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
                 if (ints::as_unsigned(info->team_) != entry->unknown44_)
                     continue;
                 uint32_t score = score_of(info);
-                char text[0x40];
+                std::array<char, 0x40> text{};
                 std::snprintf(
-                    text, sizeof(text),
+                    text.data(), sizeof(text),
                     (static_cast<uint8_t>(info->is_own_player()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
-                    entry->shade_, info->label_);
-                add_player_line(text, false);
+                    entry->shade_, info->label_.data());
+                add_player_line(text.data(), false);
                 add_score_line([&](char* shown, size_t size) { format_score(shown, size, score, 0, false); },
                                kFirstLine + line, false, true);
                 ++line;
             }
-            add_player_line(entry->text_, true);
+            add_player_line(entry->text_.data(), true);
             add_score_line(
                 [&](char* total, size_t size) {
                     format_score(total, size, static_cast<uint32_t>(entry->priority), entry->shade_, true);
@@ -259,14 +260,14 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             online::PlayerRecord* info = as_player(player);
             const uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();
-            text::copy_unbounded(entry->text_, info->skater_->fetch_shown_name());
+            text::copy_unbounded(entry->text_.data(), info->skater_->fetch_shown_name());
             entry->priority = static_cast<int>(score);
             raw::as<lists::Foremost>(&list.head_)->append_vertex(entry);
         }
         uint32_t id = kFirstLine;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
             online::ScoreEntry* next = RankingList::get_after(entry);
-            add_player_line(entry->text_, false);
+            add_player_line(entry->text_.data(), false);
             add_score_line(
                 [&](char* shown, size_t size) {
                     format_score(shown, size, static_cast<uint32_t>(entry->priority), 0, false);

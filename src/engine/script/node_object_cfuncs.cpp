@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <utility>
+#include <array>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/assets/resource_registry.h"
@@ -601,11 +602,11 @@ bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
 {
     mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap_));
     level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance();
-    const char* loaded_node_list = g_node_list_name;
+    const char* loaded_node_list = g_node_list_name.data();
     assets::ResourceRegistry* assets = assets::asset_manager();
     assets->discard_loaded_item(assets->obtain_loaded_item(checksums::hash_from_text(loaded_node_list), 0));
-    alignas(4) uint8_t storage[8];
-    auto* file = raw::as<script::Struct>(storage);
+    alignas(4) std::array<uint8_t, 8> storage{};
+    auto* file = raw::as<script::Struct>(storage.data());
     new (file) script::Struct;
     file->append_word(0u, loaded_node_list);
     const char* name = nullptr;

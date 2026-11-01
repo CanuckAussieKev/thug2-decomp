@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 // An animation frame source (Nx; 0x214 bytes in the original, from the frame sources' pools 0x006FA7F4): the animation
 // it plays, its search cursors into the animation's keys and the skeleton's bone masks; its frame data is the asset
@@ -19,8 +20,8 @@ struct FrameSource {
     // (0x0048D000 the scalar deleting destructor: nothing of its own)
 
     uint32_t anim_ = 0;                    // the animation's checksum
-    const uint8_t* quat_at_[64] = {};      // each bone's rotation key its search last ended at
-    const uint8_t* trans_at_[64] = {};     // and translation key
+    std::array<const uint8_t*, 64> quat_at_ = {};      // each bone's rotation key its search last ended at
+    std::array<const uint8_t*, 64> trans_at_ = {};     // and translation key
     bool resume_ = false;                  // set_done's flag: the searches start where they last ended, and the bones
                                            // `bone_masks_` collapse at level of detail `mask_bit_` are skipped
     const uint32_t* bone_masks_ = nullptr; // the skeleton's (a word for each bone: a bit per level of detail)

@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace render {
 class ProbeRay;
@@ -34,7 +35,7 @@ struct ModelSpin {
     float range_;       // +0x0C degrees
     int power_;         // +0x10 SinePower
     uint8_t flag_bits_; // +0x14 MODEL_SPIN_*
-    uint8_t pad15[3];
+    std::array<uint8_t, 3> pad15;
 };
 static_assert(sizeof(ModelSpin) == 0x18, "layout must match the original");
 
@@ -52,7 +53,7 @@ struct ModelSpinAxis {
     // 0x004213E0: the angles of the turns still on, added up (degrees). Inactive once none is.
     float bearing();
 
-    ModelSpin spins_[6]; // +0x00
+    std::array<ModelSpin, 6> spins_; // +0x00
     bool active_;        // +0x90
 };
 static_assert(sizeof(ModelSpinAxis) == 0x94, "layout must match the original");
@@ -140,15 +141,15 @@ public:
 
     maths::Vec4 enclosing_ball_{};  // +0x18 the model's (0x00492F30)
     maths::Vec4 pivot_{};           // +0x28 RotationOffset
-    ModelSpinAxis twist_rate_[3]{}; // +0x38 about X, Y, Z
+    std::array<ModelSpinAxis, 3> twist_rate_{}; // +0x38 about X, Y, Z
     bool flip_{};                   // +0x1F4 EnableDisplayFlip
-    uint8_t pad1f5_[3]{};
+    std::array<uint8_t, 3> pad1f5_{};
     maths::Vec4 shift_{};                // +0x1F8 added to the display position (w 1)
     render::RenderModel* mesh_instance_; // +0x208
     ObjectModule* bone_rig_{};           // +0x20C its object's skeleton component (Finalize)
     ObjectModule* anim_blender_ptr_{};   // +0x210
     ObjectModule* suspend_{};            // +0x214
-    float color_values_[4]{};            // +0x218 (1 to color_value_count_)
+    std::array<float, 4> color_values_{};            // +0x218 (1 to color_value_count_)
     int color_value_count_;              // +0x228
     float brightness_;                   // +0x22C
     uint32_t linked_entity_label_{};     // +0x230 refObjectName: a level object's sector

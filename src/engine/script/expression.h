@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "engine/script/param_struct.h"
 
@@ -68,9 +69,9 @@ public:
         int open_parentheses_;
     };
 
-    Component values_[20];
+    std::array<Component, 20> values_;
     int value_top_;
-    Operator operators_[20];
+    std::array<Operator, 20> operators_;
     int operator_top_;
     bool has_operators_;
     const uint8_t* token_;

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "platform/platform_input.h"
 
@@ -23,27 +24,27 @@ struct KeyName {
 };
 
 // In the order the original sets them; the keypad's names differ by language.
-const KeyName kBefore[] = {
+constexpr auto kBefore = std::to_array<KeyName>({
     {0x01, L"ESC"}, {0x0F, L"TAB"}, {0x0E, L"BK"}, {0x1C, L"ENT"}, {0x38, L"LA"}, {0xB8, L"RA"}, {0x1D, L"LC"},
     {0x2A, L"LS"},  {0x36, L"RS"},  {0x39, L"SB"}, {0x3A, L"CL"},  {0x45, L"NL"}, {0x46, L"SC"},
-};
-const KeyName kKeypad[] = {
+});
+constexpr auto kKeypad = std::to_array<KeyName>({
     {0x47, L"KP7"}, {0x48, L"KP8"}, {0x49, L"KP9"}, {0x4A, L"KP-"}, {0x4B, L"KP4"}, {0x4C, L"KP5"},
     {0x4D, L"KP6"}, {0x37, L"KP*"}, {0x4E, L"KP+"}, {0x4F, L"KP1"}, {0x50, L"KP2"}, {0x51, L"KP3"},
     {0x52, L"KP0"}, {0x53, L"KP."}, {0xB3, L"KP."}, {0xB5, L"KP/"}, {0x9C, L"KPE"},
-};
-const KeyName kGermanKeypad[] = {
+});
+constexpr auto kGermanKeypad = std::to_array<KeyName>({
     {0x47, L"ZB7"}, {0x48, L"ZB8"}, {0x49, L"ZB9"}, {0x4A, L"ZB-"}, {0x4B, L"ZB4"}, {0x4C, L"ZB5"},
     {0x4D, L"ZB6"}, {0x37, L"ZB*"}, {0x4E, L"ZB+"}, {0x4F, L"ZB1"}, {0x50, L"ZB2"}, {0x51, L"ZB3"},
     {0x52, L"ZB0"}, {0x53, L"ZB."}, {0xB3, L"ZB."}, {0xB5, L"ZB/"}, {0x9C, L"ZBE"},
-};
-const KeyName kAfter[] = {
+});
+constexpr auto kAfter = std::to_array<KeyName>({
     {0x9D, L"RC"},  {0xC5, L"PAU"}, {0xC7, L"HO"},  {0xC8, L"UP"},  {0xC9, L"PUP"}, {0xCB, L"LFT"},
     {0xCD, L"RGT"}, {0xCF, L"END"}, {0xD0, L"DWN"}, {0xD1, L"PDN"}, {0xD2, L"INS"}, {0xD3, L"DEL"},
-};
+});
 
 template <size_t N>
-void assign_value(const KeyName (&names)[N])
+void assign_value(const std::array<KeyName, N>& names)
 {
     for (const KeyName& key : names)
         set_key_name(key.scan_code_, key.name);

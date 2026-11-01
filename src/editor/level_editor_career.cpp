@@ -81,8 +81,8 @@ Checklist get_take_in(goals::GapTally* checklist)
             maths::Vec4 pos{}, dir{};
             checklist->get_gap_positions(i, &pos, &dir);
             const float p[4] = {pos.x, pos.y, pos.z, pos.w}, d[4] = {dir.x, dir.y, dir.z, dir.w};
-            std::copy(p, p + 4, gap.pos);
-            std::copy(d, d + 4, gap.dir);
+            std::copy(p, p + 4, gap.pos.begin());
+            std::copy(d, d + 4, gap.dir.begin());
         }
         out.gaps.push_back(gap);
     }

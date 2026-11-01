@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/maths/mat4.h"
@@ -189,8 +190,8 @@ void log_rail_boost(script::Script* script, float before, float after, float hei
     static const bool kOn = config_int("features", "debug_rail_speed", 0) != 0;
     if (!kOn || !script)
         return;
-    static const uint32_t kLoops[] = {checksums::hash_from_text("RailAccelerate2"),
-                                      checksums::hash_from_text("ed_RailSpeedLoop")};
+    static const auto kLoops = std::to_array<uint32_t>({checksums::hash_from_text("RailAccelerate2"),
+                                      checksums::hash_from_text("ed_RailSpeedLoop")});
     if (script->script_title_ != kLoops[0] && script->script_title_ != kLoops[1])
         return;
     static RailBoostLog log;
@@ -362,10 +363,10 @@ void SkaterPhysicsModule::check_for_ground()
                         update_ground_normal();
                     start_riding_hit_object();
                     if (floor_feeler_.hit_.object != feeler_.hit_.object) {
-                        trigger_of(this)->probe_touches_zone(kKickEvents, &floor_feeler_);
+                        trigger_of(this)->probe_touches_zone(kKickEvents.data(), &floor_feeler_);
                         if (physics_control_->flag26_)
                             return;
-                        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0, &feeler_);
+                        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0.data(), &feeler_);
                         if (physics_control_->flag26_)
                             return;
                     }
@@ -411,12 +412,12 @@ void SkaterPhysicsModule::check_for_ground()
             set_timed_flag(state_, PoseFlag::kLeftVert, 0);
     } else if (triggers_held(input)) {
         // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
-        uint8_t drop[40];
+        std::array<uint8_t, 40> drop{};
         objects::GameEntity* o = entity_;
-        if (find_acid_drop(true, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop)))
-            start_acid_drop(raw::as<const AcidDrop>(drop));
+        if (find_acid_drop(true, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop.data())))
+            start_acid_drop(raw::as<const AcidDrop>(drop.data()));
     }
-    trigger_of(this)->probe_touches_zone(kOtherFeelerLeaveEvents, &floor_feeler_);
+    trigger_of(this)->probe_touches_zone(kOtherFeelerLeaveEvents.data(), &floor_feeler_);
 }
 
 // Not original (THAW's BMX, phase 3 - THAW 0x005DF3E0..0x005DF7B5): the bike on the ground under its wheels
@@ -434,10 +435,10 @@ void SkaterPhysicsModule::ground_under_wheels(bool hit)
     sound_->surface_type_ = surface;
     start_riding_hit_object();
     if (floor_feeler_.hit_.object != feeler_.hit_.object) {
-        trigger_of(this)->probe_touches_zone(kKickEvents, &floor_feeler_);
+        trigger_of(this)->probe_touches_zone(kKickEvents.data(), &floor_feeler_);
         if (physics_control_->flag26_)
             return;
-        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0, &feeler_);
+        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0.data(), &feeler_);
         if (physics_control_->flag26_)
             return;
     }
@@ -744,10 +745,10 @@ void SkaterPhysicsModule::do_air_physics()
     bool recent = false;
     if (air_start_ > ints::as_unsigned(leap_time_))
         recent = static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(air_start_))) < 0xFA;
-    uint8_t drop[40];
+    std::array<uint8_t, 40> drop{};
     objects::GameEntity* o = object_of(this);
-    if (find_acid_drop(recent, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop)))
-        start_acid_drop(raw::as<const AcidDrop>(drop));
+    if (find_acid_drop(recent, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop.data())))
+        start_acid_drop(raw::as<const AcidDrop>(drop.data()));
 }
 
 // (Part of 0x0050CA00: landing on something skatable.)
@@ -775,7 +776,7 @@ void SkaterPhysicsModule::land_from_air()
     if (!skater->trick_objects_on_)
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     remember_floor_probe(&feeler_);
-    trigger_of(this)->probe_touches_zone(kSkaterEvents0064bB98, &floor_feeler_);
+    trigger_of(this)->probe_touches_zone(kSkaterEvents0064bB98.data(), &floor_feeler_);
     if (!physics_control_->flag26_) {
         const maths::Vec4& normal = feeler_.surface_dir_;
         maths::Vec4& velocity = entity_->vel_;

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/script/cscript.h"
@@ -105,15 +106,15 @@ uint32_t goal_object_name(uint32_t type, int index)
 // 0x004E6730
 uint32_t edited_goal_node_name(int which, int goal)
 {
-    char name[100];
+    std::array<char, 100> name{};
     name[0] = '\0';
     if (which == 0)
-        get_sprintf(name, "TRG_EditedGoal%d_Pro", goal);
+        get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", goal);
     else if (which == 1)
-        get_sprintf(name, "TRG_EditedGoal%d_Restart", goal);
+        get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", goal);
     else
-        get_sprintf(name, "TRG_EditedGoal%d_Object_%d", goal, which - 2);
-    return checksums::hash_from_text(name);
+        get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", goal, which - 2);
+    return checksums::hash_from_text(name.data());
 }
 
 // 0x004E67A0
@@ -224,7 +225,7 @@ void init_edited_goal(uint8_t* goal)
 void run_marker_object_script(int index)
 {
     script::Struct params;
-    char* name = g_goal_name_buffer;
+    char* name = g_goal_name_buffer.data();
     get_sprintf(name, "GoalEditorMarkerObject%d", index);
     params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name));
     script::launch_script(0xDCF3A25E, &params, nullptr, false, nullptr);

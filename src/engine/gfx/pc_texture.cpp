@@ -28,6 +28,7 @@
 #include "formats/byte_stream.h"
 #include "platform/crt.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -69,12 +70,12 @@ PcTexture::~PcTexture()
 // 0x004C7F00
 bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
 {
-    char path[0x100];
+    std::array<char, 0x100> path{};
     const size_t length = std::strlen(name); // (unchecked, as the original)
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(path, name, length);
-    std::memcpy(path + length, ".img.xbx", 9);
-    image_ = read_texture_file(path);
+    std::memcpy(path.data(), name, length);
+    std::memcpy(path.data() + length, ".img.xbx", 9);
+    image_ = read_texture_file(path.data());
     return image_ != nullptr;
 }
 
@@ -590,8 +591,8 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
         centre_x = static_cast<float>((static_cast<double>(width) - 1.0f) * 0.5f);
     if (centre_y < 0.0f)
         centre_y = static_cast<float>((static_cast<double>(height) - 1.0f) * 0.5f);
-    float m[4];
-    maths::create_rotate_2d(m, -angle);
+    std::array<float, 4> m{};
+    maths::create_rotate_2d(m.data(), -angle);
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     const uint32_t bytes = height * width * 4;
@@ -764,7 +765,7 @@ bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bo
         s = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
         scaled = static_cast<double>(v) * value;
         v = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
-        float rgb[3];
+        std::array<float, 3> rgb{};
         hsv_to_rgb(&rgb[0], &rgb[1], &rgb[2], h, s, v);
         for (int k = 0; k < 3; ++k)
             into[k] = static_cast<uint8_t>(ftol(static_cast<double>(rgb[k]) * 255.0f + 0.5f));
@@ -1070,10 +1071,10 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
     auto read = [file](void* into, int size, int count) {
         return file::get_take_in(into, size, count, file) == size * count; // (bytes read)
     };
-    uint8_t bytes[texture_format::kTextureHeaderSize];
+    std::array<uint8_t, texture_format::kTextureHeaderSize> bytes{};
     texture_format::DictionaryHeader dictionary;
-    util::ByteReader dictionary_reader(bytes, texture_format::kDictionaryHeaderSize);
-    if (!read(bytes, texture_format::kDictionaryHeaderSize, 1) ||
+    util::ByteReader dictionary_reader(bytes.data(), texture_format::kDictionaryHeaderSize);
+    if (!read(bytes.data(), texture_format::kDictionaryHeaderSize, 1) ||
         !texture_format::read_dictionary_header(dictionary_reader, &dictionary)) {
         file::shut(file);
         return table;
@@ -1084,8 +1085,8 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
     uint32_t format = 0; // (the original's is whatever its stack held until a texture sets it)
     for (int i = 0; i < count; ++i) {
         texture_format::TextureHeader header;
-        util::ByteReader header_reader(bytes, sizeof(bytes));
-        if (!read(bytes, sizeof(bytes), 1) || !texture_format::read_texture_header(header_reader, &header)) {
+        util::ByteReader header_reader(bytes.data(), sizeof(bytes));
+        if (!read(bytes.data(), sizeof(bytes), 1) || !texture_format::read_texture_header(header_reader, &header)) {
             debug::printf("%s: cut short at texture %d of %d\n", name, i, count);
             break;
         }

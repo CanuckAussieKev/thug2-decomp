@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/net/thugpro_peer.h"
@@ -21,9 +22,9 @@ uint32_t g_hash_override = 0;
 
 uint32_t read_scripts_hash()
 {
-    char text[32];
-    build_info::fetch_text("online", "thugpro_scripts_hash", "", text, sizeof(text));
-    auto hash = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
+    std::array<char, 32> text{};
+    build_info::fetch_text("online", "thugpro_scripts_hash", "", text.data(), sizeof(text));
+    auto hash = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, 16));
     return hash ? hash : kReleaseScriptsHash;
 }
 
@@ -33,7 +34,7 @@ struct ReasonText {
     const char* name_text_;
     const char* words;
 };
-constexpr ReasonText kReasons[] = {
+constexpr auto kReasons = std::to_array<ReasonText>({
     {0xD9658C73, "tp_net_reason_version_low", "The host runs a newer THUGPRO than this game speaks."},
     {0x3CE70459, "tp_net_reason_modifications", "The host doesn't allow modified scripts (THUGPRO's mods setting)."},
     {0xCAAD4ABB, "tp_net_reason_release_type", "The host doesn't accept this kind of release."},
@@ -41,7 +42,7 @@ constexpr ReasonText kReasons[] = {
     {0xD32BAEE3, "tp_net_reason_player_name_tooshort", "Your player name is too short for this host."},
     {0xB82CAE9B, "tp_net_reason_banned", "You have been banned from this server."},
     {0x1F8DF1D2, "tp_net_reason_test", "Connection refused (THUGPRO's test refusal)."},
-};
+});
 
 } // namespace
 
@@ -58,14 +59,14 @@ void set_scripts_hash_override(uint32_t hash) { g_hash_override = hash; }
 uint16_t make_connect_request(const ConnectInfo& thug2, ConnectRequest* out)
 {
     ConnectTrailer trailer = {};
-    std::memcpy(trailer.magic, kMagic, sizeof(kMagic));
+    std::memcpy(trailer.magic.data(), kMagic.data(), sizeof(kMagic));
     trailer.version = kProtocolVersion;
     trailer.release = kReleaseThug2Decomp;
     trailer.scripts_hash_ = scripts_hash();
     trailer.machine_id_ = get_machine_id();
     // (THUGPRO's host checks this flag, not the hash: the two say the same - see the register, TP-R12)
     trailer.modified_scripts_ = trailer.scripts_hash_ != kReleaseScriptsHash;
-    util::ByteWriter writer(out->bytes, sizeof(out->bytes));
+    util::ByteWriter writer(out->bytes.data(), sizeof(out->bytes));
     write_connect_info(writer, thug2);
     write_connect_trailer(writer, trailer);
     return static_cast<uint16_t>(writer.position());
@@ -78,7 +79,7 @@ bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* 
     util::ByteReader reader(message, length);
     reader.seek(kConnectInfoSize);
     ConnectTrailer trailer{};
-    if (!read_connect_trailer(reader, &trailer) || std::memcmp(trailer.magic, kMagic, sizeof(kMagic)) != 0)
+    if (!read_connect_trailer(reader, &trailer) || std::memcmp(trailer.magic.data(), kMagic.data(), sizeof(kMagic)) != 0)
         return false;
     *out = trailer;
     return true;

@@ -17,6 +17,7 @@
 #include "engine/sys/startup_init.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/script/names.h"
 
@@ -25,7 +26,7 @@ namespace sys {
 namespace {
 
 // 16 bytes nothing reads, set to a null (virtual-inheritance) member function pointer by 0x006408A0.
-uint32_t g_null_member_function_67d_6c_0[4];
+std::array<uint32_t, 4> g_null_member_function_67d_6c_0;
 
 // 0x006408A0
 void set_null_member_function()

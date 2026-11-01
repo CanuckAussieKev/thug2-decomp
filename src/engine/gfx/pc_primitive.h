@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/surface_material.h"
@@ -89,7 +90,7 @@ public:
     int stride_{};           // +0x38
     MaterialRef material_;   // +0x3C (its constructor 0x004D1A90)
     uint32_t colour_{0x80808080}; // +0x14C
-    uint8_t unknown150_[8]{};
+    std::array<uint8_t, 8> unknown150_{};
 };
 static_assert(offsetof(PcPrimitive, vertices_) == 0x24 && offsetof(PcPrimitive, stride_) == 0x38 &&
                   offsetof(PcPrimitive, material_) == 0x3C && offsetof(PcPrimitive, colour_) == 0x14C &&

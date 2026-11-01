@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_texture.h"
@@ -48,7 +49,7 @@ UINT start_timer(UINT delay, LPTIMECALLBACK callback) { return timeSetEvent(dela
 void stop_timer(UINT timer) { timeKillEvent(timer); }
 
 render::BillboardQuad* g_loading_screen_sprite;     // (nothing in this build sets it)
-uint32_t g_picture_name[7]{0, 0, 0, 0, 0, 0, 0x0F}; // (a std::string: empty, its capacity 15)
+std::array<uint32_t, 7> g_picture_name{{0, 0, 0, 0, 0, 0, 0x0F}}; // (a std::string: empty, its capacity 15)
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
@@ -59,7 +60,7 @@ render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 // in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
 const char* picture_name()
 {
-    auto* name = raw::bytes(g_picture_name);
+    auto* name = raw::bytes(g_picture_name.data());
     if (*raw::field_at<uint32_t>(name, 0x18) >= 16)
         return *raw::field_at<const char*>(name, 4);
     return raw::chars(name + 4);
@@ -67,7 +68,7 @@ const char* picture_name()
 void set_picture_name(const char* text)
 {
     // std::string::assign(const char*) over the layout above (0x004B7880 / 0x004B7750 in the exe).
-    auto* name = raw::bytes(g_picture_name);
+    auto* name = raw::bytes(g_picture_name.data());
     uint32_t& size = *raw::field_at<uint32_t>(name, 0x14);
     uint32_t& capacity = *raw::field_at<uint32_t>(name, 0x18);
     char*& heap = *raw::field_at<char*>(name, 4);
@@ -90,14 +91,14 @@ void set_picture_name(const char* text)
 // NOT ORIGINAL - the level select's loading pictures (tools/pipeline menu_level/loading_select.ts): a level whose
 // loading_screen is "loadscrn_sel_<load>__<the original picture>" shows the level select's picture (16:9, text-free);
 // [features] level_select_loading_screens=0 loads the original picture named after the "__" instead.
-constexpr char kSelectPrefix[] = "loadscrn_sel_";
+constexpr auto kSelectPrefix = std::to_array("loadscrn_sel_");
 constexpr float kSelectAspect = 16.0f / 9.0f;
 bool s_select_picture = false; // the picture up is one of those (drawn cover-fitted, with the bar's plate)
 bool s_bar_styled = false;     // the bar's own settings are saved and ours are in
 int s_saved_bar_width = 0;
-uint8_t s_saved_colors[3][4] = {};
+std::array<std::array<uint8_t, 4>, 3> s_saved_colors = {};
 
-bool is_select_name(const char* name) { return std::strncmp(name, kSelectPrefix, sizeof(kSelectPrefix) - 1) == 0; }
+bool is_select_name(const char* name) { return std::strncmp(name, kSelectPrefix.data(), sizeof(kSelectPrefix) - 1) == 0; }
 bool select_enabled()
 {
     static const bool kOn = config_int("features", "level_select_loading_screens", 1) != 0;
@@ -117,20 +118,20 @@ void apply_bar_style(bool select)
         return;
     if (select) {
         s_saved_bar_width = g_progress_width;
-        std::memcpy(s_saved_colors[0], g_progress_from_color, 4);
-        std::memcpy(s_saved_colors[1], g_progress_to_color, 4);
-        std::memcpy(s_saved_colors[2], g_progress_edge_color, 4);
+        std::memcpy(s_saved_colors[0].data(), g_progress_from_color.data(), 4);
+        std::memcpy(s_saved_colors[1].data(), g_progress_to_color.data(), 4);
+        std::memcpy(s_saved_colors[2].data(), g_progress_edge_color.data(), 4);
         g_progress_width = 300;
         const uint8_t start[4] = {0xB9, 0xB5, 0xAC, 0x80}, end[4] = {0xF2, 0xE2, 0x05, 0x80},
                       track[4] = {0x3A, 0x3A, 0x38, 0x80};
-        std::memcpy(g_progress_from_color, start, 4);
-        std::memcpy(g_progress_to_color, end, 4);
-        std::memcpy(g_progress_edge_color, track, 4);
+        std::memcpy(g_progress_from_color.data(), start, 4);
+        std::memcpy(g_progress_to_color.data(), end, 4);
+        std::memcpy(g_progress_edge_color.data(), track, 4);
     } else {
         g_progress_width = s_saved_bar_width;
-        std::memcpy(g_progress_from_color, s_saved_colors[0], 4);
-        std::memcpy(g_progress_to_color, s_saved_colors[1], 4);
-        std::memcpy(g_progress_edge_color, s_saved_colors[2], 4);
+        std::memcpy(g_progress_from_color.data(), s_saved_colors[0].data(), 4);
+        std::memcpy(g_progress_to_color.data(), s_saved_colors[1].data(), 4);
+        std::memcpy(g_progress_edge_color.data(), s_saved_colors[2].data(), 4);
     }
     s_bar_styled = select;
     update_loading_bar_colors();
@@ -183,13 +184,13 @@ void draw_loading_screen_picture()
             v1 = 1.0f - v0;
         }
     }
-    const PictureVertex quad[4] = {
+    const std::array<PictureVertex, 4> quad = {{
         {0.0f, 0.0f, 0.0f, 1.0f, u0, v1},
         {0.0f, height, 0.0f, 1.0f, u0, v0},
         {width, 0.0f, 0.0f, 1.0f, u1, v1},
         {width, height, 0.0f, 1.0f, u1, v0},
-    };
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(PictureVertex));
+    }};
+    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(PictureVertex));
     set_texture(0, nullptr);
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     get_unlock();
@@ -237,19 +238,19 @@ void show_loading_screen(const char* name, bool keep, bool black)
     get_lock();
     // Not original: a level select picture's name (the load script added "_story" / "_classic" to it in those modes,
     // as to the original picture's): off, the original picture it ends with; on, the picture without the suffix.
-    char picked[0xC8];
+    std::array<char, 0xC8> picked{};
     if (!keep && !black && is_select_name(name)) {
         if (!select_enabled()) {
             name = original_of(name);
         } else {
-            std::snprintf(picked, sizeof(picked), "%s", name);
+            std::snprintf(picked.data(), sizeof(picked), "%s", name);
             for (const char* suffix : {"_story", "_classic"}) {
-                const size_t length = std::strlen(picked);
+                const size_t length = std::strlen(picked.data());
                 const size_t tail = std::strlen(suffix);
-                if (length > tail && std::strcmp(picked + length - tail, suffix) == 0)
+                if (length > tail && std::strcmp(picked.data() + length - tail, suffix) == 0)
                     picked[length - tail] = '\0';
             }
-            name = picked;
+            name = picked.data();
         }
     }
     input_port()->SetRenderState(D3DRS_FOGENABLE, FALSE);
@@ -269,15 +270,15 @@ void show_loading_screen(const char* name, bool keep, bool black)
             }
             picture() = raw::bytes(static_cast<render::BitmapTexture*>(new render::PcTexture));
             // the language's picture: French "fr/<name>", German "gr/<name>"
-            char localised[0xC8];
+            std::array<char, 0xC8> localised{};
             const char* file = name;
             const int language = game_config::g_language;
             if (language == 3 && !is_select_name(name)) { // (no text on a level select picture: one for all languages)
-                std::snprintf(localised, sizeof(localised), "fr/%s", name);
-                file = localised;
+                std::snprintf(localised.data(), sizeof(localised), "fr/%s", name);
+                file = localised.data();
             } else if (language == 5 && !is_select_name(name)) {
-                std::snprintf(localised, sizeof(localised), "gr/%s", name);
-                file = localised;
+                std::snprintf(localised.data(), sizeof(localised), "gr/%s", name);
+                file = localised.data();
             }
             // (no check: a failed allocation calls through null, as the original)
             const bool loaded = raw::as<render::BitmapTexture>(picture())->load_by_name(file, 1, 1);

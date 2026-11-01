@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
@@ -28,7 +29,7 @@ namespace frontend::level_editor::notes {
 constexpr size_t kMaxText = 500;
 constexpr const char* kStem = "ed_note";
 // The colours offered (RGB) - the first is the default.
-constexpr uint32_t kColours[] = {0xFFD84A, 0xFF7A59, 0x5AC8FA, 0x7BD88F, 0xC18CFF, 0xF2F2F2};
+constexpr auto kColours = std::to_array<uint32_t>({0xFFD84A, 0xFF7A59, 0x5AC8FA, 0x7BD88F, 0xC18CFF, 0xF2F2F2});
 constexpr int kColourCount = static_cast<int>(sizeof(kColours) / sizeof(kColours[0]));
 
 struct Note {

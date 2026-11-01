@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/net/gamespy.h"
@@ -95,7 +96,7 @@ constexpr int kDropKicked = 4;
 constexpr int kDropDropped = 5;
 constexpr int kDropLeftOut = 6;
 constexpr uint32_t kNetMessagePlayerTimedOut = 0x2FD5CBE0; // net_message_player_timed_out
-constexpr uint32_t kDropTexts[] = {
+constexpr auto kDropTexts = std::to_array<uint32_t>({
     0xA609ACD7,                // net_message_player_quit
     kNetMessagePlayerTimedOut, //
     0xDF79BBF5,                // net_message_player_now_observing
@@ -103,7 +104,7 @@ constexpr uint32_t kDropTexts[] = {
     0x3CD67FE6,                // net_message_player_kicked
     0xDDCDDB87,                // net_message_player_dropped
     0x2165392E,                // net_message_player_left_out
-};
+});
 
 // Names.
 constexpr uint32_t kNetLobby = 0x1C471C60;               // netlobby
@@ -198,7 +199,7 @@ void Hub::assign_first_come_first_served()
             continue;
         player->set_host_player(); // (its flag 0x200: first come, first served)
         uint32_t text = 0;
-        raw::as<prefs::Preferences>(net_options_)
+        raw::as<prefs::Preferences>(net_options_.data())
             ->fetch_setting(kFcfsPreference)
             ->read_hash_value("Checksum", &text, 1);
         desc.content_ = &text;
@@ -313,8 +314,8 @@ void Hub::remove_player_record(PlayerRecord* player)
 // 0x0053CB70
 void Hub::evict_player(PlayerRecord* player, int reason)
 {
-    char name[kNameSize];
-    std::strcpy(name, player_name(player));
+    std::array<char, kNameSize> name{};
+    std::strcpy(name.data(), player_name(player));
     if (!is_observer(player) && get_game_mode()->is_true(kShouldModulateColor))
         objects::g_trick_spot_hub->release_player_clusters(
             static_cast<int>(get_skater_id(player_skater(player)))); // its colours off the trick objects
@@ -331,8 +332,8 @@ void Hub::evict_player(PlayerRecord* player, int reason)
             if (is_own_player(other))
                 continue;
             net::NetMessageInfo desc;
-            uint8_t msg[2] = {static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(reason)};
-            desc.content_ = msg;
+            std::array<uint8_t, 2> msg = {{static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(reason)}};
+            desc.content_ = msg.data();
             desc.byte_count_ = sizeof(msg);
             desc.ident_ = kMsgPlayerGone;
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -363,7 +364,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
                               ? kDropTexts[reason]
                               : kNetMessagePlayerTimedOut;
     if (!is_own_player(player))
-        build_net_notice(true, text, name, nullptr, nullptr, nullptr, false, kPanelTime);
+        build_net_notice(true, text, name.data(), nullptr, nullptr, nullptr, false, kPanelTime);
     if (reason == kDropObserving) {
         if (player->holds_crown()) { // the crown taken off
             if (crown_)
@@ -410,7 +411,7 @@ void Hub::re_add_pending_players()
         if (player->flag_bits_ & kPlayerPending) {
             JoinerRecord info; // (its constructor: a skater profile)
             frames += 10;
-            std::strcpy(info.label_, player_name(player));
+            std::strcpy(info.label_.data(), player_name(player));
             info.entity_key_ = static_cast<uint8_t>(reserve_obj_id_for_player());
             info.conn_ = player->conn_;
             info.flag_bits_ = kNewPlayerRejoining;
@@ -498,11 +499,11 @@ void Hub::update_lobby_server()
 void Hub::flag_returned(PlayerRecord* player)
 {
     const int team = player->get_flag_team(); // the flag's team
-    char key[64];
-    team_name_key(key, team);
+    std::array<char, 64> key{};
+    team_name_key(key.data(), team);
     script::Struct* params = new_params();
     params->put_int(kTeam, team);
-    params->append_word(kString0, script::kQbvalString, script::fetch_text(key));
+    params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
     get_run(kFlagReturned, params);
     delete_params(params);
     PlayerRecord* local = find_own_player_record(this);
@@ -529,11 +530,11 @@ void Hub::enter_observe_mode()
     }
     if (local->is_carrying_flag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
         const int team = local->get_flag_team();
-        char key[64];
-        team_name_key(key, team);
+        std::array<char, 64> key{};
+        team_name_key(key.data(), team);
         script::Struct* params = new_params();
         params->put_int(kTeam, team);
-        params->append_word(kString0, script::kQbvalString, script::fetch_text(key));
+        params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
         get_run(kFlagReturned, params);
         delete_params(params);
         get_run(kHideCtfArrow);

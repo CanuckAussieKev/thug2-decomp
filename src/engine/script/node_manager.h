@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <gsl/pointers>
+#include <array>
 
 // The node arrays the level's objects come from (level_nodes::CNodeManager, a reference-counted singleton at
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name
@@ -27,7 +28,7 @@ struct NodeArrayEntry {
     uint32_t label_;
     script::Array* node_entries_;
     bool flag_;
-    uint8_t pad9[3];
+    std::array<uint8_t, 3> pad9;
 };
 
 class NodeManager {
@@ -82,10 +83,10 @@ public:
     void set_owner(void* owner);
     uint32_t get_owner_value58();
 
-    NodeSlot slots_[kSlots]{};          // +0x00000
+    std::array<NodeSlot, kSlots> slots_{};          // +0x00000
     NodeSlot walk_{};                   // +0x10000 the walk's place (list_link_ -1: no walk)
     uint32_t num_{0};                   // +0x10004 node arrays in use
-    NodeArrayEntry arrays_[kMaxArrays]{}; // +0x10008
+    std::array<NodeArrayEntry, kMaxArrays> arrays_{}; // +0x10008
     void* owner_ptr_{};                   // +0x100F8
 };
 static_assert(offsetof(NodeManager, walk_) == 0x10000 && offsetof(NodeManager, num_) == 0x10004 &&

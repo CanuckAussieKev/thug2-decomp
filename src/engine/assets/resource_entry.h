@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
@@ -115,7 +116,7 @@ public:
     uint32_t checksum_{}; // +0x04
     int cur_phase_{kUnloaded}; // +0x08 AssetState
     bool pinned_{};     // +0x0C not unloaded by unload_all_assets(false)
-    uint8_t pad0d_[3]{};
+    std::array<uint8_t, 3> pad0d_{};
     void* content_{};                 // +0x10 what was loaded (a scene, a texture dictionary...)
     LoadCallback callback_{nullptr};  // +0x14
     void* callback_data0_{};          // +0x18
@@ -190,7 +191,7 @@ struct NodeTableResource final : Resource {
     void* nodes_{};          // +0x58 its script array
     char* args_{};           // +0x5C (0x40 bytes, the file name)
     bool owned_{};           // +0x60 the node manager's owner
-    uint8_t pad61[3]{};
+    std::array<uint8_t, 3> pad61{};
     // 0x00408BE0: kNodeArray, or kOwnedNodeArray when owned; 0x00408BD0
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
@@ -269,14 +270,14 @@ struct RigResource final : Resource {
 // The skinned model's load parameters (0x14 bytes from the pool): 0x00409E90 clears them (returns them).
 struct SkinParams {
     uint8_t flag0; // +0x00
-    uint8_t pad01[3];
+    std::array<uint8_t, 3> pad01;
     int value;       // +0x04
     void* cas_data_; // +0x08 the .cas file's contents
     uint32_t
         cas_size_;    // +0x0C (unused in the original) Not original - the .cas contents' size, set where they are read
     uint8_t has_cas_; // +0x10
     uint8_t on_heap_; // +0x11 (cleared by Load; a pop of the heap context when set)
-    uint8_t pad12[2];
+    std::array<uint8_t, 2> pad12;
     SkinParams* get_clear();
 };
 

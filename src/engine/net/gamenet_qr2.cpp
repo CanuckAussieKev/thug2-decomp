@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_handlers.h"
@@ -78,12 +79,12 @@ void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(
 void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
 
 Hub* net_session_slot() { return g_online_hub; }
-prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_); }
+prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_.data()); }
 
-char g_fallback_map_name[128]{"Boston"};
+std::array<char, 128> g_fallback_map_name{{"Boston"}};
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
-char* fallback_map_name() { return g_fallback_map_name; }
+char* fallback_map_name() { return g_fallback_map_name.data(); }
 
 } // namespace
 

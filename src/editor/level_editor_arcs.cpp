@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_overlays.h"
@@ -209,13 +210,13 @@ Physics arcs_fallback()
 
 const char* speed_name(int index)
 {
-    static const char* const kNames[kSpeeds] = {"push", "top", "max"};
+    static const std::array<const char*, kSpeeds> kNames = {{"push", "top", "max"}};
     return index >= 0 && index < kSpeeds ? kNames[index] : "?";
 }
 
 uint32_t speed_colour(int index)
 {
-    static const uint32_t kColours[kSpeeds] = {0xFF50E070, 0xFFFFD040, 0xFFFF5040};
+    static const std::array<uint32_t, kSpeeds> kColours = {{0xFF50E070, 0xFFFFD040, 0xFFFF5040}};
     return index >= 0 && index < kSpeeds ? kColours[index] : 0xFFFFFFFF;
 }
 
@@ -267,9 +268,9 @@ float rise_height(float vertical_speed, float gravity)
 
 std::string span_to(float units)
 {
-    char text[48];
-    std::snprintf(text, sizeof(text), "%.0f (%.1f ft)", units, units / 12.0f);
-    return text;
+    std::array<char, 48> text{};
+    std::snprintf(text.data(), sizeof(text), "%.0f (%.1f ft)", units, units / 12.0f);
+    return text.data();
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -336,10 +337,10 @@ void read_physics()
     stat_value(physics, kKickSpeed, p.speed_stat_, &p.speeds[0]);
     stat_value(physics, kMaxSpeed, p.speed_stat_, &p.speeds[1]);
     stat_value(physics, kSpeedCapStat, p.speed_stat_, &p.speeds[2]);
-    char source[96];
-    std::snprintf(source, sizeof(source), "%s, speed stat %.1f, ollie stat %.1f",
+    std::array<char, 96> source{};
+    std::snprintf(source.data(), sizeof(source), "%s, speed stat %.1f, ollie stat %.1f",
                   skater ? "the skater's physics" : "skater_physics", p.speed_stat_, p.ollie_stat_);
-    p.source = source;
+    p.source = source.data();
     physics_state() = p;
 }
 
@@ -356,7 +357,7 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
     if (!tri || !tri->faces_ || !tri->vertices_)
         return;
     for (int f = 0; std::cmp_less(f, tri->tri_count_) && out->size() < 20000; ++f) {
-        V3 p[3];
+        std::array<V3, 3> p{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
@@ -395,9 +396,9 @@ bool cast_feeler(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 
 struct LipArcs {
     Lip lip;
-    Flight flights[kSpeeds];
-    uint32_t landed_on_[kSpeeds] = {};
-    float rise[kSpeeds] = {};
+    std::array<Flight, kSpeeds> flights;
+    std::array<uint32_t, kSpeeds> landed_on_ = {};
+    std::array<float, kSpeeds> rise = {};
 };
 struct Cache {
     std::vector<uint32_t> sectors;
@@ -500,10 +501,10 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
         const V3 half = lip.across * (lip.width * 0.5f);
         (void)painter.get_seg(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
         (void)painter.get_seg(lip.point, lip.point + lip.tangent * 40.0f, 0xC0FFFFFF, 1.5f);
-        char label[96];
-        std::snprintf(label, sizeof(label), "lip %.0f high, %.0f deg%s", lip.height,
+        std::array<char, 96> label{};
+        std::snprintf(label.data(), sizeof(label), "lip %.0f high, %.0f deg%s", lip.height,
                       std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * 57.29578f, lip.vert ? " (vert)" : "");
-        painter.draw_label(lip.point, 0xFFFFFFFF, label, 6.0f, 6.0f);
+        painter.draw_label(lip.point, 0xFFFFFFFF, label.data(), 6.0f, 6.0f);
         for (int i = 0; i < kSpeeds; ++i) {
             const uint32_t colour = speed_colour(i);
             if (lip.vert) {
@@ -529,9 +530,9 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             const V3 gap = flight.landing - lip.point;
             const float across = std::sqrt(gap.x * gap.x + gap.z * gap.z);
             std::string text = std::string(speed_name(i)) + ": " + span_to(across);
-            char drop[48];
-            std::snprintf(drop, sizeof(drop), gap.y < 0.0f ? ", %.0f lower" : ", %.0f higher", std::fabs(gap.y));
-            text += drop;
+            std::array<char, 48> drop{};
+            std::snprintf(drop.data(), sizeof(drop), gap.y < 0.0f ? ", %.0f lower" : ", %.0f higher", std::fabs(gap.y));
+            text += drop.data();
             if (std::fabs(flight.normal.y) < 0.5f)
                 text += " - hits a wall";
             if (arcs.landed_on_[i] && std::ranges::find(sectors, arcs.landed_on_[i]) == sectors.end() &&
@@ -546,23 +547,23 @@ std::string describe()
 {
     if (!g_cache.valid)
         return "";
-    char text[160];
+    std::array<char, 160> text{};
     if (g_cache.arcs.empty())
         return "Jump Arcs: no lip found";
     const LipArcs& first = g_cache.arcs.front();
     if (first.lip.vert)
-        std::snprintf(text, sizeof(text), "jump arcs: %d lips; vert - rises %.0f at top speed",
+        std::snprintf(text.data(), sizeof(text), "jump arcs: %d lips; vert - rises %.0f at top speed",
                       static_cast<int>(g_cache.arcs.size()), first.rise[1]);
     else if (first.flights[1].landed)
         std::snprintf(
-            text, sizeof(text), "jump arcs: %d lips; lands %.0f out at top speed",
+            text.data(), sizeof(text), "jump arcs: %d lips; lands %.0f out at top speed",
             static_cast<int>(g_cache.arcs.size()),
             std::sqrt(
                 (first.flights[1].landing.x - first.lip.point.x) * (first.flights[1].landing.x - first.lip.point.x) +
                 (first.flights[1].landing.z - first.lip.point.z) * (first.flights[1].landing.z - first.lip.point.z)));
     else
-        std::snprintf(text, sizeof(text), "jump arcs: %d lips", static_cast<int>(g_cache.arcs.size()));
-    return text;
+        std::snprintf(text.data(), sizeof(text), "jump arcs: %d lips", static_cast<int>(g_cache.arcs.size()));
+    return text.data();
 }
 
 } // namespace frontend::level_editor::arcs

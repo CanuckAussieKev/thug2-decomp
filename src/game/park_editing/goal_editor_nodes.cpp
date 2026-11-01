@@ -2,6 +2,7 @@
 // disassembly of 0x004E8F50-0x004E93B7.
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -47,7 +48,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
             nodes->rescale(nodes->extent_ + 0x82);
     }
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(heap));
-    char name[100];
+    std::array<char, 100> name{};
     for (int goal = 0; goal < 10; ++goal) {
         // The pro, the restart, then eleven objects.
         for (int which = 0; which < 13; ++which) {
@@ -58,16 +59,16 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
                 node = script::spawn_param_bag();
                 node = node ? new (node) script::Struct : nullptr;
             }
-            static const uint32_t kKinds[3] = {0x8F0F67D7, 0xC9119673, 0x000B52B3};
+            static const std::array<uint32_t, 3> kKinds = {{0x8F0F67D7, 0xC9119673, 0x000B52B3}};
             node->append_structure_if_any(script::read_sub_struct(kKinds[which < 2 ? which : 2]));
             name[0] = '\0';
             if (which == 0)
-                get_sprintf(name, "TRG_EditedGoal%d_Pro", goal);
+                get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", goal);
             else if (which == 1)
-                get_sprintf(name, "TRG_EditedGoal%d_Restart", goal);
+                get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", goal);
             else
-                get_sprintf(name, "TRG_EditedGoal%d_Object_%d", goal, which - 2);
-            node->put_name_key(0xA1DC81F9, checksums::hash_from_text(name));
+                get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", goal, which - 2);
+            node->put_name_key(0xA1DC81F9, checksums::hash_from_text(name.data()));
             node->put_int(0xE50D6573, *index);
             if (!in_place) {
                 nodes->set_element(static_cast<uint32_t>(*index), cell::of(node));

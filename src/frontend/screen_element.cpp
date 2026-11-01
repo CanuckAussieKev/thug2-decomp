@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/gfx/viewport.h"
@@ -383,12 +384,12 @@ void UiWidget::change_spin(float degrees, int now)
 // 0x004A88C0 (the shown colour is set without comparing)
 void UiWidget::change_rgba(uint32_t rgba, int now)
 {
-    if (get_rgba(aim_point_.rgba) != rgba) {
-        set_rgba_bytes(aim_point_.rgba, rgba);
+    if (get_rgba(aim_point_.rgba.data()) != rgba) {
+        set_rgba_bytes(aim_point_.rgba.data(), rgba);
         object_flags_ |= kDirty;
     }
     if (now) {
-        set_rgba_bytes(shown_.rgba, rgba);
+        set_rgba_bytes(shown_.rgba.data(), rgba);
         object_flags_ |= kDirty;
     }
 }
@@ -647,13 +648,13 @@ void UiWidget::update_layout()
             s.angle = static_cast<float>((static_cast<double>(aim_point_.angle) - s.angle) * kt + s.angle);
             s.alpha = static_cast<float>((static_cast<double>(aim_point_.alpha) - s.alpha) * kt + s.alpha);
             place_top_left(&s);
-            uint8_t rgba[4];
+            std::array<uint8_t, 4> rgba{};
             for (int i = 0; i < 4; ++i) {
                 const int from = s.rgba[i];
                 rgba[i] = static_cast<uint8_t>(
                     get_truncated(static_cast<double>(aim_point_.rgba[i] - from) * kt + static_cast<double>(from)));
             }
-            std::memcpy(s.rgba, rgba, 4);
+            std::memcpy(s.rgba.data(), rgba.data(), 4);
             morph_curve_done_ = curve;
             morph_done_ = t;
         } else {
@@ -737,7 +738,7 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, float
         *x = array->fetch_float(0);
         *y = array->fetch_float(1);
     } else if (array->kind_tag_ == script::kQbvalName) {
-        float just[2];
+        std::array<float, 2> just{};
         for (int i = 0; i < 2; ++i) {
             const uint32_t side = array->fetch_part(i);
             if (side == kLeft || side == kTop)
@@ -891,8 +892,8 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
 void UiWidget::get_properties(script::Struct* out)
 {
     out->push_float(kAlpha, shown_.alpha);
-    uint8_t rgba[4];
-    std::memcpy(rgba, shown_.rgba, 4);
+    std::array<uint8_t, 4> rgba{};
+    std::memcpy(rgba.data(), shown_.rgba.data(), 4);
     script::Array* array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
@@ -969,8 +970,8 @@ void UiWidget::blend_towards(script::Struct* params)
             object_flags_ |= 0x300;
     }
     uint32_t rgba = 0;
-    if (read_colour_param(params, kRgba, &rgba) && get_rgba(aim_point_.rgba) != rgba) {
-        set_rgba_bytes(aim_point_.rgba, rgba);
+    if (read_colour_param(params, kRgba, &rgba) && get_rgba(aim_point_.rgba.data()) != rgba) {
+        set_rgba_bytes(aim_point_.rgba.data(), rgba);
         object_flags_ |= kDirty;
     }
 }

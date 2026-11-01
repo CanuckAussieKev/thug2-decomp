@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 
@@ -14,18 +15,18 @@ namespace render {
 struct OccluderPolygon {
     uint8_t in_use_; // an occluder now
     uint8_t enabled;
-    uint8_t pad[2];
+    std::array<uint8_t, 2> pad;
     uint32_t checksum; // its name
-    float corners[4][4];
-    float normal[4];
+    std::array<std::array<float, 4>, 4> corners;
+    std::array<float, 4> normal;
 };
 static_assert(sizeof(OccluderPolygon) == 0x58, "layout must match the original");
 
 // An occluder (0x00792360, up to 8): its polygon, the planes, and what it hid in each of the last two frames.
 struct Occluder {
     OccluderPolygon* poly;
-    float planes[5][4]; // x, y, z, distance
-    int hidden[2];
+    std::array<std::array<float, 4>, 5> planes; // x, y, z, distance
+    std::array<int, 2> hidden;
 };
 static_assert(sizeof(Occluder) == 0x5C, "layout must match the original");
 

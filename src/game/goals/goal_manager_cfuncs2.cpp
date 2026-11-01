@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -79,14 +80,14 @@ bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script*
     params->fetch_text(kGoalType, &type, true);
     const char* level = nullptr;
     level_params_ref()->fetch_text(kLevel, &level, 1);
-    char name[128];
-    dup_from(name, level);
+    std::array<char, 128> name{};
+    dup_from(name.data(), level);
     if (get_game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal))
-        get_append(name, "_classic"); // "_classic"
-    get_append(name, "_goal_");       // "_goal_"
-    get_append(name, type);
-    script->args_->put_name_key(kGoalIdChecksum, checksums::hash_from_text(name));
-    script->args_->append_word(kGoalName, name);
+        get_append(name.data(), "_classic"); // "_classic"
+    get_append(name.data(), "_goal_");       // "_goal_"
+    get_append(name.data(), type);
+    script->args_->put_name_key(kGoalIdChecksum, checksums::hash_from_text(name.data()));
+    script->args_->append_word(kGoalName, name.data());
     return true;
 }
 
@@ -225,7 +226,7 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
 {
     const char* prefix = nullptr;
     params->fetch_text(0u, &prefix, 1);
-    char text[128];
+    std::array<char, 128> text{};
     text[0] = 0;
     int length = 0;
     if (prefix[1]) {
@@ -235,8 +236,8 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
         } while (prefix[length + 1]);
     }
     text[length] = 0;
-    get_append(text, "NOT_"); // "NOT_"
-    script->args_->append_word(kProsetNotPrefix, text);
+    get_append(text.data(), "NOT_"); // "NOT_"
+    script->args_->append_word(kProsetNotPrefix, text.data());
     return true;
 }
 

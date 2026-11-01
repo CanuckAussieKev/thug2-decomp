@@ -10,6 +10,7 @@
 
 #include <windows.h>
 #include <d3d9.h>
+#include <array>
 
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/loading_screen.h"
@@ -28,18 +29,18 @@ float g_elapsed_seconds;
 float g_total_seconds;
 
 float g_float_ten{10.0f};
-int g_bar_position[2]{258, 400};
+std::array<int, 2> g_bar_position{{258, 400}};
 int g_progress_width{140};
 int g_progress_height{8};
-int g_bar_border[2]{5, 5};
-uint8_t g_progress_from_color[4]{0x00, 0x4C, 0x81, 0x80};
-uint8_t g_progress_to_color[4]{0xAC, 0xD3, 0x73, 0x80};
-uint8_t g_progress_edge_color[4]{0x28, 0x28, 0x28, 0x80};
+std::array<int, 2> g_bar_border{{5, 5}};
+std::array<uint8_t, 4> g_progress_from_color{{0x00, 0x4C, 0x81, 0x80}};
+std::array<uint8_t, 4> g_progress_to_color{{0xAC, 0xD3, 0x73, 0x80}};
+std::array<uint8_t, 4> g_progress_edge_color{{0x28, 0x28, 0x28, 0x80}};
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
 // patchWindow pointed the table at).
-uint8_t s_gradient_buffer[100000];
+std::array<uint8_t, 100000> s_gradient_buffer;
 
 struct Rgb {
     int r, g, b;
@@ -56,9 +57,9 @@ Rgb g_gradient_start;
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
-const uint8_t* start_color() { return g_progress_from_color; }
-const uint8_t* end_color() { return g_progress_to_color; }
-const uint8_t* border_color() { return g_progress_edge_color; }
+const uint8_t* start_color() { return g_progress_from_color.data(); }
+const uint8_t* end_color() { return g_progress_to_color.data(); }
+const uint8_t* border_color() { return g_progress_edge_color.data(); }
 int& progress_bar_pixels() { return g_progress_width; }
 int& get_screen_width() { return g_back_buffer_width; }
 float& horiz_screen_ratio() { return g_display_factor_x; }
@@ -68,7 +69,7 @@ Rgb& gradient_end() { return g_gradient_end; }
 int& gradient_width() { return g_gradient_width; }
 uint32_t& border_argb() { return g_border_argb; }
 
-Rgb* gradient_table() { return raw::as<Rgb>(s_gradient_buffer); }
+Rgb* gradient_table() { return raw::as<Rgb>(s_gradient_buffer.data()); }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
 float& tick_seconds() { return g_tick_seconds; }
@@ -90,11 +91,11 @@ constexpr uint32_t kBarVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE; // 0x44
 void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)
 {
     // (a strip: top left, bottom left, top right, bottom right)
-    BarVertex quad[4] = {{x0, y0, 1.0f, 1.0f, left},
+    std::array<BarVertex, 4> quad = {{{x0, y0, 1.0f, 1.0f, left},
                          {x0, y1, 1.0f, 1.0f, left},
                          {x1, y0, 1.0f, 1.0f, right},
-                         {x1, y1, 1.0f, 1.0f, right}};
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(BarVertex));
+                         {x1, y1, 1.0f, 1.0f, right}}};
+    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -102,7 +103,7 @@ uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g &
 
 } // namespace
 
-uint8_t* loading_bar_gradient_buffer() { return s_gradient_buffer; }
+uint8_t* loading_bar_gradient_buffer() { return s_gradient_buffer.data(); }
 
 // 0x004B6B80
 void update_loading_bar_colors()

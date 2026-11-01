@@ -80,10 +80,11 @@
 #include "game/rider/trick_component.h"
 #include "engine/sys/system_cfuncs.h"
 #include "platform/code_address.h"
+#include <array>
 
 namespace script {
 
-NativeCommand g_cfunction_table[1254]{
+std::array<NativeCommand, 1254> g_cfunction_table{{
     {"Wait", code_address(&commands::cfunc_wait)},
     {"WaitForEvent", code_address(&objects::cfunc_wait_for_event)},
     {"Block", code_address(&commands::cfunc_block)},
@@ -1343,9 +1344,9 @@ NativeCommand g_cfunction_table[1254]{
     {"InitPrefsBeenox", code_address(&commands::cfunc_init_prefs_beenox)},
     {"AddFacesToMenu", code_address(&commands::cfunc_add_faces_to_menu)},
     {"SkaterIsCustom", code_address(&commands::cfunc_skater_is_custom)},
-    {"MultiplayerOnly", code_address(&stubs::return_false)}};
+    {"MultiplayerOnly", code_address(&stubs::return_false)}}};
 
-const char* g_member_function_names[250]{"AnimLoaded",
+std::array<const char*, 250> g_member_function_names{{"AnimLoaded",
                                          "AssetLoaded",
                                          "ChangeCameraFOV",
                                          "SetTargetObject",
@@ -1594,6 +1595,6 @@ const char* g_member_function_names[250]{"AnimLoaded",
                                          "SkaterPhysicsControl_SwitchSkatingToWalking",
                                          "SkaterPhysicsControl_SwitchWalkingToSkating",
                                          "SkaterLoopingSound_TurnOff",
-                                         "SkaterLoopingSound_TurnOn"};
+                                         "SkaterLoopingSound_TurnOn"}};
 
 } // namespace script

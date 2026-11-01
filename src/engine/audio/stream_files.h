@@ -5,6 +5,7 @@
 // entries open as Bink streams share the table (from the data on).
 
 #include <cstdint>
+#include <array>
 
 namespace audio {
 
@@ -16,6 +17,6 @@ struct CachedStreamFile {
 };
 static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
 
-extern CachedStreamFile g_stream_files[12];
+extern std::array<CachedStreamFile, 12> g_stream_files;
 
 } // namespace audio

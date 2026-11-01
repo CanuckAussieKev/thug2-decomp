@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Struct;
@@ -21,12 +22,12 @@ namespace gfx {
 // Where a face's features are on its image (0x38 bytes; script structures hold them as left_eye / right_eye / nose /
 // lips = [x y], h / s / v (all three or none), width / height).
 struct FaceAnchors {
-    int left_eye_[2];   // +0x00
-    int right_eye_[2];  // +0x08
-    int nose_slot_[2];  // +0x10
-    int mouth_part_[2]; // +0x18
+    std::array<int, 2> left_eye_;   // +0x00
+    std::array<int, 2> right_eye_;  // +0x08
+    std::array<int, 2> nose_slot_;  // +0x10
+    std::array<int, 2> mouth_part_; // +0x18
     bool has_hsv_;      // +0x20: h, s and v were all given
-    uint8_t pad21[3];
+    std::array<uint8_t, 3> pad21;
     float h_;     // +0x24
     float s_;     // +0x28
     float v_;     // +0x2C
@@ -104,10 +105,10 @@ public:
     void save_to_structure(script::Struct* params);
 
     bool is_usable_{false}; // +0x00
-    uint8_t pad1[3]{};
+    std::array<uint8_t, 3> pad1{};
     FaceAnchors path_vertices_{}; // +0x04
-    uint8_t image_[kTexelEdge]{}; // +0x3C
-    char overlay_name_[0x40]{};   // +0x445C
+    std::array<uint8_t, kTexelEdge> image_{}; // +0x3C
+    std::array<char, 0x40> overlay_name_{};   // +0x445C
 };
 static_assert(offsetof(FaceSkin, image_) == 0x3C && offsetof(FaceSkin, overlay_name_) == 0x445C &&
                   sizeof(FaceSkin) == 0x449C,

@@ -8,16 +8,17 @@
 #include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 namespace game_spy {
 
 void fix_nick(char* new_nick, const char* old_nick)
 {
-    static const char kValid[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]\\`_^{|}-";
+    static const auto kValid = std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]\\`_^{|}-");
     if (std::isdigit(static_cast<unsigned char>(*old_nick)) || *old_nick == '-')
         *new_nick++ = '_';
     for (char c = 0; (c = *old_nick++) != '\0';)
-        *new_nick++ = std::strchr(kValid, c) ? c : '_';
+        *new_nick++ = std::strchr(kValid.data(), c) ? c : '_';
     *new_nick = '\0';
 }
 
@@ -64,7 +65,7 @@ namespace game_spy {
 
 namespace {
 
-char s_domain[64] = "gamespy.com";
+std::array<char, 64> s_domain = {"gamespy.com"};
 
 template <typename Fn>
 Fn as(HookFn callback)
@@ -74,21 +75,21 @@ Fn as(HookFn callback)
 
 void set_host(char* out, size_t size, const char* format, const char* name)
 {
-    std::snprintf(out, size, format, name, s_domain);
+    std::snprintf(out, size, format, name, s_domain.data());
 }
 
 // The server-browsing master for a game name: "<name>.ms<n>.<domain>", n from the SDK's own hash of the name
 // (sb_serverlist.c's StringHash over NUM_MASTER_SERVERS = 20) - the SDK's override takes a whole host name.
-char s_master_server[128];
+std::array<char, 128> s_master_server;
 void set_master_server(const char* game_name)
 {
     uint32_t hash = 0;
     for (const char* c = game_name; *c; ++c)
         hash =
             static_cast<uint32_t>(static_cast<int>(hash) * -1664117991 + std::tolower(static_cast<unsigned char>(*c)));
-    std::snprintf(s_master_server, sizeof(s_master_server), "%s.ms%d.%s", game_name, static_cast<int>(hash % 20),
-                  s_domain);
-    SBOverrideMasterServer = s_master_server;
+    std::snprintf(s_master_server.data(), sizeof(s_master_server), "%s.ms%d.%s", game_name, static_cast<int>(hash % 20),
+                  s_domain.data());
+    SBOverrideMasterServer = s_master_server.data();
 }
 
 // Names that depend on the game name (qr2's master, the browsing master): set when a name is given to the SDK.
@@ -98,9 +99,9 @@ void set_game_hosts(const char* game_name)
     set_master_server(game_name);
 }
 
-char s_nat_neg1[96];
-char s_nat_neg2[96];
-char s_nat_neg3[96];
+std::array<char, 96> s_nat_neg1;
+std::array<char, 96> s_nat_neg2;
+std::array<char, 96> s_nat_neg3;
 
 // The 2007 gcd SDK asks back for re-authentication; the game's SDK had no such request (nothing to do).
 void ignore_refresh_auth(int, int, int, char*, void*) {}
@@ -112,7 +113,7 @@ char* game_strdup(const char* text) { return goastrdup(text); }
 void start_available_check(const char* game_name)
 {
     // (the override is a whole host name: made for each check - the online service also checks "mototrax")
-    std::snprintf(GSIACHostname, sizeof(GSIACHostname), "%s.available.%s", game_name, s_domain);
+    std::snprintf(GSIACHostname, sizeof(GSIACHostname), "%s.available.%s", game_name, s_domain.data());
     GSIStartAvailableCheck(game_name);
 }
 int available_check_think() { return static_cast<int>(GSIAvailableCheckThink()); }
@@ -120,20 +121,20 @@ const char* get_unique_id() { return GOAGetUniqueID(); }
 
 void set_online_domain(const char* domain)
 {
-    std::snprintf(s_domain, sizeof(s_domain), "%s", domain);
-    std::snprintf(s_nat_neg1, sizeof(s_nat_neg1), "natneg1.%s", s_domain);
-    std::snprintf(s_nat_neg2, sizeof(s_nat_neg2), "natneg2.%s", s_domain);
-    std::snprintf(s_nat_neg3, sizeof(s_nat_neg3), "natneg3.%s", s_domain);
-    Matchup1Hostname = s_nat_neg1;
-    Matchup2Hostname = s_nat_neg2;
-    Matchup3Hostname = s_nat_neg3;
-    std::snprintf(peerChatServerAddress, sizeof(peerChatServerAddress), "peerchat.%s", s_domain);
-    std::snprintf(GPConnectionManagerHostname, sizeof(GPConnectionManagerHostname), "gpcm.%s", s_domain);
-    std::snprintf(GPSearchManagerHostname, sizeof(GPSearchManagerHostname), "gpsp.%s", s_domain);
-    std::snprintf(StatsServerHostname, sizeof(StatsServerHostname), "gamestats.%s", s_domain);
+    std::snprintf(s_domain.data(), sizeof(s_domain), "%s", domain);
+    std::snprintf(s_nat_neg1.data(), sizeof(s_nat_neg1), "natneg1.%s", s_domain.data());
+    std::snprintf(s_nat_neg2.data(), sizeof(s_nat_neg2), "natneg2.%s", s_domain.data());
+    std::snprintf(s_nat_neg3.data(), sizeof(s_nat_neg3), "natneg3.%s", s_domain.data());
+    Matchup1Hostname = s_nat_neg1.data();
+    Matchup2Hostname = s_nat_neg2.data();
+    Matchup3Hostname = s_nat_neg3.data();
+    std::snprintf(peerChatServerAddress, sizeof(peerChatServerAddress), "peerchat.%s", s_domain.data());
+    std::snprintf(GPConnectionManagerHostname, sizeof(GPConnectionManagerHostname), "gpcm.%s", s_domain.data());
+    std::snprintf(GPSearchManagerHostname, sizeof(GPSearchManagerHostname), "gpsp.%s", s_domain.data());
+    std::snprintf(StatsServerHostname, sizeof(StatsServerHostname), "gamestats.%s", s_domain.data());
     constexpr size_t kPtaUrlSize = 2048; // (PTA_MAX_STRING_SIZE)
-    std::snprintf(gPTAMOTDURL, kPtaUrlSize, "http://motd.%s/motd/motd.asp", s_domain);
-    std::snprintf(gPTAVercheckURL, kPtaUrlSize, "http://motd.%s/motd/vercheck.asp", s_domain);
+    std::snprintf(gPTAMOTDURL, kPtaUrlSize, "http://motd.%s/motd/motd.asp", s_domain.data());
+    std::snprintf(gPTAVercheckURL, kPtaUrlSize, "http://motd.%s/motd/vercheck.asp", s_domain.data());
     // (gcd_hostname stays the SDK's key.gamespy.com: the game never changed it)
 }
 

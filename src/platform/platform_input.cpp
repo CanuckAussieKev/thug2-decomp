@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
+#include <array>
 
 #include "engine/pad_input/device.h"
 #include "engine/gfx/settings.h"
@@ -25,20 +26,20 @@ IDirectInput8A* g_direct_input;
 IDirectInputDevice8A* g_keyboard_device;
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
-int32_t g_input_map[0x98];
-IDirectInputDevice8A* g_joysticks[kPorts];
-IDirectInputEffect* g_effects[kPorts]; // each joystick's constant-force effect (rumble)
-uint32_t g_force_axis_counts[kPorts];
-uint32_t g_force_resolutions[2 * kPorts];
+std::array<int32_t, 0x98> g_input_map;
+std::array<IDirectInputDevice8A*, kPorts> g_joysticks;
+std::array<IDirectInputEffect*, kPorts> g_effects; // each joystick's constant-force effect (rumble)
+std::array<uint32_t, kPorts> g_force_axis_counts;
+std::array<uint32_t, 2 * kPorts> g_force_resolutions;
 constexpr int kKeyNameLength = 15;
 namespace {
-wchar_t g_key_names[256][kKeyNameLength];
-uint8_t g_keys[256];
-uint8_t g_last_keys[256];
+std::array<std::array<wchar_t, kKeyNameLength>, 256> g_key_names;
+std::array<uint8_t, 256> g_keys;
+std::array<uint8_t, 256> g_last_keys;
 } // namespace
 // The joysticks' states: this frame's and the last.
-DIJOYSTATE2 g_joystick_states[2];
-DIJOYSTATE2 g_last_joystick_states[2];
+std::array<DIJOYSTATE2, 2> g_joystick_states;
+std::array<DIJOYSTATE2, 2> g_last_joystick_states;
 
 namespace {
 
@@ -56,23 +57,23 @@ uint8_t g_mouse_invert_x;
 uint8_t g_mouse_invert_y;
 
 IDirectInputDevice8A*& get_mouse() { return g_mouse; }
-IDirectInputDevice8A** joysticks() { return g_joysticks; }
+IDirectInputDevice8A** joysticks() { return g_joysticks.data(); }
 // Each joystick's constant-force effect (rumble: set_actuators).
-IDirectInputEffect** get_effects() { return g_effects; }
+IDirectInputEffect** get_effects() { return g_effects.data(); }
 
 // The devices' states: this frame's and the last.
-DIJOYSTATE2* joystick_states() { return g_joystick_states; }
-DIJOYSTATE2* last_joystick_states() { return g_last_joystick_states; }
-uint8_t* get_keys() { return g_keys; }
-uint8_t* last_keys() { return g_last_keys; }
+DIJOYSTATE2* joystick_states() { return g_joystick_states.data(); }
+DIJOYSTATE2* last_joystick_states() { return g_last_joystick_states.data(); }
+uint8_t* get_keys() { return g_keys.data(); }
+uint8_t* last_keys() { return g_last_keys.data(); }
 DIMOUSESTATE2& mouse_state() { return g_mouse_state; }
 DIMOUSESTATE2& last_mouse_state() { return g_last_mouse_state; }
 
 // Per joystick: how many force-feedback axes it has (at most two) and their force resolutions (two each).
-uint32_t* force_axis_counts() { return g_force_axis_counts; }
-uint32_t* force_resolutions() { return g_force_resolutions; }
+uint32_t* force_axis_counts() { return g_force_axis_counts.data(); }
+uint32_t* force_resolutions() { return g_force_resolutions.data(); }
 
-wchar_t (*key_names()) [kKeyNameLength] { return g_key_names; }
+std::array<wchar_t, kKeyNameLength>* key_names() { return g_key_names.data(); }
 
 HWND game_window()
 {
@@ -114,10 +115,10 @@ GUID parse_joystick_guid(const char* text, DWORD size)
     guid.Data4[0] = static_cast<uint8_t>(value >> 8);
     guid.Data4[1] = static_cast<uint8_t>(value);
     const char* group = cursor + 1;
-    char four[5];
-    std::memcpy(four, group, 4);
+    std::array<char, 5> four{};
+    std::memcpy(four.data(), group, 4);
     four[4] = 0;
-    const char* four_cursor = four;
+    const char* four_cursor = four.data();
     value = parse_hex(&four_cursor);
     guid.Data4[2] = static_cast<uint8_t>(value >> 8);
     guid.Data4[3] = static_cast<uint8_t>(value);
@@ -146,7 +147,7 @@ struct KeyNameEntry {
 };
 
 // The keyboard's names, in the order the original sets them (DIK codes).
-const KeyNameEntry kKeyNames[] = {
+constexpr auto kKeyNames = std::to_array<KeyNameEntry>({
     {0x1E, L"A"},      {0x30, L"B"},      {0x2E, L"C"},        {0x20, L"D"},        {0x12, L"E"},
     {0x21, L"F"},      {0x22, L"G"},      {0x23, L"H"},        {0x17, L"I"},        {0x24, L"J"},
     {0x25, L"K"},      {0x26, L"L"},      {0x32, L"M"},        {0x31, L"N"},        {0x18, L"O"},
@@ -168,7 +169,7 @@ const KeyNameEntry kKeyNames[] = {
     {0xB5, L"KP /"},   {0x9C, L"Enter"},  {0x9D, L"RCtrl"},    {0xC5, L"Pause"},    {0xC7, L"Home"},
     {0xC8, L"Up"},     {0xC9, L"PgUp"},   {0xCB, L"Left"},     {0xCD, L"Right"},    {0xCF, L"End"},
     {0xD0, L"Down"},   {0xD1, L"PgDown"}, {0xD2, L"Insert"},   {0xD3, L"Delete"},
-};
+});
 
 } // namespace
 
@@ -225,10 +226,10 @@ DIMOUSESTATE2* read_mouse()
 }
 
 // 0x005F2F80
-bool has_key_bindings(int port) { return any_binding(get_controls()[port].keys, kBindings); }
+bool has_key_bindings(int port) { return any_binding(get_controls()[port].keys.data(), kBindings); }
 
 // 0x005F2FC0
-bool has_mouse_bindings(int port) { return any_binding(get_controls()[port].mouse, kBindings); }
+bool has_mouse_bindings(int port) { return any_binding(get_controls()[port].mouse.data(), kBindings); }
 
 // 0x005F3000
 int joystick_axis(const DIJOYSTATE2* state, int control)
@@ -286,7 +287,7 @@ bool get_key_down(int code)
 }
 
 // 0x005F3120
-wchar_t* get_key_name(int code) { return key_names()[code]; }
+wchar_t* get_key_name(int code) { return key_names()[code].data(); }
 
 // 0x005F3130
 BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device)
@@ -329,8 +330,8 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
             created->EnumObjects(add_joystick_axis, created, DIDFT_AXIS);
             if (force_axis_counts()[port] > 0) {
                 // Rumble: an endless constant force along X and Y, started by set_actuators.
-                DWORD axes[2] = {DIJOFS_X, DIJOFS_Y};
-                LONG direction[2] = {0, 0};
+                std::array<DWORD, 2> axes = {{DIJOFS_X, DIJOFS_Y}};
+                std::array<LONG, 2> direction = {{0, 0}};
                 DICONSTANTFORCE force = {0};
                 DIEFFECT effect = {};
                 effect.dwSize = sizeof(DIEFFECT);
@@ -341,8 +342,8 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
                 effect.dwTriggerButton = DIEB_NOTRIGGER;
                 effect.dwTriggerRepeatInterval = 0;
                 effect.cAxes = 2;
-                effect.rgdwAxes = axes;
-                effect.rglDirection = direction;
+                effect.rgdwAxes = axes.data();
+                effect.rglDirection = direction.data();
                 effect.lpEnvelope = nullptr;
                 effect.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
                 effect.lpvTypeSpecificParams = &force;
@@ -432,30 +433,30 @@ void load_registry_options(const char* key)
 
     // The joystick each port plays with (the text buffer isn't cleared before the first: a short value leaves
     // whatever was there after it).
-    char text[0x400];
+    std::array<char, 0x400> text{};
     size = sizeof(text);
-    if (RegQueryValueExA(options, "pad0", nullptr, &type, raw::bytes(text), &size) == ERROR_SUCCESS)
-        get_controls()[0].joystick = parse_joystick_guid(text, size);
-    std::memset(text, 0, sizeof(text));
+    if (RegQueryValueExA(options, "pad0", nullptr, &type, raw::bytes(text.data()), &size) == ERROR_SUCCESS)
+        get_controls()[0].joystick = parse_joystick_guid(text.data(), size);
+    std::memset(text.data(), 0, sizeof(text));
     size = sizeof(text);
-    if (RegQueryValueExA(options, "pad1", nullptr, &type, raw::bytes(text), &size) == ERROR_SUCCESS)
-        get_controls()[1].joystick = parse_joystick_guid(text, size);
+    if (RegQueryValueExA(options, "pad1", nullptr, &type, raw::bytes(text.data()), &size) == ERROR_SUCCESS)
+        get_controls()[1].joystick = parse_joystick_guid(text.data(), size);
 
     // Each port's keys and joystick controls (the ones not there stay as they are).
     for (int port = 0; port < kPorts; ++port) {
         for (int i = 0; i < kBindings; ++i) {
-            std::sprintf(text, "k%i_%i", port, i);
+            std::sprintf(text.data(), "k%i_%i", port, i);
             size = 4;
-            if (RegQueryValueExA(options, text, nullptr, &type, raw::bytes(&value), &size) ==
+            if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)
                 get_controls()[port].keys[i] = static_cast<int32_t>(value);
         }
     }
     for (int port = 0; port < kPorts; ++port) {
         for (int i = 0; i < kBindings; ++i) {
-            std::sprintf(text, "gp%i_%i", port, i);
+            std::sprintf(text.data(), "gp%i_%i", port, i);
             size = 4;
-            if (RegQueryValueExA(options, text, nullptr, &type, raw::bytes(&value), &size) ==
+            if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)
                 get_controls()[port].gamepad[i] = static_cast<int32_t>(value);
         }
@@ -486,15 +487,15 @@ void release_input()
 }
 
 // 0x005F3BF0
-wchar_t* set_key_name(int code, const wchar_t* name) { return std::wcscpy(key_names()[code], name); }
+wchar_t* set_key_name(int code, const wchar_t* name) { return std::wcscpy(key_names()[code].data(), name); }
 
 // 0x005F3C10
 void init_key_names()
 {
     for (int code = 0; code < 256; ++code)
-        std::wcscpy(key_names()[code], L"(NONE)");
+        std::wcscpy(key_names()[code].data(), L"(NONE)");
     for (const KeyNameEntry& key : kKeyNames)
-        std::wcscpy(key_names()[key.code], key.name);
+        std::wcscpy(key_names()[key.code].data(), key.name);
 }
 
 // --- the pad read ---
@@ -604,7 +605,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
     pad->buttons = 0;
     for (int16_t& stick : pad->sticks)
         stick = 0;
-    std::memset(pad->pressure, 0, sizeof(pad->pressure));
+    std::memset(pad->pressure.data(), 0, sizeof(pad->pressure));
     if (!joystick && !has_key_bindings(port) && !has_mouse_bindings(port))
         return 0;
     const PortControls& controls = get_controls()[port];
@@ -612,7 +613,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
     if (mouse && pad_mode_setting() == kPadKeyBindings) {
         // The sticks: each mouse axis's movement scaled twice - x 6553.4 within the stick's range, then x 32767 -
         // and only the low 16 bits kept.
-        const int32_t* m = controls.mouse;
+        const int32_t* m = controls.mouse.data();
         auto stick = [&](int index, int negative, int positive, bool reversed) {
             auto value = static_cast<int16_t>(truncate(mouse_stick_value(mouse, negative, positive) * kStickMax));
             if (value != 0)
@@ -647,7 +648,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
     if (joystick) {
         // The sticks (a larger push than the mouse's wins), the pressure buttons, the d-pad (axes only: a button
         // there never counts) and the other buttons.
-        const int32_t* g = controls.gamepad;
+        const int32_t* g = controls.gamepad.data();
         auto stick = [&](int index, int negative, int positive, float scale) {
             auto value = static_cast<int16_t>(truncate(joystick_stick_value(joystick, negative, positive) * scale));
             if (value != 0 && std::abs(static_cast<int>(pad->sticks[index])) < std::abs(static_cast<int>(value)))
@@ -692,7 +693,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
     };
     if (mode != kPadDefaultKeys && !(mode == kPadDefaultKeysPort0 && port == 0)) {
         // The port's keys (action 12 has none: Escape is the button 0x10, on port 0 only).
-        const int32_t* k = controls.keys;
+        const int32_t* k = controls.keys.data();
         stick(0, k[2], -kStickFull);
         stick(0, k[3], kStickFull);
         stick(1, k[0], kStickFull);
@@ -747,19 +748,19 @@ int read_pad(int port, sio::PadSnapshot* pad)
     stick(3, DIK_X, -kStickFull);
     stick(2, DIK_Z, -kStickFull);
     stick(2, DIK_C, kStickFull);
-    const int dpad[] = {DIK_HOME, DIK_END, DIK_DELETE, DIK_NEXT};
+    const auto dpad = std::to_array<int>({DIK_HOME, DIK_END, DIK_DELETE, DIK_NEXT});
     for (int i = 0; i < 4; ++i) {
         if (get_key_down(dpad[i]))
             pad->buttons |= static_cast<uint16_t>(1 << i);
     }
-    const int pressure[] = {DIK_Q, DIK_W, DIK_E, DIK_R};
+    const auto pressure = std::to_array<int>({DIK_Q, DIK_W, DIK_E, DIK_R});
     for (int i = 0; i < 4; ++i) {
         if (get_key_down(pressure[i]))
             get_press(pad, i);
     }
     if (get_key_down(DIK_BACK))
         pad->buttons |= 0x20;
-    const int more_pressure[] = {DIK_MINUS, DIK_EQUALS, DIK_1, DIK_2};
+    const auto more_pressure = std::to_array<int>({DIK_MINUS, DIK_EQUALS, DIK_1, DIK_2});
     for (int i = 0; i < 4; ++i) {
         if (get_key_down(more_pressure[i]))
             get_press(pad, 4 + i);

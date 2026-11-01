@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/maths/trig.h"
@@ -27,15 +28,15 @@
 namespace render {
 
 namespace {
-float g_billboard_uv_matrix[8]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_wibble_matrix_pass[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_environment_matrix_pass[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f,
-                                    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f,  0.5f};
-float g_wibble_matrix[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_environment_matrix[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f};
+std::array<float, 8> g_billboard_uv_matrix{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+std::array<float, 16> g_wibble_matrix_pass{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+std::array<float, 16> g_environment_matrix_pass{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f,
+                                    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f,  0.5f}};
+std::array<float, 16> g_wibble_matrix{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+std::array<float, 16> g_environment_matrix{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-float* pass_constants() { return g_ps_constant_bank; } // the pixel shader's colours, 16 bytes a pass
+float* pass_constants() { return g_ps_constant_bank.data(); } // the pixel shader's colours, 16 bytes a pass
 bool& constants_changed() { return memory::bits_as<bool>(g_pixel_shader_changed); }
 
 void device_stage_state(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
@@ -57,7 +58,7 @@ constexpr uint32_t kPassExplicitUv = 0x4000;   // the UV wibble's matrix is set,
 // 2), each to * f + from * (1 - f) truncated - and not masked: the four values are shifted and or'd as they come.
 uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* to)
 {
-    static const int kOrder[4] = {3, 0, 1, 2};
+    static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     const double f = static_cast<double>(num) / den;
     const double rest = 1.0 - f;
     uint32_t color = 0;
@@ -214,7 +215,7 @@ void MaterialRef::update_color_anims()
             --key;
         const ColorKey& from = keys[key];
         const ColorKey& to = keys[key + 1];
-        anim_colors_[i] = blend_key_colors(t - from.time, to.time - from.time, from.rgba, to.rgba);
+        anim_colors_[i] = blend_key_colors(t - from.time, to.time - from.time, from.rgba.data(), to.rgba.data());
     }
 }
 
@@ -272,7 +273,7 @@ void MaterialRef::hand_in()
         if (g_skipped_passes & (1u << (pass & 31)))
             continue;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (!constants_changed() && std::memcmp(pass_color_[pass], pass_constants() + 4 * pass, 16) != 0)
+        if (!constants_changed() && std::memcmp(pass_color_[pass].data(), pass_constants() + 4 * pass, 16) != 0)
             constants_changed() = true;
         uint8_t* texture = textures[pass];
         if (!texture) {
@@ -289,7 +290,7 @@ void MaterialRef::hand_in()
         flags = pass_flags_[pass];
         auto texture_matrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
         if ((flags & kPassEnvironment) && g_near_camera) {
-            float* matrix = g_environment_matrix_pass;
+            float* matrix = g_environment_matrix_pass.data();
             matrix[0] = static_cast<float>(reflection_tiling_[pass][0] * 0.5);
             matrix[5] = static_cast<float>(reflection_tiling_[pass][1] * 0.5);
             change_phase(kLocalViewer, 1);
@@ -299,12 +300,12 @@ void MaterialRef::hand_in()
         } else if (flags & kPassUvWibble) {
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
-            float* matrix = g_wibble_matrix_pass;
+            float* matrix = g_wibble_matrix_pass.data();
             fill_wibble_matrix(matrix, uv_wibble_[pass]);
             input_port()->SetTransform(texture_matrix, raw::as<const D3DMATRIX>(matrix));
         } else {
             if (g_billboard_flag) { // (the billboard flag: a static matrix's 2x2 part reset)
-                float* m = g_billboard_uv_matrix;
+                float* m = g_billboard_uv_matrix.data();
                 m[0] = 1.0f;
                 m[1] = 0;
                 m[3] = 0;
@@ -322,7 +323,7 @@ void MaterialRef::hand_in()
         }
     }
     if (constants_changed())
-        std::memcpy(pass_constants(), pass_color_, pass_count_ * 16);
+        std::memcpy(pass_constants(), pass_color_.data(), pass_count_ * 16);
 }
 
 // 0x004D23E0
@@ -352,7 +353,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 change_bump_map_matrix(0);
             const uint32_t flags = pass_flags_[pass];
             if ((flags & kPassEnvironment) && g_near_camera) {
-                float* matrix = g_environment_matrix;
+                float* matrix = g_environment_matrix.data();
                 matrix[0] = static_cast<float>(reflection_tiling_[pass][0] * 0.5);
                 matrix[5] = static_cast<float>(reflection_tiling_[pass][1] * 0.5);
                 change_phase(kLocalViewer, 1);
@@ -362,7 +363,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
             } else if (flags & kPassUvWibble) {
                 device_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
-                float* matrix = g_wibble_matrix;
+                float* matrix = g_wibble_matrix.data();
                 fill_wibble_matrix(matrix, uv_wibble_[pass]);
                 input_port()->SetTransform(D3DTS_TEXTURE0, raw::as<const D3DMATRIX>(matrix));
             } else {
@@ -390,12 +391,12 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         }
     }
     if (constants_changed())
-        std::memcpy(pass_constants(), pass_color_, pass_count_ * 16);
+        std::memcpy(pass_constants(), pass_color_.data(), pass_count_ * 16);
 
     // the stages' colour and alpha operations
     if (static_cast<int8_t>(pass_flags_[pass] & 0xFF) < 0)
         color = nullptr; // (the pass's colour isn't to be changed)
-    const float* own = pass_color_[pass];
+    const float* own = pass_color_[pass].data();
     const bool alpha_from_texture = (pass_flags_[pass] & kPassTextureAlpha) != 0;
     const bool blends_with_previous = blend_modes_[pass] == 0xC || blend_modes_[pass] == 0xD;
     const uint32_t half = 0x3F000000; // 0.5: the colour unchanged

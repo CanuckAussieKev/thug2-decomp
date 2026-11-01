@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
@@ -168,10 +169,10 @@ bool cfunc_print_mem_info(Struct* params, Script*)
     if (params)
         params->read_hash_value(0u, &name, 0);
     hub()->get_memory_pool(name);
-    char heap_name[64];
-    std::snprintf(heap_name, sizeof(heap_name), "%s",
+    std::array<char, 64> heap_name{};
+    std::snprintf(heap_name.data(), sizeof(heap_name), "%s",
                   hub()->get_zone_label(name)); // (the original's copy is unbounded)
-    print_mem_info(heap_name);
+    print_mem_info(heap_name.data());
     return true;
 }
 
@@ -180,20 +181,20 @@ bool cfunc_print_mem_info(Struct* params, Script*)
 // file (memory::dump_text) and / or printed.
 void dump_pool_usage(bool to_dump_file, bool print)
 {
-    char line[256];
+    std::array<char, 256> line{};
     auto emit = [&]() {
         if (to_dump_file)
-            memory::dump_text(line);
+            memory::dump_text(line.data());
         if (print)
-            debug::printf(line); // (the line as the format, as in the original)
+            debug::printf(line.data()); // (the line as the format, as in the original)
     };
     // (the texts are the exe's)
     auto text = [&](const char* message) {
-        std::snprintf(line, sizeof(line), message);
+        std::snprintf(line.data(), sizeof(line), message);
         emit();
     };
     auto pool = [&](const char* format, const memory::SlabBank* p) {
-        std::snprintf(line, sizeof(line), format, p->taken_count_, p->num_, p->peak_used_);
+        std::snprintf(line.data(), sizeof(line), format, p->taken_count_, p->num_, p->peak_used_);
         emit();
     };
     auto current = [](const memory::PoolPair& pools) {

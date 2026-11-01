@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -28,8 +29,8 @@
 
 namespace objects {
 
-uint32_t g_fam_member_functions[18]{0xE5894C80, 0x0301D67C, 0, 0, 0,          0, 0x48AC2139, 0x0301D67C, 0,
-                                           0,          0,          0, 0, 0x0301D67C, 0, 0,          0,          0};
+std::array<uint32_t, 18> g_fam_member_functions{{0xE5894C80, 0x0301D67C, 0, 0, 0,          0, 0x48AC2139, 0x0301D67C, 0,
+                                           0,          0,          0, 0, 0x0301D67C, 0, 0,          0,          0}};
 
 namespace {
 
@@ -73,7 +74,7 @@ FamComponent::FamComponent() { kind_tag_ = kType; }
 // 0x0041D170
 void FamComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_fam_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_fam_member_functions.data(), 0x18);
 }
 
 // 0x0041D190 (0x0041D1A0 the deleting one)
@@ -102,15 +103,15 @@ void FamComponent::unload_fam()
 void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
 {
     unload_fam();
-    char file_name[32];
-    std::snprintf(file_name, sizeof(file_name), "fam\\%08x.fam",
+    std::array<char, 32> file_name{};
+    std::snprintf(file_name.data(), sizeof(file_name), "fam\\%08x.fam",
                   name); // (the original: the game's sprintf, 0x006234FE)
-    debug::printf("loading %s\n", file_name);
+    debug::printf("loading %s\n", file_name.data());
     assets::ResourceRegistry* assets = asset_manager();
     const int saved = assets->unknown18_;
-    if (assets->load_anim(file_name, name, anim_set, false, false)) {
+    if (assets->load_anim(file_name.data(), name, anim_set, false, false)) {
         debug::printf("loaded\n");
-        fam_ = checksums::hash_from_text(file_name);
+        fam_ = checksums::hash_from_text(file_name.data());
     }
     assets->set_unknown18(saved);
 }

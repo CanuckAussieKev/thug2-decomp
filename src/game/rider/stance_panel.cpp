@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -22,7 +23,7 @@
 namespace objects {
 
 namespace {
-uint32_t g_stance_textures[5]{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1};
+std::array<uint32_t, 5> g_stance_textures{{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1}};
 
 constexpr uint32_t kSkaterStancePanel = 0x21FC3301, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kNollieOn = 0x41EB710B, kInNollie = 0x1EB61DCE, kPressureOn = 0x0A23D710, kPressureOff = 0x71B57DD6,
@@ -33,7 +34,7 @@ constexpr uint32_t kPanelIdOffset = 0x69751A23; // the panel's element id: below
 constexpr int kHidden = 5;
 
 // The stances' textures (0x0064C12C).
-const uint32_t* stance_textures() { return g_stance_textures; }
+const uint32_t* stance_textures() { return g_stance_textures.data(); }
 
 } // namespace
 

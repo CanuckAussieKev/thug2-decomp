@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_cache.h"
@@ -115,23 +116,23 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
         if (!skip) {
             maths::QuatRotation& rotation = rotations[i];
             if (*rot_sizes) {
-                uint8_t key[8];
-                uint8_t decoded[20];
-                decode_rotation(rot_keys, key, flag_bits_, key_table_);
-                rotation_to_quat_b(decoded, key);
+                std::array<uint8_t, 8> key{};
+                std::array<uint8_t, 20> decoded{};
+                decode_rotation(rot_keys, key.data(), flag_bits_, key_table_);
+                rotation_to_quat_b(decoded.data(), key.data());
                 maths::QuatRotation added = rotation;
-                added *= *raw::field_at<maths::QuatRotation>(decoded, 4);
+                added *= *raw::field_at<maths::QuatRotation>(decoded.data(), 4);
                 maths::QuatRotation to = added;
-                float blended[4];
-                const float* result = interpolate_rotation(blended, &rotation.x, &to.x, weight);
+                std::array<float, 4> blended{};
+                const float* result = interpolate_rotation(blended.data(), &rotation.x, &to.x, weight);
                 rotation = {result[0], result[1], result[2], result[3]};
             }
             const uint32_t flags = flag_bits_;
             if (!(flags & kTranslationKeys) || *trans_sizes) {
                 maths::Vec4& translation = translations[i];
-                uint8_t key[8];
-                decode_translation(trans_keys, key, flags);
-                const auto* values = raw::field_at<const int16_t>(key, 2);
+                std::array<uint8_t, 8> key{};
+                decode_translation(trans_keys, key.data(), flags);
+                const auto* values = raw::field_at<const int16_t>(key.data(), 2);
                 const double x = values[0] * static_cast<double>(kKeyScale);
                 auto y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
                 auto z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
@@ -202,10 +203,10 @@ void JointClipFrames::build_cache(int format)
     uint8_t* rot_data = entry->get_rotation_keys(0);
     uint8_t* trans_data = entry->get_translation_keys(0);
     // (one buffer for a rotation key and a converted translation: the latter's bytes 2-3 are the former's)
-    alignas(4) uint8_t key[16];
-    alignas(4) uint8_t quat_a[16];
-    alignas(4) uint8_t quat_b[20];
-    alignas(4) uint8_t translation[8];
+    alignas(4) std::array<uint8_t, 16> key{};
+    alignas(4) std::array<uint8_t, 16> quat_a{};
+    alignas(4) std::array<uint8_t, 20> quat_b{};
+    alignas(4) std::array<uint8_t, 8> translation{};
 
     // The rotations: each bone's keys one after another, the bones' starts in rot_offsets
     const uint16_t* sizes = quat_sizes_;
@@ -226,14 +227,14 @@ void JointClipFrames::build_cache(int format)
             if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }
-        cursor = decode_rotation(cursor, key, flag_bits_, key_table_);
-        const uint8_t* source = key;
+        cursor = decode_rotation(cursor, key.data(), flag_bits_, key_table_);
+        const uint8_t* source = key.data();
         if (format == 3) {
-            rotation_to_quat_a(quat_a, key);
-            source = quat_a;
+            rotation_to_quat_a(quat_a.data(), key.data());
+            source = quat_a.data();
         } else if (format == 4) {
-            rotation_to_quat_b(quat_b, key);
-            source = quat_b;
+            rotation_to_quat_b(quat_b.data(), key.data());
+            source = quat_b.data();
         }
         std::memcpy(rot_data + static_cast<uint16_t>(offset), source, rot_size);
         offset += rot_size;
@@ -264,16 +265,16 @@ void JointClipFrames::build_cache(int format)
             if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }
-        cursor = decode_translation(cursor, translation, flag_bits_);
-        const uint8_t* source = translation;
+        cursor = decode_translation(cursor, translation.data(), flag_bits_);
+        const uint8_t* source = translation.data();
         if (format >= 3 && format <= 4) {
-            const auto* values = raw::field_at<const int16_t>(translation, 2);
-            std::memcpy(key, translation, 2);
+            const auto* values = raw::field_at<const int16_t>(translation.data(), 2);
+            std::memcpy(key.data(), translation.data(), 2);
             for (int i = 0; i < 3; ++i) {
                 auto value = static_cast<float>(values[i] * static_cast<double>(kKeyScale));
-                std::memcpy(key + 4 + i * 4, &value, 4);
+                std::memcpy(key.data() + 4 + i * 4, &value, 4);
             }
-            source = key;
+            source = key.data();
         }
         std::memcpy(trans_data + static_cast<uint16_t>(offset), source, trans_size);
         offset += trans_size;

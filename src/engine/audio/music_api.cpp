@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/stubs.h"
 #include "engine/file/async.h"
@@ -57,32 +58,33 @@ struct StreamFields {
     uint32_t volume;  // +0x08 (a float: percent)
     uint32_t dropoff; // +0x0C (a float)
     int channel;      // +0x10
-    uint8_t pad14[4];
+    std::array<uint8_t, 4> pad14;
     int priority;        // +0x18
     int queue_position_; // +0x1C
     int queue_count_;    // +0x20
-    uint8_t pad24[4];
+    std::array<uint8_t, 4> pad24;
     bool positional; // +0x28: the volume follows the owner's object
-    uint8_t pad29[3];
+    std::array<uint8_t, 3> pad29;
     int falloff_curve_; // +0x2C
-    uint8_t pad30[4];
+    std::array<uint8_t, 4> pad30;
     struct TableRow {
         uint32_t first;
         uint32_t second;
-    } queue[8]; // +0x34
+    };
+    std::array<TableRow, 8> queue; // +0x34
 };
 static_assert(sizeof(StreamFields) == 0x74, "layout must match the original");
-StreamFields* stream_at(int index) { return raw::as<StreamFields>(g_streams) + index; }
+StreamFields* stream_at(int index) { return raw::as<StreamFields>(g_streams.data()) + index; }
 constexpr int kStreams = 3;
 // The objects that started each stream (null: none); each notes the ids of the streams it started at
 // +0x18 + 4 * slot.
-uint8_t** get_owners() { return raw::as<uint8_t*>(g_stream_owners); }
-uint32_t* owner_ids(uint8_t* owner) { return raw::as<objects::AudioStreamModule>(owner)->streams_; }
+uint8_t** get_owners() { return raw::as<uint8_t*>(g_stream_owners.data()); }
+uint32_t* owner_ids(uint8_t* owner) { return raw::as<objects::AudioStreamModule>(owner)->streams_.data(); }
 
 // The user soundtrack (see music_player.cpp).
 int& user_soundtrack() { return g_user_soundtrack; }
 bool custom_soundtrack_active() { return g_custom_playlist_on; }
-int* user_order() { return g_user_order; }
+int* user_order() { return g_user_order.data(); }
 uint32_t& user_track() { return g_user_track; }
 uint32_t& user_position() { return g_user_position; }
 bool shuffle_user() { return g_shuffle_user; }
@@ -386,7 +388,7 @@ void prepare_all()
         base_music_gain() = static_cast<float>(script::fetch_int_value(0x73F8E03Bu));
         if (base_music_gain() == get_zero())
             base_music_gain() = 100.0f;
-        auto* playlists = g_playlists;
+        auto* playlists = g_playlists.data();
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
             Playlist& list = playlists[i];
             list.count = 0;
@@ -416,9 +418,9 @@ bool disc_mode_active()
 // 0x00450540
 bool FamData::read_in(uint32_t fam_name)
 {
-    char path[256];
-    std::snprintf(path, sizeof(path), "fam\\%x.fam", fam_name);
-    file::AsyncFileHandle* file = file::async_open(path, true, 100);
+    std::array<char, 256> path{};
+    std::snprintf(path.data(), sizeof(path), "fam\\%x.fam", fam_name);
+    file::AsyncFileHandle* file = file::async_open(path.data(), true, 100);
     if (!file)
         return false;
     size = file->get_file_size();
@@ -426,7 +428,7 @@ bool FamData::read_in(uint32_t fam_name)
         file::async_close(file);
         return false;
     }
-    file->get_take_in(data, 1, size);
+    file->get_take_in(data.data(), 1, size);
     file::async_close(file);
     name = fam_name;
     return true;

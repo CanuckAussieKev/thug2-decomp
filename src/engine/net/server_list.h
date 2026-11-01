@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -28,7 +29,7 @@ class Hub;
 // A server found (0xA8 bytes): a node of the manager's server list (+0x158) or of the servers waiting to be shown
 // (+0x16C). (The offsets are the original's.)
 struct HostListing : memory::ListNode {
-    char label_[16]{};     // +0x14
+    std::array<char, 16> label_{};     // +0x14
     uint32_t remote_ip_{}; // +0x24
     int port_no_{};        // +0x28
     int ping_{0};          // +0x2C (9999: not known)
@@ -36,8 +37,8 @@ struct HostListing : memory::ListNode {
     int max_players_{8};   // +0x34
     int num_observers_{0}; // +0x38
     int max_observers_{1}; // +0x3C
-    char level_[32]{};   // +0x40 ("None")
-    char mode_sel_[32]{}; // +0x60 ("None")
+    std::array<char, 32> level_{};   // +0x40 ("None")
+    std::array<char, 32> mode_sel_{}; // +0x60 ("None")
     bool password_{};     // +0x80
     bool started_{false}; // +0x81 a game in progress
     int8_t skill_level_{2}; // +0x82
@@ -48,7 +49,7 @@ struct HostListing : memory::ListNode {
     bool chosen_{false};    // +0x8B its details asked for (RetrieveServerInfo)
     bool in_list_{false};   // +0x8C counted in the lobby's server list
     bool detailed_{false};  // +0x8D the full details have come
-    uint8_t pad8e_[2]{};
+    std::array<uint8_t, 2> pad8e_{};
     void* sb_server_{nullptr};        // +0x90 GameSpy's SBServer (internet)
     memory::ListNode participants_{}; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings
 

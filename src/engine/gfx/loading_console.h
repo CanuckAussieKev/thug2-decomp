@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <array>
 
 // NOT ORIGINAL - the loading console (ours, added at the user's request: "a console that shows what is currently
 // loading, so we can differentiate between a hang and something still loading"; not the game's and not PartyMod's).
@@ -79,9 +80,9 @@ void get_note(const char* format, Args... args)
 {
     if (!live_now())
         return;
-    char text[kLineWidth];
-    std::snprintf(text, sizeof(text), format, args...);
-    note_text(text);
+    std::array<char, kLineWidth> text{};
+    std::snprintf(text.data(), sizeof(text), format, args...);
+    note_text(text.data());
 }
 // "name.ext" of "folder\\sub/name.ext".
 const char* get_file_name(const char* path);
@@ -95,11 +96,11 @@ bool interesting_log_line(const char* line);
 // The ring of lines (the console's own state, also used by the self-test on a separate instance).
 struct Ring {
     struct Seg {
-        char text[kLineWidth];
+        std::array<char, kLineWidth> text;
         double time;     // seconds since the load began
         unsigned repeat; // the same text again: 1 = once
     };
-    Seg lines[kRingLines]{};
+    std::array<Seg, kRingLines> lines{};
     unsigned count = 0; // lines ever added
     // Add `text` at `time`; the same text as the newest line counts that one up instead.
     void append_one(const char* text, double time);

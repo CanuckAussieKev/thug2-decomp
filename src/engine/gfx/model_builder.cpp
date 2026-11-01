@@ -22,6 +22,7 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 
 namespace gfx {
@@ -130,7 +131,7 @@ constexpr uint32_t kBareFeet = 0xF11C6E74;         // bare_feet
 constexpr uint32_t kBody = 0x2457F44D;             // body
 
 // A part's geoms, one model file each.
-const uint32_t kMeshes[] = {0x1E90C5A9, 0xFECA8BB3, 0x67C3DA09, 0x10C4EA9F, 0x8EA07F3C}; // mesh, mesh1 ... mesh4
+constexpr auto kMeshes = std::to_array<uint32_t>({0x1E90C5A9, 0xFECA8BB3, 0x67C3DA09, 0x10C4EA9F, 0x8EA07F3C}); // mesh, mesh1 ... mesh4
 // A part's texture replacements: replace / with / in, then replace1 / with1 / in1 ... replace6.
 const uint32_t kReplacements[][3] = {
     {0xF362DBBA, 0x676F1DF1, 0xA01371B1}, {0x7A993873, 0x9B03ADAD, 0xED189051}, {0xE39069C9, 0x020AFC17, 0x7411C1EB},

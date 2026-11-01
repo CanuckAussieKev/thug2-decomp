@@ -30,6 +30,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/objects/skeleton_component.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -80,8 +81,8 @@ void set_matrices(GameEntity* object, const float* matrix)
     std::memcpy(&object->basis_frame_, matrix, 64);
     std::memcpy(&object->display_matrix_, matrix, 64);
 }
-float* get_rotations() { return g_cutscene_rotations; }
-float* get_translations() { return g_cutscene_translations; }
+float* get_rotations() { return g_cutscene_rotations.data(); }
+float* get_translations() { return g_cutscene_translations.data(); }
 
 // (debug drawing, compiled out: the object's box)
 inline void debug_draw_box(const void*, const void*, const float*, int, int, int, uint32_t) {}
@@ -204,11 +205,11 @@ void CinematicTable::update_stand_in(GameEntity* object)
             fade_model(level_model, 0.0f);
             core::down_cast<MeshInstanceModule>(level_component)->get_update_brightness();
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
-            float matrix[16];
-            *raw::as<maths::Mat4>(matrix) = object->display_matrix_;
-            std::memcpy(matrix + 12, &object->at_point_, 16);
+            std::array<float, 16> matrix{};
+            *raw::as<maths::Mat4>(matrix.data()) = object->display_matrix_;
+            std::memcpy(matrix.data() + 12, &object->at_point_, 16);
             static_cast<render::RenderModel*>(level_model)
-                ->render(raw::as<maths::Mat4>(matrix), false,
+                ->render(raw::as<maths::Mat4>(matrix.data()), false,
                          core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_);
             std::memcpy(&level->at_point_, &object->at_point_, 16);
         } else {
@@ -229,7 +230,7 @@ void CinematicTable::update_object_transforms()
     if (!object_source_)
         return;
     static_cast<gfx::JointClipFrames*>(anim_list_)
-        ->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot,
+        ->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot.data(),
                              static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                              static_cast<int>(cell::of(object_source_)));
     // the animated objects of the level (not the cutscene's own)
@@ -245,10 +246,10 @@ void CinematicTable::update_object_transforms()
         auto* object = core::down_cast<GameEntity>(find_object(name));
         if (!object)
             continue;
-        float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        float matrix[16];
-        quat_to_matrix(get_rotations() + 4 * j, origin, matrix);
-        set_matrices(object, matrix);
+        std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        std::array<float, 16> matrix{};
+        quat_to_matrix(get_rotations() + 4 * j, origin.data(), matrix.data());
+        set_matrices(object, matrix.data());
         std::memcpy(&object->at_point_, get_translations() + 4 * j, 16);
     }
     for (int i = 0; i < object_count_; ++i) {
@@ -269,34 +270,34 @@ void CinematicTable::update_object_transforms()
             position[0] = static_cast<float>(static_cast<double>(offset[0]) + at[0]);
             position[1] = static_cast<float>(static_cast<double>(at[1]) + offset[1]);
             position[3] = 1.0f;
-            float joint_mat[16];
-            static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, raw::as<maths::Mat4>(joint_mat));
-            float owner_mat[16];
-            std::memcpy(owner_mat, &parent->display_matrix_, 64);
-            std::memcpy(owner_mat + 12, at, 16);
+            std::array<float, 16> joint_mat{};
+            static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, raw::as<maths::Mat4>(joint_mat.data()));
+            std::array<float, 16> owner_mat{};
+            std::memcpy(owner_mat.data(), &parent->display_matrix_, 64);
+            std::memcpy(owner_mat.data() + 12, at, 16);
             owner_mat[3] = 0.0f;
             owner_mat[7] = 0.0f;
             owner_mat[11] = 0.0f;
-            d3dx::matrix_multiply(joint_mat, joint_mat, owner_mat);
-            float matrix[16];
-            std::memcpy(matrix, joint_mat, 48);
+            d3dx::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
+            std::array<float, 16> matrix{};
+            std::memcpy(matrix.data(), joint_mat.data(), 48);
             matrix[12] = 0.0f;
             matrix[13] = 0.0f;
             matrix[14] = 0.0f;
             matrix[15] = 1.0f;
-            set_matrices(object, matrix);
+            set_matrices(object, matrix.data());
             update_stand_in(object);
         } else if (entry.anim_index_ != -1) {
-            float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-            float matrix[16];
-            quat_to_matrix(get_rotations() + 4 * entry.anim_index_, origin, matrix);
-            set_matrices(object, matrix);
+            std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+            std::array<float, 16> matrix{};
+            quat_to_matrix(get_rotations() + 4 * entry.anim_index_, origin.data(), matrix.data());
+            set_matrices(object, matrix.data());
             std::memcpy(&object->at_point_, get_translations() + 4 * entry.anim_index_, 16);
             update_stand_in(object);
         }
         if (script::fetch_int_value(kDebugBoxes)) {
-            const float box[8] = {1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f};
-            debug_draw_box(&object->display_matrix_, &object->at_point_, box, 0, 1, 0, 0xFF0000C8);
+            const std::array<float, 8> box = {{1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f}};
+            debug_draw_box(&object->display_matrix_, &object->at_point_, box.data(), 0, 1, 0, 0xFF0000C8);
         }
     }
 }
@@ -317,7 +318,7 @@ CinematicEntry::CinematicEntry(const uint32_t* settings)
 {
     script::Struct* block = script::spawn_param_bag();
     args_ = block ? memory::construct_in<script::Struct>(block) : nullptr;
-    std::memcpy(settings_, settings, 12);
+    std::memcpy(settings_.data(), settings, 12);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     owns_data_ = static_cast<uint8_t>(settings_[2] & 0xFF);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)

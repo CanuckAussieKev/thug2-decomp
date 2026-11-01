@@ -17,6 +17,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor.h"
@@ -47,12 +48,12 @@ namespace frontend::level_editor::layout {
 
 namespace {
 
-const char kHeader[] = "thug2-decomp layout "; // (and the version)
+constexpr auto kHeader = std::to_array("thug2-decomp layout "); // (and the version)
 
 // The header's version (0: not a layout's header).
 int header_version(const std::string& line)
 {
-    if (!line.starts_with(kHeader))
+    if (!line.starts_with(kHeader.data()))
         return 0;
     std::istringstream in(line.substr(sizeof(kHeader) - 1));
     int version = 0;
@@ -83,23 +84,23 @@ bool read_triple(const std::string& text, float out[3])
 
 void triple(std::ostringstream& out, const char* key, const float value[3])
 {
-    char text[96];
-    std::snprintf(text, sizeof(text), " %s=%.9g,%.9g,%.9g", key, value[0], value[1], value[2]);
-    out << text;
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), " %s=%.9g,%.9g,%.9g", key, value[0], value[1], value[2]);
+    out << text.data();
 }
 
 void get_number(std::ostringstream& out, float value)
 {
-    char text[32];
-    std::snprintf(text, sizeof(text), " %.9g", value);
-    out << text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), " %.9g", value);
+    out << text.data();
 }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
-    char text[16];
-    std::snprintf(text, sizeof(text), " %08X", value);
-    out << text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), " %08X", value);
+    out << text.data();
 }
 
 void get_placed(std::ostringstream& out, const Placement& p)
@@ -165,14 +166,14 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
         if (std::ranges::find(seen, key) != seen.end())
             return false;
         seen.push_back(key);
-        float v[3];
+        std::array<float, 3> v{};
         char* end = nullptr;
         if (key == "type") {
             if (!node_create::valid_name(value))
                 return false;
             spec->type = value;
         } else if (key == "pos" || key == "angles") {
-            if (!read_triple(value, v))
+            if (!read_triple(value, v.data()))
                 return false;
             (key == "pos" ? spec->pos : spec->angles) = {v[0], v[1], v[2]};
         } else if (key == "types") {
@@ -184,7 +185,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
                 spec->types.push_back(type);
             }
         } else if (key == "color") {
-            if (!read_triple(value, v))
+            if (!read_triple(value, v.data()))
                 return false;
             for (int i = 0; i < 3; ++i) {
                 if (v[i] < 0.0f || v[i] > 255.0f || v[i] != static_cast<float>(static_cast<int>(v[i])))
@@ -209,7 +210,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
 std::string emit_out(const FileLoad& file)
 {
     std::ostringstream out;
-    out << kHeader << kVersion << '\n';
+    out << kHeader.data() << kVersion << '\n';
     out << "scene";
     get_hex(out, file.scene);
     get_comment(out, file.scene);
@@ -271,14 +272,14 @@ std::string emit_out(const FileLoad& file)
         node_create::Kind kind{};
         if (node_create::kind_of(a, &kind) && kind == node_create::Kind::kLight) {
             out << " color=" << a.colour[0] << ',' << a.colour[1] << ',' << a.colour[2];
-            char text[96];
-            std::snprintf(text, sizeof(text), " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
-            out << text;
+            std::array<char, 96> text{};
+            std::snprintf(text.data(), sizeof(text), " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
+            out << text.data();
         }
         if (a.radius != 0.0f) {
-            char text[32];
-            std::snprintf(text, sizeof(text), " radius=%.9g", a.radius);
-            out << text;
+            std::array<char, 32> text{};
+            std::snprintf(text.data(), sizeof(text), " radius=%.9g", a.radius);
+            out << text.data();
         }
         out << '\n';
     }
@@ -308,9 +309,9 @@ std::string emit_out(const FileLoad& file)
         out << "set";
         get_hex(out, s.name);
         if (s.has_pos_)
-            triple(out, "pos", s.pos);
+            triple(out, "pos", s.pos.data());
         if (s.has_angles_)
-            triple(out, "angles", s.angles);
+            triple(out, "angles", s.angles.data());
         for (const fields::Edit& edit : s.fields)
             out << ' ' << fields::get_token(edit, fields::get_name_of);
         get_comment(out, s.name);
@@ -425,10 +426,10 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
                 const std::string key = field.substr(0, equals);
                 const std::string value = field.substr(equals + 1);
                 if (key == "pos") {
-                    ok = !s.has_pos_ && read_triple(value, s.pos); // (twice: not a record we wrote)
+                    ok = !s.has_pos_ && read_triple(value, s.pos.data()); // (twice: not a record we wrote)
                     s.has_pos_ = true;
                 } else if (key == "angles") {
-                    ok = !s.has_angles_ && read_triple(value, s.angles);
+                    ok = !s.has_angles_ && read_triple(value, s.angles.data());
                     s.has_angles_ = true;
                 } else if (fields::is_field_key(key)) {
                     // (phase 6: a typed field edit; the same field twice isn't a record we wrote)
@@ -520,16 +521,16 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
 
 std::string saved_file_name(uint32_t scene)
 {
-    char name[32];
-    std::snprintf(name, sizeof(name), "%08X.txt", scene);
-    return name;
+    std::array<char, 32> name{};
+    std::snprintf(name.data(), sizeof(name), "%08X.txt", scene);
+    return name.data();
 }
 
 std::string autosave_file_name(uint32_t scene)
 {
-    char name[32];
-    std::snprintf(name, sizeof(name), "%08X.autosave.txt", scene);
-    return name;
+    std::array<char, 32> name{};
+    std::snprintf(name.data(), sizeof(name), "%08X.autosave.txt", scene);
+    return name.data();
 }
 
 bool autosave_newer(bool have_autosave, uint64_t autosave_time, bool have_saved, uint64_t saved_time)
@@ -653,8 +654,8 @@ void apply_extensions(const std::vector<std::string>& extra)
 // allocating: `ready` is false while they change), whether it has been written since, whether this run wrote (or
 // restored) this level's autosave, and whether an older one is being offered (nothing written over it meanwhile).
 std::string g_snapshot;
-char g_snapshot_path[MAX_PATH];
-char g_snapshot_folder[MAX_PATH];
+std::array<char, MAX_PATH> g_snapshot_path;
+std::array<char, MAX_PATH> g_snapshot_folder;
 volatile bool g_snapshot_ready;
 volatile bool g_snapshot_written = true;
 bool g_autosave_ours;
@@ -703,20 +704,20 @@ bool write_time(const std::string& path, uint64_t* time)
 // made first. No allocation: the crash hook uses it.
 bool write_whole(const char* folder, const char* path, const char* data, size_t size)
 {
-    char temporary[MAX_PATH + 8];
-    if (std::snprintf(temporary, sizeof(temporary), "%s.tmp", path) <= 0)
+    std::array<char, MAX_PATH + 8> temporary{};
+    if (std::snprintf(temporary.data(), sizeof(temporary), "%s.tmp", path) <= 0)
         return false;
     CreateDirectoryA(folder, nullptr);
     util::UniqueHandle file(
-        CreateFileA(temporary, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+        CreateFileA(temporary.data(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
     if (!file)
         return false;
     DWORD written = 0;
     bool ok = WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
     file.reset(); // (closed before it's moved)
-    ok = ok && MoveFileExA(temporary, path, MOVEFILE_REPLACE_EXISTING);
+    ok = ok && MoveFileExA(temporary.data(), path, MOVEFILE_REPLACE_EXISTING);
     if (!ok)
-        DeleteFileA(temporary);
+        DeleteFileA(temporary.data());
     return ok;
 }
 
@@ -783,7 +784,7 @@ bool get_capture(FileLoad* file)
         if (!object)
             continue;
         ObjectRecord record = {id, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
-        rows_of(object->basis_frame_, record.rows);
+        rows_of(object->basis_frame_, record.rows.data());
         record.scale = scale_tool::get_object_scale(object);
         file->objects.push_back(record);
     }
@@ -793,7 +794,7 @@ bool get_capture(FileLoad* file)
             continue;
         CopyRecord record = {
             copy.name, copy.source, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
-        rows_of(object->basis_frame_, record.rows);
+        rows_of(object->basis_frame_, record.rows.data());
         record.scale = scale_tool::get_object_scale(object);
         file->copies.push_back(record);
     }
@@ -888,7 +889,7 @@ std::string get_apply(const FileLoad& file)
     scenery::apply_states(file.sectors, file.rails);
     int objects = 0, copies = 0;
     for (const ObjectRecord& record : file.objects) {
-        if (object_edit::get_restore(state_of(record.id, record.pos, record.rows, record.scale))) {
+        if (object_edit::get_restore(state_of(record.id, record.pos.data(), record.rows.data(), record.scale))) {
             object_edit::touch(record.id);
             ++objects;
         }
@@ -897,7 +898,7 @@ std::string get_apply(const FileLoad& file)
         const bool there = object_edit::is_copy(record.name) && live_object(record.name);
         if ((there ||
              object_edit::make_copy(record.source, {record.pos[0], record.pos[1], record.pos[2]}, record.name)) &&
-            object_edit::get_restore(state_of(record.name, record.pos, record.rows, record.scale)))
+            object_edit::get_restore(state_of(record.name, record.pos.data(), record.rows.data(), record.scale)))
             ++copies;
     }
     // Nodes added (in the overlay, in order: one re-registration), the added crowns' order, the level's nodes hidden.
@@ -971,8 +972,8 @@ std::string get_apply(const FileLoad& file)
     if (const int notes = notes::get_apply(file.notes)) // (UX5: note pins)
         get_log("level editor: the layout's %d notes put in place", notes);
     checks::note_layout_applied(file); // (UX5: records that don't resolve - logged, listed, kept)
-    char summary[360];
-    std::snprintf(summary, sizeof(summary),
+    std::array<char, 360> summary{};
+    std::snprintf(summary.data(), sizeof(summary),
                   "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
                   "%u chain points, %u relinked, %u dropped, %u collision switches / walls, %d triggers, %d fields%s",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
@@ -980,7 +981,7 @@ std::string get_apply(const FileLoad& file)
                   static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
                   static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()), triggers,
                   fields, level_props::vacant(file.level) ? "" : ", level properties");
-    return summary;
+    return summary.data();
 }
 
 // Everything the editor has changed in this level put back as the level has it, before another layout goes in place
@@ -1044,7 +1045,7 @@ void reset_to_level(const FileLoad& keep)
 // The crash hook's write (no allocation; run_guarded catches a fault in it).
 void write_snapshot()
 {
-    if (write_whole(g_snapshot_folder, g_snapshot_path, g_snapshot.data(), g_snapshot.size()))
+    if (write_whole(g_snapshot_folder.data(), g_snapshot_path.data(), g_snapshot.data(), g_snapshot.size()))
         g_snapshot_written = true;
 }
 
@@ -1069,9 +1070,9 @@ bool store_away(std::string* message)
         get_log("level editor: %s", message->c_str());
         return false;
     }
-    char text[256];
+    std::array<char, 256> text{};
     std::snprintf(
-        text, sizeof(text),
+        text.data(), sizeof(text),
         "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden, "
         "%u triggers",
         static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
@@ -1079,8 +1080,8 @@ bool store_away(std::string* message)
         static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()),
         static_cast<unsigned>(file.added.size()), static_cast<unsigned>(file.hidden.size()),
         static_cast<unsigned>(file.triggers.size()));
-    *message = text;
-    get_log("level editor: %s - %s", text, path.c_str());
+    *message = text.data();
+    get_log("level editor: %s - %s", text.data(), path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)
     const std::string autosave = autosave_path_for(file.scene);
     if (DeleteFileA(autosave.c_str()))
@@ -1120,12 +1121,12 @@ bool get_snapshot()
         return false;
     std::string text = emit_out(file);
     const std::string path = autosave_path_for(file.scene);
-    if (g_snapshot_ready && text == g_snapshot && path == g_snapshot_path)
+    if (g_snapshot_ready && text == g_snapshot && path == g_snapshot_path.data())
         return true;
     g_snapshot_ready = false; // (the crash hook leaves it alone while it changes)
     g_snapshot.swap(text);
-    strncpy_s(g_snapshot_path, path.c_str(), _TRUNCATE);
-    strncpy_s(g_snapshot_folder, get_folder().c_str(), _TRUNCATE);
+    strncpy_s(g_snapshot_path.data(), g_snapshot_path.size(), path.c_str(), _TRUNCATE);
+    strncpy_s(g_snapshot_folder.data(), g_snapshot_folder.size(), get_folder().c_str(), _TRUNCATE);
     g_snapshot_written = false;
     g_snapshot_ready = true;
     return true;
@@ -1135,13 +1136,13 @@ bool write_autosave()
 {
     if (!g_snapshot_ready || g_snapshot_written || g_offer_pending)
         return false;
-    if (!write_whole(g_snapshot_folder, g_snapshot_path, g_snapshot.data(), g_snapshot.size())) {
-        get_log("level editor: couldn't write the autosave %s", g_snapshot_path);
+    if (!write_whole(g_snapshot_folder.data(), g_snapshot_path.data(), g_snapshot.data(), g_snapshot.size())) {
+        get_log("level editor: couldn't write the autosave %s", g_snapshot_path.data());
         return false;
     }
     g_snapshot_written = true;
     g_autosave_ours = true;
-    get_log("level editor: autosaved - %s", g_snapshot_path);
+    get_log("level editor: autosaved - %s", g_snapshot_path.data());
     return true;
 }
 
@@ -1153,7 +1154,7 @@ void write_autosave_from_crash()
     run_guarded(write_snapshot);
     get_log(g_snapshot_written ? "level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)"
                                : "level editor: the unsaved changes couldn't be autosaved - %s",
-            g_snapshot_path);
+            g_snapshot_path.data());
     busy = 0;
 }
 
@@ -1659,10 +1660,10 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     static const uint32_t kLevel = checksums::hash_from_text("level"), kText = checksums::hash_from_text("text"),
                           kEditedLayout = checksums::hash_from_text("edited_layout"),
                           kSignLabel = checksums::hash_from_text("sign_label");
-    static const char* const kLists[] = {"level_select_menu_level_info",       "level_select_menu_thug1_level_info",
+    static const auto kLists = std::to_array<const char*>({"level_select_menu_level_info",       "level_select_menu_thug1_level_info",
                                          "level_select_menu_thps4_level_info", "level_select_menu_thps3_level_info",
-                                         "level_select_menu_thaw_level_info",  "level_select_menu_misc_level_info"};
-    static const char* const kDropped[] = {"new_vmenu", "hold_vmenu"}; // (columns of the level's own section)
+                                         "level_select_menu_thaw_level_info",  "level_select_menu_misc_level_info"});
+    static const auto kDropped = std::to_array<const char*>({"new_vmenu", "hold_vmenu"}); // (columns of the level's own section)
     std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
     std::vector<script::Struct*> entries;
     std::vector<uint32_t> done;

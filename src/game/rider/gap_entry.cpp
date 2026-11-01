@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -490,8 +491,8 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         const char* text = nullptr;
         if (!params->fetch_text(kText, &text, 0))
             text = "Unnamed Gap";
-        char coloured[256];
-        std::snprintf(coloured, sizeof(coloured), "\\c1%s\\c0", text);
+        std::array<char, 256> coloured{};
+        std::snprintf(coloured.data(), sizeof(coloured), "\\c1%s\\c0", text);
 
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
         if (gap_trick_script(gap)) {
@@ -525,7 +526,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         gap_tally_ref()->set_gap_positions(text, gap_start_pos(gap), gap_start_dir(gap));
         int points = 0;
         if (params->fetch_int_value(kScore, &points, 0) && entity_->is_local_skater_) {
-            add_gap_score(points_held_, coloured, points, 0x10);
+            add_gap_score(points_held_, coloured.data(), points, 0x10);
             core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))->bailed_ = true;
             gap_tally_ref()->register_gap_hit(text);
             entity_->start_script_task(kDefaultGapScript, 0, false, false, nullptr);

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -22,7 +23,7 @@
 namespace render {
 
 namespace {
-int g_key_multipliers[8]{2, 3, 4, 6, 12, 8, 24, -1};
+std::array<int, 8> g_key_multipliers{{2, 3, 4, 6, 12, 8, 24, -1}};
 } // namespace
 
 // The game's texture dictionaries: the textures every level shares, and the particles'.
@@ -36,7 +37,7 @@ lists::KeyMap g_loaded_tex_dicts{lists::KeyMap::Unconstructed{}}; // (the exe ma
 lists::KeyMap& loaded_tex_dicts() { return g_loaded_tex_dicts; }
 
 // The multipliers find_texture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
-const int* key_multipliers() { return g_key_multipliers; }
+const int* key_multipliers() { return g_key_multipliers.data(); }
 
 // The CRC of what follows a name's last slash or backslash.
 uint32_t filename_key(const char* name)
@@ -127,12 +128,12 @@ BitmapTexture* TextureSet::find_texture(const char* name)
     };
     if (BitmapTexture* texture = find(checksums::hash_from_text(name)))
         return texture;
-    char other[0x200];
-    std::snprintf(other, sizeof(other), "%s", name);
-    const size_t length = std::strlen(other);
+    std::array<char, 0x200> other{};
+    std::snprintf(other.data(), sizeof(other), "%s", name);
+    const size_t length = std::strlen(other.data());
     if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
-        std::memcpy(other + length - 4, "_auto32m0.png", 14);
-    return find(checksums::hash_from_text(other));
+        std::memcpy(other.data() + length - 4, "_auto32m0.png", 14);
+    return find(checksums::hash_from_text(other.data()));
 }
 
 // 0x0049F9B0
@@ -267,8 +268,8 @@ TextureSet* find_tex_dict(uint32_t checksum)
 // 0x0049F0C0
 TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
 {
-    char file[0x80];
-    std::snprintf(file, sizeof(file), "%s.%s", path, platform_suffix());
+    std::array<char, 0x80> file{};
+    std::snprintf(file.data(), sizeof(file), "%s.%s", path, platform_suffix());
     memory::push_mem_profile(path);
     const uint32_t key = checksums::hash_from_text(path) + offset;
     TextureSet* dict = find_tex_dict(key);
@@ -276,7 +277,7 @@ TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint
         ++dict->share_count_;
     } else {
         // (the original passes level, offset, a3 and a4 too: the PC's reads the name alone)
-        dict = load_tex_dict_file(file);
+        dict = load_tex_dict_file(file.data());
         dict->checksum_ = key;
         loaded_tex_dicts().store_entry(key, dict);
     }
@@ -305,11 +306,11 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
 // 0x0049F180 (the skin flag is pushed as a whole word in the original - stack noise above its byte)
 TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
 {
-    char base[0x200];
-    const bool skin = engine::split_skin_name(name, base);
-    char file[0x200];
-    std::snprintf(file, sizeof(file), "%s.tex", base);
-    return load_tex_dict(file, 0, offset, skin, a4);
+    std::array<char, 0x200> base{};
+    const bool skin = engine::split_skin_name(name, base.data());
+    std::array<char, 0x200> file{};
+    std::snprintf(file.data(), sizeof(file), "%s.tex", base.data());
+    return load_tex_dict(file.data(), 0, offset, skin, a4);
 }
 
 // 0x0049EFD0

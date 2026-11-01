@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/device.h"
 #include "engine/core/raw_view.h"
@@ -15,11 +16,11 @@
 namespace render {
 
 namespace {
-float g_gammas[3]{1.0f, 1.0f, 1.0f};
-uint16_t g_gamma_ramp[768];
+std::array<float, 3> g_gammas{{1.0f, 1.0f, 1.0f}};
+std::array<uint16_t, 768> g_gamma_ramp;
 
-float* gammas() { return g_gammas; }
-uint16_t* get_ramp() { return g_gamma_ramp; } // red, then green and blue, 256 each
+float* gammas() { return g_gammas.data(); }
+uint16_t* get_ramp() { return g_gamma_ramp.data(); } // red, then green and blue, 256 each
 
 // A value kept within 0-1 (a NaN kept, as the original's tests let it through).
 float clamp01(float value)
@@ -42,7 +43,7 @@ void get_device_gamma(float* r, float* g, float* b)
 // 0x004D06F0
 void build_gamma_ramp()
 {
-    float exponent[3];
+    std::array<float, 3> exponent{};
     for (int k = 0; k < 3; ++k)
         exponent[k] = static_cast<float>(1.0f / static_cast<double>(gammas()[k]));
     for (int i = 0; i < 0x100; ++i) {

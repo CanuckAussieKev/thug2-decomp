@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/text_store.h"
@@ -29,7 +30,7 @@ struct TrickListEntry {
     uint32_t trick_text_{};      // +0x2C (its checksum)
     int spin_;                   // +0x30 in half turns
     bool perfect_;               // +0x34
-    uint8_t pad35[3]{};
+    std::array<uint8_t, 3> pad35{};
     uint32_t tricks_count_;       // +0x38 the score's tricks then
     int taps_;                    // +0x3C
     maths::Vec4 start_pos_{};     // +0x40
@@ -55,7 +56,7 @@ struct TrickNameEntry {
     int node_{};            // +0x24
     uint32_t trick_script_{}; // +0x28
     uint8_t done_{};          // +0x2C (set_flag; a gap trick: done)
-    uint8_t pad2d_[3]{};
+    std::array<uint8_t, 3> pad2d_{};
     uint32_t frame_{}; // +0x30
 
     // 0x005787F0: an unlinked node (its data itself), an empty name.

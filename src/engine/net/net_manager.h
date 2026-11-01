@@ -6,6 +6,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/net/net_messages.h"
 #include <gsl/pointers>
+#include <array>
 
 // The network manager (0x37C bytes; the instance at 0x006EFDD8, made and released by create_manager /
 // release_manager): the apps (servers and clients) it made and the network settings online copies from the network
@@ -108,22 +109,22 @@ public:
 
     memory::ListNode hosts_{};       // +0x000 lists::Foremost<App>
     memory::ListNode clients_{};     // +0x014
-    uint8_t message_flags_[0x100]{}; // +0x028 per message id (bit 0: sent without its length; the
+    std::array<uint8_t, 0x100> message_flags_{}; // +0x028 per message id (bit 0: sent without its length; the
                                      //        constructor: 8 and 9 get 1, 0-254 0)
     int connection_type_;          // +0x128
     uint32_t unknown12c_{};
     int device_type_{};                            // +0x130
-    char local_ip_[0x10]{};                        // +0x134 ("<Unknown>" at first)
+    std::array<char, 0x10> local_ip_{};                        // +0x134 ("<Unknown>" at first)
     uint32_t local_address_{};                     // +0x144
-    char resolver_ips_[kNumDnsServers][0x10]{};    // +0x148
-    char router_addr_[0x10]{};                     // +0x178 ("192.168.55.99")
-    char subnet_mask_[0x10]{};                     // +0x188 ("255.255.0.0")
+    std::array<std::array<char, 0x10>, kNumDnsServers> resolver_ips_{};    // +0x148
+    std::array<char, 0x10> router_addr_{};                     // +0x178 ("192.168.55.99")
+    std::array<char, 0x10> subnet_mask_{};                     // +0x188 ("255.255.0.0")
     int dialup_number_index_;                      // +0x198 which dial-up number is in use
-    char dialup_numbers_[kNumDialupNumbers][0x20]{}; // +0x19C
-    char dialup_user_name_[0x50]{};                  // +0x1FC
-    char dialup_password_[0x50]{};                   // +0x24C
-    char host_name_[0x20]{};                         // +0x29C
-    char domain_name_[0x20]{};                       // +0x2BC
+    std::array<std::array<char, 0x20>, kNumDialupNumbers> dialup_numbers_{}; // +0x19C
+    std::array<char, 0x50> dialup_user_name_{};                  // +0x1FC
+    std::array<char, 0x50> dialup_password_{};                   // +0x24C
+    std::array<char, 0x20> host_name_{};                         // +0x29C
+    std::array<char, 0x20> domain_name_{};                       // +0x2BC
     int num_apps_;                                 // +0x2DC apps made
     int last_error_;                               // +0x2E0
     bool is_networked_;                            // +0x2E4
@@ -131,7 +132,7 @@ public:
     bool flag_2e_6_;                               // +0x2E6
     int dialup_phase_;                             // +0x2E8
     int unknown2ec_;                               // +0x2EC (0 from the constructor)
-    uint8_t unknown2f0_[0x374 - 0x2F0]{};
+    std::array<uint8_t, 0x374 - 0x2F0> unknown2f0_{};
     int dialup_bps_{}; // +0x374
     int link_speed_; // +0x378 (400000 at first)
 };

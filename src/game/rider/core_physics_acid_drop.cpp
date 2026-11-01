@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -455,8 +456,8 @@ bool SkaterPhysicsModule::try_spine_transfer()
             down.z = static_cast<float>(down.z * inverse);
         }
     }
-    alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
-    auto* quat = raw::as<maths::QuatRotation>(rotation);
+    alignas(16) std::array<uint8_t, 0x10> rotation{}; // (a quaternion, it seems)
+    auto* quat = raw::as<maths::QuatRotation>(rotation.data());
     quat->init_from_axis_angle(across, kQuarterTurn);
     maths::Vec4 turned{};
     maths::Vec4 target = *quat->spin_by(&turned, down);

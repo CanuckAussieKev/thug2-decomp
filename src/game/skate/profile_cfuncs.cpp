@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/script/cscript.h"
@@ -21,7 +22,7 @@
 
 namespace commands {
 
-SwapSlot g_swap_table[5];
+std::array<SwapSlot, 5> g_swap_table;
 
 namespace {
 
@@ -29,7 +30,7 @@ using script::Script;
 using script::Struct;
 
 constexpr int kSwapSlots = 5;
-SwapSlot* swap_table() { return g_swap_table; }
+SwapSlot* swap_table() { return g_swap_table.data(); }
 
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
@@ -130,9 +131,9 @@ bool cfunc_get_goals_completed(Struct* params, Script* script)
     int level = 0;
     params->fetch_int_value(0u, &level, 0);
     const int goals = get_career()->count_goals(level);
-    char text[100];
-    std::snprintf(text, sizeof(text), "%d/9", goals);
-    result_params(script)->append_word(0xC661FE79u, script::kQbvalString, text);    // (name unknown)
+    std::array<char, 100> text{};
+    std::snprintf(text.data(), sizeof(text), "%d/9", goals);
+    result_params(script)->append_word(0xC661FE79u, script::kQbvalString, text.data());    // (name unknown)
     result_params(script)->append_word(0xA43DC969u, script::kQbvalString, kNoText); // (name unknown)
     return true;
 }
@@ -140,8 +141,8 @@ bool cfunc_get_goals_completed(Struct* params, Script* script)
 // 0x005AAC10
 bool cfunc_get_next_level_requirements(Struct*, Script* script)
 {
-    char text[100];
-    std::snprintf(text, sizeof(text), "%s", kNoText);
+    std::array<char, 100> text{};
+    std::snprintf(text.data(), sizeof(text), "%s", kNoText);
     objects::RiderStoryProgress* career = get_career();
     const int goals = career->count_total_goals();
     const int medals = career->count_levels_with_goals();
@@ -155,17 +156,17 @@ bool cfunc_get_next_level_requirements(Struct*, Script* script)
         if (step->has_bare_flag(0x56907F8Bu) || step->has_bare_flag(0x23BBA846u)) // (names unknown) medals
             step->fetch_int_value(0u, &medals_needed, 0);
         if (goals < goals_needed) {
-            std::snprintf(text, sizeof(text), script::fetch_text(0x407BFD24u),
+            std::snprintf(text.data(), sizeof(text), script::fetch_text(0x407BFD24u),
                           goals_needed - goals); // cfuncs_str_goalsfornextlevel
             break;
         }
         if (medals < medals_needed) {
-            std::snprintf(text, sizeof(text), script::fetch_text(0x4F3E243Eu),
+            std::snprintf(text.data(), sizeof(text), script::fetch_text(0x4F3E243Eu),
                           medals_needed - medals); // cfuncs_str_medalsfornextlevel
             break;
         }
     }
-    result_params(script)->append_word(0xAF2305A6u, script::kQbvalString, text); // (name unknown)
+    result_params(script)->append_word(0xAF2305A6u, script::kQbvalString, text.data()); // (name unknown)
     return true;
 }
 

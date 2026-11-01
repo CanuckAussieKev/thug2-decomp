@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <array>
 
 #include "editor/level_editor.h"
 
@@ -28,7 +29,7 @@ struct ViewNow {
     V3 pos;
     float yaw, pitch;
     Lens lens;
-    uint32_t viewport[4];
+    std::array<uint32_t, 4> viewport;
     float near_z_;
 };
 bool current_view(ViewNow* view);

@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/maths/vec4.h"
@@ -234,7 +235,7 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
     online::Hub* manager = net_session_slot();
     PlayerSearch search;
     if (is_squad_match()) {
-        int teams[4] = {0, 0, 0, 0};
+        std::array<int, 4> teams = {{0, 0, 0, 0}};
         for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
              player = step_roster_sweep(manager, &search, false)) {
             if (!player->is_eliminated())
@@ -265,7 +266,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
     PlayerSearch search;
     const int target = integer_or_zero(params);
     if (is_squad_match()) {
-        int teams[4] = {0, 0, 0, 0};
+        std::array<int, 4> teams = {{0, 0, 0, 0}};
         for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
              player = step_roster_sweep(manager, &search, false)) {
             modules::PointTally* score = get_score_of(player->skater_);
@@ -295,7 +296,7 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
     NewPlayerSearch joining;
     int scored = 0;
     if (is_squad_match()) {
-        int teams[4] = {0, 0, 0, 0};
+        std::array<int, 4> teams = {{0, 0, 0, 0}};
         for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
              player = step_roster_sweep(manager, &search, false)) {
             modules::PointTally* score = get_score_of(player->skater_);

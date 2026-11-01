@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/sys/game_config.h"
 
@@ -50,21 +51,21 @@ const char* find_caseless(const char* haystack, const char* needle)
 }
 
 namespace {
-char g_separated_number[16];
+std::array<char, 16> g_separated_number;
 } // namespace
 
 // 0x00402200
 const char* format_with_separators(int value)
 {
-    char* const buffer = g_separated_number; // shared with the original code
+    char* const buffer = g_separated_number.data(); // shared with the original code
     char* out = buffer;
     if (value < 0) {
         *out++ = '-';
         value = static_cast<int>(0u - static_cast<unsigned>(value)); // INT_MIN stays negative, as in the original
     }
 
-    char digits[32];
-    snprintf(digits, sizeof(digits), "%d", value);
+    std::array<char, 32> digits{};
+    snprintf(digits.data(), sizeof(digits), "%d", value);
 
     char separator = 0;
     switch (game_config::g_language) { // the game's language setting
@@ -81,8 +82,8 @@ const char* format_with_separators(int value)
         break;
     }
 
-    int remaining = static_cast<int>(strlen(digits));
-    for (const char* digit = digits; remaining != 0;) {
+    int remaining = static_cast<int>(strlen(digits.data()));
+    for (const char* digit = digits.data(); remaining != 0;) {
         *out++ = *digit++;
         if (--remaining == 0)
             break;

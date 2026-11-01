@@ -193,12 +193,12 @@ ParkRailString* ParkRailSet::find_rail(uint32_t name, int index)
 void ParkRailSet::prepare_all(int points, int strings, bool in)
 {
     if (in)
-        std::memcpy(label_, "In set", sizeof("In set"));
+        std::memcpy(label_.data(), "In set", sizeof("In set"));
     else
-        std::memcpy(label_, "Out set", sizeof("Out set"));
+        std::memcpy(label_.data(), "Out set", sizeof("Out set"));
     char point_name[64], string_name[64];
-    std::snprintf(point_name, sizeof(point_name), "%s RailPoint", label_);
-    std::snprintf(string_name, sizeof(string_name), "%s RailString", label_);
+    std::snprintf(point_name, sizeof(point_name), "%s RailPoint", label_.data());
+    std::snprintf(string_name, sizeof(string_name), "%s RailString", label_.data());
     void* memory = memory::alloc(sizeof(memory::SlabBank));
     point_pool_ =
         memory ? memory::construct_in<memory::SlabBank>(memory, sizeof(ParkRailPoint), points, point_name) : nullptr;

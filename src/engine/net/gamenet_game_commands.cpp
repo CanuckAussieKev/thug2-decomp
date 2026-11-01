@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "platform/code_address.h"
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/net/gamespy.h"
@@ -189,8 +190,8 @@ bool cfunc_spawn_crown(Struct*, Script*)
     auto* crown = new objects::CrownObject;
     const int spawn = manager->crown_start_;
     manager->crown_ = crown;
-    uint32_t names[kMaxCrownSpawns];
-    Struct* nodes[kMaxCrownSpawns];
+    std::array<uint32_t, kMaxCrownSpawns> names{};
+    std::array<Struct*, kMaxCrownSpawns> nodes{};
     int count = 0;
     level_nodes::start_node_walk(0);
     for (Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
@@ -244,12 +245,12 @@ bool cfunc_start_network_game(Struct*, Script*)
     }
     if (manager->in_net_game() && manager->get_game_type_preference() == kNetGoalAttack) {
         // The selected goals: a byte 1, then each selected goal's id (each told first - its slot 29), then 0.
-        uint8_t buffer[0x1000];
+        std::array<uint8_t, 0x1000> buffer{};
         net::NetMessageInfo desc;
         auto* goals = objective_board();
         net::AppHost* server = manager->host_;
         buffer[0] = 1;
-        uint8_t* end = buffer + 1;
+        uint8_t* end = buffer.data() + 1;
         const int count = goals
                               ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
@@ -262,11 +263,11 @@ bool cfunc_start_network_game(Struct*, Script*)
             }
         }
         std::memset(end, 0, 4);
-        desc.content_ = buffer;
+        desc.content_ = buffer.data();
         desc.ident_ = kMsgSelectedGoals;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
-        desc.byte_count_ = static_cast<uint16_t>(static_cast<uint16_t>(end - buffer) + 4);
+        desc.byte_count_ = static_cast<uint16_t>(static_cast<uint16_t>(end - buffer.data()) + 4);
         send_to_players(manager, server, &desc, Recipients::kRemote);
     }
     return true;
@@ -357,8 +358,8 @@ bool cfunc_set_num_teams(Struct* params, Script*)
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
     send_to_players(manager, server, &desc, Recipients::kRemote);
-    uint8_t change[2];
-    desc.content_ = change;
+    std::array<uint8_t, 2> change{};
+    desc.content_ = change.data();
     desc.byte_count_ = 2;
     desc.ident_ = kMsgTeamChange;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -386,13 +387,13 @@ bool cfunc_join_team(Struct* params, Script*)
         return false;
     uint32_t color = 0; // (uninitialised in the original: without one, its slot decides - most likely team 3)
     params->read_hash_value(0u, &color, 0);
-    uint8_t request[2];
+    std::array<uint8_t, 2> request{};
     request[1] = color == kBlue ? 1 : color == kRed ? 0 : color == kGreen ? 2 : 3;
     request[0] = static_cast<uint8_t>(get_skater_id(player_skater(local)));
     net::AppHost* client = manager->client_app_;
     if (frame_clock::get_time() - last_team_request() >= kJoinTeamInterval) {
         last_team_request() = frame_clock::get_time();
-        desc.content_ = request;
+        desc.content_ = request.data();
         desc.byte_count_ = 2;
         desc.ident_ = kMsgJoinTeamRequest;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;

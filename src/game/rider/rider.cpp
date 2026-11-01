@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/net/buddy_status.h"
@@ -99,8 +100,8 @@ namespace objects {
 namespace {
 // (4 floats each: the light's direction while in the air - straight down - and on the ground. They were declared
 // as single floats and written as four: the writes ran on over whatever followed - the Direct3D device pointer, once.)
-float g_skater_down_light_colour[4];
-float g_skater_light_colour[4];
+std::array<float, 4> g_skater_down_light_colour;
+std::array<float, 4> g_skater_light_colour;
 uint32_t g_skater_lights_made;
 
 // Names.
@@ -493,8 +494,8 @@ void Rider::set_pause_state(int state)
 void Rider::update_shadow_light(int, int)
 {
     uint32_t& made = g_skater_lights_made;
-    float* light = g_skater_light_colour;
-    float* down = g_skater_down_light_colour;
+    float* light = g_skater_light_colour.data();
+    float* down = g_skater_down_light_colour.data();
     if (!(made & 1)) {
         made |= 1;
         light[0] = 0.8f, light[1] = -0.8f, light[2] = 0.3f, light[3] = 1.0f;
@@ -551,8 +552,8 @@ void Rider::update_shadow_light(int, int)
 
 namespace {
 
-constexpr uint32_t kStatNames[10] = {0x439F4704, 0xAF895B3F, 0x9B65D7B8, 0xF0D90109, 0xEDF5DB70,
-                                     0x6DCB497C, 0x9016B4E7, 0xF73A13E3, 0xAE798769, 0xB1FC0722};
+constexpr std::array<uint32_t, 10> kStatNames = {{0x439F4704, 0xAF895B3F, 0x9B65D7B8, 0xF0D90109, 0xEDF5DB70,
+                                     0x6DCB497C, 0x9016B4E7, 0xF73A13E3, 0xAE798769, 0xB1FC0722}};
 constexpr uint32_t kPushStyle = 0xC15DBF86;           // pushstyle
 constexpr uint32_t kSkateStyle = 0x76FD33E8;          // skatestyle
 constexpr uint32_t kFirstName = 0x562E3ECD;           // first_name
@@ -769,7 +770,7 @@ void Rider::show_skater()
 const char* Rider::fetch_shown_name()
 {
     if (net_link()->in_net_game())
-        return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_))->label_;
+        return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_))->label_.data();
     return shown_name_.c_str();
 }
 
@@ -980,9 +981,9 @@ void Rider::prepare_all(RiderIdentity* profile)
         script::launch_script(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         GameEntity::invoke_method_by_name(0x5C038F9B, nullptr, nullptr);  // SkaterPhysicsControl_SwitchWalkingToSkating
         for (int i = 0; i < 5; ++i) {
-            char name[32];
-            std::snprintf(name, sizeof(name), "projectile_%i", i);
-            projectiles_[i].name = checksums::hash_from_text(name);
+            std::array<char, 32> name{};
+            std::snprintf(name.data(), sizeof(name), "projectile_%i", i);
+            projectiles_[i].name = checksums::hash_from_text(name.data());
             projectiles_[i].active = false;
         }
     }

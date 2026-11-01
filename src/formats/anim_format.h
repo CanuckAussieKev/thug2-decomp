@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "formats/byte_stream.h"
 
@@ -79,7 +80,7 @@ struct CustomKey {
     int32_t frame = 0;
     uint32_t kind = 0;
     uint32_t size = 0;
-    float values[8] = {}; // 1: [0] the field of view; 2 / 7: [0..3] the position, [4..7] the rotation
+    std::array<float, 8> values = {}; // 1: [0] the field of view; 2 / 7: [0..3] the position, [4..7] the rotation
     uint32_t value = 0;   // 4 / 5 / 6
 };
 // One custom key (the reader past it); false if it runs past the end.

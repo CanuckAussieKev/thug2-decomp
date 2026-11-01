@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/str.h"
@@ -39,9 +40,9 @@ constexpr uint32_t kYouTied = 0x334622A1;         // horse_str_youtiedthetargets
 
 // The statuses (0x0067F340, null-terminated): GotLetter, TieScore, BeatScore, 0xAE7D29B0 (the game over), idle,
 // NoScoreSet.
-uint32_t g_horse_statuses[7]{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
-                             0x23DB4AEA, 0xA71DD8EB, 0x00000000}; // (zero-terminated)
-const uint32_t* statuses() { return g_horse_statuses; }
+std::array<uint32_t, 7> g_horse_statuses{{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
+                             0x23DB4AEA, 0xA71DD8EB, 0x00000000}}; // (zero-terminated)
+const uint32_t* statuses() { return g_horse_statuses.data(); }
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum StatusIndex : uint8_t {
     kGotLetter = 0,
@@ -54,8 +55,8 @@ enum StatusIndex : uint8_t {
 
 int horse_restarts()
 {
-    uint32_t restarts[0x80];
-    return objects::get_restart_nodes(kHorse, restarts, 0);
+    std::array<uint32_t, 0x80> restarts{};
+    return objects::get_restart_nodes(kHorse, restarts.data(), 0);
 }
 
 objects::Rider* get_skater(uint32_t id) { return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(id)); }
@@ -72,7 +73,7 @@ void dup_from(char* dest, const char* text)
 } // namespace
 
 // 0x005600D0
-LetterMatch::LetterMatch() { std::memcpy(word_, "HORSE", 6); }
+LetterMatch::LetterMatch() { std::memcpy(word_.data(), "HORSE", 6); }
 
 // 0x00560100
 void LetterMatch::prepare_all()
@@ -80,7 +81,7 @@ void LetterMatch::prepare_all()
     points_target_ = 0;
     skater_ = 0;
     last_skater_ = 0;
-    std::snprintf(panel_, sizeof(panel_), "%s", "unknown"); // "unknown"
+    std::snprintf(panel_.data(), sizeof(panel_), "%s", "unknown"); // "unknown"
     for (int& letters : letters_)
         letters = 0;
     restart_ = maths::rnd(horse_restarts());
@@ -101,22 +102,22 @@ bool LetterMatch::state_matches(script::Struct* params)
 // 0x005601F0
 void LetterMatch::set_letters(const text::Chars& word)
 {
-    dup_from(word_, word.c_str());
-    debug::printf("New word = %s\n", word_); // "New word = %s\n"
+    dup_from(word_.data(), word.c_str());
+    debug::printf("New word = %s\n", word_.data()); // "New word = %s\n"
 }
 
 // 0x00560260
 text::Chars LetterMatch::get_letter_string(int player)
 {
-    char word[0x100];
-    dup_from(word, word_);
-    if (std::strlen(word)) {
+    std::array<char, 0x100> word{};
+    dup_from(word.data(), word_.data());
+    if (std::strlen(word.data())) {
         auto letters = static_cast<uint32_t>(letters_[player]);
-        for (uint32_t i = 0; i < std::strlen(word); ++i)
+        for (uint32_t i = 0; i < std::strlen(word.data()); ++i)
             if (i >= letters)
                 word[i] = '-';
     }
-    return {word};
+    return {word.data()};
 }
 
 // 0x00560310
@@ -138,7 +139,7 @@ void LetterMatch::choose_next_spawn()
 bool LetterMatch::is_over()
 {
     for (int i = 0; i < kPlayers; ++i)
-        if (get_skater(static_cast<uint32_t>(i)) && static_cast<uint32_t>(letters_[i]) >= std::strlen(word_))
+        if (get_skater(static_cast<uint32_t>(i)) && static_cast<uint32_t>(letters_[i]) >= std::strlen(word_.data()))
             return true;
     return false;
 }
@@ -161,52 +162,52 @@ int LetterMatch::fetch_next_live_rider()
 // 0x00560440
 text::Chars LetterMatch::fetch_text(uint32_t which)
 {
-    char text[0x100];
-    std::memcpy(text, "Unknown", 8); // "Unknown"
+    std::array<char, 0x100> text{};
+    std::memcpy(text.data(), "Unknown", 8); // "Unknown"
     const objects::Rider* skater = get_skater(static_cast<uint32_t>(skater_));
     switch (which) {
     case kPanelString1:
     case kPanelString2: {
         const int player = which == kPanelString1 ? 0 : 1;
         const text::Chars word = get_letter_string(player);
-        std::snprintf(text, sizeof(text), "%s: %s", get_skater(static_cast<uint32_t>(player))->fetch_shown_name(),
+        std::snprintf(text.data(), sizeof(text), "%s: %s", get_skater(static_cast<uint32_t>(player))->fetch_shown_name(),
                       word.c_str()); // "%s: %s"
         break;
     }
     case kHorsePostRun:
-        dup_from(text, panel_);
+        dup_from(text.data(), panel_.data());
         break;
     case kYouAreA: {
         const char first = get_upper(word_[0]);
         const bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
         const char* article = script::fetch_text(vowel ? kIsAn : kIsA);
         const text::Chars name = fetch_text(kPlayerName);
-        std::snprintf(text, sizeof(text), "%s %s", name.c_str(), article); // "%s %s"
+        std::snprintf(text.data(), sizeof(text), "%s %s", name.c_str(), article); // "%s %s"
         break;
     }
     case kHorsePreRun:
         if (points_target_ > 0) {
             const char* points = text::format_with_separators(points_target_);
-            std::snprintf(text, sizeof(text), "%s %s", script::fetch_text(kTargetScoreText), points); // "%s %s"
+            std::snprintf(text.data(), sizeof(text), "%s %s", script::fetch_text(kTargetScoreText), points); // "%s %s"
         } else
-            std::snprintf(text, sizeof(text), script::fetch_text(kSetScore));
+            std::snprintf(text.data(), sizeof(text), script::fetch_text(kSetScore));
         break;
     case kFinalWord:
-        std::snprintf(text, sizeof(text), "%s", word_);
+        std::snprintf(text.data(), sizeof(text), "%s", word_.data());
         break;
     case kPlayerName:
-        std::snprintf(text, sizeof(text), "%s", get_skater(skater->ident_)->fetch_shown_name());
+        std::snprintf(text.data(), sizeof(text), "%s", get_skater(skater->ident_)->fetch_shown_name());
         break;
     default:
         break;
     }
-    return {text};
+    return {text.data()};
 }
 
 // 0x00560720
 void LetterMatch::end_run()
 {
-    std::snprintf(panel_, sizeof(panel_), "%s", "unknown"); // "unknown"
+    std::snprintf(panel_.data(), sizeof(panel_), "%s", "unknown"); // "unknown"
     last_skater_ = skater_;
     void* score = get_skater(static_cast<uint32_t>(skater_))->get_points_total();
     const int total = static_cast<modules::PointTally*>(score)->get_total_score();
@@ -214,7 +215,7 @@ void LetterMatch::end_run()
     if (total > points_target_) {
         points_target_ = total;
         const char* points = text::format_with_separators(total);
-        std::snprintf(panel_, sizeof(panel_), "%s %s", script::fetch_text(kSetScoreIs), points); // "%s %s"
+        std::snprintf(panel_.data(), sizeof(panel_), "%s %s", script::fetch_text(kSetScoreIs), points); // "%s %s"
         cur_standing_ = statuses()[kBeatScore];
         return;
     }
@@ -223,20 +224,20 @@ void LetterMatch::end_run()
         ++letters_[skater_];
         choose_next_spawn();
         if (is_over()) {
-            std::snprintf(panel_, sizeof(panel_), "You are a %s!", word_); // "You are a %s!"
+            std::snprintf(panel_.data(), sizeof(panel_), "You are a %s!", word_.data()); // "You are a %s!"
             cur_standing_ = statuses()[kMatchEnded];
             return;
         }
-        char letter[2] = {get_upper(word_[letters_[skater_] - 1]), 0};
-        std::snprintf(panel_, sizeof(panel_), "%s %s", script::fetch_text(kGetsTheLetter), letter); // "%s %s"
+        std::array<char, 2> letter = {{get_upper(word_[letters_[skater_] - 1]), 0}};
+        std::snprintf(panel_.data(), sizeof(panel_), "%s %s", script::fetch_text(kGetsTheLetter), letter.data()); // "%s %s"
         cur_standing_ = statuses()[kGotLetter];
         return;
     }
     if (total == 0) {
-        dup_from(panel_, script::fetch_text(kNoScoreSet));
+        dup_from(panel_.data(), script::fetch_text(kNoScoreSet));
         cur_standing_ = statuses()[kNoScoreSetStatus];
     } else {
-        dup_from(panel_, script::fetch_text(kYouTied));
+        dup_from(panel_.data(), script::fetch_text(kYouTied));
         cur_standing_ = statuses()[kTieScore];
     }
 }

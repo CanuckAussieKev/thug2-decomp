@@ -15,6 +15,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/lists/lookup_table.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 
 namespace objects {
@@ -36,7 +37,7 @@ constexpr uint32_t kInfo = 0x3476CEA8;           // info
 constexpr uint32_t kDeckFlags = 0x95388A60;      // DeckFlags
 constexpr uint32_t kMaxSpecials = 0xAC9B9EDA;    // max_specials
 // The stats a custom skater keeps over a load (unless the save's are kept), in the order the original reads them.
-constexpr uint32_t kStats[] = {
+constexpr auto kStats = std::to_array<uint32_t>({
     0x439F4704, // Air
     0xAF895B3F, // Run
     0x9B65D7B8, // Ollie
@@ -47,7 +48,7 @@ constexpr uint32_t kStats[] = {
     0xF73A13E3, // rail_balance
     0xAE798769, // lip_balance
     0xB1FC0722, // manual_balance
-};
+});
 
 memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap_; }
 
@@ -320,7 +321,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     }
     // The stats and specials as they are, the save's info read over them, then (unless the save's stats are kept)
     // put back.
-    int stats[10];
+    std::array<int, 10> stats{};
     for (int i = 0; i < 10; ++i)
         stats[i] = profile->fetch_tally(kStats[i]);
     const int max_specials = profile->get_max_specials();

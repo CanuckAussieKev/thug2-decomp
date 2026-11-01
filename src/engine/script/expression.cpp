@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -27,10 +28,10 @@ float g_eval_divisor_minimum{0.000001f};
 Component g_eval_result;
 
 // The operators' precedences, by operator.
-int g_operator_precedence[74]{-1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98, 99, 100, -1, -1, -1, -1, 80,
+std::array<int, 74> g_operator_precedence{{-1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98, 99, 100, -1, -1, -1, -1, 80,
                               79, 78, 77, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1, -1, -1,
                               -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, 58, 60,  59, 90, 89, -1, -1,
-                              -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1};
+                              -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1}};
 int precedence(int op) { return g_operator_precedence[op]; }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
@@ -94,12 +95,12 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
     const size_t length_b = std::strlen(b);
     if (length_a + length_b + 1 > 200)
         return false;
-    char joined[200];
+    std::array<char, 200> joined{};
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(joined, a, length_a);
-    std::memcpy(joined + length_a, b, length_b + 1);
+    std::memcpy(joined.data(), a, length_a);
+    std::memcpy(joined.data() + length_a, b, length_b + 1);
     set_result_type(type);
-    get_result().string = spawn_text(joined);
+    get_result().string = spawn_text(joined.data());
     return true;
 }
 

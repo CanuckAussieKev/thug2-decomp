@@ -12,6 +12,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <vector>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -36,7 +37,7 @@ namespace render {
 constexpr uint32_t kShadowTriangleBytes = 20480; // the original's triangle buffer (0x00796640)
 namespace {
 bool g_two_sided_stencil;
-float g_shadow_viewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
+std::array<float, 4> g_shadow_viewport{{256.0f, 256.0f, 256.0f, 256.0f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 lists::KeyMap* get_casters() { return g_shadow_casters; }
@@ -53,13 +54,13 @@ bool two_sided_stencil() { return g_two_sided_stencil; }
 
 // The projection buffer (project_shadow_vertices) and the triangle buffer (clip_shadow_triangles).
 struct ProjectedVertex {
-    float position[3];
-    float projected[3];
+    std::array<float, 3> position;
+    std::array<float, 3> projected;
     uint32_t clip; // a bit per side it's outside of
 };
 static_assert(sizeof(ProjectedVertex) == 0x1C, "the buffer's stride");
 struct ShadowCornerPoint {
-    float position[3];
+    std::array<float, 3> position;
     float u, v;
 };
 static_assert(sizeof(ShadowCornerPoint) == 0x14, "the draw's stride");
@@ -159,7 +160,7 @@ void project_shadow_vertices(const float* positions, uint32_t count, const void*
 {
     ProjectedVertex* vertex = get_projected(count);
     for (uint32_t i = 0; i < count; ++i, ++vertex, positions += 3) {
-        transform_coord(vertex->projected, positions, matrix);
+        transform_coord(vertex->projected.data(), positions, matrix);
         // The clip flags from the float bits: a bit for each of x < 0, x > 1, y < 0, y > 1, z (on the sign and
         // the exponent's top bit after adding 1 to the exponent).
         const uint32_t x = std::bit_cast<uint32_t>(vertex->projected[0]) + 0x800000;
@@ -190,7 +191,7 @@ int clip_shadow_triangles(const uint16_t* indices, uint32_t count)
         if (facing > kFacingLimit)
             continue;
         for (const ProjectedVertex* v : {&v0, &v1, &v2}) {
-            std::memcpy(out->position, v->position, sizeof(out->position));
+            std::memcpy(out->position.data(), v->position.data(), sizeof(out->position));
             out->u = v->projected[0];
             out->v = v->projected[1];
             ++out;
@@ -202,27 +203,27 @@ int clip_shadow_triangles(const uint16_t* indices, uint32_t count)
 // 0x004DB880
 void shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
 {
-    float view[16];
-    input_port()->GetTransform(D3DTS_VIEW, raw::as<D3DMATRIX>(view));
-    float inverse[16];
-    matrix_inverse(inverse, nullptr, view); // (not used)
+    std::array<float, 16> view{};
+    input_port()->GetTransform(D3DTS_VIEW, raw::as<D3DMATRIX>(view.data()));
+    std::array<float, 16> inverse{};
+    matrix_inverse(inverse.data(), nullptr, view.data()); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
-    float scale_bias[16] = {};
+    std::array<float, 16> scale_bias = {};
     scale_bias[0] = static_cast<float>(static_cast<double>(g_shadow_viewport[3]) * 0.5);
     scale_bias[5] = static_cast<float>(static_cast<double>(g_shadow_viewport[2]) * -0.5);
     scale_bias[10] = std::bit_cast<float>(0x4B7FFFFFu); // 16777215
     scale_bias[12] = static_cast<float>((static_cast<double>(g_shadow_viewport[1]) + 1.0) * 0.5);
     scale_bias[13] = static_cast<float>((static_cast<double>(g_shadow_viewport[0]) + 1.0) * 0.5);
     scale_bias[15] = 1.0f;
-    float m[16];
+    std::array<float, 16> m{};
     if (first) {
-        std::memcpy(m, first, sizeof(m));
-        matrix_multiply(m, m, a);
+        std::memcpy(m.data(), first, sizeof(m));
+        matrix_multiply(m.data(), m.data(), a);
     } else {
-        std::memcpy(m, a, sizeof(m));
+        std::memcpy(m.data(), a, sizeof(m));
     }
-    matrix_multiply(m, m, b);
-    matrix_multiply(out, m, scale_bias);
+    matrix_multiply(m.data(), m.data(), b);
+    matrix_multiply(out, m.data(), scale_bias.data());
 }
 
 // 0x004DB9D0
@@ -244,7 +245,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
         const uint32_t flags = mesh->flags;
         if (!(flags & 0x40) || !(flags & 0x200))
             continue;
-        if (!sphere_in_view(raw::as<const maths::Vec4>(mesh->centre), mesh->radius))
+        if (!sphere_in_view(raw::as<const maths::Vec4>(mesh->centre.data()), mesh->radius))
             continue;
         if (!two_sided_stencil()) {
             // One side's faces, then the other's.
@@ -288,14 +289,14 @@ void render_shadow_textures()
         input_port()->SetRenderTarget(0, *raw::field_at<IDirect3DSurface9*>(caster->target, 0x18));
         input_port()->SetDepthStencilSurface(nullptr);
         input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
-        std::memcpy(view_matrix(), caster->view, sizeof(caster->view));
-        std::memcpy(projection_matrix(), caster->projection, sizeof(caster->projection));
+        std::memcpy(view_matrix(), caster->view.data(), sizeof(caster->view));
+        std::memcpy(projection_matrix(), caster->projection.data(), sizeof(caster->projection));
         custom_transforms() = 1;
-        input_port()->SetTransform(D3DTS_VIEW, raw::as<const D3DMATRIX>(caster->view));
-        input_port()->SetTransform(D3DTS_PROJECTION, raw::as<const D3DMATRIX>(caster->projection));
-        float identity[16];
-        get_identity(identity);
-        input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(identity));
+        input_port()->SetTransform(D3DTS_VIEW, raw::as<const D3DMATRIX>(caster->view.data()));
+        input_port()->SetTransform(D3DTS_PROJECTION, raw::as<const D3DMATRIX>(caster->projection.data()));
+        std::array<float, 16> identity{};
+        get_identity(identity.data());
+        input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(identity.data()));
         auto draw_model = [](void* model) {
             const int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
@@ -356,11 +357,11 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
         std::memcpy(saved_view, view_matrix(), sizeof(saved_view));
         std::memcpy(saved_projection, projection_matrix(), sizeof(saved_projection));
         // The receivers' vertices -> shadow texture coordinates.
-        float texture_bias[16] = {0.5f, 0, 0, 0, 0, -0.5f, 0, 0, 0, 0, 1.0f, 0, 0.5f, 0.5f, 0, 1.0f};
+        std::array<float, 16> texture_bias = {{0.5f, 0, 0, 0, 0, -0.5f, 0, 0, 0, 0, 1.0f, 0, 0.5f, 0.5f, 0, 1.0f}};
         float view_projection[16], to_texture[16];
-        matrix_multiply(view_projection, caster->view, caster->near_projection_);
-        matrix_multiply(to_texture, view_projection, texture_bias);
-        shadow_texture_matrix(caster->view, caster->projection, caster->texture_matrix_, nullptr);
+        matrix_multiply(view_projection, caster->view.data(), caster->near_projection_.data());
+        matrix_multiply(to_texture, view_projection, texture_bias.data());
+        shadow_texture_matrix(caster->view.data(), caster->projection.data(), caster->texture_matrix_.data(), nullptr);
         set_pixel_shader(nullptr, nullptr);
         input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
         input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
@@ -381,12 +382,12 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
         input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         input_port()->SetTransform(D3DTS_PROJECTION, raw::as<const D3DMATRIX>(projection_matrix()));
         input_port()->SetTransform(D3DTS_VIEW, raw::as<const D3DMATRIX>(view_matrix()));
-        float identity[16];
-        get_identity(identity);
-        input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(identity));
+        std::array<float, 16> identity{};
+        get_identity(identity.data());
+        input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(identity.data()));
         choose_blend_mode(0xF);
-        std::memcpy(view_matrix(), caster->view, sizeof(caster->view));
-        std::memcpy(projection_matrix(), caster->projection, sizeof(caster->projection));
+        std::memcpy(view_matrix(), caster->view.data(), sizeof(caster->view));
+        std::memcpy(projection_matrix(), caster->projection.data(), sizeof(caster->projection));
         custom_transforms() = 1;
         if (depth_bias() != 0xD) { // (the cache's depth bias 13, its float sent directly)
             depth_bias() = 0xD;
@@ -396,7 +397,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
             auto* mesh = static_cast<const MeshRef*>(meshes[i]);
             if (mesh->flags & 2)
                 continue;
-            if (!sphere_in_view(raw::as<const maths::Vec4>(mesh->centre), mesh->radius))
+            if (!sphere_in_view(raw::as<const maths::Vec4>(mesh->centre.data()), mesh->radius))
                 continue;
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
             project_shadow_vertices(mesh->positions, mesh->position_count_, to_texture);
@@ -449,14 +450,14 @@ void aim_shadow_caster(uint32_t key, const float* position, const float* target)
     if (!caster)
         return;
     // Up is y, or z when looking straight up or down.
-    float up[3] = {0.0f, 1.0f, 0.0f};
+    std::array<float, 3> up = {{0.0f, 1.0f, 0.0f}};
     if (position[0] == target[0] && position[2] == target[2]) {
         up[1] = 0.0f;
         up[2] = 1.0f;
     }
-    matrix_look_at(caster->view, position, target, up);
-    matrix_ortho(caster->projection, 120.0f, 120.0f, 5.0f, 500.0f);
-    matrix_ortho(caster->near_projection_, 120.0f, 120.0f, 80.0f, 500.0f);
+    matrix_look_at(caster->view.data(), position, target, up.data());
+    matrix_ortho(caster->projection.data(), 120.0f, 120.0f, 5.0f, 500.0f);
+    matrix_ortho(caster->near_projection_.data(), 120.0f, 120.0f, 80.0f, 500.0f);
 }
 
 // 0x004DDC90
@@ -466,8 +467,8 @@ void add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
     caster->unknown8 = unknown;
     caster->model = model;
     caster->target = target;
-    get_identity(caster->view);
-    get_identity(caster->projection);
+    get_identity(caster->view.data());
+    get_identity(caster->projection.data());
     auto key = cell::of(target);
     get_casters()->store_entry(key, caster);
 }

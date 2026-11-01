@@ -27,6 +27,7 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -96,7 +97,7 @@ ParticleBurst* get_next(const PcParticleSystem* system, ParticleBurst* burst)
 struct Fit {
     double bx; // (unrounded: the path uses it so)
     float by, bz, bw;
-    float c[4];
+    std::array<float, 4> c;
 };
 Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float mid, bool use_mid, bool spread_rounding)
 {
@@ -255,10 +256,10 @@ void PcParticleSystem::initialise()
         material->textures[0] = texture_key(found);
 
     // The spread: the boxes and their radii.
-    float start[4] = {args_.box_[0].x, args_.box_[0].y, args_.box_[0].z, args_.radius_[0]};
-    float middle[4] = {args_.box_[1].x, args_.box_[1].y, args_.box_[1].z, args_.radius_[1]};
-    float last[4] = {args_.box_[2].x, args_.box_[2].y, args_.box_[2].z, args_.radius_[2]};
-    const Fit fit = get_fit(start, middle, last, args_.lifetime_, get_mid_time(this), args_.use_mid_, true);
+    std::array<float, 4> start = {{args_.box_[0].x, args_.box_[0].y, args_.box_[0].z, args_.radius_[0]}};
+    std::array<float, 4> middle = {{args_.box_[1].x, args_.box_[1].y, args_.box_[1].z, args_.radius_[1]}};
+    std::array<float, 4> last = {{args_.box_[2].x, args_.box_[2].y, args_.box_[2].z, args_.radius_[2]}};
+    const Fit fit = get_fit(start.data(), middle.data(), last.data(), args_.lifetime_, get_mid_time(this), args_.use_mid_, true);
     spread.a = {start[0], start[1], start[2], start[3]};
     spread.b = {static_cast<float>(fit.bx), fit.by, fit.bz, fit.bw};
     spread.c = {fit.c[0], fit.c[1], fit.c[2], fit.c[3]};
@@ -271,10 +272,10 @@ void PcParticleSystem::initialise()
 // 0x004BBD20
 void PcParticleSystem::update_path()
 {
-    float start[4] = {args_.at_point_[0].x, args_.at_point_[0].y, args_.at_point_[0].z, args_.extent_[0]};
-    float middle[4] = {args_.at_point_[1].x, args_.at_point_[1].y, args_.at_point_[1].z, args_.extent_[1]};
-    float last[4] = {args_.at_point_[2].x, args_.at_point_[2].y, args_.at_point_[2].z, args_.extent_[2]};
-    const Fit fit = get_fit(start, middle, last, args_.lifetime_, get_mid_time(this), args_.use_mid_, false);
+    std::array<float, 4> start = {{args_.at_point_[0].x, args_.at_point_[0].y, args_.at_point_[0].z, args_.extent_[0]}};
+    std::array<float, 4> middle = {{args_.at_point_[1].x, args_.at_point_[1].y, args_.at_point_[1].z, args_.extent_[1]}};
+    std::array<float, 4> last = {{args_.at_point_[2].x, args_.at_point_[2].y, args_.at_point_[2].z, args_.extent_[2]}};
+    const Fit fit = get_fit(start.data(), middle.data(), last.data(), args_.lifetime_, get_mid_time(this), args_.use_mid_, false);
     // Less 1.5 times the spread: its x and w products unrounded, its y and z rounded first.
     auto less = [](double value, float spread_value, bool rounded) {
         const double offset = static_cast<double>(spread_value) * 1.5f;
@@ -369,7 +370,7 @@ void PcParticleSystem::draw(bool advance)
     camera_axes(r, u);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(g_pixel_shaders[kPixelShader964], nullptr);
-    float colour_table[3][4];
+    std::array<std::array<float, 4>, 3> colour_table{};
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 4; ++k)
             colour_table[i][k] = static_cast<float>(static_cast<double>(args_.shade_[i][k]) * (1.0f / 255.0f));
@@ -412,16 +413,16 @@ void PcParticleSystem::draw(bool advance)
                     random_c() = c;
 
                     // The colour: start to end, or through the mid.
-                    const float* from = colour_table[0];
-                    const float* to = colour_table[2];
+                    const float* from = colour_table[0].data();
+                    const float* to = colour_table[2].data();
                     double fraction = 0.0;
                     if (args_.colour_use_mid_) {
                         if (t > colour_mid) {
                             fraction = (t - colour_mid) / (static_cast<double>(args_.lifetime_) - colour_mid);
-                            from = colour_table[1];
+                            from = colour_table[1].data();
                         } else {
                             fraction = t / colour_mid;
-                            to = colour_table[1];
+                            to = colour_table[1].data();
                         }
                     } else {
                         fraction = t / args_.lifetime_;

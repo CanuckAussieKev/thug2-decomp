@@ -7,6 +7,7 @@
 #include "engine/objects/entity.h"
 #include "engine/sound/sfx.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -92,8 +93,8 @@ public:
     // 0x00433630 (not a Ghidra function) Obj_PlaySound: emit_sound. True.
     bool obj_play_sound(script::Struct* params, script::Script* script);
 
-    uint32_t sound_cues_[8]{};  // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
-    WaitingSound waiting_[2]{}; // +0x38
+    std::array<uint32_t, 8> sound_cues_{};  // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
+    std::array<WaitingSound, 2> waiting_{}; // +0x38
     maths::Vec4 at_point_{};    // +0x98 where it is
     maths::Vec4 last_pos_{};    // +0xA8 where it was a frame ago
     EmitterNode* spewer_{nullptr}; // +0xB8 heard from its nearest point
@@ -104,5 +105,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_sound_component_member_functions[12];
+extern std::array<uint32_t, 12> g_sound_component_member_functions;
 } // namespace objects

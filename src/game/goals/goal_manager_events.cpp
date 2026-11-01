@@ -3,6 +3,7 @@
 // goal_manager_cfuncs.h).
 
 #include <cstdint>
+#include <array>
 
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -374,10 +375,10 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
     const char* text = nullptr;
     if (!params->fetch_text(kText, &text, 0))
         return manager->goals_.get_pull(name)->swap_move_caption();
-    char replaced[0x200];
-    if (manager->swap_move_caption(name, text, replaced, sizeof(replaced))) {
+    std::array<char, 0x200> replaced{};
+    if (manager->swap_move_caption(name, text, replaced.data(), sizeof(replaced))) {
         script->args_->erase_module(kTrickText);
-        script->args_->append_word(kTrickText, replaced);
+        script->args_->append_word(kTrickText, replaced.data());
     }
     return true;
 }

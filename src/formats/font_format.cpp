@@ -21,7 +21,7 @@ bool read_glyph_entries(util::ByteReader& reader, int count, GlyphEntry* out)
         return false;
     for (int i = 0; i < count; ++i) {
         out[i].baseline = reader.u16();
-        reader.bytes(out[i].codes, sizeof(out[i].codes));
+        reader.bytes(out[i].codes.data(), sizeof(out[i].codes));
     }
     return reader.ok();
 }

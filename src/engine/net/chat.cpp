@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
@@ -51,7 +52,7 @@ void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
 // The local player (online::PlayerRecord): its name, whether it observes, its colour (its skater's object id).
 PlayerRecord* find_own_player_record(Hub* manager) { return manager->get_own_player(); }
-const char* player_name(PlayerRecord* player) { return player->label_; }
+const char* player_name(PlayerRecord* player) { return player->label_.data(); }
 bool is_observer(PlayerRecord* player) { return (player->flag_bits_ >> 2) & 1; }
 uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater_->ident_); }
 
@@ -115,34 +116,34 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
 {
     Chat packet;
     packet.color = color;
-    dup_from(packet.name, kNameSize, name);
-    dup_from(packet.text, sizeof(packet.text), text);
-    uint8_t bytes[kChatSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    dup_from(packet.name.data(), kNameSize, name);
+    dup_from(packet.text.data(), sizeof(packet.text), text);
+    std::array<uint8_t, kChatSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_chat(writer, packet); // color + name + text + '\0'
 
     NetMessageInfo desc;
     init_msg_desc(&desc);
     desc.ident_ = kMsgChat;
     desc.byte_count_ = static_cast<uint16_t>(writer.position());
-    desc.content_ = bytes;
+    desc.content_ = bytes.data();
     desc.queue_ = NetMessageInfo::kLaneOrdered;
     desc.group_id_ = 8;
     // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
     // to its 127 characters.
-    uint8_t thugpro_bytes[thugpro::kChatMessageSize];
+    std::array<uint8_t, thugpro::kChatMessageSize> thugpro_bytes{};
     if (thugpro::peer_mode()) {
         desc.byte_count_ = static_cast<uint16_t>(
-            thugpro::encode_chat(thugpro_bytes, thugpro::get_machine_id(), color, packet.name, packet.text));
-        desc.content_ = thugpro_bytes;
+            thugpro::encode_chat(thugpro_bytes.data(), thugpro::get_machine_id(), color, packet.name.data(), packet.text.data()));
+        desc.content_ = thugpro_bytes.data();
         packet.text[thugpro::kChatMessageTextSize - 1] = '\0'; // (what was sent, shown below)
     }
     send_to_server(manager, &desc);
 
     // The server doesn't send our own line back to us, so show it here.
-    char line[256];
-    std::snprintf(line, sizeof(line), "%s : %s", packet.name, packet.text);
-    show_local_chat_line(line);
+    std::array<char, 256> line{};
+    std::snprintf(line.data(), sizeof(line), "%s : %s", packet.name.data(), packet.text.data());
+    show_local_chat_line(line.data());
 }
 
 } // namespace
@@ -176,13 +177,13 @@ void run_script_with(uint32_t script, script::Struct* params)
 int on_chat_msg(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
-    char line[256];
+    std::array<char, 256> line{};
     if (thugpro::peer_mode()) {
         // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
         thugpro::ChatLine chat{};
         if (!thugpro::decode_chat(raw::bytes(message), context->body_size_, true, &chat))
             return 1;
-        std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name, chat.text);
+        std::snprintf(line.data(), sizeof(line), "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name.data(), chat.text.data());
     } else {
         // The original sprintfs the name and the text with no bounds (a name without its NUL runs on into the text)
         // into 256 bytes on the stack; here the name stops at its 16 bytes, the text at the message's end, the line
@@ -190,11 +191,11 @@ int on_chat_msg(net::InboundMsgCtx* context)
         util::ByteReader reader(message, context->body_size_);
         Chat chat;
         read_chat(reader, &chat);
-        std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", static_cast<int8_t>(chat.color) + 2, chat.name,
-                      chat.text);
+        std::snprintf(line.data(), sizeof(line), "\\c%i%s\\c0 : %s", static_cast<int8_t>(chat.color) + 2, chat.name.data(),
+                      chat.text.data());
     }
     ParamBag* params = new_script_struct();
-    append_word(params, kText, line);
+    append_word(params, kText, line.data());
     launch_script(kShowChatScript, params);
     delete_script_struct(params);
     return 1;
@@ -254,13 +255,13 @@ bool handle_chat_command(Hub* manager, const char* text)
         const auto* camera = raw::as<const float>(&render::g_camera);
         get_log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
                 camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
-        char line[128];
+        std::array<char, 128> line{};
         if (skater)
-            std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
+            std::snprintf(line.data(), sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
                           skater->at_point_.x, skater->at_point_.y, skater->at_point_.z);
         else
-            std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
-        show_local_chat_line(line);
+            std::snprintf(line.data(), sizeof(line), "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
+        show_local_chat_line(line.data());
         return true;
     }
     return false; // not one of ours: send it as typed
@@ -269,8 +270,8 @@ bool handle_chat_command(Hub* manager, const char* text)
 // 0x005334D0
 void keyboard_task(tasks::Task<Hub>* /*task*/)
 {
-    char keys[256];
-    if (sio::get_keyboard_chars(keys) <= 0)
+    std::array<char, 256> keys{};
+    if (sio::get_keyboard_chars(keys.data()) <= 0)
         return;
     const char key = keys[0];
     if (key == kKeyEnter) {

@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_fields.h"
 
@@ -71,9 +72,9 @@ struct Props {
     int tod = -1;       // 0..3 (-1: the level's)
     int time = -1;      // time passes: 0 / 1 (-1: the level's)
     bool has_ambient_ = false;
-    int ambient[3] = {};
+    std::array<int, 3> ambient = {};
     bool has_fog_ = false;
-    int fog[5] = {}; // r, g, b, alpha, distance
+    std::array<int, 5> fog = {}; // r, g, b, alpha, distance
     std::string sky; // the sky scene ("": the level's own) - another level's, e.g. "BO_Sky"
 };
 bool get_same(const Props& a, const Props& b);

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/core/stubs.h"
@@ -194,12 +195,12 @@ bool GoalManager::complete_objective(uint32_t id)
             online::GoalMessage message;
             message.id = net->get_game_id();
             message.goal = goal->get_top_objective_key();
-            uint8_t bytes[online::kGoalMessageSize];
-            util::ByteWriter writer(bytes, sizeof(bytes));
+            std::array<uint8_t, online::kGoalMessageSize> bytes{};
+            util::ByteWriter writer(bytes.data(), sizeof(bytes));
             online::write_goal_message(writer, message);
             desc.byte_count_ = sizeof(bytes);
             desc.group_id_ = kGroupGoals;
-            desc.content_ = bytes;
+            desc.content_ = bytes.data();
             desc.ident_ = kMsgGoalWon;
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
             core::down_cast<net::Guest>(client)->send_to_host(&desc);

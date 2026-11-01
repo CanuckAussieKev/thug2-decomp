@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <unordered_map>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_preview.h"
@@ -86,9 +87,9 @@ void cell_uv(int cell, float* u0, float* v0, float* u1, float* v1)
 
 std::string get_entry_name(int tab, uint32_t id)
 {
-    char text[16];
-    std::snprintf(text, sizeof(text), "%c:%08X", tab == 0 ? 's' : 'o', id);
-    return text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "%c:%08X", tab == 0 ? 's' : 'o', id);
+    return text.data();
 }
 
 bool parse_entry(const std::string& text, int* tab, uint32_t* id)
@@ -186,9 +187,9 @@ std::string get_ini() { return game_folder_path("thug2-decomp.ini"); }
 
 std::string read_string(const char* section, const std::string& key)
 {
-    char value[4096] = {};
-    GetPrivateProfileStringA(section, key.c_str(), "", value, sizeof(value), get_ini().c_str());
-    return value;
+    std::array<char, 4096> value = {};
+    GetPrivateProfileStringA(section, key.c_str(), "", value.data(), sizeof(value), get_ini().c_str());
+    return value.data();
 }
 
 void write_string(const char* section, const std::string& key, const std::string& value)
@@ -320,7 +321,7 @@ bool get_matches(const std::string& text, const char* filter)
 // A five-pointed star (filled, or its outline).
 void star(ImDrawList* draw, ImVec2 centre, float radius, ImU32 colour, bool filled)
 {
-    ImVec2 points[10];
+    std::array<ImVec2, 10> points;
     for (int i = 0; i < 10; ++i) {
         const float angle = -1.5707963f + 0.62831853f * static_cast<float>(i);
         const float r = (i & 1) ? radius * 0.45f : radius;
@@ -328,12 +329,12 @@ void star(ImDrawList* draw, ImVec2 centre, float radius, ImU32 colour, bool fill
     }
     if (filled) {
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)
-        ImVec2 inner[5] = {points[1], points[3], points[5], points[7], points[9]};
-        draw->AddConvexPolyFilled(inner, 5, colour);
+        std::array<ImVec2, 5> inner = {{points[1], points[3], points[5], points[7], points[9]}};
+        draw->AddConvexPolyFilled(inner.data(), 5, colour);
         for (int i = 0; i < 5; ++i)
             draw->AddTriangleFilled(points[(2 * i + 9) % 10], points[2 * i], points[2 * i + 1], colour);
     } else {
-        draw->AddPolyline(points, 10, colour, ImDrawFlags_Closed, 1.2f);
+        draw->AddPolyline(points.data(), 10, colour, ImDrawFlags_Closed, 1.2f);
     }
 }
 

@@ -5,6 +5,7 @@
 // overrides some of Objective's vtable slots (objective.h); the rest are Objective's.
 
 #include <cstdint>
+#include <array>
 
 #include "game/goals/objective.h"
 
@@ -36,7 +37,7 @@ public:
     OnlineObjective(const OnlineObjective&) = delete;
     OnlineObjective& operator=(const OnlineObjective&) = delete;
     bool is_prepared_{false}; // +0x70 (Update initializes it once)
-    uint8_t pad71_[3]{};
+    std::array<uint8_t, 3> pad71_{};
 
     // 0x00560AC0: the constructor (the normal end of run). 0x00560AF0 / 0x00560B40: the destructor
     // body / the scalar deleting destructor.
@@ -71,7 +72,7 @@ public:
     int laps_{1};   // +0x70 (race_total_laps; 1)
     int lap_{};     // +0x74 (from 1)
     bool add_time_; // +0x78 (the 0xA4038EC9 component: each waypoint's time added)
-    uint8_t pad79_[3]{};
+    std::array<uint8_t, 3> pad79_{};
 
     // 0x00560E60: the constructor. 0x00560EE0 / 0x00560F60: the destructor body / the scalar deleting
     // destructor.

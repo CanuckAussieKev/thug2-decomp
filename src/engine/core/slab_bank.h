@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <new>
 #include <utility>
+#include <array>
 
 namespace memory {
 
@@ -27,7 +28,7 @@ public:
     int slot_bytes_;
     int taken_count_;
     void* free_list_;
-    char label_[64]{};
+    std::array<char, 64> label_{};
     int peak_used_;
 };
 
@@ -55,7 +56,7 @@ namespace memory {
 struct PoolPair {
     int current;
     int unknown4;
-    SlabBank* pools[2];
+    std::array<SlabBank*, 2> pools;
 
     void* carve(unsigned int size);
     void dealloc(void* item);

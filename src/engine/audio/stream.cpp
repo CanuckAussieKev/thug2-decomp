@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
@@ -44,8 +45,8 @@ WadEntry*& wad_entries() { return g_wad_entries; }
 uint32_t& wad_entry_count() { return g_wad_entry_count; }
 
 // The ring of OVERLAPPED blocks streams read with, and the next one to try.
-OVERLAPPED g_overlapped[256];
-OVERLAPPED* get_overlapped() { return g_overlapped; }
+std::array<OVERLAPPED, 256> g_overlapped;
+OVERLAPPED* get_overlapped() { return g_overlapped.data(); }
 constexpr int kOverlapSlots = 256;
 int& next_overlapped() { return g_next_overlapped; }
 
@@ -54,8 +55,8 @@ bool& soundtracks_counted() { return g_soundtracks_counted; }
 int& soundtrack_count() { return g_soundtrack_count; }
 // (Never filled on PC - the count stays 0 - so the slots are only the original's room: 99 of them before the next variable.)
 constexpr int kSoundtrackSize = 0x4C, kSoundtrackSlots = 99;
-uint8_t g_soundtracks[kSoundtrackSlots * kSoundtrackSize];
-uint8_t* get_soundtrack(int index) { return g_soundtracks + index * kSoundtrackSize; }
+std::array<uint8_t, kSoundtrackSlots * kSoundtrackSize> g_soundtracks;
+uint8_t* get_soundtrack(int index) { return g_soundtracks.data() + index * kSoundtrackSize; }
 
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 
@@ -105,10 +106,10 @@ bool prefetch_complete(const StreamSlot& slot)
     return true;
 }
 
-StreamSlot g_stream_slots[3];
+std::array<StreamSlot, 3> g_stream_slots;
 } // namespace
 
-StreamSlot* stream_slots() { return g_stream_slots; }
+StreamSlot* stream_slots() { return g_stream_slots.data(); }
 
 namespace {
 StreamSlot g_music_slot;

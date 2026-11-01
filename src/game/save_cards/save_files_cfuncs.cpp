@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -110,23 +111,23 @@ bool delete_mem_card_file(Struct* params, Script*)
     params->fetch_text("UserFileName", &user_file_name, 0);
 
     bool removed = false;
-    char file[20];
+    std::array<char, 20> file{};
     switch (os_layer()) {
     case 1:
     case 2:
     case 3: {
         // the file in its folder: /<folder><file>/<folder><file>, the type from its last letter
-        char full_name[104];
+        std::array<char, 104> full_name{};
         const char* path = card_file_name;
         if (!path) {
             const char* folder = save_folder();
-            make_file_name(user_file_name, file, type);
-            std::snprintf(full_name, sizeof(full_name), "/%s%s/%s%s", folder, file, folder, file);
-            path = full_name;
+            make_file_name(user_file_name, file.data(), type);
+            std::snprintf(full_name.data(), sizeof(full_name), "/%s%s/%s%s", folder, file.data(), folder, file.data());
+            path = full_name.data();
         }
         const uint32_t file_type = type_from_letter(path[std::strlen(path) - 1]);
         // the folder: the first character, then up to the next '/'
-        char directory[100];
+        std::array<char, 100> directory{};
         directory[0] = path[0];
         int length = 1;
         for (const char* p = path + 1; *p && *p != '/'; ++p)
@@ -134,9 +135,9 @@ bool delete_mem_card_file(Struct* params, Script*)
         directory[length] = '\0';
         if (!delete_card_file(card, path))
             deleted = false;
-        char icon[104];
-        std::snprintf(icon, sizeof(icon), "%s/icon.sys", directory);
-        if (!delete_card_file(card, icon))
+        std::array<char, 104> icon{};
+        std::snprintf(icon.data(), sizeof(icon), "%s/icon.sys", directory.data());
+        if (!delete_card_file(card, icon.data()))
             deleted = false;
         const char* icon_file = nullptr;
         switch (file_type) {
@@ -162,10 +163,10 @@ bool delete_mem_card_file(Struct* params, Script*)
             break; // (icon.sys a second time)
         }
         if (icon_file)
-            std::snprintf(icon, sizeof(icon), icon_file, directory);
-        if (!delete_card_file(card, icon))
+            std::snprintf(icon.data(), sizeof(icon), icon_file, directory.data());
+        if (!delete_card_file(card, icon.data()))
             deleted = false;
-        removed = card->remove_file(directory);
+        removed = card->remove_file(directory.data());
         break;
     }
     case 4:
@@ -182,10 +183,10 @@ bool delete_mem_card_file(Struct* params, Script*)
             break;
         }
         const char* folder = save_folder();
-        make_file_name(user_file_name, file, type);
-        char full_name[104];
-        std::snprintf(full_name, sizeof(full_name), "%s%s%s%s", folder, file, folder, file);
-        removed = delete_card_file(card, full_name);
+        make_file_name(user_file_name, file.data(), type);
+        std::array<char, 104> full_name{};
+        std::snprintf(full_name.data(), sizeof(full_name), "%s%s%s%s", folder, file.data(), folder, file.data());
+        removed = delete_card_file(card, full_name.data());
         break;
     }
     default:
@@ -224,7 +225,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
     if (!name || !type)
         return false;
     const char* type_file_name = nullptr; // (only made on the PC and platform 7)
-    char path[100];
+    std::array<char, 100> path{};
     path[0] = '\0';
     switch (os_layer()) {
     case 4:
@@ -233,7 +234,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
         const char* converted = card->convert_filename(type_file_name);
         if (!converted)
             return false;
-        std::snprintf(path, sizeof(path), "%s", converted);
+        std::snprintf(path.data(), sizeof(path), "%s", converted);
         break;
     }
     case 1:
@@ -241,15 +242,15 @@ bool mem_card_file_exists(Struct* params, Script* script)
     case 3:
     case 5: {
         const char* folder = save_folder();
-        char file[20];
-        make_file_name(name, file, type);
-        std::snprintf(path, sizeof(path), "/%s%s/%s%s", folder, file, folder, file);
+        std::array<char, 20> file{};
+        make_file_name(name, file.data(), type);
+        std::snprintf(path.data(), sizeof(path), "/%s%s/%s%s", folder, file.data(), folder, file.data());
         break;
     }
     default:
         break;
     }
-    FileLoad* file = card->unseal(path, 1, 0);
+    FileLoad* file = card->unseal(path.data(), 1, 0);
     if (!file) {
         // (on the PC, the file that wouldn't open is removed - by the type's name made above)
         if (os_layer() == 4)
@@ -342,7 +343,7 @@ constexpr uint32_t kFileName = 0xC3F4169A; // "FileName"
 
 // The first bytes of a listed file are read here (0x007CEC58): the header (save_file_format.h) and the start of the
 // summary (0x007CEC6C).
-uint8_t g_listed_file[kListedFileBytes];
+std::array<uint8_t, kListedFileBytes> g_listed_file;
 
 // The i-th file of a list (its nodes from the head's next; each file is its own node).
 FileLoad* list_entry(memory::ListNode* head, int index)
@@ -368,7 +369,7 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
         // (the music and sounds kept going while the files are read)
         audio::tick_frame();
         sound::update_voice_states();
-        const char* extension = file->label_ + std::strlen(file->label_) - 4;
+        const char* extension = file->label_.data() + std::strlen(file->label_.data()) - 4;
         if (_stricmp(extension, ".NWS") == 0)
             return kSaveNetworkSettings;
         if (_stricmp(extension, ".SKA") == 0)
@@ -425,7 +426,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         switched = true;
     }
     int listed = 0;
-    Struct* entries[kMaxFiles];
+    std::array<Struct*, kMaxFiles> entries{};
     const char* folder = save_folder();
     const int folder_length = static_cast<int>(std::strlen(folder));
     int file_count = 0;
@@ -437,7 +438,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     int game_files = 0;
     for (int i = 0; i < file_count; ++i) {
         FileLoad* file = list_entry(&head, i);
-        if (std::memcmp(file->label_, folder, static_cast<size_t>(folder_length)) != 0)
+        if (std::memcmp(file->label_.data(), folder, static_cast<size_t>(folder_length)) != 0)
             continue;
         ++game_files;
         const uint32_t type = listed_file_type(file, folder_length);
@@ -456,20 +457,20 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         entry->put_int(0x8FE1EEB1u, file->hour_);   // hour
         entry->put_int(0x5F94B55Cu, file->minute_); // minutes
         entry->put_int(0xD029F619u, file->second_); // seconds
-        char path[100];
+        std::array<char, 100> path{};
         if (os_layer() == 5)
-            std::snprintf(path, sizeof(path), "%s", file->label_);
+            std::snprintf(path.data(), sizeof(path), "%s", file->label_.data());
         else
-            std::snprintf(path, sizeof(path), "Save/%s", file->label_);
-        entry->append_word(0x13C68F74u, path); // actual_file_name
+            std::snprintf(path.data(), sizeof(path), "Save/%s", file->label_.data());
+        entry->append_word(0x13C68F74u, path.data()); // actual_file_name
         constexpr uint32_t kDamagedFile = 0x2C7CD632, kNgcDamagedFile = 0xFD4AA64E;
-        FileLoad* opened = card->unseal(path, 1, 0);
+        FileLoad* opened = card->unseal(path.data(), 1, 0);
         if (!opened) {
             mark_corrupt(entry, kDamagedFile);
         } else {
             opened->seek_to(0, 0);
-            opened->get_take_in(g_listed_file, static_cast<int>(kListedFileBytes));
-            util::ByteReader reader(g_listed_file, sizeof(g_listed_file));
+            opened->get_take_in(g_listed_file.data(), static_cast<int>(kListedFileBytes));
+            util::ByteReader reader(g_listed_file.data(), sizeof(g_listed_file));
             SaveFileHeader listed_header;
             read_save_file_header(reader, &listed_header);
             const uint8_t* listed_summary = reader.cursor();
@@ -609,19 +610,19 @@ bool save_to_memory_card(Struct* params, Script*)
     SaveCard* card = the_card();
     // (the second test is a card method that's the shared always-true stub, 0x005B9760)
     if (card && stubs::return_true()) {
-        char path[104];
+        std::array<char, 104> path{};
         bool named = true;
         switch (os_layer()) {
         case 5: {
-            char folder_name[104];
-            make_folder_file_name(type, name, folder_name);
-            std::snprintf(path, sizeof(path), "%s%s", folder_name, folder_name);
+            std::array<char, 104> folder_name{};
+            make_folder_file_name(type, name, folder_name.data());
+            std::snprintf(path.data(), sizeof(path), "%s%s", folder_name.data(), folder_name.data());
             break;
         }
         case 4:
         case 7: {
             path[0] = '\0';
-            text::copy_unbounded(path, get_type_file_name(type, name));
+            text::copy_unbounded(path.data(), get_type_file_name(type, name));
             break;
         }
         default:
@@ -629,7 +630,7 @@ bool save_to_memory_card(Struct* params, Script*)
             break;
         }
         if (named) {
-            file = card->unseal(path, 6, file_size);
+            file = card->unseal(path.data(), 6, file_size);
             out_of_space = card->fault_ == 2;
         }
         if (file) {

@@ -3,6 +3,7 @@
 // out in park_scene.h; the node array the park's level runs on is park_nodes.cpp.
 
 #include <cstdint>
+#include <array>
 
 #include "game/park_editing/park_scene.h"
 
@@ -154,7 +155,7 @@ ParkAssembler::ParkAssembler()
 {
     for (RestartPoint& restart : restarts_)
         restart.edit_span_.assign_value(0, 0, 0, 0, 0, 0);
-    new (node_array_) assets::NodeTableResource;
+    new (node_array_.data()) assets::NodeTableResource;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_bits_ = 0;
     field_04_ = 0;
@@ -221,9 +222,9 @@ void ParkAssembler::light_piece(ParkTile* p)
     const int vertices = collision->num_vertices_;
     for (int i = 0; i < vertices; ++i) {
         const uint8_t grey = source_collision->vertex_bytes_[i];
-        uint8_t rgba[4] = {grey, grey, grey, 0xFF};
+        std::array<uint8_t, 4> rgba = {{grey, grey, grey, 0xFF}};
         const maths::Vec4 position = collision->read_stored_vertex(i);
-        sample_light_colour(&position, rgba);
+        sample_light_colour(&position, rgba.data());
         collision->vertex_bytes_[i] = static_cast<uint8_t>((rgba[0] + rgba[1] + rgba[2]) / 3);
     }
 }

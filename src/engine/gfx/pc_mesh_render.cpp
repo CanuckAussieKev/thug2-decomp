@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/d3dx.h"
@@ -38,12 +39,12 @@ void matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_mul
 
 // A vertex's skinning data (0x4C bytes): its position, normal, colour, texture coordinates, bones and weights.
 struct SkinVertex {
-    float position[3];
-    float normal[3];
+    std::array<float, 3> position;
+    std::array<float, 3> normal;
     uint32_t color;   // +0x18
-    float uv[8];      // +0x1C: (u, v) a set
-    uint8_t bones[4]; // +0x3C
-    float weights[3]; // +0x40
+    std::array<float, 8> uv;      // +0x1C: (u, v) a set
+    std::array<uint8_t, 4> bones; // +0x3C
+    std::array<float, 3> weights; // +0x40
 };
 static_assert(sizeof(SkinVertex) == 0x4C, "layout must match the original");
 
@@ -53,11 +54,11 @@ const float* skin_matrix_ptr(uint8_t bone) { return memory::bits_as<float*>(g_pa
 // rounded to a float as the original stores it).
 void add_bone(float* blended, const SkinVertex& v, uint8_t bone, float weight)
 {
-    float other[3];
-    transform_coord(other, v.position, skin_matrix_ptr(bone));
+    std::array<float, 3> other{};
+    transform_coord(other.data(), v.position.data(), skin_matrix_ptr(bone));
     for (int k = 0; k < 3; ++k)
         blended[k] = static_cast<float>(static_cast<double>(other[k]) * weight + blended[k]);
-    transform_normal(other, v.normal, skin_matrix_ptr(bone));
+    transform_normal(other.data(), v.normal.data(), skin_matrix_ptr(bone));
     for (int k = 0; k < 3; ++k)
         blended[3 + k] = static_cast<float>(static_cast<double>(other[k]) * weight + blended[3 + k]);
 }
@@ -68,18 +69,18 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 {
     const auto* v = raw::as<const SkinVertex>(mesh->per_vertex_data_);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i, ++v) {
-        float blended[6];
-        transform_coord(blended, v->position, skin_matrix_ptr(v->bones[0]));
-        transform_normal(blended + 3, v->normal, skin_matrix_ptr(v->bones[0]));
+        std::array<float, 6> blended{};
+        transform_coord(blended.data(), v->position.data(), skin_matrix_ptr(v->bones[0]));
+        transform_normal(blended.data() + 3, v->normal.data(), skin_matrix_ptr(v->bones[0]));
         if (bones > 1 && !(v->weights[0] == 1.0f)) {
             for (float& value : blended)
                 value = static_cast<float>(static_cast<double>(value) * v->weights[0]);
-            add_bone(blended, *v, v->bones[1], v->weights[1]);
+            add_bone(blended.data(), *v, v->bones[1], v->weights[1]);
             if (bones > 2 && !(v->weights[2] == 0.0f))
-                add_bone(blended, *v, v->bones[2], v->weights[2]);
+                add_bone(blended.data(), *v, v->bones[2], v->weights[2]);
         }
         auto* vertex = raw::as<uint32_t>(out);
-        std::memcpy(vertex, blended, sizeof(blended));
+        std::memcpy(vertex, blended.data(), sizeof(blended));
         vertex[6] = v->color;
         for (uint32_t k = 0; k < 2 * mesh->unknowna4_; ++k)
             raw::as<float>(vertex)[7 + k] = v->uv[k];
@@ -188,7 +189,7 @@ void MeshRef::render()
     input_port()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arena_offset_, stride);
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
-        sphere_in_view(raw::as<const maths::Vec4>(centre), radius);
+        sphere_in_view(raw::as<const maths::Vec4>(centre.data()), radius);
         const float distance = last_sphere_distance();
         for (; level < 8; ++level) {
             if (!index_buffers_[level]) {
@@ -208,14 +209,14 @@ void MeshRef::render()
                                            primitives);
     } else {
         for (uint32_t pass = 0; pass < mat->pass_count_; ++pass) {
-            float instance[3];
+            std::array<float, 3> instance{};
             const float* tint = nullptr;
             if (g_instance_colour_on) {
                 for (int k = 0; k < 3; ++k)
                     instance[k] = static_cast<float>(g_instance_colour[k] * static_cast<double>(1.0f / 255));
-                tint = instance;
+                tint = instance.data();
             } else if (flags & 4) {
-                tint = color;
+                tint = color.data();
             }
             mat->submit_pass(pass, tint);
             input_port()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,

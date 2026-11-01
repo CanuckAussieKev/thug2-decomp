@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace util {
 class ByteReader;
@@ -149,7 +150,7 @@ struct TrickObjectsMessage {
     int32_t player = 0;
     uint32_t score = 0;
     uint32_t count = 0; // (at most kMaxTrickObjects)
-    uint32_t objects[kMaxTrickObjects] = {};
+    std::array<uint32_t, kMaxTrickObjects> objects = {};
 };
 // NOLINTEND(readability-identifier-naming)
 // (fails - nothing to take - when the count is more than the message holds or than kMaxTrickObjects)

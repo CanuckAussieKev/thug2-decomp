@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <random>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/screen.h"
@@ -91,9 +92,9 @@ bool read_peer_mode()
 
 uint32_t read_machine_id()
 {
-    char text[32];
-    build_info::fetch_text("online", "thugpro_machine_id", "", text, sizeof(text));
-    auto id = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
+    std::array<char, 32> text{};
+    build_info::fetch_text("online", "thugpro_machine_id", "", text.data(), sizeof(text));
+    auto id = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, 16));
     std::random_device random;
     while (id == 0)
         id = static_cast<uint32_t>(random());
@@ -114,10 +115,10 @@ void copy_field(char* out, size_t size, const char* in)
 
 // THUGPRO's THPS4 levels (its Levels.q `Game = THPS4`) and THUG1's New York: where its pro-set flags count
 // (gameflow: LEVEL_ORIGINAL_GAME = THPS4 or LevelIs Load_NY).
-constexpr const char* kProSetLevels[] = {
+constexpr auto kProSetLevels = std::to_array<const char*>({
     "Load_practice", "Load_sch", "Load_alc", "Load_sf2", "Load_kon", "Load_lon",
     "Load_jnk",      "Load_zoo", "Load_cnv", "Load_hof", "Load_NY",
-};
+});
 
 // THUGPRO's toggle_*_params: the pro sets' node prefixes (PROSET1..7, then the competition's geometry).
 struct ProSetPrefixes {
@@ -127,7 +128,7 @@ struct ProSetPrefixes {
     const char* geo_not_;
     const char* trg_not_;
 };
-constexpr ProSetPrefixes kProSets[8] = {
+constexpr std::array<ProSetPrefixes, 8> kProSets = {{
     {"Proset1", "TRG_Proset1", nullptr, "PROSET1NOT", "TRG_PROSET1NOT"},
     {"Proset2", "TRG_Proset2", nullptr, "PROSET2NOT", "TRG_PROSET2NOT"},
     {"Proset3", "TRG_Proset3", nullptr, "PROSET3NOT", "TRG_PROSET3NOT"},
@@ -136,7 +137,7 @@ constexpr ProSetPrefixes kProSets[8] = {
     {"Proset6", "TRG_Proset6", nullptr, "PROSET6NOT", "TRG_PROSET6NOT"},
     {"Proset7", "TRG_Proset7", nullptr, "PROSET7NOT", "TRG_PROSET7NOT"},
     {"G_COMP", "TRG_G_COMP", "TRG_COMP", "G_COMPNOT", "TRG_G_COMPNOT"},
-};
+}};
 
 } // namespace
 
@@ -164,8 +165,8 @@ uint32_t encode_chat(uint8_t out[kChatMessageSize], uint32_t machine_id, uint8_t
     ChatMessage message;
     message.machine_id_ = machine_id;
     message.obj_id_ = obj_id;
-    copy_field(message.name, sizeof(message.name), name);
-    copy_field(message.text, sizeof(message.text), text);
+    copy_field(message.name.data(), sizeof(message.name), name);
+    copy_field(message.text.data(), sizeof(message.text), text);
     util::ByteWriter writer(out, kChatMessageSize);
     write_chat_message(writer, message);
     return static_cast<uint32_t>(writer.position());
@@ -186,19 +187,19 @@ bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* o
             return false;
         out->machine_id_ = message.machine_id_;
         out->obj_id_ = message.obj_id_;
-        std::memcpy(out->name, message.name, sizeof(out->name));
-        std::memcpy(out->text, message.text, sizeof(message.text));
+        std::memcpy(out->name.data(), message.name.data(), sizeof(out->name));
+        std::memcpy(out->text.data(), message.text.data(), sizeof(message.text));
         return true;
     }
     if (length <= online::kChatHeaderSize || length > online::kChatSize)
         return false;
     Chat message;
-    if (!read_chat(reader, &message) || std::strlen(message.name) >= static_cast<size_t>(kNameSize) ||
+    if (!read_chat(reader, &message) || std::strlen(message.name.data()) >= static_cast<size_t>(kNameSize) ||
         (reader.remaining() == 0 && data[length - 1] != 0))
         return false;
     out->obj_id_ = message.color;
-    std::memcpy(out->name, message.name, sizeof(out->name));
-    std::memcpy(out->text, message.text, sizeof(out->text) - 1);
+    std::memcpy(out->name.data(), message.name.data(), sizeof(out->name));
+    std::memcpy(out->text.data(), message.text.data(), sizeof(out->text) - 1);
     return true;
 }
 
@@ -286,9 +287,9 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
         for (int n = 1; n <= 8; ++n) {
             if (!(options & (1 << (n - 1))))
                 continue;
-            char name[96];
-            std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", level_prefix, n);
-            effects.launch_script(checksums::hash_from_text(name), true);
+            std::array<char, 96> name{};
+            std::snprintf(name.data(), sizeof(name), "%s_LEVEL_CHANGE_0%d", level_prefix, n);
+            effects.launch_script(checksums::hash_from_text(name.data()), true);
         }
     }
     // The pro sets: in THUGPRO's THPS4 levels and New York all eight toggled by their flags (THUGPRO's
@@ -467,13 +468,13 @@ uint32_t get_word(net::InboundMsgCtx* context)
 void send_server_info(net::AppHost* app, int handle)
 {
     const HostListing info = host_server_info();
-    uint8_t bytes[kServerInfoSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, kServerInfoSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
     net::NetMessageInfo desc;
     desc.ident_ = kMsgServerInfo;
     desc.byte_count_ = sizeof(bytes);
-    desc.content_ = bytes;
+    desc.content_ = bytes.data();
     desc.rank_ = 0xFF;
     desc.queue_ = net::NetMessageInfo::kLanePriority;
     desc.group_id_ = kGroupPlayerMessages;
@@ -488,11 +489,11 @@ void get_broadcast(uint8_t id, uint32_t value)
         return;
     net::NetMessageInfo desc;
     desc.ident_ = id;
-    uint8_t bytes[4];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, 4> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     writer.u32(value);
     desc.byte_count_ = sizeof(bytes);
-    desc.content_ = bytes;
+    desc.content_ = bytes.data();
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupPlayerMessages;
     manager->host_->put_on_outbox(kHandleBroadcast, &desc);
@@ -511,13 +512,13 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
         return false;
     }
     if (desc->ident_ == kMsgLevelSwitch && desc->byte_count_ == kChangeLevelSize && desc->content_) {
-        uint8_t message[kChangeLevelThugproSize];
+        std::array<uint8_t, kChangeLevelThugproSize> message{};
         util::ByteReader reader(desc->content_, desc->byte_count_);
         LevelSwitch change;
         read_level_switch(reader, &change);
-        extend_change_level(change, change_level_name(change.level, Hub::level_list_name(change.level)), message);
+        extend_change_level(change, change_level_name(change.level, Hub::level_list_name(change.level)), message.data());
         net::NetMessageInfo extended = *desc;
-        extended.content_ = message;
+        extended.content_ = message.data();
         extended.byte_count_ = kChangeLevelThugproSize;
         app->put_on_outbox(handle, &extended);
         return true;
@@ -699,17 +700,17 @@ bool handle_chat_command(const char* text)
         return false;
     Hub* manager = net_session_slot();
     const bool client = is_client_of_net_game(manager);
-    char line[160];
+    std::array<char, 160> line{};
     if (_stricmp(command, "thugpro") == 0) {
         const HostListing& info = g_session.info;
-        std::snprintf(line, sizeof(line),
+        std::snprintf(line.data(), sizeof(line),
                       "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
                       "%02X",
                       get_machine_id(), client ? (g_session.have ? "the host's" : "no host options yet") : "ours",
                       client ? info.time_of_day_ : host_server_info().time_of_day_,
                       client ? info.weather : g_host.weather, client ? get_level_options(info) : g_host.level_options_,
                       client ? get_pro_sets(info) : g_host.pro_sets_);
-        get_say(line);
+        get_say(line.data());
         return true;
     }
     const bool tod = _stricmp(command, "tod") == 0;
@@ -724,9 +725,9 @@ bool handle_chat_command(const char* text)
     }
     GameEffects effects;
     if (tod || weather) {
-        static const char* const kTimes[] = {"morning", "afternoon", "evening", "night"};
-        static const char* const kWeathers[] = {"default", "clear", "rain", "snow"};
-        const uint32_t state = tod ? state_named(first, kTimes, 4) : state_named(first, kWeathers, 4);
+        static const auto kTimes = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
+        static const auto kWeathers = std::to_array<const char*>({"default", "clear", "rain", "snow"});
+        const uint32_t state = tod ? state_named(first, kTimes.data(), 4) : state_named(first, kWeathers.data(), 4);
         if (words < 2 || !state) {
             get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
                         : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
@@ -740,9 +741,9 @@ bool handle_chat_command(const char* text)
             effects.set_weather(state);
             get_broadcast(kMsgUpdateWeather, state);
         }
-        std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 %s %s%s", command, first,
+        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 %s %s%s", command, first,
                       is_host_of_net_game(manager) ? " (sent to the players)" : "");
-        get_say(line);
+        get_say(line.data());
         return true;
     }
     // /option n on|off, /proset n on|off: here now, to the players with the next game's server info (THUGPRO
@@ -758,20 +759,20 @@ bool handle_chat_command(const char* text)
     if (option) {
         g_host.level_options_ = static_cast<uint8_t>(on ? g_host.level_options_ | bit : g_host.level_options_ & ~bit);
         const char* prefix = current_level_prefix();
-        char name[96];
-        std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
-        const bool ran = prefix && effects.launch_script(checksums::hash_from_text(name), on);
-        std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
+        std::array<char, 96> name{};
+        std::snprintf(name.data(), sizeof(name), "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
+        const bool ran = prefix && effects.launch_script(checksums::hash_from_text(name.data()), on);
+        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
                       ran ? "" : " (this level has no such option)");
     } else {
         g_host.pro_sets_ = static_cast<uint8_t>(on ? g_host.pro_sets_ | bit : g_host.pro_sets_ & ~bit);
         const bool here = pro_set_level(load);
         if (here)
             apply_pro_set(n - 1, on, load, effects);
-        std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",
+        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",
                       here ? "" : " (only THPS4's levels and New York have them)");
     }
-    get_say(line);
+    get_say(line.data());
     return true;
 }
 

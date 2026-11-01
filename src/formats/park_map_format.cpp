@@ -4,6 +4,7 @@
 
 #include "engine/core/checksums.h"
 #include "formats/byte_stream.h"
+#include <array>
 
 namespace park_editing {
 
@@ -23,7 +24,7 @@ bool read_park_map_header(util::ByteReader& reader, ParkMapHeader* header)
     header->max_players = reader.u8();
     reader.skip(3);
     header->theme = reader.u32();
-    reader.fixed_string(header->name, sizeof(header->name), 0x40);
+    reader.fixed_string(header->name.data(), sizeof(header->name), 0x40);
     return reader.ok();
 }
 
@@ -43,7 +44,7 @@ bool write_park_map_header(util::ByteWriter& writer, const ParkMapHeader& header
     writer.u8(header.max_players);
     writer.fill(0, 3);
     writer.u32(header.theme);
-    writer.fixed_string(header.name, 0x40);
+    writer.fixed_string(header.name.data(), 0x40);
     return writer.ok();
 }
 
@@ -69,8 +70,8 @@ bool write_park_map_piece(util::ByteWriter& writer, const ParkMapPiece& piece)
 
 bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
 {
-    uint8_t bytes[kParkMapGapSize] = {};
-    reader.bytes(bytes, current ? kParkMapGapSize : kOldParkMapGapSize);
+    std::array<uint8_t, kParkMapGapSize> bytes = {};
+    reader.bytes(bytes.data(), current ? kParkMapGapSize : kOldParkMapGapSize);
     for (int end = 0; end < 2; ++end) {
         ParkMapGap::End& e = gap->ends[end];
         e.x = bytes[end];
@@ -80,8 +81,8 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
         e.reach_left = static_cast<uint8_t>(bytes[6 + end] >> 4);
         e.reach_right = static_cast<uint8_t>(bytes[6 + end] & 0xF);
     }
-    util::ByteReader fields(bytes + 0xA, kParkMapGapSize - 0xA);
-    fields.fixed_string(gap->text, sizeof(gap->text), kParkMapGapTextSize);
+    util::ByteReader fields(bytes.data() + 0xA, kParkMapGapSize - 0xA);
+    fields.fixed_string(gap->text.data(), sizeof(gap->text), kParkMapGapTextSize);
     gap->points = fields.u16();
     gap->cancel_flags = current ? fields.u32() : 0;
     return reader.ok();
@@ -89,7 +90,7 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
 
 bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
 {
-    const ParkMapGap::End* e = gap.ends;
+    const ParkMapGap::End* e = gap.ends.data();
     writer.u8(e[0].x);
     writer.u8(e[1].x);
     writer.u8(static_cast<uint8_t>(e[0].y + 8));
@@ -100,7 +101,7 @@ bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
     writer.u8(static_cast<uint8_t>((e[1].reach_right & 0xF) | (e[1].reach_left << 4)));
     writer.u8(static_cast<uint8_t>(e[0].quarter_turns | (e[1].quarter_turns << 4)));
     writer.u8(0);
-    writer.fixed_string(gap.text, kParkMapGapTextSize);
+    writer.fixed_string(gap.text.data(), kParkMapGapTextSize);
     writer.u16(gap.points);
     writer.u32(gap.cancel_flags);
     return writer.ok();

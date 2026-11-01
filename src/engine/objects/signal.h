@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/objects/smtptr.h"
 
@@ -93,7 +94,7 @@ public:
         uint32_t group;                                       // +0x08
         script::Struct* params;                               // +0x0C a copy, owned
         uint8_t flags; // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
-        uint8_t pad[3];
+        std::array<uint8_t, 3> pad;
     };
 
     // 0x0045F820
@@ -141,7 +142,7 @@ public:
     bool alive_{
         true}; // +0x08 cleared when the script dies while forward_trigger runs (forward_trigger then frees the table)
     bool altered_{false}; // +0x09 entries were added or moved (forward_trigger stops: its entry pointer may be stale)
-    uint8_t pad0a_[2]{};
+    std::array<uint8_t, 2> pad0a_{};
     int in_use_{0}; // +0x0C forward_trigger nesting depth
 };
 

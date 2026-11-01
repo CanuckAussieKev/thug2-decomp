@@ -7,6 +7,7 @@
 #include "engine/objects/entity.h"
 #include "engine/sound/sfx.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -74,21 +75,21 @@ public:
     float air_pitch_fall_{};             // +0x58 by this much a second (18.33)
     RiderBoardPhysics* physics_control_{}; // +0x5C SkaterPhysicsControl (0xD9151D4D)
     uint8_t surface_type_{};               // +0x60 (the finalize physics component's: the state's +0xE1)
-    uint8_t pad61[3]{};
+    std::array<uint8_t, 3> pad61{};
     maths::Vec4 last_pos_{}; // +0x64 the skater's position last frame
     int cur_phase_{kStateAir}; // +0x74 the skater's state (0 ground, 1 air, 4 rail)
-    uint8_t sound_[0x84]{}; // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
+    std::array<uint8_t, 0x84> sound_{}; // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
     // (in sound_: +0xE0 the sound's checksum, +0xE4 / +0xE8 its pitch at full / no speed)
     uint8_t have_sound_{0};    // +0xFC
     uint8_t sound_changed_{1}; // +0xFD choose the sound again
     uint8_t force_update_{0};  // +0xFE (never set here)
     uint8_t no_rail_sound_{0}; // +0xFF (the state's +0x70)
     uint8_t sliding_{0};       // +0x100 on a rail: slide, not grind (the state's +0x58)
-    uint8_t pad101[3]{};
+    std::array<uint8_t, 3> pad101{};
     float speed_ratio_{}; // +0x104
     float volume_mult_{1.0f}; // +0x108 volume_mult
     uint8_t on_{1};           // +0x10C
-    uint8_t pad10d_[3]{};
+    std::array<uint8_t, 3> pad10d_{};
 };
 
 // An VolumeRef with its compiler-made assignment, which was placed here.
@@ -101,5 +102,5 @@ struct LoopingSoundVolume : sound::VolumeRef {
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_looping_sound_member_functions[6];
+extern std::array<uint32_t, 6> g_looping_sound_member_functions;
 } // namespace objects

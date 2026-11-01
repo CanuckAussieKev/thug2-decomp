@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -156,8 +157,8 @@ void RiderHostSync::send_update()
             return;
     }
     last_transmit_at_ = app->clock_;
-    uint8_t buffer[0x400];
-    stream.bind_output_buffer(buffer, 0x400);
+    std::array<uint8_t, 0x400> buffer{};
+    stream.bind_output_buffer(buffer.data(), 0x400);
     UpdateState now{};
     read_update_state(this, component_6c, now);
     stream.write_bits(app->clock_, 32);
@@ -211,7 +212,7 @@ void RiderHostSync::send_update()
     }
     stream.drain();
     const int size = stream.get_byte_count();
-    desc.content_ = buffer;
+    desc.content_ = buffer.data();
     desc.ident_ = 0x23;
     desc.byte_count_ = static_cast<uint16_t>(size);
     desc.singular_ = true;

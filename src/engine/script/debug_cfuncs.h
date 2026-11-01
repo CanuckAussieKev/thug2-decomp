@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Struct;
@@ -32,6 +33,6 @@ bool cfunc_reset_engine(script::Struct* params, script::Script* script);     // 
 uint32_t* level_specific_qb_files();
 constexpr int kLevelSpecificQbFiles = 15;
 
-extern uint32_t g_level_qb_files[15];
+extern std::array<uint32_t, 15> g_level_qb_files;
 
 } // namespace commands

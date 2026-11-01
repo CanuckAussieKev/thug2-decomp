@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -22,7 +23,7 @@ struct GroundTriangle {
     // 0x004EDC10 (not a Ghidra function): the copy assignment (ECX = this, RET 4; returns this).
     GroundTriangle& get_assign(const GroundTriangle& source);
 
-    maths::Vec4 corners[3];
+    std::array<maths::Vec4, 3> corners;
 };
 static_assert(sizeof(GroundTriangle) == 0x30, "layout must match the original");
 
@@ -257,8 +258,8 @@ public:
     uint32_t state_table_;       // +0x28 its table
     uint32_t update_type_;       // +0x2C ped_update_type (the move update run each frame)
     script::Script* aux_script_{nullptr}; // +0x30
-    float avoid_[4]{};           // +0x34 the steering this frame, per quarter turn (cos-weighted; -1..1)
-    float bias_[4]{};            // +0x44 the lasting steering bias, per quarter turn
+    std::array<float, 4> avoid_{};           // +0x34 the steering this frame, per quarter turn (cos-weighted; -1..1)
+    std::array<float, 4> bias_{};            // +0x44 the lasting steering bias, per quarter turn
     uint32_t list_link_{};       // +0x54 the node it came from (a name)
     uint32_t next_node_{};       // +0x58 the node it's heading for
     uint32_t node_after_{};      // +0x5C the node after that (chosen ahead)
@@ -285,7 +286,7 @@ public:
     float vert_rotation_{};      // +0x134 how far it has turned over the spine (degrees)
     float vert_rotation_target_{}; // +0x138
     maths::Mat4 saved_matrix_{};   // +0x13C the display matrix kept
-    maths::Vec4 past_frames_[5]{}; // +0x17C its last positions (the newest last)
+    std::array<maths::Vec4, 5> past_frames_{}; // +0x17C its last positions (the newest last)
 };
 static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(PedestrianBrainModule, flag_bits_) == 0x20 &&
                   offsetof(PedestrianBrainModule, aux_script_) == 0x30 &&
@@ -310,5 +311,5 @@ const char* profile_voice();
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_ped_logic_member_functions[174];
+extern std::array<uint32_t, 174> g_ped_logic_member_functions;
 } // namespace objects

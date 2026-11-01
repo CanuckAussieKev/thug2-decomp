@@ -62,7 +62,7 @@ bool Guest::prepare_all()
 // 0x00459F40
 bool Guest::dial_server(uint32_t ip, uint16_t port)
 {
-    auto& address = *raw::as<sockaddr_in>(host_sock_addr_);
+    auto& address = *raw::as<sockaddr_in>(host_sock_addr_.data());
     std::memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
@@ -102,7 +102,7 @@ void Guest::pull_inbound()
         return;
     int received = 0;
     do {
-        char* buffer = receive_buffer_;
+        char* buffer = receive_buffer_.data();
         const SOCKET socket = sock_;
         if (!linked_up_)
             received =
@@ -115,7 +115,7 @@ void Guest::pull_inbound()
         }
         inbound_byte_total_ += received;
         const int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
-        auto& server = *raw::as<sockaddr_in>(host_sock_addr_);
+        auto& server = *raw::as<sockaddr_in>(host_sock_addr_.data());
         if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& read_ptr = conn->read_ptr_;
             if (read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {

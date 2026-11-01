@@ -56,22 +56,22 @@ bool Hub::disconnect_from_internet()
 }
 
 // 0x004545D0
-void Hub::set_dialup_number(int index, const char* number) { copy_string(dialup_numbers_[index], number); }
+void Hub::set_dialup_number(int index, const char* number) { copy_string(dialup_numbers_[index].data(), number); }
 
 // 0x00454600
-void Hub::set_dialup_user_name(const char* name) { copy_string(dialup_user_name_, name); }
+void Hub::set_dialup_user_name(const char* name) { copy_string(dialup_user_name_.data(), name); }
 
 // 0x00454620
-void Hub::set_dialup_password(const char* password) { copy_string(dialup_password_, password); }
+void Hub::set_dialup_password(const char* password) { copy_string(dialup_password_.data(), password); }
 
 // 0x00454640
-void Hub::set_router_addr(const char* ip) { copy_if_different(router_addr_, ip); }
+void Hub::set_router_addr(const char* ip) { copy_if_different(router_addr_.data(), ip); }
 
 // 0x004546A0
-void Hub::set_address_mask(const char* ip) { copy_if_different(subnet_mask_, ip); }
+void Hub::set_address_mask(const char* ip) { copy_if_different(subnet_mask_.data(), ip); }
 
 // 0x00454710
-void Hub::set_own_address(const char* ip) { copy_if_different(local_ip_, ip); }
+void Hub::set_own_address(const char* ip) { copy_if_different(local_ip_.data(), ip); }
 
 // 0x00454770
 void Hub::set_net_link_kind(int type)
@@ -110,14 +110,14 @@ void Hub::set_auto_address(bool use_dhcp)
 }
 
 // 0x00454820
-void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(resolver_ips_[index], ip); }
+void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(resolver_ips_[index].data(), ip); }
 
 // 0x00454890
 void Hub::set_machine_label(const char* name)
 {
     if (!name)
         host_name_[0] = '\0'; // (and the copy below still reads from the null pointer, as in the original)
-    copy_string(host_name_, name);
+    copy_string(host_name_.data(), name);
 }
 
 // 0x004548C0
@@ -125,7 +125,7 @@ void Hub::set_network_domain(const char* name)
 {
     if (!name)
         domain_name_[0] = '\0'; // (likewise)
-    copy_string(domain_name_, name);
+    copy_string(domain_name_.data(), name);
 }
 
 // 0x004548F0
@@ -133,7 +133,7 @@ uint32_t Hub::get_local_address()
 {
     if (local_address_)
         return local_address_;
-    return inet_addr(local_ip_);
+    return inet_addr(local_ip_.data());
 }
 
 // 0x00454910
@@ -171,7 +171,7 @@ const char* Hub::get_dialup_number()
 {
     if (connection_type_ == kConnection3)
         return "";
-    return dialup_numbers_[dialup_number_index_];
+    return dialup_numbers_[dialup_number_index_].data();
 }
 
 } // namespace net

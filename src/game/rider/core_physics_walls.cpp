@@ -140,7 +140,7 @@ bool SkaterPhysicsModule::vert_wallplant()
         return false;
     if (!static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(true, false, false))
         return false;
-    check_triggers(this, kJumpTriggerEvents);
+    check_triggers(this, kJumpTriggerEvents.data());
     if (trigger_took_over(this))
         return true;
     object = object_of(this);
@@ -368,7 +368,7 @@ void SkaterPhysicsModule::check_wall_ahead()
             return;
         }
     }
-    check_triggers(this, kBonkEvents);
+    check_triggers(this, kBonkEvents.data());
     if (!trigger_took_over(this))
         bounce_off_wall_ahead(&normal);
 }

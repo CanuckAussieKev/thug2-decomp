@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
@@ -17,8 +18,8 @@
 namespace render {
 
 namespace {
-OccluderPolygon g_occluder_quads[512];
-Occluder g_occluders[8];
+std::array<OccluderPolygon, 512> g_occluder_quads;
+std::array<Occluder, 8> g_occluders;
 
 uint32_t g_occlusion_poly_count;
 uint32_t g_occlusion_next_poly;
@@ -29,11 +30,11 @@ float g_last_sphere_distance;
 
 namespace {
 
-OccluderPolygon* polys() { return g_occluder_quads; }
+OccluderPolygon* polys() { return g_occluder_quads.data(); }
 uint32_t& poly_count() { return g_occlusion_poly_count; }
 uint32_t& next_poly() { return g_occlusion_next_poly; } // where add_occluders carries on
 int& tick_cycle() { return g_occlusion_frame; }
-Occluder* occluder_array() { return g_occluders; }
+Occluder* occluder_array() { return g_occluders.data(); }
 uint32_t& occluder_count() { return g_occluder_count; }
 constexpr uint32_t kOccluderLimit = 8;
 
@@ -216,7 +217,7 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     poly.in_use_ = 0;
     poly.enabled = 1;
     poly.checksum = checksum;
-    const maths::Vec4* const corners[4] = {p0, p1, p2, p3};
+    const std::array<const maths::Vec4*, 4> corners = {{p0, p1, p2, p3}};
     for (int i = 0; i < 4; ++i) {
         poly.corners[i][0] = corners[i]->x;
         poly.corners[i][1] = corners[i]->y;
@@ -234,7 +235,7 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     poly.normal[1] = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
     poly.normal[2] = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
     poly.normal[3] = 0.0f;
-    raw::as<maths::Vec4>(poly.normal)->make_unit();
+    raw::as<maths::Vec4>(poly.normal.data())->make_unit();
     ++poly_count();
 }
 
@@ -250,26 +251,26 @@ void collect_occluders(const maths::Vec4* eye, int frame)
     for (uint32_t i = 0; i < occluder_count(); ++i) {
         Occluder& occluder = occluder_array()[i];
         const OccluderPolygon& poly = *occluder.poly;
-        const float* p0 = poly.corners[0];
-        const float* p1 = poly.corners[1];
-        const float* p2 = poly.corners[2];
-        const float* p3 = poly.corners[3];
+        const float* p0 = poly.corners[0].data();
+        const float* p1 = poly.corners[1].data();
+        const float* p2 = poly.corners[2].data();
+        const float* p3 = poly.corners[3].data();
         // Which side of the polygon the eye is on decides the corners' order.
         const double facing = ((static_cast<double>(e[2]) - p0[2]) * poly.normal[2] +
                                (static_cast<double>(e[1]) - p0[1]) * poly.normal[1]) +
                               (static_cast<double>(e[0]) - p0[0]) * poly.normal[0];
         if (facing >= 0.0) {
-            set_plane(occluder.planes[0], p0, p2, p3, L::kXzy, false, p0, D::kZyx);
-            set_plane(occluder.planes[1], e, p0, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[2], e, p2, p3, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[3], e, p1, p2, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[4], e, p3, p0, L::kZyx, false, e, D::kXyz);
+            set_plane(occluder.planes[0].data(), p0, p2, p3, L::kXzy, false, p0, D::kZyx);
+            set_plane(occluder.planes[1].data(), e, p0, p1, L::kXzy, false, e, D::kXyz);
+            set_plane(occluder.planes[2].data(), e, p2, p3, L::kXzy, false, e, D::kXyz);
+            set_plane(occluder.planes[3].data(), e, p1, p2, L::kXzy, false, e, D::kXyz);
+            set_plane(occluder.planes[4].data(), e, p3, p0, L::kZyx, false, e, D::kXyz);
         } else { // (also when it's not a number)
-            set_plane(occluder.planes[0], p0, p3, p2, L::kXzy, false, p0, D::kZyx);
-            set_plane(occluder.planes[1], e, p1, p0, L::kZyx, true, e, D::kXyz);
-            set_plane(occluder.planes[2], e, p3, p2, L::kZyx, false, e, D::kXyz);
-            set_plane(occluder.planes[3], e, p2, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[4], e, p0, p3, L::kXzy, false, e, D::kXyz);
+            set_plane(occluder.planes[0].data(), p0, p3, p2, L::kXzy, false, p0, D::kZyx);
+            set_plane(occluder.planes[1].data(), e, p1, p0, L::kZyx, true, e, D::kXyz);
+            set_plane(occluder.planes[2].data(), e, p3, p2, L::kZyx, false, e, D::kXyz);
+            set_plane(occluder.planes[3].data(), e, p2, p1, L::kXzy, false, e, D::kXyz);
+            set_plane(occluder.planes[4].data(), e, p0, p3, L::kXzy, false, e, D::kXyz);
         }
     }
 }
@@ -296,7 +297,7 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
         Occluder& occluder = occluder_array()[i];
         int plane = 0;
         for (; plane < 5; ++plane) {
-            const float* p = occluder.planes[plane];
+            const float* p = occluder.planes[plane].data();
             const double distance = ((z * p[2] + x * p[0]) + y * p[1]) - p[3];
             if (distance >= limit) // (not a number counts as behind)
                 break;
@@ -312,26 +313,26 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
 // 0x004DB570
 int sphere_outside_view(const maths::Vec4* centre, float radius)
 {
-    float view[4];
-    xform(view, &centre->x, view_matrix());
-    return inside_frustum(view, radius) ? 0 : 1;
+    std::array<float, 4> view{};
+    xform(view.data(), &centre->x, view_matrix());
+    return inside_frustum(view.data(), radius) ? 0 : 1;
 }
 
 // 0x004DB790
 bool sphere_in_view(const maths::Vec4* centre, float radius)
 {
-    float moved[4];
+    std::array<float, 4> moved{};
     const float* point = &centre->x;
     if (const float* world = world_transform()) {
         moved[0] = world[12] + centre->x;
         moved[1] = world[13] + centre->y;
         moved[2] = world[14] + centre->z;
-        point = moved;
+        point = moved.data();
     }
-    float view[4];
-    xform(view, point, view_matrix());
+    std::array<float, 4> view{};
+    xform(view.data(), point, view_matrix());
     g_last_sphere_distance = static_cast<float>(-static_cast<double>(view[2]) - radius);
-    return inside_frustum(view, radius);
+    return inside_frustum(view.data(), radius);
 }
 
 // 0x004DB6D0
@@ -341,17 +342,17 @@ bool beyond_clip_distance(const void* bounds)
         return false;
     const auto* sphere = static_cast<const float*>(bounds);
     const float radius = sphere[4];
-    float centre[3] = {sphere[1], sphere[2], sphere[3]};
-    float moved[3];
-    const float* point = centre;
+    std::array<float, 3> centre = {{sphere[1], sphere[2], sphere[3]}};
+    std::array<float, 3> moved{};
+    const float* point = centre.data();
     if (const float* world = world_transform()) {
         moved[0] = centre[0] + world[12];
         moved[1] = centre[1] + world[13];
         moved[2] = centre[2] + world[14];
-        point = moved;
+        point = moved.data();
     }
-    float view[4];
-    xform(view, point, view_matrix());
+    std::array<float, 4> view{};
+    xform(view.data(), point, view_matrix());
     const double distance =
         std::sqrt((static_cast<double>(view[2]) * view[2] + static_cast<double>(view[1]) * view[1]) +
                   static_cast<double>(view[0]) * view[0]);

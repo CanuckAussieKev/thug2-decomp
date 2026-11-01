@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -90,7 +91,7 @@ void load_startup_qb_files()
     const char* p = text;
     while (p < end) {
         // One line (no length check, as in the original), and the character after it skipped.
-        char line[200];
+        std::array<char, 200> line{};
         int length = 0;
         while (p < end && *p != '\r' && *p != '\n')
             line[length++] = *p++;
@@ -98,12 +99,12 @@ void load_startup_qb_files()
         ++p;
         if (line[0] == '\0')
             continue;
-        if (const char* data = std::strstr(line, "data\\"))
-            std::memmove(line, data + 5, std::strlen(data + 5) + 1);
-        unload_qb(checksums::hash_from_text(line));
+        if (const char* data = std::strstr(line.data(), "data\\"))
+            std::memmove(line.data(), data + 5, std::strlen(data + 5) + 1);
+        unload_qb(checksums::hash_from_text(line.data()));
         fetch_list(kNodeArray);
-        print_loading(line);
-        load_qb(line, 1, 0);
+        print_loading(line.data());
+        load_qb(line.data(), 1, 0);
         print_done();
     }
     end_permanent_strings();
@@ -173,8 +174,8 @@ void allocate_pools()
     create_event_receiver_list_pool(175, "Obj::CEventReceiverList");
     memory::pop_mem_profile();
     memory::push_mem_profile("Registering script functions");
-    install_script_functions(g_cfunction_table, get_num_c_functions());
-    publish_method_table(g_member_function_names, count_method_entries());
+    install_script_functions(g_cfunction_table.data(), get_num_c_functions());
+    publish_method_table(g_member_function_names.data(), count_method_entries());
     memory::pop_mem_profile();
 }
 

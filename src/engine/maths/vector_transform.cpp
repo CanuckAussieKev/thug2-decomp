@@ -10,7 +10,7 @@ namespace maths {
 Vec4& Vec4::multiply_by(const Mat4& matrix)
 {
     const double vx = x, vy = y, vz = z, vw = w;
-    const Vec4* m = matrix.row;
+    const Vec4* m = matrix.row.data();
     x = static_cast<float>(((vw * m[3].x + vz * m[2].x) + vy * m[1].x) + vx * m[0].x);
     y = static_cast<float>(((vw * m[3].y + vz * m[2].y) + vx * m[0].y) + vy * m[1].y);
     z = static_cast<float>(((vw * m[3].z + vz * m[2].z) + vx * m[0].z) + vy * m[1].z);

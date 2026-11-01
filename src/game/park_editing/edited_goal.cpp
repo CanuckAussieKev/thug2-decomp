@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -23,7 +24,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of t
 
 namespace park_editing {
 
-char g_goal_name_buffer[104];
+std::array<char, 104> g_goal_name_buffer;
 
 namespace {
 
@@ -38,7 +39,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 }
 
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).
-char* name_buffer() { return g_goal_name_buffer; }
+char* name_buffer() { return g_goal_name_buffer.data(); }
 
 uint32_t current_level() { return modules::Skate::sole()->level_; }
 
@@ -186,7 +187,7 @@ void EditedGoal::change_species(uint32_t type)
     defaults->fetch_int_value(0xCD66C8AE, &points_held_, 0);
     const char* text = ""; // ""
     defaults->fetch_text(0x4BC5229D, &text, 0);
-    std::strcpy(label_, text);
+    std::strcpy(label_.data(), text);
 }
 
 // 0x004E6F70
@@ -338,16 +339,16 @@ void EditedGoal::write_node_position(int index, uint32_t node_name)
 // 0x004E7A80
 void EditedGoal::emit_node_coords()
 {
-    char name[100];
+    std::array<char, 100> name{};
     for (int i = 0; std::cmp_less(i, vertex_total_); ++i) {
         name[0] = '\0';
         if (i == 0)
-            get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
+            get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", level_goal_number_);
         else if (i == 1)
-            get_sprintf(name, "TRG_EditedGoal%d_Restart", level_goal_number_);
+            get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", level_goal_number_);
         else
-            get_sprintf(name, "TRG_EditedGoal%d_Object_%d", level_goal_number_, i - 2);
-        write_node_position(i, checksums::hash_from_text(name));
+            get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", level_goal_number_, i - 2);
+        write_node_position(i, checksums::hash_from_text(name.data()));
     }
 }
 
@@ -403,7 +404,7 @@ void EditedGoal::read_specific_params(script::Struct* params)
     case kGoalTypeGap: {
         const char* trick = nullptr;
         if (params->fetch_text(0x730844A3, &trick, 0))
-            std::strcpy(required_trick_, trick);
+            std::strcpy(required_trick_.data(), trick);
         script::Array* gaps = nullptr;
         params->fetch_list(0xD76C173E, &gaps, 0);
         if (!gaps)

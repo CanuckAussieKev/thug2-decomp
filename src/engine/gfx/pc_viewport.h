@@ -6,6 +6,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <array>
 
 // The PC viewport (Nx engine: the engine's ViewRegion - constructor 0x004A0DB0, destructor body 0x004A0E60 - over it;
 // the viewports at 0x00701350): a world point onto the 640 x 448 screen, and the occlusion queries the sun's
@@ -40,7 +41,7 @@ gsl::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera)
 // there's none (or on a Radeon 8500).
 uint32_t occlusion_pixels();
 
-extern uint8_t g_occlusion_slots[1024];
+extern std::array<uint8_t, 1024> g_occlusion_slots;
 extern float g_scale_2d_in_3d_numerator;
 extern float g_scale_2d_in_3d_max;
 extern float g_scale_2d_in_3d_min;

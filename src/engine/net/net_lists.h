@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -16,7 +17,7 @@ namespace net {
 // 0x00457010 makes each, 0x00457030 unlinks it).
 struct HandlerLists {
     static constexpr int kCount = 255;
-    memory::ListNode lists_[kCount];
+    std::array<memory::ListNode, kCount> lists_;
 
     // 0x00457260: the Dispatcher's destructor: each list's, last to first (the compiler's array-destructor
     // helper 0x0062382B).

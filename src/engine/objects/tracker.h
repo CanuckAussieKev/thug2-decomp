@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
@@ -98,11 +99,11 @@ public:
     // 0x00462CB0: free the name table.
     void teardown();
 
-    TableRow entries_[0x400];
+    std::array<TableRow, 0x400> entries_;
     int ordinal_;             // +0x7000 the next entry
     bool has_looped_;         // +0x7004 the ring is full
-    char names_[0x100][0x40]; // +0x7005 the event names (no check that there are at most 256)
-    uint8_t unknownb005_[3];
+    std::array<std::array<char, 0x40>, 0x100> names_; // +0x7005 the event names (no check that there are at most 256)
+    std::array<uint8_t, 3> unknownb005_;
     lists::KeyMap* names_ptr_; // +0xB008 name checksum -> names_ entry (made on the first add_row)
     int layer_;                // +0xB00C how many launches are under way
     int added_since_sweep_;    // +0xB010 entries since the last Print
@@ -170,11 +171,11 @@ public:
     lists::KeyMap* listeners_;        // +0x10 event type -> ScriptList (8 bits)
     SignalReceiver* event_listeners_{nullptr}; // +0x14
     bool unknown18{false};                     // +0x18 (cleared by the constructor only)
-    uint8_t unknown19[3]{};
+    std::array<uint8_t, 3> unknown19{};
     int launch_depth_{0};      // +0x1C
     SignalTrace log_{};        // +0x20
     int launched_from_script_{0}; // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
-    Waiter waiters_[40]{};     // +0xB038
+    std::array<Waiter, 40> waiters_{};     // +0xB038
     bool unknownb218_{false};  // +0xB218 (cleared by the constructor only)
 };
 

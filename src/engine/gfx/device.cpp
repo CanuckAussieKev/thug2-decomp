@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/stubs.h"
 #include "engine/gfx/graphics_options.h"
@@ -38,7 +39,7 @@ bool g_show_window_flag;         // (the original showed the window maximised / 
 uint32_t g_loading_bar_timer;    // the timer's id (timeSetEvent)
 float g_display_factor_x;        // 640x480 -> back buffer scale
 IDirect3DDevice9* g_draw_device; // the same device, kept twice
-IDirect3DTexture9* g_screen_textures[9];
+std::array<IDirect3DTexture9*, 9> g_screen_textures;
 
 uint8_t g_set_frequency_allowed{1};
 int g_resolution_setting;
@@ -47,7 +48,7 @@ int g_screen_offset_y;
 int g_screen_offset_x;
 float g_display_factor_y;
 IDirect3DSurface9* g_z_buffer_surface;
-IDirect3DSurface9* g_screen_surfaces[9]; // their level 0
+std::array<IDirect3DSurface9*, 9> g_screen_surfaces; // their level 0
 IDirect3DSurface9* g_back_depth;
 IDirect3DSurface9* g_back_buffer;
 bool g_blend_factor_supported;
@@ -73,7 +74,7 @@ const char* g_disc_error_english1{"There's a problem with the disc you're using.
 const char* g_disc_error_english2{"It may be dirty or damaged."};
 D3DADAPTER_IDENTIFIER9 g_adapter_identifier;
 bool g_depth_textures_supported;
-char g_sound_device_name[200]; // the description of the last sound device DirectSound listed
+std::array<char, 200> g_sound_device_name; // the description of the last sound device DirectSound listed
 IDirect3DSurface9* g_depth_texture_target;
 uint32_t g_back_buffer_format;
 uint32_t g_screen_surface_format;
@@ -132,8 +133,8 @@ void init_direct_3d()
     if (first > 3)
         first = 3;
     // Originally from PartyMod Fixes (its DWords at 0x004D8776 / 0x004D8792): the smallest, 640x480, is its window's size.
-    const int widths[4] = {1280, 1024, 800, sys::get_window_width()};
-    const int heights[4] = {1024, 768, 600, sys::get_window_height()};
+    const std::array<int, 4> widths = {{1280, 1024, 800, sys::get_window_width()}};
+    const std::array<int, 4> heights = {{1024, 768, 600, sys::get_window_height()}};
     bool multisample = g_antialiasing;
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
     graphics_options::choose_multisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, sys::get_windowed());
@@ -152,7 +153,7 @@ void init_direct_3d()
     input_port() = nullptr;
 
     // Hardware vertex processing first, multisampling (if set) first; each at every size from `first` down.
-    const bool attempts[4][2] = {{true, multisample}, {false, multisample}, {true, false}, {false, false}};
+    const std::array<std::array<bool, 2>, 4> attempts = {{{true, multisample}, {false, multisample}, {true, false}, {false, false}}};
     bool created = false;
     for (int attempt = 0; attempt < 4 && !created; ++attempt) {
         if (static_cast<int>(first) >= 4)
@@ -203,15 +204,15 @@ void init_direct_3d()
 namespace {
 
 // The default-pool objects (released before a device reset, made again after).
-IDirect3DTexture9** screen_textures() { return g_screen_textures; } // [9]
-IDirect3DSurface9** screen_surfaces() { return g_screen_surfaces; } // [9], their level 0
+IDirect3DTexture9** screen_textures() { return g_screen_textures.data(); } // [9]
+IDirect3DSurface9** screen_surfaces() { return g_screen_surfaces.data(); } // [9], their level 0
 IDirect3DSurface9*& z_buffer_surface() { return g_z_buffer_surface; }
 IDirect3DSurface9*& back_buffer() { return g_back_buffer; }
 IDirect3DSurface9*& back_depth() { return g_back_depth; }
 IDirect3DSurface9*& depth_texture_target() { return g_depth_texture_target; }
 D3DADAPTER_IDENTIFIER9& adapter_identifier() { return g_adapter_identifier; }
 // The description of the last sound device DirectSound listed.
-char* sound_device_name() { return g_sound_device_name; }
+char* sound_device_name() { return g_sound_device_name.data(); }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
 void create_dynamic_vertex_buffer(uint32_t size) { os_layer::create_dynamic_vertex_buffer(size); }
@@ -298,7 +299,7 @@ void create_render_targets()
     create_dynamic_vertex_buffer(0x40000);
     create_dynamic_index_buffer(0x1000);
     // The screen copies: full size twice, then quarter, eighth and sixteenth sizes.
-    static const uint32_t kDivisors[9] = {1, 1, 4, 4, 4, 8, 8, 16, 16};
+    static const std::array<uint32_t, 9> kDivisors = {{1, 1, 4, 4, 4, 8, 8, 16, 16}};
     const D3DPRESENT_PARAMETERS& pp = present_parameters();
     for (int i = 0; i < 9; ++i) {
         input_port()->CreateTexture(pp.BackBufferWidth / kDivisors[i], pp.BackBufferHeight / kDivisors[i], 1,

@@ -11,6 +11,7 @@
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 
 namespace memory {
@@ -258,7 +259,7 @@ Arena* Hub::get_memory_pool(uint32_t name)
 const char* Hub::get_zone_label(uint32_t name)
 {
     if (LabeledZone* named = find_named_heap(name))
-        return named->text;
+        return named->text.data();
     switch (name) {
     case kTopDownHeap:
         return "TopDownHeap";
@@ -441,15 +442,15 @@ namespace memory {
 
 namespace {
 // Where the manager and its main region and heaps live (static storage in the game, as words).
-uint32_t g_manager_storage[(sizeof(Hub) + 3) / 4];
-uint32_t g_main_region_storage[(sizeof(Zone) + 3) / 4];
-uint32_t g_top_down_storage[(sizeof(Arena) + 3) / 4];
-uint32_t g_bottom_up_storage[(sizeof(Arena) + 3) / 4];
+std::array<uint32_t, (sizeof(Hub) + 3) / 4> g_manager_storage;
+std::array<uint32_t, (sizeof(Zone) + 3) / 4> g_main_region_storage;
+std::array<uint32_t, (sizeof(Arena) + 3) / 4> g_top_down_storage;
+std::array<uint32_t, (sizeof(Arena) + 3) / 4> g_bottom_up_storage;
 
-void* const kManagerStorage = g_manager_storage;
-void* const kMainRegionStorage = g_main_region_storage;
-void* const kTopDownStorage = g_top_down_storage;
-void* const kBottomUpStorage = g_bottom_up_storage;
+void* const kManagerStorage = g_manager_storage.data();
+void* const kMainRegionStorage = g_main_region_storage.data();
+void* const kTopDownStorage = g_top_down_storage.data();
+void* const kBottomUpStorage = g_bottom_up_storage.data();
 
 bool& manager_ready() { return g_manager_ready; }
 
@@ -645,9 +646,9 @@ void Hub::create_labeled_zone(uint32_t name, uint32_t size, const char* text, in
     }
     // (no free slot: crashes here, as in the original)
     named->name = name;
-    std::memcpy(named->text, text, std::strlen(text) + 1); // (unbounded, as in the original)
+    std::memcpy(named->text.data(), text, std::strlen(text) + 1); // (unbounded, as in the original)
     named->region = new_alloc_region(size);
-    named->heap = add_heap(named->region, MemSource::kGrowUp, named->text);
+    named->heap = add_heap(named->region, MemSource::kGrowUp, named->text.data());
     named->used = true;
 }
 

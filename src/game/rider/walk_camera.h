@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -93,13 +94,13 @@ public:
     int instant_frames_{}; // +0x18 frames left that jump straight to the target (3 after a teleport)
     bool flush_{};         // +0x1C a flush requested
     bool snap_next_{};     // +0x1D (reset_now)
-    uint8_t pad1e_[2]{};
+    std::array<uint8_t, 2> pad1e_{};
     float zoom_{};              // +0x20
     maths::Vec4 aim_point_{};   // +0x24
     maths::Mat4 orientation_{}; // +0x34
     float turn_cosine_{};       // +0x74 the last turn's cosine (the new at-row against the old)
     bool override_{};           // +0x78 (change_forced_heading)
-    uint8_t pad79[3]{};
+    std::array<uint8_t, 3> pad79{};
     maths::Vec4 forced_heading_{};         // +0x7C
     float override_rate_{};                // +0x8C
     FreeLookModule* free_look_{};          // +0x90

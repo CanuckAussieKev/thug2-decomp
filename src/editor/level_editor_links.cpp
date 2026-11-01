@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_fields.h"
@@ -98,15 +99,15 @@ namespace {
 
 std::string ref_text(const RefTo& ref, bool member, bool scenery)
 {
-    char text[32];
+    std::array<char, 32> text{};
     if (ref.clone >= 0)
-        std::snprintf(text, sizeof(text), "c%d", ref.clone);
+        std::snprintf(text.data(), sizeof(text), "c%d", ref.clone);
     else
-        std::snprintf(text, sizeof(text), "%08X", ref.id);
-    std::string out = text;
+        std::snprintf(text.data(), sizeof(text), "%08X", ref.id);
+    std::string out = text.data();
     if (member && scenery && (ref.quarters & 3)) {
-        std::snprintf(text, sizeof(text), "@%d", ref.quarters & 3);
-        out += text;
+        std::snprintf(text.data(), sizeof(text), "@%d", ref.quarters & 3);
+        out += text.data();
     }
     return out;
 }
@@ -247,9 +248,9 @@ std::string fields_of(uint32_t source)
         fields::Own own;
         if (!fields::get_capture(source, key, &own))
             continue;
-        char hex[16];
-        std::snprintf(hex, sizeof(hex), "%08X=", key);
-        out += hex;
+        std::array<char, 16> hex{};
+        std::snprintf(hex.data(), sizeof(hex), "%08X=", key);
+        out += hex.data();
         out += own.present ? fields::encode_value(own.value, fields::get_name_of) : std::string("-");
         out += ';';
     }
@@ -432,14 +433,14 @@ std::string describe()
     if (index < 0)
         return {};
     const GroupSet& group = g_state[index];
-    char text[160];
+    std::array<char, 160> text{};
     if (is_source)
-        std::snprintf(text, sizeof(text), "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
+        std::snprintf(text.data(), sizeof(text), "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
                       group.members.size() == 1 ? "y" : "ies");
     else
-        std::snprintf(text, sizeof(text), "Linked copy of %s (%d copies)", object_edit::caption(group.source).c_str(),
+        std::snprintf(text.data(), sizeof(text), "Linked copy of %s (%d copies)", object_edit::caption(group.source).c_str(),
                       static_cast<int>(group.members.size()));
-    return text;
+    return text.data();
 }
 
 void tick()

@@ -16,6 +16,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 
 namespace assets {
@@ -39,9 +40,9 @@ struct ExtensionType {
     int type;
 };
 // (the extensions are the exe's strings; the table's last entry stays null)
-ExtensionType g_extensions[13]{{"BIN", 1}, {"COL", 4}, {"SCN", 2},  {"GEOM", 2}, {"MDL", 7}, {"SKA", 5},
-                               {"FAM", 5}, {"SKE", 6}, {"SKIN", 7}, {"TEX", 3},  {"CUT", 9}, {"QB", 10}};
-const ExtensionType* get_extensions() { return g_extensions; }
+std::array<ExtensionType, 13> g_extensions{{{"BIN", 1}, {"COL", 4}, {"SCN", 2},  {"GEOM", 2}, {"MDL", 7}, {"SKA", 5},
+                               {"FAM", 5}, {"SKE", 6}, {"SKIN", 7}, {"TEX", 3},  {"CUT", 9}, {"QB", 10}}};
+const ExtensionType* get_extensions() { return g_extensions.data(); }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
@@ -297,7 +298,7 @@ void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, int type)
 {
     if (!head)
         return;
-    Resource* found[100];
+    std::array<Resource*, 100> found{};
     int count = 0;
     Resource* asset = head->last_value_;
     for (;;) {

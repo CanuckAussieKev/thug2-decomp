@@ -4,6 +4,7 @@
 #include "engine/gfx/flash.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/draw_frame.h"
@@ -42,10 +43,10 @@ void draw_flash(const Flash* flash)
     float z = flash->z;
     uint32_t color = static_cast<uint32_t>(flash->alpha) << 24 | static_cast<uint32_t>(flash->red) << 16 |
                      static_cast<uint32_t>(flash->green) << 8 | flash->blue;
-    FlashVertex vertices[4] = {{left, top, z, 1.0f, color, 0.0f, 0.0f},
+    std::array<FlashVertex, 4> vertices = {{{left, top, z, 1.0f, color, 0.0f, 0.0f},
                                {right, top, z, 1.0f, color, 1.0f, 0.0f},
                                {right, bottom, z, 1.0f, color, 1.0f, 1.0f},
-                               {left, bottom, z, 1.0f, color, 0.0f, 1.0f}};
+                               {left, bottom, z, 1.0f, color, 0.0f, 1.0f}}};
     // (without a texture the original leaves u/v unset; they aren't used then)
     if (uint8_t* texture = flash->texture) {
         uint8_t* image = (texture[8] & 1) ? **raw::field_at<uint8_t**>(texture, 0x10)
@@ -68,7 +69,7 @@ void draw_flash(const Flash* flash)
     vertices[0] = vertices[1];
     vertices[1] = vertices[2];
     vertices[2] = first;
-    g_draw_device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(FlashVertex));
+    g_draw_device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(FlashVertex));
 }
 
 } // namespace render

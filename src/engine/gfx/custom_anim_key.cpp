@@ -15,6 +15,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 
 namespace gfx {
@@ -157,9 +158,9 @@ bool CameraKey::work_on(void* object)
     maths::Vec4* pos = camera->fetch_location();
     maths::Mat4* matrix = camera->fetch_mat();
     *pos = at_point_;
-    float rotation[4] = {orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w};
-    const float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    objects::quat_to_matrix(rotation, origin, raw::as<float>(matrix));
+    std::array<float, 4> rotation = {{orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w}};
+    const std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    objects::quat_to_matrix(rotation.data(), origin.data(), raw::as<float>(matrix));
     armed_ = true;
     return true;
 }

@@ -23,6 +23,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 
@@ -89,7 +90,7 @@ const uint32_t* as_rgba(const uint8_t* colours) { return raw::as<const uint32_t>
 // (BGRA bytes). Returns out.
 uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const uint8_t* from, const uint8_t* to, float t)
 {
-    const float* colour_scale = system.colour_scale_;
+    const float* colour_scale = system.colour_scale_.data();
     const float brightness = system.brightness_;
     const double red = static_cast<double>(colour_scale[0]) * brightness;
     const double green = static_cast<double>(colour_scale[1]) * brightness;
@@ -101,8 +102,8 @@ uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const uint8_
     const uint8_t r = lerp(0);
     const uint8_t a = lerp(3);
     const double blue = static_cast<double>(colour_scale[2]) * brightness;
-    uint8_t bytes[4] = {clamped_byte(blue * b), clamped_byte(green * g), clamped_byte(red * r), a};
-    std::memcpy(out, bytes, 4);
+    std::array<uint8_t, 4> bytes = {{clamped_byte(blue * b), clamped_byte(green * g), clamped_byte(red * r), a}};
+    std::memcpy(out, bytes.data(), 4);
     return out;
 }
 
@@ -228,7 +229,7 @@ EmitterInstance* create_flexible_particles(uint32_t name, uint32_t type, int par
         uint32_t type;
         EmitterInstance* (*construct)(const ConstructArgs&); // a new one of the class (null if no memory)
     };
-    static constexpr EmitterType kTypes[] = {
+    static constexpr auto kTypes = std::to_array<EmitterType>({
         {0x15834EEA, &make_plain<PcGlowParticles>},                   // glow
         {0x0EE6FC5B, &make_with_history<PcRibbonParticles>},          // ribbon
         {0x097CB7A9, &make_plain<PcSmoothStarParticles>},             // smoothstar
@@ -242,7 +243,7 @@ EmitterInstance* create_flexible_particles(uint32_t name, uint32_t type, int par
         {0xC4D5A4CB, &make_with_history<PcRibbonTrailParticles>},     // ribbontrail
         {0xF4D8D486, &make_five<PcShadedParticles>},                  // shaded
         {0xDEDFC057, &make_plain<PcNewFlatParticles>},                // newflat
-    };
+    });
     const EmitterType* chosen = &kTypes[12]; // (any other type: newflat)
     for (const EmitterType& t : kTypes)
         if (t.type == type)
@@ -476,13 +477,13 @@ void PcFlatRibbonParticles::render()
                        n2w = static_cast<double>(w) * n[2];
                 auto o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
                 auto o1 = static_cast<float>(width * n1w);
-                float previous_a[3] = {static_cast<float>(static_cast<double>(o0) + p0[0]),
+                std::array<float, 3> previous_a = {{static_cast<float>(static_cast<double>(o0) + p0[0]),
                                        static_cast<float>(static_cast<double>(o1) + p0[1]),
-                                       static_cast<float>(width * n2w + p0[2])};
-                float previous_b[3] = {
+                                       static_cast<float>(width * n2w + p0[2])}};
+                std::array<float, 3> previous_b = {{
                     static_cast<float>(static_cast<double>(p0[0]) - o0),
                     static_cast<float>(static_cast<double>(p0[1]) - o1),
-                    static_cast<float>(p0[2] - width * static_cast<double>(static_cast<float>(n2w)))};
+                    static_cast<float>(p0[2] - width * static_cast<double>(static_cast<float>(n2w)))}};
 
                 for (int k = 1; k < segments_; ++k) {
                     const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
@@ -495,20 +496,20 @@ void PcFlatRibbonParticles::render()
                     n2w = static_cast<double>(w) * n[2];
                     o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
                     o1 = static_cast<float>(width * n1w);
-                    float next_b[3] = {static_cast<float>(static_cast<double>(p1[0]) - o0),
+                    std::array<float, 3> next_b = {{static_cast<float>(static_cast<double>(p1[0]) - o0),
                                        static_cast<float>(static_cast<double>(p1[1]) - o1),
-                                       static_cast<float>(p1[2] - width * n2w)};
+                                       static_cast<float>(p1[2] - width * n2w)}};
                     auto o2 = static_cast<float>(width * static_cast<double>(static_cast<float>(n2w)));
-                    float next_a[3] = {static_cast<float>(static_cast<double>(o0) + p1[0]),
+                    std::array<float, 3> next_a = {{static_cast<float>(static_cast<double>(o0) + p1[0]),
                                        static_cast<float>(static_cast<double>(o1) + p1[1]),
-                                       static_cast<float>(static_cast<double>(o2) + p1[2])};
+                                       static_cast<float>(static_cast<double>(o2) + p1[2])}};
                     vertex[0] = {previous_a[0], previous_a[1], previous_a[2], previous_colour};
                     vertex[1] = {previous_b[0], previous_b[1], previous_b[2], previous_colour};
                     vertex[2] = {next_a[0], next_a[1], next_a[2], colour};
                     vertex[3] = {next_b[0], next_b[1], next_b[2], colour};
                     vertex += 4;
-                    std::memcpy(previous_a, next_a, sizeof(next_a));
-                    std::memcpy(previous_b, next_b, sizeof(next_b));
+                    std::memcpy(previous_a.data(), next_a.data(), sizeof(next_a));
+                    std::memcpy(previous_b.data(), next_b.data(), sizeof(next_b));
                     std::memcpy(p0, p1, sizeof(p1));
                     previous_colour = colour;
                     triangles += 2;
@@ -654,9 +655,9 @@ void PcGlowParticles::render()
     const FlexibleParticle* particle = particle_list_;
     const float* place = position_array_;
     int index = 0;
-    TrailVertex buffer[0x200];
+    std::array<TrailVertex, 0x200> buffer{};
     while (remaining > 0) {
-        TrailVertex* vertex = buffer;
+        TrailVertex* vertex = buffer.data();
         uint32_t words = 0;
         const int total = particle_count_;
         for (uint32_t budget = particle_words; index < total && budget <= 0x7FF; budget += particle_words) {
@@ -665,7 +666,7 @@ void PcGlowParticles::render()
                                   particle->start_size_[0];
             const double up = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                               particle->start_size_[1];
-            float p[3];
+            std::array<float, 3> p{};
             if (emitter_independent_) {
                 p[0] = place[0], p[1] = place[1], p[2] = place[2];
             } else {
@@ -679,7 +680,7 @@ void PcGlowParticles::render()
                  uz = static_cast<float>(u.z * up);
             // The centre's, the edge's and the outer ring's colours (each its own of the three colour arrays').
             const ColourSpan span = colour_span(*this, life);
-            uint32_t colours[3];
+            std::array<uint32_t, 3> colours{};
             for (int k = 0; k < 3; ++k)
                 colours[k] = get_colour(*this, span.from[k], span.to[k], span.t);
             const double w = glow_width_;
@@ -755,7 +756,7 @@ void PcGlowParticles::render()
         if (!g_suppress_draw) {                // (rendering not skipped)
             drawn_triangles() += triangles;
             ++draw_calls();
-            input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer, sizeof(TrailVertex));
+            input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer.data(), sizeof(TrailVertex));
         }
     }
 }
@@ -798,7 +799,7 @@ void PcLineParticles::render()
             place_of(this, index, p0);
             place_of(this, max_particles_ + index, p1);
             const ColourSpan span = colour_span(*this, life);
-            uint32_t colours[2];
+            std::array<uint32_t, 2> colours{};
             for (int k = 0; k < 2; ++k)
                 colours[k] = get_colour(*this, span.from[k], span.to[k], span.t);
             vertex[0] = {p0[0], p0[1], p0[2], colours[0]};
@@ -901,19 +902,19 @@ void PcRibbonParticles::render()
             const double n1w = n1 * w;
             const double n2w = static_cast<double>(n2) * w;
             auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
-            const float corners[4][3] = {
+            const std::array<std::array<float, 3>, 4> corners = {{
                 {static_cast<float>(f0 + hx), static_cast<float>(f1 + hy), static_cast<float>(n2w + hz)},
                 {static_cast<float>(hx - f0), static_cast<float>(hy - f1),
                  static_cast<float>(static_cast<double>(hz) - f2)},
                 {static_cast<float>(static_cast<double>(t[0]) - f0), static_cast<float>(static_cast<double>(t[1]) - f1),
                  static_cast<float>(static_cast<double>(t[2]) - f2)},
                 {static_cast<float>(static_cast<double>(f0) + t[0]), static_cast<float>(static_cast<double>(f1) + t[1]),
-                 static_cast<float>(static_cast<double>(f2) + t[2])}};
+                 static_cast<float>(static_cast<double>(f2) + t[2])}}};
             const ColourSpan span = colour_span(*this, life);
-            uint32_t colours[2];
+            std::array<uint32_t, 2> colours{};
             for (int k = 0; k < 2; ++k)
                 colours[k] = get_colour(*this, span.from[k], span.to[k], span.t);
-            static constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+            static constexpr std::array<std::array<float, 2>, 4> kUv = {{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
             for (int k = 0; k < 4; ++k) {
                 const uint32_t colour = colours[k / 2];
                 if (textured) {
@@ -955,11 +956,11 @@ uint32_t PcRibbonTrailParticles::head_colour(uint32_t from, uint32_t to, float t
     const auto* f = raw::bytes(&from);
     const auto* g = raw::bytes(&to);
     auto lerp = [&](int k) { return static_cast<uint8_t>(f[k] + truncate(static_cast<double>(g[k] - f[k]) * t)); };
-    uint8_t bytes[4] = {lerp(2), lerp(1), lerp(0), lerp(3)};
+    std::array<uint8_t, 4> bytes = {{lerp(2), lerp(1), lerp(0), lerp(3)}};
     for (int k = 0; k < 3; ++k)
         bytes[k] = static_cast<uint8_t>(truncate(static_cast<double>(bytes[k]) * brightness_));
     uint32_t colour = 0;
-    std::memcpy(&colour, bytes, 4);
+    std::memcpy(&colour, bytes.data(), 4);
     return colour;
 }
 
@@ -1026,12 +1027,12 @@ void PcRibbonTrailParticles::render()
             double n0w = static_cast<double>(n[0]) * w, n1w = static_cast<double>(n[1]) * w,
                    n2w = static_cast<double>(n[2]) * w;
             auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
-            float previous_plus[3] = {static_cast<float>(static_cast<double>(f0) + p0[0]),
+            std::array<float, 3> previous_plus = {{static_cast<float>(static_cast<double>(f0) + p0[0]),
                                       static_cast<float>(static_cast<double>(f1) + p0[1]),
-                                      static_cast<float>(n2w + p0[2])};
-            float previous_minus[3] = {static_cast<float>(static_cast<double>(p0[0]) - f0),
+                                      static_cast<float>(n2w + p0[2])}};
+            std::array<float, 3> previous_minus = {{static_cast<float>(static_cast<double>(p0[0]) - f0),
                                        static_cast<float>(static_cast<double>(p0[1]) - f1),
-                                       static_cast<float>(static_cast<double>(p0[2]) - f2)};
+                                       static_cast<float>(static_cast<double>(p0[2]) - f2)}};
             for (int k = 1; k < steps_; ++k) {
                 const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
                 if (k > 1) {
@@ -1056,11 +1057,11 @@ void PcRibbonTrailParticles::render()
                 n1w = static_cast<double>(n[1]) * w;
                 n2w = static_cast<double>(n[2]) * w;
                 f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
-                float plus[3] = {static_cast<float>(static_cast<double>(f0) + p1[0]), static_cast<float>(n1w + p1[1]),
-                                 static_cast<float>(n2w + p1[2])};
-                float minus[3] = {static_cast<float>(static_cast<double>(p1[0]) - f0),
+                std::array<float, 3> plus = {{static_cast<float>(static_cast<double>(f0) + p1[0]), static_cast<float>(n1w + p1[1]),
+                                 static_cast<float>(n2w + p1[2])}};
+                std::array<float, 3> minus = {{static_cast<float>(static_cast<double>(p1[0]) - f0),
                                   static_cast<float>(static_cast<double>(p1[1]) - f1),
-                                  static_cast<float>(static_cast<double>(p1[2]) - f2)};
+                                  static_cast<float>(static_cast<double>(p1[2]) - f2)}};
                 vertex[0] = {previous_plus[0], previous_plus[1], previous_plus[2], previous_colour};
                 vertex[1] = {previous_minus[0], previous_minus[1], previous_minus[2], previous_colour};
                 vertex[2] = {minus[0], minus[1], minus[2], colour};
@@ -1068,8 +1069,8 @@ void PcRibbonTrailParticles::render()
                 vertex += 4;
                 previous_colour = colour;
                 std::memcpy(p0, p1, sizeof(p1));
-                std::memcpy(previous_plus, plus, sizeof(plus));
-                std::memcpy(previous_minus, minus, sizeof(minus));
+                std::memcpy(previous_plus.data(), plus.data(), sizeof(plus));
+                std::memcpy(previous_minus.data(), minus.data(), sizeof(minus));
                 triangles += 2;
                 vertices += 4;
                 if (vertices >= room - 4)
@@ -1138,7 +1139,7 @@ void PcShadedParticles::render()
                                       particle->start_size_[0];
                 const double up = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                                   particle->start_size_[1];
-                float p[3];
+                std::array<float, 3> p{};
                 if (emitter_independent_) {
                     p[0] = place[0], p[1] = place[1], p[2] = place[2];
                 } else {
@@ -1152,7 +1153,7 @@ void PcShadedParticles::render()
                      uz = static_cast<float>(u.z * up);
                 // The corners' colours (each its own of the colour arrays').
                 const ColourSpan span = colour_span(*this, life);
-                uint32_t colours[4];
+                std::array<uint32_t, 4> colours{};
                 for (int k = 0; k < 4; ++k)
                     colours[k] = get_colour(*this, span.from[k], span.to[k], span.t);
                 // The texture: all of it, or (UseRandomUVQuadrants) a quarter by the particle's index.
@@ -1277,7 +1278,7 @@ void PcSmoothParticles::render()
             auto up =
                 static_cast<float>((static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                                    particle->start_size_[1]);
-            float p[3];
+            std::array<float, 3> p{};
             if (emitter_independent_) {
                 p[0] = place[0], p[1] = place[1], p[2] = place[2];
             } else {
@@ -1299,18 +1300,18 @@ void PcSmoothParticles::render()
             auto e0f = static_cast<float>(e0), e1f = static_cast<float>(e1),
                  e2f = static_cast<float>(static_cast<double>(rz) + p[2]);
             // The four corners (each with a triangle to the centre).
-            const float k[4][3] = {{static_cast<float>(g0f + ux), static_cast<float>(static_cast<double>(g1f) + uy),
+            const std::array<std::array<float, 3>, 4> k = {{{static_cast<float>(g0f + ux), static_cast<float>(static_cast<double>(g1f) + uy),
                                     static_cast<float>(g2 + uz)},
                                    {static_cast<float>(e0f + ux), static_cast<float>(static_cast<double>(e1f) + uy),
                                     static_cast<float>(static_cast<double>(e2f) + uz)},
                                    {static_cast<float>(e0f - ux), static_cast<float>(static_cast<double>(e1f) - uy),
                                     static_cast<float>(static_cast<double>(e2f) - uz)},
                                    {static_cast<float>(g0f - ux), static_cast<float>(static_cast<double>(g1f) - uy),
-                                    static_cast<float>(static_cast<double>(g2f) - uz)}};
-            static constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+                                    static_cast<float>(static_cast<double>(g2f) - uz)}}};
+            static constexpr std::array<std::array<float, 2>, 4> kUv = {{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
             // The centre's colour and the edge's.
             const ColourSpan span = colour_span(*this, life);
-            uint32_t colours[2];
+            std::array<uint32_t, 2> colours{};
             for (int i = 0; i < 2; ++i)
                 colours[i] = get_colour(*this, span.from[i], span.to[i], span.t);
             for (int corner = 0; corner < 4; ++corner) {
@@ -1412,20 +1413,20 @@ void PcSmoothRibbonParticles::render()
                 const double n1w = n1 * w;
                 const double n2w = static_cast<double>(n2) * w;
                 auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
-                const float plus_head[3] = {static_cast<float>(static_cast<double>(f0) + h[0]),
+                const std::array<float, 3> plus_head = {{static_cast<float>(static_cast<double>(f0) + h[0]),
                                             static_cast<float>(static_cast<double>(f1) + h[1]),
-                                            static_cast<float>(n2w + h[2])};
-                const float minus_head[3] = {static_cast<float>(static_cast<double>(h[0]) - f0),
+                                            static_cast<float>(n2w + h[2])}};
+                const std::array<float, 3> minus_head = {{static_cast<float>(static_cast<double>(h[0]) - f0),
                                              static_cast<float>(static_cast<double>(h[1]) - f1),
-                                             static_cast<float>(static_cast<double>(h[2]) - f2)};
-                const float minus_tail[3] = {static_cast<float>(static_cast<double>(t[0]) - f0),
+                                             static_cast<float>(static_cast<double>(h[2]) - f2)}};
+                const std::array<float, 3> minus_tail = {{static_cast<float>(static_cast<double>(t[0]) - f0),
                                              static_cast<float>(static_cast<double>(t[1]) - f1),
-                                             static_cast<float>(static_cast<double>(t[2]) - f2)};
-                const float plus_tail[3] = {static_cast<float>(static_cast<double>(f0) + t[0]),
+                                             static_cast<float>(static_cast<double>(t[2]) - f2)}};
+                const std::array<float, 3> plus_tail = {{static_cast<float>(static_cast<double>(f0) + t[0]),
                                             static_cast<float>(static_cast<double>(f1) + t[1]),
-                                            static_cast<float>(n2w + t[2])};
+                                            static_cast<float>(n2w + t[2])}};
                 const ColourSpan span = colour_span(*this, life);
-                uint32_t colours[4];
+                std::array<uint32_t, 4> colours{};
                 for (int k = 0; k < 4; ++k)
                     colours[k] = get_colour(*this, span.from[k], span.to[k], span.t);
                 // Two quads along the middle: to the plus side and to the minus side.
@@ -1507,7 +1508,7 @@ void PcSmoothStarParticles::render()
                                       particle->start_size_[0];
                 const double up_size = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                                        particle->start_size_[1];
-                float p[3];
+                std::array<float, 3> p{};
                 if (emitter_independent_) {
                     p[0] = place[0], p[1] = place[1], p[2] = place[2];
                 } else {
@@ -1515,18 +1516,18 @@ void PcSmoothStarParticles::render()
                     p[1] = static_cast<float>(static_cast<double>(place[1]) + at_point_.y);
                     p[2] = static_cast<float>(static_cast<double>(place[2]) + at_point_.z);
                 }
-                const float rv[3] = {static_cast<float>(r.x * across), static_cast<float>(r.y * across),
-                                     static_cast<float>(r.z * across)};
-                const float uv[3] = {static_cast<float>(u.x * up_size), static_cast<float>(u.y * up_size),
-                                     static_cast<float>(u.z * up_size)};
+                const std::array<float, 3> rv = {{static_cast<float>(r.x * across), static_cast<float>(r.y * across),
+                                     static_cast<float>(r.z * across)}};
+                const std::array<float, 3> uv = {{static_cast<float>(u.x * up_size), static_cast<float>(u.y * up_size),
+                                     static_cast<float>(u.z * up_size)}};
                 // The centre's, the points' and the edge's colours.
                 const ColourSpan span = colour_span(*this, life);
-                uint32_t colours[3];
+                std::array<uint32_t, 3> colours{};
                 for (int k = 0; k < 3; ++k)
                     colours[k] = get_colour(*this, span.from[k], span.to[k], span.t);
                 const double w = extent_;
                 // The outer point at angle 0 (the previous one for the first segment).
-                float outer[3];
+                std::array<float, 3> outer{};
                 {
                     const double x = static_cast<double>(rv[0]) * sin0;
                     const double y = static_cast<double>(rv[1]) * sin0;
@@ -1549,7 +1550,7 @@ void PcSmoothStarParticles::render()
                     const double s1 = std::sin(angle1);
                     const double c1 = std::cos(angle1);
                     auto s1f = static_cast<float>(s1);
-                    float tip[3];
+                    std::array<float, 3> tip{};
                     {
                         const double x = rv[0] * s1 * w;
                         const double y = static_cast<double>(static_cast<float>(rv[1] * s1)) * w;
@@ -1568,7 +1569,7 @@ void PcSmoothStarParticles::render()
                     const double angle2 = static_cast<double>(k + 1) * step * kDegrees;
                     const double s2 = std::sin(angle2);
                     const double c2 = std::cos(angle2);
-                    float next[3];
+                    std::array<float, 3> next{};
                     double next_y = 0.0;
                     {
                         const double x = rv[0] * s2 * w;
@@ -1586,7 +1587,7 @@ void PcSmoothStarParticles::render()
                         next[2] = static_cast<float>(static_cast<double>(uz) + nz);
                     }
                     // The inner point at angle 1 (unscaled).
-                    float inner[3];
+                    std::array<float, 3> inner{};
                     {
                         const double x = static_cast<double>(rv[0]) * s1f + p[0];
                         auto ry = static_cast<float>(static_cast<double>(rv[1]) * s1f);
@@ -1608,7 +1609,7 @@ void PcSmoothStarParticles::render()
                     vertex[6] = {outer[0], outer[1], outer[2], colours[2]};
                     vertex[7] = {inner[0], inner[1], inner[2], colours[2]};
                     vertex += 8;
-                    std::memcpy(outer, next, sizeof(next));
+                    std::memcpy(outer.data(), next.data(), sizeof(next));
                     vertices += 8;
                     triangles += 4;
                     if (vertices >= room - 8)
@@ -1680,7 +1681,7 @@ void PcStarParticles::render()
                                       particle->start_size_[0];
                 const double up_size = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                                        particle->start_size_[1];
-                float p[3];
+                std::array<float, 3> p{};
                 if (emitter_independent_) {
                     p[0] = place[0], p[1] = place[1], p[2] = place[2];
                 } else {
@@ -1688,17 +1689,17 @@ void PcStarParticles::render()
                     p[1] = static_cast<float>(static_cast<double>(place[1]) + at_point_.y);
                     p[2] = static_cast<float>(static_cast<double>(place[2]) + at_point_.z);
                 }
-                const float rv[3] = {static_cast<float>(r.x * across), static_cast<float>(r.y * across),
-                                     static_cast<float>(r.z * across)};
-                const float uv[3] = {static_cast<float>(u.x * up_size), static_cast<float>(u.y * up_size),
-                                     static_cast<float>(u.z * up_size)};
+                const std::array<float, 3> rv = {{static_cast<float>(r.x * across), static_cast<float>(r.y * across),
+                                     static_cast<float>(r.z * across)}};
+                const std::array<float, 3> uv = {{static_cast<float>(u.x * up_size), static_cast<float>(u.y * up_size),
+                                     static_cast<float>(u.z * up_size)}};
                 const ColourSpan span = colour_span(*this, life);
-                uint32_t colours[3];
+                std::array<uint32_t, 3> colours{};
                 for (int k = 0; k < 3; ++k)
                     colours[k] = get_colour(*this, span.from[k], span.to[k], span.t);
                 const double w = extent_;
                 // The outer point at angle 0 (the previous one for the first segment).
-                float outer[3];
+                std::array<float, 3> outer{};
                 {
                     const double x = static_cast<double>(rv[0]) * sin0;
                     const double y = static_cast<double>(rv[1]) * sin0;
@@ -1719,7 +1720,7 @@ void PcStarParticles::render()
                     const double angle_a = 360.0f / static_cast<double>(segments_) * k * kDegrees;
                     const double a = std::sin(angle_a);
                     const double c_a = std::cos(angle_a);
-                    float next[3];
+                    std::array<float, 3> next{};
                     {
                         const double x = rv[0] * a * w;
                         const double y = static_cast<double>(static_cast<float>(rv[1] * a)) * w;
@@ -1738,7 +1739,7 @@ void PcStarParticles::render()
                         360.0f / (static_cast<double>(segments_) + segments_) * (2 * k - 1) * kDegrees;
                     const double b = std::sin(angle_b);
                     const double c_b = std::cos(angle_b);
-                    float inner[3];
+                    std::array<float, 3> inner{};
                     {
                         const double x = rv[0] * b + p[0];
                         auto iy = static_cast<float>(static_cast<double>(static_cast<float>(rv[1] * b)) + p[1]);
@@ -1754,7 +1755,7 @@ void PcStarParticles::render()
                     vertex[2] = {inner[0], inner[1], inner[2], colours[2]};
                     vertex[3] = {next[0], next[1], next[2], colours[1]};
                     vertex += 4;
-                    std::memcpy(outer, next, sizeof(next));
+                    std::memcpy(outer.data(), next.data(), sizeof(next));
                     vertices += 4;
                     triangles += 2;
                     if (vertices >= room - 4)
@@ -1792,9 +1793,9 @@ uint32_t PcGlowRibbonTrailParticles::fine_colour(uint32_t from, uint32_t to, dou
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(truncate((static_cast<double>(g[k] - f[k]) * t + (f[k] << 12)) * (1.0f / 4096.0f)));
     };
-    uint8_t bytes[4] = {lerp(2), lerp(1), lerp(0), lerp(3)};
+    std::array<uint8_t, 4> bytes = {{lerp(2), lerp(1), lerp(0), lerp(3)}};
     uint32_t colour = 0;
-    std::memcpy(&colour, bytes, 4);
+    std::memcpy(&colour, bytes.data(), 4);
     return colour;
 }
 
@@ -1823,10 +1824,10 @@ void PcGlowRibbonTrailParticles::render()
     const double c = g_view_matrix.row[2].z;
     // The camera's across and up directions, not normalised.
     const double b0 = b * 0.0f;
-    const float r[3] = {static_cast<float>(b0 - c), static_cast<float>(c * 0.0f - a * 0.0f),
-                        static_cast<float>(a - b0)};
-    const float u[3] = {static_cast<float>(r[1] * c - r[2] * b), static_cast<float>(a * r[2] - r[0] * c),
-                        static_cast<float>(r[0] * b - a * r[1])};
+    const std::array<float, 3> r = {{static_cast<float>(b0 - c), static_cast<float>(c * 0.0f - a * 0.0f),
+                        static_cast<float>(a - b0)}};
+    const std::array<float, 3> u = {{static_cast<float>(r[1] * c - r[2] * b), static_cast<float>(a * r[2] - r[0] * c),
+                        static_cast<float>(r[0] * b - a * r[1])}};
     const uint32_t per_particle = segments_ * 9 * 4 + (history_length_ - 1) * 3 * 8;
     uint32_t remaining = particle_count_ * per_particle;
     set_material(material->material);
@@ -1848,7 +1849,7 @@ void PcGlowRibbonTrailParticles::render()
             const float* q = position_array_ + 3 * (max_particles_ + index);
             p1[0] = q[0], p1[1] = q[1], p1[2] = q[2];
             // Across the trail's first segment, normalised (unrounded).
-            double n[3];
+            std::array<double, 3> n{};
             {
                 auto dx = static_cast<float>(static_cast<double>(p1[0]) - p0[0]),
                      dy = static_cast<float>(static_cast<double>(p1[1]) - p0[1]),
@@ -1929,12 +1930,12 @@ void PcGlowRibbonTrailParticles::render()
                 auto f0 = static_cast<float>(n0s), f2 = static_cast<float>(n[2] * size0);
                 auto o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
                      o2 = static_cast<float>(w * static_cast<double>(f2));
-                float next_c[3] = {static_cast<float>(static_cast<double>(o0) + p1[0]),
+                std::array<float, 3> next_c = {{static_cast<float>(static_cast<double>(o0) + p1[0]),
                                    static_cast<float>(static_cast<double>(o1) + p1[1]),
-                                   static_cast<float>(w * static_cast<double>(f2) + p1[2])};
-                float next_d[3] = {static_cast<float>(static_cast<double>(p1[0]) - o0),
+                                   static_cast<float>(w * static_cast<double>(f2) + p1[2])}};
+                std::array<float, 3> next_d = {{static_cast<float>(static_cast<double>(p1[0]) - o0),
                                    static_cast<float>(static_cast<double>(p1[1]) - o1),
-                                   static_cast<float>(static_cast<double>(p1[2]) - o2)};
+                                   static_cast<float>(static_cast<double>(p1[2]) - o2)}};
                 vertex[0] = {previous_a[0], previous_a[1], previous_a[2], previous_colour};
                 vertex[1] = {previous_b[0], previous_b[1], previous_b[2], previous_colour};
                 vertex[2] = {next_c[0], next_c[1], next_c[2], colour};
@@ -1942,20 +1943,20 @@ void PcGlowRibbonTrailParticles::render()
                 vertex[4] = {next_d[0], next_d[1], next_d[2], colour};
                 vertex[5] = {next_c[0], next_c[1], next_c[2], colour};
                 vertex += 6;
-                std::memcpy(previous_a, next_c, sizeof(next_c));
-                std::memcpy(previous_b, next_d, sizeof(next_d));
+                std::memcpy(previous_a, next_c.data(), sizeof(next_c));
+                std::memcpy(previous_b, next_d.data(), sizeof(next_d));
                 std::memcpy(p0, p1, sizeof(p1));
                 previous_colour = colour;
             }
 
             // The glow about the head: its colours from the colour fraction gone through the selection again.
             std::memcpy(p0, p, sizeof(p0));
-            const float rr[3] = {static_cast<float>(static_cast<double>(r[0]) * size0),
+            const std::array<float, 3> rr = {{static_cast<float>(static_cast<double>(r[0]) * size0),
                                  static_cast<float>(static_cast<double>(r[1]) * size0),
-                                 static_cast<float>(static_cast<double>(r[2]) * size0)};
-            const float uu[3] = {static_cast<float>(static_cast<double>(u[0]) * size1),
+                                 static_cast<float>(static_cast<double>(r[2]) * size0)}};
+            const std::array<float, 3> uu = {{static_cast<float>(static_cast<double>(u[0]) * size1),
                                  static_cast<float>(static_cast<double>(u[1]) * size1),
-                                 static_cast<float>(static_cast<double>(u[2]) * size1)};
+                                 static_cast<float>(static_cast<double>(u[2]) * size1)}};
             const uint32_t* glow_from = as_rgba(start_colour_);
             const uint32_t* glow_to = as_rgba(end_colour_);
             if (colour_mid_ >= 0.0f) {
@@ -1967,7 +1968,7 @@ void PcGlowRibbonTrailParticles::render()
                     glow_from = as_rgba(mid_colour_);
                 }
             }
-            uint32_t glow[3];
+            std::array<uint32_t, 3> glow{};
             for (int k = 0; k < 3; ++k)
                 glow[k] = fine_colour(glow_from[k], glow_to[k], t);
             float outer[3], inner[3];

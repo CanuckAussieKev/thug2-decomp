@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/engine_scene.h"
@@ -29,12 +30,12 @@
 
 namespace objects {
 
-uint32_t g_rigid_body_member_functions[78]{
+std::array<uint32_t, 78> g_rigid_body_member_functions{{
     0xCC12CF87, 0xFFB39248, 0, 0, 0, 0, 0x9599C10F, 0xFFB39248, 0, 0, 0, 0, 0xCD5BA67B, 0xFFB39248, 0, 0, 0, 0,
     0xAE24DF9F, 0xFFB39248, 0, 0, 0, 0, 0xE8B73AB3, 0xFFB39248, 0, 0, 0, 0, 0x8A3A6B5F, 0xFFB39248, 0, 0, 0, 0,
     0x39D708AC, 0xFFB39248, 0, 0, 0, 0, 0x92F5DB9A, 0xFFB39248, 0, 0, 0, 0, 0x0A2BBB3A, 0xFFB39248, 0, 0, 0, 0,
     0x49F44585, 0xFFB39248, 0, 0, 0, 0, 0xD4A0946B, 0xFFB39248, 0, 0, 0, 0, 0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
-    0,          0xFFB39248, 0, 0, 0, 0};
+    0,          0xFFB39248, 0, 0, 0, 0}};
 namespace {
 int g_next_collide_sound_time;
 
@@ -53,8 +54,8 @@ bool& draw_shape() { return g_rigid_body_draw_shape; }
 bool& draw_details() { return g_rigid_body_draw_details; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
-SharedRef<GameEntity>* get_pushers() { return g_rigid_body_pushers; }
-float* pusher_reach() { return g_rigid_body_pusher_reach; }
+SharedRef<GameEntity>* get_pushers() { return g_rigid_body_pushers.data(); }
+float* pusher_reach() { return g_rigid_body_pusher_reach.data(); }
 
 // The matrix's element at byte offset `offset` from its start.
 double get_m(const maths::Mat4& m, int offset)
@@ -81,7 +82,7 @@ bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 // 0x0042BB00
 void BodyDynamicsModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_rigid_body_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_rigid_body_member_functions.data(), 0x18);
 }
 
 // 0x0042BB20

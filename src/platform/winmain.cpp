@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -46,7 +47,7 @@
 namespace sys {
 
 namespace {
-char g_command_line_server_name[256]; // "-connect"'s value
+std::array<char, 256> g_command_line_server_name; // "-connect"'s value
 
 // --- the command line's network options ----------------------------------------------------------------------
 
@@ -113,13 +114,13 @@ const char kSettingsKey[] = R"(Software\Activision\Tony Hawk's Underground 2\Set
 // The default bindings, written to the settings unless already there: k0_0..k0_23 (the keyboard: DirectInput
 // key codes - W S A D, Z X C V, the number pad 2 6 4 8, none, Tab, the number pad 1 3 7 9 0 and its point, Home,
 // End, Delete, Page Down), gp0_0..gp0_23 (the first pad) and gp1_0..gp1_23 (the second).
-const char* const kBindingPrefixes[3] = {"k0_", "gp0_", "gp1_"};
-const uint32_t kDefaultBindings[3][24] = {
+const std::array<const char*, 3> kBindingPrefixes = {{"k0_", "gp0_", "gp1_"}};
+const std::array<std::array<uint32_t, 24>, 3> kDefaultBindings = {{
     {0x11,       0x1F, 0x1E, 0x20, 0x2C, 0x2D, 0x2E, 0x2F, 0x50, 0x4D, 0x4B, 0x48,
      0x0FFFFFFF, 0x0F, 0x4F, 0x51, 0x47, 0x49, 0x52, 0x53, 0xC7, 0xCF, 0xD3, 0xD1},
     {2, 2, 1, 1, 0x0B, 0x0C, 0x0D, 0x0E},
     {},
-};
+}};
 
 } // namespace
 
@@ -180,28 +181,28 @@ void read_network_params(const char* command_line)
     // The options are looked for in an upper-case copy; their values are read from the command line itself.
     // (The original copies it whole into its 1024 bytes - a longer command line overran its stack; ours looks
     // at the first 1023 characters.)
-    char upper[1024];
-    strncpy_s(upper, command_line, _TRUNCATE);
-    _strupr_s(upper);
+    std::array<char, 1024> upper{};
+    strncpy_s(upper.data(), upper.size(), command_line, _TRUNCATE);
+    _strupr_s(upper.data(), upper.size());
     auto find = [&](const char* option) -> const char* {
-        const char* at = std::strstr(upper, option);
-        return at ? command_line + (at - upper) : nullptr;
+        const char* at = std::strstr(upper.data(), option);
+        return at ? command_line + (at - upper.data()) : nullptr;
     };
 
     if (find("-HOST "))
         g_internet_game_host = true; // hosting a game
     if (const char* at = find("-HOSTNAME"))
-        copy_value(at + 9, commands::g_hosted_game_name, 15); // the hosted game's name
+        copy_value(at + 9, commands::g_hosted_game_name.data(), 15); // the hosted game's name
     if (const char* at = find("-EMAIL"))
-        copy_value(at + 6, online::g_command_line_email, 255);
+        copy_value(at + 6, online::g_command_line_email.data(), 255);
     if (const char* at = find("-PPASS"))
-        copy_value(at + 6, online::g_command_line_password, 15);
+        copy_value(at + 6, online::g_command_line_password.data(), 15);
     if (!g_internet_game_host) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
         // character after it is skipped, normally a space.)
         if (const char* at = find("-CONNECT")) {
-            char* server = g_command_line_server_name;
+            char* server = g_command_line_server_name.data();
             copy_value(at + 9, server, 255);
             uint32_t address = inet_addr(server);
             if (address == INADDR_NONE) {
@@ -228,13 +229,13 @@ void read_network_params(const char* command_line)
         memory::bits_as<uint32_t>(online::g_net_skill_level) = skill > 4 ? 4 : skill;
     }
     if (const char* at = find("-NAME"))
-        copy_value(at + 5, commands::g_network_id, 15); // the player's name
+        copy_value(at + 5, commands::g_network_id.data(), 15); // the player's name
     if (const char* at = find("-PASSWORD")) {
-        char* password = commands::g_network_password;
+        char* password = commands::g_network_password.data();
         copy_value(at + 9, password, 9);
         if (g_joining_internet_game) {
             // Joining: it's the server's password (moved to where the join looks for it).
-            std::memcpy(online::g_pending_password, password, std::strlen(password) + 1); // (strcpy)
+            std::memcpy(online::g_pending_password.data(), password, std::strlen(password) + 1); // (strcpy)
             std::memset(password, 0, 10);
         }
     }
@@ -282,8 +283,8 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // (thug2-decomp.ini [features] allow_multiple_instances=1, not in the original: skip this check so a second copy
     // can run - e.g. to host and join a LAN game on one PC. Its socket falls back to a free port when the game's
     // port is taken (AppHost::Bind) and its log goes to thug2-decomp-2.log.)
-    const char title[] = "THUG2";
-    if (HWND running = allow_multiple_instances() ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, title)) {
+    const auto title = std::to_array("THUG2");
+    if (HWND running = allow_multiple_instances() ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, title.data())) {
         ShowWindow(running, SW_RESTORE);
         BringWindowToTop(running);
         SetForegroundWindow(running);
@@ -304,7 +305,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command
     // line's first word - not the program's name.
-    char* argv[21];
+    std::array<char*, 21> argv{};
     int argc = 1;
     argv[0] = command_line;
     char* p = command_line;
@@ -325,9 +326,9 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     init_direct_sound(game_window());
     for (int device = 0; device < 3; ++device) {
         for (int i = 0; i < 24; ++i) {
-            char name[8] = {};
-            std::snprintf(name, sizeof(name), "%s%d", kBindingPrefixes[device], i);
-            write_default_setting(name, kDefaultBindings[device][i]);
+            std::array<char, 8> name = {};
+            std::snprintf(name.data(), sizeof(name), "%s%d", kBindingPrefixes[device], i);
+            write_default_setting(name.data(), kDefaultBindings[device].data()[i]);
         }
     }
     os_layer::init_input(instance, game_window(), static_cast<int>(cell::of(kSettingsKey)));
@@ -335,16 +336,16 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.
     for (unsigned scan_code = 0; scan_code < 256; ++scan_code) {
-        char name[2] = {static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan_code, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR)),
-                        0};
+        std::array<char, 2> name = {{static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan_code, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR)),
+                        0}};
         if (static_cast<uint8_t>(name[0]) == 0xB4)
             name[0] = '\'';
         else if (name[0] == ';')
             name[0] = ':';
-        wchar_t wide[10];
+        std::array<wchar_t, 10> wide{};
         size_t converted = 0;
-        mbstowcs_s(&converted, wide, name, _TRUNCATE);
-        set_key_name(scan_code, wide);
+        mbstowcs_s(&converted, wide.data(), wide.size(), name.data(), _TRUNCATE);
+        set_key_name(scan_code, wide.data());
     }
     set_key_name(0x3B, L"F1");
     set_key_name(0x3C, L"F2");
@@ -362,7 +363,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     set_key_name(0x65, L"F14");
     set_key_name(0x66, L"F15");
 
-    game_main(argc, argv);
+    game_main(argc, argv.data());
 
     // Originally from PartyMod Fixes: Main doesn't come back (fast_exit ends the process when the main loop returns). The original
     // went on to shut down:

@@ -5,6 +5,7 @@
 // (engine/sys/startup_init.cpp).
 
 #include <cstdint>
+#include <array>
 
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
@@ -53,7 +54,7 @@ namespace {
 // 0x00640E30: GameObjects::g_motion_path_member_functions (0x00681EB8), 48 functions.
 void fill_motion_path_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::MotionPathMembers::is_moving_from_script>(),
         member_code<&objects::MotionPathMembers::is_rotating_from_script>(),
         member_code<&objects::KinematicsModule::obj_store_pos>(),
@@ -102,14 +103,14 @@ void fill_motion_path_member_functions()
         member_code<&objects::KinematicsModule::obj_get_speed>(),
         member_code<&objects::KinematicsModule::obj_jump>(),
         member_code<&objects::KinematicsModule::obj_follow_leader>(),
-    };
-    fill_member_function_code(objects::g_motion_path_member_functions, code, 48);
+    });
+    fill_member_function_code(objects::g_motion_path_member_functions.data(), code.data(), 48);
 }
 
 // 0x006413A0: GameObjects::g_anim_blender_member_functions (0x00682350), 29 functions.
 void fill_anim_blender_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::AnimBlenderComponent::add_channel_from_script>(),
         member_code<&objects::AnimBlenderComponent::wait_on_channel>(),
         member_code<&objects::AnimBlenderComponent::remove_channel>(),
@@ -139,28 +140,28 @@ void fill_anim_blender_member_functions()
         member_code<&objects::AnimBlenderComponent::pass_to_channel>(),
         member_code<&objects::AnimBlenderComponent::pass_to_channel>(),
         member_code<&objects::AnimBlenderComponent::pass_to_channel>(),
-    };
-    fill_member_function_code(objects::g_anim_blender_member_functions, code, 29);
+    });
+    fill_member_function_code(objects::g_anim_blender_member_functions.data(), code.data(), 29);
 }
 
 // 0x00641700: GameObjects::g_object_proximity_member_functions (0x00682620), 6 functions.
 void fill_object_proximity_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::ObjectProximityComponent::obj_set_inner_radius>(),
         member_code<&objects::ObjectProximityComponent::obj_set_outer_radius>(),
         member_code<&objects::ObjectProximityComponent::obj_set_inner_avoid_radius>(),
         member_code<&objects::ObjectProximityComponent::obj_set_outer_avoid_radius>(),
         member_code<&objects::ObjectProximityComponent::obj_set_attention_radius>(),
         member_code<&objects::ObjectProximityComponent::obj_object_in_attention_radius>(),
-    };
-    fill_member_function_code(objects::g_object_proximity_member_functions, code, 6);
+    });
+    fill_member_function_code(objects::g_object_proximity_member_functions.data(), code.data(), 6);
 }
 
 // 0x006417D0: Skater::g_core_member_functions (0x006826C8), 109 functions.
 void fill_core_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&skater::SkaterPhysicsModule::get_jump>(),
         member_code<&skater::SkaterPhysicsModule::get_flipped>(),
         member_code<&skater::SkaterPhysicsModule::get_switched>(),
@@ -270,56 +271,56 @@ void fill_core_member_functions()
         member_code<&skater::SkaterPhysicsModule::enter_tagging>(),
         member_code<&skater::SkaterPhysicsModule::exit_tagging>(),
         member_code<&skater::SkaterPhysicsModule::is_tagging>(),
-    };
-    fill_member_function_code(skater::g_core_member_functions, code, 109);
+    });
+    fill_member_function_code(skater::g_core_member_functions.data(), code.data(), 109);
 }
 
 // 0x006423F0: GameObjects::g_sound_component_member_functions (0x00683118), 1 functions.
 void fill_sound_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::AudioEmitterModule::obj_play_sound>(),
-    };
-    fill_member_function_code(objects::g_sound_component_member_functions, code, 1);
+    });
+    fill_member_function_code(objects::g_sound_component_member_functions.data(), code.data(), 1);
 }
 
 // 0x00642440: GameObjects::g_trick_component_member_functions (0x00683148), 3 functions.
 void fill_trick_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::MoveExecutor::squeezed>(),
         member_code<&objects::MoveExecutor::get_current_bail_endpose>(),
         member_code<&objects::MoveExecutor::set_current_bail_endpose>(),
-    };
-    fill_member_function_code(objects::g_trick_component_member_functions, code, 3);
+    });
+    fill_member_function_code(objects::g_trick_component_member_functions.data(), code.data(), 3);
 }
 
 // 0x006424C0: GameObjects::g_pager_message_member_functions (0x006831A8), 5 functions.
 void fill_pager_message_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::PagerMessageComponent::send_pager_message>(),
         member_code<&objects::PagerMessageComponent::get_pager_message>(),
         member_code<&objects::PagerMessageComponent::get_pager_message_count>(),
         member_code<&objects::PagerMessageComponent::get_first_unread_message_num>(),
         member_code<&objects::PagerMessageComponent::clear_pager_messages>(),
-    };
-    fill_member_function_code(objects::g_pager_message_member_functions, code, 5);
+    });
+    fill_member_function_code(objects::g_pager_message_member_functions.data(), code.data(), 5);
 }
 
 // 0x00642580: GameObjects::g_balance_trick_member_functions (0x00683238), 1 functions.
 void fill_balance_trick_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::RiderTeeterMoves::in_balance_move>(),
-    };
-    fill_member_function_code(objects::g_balance_trick_member_functions, code, 1);
+    });
+    fill_member_function_code(objects::g_balance_trick_member_functions.data(), code.data(), 1);
 }
 
 // 0x006425D0: GameObjects::g_composite_object_member_functions (0x00683268), 30 functions.
 void fill_composite_object_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::GameEntity::obj_get_position>(),
         member_code<&objects::GameEntity::obj_print_details>(),
         member_code<&objects::GameEntity::obj_create_component>(),
@@ -350,14 +351,14 @@ void fill_composite_object_member_functions()
         member_code<&objects::GameEntity::obj_nearest_outside_angle>(),
         member_code<&objects::GameEntity::obj_get_type>(),
         member_code<&objects::GameEntity::obj_has_component>(),
-    };
-    fill_member_function_code(objects::g_composite_object_member_functions, code, 30);
+    });
+    fill_member_function_code(objects::g_composite_object_member_functions.data(), code.data(), 30);
 }
 
 // 0x00642940: GameObjects::g_object_member_functions (0x00683550), 16 functions.
 void fill_object_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::Entity::obj_get_tags>(),       member_code<&objects::Entity::obj_get_single_tag>(),
         member_code<&objects::Entity::obj_get_named_tags>(), member_code<&objects::Entity::obj_set_tags>(),
         member_code<&objects::Entity::obj_remove_tags>(),    member_code<&objects::Entity::obj_leave_script>(),
@@ -366,24 +367,24 @@ void fill_object_member_functions()
         member_code<&objects::Entity::obj_set_flag>(),       member_code<&objects::Entity::obj_kill_spawned_script>(),
         member_code<&objects::Entity::obj_spawn_script>(),   member_code<&objects::Entity::obj_switch_script>(),
         member_code<&objects::Entity::obj_visible>(),        member_code<&objects::Entity::obj_invisible>(),
-    };
-    fill_member_function_code(objects::g_object_member_functions, code, 16);
+    });
+    fill_member_function_code(objects::g_object_member_functions.data(), code.data(), 16);
 }
 
 // 0x00642B30: GameObjects::g_fam_member_functions (0x006836E8), 2 functions.
 void fill_fam_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::FamComponent::obj_play_fam>(),
         member_code<&objects::FamComponent::obj_stop_last_fam>(),
-    };
-    fill_member_function_code(objects::g_fam_member_functions, code, 2);
+    });
+    fill_member_function_code(objects::g_fam_member_functions.data(), code.data(), 2);
 }
 
 // 0x00642B90: GameObjects::g_ped_logic_member_functions (0x00683730), 28 functions.
 void fill_ped_logic_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::PedestrianBrainModule::ped_set_logic_state>(),
         member_code<&objects::PedestrianBrainModule::ped_get_logic_state>(),
         member_code<&objects::PedestrianBrainModule::ped_init_path>(),
@@ -412,14 +413,14 @@ void fill_ped_logic_member_functions()
         member_code<&objects::PedestrianBrainModule::ped_deactivate_aux_script>(),
         member_code<&objects::PedestrianBrainModule::ped_hide_board>(),
         member_code<&objects::PedestrianBrainModule::ped_get_voice_prefix>(),
-    };
-    fill_member_function_code(objects::g_ped_logic_member_functions, code, 28);
+    });
+    fill_member_function_code(objects::g_ped_logic_member_functions.data(), code.data(), 28);
 }
 
 // 0x00642ED0: GameObjects::g_avoid_member_functions (0x006839E8), 8 functions.
 void fill_avoid_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::ObstacleDodgeModule::get_jump>(),
         member_code<&objects::ObstacleDodgeModule::debug_box>(),
         member_code<&objects::ObstacleDodgeModule::step_jump>(),
@@ -428,14 +429,14 @@ void fill_avoid_member_functions()
         member_code<&objects::ObstacleDodgeModule::store_target>(),
         member_code<&objects::ObstacleDodgeModule::hold_motion>(),
         member_code<&objects::ObstacleDodgeModule::restore_motion>(),
-    };
-    fill_member_function_code(objects::g_avoid_member_functions, code, 8);
+    });
+    fill_member_function_code(objects::g_avoid_member_functions.data(), code.data(), 8);
 }
 
 // 0x00642FE0: GameObjects::g_flexible_particle_member_functions (0x00683AC0), 25 functions.
 void fill_flexible_particle_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::FlexibleParticleComponent::pass_to_system>(),
         member_code<&objects::FlexibleParticleComponent::pass_to_system>(),
         member_code<&objects::FlexibleParticleComponent::pass_to_system>(),
@@ -461,14 +462,14 @@ void fill_flexible_particle_member_functions()
         member_code<&objects::FlexibleParticleComponent::emit_on>(),
         member_code<&objects::FlexibleParticleComponent::emit_off>(),
         member_code<&objects::FlexibleParticleComponent::destroy_system>(),
-    };
-    fill_member_function_code(objects::g_flexible_particle_member_functions, code, 25);
+    });
+    fill_member_function_code(objects::g_flexible_particle_member_functions.data(), code.data(), 25);
 }
 
 // 0x006432D0: GameObjects::g_particle_component_member_functions (0x00683D30), 20 functions.
 void fill_particle_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::EffectsEmitterModule::set_start_pos>(),
         member_code<&objects::EffectsEmitterModule::set_mid_pos>(),
         member_code<&objects::EffectsEmitterModule::set_end_pos>(),
@@ -489,14 +490,14 @@ void fill_particle_component_member_functions()
         member_code<&objects::EffectsEmitterModule::set_flag_5446a_f14>(),
         member_code<&objects::EffectsEmitterModule::set_color_55835c_f2>(),
         member_code<&objects::EffectsEmitterModule::get_particle_params>(),
-    };
-    fill_member_function_code(objects::g_particle_component_member_functions, code, 20);
+    });
+    fill_member_function_code(objects::g_particle_component_member_functions.data(), code.data(), 20);
 }
 
 // 0x00643530: GameObjects::g_rigid_body_member_functions (0x00683F28), 12 functions.
 void fill_rigid_body_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::BodyDynamicsModule::rigid_body_ignore_skater>(),
         member_code<&objects::BodyDynamicsModule::rigid_body_wake>(),
         member_code<&objects::BodyDynamicsModule::rigid_body_sleep>(),
@@ -509,14 +510,14 @@ void fill_rigid_body_member_functions()
         member_code<&objects::BodyDynamicsModule::rigid_body_enable_player_collision>(),
         member_code<&objects::BodyDynamicsModule::get_center_of_mass_pos>(),
         member_code<&objects::BodyDynamicsModule::rigidbody_match_velocity_to>(),
-    };
-    fill_member_function_code(objects::g_rigid_body_member_functions, code, 12);
+    });
+    fill_member_function_code(objects::g_rigid_body_member_functions.data(), code.data(), 12);
 }
 
 // 0x006436B0: GameObjects::g_vehicle_wheel_member_functions (0x00684060), 9 functions.
 void fill_vehicle_wheel_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::DrivableModule::get_kick>(),
         member_code<&objects::DrivableModule::wake>(),
         member_code<&objects::DrivableModule::teleport_to_spawn>(),
@@ -526,23 +527,23 @@ void fill_vehicle_wheel_member_functions()
         member_code<&objects::DrivableModule::all_wheels_are_in_contact>(),
         member_code<&objects::DrivableModule::kick_randomly>(),
         member_code<&objects::DrivableModule::is_rider_shown>(),
-    };
-    fill_member_function_code(objects::g_vehicle_wheel_member_functions, code, 9);
+    });
+    fill_member_function_code(objects::g_vehicle_wheel_member_functions.data(), code.data(), 9);
 }
 
 // 0x006437E0: GameObjects::g_vehicle_camera_member_functions (0x00684150), 1 functions.
 void fill_vehicle_camera_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::CarView::vehicle_camera_reset>(),
-    };
-    fill_member_function_code(objects::g_vehicle_camera_member_functions, code, 1);
+    });
+    fill_member_function_code(objects::g_vehicle_camera_member_functions.data(), code.data(), 1);
 }
 
 // 0x00643830: GameObjects::g_stats_manager_member_functions (0x00684180), 9 functions.
 void fill_stats_manager_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::AttributeTracker::re_init>(),
         member_code<&objects::AttributeTracker::reset_goals>(),
         member_code<&objects::AttributeTracker::activate_goals>(),
@@ -552,14 +553,14 @@ void fill_stats_manager_member_functions()
         member_code<&objects::AttributeTracker::unlock_pro_goals>(),
         member_code<&objects::AttributeTracker::get_last_air_combo_score>(),
         member_code<&objects::AttributeTracker::clear_last_air_combo_score>(),
-    };
-    fill_member_function_code(objects::g_stats_manager_member_functions, code, 9);
+    });
+    fill_member_function_code(objects::g_stats_manager_member_functions.data(), code.data(), 9);
 }
 
 // 0x00643960: park_editing::g_goal_editor_member_functions (0x00684270), 35 functions.
 void fill_goal_editor_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&park_editing::ObjectiveAuthoring::edited_goal_add_gap>(),
         member_code<&park_editing::ObjectiveAuthoring::edited_goal_remove_gap>(),
         member_code<&park_editing::ObjectiveAuthoring::edited_goal_got_gap>(),
@@ -595,47 +596,47 @@ void fill_goal_editor_member_functions()
         member_code<&park_editing::ObjectiveAuthoring::set_goal_control_type>(),
         member_code<&park_editing::ObjectiveAuthoring::refresh_goal_cursor_position>(),
         member_code<&park_editing::ObjectiveAuthoring::get_created_goals>(),
-    };
-    fill_member_function_code(park_editing::g_goal_editor_member_functions, code, 35);
+    });
+    fill_member_function_code(park_editing::g_goal_editor_member_functions.data(), code.data(), 35);
 }
 
 // 0x00643D60: GameObjects::g_color_cycle_member_functions (0x006845D0), 4 functions.
 void fill_color_cycle_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::ColorCycleComponent::get_on>(),
         member_code<&objects::ColorCycleComponent::disengaged>(),
         member_code<&objects::ColorCycleComponent::set_period_from_script>(),
         member_code<&objects::ColorCycleComponent::set_colors_from_script>(),
-    };
-    fill_member_function_code(objects::g_color_cycle_member_functions, code, 4);
+    });
+    fill_member_function_code(objects::g_color_cycle_member_functions.data(), code.data(), 4);
 }
 
 // 0x00643E00: GameObjects::g_vehicle_sound_member_functions (0x00684648), 3 functions.
 void fill_vehicle_sound_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::SkaterVehicleSoundComponent::set_skater_vehicle_sounds>(),
         member_code<&objects::SkaterVehicleSoundComponent::no_skater_vehicle_sounds>(),
         member_code<&objects::SkaterVehicleSoundComponent::stop_skater_vehicle_sounds>(),
-    };
-    fill_member_function_code(objects::g_vehicle_sound_member_functions, code, 3);
+    });
+    fill_member_function_code(objects::g_vehicle_sound_member_functions.data(), code.data(), 3);
 }
 
 // 0x00643E80: GameObjects::g_car_physics_member_functions (0x006846A8), 2 functions.
 void fill_car_physics_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::AutomobileDynamicsModule::show_body>(),
         member_code<&objects::AutomobileDynamicsModule::do_nothing>(),
-    };
-    fill_member_function_code(objects::g_car_physics_member_functions, code, 2);
+    });
+    fill_member_function_code(objects::g_car_physics_member_functions.data(), code.data(), 2);
 }
 
 // 0x00643EE0: GameObjects::g_physics_control_member_functions (0x006846F0), 10 functions.
 void fill_physics_control_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::RiderBoardPhysics::pause_physics>(),
         member_code<&objects::RiderBoardPhysics::un_pause_physics>(),
         member_code<&objects::RiderBoardPhysics::get_time_since_physics_switch>(),
@@ -646,14 +647,14 @@ void fill_physics_control_member_functions()
         member_code<&objects::RiderBoardPhysics::set_force_walk>(),
         member_code<&objects::RiderBoardPhysics::un_set_force_walk>(),
         member_code<&objects::RiderBoardPhysics::is_force_walk_on>(),
-    };
-    fill_member_function_code(objects::g_physics_control_member_functions, code, 10);
+    });
+    fill_member_function_code(objects::g_physics_control_member_functions.data(), code.data(), 10);
 }
 
 // 0x00644020: GameObjects::g_walk_member_functions (0x006847F8), 18 functions.
 void fill_walk_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::FootMovement::walk_ground>(),
         member_code<&objects::RiderPoseState::in_air>(),
         member_code<&objects::RiderPoseState::get_on_wall>(),
@@ -672,34 +673,34 @@ void fill_walk_member_functions()
         member_code<&objects::FootMovement::walk_release_hang>(),
         member_code<&objects::FootMovement::walk_set_forward_control_lock>(),
         member_code<&objects::FootMovement::force_to_air_from_hang>(),
-    };
-    fill_member_function_code(objects::g_walk_member_functions, code, 18);
+    });
+    fill_member_function_code(objects::g_walk_member_functions.data(), code.data(), 18);
 }
 
 // 0x00644240: GameObjects::g_run_timer_member_functions (0x006849C0), 6 functions.
 void fill_run_timer_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::RiderRunClock::get_freeze>(),
         member_code<&objects::RiderRunClock::unpause>(),
         member_code<&objects::RiderRunClock::get_factor_complete>(),
         member_code<&objects::RiderRunClock::fetch_run_clock_pad_id>(),
         member_code<&objects::RiderRunClock::get_run_timer_id>(),
         member_code<&objects::RiderRunClock::chain_began>(),
-    };
-    fill_member_function_code(objects::g_run_timer_member_functions, code, 6);
+    });
+    fill_member_function_code(objects::g_run_timer_member_functions.data(), code.data(), 6);
 }
 
 // 0x00644310: GameObjects::g_looping_sound_member_functions (0x00684A68), 0 functions.
 void fill_looping_sound_member_functions()
 {
-    fill_member_function_code(objects::g_looping_sound_member_functions, nullptr, 0);
+    fill_member_function_code(objects::g_looping_sound_member_functions.data(), nullptr, 0);
 }
 
 // 0x00644340: GameObjects::g_skater_state_member_functions (0x00684A80), 18 functions.
 void fill_skater_state_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::FootMovement::walk_ground>(),
         member_code<&objects::RiderPoseState::in_air>(),
         member_code<&objects::RiderPoseState::get_on_wall>(),
@@ -718,23 +719,23 @@ void fill_skater_state_member_functions()
         member_code<&objects::RiderPoseState::get_surface_kind>(),
         member_code<&objects::RiderPoseState::get_sparks_pos>(),
         member_code<&objects::RiderPoseState::set_sparks_pos>(),
-    };
-    fill_member_function_code(objects::g_skater_state_member_functions, code, 18);
+    });
+    fill_member_function_code(objects::g_skater_state_member_functions.data(), code.data(), 18);
 }
 
 // 0x00644560: GameObjects::g_suspend_component_member_functions (0x00684C48), 1 functions.
 void fill_suspend_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::DormancyModule::obj_reset_no_suspend_count>(),
-    };
-    fill_member_function_code(objects::g_suspend_component_member_functions, code, 1);
+    });
+    fill_member_function_code(objects::g_suspend_component_member_functions.data(), code.data(), 1);
 }
 
 // 0x006445B0: GameObjects::g_input_component_member_functions (0x00684C78), 14 functions.
 void fill_input_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::PadInputModule::lock_button_from_script>(),
         member_code<&objects::PadInputModule::disable_player_input>(),
         member_code<&objects::PadInputModule::enable_player_input>(),
@@ -749,42 +750,42 @@ void fill_input_component_member_functions()
         member_code<&objects::PadInputModule::held_longer_than>(),
         member_code<&objects::PadInputModule::enable_input_events>(),
         member_code<&objects::PadInputModule::disable_input_events>(),
-    };
-    fill_member_function_code(objects::g_input_component_member_functions, code, 14);
+    });
+    fill_member_function_code(objects::g_input_component_member_functions.data(), code.data(), 14);
 }
 
 // 0x00644760: GameObjects::g_skeleton_component_member_functions (0x00684DE0), 5 functions.
 void fill_skeleton_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::BoneRigModule::obj_set_bone_active>(),
         member_code<&objects::BoneRigModule::obj_set_bone_scale>(),
         member_code<&objects::BoneRigModule::obj_get_bone_position>(),
         member_code<&objects::BoneRigModule::texture_splat>(),
         member_code<&objects::BoneRigModule::skeleton_spawn_composite_object>(),
-    };
-    fill_member_function_code(objects::g_skeleton_component_member_functions, code, 5);
+    });
+    fill_member_function_code(objects::g_skeleton_component_member_functions.data(), code.data(), 5);
 }
 
 // 0x00644820: GameObjects::g_stream_component_member_functions (0x00684E70), 4 functions.
 void fill_stream_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::AudioStreamModule::obj_play_stream>(),
         member_code<&objects::AudioStreamModule::obj_add_stream>(),
         member_code<&objects::AudioStreamModule::obj_remove_stream>(),
         member_code<&objects::AudioStreamModule::obj_stop_stream>(),
-    };
-    fill_member_function_code(objects::g_stream_component_member_functions, code, 4);
+    });
+    fill_member_function_code(objects::g_stream_component_member_functions.data(), code.data(), 4);
 }
 
 // 0x006448C0: GameObjects::g_vibration_component_member_functions (0x00684EE8), 1 functions.
 void fill_vibration_component_member_functions()
 {
-    const MemberCode code[] = {
+    const auto code = std::to_array<MemberCode>({
         member_code<&objects::PadRumbleModule::vibrate>(),
-    };
-    fill_member_function_code(objects::g_vibration_component_member_functions, code, 1);
+    });
+    fill_member_function_code(objects::g_vibration_component_member_functions.data(), code.data(), 1);
 }
 
 } // namespace

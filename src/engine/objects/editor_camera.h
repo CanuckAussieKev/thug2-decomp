@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -80,7 +81,7 @@ public:
     float min_height_;          // +0x8C
     bool simple_collision_;     // +0x90
     bool no_wall_check_;        // +0x91 (0xF5680DEF)
-    uint8_t pad92[2]{};
+    std::array<uint8_t, 2> pad92{};
     PadInputModule* input_ptr_;                         // +0x94 the Input component
     std::unique_ptr<render::BlobShadow> shadow_handle_; // +0x98
 };

@@ -11,6 +11,7 @@
 #include <windows.h>
 #include <fstream>
 #include <sstream>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
@@ -147,10 +148,10 @@ std::string format_bookmarks(const Bookmark marks[kBookmarks])
         const Bookmark& m = marks[i];
         if (!m.set)
             continue;
-        char line[256];
-        std::snprintf(line, sizeof(line), "%d %.9g %.9g %.9g %.9g %.9g %d %.9g\n", i + 1, m.pose.pos.x, m.pose.pos.y,
+        std::array<char, 256> line{};
+        std::snprintf(line.data(), sizeof(line), "%d %.9g %.9g %.9g %.9g %.9g %d %.9g\n", i + 1, m.pose.pos.x, m.pose.pos.y,
                       m.pose.pos.z, m.pose.yaw, m.pose.pitch, static_cast<int>(m.view), m.equivalent);
-        text += line;
+        text += line.data();
     }
     return text;
 }
@@ -181,9 +182,9 @@ bool parse_bookmarks(const std::string& text, Bookmark marks[kBookmarks])
 
 std::string bookmarks_file_name(uint32_t scene)
 {
-    char name[32];
-    std::snprintf(name, sizeof(name), "%08X.cameras.txt", scene);
-    return name;
+    std::array<char, 32> name{};
+    std::snprintf(name.data(), sizeof(name), "%08X.cameras.txt", scene);
+    return name.data();
 }
 
 // --- the editor's state ---
@@ -222,7 +223,7 @@ struct OrbitState {
 OrbitState g_orbit;
 
 uint32_t g_scene;
-Bookmark g_marks[kBookmarks];
+std::array<Bookmark, kBookmarks> g_marks;
 float g_fly_held;
 
 std::string bookmarks_path() { return game_folder_path("thug2-decomp-layouts") + "\\" + bookmarks_file_name(g_scene); }
@@ -236,7 +237,7 @@ void load_bookmarks()
         return;
     std::stringstream text;
     text << file.rdbuf();
-    if (!parse_bookmarks(text.str(), g_marks))
+    if (!parse_bookmarks(text.str(), g_marks.data()))
         get_log("level editor: %s isn't a bookmarks file - not read", bookmarks_path().c_str());
 }
 
@@ -246,7 +247,7 @@ bool save_bookmarks()
     std::ofstream file(bookmarks_path(), std::ios::binary | std::ios::trunc);
     if (!file)
         return false;
-    file << format_bookmarks(g_marks);
+    file << format_bookmarks(g_marks.data());
     return static_cast<bool>(file);
 }
 
@@ -351,9 +352,9 @@ std::string get_standing()
 {
     std::string s;
     if (ortho()) {
-        char text[64];
-        std::snprintf(text, sizeof(text), "%s ortho (%.0f)", view_name(g_ortho.view), g_ortho.equivalent);
-        s = text;
+        std::array<char, 64> text{};
+        std::snprintf(text.data(), sizeof(text), "%s ortho (%.0f)", view_name(g_ortho.view), g_ortho.equivalent);
+        s = text.data();
     }
     if (g_orbit.orbiting)
         s += s.empty() ? "orbiting" : "  orbiting";
@@ -368,9 +369,9 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
     if (m.right && *m.wheel && !g_orbit.orbiting) {
         *rig.speed = std::clamp(*rig.speed * std::pow(1.25f, static_cast<float>(*m.wheel)), 50.0f, 20000.0f);
         *m.wheel = 0;
-        char text[64];
-        std::snprintf(text, sizeof(text), "Fly speed %.0f", *rig.speed);
-        hud::get_message(text, 1.2);
+        std::array<char, 64> text{};
+        std::snprintf(text.data(), sizeof(text), "Fly speed %.0f", *rig.speed);
+        hud::get_message(text.data(), 1.2);
     }
     // Looking about ends an ortho view (Blender's auto perspective).
     if (m.right && (*m.rel_x_ != 0.0f || *m.rel_y_ != 0.0f) && ortho())
@@ -484,7 +485,7 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
         const bool store = actions::squeezed(actions::kBookmarkStore1 + i);
         if (alt || (!store && !actions::squeezed(actions::kBookmark1 + i)))
             continue;
-        char text[96];
+        std::array<char, 96> text{};
         if (store) {
             Bookmark& m = g_marks[i];
             m.set = true;
@@ -494,9 +495,9 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
             if (ortho())
                 m.pose.pos = rig.have_selection_ ? rig.target : g_ortho.pivot; // (an ortho bookmark keeps its pivot)
             const bool saved = save_bookmarks();
-            std::snprintf(text, sizeof(text), "Camera bookmark %d stored%s", i + 1,
+            std::snprintf(text.data(), sizeof(text), "Camera bookmark %d stored%s", i + 1,
                           saved ? "" : " (not saved: the file)");
-            hud::get_message(text, 2.0);
+            hud::get_message(text.data(), 2.0);
         } else if (g_marks[i].set) {
             const Bookmark& m = g_marks[i];
             if (rig.deselect)
@@ -511,18 +512,18 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
             } else {
                 fly_to(free, m.pose);
             }
-            std::snprintf(text, sizeof(text), "Camera bookmark %d", i + 1);
-            hud::get_message(text, 1.5);
+            std::snprintf(text.data(), sizeof(text), "Camera bookmark %d", i + 1);
+            hud::get_message(text.data(), 1.5);
         } else {
-            std::snprintf(text, sizeof(text), "No camera bookmark %d yet - Ctrl+%d stores one", i + 1, i + 1);
-            hud::get_message(text, 2.0);
+            std::snprintf(text.data(), sizeof(text), "No camera bookmark %d yet - Ctrl+%d stores one", i + 1, i + 1);
+            hud::get_message(text.data(), 2.0);
         }
     }
     // The numpad: 7 top, 1 front, 3 right (Ctrl: the opposite), 5 perspective / ortho.
-    static const int kPad[4][2] = {{actions::kViewTop, actions::kViewBottom},
+    static const std::array<std::array<int, 2>, 4> kPad = {{{actions::kViewTop, actions::kViewBottom},
                                    {actions::kCamFrontView, actions::kViewBack},
                                    {actions::kPanRightAction, actions::kPanLeftAction},
-                                   {actions::kViewOrtho, actions::kViewOrtho}};
+                                   {actions::kViewOrtho, actions::kViewOrtho}}};
     for (int i = 0; i < 4; ++i) {
         const bool opposite = actions::squeezed(kPad[i][1]) && i != 3;
         if (!opposite && !actions::squeezed(kPad[i][0]))
@@ -538,8 +539,8 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
             }
             continue;
         }
-        static const View kViews[3][2] = {
-            {View::kTop, View::kBottom}, {View::kMenuSystem, View::kBack}, {View::kRight, View::kLeft}};
+        static const std::array<std::array<View, 2>, 3> kViews = {{
+            {View::kTop, View::kBottom}, {View::kMenuSystem, View::kBack}, {View::kRight, View::kLeft}}};
         const View view = kViews[i][opposite ? 1 : 0];
         const V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : g_ortho.pivot) : look_point(rig);
         const V3 d = pivot - *rig.pos;

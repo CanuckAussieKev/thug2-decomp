@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Script;
@@ -72,7 +73,7 @@ public:
     int wait_move(script::Struct* params, script::Script* script);
     int wait_stop(script::Struct* params, script::Script* script);
 
-    uint8_t base_[0x18];    // the base component's
+    std::array<uint8_t, 0x18> base_;    // the base component's
     uint32_t motion_flags_; // +0x18 MOTION_FLAG_*
     uint32_t path_flags_;   // +0x1C MOTION_PATH_*
     uint32_t unknown20_;
@@ -81,13 +82,13 @@ public:
     float path_velocity_; // +0x2C inches a second: the speed aimed at
     float velocity_;      // +0x30 the speed now
     float stop_distance_; // +0x34 Obj_StopAlongPath's (inches)
-    uint8_t unknown38_[0x1A4 - 0x38];
+    std::array<uint8_t, 0x1A4 - 0x38> unknown38_;
     float stop_covered_;        // +0x1A4 of the stop's distance
     float stop_start_velocity_; // +0x1A8 the speed when it began
     float min_stop_velocity_;   // +0x1AC Obj_SetPathMinStopVel
-    uint8_t unknown1b0_[0x1E0 - 0x1B0];
+    std::array<uint8_t, 0x1E0 - 0x1B0> unknown1b0_;
     float step_seconds_; // +0x1E0 seconds
-    uint8_t unknown1e4_[0x1EC - 0x1E4];
+    std::array<uint8_t, 0x1EC - 0x1E4> unknown1e4_;
     void* path_follower_; // +0x1EC
 };
 
@@ -95,5 +96,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_motion_path_member_functions[294];
+extern std::array<uint32_t, 294> g_motion_path_member_functions;
 } // namespace objects

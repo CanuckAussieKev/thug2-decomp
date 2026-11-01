@@ -159,7 +159,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
         }
     }
     if (!onto) {
-        trigger_rail_script(kGrindOffEvents);
+        trigger_rail_script(kGrindOffEvents.data());
         change_state(this, kAir);
         maths::Vec4& p = entity_->at_point_;
         p.y = p.y + 1.0f;
@@ -183,7 +183,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     entity_->vel_ *= sign;
     rail_node_ = found;
     entity_->at_point_ = point;
-    trigger_rail_script(kGrindEvents);
+    trigger_rail_script(kGrindEvents.data());
     set_surface_kind(rail_node_->surface_type_);
 }
 
@@ -202,8 +202,8 @@ void SkaterPhysicsModule::step_grind_move()
     set_flag(this, PoseFlag::kLipToAir, 0);
     // Off the rail (0x004FFB10): the TriggerScripts, the jump's rerail time, up and out.
     if (jump_released()) {
-        trigger_rail_script(kJumpTriggerEvents);
-        trigger_rail_script(kGrindOffEvents);
+        trigger_rail_script(kJumpTriggerEvents.data());
+        trigger_rail_script(kGrindOffEvents.data());
         rail_wait_ = static_cast<int>(script::fetch_float(kJumpRerailTime));
         set_flag(this, PoseFlag::kJumpedOffRail, 1);
         set_flag(this, PoseFlag::kJumped, 1);
@@ -321,7 +321,7 @@ void SkaterPhysicsModule::step_grind_move()
                 entity_->at_point_ = grind_point_in_world(this, corner);
                 rail_node_ = after < 0.0f ? node->last_value_ : next;
                 set_surface_kind(rail_node_->surface_type_);
-                trigger_rail_script(kGrindEvents);
+                trigger_rail_script(kGrindEvents.data());
             } else {
                 const maths::Vec4 end = grind_point_in_world(this, corner);
                 transfer_or_leave_rail(&end);
@@ -517,7 +517,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     // Something ahead: off the rail (not for faces flagged 0x10 at +0xF9, outside the park editor).
     if (!in_park_editor() && (feeler_.hit_.face_flags_ & 0x1000))
         return;
-    trigger_rail_script(kGrindOffEvents);
+    trigger_rail_script(kGrindOffEvents.data());
     objects::GameEntity* o = object_of(this);
     o->at_point_ = o->old_pos_;
     maths::Vec4& position = entity_->at_point_;
@@ -560,8 +560,8 @@ void SkaterPhysicsModule::do_bike_stall_physics()
     if (jump_released()) {
         // Jumped (0x005E3053): the rail's TriggerScripts (THAW's with its stall event, which THUG2's haven't), the
         // jump's rerail time, up.
-        trigger_rail_script(kJumpTriggerEvents);
-        trigger_rail_script(kGrindOffEvents);
+        trigger_rail_script(kJumpTriggerEvents.data());
+        trigger_rail_script(kGrindOffEvents.data());
         rail_wait_ = static_cast<int>(script::fetch_float(kJumpRerailTime));
         set_flag(this, PoseFlag::kJumpedOffRail, 1);
         set_flag(this, PoseFlag::kJumped, 1);

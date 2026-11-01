@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/objects/entity.h"
 
@@ -36,7 +37,7 @@ public:
     bool proximity_enter_proximity_not_handled(script::Struct* params, script::Script* script);
 
     bool active_; // +0x18
-    uint8_t pad19[3];
+    std::array<uint8_t, 3> pad19;
     int reactivate_time_;       // +0x1C
     float inner_radius_;        // +0x20
     float outer_radius_;        // +0x24

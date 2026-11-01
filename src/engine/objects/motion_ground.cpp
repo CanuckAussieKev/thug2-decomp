@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/random.h"
 #include "engine/maths/vec4.h"
@@ -140,7 +141,7 @@ bool KinematicsModule::stick_to_ground()
         const maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
         const maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
         maths::Vec4 hit;
-        if (!get_ground_hit(ground_triangle_, &end, &start, &hit))
+        if (!get_ground_hit(ground_triangle_.data(), &end, &start, &hit))
             return false;
         ground_offset_ = static_cast<float>(static_cast<double>(hit.y) - pos.y);
         return true;
@@ -160,13 +161,13 @@ bool KinematicsModule::stick_to_ground()
         right = {x, y, z, 0.0f};
         right.make_unit();
     }
-    const float ahead[4] = {
+    const std::array<float, 4> ahead = {{
         static_cast<float>(static_cast<double>(at.x) * 72.0f), static_cast<float>(static_cast<double>(at.y) * 72.0f),
-        static_cast<float>(static_cast<double>(at.z) * 72.0f), static_cast<float>(static_cast<double>(at.w) * 72.0f)};
-    const float side[4] = {static_cast<float>(static_cast<double>(right.x) * 30.0f),
+        static_cast<float>(static_cast<double>(at.z) * 72.0f), static_cast<float>(static_cast<double>(at.w) * 72.0f)}};
+    const std::array<float, 4> side = {{static_cast<float>(static_cast<double>(right.x) * 30.0f),
                            static_cast<float>(static_cast<double>(right.y) * 30.0f),
                            static_cast<float>(static_cast<double>(right.z) * 30.0f),
-                           static_cast<float>(static_cast<double>(right.w) * 30.0f)};
+                           static_cast<float>(static_cast<double>(right.w) * 30.0f)}};
     auto move = [&pos](const float* by, double scale) {
         float* p = &pos.x;
         for (int i = 0; i < 4; ++i)
@@ -182,14 +183,14 @@ bool KinematicsModule::stick_to_ground()
         *end = {x, static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * 12.0f), z, w};
     };
     maths::Vec4 start, end, back_right, back_left, front;
-    move(ahead, -1.0);
-    move(side, 1.0);
+    move(ahead.data(), -1.0);
+    move(side.data(), 1.0);
     line(&start, &end);
-    const bool hit_right = get_ground_hit(ground_triangles_[0], &end, &start, &back_right);
-    move(side, -2.0);
+    const bool hit_right = get_ground_hit(ground_triangles_[0].data(), &end, &start, &back_right);
+    move(side.data(), -2.0);
     line(&start, &end);
     bool hit_left = false;
-    if (get_ground_hit(ground_triangles_[1], &end, &start, &back_left)) {
+    if (get_ground_hit(ground_triangles_[1].data(), &end, &start, &back_left)) {
         hit_left = true;
         if (hit_right) {
             right = {static_cast<float>(static_cast<double>(back_right.x) - back_left.x),
@@ -199,11 +200,11 @@ bool KinematicsModule::stick_to_ground()
             right.make_unit();
         }
     }
-    move(ahead, 2.0);
-    move(side, 1.0);
+    move(ahead.data(), 2.0);
+    move(side.data(), 1.0);
     line(&start, &end);
-    move(ahead, -1.0); // (back where it was)
-    if (!get_ground_hit(ground_triangles_[2], &end, &start, &front) || !hit_left || !hit_right)
+    move(ahead.data(), -1.0); // (back where it was)
+    if (!get_ground_hit(ground_triangles_[2].data(), &end, &start, &front) || !hit_left || !hit_right)
         return false;
     // The height: half way between the back's middle and the front; at: towards the front from the back's
     // middle, half way from the old at; up: at x right.

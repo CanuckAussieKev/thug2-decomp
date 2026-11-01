@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/draw2d.h"
 #include "engine/core/raw_view.h"
@@ -25,15 +26,15 @@ struct TypefaceData {
     uint32_t height;
     uint32_t base;
     Char* chars;
-    uint8_t map[256];           // character -> chars index
-    uint8_t special_map_[0x20]; // special glyph / button -> chars index; [0x1F] is also the default glyph (Load
+    std::array<uint8_t, 256> map;           // character -> chars index
+    std::array<uint8_t, 0x20> special_map_; // special glyph / button -> chars index; [0x1F] is also the default glyph (Load
                                 // gives it to the characters and specials the file leaves unmapped)
     uint8_t format;             // the file's character map format (1 or 2, see Load)
-    uint8_t pad12d_[3];
+    std::array<uint8_t, 3> pad12d_;
     TypefaceData* next;   // the list of loaded fonts (0x00780FD8)
     int16_t glyph_gap_;   // added after every character
     int16_t blank_gap_;   // the width of a space ('I' when loaded)
-    uint32_t colors[16];  // "\c1" ... (RGBA as bytes)
+    std::array<uint32_t, 16> colors;  // "\c1" ... (RGBA as bytes)
     void* texture;        // IDirect3DTexture9 (A8R8G8B8, managed)
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
 

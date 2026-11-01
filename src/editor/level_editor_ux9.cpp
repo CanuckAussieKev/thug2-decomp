@@ -11,6 +11,7 @@
 #include <cstring>
 #include <functional>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_gap_wizard.h"
@@ -134,12 +135,12 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     ImGui::RadioButton("Lower", &mode, 1);
     d.lower = mode == 1;
     ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0f, ground::kMinHeight, ground::kCeilingY, "%.0f");
-    float rect[4] = {d.x0, d.z0, d.x1, d.z1};
-    if (ImGui::DragFloat4("x0 z0 x1 z1", rect, 1.0f, 0.0f, 0.0f, "%.0f")) {
+    std::array<float, 4> rect = {{d.x0, d.z0, d.x1, d.z1}};
+    if (ImGui::DragFloat4("x0 z0 x1 z1", rect.data(), 1.0f, 0.0f, 0.0f, "%.0f")) {
         d.x0 = rect[0], d.z0 = rect[1], d.x1 = rect[2], d.z1 = rect[3];
     }
     ImGui::DragFloat("Ground at", &d.base, 1.0f, 0.0f, 0.0f, "%.1f");
-    static const char* const kSideNames[4] = {"-X side", "+X side", "-Z side", "+Z side"};
+    static const std::array<const char*, 4> kSideNames = {{"-X side", "+X side", "-Z side", "+Z side"}};
     for (int side = 0; side < 4; ++side) {
         ImGui::PushID(side);
         if (ImGui::BeginCombo(kSideNames[side], ramp_name(d.ramps[side]))) {
@@ -195,10 +196,10 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     // (the pieces of this level)
     if (!ground::get_all().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
         for (const ground::Spec& s : ground::get_all()) {
-            char row[160];
-            std::snprintf(row, sizeof(row), "%s  %s %.0f x %.0f, %.0f", s.name.c_str(), s.lower ? "pit" : "platform",
+            std::array<char, 160> row{};
+            std::snprintf(row.data(), sizeof(row), "%s  %s %.0f x %.0f, %.0f", s.name.c_str(), s.lower ? "pit" : "platform",
                           s.x1 - s.x0, s.z1 - s.z0, s.height);
-            if (ImGui::Selectable(row, g_editing && s.name == d.name)) {
+            if (ImGui::Selectable(row.data(), g_editing && s.name == d.name)) {
                 const std::string name = s.name;
                 g_queue.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {
@@ -390,12 +391,12 @@ void add_overlay(const overlays::Painter& painter)
     if (g_stage == Stage::kSecond) {
         V3 b = g_have_hover ? g_hover : g_first;
         float y = g_first.y + 2.0f;
-        const V3 c[4] = {{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}};
+        const std::array<V3, 4> c = {{{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}}};
         for (int i = 0; i < 4; ++i)
             (void)painter.get_seg(c[i], c[(i + 1) % 4], kRect, 2.0f);
-        char text[64];
-        std::snprintf(text, sizeof(text), "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
-        painter.draw_label(b, kRect, text);
+        std::array<char, 64> text{};
+        std::snprintf(text.data(), sizeof(text), "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
+        painter.draw_label(b, kRect, text.data());
     } else if (g_stage == Stage::kFirst && g_have_hover) {
         painter.perpendicular(g_hover, 25.0f, kRect, 2.0f);
     }

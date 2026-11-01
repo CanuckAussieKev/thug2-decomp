@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_fields.h"
@@ -41,9 +42,9 @@ std::string get_lower(std::string text)
 
 std::string hex_text(uint32_t value)
 {
-    char text[16];
-    std::snprintf(text, sizeof(text), "%08X", value);
-    return text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "%08X", value);
+    return text.data();
 }
 
 bool parse_hex8(const std::string& text, uint32_t* value)
@@ -468,8 +469,8 @@ std::vector<uint32_t> selectable_sectors()
 // A thing's screen box from a placed box's corners (false: a corner behind the camera when `whole`, none in front).
 bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
 {
-    V3 corners[8];
-    box_corners(box.origin, box.axes, box.min, box.max, corners);
+    std::array<V3, 8> corners{};
+    box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
     bool any = false;
     Rect2 r = {0, 0, 0, 0};
     for (const V3& c : corners) {
@@ -846,14 +847,14 @@ void apply_box()
     const SelectionIds now = current_selection();
     SelectionIds next;
     const char* how = crossing ? "crossing" : "inside";
-    char text[160];
+    std::array<char, 160> text{};
     if (!objects.empty() || (op == 2 && !now.objects.empty())) {
         next.objects = combine(now.objects, objects, op);
-        std::snprintf(text, sizeof(text), "Box (%s): %d objects - %d selected", how, static_cast<int>(objects.size()),
+        std::snprintf(text.data(), sizeof(text), "Box (%s): %d objects - %d selected", how, static_cast<int>(objects.size()),
                       static_cast<int>(next.objects.size()));
     } else if (!sectors.empty() || (op == 2 && !now.sectors.empty())) {
         next.sectors = combine(now.sectors, sectors, op);
-        std::snprintf(text, sizeof(text), "Box (%s): %d scenery pieces - %d selected", how,
+        std::snprintf(text.data(), sizeof(text), "Box (%s): %d scenery pieces - %d selected", how,
                       static_cast<int>(sectors.size()), static_cast<int>(next.sectors.size()));
     } else {
         // (no objects or scenery: the point node nearest the box's middle - nodes select one at a time)
@@ -881,15 +882,15 @@ void apply_box()
         }
         if (best && op != 2) {
             next.node = best;
-            std::snprintf(text, sizeof(text), "Box: %d nodes, nearest selected", in_box);
+            std::snprintf(text.data(), sizeof(text), "Box: %d nodes, nearest selected", in_box);
         } else if (op == 0) {
-            std::snprintf(text, sizeof(text), "Box (%s): nothing there", how);
+            std::snprintf(text.data(), sizeof(text), "Box (%s): nothing there", how);
         } else {
             return; // (adding / removing nothing: the selection stays)
         }
     }
     set_selection(next);
-    show_message(text);
+    show_message(text.data());
 }
 
 } // namespace

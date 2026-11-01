@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "frontend/screen_element.h"
 #include "engine/maths/mat4.h"
@@ -63,11 +64,11 @@ public:
     // the element's size at its CameraZ.
     void scale_to_screen_dims();
 
-    ShapeMesh models_[kMaxModels]; // +0x178
+    std::array<ShapeMesh, kMaxModels> models_; // +0x178
     int model_total_{0};           // +0x434
     float camera_z_{-400.0f};      // +0x438 (CameraZ: the distance in front of the camera, negative)
-    float angle_[3]{};             // +0x43C angleX/Y/Z (radians, kept within one turn)
-    float angular_velocity_[3]{};  // +0x448 AngVelX/Y/Z (per frame)
+    std::array<float, 3> angle_{};             // +0x43C angleX/Y/Z (radians, kept within one turn)
+    std::array<float, 3> angular_velocity_{};  // +0x448 AngVelX/Y/Z (per frame)
     maths::Mat4 basis_frame_{};    // +0x454 where the element is: the camera's orientation and the place in
                                    // front of it (row 3 at +0x484)
     maths::Vec4 target_position_{}; // +0x494 NodeToPointTo's node position

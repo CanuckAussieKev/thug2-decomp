@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -180,9 +181,9 @@ char* prop(char** rest)
 }
 int number_field(char** rest)
 {
-    char number[128];
-    text_tools::dup_from(number, prop(rest));
-    return text::to_int(number);
+    std::array<char, 128> number{};
+    text_tools::dup_from(number.data(), prop(rest));
+    return text::to_int(number.data());
 }
 
 } // namespace
@@ -289,7 +290,7 @@ void VaultMan::download(const DownloadRequest* request)
     vault->progress_script_ = request->progress_script_;
     vault->error_script_ = request->error_script_;
     vault->callback_ = request->callback;
-    char* url = game_spy_strdup(request->url);
+    char* url = game_spy_strdup(request->url.data());
     HANDLE thread = start_thread(&download_thread, url);
     get_stall(vault->semaphore_);
     ResumeThread(thread);
@@ -301,7 +302,7 @@ void VaultMan::download(const DownloadRequest* request)
 void VaultMan::start_list(const char* url)
 {
     // (the original uses `url` as sprintf's format)
-    std::snprintf(url_, sizeof(url_), "%s", url);
+    std::snprintf(url_.data(), sizeof(url_), "%s", url);
     progress_ = 0;
     start_time_ = frame_clock::get_time();
     done_script_ = kDoneScript;
@@ -315,20 +316,20 @@ void VaultMan::start_list(const char* url)
 // 0x0054B400
 void VaultMan::list_items(VaultCategory* category)
 {
-    char url[128];
-    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/%s/dir_list.txt", folder_, category->label_);
+    std::array<char, 128> url{};
+    std::snprintf(url.data(), sizeof(url), "http://www.thugonline.com/%s/%s/dir_list.txt", folder_.data(), category->label_.data());
     transfer_ = kItems;
     outcome_val_ = 0;
-    start_list(url);
+    start_list(url.data());
 }
 
 // 0x0054B500
 void VaultMan::list_categories()
 {
     transfer_ = kCategories;
-    char url[128];
-    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/dir_list.txt", folder_);
-    start_list(url);
+    std::array<char, 128> url{};
+    std::snprintf(url.data(), sizeof(url), "http://www.thugonline.com/%s/dir_list.txt", folder_.data());
+    start_list(url.data());
     outcome_val_ = 0;
     get_logic_tasks()->queue_job(task_.get());
 }
@@ -364,10 +365,10 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
     const int transfer = vault->transfer_;
     if (vault->progress_ < 100) {
         if (transfer == kDownload || transfer == kDownload6) {
-            char text[16];
-            std::snprintf(text, sizeof(text), "%d%%", vault->progress_);
+            std::array<char, 16> text{};
+            std::snprintf(text.data(), sizeof(text), "%d%%", vault->progress_);
             script::Struct* params = new_params();
-            params->append_word(get_checksums("text"), script::kQbvalString, text);
+            params->append_word(get_checksums("text"), script::kQbvalString, text.data());
             get_run(vault->progress_script_, params);
             delete_params(params);
         }
@@ -413,7 +414,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
                 VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
                 prepend(&vault->categories_, &category->list_link_);
-                text_tools::dup_from(category->label_, line);
+                text_tools::dup_from(category->label_.data(), line);
                 line = text_tools::get_token(nullptr, "\r\n");
             } while (line);
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
@@ -443,15 +444,15 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
             char* rest = line;
-            char file[1024];
-            text_tools::dup_from(file, prop(&rest));
+            std::array<char, 1024> file{};
+            text_tools::dup_from(file.data(), prop(&rest));
             // (the original makes the URL with sprintf: no limit)
-            std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s/%s", vault->folder_,
-                          vault->category_->label_, file);
-            text_tools::dup_from(item->label_, prop(&rest));
-            text_tools::dup_from(item->creator_, prop(&rest));
+            std::snprintf(item->url_.data(), sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s/%s", vault->folder_.data(),
+                          vault->category_->label_.data(), file.data());
+            text_tools::dup_from(item->label_.data(), prop(&rest));
+            text_tools::dup_from(item->creator_.data(), prop(&rest));
             if (vault->kind_tag_ == kVaultParks) {
-                text_tools::dup_from(item->extent_, prop(&rest));
+                text_tools::dup_from(item->extent_.data(), prop(&rest));
                 item->num_pieces_ = number_field(&rest);
                 item->num_gaps_ = number_field(&rest);
                 item->num_goals_ = number_field(&rest);
@@ -464,8 +465,8 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
                 item->has_male_body_ = number_field(&rest);
             if (vault->kind_tag_ == kVaultGoals)
                 item->num_goals_ = number_field(&rest);
-            text_tools::dup_from(item->unknowncc_, prop(&rest));
-            text_tools::dup_from(item->summary_text_, rest);
+            text_tools::dup_from(item->unknowncc_.data(), prop(&rest));
+            text_tools::dup_from(item->summary_text_.data(), rest);
         }
         vault->transfer_ = kNone;
         memory::dealloc(vault->octets_);
@@ -477,7 +478,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
             vault->task_->drop_out();
             script::Struct* params = new_params();
-            params->append_word("category", vault->category_->label_);
+            params->append_word("category", vault->category_->label_.data());
             params->put_name_key("type", vault->kind_tag_);
             get_run("net_vault_menu_create", params);
             delete_params(params);
@@ -493,14 +494,14 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
-            std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s", vault->folder_,
+            std::snprintf(item->url_.data(), sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s", vault->folder_.data(),
                           line);
             char* rest = line;
-            text_tools::dup_from(item->label_, prop(&rest));
-            text_tools::dup_from(item->creator_, prop(&rest));
-            text_tools::dup_from(item->extent_, prop(&rest));
-            text_tools::dup_from(item->unknowncc_, prop(&rest));
-            text_tools::dup_from(item->summary_text_, rest);
+            text_tools::dup_from(item->label_.data(), prop(&rest));
+            text_tools::dup_from(item->creator_.data(), prop(&rest));
+            text_tools::dup_from(item->extent_.data(), prop(&rest));
+            text_tools::dup_from(item->unknowncc_.data(), prop(&rest));
+            text_tools::dup_from(item->summary_text_.data(), rest);
         }
         vault->transfer_ = kNone;
         vault->task_->drop_out();
@@ -523,7 +524,7 @@ unsigned long __stdcall VaultMan::list_thread(void* param)
     auto* buffer = static_cast<char*>(memory::alloc(kListBufferSize));
     vault->octets_ = buffer;
     std::memset(buffer, 0, kListBufferSize);
-    vault->req_ = ghttp_get_ex(vault->url_, nullptr, vault->octets_, kListBufferSize, nullptr, 0, 0,
+    vault->req_ = ghttp_get_ex(vault->url_.data(), nullptr, vault->octets_, kListBufferSize, nullptr, 0, 0,
                                code_address(&on_progress),
                                code_address(&on_transfer_done), vault);
     pop_heap();
@@ -560,8 +561,8 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
     get_stall(vault->semaphore_);
     push_bottom_up();
     void* post = ghttp_new_post();
-    char number[32];
-    char file_name[0x80] = {}; // (left unset in the original for an unknown type)
+    std::array<char, 32> number{};
+    std::array<char, 0x80> file_name = {}; // (left unset in the original for an unknown type)
     char* buffer = nullptr;
     uint32_t size = 0;
     // The item's data written to a buffer (from the current heap: memory::alloc for a trick, its steps inlined for the
@@ -571,12 +572,12 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
         buffer = static_cast<char*>(memory::alloc(size));
         script::emit_into_buffer(vault->content_, raw::bytes(buffer), size, 1, nullptr);
         const uint32_t checksum = checksums::generate_crc_caseless(buffer, static_cast<int>(size));
-        text_tools::dup_from(file_name, vault->source_path_);
+        text_tools::dup_from(file_name.data(), vault->source_path_.data());
         return checksum;
     };
     auto add_number = [&](const char* name, int value) {
-        std::snprintf(number, sizeof(number), "%d", value);
-        ghttp_post_add_string(post, name, number);
+        std::snprintf(number.data(), sizeof(number), "%d", value);
+        ghttp_post_add_string(post, name, number.data());
     };
     switch (vault->kind_tag_) {
     case kVaultTricks:
@@ -607,8 +608,8 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
         add_number("num_gaps", vault->num_gaps_);
         add_number("num_goals", vault->num_goals_);
         add_number("theme", vault->style_set_);
-        std::snprintf(number, sizeof(number), "0x%x", vault->tod_script_);
-        ghttp_post_add_string(post, "tod_script", number);
+        std::snprintf(number.data(), sizeof(number), "0x%x", vault->tod_script_);
+        ghttp_post_add_string(post, "tod_script", number.data());
         break;
     }
     default:
@@ -616,10 +617,10 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
     }
     vault->octets_ = buffer;
     vault->buffer_size_ = size;
-    ghttp_post_add_file_from_memory(post, "filename", buffer, size, file_name, nullptr);
-    char description[0x400];
-    std::snprintf(description, sizeof(description), "%s", vault->summary_text_);
-    ghttp_post_add_string(post, "description", description);
+    ghttp_post_add_file_from_memory(post, "filename", buffer, size, file_name.data(), nullptr);
+    std::array<char, 0x400> description{};
+    std::snprintf(description.data(), sizeof(description), "%s", vault->summary_text_.data());
+    ghttp_post_add_string(post, "description", description.data());
     ghttp_post_add_string(post, "uniqueid", game_spy_unique_id());
     if (const char* file_type = upload_file_type(vault->kind_tag_)) // (a trick, skater or goal gets it twice)
         ghttp_post_add_string(post, "filetype", file_type);
@@ -700,7 +701,7 @@ bool download_file(script::Struct* params, script::Script*)
     request.progress_script_ = kProgressScript;
     request.buffer_size_ = kDownloadFileSize;
     // (the original uses the URL as sprintf's format)
-    std::snprintf(request.url, sizeof(request.url), "%s", file);
+    std::snprintf(request.url.data(), sizeof(request.url), "%s", file);
     request.callback = code_address(&VaultMan::on_file_downloaded);
     get_vault()->download(&request);
     return true;
@@ -723,8 +724,8 @@ bool upload_file(script::Struct* params, script::Script*)
     const char* file_name = nullptr;
     params->fetch_text("description", &description, 1);
     params->fetch_text("filename", &file_name, 1);
-    text_tools::dup_from(vault->source_path_, file_name);
-    text_tools::dup_from(vault->summary_text_, description);
+    text_tools::dup_from(vault->source_path_.data(), file_name);
+    text_tools::dup_from(vault->summary_text_.data(), description);
     params->fetch_int_value("score", &vault->points_held_, 0);
     params->fetch_int_value("width", &vault->span_, 0);
     params->fetch_int_value("length", &vault->byte_count_, 0);
@@ -763,7 +764,7 @@ bool download_directory_list(script::Struct* params, script::Script*)
     const FriendsManager* buddies = manager->presence_service_.get();
     params->read_hash_value(0u, &vault->kind_tag_, 1);
     if (const char* folder = type_folder(vault->kind_tag_)) // (an unknown type keeps the folder)
-        std::snprintf(vault->folder_, sizeof(vault->folder_), "%s", folder);
+        std::snprintf(vault->folder_.data(), sizeof(vault->folder_), "%s", folder);
     if (buddies->account_ != kUploadsProfile) {
         vault->list_categories();
         return true;
@@ -773,13 +774,13 @@ bool download_directory_list(script::Struct* params, script::Script*)
     VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
     category->skip_ = true;
     prepend(&vault->categories_, &category->list_link_);
-    std::memcpy(category->label_, "Uploads", 8);
+    std::memcpy(category->label_.data(), "Uploads", 8);
     vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
     vault->transfer_ = VaultMan::kUploads;
     vault->outcome_val_ = 0;
-    char url[128];
-    std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/uploads.txt", vault->folder_);
-    vault->start_list(url);
+    std::array<char, 128> url{};
+    std::snprintf(url.data(), sizeof(url), "http://www.thugonline.com/%s/uploads.txt", vault->folder_.data());
+    vault->start_list(url.data());
     get_logic_tasks()->queue_job(vault->task_.get());
     pop_heap();
     return true;
@@ -803,9 +804,9 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         if (!item)
             break;
         script::Struct* params = new_params();
-        params->append_word("name", item->label_);
-        params->append_word("creator", item->creator_);
-        params->append_word("size", item->extent_);
+        params->append_word("name", item->label_.data());
+        params->append_word("creator", item->creator_.data());
+        params->append_word("size", item->extent_.data());
         params->put_int("score", item->points_held_);
         params->put_int("num_pieces", item->num_pieces_);
         params->put_int("num_gaps", item->num_gaps_);
@@ -815,9 +816,9 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         params->put_int("theme", item->style_set_);
         params->put_name_key("tod_script", item->tod_script_);
         params->put_int("is_male", item->has_male_body_);
-        params->append_word("description", item->summary_text_);
+        params->append_word("description", item->summary_text_.data());
         script::Struct* choose = new_params();
-        choose->append_word("file", item->url_);
+        choose->append_word("file", item->url_.data());
         params->put_sub_struct("pad_choose_params", choose);
         const char* script = nullptr;
         switch (vault->kind_tag_) {
@@ -860,7 +861,7 @@ void move_category(script::Script* script, bool forward)
         node = step->data == memory::ListNode::head_marker() ? nullptr : step;
         vault->category_ = node ? static_cast<VaultCategory*>(node->data) : nullptr;
     }
-    script->args_->append_word("category", vault->category_->label_);
+    script->args_->append_word("category", vault->category_->label_.data());
 }
 } // namespace
 

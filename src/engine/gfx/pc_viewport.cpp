@@ -20,15 +20,16 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/glow.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 
 namespace render {
 
-uint8_t g_occlusion_slots[1024]{1};
+std::array<uint8_t, 1024> g_occlusion_slots{{1}};
 namespace {
 uint32_t g_occlusion_pixels;
-float g_query_rect_strip[20];
-uint32_t g_query_point_strip[16];
+std::array<float, 20> g_query_rect_strip;
+std::array<uint32_t, 16> g_query_point_strip;
 
 float g_virtual_screen_height{448.0f};
 float g_virtual_screen_width{640.0f};
@@ -71,9 +72,9 @@ gsl::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera)
 // 0x004CB940
 float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth)
 {
-    float v[4] = {point->x, point->y, point->z, 1.0f};
+    std::array<float, 4> v = {{point->x, point->y, point->z, 1.0f}};
     float view[4], clip[4];
-    xform(view, v, &g_view_matrix);
+    xform(view, v.data(), &g_view_matrix);
     xform(clip, view, &g_projection_matrix);
     if (clip[3] != 0.0f) {
         const double inverse = 1.0f / static_cast<double>(clip[3]);
@@ -104,7 +105,7 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
     change_phase(kZWrite, 0);
     input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    auto* strip = g_query_point_strip; // (four vertices: position, colour)
+    auto* strip = g_query_point_strip.data(); // (four vertices: position, colour)
     for (int k = 0; k < 4; ++k) {
         strip[4 * k] = raw::as<const uint32_t>(point)[0];
         strip[4 * k + 1] = raw::as<const uint32_t>(point)[1];
@@ -128,7 +129,7 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
         float x, y, z, rhw;
         uint32_t colour;
     };
-    auto* strip = raw::as<Vertex>(g_query_rect_strip);
+    auto* strip = raw::as<Vertex>(g_query_rect_strip.data());
     auto depth = static_cast<float>(static_cast<double>(z));
     strip[0] = {x0, y0, depth, 1.0f, 0xFFFFFFFF};
     strip[1] = {x0, y1, depth, 1.0f, 0xFFFFFFFF};

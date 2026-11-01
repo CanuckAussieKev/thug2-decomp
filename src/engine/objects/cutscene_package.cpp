@@ -39,6 +39,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/objects/cutscene.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -46,13 +47,13 @@
 namespace objects {
 
 namespace {
-uint8_t g_skin_colour_table[80]{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
+std::array<uint8_t, 80> g_skin_colour_table{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
                                 239, 226, 125, 59, 80,  171, 108, 64, 205, 4,   143, 63, 0, 0, 128, 63,
                                 239, 226, 125, 59, 180, 212, 5,   65, 87,  207, 247, 63, 0, 0, 128, 63,
                                 153, 71,  126, 59, 185, 169, 157, 64, 74,  151, 190, 64, 0, 0, 128, 63,
-                                153, 71,  126, 59, 46,  84,  117, 64, 72,  24,  102, 64, 0, 0, 128, 63};
-float g_skin_colours[20]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-                         1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+                                153, 71,  126, 59, 46,  84,  117, 64, 72,  24,  102, 64, 0, 0, 128, 63}};
+std::array<float, 20> g_skin_colours{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                         1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
 
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kFlagParam = 0x82C84419;
@@ -81,7 +82,7 @@ constexpr uint32_t kTypeAnim = 0xEAB51346;
 constexpr uint32_t kTypeExtra = 0xFFC529F4;
 // The skater's appearance parts and the colours a skinned model takes from them.
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE;
-constexpr uint32_t kColourNames[4] = {0xA28FAB7F, 0xB90F08D0, 0x1DBCFAE8, 0x0442D3C1};
+constexpr std::array<uint32_t, 4> kColourNames = {{0xA28FAB7F, 0xB90F08D0, 0x1DBCFAE8, 0x0442D3C1}};
 
 assets::ResourceRegistry* get_assets() { return assets::g_asset_manager; }
 // The asset manager's load (0x00408060: not permanent, copied), unload (0x00407B90 + 0x00407B20) and find.
@@ -117,7 +118,7 @@ void get_run(uint32_t script, script::Struct* params = nullptr, Entity* object =
 // The asset manager's load parameters (0x00409E90 constructs them).
 struct LoadParams {
     uint8_t flag0;
-    uint8_t pad1[3];
+    std::array<uint8_t, 3> pad1;
     int texture_set_;     // +0x04
     void* extra;          // +0x08
     uint32_t extra_size_; // +0x0C
@@ -127,7 +128,7 @@ struct LoadParams {
 // The textures' load parameters (filled in place).
 struct TextureParams {
     uint8_t flag0;
-    uint8_t pad1[3];
+    std::array<uint8_t, 3> pad1;
     int texture_set_;  // +0x04
     uint8_t is_model_; // +0x08
     uint8_t flag9;
@@ -148,14 +149,14 @@ inline void print_cutscene_details(void*) {}
 // 0x00466620
 bool CinematicEntry::read_in(script::Struct* params)
 {
-    char file_name[256] = "none"; // (from the game's 0x0064797C)
+    std::array<char, 256> file_name = {"none"}; // (from the game's 0x0064797C)
     uint32_t name = 0;
     if (owns_data_) {
         const char* path = nullptr;
         params->fetch_text(kCutsceneName, &path, 1);
         name = checksums::hash_from_text(cutscene_name_from_path(path));
         asset_ = checksums::hash_from_text(path);
-        std::memcpy(file_name, path, std::strlen(path) + 1); // (unbounded, as the original)
+        std::memcpy(file_name.data(), path, std::strlen(path) + 1); // (unbounded, as the original)
     } else {
         params->read_hash_value(kCutsceneName, &name, 1);
         asset_ = 0;
@@ -183,7 +184,7 @@ bool CinematicEntry::read_in(script::Struct* params)
         render::change_diffuse_scale(1, 0.0f, 0.0f);
         render::update_scene_light_queue();
         assets::ResourceRegistry* assets = get_assets();
-        if (!assets->get_asset_data_by_name(file_name, 0)) {
+        if (!assets->get_asset_data_by_name(file_name.data(), 0)) {
             int music = args_->has_bare_flag(kNoMusicFlag) ? 0 : 1;
             int streams = args_->has_bare_flag(kNoMusicFlag) ? 0 : 1;
             if (params->has_bare_flag(kForceFlag)) {
@@ -199,7 +200,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             gfx::hide_models_for_cutscene();
             get_run(0xE1CE826A, args_);
             content_ =
-                static_cast<CinematicTable*>(assets->load_asset(file_name, 0, 0, 0, false, false, false, settings_, 0));
+                static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, 0, 0, false, false, false, settings_.data(), 0));
             float start = 0.0f;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
@@ -290,9 +291,9 @@ CinematicTable::~CinematicTable()
         audio::stop_music();
         if (flag_34b_0_) {
             get_run(0x7216D8DA);
-            char file_name[256];
-            std::snprintf(file_name, sizeof(file_name), "%08x.qb", label_);
-            script::unload_qb(checksums::hash_from_text(file_name));
+            std::array<char, 256> file_name{};
+            std::snprintf(file_name.data(), sizeof(file_name), "%08x.qb", label_);
+            script::unload_qb(checksums::hash_from_text(file_name.data()));
         }
     }
     if (call_args_) {
@@ -318,9 +319,9 @@ void CinematicTable::load_from_bundle()
             break;
         case kTypeQb:
             if (flag_34b_0_) {
-                char file_name[256];
-                std::snprintf(file_name, sizeof(file_name), "%08x.qb", label_);
-                script::load_qb_data(file_name, static_cast<uint8_t*>(data), 1, 0, 0);
+                std::array<char, 256> file_name{};
+                std::snprintf(file_name.data(), sizeof(file_name), "%08x.qb", label_);
+                script::load_qb_data(file_name.data(), static_cast<uint8_t*>(data), 1, 0, 0);
             }
             break;
         case kTypeCameraAnim: {
@@ -417,12 +418,12 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         auto* part2 = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part_option(kPartA));
         if (!part2)
             part2 = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part_option(kPartB));
-        float* skin = g_skin_colours;
+        float* skin = g_skin_colours.data();
         skin[0] = skin[1] = skin[2] = skin[3] = 1.0f;
         for (int k = 0; k < 4; ++k) {
-            float colour[4];
+            std::array<float, 4> colour{};
             script::Struct* from = part1->has_entry_named(kColourNames[k]) ? part1 : part2;
-            std::memcpy(skin + 4 * (k + 1), read_colour(colour, from, kColourNames[k]), 16);
+            std::memcpy(skin + 4 * (k + 1), read_colour(colour.data(), from, kColourNames[k]), 16);
         }
         // Not original - the colours read within their asset (bundle_format.h): a count past it reads none (the
         // original's table ran past the asset).
@@ -435,7 +436,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         SkinColours table{};
         table.start = read.entries;
         table.end = table.start + read.count * bundle_format::kSkinColourSize;
-        table.table = g_skin_colour_table;
+        table.table = g_skin_colour_table.data();
         table.colours = skin;
         // which skin this is: the next names along say (none after it: the last)
         bool male = false, has_face = false;

@@ -53,10 +53,10 @@ bool pass_blend_mode(WeatherSystem* weather, script::Struct* params,
 // 0x004A14C0
 WeatherSystem::WeatherSystem()
 {
-    std::memset(rain_bottom_, 0xFF, 4);
-    std::memset(rain_top_, 0, 4);
-    std::memset(splash_colour_, 0x80, 4);
-    std::memset(snow_colour_, 0x80, 4);
+    std::memset(rain_bottom_.data(), 0xFF, 4);
+    std::memset(rain_top_.data(), 0, 4);
+    std::memset(splash_colour_.data(), 0x80, 4);
+    std::memset(snow_colour_.data(), 0x80, 4);
 }
 
 // 0x004A1020
@@ -121,10 +121,10 @@ bool WeatherSystem::script_set_rain_color(script::Struct* params, script::Script
 {
     int colour = 0;
     params->fetch_int_value("top", &colour, 0);
-    change_colour(rain_top_, colour);
+    change_colour(rain_top_.data(), colour);
     colour = -1;
     params->fetch_int_value("bottom", &colour, 0);
-    change_colour(rain_bottom_, colour);
+    change_colour(rain_bottom_.data(), colour);
     return true;
 }
 
@@ -155,7 +155,7 @@ bool WeatherSystem::script_set_splash_size(script::Struct* params, script::Scrip
 // 0x004A12A0
 bool WeatherSystem::script_set_splash_color(script::Struct* params, script::Script*)
 {
-    change_colour(splash_colour_, integer_parameter(params, static_cast<int>(0x80808080)));
+    change_colour(splash_colour_.data(), integer_parameter(params, static_cast<int>(0x80808080)));
     return true;
 }
 
@@ -206,7 +206,7 @@ bool WeatherSystem::script_set_snow_rate(script::Struct* params, script::Script*
 // 0x004A1450
 bool WeatherSystem::script_set_snow_color(script::Struct* params, script::Script*)
 {
-    change_colour(snow_colour_, integer_parameter(params, static_cast<int>(0x80808080)));
+    change_colour(snow_colour_.data(), integer_parameter(params, static_cast<int>(0x80808080)));
     return true;
 }
 

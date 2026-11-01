@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <gsl/pointers>
+#include <array>
 #include "formats/anim_format.h"
 #include "engine/gfx/frame_source.h"
 
@@ -27,7 +28,7 @@ class UserClipKey;
 // A key as three shorts after the time word (8 bytes).
 struct ShortKey {
     uint16_t time; // low 15 bits: the time in frames; bit 15: a quaternion's w is negative
-    int16_t value[3];
+    std::array<int16_t, 3> value;
 };
 static_assert(sizeof(ShortKey) == 8, "layout must match the original");
 
@@ -35,7 +36,7 @@ static_assert(sizeof(ShortKey) == 8, "layout must match the original");
 struct FloatKey {
     uint16_t time;
     uint16_t pad;
-    float value[4];
+    std::array<float, 4> value;
 };
 static_assert(offsetof(FloatKey, value) == 4, "layout must match the original");
 
@@ -98,16 +99,16 @@ public:
     int find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
 
     void* payload_;         // +0x00 the frame data it holds
-    uint32_t unknown04_[4]; // (+0x04: the frame it was last used)
+    std::array<uint32_t, 4> unknown04_; // (+0x04: the frame it was last used)
     uint32_t extent_;       // +0x14 the keys' size
     uint8_t* quat_keys_;    // +0x18
     uint8_t* trans_keys_;   // +0x1C
-    uint32_t unknown20_[2];
-    uint8_t** cursors_[18];      // +0x28 (each: 60 quaternion cursors, 60 translation cursors, ...)
+    std::array<uint32_t, 2> unknown20_;
+    std::array<uint8_t**, 18> cursors_;      // +0x28 (each: 60 quaternion cursors, 60 translation cursors, ...)
     uint8_t quat_stride_;        // +0x70
     uint8_t trans_stride_;       // +0x71
-    uint16_t quat_offsets_[60];  // +0x72
-    uint16_t trans_offsets_[60]; // +0xEA
+    std::array<uint16_t, 60> quat_offsets_;  // +0x72
+    std::array<uint16_t, 60> trans_offsets_; // +0xEA
     uint16_t bone_count_;        // +0x162
     uint16_t flag_bits_;         // +0x164 (0x4000 searching, 0x8000 not ready)
 };

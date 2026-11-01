@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/gfx/surface_material.h"
@@ -30,7 +31,7 @@ lists::KeyMap* g_shadow_casters;
 namespace {
 bool g_pixel_shaders_made;
 } // namespace
-void* g_pixel_shaders[kPixelShaderCount];
+std::array<void*, kPixelShaderCount> g_pixel_shaders;
 
 namespace {
 
@@ -66,9 +67,8 @@ uint32_t get_blend_mode(const void* material, uint32_t pass)
 }
 
 // The fixed shaders' sources.
-const char kTextureVertexX4[] =
-    "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\n+mul_x2 r0.a,v0.a,t0.a\nmul_x4\tr0.rgb,v0,r0\n"; // 0x0067EBF0
-const char kVertexFactor[] = "ps.1.1\nmul_x2\tr0.rgb,v0,c0\n+mov r0.a, v0.a\n";         // 0x0067EC3C
+constexpr auto kTextureVertexX4 = std::to_array("ps.1.1\ntex t0\nmul r0.rgb,t0,c0\n+mul_x2 r0.a,v0.a,t0.a\nmul_x4\tr0.rgb,v0,r0\n"); // 0x0067EBF0
+constexpr auto kVertexFactor = std::to_array("ps.1.1\nmul_x2\tr0.rgb,v0,c0\n+mov r0.a, v0.a\n");         // 0x0067EC3C
 const char kBloomCutoff[] =                                                             // 0x0067ED60
     "ps.1.1\n"
     "; On entry, C0 contains the 'cutoff' color for the bloom effect (and 0.5 in the alpha component).\n"
@@ -80,19 +80,18 @@ const char kBloomCutoff[] =                                                     
     "dp3\tr1,r0,c1\t\t\t; r1.a = ( r0.r * 1 ) + ( r0.g * 1 ) + ( r0.b * 1 )\n"
     "add\tr0.a,r1.a,c0.a\t\t; r0.a = 0.5 + sum of r0.rgb\n"
     "cnd\tr0,r0.a,t0,c2\t\t; sets r0 = t0 if r1.a > 0.5 (so r0.rgb > 0.0), 0.0 otherwise\n";
-const char kVertexAlphaTextureAlpha[] = "ps.1.1\ntex t0\nmul_x2\tr0,v0.a,t0.a\n";  // 0x0067ECC8
-const char kConstantAlphaTextureAlpha[] = "ps.1.1\ntex t0\nmul_x2 r0,c4.a,t0.a\n"; // 0x0067ECEC
-const char kTextureConstantAlpha[] =
-    "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\nmul_x4 r0.rgb,v0,r0\n+mul_x2\tr0.a,c4.a,t0.a\n"; // 0x0067ED10
+constexpr auto kVertexAlphaTextureAlpha = std::to_array("ps.1.1\ntex t0\nmul_x2\tr0,v0.a,t0.a\n");  // 0x0067ECC8
+constexpr auto kConstantAlphaTextureAlpha = std::to_array("ps.1.1\ntex t0\nmul_x2 r0,c4.a,t0.a\n"); // 0x0067ECEC
+constexpr auto kTextureConstantAlpha = std::to_array("ps.1.1\ntex t0\nmul r0.rgb,t0,c0\nmul_x4 r0.rgb,v0,r0\n+mul_x2\tr0.a,c4.a,t0.a\n"); // 0x0067ED10
 
 // The shader text being written (the original sprintfs into a 1 KB buffer).
 struct ShaderText {
-    char buffer[1024]{};
+    std::array<char, 1024> buffer{};
     int length = 0;
     template <typename... Args>
     void append_one(const char* format, Args... args)
     {
-        length += std::snprintf(buffer + length, sizeof(buffer) - length, format, args...);
+        length += std::snprintf(buffer.data() + length, sizeof(buffer) - length, format, args...);
     }
 };
 
@@ -126,14 +125,14 @@ void compile_pixel_shaders()
             const char* source;
             int handle;
         };
-        static const Fixed kFixed[] = {
-            {kTextureVertexX4, kPixelShader964},
-            {kVertexFactor, kPixelShader95c},
+        static const auto kFixed = std::to_array<Fixed>({
+            {kTextureVertexX4.data(), kPixelShader964},
+            {kVertexFactor.data(), kPixelShader95c},
             {kBloomCutoff, kPixelShader948},
-            {kVertexAlphaTextureAlpha, kPixelShader944},
-            {kConstantAlphaTextureAlpha, kPixelShader940},
-            {kTextureConstantAlpha, kPixelShader960},
-        };
+            {kVertexAlphaTextureAlpha.data(), kPixelShader944},
+            {kConstantAlphaTextureAlpha.data(), kPixelShader940},
+            {kTextureConstantAlpha.data(), kPixelShader960},
+        });
         for (const Fixed& f : kFixed) {
             assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
             input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
@@ -155,7 +154,7 @@ void* generated_pixel_shader(const void* material)
 {
     const uint32_t passes = pass_count(material);
     uint32_t present = 0;
-    uint32_t modes[4];
+    std::array<uint32_t, 4> modes{};
     for (uint32_t pass = 0; pass < passes; ++pass) {
         present |= 1u << pass;
         modes[pass] = get_blend_mode(material, pass);
@@ -193,7 +192,7 @@ void* generated_pixel_shader(const void* material)
     }
     // Each further pass into r1 (or straight from its texture), then blended into r0 by its mode. Registers by
     // number: r0, t1, t2, t3, r1.
-    static const char kRegisters[5][3] = {"r0", "t1", "t2", "t3", "r1"};
+    static const std::array<std::array<char, 3>, 5> kRegisters = {{"r0", "t1", "t2", "t3", "r1"}};
     uint32_t reg = 0;
     for (int pass = 1; pass < ints::as_signed(passes); ++pass) {
         const uint32_t mode = modes[pass];
@@ -217,8 +216,8 @@ void* generated_pixel_shader(const void* material)
         } else {
             reg = pass; // the texture itself
         }
-        const char* r = kRegisters[reg];
-        const char* p = kRegisters[previous];
+        const char* r = kRegisters[reg].data();
+        const char* p = kRegisters[previous].data();
         switch (mode) {
         case 1:
             text.append_one("mad r0.rgb,%s,%s.a,r0\n", r, r);
@@ -268,12 +267,12 @@ void* generated_pixel_shader(const void* material)
     void* shader = nullptr;
     void* errors = nullptr;
     void* handle = nullptr;
-    if (assemble_shader(text.buffer, static_cast<uint32_t>(std::strlen(text.buffer)), &shader, &errors) != 0)
+    if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) != 0)
         buffer_pointer(errors); // (the error text, not shown)
     input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
                                     raw::as<IDirect3DPixelShader9*>(&handle));
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
-    view_mode::note_shader_source(handle, text.buffer);
+    view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);
     if (shader)
         get_release(shader);

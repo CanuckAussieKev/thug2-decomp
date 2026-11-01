@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "game/goals/objective.h"
 
@@ -25,7 +26,7 @@ struct StackedTrickEntry {
     uint32_t element;    // +0x0C its screen element's id
     bool free;           // +0x10 the slot is unused
     bool perfect;        // +0x11
-    uint8_t pad12[2];
+    std::array<uint8_t, 2> pad12;
     int group; // +0x14 the combo group (combo modes)
     int spin;  // +0x18 in half turns
     int taps;  // +0x1C 1, or 2 for a double tap
@@ -38,11 +39,11 @@ public:
     FallingTricksGoal& operator=(const FallingTricksGoal&) = delete;
     static constexpr int kMaxTricks = 30;
 
-    StackedTrickEntry tricks_[kMaxTricks]{}; // +0x70
+    std::array<StackedTrickEntry, kMaxTricks> tricks_{}; // +0x70
     int trick_total_{};                      // +0x430
     int stopwatch_{};                        // +0x434 ms since the last trick was added
-    bool group_used_[kMaxTricks]{};          // +0x438 the combo groups in use
-    uint8_t pad456[2]{};
+    std::array<bool, kMaxTricks> group_used_{};          // +0x438 the combo groups in use
+    std::array<uint8_t, 2> pad456{};
 
     // 0x0056F090: the constructor (Objective's, then the vtable). 0x0056F0B0 / 0x0056F290: the destructor body and the
     // scalar deleting destructor.
@@ -103,7 +104,7 @@ public:
     static constexpr int kMaxTricks = 30;
     static constexpr int kBeats = 16;
 
-    BeatTrick tricks_[kMaxTricks]{}; // +0x70
+    std::array<BeatTrick, kMaxTricks> tricks_{}; // +0x70
     int trick_total_{};              // +0x430
     int last_time_{};                // +0x434 the game clock last frame (ms)
     int beat_time_{};                // +0x438 ms into the beat
@@ -115,8 +116,8 @@ public:
     int window_time_{};            // +0x450 beat_window_time
     int completed_{};              // +0x454
     int total_to_win_{};           // +0x458 total_to_win
-    bool unknown45c_[kMaxTricks]{}; // +0x45C
-    uint8_t pad47a_[2]{};
+    std::array<bool, kMaxTricks> unknown45c_{}; // +0x45C
+    std::array<uint8_t, 2> pad47a_{};
 
     // 0x00574C40 / 0x00575140 / 0x00576210: constructor, destructor body, scalar deleting destructor.
     explicit TrickBeatGoal(script::Struct* params);

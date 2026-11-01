@@ -11,6 +11,7 @@
 #include "engine/script/member_code.h"
 #include "game/rider/core_physics.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -40,10 +41,10 @@ class TaggingControlComponent;
 struct WalkContact {
 
     bool hit{}; // +0x00
-    uint8_t pad1_[3]{};
+    std::array<uint8_t, 3> pad1_{};
     maths::Vec4 normal{}; // +0x04 the hit's, flattened and made unit length
     bool clear{};         // +0x14 (a barrier jump: nothing in the way at the highest barrier's height)
-    uint8_t pad15_[3]{};
+    std::array<uint8_t, 3> pad15_{};
     float object_speed_{};   // +0x18 how fast the object hit moves along the normal
     render::ProbeRay feeler; // +0x1C
 };
@@ -428,16 +429,16 @@ public:
     bool jump_held_{};                 // +0x9A
     bool off_vert_{};                  // +0x9B began in the air off a vert ramp
     float model_lift_{};               // +0x9C the model's height offset, restored over time
-    objects::WalkContact contacts_[8]; // +0xA0
+    std::array<objects::WalkContact, 8> contacts_; // +0xA0
     int anim_speed_scaling_{};         // +0x700 0 off, 1 Run, 2 HangMove, 3 LadderMove
     float speed_{};                    // +0x704 the move's speed (for the animation's)
     float last_speed_{};               // +0x708
     bool locked_to_heading_{};         // +0x70C
-    uint8_t pad70d_[3]{};
+    std::array<uint8_t, 3> pad70d_{};
     int unknown710_{};    // +0x710 (60 after a landing, 0 at a reset)
     float curb_offset_{}; // +0x714 the curb float's height offset
     bool curb_float_{};   // +0x718 floating over a curb this frame
-    uint8_t pad719_[3]{};
+    std::array<uint8_t, 3> pad719_{};
     maths::Vec4
         critical_point_offset_{}; // +0x71C m_critical_point_offset (the game's own message): a ride's / hang's offset
     float upright_time_{0.0f};    // +0x72C the time left turning upright (0: the up vector is eased)
@@ -467,20 +468,20 @@ public:
     objects::TaggingControlComponent* tagging_{}; // +0x1790
     maths::Vec4 floor_normal_{};                  // +0x1794 the ground's normal (the feeler's hit)
     bool running_{};                              // +0x17A4
-    uint8_t pad17a5_[3]{};
+    std::array<uint8_t, 3> pad17a5_{};
     bool barrier_timed_{}; // +0x17A8
-    uint8_t pad17a9_[3]{};
+    std::array<uint8_t, 3> pad17a9_{};
     int barrier_since_{};     // +0x17AC
     float standard_speed_{};  // +0x17B0 run_speed
     render::ProbeRay feeler_; // +0x17B4 the triggers' and a pull-up's ledge feeler
     bool feeler_hit_{};       // +0x1864 whether that feeler hit something (the ground)
-    uint8_t pad1865_[3]{};
+    std::array<uint8_t, 3> pad1865_{};
     float run_adjustment_{}; // +0x1868 run_speed (0) to combo_run_speed (1)
     bool blocked_{};         // +0x186C
-    uint8_t pad186d_[3]{};
+    std::array<uint8_t, 3> pad186d_{};
     float skid_time_{};  // +0x1870
     bool unknown1874_{}; // +0x1874 (set on a reset)
-    uint8_t pad1875_[3]{};
+    std::array<uint8_t, 3> pad1875_{};
     maths::Vec4
         leap_heading_{}; // +0x1878 the flat direction of the jump's push (also the facing kept on leaving a hang)
     maths::Vec4 jump_base_vel_{}; // +0x1888 the velocity the jump carries along unsteered
@@ -488,7 +489,7 @@ public:
     maths::Vec4 jump_velocity_{}; // +0x189C
     float jump_target_height_{};  // +0x18AC the top of the ledge the jump makes for
     bool pushing_{};              // +0x18B0 pushed back off a wall in the air
-    uint8_t pad18b1_[3]{};
+    std::array<uint8_t, 3> pad18b1_{};
     maths::Vec4 push_normal_{};      // +0x18B4 the plane's normal (also a hang move's heading)
     float push_plane_distance_{};    // +0x18C4
     float push_height_{};            // +0x18C8 (also a hang move's elevation)
@@ -499,7 +500,7 @@ public:
     float climb_scale_{};            // +0x18DC the shimmy's speed, eased towards the control's
     float ladder_sign_{};            // +0x18E0
     maths::Vec4 transition_start_{}; // +0x18E4 an animated move's start
-    uint8_t unknown18f4_[0x10]{};
+    std::array<uint8_t, 0x10> unknown18f4_{};
     maths::Vec4 transition_pos_{};          // +0x1904 ... and end (with the climb offset)
     float transition_start_offset_{};       // +0x1914 the height offset at its start
     float transition_display_offset_{};     // +0x1918 ... and end
@@ -510,12 +511,12 @@ public:
     int anim_waiting_{};                    // +0x1944 an animation is playing: the callback waits
     objects::AnimDoneCallback anim_done_{}; // +0x1948 its end's callback
     bool jump_unsteered_{false};            // +0x1958 (cleared each hanging frame)
-    uint8_t pad1959_[7]{};
+    std::array<uint8_t, 7> pad1959_{};
 };
 
 } // namespace objects
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_walk_member_functions[114];
+extern std::array<uint32_t, 114> g_walk_member_functions;
 } // namespace objects

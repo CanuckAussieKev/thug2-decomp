@@ -26,6 +26,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -33,12 +34,12 @@
 
 namespace objects {
 
-uint32_t g_input_component_member_functions[90]{
+std::array<uint32_t, 90> g_input_component_member_functions{{
     0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0, 0x6E24F5FD, 0x27D7CD28, 0, 0, 0, 0, 0x56C6C0CD, 0x27D7CD28, 0, 0, 0, 0,
     0x6DF51774, 0x27D7CD28, 0, 0, 0, 0, 0x31C6454F, 0x27D7CD28, 0, 0, 0, 0, 0x0660746A, 0x27D7CD28, 0, 0, 0, 0,
     0x78238598, 0x27D7CD28, 0, 0, 0, 0, 0x1D604A9D, 0x27D7CD28, 0, 0, 0, 0, 0x89AA9B5F, 0x27D7CD28, 0, 0, 0, 0,
     0x83028FC5, 0x27D7CD28, 0, 0, 0, 0, 0xB2A022DE, 0x27D7CD28, 0, 0, 0, 0, 0x2366469C, 0x27D7CD28, 0, 0, 0, 0,
-    0x1090A150, 0x27D7CD28, 0, 0, 0, 0, 0x28729460, 0x27D7CD28, 0, 0, 0, 0, 0,          0x27D7CD28, 0, 0, 0, 0};
+    0x1090A150, 0x27D7CD28, 0, 0, 0, 0, 0x28729460, 0x27D7CD28, 0, 0, 0, 0, 0,          0x27D7CD28, 0, 0, 0, 0}};
 
 namespace {
 
@@ -70,7 +71,7 @@ struct EventButton {
     uint32_t up;
     int button;
 };
-const EventButton kEventButtons[] = {
+constexpr auto kEventButtons = std::to_array<EventButton>({
     {6, 0x40, 0x5C8FAA09, 0xB27804A2, 0x000},       {7, 0x80, 0xD26ADAE9, 0xAEF7DFD3, 0x020},
     {5, 0x20, 0xB4F2ADBA, 0xC86FA880, 0x040},       {4, 0x10, 0x0EDBBC2B, 0xC8ABF89C, 0x060},
     {9, 0x200, 0xB069B600, 0xE5AAE06B, 0x140},      {0xB, 0x800, 0xA93DBBD0, 0xFCFEEDBB, 0x160},
@@ -80,7 +81,7 @@ const EventButton kEventButtons[] = {
     {0xF, 0x8000, 0x8B1C1C72, 0x65EBB2D9, 0x100},   {0x11, 0x20000, 0xFC1B2CE4, 0x12EC824F, 0x120},
     {0x16, 0x400000, 0x33947317, 0xF5E437A0, -1},   {0x17, 0x800000, 0xF8DE049B, 0x3EAE402C, -1},
     {0x18, 0x1000000, 0xAC7F105A, 0x55B09758, -1},
-};
+});
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -121,7 +122,7 @@ gsl::owner<ObjectModule*> PadInputModule::fabricate() { return new PadInputModul
 // 0x0041E6F0
 void PadInputModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_input_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_input_component_member_functions.data(), 0x18);
 }
 
 // 0x0041E850

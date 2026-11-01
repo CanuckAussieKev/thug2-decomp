@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -323,10 +324,10 @@ bool cfunc_get_upper_case_string(Struct* params, Script* script)
 {
     const char* text = nullptr;
     params->fetch_text(0u, &text, 1);
-    char upper[0x80];
-    copy_text(upper, text);
-    text::to_capitals(upper);
-    script->args_->append_word(kUpperCaseString, upper);
+    std::array<char, 0x80> upper{};
+    copy_text(upper.data(), text);
+    text::to_capitals(upper.data());
+    script->args_->append_word(kUpperCaseString, upper.data());
     return true;
 }
 
@@ -351,22 +352,22 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     params->fetch_text(kText, &text, 0);
     const size_t text_length = std::strlen(text);
     struct {
-        char number[20];
-        char result[100];
+        std::array<char, 20> number;
+        std::array<char, 100> result;
     } buffers{};
-    copy_text(buffers.result, text);
+    copy_text(buffers.result.data(), text);
     int max_length = 15;
     params->fetch_int_value(kMaxLength, &max_length, 0);
     int suffix = 1;
     params->fetch_int_value(kSuffix, &suffix, 0);
-    get_sprintf(buffers.number, " %d", suffix); // " %d"
-    const int number_length = static_cast<int>(std::strlen(buffers.number));
+    get_sprintf(buffers.number.data(), " %d", suffix); // " %d"
+    const int number_length = static_cast<int>(std::strlen(buffers.number.data()));
     if (number_length + static_cast<int>(text_length) > max_length)
         raw::chars(&buffers)[sizeof(buffers.number) + max_length - number_length] = '\0';
-    copy_text(buffers.result + std::strlen(buffers.result), buffers.number);
+    copy_text(buffers.result.data() + std::strlen(buffers.result.data()), buffers.number.data());
     uint32_t name = 0;
     params->read_hash_value(kResultName, &name, 0);
-    script->args_->append_word(name, buffers.result);
+    script->args_->append_word(name, buffers.result.data());
     return true;
 }
 
@@ -553,18 +554,18 @@ bool cfunc_dump(Struct* params, Script* script)
     Struct* dump = script::spawn_param_bag();
     if (dump)
         dump = new (dump) script::Struct;
-    char text[0x400];
+    std::array<char, 0x400> text{};
     Component* component = script->args_->find_component(name);
     if (!component) {
-        get_sprintf(text, "%s=[!! DOES NOT EXIST !!]", script::find_checksum_name_or_unknown(name));
+        get_sprintf(text.data(), "%s=[!! DOES NOT EXIST !!]", script::find_checksum_name_or_unknown(name));
     } else {
-        get_sprintf(text, "%s=%%a", script::find_checksum_name_or_unknown(name)); // "%s=%%a"
+        get_sprintf(text.data(), "%s=%%a", script::find_checksum_name_or_unknown(name)); // "%s=%%a"
         Component* value = script::new_component();
         script::duplicate_component(value, component, 0);
         value->name = kA;
         dump->attach_module(value);
     }
-    dump->append_word(0u, text);
+    dump->append_word(0u, text.data());
     if (dump) {
         dump->get_clear();
         script::delete_struct(dump);
@@ -576,8 +577,8 @@ bool cfunc_dump(Struct* params, Script* script)
 // out. Always true.
 bool cfunc_script_assert(Struct* params, Script* script)
 {
-    char message[0x400];
-    format_printf_text(message, params, script);
+    std::array<char, 0x400> message{};
+    format_printf_text(message.data(), params, script);
     return true;
 }
 
@@ -632,11 +633,11 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     if (characters)
         characters = new (characters) script::Array;
     characters->configure_size_kind(length, script::kQbvalString);
-    char one[2];
+    std::array<char, 2> one{};
     one[1] = '\0';
     for (uint32_t i = 0; i < length; ++i) {
         one[0] = string[i];
-        characters->set_element(i, cell::of(script::spawn_text(one)));
+        characters->set_element(i, cell::of(script::spawn_text(one.data())));
     }
     script->args_->append_array_ref(kCharArray, characters);
     return true;

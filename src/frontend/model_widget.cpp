@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/view_cam.h"
@@ -45,7 +46,7 @@ constexpr uint32_t kSector = 0xB45C2617, kSectors = 0x4A6BF967, kClass = 0x12B4E
 constexpr uint32_t kName = 0xA1DC81F9, kCameraZ = 0xED7C6031;
 constexpr uint32_t kAngleX = 0x0AFFD09D, kAngleY = 0x7DF8E00B, kAngleZ = 0xE4F1B1B1;
 constexpr uint32_t kAngVelX = 0xC1608989, kAngVelY = 0xB667B91F, kAngVelZ = 0x2F6EE8A5;
-constexpr uint32_t kAngleOrders[6] = {0x233F6B18, 0x911B6961, 0x3BE6306E, 0xE7DE33C0, 0xA0A9DF8D, 0xCEB5DE5A};
+constexpr std::array<uint32_t, 6> kAngleOrders = {{0x233F6B18, 0x911B6961, 0x3BE6306E, 0xE7DE33C0, 0xA0A9DF8D, 0xCEB5DE5A}};
 constexpr uint32_t kPointAtNothingFlag = 0xF01FDCA4; // (name not recovered)
 constexpr uint32_t kNodeToPointTo = 0xB2A86EB5, kObjectToPointTo = 0xDAD39B88, kTilt = 0xE3C07609;
 constexpr uint32_t kHoverParams = 0x00CA1C41, kAmp = 0xC9FDE32C, kFreq = 0xA80BEA4A;
@@ -598,7 +599,7 @@ void ModelWidget::tick_frame()
     if (on_layout && render::get_front_end_widescreen()) {
         void* view = viewport_camera(view_slot_);
         if (view) {
-            maths::Vec4 corners[8 * kMaxModels];
+            std::array<maths::Vec4, 8 * kMaxModels> corners{};
             int count = 0;
             for (int i = 0; i < model_total_; ++i) {
                 if (!models_[i].object)
@@ -619,7 +620,7 @@ void ModelWidget::tick_frame()
             }
             const double tan_half_angle =
                 std::tan(static_cast<double>(camera_angle(view)) * (3.14159265358979323846 / 360.0));
-            const float stretch = widescreen_stretch(corners, count, place, tan_half_angle);
+            const float stretch = widescreen_stretch(corners.data(), count, place, tan_half_angle);
             scale.x *= stretch;
         }
     }

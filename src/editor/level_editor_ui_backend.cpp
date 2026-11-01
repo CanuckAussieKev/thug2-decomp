@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include <SDL2/SDL.h>
+#include <array>
 
 #include "backends/imgui_impl_dx9.h"
 #include "backends/imgui_impl_sdl2.h"
@@ -46,10 +47,10 @@ struct Offscreen {
     IDirect3DSurface9* saved_target_ = nullptr;
     IDirect3DSurface9* saved_depth_ = nullptr;
     D3DVIEWPORT9 saved_viewport_ = {};
-    D3DMATRIX saved_transforms_[3] = {};
+    std::array<D3DMATRIX, 3> saved_transforms_ = {};
 };
 Offscreen g_offscreen;
-constexpr D3DTRANSFORMSTATETYPE kSavedTransforms[3] = {D3DTS_WORLD, D3DTS_VIEW, D3DTS_PROJECTION};
+constexpr std::array<D3DTRANSFORMSTATETYPE, 3> kSavedTransforms = {{D3DTS_WORLD, D3DTS_VIEW, D3DTS_PROJECTION}};
 
 void release_offscreen()
 {
@@ -289,7 +290,7 @@ struct Atlas {
     IDirect3DSurface9* saved_target_ = nullptr;
     IDirect3DSurface9* saved_depth_ = nullptr;
     D3DVIEWPORT9 saved_viewport_ = {};
-    D3DMATRIX saved_transforms_[3] = {};
+    std::array<D3DMATRIX, 3> saved_transforms_ = {};
 };
 Atlas g_atlas;
 

@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include <windows.h>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -16,12 +17,12 @@ class SaveCard;
 struct FileLoad {
     // The list node it starts with (lists::Elem<File>: the data is the file itself; the original's size).
     memory::ListNode list_link_;
-    char label_[0x28];
+    std::array<char, 0x28> label_;
     uint8_t second_, minute_, hour_, day_, month_, unknown41_;
     uint16_t year_;
     uint32_t extent_;
     uint16_t unknown48_;
-    uint8_t unknown4a_[0x42];
+    std::array<uint8_t, 0x42> unknown4a_;
     HANDLE hdl_;
     SaveCard* save_device_;
 
@@ -54,7 +55,7 @@ public:
     uint32_t unknown4_;
     int fault_;
     uint8_t present_; // (set to 0x75 by the manager)
-    uint8_t unknownd_[3];
+    std::array<uint8_t, 3> unknownd_;
 };
 
 class Hub {
@@ -68,7 +69,7 @@ public:
         uint32_t unknown8;
         uint32_t unknownc_;
     };
-    Bay slots_[4][2]{};
+    std::array<std::array<Bay, 2>, 4> slots_{};
     SaveCard save_device_{};
 };
 

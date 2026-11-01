@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"
@@ -32,9 +33,9 @@
 
 namespace objects {
 
-uint32_t g_skeleton_component_member_functions[36]{
+std::array<uint32_t, 36> g_skeleton_component_member_functions{{
     0x20F7B992, 0x222756D5, 0, 0, 0, 0, 0x613831F2, 0x222756D5, 0, 0, 0, 0, 0xBE1C58CA, 0x222756D5, 0, 0, 0, 0,
-    0xB244C9CF, 0x222756D5, 0, 0, 0, 0, 0xF99F9FAF, 0x222756D5, 0, 0, 0, 0, 0,          0x222756D5, 0, 0, 0, 0};
+    0xB244C9CF, 0x222756D5, 0, 0, 0, 0, 0xF99F9FAF, 0x222756D5, 0, 0, 0, 0, 0,          0x222756D5, 0, 0, 0, 0}};
 
 namespace {
 
@@ -95,7 +96,7 @@ BoneRigModule::BoneRigModule() { kind_tag_ = kType; }
 // 0x00431BE0
 void BoneRigModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_skeleton_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_skeleton_component_member_functions.data(), 0x18);
 }
 
 // 0x00431FE0 (0x00432790 the deleting one)

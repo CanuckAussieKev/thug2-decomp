@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_fields.h"
@@ -48,12 +49,12 @@ Membership get_from_node(uint32_t sector, bool trick_object, bool has_cluster, u
 
 std::string write_record(const Membership& m)
 {
-    char text[48];
+    std::array<char, 48> text{};
     if (m.trick)
-        std::snprintf(text, sizeof(text), "cluster %08X %08X", m.sector, m.cluster);
+        std::snprintf(text.data(), sizeof(text), "cluster %08X %08X", m.sector, m.cluster);
     else
-        std::snprintf(text, sizeof(text), "cluster %08X -", m.sector);
-    return text;
+        std::snprintf(text.data(), sizeof(text), "cluster %08X -", m.sector);
+    return text.data();
 }
 
 namespace {
@@ -116,7 +117,7 @@ std::map<uint32_t, Membership>& level_state()
 std::vector<std::function<void()>> g_queue;
 std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept until the level goes)
 // The Inspector's typed cluster name.
-char g_typed[64];
+std::array<char, 64> g_typed;
 
 objects::TrickSpotHub* hub() { return objects::g_trick_spot_hub; }
 
@@ -268,14 +269,14 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
     if (!changed)
         return false;
     push_module_undo(before);
-    char text[160];
+    std::array<char, 160> text{};
     if (trick)
-        std::snprintf(text, sizeof(text), "%d piece%s set to cluster %s", changed, changed == 1 ? "" : "s",
+        std::snprintf(text.data(), sizeof(text), "%d piece%s set to cluster %s", changed, changed == 1 ? "" : "s",
                       cluster ? get_name_of(cluster).c_str() : "their own names");
     else
-        std::snprintf(text, sizeof(text), "%d piece%s cleared", changed, changed == 1 ? "" : "s");
-    hud::get_message(text);
-    get_log("level editor: %s", text);
+        std::snprintf(text.data(), sizeof(text), "%d piece%s cleared", changed, changed == 1 ? "" : "s");
+    hud::get_message(text.data());
+    get_log("level editor: %s", text.data());
     return true;
 }
 
@@ -385,10 +386,10 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     ImGui::PopFont();
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::PushFont(mono);
-    ImGui::InputTextWithHint("##clustername", "Cluster name", g_typed, sizeof(g_typed));
+    ImGui::InputTextWithHint("##clustername", "Cluster name", g_typed.data(), sizeof(g_typed));
     ImGui::PopFont();
     const std::vector<uint32_t>& pieces = sectors;
-    const std::string typed = g_typed;
+    const std::string typed = g_typed.data();
     bool valid = !typed.empty();
     for (const char c : typed)
         valid = valid && (std::isalnum(static_cast<unsigned char>(c)) || c == '_');
@@ -411,7 +412,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         const uint32_t cluster = now[0].cluster;
         ImGui::SameLine();
         if (ImGui::SmallButton("Use Name"))
-            std::snprintf(g_typed, sizeof(g_typed), "%s", get_name_of(cluster).c_str());
+            std::snprintf(g_typed.data(), sizeof(g_typed), "%s", get_name_of(cluster).c_str());
     }
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Clear Trick Object"))

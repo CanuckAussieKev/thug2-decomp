@@ -10,6 +10,7 @@
 #include <cstring>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/tod_manager.h"
@@ -24,7 +25,7 @@ namespace frontend::level_editor::level_props {
 
 namespace {
 
-const char* const kTimeOfDayLabels[kStates] = {"morning", "afternoon", "evening", "night"};
+const std::array<const char*, kStates> kTimeOfDayLabels = {{"morning", "afternoon", "evening", "night"}};
 
 bool read_ints(const std::string& text, int* out, int count)
 {
@@ -64,8 +65,8 @@ bool get_same(const Props& a, const Props& b)
 {
     return a.name == b.name && a.start == b.start && a.tod == b.tod && a.time == b.time &&
            a.has_ambient_ == b.has_ambient_ &&
-           (!a.has_ambient_ || std::memcmp(a.ambient, b.ambient, sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
-           (!a.has_fog_ || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0) &&
+           (!a.has_ambient_ || std::memcmp(a.ambient.data(), b.ambient.data(), sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
+           (!a.has_fog_ || std::memcmp(a.fog.data(), b.fog.data(), sizeof(a.fog)) == 0) &&
            _stricmp(a.sky.c_str(), b.sky.c_str()) == 0;
 }
 
@@ -92,25 +93,25 @@ std::string write_record(const Props& props)
     if (vacant(props))
         return "";
     std::string line = "level";
-    char text[96];
+    std::array<char, 96> text{};
     if (!props.name.empty())
         line += " name=" + fields::escape(props.name);
     if (props.start) {
-        std::snprintf(text, sizeof(text), " start=%08X", props.start);
-        line += text;
+        std::snprintf(text.data(), sizeof(text), " start=%08X", props.start);
+        line += text.data();
     }
     if (tod_name(props.tod))
         line += std::string(" tod=") + tod_name(props.tod);
     if (props.time == 0 || props.time == 1)
         line += props.time ? " time=1" : " time=0";
     if (props.has_ambient_) {
-        std::snprintf(text, sizeof(text), " ambient=%d,%d,%d", props.ambient[0], props.ambient[1], props.ambient[2]);
-        line += text;
+        std::snprintf(text.data(), sizeof(text), " ambient=%d,%d,%d", props.ambient[0], props.ambient[1], props.ambient[2]);
+        line += text.data();
     }
     if (props.has_fog_) {
-        std::snprintf(text, sizeof(text), " fog=%d,%d,%d,%d,%d", props.fog[0], props.fog[1], props.fog[2], props.fog[3],
+        std::snprintf(text.data(), sizeof(text), " fog=%d,%d,%d,%d,%d", props.fog[0], props.fog[1], props.fog[2], props.fog[3],
                       props.fog[4]);
-        line += text;
+        line += text.data();
     }
     if (!props.sky.empty())
         line += " sky=" + fields::escape(props.sky);
@@ -141,11 +142,11 @@ bool read_record(std::istringstream& in, Props* props)
                 return false;
             p.time = value == "1" ? 1 : 0;
         } else if (key == "ambient") {
-            if (!read_ints(value, p.ambient, 3))
+            if (!read_ints(value, p.ambient.data(), 3))
                 return false;
             p.has_ambient_ = true;
         } else if (key == "fog") {
-            if (!read_ints(value, p.fog, 5))
+            if (!read_ints(value, p.fog.data(), 5))
                 return false;
             p.has_fog_ = true;
         } else if (key == "sky") {
@@ -225,8 +226,8 @@ void read_override_keys(script::Struct* level, Props* out)
             values[i] = static_cast<int32_t>(array->fetch_part(i));
         return true;
     };
-    out->has_ambient_ = read(kAmbient, out->ambient, 3);
-    out->has_fog_ = read(kFog, out->fog, 5);
+    out->has_ambient_ = read(kAmbient, out->ambient.data(), 3);
+    out->has_fog_ = read(kFog, out->fog.data(), 5);
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -251,8 +252,8 @@ void install_filter()
 bool lighting_same(const Props& a, const Props& b)
 {
     return a.has_ambient_ == b.has_ambient_ &&
-           (!a.has_ambient_ || std::memcmp(a.ambient, b.ambient, sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
-           (!a.has_fog_ || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0);
+           (!a.has_ambient_ || std::memcmp(a.ambient.data(), b.ambient.data(), sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
+           (!a.has_fog_ || std::memcmp(a.fog.data(), b.fog.data(), sizeof(a.fog)) == 0);
 }
 std::vector<std::string> g_skies;
 bool g_skies_made;
@@ -378,8 +379,8 @@ bool level_defaults(Props* props)
         p.ambient[1] = now.ambient_green_;
         p.ambient[2] = now.ambient_blue_;
         p.has_fog_ = true;
-        int fog[5] = {now.fog_red_, now.fog_green_, now.fog_blue_, now.fog_alpha_, now.fog_dist_};
-        std::memcpy(p.fog, fog, sizeof(fog));
+        std::array<int, 5> fog = {{now.fog_red_, now.fog_green_, now.fog_blue_, now.fog_alpha_, now.fog_dist_}};
+        std::memcpy(p.fog.data(), fog.data(), sizeof(fog));
     }
     *props = p;
     return true;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Struct;
@@ -33,7 +34,7 @@ void init_edited_goal(uint8_t* goal);
 // 0x004E6AE0: GoalEditorMarkerObject<index> passed to the script 0xDCF3A25E as 0xA1DC81F9.
 void run_marker_object_script(int index);
 
-extern char g_created_goal_name[24];
-extern char g_goal_name_buffer[104];
+extern std::array<char, 24> g_created_goal_name;
+extern std::array<char, 104> g_goal_name_buffer;
 
 } // namespace park_editing

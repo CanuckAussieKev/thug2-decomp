@@ -227,7 +227,7 @@ void RiderChaseView::bind_rider(GameEntity* skater)
 // 0x004FA420
 void RiderChaseView::save_state(WalkCameraState* state)
 {
-    std::memcpy(&state->orientation, orientation_, sizeof(orientation_));
+    std::memcpy(&state->orientation, orientation_.data(), sizeof(orientation_));
     state->orientation.row[3] = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     state->target = aim_point_;
     state->turn_cosine_ = turn_cosine_;
@@ -264,7 +264,7 @@ void RiderChaseView::configure_from_data(script::Struct* params)
     matrix.row[1] = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
     matrix.row[2] = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
     matrix.row[3] = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    std::memcpy(orientation_, &matrix, sizeof(orientation_));
+    std::memcpy(orientation_.data(), &matrix, sizeof(orientation_));
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);
     bind_rider(core::down_cast<GameEntity>(static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id)));

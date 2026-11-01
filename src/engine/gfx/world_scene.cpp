@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -52,14 +53,14 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
     debug::printf("Loading Scene %s ...", name);
 
     // (the original sprintf's into the 128 bytes unchecked; the empty string is a platform suffix)
-    char texture_path[128];
-    std::snprintf(texture_path, sizeof(texture_path), "levels\\%s\\%s%s.tex", name, name, "");
-    void* tex_dict = read_texture_dictionary(texture_path, 1, 0, 0, 0);
+    std::array<char, 128> texture_path{};
+    std::snprintf(texture_path.data(), sizeof(texture_path), "levels\\%s\\%s%s.tex", name, name, "");
+    void* tex_dict = read_texture_dictionary(texture_path.data(), 1, 0, 0, 0);
 
     // A structure describing the load is built here and never used (left from an older interface).
-    alignas(4) uint8_t memory[8];
-    auto* description = new (memory) script::Struct;
-    description->put_name_key(kTexDict, checksums::hash_from_text(texture_path));
+    alignas(4) std::array<uint8_t, 8> memory{};
+    auto* description = new (memory.data()) script::Struct;
+    description->put_name_key(kTexDict, checksums::hash_from_text(texture_path.data()));
     if (text::find_caseless(name, "_sky") || is_sky) {
         is_sky = true;
         with_super_sectors = false;

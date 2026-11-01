@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/lists/lookup_table.h"
@@ -49,7 +50,7 @@ public:
     bool start_allowed_{true};                      // +0x45 (true; GoalManager_SetCanStartGoal)
     uint32_t backer_{0};                            // +0x48 (GoalManager_SetSponsor)
     script::Struct* team_{};                        // +0x4C: the team (a component per member: 1 if used)
-    int group_unlocked_[kLevels * kGroupsPerLevel]{}; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
+    std::array<int, kLevels * kGroupsPerLevel> group_unlocked_{}; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
     script::Struct* args_{};                          // +0x398: the difficulty level by game mode name
 
     // 0x0055D9C0: empty tables and list, three new structures, every group locked.

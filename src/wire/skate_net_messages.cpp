@@ -38,7 +38,7 @@ bool write_scores(util::ByteWriter& writer, const ScoresMessage& message)
 
 bool read_graffiti_colors(util::ByteReader& reader, GraffitiColorsMessage* message)
 {
-    return reader.bytes(message->counts, sizeof(message->counts));
+    return reader.bytes(message->counts.data(), sizeof(message->counts));
 }
 
 } // namespace skate_net

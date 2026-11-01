@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/maths/quat_rotation.h"
@@ -731,8 +732,8 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
     if (params->fetch_vec(kQuat, &value, 0)) {
         double sum = static_cast<double>(value.z) * value.z + static_cast<double>(value.y) * value.y;
         sum += static_cast<double>(value.x) * value.x;
-        float quat[4] = {value.x, value.y, value.z, static_cast<float>(std::sqrt(1.0 - sum))};
-        quat_to_matrix(quat, &basis_frame_);
+        std::array<float, 4> quat = {{value.x, value.y, value.z, static_cast<float>(std::sqrt(1.0 - sum))}};
+        quat_to_matrix(quat.data(), &basis_frame_);
         display_matrix_ = basis_frame_;
         return true;
     }
@@ -755,8 +756,8 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
 // 0x0045E940: quat = its orientation as a quaternion's x, y, z (negated when w < 0, so that w >= 0).
 bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
 {
-    float quat[4];
-    matrix_to_quat(quat, &basis_frame_);
+    std::array<float, 4> quat{};
+    matrix_to_quat(quat.data(), &basis_frame_);
     if (quat[3] < 0.0f) {
         quat[0] = -quat[0];
         quat[1] = -quat[1];

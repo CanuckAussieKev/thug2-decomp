@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"
@@ -54,14 +55,14 @@ void WaypointListModule::configure_from_data(script::Struct* params)
     const char* model = nullptr;
     if (!params->fetch_text(kModel, &model, 0))
         return;
-    char path[0x100];
-    std::snprintf(path, sizeof(path), "models\\%s", model); // (the original: strcpy / strcat, unbounded)
-    if (char* dot = std::strstr(path, "."))
+    std::array<char, 0x100> path{};
+    std::snprintf(path.data(), sizeof(path), "models\\%s", model); // (the original: strcpy / strcat, unbounded)
+    if (char* dot = std::strstr(path.data(), "."))
         std::memcpy(dot, ".qb", 4);
     else
-        std::snprintf(path + std::strlen(path), sizeof(path) - std::strlen(path), ".qb");
+        std::snprintf(path.data() + std::strlen(path.data()), sizeof(path) - std::strlen(path.data()), ".qb");
     nodes_ = static_cast<script::Array*>(
-        assets::asset_manager()->fetch_or_load_resource(path, 0, 0, 0, false, false, false, nullptr, 0));
+        assets::asset_manager()->fetch_or_load_resource(path.data(), 0, 0, 0, false, false, false, nullptr, 0));
 }
 
 // 0x00427EB0

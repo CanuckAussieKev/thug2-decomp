@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstring>
 #include <vector>
+#include <array>
 
 #include "frontend/new_frontend.h"
 #include "engine/gfx/hd_ui.h"
@@ -38,23 +39,23 @@ const std::string& get_folder()
     return kFolder;
 }
 
-void overlay_name(const char* name, char (&out)[260])
+void overlay_name(const char* name, std::array<char, 260>& out)
 {
     int length = 0;
     for (const char* c = name; *c && length < 259; ++c)
         out[length++] = *c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
     out[length] = '\0';
     // Without anything up to the last "data\" (the development machine's paths, or the game's own "data\" prefix).
-    const char* rest = out;
-    for (const char* found = std::strstr(out, "data\\"); found; found = std::strstr(found + 1, "data\\")) {
-        if (found == out || found[-1] == '\\')
+    const char* rest = out.data();
+    for (const char* found = std::strstr(out.data(), "data\\"); found; found = std::strstr(found + 1, "data\\")) {
+        if (found == out.data() || found[-1] == '\\')
             rest = found + 5;
     }
-    if (rest != out)
-        std::memmove(out, rest, std::strlen(rest) + 1);
+    if (rest != out.data())
+        std::memmove(out.data(), rest, std::strlen(rest) + 1);
 }
 
-int search_folders(bool anteara, bool front_end, const char* (&folders)[4])
+int search_folders(bool anteara, bool front_end, std::array<const char*, 4>& folders)
 {
     int count = 0;
     if (anteara && front_end)
@@ -84,40 +85,40 @@ bool anteara_mod()
     return kOn;
 }
 
-bool get_overlay_path(const char* name, char (&path)[260])
+bool get_overlay_path(const char* name, std::array<char, 260>& path)
 {
     static const bool kOverlay = is_folder(get_folder());
     if (!name)
         return false;
-    char relative[260];
+    std::array<char, 260> relative{};
     overlay_name(name, relative);
     std::string full;
     // First, while [features] hd_ui is on: the upscaled menu images and fonts (engine/gfx/hd_ui.h), in the hd_ui folder
     // under the same names (also the ones inside the .prx packs, which the overlay serves by name).
     if (kOverlay && render::hd_ui::is_switched_on()) {
-        const std::string candidate = get_folder() + "\\hd_ui\\" + relative;
+        const std::string candidate = get_folder() + "\\hd_ui\\" + relative.data();
         if (is_file(candidate))
             full = candidate;
     }
-    const char* folders[4];
+    std::array<const char*, 4> folders{};
     const int count =
         kOverlay && full.empty() ? search_folders(anteara_mod(), new_frontend::is_switched_on(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
-        const std::string candidate = get_folder() + "\\" + folders[i] + relative;
+        const std::string candidate = get_folder() + "\\" + folders[i] + relative.data();
         if (is_file(candidate))
             full = candidate;
     }
     // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R10, game/skate/thugpro_cas.h).
     if (full.empty())
-        return objects::thugpro_cas::file_path(relative, path);
+        return objects::thugpro_cas::file_path(relative.data(), path);
     if (full.size() >= sizeof(path))
         return false;
-    std::memcpy(path, full.c_str(), full.size() + 1);
+    std::memcpy(path.data(), full.c_str(), full.size() + 1);
     // Each file the overlay serves, logged the first time (and how the game asked for it).
     static std::vector<std::string> logged;
     if (std::ranges::find(logged, full) == logged.end()) {
         logged.push_back(full);
-        get_log("data overlay: %s read from %s (asked for as %s)", relative, full.c_str(), name);
+        get_log("data overlay: %s read from %s (asked for as %s)", relative.data(), full.c_str(), name);
     }
     return true;
 }

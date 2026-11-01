@@ -127,8 +127,8 @@ void grow_box(V3* min, V3* max, bool have, V3 bounds_low, V3 bounds_high)
 
 void bounds_of(const OrientedBox& box, V3* min, V3* max)
 {
-    V3 corners[8];
-    box_corners(box.origin, box.axes, box.min, box.max, corners);
+    std::array<V3, 8> corners{};
+    box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
     for (int i = 0; i < 8; ++i)
         grow_box(min, max, i != 0, corners[i], corners[i]);
 }
@@ -449,13 +449,13 @@ const char* get_name_of(uint32_t checksum)
 
 std::string caption(uint32_t checksum)
 {
-    char text[96];
+    std::array<char, 96> text{};
     const char* name = get_name_of(checksum);
     if (name)
-        std::snprintf(text, sizeof(text), "%s", name);
+        std::snprintf(text.data(), sizeof(text), "%s", name);
     else
-        std::snprintf(text, sizeof(text), "%08X", checksum);
-    return text;
+        std::snprintf(text.data(), sizeof(text), "%08X", checksum);
+    return text.data();
 }
 
 // A node's TrickObject Cluster= (0: none), by its name (0x0045C1B0) - kept, as looked up (the level doesn't change
@@ -1028,7 +1028,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
             }
-            if (!inside && (!ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) || t >= stop))
+            if (!inside && (!ray_box(origin, unit_dir, box.origin, box.axes.data(), box.min, box.max, &t) || t >= stop))
                 return;
             if (ray_meshes(geom, origin, unit_dir, stop, &t))
                 note(checksum, geom, t, false);
@@ -1098,16 +1098,16 @@ std::string describe_hover(uint32_t checksum)
     std::string text = "scenery " + caption(checksum);
     OrientedBox box{};
     if (cuboid(checksum, &box)) {
-        char size[64];
+        std::array<char, 64> size{};
         const V3 size3 = box_size(box); // (scaled: level_editor_scale.h)
-        std::snprintf(size, sizeof(size), "  %.0f x %.0f x %.0f", size3.x, size3.y, size3.z);
-        text += size;
+        std::snprintf(size.data(), sizeof(size), "  %.0f x %.0f x %.0f", size3.x, size3.y, size3.z);
+        text += size.data();
     }
     if (const uint32_t cluster = cluster_of(checksum)) {
         const char* name = get_name_of(cluster);
-        char line[64];
-        std::snprintf(line, sizeof(line), "  cluster %s", name ? name : "");
-        text += name ? line : "  (in a cluster)";
+        std::array<char, 64> line{};
+        std::snprintf(line.data(), sizeof(line), "  cluster %s", name ? name : "");
+        text += name ? line.data() : "  (in a cluster)";
     }
     if (const char* why = why_not_movable(checksum))
         text += std::string("  (can't move: ") + why + ")";
@@ -1119,7 +1119,7 @@ std::string describe_selection()
     if (g_selection.empty())
         return "-";
     std::string text = "scenery " + caption(g_selection[0]);
-    char more[160];
+    std::array<char, 160> more{};
     int quarters = 0;
     V3 scale = {1.0f, 1.0f, 1.0f};
     auto it = tracks_state().find(g_selection[0]);
@@ -1127,17 +1127,17 @@ std::string describe_selection()
         quarters = it->second.placement.quarters;
         scale = it->second.placement.scale;
     }
-    std::snprintf(more, sizeof(more), "  at (%.0f, %.0f, %.0f)  turned %d", g_pivot.x, g_pivot.y, g_pivot.z,
+    std::snprintf(more.data(), sizeof(more), "  at (%.0f, %.0f, %.0f)  turned %d", g_pivot.x, g_pivot.y, g_pivot.z,
                   quarters * 90);
     if (!is_unit_scale(scale)) {
-        const size_t used = std::strlen(more);
-        std::snprintf(more + used, sizeof(more) - used, "  scaled %s", scale_tool::describe(scale).c_str());
+        const size_t used = std::strlen(more.data());
+        std::snprintf(more.data() + used, sizeof(more) - used, "  scaled %s", scale_tool::describe(scale).c_str());
     }
     if (g_selection.size() > 1)
         text += " + " + std::to_string(g_selection.size() - 1) + " more";
     if (!g_rails.empty())
         text += ", " + std::to_string(g_rails.size()) + " rail points";
-    return text + more;
+    return text + more.data();
 }
 
 bool has_selection() { return !g_selection.empty(); }
@@ -1202,7 +1202,7 @@ void log_meshes()
     for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
         const render::MeshRef* mesh = meshes[i];
         const render::MaterialRef* material = mesh->material;
-        const float* colour = mesh->color;
+        const float* colour = mesh->color.data();
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
                 "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
                 i, mesh->flags, colour[0], colour[1], colour[2], mesh->fvf, static_cast<const void*>(material),
@@ -1626,9 +1626,9 @@ uint32_t get_duplicate(uint32_t source)
     shared_collision::finish_copy(shared_faces, made, scene, copy, geom);
     mark_dirty(scene);
     get_clones().push_back({made, source, source_placement});
-    char name[96];
-    std::snprintf(name, sizeof(name), "%s copy", caption(source).c_str());
-    script::note_qb_name(made, name);
+    std::array<char, 96> name{};
+    std::snprintf(name.data(), sizeof(name), "%s copy", caption(source).c_str());
+    script::note_qb_name(made, name.data());
     if (debug_enabled())
         get_log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,
                 caption(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
@@ -1750,10 +1750,10 @@ struct Saved {
     render::PcGeom* geom;
     render::Singleton* instance;
     uint32_t instance_flag_;
-    uint8_t instance_colour_[4];
+    std::array<uint8_t, 4> instance_colour_;
     struct MeshColour {
         uint32_t flag; // bit 4
-        float color[3];
+        std::array<float, 3> color;
     };
     std::vector<MeshColour> meshes;
     bool used;
@@ -1765,7 +1765,7 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
     Saved saved = {owner, geom, geom->instance, 0, {}, {}, true};
     if (saved.instance) {
         saved.instance_flag_ = saved.instance->flags & 4;
-        std::memcpy(saved.instance_colour_, saved.instance->color, 4);
+        std::memcpy(saved.instance_colour_.data(), saved.instance->color.data(), 4);
         return saved;
     }
     render::MeshRef* const* meshes = geom->meshes;
@@ -1783,7 +1783,7 @@ void restore_colour(const Saved& saved)
         if (saved.geom->instance != saved.instance)
             return;
         saved.instance->flags = (saved.instance->flags & ~4u) | saved.instance_flag_;
-        std::memcpy(saved.instance->color, saved.instance_colour_, 4);
+        std::memcpy(saved.instance->color.data(), saved.instance_colour_.data(), 4);
         return;
     }
     render::MeshRef* const* meshes = saved.geom->meshes;
@@ -1793,7 +1793,7 @@ void restore_colour(const Saved& saved)
     for (uint32_t i = 0; i < count; ++i) {
         render::MeshRef* mesh = meshes[i];
         mesh->flags = (mesh->flags & ~4u) | saved.meshes[i].flag;
-        std::memcpy(mesh->color, saved.meshes[i].color, sizeof(mesh->color));
+        std::memcpy(mesh->color.data(), saved.meshes[i].color.data(), sizeof(mesh->color));
     }
 }
 

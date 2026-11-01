@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -159,14 +160,14 @@ void TaggingComponent::configure_from_data(script::Struct* params)
 {
     int skater = static_cast<int>(cell::of(params));
     params->fetch_int_value(0xA2B033FDu, &skater, 0);
-    char key[32];
-    std::snprintf(key, sizeof(key), "_%d", skater);             // "_%d"
+    std::array<char, 32> key{};
+    std::snprintf(key.data(), sizeof(key), "_%d", skater);             // "_%d"
     void* texture = load_on_texture_heap("tags\\cas_01", true); // "tags\cas_01"
-    graffiti_ = copy_texture(checksums::fold_text_into_checksum(0xF4FD2D63, key), texture);
+    graffiti_ = copy_texture(checksums::fold_text_into_checksum(0xF4FD2D63, key.data()), texture);
     release_texture(texture);
     unload_texture(texture);
     texture = load_on_texture_heap("tags\\sticker", true); // "tags\sticker"
-    sticker_ = copy_texture(checksums::fold_text_into_checksum(0x130618A0, key), texture);
+    sticker_ = copy_texture(checksums::fold_text_into_checksum(0x130618A0, key.data()), texture);
     release_texture(texture);
     unload_texture(texture);
 }
@@ -245,10 +246,10 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
         tag.end[i] = (&end.x)[i];
     }
     tag.size = size;
-    uint8_t data[online::kPlaceTagSize];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, online::kPlaceTagSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_place_tag(writer, tag);
-    msg.content_ = data;
+    msg.content_ = data.data();
     msg.byte_count_ = sizeof(data);
     msg.ident_ = online::kMsgPlaceTag;
     msg.group_id_ = 0xA;
@@ -424,8 +425,8 @@ bool TaggingControlComponent::try_tagging()
     core::down_cast<BoneRigModule>(skeleton)->get_bone_position(bone, &joint_world);
     if (walk_->state_ == 2)
         joint_world.y = static_cast<float>(joint_world.y - 10.0); // 0x00646710
-    maths::Vec4 hits[6];
-    float distances[6];
+    std::array<maths::Vec4, 6> hits{};
+    std::array<float, 6> distances{};
     auto rise = static_cast<float>(reach * 0.0);
     bool found = false;
     const maths::Vec4& heading = walk_->facing_;
@@ -454,7 +455,7 @@ bool TaggingControlComponent::try_tagging()
             hits[i] = feeler.contact_pos_;
             distances[i] = std::fabs(feeler.reach_);
             found = true;
-            core::down_cast<ActivationZoneModule>(trigger_)->probe_touches_zone(kTaggingEvents, &feeler);
+            core::down_cast<ActivationZoneModule>(trigger_)->probe_touches_zone(kTaggingEvents.data(), &feeler);
         } else {
             distances[i] = 1000.0f;
         }

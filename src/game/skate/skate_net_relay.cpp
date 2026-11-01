@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -108,7 +109,7 @@ constexpr uint32_t kClientLaunchFireball = 0xAA2B5552;   // ClientLaunchFireball
 constexpr uint32_t kClientLaunchProjectile = 0x866C26A9; // ClientLaunchProjectile
 
 // The cheats send_cheats tells a player about, in order (CHEAT_ALWAYS_SPECIAL twice, as the original).
-constexpr uint32_t kSentCheats[] = {
+constexpr auto kSentCheats = std::to_array<uint32_t>({
     0xEEFECF1B, // CHEAT_ALWAYS_SPECIAL
     0xB38341C9, // CHEAT_PERFECT_MANUAL
     0xCD09E062, // CHEAT_PERFECT_RAIL
@@ -119,7 +120,7 @@ constexpr uint32_t kSentCheats[] = {
     0xEBA89179, // FLAG_G_EXPERT_MODE_NO_WALKING
     0xC4FFC672, // FLAG_G_EXPERT_MODE_NO_MANUALS
     0xD5982173, // NO_G_DISPLAY_BALANCE
-};
+});
 
 online::Hub* net_link() { return online::g_online_hub; }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
@@ -207,12 +208,12 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
 {
     PlayerSearch search;
     net::AppHost* server = server_app();
-    uint8_t buffer[0x1000];
+    std::array<uint8_t, 0x1000> buffer{};
     for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
         RelayStream out;
         if (!player->conn_->is_off_machine())
             continue;
-        out.feed_.bind_output_buffer(buffer, sizeof(buffer));
+        out.feed_.bind_output_buffer(buffer.data(), sizeof(buffer));
         out.unknown18_ = static_cast<uint32_t>(player->conn_->hdl_);
         out.sent_ = player;
         uint32_t mask = 0;
@@ -252,7 +253,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         const int size = out.feed_.get_byte_count();
         if (size) {
             net::NetMessageInfo desc;
-            desc.content_ = buffer;
+            desc.content_ = buffer.data();
             desc.byte_count_ = static_cast<uint16_t>(size);
             desc.ident_ = 0x23;
             enqueue(server, player, &desc);
@@ -289,7 +290,7 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
     if (!online::read_trick_objects(reader, message.get()))
         return 4;
     if (message->one == 1 && message->game_id == net->get_game_id())
-        score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects,
+        score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects.data(),
                                 true);
     return 1;
 }
@@ -496,7 +497,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         const int collected =
             mode->is_squad_match() ? net->get_squad_points(collector->team_) : score->get_total_score();
         net::NetMessageInfo desc;
-        uint8_t left[2];
+        std::array<uint8_t, 2> left{};
         if (collected == total) {
             // all collected: the collect period over everywhere
             desc = net::NetMessageInfo();
@@ -523,7 +524,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                 left[0] = get_game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team_)
                                                             : get_skater_id(skater_of(collector));
                 left[1] = count;
-                desc.content_ = left;
+                desc.content_ = left.data();
                 desc.ident_ = 0x95;
                 get_sequence(desc, 8);
                 desc.byte_count_ = 2;
@@ -559,8 +560,8 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
     if (dropper->num_placed_ > 5 || (dropper->num_placed_ == 5 && !dropper->is_own_player()))
         return 4;
     util::ByteReader reader(context->body_, context->body_size_);
-    float position[4];
-    if (!online::read_hunt_position(reader, position)) // NOT ORIGINAL: too short - dropped
+    std::array<float, 4> position{};
+    if (!online::read_hunt_position(reader, position.data())) // NOT ORIGINAL: too short - dropped
         return 4;
     if (!dropper->is_own_player())
         dropper->placed_[dropper->num_placed_] = {position[0], position[1], position[2], position[3]};
@@ -847,9 +848,9 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         message->object_id_ = sent.second;
         const uint32_t bits = sent.first;
         // five settings picked by the bits: two bits, then one each
-        static const float kFirst[4] = {std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu),
+        static const std::array<float, 4> kFirst = {{std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu),
                                         std::bit_cast<float>(0x4121999Au),
-                                        0.0f}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
+                                        0.0f}}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
         message->wobble_details_[0] = kFirst[bits & 3];
         message->wobble_details_[1] = (bits >> 2 & 1)
                                           ? std::bit_cast<float>(0x4121999Au)
@@ -1273,10 +1274,10 @@ void Skate::send_cheats(online::PlayerRecord* player)
         if (career_->is_code_on(cheat))
             message.cheats[message.count++] = cheat;
     }
-    uint8_t data[4 + 4 * online::kMaxCheats];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, 4 + 4 * online::kMaxCheats> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_cheats(writer, message);
-    desc.content_ = data;
+    desc.content_ = data.data();
     desc.ident_ = online::kMsgCheats;
     desc.byte_count_ = static_cast<uint16_t>(writer.position());
     get_sequence(desc, 8);
@@ -1323,10 +1324,10 @@ void Skate::broadcast_points(bool final)
         const uint32_t cheats = get_cheats();
         message->count = count;
         message->cheats = cheats;
-        uint8_t bytes[skate_net::kScoresHeaderSize + kMaxSent * skate_net::kScoreEntrySize];
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        std::array<uint8_t, skate_net::kScoresHeaderSize + kMaxSent * skate_net::kScoreEntrySize> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         skate_net::write_scores(writer, *message);
-        desc.content_ = bytes;
+        desc.content_ = bytes.data();
         desc.ident_ = skate_net::kMsgScores;
         desc.byte_count_ = static_cast<uint16_t>(writer.position());
         if (final || cheats)
@@ -1335,8 +1336,8 @@ void Skate::broadcast_points(bool final)
         if (player->is_own_player() || !player->has_finished_joining())
             continue;
         // the cheats' check (0x80): 8 bytes, the second word whatever the stack held (zero here)
-        uint32_t check[2] = {get_cheats() ^ skate_net::kCheatsCheckMask, 0};
-        desc.content_ = check;
+        std::array<uint32_t, 2> check = {{get_cheats() ^ skate_net::kCheatsCheckMask, 0}};
+        desc.content_ = check.data();
         desc.ident_ = skate_net::kMsgCheatsCheck;
         get_sequence(desc, 8);
         desc.byte_count_ = 8;

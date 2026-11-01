@@ -6,6 +6,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
@@ -33,12 +34,12 @@ bool console_on() { return s_to_console; }
 
 void write_message(const char* message)
 {
-    char text[1024];
-    std::snprintf(text, sizeof(text), "%s", message);
-    size_t length = std::strlen(text);
+    std::array<char, 1024> text{};
+    std::snprintf(text.data(), sizeof(text), "%s", message);
+    size_t length = std::strlen(text.data());
     while (length > 0 && (text[length - 1] == '\n' || text[length - 1] == '\r'))
         text[--length] = '\0';
-    get_log("pc: %s", text);
+    get_log("pc: %s", text.data());
 }
 
 } // namespace debug_log

@@ -7,6 +7,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_state.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace net {
 struct InboundMsgCtx;
@@ -43,14 +44,14 @@ struct StateHistoryMessage {
     float speed_;             // +0x1C 0x29 / 0x41
     uint32_t name_;           // +0x20 0x29 the animation / 0x3E the geom / 0x77 the item's params structure
     uint32_t bone_;           // +0x24 0x77
-    float wobble_details_[5]; // +0x28 0x3C
+    std::array<float, 5> wobble_details_; // +0x28 0x3C
     int spin_period_;         // +0x3C 0x76
     int spin_power_;          // +0x40 0x76
     int item_slot_;           // +0x44 0x77 / 0x78
     float spin_start_;        // +0x48 0x76
     float spin_range_;        // +0x4C 0x76
     bool spin_hold_;          // +0x50 0x76
-    uint8_t pad51[3];
+    std::array<uint8_t, 3> pad51;
 
     // 0x00519800: the 32-bit time stamp.
     uint32_t get_time();
@@ -109,9 +110,9 @@ public:
     static int handle_collision_messages(net::InboundMsgCtx* context);
 
     int state_count_{0};                         // +0x18 the states received
-    SkaterStateHistoryFrame states_[kEntries]{}; // +0x1C (the newest at (state_count_ - 1) % 20)
+    std::array<SkaterStateHistoryFrame, kEntries> states_{}; // +0x1C (the newest at (state_count_ - 1) % 20)
     int message_count_{0};                       // +0xA6C the messages received
-    StateHistoryMessage messages_[kEntries]{}; // +0xA70 (the newest at message_count_ % 20)
+    std::array<StateHistoryMessage, kEntries> messages_{}; // +0xA70 (the newest at message_count_ % 20)
     uint32_t unknown1100_{0};                  // +0x1100 (cleared)
     uint32_t vehicle_control_type_{};          // +0x1104 the vehicle's control type (message 0x?)
 };

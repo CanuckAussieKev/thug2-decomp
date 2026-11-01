@@ -6,6 +6,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/trick_objects.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -36,7 +37,7 @@ struct TrickEvent {
     uint32_t button; // +0x08 the button's checksum
     uint32_t unknown0c_;
     bool used; // +0x10 used by the trick being checked (cleared or turned into `flags` after)
-    uint8_t pad11[3];
+    std::array<uint8_t, 3> pad11;
     uint32_t flags; // +0x14 used by a trick of these kinds (the checks' masks)
 };
 
@@ -45,28 +46,28 @@ struct TrickEvent {
 // component's +0x1238 and +0x1280).
 struct PendingTrick {
     int count_;           // +0x00 arrays in use
-    uint32_t arrays_[10]; // +0x04 the trick arrays' names
+    std::array<uint32_t, 10> arrays_; // +0x04 the trick arrays' names
     uint32_t special_;    // +0x2C the special one's
     bool pending_;        // +0x30 a trick waits to start
-    uint8_t pad31_[3];
+    std::array<uint8_t, 3> pad31_;
     uint32_t array_;  // +0x34 its array
     uint32_t index_;  // +0x38 and index
     int time_;        // +0x3C the game clock when it was found
     int duration_;    // +0x40 how long it may wait (ms)
     bool is_special_; // +0x44
-    uint8_t pad45_[3];
+    std::array<uint8_t, 3> pad45_;
 };
 
 // SetExtraTricks' arrays (0x68 bytes; the trick component's +0x12C8).
 struct ExtraTricks {
     bool on_;      // +0x00
     bool forever_; // +0x01 (no duration)
-    uint8_t pad2_[2];
+    std::array<uint8_t, 2> pad2_;
     int duration_;          // +0x04 ms
     uint32_t start_;        // +0x08 the game clock when they were set
     int count_;             // +0x0C arrays in use
-    uint32_t arrays_[10];   // +0x10 the trick arrays' names
-    uint32_t masks_[10];    // +0x38 each one's tricks skipped (bits)
+    std::array<uint32_t, 10> arrays_;   // +0x10 the trick arrays' names
+    std::array<uint32_t, 10> masks_;    // +0x38 each one's tricks skipped (bits)
     uint32_t special_;      // +0x60 the special array
     uint32_t special_mask_; // +0x64
 };
@@ -74,9 +75,9 @@ struct ExtraTricks {
 struct QueuedTrick {
     uint32_t list; // +0x00 the trick list's name (0: removed)
     int index;     // +0x04 its index in the list
-    uint32_t unknown08[2];
+    std::array<uint32_t, 2> unknown08;
     bool flag; // +0x10
-    uint8_t pad11[3];
+    std::array<uint8_t, 3> pad11;
 };
 
 // The skater's Trick component (type trick 0x270F56E1, vtable 0x0064C508, 0x1BC0 bytes; made by 0x00523490): the
@@ -290,44 +291,44 @@ public:
     RiderSpinAndFlip* flip_rotate_{nullptr};             // +0x2C
     RiderPoseState* skater_state_{nullptr};              // +0x30
     AttributeTracker* stats_manager_{nullptr};           // +0x34
-    TrickEvent events_[kEvents]{};              // +0x38
+    std::array<TrickEvent, kEvents> events_{};              // +0x38
     uint16_t event_count_{};                    // +0x998
     uint16_t event_head_{};                     // +0x99A
-    uint32_t button_map_[3]{};                  // +0x99C what the generic button names stand for
-    float held_off_until_[kButtons]{};          // +0x9A8
-    bool btn_down_[kButtons]{};                 // +0xA00
-    uint8_t pada16_[2]{};
+    std::array<uint32_t, 3> button_map_{};                  // +0x99C what the generic button names stand for
+    std::array<float, kButtons> held_off_until_{};          // +0x9A8
+    std::array<bool, kButtons> btn_down_{};                 // +0xA00
+    std::array<uint8_t, 2> pada16_{};
     int ignored_count_{};     // +0xA18
-    uint32_t ignored_[2]{};   // +0xA1C
+    std::array<uint32_t, 2> ignored_{};   // +0xA1C
     bool starting_special_{}; // +0xA24 the trick being started is special
-    uint8_t pada25_[3]{};
+    std::array<uint8_t, 3> pada25_{};
     script::Struct* trick_lists_{nullptr}; // +0xA28
     int queue_first_{};           // +0xA2C
     int queue_last_{};            // +0xA30
-    QueuedTrick queue_[100]{};    // +0xA34
+    std::array<QueuedTrick, 100> queue_{};    // +0xA34
     int extra_list_count_{};      // +0x1204
-    uint32_t extra_lists_[10]{};  // +0x1208
+    std::array<uint32_t, 10> extra_lists_{};  // +0x1208
     uint32_t manual_list_{};      // +0x1230
     uint32_t list_used_{};        // +0x1234
     PendingTrick manual_{};       // +0x1238 SetManualTricks' arrays and the manual waiting to start
     PendingTrick grind_{};        // +0x1280 SetExtraGrindTricks' arrays and the grind waiting to start
     ExtraTricks extra_{};         // +0x12C8 SetExtraTricks
     bool bashing_{};              // +0x1330 BashOn
-    char trick_name_[0x33]{};     // +0x1331 the trick displayed (SetTrickName)
+    std::array<char, 0x33> trick_name_{};     // +0x1331 the trick displayed (SetTrickName)
     int trick_score_{};           // +0x1364 SetTrickScore
-    char deferred_name_[0x34]{};  // +0x1368 a deferred trick's name
+    std::array<char, 0x34> deferred_name_{};  // +0x1368 a deferred trick's name
     int deferred_score_{};        // +0x139C
     uint32_t deferred_flags_{};   // +0x13A0
     float spin_total_{};          // +0x13A4 the trick's rotation (degrees)
     bool bailed_{};               // +0x13A8 the skater bailed (the run ends: horse)
     bool bailed_panel_{};         // +0x13A9
-    uint8_t pad13aa_[2]{};
+    std::array<uint8_t, 2> pad13aa_{};
     int trick_count_{};       // +0x13AC tricks in the combo
     bool trick_objects_on_{}; // +0x13B0
-    uint8_t pad13b1_[3]{};
+    std::array<uint8_t, 3> pad13b1_{};
     HitClusterLog trick_objects_; // +0x13B4 the trick objects hit
     bool quick_getup_done_{};     // +0x1BB8
-    uint8_t pad1bb9_[3]{};
+    std::array<uint8_t, 3> pad1bb9_{};
     uint32_t bail_endpose_{}; // +0x1BBC current_bail_endpose
 };
 
@@ -343,5 +344,5 @@ bool cfunc_do_next_trick(script::Struct* params, script::Script* script);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_trick_component_member_functions[24];
+extern std::array<uint32_t, 24> g_trick_component_member_functions;
 } // namespace objects

@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -25,9 +26,9 @@ struct AnimTimeline;
 
 // A pose (0x840 bytes): a rotation (quaternion) and a translation per bone, and whether each bone has one.
 struct Stance {
-    float rotations[64][4];    // +0x000
-    float translations[64][4]; // +0x400
-    uint8_t valid[64];         // +0x800
+    std::array<std::array<float, 4>, 64> rotations;    // +0x000
+    std::array<std::array<float, 4>, 64> translations; // +0x400
+    std::array<uint8_t, 64> valid;         // +0x800
 };
 static_assert(sizeof(Stance) == 0x840 && offsetof(Stance, valid) == 0x800, "layout must match the original");
 
@@ -183,7 +184,7 @@ public:
     float period_{0.0f};         // +0x3C
     float period_left_{0.0f};    // +0x40
     bool has_next_blend_{};      // +0x44 (the next play blends over next_blend_)
-    uint8_t pad45_[3]{};
+    std::array<uint8_t, 3> pad45_{};
     float next_blend_{};                     // +0x48
     bool flag_4c_{false};                    // +0x4C (without it each play deletes the older timelines)
     bool events_on_{true};                   // +0x4D

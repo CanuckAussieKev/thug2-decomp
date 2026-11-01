@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 #include "engine/core/slab_bank.h"
 
 // Compiled scripts (.qb bytecode): reading and skipping tokens, and setting up the script system's pools.
@@ -98,7 +99,7 @@ struct StoredRandom {
     uint16_t unknowna_;
     uint32_t kind_tag_;      // the token: 0x40 no-repeat, 0x41 permute
     uint16_t ordinal_;       // permute: the position in order_
-    uint8_t order_[0x42];    // permute: the shuffled order (from +0x12)
+    std::array<uint8_t, 0x42> order_;    // permute: the shuffled order (from +0x12)
     uint32_t last_;          // no-repeat: the last choice
     StoredRandom* succ_;     // older
     StoredRandom* previous_; // newer

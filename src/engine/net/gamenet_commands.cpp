@@ -3,6 +3,7 @@
 // client sends the server (start the game, change the level, toggle a pro set flag or a goal).
 
 #include <cstdint>
+#include <array>
 #include "platform/code_address.h"
 
 #include "engine/core/arena_alloc.h"
@@ -261,10 +262,10 @@ bool cfunc_fcfs_request_start_game(Struct*, Script*)
     request.ctf_game_type = preferences->get_preference_checksum(kCtfGameType, kChecksum);
     request.goals = preferences->get_preference_checksum(kGoals, kChecksum);
     request.team_graffiti_mode = preferences->get_preference_checksum(kTeamGraffitiMode, kChecksum);
-    uint8_t bytes[kStartRequestSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, kStartRequestSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_start_request(writer, request);
-    send_request(manager, kMsgBeginMatchAsk, bytes, sizeof(bytes));
+    send_request(manager, kMsgBeginMatchAsk, bytes.data(), sizeof(bytes));
     manager->match_being_set_up_ = true;
     return true;
 }
@@ -307,7 +308,7 @@ bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script*)
     struct {
         uint32_t id;
         uint8_t bit;
-        uint8_t pad[3]; // (the original's stack)
+        std::array<uint8_t, 3> pad; // (the original's stack)
     } request = {id, static_cast<uint8_t>(bit), {0, 0, 0}};
     send_request(manager, kMsgToggleProSetRequest, &request, sizeof(request));
     return true;

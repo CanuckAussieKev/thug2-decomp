@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -319,10 +320,10 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         params->append_structure_if_any(waypoint);
         const char* goal_name = nullptr;
         args_->fetch_text(kGoalName, &goal_name, 1);
-        char script_name[0x100];
-        std::snprintf(script_name, sizeof(script_name), "%s_next_waypoint_script_id",
+        std::array<char, 0x100> script_name{};
+        std::snprintf(script_name.data(), sizeof(script_name), "%s_next_waypoint_script_id",
                       goal_name); // "%s_next_waypoint_script_id"
-        script::spawn_script(kRaceNextWaypoint, params, 0, nullptr, 0, checksums::hash_from_text(script_name), false,
+        script::spawn_script(kRaceNextWaypoint, params, 0, nullptr, 0, checksums::hash_from_text(script_name.data()), false,
                              false, false, false);
         delete_structure(params);
         return true;

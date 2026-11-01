@@ -6,6 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -31,10 +32,10 @@ public:
     // A bone of the model's skeleton description (0x50 bytes each; the model's 0x00493040).
     struct BoneDesc {
         uint32_t name; // +0x00
-        uint8_t unknown04[4];
+        std::array<uint8_t, 4> unknown04;
         int16_t parent; // +0x08 (the matrix it is relative to)
         int8_t index;   // +0x0A (its matrix in the skeleton)
-        uint8_t unknown0b_[5];
+        std::array<uint8_t, 5> unknown0b_;
         maths::Mat4 matrix; // +0x10 (relative to its parent)
     };
 
@@ -93,7 +94,7 @@ public:
     float tilt_rate_{};    // +0x3C 0xFD8BC8D6
     float tilt_divisor_{}; // +0x40 0xB2C7447B
     bool body_shown_{true}; // +0x44
-    uint8_t pad45[3]{};
+    std::array<uint8_t, 3> pad45{};
     void* mesh_instance_{}; // +0x48 the model component's model (+0x208)
     void* bone_rig_{};      // +0x4C the skeleton component's skeleton (+0x18)
     uint8_t* motion_{};     // +0x50 the motion component
@@ -115,5 +116,5 @@ static_assert(offsetof(AutomobileDynamicsModule::BoneDesc, parent) == 0x08 &&
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_car_physics_member_functions[18];
+extern std::array<uint32_t, 18> g_car_physics_member_functions;
 } // namespace objects

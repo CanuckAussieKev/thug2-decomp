@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 
@@ -33,9 +34,9 @@ struct Settings {
     uint32_t texture;         // +0x10 (0x20) the sun's texture (checksum)
     uint32_t corona_texture_; // +0x14 (0x40)
     maths::Vec4 color;        // +0x18 (0x10) r, g, b, a (0-255)
-    uint8_t unknown28[0x18];
+    std::array<uint8_t, 0x18> unknown28;
     bool shown; // +0x40 (0x80)
-    uint8_t pad41[3];
+    std::array<uint8_t, 3> pad41;
 };
 static_assert(offsetof(Settings, color) == 0x18 && offsetof(Settings, shown) == 0x40 && sizeof(Settings) == 0x44,
               "layout must match the original");

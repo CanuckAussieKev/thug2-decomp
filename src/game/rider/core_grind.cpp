@@ -224,7 +224,7 @@ void kick_off_point_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool 
     static_cast<objects::MoveExecutor*>(c->trick_)->pass_to_trick_objects(c->rail_script_node_);
     uint32_t trigger_script = 0;
     if (script->read_hash_value(kTriggerScript, &trigger_script, 0))
-        trigger_rail_node(c, kGrindEvents);
+        trigger_rail_node(c, kGrindEvents.data());
     onto_rail(c, point, false);
     set_rail_terrain(c);
     if (!c->on_vehicle_)
@@ -260,7 +260,7 @@ void kick_off_point_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool 
     set_flag(c, PoseFlag::kLipToAir, 0);
     object_of(c)->vel_.change_heading(kick);
     if (trigger_script)
-        trigger_rail_node(c, kKickEvents);
+        trigger_rail_node(c, kKickEvents.data());
     change_phase(c, kAir);
     maths::Vec4& position = object_of(c)->at_point_;
     position.y = position.y + 1.0f;
@@ -284,7 +284,7 @@ void spin_on_point_rail(SkaterPhysicsModule* c, const maths::Vec4* point)
     object_of(c)->vel_.z = 0.0f;
     clear_rail_flags(c);
     static_cast<objects::Entity*>(object_of(c))->post_own_event(kPointRailSpin, nullptr);
-    c->trigger_rail_script(kSpinEvents);
+    c->trigger_rail_script(kSpinEvents.data());
     c->natas_spin_time_ = get_now();
 }
 
@@ -319,7 +319,7 @@ void start_lip_trick(SkaterPhysicsModule* c, const maths::Vec4* point)
     auto* gap = core::down_cast<objects::RiderGapTracker>(
         static_cast<objects::GameEntity*>(object_of(c))->fetch_module(kSkaterGap));
     gap->scan_for_gaps(0, 0x100000);
-    c->trigger_rail_script(kLipEvents);
+    c->trigger_rail_script(kLipEvents.data());
     c->trick_->starting_special_ = false;
     auto* skater = static_cast<objects::Entity*>(object_of(c));
     if (!skater->own_script_) {
@@ -380,7 +380,7 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
         if (!node->last_value_ && *c->rail_manager_->get_absolute_pos(&end, node) == *point)
             return;
     }
-    c->trigger_rail_script(kGrindEvents);
+    c->trigger_rail_script(kGrindEvents.data());
     onto_rail(c, point, false);
     if (get_since(static_cast<uint32_t>(c->physics_control_->switch_time_)) != 0 && !c->on_vehicle_)
         play_land_sound(c);

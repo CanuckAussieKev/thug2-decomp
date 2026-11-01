@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "platform/crt.h"
@@ -252,9 +253,9 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
         info->type = vertical > 0.99f ? 1 : 2; // 0x00645450
     }
     // (any other type keeps what the allocation held)
-    std::memcpy(info->pivot, pivot, 16);
+    std::memcpy(info->pivot.data(), pivot, 16);
     if (info->type == 2)
-        std::memcpy(info->axis, axis, 16);
+        std::memcpy(info->axis.data(), axis, 16);
 
     // The quad's plane from its first triangle.
     VertexBuffer* buffer = vertex_buffers_[0];
@@ -289,7 +290,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     upload_indices(indices);
 
     // The billboard's axes: row 0 across, row 1 up, the normal.
-    float r0[3] = {e1x, 0.0f, p2[2]}; // (another type: the original reads what's on its stack - row 0's y unknown)
+    std::array<float, 3> r0 = {{e1x, 0.0f, p2[2]}}; // (another type: the original reads what's on its stack - row 0's y unknown)
     float r1x = nx, r1y = ny, r1z = nz;
     switch (billboard->type) {
     case 0:

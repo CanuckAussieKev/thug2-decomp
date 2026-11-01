@@ -6,6 +6,7 @@
 #include "platform/code_address.h"
 #include "platform/compiler.h"
 #include <cstring>
+#include <array>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fixed fields)
 
@@ -74,7 +75,7 @@ constexpr uint32_t kDnsServer2 = 0x2D4EDA9F;                                // d
 constexpr uint32_t kHostName = 0x7F91069B;                                  // host_name
 constexpr uint32_t kDomainName = 0x0C00AC9E;                                // domain_name
 constexpr uint32_t kAutoDns = 0x5DDFCAD3;                                   // auto_dns
-constexpr uint32_t kDialupNumber[3] = {0x3510C289, 0x5C867AC6, 0x2B814A50}; // dialup_number, 2, 3
+constexpr std::array<uint32_t, 3> kDialupNumber = {{0x3510C289, 0x5C867AC6, 0x2B814A50}}; // dialup_number, 2, 3
 constexpr uint32_t kDialupUsername = 0x7573A233;                            // dialup_username
 constexpr uint32_t kDialupPassword = 0xB8EFE291;                            // dialup_password
 constexpr uint32_t kDeviceType = 0xFA187DEC;                                // device_type
@@ -125,7 +126,7 @@ void set_preference_text(prefs::Preferences* preferences, uint32_t name, const c
 void Hub::use_network_preferences()
 {
     net::Hub* net = net::Hub::sole();
-    char (*servers)[16] = master_servers_;
+    auto* servers = master_servers_.data();
     for (int i = 0; i < kMasterServerCount; ++i)
         servers[i][0] = 0;
     prefs::Preferences* preferences = get_online_settings();
@@ -142,16 +143,16 @@ void Hub::use_network_preferences()
     if (check != kBooleanTrue) {
         preferences->fetch_setting(kMasterServer1)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
-            std::strcpy(servers[next++], text);
+            std::strcpy(servers[next++].data(), text);
         preferences->fetch_setting(kMasterServer2)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
-            std::strcpy(servers[next++], text);
+            std::strcpy(servers[next++].data(), text);
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
     for (int i = 0; i < ints::as_signed(defaults->extent_); ++i) {
         auto* entry = defaults->struct_at(i);
         entry->fetch_text(kName, &text, 1);
-        std::strcpy(servers[next + i], text);
+        std::strcpy(servers[next + i].data(), text);
     }
 
     uint32_t broadband_type = 0;
@@ -385,11 +386,11 @@ void Hub::find_server_at(uint32_t ip)
         return;
     }
     if (browser_client_) {
-        uint32_t request[3]; // (the time; the rest is the original's stack)
+        std::array<uint32_t, 3> request{}; // (the time; the rest is the original's stack)
         request[0] = frame_clock::get_time();
         request[1] = request[2] = 0;
         g_asked_for = ip;
-        browser_client_->deliver_to(kMsgServerQuery, sizeof(request), request, ip, kLanPort, 0);
+        browser_client_->deliver_to(kMsgServerQuery, sizeof(request), request.data(), ip, kLanPort, 0);
     }
 }
 

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 
@@ -33,7 +34,7 @@ struct CollisionHit {
     uint32_t owner;                // +0x44 while a movable object is tested: its owner (slot 10), else 0
     bool hit;                      // +0x48 a face was accepted
     uint8_t face_flag40_;          // +0x49 the hit face's flag 0x40 (0 or 0x40)
-    uint8_t pad4a_[2];
+    std::array<uint8_t, 2> pad4a_;
     uint32_t scene; // +0x4C the scene whose grid held the static object hit (collide_with_statics)
 
     // 0x004F8160: every field copied (not the padding). Returns this.

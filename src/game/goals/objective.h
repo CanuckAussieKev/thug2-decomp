@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
@@ -91,7 +92,7 @@ public:
     int unknown68_;     // +0x68 (-1)
     uint8_t flag_bits_; // +0x6C (Flags)
     uint8_t cur_phase_; // +0x6D (State)
-    uint8_t pad6e_[2]{};
+    std::array<uint8_t, 2> pad6e_{};
 
     // 0x00556FE0: a copy of `params` (the goal's own), its pro, an empty flags structure, the links' first entries,
     // the career's level, group_number, the goal flags, single_timer / retry_stage (passed to the children), skater,

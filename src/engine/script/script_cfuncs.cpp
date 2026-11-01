@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -26,7 +27,7 @@ namespace {
 float g_script_frame_milliseconds{16.666666f};
 bool g_script_printf_enabled{true};
 bool g_first_time_not_called{true};
-char g_format_text_buffer[1004];
+std::array<char, 1004> g_format_text_buffer;
 script::Component g_format_text_value;
 int g_script_warning_level;
 
@@ -132,7 +133,7 @@ script::QbValueKind type_from_name(uint32_t name)
 
 } // namespace
 
-char* format_text_buffer() { return g_format_text_buffer; }
+char* format_text_buffer() { return g_format_text_buffer.data(); }
 int& script_warning_level() { return g_script_warning_level; }
 
 // 0x0044A480
@@ -161,8 +162,8 @@ int format_text(script::Struct* results, script::Struct* params)
             continue;
         }
         // a parameter: "%x" or "%%name"
-        char name[0x2C];
-        char* n = name;
+        std::array<char, 0x2C> name{};
+        char* n = name.data();
         const char key = p[1];
         p += 2;
         if (key == '%') {
@@ -172,36 +173,36 @@ int format_text(script::Struct* results, script::Struct* params)
             *n++ = key;
         }
         *n = '\0';
-        Component* found = params->find_last_component(checksums::hash_from_text(name));
+        Component* found = params->find_last_component(checksums::hash_from_text(name.data()));
         if (!found) {
-            debug::printf("Missing text formatting parameter '%s'\n", name);
+            debug::printf("Missing text formatting parameter '%s'\n", name.data());
             return 0;
         }
         Component& value = format_text_value();
         value.type_and_flag_ = static_cast<uint8_t>((found->type_and_flag_ & ~1) | (value.type_and_flag_ & 1));
         value.raw = found->raw;
         script::evaluate_name_token(&value);
-        char text[100]; // (the original's sprintf into it is unbounded)
+        std::array<char, 100> text{}; // (the original's sprintf into it is unbounded)
         switch (value.kind_tag()) {
         case script::kQbvalInteger:
             if (params->has_bare_flag(kUseCommas)) {
-                std::snprintf(text, sizeof(text), "%s", text::format_with_separators(value.integer));
+                std::snprintf(text.data(), sizeof(text), "%s", text::format_with_separators(value.integer));
             } else {
                 int width = 0;
                 if (params->fetch_int_value(kIntegerWidth, &width, 0))
-                    std::snprintf(text, sizeof(text), "%0*d", width, value.integer);
+                    std::snprintf(text.data(), sizeof(text), "%0*d", width, value.integer);
                 else
-                    std::snprintf(text, sizeof(text), "%d", value.integer);
+                    std::snprintf(text.data(), sizeof(text), "%d", value.integer);
             }
-            out = get_append(out, text);
+            out = get_append(out, text.data());
             break;
         case script::kQbvalFloat: {
             int places = 3;
             params->fetch_int_value(kDecimalPlaces, &places, 0);
-            char float_format[16];
-            std::snprintf(float_format, sizeof(float_format), "%%.%df", places);
-            std::snprintf(text, sizeof(text), float_format, static_cast<double>(value.float_value_));
-            out = get_append(out, text);
+            std::array<char, 16> float_format{};
+            std::snprintf(float_format.data(), sizeof(float_format), "%%.%df", places);
+            std::snprintf(text.data(), sizeof(text), float_format.data(), static_cast<double>(value.float_value_));
+            out = get_append(out, text.data());
             break;
         }
         case script::kQbvalString:
@@ -210,19 +211,19 @@ int format_text(script::Struct* results, script::Struct* params)
                 *out++ = *c;
             break;
         case script::kQbvalPair:
-            std::snprintf(text, sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.pair->x),
+            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.pair->x),
                           static_cast<double>(value.pair->y));
-            out = get_append(out, text);
+            out = get_append(out, text.data());
             break;
         case script::kQbvalVector:
-            std::snprintf(text, sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.vector->x),
+            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.vector->x),
                           static_cast<double>(value.vector->y), static_cast<double>(value.vector->z));
-            out = get_append(out, text);
+            out = get_append(out, text.data());
             break;
         case script::kQbvalName:
             result = 2;
-            std::snprintf(text, sizeof(text), "%s", script::find_checksum_name_or_unknown(value.checksum));
-            out = get_append(out, text);
+            std::snprintf(text.data(), sizeof(text), "%s", script::find_checksum_name_or_unknown(value.checksum));
+            out = get_append(out, text.data());
             break;
         default:
             break;

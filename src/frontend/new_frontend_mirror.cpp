@@ -7,6 +7,7 @@
 #include <cctype>
 #include <cstdio>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
@@ -73,7 +74,7 @@ const char* pause_label(uint32_t item_id)
 {
     // (the overlay's own items - menu_newfe_restart, menu_newfe_options - are made with these words already; the rest
     // keep the game's text: TEXT MESSAGES, VIEW GOALS, END CURRENT RUN...)
-    static const std::pair<uint32_t, const char*> kLabels[] = {
+    static const auto kLabels = std::to_array<std::pair<uint32_t, const char*>>({
         {name_hash("menu_continue"), text_tools::kResume},
         {name_hash("menu_retry_goal"), text_tools::kRetryGoal},
         {name_hash("menu_newfe_restart"), text_tools::kRestart},
@@ -84,7 +85,7 @@ const char* pause_label(uint32_t item_id)
         {name_hash("menu_level_editor"), text_tools::kPauseLevelEditor},
         {name_hash("menu_newfe_options"), text_tools::kPauseOptions},
         {name_hash("menu_skateshop"), text_tools::kQuitToMenu},
-    };
+    });
     for (const auto& [id, label] : kLabels)
         if (id == item_id)
             return label;
@@ -94,7 +95,7 @@ const char* pause_label(uint32_t item_id)
 const ItemStyle* menu_item_style(uint32_t item_id)
 {
     // (the main menu's items are the overlay's - make_menu_level addNewFrontendMain; the rest the game's own ids)
-    static const std::pair<uint32_t, ItemStyle> kStyles[] = {
+    static const auto kStyles = std::to_array<std::pair<uint32_t, ItemStyle>>({
         {name_hash("menu_newfe_career"), {"career", text_tools::kCareer, text_tools::kCareerHelp, nullptr}},
         {name_hash("menu_singlesess"), {"freeskate", text_tools::kFreeSkate, text_tools::kFreeSkateHelp, nullptr}},
         {name_hash("menu_net"), {"online", text_tools::kOnline, text_tools::kOnlineHelp, nullptr}},
@@ -114,7 +115,7 @@ const ItemStyle* menu_item_style(uint32_t item_id)
         {name_hash("menu_parked"), {"cap", text_tools::kCap, text_tools::kCreateItemHelp, nullptr}},
         {name_hash("menu_cagr"), {"cagr", text_tools::kCagr, text_tools::kCreateItemHelp, nullptr}},
         {name_hash("menu_newfe_editor"), {"editor", text_tools::kLevelEditor, text_tools::kCreateItemHelp, nullptr}},
-    };
+    });
     for (const auto& [id, style] : kStyles)
         if (id == item_id)
             return &style;
@@ -123,8 +124,8 @@ const ItemStyle* menu_item_style(uint32_t item_id)
 
 bool front_end_menu(uint32_t menu_id)
 {
-    static const uint32_t kMenus[] = {name_hash("main_vmenu"), name_hash("newfe_career_vmenu"),
-                                      name_hash("career_options_vmenu"), name_hash("main_menu")};
+    static const auto kMenus = std::to_array<uint32_t>({name_hash("main_vmenu"), name_hash("newfe_career_vmenu"),
+                                      name_hash("career_options_vmenu"), name_hash("main_menu")});
     for (const uint32_t id : kMenus)
         if (id == menu_id)
             return true;
@@ -134,7 +135,7 @@ bool front_end_menu(uint32_t menu_id)
 bool excluded_title(const std::string& clean_title)
 {
     // (screens whose meaning is a picture, not their list: the gamma test card, the screen's position)
-    static const char* const kTitles[] = {"GAMMA", "SCREEN SETUP", "SCREEN"};
+    static const auto kTitles = std::to_array<const char*>({"GAMMA", "SCREEN SETUP", "SCREEN"});
     const std::string upper = get_upper(clean_title);
     for (const char* title : kTitles)
         if (upper == title)
@@ -268,26 +269,26 @@ View get_build(const MenuRead& read, const Policy& policy)
             if (item.slider_at_ >= 0.0f) {
                 row.track = item.slider_kind_ == 0 ? 5 : item.slider_kind_;
                 row.track_at_ = item.slider_at_;
-                char number[24];
+                std::array<char, 24> number{};
                 bool show = true;
                 if (item.slider_kind_ == 1)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    std::snprintf(number, sizeof(number), "%d", static_cast<int>(item.slider_at_ * 360.0f + 0.5f));
+                    std::snprintf(number.data(), sizeof(number), "%d", static_cast<int>(item.slider_at_ * 360.0f + 0.5f));
                 else if (item.slider_kind_ == 2)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * kSatMax + 0.5f));
+                    std::snprintf(number.data(), sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * kSatMax + 0.5f));
                 else if (item.slider_kind_ == 3) {
                     const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
-                    std::snprintf(number, sizeof(number), "%d%%",
+                    std::snprintf(number.data(), sizeof(number), "%d%%",
                                   // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                                   static_cast<int>(low + item.slider_at_ * (kValMax - low) + 0.5f));
                 } else {
                     show = ints::as_signed(i) == read.selected_index_;
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * 100.0f + 0.5f));
+                    std::snprintf(number.data(), sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * 100.0f + 0.5f));
                 }
                 if (show)
-                    row.value += (row.value.empty() ? "" : "  ") + std::string(number);
+                    row.value += (row.value.empty() ? "" : "  ") + std::string(number.data());
             }
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
@@ -502,7 +503,7 @@ View get_build(const MenuRead& read, const Policy& policy)
     view.big_name_ = view.selected >= 0 ? view.rows[view.selected].label : view.title;
     // A colour menu: hue, saturation and value all there - the numbers back from the markers' places.
     {
-        float at[4] = {-1.0f, -1.0f, -1.0f, -1.0f};
+        std::array<float, 4> at = {{-1.0f, -1.0f, -1.0f, -1.0f}};
         for (const Row& r : view.rows)
             if (r.track >= 1 && r.track <= 3)
                 at[r.track] = r.track_at_;

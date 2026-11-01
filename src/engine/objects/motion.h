@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -272,10 +273,10 @@ public:
     float path_turn_distance_{};       // +0x34
     float ground_above_{};             // +0x38 Obj_StickToGround DistAbove (feet)
     float ground_below_{};             // +0x3C DistBelow
-    maths::Vec4 ground_triangle_[3]{}; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
+    std::array<maths::Vec4, 3> ground_triangle_{}; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
     bool ground_height_only_{
         true}; // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
-    maths::Vec4 ground_triangles_[3][3]{}; // +0x74 the three feelers' last triangles
+    std::array<std::array<maths::Vec4, 3>, 3> ground_triangles_{}; // +0x74 the three feelers' last triangles
     ObjectGroup* path_group_{nullptr};     // +0x104 the path's group of objects (path manager)
     maths::Vec4 move_target_{};           // +0x108
     float move_distance_{};               // +0x118 from the start to the target
@@ -310,7 +311,7 @@ public:
     gsl::owner<PathFollower*> path_follower_{nullptr}; // +0x1EC
     FollowTrail* trail_{};                       // +0x1F0 obj_follow_leader's
     bool leave_y_unaffected_{};                  // +0x1F4 obj_follow_leader's LeaveYUnaffected
-    uint8_t pad1f5_[3]{};
+    std::array<uint8_t, 3> pad1f5_{};
     float jump_speed_{};           // +0x1F8 up (per second)
     float leap_pull_{};            // +0x1FC
     maths::Vec4 leap_direction_{}; // +0x200 along (x, z; w kept)

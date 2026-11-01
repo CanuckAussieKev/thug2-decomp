@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/manager.h"
@@ -127,8 +128,8 @@ void set_face_overlay(render::BitmapTexture* overlay) { face_overlay() = overlay
 // 0x004869D0
 bool read_face_points(FaceAnchors* points, Struct* params)
 {
-    if (!read_point(params, kLeftEye, points->left_eye_) || !read_point(params, kRightEye, points->right_eye_) ||
-        !read_point(params, kNose, points->nose_slot_) || !read_point(params, kLips, points->mouth_part_))
+    if (!read_point(params, kLeftEye, points->left_eye_.data()) || !read_point(params, kRightEye, points->right_eye_.data()) ||
+        !read_point(params, kNose, points->nose_slot_.data()) || !read_point(params, kLips, points->mouth_part_.data()))
         return false;
     points->has_hsv_ = params->fetch_float(kH, &points->h_, 0);
     points->has_hsv_ = params->fetch_float(kS, &points->s_, 0) && points->has_hsv_;
@@ -143,10 +144,10 @@ bool read_face_points(FaceAnchors* points, Struct* params)
 // 0x00487000
 bool write_face_points(const FaceAnchors* points, Struct* params)
 {
-    Array* left_eye = new_point_array(points->left_eye_);
-    Array* right_eye = new_point_array(points->right_eye_);
-    Array* nose = new_point_array(points->nose_slot_);
-    Array* lips = new_point_array(points->mouth_part_);
+    Array* left_eye = new_point_array(points->left_eye_.data());
+    Array* right_eye = new_point_array(points->right_eye_.data());
+    Array* nose = new_point_array(points->nose_slot_.data());
+    Array* lips = new_point_array(points->mouth_part_.data());
     params->append_array_ref(kLeftEye, left_eye);
     params->append_array_ref(kRightEye, right_eye);
     params->append_array_ref(kNose, nose);
@@ -246,18 +247,18 @@ bool massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* poi
 FaceSkin::FaceSkin()
 {
     fetch_stock_face_anchors(&path_vertices_);
-    copy_string(overlay_name_, "faces\\CS_NSN_Head_wht_alpha");
+    copy_string(overlay_name_.data(), "faces\\CS_NSN_Head_wht_alpha");
 }
 
 // 0x00487380
 void FaceSkin::load_image_file(const char* name, bool full_path)
 {
-    char path[512];
+    std::array<char, 512> path{};
     THUG2_MSVC_WARNING(suppress : 4996)
-    std::sprintf(path, full_path ? "%s.img.xbx" : "images\\%s.img.xbx", name);
+    std::sprintf(path.data(), full_path ? "%s.img.xbx" : "images\\%s.img.xbx", name);
     int size = 0; // (uninitialised in the original: a file that can't be loaded copies from null)
-    auto* data = static_cast<uint8_t*>(packs::load_file_into(path, &size, nullptr));
-    std::memcpy(image_, data, static_cast<size_t>(size));
+    auto* data = static_cast<uint8_t*>(packs::load_file_into(path.data(), &size, nullptr));
+    std::memcpy(image_.data(), data, static_cast<size_t>(size));
     memory::free_malloc(data);
     is_usable_ = true;
 }
@@ -265,28 +266,28 @@ void FaceSkin::load_image_file(const char* name, bool full_path)
 // 0x00487420
 const uint8_t* FaceSkin::set_image(const uint8_t* data, int /*size*/)
 {
-    std::memcpy(image_, data, kTexelEdge);
+    std::memcpy(image_.data(), data, kTexelEdge);
     return data + kTexelEdge;
 }
 
 // 0x00487440
 int FaceSkin::write_to(uint8_t* buffer, int /*size*/)
 {
-    std::memcpy(buffer, image_, kTexelEdge);
+    std::memcpy(buffer, image_.data(), kTexelEdge);
     std::memcpy(buffer + kTexelEdge, &path_vertices_, sizeof(path_vertices_));
-    const size_t length = std::strlen(overlay_name_);
-    std::memcpy(buffer + kTexelEdge + sizeof(path_vertices_), overlay_name_, length + 1);
+    const size_t length = std::strlen(overlay_name_.data());
+    std::memcpy(buffer + kTexelEdge + sizeof(path_vertices_), overlay_name_.data(), length + 1);
     return static_cast<int>(kTexelEdge + sizeof(path_vertices_) + length + 1);
 }
 
 // 0x004874B0
 const uint8_t* FaceSkin::read_from(const uint8_t* buffer, int /*size*/)
 {
-    std::memcpy(image_, buffer, kTexelEdge);
+    std::memcpy(image_.data(), buffer, kTexelEdge);
     std::memcpy(&path_vertices_, buffer + kTexelEdge, sizeof(path_vertices_));
     const char* name = raw::chars(buffer + kTexelEdge + sizeof(path_vertices_));
     const size_t length = std::strlen(name);
-    std::memcpy(overlay_name_, name, length + 1);
+    std::memcpy(overlay_name_.data(), name, length + 1);
     return raw::bytes(name) + length + 1;
 }
 
@@ -297,7 +298,7 @@ bool FaceSkin::is_sound() { return is_usable_; }
 void FaceSkin::mark_usable(bool valid) { is_usable_ = valid; }
 
 // 0x00487530
-uint8_t* FaceSkin::get_image() { return image_; }
+uint8_t* FaceSkin::get_image() { return image_.data(); }
 
 // 0x00487540
 int FaceSkin::fetch_skin_resolution() { return kTexelEdge; }
@@ -313,22 +314,22 @@ FaceAnchors* FaceSkin::get_points(FaceAnchors* out)
 void FaceSkin::set_points(const FaceAnchors* points) { path_vertices_ = *points; }
 
 // 0x00487590
-void FaceSkin::set_overlay_name(const char* name) { copy_string(overlay_name_, name); }
+void FaceSkin::set_overlay_name(const char* name) { copy_string(overlay_name_.data(), name); }
 
 // 0x004875B0
-char* FaceSkin::get_overlay_name() { return overlay_name_; }
+char* FaceSkin::get_overlay_name() { return overlay_name_.data(); }
 
 // 0x004875F0
 void FaceSkin::load_from_structure(Struct* params)
 {
     Array* image = nullptr; // (uninitialised in the original when missing)
     params->fetch_list(kImageData, &image, 1);
-    auto* words = raw::as<uint32_t>(image_);
+    auto* words = raw::as<uint32_t>(image_.data());
     for (uint32_t i = 0; i < image->extent_; ++i)
         words[i] = image->fetch_part(i);
     const char* overlay = nullptr; // (uninitialised in the original when missing)
     params->fetch_text(overlay, &overlay, 1);
-    copy_string(overlay_name_, overlay);
+    copy_string(overlay_name_.data(), overlay);
     read_face_points(&path_vertices_, params);
 }
 
@@ -339,11 +340,11 @@ void FaceSkin::save_to_structure(Struct* params)
     Array* image = memory ? new (memory) script::Array : nullptr;
     constexpr uint32_t kWords = kTexelEdge / 4;
     image->configure_size_kind(kWords, script::kQbvalName);
-    auto* words = raw::as<uint32_t>(image_);
+    auto* words = raw::as<uint32_t>(image_.data());
     for (uint32_t i = 0; i < kWords; ++i)
         image->set_element(i, words[i]);
     params->append_array_ref(kImageData, image);
-    params->append_word(kOverlay, overlay_name_);
+    params->append_word(kOverlay, overlay_name_.data());
     write_face_points(&path_vertices_, params);
 }
 

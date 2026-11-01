@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_rails.h"
@@ -46,7 +47,7 @@ struct RailNodeInfo {
     maths::Vec4 at_point_; // +0x0C
     maths::Vec4 headings_; // +0x1C
     bool climbable_;       // +0x2C: no NoClimbing
-    uint8_t pad2d_[3];
+    std::array<uint8_t, 3> pad2d_;
 };
 static_assert(offsetof(RailNodeInfo, at_point_) == 0x0C && sizeof(RailNodeInfo) == 0x30, "the original's local");
 

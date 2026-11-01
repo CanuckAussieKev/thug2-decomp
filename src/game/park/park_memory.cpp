@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
@@ -42,9 +43,9 @@ constexpr int kFloorPieceMem = 40000;
 
 // A park piece as these functions see it (the park editor's piece class, not decompiled yet).
 struct PieceView {
-    uint8_t unknown0[0xC];
+    std::array<uint8_t, 0xC> unknown0;
     uint32_t flags; // +0x0C bit 2: its DMA pieces were counted; bit 8: they don't count
-    uint8_t unknown10[0x28];
+    std::array<uint8_t, 0x28> unknown10;
     uint32_t type; // +0x38 the piece type's checksum
 };
 
@@ -260,7 +261,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     MemoryStats& stats = get_attributes();
     if (counts_dirty()) {
         counts_dirty() = false;
-        park_assembler_ref()->get_node_counts(stats.piece_counts_);
+        park_assembler_ref()->get_node_counts(stats.piece_counts_.data());
     }
     memory::Arena* main_heap = memory::Hub::get_pull()->bottom_up_heap_;
     memory::Zone* main_region = main_heap->region_;

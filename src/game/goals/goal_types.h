@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "game/goals/objective.h"
 
@@ -64,7 +65,7 @@ public:
     ShootVideoObjective(const ShootVideoObjective&) = delete;
     ShootVideoObjective& operator=(const ShootVideoObjective&) = delete;
     bool recording_shot_{}; // +0x70 (StartFilming)
-    uint8_t pad71_[3]{};
+    std::array<uint8_t, 3> pad71_{};
     uint32_t shot_hold_time_{}; // +0x74 ms
     uint32_t time_needed_{};    // +0x78 ms (total_time_required)
     uint32_t unknown7c_{};      // +0x7C (always 0: 0 times time)

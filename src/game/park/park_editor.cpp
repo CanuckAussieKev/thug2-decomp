@@ -73,8 +73,8 @@ void ParkLayout::rebuild_park(uint32_t how)
         write_compressed_map();
         if (map_.rev_ == kParkInfoVersion) {
             const char* unnamed = "unnamed park"; // "unnamed park"
-            std::memcpy(map_.label_, unnamed, std::strlen(unnamed) + 1);
-            std::memcpy(park_name_, unnamed, std::strlen(unnamed) + 1);
+            std::memcpy(map_.label_.data(), unnamed, std::strlen(unnamed) + 1);
+            std::memcpy(park_name_.data(), unnamed, std::strlen(unnamed) + 1);
         }
         current_flags() &= ~8u;
         how = kNewPark;

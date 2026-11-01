@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "wire/gamenet_messages.h"
 
@@ -68,8 +69,8 @@ uint32_t encode_chat(uint8_t out[kChatMessageSize], uint32_t machine_id, uint8_t
 struct ChatLine {
     uint32_t machine_id_; // 0 for THUG2's layout
     uint8_t obj_id_;
-    char name[kNameSize];
-    char text[kChatTextSize + 4];
+    std::array<char, kNameSize> name;
+    std::array<char, kChatTextSize + 4> text;
 };
 bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* out);
 

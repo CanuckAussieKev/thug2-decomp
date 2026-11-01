@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -36,7 +37,7 @@ public:
     // A motor's timed run (0xC bytes from +0x1C).
     struct Stopwatch {
         bool running; // +0 a duration was given
-        uint8_t pad1[3];
+        std::array<uint8_t, 3> pad1;
         int start;         // +4 the game clock (with its offset) when it started
         uint32_t duration; // +8 ms
     };
@@ -78,8 +79,8 @@ public:
     bool vibrate(script::Struct* params, script::Script* script);
 
     bool active_{false}; // +0x18
-    uint8_t pad19[3]{};
-    Stopwatch timers_[kActuators]{}; // +0x1C
+    std::array<uint8_t, 3> pad19{};
+    std::array<Stopwatch, kActuators> timers_{}; // +0x1C
     sio::InputPort* pad_dev_{};      // +0x34
 };
 
@@ -87,5 +88,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_vibration_component_member_functions[12];
+extern std::array<uint32_t, 12> g_vibration_component_member_functions;
 } // namespace objects

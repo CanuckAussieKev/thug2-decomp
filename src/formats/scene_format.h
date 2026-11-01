@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <array>
 
 #include "formats/byte_stream.h"
 
@@ -99,12 +100,12 @@ struct TextureFrame {
 struct MaterialPass {
     uint32_t texture = 0; // checksum (with a texture animation, its first key's; 0: none)
     uint32_t flags = 0;
-    float color[3] = {};
+    std::array<float, 3> color = {};
     uint32_t blend_mode = 0, fixed_alpha = 0;
     uint32_t address_u = 0, address_v = 0;
-    float reflection_tiling[2] = {};
+    std::array<float, 2> reflection_tiling = {};
     uint32_t unknown_c0 = 0;
-    uint8_t uv_wibble[kUvWibbleSize] = {}; // with kPassUvWibble
+    std::array<uint8_t, kUvWibbleSize> uv_wibble = {}; // with kPassUvWibble
     // with kPassTextureAnim
     int texture_key_count = 0;
     int texture_loops = 0;
@@ -121,10 +122,10 @@ struct Material {
     uint8_t keep_culling = 0, two_sided = 0;
     int depth_bias = 0;
     bool has_extra = false;
-    uint32_t extra[2] = {};
+    std::array<uint32_t, 2> extra = {};
     float specular_power = 0.0f;
-    float specular[3] = {};
-    MaterialPass passes[kMaxPasses];
+    std::array<float, 3> specular = {};
+    std::array<MaterialPass, kMaxPasses> passes;
     std::vector<ColorAnimTrack> color_anims; // pass 0's, with kPassColorAnims
 };
 // NOLINTEND(readability-identifier-naming)
@@ -147,24 +148,24 @@ bool read_material(Stream& in, Material* m)
     m->depth_bias = take<int>(in);
     m->has_extra = take<uint8_t>(in) != 0;
     if (m->has_extra)
-        in.take(m->extra, sizeof(m->extra));
+        in.take(m->extra.data(), sizeof(m->extra));
     m->specular_power = take<float>(in);
     if (m->specular_power > 0.0f)
-        in.take(m->specular, sizeof(m->specular));
+        in.take(m->specular.data(), sizeof(m->specular));
     for (uint32_t index = 0; index < m->pass_count && in.ok(); ++index) {
         MaterialPass& pass = m->passes[index];
         pass.texture = take<uint32_t>(in);
         pass.flags = take<uint32_t>(in);
         take<uint8_t>(in);
-        in.take(pass.color, sizeof(pass.color));
+        in.take(pass.color.data(), sizeof(pass.color));
         pass.blend_mode = take<uint32_t>(in);
         pass.fixed_alpha = take<uint32_t>(in);
         pass.address_u = take<uint32_t>(in);
         pass.address_v = take<uint32_t>(in);
-        in.take(pass.reflection_tiling, sizeof(pass.reflection_tiling));
+        in.take(pass.reflection_tiling.data(), sizeof(pass.reflection_tiling));
         pass.unknown_c0 = take<uint32_t>(in);
         if (pass.flags & kPassUvWibble)
-            in.take(pass.uv_wibble, sizeof(pass.uv_wibble));
+            in.take(pass.uv_wibble.data(), sizeof(pass.uv_wibble));
         if (index == 0 && (pass.flags & kPassColorAnims)) {
             auto anims = take<uint32_t>(in);
             if (!in.fits(uint64_t{anims} * 8)) // (each at least its key count and phase)
@@ -211,8 +212,8 @@ bool read_material(Stream& in, Material* m)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Sector {
     uint32_t checksum = 0, light_group = 0, flags = 0, mesh_count = 0;
-    float box[6] = {};
-    float sphere[4] = {};
+    std::array<float, 6> box = {};
+    std::array<float, 4> sphere = {};
     uint32_t billboard_type = 0; // with kBillboard
     float billboard_unused[3] = {}, pivot[3] = {}, axis[3] = {};
 };
@@ -220,7 +221,7 @@ struct Sector {
 // A sector's mesh's own fields (before its body).
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SectorMesh {
-    float centre[3] = {};
+    std::array<float, 3> centre = {};
     float radius = 0.0f;
     float min[3] = {}, max[3] = {};
     uint32_t flags = 0, material = 0, index_lists = 0;
@@ -236,8 +237,8 @@ bool read_sector(Stream& in, Sector* s)
     s->light_group = take<uint32_t>(in);
     s->flags = take<uint32_t>(in);
     s->mesh_count = take<uint32_t>(in);
-    in.take(s->box, sizeof(s->box));
-    in.take(s->sphere, sizeof(s->sphere));
+    in.take(s->box.data(), sizeof(s->box));
+    in.take(s->sphere.data(), sizeof(s->sphere));
     if (s->flags & kBillboard) {
         s->billboard_type = take<uint32_t>(in);
         in.take(s->billboard_unused, sizeof(s->billboard_unused));
@@ -252,7 +253,7 @@ template <typename Stream>
 bool read_sector_mesh(Stream& in, SectorMesh* mesh)
 {
     *mesh = SectorMesh{};
-    in.take(mesh->centre, sizeof(mesh->centre));
+    in.take(mesh->centre.data(), sizeof(mesh->centre));
     mesh->radius = take<float>(in);
     in.take(mesh->min, sizeof(mesh->min));
     in.take(mesh->max, sizeof(mesh->max));
@@ -272,15 +273,15 @@ bool read_sector_mesh(Stream& in, SectorMesh* mesh)
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct MeshBody {
-    uint16_t index_counts[kIndexBuffers] = {};
-    std::vector<uint16_t> indices[kIndexBuffers];
+    std::array<uint16_t, kIndexBuffers> index_counts = {};
+    std::array<std::vector<uint16_t>, kIndexBuffers> indices;
     uint8_t stride = 0;
     uint16_t vertex_count = 0;
     uint8_t vertex_buffer_count = 0;
     std::vector<uint8_t> vertices; // the first vertex buffer's bytes (the others are read past: never used)
     std::vector<uint8_t> scaled;   // its bone-scaled positions: records of kScaledVertexSize bytes
-    uint32_t vertex_types[2] = {};
-    uint8_t offsets[3] = {}; // as stored: the colour's, the normal's, ?
+    std::array<uint32_t, 2> vertex_types = {};
+    std::array<uint8_t, 3> offsets = {}; // as stored: the colour's, the normal's, ?
     bool has_vertex_bytes = false;
     std::vector<uint8_t> vertex_bytes; // vertex_count bytes
     int level_count = 0;
@@ -339,7 +340,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
     }
     body->vertex_types[0] = take<uint32_t>(in);
     body->vertex_types[1] = take<uint32_t>(in);
-    in.take(body->offsets, sizeof(body->offsets));
+    in.take(body->offsets.data(), sizeof(body->offsets));
     body->has_vertex_bytes = take<uint8_t>(in) != 0;
     body->vertex_bytes.clear();
     if (body->has_vertex_bytes) {

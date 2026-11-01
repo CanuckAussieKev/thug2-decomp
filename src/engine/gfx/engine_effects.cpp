@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -60,9 +61,9 @@ uint32_t g_shatter_value_af_1a;
 int g_shatter_value_33d_f;
 bool g_fog_active;
 maths::Vec4 g_shatter_vector_210e;
-float g_level_color[4];
-void* g_line_sectors[128];
-HitMesh* g_line_objects[128];
+std::array<float, 4> g_level_color;
+std::array<void*, 128> g_line_sectors;
+std::array<HitMesh*, 128> g_line_objects;
 
 // The tables.
 lists::KeyMap*& flashes() { return g_flashes; }
@@ -122,7 +123,7 @@ lists::KeyMap* new_table()
 void VertexStack::stack_off(uint8_t* out)
 {
     used -= vertex_size_;
-    std::memcpy(out, data + used, vertex_size_);
+    std::memcpy(out, data.data() + used, vertex_size_);
 }
 
 // 0x00490E40
@@ -223,7 +224,7 @@ void set_fog_color(uint32_t rgba)
 }
 
 // 0x00491290
-void set_level_color(const float* color) { std::memcpy(g_level_color, color, 16); }
+void set_level_color(const float* color) { std::memcpy(g_level_color.data(), color, 16); }
 
 // 0x00491110
 void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,
@@ -298,12 +299,12 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             splats->correction_steps_[i] != splats->correction_steps_[furthest])
             continue;
         const int fade = g_splat_fade;
-        uint8_t* alphas[6] = {raw::bytes(&splats->base_colors_[i][0]) + 3,
+        const std::array<uint8_t*, 6> alphas = {{raw::bytes(&splats->base_colors_[i][0]) + 3,
                               raw::bytes(&splats->base_colors_[i][1]) + 3,
                               raw::bytes(&splats->base_colors_[i][2]) + 3,
-                              splats->vertices[i][0] + 0xF,
-                              splats->vertices[i][1] + 0xF,
-                              splats->vertices[i][2] + 0xF};
+                              splats->vertices[i][0].data() + 0xF,
+                              splats->vertices[i][1].data() + 0xF,
+                              splats->vertices[i][2].data() + 0xF}};
         int gone = 0;
         for (uint8_t* alpha : alphas) {
             if (*alpha == 0) {
@@ -442,8 +443,8 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     auto** grids = get_coll_grids_on_line(&line);
     if (!grids || !*grids)
         return false;
-    auto* sectors = g_line_sectors;
-    auto* objects = g_line_objects;
+    auto* sectors = g_line_sectors.data();
+    auto* objects = g_line_objects.data();
     int count = 0;
     for (CollGrid** grid = grids; *grid; ++grid) {
         HitMesh* const* in_box = (*grid)->objects_in_box(&box);
@@ -471,8 +472,8 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         made = false; // (it hasn't moved)
     } else {
         SplatParams params;
-        std::memcpy(params.start, from, 16);
-        std::memcpy(params.end, to, 16);
+        std::memcpy(params.start.data(), from, 16);
+        std::memcpy(params.end.data(), to, 16);
         params.angle = angle;
         params.texture = texture;
         params.size = size;
@@ -538,8 +539,8 @@ void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float
                const char* /*texture*/)
 {
     auto* flash = static_cast<Flash*>(memory::alloc(sizeof(Flash)));
-    std::memcpy(flash->start, &start, 4);
-    std::memcpy(flash->end, &end, 4);
+    std::memcpy(flash->start.data(), &start, 4);
+    std::memcpy(flash->end.data(), &end, 4);
     flash->duration = duration;
     flash->time_left_ = duration;
     flash->z = z;
@@ -612,7 +613,7 @@ void init_effects()
     auto& stack = g_vertex_stack;
     stack.used = 0;
     stack.vertex_size_ = 0;
-    std::memset(stack.data, 3, sizeof(stack.data));
+    std::memset(stack.data.data(), 3, sizeof(stack.data));
 }
 
 // 0x00492340

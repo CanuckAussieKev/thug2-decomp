@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
@@ -52,9 +53,9 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
 {
     IDirect3DSurface9 *back = nullptr, *resolved = nullptr, *system = nullptr;
     auto fail = [&](const char* why, HRESULT hr) {
-        char text[128];
-        std::snprintf(text, sizeof(text), "%s (0x%08lX)", why, static_cast<unsigned long>(hr));
-        *error = text;
+        std::array<char, 128> text{};
+        std::snprintf(text.data(), sizeof(text), "%s (0x%08lX)", why, static_cast<unsigned long>(hr));
+        *error = text.data();
         get_release(system);
         get_release(resolved);
         get_release(back);

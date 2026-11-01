@@ -5,6 +5,7 @@
 #include <memory>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_glue.h"
@@ -51,7 +52,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 uint32_t shown_colour(const UiWidget* e)
 {
     uint32_t rgba = 0;
-    std::memcpy(&rgba, e->shown_.rgba, 4);
+    std::memcpy(&rgba, e->shown_.rgba.data(), 4);
     uint8_t alpha = 0;
     if (e->summed_.alpha >= minimum_alpha()) // (NaN: transparent)
         alpha =
@@ -111,8 +112,8 @@ void TextureElement::change_traits(Struct* params)
 // 0x004AEFD0
 void TextureElement::get_properties(Struct* out)
 {
-    uint8_t rgba[4];
-    std::memcpy(rgba, summed_.rgba, 4);
+    std::array<uint8_t, 4> rgba{};
+    std::memcpy(rgba.data(), summed_.rgba.data(), 4);
     script::Array* array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;

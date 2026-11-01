@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/gfx/anim_blend.h"
@@ -294,8 +295,8 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
                                  static_cast<double>(pose.y) * last.y;
         if (closeness < kEaseBelow) {
             auto t = static_cast<float>(std::fabs(closeness) * kEaseFactor);
-            float eased[4];
-            const float* result = interpolate_rotation(eased, &last.x, &pose.x, t);
+            std::array<float, 4> eased{};
+            const float* result = interpolate_rotation(eased.data(), &last.x, &pose.x, t);
             pose = {result[0], result[1], result[2], result[3]};
         }
         last = pose;

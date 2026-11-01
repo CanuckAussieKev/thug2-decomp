@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -34,7 +35,7 @@ struct PointerList {
 struct PagerMessage {
     script::Struct* params;
     bool read;
-    uint8_t spare_slot5_[3];
+    std::array<uint8_t, 3> spare_slot5_;
 };
 
 // The pager message component ("pagermessage", type 0xD1515392, vtable 0x0064B6FC, 0x20 bytes; made by 0x004ECF20):
@@ -83,5 +84,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_pager_message_member_functions[36];
+extern std::array<uint32_t, 36> g_pager_message_member_functions;
 } // namespace objects

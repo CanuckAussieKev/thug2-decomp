@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -110,7 +111,7 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
         poly->primitive->set_texture(poly->texture, 0, 0); // (through the jump 0x004A1090)
         layout = 3;
     }
-    std::memcpy(poly->colours, poly->start_colours_, sizeof(poly->colours));
+    std::memcpy(poly->colours.data(), poly->start_colours_.data(), sizeof(poly->colours));
     const float height = poly->start_dims_[1];
     poly->dims[1] = height;
     const float width = poly->start_dims_[0];
@@ -121,17 +122,17 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     const double top = height * -0.5;
     const double right = width * 0.5;
     const double bottom = height * 0.5;
-    maths::Vec4 corners[4] = {{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
+    std::array<maths::Vec4, 4> corners = {{{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(bottom), 0.0f, 0.0f},
-                              {static_cast<float>(left), static_cast<float>(bottom), 0.0f, 0.0f}};
-    place_corners(poly, corners);
+                              {static_cast<float>(left), static_cast<float>(bottom), 0.0f, 0.0f}}};
+    place_corners(poly, corners.data());
     PcPrimitive* primitive = poly->primitive;
     primitive->blend_mode_ = poly->blend_mode_;
     primitive->prepare_all(layout, 4, 4); // (through the jump 0x004A10A0)
-    const float uvs[4][2] = {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}};
+    const std::array<std::array<float, 2>, 4> uvs = {{{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}};
     for (int i = 0; i < 4; ++i) {
-        set_corner_colour(poly->primitive, i, poly->colours[i]);
+        set_corner_colour(poly->primitive, i, poly->colours[i].data());
         if (layout & 2)
             poly->primitive->set_uv(i, uvs[i][0], uvs[i][1]);
         set_corner(poly->primitive, i, corners[i]);
@@ -178,7 +179,7 @@ void update_spawned_polys()
             poly->dims[i] = static_cast<float>((static_cast<double>(poly->end_dims_[i]) - poly->start_dims_[i]) * t +
                                                poly->start_dims_[i]);
         for (int c = 0; c < 4; ++c)
-            set_corner_colour(poly->primitive, c, poly->colours[c]);
+            set_corner_colour(poly->primitive, c, poly->colours[c].data());
         // Where the corners go, by the justification: right / bottom of the position, centred, or left / top.
         float x_offset = 0.0f;
         if (poly->align_h_ > 0.0f)
@@ -194,9 +195,9 @@ void update_spawned_polys()
         auto top = static_cast<float>(-y_offset);
         auto right = static_cast<float>(static_cast<double>(left) + poly->dims[0]);
         auto bottom = static_cast<float>(static_cast<double>(top) + poly->dims[1]);
-        maths::Vec4 corners[4] = {
-            {left, top, 0.0f, 0.0f}, {right, top, 0.0f, 0.0f}, {right, bottom, 0.0f, 0.0f}, {left, bottom, 0.0f, 0.0f}};
-        place_corners(poly, corners);
+        std::array<maths::Vec4, 4> corners = {{
+            {left, top, 0.0f, 0.0f}, {right, top, 0.0f, 0.0f}, {right, bottom, 0.0f, 0.0f}, {left, bottom, 0.0f, 0.0f}}};
+        place_corners(poly, corners.data());
         for (int c = 0; c < 4; ++c)
             set_corner(poly->primitive, c, corners[c]);
         value = next_value(spawned_polys());

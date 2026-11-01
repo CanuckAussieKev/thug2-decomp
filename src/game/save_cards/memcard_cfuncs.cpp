@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
@@ -138,7 +139,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
     if (card && stubs::return_true()) {
         params->fetch_text("Name", &name, 0);
         params->read_hash_value("Type", &type, 0);
-        char path[104];
+        std::array<char, 104> path{};
         path[0] = '\0';
         bool named = true;
         switch (os_layer()) {
@@ -146,15 +147,15 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         case 2:
         case 3: { // console folders: /<dir><file>/<dir><file>
             const char* folder = game_config::get_path_prefix();
-            char file[20];
-            make_file_name(name, file, type);
-            std::snprintf(path, sizeof(path), "/%s%s/%s%s", folder, file, folder, file);
+            std::array<char, 20> file{};
+            make_file_name(name, file.data(), type);
+            std::snprintf(path.data(), sizeof(path), "/%s%s/%s%s", folder, file.data(), folder, file.data());
             break;
         }
         case 5: {
-            char file[104];
-            make_folder_file_name(type, name, file);
-            std::snprintf(path, sizeof(path), "%s%s", file, file);
+            std::array<char, 104> file{};
+            make_folder_file_name(type, name, file.data());
+            std::snprintf(path.data(), sizeof(path), "%s%s", file.data(), file.data());
             break;
         }
         case 4:
@@ -163,14 +164,14 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
             if (!converted)
                 named = false;
             else
-                std::snprintf(path, sizeof(path), "%s", converted);
+                std::snprintf(path.data(), sizeof(path), "%s", converted);
             break;
         }
         default:
             named = false;
             break;
         }
-        FileLoad* file = named ? card->unseal(path, 1, 0) : nullptr;
+        FileLoad* file = named ? card->unseal(path.data(), 1, 0) : nullptr;
         if (file) {
             const int size = static_cast<int>(file->seek_to(0, 2));
             bool bad = size != type_file_size(type);

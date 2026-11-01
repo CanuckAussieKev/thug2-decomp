@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
@@ -198,7 +199,7 @@ void RiderRemoteSync::interpolate()
         skater->vel_ = (skater->at_point_ - last_play_pos_) / frame_seconds_;
         moves_[updates_ % kHistory] = skater->vel_;
         // The velocity: the average of the moves kept - quirk kept: the sum starts from the position, not zero.
-        double sum[4] = {move.x, move.y, move.z, move.w};
+        std::array<double, 4> sum = {{move.x, move.y, move.z, move.w}};
         int n = 0;
         for (; n < updates_ && n < kHistory; ++n) {
             sum[0] += moves_[n].x;
@@ -532,7 +533,7 @@ void RiderRemoteSync::play_history_events()
         return;
     const int first = past_frames_->message_count_ % kHistory;
     const uint32_t now = app->clock_ - sync_frame_ + sync_time_;
-    auto* messages = past_frames_->messages_;
+    auto* messages = past_frames_->messages_.data();
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_);
     int i = first;
     do {
@@ -560,7 +561,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             case 0x3C: // (the five details passed by address)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->set_wobble_details(msg->wobble_details_, false);
+                    channel->set_wobble_details(msg->wobble_details_.data(), false);
                 break;
             case 0x3D:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))

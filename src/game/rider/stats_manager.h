@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -38,7 +39,7 @@ public:
         uint32_t attr_key_; // +0x04 (0xC2455018) the stat it raises
         int aim_point_;     // +0x08 (0xE288A7CB, by difficulty)
         bool met_;          // +0x0C met (until announced or reset)
-        uint8_t pad0d_[3];
+        std::array<uint8_t, 3> pad0d_;
         int cur_standing_;  // +0x10 0 open, 1 done, 2 / 3 locked until the am / pro goals unlock
         const char* label_; // +0x14 (0xC4745838)
         const char* text_;  // +0x18 (0xCD021293, by difficulty)
@@ -104,8 +105,8 @@ public:
     bool clear_last_air_combo_score(script::Struct* params, script::Script* script); // 0x0051C580
 
     bool first_update_{}; // +0x18 the next update only clears the phases
-    uint8_t pad19[3]{};
-    Goal goals_[kGoals]{}; // +0x1C
+    std::array<uint8_t, 3> pad19{};
+    std::array<Goal, kGoals> goals_{}; // +0x1C
     bool activated_{};     // +0x9F4
     bool raise_stats_{};   // +0x9F5 (the global integer 0xB8688A8A is 1)
     bool goal_done_{};     // +0x9F6 a goal's status was set to 1
@@ -146,5 +147,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_stats_manager_member_functions[60];
+extern std::array<uint32_t, 60> g_stats_manager_member_functions;
 } // namespace objects

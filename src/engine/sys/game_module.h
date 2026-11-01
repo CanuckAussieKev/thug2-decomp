@@ -7,6 +7,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/task_list.h"
 #include <gsl/pointers>
+#include <array>
 
 // Modules: the engine's parts that are started and stopped as a whole - the front end, the
 // async file loader, the game's own modules. The module manager (the singleton 0x0044F6F0 makes) keeps them in a
@@ -41,7 +42,7 @@ public:
     int cur_phase_{kStopped}; // +0x04
     int queued_op_{}; // +0x08 (not set by the constructor)
     bool locked_{false}; // +0x0C: the manager neither starts nor stops it
-    uint8_t pad0d_[3]{};
+    std::array<uint8_t, 3> pad0d_{};
     memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>)
 };
 static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&

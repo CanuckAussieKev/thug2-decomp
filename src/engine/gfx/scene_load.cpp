@@ -25,6 +25,7 @@
 #include "formats/scene_format.h"
 #include "engine/gfx/sector.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
@@ -205,12 +206,12 @@ void* load_mesh_file(const char* name, void* textures)
 void* load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
                             void* textures)
 {
-    char name[16];
-    std::snprintf(name, sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
+    std::array<char, 16> name{};
+    std::snprintf(name.data(), sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
     auto* scene = static_cast<uint8_t*>(load_scene_from_memory(data, size, textures, false, false, false));
-    *raw::field_at<uint32_t>(scene, 0x84) = checksums::hash_from_text(name);
+    *raw::field_at<uint32_t>(scene, 0x84) = checksums::hash_from_text(name.data());
     *raw::field_at<void*>(scene, 0x88) = textures;
-    set_up_sectors(scene, name);
+    set_up_sectors(scene, name.data());
     auto* mesh = new PcMesh;
     mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);
     clear_screen_clip();

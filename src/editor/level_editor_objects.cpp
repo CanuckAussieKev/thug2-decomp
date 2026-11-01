@@ -10,6 +10,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <vector>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_picking.h"
@@ -140,7 +141,7 @@ void pick_one(objects::Entity* object, void* data)
         !model_box(composite, &box))
         return;
     float t = 0.0f;
-    const bool hit = ray_box(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);
+    const bool hit = ray_box(walk->origin, walk->dir, box.origin, box.axes.data(), box.min, box.max, &t);
     if (hit && walk->all && t < walk->best_t_)
         walk->all->emplace_back(composite, t);
     if (hit && t < walk->best_t_ && !walk->all) {
@@ -199,13 +200,13 @@ const char* get_name_of(uint32_t checksum)
 
 std::string caption(uint32_t checksum)
 {
-    char text[96];
+    std::array<char, 96> text{};
     const char* name = get_name_of(checksum);
     if (name)
-        std::snprintf(text, sizeof(text), "%s", name);
+        std::snprintf(text.data(), sizeof(text), "%s", name);
     else
-        std::snprintf(text, sizeof(text), "%08X", checksum);
-    return text;
+        std::snprintf(text.data(), sizeof(text), "%08X", checksum);
+    return text.data();
 }
 
 // The model's bounding box: the model component's model (+0x208), its geometry 0 (0x00493CD0) and that geometry's
@@ -367,11 +368,11 @@ std::string describe(objects::GameEntity* object)
     if (!object)
         return "-";
     const maths::Vec4& at = object->basis_frame_.row[2];
-    char text[200];
-    std::snprintf(text, sizeof(text), "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident_),
+    std::array<char, 200> text{};
+    std::snprintf(text.data(), sizeof(text), "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident_),
                   caption(object->ident_).c_str(), object->at_point_.x, object->at_point_.y, object->at_point_.z,
                   std::atan2(at.x, at.z) * 180.0f / kPi);
-    return text;
+    return text.data();
 }
 
 State store_away(objects::GameEntity* object)
@@ -446,14 +447,14 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         return nullptr;
     if (!name) {
         // (a name no object has: "level_editor_copy_<source>_<n>", shown as "<source's name> copy <n>")
-        char text[64];
+        std::array<char, 64> text{};
         do {
             ++g_copy_counter;
-            std::snprintf(text, sizeof(text), "level_editor_copy_%08X_%d", source, g_copy_counter);
-            name = checksums::hash_from_text(text);
+            std::snprintf(text.data(), sizeof(text), "level_editor_copy_%08X_%d", source, g_copy_counter);
+            name = checksums::hash_from_text(text.data());
         } while (objects::find_object(name));
-        std::snprintf(text, sizeof(text), "%s copy %d", caption(source).c_str(), g_copy_counter);
-        script::note_qb_name(name, text);
+        std::snprintf(text.data(), sizeof(text), "%s copy %d", caption(source).c_str(), g_copy_counter);
+        script::note_qb_name(name, text.data());
     }
     if (objects::find_object(name))
         return nullptr;

@@ -9,6 +9,7 @@
 #include <cstring>
 #include <functional>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_camera.h"
@@ -308,10 +309,10 @@ Pad read_pad()
 
 const uint8_t* pad_keys(const uint8_t* keys, const Pad& pad)
 {
-    static uint8_t merged[SDL_NUM_SCANCODES];
+    static std::array<uint8_t, SDL_NUM_SCANCODES> merged;
     if (!pad.active)
         return keys;
-    std::memcpy(merged, keys, sizeof(merged));
+    std::memcpy(merged.data(), keys, sizeof(merged));
     auto hold = [&](int action) {
         const actions::ActStep* a = actions::get_pull(action);
         if (!a)
@@ -333,7 +334,7 @@ const uint8_t* pad_keys(const uint8_t* keys, const Pad& pad)
         hold(actions::kNudgeRight);
     if (pad.fast)
         merged[SDL_SCANCODE_LSHIFT] = 1;
-    return merged;
+    return merged.data();
 }
 
 bool get_pad_cursor(const Pad& pad, bool mouse_moved, float* x, float* y)

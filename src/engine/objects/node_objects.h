@@ -12,6 +12,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -110,7 +111,7 @@ public:
     bool is_finished_{};         // +0x1A
     uint8_t flag_1b_{};          // +0x1B (a flag, any byte: plays while paused)
     bool flag_1c_{false};        // +0x1C (0xB8CA12C5)
-    uint8_t unknown1d_[3]{};
+    std::array<uint8_t, 3> unknown1d_{};
     uint32_t value20_{};   // +0x20 its name
     uint32_t label_{};     // +0x24 the script run when it ends (0x1A005041)
     script::Struct* args_{nullptr}; // +0x28 that script's params
@@ -146,7 +147,7 @@ public:
 
     TableRow* entries_{nullptr}; // +0x00
     bool transformed_{false};    // +0x04
-    uint8_t unknown5_[3]{};
+    std::array<uint8_t, 3> unknown5_{};
     maths::Mat4 placement_mat_{}; // +0x08
     script::Array* nodes_{nullptr}; // +0x48
 };

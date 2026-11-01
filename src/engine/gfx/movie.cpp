@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/checksums.h"
@@ -138,8 +139,8 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     set_texture_stage_state(1, 1, 1); // stage 1 off
     set_texture(0, nullptr);          // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
-    char dump_name[256];
-    std::snprintf(dump_name, sizeof(dump_name), "e:\\movietest\\movie%04d.bmp", g_movie_dump_count);
+    std::array<char, 256> dump_name{};
+    std::snprintf(dump_name.data(), sizeof(dump_name), "e:\\movietest\\movie%04d.bmp", g_movie_dump_count);
     ++g_movie_dump_count;
     // Originally from PartyMod Fixes (its call at 0x0044FB8C): set_movie_texture in place of the renderer's texture set (0x004DA730)
     set_movie_texture(0, texture, 0);
@@ -147,7 +148,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
     const uint32_t color =
         static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255)) << 24 | 0x808080;
-    MovieVertex vertices[4];
+    std::array<MovieVertex, 4> vertices{};
     vertices[0] = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
     vertices[1] = vertices[0];
     vertices[1].x = static_cast<float>(static_cast<double>(g_movie_back_buffer_width) * width + x);
@@ -160,7 +161,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     vertices[3].v = 1.0f;
     if (g_d3d_device->TestCooperativeLevel() == D3D_OK) // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
-        draw_movie_quad(g_d3d_device, D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(MovieVertex));
+        draw_movie_quad(g_d3d_device, D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
     set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
 
@@ -375,7 +376,7 @@ void play_movie_file(const char* name)
     toggle_fog(false);
     if (texture) {
         sio::Hub* input = sio::create_manager(false);
-        uint16_t seen_up[4] = {};
+        std::array<uint16_t, 4> seen_up = {};
         video_toggle_sound(current_movie(), 1);
         video_set_loudness(current_movie(), 0,
                            static_cast<int>(static_cast<double>(volume) * g_one_percent // 0.01
@@ -434,7 +435,7 @@ void play_movie_file(const char* name)
                 sio::InputPort* device = input->get_pad_at_slot(port);
                 if (!device)
                     continue;
-                const uint8_t* data = device->control_data_;
+                const uint8_t* data = device->control_data_.data();
                 if (data[2] << 8 & kStart)
                     seen_up[port] |= kStart;
                 else if (seen_up[port] & kStart)

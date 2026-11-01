@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/assets/resource_entry.h"
 #include "engine/core/checksums.h"
@@ -115,8 +116,8 @@ void* make_tex_dict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, i
 void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<render::TextureSet*>(textures)); }
 
 // --- shared steps ---------------------------------------------------------------------------------------------
-uint8_t g_params_pool[0x180]; // 4 blocks of 0x60 bytes
-uint8_t* params_pool() { return g_params_pool; }
+std::array<uint8_t, 0x180> g_params_pool; // 4 blocks of 0x60 bytes
+uint8_t* params_pool() { return g_params_pool.data(); }
 uint32_t& params_in_use() { return g_params_in_use; }
 
 // strcpy (no bounds, as the original's).
@@ -143,12 +144,12 @@ void start_reading(Resource* asset, file::AsyncFileHandle* file, void* buffer, u
 // An archive file through Pip: its lowercased name's checksum kept (`lowered` false: the name is already).
 void read_archive(Resource* asset, uint32_t* archive, const char* file, uint32_t* size, bool lower)
 {
-    char lowered[256];
+    std::array<char, 256> lowered{};
     const char* key = file;
     if (lower) {
-        copy_string(lowered, file);
-        text::to_lower_text(lowered);
-        key = lowered;
+        copy_string(lowered.data(), file);
+        text::to_lower_text(lowered.data());
+        key = lowered.data();
     }
     *archive = checksums::hash_from_text(key);
     asset->octets_ = packs::read_in(file, false, nullptr, nullptr, nullptr);
@@ -249,13 +250,13 @@ int AnimResource::read_in(const char* name, bool async, bool use_archive, void* 
     start_loading();
     script::fetch_int_value(0x25DC7904u); // (a debug leftover: looked up and not used)
     memory::push_mem_profile(name);
-    char file[256];
-    platform_name(name, file);
+    std::array<char, 256> file{};
+    platform_name(name, file.data());
     uint32_t size = 0;
     if (use_archive) {
-        read_archive(this, &archive_, file, &size, true);
+        read_archive(this, &archive_, file.data(), &size, true);
     } else {
-        if (!read_file(this, file, async, &size))
+        if (!read_file(this, file.data(), async, &size))
             return -1;
         start_reading(this, file_ref_, octets_, size, async);
     }
@@ -324,9 +325,9 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
 {
     memory::push_mem_profile(name);
     auto* cutscene = new objects::CinematicTable;
-    char file[256];
-    platform_name(name, file);
-    if (!cutscene->read_in(file, 1, async, static_cast<const uint32_t*>(params)))
+    std::array<char, 256> file{};
+    platform_name(name, file.data());
+    if (!cutscene->read_in(file.data(), 1, async, static_cast<const uint32_t*>(params)))
         return -1;
     change_contents(cutscene);
     memory::pop_mem_profile();
@@ -391,13 +392,13 @@ int NodeTableResource::read_in(const char* name, bool async, bool use_archive, v
 bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
 {
     source_path_ = checksums::hash_from_text(args_);
-    char array_name[128];
-    level_nodes::make_node_array_name(args_, array_name);
+    std::array<char, 128> array_name{};
+    level_nodes::make_node_array_name(args_, array_name.data());
     parse_qb_file(args_, buffer);
     level_nodes::node_manager_instance()->add_node_array(level_nodes::node_array_checksum(args_), owned_);
     script::free_script_checksum_names();
-    script::Array* nodes = script::fetch_list(array_name);
-    array_name_ = checksums::hash_from_text(array_name);
+    script::Array* nodes = script::fetch_list(array_name.data());
+    array_name_ = checksums::hash_from_text(array_name.data());
     change_contents(nodes);
     nodes_ = get_data();
     close_file(file_ref_);
@@ -495,10 +496,10 @@ int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void
     start_loading();
     set_up_params(params, structure);
     copy_string(raw::chars(args_ + 8), name);
-    char file[256];
-    build_scene_file_path(file, name, args_[7]);
+    std::array<char, 256> file{};
+    build_scene_file_path(file.data(), name, args_[7]);
     uint32_t size = 0;
-    if (!read_file(this, file, async, &size))
+    if (!read_file(this, file.data(), async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);
     if (!async)
@@ -570,10 +571,10 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archiv
     start_loading();
     set_up_params(params, structure);
     copy_string(raw::chars(args_ + 5), name);
-    char file[256];
-    collision_file_name(file, name, args_[4]);
+    std::array<char, 256> file{};
+    collision_file_name(file.data(), name, args_[4]);
     uint32_t size = 0;
-    if (!read_file(this, file, async, &size))
+    if (!read_file(this, file.data(), async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);
     if (!async)
@@ -625,9 +626,9 @@ int RigResource::load_from_buffer(void* data, uint32_t size, bool /*copy*/, void
 int RigResource::read_in(const char* name, bool async, bool /*use_archive*/, void* /*params*/, void* /*structure*/)
 {
     start_loading();
-    char file[256];
-    platform_name(name, file);
-    file_ref_ = file::async_open(file, !async, 100);
+    std::array<char, 256> file{};
+    platform_name(name, file.data());
+    file_ref_ = file::async_open(file.data(), !async, 100);
     if (!file_ref_)
         return -1;
     auto size = static_cast<uint32_t>(file_ref_->get_file_size());
@@ -718,29 +719,29 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     start_loading();
     set_up_params(params, structure);
     memory::push_mem_profile(name);
-    char base[512];
-    const bool has_cas = split_skin_name(name, base);
-    text::to_lower_text(base);
+    std::array<char, 512> base{};
+    const bool has_cas = split_skin_name(name, base.data());
+    text::to_lower_text(base.data());
     args_->on_heap_ = 0;
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")
     const char* kind = has_cas ? "skin" : "mdl";
-    char file[512];
-    std::snprintf(file, sizeof(file), "%s.%s.%s", base, kind, render::platform_suffix());
+    std::array<char, 512> file{};
+    std::snprintf(file.data(), sizeof(file), "%s.%s.%s", base.data(), kind, render::platform_suffix());
     args_->has_cas_ = has_cas;
     ++files_reading_;
     uint32_t size = 0;
     if (has_cas && !async) {
-        read_archive(this, &archive_, file, &size, false);
+        read_archive(this, &archive_, file.data(), &size, false);
     } else {
-        if (!read_file(this, file, async, &size))
+        if (!read_file(this, file.data(), async, &size))
             return -1;
         start_reading(this, file_ref_, octets_, size, async);
     }
     if (has_cas) {
-        char cas[512];
-        std::snprintf(cas, sizeof(cas), "%s.cas.%s", base, render::platform_suffix());
+        std::array<char, 512> cas{};
+        std::snprintf(cas.data(), sizeof(cas), "%s.cas.%s", base.data(), render::platform_suffix());
         ++files_reading_;
-        cas_file_ = file::async_open(cas, !async, 100);
+        cas_file_ = file::async_open(cas.data(), !async, 100);
         if (!cas_file_)
             return -1;
         auto cas_size = static_cast<uint32_t>(cas_file_->get_file_size());
@@ -866,10 +867,10 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive
     start_loading();
     args_ = skin_collision_params(params, structure);
     copy_string(raw::chars(args_ + 4), name);
-    char file[256];
-    skin_collision_file_name(file, name);
+    std::array<char, 256> file{};
+    skin_collision_file_name(file.data(), name);
     uint32_t size = 0;
-    if (!read_file(this, file, async, &size))
+    if (!read_file(this, file.data(), async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);
     if (!async)
@@ -943,10 +944,10 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
     start_loading();
     set_up_params(params, structure);
     copy_string(raw::chars(args_ + 0xA), name);
-    char file[256];
-    tex_dict_file_name(file, name);
+    std::array<char, 256> file{};
+    tex_dict_file_name(file.data(), name);
     uint32_t size = 0;
-    if (!read_file(this, file, async, &size))
+    if (!read_file(this, file.data(), async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);
     if (!async)

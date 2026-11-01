@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <utility>
+#include <array>
 
 namespace frontend::new_frontend {
 
@@ -523,7 +524,7 @@ void RowAnim::tick(bool selected, float dt)
 
 namespace {
 
-constexpr const char* kScreenNames[kScreens] = {"main", "options", "levels", "pause"};
+constexpr std::array<const char*, kScreens> kScreenNames = {{"main", "options", "levels", "pause"}};
 
 } // namespace
 
@@ -551,7 +552,7 @@ std::string default_art(const std::string& id)
     // (every main menu item has its own - Quit too: the user's report of 2026-10-25, the art and name must follow
     // the highlighted item; tools/pipeline/menu_level/frontend_levels.ts MENU_ART has the main menu's the same. THUG2's advert
     // slides only where they say what the item is: generic_6 Create-A-Goal, generic_3 Create-A-Graphic.)
-    static const std::pair<const char*, const char*> kArt[] = {
+    static const auto kArt = std::to_array<std::pair<const char*, const char*>>({
         {"career", "loadscrn_boston_story"}, {"thug2story", "loadscrn_barcelona_story"},
         {"story", "loadscrn_boston_story"},  {"classic", "loadscrn_boston_classic"},
         {"thugstory", "loadscrn_secret_1"},  {"freeskate", "loadscrn_australia"},
@@ -561,7 +562,7 @@ std::string default_art(const std::string& id)
         {"cag", "loadscrn_generic_6"},       {"cap", "loadscrn_editor"},
         {"cagr", "loadscrn_generic_3"},      {"editor", "loadscrn_editor_play"},
         {"options", "loadscrn_generic"},     {"quit", "loadscrn_los_angeles"},
-    };
+    });
     for (const auto& [key, image] : kArt)
         if (id == key)
             return image;

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -78,11 +79,11 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
             continue;
         if ((slot & 1) && script::fetch_int_value("PrintGaps")) {
             Gap* record = gaps_ptr_[slot];
-            debug::printf("Editor Gap %d points: %s\n", record->details_.points_held_, record->details_.text_);
+            debug::printf("Editor Gap %d points: %s\n", record->details_.points_held_, record->details_.text_.data());
         }
-        char name[32];
-        std::snprintf(name, sizeof(name), "EditorTrgGap%d", slot);
-        return checksums::hash_from_text(name);
+        std::array<char, 32> name{};
+        std::snprintf(name.data(), sizeof(name), "EditorTrgGap%d", slot);
+        return checksums::hash_from_text(name.data());
     }
     return 0;
 }
@@ -95,7 +96,7 @@ GapDetails* GapRegistry::get_gap_info(int index, int* half)
         return nullptr;
     *half = get_half(this, index);
     // The name copied over the text (unbounded: as the original's inline strcpy).
-    text::copy_unbounded(gaps_ptr_[index]->details_.text_, gaps_ptr_[index]->label_);
+    text::copy_unbounded(gaps_ptr_[index]->details_.text_.data(), gaps_ptr_[index]->label_.data());
     return &gaps_ptr_[index]->details_;
 }
 

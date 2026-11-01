@@ -8,6 +8,7 @@
 #include "engine/gfx/engine_texture.h"
 #include "platform/compiler.h"
 #include <cstdio>
+#include <array>
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -196,28 +197,28 @@ void Hub::build_team_flag_set(int num_teams)
 // 0x00534090
 void Hub::set_max_players_preference(int count)
 {
-    char num_name[32];
-    char ui_string[32];
-    std::sprintf(num_name, "num_%d", count);
-    const uint32_t checksum = checksums::hash_from_text(num_name);
-    std::sprintf(ui_string, "%d %s", count, script::fetch_text(kStrPlayers));
-    set_count_preference(this, kNumPlayers, ui_string, checksum);
+    std::array<char, 32> num_name{};
+    std::array<char, 32> ui_string{};
+    std::sprintf(num_name.data(), "num_%d", count);
+    const uint32_t checksum = checksums::hash_from_text(num_name.data());
+    std::sprintf(ui_string.data(), "%d %s", count, script::fetch_text(kStrPlayers));
+    set_count_preference(this, kNumPlayers, ui_string.data(), checksum);
 }
 
 // 0x005341B0
 void Hub::set_max_observers_preference(int count)
 {
-    char num_name[32];
-    char ui_string[32];
-    std::sprintf(num_name, "num_%d", count);
-    const uint32_t checksum = checksums::hash_from_text(num_name);
+    std::array<char, 32> num_name{};
+    std::array<char, 32> ui_string{};
+    std::sprintf(num_name.data(), "num_%d", count);
+    const uint32_t checksum = checksums::hash_from_text(num_name.data());
     if (count == 0)
-        std::sprintf(ui_string, script::fetch_text(kStrNoObservers)); // (the text is the format, as in the original)
+        std::sprintf(ui_string.data(), script::fetch_text(kStrNoObservers)); // (the text is the format, as in the original)
     else if (count == 1)
-        std::sprintf(ui_string, "1 %s", script::fetch_text(kStrObserver));
+        std::sprintf(ui_string.data(), "1 %s", script::fetch_text(kStrObserver));
     else
-        std::sprintf(ui_string, "%d %s", count, script::fetch_text(kStrObservers));
-    set_count_preference(this, kNumObservers, ui_string, checksum);
+        std::sprintf(ui_string.data(), "%d %s", count, script::fetch_text(kStrObservers));
+    set_count_preference(this, kNumObservers, ui_string.data(), checksum);
 }
 
 // 0x00534310
@@ -360,7 +361,7 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
 // 0x005359F0
 void Hub::choose_start_points()
 {
-    int* points = raw::as<int>(start_points_);
+    int* points = raw::as<int>(start_points_.data());
     int offset = maths::rnd(256);
     int count = 0;
     if (in_net_game()) {

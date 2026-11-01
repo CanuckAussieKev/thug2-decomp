@@ -4,6 +4,7 @@
 // the deleting destructor 0x0045B8E0, 0x00459690, pull_inbound, Transmit, Init, Deinit (0x0045B820).
 
 #include <cstdint>
+#include <array>
 
 #include "engine/net/net_app_messages.h"
 
@@ -45,7 +46,7 @@ public:
     // 0x0045AA70 (id 9): the server's timestamp, acked; lost, late and duplicate packets counted from it.
     static int on_clock_sync_msg(InboundMsgCtx* context);
 
-    uint8_t host_sock_addr_[0x10]{}; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
+    std::array<uint8_t, 0x10> host_sock_addr_{}; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
 };
 
 // The app's task (net_client.cpp; the server uses it too).

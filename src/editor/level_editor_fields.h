@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_nodes.h"
 
@@ -68,7 +69,7 @@ const char* kind_name(Kind kind);
 struct Value {
     Kind kind = Kind::kOther;
     int32_t integer = 0;
-    float numbers[3] = {};      // Float: [0]; Pair: [0..1]; Vector: [0..2]
+    std::array<float, 3> numbers = {};      // Float: [0]; Pair: [0..1]; Vector: [0..2]
     uint32_t checksum = 0;      // Name
     std::string text;           // String, kLocalisedText; Other: how it reads
     bool on = false;            // Flag

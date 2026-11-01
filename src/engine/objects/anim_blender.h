@@ -11,6 +11,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace gfx {
 class BlendChannel;
@@ -157,7 +158,7 @@ float larger_of(float a, float b);
 struct VectorAt1c {
     [[nodiscard]] maths::Vec4 get_pull() const;
 
-    uint8_t unknown00_[0x1C];
+    std::array<uint8_t, 0x1C> unknown00_;
     maths::Vec4 vector_; // +0x1C
 };
 static_assert(offsetof(VectorAt1c, vector_) == 0x1C, "layout must match the original");
@@ -166,5 +167,5 @@ static_assert(offsetof(VectorAt1c, vector_) == 0x1C, "layout must match the orig
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_anim_blender_member_functions[180];
+extern std::array<uint32_t, 180> g_anim_blender_member_functions;
 } // namespace objects

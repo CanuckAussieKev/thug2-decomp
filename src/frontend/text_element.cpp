@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -379,12 +380,12 @@ bool LabelWidget::join_onto(const char* text)
     const int total = static_cast<int>(std::strlen(text)) + length;
     if (total + 1 >= 0x60 || total <= 0)
         return false;
-    char joined[0x60];
+    std::array<char, 0x60> joined{};
     joined[0] = 0;
     if (chars_)
-        copy_text(joined, chars_);
-    append_text(joined, text);
-    change_caption(joined);
+        copy_text(joined.data(), chars_);
+    append_text(joined.data(), text);
+    change_caption(joined.data());
     return true;
 }
 
@@ -396,12 +397,12 @@ bool LabelWidget::backspace()
     const int length = static_cast<int>(std::strlen(chars_));
     if (length == 0)
         return false;
-    char shorter[0x60];
-    copy_text(shorter, chars_);
+    std::array<char, 0x60> shorter{};
+    copy_text(shorter.data(), chars_);
     if (length > 1 && shorter[length - 1] == '\\' && shorter[length - 2] == '\\')
         shorter[length - 2] = 0;
     shorter[length - 1] = 0;
-    change_caption(shorter);
+    change_caption(shorter.data());
     return true;
 }
 
@@ -448,7 +449,7 @@ void LabelWidget::enable_blur()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap_);
     blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
-    std::memcpy(&blur_->rgba_value_, shown_.rgba, 4);
+    std::memcpy(&blur_->rgba_value_, shown_.rgba.data(), 4);
     memory::Hub::get_pull()->leave_heap_scope();
     make_text_objects(17, false);
 }
@@ -503,7 +504,7 @@ void LabelWidget::change_traits(Struct* params)
         free_text_objects(true);
     }
     if (uint32_t shadow = 0; read_colour_param(params, kShadowRgba, &shadow))
-        std::memcpy(shadow_rgba_, &shadow, 4); // (RGBA, red the low byte)
+        std::memcpy(shadow_rgba_.data(), &shadow, 4); // (RGBA, red the low byte)
     if (params->has_bare_flag(kRememberOverrideRgbaState))
         remembered_override_ = override_rgba_;
     if (params->has_bare_flag(kRestoreOverrideRgbaState))
@@ -543,7 +544,7 @@ void LabelWidget::tick_frame()
     const float shown_angle = (object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle;
     if (num_) {
         uint32_t shown = 0;
-        std::memcpy(&shown, shown_.rgba, 4);
+        std::memcpy(&shown, shown_.rgba.data(), 4);
         void* t = texts_[0];
         const uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed_.alpha));
         text_override_alpha(t, override_alpha_);
@@ -582,7 +583,7 @@ void LabelWidget::tick_frame()
         if (shadow_) {
             void* s = shadows_[0];
             uint32_t shadow = 0;
-            std::memcpy(&shadow, shadow_rgba_, 4);
+            std::memcpy(&shadow, shadow_rgba_.data(), 4);
             const uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
             text_override_alpha(s, override_alpha_);
             text_font(s, typeface_);
@@ -631,7 +632,7 @@ void LabelWidget::tick_frame()
         if (shadow_) {
             void* s = shadows_[i];
             uint32_t shadow = 0;
-            std::memcpy(&shadow, shadow_rgba_, 4);
+            std::memcpy(&shadow, shadow_rgba_.data(), 4);
             text_override_alpha(s, override_alpha_);
             const uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
             text_pos(s, static_cast<float>(static_cast<double>(scale_x) * shadow_x_ + x),

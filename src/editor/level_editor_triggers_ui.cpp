@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_cameras.h"
 #include "editor/level_editor_nodes.h"
@@ -111,9 +112,9 @@ bool sound_combo(std::string* sound)
         }
         ImGui::EndCombo();
     }
-    static char typed[64];
+    static std::array<char, 64> typed;
     static bool editing;
-    changed |= name_field("Sound Name", sound, typed, sizeof(typed), &editing);
+    changed |= name_field("Sound Name", sound, typed.data(), sizeof(typed), &editing);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Must be a sound the level loads");
     return changed;
@@ -164,8 +165,8 @@ void proxim_section(uint32_t node)
         if (ImGui::IsItemActivated())
             get_queue([] { begin_edit(); });
     } else if (e.shape) {
-        float size[3] = {e.size.x, e.size.y, e.size.z};
-        if (ImGui::DragFloat3("Size##proxim", size, 5.0f, kProximMin, kProximMax, "%.0f",
+        std::array<float, 3> size = {{e.size.x, e.size.y, e.size.z}};
+        if (ImGui::DragFloat3("Size##proxim", size.data(), 5.0f, kProximMin, kProximMax, "%.0f",
                               ImGuiSliderFlags_AlwaysClamp)) {
             ProximEdit sized = e;
             sized.size = {size[0], size[1], size[2]};
@@ -373,8 +374,8 @@ void inspector_section(int index)
         return;
     }
     // The kind.
-    const Kind kinds[] = {Kind::kKill,   Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
-                          Kind::kGapEnd, Kind::kBoost,  Kind::kViewCam};
+    const auto kinds = std::to_array<Kind>({Kind::kKill,   Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
+                          Kind::kGapEnd, Kind::kBoost,  Kind::kViewCam});
     if (ImGui::BeginCombo("Kind", kind_name(s.kind))) {
         for (const Kind k : kinds) {
             if (ImGui::Selectable(kind_name(k), k == s.kind) && k != s.kind) {
@@ -387,8 +388,8 @@ void inspector_section(int index)
         ImGui::EndCombo();
     }
     // The size (one undo step a drag).
-    float size[3] = {s.size.x, s.size.y, s.size.z};
-    if (ImGui::DragFloat3("Size", size, 5.0f, 10.0f, 50000.0f, "%.0f")) {
+    std::array<float, 3> size = {{s.size.x, s.size.y, s.size.z}};
+    if (ImGui::DragFloat3("Size", size.data(), 5.0f, 10.0f, 50000.0f, "%.0f")) {
         Spec sized = s;
         sized.size = {size[0], size[1], size[2]};
         get_queue([key, sized] { set_spec(key, sized, false); });

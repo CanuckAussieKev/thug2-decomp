@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
@@ -31,7 +32,7 @@ namespace frontend::level_editor::faces {
 
 namespace {
 
-const FlagInfo kFlags[kFlagCount] = {
+const std::array<FlagInfo, kFlagCount> kFlags = {{
     {0x0001, "Skatable", "Skatable at any slope"},
     {0x0002, "Not Skatable", "Not skatable unless Skatable or Vert is set"},
     {0x0004, "Wallride", "Wallride only"},
@@ -40,7 +41,7 @@ const FlagInfo kFlags[kFlagCount] = {
     {0x0040, "Trigger", "Runs its node's TriggerScript when crossed"},
     {0x0080, "Camera Pass-Through", "Camera passes through"},
     {0x2000, "Not Taggable", "Can't be tagged with graffiti"},
-};
+}};
 
 int hex_digit(char c)
 {
@@ -90,16 +91,16 @@ bool get_click(std::vector<FaceKey>* selection, FaceKey key, bool add)
 std::string write_records(const std::vector<SectorFaces>& sectors)
 {
     std::string out;
-    char text[32];
+    std::array<char, 32> text{};
     for (const SectorFaces& s : sectors) {
         if (s.faces.empty())
             continue;
-        std::snprintf(text, sizeof(text), "faces %08X ", s.checksum);
-        out += text;
+        std::snprintf(text.data(), sizeof(text), "faces %08X ", s.checksum);
+        out += text.data();
         for (size_t i = 0; i < s.faces.size(); ++i) {
-            std::snprintf(text, sizeof(text), "%s%u:%04X", i ? "," : "", static_cast<unsigned>(s.faces[i].first),
+            std::snprintf(text.data(), sizeof(text), "%s%u:%04X", i ? "," : "", static_cast<unsigned>(s.faces[i].first),
                           static_cast<unsigned>(s.faces[i].second));
-            out += text;
+            out += text.data();
         }
         out += '\n';
     }
@@ -377,13 +378,13 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
     const bool selected = get_click(&g_selection, key, add);
     uint16_t flags = 0;
     get_take_in(key, &flags);
-    char text[160];
-    std::snprintf(text, sizeof(text), "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
+    std::array<char, 160> text{};
+    std::snprintf(text.data(), sizeof(text), "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
                   piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
                   static_cast<unsigned>(g_selection.size()));
-    hud::get_message(text);
+    hud::get_message(text.data());
     if (debug_enabled())
-        get_log("level editor: %s", text);
+        get_log("level editor: %s", text.data());
     return true;
 }
 
@@ -458,11 +459,11 @@ bool set_flag(uint16_t bit, bool on)
         return false;
     push_module_undo(before);
     view::stale_cache();
-    char text[128];
-    std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s", bit, on ? "set" : "cleared", faces,
+    std::array<char, 128> text{};
+    std::snprintf(text.data(), sizeof(text), "Face flag 0x%04X %s on %d face%s", bit, on ? "set" : "cleared", faces,
                   faces == 1 ? "" : "s");
-    hud::get_message(text);
-    get_log("level editor: %s", text);
+    hud::get_message(text.data());
+    get_log("level editor: %s", text.data());
     return true;
 }
 
@@ -552,8 +553,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
                  std::vector<ui::Seg>* lines)
 {
     auto outline = [&](FaceKey key, uint32_t argb, float thickness) {
-        V3 p[3];
-        if (!get_corners(key, p))
+        std::array<V3, 3> p{};
+        if (!get_corners(key, p.data()))
             return;
         for (int k = 0; k < 3; ++k) {
             V3 a = p[k], b = p[(k + 1) % 3];
@@ -581,10 +582,10 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
 
 std::string describe()
 {
-    char text[96];
-    std::snprintf(text, sizeof(text), "Faces mode%s: %u selected", g_picking ? "" : " off",
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), "Faces mode%s: %u selected", g_picking ? "" : " off",
                   static_cast<unsigned>(g_selection.size()));
-    return text;
+    return text.data();
 }
 
 void inspector_section(ImFont* mono, ImFont* small_font)
@@ -626,9 +627,9 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         const FlagInfo& info = kFlags[i];
         const int state = get_combined(flags, info.bit);
         bool on = state == 1;
-        char label[64];
-        std::snprintf(label, sizeof(label), "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
-        if (ImGui::Checkbox(label, &on)) {
+        std::array<char, 64> label{};
+        std::snprintf(label.data(), sizeof(label), "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
+        if (ImGui::Checkbox(label.data(), &on)) {
             const uint16_t bit = info.bit;
             const bool set = state != 1; // (mixed or clear: set on all; all set: clear)
             g_queue.emplace_back([bit, set] { set_flag(bit, set); });

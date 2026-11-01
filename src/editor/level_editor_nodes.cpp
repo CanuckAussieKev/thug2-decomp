@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_objects.h"
@@ -38,9 +39,9 @@ constexpr uint32_t kRed = 0xFFE5484D, kBlue = 0xFF3E8BFF, kGreen = 0xFF46C46E, k
 
 const char* family_name(Family family)
 {
-    static const char* const kNames[kFamilies] = {"Spawns",    "Crowns",   "Flags",   "Rails",  "Ladders",
+    static const std::array<const char*, kFamilies> kNames = {{"Spawns",    "Crowns",   "Flags",   "Rails",  "Ladders",
                                                   "Paths",     "Objects",  "Scenery", "Lights", "Sounds",
-                                                  "Particles", "Triggers", "Other"};
+                                                  "Particles", "Triggers", "Other"}};
     const int i = static_cast<int>(family);
     return i >= 0 && i < kFamilies ? kNames[i] : "?";
 }
@@ -57,10 +58,10 @@ Family get_classify(uint32_t cls, uint32_t type)
                           kCrown = name_hash("Crown"),
                           kEditorTrigger =
                               name_hash("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
-    static const uint32_t kFlags[] = {name_hash("Flag_Red"),        name_hash("Flag_Blue"),
+    static const auto kFlags = std::to_array<uint32_t>({name_hash("Flag_Red"),        name_hash("Flag_Blue"),
                                       name_hash("Flag_Green"),      name_hash("Flag_Yellow"),
                                       name_hash("Flag_Red_Base"),   name_hash("Flag_Blue_Base"),
-                                      name_hash("Flag_Green_Base"), name_hash("Flag_Yellow_Base")};
+                                      name_hash("Flag_Green_Base"), name_hash("Flag_Yellow_Base")});
     if (cls == kRestart)
         return Family::kSpawn;
     if (cls == kGenericNode)
@@ -194,7 +195,7 @@ std::unordered_map<uint32_t, int>& by_name()
     static std::unordered_map<uint32_t, int> value;
     return value;
 }
-int g_counts[kFamilies];
+std::array<int, kFamilies> g_counts;
 std::vector<uint32_t> g_signature; // (the arrays' names and sizes when scanned)
 int g_walked_crowns, g_walked_spawns;
 uint32_t g_generation;
@@ -241,7 +242,7 @@ void get_scan()
 {
     g_nodes.clear();
     by_name().clear();
-    std::memset(g_counts, 0, sizeof(g_counts));
+    std::memset(g_counts.data(), 0, sizeof(g_counts));
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager)
         return;
@@ -432,7 +433,7 @@ const std::vector<Elem>& get_all()
 const int* get_counts()
 {
     get_refresh();
-    return g_counts;
+    return g_counts.data();
 }
 
 int walked(Family family)
@@ -529,9 +530,9 @@ std::string get_name_text(uint32_t checksum)
 {
     if (const char* name = object_edit::get_name_of(checksum))
         return name;
-    char hex[16];
-    std::snprintf(hex, sizeof(hex), "#%08X", checksum);
-    return hex;
+    std::array<char, 16> hex{};
+    std::snprintf(hex.data(), sizeof(hex), "#%08X", checksum);
+    return hex.data();
 }
 
 std::string value_text(script::Component* c, int depth);
@@ -545,15 +546,15 @@ std::string array_text(script::Array* array, int depth)
     for (uint32_t i = 0; i < shown; ++i) {
         if (i)
             text += " ";
-        char buffer[48];
+        std::array<char, 48> buffer{};
         switch (array->kind_tag_) {
         case script::kQbvalInteger:
-            std::snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(array->fetch_part(i)));
-            text += buffer;
+            std::snprintf(buffer.data(), sizeof(buffer), "%d", static_cast<int>(array->fetch_part(i)));
+            text += buffer.data();
             break;
         case script::kQbvalFloat:
-            std::snprintf(buffer, sizeof(buffer), "%g", array->fetch_float(i));
-            text += buffer;
+            std::snprintf(buffer.data(), sizeof(buffer), "%g", array->fetch_float(i));
+            text += buffer.data();
             break;
         case script::kQbvalName:
             text += get_name_text(array->fetch_part(i));
@@ -576,16 +577,16 @@ std::string array_text(script::Array* array, int depth)
 
 std::string value_text(script::Component* c, int depth)
 {
-    char buffer[96];
+    std::array<char, 96> buffer{};
     switch (c->kind_tag()) {
     case script::kQbvalInteger:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        std::snprintf(buffer, sizeof(buffer), "%d", c->integer);
-        return buffer;
+        std::snprintf(buffer.data(), sizeof(buffer), "%d", c->integer);
+        return buffer.data();
     case script::kQbvalFloat:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        std::snprintf(buffer, sizeof(buffer), "%g", c->float_value_);
-        return buffer;
+        std::snprintf(buffer.data(), sizeof(buffer), "%g", c->float_value_);
+        return buffer.data();
     case script::kQbvalString:
     case script::kQbvalInlineText:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
@@ -594,16 +595,16 @@ std::string value_text(script::Component* c, int depth)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->pair)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            std::snprintf(buffer, sizeof(buffer), "(%g, %g)", c->pair->x, c->pair->y);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        return c->pair ? buffer : "()";
+            std::snprintf(buffer.data(), sizeof(buffer), "(%g, %g)", c->pair->x, c->pair->y);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the.data() script values' tagged 32-bit cells (param_struct.h), read by their tag
+        return c->pair ? buffer.data() : "()";
     case script::kQbvalVector:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->vector)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            std::snprintf(buffer, sizeof(buffer), "(%.2f, %.2f, %.2f)", c->vector->x, c->vector->y, c->vector->z);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        return c->vector ? buffer : "()";
+            std::snprintf(buffer.data(), sizeof(buffer), "(%.2f, %.2f, %.2f)", c->vector->x, c->vector->y, c->vector->z);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the.data() script values' tagged 32-bit cells (param_struct.h), read by their tag
+        return c->vector ? buffer.data() : "()";
     case script::kQbvalName:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         return get_name_text(c->checksum);

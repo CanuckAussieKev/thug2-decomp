@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -32,7 +33,7 @@ struct ElementState {
     float scale_x_, scale_y_;           // +0x28
     float base_scale_x_, base_scale_y_; // +0x30 (a relative scale is a factor of these)
     float angle;                        // +0x38 radians
-    uint8_t rgba[4];                    // +0x3C
+    std::array<uint8_t, 4> rgba;                    // +0x3C
     uint32_t unknown40;                 // +0x40
 
     // 0x004A8730: a copy (returns this).
@@ -181,7 +182,7 @@ public:
     ElementState summed_{};                  // +0x114
     float just_x_{}, just_y_{};              // +0x158 (-1 left / top .. 1 right / bottom)
     float span_, level_y_;                   // +0x160 the size (unscaled)
-    uint8_t rgba168_[4]{};                   // +0x168 (0x80 each)
+    std::array<uint8_t, 4> rgba168_{};                   // +0x168 (0x80 each)
     float z_priority_{0.0f};                 // +0x16C
     float remembered_alpha_{1.0f};           // +0x170 (remember_alpha / restore_alpha; 1)
     int rank_{0};                            // +0x174

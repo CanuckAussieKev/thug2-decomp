@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -38,7 +39,7 @@ struct GrindPoint {
     uint32_t flag_bits_;      // +0x48 (4 active, 0x10 a climbing node, ...)
     uint32_t label_;          // +0x4C its node's name (checksum)
     uint8_t surface_type_;    // +0x50
-    uint8_t pad51[3];
+    std::array<uint8_t, 3> pad51;
 
     // 0x0057C200: whether it's the node `name`.
     bool is_named(uint32_t name);
@@ -125,7 +126,7 @@ public:
     int num_{0};                         // +0x48
     int adding_{};              // +0x4C the node being added (0x0057D090)
     bool on_object_{false};     // +0x50
-    uint8_t pad51[3]{};
+    std::array<uint8_t, 3> pad51{};
 };
 static_assert(offsetof(GrindRailHub, nodes_) == 0x40 && offsetof(GrindRailHub, num_) == 0x48 &&
                   offsetof(GrindRailHub, on_object_) == 0x50,
@@ -158,11 +159,11 @@ struct BoxPair {
 };
 // 0x0057C500 / 0x0057C540: copies of 0x24- and 0x34-byte records (compiler-made assignments). Return this.
 struct Record24 {
-    uint32_t words[9];
+    std::array<uint32_t, 9> words;
     Record24* get_assign(const Record24* other);
 };
 struct Record34 {
-    uint32_t words[13];
+    std::array<uint32_t, 13> words;
     Record34* get_assign(const Record34* other);
 };
 

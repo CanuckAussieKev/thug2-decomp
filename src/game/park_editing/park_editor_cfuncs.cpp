@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/compositemgr.h"
@@ -485,11 +486,11 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
         return true;
     }
     // The first `length` characters (no more than the buffer holds - as the original, which doesn't check).
-    char shortened[0x40];
+    std::array<char, 0x40> shortened{};
     if (length > 0)
-        std::memcpy(shortened, name, static_cast<size_t>(length));
+        std::memcpy(shortened.data(), name, static_cast<size_t>(length));
     shortened[length] = 0;
-    script->args_->append_word("name", shortened);
+    script->args_->append_word("name", shortened.data());
     return true;
 }
 

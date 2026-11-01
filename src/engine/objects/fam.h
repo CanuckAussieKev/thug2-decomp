@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -70,5 +71,5 @@ static_assert(offsetof(FamComponent, fam_) == 0x18 && offsetof(FamComponent, fee
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_fam_member_functions[18];
+extern std::array<uint32_t, 18> g_fam_member_functions;
 } // namespace objects

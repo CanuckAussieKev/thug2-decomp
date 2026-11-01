@@ -167,7 +167,7 @@ WorldScene::~WorldScene()
 // 0x0049D1A0 (the third count is added twice under the same name, as the original)
 void WorldScene::fetch_diagnostics(script::Struct* info)
 {
-    info->append_word(0xC3F4169A, label_);
+    info->append_word(0xC3F4169A, label_.data());
     int sectors = 0, count70 = 0, slot33 = 0, slot33_again = 0, count_c_6f_0 = 0;
     if (sectors_) {
         for_each_sector(this, [&](WorldCell* sector) {
@@ -256,11 +256,11 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
 // 0x0049DF70 (the original sprintfs into its 128 bytes unbounded)
 bool WorldScene::load_collision_file(const char* name, int flag)
 {
-    std::snprintf(pip_name_, sizeof(pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
-    auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr));
+    std::snprintf(pip_name_.data(), sizeof(pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
+    auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr));
     if (!data)
         return false;
-    add_collision_data(data, static_cast<size_t>(packs::get_file_size(pip_name_)), flag); // (not original: sized)
+    add_collision_data(data, static_cast<size_t>(packs::get_file_size(pip_name_.data())), flag); // (not original: sized)
     return true;
 }
 
@@ -342,10 +342,10 @@ bool WorldScene::load_add_scene(const char* name)
     maths::BBox box;
     if (!coll_statics_)
         return false;
-    std::snprintf(add_pip_name_, sizeof(add_pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
+    std::snprintf(add_pip_name_.data(), sizeof(add_pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
     // (the base's collision file, not the one just named - as the original)
-    if (auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr)))
-        scene_load_collision_data(this, data, static_cast<size_t>(packs::get_file_size(pip_name_)),
+    if (auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr)))
+        scene_load_collision_data(this, data, static_cast<size_t>(packs::get_file_size(pip_name_.data())),
                                   &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
@@ -407,7 +407,7 @@ bool WorldScene::unload_added_scene()
         return false;
     delete[] add_coll_statics_; // (the vector deleting destructor; the pointer kept, as the original)
     if (add_coll_objects_)
-        packs::offload(add_pip_name_);
+        packs::offload(add_pip_name_.data());
     if (hidden_sectors_)
         delete_nodes(hidden_sectors_);
     if (add_scene_sectors_) {

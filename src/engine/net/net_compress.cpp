@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
@@ -63,7 +64,7 @@ int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
             }
         } else {
             // A literal: bytes up to where two in a row are equal (they start a run) or the most.
-            uint8_t bytes[kMaxLiteral + 4];
+            std::array<uint8_t, kMaxLiteral + 4> bytes{};
             bytes[0] = current;
             bytes[1] = next;
             int count = 2;
@@ -75,14 +76,14 @@ int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
                 // The last two start a run.
                 *out++ = static_cast<uint8_t>(count - 3);
                 if (count - 2 > 0) {
-                    std::memcpy(out, bytes, count - 2);
+                    std::memcpy(out, bytes.data(), count - 2);
                     out += count - 2;
                 }
                 current = next = bytes[count - 2];
                 continue;
             }
             *out++ = static_cast<uint8_t>(count - 1);
-            std::memcpy(out, bytes, count);
+            std::memcpy(out, bytes.data(), count);
             out += count;
             if (size == 0)
                 return static_cast<int>(out - start);

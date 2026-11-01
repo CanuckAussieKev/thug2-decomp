@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 namespace sys {
 
@@ -28,9 +29,9 @@ void write_default_setting(const char* name, uint32_t value)
         RegCloseKey(key);
         return;
     }
-    char path[256] = {};
-    std::snprintf(path, sizeof(path), "%s\\%s", kSettingsKey, name); // (the original's sprintf is unbounded)
-    if (RegCreateKeyExA(HKEY_CURRENT_USER, path, 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
+    std::array<char, 256> path = {};
+    std::snprintf(path.data(), sizeof(path), "%s\\%s", kSettingsKey, name); // (the original's sprintf is unbounded)
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, path.data(), 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
     RegSetValueExA(key, name, 0, REG_DWORD, raw::bytes(&value), sizeof(value));
     RegCloseKey(key);

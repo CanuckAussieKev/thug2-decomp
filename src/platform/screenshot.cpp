@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <SDL2/SDL.h>
+#include <array>
 
 #include "build_info.h"
 #include "engine/core/checksums.h"
@@ -103,9 +104,9 @@ std::string get_name_of(uint32_t checksum)
 {
     if (const char* name = script::look_up_hash_name(checksum))
         return name;
-    char text[16];
-    std::snprintf(text, sizeof(text), "0x%08X", checksum);
-    return text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+    return text.data();
 }
 std::string active_ruleset_label()
 {
@@ -120,9 +121,9 @@ objects::GameEntity* local_skater()
 
 std::string vec(const float v[3], const char* format = "(%.1f, %.1f, %.1f)")
 {
-    char text[96];
-    std::snprintf(text, sizeof(text), format, v[0], v[1], v[2]);
-    return text;
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), format, v[0], v[1], v[2]);
+    return text.data();
 }
 
 std::string file_time(const char* path)
@@ -134,11 +135,11 @@ std::string file_time(const char* path)
     SYSTEMTIME t;
     if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t))
         return {};
-    char text[64];
-    std::snprintf(text, sizeof(text), "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", t.wYear, t.wMonth, t.wDay, t.wHour,
+    std::array<char, 64> text{};
+    std::snprintf(text.data(), sizeof(text), "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", t.wYear, t.wMonth, t.wDay, t.wHour,
                   t.wMinute, t.wSecond,
                   (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow);
-    return text;
+    return text.data();
 }
 
 // Everything the sidecar says, read on the main thread (every field safe when it isn't there).
@@ -146,40 +147,40 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
                                      const std::string& taken)
 {
     std::vector<Section> sections;
-    char text[256];
+    std::array<char, 256> text{};
 
     Section shot{"screenshot", {}};
     shot.fields.push_back({"file", png});
     shot.fields.push_back({"folder", folder});
     shot.fields.push_back({"taken", taken});
-    std::snprintf(text, sizeof(text), "%d x %d (%s)", frame.width, frame.height, format_name(frame.format));
-    shot.fields.push_back({"image", text});
+    std::snprintf(text.data(), sizeof(text), "%d x %d (%s)", frame.width, frame.height, format_name(frame.format));
+    shot.fields.push_back({"image", text.data()});
     int w = 0, h = 0;
     if (SDL_Window* window = sys::sdl_window())
         SDL_GetWindowSize(window, &w, &h);
     if (w > 0 && h > 0) {
-        std::snprintf(text, sizeof(text), "%d x %d", w, h);
-        shot.fields.push_back({"window", text});
+        std::snprintf(text.data(), sizeof(text), "%d x %d", w, h);
+        shot.fields.push_back({"window", text.data()});
     } else {
         shot.fields.push_back({"window", ""});
     }
     sections.push_back(shot);
 
     Section build{"build", {}};
-    char exe[MAX_PATH] = "";
-    GetModuleFileNameA(nullptr, exe, MAX_PATH);
-    const char* exe_name = std::strrchr(exe, '\\') ? std::strrchr(exe, '\\') + 1 : exe;
+    std::array<char, MAX_PATH> exe = {""};
+    GetModuleFileNameA(nullptr, exe.data(), MAX_PATH);
+    const char* exe_name = std::strrchr(exe.data(), '\\') ? std::strrchr(exe.data(), '\\') + 1 : exe.data();
     build.fields.push_back({"exe", exe_name});
-    build.fields.push_back({"exe file", file_time(exe)});
+    build.fields.push_back({"exe file", file_time(exe.data())});
     HMODULE dll = nullptr;
-    char dll_path[MAX_PATH] = "";
+    std::array<char, MAX_PATH> dll_path = {""};
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                            static_cast<LPCSTR>(code_address(&gather_sections)), &dll))
-        GetModuleFileNameA(dll, dll_path, MAX_PATH);
+        GetModuleFileNameA(dll, dll_path.data(), MAX_PATH);
     build.fields.push_back(
         {"dll",
-         dll_path[0] ? std::string(std::strrchr(dll_path, '\\') ? std::strrchr(dll_path, '\\') + 1 : dll_path) : ""});
-    build.fields.push_back({"dll file", dll_path[0] ? file_time(dll_path) : ""});
+         dll_path[0] ? std::string(std::strrchr(dll_path.data(), '\\') ? std::strrchr(dll_path.data(), '\\') + 1 : dll_path.data()) : ""});
+    build.fields.push_back({"dll file", dll_path[0] ? file_time(dll_path.data()) : ""});
     build.fields.push_back({"dll commit", THUG2_BUILD_COMMIT});
     sections.push_back(build);
 
@@ -203,13 +204,13 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     Section skater{"skater", {}};
     if (in_level && !loading) {
         if (const objects::GameEntity* s = local_skater()) {
-            float pos[3] = {s->at_point_.x, s->at_point_.y, s->at_point_.z};
-            skater.fields.push_back({"position", vec(pos)});
+            std::array<float, 3> pos = {{s->at_point_.x, s->at_point_.y, s->at_point_.z}};
+            skater.fields.push_back({"position", vec(pos.data())});
             const maths::Vec4& at = s->basis_frame_.row[2];
             const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
-            std::snprintf(text, sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
-            skater.fields.push_back({"heading", text});
+            std::snprintf(text.data(), sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
+            skater.fields.push_back({"heading", text.data()});
         }
     }
     sections.push_back(skater);
@@ -313,9 +314,9 @@ void emit_out(const std::shared_ptr<Job>& job)
 // The folder (ending in a backslash): [features] screenshot_dir or Screenshots, in the game folder unless absolute.
 std::string folder_path()
 {
-    char setting[MAX_PATH] = "";
-    build_info::fetch_text("features", "screenshot_dir", "", setting, sizeof(setting));
-    std::string folder = setting;
+    std::array<char, MAX_PATH> setting = {""};
+    build_info::fetch_text("features", "screenshot_dir", "", setting.data(), sizeof(setting));
+    std::string folder = setting.data();
     while (!folder.empty() && (folder.back() == ' ' || folder.back() == '\t'))
         folder.pop_back();
     if (folder.empty())
@@ -372,8 +373,8 @@ void get_take()
         get_log("screenshot: no free name in %s", folder.c_str());
         return;
     }
-    char taken[64];
-    std::snprintf(taken, sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
+    std::array<char, 64> taken{};
+    std::snprintf(taken.data(), sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
                   stamp.minute, stamp.second);
     auto job = std::make_shared<Job>();
     // The mouse, in the image's pixels (the window may be scaled to the back buffer): marked on the picture and noted.
@@ -387,16 +388,16 @@ void get_take()
     if (w > 0 && h > 0) {
         job->mouse_x_ = static_cast<int>(static_cast<long long>(mx) * frame.width / w);
         job->mouse_y_ = static_cast<int>(static_cast<long long>(my) * frame.height / h);
-        char at[96];
-        std::snprintf(at, sizeof(at), "(%d, %d) in the image (marked with a cross)", job->mouse_x_, job->mouse_y_);
-        mouse = at;
+        std::array<char, 96> at{};
+        std::snprintf(at.data(), sizeof(at), "(%d, %d) in the image (marked with a cross)", job->mouse_x_, job->mouse_y_);
+        mouse = at.data();
     } else {
         mouse = "not over the window";
     }
     job->folder = folder;
     job->png = png;
     job->txt = sidecar_name(png);
-    std::vector<Section> sections = gather_sections(frame, png, folder, taken);
+    std::vector<Section> sections = gather_sections(frame, png, folder, taken.data());
     sections.front().fields.push_back({"mouse", mouse});
     if (!g_event_note.empty()) {
         job->note = g_event_note;
@@ -474,10 +475,10 @@ void take_series_frame()
         std::time_t now = std::time(nullptr);
         std::tm local = {};
         localtime_s(&local, &now);
-        char taken[64];
-        std::snprintf(taken, sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + 1900, local.tm_mon + 1,
+        std::array<char, 64> taken{};
+        std::snprintf(taken.data(), sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + 1900, local.tm_mon + 1,
                       local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
-        std::vector<Section> sections = gather_sections(frame, series_frame_name(1), series->folder, taken);
+        std::vector<Section> sections = gather_sections(frame, series_frame_name(1), series->folder, taken.data());
         sections.front().title = "series";
         sections.front().fields.push_back(
             {"frames", std::to_string(series->total) + " (frame_0001.png on, one a rendered frame)"});
@@ -488,10 +489,10 @@ void take_series_frame()
         Sleep(1);
     ++series->in_flight_;
     const int number = ++series->taken;
-    char line[96];
-    std::snprintf(line, sizeof(line), "%5d  %10u  %10llu  %10u\n", number, frame_loop::frames_run(),
+    std::array<char, 96> line{};
+    std::snprintf(line.data(), sizeof(line), "%5d  %10u  %10llu  %10u\n", number, frame_loop::frames_run(),
                   static_cast<unsigned long long>(frame_clock::fetch_retrace_count()), frame_clock::get_time());
-    series->times += line;
+    series->times += line.data();
     std::thread(write_series_frame, series, std::move(frame), number).detach();
 }
 
@@ -554,13 +555,13 @@ void prepare_all()
         return;
     }
     const bool snipping = get_snipping_takes_print_screen();
-    char setting[64] = "";
-    build_info::fetch_text(build_info::kKeybinds, "Screenshot", "", setting, sizeof(setting));
+    std::array<char, 64> setting = {""};
+    build_info::fetch_text(build_info::kKeybinds, "Screenshot", "", setting.data(), sizeof(setting));
     const int fallback = default_key(snipping);
     auto by_name = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
-    g_key = parse_key(setting, fallback, by_name);
-    if (setting[0] && parse_key(setting, 0, by_name) == 0)
-        get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting);
+    g_key = parse_key(setting.data(), fallback, by_name);
+    if (setting[0] && parse_key(setting.data(), 0, by_name) == 0)
+        get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting.data());
     get_log("screenshot key: %s (scan code %d%s) - saves to %s", SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)),
             g_key,
             setting[0] ? ", [Keybinds] Screenshot"

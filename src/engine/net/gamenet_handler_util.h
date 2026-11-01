@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "game/goals/goal_manager.h"
@@ -87,7 +88,7 @@ inline bool is_own_player(PlayerRecord* player) { return player->is_own_player()
 inline bool is_observer(PlayerRecord* player) { return player->is_observer() != 0; }
 inline objects::Entity* player_skater(const PlayerRecord* player) { return player->skater_; }
 inline uint32_t get_skater_id(const objects::Entity* skater) { return skater->ident_; }
-inline const char* player_name(const PlayerRecord* player) { return player->label_; }
+inline const char* player_name(const PlayerRecord* player) { return player->label_.data(); }
 inline int player_team(const PlayerRecord* player) { return player->team_; }
 
 inline PlayerRecord* start_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
@@ -134,7 +135,7 @@ inline void delete_params(script::Struct* params)
 // "team_<n + 1>_name" (the original's sprintf).
 inline void team_name_key(char* out, int team)
 {
-    char digits[12];
+    std::array<char, 12> digits{};
     int length = 0;
     auto value = static_cast<unsigned int>(team + 1);
     const bool negative = team + 1 < 0;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/bits_as.h"
 #include "engine/maths/mat4.h"
@@ -44,7 +45,7 @@ struct AcidDrop {
     maths::Vec4 normal; // +0x10 the wall's normal there
     float hit_height_;  // +0x20 the height the search first hit it at
     bool object_hit_;   // +0x24 (the feeler's hit object was still there)
-    uint8_t pad25[3];
+    std::array<uint8_t, 3> pad25;
 };
 
 class SkaterPhysicsModule final : public objects::ObjectModule {
@@ -752,7 +753,7 @@ public:
     uint8_t hit_skatable_{};        // +0x228 set by probe_touches_zone: the face hit is skatable
     uint8_t hit_vert_{};            // +0x229 ... vert (face flag 8)
     uint8_t hit_wall_{};            // +0x22A ... a wall (face flag 4)
-    uint8_t pad22b_[1]{};
+    std::array<uint8_t, 1> pad22b_{};
     objects::GrindPoint* rail_node_{};      // +0x22C the rail node being ground (or last ground)
     objects::GrindRailHub* rail_manager_{}; // +0x230 ... and its rail manager
     int rail_time_{};                       // +0x234 the game clock when the skater last got on or off a rail
@@ -763,45 +764,45 @@ public:
     uint8_t on_ledge_{};                    // +0x248 the rail is a ledge (the Ledge member function)
     uint8_t bad_ledge_{};                   // +0x249 a bad ledge (BadLedge)
     uint8_t skitch_moving_{};               // +0x24A moving between skitch points
-    uint8_t pad24b_[1]{};
+    std::array<uint8_t, 1> pad24b_{};
     int skitch_point_{};            // +0x24C the skitch point held (its index on the car)
     float skitch_direction_{};      // +0x250
     uint8_t landed_this_frame_{};   // +0x254
     uint8_t frame_began_in_drop_{}; // +0x255 the frame began in an acid drop (the state's +0x78)
     uint8_t frame_began_in_lip_{};  // +0x256
-    uint8_t pad257_[1]{};
+    std::array<uint8_t, 1> pad257_{};
     maths::Vec4 lip_pos_{};          // +0x258 where the lip trick is (w 1; (0, 0, 0, 1) out of the lip state)
     maths::Vec4 vert_takeoff_{};     // +0x268 where the skater went up the vert wall (1 lower)
     maths::Vec4 vert_wall_normal_{}; // +0x278 the vert wall's normal
     maths::Vec4 vert_facing_{};      // +0x288 the facing up the wall, y reversed
     float vert_step_{};              // +0x298 the step the vert air feeler searches up by (6 when it starts, halved)
-    uint8_t unknown29c_[0x10]{};
+    std::array<uint8_t, 0x10> unknown29c_{};
     maths::Vec4 side_normal_sum_{}; // +0x2AC the side feelers' hit normals added up
     float side_nearest_{};          // +0x2BC the nearest side hit's distance
     float side_reach_{};            // +0x2C0 the side collisions' reach (SetExtraPush radius; 0: off)
     float side_push_{};             // +0x2C4 their push (SetExtraPush speed)
     float side_turn_{};             // +0x2C8 their turn a second (SetExtraPush 0xDFDFEAB8)
-    uint8_t unknown2cc_[0x4]{};
+    std::array<uint8_t, 0x4> unknown2cc_{};
     uint8_t transfer_blocked_{}; // +0x2D0 a spine transfer was blocked: break_vert tries again
-    uint8_t pad2d1_[3]{};
+    std::array<uint8_t, 3> pad2d1_{};
     uint32_t nearest_wall_side_{}; // +0x2D4 which end or side of the board has the nearest wall (0: none)
     uint8_t powerslide_{0};        // +0x2D8 EnterPowerslide / ExitPowerslide
     uint8_t auto_kick_{};        // +0x2D9 ForceAutoKickOn / Off
     uint8_t tap_spin_{};         // +0x2DA spins by taps (half a turn each)
     uint8_t model_rotating_{};   // +0x2DB a timed model rotation (a flip spin) is on
     uint8_t model_flipped_{};    // +0x2DC ... a half turn about y
-    uint8_t pad2dd_[3]{};
+    std::array<uint8_t, 3> pad2dd_{};
     float model_rotation_left_{}; // +0x2E0 ... its frames left
     uint8_t flip_spin_started_{0}; // +0x2E4 a flip spin started this air (the trick component's sequence check)
-    uint8_t pad2e5_[3]{};
+    std::array<uint8_t, 3> pad2e5_{};
     float slomo_speed_{
         1.0f}; // +0x2E8 SetSlomo's speed (1): the model rotation's step a frame, the trick windows' stretch
     uint8_t point_rail_spin_{}; // +0x2EC in a point rail spin
     uint8_t on_vehicle_{0};     // +0x2ED SkaterVehicleOn / Off
-    uint8_t pad2ee_[2]{};
+    std::array<uint8_t, 2> pad2ee_{};
     uint32_t vehicle_{};       // +0x2F0 SetSkaterVehicle
     uint8_t projectiles_on_{}; // +0x2F4 ProjectilesOn / Off
-    uint8_t pad2f5_[3]{};
+    std::array<uint8_t, 3> pad2f5_{};
     int ammo_{};                // +0x2F8 the projectile count
     uint32_t ammo_type_{};      // +0x2FC SetAmmoType
     uint8_t in_revert_{};       // +0x300 InRevert / OutRevert
@@ -809,23 +810,23 @@ public:
     uint8_t motoskateboard_{};  // +0x302 moto_skateboard_on / Off
     uint8_t crouch_stats_{};    // +0x303 push with the crouched stats
     uint8_t manual_turnaround_{0}; // +0x304 the backwards script ran (EndManualTurnaround clears it)
-    uint8_t pad305_[3]{};
+    std::array<uint8_t, 3> pad305_{};
     int projectile_input_{-1}; // +0x308 -1: none
     float queued_spin_{};  // +0x30C tap spins queued (degrees)
     uint8_t no_kick_{};    // +0x310 kicking forbidden (can_kick_on / CanKickOff)
     uint8_t can_brake_{};  // +0x311 CanBrakeOn / Off
-    uint8_t pad312_[2]{};
+    std::array<uint8_t, 2> pad312_{};
     float rolling_friction_{};      // +0x314 Physics_Rolling_Friction, or a special friction
     int special_friction_index_{};  // +0x318 SetSpecialFriction's next entry (also the free reverts pending)
     int special_friction_start_{};  // +0x31C the game clock of the first (and of the last free revert)
     float special_friction_time_{}; // +0x320 its duration left (0: none)
     uint8_t braking_{};             // +0x324
-    uint8_t pad325_[3]{};
-    int side_hit_times_[4]{};       // +0x328 the game clock when each side feeler (0-3) last hit
+    std::array<uint8_t, 3> pad325_{};
+    std::array<int, 4> side_hit_times_{};       // +0x328 the game clock when each side feeler (0-3) last hit
     maths::Vec4 last_ground_pos_{}; // +0x338 GetLastGroundPos
     float last_heading_{};          // +0x348 degrees from the facing (GetLastGroundHeading)
     uint8_t rail_backwards_{};      // +0x34C the way round along the rail (flipped by turn_around)
-    uint8_t pad34d_[3]{};
+    std::array<uint8_t, 3> pad34d_{};
     float limits_time_{};     // +0x350 overridelimits: the time left (0 off, -1 for ever, -2 for the level)
     float limits_max_{};      // +0x354 the max speed while overridden
     float limits_max_max_{};  // +0x358
@@ -838,19 +839,19 @@ public:
     uint8_t landed_from_vert_{};                            // +0x373 LandedFromVert (scripts clear it)
     uint8_t landed_from_air_vert_{};                        // +0x374 the last landing was from vert air or an acid drop
     uint8_t allow_lip_no_grind_{};                          // +0x375 AllowLipNoGrind
-    uint8_t pad376_[2]{};
+    std::array<uint8_t, 2> pad376_{};
     int jump_charge_ms_{};       // +0x378 how long the jump was held (ms), up to the max tense time
     float drop_target_height_{}; // +0x37C the acid drop's height (DropHeight)
     uint32_t air_start_{};       // +0x380 the game clock when the skater went into the air
     uint32_t air_end_{};         // +0x384 ... and came out of it
     uint8_t lock_velocity_{};    // +0x388 LockVelocityDirection: turns leave the velocity alone
-    uint8_t pad389_[3]{};
+    std::array<uint8_t, 3> pad389_{};
     maths::Vec4 wall_normal_{};    // +0x38C the wall ridden or planted on
     int wall_ride_start_{};        // +0x39C the game clock when the wall ride began
     int wallplant_end_{};          // +0x3A0 the game clock when the last wallplant ended
     uint8_t no_rail_tricks_{};     // +0x3A4 NoRailTricks (also while a flip spin ends)
     uint8_t last_spin_backside_{}; // +0x3A5 the last spin's way
-    uint8_t pad3a6_[2]{};
+    std::array<uint8_t, 2> pad3a6_{};
     int rail_adjust_{};                      // +0x3A8 change_rail_adjust (ms)
     float speed_override_{};                 // +0x3AC the speed override's factor (1: off)
     maths::Mat4 drop_matrix_{};              // +0x3B0 the acid drop's orientation
@@ -862,28 +863,28 @@ public:
     uint32_t wallplant_time_{};              // +0x4E0 the game clock of the last wallplant
     uint32_t last_push_off_{};               // +0x4E4 the game clock of the last wall push-off
     uint8_t vert_wallplanted_{};             // +0x4E8 a vert wallplant was done
-    uint8_t pad4e9_[3]{};
+    std::array<uint8_t, 3> pad4e9_{};
     int leap_time_{}; // +0x4EC the game clock when the skater last jumped
     uint8_t
         vert_air_announced_{}; // +0x4F0 the skater was announced as in vert air (0xF225FE69; 0x5E27200A when it ends)
-    uint8_t pad4f1_[3]{};
+    std::array<uint8_t, 3> pad4f1_{};
     render::HitMeshCache hit_cache_; // +0x4F4 the collision cache round the skater
     uint8_t drop_object_hit_{};      // +0x14C0 the acid drop's object was still there
     uint8_t focus_held_{};           // +0x14C1 the focus button toggled bullet time until it's let go
-    uint8_t pad14c2_[2]{};
+    std::array<uint8_t, 2> pad14c2_{};
     int throw_wait_{};              // +0x14C4 frames until the next throw
     uint8_t throwing_projectile_{}; // +0x14C8 SetThrowingProjectile
-    uint8_t pad14c9_[3]{};
+    std::array<uint8_t, 3> pad14c9_{};
     int late_wallplant_frames_{};       // +0x14CC frames left to press the wallplant late (cleared out of the air)
     maths::Vec4 late_velocity_{};       // +0x14D0 the velocity, position and wall when a late wallplant was armed
     maths::Vec4 late_pos_{};            // +0x14E0
     maths::Vec4 late_wall_normal_{};    // +0x14F0
     uint8_t natas_counter_clockwise_{}; // +0x1500
-    uint8_t pad1501_[3]{};
+    std::array<uint8_t, 3> pad1501_{};
     int natas_spin_time_{}; // +0x1504 the game clock of the natas spin's last update
     uint8_t tantrum_{};     // +0x1508 EnterTantrum / ExitTantrum
     uint8_t tagging_{};     // +0x1509 EnterTagging / ExitTagging
-    uint8_t pad150a_[2]{};
+    std::array<uint8_t, 2> pad150a_{};
     objects::PadInputModule* input_{nullptr};                      // +0x150C the object's components (seal)
     objects::ActivationZoneModule* trigger_{nullptr};              // +0x1510
     objects::RiderSfxPlayer* sound_{nullptr};                      // +0x1514
@@ -907,5 +908,5 @@ extern maths::Vec4 g_acid_hold;
 
 namespace skater {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_core_member_functions[660];
+extern std::array<uint32_t, 660> g_core_member_functions;
 } // namespace skater

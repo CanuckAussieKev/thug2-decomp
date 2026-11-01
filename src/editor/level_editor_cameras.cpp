@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_hud.h"
@@ -58,8 +59,8 @@ bool read_numbers(const std::string& text, float* out, int count)
 
 bool read_triple(const std::string& text, V3* out)
 {
-    float v[3];
-    if (!read_numbers(text, v, 3))
+    std::array<float, 3> v{};
+    if (!read_numbers(text, v.data(), 3))
         return false;
     *out = {v[0], v[1], v[2]};
     return true;
@@ -130,10 +131,10 @@ bool get_same(const ViewCam& a, const ViewCam& b)
 
 std::string write_record(const ViewCam& c)
 {
-    char text[320];
-    std::snprintf(text, sizeof(text), "camera %s pos=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g dist=%.9g", c.name.c_str(),
+    std::array<char, 320> text{};
+    std::snprintf(text.data(), sizeof(text), "camera %s pos=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g dist=%.9g", c.name.c_str(),
                   c.pos.x, c.pos.y, c.pos.z, c.angles.x, c.angles.y, c.angles.z, c.distance);
-    return text;
+    return text.data();
 }
 
 bool read_record(std::istringstream& in, ViewCam* out)
@@ -276,8 +277,8 @@ void keep_offsets(const ViewCam& c)
         uint32_t key;
         V3 value;
     };
-    const Key keys[2] = {{fields::hash_of_name("targetOffset"), target_of(c.pos, c.angles, c.distance)},
-                         {fields::hash_of_name("positionOffset"), position_offset(c.pos, c.angles, c.distance)}};
+    const std::array<Key, 2> keys = {{{fields::hash_of_name("targetOffset"), target_of(c.pos, c.angles, c.distance)},
+                         {fields::hash_of_name("positionOffset"), position_offset(c.pos, c.angles, c.distance)}}};
     for (const Key& k : keys) {
         const fields::Own own = fields::own_in(node, k.key, false);
         const bool same = own.present && own.value.kind == fields::Kind::kVec4 && own.value.numbers[0] == k.value.x &&
@@ -588,8 +589,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
         const bool lit = node_create::name_hash(c.name) == selected;
         const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
         const float thickness = lit ? 2.0f : 1.25f;
-        V3 corners[4];
-        frustum_corners(c.pos, c.angles, lens.tan_x_, lens.tan_y_, 120.0f, corners);
+        std::array<V3, 4> corners{};
+        frustum_corners(c.pos, c.angles, lens.tan_x_, lens.tan_y_, 120.0f, corners.data());
         for (int i = 0; i < 4; ++i) {
             line(c.pos, corners[i], colour, thickness);
             line(corners[i], corners[(i + 1) % 4], colour, thickness);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Struct;
@@ -14,7 +15,7 @@ namespace commands {
 
 // The controller's input state (the object at the controller's +0x18): one byte per button, non-zero = held.
 struct PadInputSample {
-    uint8_t unknown0[4];
+    std::array<uint8_t, 4> unknown0;
     uint8_t right;    // +0x04
     uint8_t left;     // +0x05
     uint8_t up;       // +0x06
@@ -27,7 +28,7 @@ struct PadInputSample {
     uint8_t r1;       // +0x0D
     uint8_t l2;       // +0x0E
     uint8_t r2;       // +0x0F
-    uint8_t unknown10[6];
+    std::array<uint8_t, 6> unknown10;
     uint8_t black; // +0x16
     uint8_t white; // +0x17
     uint8_t z;     // +0x18
@@ -64,6 +65,6 @@ bool cfunc_omnigon_allowed(script::Struct* params, script::Script* script);     
 bool cfunc_set_level_name(script::Struct* params, script::Script* script);               // 0x0059F5B0
 bool cfunc_dump_scripts(script::Struct* params, script::Script* script);                 // 0x0059F5E0
 
-extern char g_node_list_name[128];
+extern std::array<char, 128> g_node_list_name;
 
 } // namespace commands

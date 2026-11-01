@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/window2d.h"
@@ -25,7 +26,7 @@ struct BillboardRec {
 struct BillboardBatch {
     uint32_t vertex_bytes_; // (the material's passes + 2) x 0x20
     MaterialRef* material;
-    memory::ListNode* lists[3]{}; // heads (data -1) of nodes over entries
+    std::array<memory::ListNode*, 3> lists{}; // heads (data -1) of nodes over entries
 
     // 0x004CEB30: construct for a material: three empty lists.
     explicit BillboardBatch(MaterialRef* material);
@@ -43,12 +44,12 @@ static_assert(sizeof(BillboardBatch) == 0x14, "layout must match the original");
 // The billboard manager (0x00775B80).
 struct BillboardSet {
     int count;
-    BillboardBatch* batches[0x100]; // sorted by the materials' draw order (+0x1C), nulls last
-    float view[4];                  // +0x404 the view's forward (its third column), w 1
-    float right[4];                 // +0x414 forward x up, normalised
-    float up[4];                    // +0x424 right x forward
-    float flat_forward_[4];         // +0x434 the forward along the ground, w 1
-    float flat_right_[4];           // +0x444 and right
+    std::array<BillboardBatch*, 0x100> batches; // sorted by the materials' draw order (+0x1C), nulls last
+    std::array<float, 4> view;                  // +0x404 the view's forward (its third column), w 1
+    std::array<float, 4> right;                 // +0x414 forward x up, normalised
+    std::array<float, 4> up;                    // +0x424 right x forward
+    std::array<float, 4> flat_forward_;         // +0x434 the forward along the ground, w 1
+    std::array<float, 4> flat_right_;           // +0x444 and right
 
     // 0x004CDA60: the batch of a material, or null.
     BillboardBatch* get_find(const MaterialRef* material);

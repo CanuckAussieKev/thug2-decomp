@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace memory {
 class Arena;
@@ -21,7 +22,7 @@ struct MemoryStats {
     int park_heap_free_;        // +0x04 its region's space + its free blocks - park_heap_pad
     int main_heap_free_;        // +0x08 the main (bottom-up) heap's, less the pads (or its largest block, see below)
     bool main_heap_fragmented_; // +0x0C the main heap's largest block is less than its free space and the pad
-    uint8_t pad0d_[3];
+    std::array<uint8_t, 3> pad0d_;
     float main_heap_usage_;  // +0x10 1 - free / main_heap_base (1 when nothing is free)
     float top_down_usage_;   // +0x14 2 - available / top_down_required; 0 unless it's the most
     float park_heap_usage_;  // +0x18 1 - free / park_heap_base
@@ -30,7 +31,7 @@ struct MemoryStats {
     float array_usage_;      // +0x24 the same for arrays (CArray)
     float dma_usage_;        // +0x28 DMA pieces / max_dma_pieces
     float max_usage_;        // +0x2C the largest of them
-    int piece_counts_[3];    // +0x30 filled by the park's piece counter (0x00592AB0) - unknown
+    std::array<int, 3> piece_counts_;    // +0x30 filled by the park's piece counter (0x00592AB0) - unknown
     int components;          // +0x3C the park's script components
     int vectors;             // +0x40 vectors
     int arrays;              // +0x44 arrays

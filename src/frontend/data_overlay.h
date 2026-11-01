@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 
 // NOT ORIGINAL - the data overlay (ours, added at the user's request; not the game's and not PartyMod's): game files
@@ -24,7 +25,7 @@ const std::string& get_folder();
 
 // The overlay's file for a game file name ("levels\mainmenu\mainmenu.qb", "data/..." or a development machine's
 // "c:\...\data\..." path), if it exists: its full path in `path`.
-bool get_overlay_path(const char* name, char (&path)[260]);
+bool get_overlay_path(const char* name, std::array<char, 260>& path);
 
 // [features] anteara_mod (read once; logs a line at start-up when on).
 bool anteara_mod();
@@ -32,10 +33,10 @@ bool anteara_mod();
 // The folders under the overlay folder a file is looked for in, first match wins ("anteara\front_end\",
 // "anteara\", "front_end\", "" - the last always): Anteara Mod's while it's on, the front end's while the
 // skate-shop front end is on. Returns how many are in `folders`.
-int search_folders(bool anteara, bool front_end, const char* (&folders)[4]);
+int search_folders(bool anteara, bool front_end, std::array<const char*, 4>& folders);
 
 // The game file name as the overlay keeps it: '/' as '\', lower case, without anything up to "data\" (exposed for
 // the self-tests).
-void overlay_name(const char* name, char (&out)[260]);
+void overlay_name(const char* name, std::array<char, 260>& out);
 
 } // namespace frontend::data_overlay

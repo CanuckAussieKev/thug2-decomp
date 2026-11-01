@@ -4,6 +4,7 @@
 // elements, the trick tables and the checksums they use.
 
 #include <cstdint>
+#include <array>
 
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
@@ -38,8 +39,8 @@ constexpr uint32_t kAnimBlender = 0x7149B753;         // animblender
 
 // A trick's points by its repeats (percent: 100, 75, 50, 25, 10) and its spin (half the multiplier: 2 none ... 7),
 // read from the exe as the original does (an index outside the tables reads past them, as there).
-extern int g_trick_reduction[5]; // (0x0064E280)
-extern int g_spin_multiplier[6]; // (0x0064E268)
+extern std::array<int, 5> g_trick_reduction; // (0x0064E280)
+extern std::array<int, 6> g_spin_multiplier; // (0x0064E268)
 inline int get_reduction(int repeats) { return repeats < 5 ? g_trick_reduction[repeats] : 10; }
 inline int spin_multiplier(int spin) { return spin < 6 ? g_spin_multiplier[spin] : 7; }
 

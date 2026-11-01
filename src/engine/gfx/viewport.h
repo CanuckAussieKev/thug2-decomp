@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
@@ -61,7 +62,7 @@ struct OcclusionRequest {
     void (*callback)(uint32_t data, uint32_t slot);
     uint32_t data;
     uint8_t issued; // +0x0C
-    uint8_t pad[3];
+    std::array<uint8_t, 3> pad;
 };
 static_assert(sizeof(OcclusionRequest) == 0x10, "layout must match the original");
 
@@ -100,9 +101,9 @@ bool cfunc_script_get_screen_mode(script::Struct* params, script::Script* script
 // 0x004A0C20: SetScreenMode <mode name>: an unknown name changes nothing. Always true.
 bool cfunc_set_screen_mode(script::Struct* params, script::Script* script);
 
-extern OcclusionRequest g_occlusion_requests[4];
+extern std::array<OcclusionRequest, 4> g_occlusion_requests;
 extern int g_screen_mode;
-extern ViewRegion* g_viewports[10];
+extern std::array<ViewRegion*, 10> g_viewports;
 extern const int* g_mode_map;
 
 } // namespace render

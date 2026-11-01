@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -75,10 +76,10 @@ tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_t
 template <typename Local>
 void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local local)
 {
-    uint8_t msg[2] = {static_cast<uint8_t>(player), static_cast<uint8_t>(team)};
+    std::array<uint8_t, 2> msg = {{static_cast<uint8_t>(player), static_cast<uint8_t>(team)}};
     net::NetMessageInfo desc;
     desc.byte_count_ = sizeof(msg);
-    desc.content_ = msg;
+    desc.content_ = msg.data();
     desc.ident_ = id;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
@@ -115,11 +116,11 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
     net::NetMessageInfo desc;
     msg.kick = request;
     msg.index = static_cast<int8_t>(index);
-    std::strncpy(msg.name, player_name(player), kNameSize - 1);
-    uint8_t bytes[kKickRequestSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::strncpy(msg.name.data(), player_name(player), kNameSize - 1);
+    std::array<uint8_t, kKickRequestSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_kick_request(writer, msg);
-    desc.content_ = bytes;
+    desc.content_ = bytes.data();
     desc.byte_count_ = sizeof(bytes);
     desc.ident_ = kMsgKickRequest;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;

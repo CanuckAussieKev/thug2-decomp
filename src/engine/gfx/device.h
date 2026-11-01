@@ -5,6 +5,7 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <array>
 
 // The Direct3D 9 device (Nx engine, PC).
 namespace render {
@@ -40,10 +41,10 @@ long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32
 extern IDirect3DDevice9* g_d3d_device;
 extern IDirect3DDevice9* g_draw_device; // the same device, kept twice
 extern D3DPRESENT_PARAMETERS g_present_parameters;
-extern IDirect3DSurface9* g_screen_surfaces[9];
+extern std::array<IDirect3DSurface9*, 9> g_screen_surfaces;
 extern bool g_show_window_flag;
 extern bool g_stream_offset_supported;
-extern IDirect3DTexture9* g_screen_textures[9];
+extern std::array<IDirect3DTexture9*, 9> g_screen_textures;
 extern uint32_t g_loading_bar_timer; // the timer's id (timeSetEvent)
 extern float g_display_factor_x;     // 640x480 -> back buffer scale
 

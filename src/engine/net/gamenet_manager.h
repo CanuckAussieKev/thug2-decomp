@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "wire/gamenet_messages.h"
@@ -609,7 +610,7 @@ public:
     net::AppHost*& client_slot(int index) { return (&client_app_)[index]; }
 
     uint8_t flag_bits_{0}; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
-    uint8_t unknown1_[3]{};
+    std::array<uint8_t, 3> unknown1_{};
     net::AppHost* host_;                                  // +0x04
     net::AppHost* client_app_;                            // +0x08 client 0 (the game's)
     net::AppHost* client1_;                               // +0x0C client 1
@@ -617,7 +618,7 @@ public:
     memory::HeapUnique<VaultMan> vault_man_;              // +0x14 the content vault and HTTP transfers
     memory::HeapUnique<FriendsManager> presence_service_; // +0x18 the GameSpy presence
     memory::HeapUnique<RankingsManager> rating_service_;  // +0x1C the player's rating and stats
-    char challenge_[12]{};                                // +0x20 the host's CD-key challenge
+    std::array<char, 12> challenge_{};                                // +0x20 the host's CD-key challenge
     net::AppHost* browser_client_;                        // +0x2C the server list's client
     uint32_t game_type_{};        // +0x30 the game_type preference's checksum when the game started
     uint32_t level_{};            // +0x34 the level's load script
@@ -631,10 +632,10 @@ public:
     bool show_metrics_;           // +0x45 the net metrics shown (toggle_net_metrics)
     bool show_scores_;            // +0x46 the scores shown (toggle_scores)
     bool show_names_;             // +0x47 the players' names shown (toggle_player_names)
-    uint32_t start_points_[8]{};  // +0x48 the skaters' starting points (choose_start_points; the start info's)
+    std::array<uint32_t, 8> start_points_{};  // +0x48 the skaters' starting points (choose_start_points; the start info's)
     int crown_start_{};           // +0x68 the crown's starting point (sent as a signed byte)
     objects::CrownObject* crown_{}; // +0x6C king of the hill's crown
-    uint32_t team_objects_[4][5]{}; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
+    std::array<std::array<uint32_t, 5>, 4> team_objects_{}; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
     std::unique_ptr<tasks::SchedulerTask> connection_job_;      // +0xC0 connection_task
     std::unique_ptr<tasks::SchedulerTask> metrics_job_;         // +0xC4 the net metrics' task
     std::unique_ptr<tasks::SchedulerTask> score_broadcast_job_; // +0xC8 score_broadcast_tick
@@ -654,8 +655,8 @@ public:
     int spectate_request_{};                                           // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
     // original, whose sets had a table): get_online_settings / get_taunt_settings.
-    alignas(4) uint8_t net_options_[0xC]{};   // +0x104
-    alignas(4) uint8_t taunt_options_[0xC]{}; // +0x110
+    alignas(4) std::array<uint8_t, 0xC> net_options_{};   // +0x104
+    alignas(4) std::array<uint8_t, 0xC> taunt_options_{}; // +0x110
     memory::ListNode players_{};              // +0x11C lists::Foremost<PlayerRecord>
     memory::ListNode joiners_{};              // +0x130 lists::Foremost<JoinerRecord>: the joining players
     memory::ListNode queued_scripts_{};       // +0x144 the scripts to run once the level is up
@@ -687,13 +688,13 @@ public:
     // The created goals' message (prepare_created_goals): the level, then the goals. The goal editor is given 6000
     // bytes after the level - 4 more than the buffer holds, as in the original (they would reach the size, which is
     // written after).
-    uint8_t created_goals_[0x1770]{}; // +0x1D8
+    std::array<uint8_t, 0x1770> created_goals_{}; // +0x1D8
     uint32_t created_goals_size_;   // +0x1948
     uint32_t created_goals_level_;  // +0x194C
-    uint8_t unknown1950_[0x8000]{}; // +0x1950
+    std::array<uint8_t, 0x8000> unknown1950_{}; // +0x1950
     uint32_t room_id_{};            // +0x9950 (set_room_id)
-    char master_servers_[10][16]{}; // +0x9954 the master servers' names (use_network_preferences)
-    uint8_t news_buffer_[0x6400]{}; // +0x99F4 the news / message of the day downloaded
+    std::array<std::array<char, 16>, 10> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
+    std::array<uint8_t, 0x6400> news_buffer_{}; // +0x99F4 the news / message of the day downloaded
     uint8_t* motd_text_{};          // +0xFDF4 the message of the day in news_buffer_
     uint8_t* pending_data_{};       // +0xFDF8 the rest of the download after it
     uint32_t pending_data_size_{};  // +0xFDFC
@@ -734,8 +735,8 @@ extern bool g_cheat_flag;
 
 // The command line's login (-email / -password, buddy_status.cpp) and a session's password to join with
 // (-PASSWORD, gamenet_join.cpp) - set by winmain.cpp.
-extern char g_command_line_email[256];
-extern char g_command_line_password[16];
-extern char g_pending_password[10];
+extern std::array<char, 256> g_command_line_email;
+extern std::array<char, 16> g_command_line_password;
+extern std::array<char, 10> g_pending_password;
 
 } // namespace online

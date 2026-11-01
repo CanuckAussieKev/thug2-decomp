@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -36,7 +37,7 @@ namespace {
 // columns' height indices (a 16-bit offset into them).
 // (the grid, then the rows' spans and their columns - no fixed bound: all the bytes up to the next thing the original
 // refers to, 0x00775B58)
-uint8_t g_weather_grid[0x11828];
+std::array<uint8_t, 0x11828> g_weather_grid;
 
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
@@ -178,7 +179,7 @@ void PcWeather::render_rain(float x, float z)
     const int max_z = cell_z + 16;
     if (max_z < 0 || min_z > depth - 1)
         return;
-    uint32_t top = get_argb(rain_top_), bottom = get_argb(rain_bottom_);
+    uint32_t top = get_argb(rain_top_.data()), bottom = get_argb(rain_bottom_.data());
     if ((rain_blend_ & 0xFFFFFF) == 10) { // (drawn as mode 9 with the mode's alpha)
         choose_blend_mode(9);
         const uint32_t alpha = rain_blend_ & 0xFF000000;
@@ -206,13 +207,13 @@ void PcWeather::render_rain(float x, float z)
     }
     for (int i = 0; i < 0x100; ++i)
         spread[i] = ftol(static_cast<double>(i) * 2048.0f * (1.0f / 255.0f));
-    float lines[0x7F8 + 8];
+    std::array<float, 0x7F8 + 8> lines{};
     float* out = nullptr;
     uint32_t used = 0;
     auto flush = [&] {
         const uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
         if (count) {
-            input_port()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines, 0x10);
+            input_port()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines.data(), 0x10);
             count_draw(count);
         }
     };
@@ -239,7 +240,7 @@ void PcWeather::render_rain(float x, float z)
                 auto pz = static_cast<float>(spread[offset_z_[cell]] + row_z) * 0.0625f;
                 auto py2 = static_cast<float>(length) * 0.0625f + py;
                 if (!out)
-                    out = lines;
+                    out = lines.data();
                 out[0] = px, out[1] = py, out[2] = pz;
                 std::memcpy(&out[3], &bottom, 4);
                 out[4] = px, out[5] = py2, out[6] = pz;
@@ -248,7 +249,7 @@ void PcWeather::render_rain(float x, float z)
                 out += 8;
                 if (used >= 0x7F8) {
                     flush();
-                    out = lines;
+                    out = lines.data();
                     used = 0;
                 }
             }
@@ -300,8 +301,8 @@ void PcWeather::render_snow(float x, float z)
         spread[i] = static_cast<float>(static_cast<double>(i) * 64.0f * (1.0f / 255.0f));
     for (int i = 0; i < 0x100; ++i)
         sway[i] = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / 256.0f) * 6.28318548f) * 64.0f);
-    uint32_t colour = get_argb(snow_colour_);
-    float points[0x7FC + 4];
+    uint32_t colour = get_argb(snow_colour_.data());
+    std::array<float, 0x7FC + 4> points{};
     float* out = nullptr;
     uint32_t used = 0;
     for (int gz = min_z; gz <= max_z; ++gz) {
@@ -328,22 +329,22 @@ void PcWeather::render_snow(float x, float z)
                 auto py = static_cast<float>(static_cast<double>(fall[at]) + snow_size_ + ground);
                 auto pz = static_cast<float>(static_cast<double>(sway[(xb + at) & 0xFF]) + spread[zb] + row_z);
                 if (!out)
-                    out = points;
+                    out = points.data();
                 out[0] = px, out[1] = py, out[2] = pz;
                 std::memcpy(&out[3], &colour, 4);
                 used += 4;
                 out += 4;
                 if (used >= 0x7FC) {
-                    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points,
+                    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(),
                                                   0x10); // (a quarter, as the original)
                     count_draw(used >> 4);
                     used = 0;
-                    out = points;
+                    out = points.data();
                 }
             }
         }
     }
-    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points, 0x10); // (even none, as the original)
+    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(), 0x10); // (even none, as the original)
     count_draw(used >> 4);
     input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
@@ -402,8 +403,8 @@ void PcWeather::render_splashes(float x, float z)
         uint32_t colour;
         float u, v;
     };
-    Vertex quads[0x20 * 6];
-    Vertex* out = quads;
+    std::array<Vertex, 0x20 * 6> quads{};
+    Vertex* out = quads.data();
     uint32_t used = 0;
     for (int i = 0; i < 0x20; ++i) {
         const int frames = splash_frames_[i];
@@ -412,7 +413,7 @@ void PcWeather::render_splashes(float x, float z)
         const double half = static_cast<double>(splash_size_) * 0.5f;
         auto x0 = static_cast<float>(splash_x_[i] - half), x1 = static_cast<float>(half + splash_x_[i]);
         auto z0 = static_cast<float>(splash_z_[i] - half), z1 = static_cast<float>(half + splash_z_[i]);
-        uint8_t c[4];
+        std::array<uint8_t, 4> c{};
         for (int k = 0; k < 4; ++k)
             c[k] = static_cast<uint8_t>(splash_colour_[k] * frames / splash_life_); // (fading with its frames)
         const uint32_t colour = static_cast<uint32_t>(c[3]) << 24 | static_cast<uint32_t>(c[2]) << 16 |
@@ -430,7 +431,7 @@ void PcWeather::render_splashes(float x, float z)
     }
     const uint32_t triangles = used / 6 / 3;
     if (triangles) {
-        input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads, 0x18);
+        input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), 0x18);
         count_draw(triangles);
     }
     input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
@@ -471,7 +472,7 @@ void PcWeather::tick_grid()
     memory::Hub::get_pull()->leave_heap_scope();
     ProbeRay feeler;
     int levels = 0;
-    int* level = heights; // (no limit on the levels, as the original: past 256 they run on over the fields after)
+    int* level = heights.data(); // (no limit on the levels, as the original: past 256 they run on over the fields after)
     for (int z = min_z, r = 0; z <= max_z; ++z, ++r) {
         auto at_z = static_cast<float>(z << 7);
         for (int x = min_x; x <= max_x; ++x) {
@@ -516,7 +517,7 @@ void PcWeather::tick_grid()
         }
     }
     // The rows' ground spans (one row past the last, as the original) and their height indices.
-    rows = raw::as<WeatherRow>(g_weather_grid);
+    rows = raw::as<WeatherRow>(g_weather_grid.data());
     columns = raw::bytes(rows + depth);
     uint32_t offset = 0;
     for (int r = 0; r <= depth; ++r) {
@@ -558,7 +559,7 @@ void PcWeather::tick_grid()
     if (snow)
         snow_texture_ = snow[8] & 1 ? **raw::field_at<void**>(snow, 0x10) : *raw::field_at<void*>(snow, 0x10);
     active_ = true;
-    std::memset(splash_frames_, 0, sizeof(splash_frames_));
+    std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));
     next_splash_ = 0;
     feeler.entity_.get_release();
 }

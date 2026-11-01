@@ -7,6 +7,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include <gsl/pointers>
+#include <array>
 
 // GameObjects::EntityHub, the manager of every composite object (the singleton 0x006F0FB8, references
 // 0x006F0FBC): the component types (who makes each one), the list of all components of each type, making composite
@@ -70,7 +71,7 @@ public:
         uint32_t type;
         ComponentCreateFunction create;
     };
-    ComponentType components_[kMaxComponentTypes]{}; // +0x48
+    std::array<ComponentType, kMaxComponentTypes> components_{}; // +0x48
 };
 
 // 0x0045F6D0: the logic task's code: Update on its data (the manager).
@@ -106,6 +107,6 @@ extern float g_pi;
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_composite_object_member_functions[186];
-extern uint32_t g_object_member_functions[102];
+extern std::array<uint32_t, 186> g_composite_object_member_functions;
+extern std::array<uint32_t, 102> g_object_member_functions;
 } // namespace objects

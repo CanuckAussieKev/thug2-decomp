@@ -11,6 +11,7 @@
 #include <algorithm>
 
 #include <io.h>
+#include <array>
 
 #include "platform/crash.h"
 #include "engine/core/pointer_cell.h"
@@ -23,14 +24,14 @@ bool g_console = false;
 // allocation or lock (Log runs in the crash logger too); a line written while another thread reads may come out torn.
 constexpr unsigned kTailLines = 32;
 constexpr size_t kTailWidth = 320;
-char g_tail[kTailLines][kTailWidth];
+std::array<std::array<char, kTailWidth>, kTailLines> g_tail;
 std::atomic<unsigned> g_tail_count{0};
 
 const char* keep_tail(const char* line)
 {
     const unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
-    std::snprintf(g_tail[slot], kTailWidth, "%s", line);
-    return g_tail[slot];
+    std::snprintf(g_tail[slot].data(), kTailWidth, "%s", line);
+    return g_tail[slot].data();
 }
 
 // Not original - who else wants each line (the loading console - engine/gfx/loading_console.h).
@@ -39,11 +40,11 @@ std::atomic<void (*)(const char*)> g_listener{nullptr};
 
 std::string game_folder_path(const char* file_name)
 {
-    char path[MAX_PATH];
-    GetModuleFileNameA(nullptr, path, MAX_PATH);
-    if (char* slash = strrchr(path, '\\'))
+    std::array<char, MAX_PATH> path{};
+    GetModuleFileNameA(nullptr, path.data(), MAX_PATH);
+    if (char* slash = strrchr(path.data(), '\\'))
         slash[1] = '\0';
-    return std::string(path) + file_name;
+    return std::string(path.data()) + file_name;
 }
 
 int config_int(const char* section, const char* key, int fallback)
@@ -54,9 +55,9 @@ int config_int(const char* section, const char* key, int fallback)
 
 bool config_set_int(const char* section, const char* key, int value)
 {
-    char text[16];
-    std::snprintf(text, sizeof(text), "%d", value);
-    return WritePrivateProfileStringA(section, key, text, game_folder_path("thug2-decomp.ini").c_str()) != 0;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "%d", value);
+    return WritePrivateProfileStringA(section, key, text.data(), game_folder_path("thug2-decomp.ini").c_str()) != 0;
 }
 
 void log_open()
@@ -107,7 +108,7 @@ std::vector<std::string> get_log_tail(size_t lines)
     std::vector<std::string> out;
     out.reserve(n);
     for (size_t i = n; i > 0; --i) {
-        const char* line = g_tail[(count - i) % kTailLines];
+        const char* line = g_tail[(count - i) % kTailLines].data();
         out.emplace_back(line, strnlen(line, kTailWidth));
     }
     return out;

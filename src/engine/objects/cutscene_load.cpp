@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/face_texture.h"
@@ -243,26 +244,26 @@ void CinematicTable::add_objects(script::Struct* params)
             entry.object = create_object(params2);
             ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             if (stand_in) {
-                float offset[4] = {0.0f, 0.0f, 0.0f, 150.0f};
-                model_set_offset(model_of(stand_in), offset);
+                std::array<float, 4> offset = {{0.0f, 0.0f, 0.0f, 150.0f}};
+                model_set_offset(model_of(stand_in), offset.data());
                 if (stands_in(stand_in)) {
                     // the level object's model lends its settings (saved once) and is hidden
                     auto* level = core::down_cast<GameEntity>(find_object(stand_in_id(stand_in)));
                     ObjectModule* level_model = level->fetch_module(kModelModuleName);
                     void* model2 = model_of(level_model);
                     if (!lent_saved_) {
-                        float saved[4];
+                        std::array<float, 4> saved{};
                         const auto* settings = raw::as<const float>(static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
-                                raw::as<maths::Vec4>(saved)));
-                        std::memcpy(lent_2c_, settings, 16);
+                                raw::as<maths::Vec4>(saved.data())));
+                        std::memcpy(lent_2c_.data(), settings, 16);
                         const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
                         lent_3c_ = flags >> 2 & 1;
                         lent_3d_ = flags >> 3 & 1;
                         lent_pos_ = level->at_point_;
                         lent_saved_ = true;
                     }
-                    float offset2[4] = {0.0f, 0.0f, 0.0f, 150.0f};
-                    model_set_offset(model2, offset2);
+                    std::array<float, 4> offset2 = {{0.0f, 0.0f, 0.0f, 150.0f}};
+                    model_set_offset(model2, offset2.data());
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);
                     auto mine =

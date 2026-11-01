@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "formats/byte_stream.h"
 
@@ -17,18 +18,18 @@ namespace skeleton_format {
 constexpr int kMaxBones = 64;
 
 struct BindPose {
-    float rotation[4] = {};
-    float translation[4] = {};
+    std::array<float, 4> rotation = {};
+    std::array<float, 4> translation = {};
 };
 
 struct Skeleton {
     uint32_t version = 0;
     uint32_t flags = 0;
     int count = 0;
-    uint32_t names[kMaxBones] = {};
-    uint32_t parents[kMaxBones] = {};
-    uint32_t mirrors[kMaxBones] = {};
-    BindPose poses[kMaxBones];
+    std::array<uint32_t, kMaxBones> names = {};
+    std::array<uint32_t, kMaxBones> parents = {};
+    std::array<uint32_t, kMaxBones> mirrors = {};
+    std::array<BindPose, kMaxBones> poses;
 };
 
 // False if cut short or the count is more than kMaxBones (or negative).

@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
@@ -30,7 +31,7 @@
 
 namespace commands {
 
-uint32_t g_level_qb_files[15];
+std::array<uint32_t, 15> g_level_qb_files;
 
 namespace {
 
@@ -67,7 +68,7 @@ void print_bytes(const void* data, int count)
 
 } // namespace
 
-uint32_t* level_specific_qb_files() { return g_level_qb_files; }
+uint32_t* level_specific_qb_files() { return g_level_qb_files.data(); }
 
 // 0x004489B0: DisplayFreeMem: for every heap of the memory manager, run UpdateDisplayFreeMemory with id=<the
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.

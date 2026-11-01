@@ -2,6 +2,7 @@
 // ImGui's own API here.
 
 #include <cstdio>
+#include <array>
 
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_nodes.h"
@@ -23,16 +24,16 @@ void get_tip(const char* text)
 
 void view_mode_items()
 {
-    static const char* const kTips[kViewModes] = {
+    static const std::array<const char*, kViewModes> kTips = {{
         "As in play",
         "Textures without lighting",
         "Edges only",
         "Collision only",
-    };
+    }};
     for (int mode = 0; mode < kViewModes; ++mode) {
-        char keys[16];
-        std::snprintf(keys, sizeof(keys), "Alt+%d", mode + 1);
-        if (ImGui::MenuItem(view_mode_name(mode), keys, view_mode() == mode))
+        std::array<char, 16> keys{};
+        std::snprintf(keys.data(), sizeof(keys), "Alt+%d", mode + 1);
+        if (ImGui::MenuItem(view_mode_name(mode), keys.data(), view_mode() == mode))
             change_view_mode(mode);
         get_tip(kTips[mode]);
     }
@@ -50,9 +51,9 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
         triggers::set_shown(!triggers::get_shown());
     get_tip("Kill zones, teleports, gaps and script triggers");
     for (const BitInfo& info : get_bits()) {
-        char item[64];
-        std::snprintf(item, sizeof(item), "%s##ov%u", info.label, info.bit);
-        if (ImGui::MenuItem(item, info.key[0] ? info.key : nullptr, get_shown(info.bit)))
+        std::array<char, 64> item{};
+        std::snprintf(item.data(), sizeof(item), "%s##ov%u", info.label, info.bit);
+        if (ImGui::MenuItem(item.data(), info.key[0] ? info.key : nullptr, get_shown(info.bit)))
             assign_value(info.bit, !get_shown(info.bit));
         get_tip(info.tip);
     }
@@ -63,9 +64,9 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
             if (nodes::shape_of(family) == nodes::Shape::kNone)
                 continue; // (scenery: its own geometry shows it)
             const bool on = (families & nodes::get_bit(family)) != 0;
-            char item[48];
-            std::snprintf(item, sizeof(item), "%s##fam%d", nodes::family_name(family), f);
-            if (ImGui::MenuItem(item, nullptr, on)) {
+            std::array<char, 48> item{};
+            std::snprintf(item.data(), sizeof(item), "%s##fam%d", nodes::family_name(family), f);
+            if (ImGui::MenuItem(item.data(), nullptr, on)) {
                 ui::Request r{ui::Request::Kind::kFamilies};
                 r.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);
                 requests->push_back(r);

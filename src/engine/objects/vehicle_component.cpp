@@ -16,6 +16,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -50,9 +51,9 @@ namespace objects {
 namespace {
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
-DrivableModule::Contact g_vehicle_contacts[132];
+std::array<DrivableModule::Contact, 132> g_vehicle_contacts;
 } // namespace
-DrivableModule::Contact* DrivableModule::get_contacts() { return g_vehicle_contacts; }
+DrivableModule::Contact* DrivableModule::get_contacts() { return g_vehicle_contacts.data(); }
 
 using namespace vehicle;
 
@@ -475,7 +476,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         inv_mass_ = static_cast<float>(static_cast<double>(kGravity) / inv_mass_);
     }
     if (params->has_entry_named(0x8C6473EC)) { // moment_of_inertia (its w into +0x168)
-        params->fetch_vec(0x8C6473EC, raw::as<script::VectorValue>(inv_moments_), 0);
+        params->fetch_vec(0x8C6473EC, raw::as<script::VectorValue>(inv_moments_.data()), 0);
         for (float& moment : inv_moments_)
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
     }
@@ -956,7 +957,7 @@ void DrivableModule::debug_draw()
             const maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
             maths::Mat4 steer;
             maths::build_axis_angle_matrix(steer, up, wheel.steering);
-            maths::Vec4 ends[2];
+            std::array<maths::Vec4, 2> ends{};
             for (int e = 0; e < 2; ++e) {
                 const float side = e ? kBelow : -kBelow;
                 const maths::Vec4 local{steer.row[0].x * side + wheel.offset.x,

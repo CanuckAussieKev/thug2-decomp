@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -128,15 +129,15 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
 // 0x00599140
 void ParkLayout::transfer_park_file(bool save, int slot)
 {
-    char name[64];
-    std::snprintf(name, sizeof(name), "CustomParks\\custom%d.prk", slot);
+    std::array<char, 64> name{};
+    std::snprintf(name.data(), sizeof(name), "CustomParks\\custom%d.prk", slot);
     if (save) {
         script::Struct* params = spawn_param_table();
         export_to_struct(params);
         const uint32_t size = structure_buffer_size(params, 100000);
         void* buffer = memory::alloc_block(size);
         write_structure(params, buffer, size, 1, 0);
-        file::Hdl file = file::unseal(name, "wb");
+        file::Hdl file = file::unseal(name.data(), "wb");
         file::emit_out(buffer, static_cast<int>(size), 1, file);
         file::shut(file);
         memory::free_malloc(buffer);
@@ -144,7 +145,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
         return;
     }
 
-    file::Hdl file = file::unseal(name, "rb");
+    file::Hdl file = file::unseal(name.data(), "rb");
     const uint32_t size = file::get_file_size(file);
     void* buffer = memory::alloc_block(size);
     const int read = file::get_take_in(buffer, static_cast<int>(size), 1, file);
@@ -245,7 +246,7 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
             info.reach_right_[end] = record.ends[end].reach_right;
         }
         // (the name cut to the field: the original copied up to a terminator, past 32 bytes when there was none)
-        std::snprintf(info.text_, sizeof(info.text_), "%s", record.text);
+        std::snprintf(info.text_.data(), sizeof(info.text_), "%s", record.text.data());
         info.points_held_ = record.points;
         info.halves_placed_ = 2;
         if (current)
@@ -270,8 +271,8 @@ void ParkLayout::reset_park()
     }
     write_compressed_map();
     if (map_.rev_ == kMapVersion) {
-        copy_string(map_.label_, "unnamed park");
-        copy_string(park_name_, "unnamed park");
+        copy_string(map_.label_.data(), "unnamed park");
+        copy_string(park_name_.data(), "unnamed park");
     }
     flag_bits_ = (flag_bits_ & ~kFlag8) | kMapUpToDate;
 }

@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -42,7 +43,7 @@ struct ProximNode {
     maths::Vec4 at_point_{};  // +0x04
     maths::Mat4 to_sector_{}; // +0x14: the sector's world matrix, inverted
     bool active_{};           // +0x54
-    uint8_t unknown55_[3]{};
+    std::array<uint8_t, 3> unknown55_{};
     uint32_t entity_key_{}; // +0x58: ProximObject nodes: their objects' ids are this + the skater's id
     uint32_t entities_{};   // +0x5C: the skaters (by id) a ProximObject node has an object for
     uint32_t is_within_{};  // +0x60: the skaters whose enter script ran

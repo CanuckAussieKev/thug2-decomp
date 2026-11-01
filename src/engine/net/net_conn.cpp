@@ -102,8 +102,8 @@ Conn::Conn(int flags)
     link_speed_ = kBroadbandBandwidth;
     // (only the first 64 groups' sequence numbers are zeroed: 0x40 dwords each - the rest keep what the
     // memory held)
-    std::memset(next_sequence_ids_, 0, 0x100);
-    std::memset(sequence_numbers_, 0, 0x100);
+    std::memset(next_sequence_ids_.data(), 0, 0x100);
+    std::memset(sequence_numbers_.data(), 0, 0x100);
     ident_ = next_conn_id()++;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }

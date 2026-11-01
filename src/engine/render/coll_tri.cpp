@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -21,8 +22,8 @@ constexpr float kSixteenth = 0.0625f;
 constexpr float kSixteen = 16.0f;
 
 // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
-uint16_t g_all_faces[2048]{0xFFFF};
-uint16_t* all_faces() { return g_all_faces; }
+std::array<uint16_t, 2048> g_all_faces{{0xFFFF}};
+uint16_t* all_faces() { return g_all_faces.data(); }
 
 uint16_t* g_face_buffer;
 int g_face_count;
@@ -314,13 +315,13 @@ bool TriMeshSource::set_up_all_faces()
 void TriMeshSource::add_occlusion_polys()
 {
     constexpr float kSameDirection = 0.05f;
-    maths::Vec4 points[4];
+    std::array<maths::Vec4, 4> points{};
     for (int i = 0; i < tri_count_ - 1; ++i) {
         for (int j = i + 1; std::cmp_less(j, tri_count_); ++j) {
             // the corners shared: shared[k] is face i's corner k if face j has it, other[m] face j's corner m if
             // face i has it
-            int shared[3] = {-1, -1, -1};
-            int other[3] = {-1, -1, -1};
+            std::array<int, 3> shared = {{-1, -1, -1}};
+            std::array<int, 3> other = {{-1, -1, -1}};
             int matches = 0;
             for (int k = 0; k < 3; ++k) {
                 auto corner = static_cast<uint16_t>(face_vertex(i, k));
@@ -411,7 +412,7 @@ void TriMeshSource::add_occlusion_polys()
                 points[3] = read_stored_vertex(extra);
             }
             // (otherwise - not possible with two shared corners - face j's corners as they are)
-            add_debug_shape(4, points, checksum_);
+            add_debug_shape(4, points.data(), checksum_);
             break;
         }
     }

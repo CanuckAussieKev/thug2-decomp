@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -366,7 +367,7 @@ void ChainComponent::tick_frame()
     const float ay = get_rounded(static_cast<double>(axis_to.y) - axis_from.y);
     const double az = static_cast<double>(axis_to.z) - axis_from.z;
     const float aw = get_rounded(static_cast<double>(axis_to.w) - axis_from.w);
-    float axis[3] = {get_rounded(ax), ay, get_rounded(az)};
+    std::array<float, 3> axis = {{get_rounded(ax), ay, get_rounded(az)}};
     const double axis_length = std::sqrt((az * az + static_cast<double>(ay) * ay) + ax * ax);
     if (axis_length > 0.0) {
         const double inverse = 1.0 / axis_length;
@@ -495,7 +496,7 @@ void ChainComponent::tick_frame()
             steps_ -= chain->iterations_;
         }
         for (int pass = passes; pass != 0; --pass) {
-            ChainLink* link = chain->chain_link_;
+            ChainLink* link = chain->chain_link_.data();
             const int last = chain->links_ - 1;
             link[0].next_pos_ = start;
             link[last].next_pos_ = end;

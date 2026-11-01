@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/slab_bank.h"
 #include "engine/maths/vec4.h"
@@ -37,12 +38,12 @@ struct ParkRailString {
 
     uint32_t class_;    // +0x00: RailNode or ClimbingNode
     uint8_t flag_bits_; // +0x04
-    uint8_t pad05[3];
+    std::array<uint8_t, 3> pad05;
     uint32_t label_;             // +0x08: the piece (sector) it belongs to (find_rail looks it up)
     ParkRailPoint* point_chain_; // +0x0C
     ParkRailPoint* tail_node_;   // +0x10
     uint16_t vertex_total_;      // +0x14
-    uint8_t pad16[2];
+    std::array<uint8_t, 2> pad16;
     ParkRailString* following_; // +0x18
     ParkRailSet* point_group_;  // +0x1C: whose pools it uses
 
@@ -68,10 +69,10 @@ struct ParkRailSet {
     ParkRailString* rail_groups_{nullptr}; // +0x00
     ParkRailString* tail_node_{}; // +0x04
     uint16_t rail_total_{0};      // +0x08
-    uint8_t pad0a_[2]{};
+    std::array<uint8_t, 2> pad0a_{};
     memory::SlabBank* point_pool_{nullptr}; // +0x0C (0x30-byte items)
     memory::SlabBank* rail_pool_{nullptr};  // +0x10 (0x20-byte items)
-    char label_[0x20]{};           // +0x14: "In set" / "Out set"
+    std::array<char, 0x20> label_{};           // +0x14: "In set" / "Out set"
 
     // 0x0058AFF0: no rails, no pools (the last rail isn't cleared).
     ParkRailSet();

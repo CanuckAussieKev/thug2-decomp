@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <functional>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
@@ -50,7 +51,7 @@ void pane(float ui_scale)
         return;
     }
     ImGui::SeparatorText("Align and Distribute");
-    static const char* const kAxes[] = {"X", "Y", "Z"};
+    static const auto kAxes = std::to_array<const char*>({"X", "Y", "Z"});
     for (int axis = 0; axis < 3; ++axis) {
         if (axis)
             ImGui::SameLine();
@@ -64,13 +65,13 @@ void pane(float ui_scale)
     ImGui::SameLine();
     ImGui::RadioButton("First Selected", &reference, 1);
     s.reference = static_cast<Reference>(reference);
-    static const char* const kEdges[] = {"Min", "Centre", "Max"};
+    static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
     for (int edge = 0; edge < 3; ++edge) {
         if (edge)
             ImGui::SameLine();
-        char label[32];
-        std::snprintf(label, sizeof(label), "Align %s", kEdges[edge]);
-        if (ImGui::Button(label)) {
+        std::array<char, 32> label{};
+        std::snprintf(label.data(), sizeof(label), "Align %s", kEdges[edge]);
+        if (ImGui::Button(label.data())) {
             const int axis = s.axis;
             get_later([axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
         }
@@ -141,9 +142,9 @@ void get_panel(float x, float y, float ui_scale)
     const bool adjustable = get_adjustable();
     ImGui::SetNextWindowPos(ImVec2(x + 8.0f * ui_scale, y - 8.0f * ui_scale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(280.0f * ui_scale, 0.0f));
-    char title[64];
-    std::snprintf(title, sizeof(title), "Adjust: %s (F4)###adjust_last", get_title(last.kind));
-    if (!ImGui::Begin(title, nullptr,
+    std::array<char, 64> title{};
+    std::snprintf(title.data(), sizeof(title), "Adjust: %s (F4)###adjust_last", get_title(last.kind));
+    if (!ImGui::Begin(title.data(), nullptr,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                           ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
@@ -186,14 +187,14 @@ void get_panel(float x, float y, float ui_scale)
         break;
     case Kind::kJustify:
     case Kind::kDistribute: {
-        static const char* const kAxes[] = {"X", "Y", "Z"};
+        static const auto kAxes = std::to_array<const char*>({"X", "Y", "Z"});
         for (int axis = 0; axis < 3; ++axis) {
             if (axis)
                 ImGui::SameLine();
             track(ImGui::RadioButton(kAxes[axis], &edit.axis, axis));
         }
         if (edit.kind == Kind::kJustify) {
-            static const char* const kEdges[] = {"Min", "Centre", "Max"};
+            static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
             for (int e = 0; e < 3; ++e) {
                 if (e)
                     ImGui::SameLine();

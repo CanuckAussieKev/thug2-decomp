@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/net/gamespy.h"
@@ -62,7 +63,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copi
 
 namespace online {
 
-char g_pending_password[kPasswordSize]; // (winmain.cpp: -PASSWORD when joining)
+std::array<char, kPasswordSize> g_pending_password; // (winmain.cpp: -PASSWORD when joining)
 
 namespace {
 
@@ -137,11 +138,11 @@ struct AuthInstance {
     Conn* conn;
 };
 
-char g_join_password[kPasswordSize];
+std::array<char, kPasswordSize> g_join_password;
 
 // The global passwords: the one being typed (12) and the one in use (10; resent with every request).
-char* pending_password() { return g_pending_password; }
-char* join_password() { return g_join_password; }
+char* pending_password() { return g_pending_password.data(); }
+char* join_password() { return g_join_password.data(); }
 
 net::Hub* net_session_slot() { return net::Hub::sole(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
@@ -171,7 +172,7 @@ int32_t get_rating(Hub* m)
 }
 bool match_underway(Hub* m) { return active_ruleset_label() != kNetLobby && !m->match_ended_; }
 
-prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_); }
+prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_.data()); }
 const char* preference_text(Hub* m, uint32_t name)
 {
     const char* text = nullptr;
@@ -185,8 +186,8 @@ void set_presence(Hub* m, int status, const char* text, const char* location)
 {
     m->presence_service_->change_standing(status, text, location);
 }
-char* lobby_server_name(Hub* m) { return m->lobby_service_->server_name_; }
-char* lobby_peer_name(Hub* m) { return m->lobby_service_->room_name_; }
+char* lobby_server_name(Hub* m) { return m->lobby_service_->server_name_.data(); }
+char* lobby_peer_name(Hub* m) { return m->lobby_service_->room_name_.data(); }
 
 // GameSpy's CD-key SDK (gcd) and THUG2's key.
 void compute_cd_key_response(const char* key, const char* challenge, char* response)
@@ -220,11 +221,11 @@ void send_connection_request(net::Guest* client, const ConnectInfo& info, thugpr
         desc.byte_count_ = thugpro::make_connect_request(info, request);
         desc.compression_ = 3; // (THUGPRO's LZHAM, as its client sends it - only if smaller)
     } else {
-        util::ByteWriter writer(request->bytes, sizeof(request->bytes));
+        util::ByteWriter writer(request->bytes.data(), sizeof(request->bytes));
         write_connect_info(writer, info);
         desc.byte_count_ = static_cast<uint16_t>(writer.position());
     }
-    desc.content_ = request->bytes;
+    desc.content_ = request->bytes.data();
     desc.ident_ = kMsgConnectionRequest;
     client->send_to_host(&desc);
 }
@@ -239,7 +240,7 @@ struct HandlerEntry {
     bool manager_data_;
     int priority;
 };
-const HandlerEntry kClientHandlers[] = {
+constexpr auto kClientHandlers = std::to_array<HandlerEntry>({
     {0x42, &online::handle_ready_to_play, kRunWhenLate, true, kMidPriority},  // proceed to play
     {0x4D, &online::on_spectate_msg, kRunWhenLate, true, kMidPriority},       // observe proceed
     {0x4E, &online::handle_observers_full, kRunWhenLate, true, kMidPriority}, // observe refused
@@ -257,8 +258,8 @@ const HandlerEntry kClientHandlers[] = {
     {0x69, &online::handle_choose_team, kRunWhenLate, true, kMidPriority},        // number of teams
     {0x4C, &online::on_chat_msg, kRunWhenLate, false, kMidPriority},              // chat
     {0x7C, &online::handle_cd_key_challenge, kRunWhenLate, true, kMidPriority},   // challenge
-};
-const HandlerEntry kGameClientHandlers[] = {
+});
+constexpr auto kGameClientHandlers = std::to_array<HandlerEntry>({
     {0x6D, &online::handle_selected_goals, 0, true, kMidPriority},    // selected goals
     {0x34, &online::handle_start_game, 0, true, kMidPriority},        // game info
     {0x7A, &online::handle_kill_team_flags, 0, true, kMidPriority},   // kill the team flags
@@ -271,12 +272,12 @@ const HandlerEntry kGameClientHandlers[] = {
     {0x88, &online::handle_rails_data, kRunOnBadCrc, true, kTopRank}, // rail data
     {0x87, &online::on_goal_sync_msg, kRunOnBadCrc, true, kTopRank},  // goals data
     {0x80, &online::handle_checksum_request, 0, true, kMidPriority},  // cheat checksum request
-};
-const HandlerEntry kRemoteGameClientHandlers[] = {
+});
+constexpr auto kRemoteGameClientHandlers = std::to_array<HandlerEntry>({
     {0x22, &online::on_player_added_msg, 0, true, kMidPriority},    // player create
     {0x79, &online::handle_flush_important, 0, true, kMidPriority}, // join accepted
-};
-const HandlerEntry kGameClientHandlers2[] = {
+});
+constexpr auto kGameClientHandlers2 = std::to_array<HandlerEntry>({
     {0x7B, &online::handle_keep_alive, 0, true, kMidPriority},    // wait n seconds
     {0x55, &online::on_crown_change_msg, 0, true, kMidPriority},  // new king
     {0x72, &online::on_flag_scored_msg, 0, true, kMidPriority},   // captured flag
@@ -289,9 +290,9 @@ const HandlerEntry kGameClientHandlers2[] = {
      kTopRank},                                                // object updates (their length)
     {0x8D, &online::handle_eliminated, 0, true, kMidPriority}, // a skater eliminated
     {0x8E, &online::handle_eliminated, 0, true, kMidPriority},
-};
+});
 // The server's lobby handlers (0x0053C380; taken out once the game starts).
-const HandlerEntry kServerHandlers[] = {
+constexpr auto kServerHandlers = std::to_array<HandlerEntry>({
     {kMsgConnectionRequest, &Hub::on_link_established, kRunForForeign | kRunWhenLate, true, kBottomRank},
     {0x90, &online::handle_team_object, 0, true, kTopRank}, // a scavenger-hunt object picked up
     {kMsgJoinRequest, &Hub::on_admission_ask_msg, kRunWhenLate, true, kMidPriority},
@@ -321,10 +322,10 @@ const HandlerEntry kServerHandlers[] = {
     {0x81, &online::handle_checksum_response, 0, true, kMidPriority},                // cheat checksum response
     {0x8B, &online::handle_created_data_request, 0, true, kMidPriority},             // rails / goals data requests
     {0x8A, &online::handle_created_data_request, 0, true, kMidPriority},
-};
+});
 
 template <size_t N>
-void add_handlers(AppHost* app, Hub* manager, const HandlerEntry (&entries)[N])
+void add_handlers(AppHost* app, Hub* manager, const std::array<HandlerEntry, N>& entries)
 {
     for (const HandlerEntry& entry : entries)
         app->dispatcher_.append_listener(entry.id, entry.code, entry.flags, entry.manager_data_ ? manager : nullptr,
@@ -378,7 +379,7 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
     }
     if (check_password) {
         const char* password = get_password(this);
-        if (*password && std::strcmp(password, msg->password) != 0) {
+        if (*password && std::strcmp(password, msg->password.data()) != 0) {
             reason = kRefusedPassword;
             return false;
         }
@@ -387,7 +388,7 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
     // test) and its players' keys are made up. (The response ends inside its field here: the original's strlen could
     // read past a message without one.)
     if (check_cd_key && !thugpro::peer_mode() &&
-        strnlen(msg->cd_key_response_, sizeof(msg->cd_key_response_)) != kCdKeyResponseLength) {
+        strnlen(msg->cd_key_response_.data(), sizeof(msg->cd_key_response_)) != kCdKeyResponseLength) {
         reason = kRefusedCdKey;
         return false;
     }
@@ -422,7 +423,7 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
     if (std::strlen(pending_password()) != 0) {
-        std::strcpy(info.password, pending_password());
+        std::strcpy(info.password.data(), pending_password());
         std::strcpy(join_password(), pending_password());
     } else {
         std::memset(join_password(), 0, kPasswordSize);
@@ -479,7 +480,7 @@ void Hub::retry_entry_with_key(const char* password)
     info.version = kVersion;
     info.can_queue_up_ = true;
     info.broadband = net_session_slot()->get_net_link_kind() != kConnectionTypeModem;
-    std::strcpy(info.password, password);
+    std::strcpy(info.password.data(), password);
     thugpro::ConnectRequest request{};
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
@@ -487,11 +488,11 @@ void Hub::retry_entry_with_key(const char* password)
     join_phase_ = kJoinStateJoiningWithPassword;
 }
 
-const char kUiStringText[10]{"ui_string"};
-const char kNetReasonGeneral[19]{"net_reason_general"};
-const char kPresenceLocationFormat[27]{"10thug211:%d:%d:%d:%s (%s)"};
-const char kMatchAppName[13]{"Match Skate6"};
-const char kSkateAppName[7]{"Skate6"};
+const std::array<char, 10> kUiStringText{{"ui_string"}};
+const std::array<char, 19> kNetReasonGeneral{{"net_reason_general"}};
+const std::array<char, 27> kPresenceLocationFormat{{"10thug211:%d:%d:%d:%s (%s)"}};
+const std::array<char, 13> kMatchAppName{{"Match Skate6"}};
+const std::array<char, 7> kSkateAppName{{"Skate6"}};
 
 // 0x00537220
 AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int index)
@@ -501,7 +502,7 @@ AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int 
     flags |= local ? kAppLocal : kAppDynamicResend | kAppForeign;
     if (secure)
         flags |= kAppSecure;
-    AppHost* client = net->make_client_app(index, kSkateAppName, kJoinPort, // (its name)
+    AppHost* client = net->make_client_app(index, kSkateAppName.data(), kJoinPort, // (its name)
                                            static_cast<int>(current_local_address()), flags);
     client_slot(index) = client;
     if (index == 0 && client) {
@@ -520,7 +521,7 @@ AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int 
 AppHost* Hub::start_matchmaking_client()
 {
     net::Hub* net = net_session_slot();
-    AppHost* client = net->make_client_app(0, kMatchAppName, kJoinPort, static_cast<int>(current_local_address()),
+    AppHost* client = net->make_client_app(0, kMatchAppName.data(), kJoinPort, static_cast<int>(current_local_address()),
                                            kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
     browser_client_ = client;
     client->dispatcher_.append_listener(kMsgServerResponse, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
@@ -536,7 +537,7 @@ AppHost* Hub::start_host_session(bool local, bool secure)
     if (secure)
         flags |= kAppSecure;
     AppHost* server =
-        net->make_server_app(0, kSkateAppName, kPeerLimit, kHostPort, static_cast<int>(current_local_address()), flags);
+        net->make_server_app(0, kSkateAppName.data(), kPeerLimit, kHostPort, static_cast<int>(current_local_address()), flags);
     host_ = server;
     if (host_mode_ != 0)
         host_mode_ = 0; // serve
@@ -562,10 +563,10 @@ int Hub::on_link_established(InboundMsgCtx* context)
         ProceedInfo proceed{};
         std::memset(&proceed, 0, sizeof(proceed));
         proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
-        uint8_t proceed_bytes[kProceedInfoSize];
-        util::ByteWriter writer(proceed_bytes, sizeof(proceed_bytes));
+        std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
+        util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
-        desc.content_ = proceed_bytes;
+        desc.content_ = proceed_bytes.data();
         desc.ident_ = kMsgJoinProceed;
         desc.byte_count_ = sizeof(proceed_bytes);
         context->receiver_app_->put_on_outbox(conn->hdl_, &desc);
@@ -590,11 +591,11 @@ int Hub::on_link_established(InboundMsgCtx* context)
                 trailer.machine_id_);
     int reason = 0;
     if (!manager->joins_accepted(reason, msg, conn, true, true, true)) {
-        char refused[32] = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
+        std::array<char, 32> refused = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
         refused[0] = static_cast<char>(reason);
         if (reason == kRefusedCdKey)
-            std::strcpy(refused + 1, manager->challenge_);
-        send_refused(context->receiver_app_, conn, refused);
+            std::strcpy(refused.data() + 1, manager->challenge_.data());
+        send_refused(context->receiver_app_, conn, refused.data());
         return net::kResultStop;
     }
     Conn* joined =
@@ -610,8 +611,8 @@ int Hub::on_link_established(InboundMsgCtx* context)
         instance->manager = manager;
         instance->app = context->receiver_app_;
         instance->conn = joined;
-        authenticate_user(static_cast<int>(joined->ident_), context->sender_conn_->remote_ip_, manager->challenge_,
-                          msg->cd_key_response_, instance);
+        authenticate_user(static_cast<int>(joined->ident_), context->sender_conn_->remote_ip_, manager->challenge_.data(),
+                          msg->cd_key_response_.data(), instance);
         return net::kResultPassOn;
     }
     ProceedInfo proceed{};
@@ -623,12 +624,12 @@ int Hub::on_link_established(InboundMsgCtx* context)
         proceed.private_ip_ = manager->join_private_ip_;
         proceed.public_ip_ = manager->join_ip_;
     }
-    std::strncpy(proceed.server_name_, preference_text(manager, kServerName), kServerNameSize - 1);
+    std::strncpy(proceed.server_name_.data(), preference_text(manager, kServerName), kServerNameSize - 1);
     proceed.server_name_[kServerNameSize - 1] = '\0';
-    uint8_t proceed_bytes[kProceedInfoSize];
-    util::ByteWriter writer(proceed_bytes, sizeof(proceed_bytes));
+    std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
+    util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
     write_proceed_info(writer, proceed);
-    context->receiver_app_->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes, joined->remote_ip_,
+    context->receiver_app_->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), joined->remote_ip_,
                                        joined->port_no_, 0);
     return net::kResultPassOn;
 }
@@ -640,9 +641,9 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
     if (!instance)
         return;
     if (!authenticated) {
-        char refused[kJoinRefusedSize] = {};
+        std::array<char, kJoinRefusedSize> refused = {};
         refused[0] = kRefusedCdKey;
-        send_refused(instance->app, instance->conn, refused);
+        send_refused(instance->app, instance->conn, refused.data());
         instance->conn->mark_stale();
     } else {
         Hub* manager = instance->manager;
@@ -655,12 +656,12 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
             proceed.private_ip_ = manager->join_private_ip_;
             proceed.public_ip_ = manager->join_ip_;
         }
-        std::strncpy(proceed.server_name_, preference_text(manager, kServerName), kServerNameSize - 1);
+        std::strncpy(proceed.server_name_.data(), preference_text(manager, kServerName), kServerNameSize - 1);
         proceed.server_name_[kServerNameSize - 1] = '\0';
-        uint8_t proceed_bytes[kProceedInfoSize];
-        util::ByteWriter writer(proceed_bytes, sizeof(proceed_bytes));
+        std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
+        util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
-        instance->app->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes, instance->conn->remote_ip_,
+        instance->app->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), instance->conn->remote_ip_,
                                   instance->conn->port_no_, 0);
     }
     memory::Hub::get_pull()->dealloc(instance);
@@ -682,9 +683,9 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     int reason = 0;
     if (conn->is_off_machine() && !manager->joins_accepted(reason, msg, conn, false, false, false)) {
         NetMessageInfo desc = new_desc();
-        char refused[kJoinRefusedSize] = {};
+        std::array<char, kJoinRefusedSize> refused = {};
         refused[0] = static_cast<char>(reason);
-        desc.content_ = refused;
+        desc.content_ = refused.data();
         desc.byte_count_ = kJoinRefusedSize;
         desc.ident_ = kMsgJoinRefused;
         context->receiver_app_->put_on_outbox(conn->hdl_, &desc);
@@ -693,7 +694,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     }
     void* memory = memory::alloc_zeroed(kPlayerInfoSize);
     auto* player = memory ? memory::construct_in<JoinerRecord>(memory) : nullptr;
-    std::strncpy(player->label_, msg->name, kNameSize - 1);
+    std::strncpy(player->label_.data(), msg->name.data(), kNameSize - 1);
     player->label_[kNameSize - 1] = '\0';
     player->entity_key_ = static_cast<uint8_t>(manager->reserve_obj_id_for_player());
     player->conn_ = context->sender_conn_;
@@ -723,24 +724,24 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         // On the internet the host checks its own CD key too: an answer nobody reads (no instance). NOT ORIGINAL:
         // not in the THUGPRO peer mode (TP-R12).
         if (manager->in_internet_mode() && !thugpro::peer_mode()) {
-            char key[0x80];
-            char response[0x80];
-            get_cd_key(key);
-            compute_cd_key_response(key, manager->challenge_, response);
-            authenticate_user(0, context->sender_conn_->remote_ip_, manager->challenge_, response, nullptr);
+            std::array<char, 0x80> key{};
+            std::array<char, 0x80> response{};
+            get_cd_key(key.data());
+            compute_cd_key_response(key.data(), manager->challenge_.data(), response.data());
+            authenticate_user(0, context->sender_conn_->remote_ip_, manager->challenge_.data(), response.data(), nullptr);
         }
         return net::kResultPassOn;
     }
     if (!msg->observer) {
         // NOT ORIGINAL: the appearance read from a copy as long as the most a request holds (a request cut short
         // reads zeros, not past the message).
-        uint8_t appearance[kAppearanceSize];
+        std::array<uint8_t, kAppearanceSize> appearance{};
         size_t size = reader.remaining();
         if (size > kAppearanceSize)
             size = kAppearanceSize;
-        std::memset(appearance, 0, kAppearanceSize);
-        reader.bytes(appearance, size);
-        player->account_->decode_from_bytes(appearance, sizeof(appearance));
+        std::memset(appearance.data(), 0, kAppearanceSize);
+        reader.bytes(appearance.data(), size);
+        player->account_->decode_from_bytes(appearance.data(), sizeof(appearance));
     }
     late_player_arrival(manager, player, kDeferredJoinFrames);
     player->~JoinerRecord();
@@ -769,12 +770,12 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         manager->join_private_ip_ = proceed->private_ip_;
         manager->join_port_ = proceed->port;
         if (presence_logged_in(manager)) {
-            std::strcpy(lobby_server_name(manager), proceed->server_name_);
-            char location[0x1000];
-            get_sprintf(location, kPresenceLocationFormat, manager->join_ip_, manager->join_private_ip_,
+            std::strcpy(lobby_server_name(manager), proceed->server_name_.data());
+            std::array<char, 0x1000> location{};
+            get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_ip_, manager->join_private_ip_,
                         manager->join_port_, lobby_server_name(manager), lobby_peer_name(manager));
             const char* status = script::fetch_text(manager->join_mode_ == 0 ? kStatusPlaying : kStatusObserving);
-            set_presence(manager, 2, status, location);
+            set_presence(manager, 2, status, location.data());
         }
     }
     set_maximum_players(proceed->max_players_);
@@ -796,22 +797,22 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         narrowband = false;
         info->broadband = true;
     }
-    std::strncpy(info->name, name, kNameSize - 1);
+    std::strncpy(info->name.data(), name, kNameSize - 1);
     info->name[kNameSize - 1] = '\0';
-    std::strcpy(info->password, join_password());
+    std::strcpy(info->password.data(), join_password());
     int size = 0;
     if (!info->observer) {
         auto* profile = modules::g_skate_module->fetch_account(0);
         net::ConnSearch search;
         if (context->receiver_app_->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem)
             narrowband = true; // (a narrowband server gets no face)
-        size = profile->emit_into_buffer(info->appearance, kAppearanceSize, narrowband);
+        size = profile->emit_into_buffer(info->appearance.data(), kAppearanceSize, narrowband);
     }
-    static uint8_t request_bytes[kJoinInfoHeaderSize + kAppearanceSize]; // (the message is copied when queued)
-    util::ByteWriter writer(request_bytes, sizeof(request_bytes));
+    static std::array<uint8_t, kJoinInfoHeaderSize + kAppearanceSize> request_bytes; // (the message is copied when queued)
+    util::ByteWriter writer(request_bytes.data(), sizeof(request_bytes));
     write_join_request(writer, *info);
-    writer.bytes(info->appearance, static_cast<size_t>(size));
-    desc.content_ = request_bytes;
+    writer.bytes(info->appearance.data(), static_cast<size_t>(size));
+    desc.content_ = request_bytes.data();
     desc.byte_count_ = static_cast<uint16_t>(writer.position());
     desc.ident_ = kMsgJoinRequest;
     desc.compression_ = 2; // LZSS (in the peer mode it goes as THUGPRO's LZHAM: compress_message)
@@ -841,31 +842,31 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
     case kRefusedCdKey: {
         if (manager->join_phase_ == kJoinStateCdKey) {
             // Answered already: refused.
-            manager->refused_reason_ = checksums::hash_from_text(kNetReasonGeneral);
+            manager->refused_reason_ = checksums::hash_from_text(kNetReasonGeneral.data());
             break;
         }
         // The host's challenge (after the reason): answered with our key, in a new connection request.
-        char key[0x80];
-        char response[0x80];
+        std::array<char, 0x80> key{};
+        std::array<char, 0x80> response{};
         // NOT ORIGINAL: the challenge read from the message's own 9 bytes (NUL-ended here).
-        char challenge[kJoinRefusedSize] = {};
+        std::array<char, kJoinRefusedSize> challenge = {};
         const uint32_t challenge_size = context->body_size_ > 1 ? context->body_size_ - 1 : 0;
-        std::memcpy(challenge, msg + 1,
+        std::memcpy(challenge.data(), msg + 1,
                     challenge_size < kJoinRefusedSize - 1u ? challenge_size : kJoinRefusedSize - 1u);
-        get_cd_key(key);
-        compute_cd_key_response(key, challenge, response);
+        get_cd_key(key.data());
+        compute_cd_key_response(key.data(), challenge.data(), response.data());
         net::Hub* net = net_session_slot();
         ConnectInfo info{};
         std::memset(&info, 0, sizeof(info));
-        std::strcpy(info.cd_key_response_, response);
+        std::strcpy(info.cd_key_response_.data(), response.data());
         const char* name = nullptr; // (not used)
-        net_game_options(manager)->fetch_setting(kNetworkId)->fetch_text(kUiStringText, &name, 1);
+        net_game_options(manager)->fetch_setting(kNetworkId)->fetch_text(kUiStringText.data(), &name, 1);
         info.rank = current_rank(manager);
         info.observer = manager->join_mode_ == kJoinModeObserve;
         info.version = kVersion;
         info.can_queue_up_ = true;
         info.broadband = net->get_net_link_kind() != kConnectionTypeModem;
-        std::strcpy(info.password, join_password());
+        std::strcpy(info.password.data(), join_password());
         thugpro::ConnectRequest request{};
         send_connection_request(as_client(manager->client_app_), info, &request);
         manager->join_phase_ = kJoinStateCdKey;

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/net/gamenet_manager.h"
 
@@ -44,7 +45,7 @@ constexpr uint32_t kProtocolVersion = 0x00070000; // THUGPRO 0.7's (its host: by
 constexpr uint32_t kReleaseThug2Decomp = 0x32475554; // "TUG2" in memory
 // The request as it is sent: THUG2's 92 bytes and the trailer.
 struct ConnectRequest {
-    uint8_t bytes[kConnectRequestSize];
+    std::array<uint8_t, kConnectRequestSize> bytes;
 };
 
 // THUG2's connection request with THUGPRO's trailer: the hash scripts_hash(), "modified" when that isn't the release's,

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -87,10 +88,10 @@ void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
         return;
     net::NetMessageInfo msg;
     auto* client = core::down_cast<net::Guest>(manager->fetch_patron(0));
-    uint8_t data[online::kSpecialItemSize];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, online::kSpecialItemSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_special_item(writer, item);
-    msg.content_ = data;
+    msg.content_ = data.data();
     msg.byte_count_ = sizeof(data);
     msg.ident_ = id;
     client->send_to_host(&msg);

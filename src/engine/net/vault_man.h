@@ -6,6 +6,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -36,12 +37,12 @@ constexpr uint32_t kVaultGoals = 0x38DBE1D0;   // "goals"
 // original's size).
 struct VaultItem {
     memory::ListNode list_link_{}; // +0x000 data = this
-    char url_[0x80]{};             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
-    char label_[0x18]{};           // +0x094
-    char creator_[0x10]{};         // +0x0AC
-    char extent_[0x10]{};          // +0x0BC (parks)
-    char unknowncc_[0x21]{};       // +0x0CC the field before the description
-    char summary_text_[0x103]{};   // +0x0ED the rest of the line
+    std::array<char, 0x80> url_{};             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
+    std::array<char, 0x18> label_{};           // +0x094
+    std::array<char, 0x10> creator_{};         // +0x0AC
+    std::array<char, 0x10> extent_{};          // +0x0BC (parks)
+    std::array<char, 0x21> unknowncc_{};       // +0x0CC the field before the description
+    std::array<char, 0x103> summary_text_{};   // +0x0ED the rest of the line
     int points_held_{0};           // +0x1F0 (tricks)
     int span_{0};                  // +0x1F4 (never read from the list)
     int level_y_{0};               // +0x1F8 (never read from the list)
@@ -62,7 +63,7 @@ struct VaultItem {
 struct VaultCategory {
     memory::ListNode list_link_{}; // +0x00 data = this
     bool skip_{false};             // +0x14 not chosen when moving through the categories at the start ("Uploads")
-    char label_[0x1B]{};         // +0x15
+    std::array<char, 0x1B> label_{};         // +0x15
     memory::ListNode items_{};   // +0x30 lists::Foremost<VaultItem>
 
     // 0x0054B670: unlinked, no items, not skipped.
@@ -92,7 +93,7 @@ struct VaultSearch {
 // A file to download (Download: the top stats and DownloadFile build it on the stack).
 struct DownloadRequest {
     uint32_t buffer_size_;     // +0x000
-    char url[256];             // +0x004
+    std::array<char, 256> url;             // +0x004
     const void* callback;      // +0x104 ghttp's completed callback (param: the VaultMan)
     uint32_t fail_script_;     // +0x108
     uint32_t done_script_;     // +0x10C
@@ -166,9 +167,9 @@ public:
     uint32_t buffer_size_{};                     // +0x014
     char* octets_{};                             // +0x018 what came (or the upload's data)
     uint32_t start_time_{0};                     // +0x01C the time of the start or of the last progress
-    char url_[0x80]{};                           // +0x020
-    char source_path_[0x80]{};                   // +0x0A0 the upload's
-    char summary_text_[0x200]{};                 // +0x120 the upload's
+    std::array<char, 0x80> url_{};                           // +0x020
+    std::array<char, 0x80> source_path_{};                   // +0x0A0 the upload's
+    std::array<char, 0x200> summary_text_{};                 // +0x120 the upload's
     void* semaphore_;                            // +0x320 (HANDLE) held while a thread sets its request up
     int req_{};                                  // +0x324 GHTTPRequest
     script::Struct* content_{};                  // +0x328 the upload's item (its `data` structure)
@@ -185,7 +186,7 @@ public:
     VaultSearch search_;                         // +0x364 the current category's place in the list
     VaultCategory* category_{};                  // +0x36C
     uint32_t kind_tag_{};                        // +0x370 kVaultParks...
-    char folder_[0x40]{};                        // +0x374
+    std::array<char, 0x40> folder_{};                        // +0x374
     uint32_t fail_script_{};                     // +0x3B4
     uint32_t done_script_{};                     // +0x3B8
     uint32_t progress_script_{};                 // +0x3BC

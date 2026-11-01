@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -78,7 +79,7 @@ void delete_particles(FlexibleParticle* particles)
 // them), each allocated only if the one before was; all grey once the three are there. Whether they are.
 bool new_colours(EmitterInstance* system, int count)
 {
-    uint8_t** colours[3] = {&system->start_colour_, &system->mid_colour_, &system->end_colour_};
+    const std::array<uint8_t**, 3> colours = {{&system->start_colour_, &system->mid_colour_, &system->end_colour_}};
     for (uint8_t** colour : colours) {
         *colour = static_cast<uint8_t*>(carve(static_cast<unsigned int>(count) * 4));
         if (!*colour)

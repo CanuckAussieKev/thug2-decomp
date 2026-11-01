@@ -67,7 +67,7 @@ void Sparkle::change_extent(int which, float size) { args_.extent_[which] = thro
 // 0x00494EC0
 void Sparkle::change_colour(int which, const uint32_t* colour)
 {
-    std::memcpy(args_.shade_[which], colour, 4);
+    std::memcpy(args_.shade_[which].data(), colour, 4);
     on_colour_changed();
 }
 

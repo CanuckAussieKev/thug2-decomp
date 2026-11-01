@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -37,7 +38,7 @@
 
 namespace objects {
 
-uint32_t g_anim_blender_member_functions[180]{
+std::array<uint32_t, 180> g_anim_blender_member_functions{{
     0xCABB44AE, 0x7149B753, 0, 0, 0, 0, 0xB628A959, 0x7149B753, 0, 0, 0, 0, 0xAFC2493E, 0x7149B753, 0, 0, 0, 0,
     0xF1D4B29F, 0x7149B753, 0, 0, 0, 0, 0xD58E2AD5, 0x7149B753, 0, 0, 0, 0, 0x98A32669, 0x7149B753, 0, 0, 0, 0,
     0x58C52F64, 0x7149B753, 0, 0, 0, 0, 0x2CB9AD09, 0x7149B753, 0, 0, 0, 0, 0x2889C6C9, 0x7149B753, 0, 0, 0, 0,
@@ -47,7 +48,7 @@ uint32_t g_anim_blender_member_functions[180]{
     0x9069F357, 0x7149B753, 0, 0, 0, 0, 0x1DF59A54, 0x7149B753, 0, 0, 0, 0, 0xC68365EB, 0x7149B753, 0, 0, 0, 0,
     0x83654874, 0x7149B753, 0, 0, 0, 0, 0xD63A1B81, 0x7149B753, 0, 0, 0, 0, 0xBD4EDD44, 0x7149B753, 0, 0, 0, 0,
     0x6AAEB76F, 0x7149B753, 0, 0, 0, 0, 0xF5E2B871, 0x7149B753, 0, 0, 0, 0, 0x986D274E, 0x7149B753, 0, 0, 0, 0,
-    0x27A98022, 0x7149B753, 0, 0, 0, 0, 0x6ECEB234, 0x7149B753, 0, 0, 0, 0, 0,          0x7149B753, 0, 0, 0, 0};
+    0x27A98022, 0x7149B753, 0, 0, 0, 0, 0x6ECEB234, 0x7149B753, 0, 0, 0, 0, 0,          0x7149B753, 0, 0, 0, 0}};
 
 namespace {
 
@@ -86,7 +87,7 @@ gsl::owner<ObjectModule*> AnimBlenderComponent::fabricate() { return new AnimBle
 // 0x00419690
 void AnimBlenderComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_anim_blender_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_anim_blender_member_functions.data(), 0x18);
 }
 
 // 0x0041A410

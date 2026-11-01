@@ -6,6 +6,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/manual_balance.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -84,7 +85,7 @@ public:
 
     uint32_t trick_{}; // +0x18 the balance trick being balanced (0: none)
     bool started_{};   // +0x1C StartBalanceTrick
-    uint8_t pad1d_[3]{};
+    std::array<uint8_t, 3> pad1d_{};
     script::Struct* call_args_{nullptr};     // +0x20 DoBalanceTrick's BalanceParams (a copy)
     Balance manual_;                         // +0x24 manual / nose manual
     Balance grind_;                          // +0x7C grind / slide
@@ -102,5 +103,5 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_balance_trick_member_functions[12];
+extern std::array<uint32_t, 12> g_balance_trick_member_functions;
 } // namespace objects

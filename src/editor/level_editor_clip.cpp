@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <array>
 
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_node_create.h"
@@ -36,9 +37,9 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
     auto label_of = [&](uint32_t checksum) {
         std::string name = hooks.label ? hooks.label(checksum) : "";
         if (name.empty()) {
-            char text[16];
-            std::snprintf(text, sizeof(text), "%08X", checksum);
-            name = text;
+            std::array<char, 16> text{};
+            std::snprintf(text.data(), sizeof(text), "%08X", checksum);
+            name = text.data();
         }
         return name;
     };
@@ -72,9 +73,9 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         }
         layout::CopyRecord copy = c;
         for (;;) {
-            char text[64];
-            std::snprintf(text, sizeof(text), "level_editor_copy_%08X_p%u", c.source, ++counter);
-            copy.name = fields::hash_of_name(text);
+            std::array<char, 64> text{};
+            std::snprintf(text.data(), sizeof(text), "level_editor_copy_%08X_p%u", c.source, ++counter);
+            copy.name = fields::hash_of_name(text.data());
             if (std::ranges::find(used_ids, copy.name) == used_ids.end() &&
                 !(hooks.id_taken_ && hooks.id_taken_(copy.name)))
                 break;
@@ -400,10 +401,10 @@ std::string describe()
 {
     std::string text;
     if (g_props.have_transform_) {
-        char t[96];
-        std::snprintf(t, sizeof(t), "transform (%.0f, %.0f, %.0f)", g_props.transform.pos.x, g_props.transform.pos.y,
+        std::array<char, 96> t{};
+        std::snprintf(t.data(), sizeof(t), "transform (%.0f, %.0f, %.0f)", g_props.transform.pos.x, g_props.transform.pos.y,
                       g_props.transform.pos.z);
-        text = t;
+        text = t.data();
     }
     if (!g_props.fields.empty())
         text += (text.empty() ? "" : " and ") + std::to_string(g_props.fields.size()) + " fields of " + g_props.from;

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -177,8 +178,8 @@ bool BuildPointer::add_gap_half()
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (gap_counter() > 1)
                     THUG2_MSVC_WARNING(suppress : 4996)
-                std::sprintf(gap.text_, "gap%d", gap_counter()); // "gap%d"
-                else std::memcpy(gap.text_, "gap", 4);
+                std::sprintf(gap.text_.data(), "gap%d", gap_counter()); // "gap%d"
+                else std::memcpy(gap.text_.data(), "gap", 4);
                 ++gap_counter();
             }
             if (register_gap_entry(hub(), &gap)) {
@@ -470,10 +471,10 @@ void ParkLayout::commission(uint32_t level)
             set.entry_total_ = 6;
             const char* text = script::fetch_text(0x4E677220u);
             for (int k = 0; k < 6; ++k) {
-                char name[100];
-                std::snprintf(name, sizeof(name), "Clipboard%d", k); // "Clipboard%d"
+                std::array<char, 100> name{};
+                std::snprintf(name.data(), sizeof(name), "Clipboard%d", k); // "Clipboard%d"
                 set.entries_[k].name = text;
-                set.entries_[k].checksum = checksums::hash_from_text(name);
+                set.entries_[k].checksum = checksums::hash_from_text(name.data());
             }
         }
         set.is_displayed_ = !description->has_bare_flag("hidden"); // "hidden"

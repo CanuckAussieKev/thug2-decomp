@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "game/park_editing/park_rails.h"
 #include "engine/maths/vec4.h"
@@ -91,7 +92,7 @@ struct PieceGroupDesc {
     bool sets_floor_; // +0x04: from the palette entry's flag 0x0CD75A3F: the piece counts as floor - only
                       //        these set the cells' floor heights (set_meta_in_cells), PieceGroup::intersects' precise
                       //        test leaves them out, and their metapiece is kFloorLocked
-    uint8_t spare_slot5_[3];
+    std::array<uint8_t, 3> spare_slot5_;
     void* piece; // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
 };
 static_assert(sizeof(PieceGroupDesc) == 12, "layout must match the original");
@@ -242,10 +243,10 @@ public:
     virtual void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) = 0;
 
     CellBox cell_footprint_ = {0, 0, 0, 0, 0, 0}; // +0x04 (the offsets are the original's: the vtable at +0x00)
-    uint8_t pad0a_[2]{};
+    std::array<uint8_t, 2> pad0a_{};
     uint32_t flag_bits_ = 0;               // +0x0C
     int quarter_turns_{};                  // +0x10: quarter turns
-    PieceGroupDesc desc_[2]{};             // +0x14: the first two pieces
+    std::array<PieceGroupDesc, 2> desc_{};             // +0x14: the first two pieces
     PieceGroupDesc* extra_desc_ = nullptr; // +0x2C: the others (piece 2 is extra_desc_[0])
     uint32_t slot_limit_ = 0;              // +0x30
     uint32_t filled_slots_ = 0;            // +0x34
@@ -369,11 +370,11 @@ struct CellChainScratch {
 
 // A gap (0x54 bytes; 0x0058CBC0 constructs the two ends): the gap tool's state, and how the gap manager keeps one.
 struct GapDetails {
-    CellBox at_point_[2]{};   // +0x00: the cells of its two halves
-    int quarter_turns_[2]{};  // +0x0C (0-3; 4 bits each in the map)
-    int reach_left_[2]{};     // +0x14 (0-6 cells)
-    int reach_right_[2]{};    // +0x1C
-    char text_[0x20]{};       // +0x24: its name ("gap", "gap2"...)
+    std::array<CellBox, 2> at_point_{};   // +0x00: the cells of its two halves
+    std::array<int, 2> quarter_turns_{};  // +0x0C (0-3; 4 bits each in the map)
+    std::array<int, 2> reach_left_{};     // +0x14 (0-6 cells)
+    std::array<int, 2> reach_right_{};    // +0x1C
+    std::array<char, 0x20> text_{};       // +0x24: its name ("gap", "gap2"...)
     int points_held_{};       // +0x44
     int halves_placed_{};     // +0x48: how many of its halves are placed (2 for a whole gap)
     int slot_index_{};        // +0x4C: the gap manager's index (-1 none)
@@ -402,7 +403,7 @@ struct ClipboardEntry {
     int quarter_turns_; // +0x08: quarter turns
     uint8_t w_;         // +0x0C
     uint8_t l_;         // +0x0D
-    uint8_t pad0e_[2];
+    std::array<uint8_t, 2> pad0e_;
     PieceGroup* preview_;       // +0x10: shown at the cursor (kCursor)
     ClipboardEntry* following_; // +0x14
 
@@ -430,7 +431,7 @@ struct Clipboard {
     CellBox edit_span_{};           // +0x00
     uint8_t lo_cell_x_{0xFF}, lo_cell_z_{0xFF}; // +0x06: the cells its entries cover
     uint8_t hi_cell_x_{0}, hi_cell_z_{0};       // +0x08
-    uint8_t pad0a_[2]{};
+    std::array<uint8_t, 2> pad0a_{};
     ClipboardEntry* metas_{nullptr}; // +0x0C: its entries (the newest first)
     void* rail_groups_{nullptr};    // +0x10: the rail editor's copies of the rails over it (linked by their first word)
     Clipboard* following_{nullptr}; // +0x14: the cursor's list
@@ -474,12 +475,12 @@ struct PieceFamily {
     };
     uint32_t name_checksum_; // +0x000
     const char* label_;      // +0x004: shown in the set menu (set_name)
-    TableRow entries_[40];   // +0x008
+    std::array<TableRow, 40> entries_;   // +0x008
     int entry_total_;        // +0x148
     int selected_;           // +0x14C
     bool is_displayed_;      // +0x150: has a menu entry
     bool is_clipboard_;      // +0x151: the clipboard set
-    uint8_t pad152[2];
+    std::array<uint8_t, 2> pad152;
 };
 static_assert(offsetof(PieceFamily, entry_total_) == 0x148 && offsetof(PieceFamily, is_displayed_) == 0x150 &&
                   sizeof(PieceFamily) == 0x154,
@@ -491,7 +492,7 @@ struct FloorCell {
     int level_y_;           // in floor steps (-16 to 15)
     uint32_t heights_used_; // +0x04: bit (y + 17) for each level a piece fills
     bool touched_;          // +0x08: changed by the floor change under way
-    uint8_t pad9[3];
+    std::array<uint8_t, 3> pad9;
     int delta_; // +0x0C: by how much
 };
 static_assert(sizeof(FloorCell) == 16, "grid cell");
@@ -510,11 +511,11 @@ struct CompressedMap {
     uint16_t composite_count_;           // +0x10
     uint16_t num_gaps_;                  // +0x12
     uint8_t max_players_;                // +0x14
-    uint8_t pad15[3];
+    std::array<uint8_t, 3> pad15;
     uint32_t style_set_;                            // +0x18: the park editor's (+0x78); 0 reads as "Default"
-    char label_[0x40];                              // +0x1C
-    int8_t floor_heights_[kFloorSize * kFloorSize]; // +0x5C
-    uint8_t rest_[0x3A98 - 0x5C - kFloorSize * kFloorSize];
+    std::array<char, 0x40> label_;                              // +0x1C
+    std::array<int8_t, kFloorSize * kFloorSize> floor_heights_; // +0x5C
+    std::array<uint8_t, 0x3A98 - 0x5C - kFloorSize * kFloorSize> rest_;
 
     static constexpr uint16_t kVersion = 20004;
 };
@@ -570,10 +571,10 @@ public:
     // One gap (0xEC bytes, made by StartGap / EndGap): the ids of its two ends, their trigger pieces and
     // metapieces, its name and its GapDetails.
     struct Gap {
-        uint32_t ids_[2]{};      // +0x00: each end's GapID (the manager's counter when it was made)
-        ParkTile* pieces_[2]{};  // +0x08: the trigger pieces
-        PieceGroup* metas_[2]{}; // +0x10
-        char label_[0x80]{};     // +0x18: the text of the gap's EndGap
+        std::array<uint32_t, 2> ids_{};      // +0x00: each end's GapID (the manager's counter when it was made)
+        std::array<ParkTile*, 2> pieces_{};  // +0x08: the trigger pieces
+        std::array<PieceGroup*, 2> metas_{}; // +0x10
+        std::array<char, 0x80> label_{};     // +0x18: the text of the gap's EndGap
         GapDetails details_;   // +0x98
     };
     static constexpr int kMaxGaps = 32;
@@ -587,8 +588,8 @@ public:
     void fire_gap(int index, script::Script* script);
 
     uint32_t next_id_{2000};       // +0x00: the next end's GapID
-    Gap* gaps_ptr_[kMaxGaps]{};    // +0x04
-    bool started_first_[kMaxGaps]{}; // +0x84: the gap's first half (StartGap) was placed first
+    std::array<Gap*, kMaxGaps> gaps_ptr_{};    // +0x04
+    std::array<bool, kMaxGaps> started_first_{}; // +0x84: the gap's first half (StartGap) was placed first
     ParkLayout* park_owner_;       // +0xA4: the park it's in (null in a copy)
 };
 static_assert(sizeof(GapRegistry::Gap) == 0xEC && offsetof(GapRegistry::Gap, details_) == 0x98 &&
@@ -611,10 +612,10 @@ struct RestartPoint {
     maths::Vec4 at_point_; // +0x00
     int quarter_turns_;    // +0x10
     CellBox edit_span_;    // +0x14
-    uint8_t pad1a_[2];
+    std::array<uint8_t, 2> pad1a_;
     int kind_tag_;      // +0x1C
     uint8_t automatic_; // +0x20: put down by the park itself (generate_node_array), not placed (the byte given)
-    uint8_t pad21[3];
+    std::array<uint8_t, 3> pad21;
 };
 static_assert(offsetof(RestartPoint, edit_span_) == 0x14 && offsetof(RestartPoint, kind_tag_) == 0x1C &&
                   sizeof(RestartPoint) == 0x24,
@@ -780,15 +781,14 @@ public:
     PieceNodeInfo* node_info_{};               // +0x08C: (while build_source_rails runs)
     int* used_nodes_{};                        // +0x090: (likewise) the rail nodes taken
     int num_used_nodes_{};                     // +0x094
-    RestartPoint restarts_[kRestartTableSize]{}; // +0x098: by type - 0 player 2, 1 player 1, 2-7 horse, 8-13 king of
+    std::array<RestartPoint, kRestartTableSize> restarts_{}; // +0x098: by type - 0 player 2, 1 player 1, 2-7 horse, 8-13 king of
                                                  // the hill, 14-17 the flags (spawn_slot_array)
     int light_total_{};                          // +0x320
-    float ambient_[3]{};                         // +0x324 (rgb)
-    float falloff_[3]{};                         // +0x330 (rgb)
-    maths::Vec4 lights_[kLightCapacity]{};       // +0x33C
+    std::array<float, 3> ambient_{};                         // +0x324 (rgb)
+    std::array<float, 3> falloff_{};                         // +0x330 (rgb)
+    std::array<maths::Vec4, kLightCapacity> lights_{};       // +0x33C
     uint32_t field_43c_{};
-    alignas(4) uint8_t
-        node_array_[0x64]{}; // +0x440: an assets::NodeTableResource made in place (the node array's owner)
+    alignas(4) std::array<uint8_t, 0x64> node_array_{}; // +0x440: an assets::NodeTableResource made in place (the node array's owner)
 };
 static_assert(offsetof(ParkAssembler, source_rails_) == 0x24 && offsetof(ParkAssembler, rails_) == 0x58 &&
                   offsetof(ParkAssembler, node_info_) == 0x8C && offsetof(ParkAssembler, restarts_) == 0x98 &&
@@ -1037,31 +1037,31 @@ public:
     ParkAssembler* builder_; // +0x00
     bool park_built_;        // +0x04: the park is built (its changes go into the map when asked)
     bool field_05_;          // +0x05: the floor is built
-    uint8_t pad06[2]{};
+    std::array<uint8_t, 2> pad06{};
     MapListNode* riser_list_;     // +0x08
     int riser_metas_{};           // +0x0C
     int riser_pieces_{};          // +0x10
-    uint32_t shell_blocks_[8][3]{}; // +0x14: "floor_wall_block%d", "wall_block%d", "floor_block%d" (1..8)
+    std::array<std::array<uint32_t, 3>, 8> shell_blocks_{}; // +0x14: "floor_wall_block%d", "wall_block%d", "floor_block%d" (1..8)
     int field_74_;
     void* field_78_;                                  // +0x78: a Malloc block
     MapListNode* concrete_metas_;                     // +0x7C
     MapListNode* abstract_metas_;                     // +0x80
     int num_concrete_metas_;                          // +0x84
     int num_abstract_metas_;                          // +0x88
-    MapListNode* cell_metas_[kFloorSize][kFloorSize]{}; // +0x8C: [x][z] the metapieces with pieces in each cell
+    std::array<std::array<MapListNode*, kFloorSize>, kFloorSize> cell_metas_{}; // +0x8C: [x][z] the metapieces with pieces in each cell
     int shell_size_;                          // +0x351C: picks the shell model (sk5ed%d_shell) and the bounds' update
     CellBox build_area_{};                    // +0x3520: the park's area (inside the shell)
     CellBox shell_bounds_{};                  // +0x3526: everything that may be built on
-    FloorCell floor_[kFloorSize][kFloorSize]{}; // +0x352C: [x][z]
-    PieceFamily sets_[kMaxSets]{};              // +0x1076C
+    std::array<std::array<FloorCell, kFloorSize>, kFloorSize> floor_{}; // +0x352C: [x][z]
+    std::array<PieceFamily, kMaxSets> sets_{};              // +0x1076C
     int num_sets_{};                            // +0x13C8C
     CompressedMap map_{};                       // +0x13C90
     uint32_t flag_bits_;                      // +0x17728
-    char park_name_[0x40]{};                  // +0x1772C
-    CellBox blocked_areas_[8]{};              // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)
+    std::array<char, 0x40> park_name_{};                  // +0x1772C
+    std::array<CellBox, 8> blocked_areas_{};              // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)
     uint32_t num_blocked_areas_{};            // +0x1779C
     uint32_t unknown177a0_{};
-    uint32_t restart_pieces_[kNumRestartPieces]{}; // +0x177A4: restart_1, restart_multi, restart_horse, king_of_hill,
+    std::array<uint32_t, kNumRestartPieces> restart_pieces_{}; // +0x177A4: restart_1, restart_multi, restart_horse, king_of_hill,
                                                    // and the red, green, blue, yellow flags
     GapRegistry* gap_registry_;                  // +0x177C4
     GapRegistry* gap_manager_copy_;              // +0x177C8: see create_gap_manager_copy
@@ -1078,7 +1078,7 @@ static_assert(offsetof(ParkLayout, shell_blocks_) == 0x14 && offsetof(ParkLayout
                   offsetof(ParkLayout, restart_pieces_) == 0x177A4 && offsetof(ParkLayout, gap_registry_) == 0x177C4 &&
                   sizeof(ParkLayout) == 0x177CC,
               "layout must match the original");
-inline PieceFamily* get_sets(ParkLayout* manager) { return manager->sets_; }
+inline PieceFamily* get_sets(ParkLayout* manager) { return manager->sets_.data(); }
 
 // The cursor (200 bytes): the box the player moves over the grid, with the piece to place (or the copy to paste).
 extern BuildPointer* g_cursor;
@@ -1109,7 +1109,7 @@ public:
     // 0x005953C0: the gap's cancel flags, from the names in `flags` (each a global integer), handed to the gap manager
     void set_gap_void_mask(script::Struct* flags);
     // 0x00595430
-    char* get_gap_title() { return gap_.text_; }
+    char* get_gap_title() { return gap_.text_.data(); }
     // 0x00595440: show the current clipboard's preview here
     void show_clipboard();
     // 0x00595450: hide every preview and make clipboard `index` the current one (none past the end)
@@ -1218,12 +1218,12 @@ public:
 
     ParkLayout* park_owner_; // +0x00
     CellBox cell_footprint_{}; // +0x04
-    uint8_t pad0a_[2]{};
+    std::array<uint8_t, 2> pad0a_{};
     float move_time_{1.0f}; // +0x0C: of the slide to the target (1 when a step starts)
     int unknown10{};
     maths::Vec4 aim_point_{}; // +0x14
     maths::Vec4 at_point_{};  // +0x24
-    uint8_t unknown34[4]{};
+    std::array<uint8_t, 4> unknown34{};
     int quarter_turns_{0};             // +0x38: quarter turns
     float target_angle_{0.0f};         // +0x3C: degrees
     float angle_{0.0f};                // +0x40
@@ -1232,7 +1232,7 @@ public:
     CellBox area_start_{};     // +0x49: its first corner
     CellBox area_last_{};      // +0x4F: the cursor's cell when the highlight was made (the other corner)
     bool area_highlighted_{false}; // +0x55
-    uint8_t pad56[2]{};
+    std::array<uint8_t, 2> pad56{};
     Clipboard* copy_buffers_{nullptr}; // +0x58: the newest first
     Clipboard* clipboard_{nullptr};    // +0x5C: the one being pasted
     int clipboard_height_{};  // +0x60

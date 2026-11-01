@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <array>
 
 namespace frontend::level_editor::ui_layout {
 
@@ -100,11 +101,11 @@ struct MarkInfo {
     uint32_t colour;
     const char* name;
 };
-const MarkInfo kMarks[kMaxMarkers] = {
+const std::array<MarkInfo, kMaxMarkers> kMarks = {{
     {'M', 0xFFFFC040u, "Moved"},          {'+', 0xFF60E060u, "Added"},
     {'D', 0xFFFF6060u, "Hidden in game"}, {'H', 0xFF9090A0u, "Hidden in editor"},
     {'L', 0xFF60B0FFu, "Locked"},         {'C', 0xFFFF40E0u, "Collision off"},
-};
+}};
 } // namespace
 
 char mark_letter(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].letter : '?'; }

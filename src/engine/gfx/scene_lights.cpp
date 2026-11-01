@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -27,7 +28,7 @@
 namespace render {
 
 int g_scene_light_count;
-LevelLamp g_level_lamps[150]; // (kMaxSceneLights)
+std::array<LevelLamp, 150> g_level_lamps; // (kMaxSceneLights)
 
 namespace {
 uint32_t* g_queued_nodes;
@@ -40,7 +41,7 @@ script::Struct* g_queue_params;
 constexpr int kMaxSceneLights = 150;
 constexpr float kPercent = 0.01f; // 0x0064544C
 
-LevelLamp* scene_light_array() { return g_level_lamps; }
+LevelLamp* scene_light_array() { return g_level_lamps.data(); }
 int& scene_light_count() { return g_scene_light_count; }
 
 // The queue.
@@ -102,7 +103,7 @@ struct Sums {
     [[nodiscard]] uint32_t get_apply(uint32_t colour) const
     {
         auto* bytes = raw::bytes(&colour);
-        const double sums[3] = {r, static_cast<float>(g), static_cast<float>(b)};
+        const std::array<double, 3> sums = {{r, static_cast<float>(g), static_cast<float>(b)}};
         for (int i = 0; i < 3; ++i) {
             double v = bytes[i] + sums[i];
             if (v > 255.0)
@@ -218,7 +219,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     Geom* geom = geom_of(sector);
     if (!geom)
         return;
-    int lights[8];
+    std::array<int, 8> lights{};
     int found = 0;
     for (int i = 0; i < scene_light_count(); ++i) {
         LevelLamp& light = scene_light_array()[i];
@@ -260,7 +261,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
 void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions, const maths::Vec4* normal,
                           uint32_t count)
 {
-    int lights[3];
+    std::array<int, 3> lights{};
     int found = 0;
     for (int i = 0; i < scene_light_count() && found < 3; ++i) {
         const LevelLamp& light = scene_light_array()[i];
@@ -313,7 +314,7 @@ void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 // 0x0048FCA0
 void delete_scene_light(uint32_t name)
 {
-    DynamicLightBase** dynamic = g_dynamic_lights;
+    DynamicLightBase** dynamic = g_dynamic_lights.data();
     int& dynamic_count = g_dynamic_light_count;
     for (int i = 0; i < dynamic_count; ++i) {
         if (dynamic[i]->owner == name) { // (no null check, as the original)
@@ -498,7 +499,7 @@ void create_light_from_node(script::Struct* node)
     if (dynamic) {
         if (DynamicLightBase* light = new_dynamic_light(type == 0x485A0CDB ? 1 : 0)) {
             light->owner = name;
-            std::memcpy(light->pos, &pos, sizeof(light->pos));
+            std::memcpy(light->pos.data(), &pos, sizeof(light->pos));
             light->intensity = static_cast<float>(brightness * static_cast<double>(kPercent));
             light->colour = colour;
             light->radius = radius;

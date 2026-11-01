@@ -9,6 +9,7 @@
 #include "platform/compiler.h"
 #include <cstring>
 #include <utility>
+#include <array>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
@@ -357,13 +358,13 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         message.time = time;
         message.properties = checksums::hash_from_text(properties);
         if (string1)
-            std::strncpy(message.string1, string1, kHudNoticeTextSize);
+            std::strncpy(message.string1.data(), string1, kHudNoticeTextSize);
         if (string2)
-            std::strncpy(message.string2, string2, kHudNoticeTextSize);
-        uint8_t bytes[kHudNoticeSize];
-        util::ByteWriter writer(bytes, sizeof(bytes));
+            std::strncpy(message.string2.data(), string2, kHudNoticeTextSize);
+        std::array<uint8_t, kHudNoticeSize> bytes{};
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         write_hud_notice(writer, message);
-        desc.content_ = bytes;
+        desc.content_ = bytes.data();
         desc.byte_count_ = sizeof(bytes);
         desc.ident_ = kMsgHudNotice;
         if (important) {
@@ -377,17 +378,17 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
     }
     script::Struct* params = new_params();
     const char* format = script::fetch_text(text);
-    char copy[256];
-    char line[256];
-    std::strcpy(copy, format);
+    std::array<char, 256> copy{};
+    std::array<char, 256> line{};
+    std::strcpy(copy.data(), format);
     const char* shown = format;
     // "%s0" in the text stands for string 1.
-    if (char* slot = std::strstr(copy, kStringSlot)) {
+    if (char* slot = std::strstr(copy.data(), kStringSlot)) {
         *slot = 0;
-        std::strcpy(line, copy);
-        std::strcat(line, string1);
-        std::strcat(line, slot + 3);
-        shown = line;
+        std::strcpy(line.data(), copy.data());
+        std::strcat(line.data(), string1);
+        std::strcat(line.data(), slot + 3);
+        shown = line.data();
     }
     params->append_word(kText, script::kQbvalString, shown);
     params->add_component_of_type(kId, script::kQbvalName, kNetPanelMsg);
@@ -473,7 +474,7 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
     struct {
         uint32_t param;
         uint8_t bit;
-        uint8_t pad[3]; // (the original's stack)
+        std::array<uint8_t, 3> pad; // (the original's stack)
     } message = {param, bit, {0, 0, 0}};
     script_flag_bits_ ^= 1u << (bit & 31);
     desc.byte_count_ = sizeof(message);
@@ -510,7 +511,7 @@ int Hub::count_team_players(int team)
 int Hub::count_players()
 {
     // The players' skater ids (zeroed first: the original's check below reads the byte after the last one noted).
-    uint8_t ids[12] = {};
+    std::array<uint8_t, 12> ids = {};
     int noted = 0;
     int count = 0;
     for (const memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
@@ -693,7 +694,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     memory->enter_heap_scope(memory->network_heap_);
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
     auto* record = record_memory ? memory::construct_in<JoinerRecord>(record_memory) : nullptr;
-    std::strcpy(record->label_, info->label_);
+    std::strcpy(record->label_.data(), info->label_.data());
     record->conn_ = info->conn_;
     record->entity_key_ = info->entity_key_;
     record->flag_bits_ = info->flag_bits_;
@@ -720,7 +721,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
         flags = record->flag_bits_;
         record->add_at_frame_ = host_->frame_count_ + timeout;
         if (!(flags & 1)) {
-            const char* name = info->label_;
+            const char* name = info->label_.data();
             if (flags & 4)
                 build_net_notice(true, (flags & 8) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
                                  nullptr, nullptr, false, 2000);

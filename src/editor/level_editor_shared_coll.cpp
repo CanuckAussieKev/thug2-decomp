@@ -11,6 +11,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -341,7 +342,7 @@ const char* get_name_of(uint32_t checksum)
 // The collision objects named after a piece (<name>_col and the like) that exist as collision-only sectors.
 std::vector<uint32_t> named_for(uint32_t checksum)
 {
-    static const char* const kSuffixes[] = {"_col", "_ic", "_col01", "_ic01"};
+    static const auto kSuffixes = std::to_array<const char*>({"_col", "_ic", "_col01", "_ic01"});
     std::vector<uint32_t> found;
     const char* name = get_name_of(checksum);
     if (!name || !*name)

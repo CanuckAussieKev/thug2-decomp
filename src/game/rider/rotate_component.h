@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -33,7 +34,7 @@ public:
         float rate;      // +0x08 radians a second (signed)
         float turned;    // +0x0C so far
         bool active;     // +0x10
-        uint8_t pad11[3];
+        std::array<uint8_t, 3> pad11;
     };
 
     // 0x00517D40 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
@@ -53,7 +54,7 @@ public:
     // 0x00517EA0 (vtable +0x30): Rotate (1); 2 for any other name.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    Turn turns_[3]{};                           // +0x18 about x, y, z
+    std::array<Turn, 3> turns_{};                           // +0x18 about x, y, z
     skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x54 SkaterCorePhysics (0x5BD63B29)
 };
 

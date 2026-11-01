@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace net {
 
@@ -17,7 +18,7 @@ struct PingProbe {
     void input_delay_amount(int latency);
 
     int average_latency_{1000}; // +0x00
-    int times_[kNumTimes]{}; // +0x04 (0 = none)
+    std::array<int, kNumTimes> times_{}; // +0x04 (0 = none)
     uint32_t succ_{0};       // +0x2C where the next measurement goes
     uint32_t probe_sent_at_{0}; // +0x30 (set by the ping handlers, wt/netC)
     uint32_t echo_seen_at_{0};  // +0x34

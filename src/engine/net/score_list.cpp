@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -60,9 +61,9 @@ constexpr uint32_t kUpdateScore = 0xAD022A2C;                                   
 constexpr uint32_t kKingAbbreviation = 0xA1DD0949;                                    // player_str_king_abbreviation
 constexpr uint32_t kText = 0xC4745838;                                                // text
 constexpr uint32_t kId = 0x40C698AF;                                                  // id
-constexpr uint32_t kTeamNames[4] = {0x3224348D, 0xB4B04623, 0x7FEC9586, 0x62E9A53E};  // team_1_name ... team_4_name
-constexpr uint32_t kScoreLines[8] = {0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62CC86,  // net_score_1 ... 4
-                                     0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}; // net_score_5 ... 8
+constexpr std::array<uint32_t, 4> kTeamNames = {{0x3224348D, 0xB4B04623, 0x7FEC9586, 0x62E9A53E}};  // team_1_name ... team_4_name
+constexpr std::array<uint32_t, 8> kScoreLines = {{0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62CC86,  // net_score_1 ... 4
+                                     0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}}; // net_score_5 ... 8
 
 constexpr uint32_t kUpdateInterval = 1000; // ms
 uint32_t g_score_refresh_stamp;
@@ -169,14 +170,14 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
 
     if (not_lobby && manager->show_team_scores()) {
         // A line per team with players: the team's name, its players' marks.
-        ScoreEntry* teams[4];
+        std::array<ScoreEntry*, 4> teams{};
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
             const uint32_t name = team < 4 ? kTeamNames[team] : 0;
             ScoreEntry* entry = new_entry();
             teams[team] = entry;
-            std::strcpy(entry->text_, script::fetch_text(name));
+            std::strcpy(entry->text_.data(), script::fetch_text(name));
             entry->king_ = false;
             entry->local_ = false;
             entry->has_flag_ = false;
@@ -188,9 +189,9 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (!has_score_line(p))
                 continue;
             if (p->flag_bits_ & kPlayerLocal) {
-                char marked[64];
-                std::sprintf(marked, "> %s", teams[p->team_]->text_);
-                std::strcpy(teams[p->team_]->text_, marked);
+                std::array<char, 64> marked{};
+                std::sprintf(marked.data(), "> %s", teams[p->team_]->text_.data());
+                std::strcpy(teams[p->team_]->text_.data(), marked.data());
             }
             if (p->flag_bits_ & kPlayerKing)
                 teams[p->team_]->king_ = true;
@@ -215,9 +216,9 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 continue;
             ScoreEntry* entry = new_entry();
             if (p->flag_bits_ & kPlayerLocal)
-                std::sprintf(entry->text_, "> %s", p->label_);
+                std::sprintf(entry->text_.data(), "> %s", p->label_.data());
             else
-                std::strcpy(entry->text_, p->label_);
+                std::strcpy(entry->text_.data(), p->label_.data());
             entry->king_ = (p->flag_bits_ >> 7) & 1;
             entry->local_ = p->flag_bits_ & 1;
             if (is_squad_match())
@@ -243,45 +244,45 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         list.list_link_.next->data == memory::ListNode::head_marker() ? nullptr : list.list_link_.next;
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
     for (int line = 0; entry; ++line) {
-        char prefix[64]; // (16 bytes in the original: a long crown abbreviation overran it)
+        std::array<char, 64> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
         prefix[0] = '\0';
         if (entry->king_) {
-            std::sprintf(prefix, script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
+            std::sprintf(prefix.data(), script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
         } else if (entry->has_flag_) {
             if (entry->flag_bits_ & 1)
-                std::strcat(prefix, "\\s0");
+                std::strcat(prefix.data(), "\\s0");
             if (entry->flag_bits_ & 2)
-                std::strcat(prefix, "\\s1");
+                std::strcat(prefix.data(), "\\s1");
             if (entry->flag_bits_ & 4)
-                std::strcat(prefix, "\\s2");
+                std::strcat(prefix.data(), "\\s2");
             if (entry->flag_bits_ & 8)
-                std::strcat(prefix, "\\s3");
+                std::strcat(prefix.data(), "\\s3");
         } else {
             prefix[0] = '\0';
         }
         cursor = cursor->next->data == memory::ListNode::head_marker() ? nullptr : cursor->next;
         auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
 
-        char text[128]; // (64 in the original: the longest king of the hill lines overran it)
+        std::array<char, 128> text{}; // (64 in the original: the longest king of the hill lines overran it)
         if (!not_lobby) {
-            std::sprintf(text, "\\c%d%s", entry->shade_, entry->text_);
+            std::sprintf(text.data(), "\\c%d%s", entry->shade_, entry->text_.data());
         } else if (hill_mode) {
             const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
             if (seconds < 3600)
-                std::sprintf(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix, entry->shade_, entry->text_, entry->shade_,
+                std::sprintf(text.data(), R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade_, entry->text_.data(), entry->shade_,
                              seconds / 60, seconds % 60);
             else
-                std::sprintf(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix, entry->shade_, entry->text_,
+                std::sprintf(text.data(), R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade_, entry->text_.data(),
                              entry->shade_, seconds / 3600, seconds % 3600 / 60, seconds % 60);
         } else if (scavenger_hunt && !entry->local_) {
-            std::sprintf(text, "%s\\c%d %s", prefix, entry->shade_, entry->text_);
+            std::sprintf(text.data(), "%s\\c%d %s", prefix.data(), entry->shade_, entry->text_.data());
         } else {
-            std::sprintf(text, "%s\\c%d %s \\c%d %d", prefix, entry->shade_, entry->text_, entry->shade_,
+            std::sprintf(text.data(), "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade_, entry->text_.data(), entry->shade_,
                          entry->priority);
         }
         const uint32_t id = line < 8 ? kScoreLines[line] : 0;
         script::Struct* params = new_params();
-        params->append_word(kText, script::kQbvalString, text);
+        params->append_word(kText, script::kQbvalString, text.data());
         params->add_component_of_type(kId, script::kQbvalName, id);
         frontend::UiWidget* element = nullptr;
         {

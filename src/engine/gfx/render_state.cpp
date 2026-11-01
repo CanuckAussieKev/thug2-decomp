@@ -9,6 +9,7 @@
 #include <bit>
 #include <cstdint>
 #include <initializer_list>
+#include <array>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/graphics_options.h"
@@ -50,20 +51,20 @@ uint32_t g_lighting;
 uint32_t g_cull_mode;
 bool g_near_camera;
 namespace {
-uint32_t g_address_modes[4];
-uint32_t g_mip_lod_biases[4];
-uint32_t g_filters[4];
+std::array<uint32_t, 4> g_address_modes;
+std::array<uint32_t, 4> g_mip_lod_biases;
+std::array<uint32_t, 4> g_filters;
 } // namespace
-void* g_textures[4];
-uint32_t g_border_colours[4];
+std::array<void*, 4> g_textures;
+std::array<uint32_t, 4> g_border_colours;
 namespace {
 uint32_t g_vertex_format;
 } // namespace
 uint32_t g_pixel_shader_locked;
 void* g_current_pixel_shader;
-float g_ps_constant_bank[20];
+std::array<float, 20> g_ps_constant_bank;
 uint32_t g_instance_colour_on;
-uint8_t g_instance_colour[4];
+std::array<uint8_t, 4> g_instance_colour;
 uint8_t g_pixel_shader_changed;
 uint32_t g_vertex_format_locked;
 uint32_t g_skipped_passes;
@@ -76,7 +77,7 @@ namespace {
 uint8_t g_local_viewer;
 } // namespace
 const float* g_world_transform;
-float g_world_transform_copy[16];
+std::array<float, 16> g_world_transform_copy;
 
 namespace {
 
@@ -97,14 +98,14 @@ uint8_t& get_z_test() { return g_z_test; }
 uint32_t& depth_bias() { return g_depth_bias; }
 uint32_t& get_lighting() { return g_lighting; }
 uint32_t& cull_mode() { return g_cull_mode; }
-uint32_t* address_modes() { return g_address_modes; }   // [4]: U low 16 bits, V high
-uint32_t* mip_lod_biases() { return g_mip_lod_biases; } // [4]: float bits
-uint32_t* filters() { return g_filters; }               // [4]: min low 16 bits, mag high
-void** get_textures() { return g_textures; }            // [4]
+uint32_t* address_modes() { return g_address_modes.data(); }   // [4]: U low 16 bits, V high
+uint32_t* mip_lod_biases() { return g_mip_lod_biases.data(); } // [4]: float bits
+uint32_t* filters() { return g_filters.data(); }               // [4]: min low 16 bits, mag high
+void** get_textures() { return g_textures.data(); }            // [4]
 uint32_t& vertex_format() { return g_vertex_format; }
 uint32_t& pixel_shader_locked() { return g_pixel_shader_locked; }
 void*& current_pixel_shader() { return g_current_pixel_shader; }
-float* ps_constant_bank() { return g_ps_constant_bank; } // [5][4]; [4] is 0x00786F0C
+float* ps_constant_bank() { return g_ps_constant_bank.data(); } // [5][4]; [4] is 0x00786F0C
 uint8_t& pixel_shader_changed() { return g_pixel_shader_changed; }
 uint32_t& vertex_format_locked() { return g_vertex_format_locked; }
 uint32_t& forced_blend() { return g_forced_blend; }
@@ -576,7 +577,7 @@ void set_world_transform(const float* matrix)
         g_world_transform = nullptr;
         return;
     }
-    float* world = g_world_transform_copy;
+    float* world = g_world_transform_copy.data();
     g_world_transform = world;
     for (int row = 0; row < 4; ++row) {
         world[row * 4 + 0] = matrix[row * 4 + 0];
@@ -638,10 +639,10 @@ void reset_render_state()
     g_camera.background_colour_ = 0;
     g_camera.letterbox_active_ = 0; // the letterbox
     // The default light: its direction (0x00786F48) and colours, as bit patterns.
-    static const uint32_t kLight[] = {
+    static const auto kLight = std::to_array<uint32_t>({
         0xBF000000, 0xBF5DB3D7, 0, 0, 0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000, 0x3F800000, 0, 0, 0, 0, 0, 0,
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
-    };
+    });
     for (int i = 0; i < 24; ++i)
         memory::bits_as<uint32_t>(g_light_constants[4 + i]) = kLight[i];
     memory::bits_as<uint32_t>(g_light_constants[0]) = 0x3F1624DD; // the ambient colour

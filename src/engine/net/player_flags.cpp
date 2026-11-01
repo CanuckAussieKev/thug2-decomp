@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
@@ -153,22 +154,22 @@ void PlayerRecord::set_finished_joining()
 // 0x00543A90
 void PlayerRecord::score_flag_capture(int team)
 {
-    char key[64];
-    get_team_key(key, team);
+    std::array<char, 64> key{};
+    get_team_key(key.data(), team);
     const PlayerRecord* local = get_local(the_manager());
     script::Struct* params = new_params();
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         params->put_int(kTeam, team);
         get_run(kCapturedFlagYou, params);
     } else if (!(local->flag_bits_ & kPlayerObserver) && local->team_ == team) {
-        params->append_word(kString0, script::kQbvalString, label_);
+        params->append_word(kString0, script::kQbvalString, label_.data());
         params->put_int(kTeam, team);
         get_run(kHideCtfArrow);
         get_run(kCapturedYourFlag, params);
     } else {
-        params->append_word(kString0, script::kQbvalString, label_);
-        params->append_word(kString1, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, label_.data());
+        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
         params->put_int(kTeam, team);
         get_run(kCapturedFlagOther, params);
     }
@@ -180,16 +181,16 @@ void PlayerRecord::score_flag_capture(int team)
 void PlayerRecord::note_flag_steal(int team)
 {
     Hub* manager = the_manager();
-    char key[64];
-    get_team_key(key, team);
+    std::array<char, 64> key{};
+    get_team_key(key.data(), team);
     script::Struct* params = new_params();
     PlayerRecord* local = get_local(manager);
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         get_run(kStoleFlagYou, params);
     } else {
-        params->append_word(kString0, script::kQbvalString, label_);
-        params->append_word(kString1, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, label_.data());
+        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
         const bool from_local = !(local->flag_bits_ & kPlayerObserver) && local->get_flag_team() == team;
         get_run(from_local ? kStoleFlagFromYou : kStoleFlagOther, params);
     }
@@ -202,23 +203,23 @@ void PlayerRecord::note_flag_steal(int team)
 void PlayerRecord::note_flag_pickup(int team)
 {
     Hub* manager = the_manager();
-    char key[64];
-    get_team_key(key, team);
+    std::array<char, 64> key{};
+    get_team_key(key.data(), team);
     script::Struct* params = new_params();
     const PlayerRecord* local = get_local(manager);
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         get_run(kTookFlagYou, params);
     } else if (!(local->flag_bits_ & kPlayerObserver) && team == local->team_) {
         script::Struct* arrow = new_params();
         arrow->put_int(kTeam, local->team_);
         get_run(kShowCtfArrow, arrow);
         delete_params(arrow);
-        params->append_word(kString0, script::kQbvalString, label_);
+        params->append_word(kString0, script::kQbvalString, label_.data());
         get_run(kTookFlagYours, params);
     } else {
-        params->append_word(kString0, script::kQbvalString, label_);
-        params->append_word(kString1, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, label_.data());
+        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
         get_run(kTookFlagOther, params);
     }
     delete_params(params);
@@ -229,11 +230,11 @@ void PlayerRecord::note_flag_pickup(int team)
 void PlayerRecord::note_flag_returned()
 {
     Hub* manager = the_manager();
-    char key[64];
-    get_team_key(key, team_);
+    std::array<char, 64> key{};
+    get_team_key(key.data(), team_);
     script::Struct* params = new_params();
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         params->put_int(kTeam, team_);
         get_run(kHideCtfArrow);
         get_run(kRetrievedFlagYou, params);
@@ -241,8 +242,8 @@ void PlayerRecord::note_flag_returned()
         const PlayerRecord* local = get_local(manager);
         if (local && !(local->flag_bits_ & kPlayerObserver) && local->team_ == team_)
             get_run(kHideCtfArrow);
-        params->append_word(kString0, script::kQbvalString, label_);
-        params->append_word(kString1, script::kQbvalString, get_team_name(key));
+        params->append_word(kString0, script::kQbvalString, label_.data());
+        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
         params->put_int(kTeam, team_);
         get_run(kRetrievedFlagOther, params);
     }
@@ -282,7 +283,7 @@ void PlayerRecord::give_crown(bool king)
             script::Struct* params = new_params();
             params->put_name_key(kPlayer1, kPlayer1);
             get_run(kShowCrownArrow, params);
-            params->append_word(kString0, label_);
+            params->append_word(kString0, label_.data());
             get_run(kNewKingOther, params);
             delete_params(params);
         }

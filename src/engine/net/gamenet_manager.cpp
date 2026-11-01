@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "game/park_editing/park.h"
 #include "engine/net/net_app.h"
@@ -20,11 +21,11 @@ constexpr uint32_t kText = 0xC4745838;                     // text
 constexpr uint32_t kLoadSk5edGameplay = 0xB664035D;        // load_sk5ed_gameplay (the created park)
 
 // The ported levels' lists, made by tools/pipeline/menu_level (absent when those levels aren't installed).
-constexpr const char* kPortedLevelLists[] = {
+constexpr auto kPortedLevelLists = std::to_array<const char*>({
     "level_select_menu_thug1_level_info", "level_select_menu_thps4_level_info",
     "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info",
     "level_select_menu_misc_level_info", // (the skate shops, tutorials, test levels: tools/pipeline/menu_level MISCELLANEOUS)
-};
+});
 
 // The entry of `levels` whose level is `level` (null if none). An entry without one keeps `entry_level` from
 // before (the original's quirk: at first it holds the manager's address, its stack slot was ECX's).

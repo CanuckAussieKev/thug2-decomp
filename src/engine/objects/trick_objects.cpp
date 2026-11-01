@@ -20,6 +20,7 @@
 #include <memory>
 #include <new>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -50,7 +51,7 @@ constexpr uint32_t kGraffitiTeamScoring = 0xAB80CC2F; // graffiti_team_scoring (
 // Which clusters of the current log changed hands (by their index in its list). THUG2's was a 128-byte global at
 // 0x007CE508; enlarged as THUGPRO's DLL enlarged it (its NetLink::InitPatches, "Fix 256 graff tag crash": idea from
 // Morten1337's thugpro_proxy, written here as our own buffer) - a list longer than the mask is cut to its size.
-uint8_t s_dirty_clusters[TrickSpotHub::kMaxLoggedClusters];
+std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters> s_dirty_clusters;
 
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord>
 // (vtable 0x0064C1A8).
@@ -125,7 +126,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
     if (count > kMaxLoggedClusters) // (ours: the original's mask overran here)
         count = kMaxLoggedClusters;
     if (count)
-        std::memset(s_dirty_clusters, 0, count);
+        std::memset(s_dirty_clusters.data(), 0, count);
     for (uint32_t i = 0; i < count; ++i) {
         auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(objects[i]));
         if (!cluster)
@@ -212,14 +213,14 @@ bool TrickSpot::set_graffiti_color(int index)
 {
     uint8_t* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
-    uint8_t rgba[4];
+    std::array<uint8_t, 4> rgba{};
     rgba[0] = static_cast<uint8_t>(color->fetch_part(0));
     rgba[1] = static_cast<uint8_t>(color->fetch_part(1));
     rgba[2] = static_cast<uint8_t>(color->fetch_part(2));
     rgba[3] = 0x80;
     if (auto* geom = static_cast<render::Geom*>(raw::as<render::WorldCell>(sector)->geom_handle_)) {
         uint32_t packed = 0;
-        std::memcpy(&packed, rgba, 4);
+        std::memcpy(&packed, rgba.data(), 4);
         geom->change_tint(packed);
     }
     return true;
@@ -235,8 +236,8 @@ bool TrickSpot::clear_graffiti_color(int index)
     auto b = static_cast<uint8_t>(color->fetch_part(2));
     uint32_t packed = 0;
     get_sector_color(sector, &packed);
-    uint8_t current[4];
-    std::memcpy(current, &packed, 4);
+    std::array<uint8_t, 4> current{};
+    std::memcpy(current.data(), &packed, 4);
     if (current[0] == r && current[1] == g && current[2] == b)
         clear_sector_color(sector);
     return true;
@@ -551,10 +552,10 @@ void list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list)
 void TrickSpotHub::apply_player_graffiti()
 {
     for (int player = 0; player < 8; ++player) {
-        char name[32];
-        std::snprintf(name, sizeof(name), "Skater%d", player);
+        std::array<char, 32> name{};
+        std::snprintf(name.data(), sizeof(name), "Skater%d", player);
         script::Array* objects = nullptr;
-        if (!args_->fetch_list(name, &objects, 0))
+        if (!args_->fetch_list(name.data(), &objects, 0))
             continue;
         for (int i = 0; i < ints::as_signed(objects->extent_); ++i) {
             auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(objects->fetch_part(i)));
@@ -620,8 +621,8 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
             if (const online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)))
                 conn = info->conn_;
         }
-        uint8_t stolen[8] = {};
-        count = g_trick_spot_hub->log_trick_objects(count, objects, stolen, player, score);
+        std::array<uint8_t, 8> stolen = {};
+        count = g_trick_spot_hub->log_trick_objects(count, objects, stolen.data(), player, score);
         if (count == 0)
             return;
         for (int victim = 0; victim < 8; ++victim) {
@@ -632,11 +633,11 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
             message.thief_id = static_cast<uint32_t>(player);
             message.victim_id = static_cast<uint32_t>(victim);
             message.game_id = net->get_game_id();
-            uint8_t stolen_data[online::kTagStolenSize];
-            util::ByteWriter stolen_writer(stolen_data, sizeof(stolen_data));
+            std::array<uint8_t, online::kTagStolenSize> stolen_data{};
+            util::ByteWriter stolen_writer(stolen_data.data(), sizeof(stolen_data));
             online::write_tag_stolen(stolen_writer, message);
             online::PlayerRecord* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
-            stolen_desc.content_ = stolen_data;
+            stolen_desc.content_ = stolen_data.data();
             stolen_desc.byte_count_ = sizeof(stolen_data);
             stolen_desc.ident_ = online::kMsgTagStolen;
             server->put_on_outbox(thief->get_link_handle(), &stolen_desc);
@@ -653,29 +654,29 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
         all->score = score;
         all->count = count;
         all->game_id = net->get_game_id();
-        std::memcpy(all->objects, objects, count * 4);
-        uint8_t data[online::kTrickObjectsHeaderSize + sizeof(all->objects)];
-        util::ByteWriter writer(data, sizeof(data));
+        std::memcpy(all->objects.data(), objects, count * 4);
+        std::array<uint8_t, online::kTrickObjectsHeaderSize + sizeof(all->objects)> data{};
+        util::ByteWriter writer(data.data(), sizeof(data));
         online::write_trick_objects(writer, *all);
-        desc.content_ = data;
+        desc.content_ = data.data();
         desc.byte_count_ = static_cast<uint16_t>(writer.position());
         desc.ident_ = online::kMsgTrickObjects;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
              info = net->step_player_walk(&search, false))
-            server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data,
+            server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data.data(),
                                       "TrickObj Buffer", kGroupGame, true, false);
 
-        util::ByteWriter observed_writer(data, sizeof(data));
+        util::ByteWriter observed_writer(data.data(), sizeof(data));
         online::write_observed_trick_objects(observed_writer, *all);
-        desc.content_ = data;
+        desc.content_ = data.data();
         desc.byte_count_ = static_cast<uint16_t>(observed_writer.position());
         desc.ident_ = online::kMsgObservedTrickObjects;
         for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
              info = net->step_player_walk(&search, true)) {
             if (info->is_observer())
-                server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data,
+                server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data.data(),
                                           "TrickObj Buffer", kGroupGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false);
@@ -696,7 +697,7 @@ void TrickSpotHub::give_free_clusters(int player)
     list.count = 0;
     clusters_.run_hook<&list_free_cluster>(&list);
     if (list.count)
-        score_trick_objects(player, 1000, list.count, list.names, true);
+        score_trick_objects(player, 1000, list.count, list.names.data(), true);
 }
 
 // 0x005896D0

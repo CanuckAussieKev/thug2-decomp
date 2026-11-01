@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/debug_lines.h"
@@ -146,12 +147,12 @@ bool cfunc_init_anim_compress_table(Struct* params, Script*)
     uint32_t type = 0;
     params->fetch_text(0u, &file, 1);
     params->read_hash_value(0u, &type, 1);
-    char name[256];
-    std::snprintf(name, sizeof(name), "%s", file); // (the original's sprintf isn't bounded)
+    std::array<char, 256> name{};
+    std::snprintf(name.data(), sizeof(name), "%s", file); // (the original's sprintf isn't bounded)
     if (type == kT48)
-        gfx::load_trans_table(name);
+        gfx::load_trans_table(name.data());
     else if (type == kQ48)
-        gfx::load_quat_table(name);
+        gfx::load_quat_table(name.data());
     return true;
 }
 

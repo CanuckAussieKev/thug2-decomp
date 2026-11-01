@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/stubs.h"
 #include "engine/maths/vec4.h"
@@ -38,10 +39,10 @@ bool& streams_paused_before() { return g_streams_paused_before; }
 // Set: no new streams play (nothing in the game sets it).
 bool streams_blocked() { return g_streams_blocked; }
 
-Stream* get_streams() { return g_streams; }
+Stream* get_streams() { return g_streams.data(); }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id.
-void** get_owners() { return g_stream_owners; }
+void** get_owners() { return g_stream_owners.data(); }
 uint32_t& owner_id(void* owner, int stream)
 {
     return static_cast<objects::AudioStreamModule*>(owner)->streams_[stream];
@@ -49,8 +50,8 @@ uint32_t& owner_id(void* owner, int stream)
 // The stream PlayStream started last.
 int& last_stream() { return g_last_stream; }
 
-StreamAmpCurve g_frame_amps[1]; // (one slot; a checksum of 0 marks it free)
-StreamAmpCurve* frame_amps() { return g_frame_amps; }
+std::array<StreamAmpCurve, 1> g_frame_amps; // (one slot; a checksum of 0 marks it free)
+StreamAmpCurve* frame_amps() { return g_frame_amps.data(); }
 constexpr int kFrameAmps = 1;
 
 // The platform's streams (stream.h): whether a channel is free (stream_status: 1), pause (streams: 0), stop a

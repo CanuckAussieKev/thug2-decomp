@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <new>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -33,7 +34,7 @@
 
 namespace objects {
 
-uint32_t g_ped_logic_member_functions[174]{
+std::array<uint32_t, 174> g_ped_logic_member_functions{{
     0x3685B765, 0x6EFDDFB8, 0, 0, 0, 0, 0x423B7B29, 0x6EFDDFB8, 0, 0, 0, 0, 0xE9906815, 0x6EFDDFB8, 0, 0, 0, 0,
     0x0D711542, 0x6EFDDFB8, 0, 0, 0, 0, 0xCC85ADFE, 0x6EFDDFB8, 0, 0, 0, 0, 0x68D298B0, 0x6EFDDFB8, 0, 0, 0, 0,
     0x2CC086DD, 0x6EFDDFB8, 0, 0, 0, 0, 0xC643E8F5, 0x6EFDDFB8, 0, 0, 0, 0, 0x13713760, 0x6EFDDFB8, 0, 0, 0, 0,
@@ -43,7 +44,7 @@ uint32_t g_ped_logic_member_functions[174]{
     0x5BB23915, 0x6EFDDFB8, 0, 0, 0, 0, 0x56D9F55F, 0x6EFDDFB8, 0, 0, 0, 0, 0x749DE914, 0x6EFDDFB8, 0, 0, 0, 0,
     0x58A588B5, 0x6EFDDFB8, 0, 0, 0, 0, 0x5CFBFB31, 0x6EFDDFB8, 0, 0, 0, 0, 0x9C37FBF5, 0x6EFDDFB8, 0, 0, 0, 0,
     0x35D3CA5E, 0x6EFDDFB8, 0, 0, 0, 0, 0x9C209251, 0x6EFDDFB8, 0, 0, 0, 0, 0xC33754F7, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x5F041C7D, 0x6EFDDFB8, 0, 0, 0, 0, 0,          0x6EFDDFB8, 0, 0, 0, 0};
+    0x5F041C7D, 0x6EFDDFB8, 0, 0, 0, 0, 0,          0x6EFDDFB8, 0, 0, 0, 0}};
 
 namespace {
 
@@ -138,7 +139,7 @@ gsl::owner<ObjectModule*> PedestrianBrainModule::fabricate() { return new Pedest
 // 0x004ECFB0
 void PedestrianBrainModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_ped_logic_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_ped_logic_member_functions.data(), 0x18);
 }
 
 // 0x004ECFD0
@@ -386,7 +387,7 @@ bool PedestrianBrainModule::get_bail()
 const char* profile_voice()
 {
     RiderIdentity* profile = g_profile_roster->fetch_active_account();
-    auto* info = raw::as<script::Struct>(profile->details_);
+    auto* info = raw::as<script::Struct>(profile->details_.data());
     uint32_t voice = 0;
     if (!info->read_hash_value(kVoice, &voice, 0)) {
         int male = 0; // (the original's is uninitialised: is_male is asserted)

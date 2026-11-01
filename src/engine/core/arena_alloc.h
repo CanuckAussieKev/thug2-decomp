@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -70,7 +71,7 @@ public:
     uint8_t* outset_{};
     int min_available_{}; // the least free_byte_count has been (starts as the whole region)
     uint8_t* finish_{};
-    MemSource* allocators_[2]{}; // growing up, growing down
+    std::array<MemSource*, 2> allocators_{}; // growing up, growing down
 
 protected:
     Zone() = default; // fields zero (MemoryArena sets them, unless its size is 0; the original left them as they were)
@@ -196,8 +197,8 @@ public:
     bool unknown64_{false};
     int unknown68_{-1};
     int use_fallbacks_{0};
-    Arena* fallbacks_[5]{};
-    int fallback_reserve_[5]{};
+    std::array<Arena*, 5> fallbacks_{};
+    std::array<int, 5> fallback_reserve_{};
 };
 
 } // namespace memory

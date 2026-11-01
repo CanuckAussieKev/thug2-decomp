@@ -34,6 +34,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/weather.h"
 #include <gsl/pointers>
+#include <array>
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
@@ -153,7 +154,7 @@ void render_frame()
 void change_entity_hub(void* manager) { g_scene_objects = manager; }
 
 // 0x0048C0B0
-uint32_t* get_collision_scenes() { return raw::as<uint32_t>(g_collision_scenes); }
+uint32_t* get_collision_scenes() { return raw::as<uint32_t>(g_collision_scenes.data()); }
 
 // 0x0048C0D0
 void toggle_render_mode()
@@ -212,15 +213,15 @@ void build_scene_file_path(char* out, const char* name, uint32_t)
 // 0x0048C3D0
 void* load_model_file(const char* file_name, void* textures, int, bool)
 {
-    char base[0x200];
-    const bool skinned = split_skin_name(file_name, base);
-    text::to_lower_text(base);
-    char path[0x200];
-    std::sprintf(path, kModelFileFormat, base, skinned ? "skin" : "mdl", platform_suffix());
-    memory::push_mem_profile(path);
+    std::array<char, 0x200> base{};
+    const bool skinned = split_skin_name(file_name, base.data());
+    text::to_lower_text(base.data());
+    std::array<char, 0x200> path{};
+    std::sprintf(path.data(), kModelFileFormat, base.data(), skinned ? "skin" : "mdl", platform_suffix());
+    memory::push_mem_profile(path.data());
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
-    void* mesh = load_mesh_file(path, textures);
+    void* mesh = load_mesh_file(path.data(), textures);
     memory::pop_mem_profile();
     return mesh;
 }
@@ -248,12 +249,12 @@ void* look_up_sector(uint32_t checksum)
 // 0x0048C560
 void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
 {
-    char file[0x80];
-    std::sprintf(file, kSceneFileFormat, name, name, "", platform_suffix());
+    std::array<char, 0x80> file{};
+    std::sprintf(file.data(), kSceneFileFormat, name, name, "", platform_suffix());
     scene->checksum_ = checksums::hash_from_text(name);
     scene->texture_set_ = static_cast<TextureSet*>(textures);
     if (!loaded)
-        scene->finish_load(file, arena);
+        scene->finish_load(file.data(), arena);
     memory::push_mem_profile("Asset Overhead");
     memory::ListNode* node = memory::ListNode::create(scene);
     // at the end of the list (no memory: a crash, as the original)

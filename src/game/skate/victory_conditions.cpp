@@ -17,6 +17,7 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
@@ -100,7 +101,7 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
 {
     modules::Skate* skate = get_skate();
     if (is_squad_match()) {
-        int totals[4] = {};
+        std::array<int, 4> totals = {};
         PlayerSearch search;
         for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
             modules::PointTally* score = get_score_of(player->skater_);

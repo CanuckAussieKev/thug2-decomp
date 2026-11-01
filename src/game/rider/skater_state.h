@@ -9,6 +9,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -131,7 +132,7 @@ public:
 
     int cur_phase_{};                         // +0x18 State
     int physics_mode_{};                      // +0x1C PhysicsMode (-1 until the physics control component sets it)
-    TimedFlag timed_flags_[kPoseFlagCount]{}; // +0x20 (PoseFlag; kBailing is +0x70)
+    std::array<TimedFlag, kPoseFlagCount> timed_flags_{}; // +0x20 (PoseFlag; kBailing is +0x70)
     uint8_t in_trick_move_{};                 // +0xE0
     uint8_t surface_type_{};                  // +0xE1
     maths::Vec4 drop_velocity_{};             // +0xE4 an acid drop's horizontal velocity, kept through the drop
@@ -140,7 +141,7 @@ public:
     maths::Vec4 floor_normal_{};              // +0x108 the ground's normal under the skater (the core's)
     uint8_t in_vehicle_{};                    // +0x118
     float height_above_ground_{};             // +0x11C (the height it took off from / is over the ground)
-    uint8_t boost_items_[1]{};                // +0x120 (one per name in 0x0067F09C)
+    std::array<uint8_t, 1> boost_items_{};                // +0x120 (one per name in 0x0067F09C)
     uint32_t sparks_pos_{};                   // +0x124 a checksum
 };
 
@@ -151,11 +152,11 @@ struct SkaterStateHistoryFrame {
     uint32_t get_time();
     void change_moment(uint32_t time);
 
-    int16_t pos[3]; // +0x00 the position, in half units (y in quarters)
+    std::array<int16_t, 3> pos; // +0x00 the position, in half units (y in quarters)
     uint16_t pad06;
     maths::Mat4 matrix;   // +0x08 from the angles
     maths::Vec4 position; // +0x48 (w 0)
-    float angles[3];      // +0x58
+    std::array<float, 3> angles;      // +0x58
     uint32_t unknown64;
     uint32_t value68;   // +0x68 (5 bits: the state flags' bits are its bits... the original's)
     uint32_t value_6c_; // +0x6C (3 bits)
@@ -167,7 +168,7 @@ struct SkaterStateHistoryFrame {
     uint16_t time;     // +0x78 the message's time stamp
     uint16_t wraps;    // +0x7A the times the time stamp went back
     uint8_t value_7c_; // +0x7C (6 bits)
-    uint8_t pad7d_[3];
+    std::array<uint8_t, 3> pad7d_;
     uint32_t value80; // +0x80 (32 bits)
 };
 
@@ -175,5 +176,5 @@ struct SkaterStateHistoryFrame {
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_skater_state_member_functions[114];
+extern std::array<uint32_t, 114> g_skater_state_member_functions;
 } // namespace objects

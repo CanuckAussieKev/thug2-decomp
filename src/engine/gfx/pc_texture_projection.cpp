@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -39,7 +40,7 @@ namespace {
 uint32_t g_projection_batch_count;
 auto& projection_batches()
 {
-    static ProjectionBatch value[10]; // (kBatchLimit)
+    static std::array<ProjectionBatch, 10> value; // (kBatchLimit)
     return value;
 }
 
@@ -50,7 +51,7 @@ constexpr uint32_t kBatchVertices = 0x600;
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* draw_device() { return g_draw_device; } // (the same device, kept twice)
 uint32_t& batch_count() { return g_projection_batch_count; }
-ProjectionBatch* get_batches() { return projection_batches(); }
+ProjectionBatch* get_batches() { return projection_batches().data(); }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 void transform_coord(float* out, const float* v, const maths::Mat4* m)
@@ -142,7 +143,7 @@ void draw_projection_batches()
         ProjectionBatch* batch = &get_batches()[i];
         batch->material.hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, &batch->material);
-        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices, 0x18);
+        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(), 0x18);
         ++memory::bits_as<uint32_t>(g_draw_calls);                              // (the frame's draw calls)
         memory::bits_as<uint32_t>(g_drawn_triangles) += batch->triangle_count_; // (and triangles)
     }
@@ -213,7 +214,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 get_colour(v0) = opaque(*raw::field_at<uint32_t>(vertices, stride * ia + colour_offset));
                 get_colour(v1) = opaque(*raw::field_at<uint32_t>(vertices, stride * ib + colour_offset));
                 get_colour(v2) = opaque(*raw::field_at<uint32_t>(vertices, stride * ic + colour_offset));
-                uint8_t whole[3 * 0x18];
+                std::array<uint8_t, 3 * 0x18> whole{};
                 uint8_t* pieces = nullptr;
                 uint8_t* end = nullptr;
                 uint8_t* format = nullptr;
@@ -248,9 +249,9 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     while (split_next_triangle(&end, raw::as<const SplitFormat>(format)))
                         ;
                 } else {
-                    std::memcpy(whole, v0, sizeof(whole));
-                    pieces = whole;
-                    end = whole + sizeof(whole);
+                    std::memcpy(whole.data(), v0, sizeof(whole));
+                    pieces = whole.data();
+                    end = whole.data() + sizeof(whole);
                 }
                 // the pieces inside the projection's square, each into the batch's next triangle
                 bool full = false;

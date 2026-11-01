@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/arena_alloc.h"
 #include "engine/script/param_struct.h"
 
@@ -46,9 +47,9 @@ enum PlayerFlag : uint32_t {
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
 struct JoinerRecord {
-    char label_[16]{};     // +0x00
+    std::array<char, 16> label_{};     // +0x00
     uint8_t entity_key_{}; // +0x10
-    uint8_t pad11[3]{};
+    std::array<uint8_t, 3> pad11{};
     net::Conn* conn_{};               // +0x14
     int add_at_frame_{};              // +0x18 the server app's frame from which it may be added
     objects::RiderIdentity* account_; // +0x1C
@@ -74,19 +75,19 @@ struct JoinerRecord {
 // What the server last sent a player about each of the 8 skaters (by object id) - the player's +0x50 (SkateNet's
 // relay: get_relay_flags, write_object_update).
 struct SentSkaterUpdates {
-    uint32_t forced_frame_[8]; // +0x00 the server app's frame when everything was last sent
-    uint32_t time_[8];         // +0x20 the state entry's time stamp last sent
-    uint8_t value_7c_[8];      // +0x40
-    uint8_t flag75_[8];        // +0x48
-    uint8_t flag76_[8];        // +0x50
-    int16_t pos_[8][3];        // +0x58 (-1 each)
-    int16_t angles_[8][3];     // +0x88 (-1 each)
-    uint32_t value68_[8];      // +0xB8 (-1 each)
-    uint32_t value_6c_[8];     // +0xD8
-    uint8_t state_[8];         // +0xF8 (-1 each)
-    uint8_t flag74_[8];        // +0x100 (-1 each)
-    uint8_t unknown108_[8];
-    uint32_t value80_[8]; // +0x110
+    std::array<uint32_t, 8> forced_frame_; // +0x00 the server app's frame when everything was last sent
+    std::array<uint32_t, 8> time_;         // +0x20 the state entry's time stamp last sent
+    std::array<uint8_t, 8> value_7c_;      // +0x40
+    std::array<uint8_t, 8> flag75_;        // +0x48
+    std::array<uint8_t, 8> flag76_;        // +0x50
+    std::array<std::array<int16_t, 3>, 8> pos_;        // +0x58 (-1 each)
+    std::array<std::array<int16_t, 3>, 8> angles_;     // +0x88 (-1 each)
+    std::array<uint32_t, 8> value68_;      // +0xB8 (-1 each)
+    std::array<uint32_t, 8> value_6c_;     // +0xD8
+    std::array<uint8_t, 8> state_;         // +0xF8 (-1 each)
+    std::array<uint8_t, 8> flag74_;        // +0x100 (-1 each)
+    std::array<uint8_t, 8> unknown108_;
+    std::array<uint32_t, 8> value80_; // +0x110
 };
 
 // A player (0x1F0 bytes; a node of the manager's player list - lists::Elem<PlayerRecord>, its data itself - whose node
@@ -208,11 +209,11 @@ public:
     int skill_points_;           // +0x2C (a server list's player: its rating)
     int team_;                   // +0x30
     int num_placed_;             // +0x34 scavenger hunt: its objects placed (5 minus it is its score line's number)
-    char label_[16]{};           // +0x38 ("<No Name>" until named)
+    std::array<char, 16> label_{};           // +0x38 ("<No Name>" until named)
     int32_t drive_control_mode_; // +0x48 its vehicle control type
     objects::RiderIdentity* account_;     // +0x4C
     SentSkaterUpdates sent_{};            // +0x50 (the server's)
-    script::VectorValue placed_[5]{};     // +0x180 scavenger hunt: where its objects were placed (num_placed_)
+    std::array<script::VectorValue, 5> placed_{};     // +0x180 scavenger hunt: where its objects were placed (num_placed_)
     uint32_t flag_bits_;                  // +0x1D0 PlayerFlag
     uint32_t ready_query_owed_{};         // +0x1D4
     int rejoin_group_;                    // +0x1D8 (JoinerRecord::rejoin_group_)

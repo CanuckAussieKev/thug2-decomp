@@ -5,6 +5,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
@@ -264,23 +265,23 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         // dictionary's parameters (only these fields set - the rest as the stack left it in the original).
         struct TexDictParams {
             uint8_t flag0;
-            uint8_t pad01[3];
+            std::array<uint8_t, 3> pad01;
             int tex_dict_offset_;
             uint8_t has_skinning_;
             uint8_t force_tex_dict_;
-            uint8_t rest[0x42];
+            std::array<uint8_t, 0x42> rest;
         } tex_params{};
         std::memset(&tex_params, 0, sizeof(tex_params));
-        char tex_name[0xF0];
+        std::array<char, 0xF0> tex_name{};
         tex_params.flag0 = 0;
         tex_params.tex_dict_offset_ = tex_dict_offset;
         tex_params.force_tex_dict_ = force_tex_dict;
-        tex_params.has_skinning_ = engine::split_skin_name(file_name, tex_name);
-        append_string(tex_name, ".tex");
+        tex_params.has_skinning_ = engine::split_skin_name(file_name, tex_name.data());
+        append_string(tex_name.data(), ".tex");
         if (by_name)
-            assets->get_asset_data_by_name(tex_name, 1);
+            assets->get_asset_data_by_name(tex_name.data(), 1);
         else
-            assets->fetch_or_load_resource(tex_name, 0, 0, 0, false, false, assets->get_permanent_by_default(),
+            assets->fetch_or_load_resource(tex_name.data(), 0, 0, 0, false, false, assets->get_permanent_by_default(),
                                            &tex_params, 0);
         assets::SkinParams skin_params{};
         skin_params.get_clear();
@@ -290,7 +291,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
             scene = static_cast<uint8_t*>(assets->get_asset_data_by_name(file_name, 1));
         else
             scene = static_cast<uint8_t*>(
-                assets->fetch_or_load_resource(file_name, 0, 0, checksums::hash_from_text(tex_name), false, false,
+                assets->fetch_or_load_resource(file_name, 0, 0, checksums::hash_from_text(tex_name.data()), false, false,
                                                assets->get_permanent_by_default(), &skin_params, 0));
         entry->asset_name_ = checksums::hash_from_text(file_name);
         ++num_asset_geoms_;
@@ -400,8 +401,8 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
         maths::Mat4 orientation = *matrix;
         const maths::Vec4 position = (*matrix)[3];
         orientation[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-        maths::Vec4 box[2] = {{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}};
-        gfx::draw_debug_cube(&orientation, &position, box, 0, 1, 0, 0xFF0000C8);
+        std::array<maths::Vec4, 2> box = {{{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}}};
+        gfx::draw_debug_cube(&orientation, &position, box.data(), 0, 1, 0, 0xFF0000C8);
         break;
     }
     }
@@ -457,17 +458,17 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     const bool all = name == kAllGeoms;
     bool replaced = false;
     begin_texture_swap();
-    char from[0x200];
-    get_png_name(from, source);
-    char to[0x200];
-    copy_string(to, dest);
-    text::to_lower_text(to);
-    if (char* extension = std::strstr(to, ".png"))
+    std::array<char, 0x200> from{};
+    get_png_name(from.data(), source);
+    std::array<char, 0x200> to{};
+    copy_string(to.data(), dest);
+    text::to_lower_text(to.data());
+    if (char* extension = std::strstr(to.data(), ".png"))
         *extension = 0;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
-            raw::as<TextureSet>(entry->textures)->replace_texture_from_file(from, to))
+            raw::as<TextureSet>(entry->textures)->replace_texture_from_file(from.data(), to.data()))
             replaced = true;
     }
     if (!replaced)
@@ -482,13 +483,13 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
     const bool all = name == kAllGeoms;
     bool replaced = false;
     begin_texture_swap();
-    char from[0x200];
-    get_png_name(from, source);
+    std::array<char, 0x200> from{};
+    get_png_name(from.data(), source);
     void* texture = find_texture(dest);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all) && entry->textures &&
-            raw::as<TextureSet>(entry->textures)->swap_texture(from, static_cast<BitmapTexture*>(texture)))
+            raw::as<TextureSet>(entry->textures)->swap_texture(from.data(), static_cast<BitmapTexture*>(texture)))
             replaced = true;
     }
     if (!replaced)
@@ -608,17 +609,17 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     memory::Hub::get_pull()->leave_heap_scope();
     // The profile's skin colour (0x004869D0 reads it, 0x004869A0 makes it current) and the overlay (0x004869C0)
     // applied to the image (0x00486F70) with the face's colour parameters.
-    uint8_t color[0x30];
-    gfx::read_face_points(raw::as<gfx::FaceAnchors>(color), script::read_sub_struct(kSkinColor));
-    gfx::change_face_anchors(raw::as<const gfx::FaceAnchors>(color));
+    std::array<uint8_t, 0x30> color{};
+    gfx::read_face_points(raw::as<gfx::FaceAnchors>(color.data()), script::read_sub_struct(kSkinColor));
+    gfx::change_face_anchors(raw::as<const gfx::FaceAnchors>(color.data()));
     gfx::set_face_overlay(static_cast<BitmapTexture*>(overlay));
-    uint8_t parameters[0x38];
+    std::array<uint8_t, 0x38> parameters{};
     auto get_parameters = [face_texture](uint8_t* out) {
         return raw::bytes(face_texture->get_points(raw::as<gfx::FaceAnchors>(out)));
     };
-    const uint8_t generate_palette = get_parameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
+    const uint8_t generate_palette = get_parameters(parameters.data())[0x20]; // (the byte as it is - not made 0 / 1)
     gfx::massage_face_texture(static_cast<BitmapTexture*>(image),
-                              raw::as<const gfx::FaceAnchors>(get_parameters(parameters)), generate_palette,
+                              raw::as<const gfx::FaceAnchors>(get_parameters(parameters.data())), generate_palette,
                               false, 0x80808080);
     const bool replaced = replace_texture_with(name, source, texture_hash(image));
     detach_texture(image);

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_scenery.h"
 #include "engine/gfx/sub_mesh.h"
@@ -57,7 +58,7 @@ bool align_rows(V3 rows[3], V3 normal)
     if (n2 < 1e-8f)
         return false;
     const V3 up = normal * (1.0f / std::sqrt(n2));
-    float lengths[3];
+    std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
         lengths[i] = std::sqrt(get_dot(rows[i], rows[i]));
     if (lengths[2] < 1e-6f)

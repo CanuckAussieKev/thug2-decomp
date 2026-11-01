@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "engine/net/gamespy.h"
 #include "platform/platform_config.h"
@@ -39,13 +40,13 @@ const char*& gamestats_host() { return s_gamestats_host; }
 
 void set_up_online_hosts()
 {
-    char domain[256];
-    build_info::fetch_text(build_info::kMiscellaneous, "OnlineDomain", "openspy.net", domain, sizeof(domain));
+    std::array<char, 256> domain{};
+    build_info::fetch_text(build_info::kMiscellaneous, "OnlineDomain", "openspy.net", domain.data(), sizeof(domain));
 
     // gamestats: also the game's own top stats request (NetLink::RetrieveTopStats reads gamestats_host)
-    const char* gamestats = get_host_name("gamestats.%s", domain);
+    const char* gamestats = get_host_name("gamestats.%s", domain.data());
     s_gamestats_host = gamestats;
-    game_spy::set_online_domain(domain);
+    game_spy::set_online_domain(domain.data());
 }
 
 } // namespace net

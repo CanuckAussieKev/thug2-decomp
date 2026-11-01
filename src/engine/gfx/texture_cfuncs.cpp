@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/dbg.h"
@@ -18,7 +19,7 @@
 namespace commands {
 
 bool g_texture_flag_ce441;
-char g_park_name[128];
+std::array<char, 128> g_park_name;
 
 namespace {
 
@@ -438,7 +439,7 @@ bool cfunc_set_park_name(Struct* params, Script*)
 {
     const char* name = ""; // ""
     params->fetch_text(0u, &name, 0);
-    text::copy_unbounded(g_park_name, name); // (no length limit, as in the original)
+    text::copy_unbounded(g_park_name.data(), name); // (no length limit, as in the original)
     return false;
 }
 

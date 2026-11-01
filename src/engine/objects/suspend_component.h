@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace tasks {
 class SchedulerTask;
@@ -83,15 +84,15 @@ public:
     bool obj_reset_no_suspend_count(script::Struct* params, script::Script* script);
 
     bool never_suspend_{true}; // +0x18
-    uint8_t pad19[3]{};
+    std::array<uint8_t, 3> pad19{};
     float suspend_distance_;         // +0x1C (inches)
     float suspend_distance_squared_; // +0x20
     float distance_squared_{};       // +0x24 to the camera, at the last check (0 when not checked)
     int frames_before_check_{kCheckFrames}; // +0x28
     ObjectModule* mesh_instance_{};  // +0x2C
     bool far_{};                     // +0x30 suspended by distance
-    uint8_t pad31[3]{};
-    float lod_distances_[4]{}; // +0x34 (inches)
+    std::array<uint8_t, 3> pad31{};
+    std::array<float, 4> lod_distances_{}; // +0x34 (inches)
     int frames_before_lod_{3}; // +0x44
     uint32_t unused48_{};    // +0x48
 };
@@ -120,5 +121,5 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* task);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_suspend_component_member_functions[12];
+extern std::array<uint32_t, 12> g_suspend_component_member_functions;
 } // namespace objects

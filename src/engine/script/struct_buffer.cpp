@@ -5,6 +5,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -87,8 +88,8 @@ uint32_t emit_int(util::ByteWriter& out, uint32_t name, int value)
     else if (value >= -0x8000 && value <= 0x7FFF)
         type = kSignedShort;
     // written in a scratch buffer first, then copied if it fits
-    uint8_t scratch[0x14];
-    util::ByteWriter component(scratch, sizeof(scratch));
+    std::array<uint8_t, 0x14> scratch{};
+    util::ByteWriter component(scratch.data(), sizeof(scratch));
     write_name_and_type(component, type, name);
     switch (type) {
     case kQbvalInteger:
@@ -108,7 +109,7 @@ uint32_t emit_int(util::ByteWriter& out, uint32_t name, int value)
     auto length = static_cast<uint32_t>(component.position());
     if (out.remaining() < length)
         return 0;
-    out.bytes(scratch, length);
+    out.bytes(scratch.data(), length);
     return length;
 }
 

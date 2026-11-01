@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Struct;
@@ -16,7 +17,7 @@ namespace commands {
 
 // A face's points (0x38 bytes; the face texture's 0x00487550 gives a copy, 0x00487570 sets them).
 struct FacePoints {
-    uint32_t words_[14];
+    std::array<uint32_t, 14> words_;
 };
 
 bool cfunc_set_player_appearance(script::Struct* params, script::Script* script);             // 0x005AE550

@@ -110,7 +110,7 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_bits_ = 0;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    std::sprintf(label_, "<No Name>"); // (0x0064CCE8)
+    std::sprintf(label_.data(), "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kMaxPlayers; ++i) {
         sent_.value68_[i] = 0xFFFFFFFF;
         sent_.state_[i] = 0xFF;

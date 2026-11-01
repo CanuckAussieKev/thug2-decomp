@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -16,9 +17,9 @@ public:
         Zone* region;
         Arena* heap;
         uint32_t name;   // checksum
-        char text[0x80]; // the name
+        std::array<char, 0x80> text; // the name
         bool used;
-        uint8_t pad[3];
+        std::array<uint8_t, 3> pad;
     };
     static constexpr int kMaxHeaps = 48;
     static constexpr int kMaxNamedHeaps = 7;
@@ -76,10 +77,10 @@ public:
     // The three that are constructed in place (not freed): the main heaps and region.
     void destroy_main_heaps();
 
-    MemSource* heaps_[kMaxHeaps]{};
+    std::array<MemSource*, kMaxHeaps> heaps_{};
     int heap_count_;
     MemSource** ongoing_{nullptr}; // the top of alloc_source_stack_
-    MemSource* alloc_source_stack_[16]{};
+    std::array<MemSource*, 16> alloc_source_stack_{};
     int context_depth_;
     Zone* primary_zone_;
     Arena* top_down_heap_;
@@ -102,11 +103,11 @@ public:
     Arena* debug_heap_{};
     Zone* unused_zone_{};    // (never made: its heap, below, is always null)
     Arena* unused_heap_{};   // (the screen elements' heap 0x03C84A59 names it)
-    Zone* skater_regions_[kSkaterSlots]{};
-    Arena* skater_heaps_[kSkaterSlots]{};
-    Zone* skater_geom_regions_[kSkaterSlots]{};
-    Arena* skater_geom_heaps_[kSkaterSlots]{};
-    LabeledZone named_heaps_[kMaxNamedHeaps]{};
+    std::array<Zone*, kSkaterSlots> skater_regions_{};
+    std::array<Arena*, kSkaterSlots> skater_heaps_{};
+    std::array<Zone*, kSkaterSlots> skater_geom_regions_{};
+    std::array<Arena*, kSkaterSlots> skater_geom_heaps_{};
+    std::array<LabeledZone, kMaxNamedHeaps> named_heaps_{};
     Zone* skater_info_region_{};
     Arena* skater_info_heap_{};
     Zone* theme_region_{};

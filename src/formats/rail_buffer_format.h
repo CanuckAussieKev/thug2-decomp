@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "formats/byte_stream.h"
 
@@ -19,8 +20,8 @@ namespace park_editing {
 
 struct RailBuffer {
     uint16_t rail_count_;        // +0x00
-    uint16_t point_counts_[200]; // +0x02
-    uint16_t records_[400][5];   // +0x192
+    std::array<uint16_t, 200> point_counts_; // +0x02
+    std::array<std::array<uint16_t, 5>, 400> records_;   // +0x192
 };
 static_assert(sizeof(RailBuffer) == 0x1132, "file format: the rail buffer");
 

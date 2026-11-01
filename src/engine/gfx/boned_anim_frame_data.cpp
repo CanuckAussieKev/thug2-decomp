@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -26,8 +27,8 @@ namespace gfx {
 
 namespace {
 // The shared key tables (256 entries of four shorts), loaded from files at start-up.
-int16_t g_quat_table[1024];
-int16_t g_trans_table[1024];
+std::array<int16_t, 1024> g_quat_table;
+std::array<int16_t, 1024> g_trans_table;
 
 constexpr double kQuatUnit = 1.0 / 16384.0; // (0x006487C8)
 constexpr double kTransUnit = 1.0 / 32.0;   // (0x006487CC)
@@ -103,7 +104,7 @@ bool load_quat_table(const char* name)
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
     if (file)
-        loaded = read_key_table(file, g_quat_table);
+        loaded = read_key_table(file, g_quat_table.data());
     file::shut(file); // (even when it didn't open)
     return loaded;
 }
@@ -114,7 +115,7 @@ bool load_trans_table(const char* name)
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
     if (file)
-        loaded = read_key_table(file, g_trans_table);
+        loaded = read_key_table(file, g_trans_table.data());
     file::shut(file);
     return loaded;
 }
@@ -124,7 +125,7 @@ bool load_trans_table(const char* name)
 // 0x00482C20
 const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t flags, const uint8_t* table)
 {
-    const int16_t* shared = g_quat_table;
+    const int16_t* shared = g_quat_table.data();
     const uint16_t first = get_word(data);
     uint16_t header = 0;
     if (flags & 0x100) {
@@ -194,7 +195,7 @@ const uint8_t* decompress_trans_key(const uint8_t* data, ShortKey* out)
         data += 2;
     }
     if (head & 0x80) {
-        const int16_t* entry = g_trans_table + *data++ * 4;
+        const int16_t* entry = g_trans_table.data() + *data++ * 4;
         for (int i = 0; i < 3; ++i)
             out->value[i] = entry[i];
     } else {
@@ -366,15 +367,15 @@ uint32_t g_cache_use_counter;
 void interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, float t)
 {
     if (t == 0.0f) {
-        std::memcpy(out, a->value, 4 * sizeof(float));
+        std::memcpy(out, a->value.data(), 4 * sizeof(float));
         return;
     }
     if (t == 1.0f) {
-        std::memcpy(out, b->value, 4 * sizeof(float));
+        std::memcpy(out, b->value.data(), 4 * sizeof(float));
         return;
     }
-    const float* p = a->value;
-    const float* q = b->value;
+    const float* p = a->value.data();
+    const float* q = b->value.data();
     // (x87 at 53 bits, in the original's order: w, x, z, y)
     double dot = static_cast<double>(p[3]) * q[3] + static_cast<double>(p[0]) * q[0];
     dot += static_cast<double>(q[2]) * p[2];
@@ -406,7 +407,7 @@ void interpolate_float_trans(float* out, const FloatKey* a, const FloatKey* b, f
 {
     if (t == 0.0f || t == 1.0f) {
         const FloatKey* key = t == 0.0f ? a : b;
-        std::memcpy(out, key->value, 3 * sizeof(float));
+        std::memcpy(out, key->value.data(), 3 * sizeof(float));
         out[3] = 1.0f;
         return;
     }
@@ -1040,8 +1041,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                             break;
                         }
                     }
-                    float before[4];
-                    std::memcpy(before, translations, sizeof(before));
+                    std::array<float, 4> before{};
+                    std::memcpy(before.data(), translations, sizeof(before));
                     interpolate_short_trans(translations, &a, &b, t);
                     if ((flag_bits_ & 0x4000) && (flag_bits_ & 0x20000)) {
                         for (int i = 0; i < 4; ++i)

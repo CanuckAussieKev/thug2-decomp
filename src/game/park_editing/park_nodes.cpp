@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/assets/resource_entry.h"
 #include "engine/core/checksums.h"
@@ -75,8 +76,8 @@ constexpr uint32_t kCrown = 0xAF86421B;            // Crown
 constexpr uint32_t kCtf = 0xA5AD2B0B;              // CTF
 constexpr uint32_t kHighScoreRestart = 0xC62C3240; // TRG_G_TrickAttack_RestartNode
 // TRG_CTF_Restart_Red, _Green, _Blue, _Yellow
-constexpr uint32_t kCtfRestarts[4] = {0xACD3422F, 0x5C427A5C, 0x9AB434CC, 0x2C3ED607};
-constexpr const char* kFlagColours[4] = {"red", "green", "blue", "yellow"};
+constexpr std::array<uint32_t, 4> kCtfRestarts = {{0xACD3422F, 0x5C427A5C, 0x9AB434CC, 0x2C3ED607}};
+constexpr std::array<const char*, 4> kFlagColours = {{"red", "green", "blue", "yellow"}};
 // The pieces whose climbing rails turn: the ladders (by pi), two more (by pi / 2); the lamp has none.
 constexpr uint32_t kLadderSmall = 0x19E41B83; // sk6ed_ladderSmall
 constexpr uint32_t kLadderMid = 0x2716A345;   // sk6ed_ladderMid
@@ -115,7 +116,7 @@ void parse_node_array() { commands::cfunc_parse_node_array(nullptr, nullptr); }
 
 assets::NodeTableResource* node_table_resource(ParkAssembler& d)
 {
-    return raw::as<assets::NodeTableResource>(d.node_array_);
+    return raw::as<assets::NodeTableResource>(d.node_array_.data());
 }
 Struct* elem(Array* nodes, int index)
 {
@@ -377,7 +378,7 @@ void ParkAssembler::build_goal_node_array()
     if (manager->has_node_array(kParkNodeArray))
         manager->remove_node_array(kParkNodeArray);
     manager->add_node_array(kParkNodeArray, true);
-    manager->set_owner(node_array_);
+    manager->set_owner(node_array_.data());
 }
 
 void ParkAssembler::remove_node_array()
@@ -630,8 +631,8 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
 
 void ParkAssembler::build_node_array(MapListNode* metas)
 {
-    int counts[6];
-    get_node_counts(counts);
+    std::array<int, 6> counts{};
+    get_node_counts(counts.data());
     const int rail_editor_points = get_rail_editor_points();
     int total = counts[0] + (goal_editor_constant82() + rail_editor_points);
     build_rails(metas);
@@ -649,7 +650,7 @@ void ParkAssembler::build_node_array(MapListNode* metas)
     rails_.free_pools();
     goal_editor_write_nodes(nodes, &index, memory::top_down_heap());
     manager->add_node_array(kParkNodeArray, true);
-    manager->set_owner(node_array_);
+    manager->set_owner(node_array_.data());
     parse_node_array();
     flag_bits_ |= ParkAssembler::kNodeArrayBuilt;
 }

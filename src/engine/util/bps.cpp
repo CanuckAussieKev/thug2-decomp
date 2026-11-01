@@ -4,6 +4,7 @@
 #include "engine/util/bps.h"
 
 #include <cstring>
+#include <array>
 
 #include "platform/debug_log.h"
 
@@ -16,7 +17,7 @@ using debug_log::StageMap;
 // The standard CRC-32 (zlib's).
 uint32_t crc32(const uint8_t* data, size_t size)
 {
-    static uint32_t table[256];
+    static std::array<uint32_t, 256> table;
     static bool made = false;
     if (!made) {
         for (uint32_t i = 0; i < 256; ++i) {
@@ -92,12 +93,12 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
                std::vector<uint8_t>* output)
 {
     size_t at = 0;
-    char magic[5];
+    std::array<char, 5> magic{};
     for (int i = 0; i < 4; ++i)
         magic[i] = static_cast<char>(read_byte(patch, &at));
     magic[4] = '\0';
-    if (std::strcmp(magic, "BPS1") != 0) {
-        debug_log::printf(StageMap::kError, "BPS magic number doesn't match expected: %s\n", magic);
+    if (std::strcmp(magic.data(), "BPS1") != 0) {
+        debug_log::printf(StageMap::kError, "BPS magic number doesn't match expected: %s\n", magic.data());
         return false;
     }
     auto expected_input_size = static_cast<uint32_t>(read_number(patch, &at));

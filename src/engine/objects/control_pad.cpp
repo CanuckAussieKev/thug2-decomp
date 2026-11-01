@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "game/rider/thaw_bmx.h"
@@ -134,7 +135,7 @@ struct PadButtonName {
     ControlButton PadSnapshot::* button;
     const char* name;
 };
-constexpr PadButtonName kPadButtons[] = {
+constexpr auto kPadButtons = std::to_array<PadButtonName>({
     {&PadSnapshot::up_dir_, "UP"},
     {&PadSnapshot::btn_down_, "DOWN"},
     {&PadSnapshot::left_side_, "LEFT"},
@@ -151,7 +152,7 @@ constexpr PadButtonName kPadButtons[] = {
     {&PadSnapshot::stick_click_right_, "R3"},
     {&PadSnapshot::outset_, "START"},
     {&PadSnapshot::button_choose_, "SELECT"},
-};
+});
 
 } // namespace
 
@@ -183,8 +184,8 @@ void PadSnapshot::get_reset()
 void PadSnapshot::get_clear()
 {
     get_reset();
-    ControlButton* both[] = {&up_dir_,          &btn_down_,        &left_side_,        &right_side_,
-                             &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_};
+    auto both = std::to_array<ControlButton*>({&up_dir_,          &btn_down_,        &left_side_,        &right_side_,
+                             &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_});
     for (ControlButton* button : both) {
         button->reset_activation();
         button->forget_let_go();
@@ -194,7 +195,7 @@ void PadSnapshot::get_clear()
     shoulder_right_b_.reset_activation();
     stick_click_right_.forget_let_go();
     stick_click_right_.forget_let_go();
-    ControlButton* rest[] = {&button_box_, &button_round_, &pos_x_, &button_wedge_, &outset_, &button_choose_};
+    auto rest = std::to_array<ControlButton*>({&button_box_, &button_round_, &pos_x_, &button_wedge_, &outset_, &button_choose_});
     for (ControlButton* button : rest) {
         button->reset_activation();
         button->forget_let_go();
@@ -267,10 +268,10 @@ void PadSnapshot::tick_frame(const uint8_t* data)
 ControlButton* PadSnapshot::read_button(uint32_t name)
 {
     // (the original's order)
-    ControlButton* buttons[] = {&up_dir_,           &btn_down_,          &left_side_,        &right_side_,
+    auto buttons = std::to_array<ControlButton*>({&up_dir_,           &btn_down_,          &left_side_,        &right_side_,
                                 &button_box_,       &button_round_,      &button_wedge_,     &pos_x_,
                                 &shoulder_left_a_,  &shoulder_left_b_,   &stick_click_left_, &shoulder_right_a_,
-                                &shoulder_right_b_, &stick_click_right_, &outset_,           &button_choose_};
+                                &shoulder_right_b_, &stick_click_right_, &outset_,           &button_choose_});
     for (ControlButton* button : buttons) {
         if (button->label_ == name)
             return button;
@@ -286,7 +287,7 @@ ControlButton* PadSnapshot::read_button(uint32_t name)
 int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 {
     // (0x0067D8C8)
-    static constexpr int kDirections[16] = {0, 1, 2, 2, 3, 5, 7, 7, 4, 6, 8, 8, 4, 6, 8, 8};
+    static constexpr std::array<int, 16> kDirections = {{0, 1, 2, 2, 3, 5, 7, 7, 4, 6, 8, 8, 4, 6, 8, 8}};
     return kDirections[up + 2 * (down + 2 * (left + 2 * right))];
 }
 
@@ -295,7 +296,7 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 {
     // (the original's static table 0x006F2270, filled on the first call; up and down together count as down,
     // left and right together as right)
-    static const float kAngles[16] = {
+    static const std::array<float, 16> kAngles = {{
         0.0f,
         0.0f,
         kPi,
@@ -312,7 +313,7 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
         kQuarterPi,
         kThreeQuarterPi,
         kThreeQuarterPi,
-    };
+    }};
     return kAngles[up + 2 * (down + 2 * (left + 2 * right))];
 }
 

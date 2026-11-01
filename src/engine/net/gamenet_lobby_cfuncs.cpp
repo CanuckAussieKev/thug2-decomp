@@ -6,6 +6,7 @@
 #include <winsock2.h>
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
@@ -43,7 +44,7 @@ using namespace detail;
 
 int g_queued_count;
 
-QueuedPacket g_queued_packets[200];
+std::array<QueuedPacket, 200> g_queued_packets;
 
 namespace {
 
@@ -56,8 +57,8 @@ constexpr int kStatusOnline = 1;
 constexpr int kRoomGroupKind = 1; // (the peer SDK's room types)
 constexpr int kClientNatIndex = 1;
 // The GameSpy profiles that may host while hosting is restricted (+0x135).
-constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
-                                 0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1};
+constexpr auto kHostProfiles = std::to_array<int>({0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
+                                 0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1});
 
 Hub* net_session_slot() { return g_online_hub; }
 RoomManager* current_lobby() { return net_session_slot()->lobby_service_.get(); }
@@ -71,7 +72,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }
 void nat_think() { game_spy::nat_think(); }
 void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
-QueuedPacket* get_queue() { return g_queued_packets; }
+QueuedPacket* get_queue() { return g_queued_packets.data(); }
 int& queued_count() { return g_queued_count; }
 
 } // namespace

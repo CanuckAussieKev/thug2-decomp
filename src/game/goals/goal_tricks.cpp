@@ -3,6 +3,7 @@
 // see objective.h).
 
 #include <cstdint>
+#include <array>
 
 #include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
@@ -216,10 +217,10 @@ bool Objective::swap_move_caption()
         uint32_t original;
         uint32_t text;
     };
-    static constexpr Original kKept[] = {{kOriginalViewGoalsText, kViewGoalsText},
+    static constexpr auto kKept = std::to_array<Original>({{kOriginalViewGoalsText, kViewGoalsText},
                                          {kOriginalViewGoalsTip, kViewGoalsTip},
                                          {kOriginalGoalText, kGoalText},
-                                         {kOriginalKeyComboText, kKeyComboText}};
+                                         {kOriginalKeyComboText, kKeyComboText}});
     for (const Original& kept : kKept) {
         if (!args_->has_entry_named(kept.original) && args_->fetch_text(kept.text, &text, 0))
             args_->append_word(kept.original, text);
@@ -245,11 +246,11 @@ bool Objective::swap_move_caption()
         }
         return false;
     }
-    char buffer[kLabelPoints];
+    std::array<char, kLabelPoints> buffer{};
     text = nullptr;
     script::Array* lines = nullptr;
     if (args_->fetch_text(kOriginalGoalDescription, &text, 0)) {
-        replace_trick_tokens(text, buffer, key_texts, trick_texts, kLabelPoints);
+        replace_trick_tokens(text, buffer.data(), key_texts, trick_texts, kLabelPoints);
         // (the original adds the description as written, not the replaced text)
         args_->append_word(kGoalDescription, text);
     } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
@@ -257,16 +258,16 @@ bool Objective::swap_move_caption()
         script::Array* replaced = alloc_script_array();
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
-            replace_trick_tokens(lines->find_inline_text(i), buffer, key_texts, trick_texts, kLabelPoints);
-            replaced->set_element(i, cell::of(script::spawn_text(buffer)));
+            replace_trick_tokens(lines->find_inline_text(i), buffer.data(), key_texts, trick_texts, kLabelPoints);
+            replaced->set_element(i, cell::of(script::spawn_text(buffer.data())));
         }
         args_->append_array_value(kGoalDescription, replaced);
         free_array(replaced);
     }
     for (const Original& kept : kKept) {
         if (args_->fetch_text(kept.original, &text, 0)) {
-            replace_trick_tokens(text, buffer, key_texts, trick_texts, kLabelPoints);
-            args_->append_word(kept.text, buffer);
+            replace_trick_tokens(text, buffer.data(), key_texts, trick_texts, kLabelPoints);
+            args_->append_word(kept.text, buffer.data());
         }
     }
     script::release_array_storage(key_texts);

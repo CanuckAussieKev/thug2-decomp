@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
@@ -33,8 +34,8 @@ namespace render {
 
 namespace {
 // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-uint32_t g_text_vertex_store[0x1C00];
-uint16_t g_text_quad_indices[0x100 * 6];
+std::array<uint32_t, 0x1C00> g_text_vertex_store;
+std::array<uint16_t, 0x100 * 6> g_text_quad_indices;
 
 TypefaceData* g_typeface_head;
 } // namespace
@@ -129,7 +130,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
                     glyph = &font->chars[font->special_map_[button]];
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
-                    const uint8_t* name_map = map;
+                    const uint8_t* name_map = map.data();
                     for (const char* name = button_key_name(button); *name; ++name)
                         total += chars[name_map[static_cast<signed char>(*name)]].w + glyph_gap_;
                     counted = false; // not the digit
@@ -387,8 +388,8 @@ void set_texture_stage_state(int stage, int type, int value)
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-TextVertex* vertex_store() { return raw::as<TextVertex>(g_text_vertex_store); }
-uint16_t* quad_indices() { return g_text_quad_indices; }
+TextVertex* vertex_store() { return raw::as<TextVertex>(g_text_vertex_store.data()); }
+uint16_t* quad_indices() { return g_text_quad_indices.data(); }
 bool& quad_indices_made() { return g_quad_indices_made; }
 constexpr int kQuads = 0x100;
 
@@ -467,11 +468,11 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     std::vector<uint8_t> contents;
     util::ByteReader reader(name, util::ByteReader::kUnknownSize); // (from memory: the next bytes)
     if (!from_memory) {
-        char path[128]; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
-        std::snprintf(path, sizeof(path), "fonts/%s.fnt.xbx", name);
-        file::Hdl file = file::unseal(path, "rb");
+        std::array<char, 128> path{}; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
+        std::snprintf(path.data(), sizeof(path), "fonts/%s.fnt.xbx", name);
+        file::Hdl file = file::unseal(path.data(), "rb");
         if (!file) {
-            debug::printf("font %s: no file\n", path);
+            debug::printf("font %s: no file\n", path.data());
             return nullptr;
         }
         contents.resize(file::get_file_size(file));
@@ -482,10 +483,10 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         reader = util::ByteReader(contents.data(), contents.size());
     }
     font_format::Header header;
-    font_format::GlyphEntry entries[font_format::kMaxGlyphs];
+    std::array<font_format::GlyphEntry, font_format::kMaxGlyphs> entries;
     font_format::Page page;
     if (!font_format::read_header(reader, &header) ||
-        !font_format::read_glyph_entries(reader, header.glyph_count, entries) ||
+        !font_format::read_glyph_entries(reader, header.glyph_count, entries.data()) ||
         !font_format::read_page(reader, &page)) {
         debug::printf("font %s damaged: cut short or %d glyphs\n", from_memory ? "(memory)" : name, header.glyph_count);
         return nullptr;
@@ -497,8 +498,8 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     const uint8_t* texels = reader.cursor();
     const uint8_t* palette_bytes = texels + size;
     reader.skip(hd_scale != 1 ? static_cast<size_t>(size) * 4 : size + font_format::kPaletteSize);
-    font_format::GlyphRect rects[font_format::kMaxGlyphs];
-    if (!font_format::read_glyph_rects(reader, header.glyph_count, rects)) {
+    std::array<font_format::GlyphRect, font_format::kMaxGlyphs> rects;
+    if (!font_format::read_glyph_rects(reader, header.glyph_count, rects.data())) {
         debug::printf("font %s damaged: its page or rectangles cut short\n", from_memory ? "(memory)" : name);
         return nullptr;
     }
@@ -510,8 +511,8 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     font->format = header.format;
     font->height = header.height;
     font->base = header.base;
-    std::memset(font->map, 0, sizeof(font->map));
-    std::memset(font->special_map_, 0, sizeof(font->special_map_));
+    std::memset(font->map.data(), 0, sizeof(font->map));
+    std::memset(font->special_map_.data(), 0, sizeof(font->special_map_));
     font->chars = static_cast<Char*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Char)));
 
     // The character map: which glyph each character (and special glyph) is.
@@ -532,7 +533,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         // Each glyph: its baseline, then up to four characters (0xFF ends them early).
         for (int i = 0; i < count; ++i) {
             font->chars[i].baseline = entries[i].baseline;
-            const uint8_t* codes = entries[i].codes;
+            const uint8_t* codes = entries[i].codes.data();
             font->map[codes[0]] = static_cast<uint8_t>(i);
             for (int c = 1; c < 4 && codes[c] != 0xFF; ++c)
                 font->map[codes[c]] = static_cast<uint8_t>(i);
@@ -573,9 +574,9 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         std::memcpy(pixels, texels, size * 4);
     } else {
         indices = memory::heap_ptr<uint8_t>(memory::alloc(size));
-        uint32_t palette[256];
+        std::array<uint32_t, 256> palette{};
         std::memcpy(indices.get(), texels, size);
-        std::memcpy(palette, palette_bytes, font_format::kPaletteSize);
+        std::memcpy(palette.data(), palette_bytes, font_format::kPaletteSize);
         for (uint32_t& color : palette) {
             const uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
             uint32_t alpha = argb >> 24;
@@ -585,7 +586,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         game_pixels = memory::heap_ptr<uint32_t>(memory::alloc(size * 4));
         pixels = game_pixels.get();
         // palette indices -> colours
-        os_layer::expand_palette(pixels, indices.get(), static_cast<int>(size), palette);
+        os_layer::expand_palette(pixels, indices.get(), static_cast<int>(size), palette.data());
     }
     D3DLOCKED_RECT locked;
     if (texture->LockRect(0, &locked, nullptr, 0) != D3D_OK)

@@ -6,6 +6,7 @@
 #include "engine/objects/motion_path.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -16,7 +17,7 @@
 
 namespace objects {
 
-uint32_t g_motion_path_member_functions[294]{
+std::array<uint32_t, 294> g_motion_path_member_functions{{
     0x21ACCF0D, 0x0A015E17, 0, 0, 0, 0, 0x7BC461AE, 0x0A015E17, 0, 0, 0, 0, 0x8E52ABEA, 0x0A015E17, 0, 0, 0, 0,
     0xC8CC6820, 0x0A015E17, 0, 0, 0, 0, 0x68E1F022, 0x0A015E17, 0, 0, 0, 0, 0xDFBE3DB3, 0x0A015E17, 0, 0, 0, 0,
     0xFB603EA9, 0x0A015E17, 0, 0, 0, 0, 0x2CA63CDF, 0x0A015E17, 0, 0, 0, 0, 0xD6697AD0, 0x0A015E17, 0, 0, 0, 0,
@@ -33,7 +34,7 @@ uint32_t g_motion_path_member_functions[294]{
     0x1E094B84, 0x0A015E17, 0, 0, 0, 0, 0xBDC4C878, 0x0A015E17, 0, 0, 0, 0, 0xDBFDD02F, 0x0A015E17, 0, 0, 0, 0,
     0x8D95F1E1, 0x0A015E17, 0, 0, 0, 0, 0x3407AD3D, 0x0A015E17, 0, 0, 0, 0, 0xE606EBA2, 0x0A015E17, 0, 0, 0, 0,
     0xE76D73D2, 0x0A015E17, 0, 0, 0, 0, 0x1AE46261, 0x0A015E17, 0, 0, 0, 0, 0x2FAD370D, 0x0A015E17, 0, 0, 0, 0,
-    0,          0x0A015E17, 0, 0, 0, 0};
+    0,          0x0A015E17, 0, 0, 0, 0}};
 
 namespace {
 
@@ -74,7 +75,7 @@ int wait_on(script::Script* script, MotionPathMembers* component, script::BlockR
 // 0x00423130
 void MotionPathMembers::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_motion_path_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_motion_path_member_functions.data(), 0x18);
 }
 
 // 0x00423150

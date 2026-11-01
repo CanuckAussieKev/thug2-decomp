@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -32,8 +33,8 @@ constexpr uint32_t kId = 0x40C698AF, kText = 0xC4745838, kPos3d = 0x4B491900;
 constexpr uint32_t kCreateObjectLabel = 0x6A060CF0, kDestroyObjectLabel = 0x2575B406;
 
 // skater_name_0 ... skater_name_7
-constexpr uint32_t kLabelIds[8] = {0xE797A186, 0x90909110, 0x0999C0AA, 0x7E9EF03C,
-                                   0xE0FA659F, 0x97FD5509, 0x0EF404B3, 0x79F33425};
+constexpr std::array<uint32_t, 8> kLabelIds = {{0xE797A186, 0x90909110, 0x0999C0AA, 0x7E9EF03C,
+                                   0xE0FA659F, 0x97FD5509, 0x0EF404B3, 0x79F33425}};
 
 constexpr float kLocalHeight = 96.0f;  // above this machine's player's skater
 constexpr float kOtherHeight = 120.0f; // above the others'
@@ -111,9 +112,9 @@ void RiderOverheadTag::tick_frame()
     params->put_name_key(kId, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
     const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team_) : entity_->ident_;
-    char text[64];
-    std::snprintf(text, sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
-    params->append_word(kText, text);
+    std::array<char, 64> text{};
+    std::snprintf(text.data(), sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
+    params->append_word(kText, text.data());
     const maths::Vec4& pos = entity_->at_point_;
     params->put_vec3(kPos3d, pos.x, height + pos.y, pos.z);
     if (label) // (Entity's virtual change_traits: whatever object has the id)

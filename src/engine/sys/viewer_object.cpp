@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -61,17 +62,17 @@ constexpr int kAssetKindSkeleton = 6;                   // (the asset type)
 // separator (0x004879D0, in the CAS code - not rewritten yet - makes it as a temporary String).
 void set_model_path(text::Chars& path, const char* name, const char* extension)
 {
-    alignas(text::Chars) uint8_t temporary[sizeof(text::Chars)];
-    gfx::make_model_path(raw::as<text::Chars>(temporary), name, extension);
-    path = *raw::as<text::Chars>(temporary);
-    raw::as<text::Chars>(temporary)->~Chars();
+    alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> temporary{};
+    gfx::make_model_path(raw::as<text::Chars>(temporary.data()), name, extension);
+    path = *raw::as<text::Chars>(temporary.data());
+    raw::as<text::Chars>(temporary.data())->~Chars();
 }
 
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).
-void sibling_file(const char* path, const char* extension, char (&out)[256])
+void sibling_file(const char* path, const char* extension, std::array<char, 256>& out)
 {
-    render::engine::split_skin_name(path, out);
-    strcat_s(out, extension);
+    render::engine::split_skin_name(path, out.data());
+    strcat_s(out.data(), out.size(), extension);
 }
 
 // A CAS artist's cached copy of `file` dropped, so it's read again from the edited file.
@@ -89,14 +90,14 @@ void drop_cached_model(const char* name)
 {
     text::Chars path;
     set_model_path(path, name, ".skin");
-    char sibling[256];
+    std::array<char, 256> sibling{};
     sibling_file(path.c_str(), ".col", sibling);
-    drop_cached_file(sibling);
+    drop_cached_file(sibling.data());
     drop_cached_file(path.c_str());
     set_model_path(path, name, ".mdl");
     drop_cached_file(path.c_str());
     sibling_file(path.c_str(), ".tex", sibling);
-    drop_cached_file(sibling);
+    drop_cached_file(sibling.data());
 }
 
 AnimBlenderComponent* get_animation(GameEntity* object)
@@ -223,9 +224,9 @@ void PreviewEntity::read_in(script::Struct* params)
                                                           : static_cast<memory::MemSource*>(memory->bottom_up_heap_));
     const char* name = nullptr;
     for (int i = 0; i < 4; ++i) {
-        char key[260];
-        std::snprintf(key, sizeof(key), "model%d", i);
-        if (params->fetch_text(key, &name, 0))
+        std::array<char, 260> key{};
+        std::snprintf(key.data(), sizeof(key), "model%d", i);
+        if (params->fetch_text(key.data(), &name, 0))
             drop_cached_model(name);
     }
     if (params->fetch_text(kModelName, &name, 0) || params->fetch_text(kModel, &name, 0)) {
@@ -253,8 +254,8 @@ void PreviewEntity::read_in(script::Struct* params)
     } else {
         at_point_ = g_origin_position; // (0, 0, 0, 1)
     }
-    static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    std::memcpy(&basis_frame_, kIdentity, sizeof(kIdentity));
+    static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    std::memcpy(&basis_frame_, kIdentity.data(), sizeof(kIdentity));
     script::launch_script(kAddComponents, params, this, false, nullptr);
     seal(); // (Finalize)
     script::launch_script(kSetupModelScript, params, this, false, nullptr);
@@ -280,8 +281,8 @@ void PreviewEntity::reload_animation(const char* file, uint32_t anim)
 // 0x0058A2E0
 void PreviewEntity::change_spin(float z, float x)
 {
-    static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    std::memcpy(&basis_frame_, kIdentity, sizeof(kIdentity));
+    static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    std::memcpy(&basis_frame_, kIdentity.data(), sizeof(kIdentity));
     maths::Mat4 rotation{};
     multiply_matrix(&basis_frame_, &basis_frame_, &maths::make_roll_matrix(rotation, z));
     multiply_matrix(&basis_frame_, &basis_frame_, &maths::make_pitch_matrix(rotation, x));
@@ -560,9 +561,9 @@ int handle_run_anim_view_script(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     PreviewEntity* object = object_of(context);
-    char path[260];
-    std::snprintf(path, sizeof(path), "scripts\\animview\\%s.qb", message);
-    script::load_qb(path, 0, 0);
+    std::array<char, 260> path{};
+    std::snprintf(path.data(), sizeof(path), "scripts\\animview\\%s.qb", message);
+    script::load_qb(path.data(), 0, 0);
     script::Script* script = script::spawn_script(message, nullptr, 0, nullptr, 0, 0, false, false, false, false);
     script->entity_.assign_value(object); // (not null-checked: as the original)
     return 1;
@@ -585,8 +586,8 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     saved_speed_ = 0.0f;
     panel_shown_ = true;
     speed_ = 1.0f;
-    static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    std::memcpy(&basis_frame_, kIdentity, sizeof(kIdentity));
+    static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    std::memcpy(&basis_frame_, kIdentity.data(), sizeof(kIdentity));
     is_halted_ = false;
     asset_ = 0;
     owner_app_ = app;

@@ -9,6 +9,7 @@
 #include <memory>
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 
@@ -43,7 +44,7 @@ void* model_fader(void* model);
 // 0x00464340 (code Ghidra missed; nothing calls it): an identity rotation (0, 0, 0, 1).
 struct IdentityQuat {
     void assign_value();
-    float q[4];
+    std::array<float, 4> q;
 };
 // 0x00463BA0: the name of the skater model a cutscene uses: the profile 0x1804A7C4 names looked up in array
 // 0xCA1DB456, else "Male1" when integer 0x3F813177 is 1, "Female1" when not.
@@ -127,7 +128,7 @@ public:
         uint32_t skeleton; // +0x04
         int part;          // +0x08: the animation part it plays (its animation: name + part * 10)
         bool active;       // +0x0C: it stands in for an object of the level
-        uint8_t padd_[3];
+        std::array<uint8_t, 3> padd_;
         AnimationEntry* animation; // +0x10
         GameEntity* object;        // +0x14
         GameEntity* parent;        // +0x18: the object of the entry named name - 1
@@ -173,7 +174,7 @@ public:
     uint32_t unknown4_{};
     std::unique_ptr<file::AssetBundle> bundle_ptr_; // +0x08: the cutscene's loaded bundle
     bool ready_flag_{};                             // +0x0C
-    uint8_t unknownd_[3]{};
+    std::array<uint8_t, 3> unknownd_{};
     int camera_parts_{0};          // +0x10: the camera animation's parts (after the first)
     void* camera_source_{nullptr}; // +0x14: its animation source
     int object_parts_{0};          // +0x18: the object animation's parts
@@ -181,19 +182,19 @@ public:
     void* object_anims_{};  // +0x20
     void* camera_anim_{};   // +0x24
     void* anim_list_{};     // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
-    uint8_t lent_2c_[0x10]{}; // +0x2C: given back to the objects' models
+    std::array<uint8_t, 0x10> lent_2c_{}; // +0x2C: given back to the objects' models
     uint8_t lent_3c_{};       // +0x3C
     uint8_t lent_3d_{};       // +0x3D
-    uint8_t unknown3e_[2]{};
+    std::array<uint8_t, 2> unknown3e_{};
     maths::Vec4 lent_pos_{}; // +0x40: the position of the first level object a cutscene object stood in for (given
                              // back to every one of them afterwards, as the original)
     bool lent_saved_{false}; // +0x50: it (and its model's settings, +0x2C-0x3D) saved
-    uint8_t unknown51_[3]{};
-    ObjectEntry entities_[256]{};    // +0x54
+    std::array<uint8_t, 3> unknown51_{};
+    std::array<ObjectEntry, 256> entities_{};    // +0x54
     int object_count_{0};            // +0x2054
-    AnimationEntry animations_[256]{}; // +0x2058
+    std::array<AnimationEntry, 256> animations_{}; // +0x2058
     int animation_count_{};            // +0x2C58
-    uint32_t assets_[512]{};           // +0x2C5C
+    std::array<uint32_t, 512> assets_{};           // +0x2C5C
     int asset_count_{0};               // +0x345C
     bool ready_{false};                // +0x3460: the music started (or none to wait for)
     bool can_skip_{};                // +0x3461
@@ -204,7 +205,7 @@ public:
     float end_time_{0.0f};    // +0x346C: seconds
     float unknown3470_{1.0f}; // +0x3470 (1 at first)
     uint8_t unknown3474_{0};
-    uint8_t unknown3475_[3]{};
+    std::array<uint8_t, 3> unknown3475_{};
     uint32_t unknown3478_{}; // +0x3478
     float clock_{0.0f};      // +0x347C: seconds into the cutscene
     float unknown3480_{0.0f};  // +0x3480
@@ -217,7 +218,7 @@ public:
     void* unknown34a8_{nullptr}; // +0x34A8: the skater's appearance
     void* unknown34ac_{nullptr}; // +0x34AC: the skater's profile structure
     uint8_t flag_34b_0_{};    // +0x34B0: a skater cutscene with its own heaps, music, camera (kept as given)
-    uint8_t unknown34b1_[3]{};
+    std::array<uint8_t, 3> unknown34b1_{};
     uint32_t label_{};          // +0x34B4: the cutscene's name checksum
     script::Array* subtitles_{nullptr}; // +0x34B8
     float subtitle_duration_{}; // +0x34BC: the last subtitle's (0 if it gave none)
@@ -269,16 +270,16 @@ public:
     uint32_t asset_{0};                // +0x30
     uint32_t begin_script_{}; // +0x34: the cutscene's name + "_begin"
     bool begun_{};            // +0x38: the begin script run
-    uint8_t unknown39_[3]{};
+    std::array<uint8_t, 3> unknown39_{};
     uint32_t end_script_{}; // +0x3C: + "_end"
     script::Struct* args_; // +0x40
     float music_volume_{}; // +0x44: the volumes before the cutscene (given back at its end)
     float stream_volume0_{}; // +0x48
     float stream_volume1_{}; // +0x4C
-    uint32_t settings_[3]{}; // +0x50
+    std::array<uint32_t, 3> settings_{}; // +0x50
     uint8_t owns_data_;    // +0x5C (the third setting's low byte, as it is)
     bool flag_5d_{false};  // +0x5D
-    uint8_t unknown5e_[2]{};
+    std::array<uint8_t, 2> unknown5e_{};
     int unknown60_{-1}; // +0x60
 };
 
@@ -290,10 +291,10 @@ static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEn
                   offsetof(CinematicEntry, unknown60_) == 0x60,
               "layout must match the original");
 
-extern uint8_t g_cutscene_camera_slot[5];
+extern std::array<uint8_t, 5> g_cutscene_camera_slot;
 extern bool g_cutscene_playing;
 extern int g_cutscene_fixed_frame;
-extern float g_cutscene_rotations[512];
-extern float g_cutscene_translations[512];
+extern std::array<float, 512> g_cutscene_rotations;
+extern std::array<float, 512> g_cutscene_translations;
 
 } // namespace objects

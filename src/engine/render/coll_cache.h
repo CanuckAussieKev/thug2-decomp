@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 
@@ -36,7 +37,7 @@ public:
     void remove_movable(HitMesh* object);
 
     maths::BBox box_;       // +0x000
-    TableRow entries_[500]{}; // +0x020
+    std::array<TableRow, 500> entries_{}; // +0x020
     int num_{};               // +0xFC0
     int statics_{};           // +0xFC4
     int movables_{};          // +0xFC8

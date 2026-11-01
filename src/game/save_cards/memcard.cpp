@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -15,13 +16,13 @@ Hub* g_the_card;
 
 namespace {
 
-char g_path_buffer[128];
+std::array<char, 128> g_path_buffer;
 int g_memcard_references;
-char g_filename_buffer[320];
+std::array<char, 320> g_filename_buffer;
 
 // The shared path buffers.
-char* path_buffer() { return g_path_buffer; }
-char* filename_buffer() { return g_filename_buffer; }
+char* path_buffer() { return g_path_buffer.data(); }
+char* filename_buffer() { return g_filename_buffer.data(); }
 
 Hub*& sole() { return g_the_card; }
 int& ref_tally() { return g_memcard_references; }
@@ -164,7 +165,7 @@ bool SaveCard::list_save_files(const char* pattern, FileLoad* list)
             continue;
         FileLoad* file = new_file(nullptr, this);
         // (no bounds: a long name runs into the fields after it, as in the original)
-        std::memcpy(file->label_, found.cFileName, std::strlen(found.cFileName) + 1);
+        std::memcpy(file->label_.data(), found.cFileName, std::strlen(found.cFileName) + 1);
         FILETIME local;
         SYSTEMTIME time;
         FileTimeToLocalFileTime(&found.ftLastWriteTime, &local);

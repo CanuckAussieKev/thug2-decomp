@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -56,8 +57,8 @@ void FriendsManager::on_buddy_request(void* connection, const void* arg, Friends
     ram_stats()->leave_heap_scope();
 }
 
-char g_command_line_email[256];
-char g_command_line_password[16];
+std::array<char, 256> g_command_line_email;
+std::array<char, 16> g_command_line_password;
 
 // 0x00548140
 unsigned long __stdcall FriendsManager::login_thread(void* man)
@@ -68,8 +69,8 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
     const char* email = nullptr;
     const char* password = nullptr;
     if (sys::g_internet_game_host || sys::g_joining_internet_game) {
-        email = g_command_line_email;
-        password = g_command_line_password;
+        email = g_command_line_email.data();
+        password = g_command_line_password.data();
     } else {
         email = preferences->get_preference_string(checksums::hash_from_text("profile_email"),
                                                    checksums::hash_from_text("ui_string"));
@@ -90,9 +91,9 @@ void FriendsManager::send_buddy_message(int profile, const char* text)
         ->get_online_settings()
         ->fetch_setting(checksums::hash_from_text("network_id"))
         ->fetch_text(kUiString, &nick, 1);
-    char message[128];
-    std::sprintf(message, "%s\n%s", nick, text);
-    game_spy::gp_send_buddy_message(this, profile, message); // (gpSendBuddyMessage)
+    std::array<char, 128> message{};
+    std::sprintf(message.data(), "%s\n%s", nick, text);
+    game_spy::gp_send_buddy_message(this, profile, message.data()); // (gpSendBuddyMessage)
 }
 
 // 0x005482A0
@@ -155,7 +156,7 @@ bool set_lobby_status(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     const Hub* manager = the_manager();
-    const char* lobby = manager->lobby_service_->room_name_; // (0x0053F820)
+    const char* lobby = manager->lobby_service_->room_name_.data(); // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");
     FriendsManager* buddies = manager->presence_service_.get();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);

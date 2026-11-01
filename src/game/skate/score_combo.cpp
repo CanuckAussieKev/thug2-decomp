@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -94,11 +95,11 @@ void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int point
     online::PointsMessage message;
     message.points = points;
     message.game_id = net->get_game_id();
-    uint8_t data[online::kPointsSize];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, online::kPointsSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_points(writer, message);
     desc.ident_ = id;
-    desc.content_ = data;
+    desc.content_ = data.data();
     desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
@@ -111,12 +112,12 @@ void reset_robot(PointTally* score, bool run)
     if (run) {
         score->robot_lines_ = 0;
         score->robot_new_lines_ = 0;
-        std::memset(score->line_counts_, 0, sizeof(score->line_counts_));
+        std::memset(score->line_counts_.data(), 0, sizeof(score->line_counts_));
     }
     score->robot_combo_lines_ = 0;
     score->robot_combo_first_lines_ = 0;
     score->robot_combo_new_lines_ = 0;
-    std::memset(score->combo_line_counts_, 0, sizeof(score->combo_line_counts_));
+    std::memset(score->combo_line_counts_.data(), 0, sizeof(score->combo_line_counts_));
     score->robot_factor_ = 1.0f;
 }
 
@@ -162,7 +163,7 @@ void PointTally::bank_combo_score()
             debug::printf("base %d reduction mult %.2f spin mult %.1f score = %i %s\n", trick->points_held_,
                           static_cast<double>(reduction) * static_cast<double>(0.01f), static_cast<double>(spin) * 0.5,
                           points,
-                          trick->text_); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
+                          trick->text_.data()); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
         pot_ += points;
     }
     if (verbose_print_)
@@ -199,7 +200,7 @@ void PointTally::reset_score_pot()
     robot_combo_lines_ = 0;
     robot_combo_first_lines_ = 0;
     robot_combo_new_lines_ = 0;
-    std::memset(combo_line_counts_, 0, sizeof(combo_line_counts_));
+    std::memset(combo_line_counts_.data(), 0, sizeof(combo_line_counts_));
     bonus_ = 0;
     robot_factor_ = 1.0f;
 }
@@ -324,8 +325,8 @@ void PointTally::tick_frame()
         size = 0.0f;
     frontend::UiWidget* element = bar.owner_object_; // (no check: as the original)
     element->change_scale(size, element->shown_.scale_y_, false, 0);
-    uint8_t rgba[4];
-    std::memcpy(rgba, bar_colors_[0], 4);
+    std::array<uint8_t, 4> rgba{};
+    std::memcpy(rgba.data(), bar_colors_[0].data(), 4);
     if (special_active_) {
         const double flash = (std::cos(static_cast<double>(special_phase_)) + 1.0) * 0.5;
         special_phase_ = static_cast<float>(static_cast<double>(special_rate_) + special_phase_);
@@ -335,7 +336,7 @@ void PointTally::tick_frame()
         }
     }
     uint32_t color = 0;
-    std::memcpy(&color, rgba, 4);
+    std::memcpy(&color, rgba.data(), 4);
     element->change_rgba(color, 1);
 }
 
@@ -385,7 +386,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     trick->shown_[0] = 0;
     trick->rotation_deg_ = 0;
     if (!unnamed) {
-        escape_spaces(trick->text_, text);
+        escape_spaces(trick->text_.data(), text);
         const char* format = nullptr;
         if (flags & kTrickColour3)
             format = "\\c3%s%s\\c0 "; // "\c3%s%s\c0 "
@@ -393,10 +394,10 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
             format = "\\c2%s%s\\c0 "; // "\c2%s%s\c0 "
         else
             format = "%s%s "; // "%s%s "
-        std::snprintf(trick->shown_, sizeof(trick->shown_), format, "", trick->text_);
+        std::snprintf(trick->shown_.data(), sizeof(trick->shown_), format, "", trick->text_.data());
         // The trick before it (the last one named, not "...") gets the " + " joining them.
         for (int i = log_.num_ - 2; i >= 0; --i) {
-            char* shown = get_trick(i)->shown_;
+            char* shown = get_trick(i)->shown_.data();
             const size_t length = std::strlen(shown);
             if (shown[0] == '.' || !length)
                 continue;
@@ -424,7 +425,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
                 seen->ongoing_[k] = 0;
             }
         }
-        int* counts = seen->landed_; // (landed_ then ongoing_; the kind can reach past them, as the original)
+        int* counts = seen->landed_.data(); // (landed_ then ongoing_; the kind can reach past them, as the original)
         newest_logged_trick()->repeats_ = counts[kind] + counts[kind + 4];
         ++counts[kind + 4];
     }
@@ -494,14 +495,14 @@ void PointTally::change_spin_degrees(int degrees)
     }
     const int half_turns = (ftol(objects::read_tuning_float(kSpinCountSlop, 0, nullptr)) + size) / 180;
     get_trick(spin_trick_)->rotation_deg_ = degrees;
-    const uint32_t crc = checksums::hash_from_text(get_trick(spin_trick_)->text_);
+    const uint32_t crc = checksums::hash_from_text(get_trick(spin_trick_)->text_.data());
     bool renamed = false;
     if (crc == kFakieOllie || crc == kCabTrick2 || crc == kCabTrick3) {
         if (half_turns == 1) {
-            std::memcpy(get_trick(spin_trick_)->text_, "Half\\_Cab", 10); // "Half\_Cab"
+            std::memcpy(get_trick(spin_trick_)->text_.data(), "Half\\_Cab", 10); // "Half\_Cab"
             renamed = true;
         } else if (half_turns == 2) {
-            std::memcpy(get_trick(spin_trick_)->text_, "Cabalerial", 11); // "Cabalerial"
+            std::memcpy(get_trick(spin_trick_)->text_.data(), "Cabalerial", 11); // "Cabalerial"
             renamed = true;
         } else if (half_turns > 2) {
             get_trick(spin_trick_)->text_[0] = 0;
@@ -537,7 +538,7 @@ void PointTally::change_spin_degrees(int degrees)
             format = (joined ? R"(\c2%s\_%d\_%s\c0\_+ )" : R"(\c2%s\_%d\_%s\c0)"); // "\c2%s\_%d\_%s\c0[\_+ ]"
         else
             format = (joined ? R"(%s\_%d\_%s\_+ )" : "%s\\_%d\\_%s"); // "%s\_%d\_%s[\_+ ]"
-        std::snprintf(trick->shown_, sizeof(trick->shown_), format, side, shown_degrees, trick->text_);
+        std::snprintf(trick->shown_.data(), sizeof(trick->shown_), format, side, shown_degrees, trick->text_.data());
     } else {
         const char* format = nullptr;
         if (flags & kTrickColour3)
@@ -546,7 +547,7 @@ void PointTally::change_spin_degrees(int degrees)
             format = (joined ? R"(\c2%s\_%s\c0\_+ )" : R"(\c2%s\_%s\c0)"); // "\c2%s\_%s\c0[\_+ ]"
         else
             format = (joined ? "%s\\_%s\\_+ " : "%s\\_%s"); // "%s\_%s[\_+ ]"
-        std::snprintf(trick->shown_, sizeof(trick->shown_), format, side, trick->text_);
+        std::snprintf(trick->shown_.data(), sizeof(trick->shown_), format, side, trick->text_.data());
     }
     dispatch_trick_sequence(false);
     get_trick(spin_trick_)->twist_rate_ = half_turns;

@@ -9,6 +9,7 @@
 
 #include "engine/maths/shape_tests.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace scene_format {
 class MemoryStream;
@@ -51,9 +52,9 @@ public:
     static const maths::BBox* fetch_empty_bounds();
 
     uint32_t flags{0};                    // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
-    float unknown20[3]{0.0f, 0.0f, 0.0f}; // +0x20 (zero)
+    std::array<float, 3> unknown20{{0.0f, 0.0f, 0.0f}}; // +0x20 (zero)
     float unknown2c_{1.0f};               // +0x2C (1)
-    uint8_t unknown30_[4]{};
+    std::array<uint8_t, 4> unknown30_{};
 };
 static_assert(offsetof(PcSector, geom_handle_) == 0x14 && offsetof(PcSector, unknown20) == 0x20 &&
                   sizeof(PcSector) == 0x34,

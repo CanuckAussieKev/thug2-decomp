@@ -18,6 +18,7 @@
 
 #include <mmsystem.h>
 #include <dsound.h>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/dbg.h"
@@ -49,10 +50,10 @@ constexpr int kMaxPositional = 128;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-PlayingSound* get_playing() { return g_playing_sounds; }
+PlayingSound* get_playing() { return g_playing_sounds.data(); }
 PositionalSound*& positional_head() { return g_positional_head; }
 int& positional_count() { return g_positional_count; }
-SoundWaveSlot* permanent_waves() { return g_permanent_waves; }
+SoundWaveSlot* permanent_waves() { return g_permanent_waves.data(); }
 int& permanent_count() { return g_permanent_count; }
 float& default_dropoff() { return g_default_dropoff; }
 bool quiet_misses() { return game_config::g_from_cd; }
@@ -66,7 +67,7 @@ void* g_listener;
 GUID g_iid_sound_3d_buffer{0x279AFA86, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
 GUID g_iid_sound_3d_listener{0x279AFA84, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
 GUID g_default_3d_algorithm;
-Voice g_voices[48];
+std::array<Voice, 48> g_voices;
 int g_playing_voices;
 bool g_has_3d;
 int g_voice_count;
@@ -75,7 +76,7 @@ int g_last_voice;
 uint32_t& ref_tally() { return g_sfx_references; }
 
 // The driver's state.
-Voice* get_voices() { return g_voices; }
+Voice* get_voices() { return g_voices.data(); }
 int& playing_voices() { return g_playing_voices; }
 bool& has_3d() { return g_has_3d; }
 int& voice_count() { return g_voice_count; }
@@ -391,8 +392,8 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
     const maths::Vec4 at = *object_position(object);
     void* camera = nearest_camera(&at, nullptr);
     if (camera) {
-        uint8_t extent_data[0x10] = {};
-        void* extent = object_sound_extent(object, camera, extent_data) ? extent_data : nullptr;
+        std::array<uint8_t, 0x10> extent_data = {};
+        void* extent = object_sound_extent(object, camera, extent_data.data()) ? extent_data.data() : nullptr;
         const float dropoff = given[2] != 0.0f ? given[2] : entry->dropoff;
         const int falloff = raw::as<int>(params)[3];
         maths::Vec4 heard{};
@@ -429,10 +430,10 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     void* camera = nearest_camera(&at, &distance);
     if (!camera)
         return true;
-    uint8_t extent_data[0x10];
+    std::array<uint8_t, 0x10> extent_data{};
     void* extent = nullptr;
-    if (object_sound_extent(object, camera, extent_data)) {
-        extent = extent_data;
+    if (object_sound_extent(object, camera, extent_data.data())) {
+        extent = extent_data.data();
     } else if (sound->unknown38 <= time) {
         if (static_cast<double>(dropoff) + 480.0f <= distance) {
             // well out of range: stopped (a looping one kept by the object to start again)
@@ -552,7 +553,7 @@ void set_voice_volume(float volume) { g_voice_volume = volume; }
 
 namespace {
 float g_voice_pitch{1.0f};
-char g_wave_file_name[256]{"data\\sounds\\"};
+std::array<char, 256> g_wave_file_name{{"data\\sounds\\"}};
 } // namespace
 
 // 0x0047C7D0
@@ -650,9 +651,9 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
 {
     // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., frontend/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
-    char overlay[260];
+    std::array<char, 260> overlay{};
     if (frontend::data_overlay::get_overlay_path(file_name, overlay))
-        file_name = overlay;
+        file_name = overlay.data();
     util::UniqueFile file(_fsopen(file_name, "rb", _SH_DENYNO)); // (fopen)
     if (!file)
         return false;
@@ -676,7 +677,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
         debug::printf("sound %s damaged: cut short, no format or data, or less data than it decodes\n", file_name);
         return false;
     }
-    std::memcpy(this, wave.format, wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
+    std::memcpy(this, wave.format.data(), wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
     unknown12 = 0x40;
     looping = wave.looping;
     uint32_t size = bytes_per_second_;
@@ -690,7 +691,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     desc_bytes_ = 0;
     desc_reserved_ = 0;
     desc_format_ = nullptr;
-    std::memset(desc_3d_algorithm_, 0, sizeof(desc_3d_algorithm_));
+    std::memset(desc_3d_algorithm_.data(), 0, sizeof(desc_3d_algorithm_));
     desc_size_ = 0x24;
     desc_flags_ = flags;
     desc_format_ = this;
@@ -704,7 +705,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
 bool load_wave(const char* path, uint32_t /*checksum*/, PcWave** slot, int load_type, int /*unused*/)
 {
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
-    char* file_name = g_wave_file_name;
+    char* file_name = g_wave_file_name.data();
     const size_t length = std::strlen(path);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(file_name + 12, path, length);
@@ -845,7 +846,7 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
         voice.wave = nullptr;
         const bool three_d = has_3d() && volume->kind_tag_ == VolumeRef::kType3d;
         wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
-        std::memcpy(wave->desc_3d_algorithm_, &g_default_3d_algorithm, 16);
+        std::memcpy(wave->desc_3d_algorithm_.data(), &g_default_3d_algorithm, 16);
         // (the wave's DSBUFFERDESC is in place at +0x14, sfx.h)
         const auto* desc = raw::as<const DSBUFFERDESC>(&wave->desc_size_);
         IDirectSoundBuffer* created = nullptr;

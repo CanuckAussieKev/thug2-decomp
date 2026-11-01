@@ -25,13 +25,14 @@
 #include "engine/sys/mlp.h"
 #include "engine/objects/model_component.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {
 
-uint32_t g_suspend_component_member_functions[12]{0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0, 0, 0xCE0CA665, 0, 0, 0, 0};
+std::array<uint32_t, 12> g_suspend_component_member_functions{{0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0, 0, 0xCE0CA665, 0, 0, 0, 0}};
 namespace {
 int g_suspend_frame_count;
 int g_suspend_interleave2_count;
@@ -45,13 +46,13 @@ constexpr uint32_t kDefaultSuspendDistance = 0xAD501995;                        
 constexpr uint32_t kSuspendDistance = 0xE4279BA2;                                  // SuspendDistance
 constexpr uint32_t kNeverSuspend = 0xCB839DC1;                                     // NeverSuspend
 constexpr uint32_t kNoLod = 0x95EDC6F6;                                            // NoLOD
-constexpr uint32_t kLodDist[4] = {0x4EEDFAE7, 0xD7E4AB5D, 0xA0E39BCB, 0x3E870E68}; // lod_dist1-4
+constexpr std::array<uint32_t, 4> kLodDist = {{0x4EEDFAE7, 0xD7E4AB5D, 0xA0E39BCB, 0x3E870E68}}; // lod_dist1-4
 
 constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 constexpr float kLod2Beyond1 = 75.0f;   // 0x006465FC
 constexpr int kCheckFrames = DormancyModule::kCheckFrames;
 // The distances that mean no LOD (1000000 - 1000003): lod_dist3 at its no-LOD value means the model is always drawn.
-const uint32_t kNoLodBits[4] = {0x49742400, 0x49742410, 0x49742420, 0x49742430};
+const std::array<uint32_t, 4> kNoLodBits = {{0x49742400, 0x49742410, 0x49742420, 0x49742430}};
 
 int& frame_count() { return g_suspend_frame_count; }
 int& interleave2_count() { return g_suspend_interleave2_count; }
@@ -82,7 +83,7 @@ gsl::owner<ObjectModule*> DormancyModule::fabricate() { return new DormancyModul
 // 0x00434610
 void DormancyModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_suspend_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_suspend_component_member_functions.data(), 0x18);
     create_suspend_task();
 }
 
@@ -115,10 +116,10 @@ void DormancyModule::configure_from_data(script::Struct* params)
     if (params->has_bare_flag(kNeverSuspend))
         never_suspend_ = true;
     if (script::fetch_int_value(kNoLod)) {
-        set_no_lod(lod_distances_);
+        set_no_lod(lod_distances_.data());
         return;
     }
-    float* lod = lod_distances_;
+    float* lod = lod_distances_.data();
     lod[0] = 50.0f;
     raw::as<uint32_t>(lod)[2] = kNoLodBits[1];
     raw::as<uint32_t>(lod)[3] = kNoLodBits[2];
@@ -159,7 +160,7 @@ void DormancyModule::reset_counts()
 }
 
 // 0x00433E70
-void DormancyModule::disable_lod() { set_no_lod(lod_distances_); }
+void DormancyModule::disable_lod() { set_no_lod(lod_distances_.data()); }
 
 // 0x00433E90
 bool DormancyModule::is_far() { return far_; }
@@ -195,7 +196,7 @@ void DormancyModule::refresh_shown_state()
     if (!(entity_->object_flags_ & kEntityHiddenBit)) {
         uint8_t* model = model_of(mesh_instance_);
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        if (raw::as<const uint32_t>(lod_distances_)[2] == kNoLodBits[2]) {
+        if (raw::as<const uint32_t>(lod_distances_.data())[2] == kNoLodBits[2]) {
             visible = true;
         } else if (modules::g_viewport_count > 1) {
             visible = true;
@@ -205,9 +206,9 @@ void DormancyModule::refresh_shown_state()
             const double lod = lod_distances_[1];
             if (distance_squared_ < lod * lod) {
                 // In view: its bounding sphere where the object is.
-                float sphere[4];
+                std::array<float, 4> sphere{};
                 raw::as<render::RenderModel>(model)->fetch_bound_sphere(
-                    raw::as<maths::Vec4>(sphere));
+                    raw::as<maths::Vec4>(sphere.data()));
                 maths::Vec4 centre = {sphere[0], sphere[1], sphere[2], 1.0f};
                 centre.multiply_by(entity_->basis_frame_);
                 centre += entity_->at_point_;

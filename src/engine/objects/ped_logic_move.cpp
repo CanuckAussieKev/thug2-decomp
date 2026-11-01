@@ -645,7 +645,7 @@ void PedestrianBrainModule::align_to_ground()
         return;
     GroundTriangle t{};
     t.get_assign(*raw::as<GroundTriangle>(&motion->ground_triangle_[0]));
-    const maths::Vec4* c = t.corners;
+    const maths::Vec4* c = t.corners.data();
     const double e1x = static_cast<double>(c[1].x) - c[0].x;
     const double e1y = static_cast<double>(c[1].y) - c[0].y;
     const double e1z = static_cast<double>(c[1].z) - c[0].z;

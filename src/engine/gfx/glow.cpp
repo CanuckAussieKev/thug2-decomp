@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <new>
+#include <array>
 
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
@@ -27,13 +28,13 @@ namespace {
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 lists::KeyMap g_glow_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 lists::KeyMap& glows() { return g_glow_table; }
-uint8_t g_glow_queries_in_use[0x400]; // (a byte per query: DrawGlows looks through 0x400)
-float g_glow_quad[16];
+std::array<uint8_t, 0x400> g_glow_queries_in_use; // (a byte per query: DrawGlows looks through 0x400)
+std::array<float, 16> g_glow_quad;
 
 // The occlusion queries in use (a byte each).
-uint8_t* queries_in_use() { return g_glow_queries_in_use; }
+uint8_t* queries_in_use() { return g_glow_queries_in_use.data(); }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
-float* glow_quad() { return g_glow_quad; }
+float* glow_quad() { return g_glow_quad.data(); }
 
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int query_result(uint32_t query, uint32_t* pixels)

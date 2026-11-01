@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -346,15 +347,15 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             if (params->fetch_text(kModel, &file, false) || params->fetch_text(kModelName, &file, false)) {
                 // A model file (unless it's the "none" name).
                 if (checksums::hash_from_text(file) != kNoModel) {
-                    char path[0x200];
+                    std::array<char, 0x200> path{};
                     uint32_t skeleton_name = 0;
                     if (params->read_hash_value(kSkeletonName, &skeleton_name, 0))
-                        model_path_for(file, ".skin", path);
+                        model_path_for(file, ".skin", path.data());
                     else
-                        model_path_for(file, ".mdl", path);
-                    text::to_lower_text(path);
+                        model_path_for(file, ".mdl", path.data());
+                    text::to_lower_text(path.data());
                     const bool allow_replace = params->has_bare_flag(kAllowReplaceTex);
-                    mesh_instance_->add_file_geom(static_cast<const char*>(path), 0, via_resource_store != 0,
+                    mesh_instance_->add_file_geom(static_cast<const char*>(path.data()), 0, via_resource_store != 0,
                                                   tex_dict_offset, allow_replace, false, true, false);
                 }
             } else if (params->read_hash_value(kAsset, &name, 0)) {

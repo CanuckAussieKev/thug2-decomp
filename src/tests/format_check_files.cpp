@@ -14,6 +14,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "formats/stream_index_format.h"
 #include "engine/core/checksums.h"
@@ -103,8 +104,8 @@ std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
 // The original decoder (lzss::decode, 0x004014F0) as the reference: unbounded, given room here.
 uint8_t* reference_decode(const uint8_t* in, uint8_t* out, int size)
 {
-    uint8_t window[4096];
-    std::memset(window, ' ', 4096 - 18);
+    std::array<uint8_t, 4096> window{};
+    std::memset(window.data(), ' ', 4096 - 18);
     int r = 4096 - 18;
     unsigned int flags = 0;
     for (;;) {
@@ -488,9 +489,9 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
                words[3 + 2 * count + i] == skeleton->mirrors[i];
         const auto* bind = raw::as<const float>(words + 3 + 3 * count) + i * 8;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        same = same && std::memcmp(bind, skeleton->poses[i].rotation, 16) == 0 &&
+        same = same && std::memcmp(bind, skeleton->poses[i].rotation.data(), 16) == 0 &&
                // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-               std::memcmp(bind + 4, skeleton->poses[i].translation, 16) == 0;
+               std::memcmp(bind + 4, skeleton->poses[i].translation.data(), 16) == 0;
     }
     check(same, name + ": as read in place");
     // every parent and mirror is one of the bones (the game looks them up: 0 when not found)
@@ -776,7 +777,7 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     const uint8_t* rect = p + 0x10 + ((width * height + 3) & ~3u) + 0x400 + 4;
     bool same = width == page.width && height == page.height && data[4] == header.format;
     for (int i = 0; same && i < header.glyph_count; ++i)
-        same = std::memcmp(rect + 8 * i, &rects[i], 8) == 0 && std::memcmp(data + 0x14 + 6 * i + 2, entries[i].codes, 4) == 0;
+        same = std::memcmp(rect + 8 * i, &rects[i], 8) == 0 && std::memcmp(data + 0x14 + 6 * i + 2, entries[i].codes.data(), 4) == 0;
     check(hd || same, name + ": as read in place");
     util::ByteReader cut(data, size - 1);
     font_format::read_header(cut, &header);
@@ -819,7 +820,7 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
     size_t at = 12;
     const uint8_t* samples = nullptr;
     uint32_t sample_bytes = 0;
-    uint8_t format[wave_format::kFormatSize] = {};
+    std::array<uint8_t, wave_format::kFormatSize> format = {};
     bool looping = false;
     while (at + 8 <= size) {
         uint32_t id = 0, chunk = 0;
@@ -827,20 +828,20 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
         std::memcpy(&chunk, data + at + 4, 4);
         at += 8;
         if (id == wave_format::kFormatId) {
-            std::memcpy(format, data + at, chunk < sizeof(format) ? chunk : sizeof(format));
+            std::memcpy(format.data(), data + at, chunk < sizeof(format) ? chunk : sizeof(format));
         } else if (id == wave_format::kDataId) {
             samples = data + at;
             sample_bytes = chunk;
         } else if (id == wave_format::kSamplerId) {
-            uint32_t sampler[9] = {};
-            std::memcpy(sampler, data + at, chunk < 0x24 ? chunk : 0x24);
+            std::array<uint32_t, 9> sampler = {};
+            std::memcpy(sampler.data(), data + at, chunk < 0x24 ? chunk : 0x24);
             if (sampler[7] > 0)
                 looping = true;
         }
         at += chunk;
     }
     check(samples == wave.samples && sample_bytes == wave.sample_bytes && looping == wave.looping &&
-              std::memcmp(format, wave.format, sizeof(format)) == 0,
+              std::memcmp(format.data(), wave.format.data(), sizeof(format)) == 0,
           name + ": as read by the original");
     util::ByteReader cut(data, size - 1);
     check(!wave_format::read_wave(cut, &wave), name + ": cut short");

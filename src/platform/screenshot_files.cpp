@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 THUG2_MSVC_WARNING(push, 0)
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -40,25 +41,25 @@ int parse_key(const std::string& text, int fallback, const std::function<int(con
 
 std::string file_stem(const Stamp& s)
 {
-    char text[64];
-    std::snprintf(text, sizeof(text), "thug2_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute,
+    std::array<char, 64> text{};
+    std::snprintf(text.data(), sizeof(text), "thug2_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute,
                   s.second);
-    return text;
+    return text.data();
 }
 
 std::string series_folder_name(const Stamp& s)
 {
-    char text[64];
-    std::snprintf(text, sizeof(text), "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute,
+    std::array<char, 64> text{};
+    std::snprintf(text.data(), sizeof(text), "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute,
                   s.second);
-    return text;
+    return text.data();
 }
 
 std::string series_frame_name(int number)
 {
-    char text[32];
-    std::snprintf(text, sizeof(text), "frame_%04d.png", number);
-    return text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "frame_%04d.png", number);
+    return text.data();
 }
 
 std::string candidate_name(const std::string& stem, int n)

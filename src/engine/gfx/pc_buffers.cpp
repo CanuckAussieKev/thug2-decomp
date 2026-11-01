@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/surface_material.h"
@@ -23,9 +24,9 @@
 namespace render {
 
 uint8_t g_skin_scaling_on;
-uint32_t g_skin_settings[5];
+std::array<uint32_t, 5> g_skin_settings;
 namespace {
-uint8_t g_saved_pixel_shader_constants[64]; // (4 passes of 16 bytes: the adapter identifier follows)
+std::array<uint8_t, 64> g_saved_pixel_shader_constants; // (4 passes of 16 bytes: the adapter identifier follows)
 } // namespace
 
 // 0x004D3FC0
@@ -51,8 +52,8 @@ void MeshRef::move_into_arena(VertexArena* arena)
 void MeshRef::set_pixel_shader_colored()
 {
     const uint32_t bytes = material->pass_count_ << 4; // 16 a pass
-    auto* constants = g_ps_constant_bank;
-    auto* saved = g_saved_pixel_shader_constants;
+    auto* constants = g_ps_constant_bank.data();
+    auto* saved = g_saved_pixel_shader_constants.data();
     std::memcpy(saved, constants, bytes);
     double r = 0.0, g = 0.0, b = 0.0;
     if (g_instance_colour_on) {
@@ -104,7 +105,7 @@ void clear_skin_scaling()
 void* pixel_shader_from_index(uint32_t index)
 {
     // (kPixelShader948 is skipped: no index names it)
-    static const int kShaders[0x13] = {-1,
+    static const std::array<int, 0x13> kShaders = {{-1,
                                        -1,
                                        kPixelShader964,
                                        kPixelShader960,
@@ -122,7 +123,7 @@ void* pixel_shader_from_index(uint32_t index)
                                        kPixelShader92c,
                                        kPixelShader928,
                                        kPixelShader924,
-                                       kPixelShader920};
+                                       kPixelShader920}};
     if (index > 0x12)
         return cell::pointer<void>(index); // (the original returns the index itself)
     return kShaders[index] >= 0 ? g_pixel_shaders[kShaders[index]] : nullptr;

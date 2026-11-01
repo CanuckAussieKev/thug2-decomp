@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_entities.h"
@@ -35,14 +36,14 @@ bool get_live(uint32_t id)
 }
 
 // The rigid body's fields (THUG2's bouncy objects), in the order the levels write them.
-const char* const kPhysics[] = {"coeff_restitution",
+constexpr auto kPhysics = std::to_array<const char*>({"coeff_restitution",
                                 "coeff_friction",
                                 "center_of_mass",
                                 "skater_collision_impulse_factor",
                                 "skater_collision_rotation_factor",
                                 "skater_collision_assent",
                                 "skater_collision_radius",
-                                "SoundType"};
+                                "SoundType"});
 
 void field_request(std::vector<ui::Request>* requests, uint32_t node, uint32_t key, fields::Kind kind,
                    const std::string& text)
@@ -109,12 +110,12 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
                 ImGui::TextUnformatted(text.c_str());
                 continue;
             }
-            char buffer[128];
-            std::snprintf(buffer, sizeof(buffer), "%s", text.c_str());
+            std::array<char, 128> buffer{};
+            std::snprintf(buffer.data(), sizeof(buffer), "%s", text.c_str());
             ImGui::PushID(field);
             ImGui::SetNextItemWidth(-1.0f);
-            if (ImGui::InputText("##v", buffer, sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer)
-                field_request(requests, name, key, row->value.kind, buffer);
+            if (ImGui::InputText("##v", buffer.data(), sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer.data())
+                field_request(requests, name, key, row->value.kind, buffer.data());
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Applies on reload");
             ImGui::PopID();

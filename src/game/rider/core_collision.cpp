@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
@@ -37,9 +38,9 @@ constexpr uint32_t kAirExtraSide = 0x1C58C8B4;      // Skater_air_extra_side_col
 
 // A stack feeler: raw storage (see copy_feeler).
 struct alignas(16) FeelerStorage {
-    uint8_t bytes[sizeof(render::ProbeRay)];
-    render::ProbeRay* operator->() { return raw::as<render::ProbeRay>(bytes); }
-    render::ProbeRay* get() { return raw::as<render::ProbeRay>(bytes); }
+    std::array<uint8_t, sizeof(render::ProbeRay)> bytes;
+    render::ProbeRay* operator->() { return raw::as<render::ProbeRay>(bytes.data()); }
+    render::ProbeRay* get() { return raw::as<render::ProbeRay>(bytes.data()); }
 };
 
 // The smart pointer of a stack feeler let go inline (the original's code on some paths instead of the destructor).
@@ -190,7 +191,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     }
     if (!done) {
         set_flag(this, PoseFlag::kNoAcidDrop, 1);
-        trigger_feeler(this, kBonkEvents, &feeler_);
+        trigger_feeler(this, kBonkEvents.data(), &feeler_);
         done = trigger_took_over(this);
     }
     if (!done) {
@@ -328,12 +329,12 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     const maths::Vec4 outer = point + normal * length;
     const maths::Vec4 inner = point + normal;
     FeelerStorage feeler{};
-    new (feeler.bytes) render::ProbeRay(&inner, &outer);
+    new (feeler.bytes.data()) render::ProbeRay(&inner, &outer);
     if (feeler->get_hit_shape(true, false)) {
         destroy_feeler(feeler.get());
         return false;
     }
-    trigger_feeler(this, kBonkEvents, &feeler_);
+    trigger_feeler(this, kBonkEvents.data(), &feeler_);
     if (trigger_took_over(this)) {
         destroy_feeler(feeler.get());
         return false;

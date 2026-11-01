@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's status bar hints (ours). See level_editor_hints.h.
 
 #include "editor/level_editor_hints.h"
+#include <array>
 
 namespace frontend::level_editor::hints {
 
@@ -90,8 +91,8 @@ Glyph glyph_of(const std::string& token)
         return Glyph::kPadX;
     if (token == "PadY")
         return Glyph::kPadY;
-    static const char* const kPad[] = {"LS",   "RS",   "LT", "RT", "LB",    "RB",
-                                       "DPad", "Back", "L3", "R3", "LT/RT", "LB/RB"};
+    static const auto kPad = std::to_array<const char*>({"LS",   "RS",   "LT", "RT", "LB",    "RB",
+                                       "DPad", "Back", "L3", "R3", "LT/RT", "LB/RB"});
     for (const char* p : kPad) {
         if (token == p)
             return Glyph::kPadOther;

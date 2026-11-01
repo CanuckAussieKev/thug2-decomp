@@ -10,6 +10,7 @@
 #include <cstdarg>
 #include <cstring>
 #include <process.h>
+#include <array>
 
 namespace crt {
 
@@ -54,7 +55,7 @@ double game_atof(const char* text)
 {
     while (*text == ' ' || (*text >= '\t' && *text <= '\r'))
         ++text;
-    char number[512];
+    std::array<char, 512> number{};
     size_t n = 0;
     auto take = [&](char c) {
         if (n + 1 < sizeof(number))
@@ -81,7 +82,7 @@ double game_atof(const char* text)
         digits();
     }
     number[n] = 0;
-    return mantissa ? std::strtod(number, nullptr) : 0.0;
+    return mantissa ? std::strtod(number.data(), nullptr) : 0.0;
 }
 
 // --- qsort ---
@@ -121,8 +122,8 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
 {
     if (count < 2 || width == 0)
         return;
-    char* lo_stack[30];
-    char* hi_stack[30];
+    std::array<char*, 30> lo_stack{};
+    std::array<char*, 30> hi_stack{};
     int depth = 0;
     char* lo = static_cast<char*>(base);
     char* hi = lo + width * (count - 1);

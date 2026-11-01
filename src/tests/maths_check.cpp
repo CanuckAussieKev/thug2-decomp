@@ -20,6 +20,7 @@
 
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <cfloat>
+#include <array>
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define THUG2_X87_REFERENCE 1
 #endif
@@ -65,7 +66,7 @@ float atan2_less_quarter_turn(float y, float x)
 // pc_material.cpp
 uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* to)
 {
-    static const int kOrder[4] = {3, 0, 1, 2};
+    static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     const double f = static_cast<double>(num) / den;
     const double rest = 1.0 - f;
     uint32_t color = 0;
@@ -189,8 +190,8 @@ void skin(const Skin& v, float* out)
 // see __asm blocks' operands, so it takes every one of them for unchanged
 namespace ref {
 
-const unsigned char kCrtHalfPi[10] = {0x35, 0xC2, 0x68, 0x21, 0xA2, 0xDA, 0x0F, 0xC9, 0xFF, 0x3F};
-const unsigned char kCrtIndefinite[10] = {0, 0, 0, 0, 0, 0, 0, 0xC0, 0xFF, 0xFF};
+const std::array<unsigned char, 10> kCrtHalfPi = {{0x35, 0xC2, 0x68, 0x21, 0xA2, 0xDA, 0x0F, 0xC9, 0xFF, 0x3F}};
+const std::array<unsigned char, 10> kCrtIndefinite = {{0, 0, 0, 0, 0, 0, 0, 0xC0, 0xFF, 0xFF}};
 
 // The game's _CIasin / _CIacos (ECX: 0 asin, 1 acos; the argument and the result in ST0).
 __declspec(naked) void arc_sine_cosine()
@@ -562,7 +563,7 @@ float atan2_less_quarter_turn(float y, float x)
 }
 uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* to)
 {
-    static const int kOrder[4] = {3, 0, 1, 2};
+    static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     uint32_t color = 0;
     double scratch = 0;
     __asm {
@@ -653,8 +654,8 @@ float wibble_offset(float t, float frequency, float phase, float amplitude, floa
 }
 float vblank_seconds(uint64_t vblanks, int rate)
 {
-    uint64_t low_part[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
-    uint64_t high_part[1] = {vblanks & 0x8000000000000000ull};
+    std::array<uint64_t, 1> low_part = {{vblanks & 0x7FFFFFFFFFFFFFFFull}};
+    std::array<uint64_t, 1> high_part = {{vblanks & 0x8000000000000000ull}};
     float result = 0.0f;
     __asm {
         fild qword ptr [low_part]
@@ -1422,20 +1423,20 @@ void run(int count, std::mt19937_64& random)
             compare(t_skin_f, out_fresh[k], out_ref[k], k);
     }
     // The edges: +-1, 0, NaN, outside [-1, 1] for asin / acos.
-    const double edges[] = {1.0, -1.0, 0.0, -0.0, 1.0000001, -1.5, 2.0, NAN, INFINITY, -static_cast<double>(INFINITY)};
+    const auto edges = std::to_array<double>({1.0, -1.0, 0.0, -0.0, 1.0000001, -1.5, 2.0, NAN, INFINITY, -static_cast<double>(INFINITY)});
     for (const double e : edges) {
         compare(t_asin, fresh::asin(e), ref::asin(e), e);
         compare(t_acos, fresh::acos(e), ref::acos(e), e);
     }
 
-    const Tally* all[] = {&t_sin,       &t_cos,          &t_tan,       &t_atan,        &t_atan2,     &t_sqrt,
+    auto all = std::to_array<const Tally*>({&t_sin,       &t_cos,          &t_tan,       &t_atan,        &t_atan2,     &t_sqrt,
                           &t_log10,     &t_ln,           &t_asin,      &t_acos,        &t_sin_f,     &t_cos_f,
                           &t_atan2_f,   &t_sin_wide,     &t_sin_times, &t_sin_product, &t_cot,       &t_atan2_diff,
                           &t_acos_f,    &t_acos_f_above, &t_nac,       &t_nac_above,   &t_nac_inv,   &t_spin,
                           &t_cos_above, &t_sin_at_least, &t_tan_times, &t_atan2_qt,    &t_blend,     &t_wibble_time,
                           &t_wibble,    &t_wibble_wrap,  &t_vblank,    &t_probe,       &t_turn_move, &t_turn_y,
                           &t_stick,     &t_flat,         &t_asin_deg,  &t_acos_deg,    &t_fov,       &t_factor,
-                          &t_versine,   &t_skin_m,       &t_skin_f};
+                          &t_versine,   &t_skin_m,       &t_skin_f});
     for (const Tally* tally : all)
         tally->print();
 }

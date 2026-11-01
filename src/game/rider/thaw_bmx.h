@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 
@@ -112,7 +113,7 @@ struct BikeState {
     int stall_steep_frames_ = 0; // +0x724 frames stalled on a steep rail (never reset but by the constructor)
     // (THAW's trick component, thaw_bmx_sticks.cpp) each stick's exclusive direction (0 none, 1-8: left, right) and
     // +0x1C14, the right stick centred since BikePress last counted (1 after a reset)
-    int trick_stick_[2] = {0, 0};
+    std::array<int, 2> trick_stick_ = {{0, 0}};
     bool right_stick_centred_ = true;
 };
 

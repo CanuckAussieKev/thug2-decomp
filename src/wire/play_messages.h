@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace util {
 class ByteReader;
@@ -81,7 +82,7 @@ constexpr uint32_t kProjectileOwnerAt = 0x34;
 struct HuntPlacements {
     int8_t player_id = 0;
     int32_t count = 0; // (the positions follow: read_hunt_position for each)
-    float positions[kHuntPlacements][4] = {};
+    std::array<std::array<float, 4>, kHuntPlacements> positions = {};
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_hunt_placements(util::ByteReader& reader, HuntPlacements* message);
@@ -101,8 +102,8 @@ bool write_board_vehicle(util::ByteWriter& writer, const BoardVehicle& message);
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Projectile {
     uint32_t time = 0;
-    float position[4] = {};
-    float velocity[4] = {};
+    std::array<float, 4> position = {};
+    std::array<float, 4> velocity = {};
     uint32_t type = 0;
     uint32_t ammo_type = 0;
     int32_t radius = 0;
@@ -117,8 +118,8 @@ bool write_projectile(util::ByteWriter& writer, const Projectile& message);
 struct PlaceTag {
     int8_t object_id = 0;
     bool sticker = false;
-    float start[4] = {};
-    float end[4] = {};
+    std::array<float, 4> start = {};
+    std::array<float, 4> end = {};
     int32_t size = 0;
 };
 // NOLINTEND(readability-identifier-naming)
@@ -147,7 +148,7 @@ bool write_toggle_cheat(util::ByteWriter& writer, const ToggleCheat& message);
 
 struct Cheats {
     int32_t count = 0; // (0 to kMaxCheats)
-    uint32_t cheats[kMaxCheats] = {};
+    std::array<uint32_t, kMaxCheats> cheats = {};
 };
 // (fails when the count is negative, more than kMaxCheats or more than the message holds)
 bool read_cheats(util::ByteReader& reader, Cheats* message);
@@ -166,7 +167,7 @@ bool write_hit(util::ByteWriter& writer, const Hit& message);
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct RanInto {
     uint8_t object_id = 0; // (with bit 7: driving)
-    float push[4] = {};
+    std::array<float, 4> push = {};
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_ran_into(util::ByteReader& reader, RanInto* message);

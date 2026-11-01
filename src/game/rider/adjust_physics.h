@@ -12,6 +12,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -58,7 +59,7 @@ public:
 
     int uber_frig_tries_{}; // +0x18 the uber frig's tries in a row (0-5: its offsets from the frame's start)
     uint8_t uber_frigged_{0}; // +0x1C set while the uber frig put the skater back this frame
-    uint8_t pad1d_[3]{};
+    std::array<uint8_t, 3> pad1d_{};
     skater::SkaterPhysicsModule* core_ptr_{nullptr}; // +0x20 the skater's core physics component
     MeshInstanceModule* mesh_instance_{nullptr};     // +0x24 the model component (UpdateBrightness)
     GroundShadowModule* shadow_handle_{nullptr};     // +0x28

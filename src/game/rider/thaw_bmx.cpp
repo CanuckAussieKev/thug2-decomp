@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include <SDL2/SDL.h>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -61,7 +62,7 @@ constexpr const char* kRiderReference = "THPS6_human";
 constexpr const char* kTestAnim = "bmx_idle";
 
 // THAW's bike members (its core physics table, THAW 0x00732368) and ours.
-const char* const kMembers[] = {
+constexpr auto kMembers = std::to_array<const char*>({
     "SkaterOnBike",
     "SkaterOffBike",
     "IsSkaterOnBike",
@@ -97,7 +98,7 @@ const char* const kMembers[] = {
     // while the feature is on)
     "LookaroundOnDPad_On",
     "LookaroundOnDPad_Off",
-};
+});
 
 std::unordered_map<const void*, BikeState>& get_states()
 {
@@ -371,20 +372,20 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
 
 void register_script_functions()
 {
-    static const script::NativeCommand kFunctions[] = {
+    static const auto kFunctions = std::to_array<script::NativeCommand>({
         {"ThawBmx_Available", code_address(&cfunc_available)},
         {"ThawBmx_LoadTexture", code_address(&cfunc_load_texture)},
-    };
-    script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
+    });
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
     if (!is_switched_on())
         return;
-    script::publish_method_table(kMembers, sizeof(kMembers) / sizeof(kMembers[0]));
+    script::publish_method_table(kMembers.data(), sizeof(kMembers) / sizeof(kMembers[0]));
     register_parked_functions(); // (the parked bikes: thaw_bmx_parked.h)
     render::set_shadow_companion(&shadow_companion);
-    char setting[64] = "";
-    build_info::fetch_text(build_info::kKeybinds, "ThawBmx", "", setting, sizeof(setting));
+    std::array<char, 64> setting = {""};
+    build_info::fetch_text(build_info::kKeybinds, "ThawBmx", "", setting.data(), sizeof(setting));
     auto by_name = [](const std::string& text) { return static_cast<int>(SDL_GetScancodeFromName(text.c_str())); };
-    g_key = sys::screenshot::parse_key(setting, SDL_SCANCODE_F7, by_name);
+    g_key = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F7, by_name);
     get_log("thaw_bmx: on - %s gets on / off THAW's BMX in a level (also the pause menu, or the script %s)",
             SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)), kToggleScript);
 }

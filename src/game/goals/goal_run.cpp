@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -258,9 +259,9 @@ bool Objective::register_gap_hit(uint32_t gap)
     }
     for (uint32_t i = 0; i < gaps->extent_; ++i) {
         if (gaps->fetch_part(i) == gap) {
-            char flag[32];
-            std::snprintf(flag, sizeof(flag), kGotFormat, static_cast<int>(i + 1));
-            set_flag(checksums::hash_from_text(flag), 1, 0u);
+            std::array<char, 32> flag{};
+            std::snprintf(flag.data(), sizeof(flag), kGotFormat, static_cast<int>(i + 1));
+            set_flag(checksums::hash_from_text(flag.data()), 1, 0u);
             return true;
         }
     }
@@ -342,12 +343,12 @@ bool Objective::did_trick_string()
     args_->read_hash_value(kTrickType, &type, 1);
     if (type == kGrind) {
         // (the original copies into its 128 bytes unbounded)
-        char name[128];
-        std::snprintf(name, sizeof(name), "FS %s", trick);
-        if (get_trick_count(score, checksums::hash_from_text(name)))
+        std::array<char, 128> name{};
+        std::snprintf(name.data(), sizeof(name), "FS %s", trick);
+        if (get_trick_count(score, checksums::hash_from_text(name.data())))
             return true;
-        std::snprintf(name, sizeof(name), "BS %s", trick);
-        if (get_trick_count(score, checksums::hash_from_text(name)))
+        std::snprintf(name.data(), sizeof(name), "BS %s", trick);
+        if (get_trick_count(score, checksums::hash_from_text(name.data())))
             return true;
     }
     // (create_a_trick is looked at, but either way the trick string itself is counted)

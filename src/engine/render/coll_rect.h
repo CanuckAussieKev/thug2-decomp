@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tests.h"
@@ -19,7 +20,7 @@ struct RectHitEnd {
     maths::Vec4 point;
     maths::Vec4 edge;
     bool on_triangle_edge_;
-    uint8_t pad[3];
+    std::array<uint8_t, 3> pad;
 };
 static_assert(sizeof(RectHitEnd) == 0x24, "layout must match the original");
 
@@ -29,11 +30,11 @@ struct RectHit {
     RectHit* copy_from(const RectHit* other);
     RectHit* get_assign(const RectHit* other);
 
-    RectHitEnd ends[2];
+    std::array<RectHitEnd, 2> ends;
     maths::Vec4 normal;   // +0x48
     uint32_t checksum;    // +0x58
     uint8_t face_flag40_; // +0x5C
-    uint8_t pad[3];
+    std::array<uint8_t, 3> pad;
 };
 static_assert(sizeof(RectHit) == 0x60 && offsetof(RectHit, normal) == 0x48, "layout must match the original");
 
@@ -42,7 +43,7 @@ static_assert(sizeof(RectHit) == 0x60 && offsetof(RectHit, normal) == 0x48, "lay
 struct RectHits {
     static constexpr int kMost = 32;
 
-    RectHit hits[kMost];
+    std::array<RectHit, kMost> hits;
     int count;               // +0xC00
     uint16_t ignore_flags_;  // +0xC04
     uint16_t require_flags_; // +0xC06
@@ -72,7 +73,7 @@ public:
 
     CollRect rect_{};                   // +0x0000
     RectHits hits_{};                   // +0x0030
-    RectHit joined_[RectHits::kMost]{}; // +0x0C38
+    std::array<RectHit, RectHits::kMost> joined_{}; // +0x0C38
     int joined_count_{0};               // +0x1838
     uint32_t unknown183c_{};          // +0x183C
     HitMeshCache* hit_cache_{nullptr}; // +0x1840

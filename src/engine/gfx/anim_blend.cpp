@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/anim_controller.h"
 #include "engine/maths/vec4.h"
@@ -37,16 +38,16 @@ void blend_bones(Stance& to, Stance& from, int bones, float t, bool mark_copied)
     for (int k = 0; k < bones; ++k) {
         if (to.valid[k]) {
             if (from.valid[k]) {
-                float blended[4];
-                copy4(to.rotations[k], interpolate_rotation(blended, to.rotations[k], from.rotations[k], t));
-                lerp_vector(blended, to.translations[k], from.translations[k], t);
-                copy4(to.translations[k], blended);
+                std::array<float, 4> blended{};
+                copy4(to.rotations[k].data(), interpolate_rotation(blended.data(), to.rotations[k].data(), from.rotations[k].data(), t));
+                lerp_vector(blended.data(), to.translations[k].data(), from.translations[k].data(), t);
+                copy4(to.translations[k].data(), blended.data());
             }
         } else if (from.valid[k]) {
-            copy4(to.rotations[k], from.rotations[k]);
+            copy4(to.rotations[k].data(), from.rotations[k].data());
             if (mark_copied)
                 to.valid[k] = 1;
-            copy4(to.translations[k], from.translations[k]);
+            copy4(to.translations[k].data(), from.translations[k].data());
         }
     }
 }
@@ -144,7 +145,7 @@ void blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int b
 }
 
 namespace {
-uint32_t g_loop_type_checksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}; // the loop types' checksums
+std::array<uint32_t, 4> g_loop_type_checksums{{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}}; // the loop types' checksums
 } // namespace
 
 // 0x0047D580

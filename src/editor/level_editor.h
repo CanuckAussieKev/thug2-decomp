@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <array>
 
 namespace gfx {
 class ViewCam;
@@ -263,14 +264,14 @@ bool clip_to_near(V3 camera_pos, const TickCycle& frame, float near_z, V3* a, V3
 // min..max (an object's model box, or a scene sector's box where it is now).
 struct OrientedBox {
     V3 origin;
-    V3 axes[3];
+    std::array<V3, 3> axes;
     V3 min, max;
 };
 // Its size along its own axes (the extents times the axes' lengths: a scaled box's size).
 inline V3 box_size(const OrientedBox& box)
 {
     const V3 extent = box.max - box.min;
-    float lengths[3];
+    std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
         lengths[i] = std::sqrt(get_dot(box.axes[i], box.axes[i]));
     return {extent.x * lengths[0], extent.y * lengths[1], extent.z * lengths[2]};

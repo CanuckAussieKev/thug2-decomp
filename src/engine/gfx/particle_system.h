@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/mat4.h"
@@ -24,10 +25,10 @@ class RenderModel;
 
 // A particle (0x30 bytes).
 struct FlexibleParticle {
-    float velocity[3];    // +0x00
-    float force[3];       // +0x0C: added to the velocity each second (the system's when it was emitted)
-    float start_size_[2]; // +0x18: across, up
-    float end_size_[2];   // +0x20
+    std::array<float, 3> velocity;    // +0x00
+    std::array<float, 3> force;       // +0x0C: added to the velocity each second (the system's when it was emitted)
+    std::array<float, 2> start_size_; // +0x18: across, up
+    std::array<float, 2> end_size_;   // +0x20
     float age;            // +0x28
     float lifetime;       // +0x2C
 };
@@ -66,7 +67,7 @@ struct EmitterInstance : objects::SharedBase {
     maths::Vec4 last_pos_{};            // +0x30: where it was last update (FillPath emits along the way)
     maths::Vec4 align_to_{};            // +0x40 align_to
     maths::Vec4 bounds_{};              // +0x50: the bounding sphere (centre, radius)
-    float colour_scale_[4]{};           // +0x60: the level's colour (with 0x10000 set)
+    std::array<float, 4> colour_scale_{};           // +0x60: the level's colour (with 0x10000 set)
     float emit_rate_{};                 // +0x70 emit_rate (particles a second)
     float emit_owed_{};                 // +0x74: particles owed, a fraction
     uint32_t unknown78_{};              // +0x78 (the component's 0x184197D5: an object's id - the system dies with it)
@@ -75,16 +76,16 @@ struct EmitterInstance : objects::SharedBase {
     float lod_near_{};                  // +0x84 lod_dist1, squared
     float lod_far_{};                   // +0x88 lod_dist2, squared
     int particle_count_{};              // +0x8C: live particles (empty_system: 0)
-    float speed_[2]{};                  // +0x90 setSpeedRange min, max
-    float emit_range_[3]{};             // +0x98 setEmitRange width, height, depth
+    std::array<float, 2> speed_{};                  // +0x90 setSpeedRange min, max
+    std::array<float, 3> emit_range_{};             // +0x98 setEmitRange width, height, depth
     float angle_spread_{};              // +0xA4 setAngleSpread spread
-    float force_[3]{};                  // +0xA8 setForce
-    float extent_[4]{};                 // +0xB4 setParticleSize sw, sh, ew, eh
+    std::array<float, 3> force_{};                  // +0xA8 setForce
+    std::array<float, 4> extent_{};                 // +0xB4 setParticleSize sw, sh, ew, eh
     float size_scale_{};                // +0xC4 SetParticleSizeScale
-    float age_left_[2]{};               // +0xC8 setLife min, max
-    float emit_target_[3]{};            // +0xD0 setEmitTarget (a direction)
+    std::array<float, 2> age_left_{};               // +0xC8 setLife min, max
+    std::array<float, 3> emit_target_{};            // +0xD0 setEmitTarget (a direction)
     maths::Mat4* xform_ref_{};          // +0xDC the matrix it follows (its object's display matrix)
-    float orientation_turn_[3]{};       // +0xE0 (x, y, z angles: the matrix of build_emitter_orientation; setEmitAngle)
+    std::array<float, 3> orientation_turn_{};       // +0xE0 (x, y, z angles: the matrix of build_emitter_orientation; setEmitAngle)
     float brightness_{};                // +0xEC (a model's +0x22C, update_Brightness; the ground's brightness)
     uint32_t label_{};                  // +0xF0
     uint32_t group_id_{};               // +0xF4 groupID
@@ -270,7 +271,7 @@ struct ModelParticles final : EmitterInstance {
     unsigned int drawn_models_; // +0x138: the models Render goes through (the same count)
     void* unknown_13c_ptr_{
         nullptr}; // +0x13C (freed): a rotation (maths::QuatRotation) a model, turned by its particle's velocity
-    uint8_t unknown140[4]{};
+    std::array<uint8_t, 4> unknown140{};
     RenderModel** model_list_{nullptr}; // +0x144: model_count_ of them
 
     // 0x0049A0C0 (model_particles.cpp): constructed with (name, max particles, model file name, ...): the base's,

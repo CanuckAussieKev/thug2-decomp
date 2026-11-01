@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -192,8 +193,8 @@ public:
     int group_id_{};                // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
     int unknown2c_{};               // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
     int unknown30_{};               // +0x30 the chosen room's players
-    char room_name_[0x80]{};        // +0x34
-    char server_name_[0x80]{};      // +0xB4
+    std::array<char, 0x80> room_name_{};        // +0x34
+    std::array<char, 0x80> server_name_{};      // +0xB4
     bool in_group_room_{false};     // +0x134
     bool restricted_hosting_{};     // +0x135 only a few GameSpy profiles may host (CanHostGame)
     bool drop_is_expected_{true};   // +0x136
@@ -219,7 +220,7 @@ struct LobbyRoom {
     LobbyRoom();
 
     memory::ListNode list_link_{};
-    char label_[0x40]{}; // +0x14 (63 characters)
+    std::array<char, 0x40> label_{}; // +0x14 (63 characters)
     int group_id_{};     // +0x54
     int num_players_{};  // +0x58 (the room list's "num_games")
     int max_players_{};  // +0x5C (its "maxWaiting"; at least num_players_)
@@ -234,11 +235,11 @@ struct LobbyRoom {
 // (0x60 bytes; made by rooms.cpp's callbacks)
 struct LobbyPlayer {
     memory::ListNode list_link_;
-    char nick_[0x40];  // +0x14
+    std::array<char, 0x40> nick_;  // +0x14
     int account_;      // +0x54 the GameSpy profile
     int skill_points_; // +0x58 (the room key b_rating)
     bool listed_;      // +0x5C seen in the room (shown in the player list)
-    uint8_t pad5d_[3];
+    std::array<uint8_t, 3> pad5d_;
 };
 
 // The lobby's script commands from 0x00541870 on (rooms.cpp).
@@ -259,7 +260,7 @@ struct QueuedPacket {
     int type;   // 1 a qr2 query, 2 NAT negotiation
     char* data; // a copy (the game's C runtime malloc), NUL-terminated
     int length;
-    uint8_t from[16]; // the sender's sockaddr
+    std::array<uint8_t, 16> from; // the sender's sockaddr
 };
 static_assert(sizeof(QueuedPacket) == 0x1C);
 
@@ -286,6 +287,6 @@ bool cfunc_set_quiet_mode(script::Struct* params, script::Script* script);
 // lobby's +0x30 is below its +0x2C.
 bool cfunc_can_host_game(script::Struct* params, script::Script* script);
 
-extern QueuedPacket g_queued_packets[200];
+extern std::array<QueuedPacket, 200> g_queued_packets;
 
 } // namespace online

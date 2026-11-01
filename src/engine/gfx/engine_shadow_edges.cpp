@@ -4,6 +4,7 @@
 #include <cstring>
 #include <new>
 #include <utility>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -17,7 +18,7 @@
 
 namespace render {
 
-ShadowVolume* g_shadow_volumes[16];
+std::array<ShadowVolume*, 16> g_shadow_volumes;
 lists::KeyMap g_shadow_edge_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 
 namespace {
@@ -30,11 +31,11 @@ struct EdgeCorner {
     maths::Vec4 normal;
 };
 struct ShadowSilhouetteEdge {
-    EdgeCorner corners[4];
+    std::array<EdgeCorner, 4> corners;
 };
 static_assert(sizeof(ShadowSilhouetteEdge) == 0x50, "layout must match the original");
 
-ShadowVolume** shadow_volumes() { return g_shadow_volumes; }
+ShadowVolume** shadow_volumes() { return g_shadow_volumes.data(); }
 lists::KeyMap& edge_table() { return g_shadow_edge_table; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).

@@ -41,7 +41,7 @@ bool write_hunt_placements(util::ByteWriter& writer, const HuntPlacements& messa
     writer.fill(0, 3);
     writer.i32(message.count);
     for (const auto& position : message.positions)
-        write_floats(writer, position, 4);
+        write_floats(writer, position.data(), 4);
     return writer.ok();
 }
 
@@ -70,8 +70,8 @@ bool write_board_vehicle(util::ByteWriter& writer, const BoardVehicle& message)
 bool read_projectile(util::ByteReader& reader, Projectile* message)
 {
     message->time = reader.u32();
-    read_floats(reader, message->position, 4);
-    read_floats(reader, message->velocity, 4);
+    read_floats(reader, message->position.data(), 4);
+    read_floats(reader, message->velocity.data(), 4);
     message->type = reader.u32();
     message->ammo_type = reader.u32();
     message->radius = reader.i32();
@@ -83,8 +83,8 @@ bool read_projectile(util::ByteReader& reader, Projectile* message)
 bool write_projectile(util::ByteWriter& writer, const Projectile& message)
 {
     writer.u32(message.time);
-    write_floats(writer, message.position, 4);
-    write_floats(writer, message.velocity, 4);
+    write_floats(writer, message.position.data(), 4);
+    write_floats(writer, message.velocity.data(), 4);
     writer.u32(message.type);
     writer.u32(message.ammo_type);
     writer.i32(message.radius);
@@ -99,8 +99,8 @@ bool read_place_tag(util::ByteReader& reader, PlaceTag* message)
     message->object_id = reader.i8();
     message->sticker = reader.u8() != 0;
     reader.skip(2);
-    read_floats(reader, message->start, 4);
-    read_floats(reader, message->end, 4);
+    read_floats(reader, message->start.data(), 4);
+    read_floats(reader, message->end.data(), 4);
     message->size = reader.i32();
     return reader.ok();
 }
@@ -110,8 +110,8 @@ bool write_place_tag(util::ByteWriter& writer, const PlaceTag& message)
     writer.i8(message.object_id);
     writer.u8(message.sticker ? 1 : 0);
     writer.fill(0, 2);
-    write_floats(writer, message.start, 4);
-    write_floats(writer, message.end, 4);
+    write_floats(writer, message.start.data(), 4);
+    write_floats(writer, message.end.data(), 4);
     writer.i32(message.size);
     return writer.ok();
 }
@@ -203,7 +203,7 @@ bool read_ran_into(util::ByteReader& reader, RanInto* message)
 {
     message->object_id = reader.u8();
     reader.skip(3);
-    read_floats(reader, message->push, 4);
+    read_floats(reader, message->push.data(), 4);
     return reader.ok();
 }
 
@@ -211,7 +211,7 @@ bool write_ran_into(util::ByteWriter& writer, const RanInto& message)
 {
     writer.u8(message.object_id);
     writer.fill(0, 3);
-    write_floats(writer, message.push, 4);
+    write_floats(writer, message.push.data(), 4);
     return writer.ok();
 }
 

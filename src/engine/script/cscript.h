@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/objects/smtptr.h"
 #include "engine/script/param_struct.h"
@@ -88,7 +89,7 @@ struct CallFrame {
     int suspend_frames_ref_;                 // +0x24 suspend_frames_left_
     uint32_t suspend_kind_;                  // +0x28 bits 0-3: suspend_reason_ (the other bits are kept as they are)
     uint8_t trait_mask_;                     // +0x2C bit 0: suspend_clock_started_, bit 1: the level was an interrupt
-    uint8_t unknown2d_[3];
+    std::array<uint8_t, 3> unknown2d_;
 };
 static_assert(sizeof(CallFrame) == 0x30, "layout must match the original");
 static_assert(offsetof(CallFrame, arg_struct_) == 0x04 && offsetof(CallFrame, caller_frame_) == 0x08 &&
@@ -119,7 +120,7 @@ struct MemberFunctionEntry {
     // call_member_function, member_code.h); null: the object looks the name up (Entity::invoke_method_by_name 0x0045D850).
     MemberCode method_code_;
     int this_adjustment_;         // +0x0C
-    int virtual_base_offsets_[2]; // +0x10 (unused by single-inheritance classes)
+    std::array<int, 2> virtual_base_offsets_; // +0x10 (unused by single-inheritance classes)
 };
 static_assert(sizeof(MemberFunctionEntry) == 0x18, "a table entry is 0x18 bytes");
 
@@ -260,23 +261,23 @@ public:
     RepeatFrame inline_loop_;       // +0x1C
     RepeatFrame* loops_;            // +0x2C inline_loop_, or 10 on the script heap
     int call_depth_;                // +0x30 the call depth
-    CallFrame inline_return_addresses_[2]; // +0x34
+    std::array<CallFrame, 2> inline_return_addresses_; // +0x34
     CallFrame* frame_records_;             // +0x94 inline_return_addresses_, or 16 on the script heap
     int suspend_frames_left_;              // +0x98 kSuspendOnCount / ONE_PER_FRAME
     bool suspend_clock_started_;           // +0x9C kSuspendOnTimer: the first Update has been
-    uint8_t unknown9d_[3];
+    std::array<uint8_t, 3> unknown9d_;
     float suspend_clock_;     // +0xA0 kSuspendOnTimer seconds left / REAL_TIMER ms
     uint32_t suspend_reason_; // +0xA4 BlockReason
     uint32_t suspend_arg_;    // +0xA8 BLOCKED: the event type; REAL_TIMER: the start; 5-10: for the component
     objects::ObjectModule* blocking_module_; // +0xAC types 5-10
     uint32_t unique_id_;                     // +0xB0 from 0x006F3540
     uint8_t flag_bits_;                      // +0xB4 SCRIPT_RUN_*
-    uint8_t unknownb5_[3];
+    std::array<uint8_t, 3> unknownb5_;
     int list_link_;                              // +0xB8 SpawnScript's node
     objects::SharedRef<objects::Entity> entity_; // +0xBC the object it runs on (+0xC0 / +0xC4 the pointer's links)
     uint32_t script_title_;                      // +0xC8 the script running now (the top level)
     uint8_t spawn_flags_;                        // +0xCC SCRIPT_FLAG_*
-    uint8_t unknowncd_[3];
+    std::array<uint8_t, 3> unknowncd_;
     uint32_t spawner_file_;                    // +0xD0 the .qb file of the script that spawned it (set_spawner_file)
     uint32_t spawn_id_;                        // +0xD4 SpawnScript's id
     uint32_t on_finish_script_;                // +0xD8 run when a spawned script ends

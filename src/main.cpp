@@ -11,6 +11,7 @@
 #include <windows.h>
 
 #include <cstring>
+#include <array>
 
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
@@ -25,12 +26,12 @@ namespace {
 // system's is the dinput8.dll of this process: a later load by name finds it already loaded.
 void load_system_direct_input()
 {
-    char path[MAX_PATH];
-    const UINT length = GetSystemDirectoryA(path, MAX_PATH);
+    std::array<char, MAX_PATH> path{};
+    const UINT length = GetSystemDirectoryA(path.data(), MAX_PATH);
     if (length == 0 || length + sizeof("\\dinput8.dll") > MAX_PATH)
         return;
-    std::memcpy(path + length, "\\dinput8.dll", sizeof("\\dinput8.dll"));
-    LoadLibraryExA(path, nullptr, 0);
+    std::memcpy(path.data() + length, "\\dinput8.dll", sizeof("\\dinput8.dll"));
+    LoadLibraryExA(path.data(), nullptr, 0);
 }
 
 } // namespace

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdio>
+#include <array>
 
 namespace debug {
 
@@ -13,9 +14,9 @@ template <typename... Args>
 int printf(const char* format, Args... args)
 {
     // The original uses unbounded vsprintf into a 1 KB buffer; this version truncates instead of overflowing.
-    char message[1024];
-    std::snprintf(message, sizeof(message), format, args...);
-    output_text(message);
+    std::array<char, 1024> message{};
+    std::snprintf(message.data(), sizeof(message), format, args...);
+    output_text(message.data());
     return -1;
 }
 

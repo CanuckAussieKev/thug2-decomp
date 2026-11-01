@@ -13,6 +13,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -38,10 +39,10 @@ constexpr uint32_t kMasterEditableList = 0x839B2AD5; // master_editable_list (th
 constexpr int kWaitFrames = 600;                     // how long the main loop waits for it
 
 // THUGPRO's files with CAS lists (its thugpro_qb.prx).
-const char* const kFiles[] = {
+constexpr auto kFiles = std::to_array<const char*>({
     "qb\\game\\cas_skater_m.qb", "qb\\game\\cas_skater_f.qb", "qb\\game\\cas_skater_shared.qb",
     "qb\\game\\cas_logos.qb",    "qb\\game\\decks.qb",        "qb\\thugpro\\thugpro_boards.qb",
-};
+});
 
 std::string s_data;                  // THUGPRO's data folder, ending in '\'
 std::set<std::string>& our_keys()
@@ -90,14 +91,14 @@ std::vector<std::string> get_candidates(const char* path)
 // it opens the file, and any error but "not found" - a folder that isn't there - is the game's fatal file error.)
 bool game_has(const std::string& name)
 {
-    char overlay[260];
+    std::array<char, 260> overlay{};
     if (frontend::data_overlay::get_overlay_path(name.c_str(), overlay))
         return true;
     if (pre::hub() && pre::is_present(name.c_str()))
         return true;
-    char disk[256];
+    std::array<char, 256> disk{};
     file::make_disk_path(disk, name.c_str());
-    return is_file(game_folder_path(disk));
+    return is_file(game_folder_path(disk.data()));
 }
 
 // Whether a part's path can be loaded: the game's own file (or one of ours), or a loose file of THUGPRO's (then noted
@@ -195,24 +196,24 @@ std::vector<uint8_t> read_whole_file(const std::string& path)
 
 std::string install_folder()
 {
-    char folder[MAX_PATH] = {};
-    GetPrivateProfileStringA("features", "thugpro_folder", "", folder, sizeof(folder),
+    std::array<char, MAX_PATH> folder = {};
+    GetPrivateProfileStringA("features", "thugpro_folder", "", folder.data(), sizeof(folder),
                              game_folder_path("thug2-decomp.ini").c_str());
     if (folder[0])
-        return folder;
-    char local[MAX_PATH] = {};
-    const DWORD length = GetEnvironmentVariableA("LOCALAPPDATA", local, sizeof(local));
+        return folder.data();
+    std::array<char, MAX_PATH> local = {};
+    const DWORD length = GetEnvironmentVariableA("LOCALAPPDATA", local.data(), sizeof(local));
     if (!length || length >= sizeof(local))
         return "";
-    return std::string(local) + "\\THUG Pro";
+    return std::string(local.data()) + "\\THUG Pro";
 }
 
 } // namespace
 
 std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size)
 {
-    uint8_t window[4096];
-    std::memset(window, ' ', sizeof(window));
+    std::array<uint8_t, 4096> window{};
+    std::memset(window.data(), ' ', sizeof(window));
     uint32_t r = 4096 - 18;
     std::vector<uint8_t> out;
     out.reserve(size);
@@ -331,8 +332,8 @@ std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t*
 std::string path_key(const char* path)
 {
     std::string key = get_relative(path);
-    static const char* const kExtensions[] = {".xbx", ".skin", ".tex",  ".cas", ".col", ".img", ".png",
-                                              ".mdl", ".ske",  ".geom", ".txx", ".dds", ".bmp"};
+    static const auto kExtensions = std::to_array<const char*>({".xbx", ".skin", ".tex",  ".cas", ".col", ".img", ".png",
+                                              ".mdl", ".ske",  ".geom", ".txx", ".dds", ".bmp"});
     for (bool again = true; again;) {
         again = false;
         for (const char* extension : kExtensions) {
@@ -376,7 +377,7 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
     return picked;
 }
 
-bool file_path(const char* relative, char (&path)[260])
+bool file_path(const char* relative, std::array<char, 260>& path)
 {
     const std::set<std::string>* served = s_served.load();
     if (!served || !relative || !served->count(path_key(relative)))
@@ -384,7 +385,7 @@ bool file_path(const char* relative, char (&path)[260])
     const std::string full = s_data + relative;
     if (full.size() >= sizeof(path) || !is_file(full))
         return false;
-    std::memcpy(path, full.c_str(), full.size() + 1);
+    std::memcpy(path.data(), full.c_str(), full.size() + 1);
     static std::set<std::string> logged;
     if (logged.size() < 1000 && logged.insert(full).second)
         get_log("THUGPRO CAS (TP-R10): %s read from THUGPRO's install (%s)", relative, full.c_str());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 // Shadows (Nx engine, PC): a shadow caster renders its model into a texture from a light's point of view (in
 // the table at 0x007CA970, keyed by its target's address); the meshes around it are drawn again with that texture projected on them.
@@ -12,10 +13,10 @@ struct ShadowCaster {
     uint8_t* target; // the render target: +0x10 its texture, +0x18 its surface
     void* model;     // what casts the shadow
     uint32_t unknown8;
-    float view[16];             // from the light
-    float projection[16];       // the shadow texture's (near 5)
-    float near_projection_[16]; // the receivers' (near 80)
-    float texture_matrix_[16];  // world -> shadow texture coordinates
+    std::array<float, 16> view;             // from the light
+    std::array<float, 16> projection;       // the shadow texture's (near 5)
+    std::array<float, 16> near_projection_; // the receivers' (near 80)
+    std::array<float, 16> texture_matrix_;  // world -> shadow texture coordinates
 };
 static_assert(sizeof(ShadowCaster) == 0x10C, "layout must match the original");
 

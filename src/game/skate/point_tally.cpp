@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -69,8 +70,8 @@ namespace modules {
 
 namespace score_internal {
 
-int g_trick_reduction[5]{100, 75, 50, 25, 10};
-int g_spin_multiplier[6]{2, 3, 4, 5, 6, 7};
+std::array<int, 5> g_trick_reduction{{100, 75, 50, 25, 10}};
+std::array<int, 6> g_spin_multiplier{{2, 3, 4, 5, 6, 7}};
 
 script::Struct* spawn_param_table()
 {
@@ -280,13 +281,13 @@ void PointTally::dispatch_trick_sequence(bool clear)
     auto* text = core::down_cast<frontend::ParagraphWidget>(find_element(kTheTrickText + static_cast<uint32_t>(number)));
     if (!text)
         return;
-    const char* lines[0xFD];
+    std::array<const char*, 0xFD> lines{};
     if (!clear) {
         for (int i = 0; i < log_.num_; ++i)
-            lines[i] = get_trick(i)->shown_;
-        text->change_caption(lines, log_.num_);
+            lines[i] = get_trick(i)->shown_.data();
+        text->change_caption(lines.data(), log_.num_);
     } else {
-        text->change_caption(lines, 0);
+        text->change_caption(lines.data(), 0);
     }
     script::launch_script(kUpdateTrickText, nullptr, nullptr, false, nullptr);
 }
@@ -318,21 +319,21 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
     objects::Rider* skater = rider_for_slot(rider_no_);
     const int number = skater ? skater->get_skater_number() : 0;
     auto* text = core::down_cast<frontend::LabelWidget>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
-    char shown[0x80];
+    std::array<char, 0x80> shown{};
     if (!points) {
         shown[0] = ' ';
         shown[1] = 0;
     } else if (multiplier == 0.0f) {
-        std::snprintf(shown, sizeof(shown), "%s", text::format_with_separators(points)); // "%s"
+        std::snprintf(shown.data(), sizeof(shown), "%s", text::format_with_separators(points)); // "%s"
     } else {
         const int whole = ftol(multiplier);
         if (static_cast<double>(whole) == multiplier)
-            std::snprintf(shown, sizeof(shown), "%s X %d", text::format_with_separators(points), whole); // "%s X %d"
+            std::snprintf(shown.data(), sizeof(shown), "%s X %d", text::format_with_separators(points), whole); // "%s X %d"
         else
-            std::snprintf(shown, sizeof(shown), "%s X %.1f", text::format_with_separators(points),
+            std::snprintf(shown.data(), sizeof(shown), "%s X %.1f", text::format_with_separators(points),
                           static_cast<double>(multiplier)); // "%s X %.1f"
     }
-    text->change_caption(shown); // (no check: as the original)
+    text->change_caption(shown.data()); // (no check: as the original)
     script::launch_script(kUpdateScorepot, nullptr, nullptr, false, nullptr);
 }
 
@@ -342,7 +343,7 @@ void PointTally::test_record_score(int before, int after)
     Skate* skate = skate_calls::get_skate();
     if (!get_game_mode()->is_true(kIsCareer))
         return;
-    auto* goals = skate->score_goals_;
+    auto* goals = skate->score_goals_.data();
     for (int i = 0; i < 64; ++i) {
         const int score = goals[i].score;
         const int goal = goals[i].goal;
@@ -361,14 +362,14 @@ void PointTally::set_grand_total(int total)
     objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater->is_local_skater_) // (no check: as the original)
         return;
-    char shown[0x40];
+    std::array<char, 0x40> shown{};
     if (get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing) {
         const uint32_t seconds = static_cast<uint32_t>(sum_) / 1000;
-        std::snprintf(shown, sizeof(shown), "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
+        std::snprintf(shown.data(), sizeof(shown), "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
     } else {
-        std::snprintf(shown, sizeof(shown), "%d", sum_); // "%d"
+        std::snprintf(shown.data(), sizeof(shown), "%d", sum_); // "%d"
     }
-    frontend::set_score_text(shown, skater->get_skater_number());
+    frontend::set_score_text(shown.data(), skater->get_skater_number());
 }
 
 // 0x00561B40
@@ -489,7 +490,7 @@ int PointTally::count_tricks_named(const char* text)
 {
     int count = 0;
     for (int i = 0; i < tricks_; ++i)
-        if (text::find_caseless(get_trick(i)->text_, text))
+        if (text::find_caseless(get_trick(i)->text_.data(), text))
             ++count;
     return count;
 }
@@ -630,8 +631,8 @@ void PointTally::refresh_bot_check(int line)
 void PointTally::trim_log()
 {
     TrickLog merged = {};
-    std::memcpy(merged.text_, "... + ", 7);      // "... + "
-    std::memcpy(merged.shown_, "...\\_+\\_", 9); // "...\_+\_"
+    std::memcpy(merged.text_.data(), "... + ", 7);      // "... + "
+    std::memcpy(merged.shown_.data(), "...\\_+\\_", 9); // "...\_+\_"
     int end = log_.num_;
     for (int i = 0; i < log_.num_; ++i) {
         if (i != 0 && !get_trick(i)->text_[0]) {

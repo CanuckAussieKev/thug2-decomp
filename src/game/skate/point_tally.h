@@ -13,6 +13,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/lists/dynamic_table.h"
 #include "engine/lists/lookup_table.h"
@@ -37,8 +38,8 @@ struct TrickLog {
     uint32_t label_;     // +0x10 its name's checksum
     int kind_;           // +0x14 (the flags' 0x04 / 0x08 bits shifted; not 0: 1.2 times)
     uint32_t flag_bits_; // +0x18 (kTrick* below)
-    char text_[0x40];    // +0x1C its name, spaces escaped as "\_"
-    char shown_[0x40];   // +0x5C the text shown in the trick string
+    std::array<char, 0x40> text_;    // +0x1C its name, spaces escaped as "\_"
+    std::array<char, 0x40> shown_;   // +0x5C the text shown in the trick string
 };
 
 // How often a trick was seen (a node of the score's table, by name; 0x24 bytes): by kind, in combos landed before
@@ -46,8 +47,8 @@ struct TrickLog {
 // the arrays, as the original.)
 struct TrickSeen {
     uint32_t unused_; // +0x00 (never set)
-    int landed_[4];   // +0x04
-    int ongoing_[4];  // +0x14
+    std::array<int, 4> landed_;   // +0x04
+    std::array<int, 4> ongoing_;  // +0x14
 };
 
 // TrickLog::flag_bits_.
@@ -66,7 +67,7 @@ public:
     float focus_time_limit_; // +0x00 focus_time_limit
     int focus_max_times_;    // +0x04 focus_max_times_in_combo
     int16_t rider_no_{0};    // +0x08 the skater's object id
-    uint8_t pad0a_[2]{};
+    std::array<uint8_t, 2> pad0a_{};
     int sum_{0};               // +0x0C the total score
     int pot_state_{};          // +0x10 0 none, 1 landed (the countdown to its counting), 2 counting into the total
     int pot_{0};               // +0x14 the combo's base points
@@ -87,20 +88,20 @@ public:
     int spin_trick_{-1};       // +0x6C the trick the spin goes on (-1)
     int special_{0};           // +0x70 the special meter (0-3000)
     bool special_active_{};    // +0x74
-    uint8_t bar_colors_[3][4]{}; // +0x75 special_bar_colors (empty, full, flashing)
-    uint8_t pad81[3]{};
+    std::array<std::array<uint8_t, 4>, 3> bar_colors_{}; // +0x75 special_bar_colors (empty, full, flashing)
+    std::array<uint8_t, 3> pad81{};
     float special_phase_; // +0x84 the flashing's phase
     float special_rate_{}; // +0x88 special_bar_interpolator_rate
     bool verbose_print_;  // +0x8C (0x1EDC33F1: the points printed)
-    uint8_t pad8d_[3]{};
+    std::array<uint8_t, 3> pad8d_{};
     int arrow_count_{};               // +0x90 balance_meter_info's arrow_positions
-    script::Pair arrows_[20];         // +0x94 (one more: the last repeated)
+    std::array<script::Pair, 20> arrows_;         // +0x94 (one more: the last repeated)
     float arrow_step_{};              // +0x184 1 / the arrow count
     script::Pair meter_offset_;       // +0x188 the arrow's offset from the meter
     float meter_rotation_{};          // +0x194
-    script::Pair bars_[2];            // +0x198 bar_positions (balance, manual)
-    uint8_t line_counts_[2500]{};     // +0x1B0 robot detection: how often each line was skated since the robot reset
-    uint8_t combo_line_counts_[2500]{}; // +0xB74 ... in this combo
+    std::array<script::Pair, 2> bars_;            // +0x198 bar_positions (balance, manual)
+    std::array<uint8_t, 2500> line_counts_{};     // +0x1B0 robot detection: how often each line was skated since the robot reset
+    std::array<uint8_t, 2500> combo_line_counts_{}; // +0xB74 ... in this combo
     int robot_lines_{};                 // +0x1538
     int robot_combo_lines_{};           // +0x153C
     int robot_new_lines_{};             // +0x1540

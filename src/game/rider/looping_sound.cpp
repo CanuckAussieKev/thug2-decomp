@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -27,7 +28,7 @@
 
 namespace objects {
 
-uint32_t g_looping_sound_member_functions[6]{0, 0xB5F1E9D2, 0, 0, 0, 0};
+std::array<uint32_t, 6> g_looping_sound_member_functions{{0, 0xB5F1E9D2, 0, 0, 0, 0}};
 
 namespace {
 
@@ -75,11 +76,11 @@ float rest_pitch(uint8_t* entry) { return raw::as<const surface_kind::SoundInfo>
 // The air sound's entry (a terrain sound entry of its own: 0x84 bytes, its name, the sound's checksum, the pitches at
 // full speed and at rest).
 struct AirSoundEntry {
-    char name[0x68];
+    std::array<char, 0x68> name;
     uint32_t checksum;
     float full_speed_pitch_;
     float rest_pitch_;
-    uint8_t unused[0x10];
+    std::array<uint8_t, 0x10> unused;
 };
 static_assert(sizeof(AirSoundEntry) == 0x84, "a terrain sound entry");
 AirSoundEntry g_air_sound_entry{"wheels01", 0x24257432, 100.0f, 110.0f};
@@ -101,7 +102,7 @@ gsl::owner<ObjectModule*> RiderRollingAudio::fabricate() { return new RiderRolli
 void RiderRollingAudio::publish_method_table()
 {
     script::register_member_function_table(cell::pointer<void>(kSkaterLoopingSound),
-                                           g_looping_sound_member_functions, 0x18);
+                                           g_looping_sound_member_functions.data(), 0x18);
 }
 
 // 0x005138E0
@@ -205,7 +206,7 @@ void RiderRollingAudio::tick_frame()
         BikeSound kind = cur_phase_ == kStateGround                                 ? BikeSound::kRoll
                          : cur_phase_ == kStateRail && !sliding_ && !no_rail_sound_ ? BikeSound::kGrind
                                                                                     : BikeSound::kAir;
-        bike = skater::thaw_bmx::bike_sound_of(entity_, kind, sound_);
+        bike = skater::thaw_bmx::bike_sound_of(entity_, kind, sound_.data());
         if (bike >= 0) {
             have_sound_ = static_cast<uint8_t>(bike);
             sound_changed_ = 1;
@@ -215,14 +216,14 @@ void RiderRollingAudio::tick_frame()
     switch (bike >= 0 ? -1 : cur_phase_) {
     case kStateGround:
         if (sound_changed_) {
-            have_sound_ = terrain_sound(sound_, surface_type_, sound_table(kTableWheelroll)) ? 1 : 0;
+            have_sound_ = terrain_sound(sound_.data(), surface_type_, sound_table(kTableWheelroll)) ? 1 : 0;
             sound_changed_ = 0;
         }
         break;
     case kStateAir:
         if (sound_changed_) {
             have_sound_ = 1;
-            std::memcpy(sound_, air_sound(), sizeof(sound_));
+            std::memcpy(sound_.data(), air_sound(), sizeof(sound_));
             sound_changed_ = 0;
         }
         break;
@@ -232,7 +233,7 @@ void RiderRollingAudio::tick_frame()
         } else {
             const uint32_t table = sliding_ ? kTableSlide : kTableGrind;
             if (sound_changed_) {
-                have_sound_ = terrain_sound(sound_, surface_type_, sound_table(table)) ? 1 : 0;
+                have_sound_ = terrain_sound(sound_.data(), surface_type_, sound_table(table)) ? 1 : 0;
                 sound_changed_ = 0;
             }
         }
@@ -240,7 +241,7 @@ void RiderRollingAudio::tick_frame()
     default:
         break;
     }
-    if (sound_id_ && (!have_sound_ || playing_checksum_ != sound_name_key(sound_))) {
+    if (sound_id_ && (!have_sound_ || playing_checksum_ != sound_name_key(sound_.data()))) {
         audio_mixer_handle()->stop_sound(sound_id_);
         sound_id_ = 0;
     }
@@ -250,7 +251,7 @@ void RiderRollingAudio::tick_frame()
     // Its volume from where the skater is - stopped while the skater hasn't moved.
     sound::AudioMixer* sfx = audio_mixer_handle();
     if (entity_->at_point_ != last_pos_) {
-        const float dropoff = sfx->get_dropoff_distance(sound_name_key(sound_));
+        const float dropoff = sfx->get_dropoff_distance(sound_name_key(sound_.data()));
         sfx->fetch_loudness(&volume, &entity_->at_point_, dropoff, 0, nullptr, nullptr);
     } else {
         sfx->stop_sound(sound_id_);
@@ -276,10 +277,10 @@ void RiderRollingAudio::tick_frame()
             speed_ratio_ = kCapsizedFraction;
         if (speed_ratio_ > 0.0f) {
             auto percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);
-            volume.percent_tweak(static_cast<float>(sound_volume(sound_, percent)));
+            volume.percent_tweak(static_cast<float>(sound_volume(sound_.data(), percent)));
             pitch =
-                static_cast<float>((static_cast<double>(full_speed_pitch(sound_)) - rest_pitch(sound_)) * speed_ratio_ +
-                                   rest_pitch(sound_));
+                static_cast<float>((static_cast<double>(full_speed_pitch(sound_.data())) - rest_pitch(sound_.data())) * speed_ratio_ +
+                                   rest_pitch(sound_.data()));
             lean_pitch_angle_ = pitch;
         } else {
             volume.change_muted();
@@ -295,10 +296,10 @@ void RiderRollingAudio::tick_frame()
     if (!sound_id_) {
         core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
         prev_pitch_value_ = pitch;
-        sound_id_ = sfx->emit_sound(sound_name_key(sound_), &volume, pitch, 0, nullptr,
-                                    static_cast<int>(cell::address(sound_)));
+        sound_id_ = sfx->emit_sound(sound_name_key(sound_.data()), &volume, pitch, 0, nullptr,
+                                    static_cast<int>(cell::address(sound_.data())));
         if (sound_id_)
-            playing_checksum_ = sound_name_key(sound_);
+            playing_checksum_ = sound_name_key(sound_.data());
         return;
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.

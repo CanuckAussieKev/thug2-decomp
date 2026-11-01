@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <map>
 #include <string>
+#include <array>
 
 #include "editor/level_editor_goals.h"
 #include "editor/level_editor_hud.h"
@@ -17,7 +18,7 @@ int g_new_type = 0;
 
 // A text field: typed, applied when let go (Enter or leaving it); its buffer follows `value` while it isn't edited.
 struct TextBuffer {
-    char text[128] = {};
+    std::array<char, 128> text = {};
     bool editing = false;
 };
 std::map<std::string, TextBuffer>& buffers()
@@ -30,15 +31,15 @@ bool text_field(const char* label, const std::string& key, std::string* value, s
 {
     TextBuffer& b = buffers()[key];
     if (!b.editing)
-        std::snprintf(b.text, sizeof(b.text), "%s", value->c_str());
+        std::snprintf(b.text.data(), sizeof(b.text), "%s", value->c_str());
     const size_t size = std::min(sizeof(b.text), limit + 1);
     if (multiline)
-        ImGui::InputTextMultiline(label, b.text, size, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 3.2f));
+        ImGui::InputTextMultiline(label, b.text.data(), size, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 3.2f));
     else
-        ImGui::InputText(label, b.text, size);
+        ImGui::InputText(label, b.text.data(), size);
     b.editing = ImGui::IsItemActive();
     if (ImGui::IsItemDeactivatedAfterEdit()) {
-        *value = b.text;
+        *value = b.text.data();
         return true;
     }
     return false;

@@ -1,6 +1,7 @@
 // The CAS option lists (see cas_options.h). From the disassembly of 0x00485CB0-0x004860BD.
 
 #include <cstdint>
+#include <array>
 
 #include "game/skate/cas_options.h"
 
@@ -87,8 +88,8 @@ void get_matching_cas_options(uint32_t part, uint32_t filter, Struct** out, int*
 // 0x00485E20
 Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
 {
-    Struct* options[32];
-    bool selected[32];
+    std::array<Struct*, 32> options{};
+    std::array<bool, 32> selected{};
     Array* list = script::fetch_list(part);
     const int size = static_cast<int>(list->extent_);
     int count = 0;

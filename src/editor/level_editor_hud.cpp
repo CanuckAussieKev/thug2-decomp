@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <iterator>
 #include <map>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/script/cscript.h"
@@ -44,8 +45,8 @@ void change_caption(const std::string& id, const std::string& full)
     if (it != shown().end() && it->second == text)
         return;
     shown()[id] = text;
-    alignas(4) uint8_t memory[8];
-    auto* params = new (memory) script::Struct;
+    alignas(4) std::array<uint8_t, 8> memory{};
+    auto* params = new (memory.data()) script::Struct;
     params->put_name_key(kId, checksums::hash_from_text(id.c_str()));
     params->append_word(kText, text.c_str());
     script::launch_script("level_editor_hud_set", params, nullptr, false);
@@ -67,9 +68,9 @@ const std::string& current_message() { return g_message; }
 
 void change_strand(int line, const std::string& text)
 {
-    char id[32];
-    std::snprintf(id, sizeof(id), "level_editor_hud_%d", line);
-    change_caption(id, text);
+    std::array<char, 32> id{};
+    std::snprintf(id.data(), sizeof(id), "level_editor_hud_%d", line);
+    change_caption(id.data(), text);
 }
 
 void get_message(const std::string& text, double seconds)
@@ -92,8 +93,8 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     if (!g_elements)
         return;
     if (!g_panel || g_panel_x != x || g_panel_y != y || g_panel_width != width || g_panel_lines != lines.size()) {
-        alignas(4) uint8_t memory[8];
-        auto* params = new (memory) script::Struct;
+        alignas(4) std::array<uint8_t, 8> memory{};
+        auto* params = new (memory.data()) script::Struct;
         const float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
         params->insert_pair(checksums::hash_from_text("pos"), x, y);
         params->insert_pair(checksums::hash_from_text("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
@@ -109,9 +110,9 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         g_panel_lines = lines.size();
     }
     for (size_t i = 0; i < lines.size(); ++i) {
-        char id[32];
-        std::snprintf(id, sizeof(id), "level_editor_panel_%u", static_cast<unsigned>(i));
-        change_caption(id, lines[i]);
+        std::array<char, 32> id{};
+        std::snprintf(id.data(), sizeof(id), "level_editor_panel_%u", static_cast<unsigned>(i));
+        change_caption(id.data(), lines[i]);
     }
 }
 

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace util {
 class ByteReader;
@@ -46,7 +47,7 @@ struct ParkMapHeader {
     uint16_t gap_count = 0;
     uint8_t max_players = 0;
     uint32_t theme = 0;
-    char name[0x41] = {}; // (0x40 bytes on disk, possibly unterminated)
+    std::array<char, 0x41> name = {}; // (0x40 bytes on disk, possibly unterminated)
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_park_map_header(util::ByteReader& reader, ParkMapHeader* header);
@@ -71,8 +72,8 @@ struct ParkMapGap {
         uint8_t z = 0;
         uint8_t quarter_turns = 0, reach_left = 0, reach_right = 0; // (4 bits each)
     };
-    End ends[2];
-    char text[kParkMapGapTextSize + 1] = {};
+    std::array<End, 2> ends;
+    std::array<char, kParkMapGapTextSize + 1> text = {};
     uint16_t points = 0;
     uint32_t cancel_flags = 0; // (current version only)
 };

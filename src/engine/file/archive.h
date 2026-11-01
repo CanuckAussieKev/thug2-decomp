@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Struct;
@@ -93,7 +94,7 @@ public:
 
     struct PendingLoad {
         int handle;
-        char name[64];
+        std::array<char, 64> name;
     };
 
     ArchiveFile* open_archive_{};
@@ -102,7 +103,7 @@ public:
     ArchiveFile::FileInfo* missing_handle_; // the last handle no archive had (a quick "no" next time)
     lists::KeyMap* pres_;                   // ArchiveFile by archive name checksum
     bool hold_archive_loads_{};
-    PendingLoad pending_[8]{};
+    std::array<PendingLoad, 8> pending_{};
     int queued_archive_count_;
 };
 

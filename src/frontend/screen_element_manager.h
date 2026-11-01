@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "frontend/screen_element.h"
 #include "engine/objects/signal.h"
@@ -33,7 +34,7 @@ public:
         FocusEntry* next{}; // +0x10
         bool tried{};       // +0x14 already offered the current pad event
         bool marked{};      // +0x15 its focus is being dropped (an ancestor lost its focus flag)
-        uint8_t pad16[2]{};
+        std::array<uint8_t, 2> pad16{};
     };
     // An element with a pad-event priority (0x18 bytes).
     struct PriorityEntry {
@@ -41,7 +42,7 @@ public:
         uint32_t id{};      // +0x0C
         uint32_t priority{}; // +0x10
         bool active{};       // +0x14
-        uint8_t pad15[3]{};
+        std::array<uint8_t, 3> pad15{};
     };
     static constexpr int kFocusEntries = 0x30;
     static constexpr int kPriorities = 10;
@@ -134,13 +135,13 @@ public:
     TreeListener listener_{this};             // +0x28
     ElementPtr tree_root_;                    // +0x44
     ElementPtr resolving_;                    // +0x50 resolve_id's element so far
-    FocusEntry focus_entries_[kFocusEntries]; // +0x5C
-    FocusEntry* focus_lists_[2]{};            // +0x4DC one per controller
-    bool focus_dirty_[2]{};                   // +0x4E4
-    uint8_t pad4e6_[2]{};
+    std::array<FocusEntry, kFocusEntries> focus_entries_; // +0x5C
+    std::array<FocusEntry*, 2> focus_lists_{};            // +0x4DC one per controller
+    std::array<bool, 2> focus_dirty_{};                   // +0x4E4
+    std::array<uint8_t, 2> pad4e6_{};
     int num_priorities_;                       // +0x4E8
-    PriorityEntry priorities_[kPriorities];    // +0x4EC
-    uint32_t pad_event_types_[kPadEventSlots]{}; // +0x5DC (from the script array 0x0064A10C)
+    std::array<PriorityEntry, kPriorities> priorities_;    // +0x4EC
+    std::array<uint32_t, kPadEventSlots> pad_event_types_{}; // +0x5DC (from the script array 0x0064A10C)
     int pad_event_kind_count_;                 // +0x69C
     bool check_device_;                        // +0x6A0 (pad events of other devices ignored)
 };

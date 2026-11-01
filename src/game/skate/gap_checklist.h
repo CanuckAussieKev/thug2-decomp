@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/text_store.h"
@@ -27,7 +28,7 @@ struct GapEntry {
     int num_{0};                     // +0x38 times landed
     int points_held_{};            // +0x3C
     bool in_level_{true};          // +0x40 found by the last scan of the level's scripts
-    uint8_t pad41[3]{};
+    std::array<uint8_t, 3> pad41{};
     text::Chars label_; // +0x44
 
     // 0x005786E0: an unlinked node, an empty name, never landed, in the level.
@@ -102,7 +103,7 @@ public:
     bool create_gap_list(script::Struct* params, script::Script* script);
 
     bool built_{false}; // +0x00 (also set by register_gap_entry)
-    uint8_t pad01[3]{};
+    std::array<uint8_t, 3> pad01{};
     memory::ListNode gaps_{}; // +0x04 the list's head (lists::Foremost<GapEntry>)
 };
 

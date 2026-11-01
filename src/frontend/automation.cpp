@@ -18,6 +18,7 @@
 #include <initializer_list>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "platform/winmain.h"
@@ -248,19 +249,20 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
     return true;
 }
 
-const Button kButtons[] = {
+constexpr auto kButtons = std::to_array<Button>({
     {"up", 2, 4, 10},   {"right", 2, 5, 8},   {"down", 2, 6, 11},   {"left", 2, 7, 9},
     {"x", 3, 6, 14},    {"circle", 3, 5, 13}, {"square", 3, 7, 15}, {"triangle", 3, 4, 12},
     {"start", 2, 3, 0}, {"select", 2, 0, 0},  {"l1", 3, 2, 16},     {"r1", 3, 3, 17},
     {"l2", 3, 0, 18},   {"r2", 3, 1, 19},     {"l3", 2, 1, 0},      {"r3", 2, 2, 0},
-};
-const struct {
+});
+struct ButtonAlias {
     const char* alias;
     const char* name;
-} kButtonAliases[] = {
+};
+constexpr auto kButtonAliases = std::to_array<ButtonAlias>({
     {"cross", "x"},    {"choose", "x"}, {"enter", "x"},    {"a", "x"},         {"back", "circle"},
     {"esc", "circle"}, {"b", "circle"}, {"y", "triangle"}, {"pause", "start"},
-};
+});
 
 // --- names ------------------------------------------------------------------------------------------------------
 
@@ -315,9 +317,9 @@ std::string json_string(const std::string& text)
             out += '\\';
             out += c;
         } else if (u < 0x20 || u >= 0x7F) {
-            char escaped[8];
-            std::snprintf(escaped, sizeof(escaped), "\\u%04x", u);
-            out += escaped;
+            std::array<char, 8> escaped{};
+            std::snprintf(escaped.data(), sizeof(escaped), "\\u%04x", u);
+            out += escaped.data();
         } else {
             out += c;
         }
@@ -514,10 +516,10 @@ bool button_chooses(const Button& button) { return !(button.byte == 2 && button.
 
 bool name_looks_online(const std::string& name)
 {
-    static const char* const kWords[] = {"net",     "online", "internet", "lobby", "lobbies", "login",
+    static const auto kWords = std::to_array<const char*>({"net",     "online", "internet", "lobby", "lobbies", "login",
                                          "logon",   "buddy",  "buddies",  "homie", "homies",  "gamespy",
-                                         "network", "server", "servers",  "join",  "host",    "lan"};
-    static const char* const kParts[] = {"internet", "lobby", "gamespy", "network", "login"};
+                                         "network", "server", "servers",  "join",  "host",    "lan"});
+    static const auto kParts = std::to_array<const char*>({"internet", "lobby", "gamespy", "network", "login"});
     const std::string low = get_lower(name);
     for (const char* part : kParts)
         if (low.find(part) != std::string::npos)
@@ -574,9 +576,9 @@ std::string get_name_of(uint32_t checksum)
     auto found = get_names().find(checksum);
     if (found != get_names().end())
         return found->second;
-    char text[16];
-    std::snprintf(text, sizeof(text), "0x%08X", checksum);
-    return text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+    return text.data();
 }
 
 std::string describe(const OrderCode& command)
@@ -604,7 +606,7 @@ std::string describe(const OrderCode& command)
     case Op::kStall:
         return "wait " + std::to_string(command.frames);
     case Op::kWaitFor: {
-        static const char* const kConditions[] = {"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe"};
+        static const auto kConditions = std::to_array<const char*>({"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe"});
         std::string text = std::string("waitfor ") + kConditions[static_cast<int>(command.condition)];
         if (!command.target.empty())
             text += " " + command.target;
@@ -626,9 +628,9 @@ std::string describe(const OrderCode& command)
             return "camera off";
         std::string text = command.op == Op::kJumpTo ? "teleport" : "camera";
         for (const float number : command.numbers) {
-            char value[32];
-            std::snprintf(value, sizeof(value), " %g", static_cast<double>(number));
-            text += value;
+            std::array<char, 32> value{};
+            std::snprintf(value.data(), sizeof(value), " %g", static_cast<double>(number));
+            text += value.data();
         }
         if (command.op == Op::kJumpTo && command.target == "board")
             text += " board";
@@ -1372,17 +1374,17 @@ std::string log_tricks(int count, std::string* failed)
         objects.resize(static_cast<size_t>(count));
     const size_t asked = objects.size();
     objects.push_back(0xEEEEEEEE); // (past the list: must be left alone)
-    uint8_t stolen[0x100] = {};
+    std::array<uint8_t, 0x100> stolen = {};
     const uint32_t changed =
-        manager->log_trick_objects(static_cast<uint32_t>(asked), objects.data(), stolen, 0, 1000000);
+        manager->log_trick_objects(static_cast<uint32_t>(asked), objects.data(), stolen.data(), 0, 1000000);
     if (objects[asked] != 0xEEEEEEEE) {
         *failed = "the word past the list was changed";
         return "";
     }
-    char result[160];
-    std::snprintf(result, sizeof(result), "ok (%u trick objects of %u clusters in the level logged, %u changed hands)",
+    std::array<char, 160> result{};
+    std::snprintf(result.data(), sizeof(result), "ok (%u trick objects of %u clusters in the level logged, %u changed hands)",
                   static_cast<unsigned>(asked), static_cast<unsigned>(clusters.size()), changed);
-    return result;
+    return result.data();
 }
 
 // Start the next command; true if it's done already (the next can start this frame).
@@ -1471,13 +1473,13 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
             get_fail(runner, failed, false);
             return true;
         }
-        char result[96];
-        std::snprintf(result, sizeof(result), "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
+        std::array<char, 96> result{};
+        std::snprintf(result.data(), sizeof(result), "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
         if (FILE* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
-            std::fprintf(trace_file, "# %s -> %s\n", runner.text.c_str(), result);
+            std::fprintf(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
             std::fflush(trace_file);
         }
-        get_finish(runner, result);
+        get_finish(runner, result.data());
         return true;
     }
     case Op::kViewCam:

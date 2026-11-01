@@ -11,6 +11,7 @@
 #include "engine/objects/smtptr.h"
 #include "engine/render/coll_cache.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Array;
@@ -46,7 +47,7 @@ public:
         maths::Vec4 point;
         maths::Vec4 anchor;
         bool active;
-        uint8_t pad21[3];
+        std::array<uint8_t, 3> pad21;
     };
     // A sphere of its shape (0x14 bytes): its centre and radius.
     struct Sphere {
@@ -57,7 +58,7 @@ public:
     struct DirectedFriction {
         maths::Vec4 direction;
         bool active;
-        uint8_t pad11[3];
+        std::array<uint8_t, 3> pad11;
     };
 
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
@@ -274,17 +275,17 @@ void set_rigid_body_pusher_reach(GameEntity* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
 bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* script);
 
-extern maths::Vec4 g_rigid_body_world_contact_points[24];     // 0x00694E30
-extern maths::Vec4 g_rigid_body_world_sphere_centers[24];     // 0x00694FB0
-extern maths::Vec4 g_rigid_body_world_spring_points[2];       // 0x00695130
-extern BodyDynamicsModule::Contact g_rigid_body_contacts[24]; // 0x006949B0
-extern SharedRef<GameEntity> g_rigid_body_pushers[8];         // 0x00695150
+extern std::array<maths::Vec4, 24> g_rigid_body_world_contact_points;     // 0x00694E30
+extern std::array<maths::Vec4, 24> g_rigid_body_world_sphere_centers;     // 0x00694FB0
+extern std::array<maths::Vec4, 2> g_rigid_body_world_spring_points;       // 0x00695130
+extern std::array<BodyDynamicsModule::Contact, 24> g_rigid_body_contacts; // 0x006949B0
+extern std::array<SharedRef<GameEntity>, 8> g_rigid_body_pushers;         // 0x00695150
 // (the cache is raw zeroed storage: the cache fills it before it looks)
 struct RigidBodyCacheStorage {
-    alignas(8) uint8_t bytes[sizeof(render::HitMeshCache)];
+    alignas(8) std::array<uint8_t, sizeof(render::HitMeshCache)> bytes;
 };
 extern RigidBodyCacheStorage g_rigid_body_cache; // 0x006939E0
-extern float g_rigid_body_pusher_reach[8];
+extern std::array<float, 8> g_rigid_body_pusher_reach;
 extern float g_rigid_body_pusher_height;
 extern bool g_rigid_body_draw_shape;
 extern bool g_rigid_body_draw_details;
@@ -293,5 +294,5 @@ extern bool g_rigid_body_draw_details;
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_rigid_body_member_functions[78];
+extern std::array<uint32_t, 78> g_rigid_body_member_functions;
 } // namespace objects

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -29,12 +30,12 @@ namespace {
 constexpr int kMaxLoadedFiles = 200;
 constexpr int kPreloadCapacity = 100;
 
-LoadedFile g_loaded_files[kMaxLoadedFiles];
-char* g_pre_files[kPreloadCapacity];
+std::array<LoadedFile, kMaxLoadedFiles> g_loaded_files;
+std::array<char*, kPreloadCapacity> g_pre_files;
 
-LoadedFile* loaded_files() { return g_loaded_files; }
+LoadedFile* loaded_files() { return g_loaded_files.data(); }
 // Each loaded .pre archive's memory starts with the archive's name (see PackLeadIn).
-char** pre_files() { return g_pre_files; }
+char** pre_files() { return g_pre_files.data(); }
 
 void* allocate_file_memory(unsigned int size) { return memory::alloc_block(size); }
 void shrink_file_memory(unsigned int size, void* memory) { memory::trim_block_end(size, memory); }
@@ -94,7 +95,7 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is read from it,
     // before any archive (synchronously, through FileLoad::unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
-    char overlay_path[260];
+    std::array<char, 260> overlay_path{};
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
 
     // Already loaded?
@@ -174,7 +175,7 @@ void* load_file_into(const char* name, int* size, void* buffer)
     int file_size = 0;
     // Not original - the data overlay: a file of it is read from there (FileLoad::unseal), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
-    char overlay_path[260];
+    std::array<char, 260> overlay_path{};
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
     void* data = overlay ? nullptr : pre::sole()->ingest_file(name, &file_size, static_cast<uint8_t*>(buffer));
     if (data)
@@ -218,11 +219,11 @@ void load_pre(const char* name)
         }
     }
 
-    char path[500];
-    std::snprintf(path, sizeof(path), "pre\\%s", name);
+    std::array<char, 500> path{};
+    std::snprintf(path.data(), sizeof(path), "pre\\%s", name);
     // The block starts with the archive's name, padded to 16 bytes.
     auto prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~static_cast<size_t>(0xF));
-    const size_t length = std::strlen(path);
+    const size_t length = std::strlen(path.data());
 
     // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
     // English archive (.ppf/.ppd).
@@ -237,10 +238,10 @@ void load_pre(const char* name)
     const char letter = game_config::g_language == 3 ? 'f' : game_config::g_language == 5 ? 'd' : '\0';
     if (letter) {
         path[length - 1] = letter;
-        if (!file::is_present(path)) {
+        if (!file::is_present(path.data())) {
             path[length - 2] = 'p';
-            if (file::is_present(path)) {
-                file::Hdl file = file::unseal(path, "rb");
+            if (file::is_present(path.data())) {
+                file::Hdl file = file::unseal(path.data(), "rb");
                 file_size = file::get_file_size(file);
                 patch_size = file_size;
                 patch = static_cast<uint32_t*>(memory::alloc(file_size));
@@ -256,7 +257,7 @@ void load_pre(const char* name)
                     allocated = ((file_size + 0x7FF) & ~0x7FFu) + prefix;
                     block = static_cast<uint8_t*>(allocate_file_memory(allocated));
                     std::memcpy(block, name, std::strlen(name) + 1);
-                    if (!file::load_cached_file(path, block + prefix)) {
+                    if (!file::load_cached_file(path.data(), block + prefix)) {
                         free_file_memory(block);
                         block = nullptr;
                     }
@@ -270,7 +271,7 @@ void load_pre(const char* name)
     }
 
     if (!loaded) {
-        file::Hdl file = file::unseal(path, "rb");
+        file::Hdl file = file::unseal(path.data(), "rb");
         file_size = file::get_file_size(file);
         util::ByteReader patch_reader(patch, patch_size);
         if (patched && !pre_format::read_patch_header(patch_reader, &patch_header))
@@ -297,7 +298,7 @@ void load_pre(const char* name)
             std::memset(data + file_size, 0, allocated - file_size - prefix);
         // Not original - bounded by the block and the patch's size (the original wrote each record where it said).
         if (!pre_format::apply_patch(data, allocated - prefix, raw::bytes(patch), patch_size))
-            debug::printf("%s: a damaged patch\n", path);
+            debug::printf("%s: a damaged patch\n", path.data());
         memory::dealloc(patch);
     }
 
@@ -321,7 +322,7 @@ void load_pre(const char* name)
                        ((static_cast<uint32_t>(record.size) + 3) & ~3u);
         }
         if (count != old_header.file_count)
-            debug::printf("%s: damaged at file %d of %d\n", path, count, old_header.file_count);
+            debug::printf("%s: damaged at file %d of %d\n", path.data(), count, old_header.file_count);
     }
     auto* repacked = static_cast<uint8_t*>(allocate_file_memory(static_cast<unsigned int>(new_size + 0xC00)));
     for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
@@ -349,7 +350,7 @@ void load_pre(const char* name)
             size_t written = 0;
             if (!lzss::unpack(from.data, static_cast<size_t>(from.compressed_size), target,
                               static_cast<size_t>(from.size), &written))
-                debug::printf("%s: %s is damaged\n", path, from.name);
+                debug::printf("%s: %s is damaged\n", path.data(), from.name);
             end = target + written;
         } else {
             std::memcpy(target, from.data, static_cast<size_t>(from.size));

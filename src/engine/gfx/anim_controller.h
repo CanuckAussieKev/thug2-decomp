@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 
@@ -65,7 +66,7 @@ struct AnimTimeline {
     int direction_{};              // +0x24 0 forwards, -1 backwards
     int repeat_mode_{};            // +0x28
     bool complete_{};              // +0x2C
-    uint8_t pad2d_[3]{};
+    std::array<uint8_t, 3> pad2d_{};
     uint32_t anim_{}; // +0x30 the animation's name
 };
 
@@ -202,7 +203,7 @@ public:
     // 0x004A4D30 (slot 1): its pose copied out.
     bool fetch_pose(uint8_t* pose) override;
 
-    uint8_t stance_[0x840]{}; // +0x14 (64 rotations, then the rest)
+    std::array<uint8_t, 0x840> stance_{}; // +0x14 (64 rotations, then the rest)
 };
 
 // The partial animation controller (type "partialAnim", vtable 0x00649FB0, 0x24 bytes): a second animation on a

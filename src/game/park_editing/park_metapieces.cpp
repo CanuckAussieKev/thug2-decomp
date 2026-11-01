@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <utility>
+#include <array>
 
 #include "game/park_editing/park.h"
 #include "engine/gfx/d3dx.h"
@@ -113,7 +114,7 @@ void PieceGroup::set_quarter_turns(int rot)
     // Every descriptor turned about the metapiece's corner, into new storage.
     PieceGroupDesc* extra = extra_desc_ ? allocate_descriptors(slot_limit_ - 2) : nullptr;
     // (the original leaves the unused ones of these two as stack leftovers; here they keep what they were)
-    PieceGroupDesc first[2] = {desc_[0], desc_[1]};
+    std::array<PieceGroupDesc, 2> first = {{desc_[0], desc_[1]}};
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         PieceGroupDesc* to = i < 2 ? &first[i] : &extra[i - 2];
         const PieceGroupDesc* from = i < 2 ? &desc_[i] : &extra_desc_[i - 2];

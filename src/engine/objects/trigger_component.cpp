@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <set>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -24,38 +25,38 @@
 #include "engine/core/down_cast.h"
 
 // The event lists (trigger_events.h).
-const int kWheelLeavesEvents[3]{1, 4, 0};
-const int kWheelLandsEvents[3]{1, 3, 0};
-const int kCrossingEvents[3]{9, 0, 0};
-const int kPullUpEvents[3]{1, 3, 0};
-const int kHangEvents[3]{10, 3, 0};
-const int kExitHangEvents[3]{10, 4, 0};
-const int kLadderOffBottomEvents[3]{1, 3, 0};
-const int kLadderOffTopEvents[3]{14, 3, 0};
-const int kOntoLadderEvents[3]{10, 3, 0};
-const int kExitLadderEvents[3]{10, 4, 0};
-const int kProjectileTouchEvents[3]{14, 0, 0};
-const int kOtherFeelerLeaveEvents[3]{1, 5, 0};
-const int kJumpTriggerEvents[3]{2, 4, 0};
-const int kSkaterEvents0064bB98[3]{8, 3, 0};
-const int kKickEvents[3]{1, 4, 0};
-const int kSkaterEvents0064bBb0[3]{1, 3, 0};
-const int kBonkEvents[3]{9, 0, 0};
-const int kLipEvents[3]{7, 3, 0};
-const int kOffLipEvents[3]{7, 4, 0};
-const int kLipOffEvents[3]{7, 2, 0};
-const int kSkaterEvents0064bBec[3]{6, 3, 0};
-const int kWallplantEvents[3]{6, 4, 0};
-const int kSpinEvents[3]{12, 3, 0};
-const int kJumpEvents[3]{12, 2, 0};
-const int kGrindOffEvents[3]{13, 4, 0};
-const int kGrindEvents[3]{13, 3, 0};
-const int kTaggingEvents[3]{11, 3, 0};
-const int kWalkEvents0064c630[3]{1, 5, 0};
-const int kWalkEvents0064c63c[3]{2, 4, 0};
-const int kWalkEvents0064c648[3]{8, 3, 0};
-const int kWalkEvents0064c654[3]{14, 3, 0};
-const int kWalkEvents0064c660[3]{14, 4, 0};
+const std::array<int, 3> kWheelLeavesEvents{{1, 4, 0}};
+const std::array<int, 3> kWheelLandsEvents{{1, 3, 0}};
+const std::array<int, 3> kCrossingEvents{{9, 0, 0}};
+const std::array<int, 3> kPullUpEvents{{1, 3, 0}};
+const std::array<int, 3> kHangEvents{{10, 3, 0}};
+const std::array<int, 3> kExitHangEvents{{10, 4, 0}};
+const std::array<int, 3> kLadderOffBottomEvents{{1, 3, 0}};
+const std::array<int, 3> kLadderOffTopEvents{{14, 3, 0}};
+const std::array<int, 3> kOntoLadderEvents{{10, 3, 0}};
+const std::array<int, 3> kExitLadderEvents{{10, 4, 0}};
+const std::array<int, 3> kProjectileTouchEvents{{14, 0, 0}};
+const std::array<int, 3> kOtherFeelerLeaveEvents{{1, 5, 0}};
+const std::array<int, 3> kJumpTriggerEvents{{2, 4, 0}};
+const std::array<int, 3> kSkaterEvents0064bB98{{8, 3, 0}};
+const std::array<int, 3> kKickEvents{{1, 4, 0}};
+const std::array<int, 3> kSkaterEvents0064bBb0{{1, 3, 0}};
+const std::array<int, 3> kBonkEvents{{9, 0, 0}};
+const std::array<int, 3> kLipEvents{{7, 3, 0}};
+const std::array<int, 3> kOffLipEvents{{7, 4, 0}};
+const std::array<int, 3> kLipOffEvents{{7, 2, 0}};
+const std::array<int, 3> kSkaterEvents0064bBec{{6, 3, 0}};
+const std::array<int, 3> kWallplantEvents{{6, 4, 0}};
+const std::array<int, 3> kSpinEvents{{12, 3, 0}};
+const std::array<int, 3> kJumpEvents{{12, 2, 0}};
+const std::array<int, 3> kGrindOffEvents{{13, 4, 0}};
+const std::array<int, 3> kGrindEvents{{13, 3, 0}};
+const std::array<int, 3> kTaggingEvents{{11, 3, 0}};
+const std::array<int, 3> kWalkEvents0064c630{{1, 5, 0}};
+const std::array<int, 3> kWalkEvents0064c63c{{2, 4, 0}};
+const std::array<int, 3> kWalkEvents0064c648{{8, 3, 0}};
+const std::array<int, 3> kWalkEvents0064c654{{14, 3, 0}};
+const std::array<int, 3> kWalkEvents0064c660{{14, 4, 0}};
 
 namespace objects {
 
@@ -72,7 +73,7 @@ constexpr uint32_t kNodeArray = 0xC472ECC5;     // nodearray (the component hold
 constexpr uint16_t kTriggerFaces = 0x50;
 
 // No events (0x0064663C: three zeros).
-const int kNoEvents[3] = {0, 0, 0};
+const std::array<int, 3> kNoEvents = {{0, 0, 0}};
 
 // The node array of `object`'s nodearray component (the original's slot 13), or null without one.
 script::Array* node_array_of(GameEntity* object)
@@ -247,7 +248,7 @@ void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProb
 bool ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
 {
     auto* component = cell::pointer<ActivationZoneModule>(feeler->unknowna8_);
-    return component->probe_touches_zone(kNoEvents, feeler);
+    return component->probe_touches_zone(kNoEvents.data(), feeler);
 }
 
 } // namespace objects

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -42,9 +43,9 @@ constexpr uint32_t kPlayer = 0x67E6859A;           // player
 constexpr uint32_t kTopJudge = 0x7B1B959F;         // top_judge
 constexpr uint32_t kRankingList = 0x370B9420;      // leader_board
 constexpr uint32_t kAddLeaderBoard = 0xCE76F8C1;   // goal_comp_add_leader_board
-constexpr uint32_t kJudgeNames[Contest::kJudges] = {
+constexpr std::array<uint32_t, Contest::kJudges> kJudgeNames = {{
     0x84F93830, 0x1DF0698A, 0x6AF7591C, 0xF493CCBF, 0x8394FC29, // comp_str_Judge1..5
-};
+}};
 
 // The constants, as the original reads them.
 float tenth() { return script::g_parse_nudge; }           // 0.1
@@ -157,7 +158,7 @@ void Contest::begin_timed_session()
 bool Contest::is_leading_scorer(int judge)
 {
     // The judges by score, highest first (a selection sort; equal scores keep their order).
-    int order[kJudges] = {0, 1, 2, 3, 4};
+    std::array<int, kJudges> order = {{0, 1, 2, 3, 4}};
     for (int i = 0; i < kJudges; ++i) {
         for (int j = i; j < kJudges; ++j) {
             if (judge_scores_[order[i]] < judge_scores_[order[j]]) {
@@ -200,7 +201,7 @@ void Contest::sort_leaders()
             Leader& b = leaders_[i];
             const text::Chars name(a.label_);
             const int id = a.ident_;
-            const int scores[kRuns] = {a.scores_[0], a.scores_[1], a.scores_[2]};
+            const std::array<int, kRuns> scores = {{a.scores_[0], a.scores_[1], a.scores_[2]}};
             const bool unknown = a.unknown1c_;
             a.label_ = b.label_;
             a.ident_ = b.ident_;
@@ -238,7 +239,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     leaders_[0].label_ = manager->fetch_active_account()->fetch_shown_name();
 
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
-    int pros[96]; // (the original's stack room)
+    std::array<int, 96> pros{}; // (the original's stack room)
     int pro_count = 0;
     const int templates = static_cast<int>(manager->templates_.num_);
     for (int i = 0; i < templates; ++i) {
@@ -254,7 +255,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         pros[i] = pros[other];
         pros[other] = swap;
     }
-    int ids[kLeaders - 1] = {1, 2, 3, 4, 5, 6, 7};
+    std::array<int, kLeaders - 1> ids = {{1, 2, 3, 4, 5, 6, 7}};
     for (int& id : ids) {
         const int other = maths::roll_side_stream(kLeaders - 1);
         const int swap = id;
@@ -413,7 +414,7 @@ void Contest::end_run(int score)
         path_vertices_ = 0.0f;
 
     // The judges: two near the points, the third making the average.
-    float* judges = judge_scores_;
+    float* judges = judge_scores_.data();
     for (int i = 0; i < 2; ++i) {
         judges[i] = static_cast<float>(maths::plus_or_minus_exact(spread) + path_vertices_);
         if (!(judges[i] <= max_judge()))

@@ -3,6 +3,7 @@
 #include "game/rider/adjust_physics.h"
 
 #include <cstdint>
+#include <array>
 
 #include "game/park_editing/park_editor.h"
 #include "engine/maths/vec4.h"
@@ -40,10 +41,10 @@ constexpr float kLift = 2.0f;                // 0x00645448
 // The velocity's nudge after the uber frig (0x0064B9C8, 0x0064B9C8, 0x0064B9C4, 0x006453A8).
 constexpr float kNudgeXy = 0.101f, kNudgeZ = 0.1001f;
 // The uber frig's offsets from the frame's start, one a try (the original's function-local static, 0x007CCD60).
-constexpr float kUberFrigOffsets[5][4] = {
+constexpr std::array<std::array<float, 4>, 5> kUberFrigOffsets = {{
     {0.0f, 0.0f, 0.0f, 1.0f},  {0.1f, 0.1f, 0.1f, 1.0f}, {-0.2f, 0.0f, 0.0f, 1.0f},
     {0.0f, 0.0f, -0.2f, 1.0f}, {0.2f, 0.0f, 0.0f, 1.0f},
-};
+}};
 
 template <typename T>
 T& get_at(const void* base, uint32_t offset)
@@ -96,7 +97,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         if (!((state == 4 || state == 3) && park_editor->cur_phase_ == kParkEditorTestPlay)) {
             uber_frigged_ = 1;
             if (uber_frig_tries_ < 5) {
-                const float* offset = kUberFrigOffsets[uber_frig_tries_++];
+                const float* offset = kUberFrigOffsets[uber_frig_tries_++].data();
                 const maths::Vec4& from = core->safe_pos_;
                 position = {offset[0] + from.x, from.y + offset[1], from.z + offset[2], from.w + offset[3]};
             } else {

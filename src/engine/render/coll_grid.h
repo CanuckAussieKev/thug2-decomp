@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/shape_tests.h"
@@ -64,7 +65,7 @@ public:
     float cell_depth_{};               // +0x24 on z
     int columns_{};                    // +0x28 on x (20)
     int rows_{};                       // +0x2C on z (20)
-    CollGridCell cells_[kSize][kSize]; // +0x30 [x][z]
+    std::array<std::array<CollGridCell, kSize>, kSize> cells_; // +0x30 [x][z]
 };
 static_assert(offsetof(CollGrid, cells_) == 0x30 && sizeof(CollGrid) == 0x4B30, "layout must match the original");
 

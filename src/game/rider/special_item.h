@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -48,7 +49,7 @@ public:
     // any). Other names: 2 (not mine).
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    GameEntity* items_[kItems]{}; // +0x18
+    std::array<GameEntity*, kItems> items_{}; // +0x18
 };
 
 } // namespace objects

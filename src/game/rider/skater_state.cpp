@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -26,16 +27,16 @@
 namespace objects {
 
 namespace {
-uint32_t g_powerup_names[1]{0xD039432C};
+std::array<uint32_t, 1> g_powerup_names{{0xD039432C}};
 } // namespace
-uint32_t g_skater_state_member_functions[114]{
+std::array<uint32_t, 114> g_skater_state_member_functions{{
     0x5EA287F2, 0x43686585, 0, 0, 0, 0, 0x3527FC07, 0x43686585, 0, 0, 0, 0, 0xA32C1A15, 0x43686585, 0, 0, 0, 0,
     0x5CB1FBD8, 0x43686585, 0, 0, 0, 0, 0xE9851E62, 0x43686585, 0, 0, 0, 0, 0xA64DCF8B, 0x43686585, 0, 0, 0, 0,
     0x1AB2389B, 0x43686585, 0, 0, 0, 0, 0x57BFBAE8, 0x43686585, 0, 0, 0, 0, 0xF2813EE5, 0x43686585, 0, 0, 0, 0,
     0xEE584CBC, 0x43686585, 0, 0, 0, 0, 0xB32E9EAE, 0x43686585, 0, 0, 0, 0, 0x953A7B6D, 0x43686585, 0, 0, 0, 0,
     0x58AD903F, 0x43686585, 0, 0, 0, 0, 0xB07AC662, 0x43686585, 0, 0, 0, 0, 0x0E11B7CA, 0x43686585, 0, 0, 0, 0,
     0x44BA5FCE, 0x43686585, 0, 0, 0, 0, 0xE0645004, 0x43686585, 0, 0, 0, 0, 0xEF7A8687, 0x43686585, 0, 0, 0, 0,
-    0,          0x43686585, 0, 0, 0, 0};
+    0,          0x43686585, 0, 0, 0, 0}};
 
 namespace {
 
@@ -46,7 +47,7 @@ constexpr uint32_t kTerrain = 0x3789AC4E, kSparksPos = 0xFF5318DA;
 
 // The powerups' names (0x0067F09C): one.
 constexpr int kPowerups = 1;
-const uint32_t* powerup_names() { return g_powerup_names; }
+const uint32_t* powerup_names() { return g_powerup_names.data(); }
 
 // The powerup the unnamed checksum names (asserted), or -1.
 int find_powerup(script::Struct* params)
@@ -76,7 +77,7 @@ RiderPoseState::RiderPoseState()
 // 0x00519430
 void RiderPoseState::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kSkaterState), g_skater_state_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kSkaterState), g_skater_state_member_functions.data(),
                                            0x18);
 }
 

@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "formats/lzss.h"
 
@@ -13,8 +14,8 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
 {
     constexpr int kWindow = 4096;
     constexpr int kLongest = 18;
-    uint8_t window[kWindow];
-    std::memset(window, ' ', kWindow - kLongest);
+    std::array<uint8_t, kWindow> window{};
+    std::memset(window.data(), ' ', kWindow - kLongest);
     int r = kWindow - kLongest;
     unsigned int flags = 0;
     size_t read = 0;

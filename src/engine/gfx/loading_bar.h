@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 namespace render {
 
@@ -20,13 +21,13 @@ void __stdcall draw_loading_screen_frame(unsigned int id, unsigned int message, 
 
 extern int g_gradient_width;
 // The bar's settings: position, size (width, height), border, and the three colours (r, g, b, 0x80).
-extern int g_bar_position[2];
+extern std::array<int, 2> g_bar_position;
 extern int g_progress_width;
 extern int g_progress_height;
-extern int g_bar_border[2];
-extern uint8_t g_progress_from_color[4];
-extern uint8_t g_progress_to_color[4];
-extern uint8_t g_progress_edge_color[4];
+extern std::array<int, 2> g_bar_border;
+extern std::array<uint8_t, 4> g_progress_from_color;
+extern std::array<uint8_t, 4> g_progress_to_color;
+extern std::array<uint8_t, 4> g_progress_edge_color;
 
 extern float g_tick_seconds;
 

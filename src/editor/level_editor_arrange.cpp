@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_actions.h"
@@ -207,20 +208,20 @@ float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest)
 std::vector<std::string> readout_lines(const Readout& r)
 {
     std::vector<std::string> lines;
-    char text[96];
-    std::snprintf(text, sizeof(text), "size %.0f x %.0f x %.0f", r.size.x, r.size.y, r.size.z);
-    lines.emplace_back(text);
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), "size %.0f x %.0f x %.0f", r.size.x, r.size.y, r.size.z);
+    lines.emplace_back(text.data());
     if (r.moved >= 0.5f) {
-        std::snprintf(text, sizeof(text), "moved %.0f", r.moved);
-        lines.emplace_back(text);
+        std::snprintf(text.data(), sizeof(text), "moved %.0f", r.moved);
+        lines.emplace_back(text.data());
     }
     if (r.have_ground_) {
-        std::snprintf(text, sizeof(text), "above ground %.0f", r.above);
-        lines.emplace_back(text);
+        std::snprintf(text.data(), sizeof(text), "above ground %.0f", r.above);
+        lines.emplace_back(text.data());
     }
     if (r.have_rail_) {
-        std::snprintf(text, sizeof(text), "%s %.0f", r.ledge ? "ledge" : "rail", r.rail);
-        lines.emplace_back(text);
+        std::snprintf(text.data(), sizeof(text), "%s %.0f", r.ledge ? "ledge" : "rail", r.rail);
+        lines.emplace_back(text.data());
     }
     return lines;
 }
@@ -248,7 +249,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
     };
     std::map<std::pair<int, int>, EdgeUse> edges;
     for (size_t t = 0; t + 2 < triangles.size(); t += 3) {
-        const int v[3] = {id(triangles[t]), id(triangles[t + 1]), id(triangles[t + 2])};
+        const std::array<int, 3> v = {{id(triangles[t]), id(triangles[t + 1]), id(triangles[t + 2])}};
         if (v[0] == v[1] || v[1] == v[2] || v[0] == v[2])
             continue;
         const V3 n = perpendicular(points[v[1]] - points[v[0]], points[v[2]] - points[v[0]]);
@@ -383,7 +384,7 @@ Settings& at_hand()
 
 namespace {
 
-const V3 kWorld[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
+const std::array<V3, 3> kWorld = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 
 objects::GameEntity* live_object(uint32_t id)
 {
@@ -393,9 +394,9 @@ objects::GameEntity* live_object(uint32_t id)
 
 void get_corners(const OrientedBox& box, std::vector<V3>* out)
 {
-    V3 c[8];
-    box_corners(box.origin, box.axes, box.min, box.max, c);
-    out->insert(out->end(), c, c + 8);
+    std::array<V3, 8> c{};
+    box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
+    out->insert(out->end(), c.data(), c.data() + 8);
 }
 
 // A piece the tools move as one: an object, or a scenery piece with the shadows cast by it.
@@ -512,22 +513,22 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
         return false;
     }
     axis = std::clamp(axis, 0, 2);
-    V3 axes[3];
-    axes_of(units, local, axes);
+    std::array<V3, 3> axes{};
+    axes_of(units, local, axes.data());
     std::vector<Span> spans;
     spans.reserve(units.size());
     for (const Unit& unit : units)
         spans.push_back(span_along(unit.corners, axes[axis]));
     const std::vector<float> moves = align_moves(spans, edge, reference);
     move_units(selection, units, axes[axis], moves);
-    char text[128];
-    std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()),
+    std::array<char, 128> text{};
+    std::snprintf(text.data(), sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()),
                   edge == Edge::kMin   ? "min"
                   : edge == Edge::kMax ? "max"
                                        : "centre",
                   get_axis_name(axis), local ? "local" : "world",
                   reference == Reference::kFirst ? "the first" : "the bounds");
-    hud::get_message(text, 4.0);
+    hud::get_message(text.data(), 4.0);
     adjust::ActStep action;
     action.kind = adjust::Kind::kJustify;
     action.axis = axis;
@@ -547,17 +548,17 @@ bool distribute(int axis, bool gaps, bool local)
         return false;
     }
     axis = std::clamp(axis, 0, 2);
-    V3 axes[3];
-    axes_of(units, local, axes);
+    std::array<V3, 3> axes{};
+    axes_of(units, local, axes.data());
     std::vector<Span> spans;
     spans.reserve(units.size());
     for (const Unit& unit : units)
         spans.push_back(span_along(unit.corners, axes[axis]));
     move_units(selection, units, axes[axis], distribute_moves(spans, gaps));
-    char text[128];
-    std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s)", static_cast<int>(units.size()),
+    std::array<char, 128> text{};
+    std::snprintf(text.data(), sizeof(text), "Distributed %d pieces along %s (%s)", static_cast<int>(units.size()),
                   get_axis_name(axis), gaps ? "equal gaps" : "evenly spaced centres");
-    hud::get_message(text, 4.0);
+    hud::get_message(text.data(), 4.0);
     adjust::ActStep action;
     action.kind = adjust::Kind::kDistribute;
     action.axis = axis;
@@ -713,10 +714,10 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
     edit::fold(depth);
     if (!made.empty())
         edit::choose_one({edit::Kind::kObject, made});
-    char text[160];
-    std::snprintf(text, sizeof(text), "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()),
+    std::array<char, 160> text{};
+    std::snprintf(text.data(), sizeof(text), "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()),
                   swaps);
-    hud::get_message(text, 5.0);
+    hud::get_message(text.data(), 5.0);
     get_log("level editor: replace with %s: %d copies made again, %d model swaps", object_edit::caption(source).c_str(),
             static_cast<int>(made.size()), swaps);
     return !made.empty() || swaps > 0;
@@ -895,7 +896,7 @@ bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
     float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(view.pos, frame, view.lens, p, view.near_z_, &nx, &ny))
         return false;
-    ndc_to_pixel(view.viewport, nx, ny, x, y);
+    ndc_to_pixel(view.viewport.data(), nx, ny, x, y);
     return true;
 }
 
@@ -947,11 +948,11 @@ bool edge_click(float x, float y)
     }
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     const bool more = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-    char text[128];
-    std::snprintf(text, sizeof(text), "Rail added: %d points, %.0f long", static_cast<int>(run.points.size()),
+    std::array<char, 128> text{};
+    std::snprintf(text.data(), sizeof(text), "Rail added: %d points, %.0f long", static_cast<int>(run.points.size()),
                   run.length);
     // (Shift: the piece stays selected for the next edge; else the rail's first point is selected)
-    edit::chain_changed(&before, more ? 0 : select, text);
+    edit::chain_changed(&before, more ? 0 : select, text.data());
     if (more)
         edit::choose_one(selection);
     else
@@ -1074,7 +1075,7 @@ void register_actions()
     g_act_linked =
         add_action("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
                    {Chord{SDL_SCANCODE_D, ctrl_alt}}, [] { links::linked_duplicate(); });
-    static const char* const kEdges[] = {"min", "centre", "max"};
+    static const auto kEdges = std::to_array<const char*>({"min", "centre", "max"});
     static const char* const kAxes = "xyz";
     for (int axis = 0; axis < 3; ++axis) {
         for (int edge = 0; edge < 3; ++edge) {
@@ -1162,8 +1163,8 @@ struct Painter {
     }
     void cuboid(const OrientedBox& box, uint32_t argb, uint32_t fill) const
     {
-        V3 c[8];
-        box_corners(box.origin, box.axes, box.min, box.max, c);
+        std::array<V3, 8> c{};
+        box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
@@ -1173,8 +1174,8 @@ struct Painter {
         if (!fill)
             return;
         // (its six faces, see-through: two triangles each - only when all four corners are in front)
-        static const int kFaces[6][4] = {{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4},
-                                         {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}};
+        static const std::array<std::array<int, 4>, 6> kFaces = {{{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4},
+                                         {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}}};
         for (const auto& f : kFaces) {
             float x[4], y[4];
             bool ok = true;
@@ -1224,12 +1225,12 @@ bool surface_normal(V3* normal)
 // The box turned so its up axis lies along `normal` (its heading kept) about the bottom-centre point `at`.
 void tilt_box(OrientedBox* box, V3 at, V3 normal)
 {
-    V3 rows[3] = {box->axes[0], box->axes[1], box->axes[2]};
-    if (!snap::align_rows(rows, normal))
+    std::array<V3, 3> rows = {{box->axes[0], box->axes[1], box->axes[2]}};
+    if (!snap::align_rows(rows.data(), normal))
         return;
     // (each corner's offset from `at`, in the box's frame, put back along the new rows)
     const V3 origin = box->origin - at;
-    float lengths[3];
+    std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
         lengths[i] = std::max(1e-6f, get_dot(box->axes[i], box->axes[i]));
     const V3 local = {get_dot(origin, box->axes[0]) / lengths[0], get_dot(origin, box->axes[1]) / lengths[1],
@@ -1355,7 +1356,7 @@ void add_contacts(const Painter& p)
             u0 = get_component(o.min, u), u1 = get_component(o.max, u);
         if (v1 < v0)
             v0 = get_component(o.min, v), v1 = get_component(o.max, v);
-        V3 corner[4];
+        std::array<V3, 4> corner{};
         const float us[4] = {u0, u1, u1, u0}, vs[4] = {v0, v0, v1, v1};
         for (int k = 0; k < 4; ++k) {
             component_ref(corner[k], c.axis) = c.at;
@@ -1382,11 +1383,11 @@ void add_edges(const Painter& p)
         for (size_t i = 1; i < runs[r].points.size(); ++i)
             p.get_seg(runs[r].points[i - 1], runs[r].points[i], lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
         if (lit) {
-            char text[48];
-            std::snprintf(text, sizeof(text), "rail here: %.0f long", runs[r].length);
+            std::array<char, 48> text{};
+            std::snprintf(text.data(), sizeof(text), "rail here: %.0f long", runs[r].length);
             float px = 0.0f, py = 0.0f;
             if (p.get_pixel(runs[r].points.front(), &px, &py))
-                p.draw_label(px + 8.0f, py - 20.0f, 0xFFFFE040, text);
+                p.draw_label(px + 8.0f, py - 20.0f, 0xFFFFE040, text.data());
         }
     }
 }
@@ -1420,10 +1421,10 @@ bool place_click(bool more)
             if (!object)
                 continue;
             for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
-                V3 rows[3];
+                std::array<V3, 3> rows{};
                 for (int i = 0; i < 3; ++i)
                     rows[i] = {m->row[i].x, m->row[i].y, m->row[i].z};
-                if (!snap::align_rows(rows, normal))
+                if (!snap::align_rows(rows.data(), normal))
                     continue;
                 for (int i = 0; i < 3; ++i) {
                     m->row[i].x = rows[i].x;

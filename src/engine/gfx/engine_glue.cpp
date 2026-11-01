@@ -37,6 +37,7 @@
 #include "engine/gfx/pc_particles.h"
 #include "engine/objects/particle_component.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -52,7 +53,7 @@ uint32_t g_fog_colour;
 uint32_t g_screen_blur_frames;
 uint32_t g_screen_blur;
 bool g_screen_shot_name_exact;
-char g_pending_screen_shot[128]; // the screenshot asked for by name
+std::array<char, 128> g_pending_screen_shot; // the screenshot asked for by name
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
@@ -65,7 +66,7 @@ bool omit_from_draw() { return g_suppress_draw; }
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
-char* pending_screen_shot() { return g_pending_screen_shot; }
+char* pending_screen_shot() { return g_pending_screen_shot.data(); }
 bool& screen_shot_name_exact() { return g_screen_shot_name_exact; }
 
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
@@ -136,17 +137,17 @@ void get_gamma(float* red, float* green, float* blue) { get_device_gamma(red, gr
 void screen_shot(const char* name, int /*unused*/)
 {
     // (the original sprintfs into these 32 bytes; ours truncates a longer name)
-    char file[32];
+    std::array<char, 32> file{};
     if (screen_shot_name_exact()) {
-        std::snprintf(file, sizeof(file), "%s.jpg", name);
+        std::snprintf(file.data(), sizeof(file), "%s.jpg", name);
     } else {
         // the first numbered name with no file yet
         int number = 0;
-        std::snprintf(file, sizeof(file), "%s%03d.jpg", name, number);
-        while (FILE* existing = _fsopen(file, "rb", _SH_DENYNO)) { // (fopen)
+        std::snprintf(file.data(), sizeof(file), "%s%03d.jpg", name, number);
+        while (FILE* existing = _fsopen(file.data(), "rb", _SH_DENYNO)) { // (fopen)
             std::fclose(existing);
             ++number;
-            std::snprintf(file, sizeof(file), "%s%03d.jpg", name, number);
+            std::snprintf(file.data(), sizeof(file), "%s%03d.jpg", name, number);
         }
     }
     D3DDISPLAYMODE mode;
@@ -155,7 +156,7 @@ void screen_shot(const char* name, int /*unused*/)
     input_port()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
                                               nullptr);
     input_port()->GetFrontBufferData(0, surface);
-    save_surface_to_file(file, surface);
+    save_surface_to_file(file.data(), surface);
     surface->Release();
 }
 
@@ -260,11 +261,11 @@ void add_texture_shadow_caster(const uint8_t* texture, void* model, uint32_t /*u
 void aim_texture_shadow_caster(const uint8_t* texture, gfx::ViewCam* camera)
 {
     const maths::Vec4& pos = *camera->fetch_location();
-    float position[3] = {pos.x, pos.y, pos.z};
+    std::array<float, 3> position = {{pos.x, pos.y, pos.z}};
     const maths::Mat4& m = *camera->fetch_mat();
     // the point it looks at: the position plus the matrix's third row
-    float target[3] = {m.row[2].x + position[0], m.row[2].y + position[1], m.row[2].z + position[2]};
-    aim_shadow_caster(cell::of(caster_key(texture)), position, target);
+    std::array<float, 3> target = {{m.row[2].x + position[0], m.row[2].y + position[1], m.row[2].z + position[2]}};
+    aim_shadow_caster(cell::of(caster_key(texture)), position.data(), target.data());
 }
 
 // 0x004B2D10

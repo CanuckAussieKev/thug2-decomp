@@ -10,6 +10,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -65,7 +66,7 @@ public:
         maths::Vec4 pos{};             // +0x18 the contact point (world)
         maths::Vec4 vel{};             // +0x28 the body's velocity there
         float load{};                  // +0x38 the suspension's force, averaged over the last ten steps
-        float load_history_[10]{};     // +0x3C
+        std::array<float, 10> load_history_{};     // +0x3C
         maths::Vec4 normal{};          // +0x64 the ground's normal under it
         float friction{};              // +0x74 the tyre's friction coefficient this step (0x00435250)
         maths::Vec4 feeler_start_{};   // +0x78 the suspension's line (world): top
@@ -102,11 +103,11 @@ public:
     // unit vectors and their lengths.
     struct Collider {
         maths::Vec4 corner;          // +0x00 (body)
-        maths::Vec4 edges[2];        // +0x10
+        std::array<maths::Vec4, 2> edges;        // +0x10
         maths::Vec4 world_corner_;   // +0x30
-        maths::Vec4 world_edges_[2]; // +0x40
-        maths::Vec4 directions[2];   // +0x60 the world edges, unit
-        float lengths[2];            // +0x80
+        std::array<maths::Vec4, 2> world_edges_; // +0x40
+        std::array<maths::Vec4, 2> directions;   // +0x60 the world edges, unit
+        std::array<float, 2> lengths;            // +0x80
     };
 
     // A contact point of the colliders with the world this step (0x2C bytes; in the array at 0x006951C8).
@@ -116,7 +117,7 @@ public:
         float depth;        // +0x20 how far in
         float impulse;      // +0x24 the impulses at it this step (summed)
         bool from_feeler_;  // +0x28 (set on the record after a feeler's - as the original)
-        uint8_t pad29[3];
+        std::array<uint8_t, 3> pad29;
     };
     // The contacts (one array for every vehicle; contact_count_ of them this step).
     static Contact* get_contacts();
@@ -330,7 +331,7 @@ public:
     float step_length_{};         // +0x144 the sub-step's length (seconds)
     maths::Vec4 balance_point_{}; // +0x148 (body; y from 0x93346B8C)
     float inv_mass_{};            // +0x158 386.4 / mass
-    float inv_moments_[3]{};      // +0x15C 386.4 / moment_of_inertia
+    std::array<float, 3> inv_moments_{};      // +0x15C 386.4 / moment_of_inertia
     uint32_t unknown168_{};
     float restitution_{};                  // +0x16C body_restitution (0x79C3B862)
     float drag_factor_{};                  // +0x170 body_friction (0xF476273C)
@@ -349,7 +350,7 @@ public:
     float track_{};                        // +0x1A0 (Finalize: the model's left to right wheels)
     float yaw_damping_{};                  // +0x1A4 (0x386837DB) the turning damped when not steering
     float spin_damping_{};                 // +0x1A8 (0x469CF79A) the angular momentum damped
-    Collider colliders_[2]{};              // +0x1AC colliders (0xFC8C4AC6)
+    std::array<Collider, 2> colliders_{};              // +0x1AC colliders (0xFC8C4AC6)
     maths::Vec4 skater_bone_{};            // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
     bool can_dismount_{};                  // +0x2CC Exitable
     bool handbrake_disabled_{};            // +0x2CD no_handbrake
@@ -357,7 +358,7 @@ public:
     float engine_torque_{};                // +0x2D4 drive_torque (engine; * 12)
     float engine_braking_{};               // +0x2D8 (0xB2268648, * 12) engine braking without throttle
     int gear_count_{};                     // +0x2DC gear_ratios
-    float transmission_ratios_[kMaxGears]{}; // +0x2E0
+    std::array<float, kMaxGears> transmission_ratios_{}; // +0x2E0
     float reverse_ratio_{};                  // +0x2F8 reverse_torque_ratio
     float final_drive_ratio_{};              // +0x2FC differential_ratio
     float upshift_speed_{};                  // +0x300 upshift_rpm (rpm -> radians a second)

@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -43,7 +44,7 @@ namespace objects {
 namespace {
 float g_particle_update_time{1.0f};
 } // namespace
-uint32_t g_flexible_particle_member_functions[156]{
+std::array<uint32_t, 156> g_flexible_particle_member_functions{{
     0x63274395, 0xC5BCEB9E, 0, 0, 0, 0, 0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0, 0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
     0xDB8621F7, 0xC5BCEB9E, 0, 0, 0, 0, 0xE985A9A6, 0xC5BCEB9E, 0, 0, 0, 0, 0xE3309AB5, 0xC5BCEB9E, 0, 0, 0, 0,
     0xFBB6720D, 0xC5BCEB9E, 0, 0, 0, 0, 0xA075EE45, 0xC5BCEB9E, 0, 0, 0, 0, 0x2A479569, 0xC5BCEB9E, 0, 0, 0, 0,
@@ -52,7 +53,7 @@ uint32_t g_flexible_particle_member_functions[156]{
     0x35B65BD4, 0xC5BCEB9E, 0, 0, 0, 0, 0x099CD17B, 0xC5BCEB9E, 0, 0, 0, 0, 0x4893F05D, 0xC5BCEB9E, 0, 0, 0, 0,
     0x482482C6, 0xC5BCEB9E, 0, 0, 0, 0, 0x7F97BAD3, 0xC5BCEB9E, 0, 0, 0, 0, 0xE99D53A8, 0xC5BCEB9E, 0, 0, 0, 0,
     0xED0FE310, 0xC5BCEB9E, 0, 0, 0, 0, 0x2A1F307B, 0xC5BCEB9E, 0, 0, 0, 0, 0xABF5F9E1, 0xC5BCEB9E, 0, 0, 0, 0,
-    0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0, 0,          0xC5BCEB9E, 0, 0, 0, 0};
+    0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0, 0,          0xC5BCEB9E, 0, 0, 0, 0}};
 
 namespace {
 
@@ -166,7 +167,7 @@ gsl::owner<ObjectModule*> FlexibleParticleComponent::fabricate() { return new Fl
 void FlexibleParticleComponent::publish_method_table()
 {
     script::register_member_function_table(cell::pointer<void>(FlexibleParticleComponent::kType),
-                                           g_flexible_particle_member_functions, 0x18);
+                                           g_flexible_particle_member_functions.data(), 0x18);
 }
 
 // 0x0041DA00

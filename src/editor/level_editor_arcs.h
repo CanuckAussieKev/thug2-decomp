@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 
@@ -71,7 +72,7 @@ struct Physics {
     float air_gravity_ = -1350.0f;               // (Physics_Air_Gravity / Physics_Air_hang_Stat)
     float vert_gravity_ = -1227.3f;              // (/ Physics_Vert_hang_Stat)
     float jump = 432.0f;                         // (Physics_Jump_Speed_Stat at the ollie stat)
-    float speeds[3] = {603.5f, 828.5f, 1028.5f}; // push, top, max
+    std::array<float, 3> speeds = {{603.5f, 828.5f, 1028.5f}}; // push, top, max
     float speed_stat_ = 5.0f, ollie_stat_ = 5.0f;
     std::string source = "the defaults (no level)";
 };

@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -36,7 +37,7 @@ struct EmitterNode {
 
     uint32_t label_{};       // +0x00
     maths::Vec4 at_point_{}; // +0x04
-    uint8_t unknown14_[0x10]{};
+    std::array<uint8_t, 0x10> unknown14_{};
     bool active_{};    // +0x24
     int form_{};       // +0x28 EmitterShape
     float radius_{};   // +0x2C
@@ -71,7 +72,7 @@ public:
     // segment has no length.
     void fetch_place(maths::Vec4* position, maths::Mat4* matrix);
 
-    maths::Vec4 path_vertices_[64]{}; // +0x000: a ring, newest at head_
+    std::array<maths::Vec4, 64> path_vertices_{}; // +0x000: a ring, newest at head_
     int num_{};                       // +0x400
     int head_{};                      // +0x404
     uint32_t entity_key_{};           // +0x408

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -394,12 +395,12 @@ bool cfunc_text_element_backspace(script::Struct* params, script::Script*)
 // 0x004AD8D0 (the result is always false)
 bool cfunc_get_text_element_string(script::Struct* params, script::Script* script)
 {
-    char text[0x200];
+    std::array<char, 0x200> text{};
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     if (element->kind_tag_ == kTextBlockElement) {
-        if (text_block_string(element.owner_object_, text, sizeof(text)))
-            script->args_->append_word(kString, text);
+        if (text_block_string(element.owner_object_, text.data(), sizeof(text)))
+            script->args_->append_word(kString, text.data());
     } else if (element->kind_tag_ == kTextElement) {
         if (const char* string = core::down_cast<LabelWidget>(element.owner_object_)->chars_)
             script->args_->append_word(kString, string);
@@ -469,11 +470,11 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     // (the word buffer right before the line's, as on the original's stack: an empty line's "last character" is
     // the word buffer's last)
     struct {
-        char word[0x60];
-        char line[0x1F4];
+        std::array<char, 0x60> word;
+        std::array<char, 0x1F4> line;
     } buffers{};
-    char* word = buffers.word;
-    char* line = buffers.line;
+    char* word = buffers.word.data();
+    char* line = buffers.line.data();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
     UiTree* manager = hub();

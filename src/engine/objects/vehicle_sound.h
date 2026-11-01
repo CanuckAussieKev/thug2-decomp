@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Struct;
@@ -79,14 +80,14 @@ public:
 
     script::Struct* settings_{nullptr}; // +0x18
     bool park_editor_level_{false};     // +0x1C
-    uint8_t pad1d_[3]{};
+    std::array<uint8_t, 3> pad1d_{};
     uint32_t engine_sound_{0};        // +0x20 the playing engine sound's id (0: none)
     uint32_t skid_sound_{0};          // +0x24 the playing tyre sound's id
     script::Struct* collide_sound_{}; // +0x28 CollideSound
     uint32_t engine_sound_name_{};    // +0x2C EngineSound
     uint32_t skid_sound_name_{};      // +0x30 TireSound
     int gear_count_{};                // +0x34
-    Gear gear_steps_[kMaxGears]{};    // +0x38
+    std::array<Gear, kMaxGears> gear_steps_{};    // +0x38
     float speed_{0.0f};               // +0x98 the smoothed speed (mph)
     int gear_{0};                     // +0x9C
     float rpm_{};                   // +0xA0

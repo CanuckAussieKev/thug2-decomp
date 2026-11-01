@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
@@ -70,7 +71,7 @@ struct Painter {
     V3 camera;
     TickCycle frame;
     Lens lens;
-    uint32_t viewport[4];
+    std::array<uint32_t, 4> viewport;
     float near_z_;
     ui::Overlay* overlay;
     // False when it is wholly behind the near plane.

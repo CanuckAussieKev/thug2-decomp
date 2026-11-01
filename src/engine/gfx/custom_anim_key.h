@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "formats/byte_stream.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Struct;
@@ -46,7 +47,7 @@ public:
 
     int tick_{};   // +0x04
     bool armed_{}; // +0x08: fires once (process_if_active disarms it; the camera key's work_on arms it again)
-    uint8_t pad9[3]{};
+    std::array<uint8_t, 3> pad9{};
 
 protected:
     // The animation events' constructor (0x00481A20): the original leaves the frame and the flag as they were (zero
@@ -120,7 +121,7 @@ public:
     maths::QuatRotation orientation_turn_{}; // +0x0C
     maths::Vec4 at_point_{};                 // +0x1C (w 1)
     bool cut_;                             // +0x2C
-    uint8_t pad2d_[3]{};
+    std::array<uint8_t, 3> pad2d_{};
 };
 static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x30, "the original's layout");
 

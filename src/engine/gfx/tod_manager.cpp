@@ -8,6 +8,7 @@
 #include <cstring>
 #include <new>
 #include <utility>
+#include <array>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene.h"
@@ -190,11 +191,11 @@ void set_light_direction_vector(int index, const float* direction)
 struct SunParams {
     float theta;
     float phi;
-    uint32_t unknown08[4];
-    float color[4];
-    uint32_t unknown28[6];
+    std::array<uint32_t, 4> unknown08;
+    std::array<float, 4> color;
+    std::array<uint32_t, 6> unknown28;
     bool shown;
-    uint8_t pad41[0xF];
+    std::array<uint8_t, 0xF> pad41;
 };
 static_assert(offsetof(SunParams, color) == 0x18 && offsetof(SunParams, shown) == 0x40, "0x004426D0's layout");
 constexpr int kSunAngles = 0x01 | 0x02, kSunColor = 0x10, kSunShown = 0x80;
@@ -254,7 +255,7 @@ void set_model_color(objects::ObjectModule* model, uint32_t color)
 TodSystem& system_at(CtodManager* manager, int index)
 {
     // (no bounds check: index 2 is past the end, as in the original)
-    return *raw::field_at<TodSystem>(manager->systems_, index * sizeof(TodSystem));
+    return *raw::field_at<TodSystem>(manager->systems_.data(), index * sizeof(TodSystem));
 }
 
 BloomParams bloom_of(const TodParams& params)
@@ -712,7 +713,7 @@ void set_light_direction(int index, float heading, float pitch)
     const double p = static_cast<double>(pitch) * degree_to_radian_conv();
     const double sin_pitch = std::sin(p);
     const double cos_pitch = std::cos(p);
-    float direction[4];
+    std::array<float, 4> direction{};
     direction[3] = 0.0f;
     direction[1] = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
     const double horizontal = cos_pitch + sin_pitch * get_zero();
@@ -722,7 +723,7 @@ void set_light_direction(int index, float heading, float pitch)
     auto cos_heading_float = static_cast<float>(std::cos(h));
     direction[2] = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
     direction[0] = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
-    set_light_direction_vector(index, direction);
+    set_light_direction_vector(index, direction.data());
 }
 
 // 0x00572A10
@@ -750,8 +751,8 @@ void CtodManager::apply_tod_params(TodParams params)
         const double scaled = static_cast<double>(value) * one_over255();
         return static_cast<float>(scaled + scaled);
     };
-    float color[4] = {channel(params.lev_red_), channel(params.lev_green_), channel(params.lev_blue_), 1.0f};
-    set_level_color(color);
+    std::array<float, 4> color = {{channel(params.lev_red_), channel(params.lev_green_), channel(params.lev_blue_), 1.0f}};
+    set_level_color(color.data());
 }
 
 // 0x00572BD0

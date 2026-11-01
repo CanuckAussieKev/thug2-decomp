@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/render/probe_ray.h"
@@ -216,9 +217,9 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     const int height = request->height;
     bool in_park = false;
     if (height > 0) {
-        char name[128];
-        std::snprintf(name, sizeof(name), "riser_above%d", request->index);
-        top = checksums::hash_from_text(name);
+        std::array<char, 128> name{};
+        std::snprintf(name.data(), sizeof(name), "riser_above%d", request->index);
+        top = checksums::hash_from_text(name.data());
         request->y = 0;
         in_park = lowest >= 0;
         if (!in_park)

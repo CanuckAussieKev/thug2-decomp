@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checksums.h"
@@ -122,9 +123,9 @@ uint32_t g_active_scene_key;
 
 uint32_t sector_key_from_spec(const Spec& spec)
 {
-    char text[96];
-    std::snprintf(text, sizeof(text), "%s_%08X", spec.name.c_str(), spec.material);
-    return checksums::hash_from_text(text);
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), "%s_%08X", spec.name.c_str(), spec.material);
+    return checksums::hash_from_text(text.data());
 }
 
 // A new level (another scene): what the editor knew of the last one forgotten (its sectors are gone).
@@ -274,8 +275,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         std::memcpy(vertices + 3 * v, &mesh.vertices[v].pos, 12);
     for (uint32_t f = 0; f < faces; ++f) {
         const Face& face = mesh.faces[f];
-        uint16_t words[5] = {face.flags, spec.terrain, face.a, face.b, face.c};
-        std::memcpy(face_data + 10 * f, words, 10);
+        std::array<uint16_t, 5> words = {{face.flags, spec.terrain, face.a, face.b, face.c}};
+        std::memcpy(face_data + 10 * f, words.data(), 10);
         leaf_faces[f] = static_cast<uint16_t>(f);
     }
     if (bytes)
@@ -483,7 +484,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     layout_for(vertex_format(mesh), mesh->stride, &layout);
     const uint8_t* data = mesh->vertex_buffers_[0]->data;
     if (layout.diffuse >= 0 && mesh->vertex_count_) {
-        double sum[4] = {};
+        std::array<double, 4> sum = {};
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v) {
             uint32_t c = 0;
             std::memcpy(&c, data + v * mesh->stride + layout.diffuse, 4);
@@ -565,7 +566,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                     tri->face_flags(f);
                 if (flags & 0x10)
                     continue;
-                V3 c[3];
+                std::array<V3, 3> c{};
                 bool ok = true;
                 for (int k = 0; k < 3 && ok; ++k) {
                     const uint32_t index = tri->face_vertex(f, k);
@@ -575,7 +576,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                         c[k] = {p.x, p.y, p.z};
                     }
                 }
-                ground = ok && ground_face_under(c, s, 30.0f);
+                ground = ok && ground_face_under(c.data(), s, 30.0f);
             }
             if (!ground)
                 return;
@@ -585,14 +586,14 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                 w->tiles.push_back(checksum);
                 return;
             }
-            char text[320];
+            std::array<char, 320> text{};
             std::snprintf(
-                text, sizeof(text),
+                text.data(), sizeof(text),
                 "the floor here is %s%s, %.0f x %.0f - bigger than the rectangle. THUG2's floors can't be cut: "
                 "make the rectangle cover that whole piece, or raise around it instead",
                 object_edit::caption(checksum).c_str(), geom_of(sector) ? "" : " (collision only)", hi.x - lo.x,
                 hi.z - lo.z);
-            w->refused = text;
+            w->refused = text.data();
         },
         &walk);
     if (!walk.refused.empty()) {

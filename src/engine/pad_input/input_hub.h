@@ -6,6 +6,7 @@
 
 #include "engine/core/task_list.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace sio {
 class InputPort;
@@ -20,8 +21,8 @@ namespace pad_input {
 // One frame of a recording (0x20 bytes).
 struct PadFrameRecord {
     uint8_t is_usable_;
-    uint8_t incident_[25]; // Payload::incident_
-    uint8_t pad1a_[2];
+    std::array<uint8_t, 25> incident_; // Payload::incident_
+    std::array<uint8_t, 2> pad1a_;
     uint32_t buttons_;
 };
 static_assert(sizeof(PadFrameRecord) == 0x20 && offsetof(PadFrameRecord, buttons_) == 0x1C);
@@ -49,8 +50,8 @@ struct Payload {
     static constexpr uint32_t kPressEdge = 0x4000;
     static constexpr uint32_t kButtonLeft = 0x8000;
 
-    uint8_t incident_[kQueueCapacity];
-    uint8_t pad19[3];
+    std::array<uint8_t, kQueueCapacity> incident_;
+    std::array<uint8_t, 3> pad19;
     uint32_t buttons_;  // +0x1C: down
     uint32_t makes_;    // +0x20: pressed this frame
     uint32_t breaks_;   // +0x24: released this frame
@@ -109,7 +110,7 @@ static_assert(sizeof(Responder<void>) == 0x2C, "the original's size");
 struct HostEnd {
     sio::InputPort* dev_{};
     tasks::PileUp handlers_;        // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
-    uint8_t pad38_[0x08]{};         // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
+    std::array<uint8_t, 0x08> pad38_{};         // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
     Payload content_{};             // +0x40
     PadFrameRecord* data_in_{nullptr};       // +0x74: the recording played back (null: none)
     PadFrameRecord* in_buf_limit_{nullptr};  // +0x78
@@ -131,11 +132,11 @@ struct Hub {
     static constexpr int kNumServers = 2;
 
     std::unique_ptr<tasks::Task<Hub>> task_; // priority 2000, running the servers (service_task)
-    HostEnd hosts_[kNumServers];             // +0x04
+    std::array<HostEnd, kNumServers> hosts_;             // +0x04
     bool stick_replaces_pad_;                // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;
-    uint8_t pad10e_[2]{};
-    int unknown110_[2]{}; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
+    std::array<uint8_t, 2> pad10e_{};
+    std::array<int, 2> unknown110_{}; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
 
     // 0x0044E700: the servers, the task, each server's device (by index), the stick working the d-pad on.
     Hub();

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 // A scene material (Nx engine, PC; 0x110 bytes, constructor 0x004D1A90): up to four passes, each with flags, a
 // texture, a colour, a blend mode, addressing, a mip bias and an optional UV wibble; colour and texture animations;
@@ -13,12 +14,12 @@ namespace render {
 // frequencies, amplitudes and phases (u, v each), an explicit UV matrix's 2x2 part (+0x20; only two values are
 // set) and its offsets (+0x28).
 struct UvOscillator {
-    float velocity[2]{};
-    float frequency[2]{};
-    float amplitude[2]{};
-    float phase[2]{};
-    float matrix[2]{};
-    float offset[2]{};
+    std::array<float, 2> velocity{};
+    std::array<float, 2> frequency{};
+    std::array<float, 2> amplitude{};
+    std::array<float, 2> phase{};
+    std::array<float, 2> matrix{};
+    std::array<float, 2> offset{};
 
     // 0x004D1A60: construct - all 0 but the matrix's first value, 1.
     UvOscillator();
@@ -33,10 +34,10 @@ struct TextureKey {
 };
 struct TextureAnim {
     uint32_t start_time_;    // (set by Restart; the animation doesn't read it)
-    uint32_t key_counts_[4]; // +0x04
-    uint32_t phases[4];      // +0x14
-    int loops[4];            // +0x24
-    TextureKey* keys[4];     // +0x34
+    std::array<uint32_t, 4> key_counts_; // +0x04
+    std::array<uint32_t, 4> phases;      // +0x14
+    std::array<int, 4> loops;            // +0x24
+    std::array<TextureKey*, 4> keys;     // +0x34
 
     // 0x004D1A80: started again (the time now, frame_clock::GetTime).
     void relaunch();
@@ -46,7 +47,7 @@ static_assert(sizeof(TextureAnim) == 0x44, "layout must match the original");
 // A colour animation (12 bytes): keys of a time (in frames, 0x00786D00) and an RGBA colour, blended between.
 struct ColorKey {
     int time;
-    uint8_t rgba[4];
+    std::array<uint8_t, 4> rgba;
 };
 struct ColorAnim {
     uint32_t key_count_;
@@ -64,28 +65,27 @@ struct MaterialRef {
     bool has_texture_anim_{false}; // +0x0F
     uint8_t alpha_ref_{};   // +0x10 (0: no alpha test)
     uint8_t depth_bias_{0}; // +0x11 (up to 16)
-    uint8_t unknown12[2]{};
+    std::array<uint8_t, 2> unknown12{};
     uint32_t unknown14{};
     uint32_t unknown18{0};
     float sort_key_{}; // +0x1C
-    uint32_t
-        pass_flags_[4]{};   // +0x20: 1 UV wibble, 2 (pass 0) colour animations, 8 environment mapped, 0x80 (byte) the
+    std::array<uint32_t, 4> pass_flags_{};   // +0x20: 1 UV wibble, 2 (pass 0) colour animations, 8 environment mapped, 0x80 (byte) the
                             // colour isn't to be changed, 0x100 (pass 0) specular, 0x200 a border colour, 0x400 bump
                             // environment, 0x800 texture animation, 0x1000 alpha from the texture alone, 0x4000
                             // explicit UV wibble (not animated)
-    uint8_t* textures[4]{}; // +0x30 (+0x10 the Direct3D texture)
-    float pass_color_[4][4]{};        // +0x40: r, g, b (0.5: unchanged) and a fourth value
-    uint32_t blend_modes_[4]{};       // +0x80 (choose_blend_mode's)
-    uint32_t address_modes_[4]{};     // +0x90 (kAddressMode0's)
-    float reflection_tiling_[4][2]{}; // +0xA0 (3, 3 when constructed)
-    uint32_t unknownc0_[4]{};         // +0xC0 (0x10001 when constructed)
-    UvOscillator* uv_wibble_[4]{};    // +0xD0
-    uint32_t mip_lod_bias_[4]{};      // +0xE0 (kMipLodBias0's: float bits)
+    std::array<uint8_t*, 4> textures{}; // +0x30 (+0x10 the Direct3D texture)
+    std::array<std::array<float, 4>, 4> pass_color_{};        // +0x40: r, g, b (0.5: unchanged) and a fourth value
+    std::array<uint32_t, 4> blend_modes_{};       // +0x80 (choose_blend_mode's)
+    std::array<uint32_t, 4> address_modes_{};     // +0x90 (kAddressMode0's)
+    std::array<std::array<float, 2>, 4> reflection_tiling_{}; // +0xA0 (3, 3 when constructed)
+    std::array<uint32_t, 4> unknownc0_{};         // +0xC0 (0x10001 when constructed)
+    std::array<UvOscillator*, 4> uv_wibble_{};    // +0xD0
+    std::array<uint32_t, 4> mip_lod_bias_{};      // +0xE0 (kMipLodBias0's: float bits)
     uint32_t color_anim_count_{0};    // +0xF0
     ColorAnim* color_anims_{nullptr}; // +0xF4
     uint32_t* anim_colors_{nullptr};  // +0xF8: each animation's colour now
     TextureAnim* texture_anim_{nullptr}; // +0xFC
-    float specular[3]{};            // +0x100
+    std::array<float, 3> specular{};            // +0x100
     float specular_power_{};        // +0x10C
 
     // 0x004D1A90: construct - no passes, animations or wibbles; the per-pass defaults.

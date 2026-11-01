@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 namespace script {
 class Struct;
@@ -57,5 +58,5 @@ bool cfunc_unload_sfp_texture(script::Struct* params, script::Script* script);  
 bool cfunc_set_park_name(script::Struct* params, script::Script* script);
 
 extern bool g_texture_flag_ce441;
-extern char g_park_name[128];
+extern std::array<char, 128> g_park_name;
 } // namespace commands

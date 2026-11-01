@@ -97,7 +97,7 @@ void DrivableModule::update_wheel_friction()
         // The tyre's sideways direction: the body's right turned by the steering, along the ground, unit.
         const double c = std::cos(static_cast<double>(wheel.steering));
         const float s = std::sin(wheel.steering);
-        const maths::Vec4* rows = basis_frame_.row;
+        const maths::Vec4* rows = basis_frame_.row.data();
         maths::Vec4 sideways;
         sideways.x = static_cast<float>((c * rows[2].x + static_cast<double>(s) * rows[0].x) + rows[1].x * 0.0);
         sideways.y = static_cast<float>((static_cast<double>(s) * rows[0].y + c * rows[2].y) + rows[1].y * 0.0);
@@ -511,7 +511,7 @@ void DrivableModule::update_dependents()
     com_offset_ = basis_frame_.rotate_vector(turned, balance_point_);
     update_inertia();
     step_vehicle_speeds();
-    const maths::Vec4* r = basis_frame_.row;
+    const maths::Vec4* r = basis_frame_.row.data();
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = wheels_[i];
         // The suspension's top: the wheel's place turned and moved (x summed unrounded).
@@ -603,15 +603,15 @@ void DrivableModule::update_wheel_contacts()
         feeler.set_excluded(0x10, 0);
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
-                trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
+                trigger_feeler(trigger_ptr_, kWheelLandsEvents.data(), &feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return; // (the feeler's destructor lets go of its object)
             } else if (feeler.hit_.object != wheel.feeler.hit_.object) {
                 // Onto another collision object: off the old, onto the new.
-                trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
+                trigger_feeler(trigger_ptr_, kWheelLeavesEvents.data(), &wheel.feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
-                trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
+                trigger_feeler(trigger_ptr_, kWheelLandsEvents.data(), &feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
             }
@@ -625,7 +625,7 @@ void DrivableModule::update_wheel_contacts()
             feeler.line_.end = feeler.contact_pos_;
         } else {
             if (wheel.state != kWheelInAir) {
-                trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
+                trigger_feeler(trigger_ptr_, kWheelLeavesEvents.data(), &wheel.feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
             }
@@ -636,14 +636,14 @@ void DrivableModule::update_wheel_contacts()
         if (park_editing::g_park_editor->cur_phase_ != kParkEditorOff) {
             feeler.set_excluded(0, 0x50);
             if (feeler.get_hit_shape(false, false)) {
-                trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
+                trigger_feeler(trigger_ptr_, kCrossingEvents.data(), &feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
             }
         }
     }
     // The contact points (relative to the body's position, turned) and the body's velocity there.
-    const maths::Vec4* r = basis_frame_.row;
+    const maths::Vec4* r = basis_frame_.row.data();
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = wheels_[i];
         maths::Vec4& p = wheel.pos;

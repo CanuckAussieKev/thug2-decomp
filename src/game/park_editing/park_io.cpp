@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -75,7 +76,7 @@ void ParkLayout::set_up_abstract_metas()
             piece_source(builder_, single); // (loads the piece)
     }
 
-    uint32_t piece_names[1000]; // every piece a metapiece uses
+    std::array<uint32_t, 1000> piece_names{}; // every piece a metapiece uses
     uint32_t num_piece_names = 0;
     for (uint32_t n = 0; n < all->extent_; ++n) {
         auto* desc = all->struct_at(n);
@@ -254,7 +255,7 @@ void ParkLayout::write_compressed_map()
     map.l_ = build_area_.l;
     map.style_set_ = editor_value78();
     map.max_players_ = generator_max_players(builder_);
-    text::copy_unbounded(map.label_, park_name_);
+    text::copy_unbounded(map.label_.data(), park_name_.data());
     for (int x = 0; x < kFloorSize; ++x)
         for (int z = 0; z < kFloorSize; ++z)
             map.floor_heights_[x * kFloorSize + z] = static_cast<int8_t>(floor_[x][z].level_y_);
@@ -287,7 +288,7 @@ void ParkLayout::write_compressed_map()
     }
     map.composite_count_ = static_cast<uint16_t>(num_metas);
 
-    GapDetails* gaps[32];
+    std::array<GapDetails*, 32> gaps{};
     int num_gaps = 0;
     for (int i = 0; i < 32; ++i) {
         int half = 0;
@@ -308,7 +309,7 @@ void ParkLayout::write_compressed_map()
             record.ends[end].reach_right = static_cast<uint8_t>(gap->reach_right_[end]);
         }
         // (the name cut to its 32 bytes: the original's copy ran on into the points, written after it)
-        std::memcpy(record.text, gap->text_, sizeof(gap->text_));
+        std::memcpy(record.text.data(), gap->text_.data(), sizeof(gap->text_));
         record.text[sizeof(gap->text_)] = '\0';
         record.points = static_cast<uint16_t>(gap->points_held_);
         record.cancel_flags = gap->cancel_flags_;
@@ -382,9 +383,9 @@ void ParkLayout::set_up_lights()
 
 void ParkLayout::update_percent_bar()
 {
-    uint8_t stats[0x6C];
+    std::array<uint8_t, 0x6C> stats{};
     // 0x0059E730: the park's memory use (fills the stats at 0x007CE618, returns them)
-    auto* use = raw::bytes(get_memory_stats(raw::as<MemoryStats>(stats)));
+    auto* use = raw::bytes(get_memory_stats(raw::as<MemoryStats>(stats.data())));
     float full = 0.0f;
     std::memcpy(&full, use + 0x2C, 4);
     float percent = full;
@@ -449,8 +450,8 @@ void ParkLayout::clear_compressed_map()
     map.l_ = build_area_.l;
     map.style_set_ = static_cast<void*>(g_park_editor) ? editor_value78() : 0;
     map.max_players_ = 2;
-    std::memcpy(map.label_, "Unnamed park", 13); // "Unnamed park"
-    std::memset(map.floor_heights_, 0, kFloorSize * kFloorSize);
+    std::memcpy(map.label_.data(), "Unnamed park", 13); // "Unnamed park"
+    std::memset(map.floor_heights_.data(), 0, kFloorSize * kFloorSize);
     map.composite_count_ = 0;
     const uint32_t used = offsetof(CompressedMap, floor_heights_) + kFloorSize * kFloorSize;
     // (the checksum is taken before the size and the gap count are set, as in the original)
@@ -531,7 +532,7 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
 
 void ParkLayout::drop_gap_entry(GapDetails* gap)
 {
-    PieceGroup* halves[2]; // (unset for a half with nothing there, as in the original)
+    std::array<PieceGroup*, 2> halves{}; // (unset for a half with nothing there, as in the original)
     for (int half = 0; half < gap->halves_placed_; ++half) {
         const MapListHolder metas(get_intersecting_metas(gap->at_point_[half], 0, nullptr, true));
         if (metas.list->following_)

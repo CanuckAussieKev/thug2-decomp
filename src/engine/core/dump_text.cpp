@@ -3,6 +3,7 @@
 #include "engine/core/dump_text.h"
 
 #include <cstring>
+#include <array>
 
 #include "engine/file/file_load.h"
 #include "engine/core/pointer_cell.h"
@@ -13,12 +14,12 @@ namespace {
 
 // The buffer (0x007CE7B8, up to 0x007CEBA8), the write position (0x007CE7B0) and the file it's flushed to
 // (0x007CEBB8 - nothing in this build ever opens it, so it stays null).
-char g_dump_buffer[0x3F0];
+std::array<char, 0x3F0> g_dump_buffer;
 char* g_text_dump_cursor;
 file::Hdl g_dump_file;
 
-char* dump_buffer() { return g_dump_buffer; }
-char* dump_buffer_end() { return g_dump_buffer + sizeof(g_dump_buffer); }
+char* dump_buffer() { return g_dump_buffer.data(); }
+char* dump_buffer_end() { return g_dump_buffer.data() + sizeof(g_dump_buffer); }
 char*& dump_write_cursor() { return g_text_dump_cursor; }
 file::Hdl dump_file() { return g_dump_file; }
 

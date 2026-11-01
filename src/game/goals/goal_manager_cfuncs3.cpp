@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "game/goals/objective.h"
@@ -317,10 +318,10 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     online::GoalMessage message; // (wire/gamenet_messages.h)
     message.id = net->get_game_id();
     message.goal = goal->get_objective_key();
-    uint8_t bytes[online::kGoalMessageSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, online::kGoalMessageSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     online::write_goal_message(writer, message);
-    desc.content_ = bytes;
+    desc.content_ = bytes.data();
     desc.byte_count_ = sizeof(bytes);
     desc.ident_ = kMsgGoalStarted;
     core::down_cast<net::Guest>(client)->send_to_host(&desc);

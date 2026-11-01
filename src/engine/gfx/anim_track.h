@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <array>
 
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/custom_anim_key.h"
@@ -108,7 +109,7 @@ public:
 
     uint32_t unknown34_{};
     int cur_phase_{kPlaying};           // +0x38 State
-    AnimDriver* controller_list_[6]{};  // +0x3C (by priority, highest first)
+    std::array<AnimDriver*, 6> controller_list_{};  // +0x3C (by priority, highest first)
     int controller_count_{0};           // +0x54
     float fade_rate_{};                 // +0x58 (1/60 when played)
     float fade_left_{};                 // +0x5C
@@ -117,7 +118,7 @@ public:
     std::unique_ptr<TimedClipEvent[]> events_ptr_; // +0x68 (an array of event_count_)
     uint32_t event_count_{0};                      // +0x6C
     bool events_on_{true};                         // +0x70
-    uint8_t pad71_[3]{};
+    std::array<uint8_t, 3> pad71_{};
 };
 
 } // namespace gfx

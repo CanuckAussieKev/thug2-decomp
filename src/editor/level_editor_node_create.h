@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_nodes.h"
@@ -49,7 +50,7 @@ struct Prop {
     enum KindTag : uint8_t { kFlag, kName, kString, kInteger, kFloat, kVector, kNames, kIntegers } type;
     std::string key;
     std::string text;              // kFlag, kName, kString
-    float value[3] = {};           // kFloat (value[0]), kVector
+    std::array<float, 3> value = {};           // kFloat (value[0]), kVector
     int integer = 0;               // kInteger
     std::vector<std::string> list; // kNames
     std::vector<int> integers;     // kIntegers
@@ -61,7 +62,7 @@ struct Spec {
     std::string type; // MultiPlayer, CTF, Crown, Flag_Red, Flag_Red_Base... ("": none)
     V3 pos = {}, angles = {};
     std::vector<std::string> types;                      // a restart's restart_types
-    int colour[3] = {255, 255, 255};                     // a light's Color
+    std::array<int, 3> colour = {{255, 255, 255}};                     // a light's Color
     float brightness = 0.0f, inner = 0.0f, outer = 0.0f; // a light's
     float radius = 0.0f;                                 // a proximity node's / an emitter's sphere
     // A node another of the editor's modules makes in the overlay (level_editor_triggers.h: a trigger volume's

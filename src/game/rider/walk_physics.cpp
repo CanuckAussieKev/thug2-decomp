@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
@@ -46,14 +47,14 @@
 
 namespace objects {
 
-uint32_t g_walk_member_functions[114]{
+std::array<uint32_t, 114> g_walk_member_functions{{
     0x893213E5, 0x726E85AA, 0, 0, 0, 0, 0x5012082E, 0x726E85AA, 0, 0, 0, 0, 0x9A3CA853, 0x726E85AA, 0, 0, 0, 0,
     0x19702CA8, 0x726E85AA, 0, 0, 0, 0, 0x8FE2B013, 0x726E85AA, 0, 0, 0, 0, 0xCE64576C, 0x726E85AA, 0, 0, 0, 0,
     0x83E4BD70, 0x726E85AA, 0, 0, 0, 0, 0xAF04B983, 0x726E85AA, 0, 0, 0, 0, 0x56112C03, 0x726E85AA, 0, 0, 0, 0,
     0x9D3EEBE8, 0x726E85AA, 0, 0, 0, 0, 0xC6CD659E, 0x726E85AA, 0, 0, 0, 0, 0x55BF1CD6, 0x726E85AA, 0, 0, 0, 0,
     0xE9B1CDE8, 0x726E85AA, 0, 0, 0, 0, 0xAC7B36C8, 0x726E85AA, 0, 0, 0, 0, 0x7E01B923, 0x726E85AA, 0, 0, 0, 0,
     0x492EBA50, 0x726E85AA, 0, 0, 0, 0, 0xF8F754EF, 0x726E85AA, 0, 0, 0, 0, 0x8BC2C0EC, 0x726E85AA, 0, 0, 0, 0,
-    0,          0x726E85AA, 0, 0, 0, 0};
+    0,          0x726E85AA, 0, 0, 0, 0}};
 
 namespace {
 
@@ -86,7 +87,7 @@ constexpr float kMs = 0.001f;                       // 0x006461D8 (0.00100000004
 constexpr float kHalf = 0.5f;                       // 0x006453BC
 
 // The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
-const uint32_t kWalkStateNames[5]{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637};
+const std::array<uint32_t, 5> kWalkStateNames{{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637}};
 uint32_t get_state_name(int state) { return kWalkStateNames[state]; }
 
 // The skate module's career (0x007CE478's +0x20).
@@ -113,7 +114,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 // 0x00525E40
 void FootMovement::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kWalk), g_walk_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kWalk), g_walk_member_functions.data(), 0x18);
 }
 
 // 0x005288B0 (0x0052A290 the deleting one)

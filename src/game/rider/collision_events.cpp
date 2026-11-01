@@ -11,6 +11,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <utility>
+#include <array>
 
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_obj.h"
@@ -62,7 +63,7 @@ struct Sample {
     bool trick{};
     uint32_t balance{};
     uint16_t buttons{};
-    float stick[2]{};
+    std::array<float, 2> stick{};
     float pos[3]{}, vel[3]{}, facing[3]{}, ground_normal_[3]{};
     Face ground;
     Ray ground_ray_{};
@@ -76,9 +77,9 @@ struct PathRecord {
 };
 
 void* g_component = nullptr;
-Sample g_samples[kHistory];
+std::array<Sample, kHistory> g_samples;
 int g_sample_total = 0, g_next = 0; // (a ring: g_next the slot for the next sample)
-PathRecord g_paths[kPathRecords];
+std::array<PathRecord, kPathRecords> g_paths;
 int g_path_count = 0, g_path_next = 0;
 int g_events = 0;
 std::string& col_file_stamp()
@@ -97,18 +98,18 @@ constexpr int kMarks = 512;
 struct Mark {
     uint32_t frame;
     const char* label;
-    float vel[3];
+    std::array<float, 3> vel;
     Ray ray; // (the core's feeler's line there)
 };
-Mark g_marks[kMarks];
+std::array<Mark, kMarks> g_marks;
 int g_marker_total = 0, g_mark_next = 0;
 
 struct Spot {
-    float at[3];
+    std::array<float, 3> at;
     DWORD time;
     int repeats;
 };
-Spot g_spots[32];
+std::array<Spot, 32> g_spots;
 int g_spot_next = 0;
 
 void copy3(float* to, const maths::Vec4& from)
@@ -138,8 +139,8 @@ Face face_of(const render::ProbeRay& feeler)
     face.flags = feeler.hit_.face_flags_;
     face.terrain = feeler.hit_.terrain;
     face.coll_obj_ = feeler.hit_.object;
-    copy3(face.point, feeler.contact_pos_);
-    copy3(face.normal, feeler.surface_dir_);
+    copy3(face.point.data(), feeler.contact_pos_);
+    copy3(face.normal.data(), feeler.surface_dir_);
     return face;
 }
 
@@ -148,10 +149,10 @@ std::string get_name_of(uint32_t checksum)
     const char* name = script::kept_qb_name(checksum);
     if (!name)
         name = script::look_up_hash_name(checksum);
-    char text[16];
+    std::array<char, 16> text{};
     if (!name) {
-        std::snprintf(text, sizeof(text), "0x%08X", checksum);
-        return text;
+        std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+        return text.data();
     }
     std::string out = name;
     for (char& c : out)
@@ -183,11 +184,11 @@ std::string file_stamp(const std::string& path)
     SYSTEMTIME t;
     if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t))
         return {};
-    char text[64];
-    std::snprintf(text, sizeof(text), "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
+    std::array<char, 64> text{};
+    std::snprintf(text.data(), sizeof(text), "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
                   (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow, t.wYear, t.wMonth,
                   t.wDay, t.wHour, t.wMinute, t.wSecond);
-    return text;
+    return text.data();
 }
 
 // The level's collision / scene file: the data overlay's converted one, else the game's own packed one.
@@ -271,7 +272,7 @@ bool quiet_spot(const float* at, int* repeats)
     }
     Spot& spot = g_spots[g_spot_next];
     g_spot_next = (g_spot_next + 1) % static_cast<int>(sizeof(g_spots) / sizeof(g_spots[0]));
-    std::memcpy(spot.at, at, sizeof(spot.at));
+    std::memcpy(spot.at.data(), at, sizeof(spot.at));
     spot.time = now ? now : 1;
     spot.repeats = 0;
     *repeats = 0;
@@ -286,13 +287,13 @@ float span_to(const float* a, const float* b)
 // The distance from p to the segment a-b.
 float to_segment(const float* p, const float* a, const float* b)
 {
-    const float e[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
-    const float w[3] = {p[0] - a[0], p[1] - a[1], p[2] - a[2]};
+    const std::array<float, 3> e = {{b[0] - a[0], b[1] - a[1], b[2] - a[2]}};
+    const std::array<float, 3> w = {{p[0] - a[0], p[1] - a[1], p[2] - a[2]}};
     const float ee = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
     float t = ee > 0.0f ? (w[0] * e[0] + w[1] * e[1] + w[2] * e[2]) / ee : 0.0f;
     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
-    float q[3] = {a[0] + e[0] * t, a[1] + e[1] * t, a[2] + e[2] * t};
-    return span_to(p, q);
+    std::array<float, 3> q = {{a[0] + e[0] * t, a[1] + e[1] * t, a[2] + e[2] * t}};
+    return span_to(p, q.data());
 }
 
 // A static face's corners, its object's box and the edge nearest `spot` - open when no other face of its object has
@@ -305,19 +306,19 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
     const render::TriMeshSource* geometry = object->geometry_;
     if (!geometry || face.index < 0 || std::cmp_greater_equal(face.index, geometry->tri_count_))
         return;
-    uint32_t index[3];
-    maths::Vec4 raw[3];
+    std::array<uint32_t, 3> index{};
+    std::array<maths::Vec4, 3> raw{};
     for (int k = 0; k < 3; ++k) {
         index[k] = geometry->face_vertex(face.index, k);
         raw[k] = geometry->read_stored_vertex(static_cast<int>(index[k]));
         const maths::Vec4 world = object->read_vertex_point(static_cast<int>(index[k])); // (a vertex in the world)
-        copy3(detail->corners[k], world);
+        copy3(detail->corners[k].data(), world);
     }
     detail->geometry = true;
     copy3(detail->bounds_low_, geometry->lower_limit_);
     copy3(detail->bounds_high_, geometry->upper_limit_);
     for (int k = 0; k < 3; ++k) {
-        const float d = to_segment(spot, detail->corners[k], detail->corners[(k + 1) % 3]);
+        const float d = to_segment(spot, detail->corners[k].data(), detail->corners[(k + 1) % 3].data());
         if (detail->edge < 0 || d < detail->edge_distance_) {
             detail->edge = k;
             detail->edge_distance_ = d;
@@ -353,18 +354,18 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
     // away from the third corner? (A wall's edges aren't judged: open stays unknown.)
     if (face.normal[1] < 0.5f)
         return;
-    const float* pa = detail->corners[a];
-    const float* pb = detail->corners[b];
-    const float* pc = detail->corners[c];
-    const float e[3] = {pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]};
-    const float w[3] = {pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]};
+    const float* pa = detail->corners[a].data();
+    const float* pb = detail->corners[b].data();
+    const float* pc = detail->corners[c].data();
+    const std::array<float, 3> e = {{pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]}};
+    const std::array<float, 3> w = {{pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]}};
     const float ee = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
     const float t = ee > 0.0f ? (w[0] * e[0] + w[1] * e[1] + w[2] * e[2]) / ee : 0.0f;
-    const float out[3] = {-(w[0] - e[0] * t), -(w[1] - e[1] * t), -(w[2] - e[2] * t)};
+    const std::array<float, 3> out = {{-(w[0] - e[0] * t), -(w[1] - e[1] * t), -(w[2] - e[2] * t)}};
     const float length = std::sqrt(out[0] * out[0] + out[1] * out[1] + out[2] * out[2]);
     if (length <= 0.0f)
         return;
-    float q[3];
+    std::array<float, 3> q{};
     for (int k = 0; k < 3; ++k)
         q[k] = (pa[k] + pb[k]) * 0.5f + out[k] / length * 6.0f;
     float high[3] = {q[0], q[1] + 24.0f, q[2]}, low[3] = {q[0], q[1] - 48.0f, q[2]};
@@ -373,7 +374,7 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
 
 const char* get_state_name(int state)
 {
-    static const char* const kNames[] = {"ground", "air", "wallride", "lip", "rail", "wallplant"};
+    static const auto kNames = std::to_array<const char*>({"ground", "air", "wallride", "lip", "rail", "wallplant"});
     return state >= 0 && state < 6 ? kNames[state] : "-";
 }
 char state_letter(int state) { return state >= 0 && state < 6 ? "gawlrp"[state] : '?'; }
@@ -406,13 +407,13 @@ void get_emit(int before)
     std::memcpy(event.pos, now.pos, sizeof(event.pos));
     std::memcpy(event.vel_before_, old.vel, sizeof(event.vel_before_));
     std::memcpy(event.vel_after_, now.vel, sizeof(event.vel_after_));
-    std::memcpy(event.ground_normal_, now.ground_normal_, sizeof(event.ground_normal_));
+    std::memcpy(event.ground_normal_.data(), now.ground_normal_, sizeof(event.ground_normal_));
     event.heading_before_ = get_heading_of(old.facing);
     event.heading = get_heading_of(now.facing);
 
     // The paths that ran between the two (in order), and the strongest.
     const PathRecord* strongest = nullptr;
-    bool seen[static_cast<int>(RouteWay::kTotalOf)] = {};
+    std::array<bool, static_cast<int>(RouteWay::kTotalOf)> seen = {};
     for (int i = 0; i < g_path_count; ++i) {
         const PathRecord& record = g_paths[(g_path_next - g_path_count + i + kPathRecords) % kPathRecords];
         if (record.frame < old.frame || record.frame > now.frame)
@@ -431,8 +432,8 @@ void get_emit(int before)
         event.paths = "-";
 
     // Between which checkpoints the velocity turned against the old direction (the first time).
-    float dir_old[2];
-    get_horizontal(old.vel, dir_old);
+    std::array<float, 2> dir_old{};
+    get_horizontal(old.vel, dir_old.data());
     const Mark* previous = nullptr;
     const Mark* flip = nullptr;
     bool uber_frig = false;
@@ -443,12 +444,12 @@ void get_emit(int before)
             continue;
         const bool against = mark.vel[0] * dir_old[0] + mark.vel[2] * dir_old[1] < 0.0f;
         if (against && previous) {
-            char text[160];
-            std::snprintf(text, sizeof(text), "%s>%s@%u", previous->label, mark.label, mark.frame);
-            event.flipped = text;
+            std::array<char, 160> text{};
+            std::snprintf(text.data(), sizeof(text), "%s>%s@%u", previous->label, mark.label, mark.frame);
+            event.flipped = text.data();
             flip = &mark;
             // Between one frame's physics and the next, the velocity exactly negated: the skater's adjust-physics
-            // component (0x004F8420, not rewritten) found no collision within uber_frig_current_height feet below
+            // component (0x004F8420.data(), not rewritten) found no collision within uber_frig_current_height feet below
             // the skater and put it back where the frame began (the core's +0x98) going the other way - the "uber
             // frig", as the walking code calls its own (walk_collision.cpp update_ground_below). Its down feeler is
             // the core's own: its line is still there at the next frame's start.
@@ -493,30 +494,30 @@ void get_emit(int before)
         ray = &steepest->ground_ray_;
     }
     if (event.face.hit)
-        std::memcpy(event.spot, event.face.point, sizeof(event.spot));
+        std::memcpy(event.spot.data(), event.face.point.data(), sizeof(event.spot));
     else
-        std::memcpy(event.spot, now.pos, sizeof(event.spot));
-    if (quiet_spot(event.spot, &event.repeats))
+        std::memcpy(event.spot.data(), now.pos, sizeof(event.spot));
+    if (quiet_spot(event.spot.data(), &event.repeats))
         return;
 
     // The probes, along the travel before the reversal.
-    float direction[2];
-    if (get_horizontal(old.vel, direction) <= 0.0f)
-        get_horizontal(old.facing, direction);
+    std::array<float, 2> direction{};
+    if (get_horizontal(old.vel, direction.data()) <= 0.0f)
+        get_horizontal(old.facing, direction.data());
     event.probe_dir_[0] = direction[0];
     event.probe_dir_[2] = direction[1];
-    const float* at = event.spot;
+    const float* at = event.spot.data();
     float high[3] = {at[0], at[1] + 48.0f, at[2]}, low[3] = {at[0], at[1] - 200.0f, at[2]};
-    const float beyond[3] = {at[0] + direction[0] * 24.0f, at[1], at[2] + direction[1] * 24.0f};
+    const std::array<float, 3> beyond = {{at[0] + direction[0] * 24.0f, at[1], at[2] + direction[1] * 24.0f}};
     float beyond_high[3] = {beyond[0], beyond[1] + 48.0f, beyond[2]},
           beyond_low[3] = {beyond[0], beyond[1] - 200.0f, beyond[2]};
     const float lift = script::fetch_float(kForwardHeight);
-    float ahead_from[3] = {old.pos[0], old.pos[1] + lift, old.pos[2]};
-    float ahead_to[3] = {ahead_from[0] + direction[0] * 120.0f, ahead_from[1], ahead_from[2] + direction[1] * 120.0f};
+    std::array<float, 3> ahead_from = {{old.pos[0], old.pos[1] + lift, old.pos[2]}};
+    std::array<float, 3> ahead_to = {{ahead_from[0] + direction[0] * 120.0f, ahead_from[1], ahead_from[2] + direction[1] * 120.0f}};
     for (int everything = 0; everything < 2; ++everything) {
         event.probes[0 + everything] = get_probe(high, low, everything != 0);
         event.probes[2 + everything] = get_probe(beyond_high, beyond_low, everything != 0);
-        event.probes[4 + everything] = get_probe(ahead_from, ahead_to, everything != 0);
+        event.probes[4 + everything] = get_probe(ahead_from.data(), ahead_to.data(), everything != 0);
     }
 
     event.number = ++g_events;
@@ -524,9 +525,9 @@ void get_emit(int before)
     static const bool kShots = config_int("debug", "collision_event_screenshots", 1) != 0;
     event.screenshot = "-";
     if (kShots) {
-        char note[64];
-        std::snprintf(note, sizeof(note), "collision event %d", event.number);
-        event.screenshot = sys::screenshot::request_event_shot(note) ? "requested" : "busy";
+        std::array<char, 64> note{};
+        std::snprintf(note.data(), sizeof(note), "collision event %d", event.number);
+        event.screenshot = sys::screenshot::request_event_shot(note.data()) ? "requested" : "busy";
     }
 
     // The detail line.
@@ -545,7 +546,7 @@ void get_emit(int before)
         std::memcpy(detail.probe_origin_, ray->start, sizeof(detail.probe_origin_));
         std::memcpy(detail.ray_end_, ray->end, sizeof(detail.ray_end_));
     }
-    face_geometry(event.face, event.spot, &detail);
+    face_geometry(event.face, event.spot.data(), &detail);
     detail.col_file_ = col_file_stamp();
     detail.scn_file_ = scn_file_stamp();
     detail.approach.clear();
@@ -553,32 +554,32 @@ void get_emit(int before)
         if (age >= g_sample_total)
             continue;
         const Sample& s = sample_at(age);
-        char text[64];
-        std::snprintf(text, sizeof(text), "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", s.pos[0], s.pos[1],
+        std::array<char, 64> text{};
+        std::snprintf(text.data(), sizeof(text), "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", s.pos[0], s.pos[1],
                       s.pos[2], state_letter(s.state));
-        detail.approach += text;
+        detail.approach += text.data();
     }
     detail.camera = sys::screenshot::last_view(detail.camera_pos_, detail.camera_dir_);
 
     get_log("%s", format_event(event, &get_name_of).c_str());
     get_log("%s", format_detail(detail).c_str());
     // (on screen too, for 2 s: a newer one replaces it)
-    char notice[96];
-    std::snprintf(notice, sizeof(notice), "collision event %d: %s%s", event.number, event.reason,
+    std::array<char, 96> notice{};
+    std::snprintf(notice.data(), sizeof(notice), "collision event %d: %s%s", event.number, event.reason,
                   event.screenshot == "requested" ? " (screenshot)" : "");
-    sys::screenshot::show_notice(notice);
+    sys::screenshot::show_notice(notice.data());
 }
 
 void detect()
 {
-    Motion frames[kHistory];
+    std::array<Motion, kHistory> frames;
     for (int i = 0; i < g_sample_total; ++i) {
         const Sample& s = sample_at(g_sample_total - 1 - i);
         frames[i].frame = s.frame;
         frames[i].state = s.state;
-        std::memcpy(frames[i].vel, s.vel, sizeof(frames[i].vel));
+        std::memcpy(frames[i].vel.data(), s.vel, sizeof(frames[i].vel));
     }
-    const int index = find_reversal(frames, g_sample_total);
+    const int index = find_reversal(frames.data(), g_sample_total);
     if (index < 0)
         return;
     get_emit(g_sample_total - 1 - index);
@@ -628,15 +629,15 @@ int find_reversal(const Motion* frames, int count)
     const Motion& now = frames[count - 1];
     if (now.state != 0)
         return -1;
-    float dir_now[2];
-    if (get_horizontal(now.vel, dir_now) < kMinSpeedNow)
+    std::array<float, 2> dir_now{};
+    if (get_horizontal(now.vel.data(), dir_now.data()) < kMinSpeedNow)
         return -1;
     for (int i = 0; i < count - 1; ++i) { // (the oldest first: the speed the skater had before)
         const Motion& old = frames[i];
         if (now.frame - old.frame > static_cast<uint32_t>(kWindow) || old.state != 0)
             continue;
-        float dir_old[2];
-        if (get_horizontal(old.vel, dir_old) < kMinSpeedBefore ||
+        std::array<float, 2> dir_old{};
+        if (get_horizontal(old.vel.data(), dir_old.data()) < kMinSpeedBefore ||
             dir_old[0] * dir_now[0] + dir_old[1] * dir_now[1] >= kOpposed)
             continue;
         // A sudden change between, no rail / lip / wall, not long in the air.
@@ -650,8 +651,8 @@ int find_reversal(const Motion* frames, int count)
             else if (s.state != 0)
                 refused = true;
             float ds[2], dp[2];
-            const float vs = get_horizontal(s.vel, ds);
-            const float vp = get_horizontal(p.vel, dp);
+            const float vs = get_horizontal(s.vel.data(), ds);
+            const float vp = get_horizontal(p.vel.data(), dp);
             if (vs < kStill || vp < kStill || ds[0] * dp[0] + ds[1] * dp[1] < kSudden)
                 sudden = true;
         }
@@ -701,7 +702,7 @@ void checkpoint(SkaterPhysicsModule* component, const char* label)
         ++g_marker_total;
     mark.frame = frame_loop::frames_run();
     mark.label = label;
-    copy3(mark.vel, component->entity_->vel_);
+    copy3(mark.vel.data(), component->entity_->vel_);
     mark.ray = line_of(component->feeler_);
 }
 
@@ -772,10 +773,10 @@ void end_frame(SkaterPhysicsModule* component)
 
 std::string flag_names(uint16_t flags)
 {
-    static const char* const kNames[16] = {"skatable",       "not_skatable", "wall_ridable",   "vert",
+    static const std::array<const char*, 16> kNames = {{"skatable",       "not_skatable", "wall_ridable",   "vert",
                                            "non_collidable", "decal",        "trigger",        "camera_passes",
                                            "no_shadow",      "shadow",       "no_shadow_wall", "under_ok",
-                                           "invisible",      "0x2000",       "0x4000",         "0x8000"};
+                                           "invisible",      "0x2000",       "0x4000",         "0x8000"}};
     std::string out;
     for (int bit = 0; bit < 16; ++bit) {
         if (!(flags & (1u << bit)))
@@ -789,8 +790,8 @@ std::string flag_names(uint16_t flags)
 
 std::string pad_button_labels(uint16_t mask)
 {
-    static const char* const kNames[16] = {"up", "down", "left",   "right",  "l1",       "l2", "l3",    "r1",
-                                           "r2", "r3",   "circle", "square", "triangle", "x",  "start", "select"};
+    static const std::array<const char*, 16> kNames = {{"up", "down", "left",   "right",  "l1",       "l2", "l3",    "r1",
+                                           "r2", "r3",   "circle", "square", "triangle", "x",  "start", "select"}};
     std::string out;
     for (int bit = 0; bit < 16; ++bit) {
         if (!(mask & (1u << bit)))
@@ -806,49 +807,49 @@ std::string face_text(const Face& face, std::string (*name)(uint32_t))
 {
     if (!face.hit)
         return "none";
-    char text[256];
-    std::snprintf(text, sizeof(text),
+    std::array<char, 256> text{};
+    std::snprintf(text.data(), sizeof(text),
                   "%s:%s;face:%d;flags:0x%04X;decoded:%s;terrain:%u;n:%.2f,%.2f,%.2f;at:%.1f,%.1f,%.1f",
                   face.object ? "object" : "sector", name(face.checksum).c_str(), face.index, face.flags,
                   flag_names(face.flags).c_str(), face.terrain, face.normal[0], face.normal[1], face.normal[2],
                   face.point[0], face.point[1], face.point[2]);
-    return text;
+    return text.data();
 }
 
 namespace {
 
 std::string v3(const float* v, const char* format = "%.1f,%.1f,%.1f")
 {
-    char text[96];
-    std::snprintf(text, sizeof(text), format, v[0], v[1], v[2]);
-    return text;
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), format, v[0], v[1], v[2]);
+    return text.data();
 }
 
 } // namespace
 
 std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
 {
-    static const char* const kProbes[6] = {"probe_down_hit",        "probe_down_hit_all", "probe_down_beyond",
-                                           "probe_down_beyond_all", "probe_ahead",        "probe_ahead_all"};
-    char head[160];
-    std::snprintf(head, sizeof(head), "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
+    static const std::array<const char*, 6> kProbes = {{"probe_down_hit",        "probe_down_hit_all", "probe_down_beyond",
+                                           "probe_down_beyond_all", "probe_ahead",        "probe_ahead_all"}};
+    std::array<char, 160> head{};
+    std::snprintf(head.data(), sizeof(head), "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
                   e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
-    std::string line = head;
-    line += " spot=" + v3(e.spot);
+    std::string line = head.data();
+    line += " spot=" + v3(e.spot.data());
     line += " pos_before=" + v3(e.pos_before_);
     line += " pos=" + v3(e.pos);
     line += " vel_before=" + v3(e.vel_before_);
     line += " vel_after=" + v3(e.vel_after_);
-    char text[96];
-    std::snprintf(text, sizeof(text), " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
-    line += text;
-    line += " ground_n=" + v3(e.ground_normal_, "%.2f,%.2f,%.2f");
-    std::snprintf(text, sizeof(text), " ground_min_y=%.2f", e.ground_min_y_);
-    line += text;
+    std::array<char, 96> text{};
+    std::snprintf(text.data(), sizeof(text), " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
+    line += text.data();
+    line += " ground_n=" + v3(e.ground_normal_.data(), "%.2f,%.2f,%.2f");
+    std::snprintf(text.data(), sizeof(text), " ground_min_y=%.2f", e.ground_min_y_);
+    line += text.data();
     line += " face=" + face_text(e.face, name);
     for (int i = 0; i < 6; ++i)
         line += std::string(" ") + kProbes[i] + "=" + face_text(e.probes[i], name);
-    line += " probe_dir=" + v3(e.probe_dir_, "%.2f,%.2f,%.2f");
+    line += " probe_dir=" + v3(e.probe_dir_.data(), "%.2f,%.2f,%.2f");
     line += " flipped=" + (e.flipped.empty() ? std::string("-") : e.flipped);
     line += " repeats=" + std::to_string(e.repeats);
     line += " screenshot=" + (e.screenshot.empty() ? std::string("-") : e.screenshot);
@@ -857,26 +858,26 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
 
 std::string format_detail(const Detail& d)
 {
-    char text[256];
-    std::snprintf(text, sizeof(text),
+    std::array<char, 256> text{};
+    std::snprintf(text.data(), sizeof(text),
                   "collision-event-detail: n=%d state=%s physics=%s speed=%.1f trick=%d balance=%s input=%s "
                   "input_window=%s stick=%.2f,%.2f",
                   d.number, d.state, d.physics, d.speed, d.trick ? 1 : 0, d.balance, d.input.c_str(),
                   d.input_window_.c_str(), d.stick[0], d.stick[1]);
-    std::string line = text;
+    std::string line = text.data();
     line += " ray=" + (d.ray ? v3(d.probe_origin_) + ">" + v3(d.ray_end_) : std::string("-"));
     if (d.geometry) {
-        line += " corners=" + v3(d.corners[0]) + ";" + v3(d.corners[1]) + ";" + v3(d.corners[2]);
+        line += " corners=" + v3(d.corners[0].data()) + ";" + v3(d.corners[1].data()) + ";" + v3(d.corners[2].data());
         line += " col_box=" + v3(d.bounds_low_) + ">" + v3(d.bounds_high_);
     } else {
         line += " corners=- col_box=-";
     }
     if (d.edge >= 0) {
-        std::snprintf(text, sizeof(text), " edge=%d edge_dist=%.1f open_edge=%s", d.edge, d.edge_distance_,
+        std::snprintf(text.data(), sizeof(text), " edge=%d edge_dist=%.1f open_edge=%s", d.edge, d.edge_distance_,
                       d.edge_open_ < 0 ? "-"
                       : d.edge_open_   ? "1"
                                        : "0");
-        line += text;
+        line += text.data();
     } else {
         line += " edge=- edge_dist=- open_edge=-";
     }

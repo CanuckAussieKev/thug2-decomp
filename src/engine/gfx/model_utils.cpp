@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -125,9 +126,9 @@ bool fetch_anim_durations(float* start, float* end, float current, float duratio
 // 0x004879D0
 text::Chars* make_model_path(text::Chars* out, const char* name, const char* extension)
 {
-    char path[512];
-    make_model_file_name(name, extension, path);
-    return new (out) text::Chars(path);
+    std::array<char, 512> path{};
+    make_model_file_name(name, extension, path.data());
+    return new (out) text::Chars(path.data());
 }
 
 // 0x00487A70

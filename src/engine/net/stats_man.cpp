@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -278,7 +279,7 @@ void TopList::fill_level_scores()
             params->put_int(0xCD66C8AE, entry->points_held_);
             // (here the rating is read as unsigned)
             params->put_int(0x7786171A, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points_))));
-            params->append_word(0xA1DC81F9, entry->label_);
+            params->append_word(0xA1DC81F9, entry->label_.data());
             params->append_word(0x651533EC, RankingsManager::get_level_name(level->level_));
             get_run(0x19F7BC28, params);
             delete_params(params);
@@ -304,7 +305,7 @@ void TopList::fill_sorted_scores(bool ratings)
             line->list_link_.priority = entry->skill_points_;
             line->points_held_ = entry->points_held_;
             line->skill_points_ = entry->skill_points_;
-            text_tools::dup_from(line->label_, entry->label_);
+            text_tools::dup_from(line->label_.data(), entry->label_.data());
             sorted.append_one(line);
         }
     } else {
@@ -321,7 +322,7 @@ void TopList::fill_sorted_scores(bool ratings)
                 line->points_held_ = entry->points_held_;
                 line->level_ = level->level_;
                 line->skill_points_ = entry->skill_points_;
-                text_tools::dup_from(line->label_, entry->label_);
+                text_tools::dup_from(line->label_.data(), entry->label_.data());
                 sorted.append_one(line); // (inlined in the original)
             }
         }
@@ -335,7 +336,7 @@ void TopList::fill_sorted_scores(bool ratings)
         params->put_int(0x2776D9DD, line->skill_points_);
         params->put_int(0xCD66C8AE, line->points_held_);
         params->put_int(0x7786171A, current_rank(static_cast<double>(line->skill_points_)));
-        params->append_word(0xA1DC81F9, line->label_);
+        params->append_word(0xA1DC81F9, line->label_.data());
         if (ratings) {
             get_run(0x0AC09E3B, params);
         } else {
@@ -349,15 +350,15 @@ void TopList::fill_sorted_scores(bool ratings)
 
 namespace {
 // The level checksums the personal stats list their high scores by.
-uint32_t g_level_checksums[15]{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
+std::array<uint32_t, 15> g_level_checksums{{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
                                0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C,
-                               0xCC877C27, 0x0C27CA5E, 0x532C99DE, 0xD4B48511, 0x8C32C761};
+                               0xCC877C27, 0x0C27CA5E, 0x532C99DE, 0xD4B48511, 0x8C32C761}};
 } // namespace
 
 // 0x0054DDB0
 void PersonalStats::get_fill()
 {
-    const uint32_t* levels = g_level_checksums;
+    const uint32_t* levels = g_level_checksums.data();
     SortedList sorted;
     for (int i = 0; i < 15; ++i) {
         const int score = high_scores_[i];
@@ -387,8 +388,8 @@ void PersonalStats::get_fill()
 RankingsManager::RankingsManager()
 {
     personal_.skill_points_ = 0;
-    std::memset(personal_.high_scores_, 0, sizeof(personal_.high_scores_));
-    std::memset(personal_.high_combos_, 0, sizeof(personal_.high_combos_));
+    std::memset(personal_.high_scores_.data(), 0, sizeof(personal_.high_scores_));
+    std::memset(personal_.high_combos_.data(), 0, sizeof(personal_.high_combos_));
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     task_ = std::make_unique<tasks::Task<RankingsManager>>(&stats_task, this, 0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
@@ -476,12 +477,12 @@ void RankingsManager::start_game()
         const int id = static_cast<int>(detail::get_skater_id(detail::player_skater(player)));
         const char* name = detail::player_name(player);
         new_player(game_, id, name);
-        char key[64];
-        std::snprintf(key, sizeof(key), "%s", "player");
-        set_player_string(game_, key, name, id);
-        std::snprintf(key, sizeof(key), "%s", "pid");
+        std::array<char, 64> key{};
+        std::snprintf(key.data(), sizeof(key), "%s", "player");
+        set_player_string(game_, key.data(), name, id);
+        std::snprintf(key.data(), sizeof(key), "%s", "pid");
         const int profile = player->profile_id_;
-        set_player_int(game_, key, profile, id);
+        set_player_int(game_, key.data(), profile, id);
         if (profile > 0) {
             // The player's client answers with its response to the challenge.
             desc.content_ = challenge;
@@ -534,9 +535,9 @@ void RankingsManager::remove_player(int id)
 // 0x0054CA30
 void RankingsManager::set_player_auth(int player, const char* auth)
 {
-    char key[64];
-    std::snprintf(key, sizeof(key), "%s", "auth");
-    set_player_string(game_, key, auth, player);
+    std::array<char, 64> key{};
+    std::snprintf(key.data(), sizeof(key), "%s", "auth");
+    set_player_string(game_, key.data(), auth, player);
 }
 
 // 0x0054CA80
@@ -560,7 +561,7 @@ void RankingsManager::read_skill_ratings(char* text)
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, "\n")))
             break;
-        text_tools::dup_from(entry->label_, token);
+        text_tools::dup_from(entry->label_.data(), token);
     }
     pop_heap();
 }
@@ -571,7 +572,7 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
     TopList& list = top_lists_[index];
     push_top_down();
     if (titled) {
-        text_tools::dup_from(list.title_, text_tools::get_token(text, "\n"));
+        text_tools::dup_from(list.title_.data(), text_tools::get_token(text, "\n"));
         text = nullptr;
     }
     const char* token = text_tools::get_token(text, ":");
@@ -600,7 +601,7 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
             // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             if (!(token = text_tools::get_token(nullptr, "\n")))
                 break;
-            text_tools::dup_from(entry->label_, token);
+            text_tools::dup_from(entry->label_.data(), token);
             token = text_tools::get_token(nullptr, ":");
         }
     }

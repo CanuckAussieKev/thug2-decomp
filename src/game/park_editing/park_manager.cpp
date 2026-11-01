@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -43,7 +44,7 @@ ParkLayout::ParkLayout()
     abstract_metas_ = nullptr;
     num_concrete_metas_ = 0;
     num_abstract_metas_ = 0;
-    std::memset(cell_metas_, 0, sizeof(cell_metas_));
+    std::memset(cell_metas_.data(), 0, sizeof(cell_metas_));
     park_built_ = false;
     flag_bits_ = 0;
     field_05_ = false;
@@ -52,13 +53,13 @@ ParkLayout::ParkLayout()
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     // The shell's blocks of each of the 8 kinds.
     for (int i = 1; i <= 8; ++i) {
-        char name[128];
-        std::snprintf(name, sizeof(name), "floor_wall_block%d", i);
-        shell_blocks_[i - 1][0] = checksums::hash_from_text(name);
-        std::snprintf(name, sizeof(name), "wall_block%d", i);
-        shell_blocks_[i - 1][1] = checksums::hash_from_text(name);
-        std::snprintf(name, sizeof(name), "floor_block%d", i);
-        shell_blocks_[i - 1][2] = checksums::hash_from_text(name);
+        std::array<char, 128> name{};
+        std::snprintf(name.data(), sizeof(name), "floor_wall_block%d", i);
+        shell_blocks_[i - 1][0] = checksums::hash_from_text(name.data());
+        std::snprintf(name.data(), sizeof(name), "wall_block%d", i);
+        shell_blocks_[i - 1][1] = checksums::hash_from_text(name.data());
+        std::snprintf(name.data(), sizeof(name), "floor_block%d", i);
+        shell_blocks_[i - 1][2] = checksums::hash_from_text(name.data());
     }
     shell_size_ = 0;
     clear_compressed_map();

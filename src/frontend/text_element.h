@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "frontend/screen_element.h"
 
@@ -19,17 +20,17 @@ namespace frontend {
 struct SmearEffect {
     struct DupFrom {
         float alpha; // +0x00 the copy's alpha factor (1/16 of the alpha pair's value at its place)
-        float unknown04[4];
+        std::array<float, 4> unknown04;
         float dx, dy; // +0x14 its displacement
-        float unknown1c_[3];
+        std::array<float, 3> unknown1c_;
         float scale_x_, scale_y_; // +0x28
-        float unknown30[5];
+        std::array<float, 5> unknown30;
     };
     // The settings, in order: blur_alpha_pair (x, y), blur_bottom_scales (x, y), blur_max_displacement (x, y).
     struct Settings {
-        float alpha[2];
-        float bottom_scales_[2];
-        float max_displacement_[2];
+        std::array<float, 2> alpha;
+        std::array<float, 2> bottom_scales_;
+        std::array<float, 2> max_displacement_;
     };
 
     // 0x004A5770 (a function Ghidra hadn't found): copy `i`.
@@ -44,7 +45,7 @@ struct SmearEffect {
     // (its milliseconds into `out_ms` when given). Returns the target.
     Settings* set_from_params(script::Struct* params, int* out_ms);
 
-    DupFrom copies_[16];  // +0x000
+    std::array<DupFrom, 16> copies_;  // +0x000
     Settings aim_point_;  // +0x440
     Settings ongoing_;    // +0x458
     int last_time_;       // +0x470 (ms)
@@ -106,7 +107,7 @@ public:
     SmearEffect* blur_{nullptr};          // +0x190
     bool shadow_{false};                  // +0x194
     float shadow_x_{}, shadow_y_{};       // +0x198 shadow_offs
-    uint8_t shadow_rgba_[4]{};            // +0x1A0
+    std::array<uint8_t, 4> shadow_rgba_{};            // +0x1A0
     bool override_rgba_;                  // +0x1A4 override_encoded_rgba
     bool remembered_override_;            // +0x1A5
     bool override_alpha_{};               // +0x1A6 override_encoded_alpha

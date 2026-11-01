@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
 // calls the device when something changes. The cache is reset to the device's own defaults (reset_render_state)
@@ -67,26 +68,26 @@ void reset_render_state();
 void apply_render_state();
 
 extern uint8_t g_skin_scaling_on;
-extern uint32_t g_skin_settings[5];
+extern std::array<uint32_t, 5> g_skin_settings;
 extern bool g_shaders_available;
 extern uint32_t g_specular;
 extern uint8_t g_z_write;
 extern uint32_t g_depth_bias;
 extern uint32_t g_cull_mode;
 extern bool g_near_camera;
-extern void* g_textures[4];
-extern uint32_t g_border_colours[4];
+extern std::array<void*, 4> g_textures;
+extern std::array<uint32_t, 4> g_border_colours;
 extern uint32_t g_pixel_shader_locked;
 extern void* g_current_pixel_shader;
-extern float g_ps_constant_bank[20];
+extern std::array<float, 20> g_ps_constant_bank;
 extern uint32_t g_instance_colour_on;
-extern uint8_t g_instance_colour[4];
+extern std::array<uint8_t, 4> g_instance_colour;
 extern uint8_t g_pixel_shader_changed;
 extern uint32_t g_vertex_format_locked;
 extern uint32_t g_skipped_passes;
 extern uint32_t g_submit_locked;
 extern uint32_t g_fog_active;
 extern const float* g_world_transform;
-extern float g_world_transform_copy[16];
+extern std::array<float, 16> g_world_transform_copy;
 
 } // namespace render

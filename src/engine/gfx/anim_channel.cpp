@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -417,7 +418,7 @@ bool BlendChannel::blend_pose(int index)
     const RigData* data = skeleton->payload_;
     for (int i = 0; i < count; ++i) {
         // (each pose's translations start as the skeleton's bind translations)
-        std::memcpy(current_poses()[i].translations, data->bind_translations_,
+        std::memcpy(current_poses()[i].translations.data(), data->bind_translations_,
                     static_cast<size_t>(skeleton->get_num_bones() & 0x0FFFFFFF) * 16);
         fetch_pose(i, &current_poses()[i], &blend_weights()[i]);
     }
@@ -466,8 +467,8 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
         if (online::PlayerRecord* player = find_own_player_record(object_id)) {
             net::NetMessageInfo message;
             net::Guest* app = client_of(player);
-            uint8_t data[2] = {static_cast<uint8_t>(object_id), static_cast<uint8_t>(flip)};
-            post_out(app, message, kMsgFlip, data, 2, false);
+            std::array<uint8_t, 2> data = {{static_cast<uint8_t>(object_id), static_cast<uint8_t>(flip)}};
+            post_out(app, message, kMsgFlip, data.data(), 2, false);
         }
     }
     const bool was = (flag_bits_ >> 29) & 1;
@@ -555,12 +556,12 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
                 target = 0.0f;
             else if (target > 1.0f)
                 target = 1.0f;
-            uint8_t data[2];
+            std::array<uint8_t, 2> data{};
             data[1] = static_cast<uint8_t>(get_truncated(target * 255.0)); // (0x00646B88)
             data[0] = static_cast<uint8_t>(get_owner(this)->ident_);
             if (last_wobble_target() != data[1]) {
                 net::NetMessageInfo message;
-                post_out(app, message, kMsgWobbleTarget, data, 2, true);
+                post_out(app, message, kMsgWobbleTarget, data.data(), 2, true);
                 last_wobble_target() = data[1];
             }
         }
@@ -591,12 +592,12 @@ void BlendChannel::set_wobble_details(const float* details, bool send)
             const uint8_t b2 = details[2] == 0.0022f ? 0 : details[2] == 20.0f ? 1 : 0;
             const uint8_t b3 = details[3] == 0.0017f ? 0 : details[3] == 10.0f ? 1 : 0;
             const uint8_t b4 = details[4] == 1.5f ? 0 : details[4] == 1.0f ? 1 : 0;
-            uint8_t data[2];
+            std::array<uint8_t, 2> data{};
             data[0] = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
             data[1] = static_cast<uint8_t>(get_owner(this)->ident_);
             if (last_wobble_details() != data[0]) {
                 net::NetMessageInfo message;
-                post_out(app, message, kMsgWobbleDetails, data, 2, true);
+                post_out(app, message, kMsgWobbleDetails, data.data(), 2, true);
                 last_wobble_details() = data[0];
             }
         }
@@ -619,10 +620,10 @@ void BlendChannel::change_repeat_mode(int loop_type, bool send)
     if (send && ident_ == 0) {
         if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
             net::Guest* app = client_of(player);
-            uint8_t data[2] = {static_cast<uint8_t>(get_owner(this)->ident_), static_cast<uint8_t>(loop_type)};
+            std::array<uint8_t, 2> data = {{static_cast<uint8_t>(get_owner(this)->ident_), static_cast<uint8_t>(loop_type)}};
             if (last_loop_type() != loop_type) {
                 net::NetMessageInfo message;
-                post_out(app, message, kMsgLoopType, data, 2, false);
+                post_out(app, message, kMsgLoopType, data.data(), 2, false);
                 last_loop_type() = static_cast<int8_t>(loop_type);
             }
         }
@@ -653,10 +654,10 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
                 online::AnimSpeedMessage sent;
                 sent.speed_bits = std::bit_cast<uint32_t>(speed);
                 sent.object_id = static_cast<uint8_t>(get_owner(this)->ident_);
-                uint8_t data[online::kAnimSpeedSize];
-                util::ByteWriter writer(data, sizeof(data));
+                std::array<uint8_t, online::kAnimSpeedSize> data{};
+                util::ByteWriter writer(data.data(), sizeof(data));
                 online::write_anim_speed(writer, sent);
-                post_out(app, message, online::kMsgAnimSpeed, data, sizeof(data), false);
+                post_out(app, message, online::kMsgAnimSpeed, data.data(), sizeof(data), false);
             }
         }
     }
@@ -733,7 +734,7 @@ void BlendChannel::init_buffers(int blends, int subsets)
         if (poses) {
             for (int i = 0; i < count; ++i) {
                 for (auto& rotation : poses[i].rotations)
-                    raw::as<objects::IdentityQuat>(rotation)->assign_value();
+                    raw::as<objects::IdentityQuat>(rotation.data())->assign_value();
             }
         }
         return poses;
@@ -766,10 +767,10 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
             sent.to = static_cast<uint16_t>(get_truncated(to * kFixedPoint));
             sent.blend_period = static_cast<uint16_t>(get_truncated(blend_period * kFixedPoint));
             sent.speed = static_cast<uint16_t>(get_truncated(speed * kFixedPoint));
-            uint8_t data[online::kPlayAnimSize];
-            util::ByteWriter writer(data, sizeof(data));
+            std::array<uint8_t, online::kPlayAnimSize> data{};
+            util::ByteWriter writer(data.data(), sizeof(data));
             online::write_play_anim(writer, sent);
-            post_out(app, message, kMsgPlayAnim, data, sizeof(data), false);
+            post_out(app, message, kMsgPlayAnim, data.data(), sizeof(data), false);
         }
     }
     if (blend_period == 0.0f || !flag_4c_)
@@ -1162,7 +1163,7 @@ namespace gfx {
 namespace {
 
 // 64 quaternions nothing reads (only their static initialiser writes them).
-float g_spare_rotations[256];
+std::array<float, 256> g_spare_rotations;
 
 } // namespace
 

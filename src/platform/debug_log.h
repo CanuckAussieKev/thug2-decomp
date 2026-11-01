@@ -7,6 +7,7 @@
 // Nothing is logged before Configure.
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 namespace debug_log {
 
@@ -29,9 +30,9 @@ void printf(StageMap level, const char* format, Args... args)
     if (console_on())
         std::printf(format, args...);
     // Into thug2-decomp.log, one line per message (Log adds the line end the messages carry).
-    char text[1024];
-    std::snprintf(text, sizeof(text), format, args...);
-    write_message(text);
+    std::array<char, 1024> text{};
+    std::snprintf(text.data(), sizeof(text), format, args...);
+    write_message(text.data());
 }
 
 } // namespace debug_log

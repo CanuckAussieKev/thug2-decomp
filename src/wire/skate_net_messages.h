@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace util {
 class ByteReader;
@@ -35,7 +36,7 @@ struct ScoresMessage {
     uint32_t cheats = 0;
     bool final = false;
     int count = 0; // (negative: none)
-    Entry entries[kMaxScoreEntries];
+    std::array<Entry, kMaxScoreEntries> entries;
 };
 // NOLINTEND(readability-identifier-naming)
 // (fails when the message is shorter than its count says; the count is then the entries read)
@@ -44,7 +45,7 @@ bool write_scores(util::ByteWriter& writer, const ScoresMessage& message);
 
 constexpr int kGraffitiSkaters = 8;
 struct GraffitiColorsMessage {
-    uint8_t counts[kGraffitiSkaters] = {}; // the cluster indexes follow, count after count
+    std::array<uint8_t, kGraffitiSkaters> counts = {}; // the cluster indexes follow, count after count
 };
 bool read_graffiti_colors(util::ByteReader& reader, GraffitiColorsMessage* message);
 

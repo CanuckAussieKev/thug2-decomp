@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace maths {
 class Vec4;
@@ -50,7 +51,7 @@ public:
     bool get_hook_point(maths::Vec4* out, int index);
 
     bool allowed_{true}; // +0x18
-    uint8_t pad19[3]{};
+    std::array<uint8_t, 3> pad19{};
     ObjectModule* hooks_{}; // +0x1C the object's hook manager (0x27443708)
 };
 

@@ -52,6 +52,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <windows.h>
+#include <array>
 
 #include "game/rider/debug_collision.h"
 #include "engine/render/coll_obj.h"
@@ -120,7 +121,7 @@ struct Recent {
     int face;
     DWORD time;
 };
-Recent g_recent[32];
+std::array<Recent, 32> g_recent;
 int g_next_recent = 0;
 DWORD g_second_start = 0;
 int g_lines_this_second = 0;
@@ -180,15 +181,15 @@ void log_hit(const void* feeler, uint32_t caller)
     else
         std::snprintf(what, sizeof(what), "(nothing recorded)");
 
-    char skater[64] = "";
-    float position[3];
-    if (get_skater_position(skater_feeler, position))
-        std::snprintf(skater, sizeof(skater), " skater (%.1f %.1f %.1f)", position[0], position[1], position[2]);
+    std::array<char, 64> skater = {""};
+    std::array<float, 3> position{};
+    if (get_skater_position(skater_feeler, position.data()))
+        std::snprintf(skater.data(), sizeof(skater), " skater (%.1f %.1f %.1f)", position[0], position[1], position[2]);
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
             "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",
             what, face, flags, terrain, point[0], point[1], point[2], normal[0], normal[1], normal[2], start[0],
-            start[1], start[2], end[0], end[1], end[2], skater, caller);
+            start[1], start[2], end[0], end[1], end[2], skater.data(), caller);
 }
 
 } // namespace

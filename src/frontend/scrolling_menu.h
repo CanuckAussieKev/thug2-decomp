@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "frontend/screen_element.h"
 #include "engine/objects/signal.h"
@@ -63,7 +64,7 @@ public:
     float window_length_;     // +0x1B4
     float regular_space_;     // +0x1B8 the menu's (-1: none)
     bool vertical_;           // +0x1BC
-    uint8_t pad1bd_[3]{};
+    std::array<uint8_t, 3> pad1bd_{};
 };
 
 } // namespace frontend

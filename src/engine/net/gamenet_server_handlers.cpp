@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "game/park_editing/park_editor.h"
@@ -155,11 +156,11 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     LevelSwitch change;
     change.level = request.level;
-    uint8_t level[kLevelSwitchSize];
-    util::ByteWriter writer(level, sizeof(level));
+    std::array<uint8_t, kLevelSwitchSize> level{};
+    util::ByteWriter writer(level.data(), sizeof(level));
     write_level_switch(writer, change);
     uint32_t query = frame_clock::get_time();
-    desc.content_ = level;
+    desc.content_ = level.data();
     desc.byte_count_ = sizeof(level);
     desc.ident_ = kMsgLevelSwitch;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -214,17 +215,17 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
     util::ByteReader reader(context->body_, context->body_size_);
-    uint8_t msg[2];
-    if (!reader.bytes(msg, sizeof(msg)))
+    std::array<uint8_t, 2> msg{};
+    if (!reader.bytes(msg.data(), sizeof(msg)))
         return kDone;
-    const PlayerRecord* player = find_player_slot_by_obj(manager, msg);
+    const PlayerRecord* player = find_player_slot_by_obj(manager, msg.data());
     if (!player || !player_skater(player))
         return kDone;
     if (get_game_type() != kNetLobby && !manager->has_match_ended())
         return kDone;
-    uint8_t change[2] = {msg[0], msg[1]};
+    std::array<uint8_t, 2> change = {{msg[0], msg[1]}};
     net::AppHost* server = manager->host_;
-    desc.content_ = change;
+    desc.content_ = change.data();
     desc.byte_count_ = 2;
     desc.ident_ = kMsgJoinedTeam;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -252,15 +253,15 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
     if (!player_skater(sender))
         return kContinue;
     PlayerSearch search;
-    uint8_t bytes[kGoalMessageSize];
+    std::array<uint8_t, kGoalMessageSize> bytes{};
     net::NetMessageInfo desc;
     auto prepare = [&] {
         GoalMessage message; // (the sender's object id, the goal)
         message.goal = report.goal;
         message.id = static_cast<uint8_t>(get_skater_id(player_skater(sender)));
-        util::ByteWriter writer(bytes, sizeof(bytes));
+        util::ByteWriter writer(bytes.data(), sizeof(bytes));
         write_goal_message(writer, message);
-        desc.content_ = bytes;
+        desc.content_ = bytes.data();
         desc.byte_count_ = sizeof(bytes);
         desc.ident_ = kMsgGoalCompleted;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -313,10 +314,10 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
     GoalMessage message; // (the sender's object id, the goal)
     message.goal = report.goal;
     message.id = static_cast<uint8_t>(get_skater_id(player_skater(sender)));
-    uint8_t bytes[kGoalMessageSize];
-    util::ByteWriter writer(bytes, sizeof(bytes));
+    std::array<uint8_t, kGoalMessageSize> bytes{};
+    util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_goal_message(writer, message);
-    desc.content_ = bytes;
+    desc.content_ = bytes.data();
     desc.byte_count_ = sizeof(bytes);
     desc.ident_ = kMsgGoalStarted;
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
@@ -376,21 +377,21 @@ int handle_drop_carried(net::InboundMsgCtx* context)
             return kContinue;
         desc = net::NetMessageInfo();
         const int team = player->get_flag_team();
-        char name[64];
-        team_name_key(name, team);
+        std::array<char, 64> name{};
+        team_name_key(name.data(), team);
         script::Struct* params = new_params();
         params->put_int(kTeam, team);
-        params->append_word(kString0, script::kQbvalString, script::fetch_text(name));
+        params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
         get_run(kFlagReturned, params);
         delete_params(params);
-        uint8_t returned[2] = {static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(team)};
+        std::array<uint8_t, 2> returned = {{static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(team)}};
         if (is_own_player(player))
             get_run(kDestroyCtfPanelMessage);
         PlayerRecord* local = find_own_player_record(manager);
         if (local && !is_observer(local) && player_team(local) == team)
             get_run(kHideCtfArrow);
         player->clear_flags(); // carries no flag
-        desc.content_ = returned;
+        desc.content_ = returned.data();
         desc.byte_count_ = 2;
         desc.ident_ = kMsgFlagReturned;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;

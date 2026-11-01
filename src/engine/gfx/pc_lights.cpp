@@ -12,6 +12,7 @@
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 
 namespace render {
@@ -20,7 +21,7 @@ namespace {
 maths::Vec4 g_scene_light_direction;
 uint32_t g_scene_light_direction_guard;
 } // namespace
-float g_light_constants[28];
+std::array<float, 28> g_light_constants;
 
 namespace {
 
@@ -28,9 +29,9 @@ constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
-float* ambient_constant() { return g_light_constants; }
-float* light_direction_constant(uint32_t light) { return g_light_constants + 4 + 8 * light; }
-float* light_color_constant(uint32_t light) { return g_light_constants + 8 + 8 * light; }
+float* ambient_constant() { return g_light_constants.data(); }
+float* light_direction_constant(uint32_t light) { return g_light_constants.data() + 4 + 8 * light; }
+float* light_color_constant(uint32_t light) { return g_light_constants.data() + 8 + 8 * light; }
 
 // The scene's lights.
 uint32_t& scene_ambient() { return g_active_lighting.ambient; }
@@ -157,8 +158,8 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     }
     if (!radius)
         return;
-    DynamicLightBase* dynamic[32];
-    const uint32_t count = find_dynamic_lights(position, radius, dynamic);
+    std::array<DynamicLightBase*, 32> dynamic{};
+    const uint32_t count = find_dynamic_lights(position, radius, dynamic.data());
     if (!count) {
         float* off = light_color_constant(first_dynamic_);
         off[0] = off[1] = off[2] = 0.0f;
@@ -166,7 +167,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     }
     for (uint32_t j = 0; j < count; ++j) {
         DynamicLightBase* light = dynamic[j];
-        const float* at = light->pos;
+        const float* at = light->pos.data();
         double dx = static_cast<double>(position->x) - at[0];
         double dy = static_cast<double>(position->y) - at[1];
         const double dz = static_cast<double>(position->z) - at[2];

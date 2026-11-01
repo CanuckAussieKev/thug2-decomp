@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -422,8 +423,8 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
 // 0x0046B790
 uint32_t get_spawn_node(uint32_t type, int index, uint32_t start)
 {
-    uint32_t names[256];
-    const int count = get_restart_nodes(type, names, start);
+    std::array<uint32_t, 256> names{};
+    const int count = get_restart_nodes(type, names.data(), start);
     if (count <= 0)
         return 0;
     // (a negative index reads before the list, as the original)

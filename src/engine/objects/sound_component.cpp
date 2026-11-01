@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -27,7 +28,7 @@
 
 namespace objects {
 
-uint32_t g_sound_component_member_functions[12]{0xAFA20E18, 0x07713C7B, 0, 0, 0, 0, 0, 0x07713C7B, 0, 0, 0, 0};
+std::array<uint32_t, 12> g_sound_component_member_functions{{0xAFA20E18, 0x07713C7B, 0, 0, 0, 0, 0, 0x07713C7B, 0, 0, 0, 0}};
 
 namespace {
 
@@ -73,7 +74,7 @@ gsl::owner<ObjectModule*> AudioEmitterModule::fabricate() { return new AudioEmit
 // 0x00432C80
 void AudioEmitterModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_sound_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_sound_component_member_functions.data(), 0x18);
 }
 
 // 0x00432D90

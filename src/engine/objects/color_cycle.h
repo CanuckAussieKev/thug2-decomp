@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Array;
@@ -64,18 +65,18 @@ public:
     // for the array, as the original does). 1.
     int set_colors_from_script(script::Struct* params, script::Script* script);
 
-    maths::Vec4 colors_[kCycleColorCap]{}; // +0x18 (x, y, z: 0-255)
+    std::array<maths::Vec4, kCycleColorCap> colors_{}; // +0x18 (x, y, z: 0-255)
     int color_count_{0};                   // +0x68
     int ongoing_{0};                       // +0x6C
     float period_{};                     // +0x70 milliseconds
     float clock_{0.0f};                  // +0x74 milliseconds on the current colour
     bool on_{false};                     // +0x78
-    uint8_t pad79[3]{};
+    std::array<uint8_t, 3> pad79{};
 };
 
 } // namespace objects
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_color_cycle_member_functions[30];
+extern std::array<uint32_t, 30> g_color_cycle_member_functions;
 } // namespace objects

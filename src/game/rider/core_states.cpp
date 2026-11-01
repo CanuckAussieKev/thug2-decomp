@@ -89,8 +89,8 @@ void SkaterPhysicsModule::step_coping_move()
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
     if (jump_released()) {
         set_flag(this, PoseFlag::kJumped, 1);
-        trigger_rail_script(kLipOffEvents);
-        trigger_rail_script(kOffLipEvents);
+        trigger_rail_script(kLipOffEvents.data());
+        trigger_rail_script(kOffLipEvents.data());
     }
     auto* node = rail_node_;
     if (node && rail_manager_->node_array_) {

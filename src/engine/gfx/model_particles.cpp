@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -45,7 +46,7 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
     : model_count_(static_cast<unsigned int>(particle_cap)), drawn_models_(static_cast<unsigned int>(particle_cap))
 {
     label_ = name;
-    char file_name[512] = {};
+    std::array<char, 512> file_name = {};
     position_array_ = nullptr;
     particle_list_ = nullptr;
     particle_count_ = 0;
@@ -56,8 +57,8 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
     position_array_ = static_cast<float*>(carve(model_count_ * 12));
     if (!position_array_)
         return;
-    model_path_for(model, kModelExtension, file_name);
-    text::to_lower_text(file_name);
+    model_path_for(model, kModelExtension, file_name.data());
+    text::to_lower_text(file_name.data());
     model_list_ = static_cast<RenderModel**>(allocate_zeroed(model_count_ * 4));
     if (!model_list_)
         return;
@@ -73,7 +74,7 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
         auto scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
         const maths::Vec4 scales = {scale, scale, scale, 1.0f};
         each->change_scale(&scales);
-        if (!each->add_file_geom(file_name, 0, true, 0, false, true, assert_flag() != 0, true))
+        if (!each->add_file_geom(file_name.data(), 0, true, 0, false, true, assert_flag() != 0, true))
             return;
     }
     auto* rotations = static_cast<maths::QuatRotation*>(carve(model_count_ * sizeof(maths::QuatRotation)));

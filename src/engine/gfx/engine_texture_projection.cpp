@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/gfx/view_cam.h"
@@ -43,12 +44,12 @@ bool sphere_out_of_view(const maths::Vec4* centre, float radius)
 CollGrid** grids_along_line(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 void* find_sector(uint32_t name) { return engine::look_up_sector(name); }
 
-void* g_projected_sectors[128];
-void* g_projected_collision[128];
+std::array<void*, 128> g_projected_sectors;
+std::array<void*, 128> g_projected_collision;
 
 // The sectors and collision objects a projection reaches (0x00700F40 / 0x00701140, null-terminated).
-void** projected_sectors() { return g_projected_sectors; }
-void** projected_collision() { return g_projected_collision; }
+void** projected_sectors() { return g_projected_sectors.data(); }
+void** projected_collision() { return g_projected_collision.data(); }
 
 } // namespace
 

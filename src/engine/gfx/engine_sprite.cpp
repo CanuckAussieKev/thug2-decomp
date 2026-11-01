@@ -17,7 +17,7 @@ namespace render {
 // 0x0049ED60
 BillboardQuad::BillboardQuad(void* window) : screen_region_(window)
 {
-    std::memset(rgba_value_, 0x80, sizeof(rgba_value_));
+    std::memset(rgba_value_.data(), 0x80, sizeof(rgba_value_));
 }
 
 // 0x0048D1B0 (folded with GlyphString::change_pane)
@@ -137,7 +137,7 @@ void BillboardQuad::set_z_write(bool z_write)
 // 0x0049ECF0
 void BillboardQuad::change_rgba(uint32_t rgba)
 {
-    std::memcpy(rgba_value_, &rgba, sizeof(rgba_value_));
+    std::memcpy(rgba_value_.data(), &rgba, sizeof(rgba_value_));
     update_settings();
 }
 
@@ -146,7 +146,7 @@ void BillboardQuad::change_rgba(uint32_t rgba)
 // 0x0049EED0
 TexturedQuad::TexturedQuad(void* window) : screen_region_(window)
 {
-    std::memset(rgba_value_, 0x80, sizeof(rgba_value_));
+    std::memset(rgba_value_.data(), 0x80, sizeof(rgba_value_));
 }
 
 // 0x0049EF30
@@ -169,6 +169,6 @@ void TexturedQuad::change_rank(float priority)
 }
 
 // 0x0049ED50
-void TexturedQuad::change_rgba(uint32_t rgba) { std::memcpy(rgba_value_, &rgba, sizeof(rgba_value_)); }
+void TexturedQuad::change_rgba(uint32_t rgba) { std::memcpy(rgba_value_.data(), &rgba, sizeof(rgba_value_)); }
 
 } // namespace render

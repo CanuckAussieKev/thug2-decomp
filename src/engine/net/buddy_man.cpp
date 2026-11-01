@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -127,11 +128,11 @@ void gp_connect_new_user(void* connection, const char* nick, const char* unique_
 struct GpBuddyStatus {
     int profile;
     int status;
-    char status_string_[256];
-    char location_string_[256];
+    std::array<char, 256> status_string_;
+    std::array<char, 256> location_string_;
     uint32_t ip;
     int port;
-    uint8_t rest[0x20];
+    std::array<uint8_t, 0x20> rest;
 };
 void gp_get_buddy_status(void* connection, int index, GpBuddyStatus* status)
 {
@@ -209,7 +210,7 @@ Buddy* alloc_friend_entry()
         buddy->pending_ = false;
         buddy->cur_standing_ = 0;
         buddy->location_[0] = '\0';
-        std::snprintf(buddy->status_text_, sizeof(buddy->status_text_), "%s", "Offline");
+        std::snprintf(buddy->status_text_.data(), sizeof(buddy->status_text_), "%s", "Offline");
     }
     return buddy;
 }
@@ -231,7 +232,7 @@ void parse_location(Buddy* buddy, char* location, bool checked)
         name = std::strchr(name + 1, ':');
         name = std::strchr(name + 1, ':') + 1;
     }
-    text_tools::dup_from(buddy->location_, name);
+    text_tools::dup_from(buddy->location_.data(), name);
     text_tools::get_token(location, ":"); // "10thug211"
     buddy->join_ip_ = static_cast<uint32_t>(text::to_int(text_tools::get_token(nullptr, ":")));
     buddy->join_private_ip_ = static_cast<uint32_t>(text::to_int(text_tools::get_token(nullptr, ":")));
@@ -244,7 +245,7 @@ void parse_location(Buddy* buddy, char* location, bool checked)
 FriendNote::FriendNote()
 {
     init_node(&list_link_);
-    std::snprintf(nick_, sizeof(nick_), "%s", "Proskater");
+    std::snprintf(nick_.data(), sizeof(nick_), "%s", "Proskater");
     text_[0] = '\0';
 }
 
@@ -355,7 +356,7 @@ void FriendsManager::add_buddy(const char* nick, int profile)
 {
     push_bottom_up();
     Buddy* buddy = alloc_friend_entry();
-    text_tools::dup_from(buddy->nick_, nick);
+    text_tools::dup_from(buddy->nick_.data(), nick);
     buddy->account_ = profile;
     buddy->cur_standing_ = 0;
     buddy->pending_ = true;
@@ -454,11 +455,11 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     push_top_down();
     script::Struct* params = new_params();
     // (the original uses the nick as sprintf's format: a '%' in a nick would be expanded)
-    char nick[1024];
-    std::snprintf(nick, sizeof(nick), "%s", buddy->nick_);
-    params->append_word("name", buddy->nick_);
-    params->append_word("status", buddy->status_text_);
-    params->append_word("location", buddy->location_);
+    std::array<char, 1024> nick{};
+    std::snprintf(nick.data(), sizeof(nick), "%s", buddy->nick_.data());
+    params->append_word("name", buddy->nick_.data());
+    params->append_word("status", buddy->status_text_.data());
+    params->append_word("location", buddy->location_.data());
     params->put_name_key("id", get_checksums("first_lobby_buddy") + buddy->account_);
     const char* choose_script = nullptr;
     if (!allow_join && !allow_remove) {
@@ -466,10 +467,10 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     } else {
         script::Struct* choose = new_params();
         choose->put_int("profile", buddy->account_);
-        text::to_capitals(nick);
-        choose->append_word("nick", nick);
-        choose->append_word("status", buddy->status_text_);
-        choose->append_word("location", buddy->location_);
+        text::to_capitals(nick.data());
+        choose->append_word("nick", nick.data());
+        choose->append_word("status", buddy->status_text_.data());
+        choose->append_word("location", buddy->location_.data());
         choose->put_int("join_ip", static_cast<int>(buddy->join_ip_));
         choose->put_int("join_private_ip", static_cast<int>(buddy->join_private_ip_));
         choose->put_int("join_port", buddy->join_port_);
@@ -530,20 +531,20 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
         if (buddy->account_ != status.profile)
             continue;
         buddy->cur_standing_ = status.status;
-        text_tools::dup_from(buddy->status_text_, status.status_string_);
+        text_tools::dup_from(buddy->status_text_.data(), status.status_string_.data());
         if (buddy->cur_standing_ == kStatusPlaying) {
-            if (!is_thug2_location(status.location_string_)) {
+            if (!is_thug2_location(status.location_string_.data())) {
                 pop_heap();
                 return;
             }
-            parse_location(buddy, status.location_string_, true);
+            parse_location(buddy, status.location_string_.data(), true);
         } else {
-            text_tools::dup_from(buddy->location_, status.location_string_);
+            text_tools::dup_from(buddy->location_.data(), status.location_string_.data());
         }
         if (buddy->pending_) {
             // An answer to our request: a buddy now, kept in the buddy_array preference too.
             script::Struct* params = new_params();
-            params->append_word("net_name", buddy->nick_);
+            params->append_word("net_name", buddy->nick_.data());
             get_run("added_buddy", params);
             delete_params(params);
             buddy->pending_ = false;
@@ -561,14 +562,14 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             }
             script::Struct* entry = new_params();
             entry->put_int("profile", buddy->account_);
-            entry->append_word("nick", buddy->nick_);
+            entry->append_word("nick", buddy->nick_.data());
             buddies->set_element(i, cell::of(entry));
             prefs->change_option_list(get_checksums("buddy_array"), buddies);
         }
         script::Struct* params = new_params();
-        params->append_word(get_checksums("name"), script::kQbvalString, buddy->nick_);
-        params->append_word(get_checksums("status"), script::kQbvalString, buddy->status_text_);
-        params->append_word(get_checksums("location"), script::kQbvalString, buddy->location_);
+        params->append_word(get_checksums("name"), script::kQbvalString, buddy->nick_.data());
+        params->append_word(get_checksums("status"), script::kQbvalString, buddy->status_text_.data());
+        params->append_word(get_checksums("location"), script::kQbvalString, buddy->location_.data());
         params->add_component_of_type(get_checksums("id"), script::kQbvalName,
                                       get_checksums("first_lobby_buddy") + buddy->account_);
         get_run("update_buddy_status", params);
@@ -582,17 +583,17 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
     Buddy* buddy = alloc_friend_entry();
     buddy->account_ = status.profile;
     buddy->cur_standing_ = status.status;
-    text_tools::dup_from(buddy->status_text_, status.status_string_);
-    std::snprintf(buddy->nick_, sizeof(buddy->nick_), "%s", "ProSkater");
+    text_tools::dup_from(buddy->status_text_.data(), status.status_string_.data());
+    std::snprintf(buddy->nick_.data(), sizeof(buddy->nick_), "%s", "ProSkater");
     if (buddy->cur_standing_ == kStatusPlaying) {
-        if (!is_thug2_location(status.location_string_)) {
+        if (!is_thug2_location(status.location_string_.data())) {
             unlink_list_node(buddy);
             pop_heap();
             return;
         }
-        parse_location(buddy, status.location_string_, false);
+        parse_location(buddy, status.location_string_.data(), false);
     } else {
-        text_tools::dup_from(buddy->location_, status.location_string_);
+        text_tools::dup_from(buddy->location_.data(), status.location_string_.data());
     }
     get_append(&man->friends_, &buddy->list_link_);
     // Its nick, if the buddy_array preference knows the profile.
@@ -605,7 +606,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             if (profile == status.profile) {
                 const char* nick = nullptr;
                 entry->fetch_text("nick", &nick, 1);
-                text_tools::dup_from(buddy->nick_, nick);
+                text_tools::dup_from(buddy->nick_.data(), nick);
             }
         }
     }
@@ -627,7 +628,7 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
     if (length == std::strlen(text)) {
         // One line: from a buddy (else dropped). (A nick of 16 or more characters runs into the text, as in the
         // original.)
-        text_tools::dup_from(message->text_, text);
+        text_tools::dup_from(message->text_.data(), text);
         Buddy* sender = nullptr;
         lists::Hunt<Buddy> search;
         for (Buddy* buddy = search.head_element(&man->friends_); buddy; buddy = search.following_item()) {
@@ -641,11 +642,11 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
             pop_heap();
             return;
         }
-        text_tools::dup_from(message->nick_, sender->nick_);
+        text_tools::dup_from(message->nick_.data(), sender->nick_.data());
     } else {
         // "nick\ntext"
-        text_tools::dup_from(message->nick_, text);
-        text_tools::dup_from(message->text_, text + std::strlen(text) + 1);
+        text_tools::dup_from(message->nick_.data(), text);
+        text_tools::dup_from(message->text_.data(), text + std::strlen(text) + 1);
     }
     script::launch_script(0x10C3647Cu, nullptr, nullptr, false, nullptr);
     get_append(&man->messages_, &message->list_link_);
@@ -717,9 +718,9 @@ bool set_unique_id(script::Struct*, script::Script*)
     const uint32_t now = frame_clock::get_time();
     prefs::Preferences* prefs = net_session_slot()->get_online_settings();
     script::Struct* params = new_params();
-    char text[32];
-    std::snprintf(text, sizeof(text), "%d", static_cast<int>(now));
-    params->append_word("ui_string", text);
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "%d", static_cast<int>(now));
+    params->append_word("ui_string", text.data());
     prefs->change_setting(get_checksums("unique_id"), params);
     delete_params(params);
     return true;
@@ -738,8 +739,8 @@ bool join_buddy(script::Struct* params, script::Script*)
     params->fetch_int_value("join_ip", &ip, 1);
     params->fetch_int_value("join_private_ip", &private_ip, 1);
     params->fetch_int_value("join_port", &port, 1);
-    char status[1024];
-    std::snprintf(status, sizeof(status), "10thug211:%d:%d:%d:%s", ip, private_ip, port, location);
+    std::array<char, 1024> status{};
+    std::snprintf(status.data(), sizeof(status), "10thug211:%d:%d:%d:%s", ip, private_ip, port, location);
     bool same_address = false;
     if (static_cast<uint32_t>(ip) == peer_public_ip(lobby_peer(manager->lobby_service_.get()))) {
         ip = private_ip;
@@ -756,7 +757,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     }
     FriendsManager* man = manager->presence_service_.get();
     push_top_down();
-    gp_set_status(man, kStatusPlaying, text, status);
+    gp_set_status(man, kStatusPlaying, text, status.data());
     pop_heap();
     script::Struct* join = new_params();
     in_addr address{};
@@ -835,9 +836,9 @@ bool show_next_buddy_message(script::Struct*, script::Script* script)
 {
     lists::Hunt<FriendNote> search;
     FriendNote* message = search.head_element(&get_buddies()->messages_);
-    script->args_->append_word(0xD6F4D0C8, message->nick_);
-    script->args_->append_word(0xD3A5478A, message->nick_);
-    script->args_->append_word(0x59EDEC1C, message->text_);
+    script->args_->append_word(0xD6F4D0C8, message->nick_.data());
+    script->args_->append_word(0xD3A5478A, message->nick_.data());
+    script->args_->append_word(0x59EDEC1C, message->text_.data());
     script->args_->put_int(0x7EA855F0, message->account_);
     unlink_list_node(message);
     // (the original then counts the messages left and ignores the count)

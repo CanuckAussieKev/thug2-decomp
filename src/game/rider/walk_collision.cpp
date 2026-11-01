@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/maths/mat4.h"
@@ -404,7 +405,7 @@ void FootMovement::try_wallplant()
     if (script::fetch_float(kLateJumpSlop) > since_state)
         return;
     // ... and touching a wall: the first contact in this order.
-    static const int kOrder[7] = {0, 1, 6, 2, 5, 3, 4};
+    static const std::array<int, 7> kOrder = {{0, 1, 6, 2, 5, 3, 4}};
     WalkContact* contact = nullptr;
     for (const int index : kOrder) {
         WalkContact* candidate = &contacts_[index];
@@ -442,7 +443,7 @@ void FootMovement::try_wallplant()
     }
     plan_jump_over_obstruction();
     // The trigger told (events 0x0064C63C); a trigger's script may take over.
-    trigger_->probe_touches_zone(kWalkEvents0064c63c, &feeler);
+    trigger_->probe_touches_zone(kWalkEvents0064c63c.data(), &feeler);
     if (static_cast<bool>(physics_control_->flag26_))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.

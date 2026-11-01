@@ -35,7 +35,7 @@ void load_once();
 
 // The data overlay's last step: `relative` (data_overlay::overlay_name's form: lower case, '\', no "data\") is a file
 // of one of THUGPRO's added parts, in its install: its full path in `path`.
-bool file_path(const char* relative, char (&path)[260]);
+bool file_path(const char* relative, std::array<char, 260>& path);
 
 // --- the pieces (exposed for the self-tests) -------------------------------------------------------------------------
 

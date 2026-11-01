@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/d3dx.h"
@@ -50,10 +51,10 @@ constexpr uint32_t kLipName = 0xA549B57B;           // Lip
 // The trigger events (const int[3] each) the rail's TriggerScript is run with.
 
 // The jump speeds: (the max, the min) for boneless or not, from vert (or a wallride from the ground) or not.
-constexpr uint32_t kJumpSpeed[2][2][2] = {
-    {{0x02ADE3AD, 0xC8815E43}, {0x9F79C8EA, 0x91B07824}}, // Physics_Jump_Speed_Stat / _min; Physics_Air_Jump_*
-    {{0x8851A76E, 0x6E8EFE38}, {0x39766891, 0x4CDB18CB}}, // Physics_Boneless_Jump_Speed_*; Physics_Boneless_Air_*
-};
+constexpr std::array<std::array<std::array<uint32_t, 2>, 2>, 2> kJumpSpeed = {{
+    {{{{0x02ADE3AD, 0xC8815E43}}, {{0x9F79C8EA, 0x91B07824}}}}, // Physics_Jump_Speed_Stat / _min; Physics_Air_Jump_*
+    {{{{0x8851A76E, 0x6E8EFE38}}, {{0x39766891, 0x4CDB18CB}}}}, // Physics_Boneless_Jump_Speed_*; Physics_Boneless_Air_*
+}};
 
 constexpr float kFeelerAhead = 12.0f;   // 0x0064546C (also how far a jump off a steep ramp lifts the skater)
 constexpr float kFeelerBehind = -36.0f; // 0x0064BD68
@@ -129,7 +130,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     const bool sound = !params->has_bare_flag(kNoSound);
     switch (state_of(this)) {
     case kGround:
-        trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
+        trigger_feeler(this, kJumpTriggerEvents.data(), &floor_feeler_);
         if (trigger_took_over(this))
             return;
         std::memcpy(&last_ground_pos_, &entity_->at_point_, 16); // (where it jumped)
@@ -157,7 +158,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         tense = max_tense;
     const bool from_vert =
         bit_mark(this, PoseFlag::kVertAir) || (state_of(this) == kGround && bit_mark(this, PoseFlag::kOnVert));
-    const uint32_t* names = kJumpSpeed[params->has_bare_flag(kBonelessHeight)][from_vert];
+    const uint32_t* names = kJumpSpeed[params->has_bare_flag(kBonelessHeight)][from_vert].data();
     objects::GameEntity* object = object_of(this);
     const float most = scaled_physics(object, names[0]);
     const float least = scaled_physics(object_of(this), names[1]);
@@ -204,7 +205,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     if (state == kRail || (state == kAir && old_state_ == kRail))
         turn_for_rail_jump();
     if (point_rail_spin_)
-        trigger_rail_script(kJumpEvents);
+        trigger_rail_script(kJumpEvents.data());
     if (bike)
         thaw_bmx::jump_pitch(this);
     set_physics_state(kAir);
@@ -264,7 +265,7 @@ void SkaterPhysicsModule::step_wallplant()
         start += entity_->at_point_;
         end += entity_->at_point_;
         if (get_feel(this, 0x10, 0))
-            trigger_feeler(this, kWallplantEvents, &feeler_);
+            trigger_feeler(this, kWallplantEvents.data(), &feeler_);
         return;
     }
     // Still on the wall: no rail; carried along by what the skater rides on (its turn too, when it turned).
@@ -314,7 +315,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
     uint32_t state = 0;
     params->read_hash_value(0u, &state, 0);
     if (state_of(this) == kLip && state != kLipName)
-        trigger_rail_script(kOffLipEvents);
+        trigger_rail_script(kOffLipEvents.data());
     if (state_of(this) != kLip && state == kLipName)
         rail_node_ = nullptr;
     if (state_of(this) == kWallRide) {
@@ -341,7 +342,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
 // 0x00509B70
 int SkaterPhysicsModule::trigger_grind_off(script::Struct*, script::Script*)
 {
-    trigger_rail_script(kGrindOffEvents);
+    trigger_rail_script(kGrindOffEvents.data());
     return 1;
 }
 

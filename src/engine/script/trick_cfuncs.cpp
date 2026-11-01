@@ -4,6 +4,7 @@
 #include "engine/script/trick_cfuncs.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -285,8 +286,8 @@ bool cfunc_update_trick_mappings(script::Struct* params, script::Script*)
 // skater's created trick slots (1-10) that are full. False if no trick matched.
 bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Script* script)
 {
-    uint32_t tricks[128];
-    int cats[128];
+    std::array<uint32_t, 128> tricks{};
+    std::array<int, 128> cats{};
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 0);
     const bool special = params->has_bare_flag(kSpecial);
@@ -313,7 +314,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
         objects::GameEntity* skater = local_skater();
         if (skater) {
             // the skater's created tricks 1-10
-            const std::unique_ptr<goals::CreateATrick>* created = core::down_cast<objects::Rider>(skater)->trick_slots_;
+            const std::unique_ptr<goals::CreateATrick>* created = core::down_cast<objects::Rider>(skater)->trick_slots_.data();
             for (int slot = 1; slot < 11; ++slot) {
                 int full = 0;
                 if (created[slot]->other_params_->fetch_int_value(kFull, &full, 0) && full)
@@ -536,7 +537,7 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script*)
     // "attempting to bind front end %i to controller %i\n"
     debug::printf("attempting to bind front end %i to controller %i\n", pad, controller);
     modules::FrontEnd* front_end = modules::front_end_instance();
-    int* map = front_end->device_server_map_;
+    int* map = front_end->device_server_map_.data();
     const int old = map[pad];
     if (map[0] == controller)
         map[0] = old;

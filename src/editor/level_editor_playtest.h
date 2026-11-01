@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
@@ -141,7 +142,7 @@ struct Run {
     std::vector<Sample> samples;
     std::vector<Occurrence> events;
     float seconds = 0.0f;
-    float motion_seconds_[kMotions] = {};
+    std::array<float, kMotions> motion_seconds_ = {};
     bool visible = true;
     bool full = false;
     [[nodiscard]] int gaps_landed() const;

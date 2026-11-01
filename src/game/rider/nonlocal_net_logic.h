@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace objects {
 
@@ -100,14 +101,14 @@ public:
     maths::Vec4 last_play_pos_{}; // +0x38 the one before
     maths::Vec4 last_pos_{};      // +0x48 the object's position before this frame
     maths::Vec4 surface_up_{};    // +0x58 the last ground snapped to
-    float speeds_[kHistory]{};    // +0x68 per update: the playback's speed
-    float lags_[kHistory]{};      // +0xB8 per update: how far behind the connection is
-    float alignments_[kHistory]{};  // +0x108 per update: how the move lines up with the local skater's
-    maths::Vec4 moves_[kHistory]{}; // +0x158 per update: the playback's move
+    std::array<float, kHistory> speeds_{};    // +0x68 per update: the playback's speed
+    std::array<float, kHistory> lags_{};      // +0xB8 per update: how far behind the connection is
+    std::array<float, kHistory> alignments_{};  // +0x108 per update: how the move lines up with the local skater's
+    std::array<maths::Vec4, kHistory> moves_{}; // +0x158 per update: the playback's move
     int updates_{0};                // +0x298
     float frame_seconds_{};       // +0x29C this frame's length
     uint8_t was_driving_{};       // +0x2A0
-    uint8_t pad2a1_[3]{};
+    std::array<uint8_t, 3> pad2a1_{};
     RiderFrameLog* past_frames_{nullptr};    // +0x2A4 SkaterStateHistory (0x18223FD6)
     ObjectModule* anim_blender_{nullptr};    // +0x2A8 (0x7149B753)
     MeshInstanceModule* mesh_set_{nullptr};  // +0x2AC Model (0x286A8D26)

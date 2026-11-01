@@ -20,6 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 
@@ -46,7 +47,7 @@ uint32_t& ref_tally() { return g_node_manager_references; }
 // in CStruct::read_hash_value: a converted level's script naming a node its NodeArray hasn't).
 void log_missing_node(uint32_t name)
 {
-    static uint32_t logged[32];
+    static std::array<uint32_t, 32> logged;
     static int count = 0;
     for (int i = 0; i < count; ++i)
         if (logged[i] == name)
@@ -85,7 +86,7 @@ bool is_big(const NodeManager* m) { return m == g_big_owner && !g_big_slots.empt
 class Slots {
 public:
     explicit Slots(NodeManager* m)
-        : small_(m->slots_), big_(is_big(m) ? g_big_slots.data() : nullptr),
+        : small_(m->slots_.data()), big_(is_big(m) ? g_big_slots.data() : nullptr),
           skip_bits_(big_ ? static_cast<uint32_t>(g_big_slots.size()) - 1 : NodeManager::kSlots - 1)
     {}
     [[nodiscard]] uint32_t get_mask() const { return skip_bits_; }
@@ -424,9 +425,9 @@ bool make_node_array_name(const char* path, char* out)
 // 0x0045D310
 uint32_t node_array_checksum(const char* path)
 {
-    char name[256] = {};
-    make_node_array_name(path, name);
-    return checksums::hash_from_text(name);
+    std::array<char, 256> name = {};
+    make_node_array_name(path, name.data());
+    return checksums::hash_from_text(name.data());
 }
 
 // NOT ORIGINAL (see BigSlot)

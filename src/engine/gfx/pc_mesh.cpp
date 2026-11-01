@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -72,12 +73,12 @@ int compare_strip_breaks(const void* a, const void* b)
 PcMesh::PcMesh(const char* name)
 {
     if (std::strstr(name, "skin")) {
-        char file[0x100];
-        std::memcpy(file, name, std::strlen(name) + 1); // (unchecked, as the original)
-        text::to_lower_text(file);
-        if (char* extension = std::strstr(file, "skin.xbx")) {
+        std::array<char, 0x100> file{};
+        std::memcpy(file.data(), name, std::strlen(name) + 1); // (unchecked, as the original)
+        text::to_lower_text(file.data());
+        if (char* extension = std::strstr(file.data(), "skin.xbx")) {
             std::memcpy(extension, "cas.xbx", 8);
-            load_skin_file(file);
+            load_skin_file(file.data());
         }
     }
 }

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <SDL2/SDL.h>
+#include <array>
 
 #include "frontend/automation.h"
 #include "editor/level_editor.h"
@@ -148,7 +149,7 @@ struct PlayerSlot {
 };
 constexpr int kMaxPlayers = 2;
 uint8_t s_seats_in_use = 0;
-PlayerSlot s_players[kMaxPlayers] = {{nullptr, 0}, {nullptr, 0}};
+std::array<PlayerSlot, kMaxPlayers> s_players = {{{nullptr, 0}, {nullptr, 0}}};
 
 void attach_controller(int index)
 {
@@ -312,7 +313,7 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
 {
     if (!SDL_GameControllerGetAttached(controller))
         return;
-    uint8_t* data = device->control_data_;
+    uint8_t* data = device->control_data_.data();
     device->is_usable_ = 1;
     device->is_connected_ = true;
 
@@ -541,7 +542,7 @@ uint8_t get_key_down(const uint8_t* keys, uint8_t key)
 
 void poll_keyboard(InputPort* device)
 {
-    uint8_t* data = device->control_data_;
+    uint8_t* data = device->control_data_.data();
     device->is_usable_ = 1;
     device->is_connected_ = true;
 
@@ -803,7 +804,7 @@ void handle_input_event(SDL_Event* event)
 // --- the game's key bindings ------------------------------------------------------------------------------------
 
 // SDL scan codes -> DirectInput key codes (-1: none).
-const uint32_t kDirectInputKeys[256] = {
+const std::array<uint32_t, 256> kDirectInputKeys = {{
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x1E,       0x30,       0x2E,       0x20,       // 0..7
     0x12,       0x21,       0x22,       0x23,       0x17,       0x24,       0x25,       0x26,       // 8..15
     0x32,       0x31,       0x18,       0x19,       0x10,       0x13,       0x1F,       0x14,       // 16..23
@@ -836,7 +837,7 @@ const uint32_t kDirectInputKeys[256] = {
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 232..239
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 240..247
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 248..255
-};
+}};
 
 int32_t direct_input_key(SDL_Scancode scan_code)
 {
@@ -848,7 +849,7 @@ int32_t direct_input_key(SDL_Scancode scan_code)
 // The bindings in the game's table (0x007D6770, port 0's actions), for the menus' key hints.
 void write_game_key_bindings()
 {
-    int32_t* binds = os_layer::g_input_map;
+    int32_t* binds = os_layer::g_input_map.data();
     binds[0] = direct_input_key(s_keys.up);
     binds[1] = direct_input_key(s_keys.down);
     binds[2] = direct_input_key(s_keys.left);
@@ -964,18 +965,18 @@ void load_pad_binds()
 void set_usable(InputPort* device, bool on)
 {
     device->is_usable_ = on ? 1 : 0;
-    std::memset(device->pad15_, 0, sizeof(device->pad15_));
+    std::memset(device->pad15_.data(), 0, sizeof(device->pad15_));
 }
 void set_connected(InputPort* device, bool on)
 {
     device->is_connected_ = on;
-    std::memset(device->pade1_, 0, sizeof(device->pade1_));
+    std::memset(device->pade1_.data(), 0, sizeof(device->pade1_));
 }
 void set_held_down(InputPort* device, bool on)
 {
     device->held_down_ = on ? 1 : 0;
     device->keyboard_control_ = 0;
-    std::memset(device->padee_, 0, sizeof(device->padee_));
+    std::memset(device->padee_.data(), 0, sizeof(device->padee_));
 }
 
 } // namespace
@@ -989,15 +990,15 @@ void init_sdl_input()
     SDL_Init(SDL_INIT_GAMECONTROLLER);
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
 
-    char mappings[1024];
+    std::array<char, 1024> mappings{};
     const int length =
-        sprintf_s(mappings, sizeof(mappings), "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
+        sprintf_s(mappings.data(), sizeof(mappings), "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
     if (length) {
         // (-1, a failure, counts as loaded too)
-        if (SDL_GameControllerAddMappingsFromFile(mappings))
+        if (SDL_GameControllerAddMappingsFromFile(mappings.data()))
             debug_log::printf(StageMap::kInfo, "Loaded mappings\n");
         else
-            debug_log::printf(StageMap::kWarn, "Failed to load %s\n", mappings);
+            debug_log::printf(StageMap::kWarn, "Failed to load %s\n", mappings.data());
     }
 
     load_input_settings();
@@ -1035,7 +1036,7 @@ void process_sdl_device(InputPort* device)
 
     set_usable(device, false);
     set_connected(device, false);
-    uint8_t* data = device->control_data_;
+    uint8_t* data = device->control_data_.data();
     data[0] = 0;
     data[1] = 0x70;
     // The button bits are set for buttons down while the keyboard and the controller are read (so both can add

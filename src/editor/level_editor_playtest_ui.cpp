@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_playtest.h"
@@ -112,13 +113,13 @@ void pane(float scale, ImFont* heading, ImFont* small)
             ImGui::Text("%d%s", run.number, run.full ? "+" : "");
             if (ImGui::IsItemHovered()) {
                 std::string text;
-                char part[64];
+                std::array<char, 64> part{};
                 for (int m = 0; m < kMotions; ++m) {
                     if (run.motion_seconds_[m] < 0.05f)
                         continue;
-                    std::snprintf(part, sizeof(part), "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
+                    std::snprintf(part.data(), sizeof(part), "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
                                   run.motion_seconds_[m]);
-                    text += part;
+                    text += part.data();
                 }
                 ImGui::SetTooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
                                   run.full ? " (full)" : "");
@@ -158,9 +159,9 @@ void pane(float scale, ImFont* heading, ImFont* small)
     int landed = 0;
     for (const GapRead& g : gaps)
         landed += gap_landed(g.name) ? 1 : 0;
-    char title[96];
-    std::snprintf(title, sizeof(title), "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
-    current_heading(title, heading);
+    std::array<char, 96> title{};
+    std::snprintf(title.data(), sizeof(title), "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
+    current_heading(title.data(), heading);
     static bool g_untested_only;
     ImGui::Checkbox("Untested Only", &g_untested_only);
     if (gaps.empty()) {

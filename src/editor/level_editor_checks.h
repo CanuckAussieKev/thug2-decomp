@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 
@@ -120,7 +121,7 @@ struct TeamNodes {
 };
 struct MpCounts {
     int player1 = 0, multiplayer = 0, horse = 0, crowns = 0;
-    TeamNodes teams[4];
+    std::array<TeamNodes, 4> teams;
 };
 struct MpProblem {
     Severity severity;

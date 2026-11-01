@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -134,7 +135,7 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
 // 0x0049AB50
 void FlexibleParticleManager::render_systems(bool force)
 {
-    EmitterInstance* systems[256] = {};
+    std::array<EmitterInstance*, 256> systems = {};
     int count = 0;
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
         if (system->wants_time_)
@@ -142,7 +143,7 @@ void FlexibleParticleManager::render_systems(bool force)
     }
     if (!count)
         return;
-    crt::get_qsort(static_cast<void*>(systems), static_cast<size_t>(count), sizeof(systems[0]),
+    crt::get_qsort(static_cast<void*>(systems.data()), static_cast<size_t>(count), sizeof(EmitterInstance*),
                    &compare_distance); // (the game's qsort)
     const bool always = force || is_game_halted();
     for (int i = 0; i < count; ++i)
@@ -182,7 +183,7 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
     system->spewing_ = false;
     if (use_level_colour) {
         system->flag_bits_ |= 0x10000u;
-        system->set_colour_scale(colour_scale_);
+        system->set_colour_scale(colour_scale_.data());
     }
     memory::ListNode* node = &system->list_link_;
     node->prev = systems_ptr_->prev;

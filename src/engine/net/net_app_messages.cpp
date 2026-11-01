@@ -522,7 +522,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         StreamDesc* desc = memory ? construct_stream_desc(memory) : nullptr;
         // (the original copied the description with no limit: 32 bytes and a terminator here, the field's size)
         static_assert(sizeof(desc->desc_) == wire::kStreamDescSize);
-        std::memcpy(desc->desc_, start.desc, sizeof(desc->desc_));
+        std::memcpy(desc->desc_.data(), start.desc.data(), sizeof(desc->desc_));
         desc->desc_[sizeof(desc->desc_) - 1] = '\0';
         desc->extent_ = start.total_size;
         desc->stream_id_ = start.stream_id;

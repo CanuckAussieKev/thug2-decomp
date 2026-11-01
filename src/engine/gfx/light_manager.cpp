@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -19,24 +20,24 @@ namespace render {
 
 int g_dynamic_light_count;
 
-DynamicLightBase* g_dynamic_lights[256];
+std::array<DynamicLightBase*, 256> g_dynamic_lights;
 float* g_intensities;
 uint32_t g_model_light_count;
 float g_ambient_intensity{1.0f};
 LightingState g_active_lighting{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
 namespace {
-LightingState g_world_light_stack[4]; // (the saved ones: PushLights / PopLights)
+std::array<LightingState, 4> g_world_light_stack; // (the saved ones: PushLights / PopLights)
 
 constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
 LightingState& get_world() { return g_active_lighting; }
-LightingState* pile_up() { return g_world_light_stack; }
+LightingState* pile_up() { return g_world_light_stack.data(); }
 int g_light_stack_top{-1};
 float g_light_brightness{1.0f};
 float g_light_brightness_target{1.0f};
-int g_near_light_indexes[32]{-1};      // get_dynamic_lights_near's indexes
-float g_near_light_falloffs[31]{1.0f}; // get_dynamic_lights_near's falloffs
+std::array<int, 32> g_near_light_indexes{{-1}};      // get_dynamic_lights_near's indexes
+std::array<float, 31> g_near_light_falloffs{{1.0f}}; // get_dynamic_lights_near's falloffs
 float g_min_intensity;
 
 int& stack_top() { return g_light_stack_top; }
@@ -47,11 +48,11 @@ float& ambient_intensity() { return g_ambient_intensity; }
 float min_intensity() { return g_min_intensity; }
 float*& get_intensities() { return g_intensities; }
 
-DynamicLightBase** dynamic_lights() { return g_dynamic_lights; }
+DynamicLightBase** dynamic_lights() { return g_dynamic_lights.data(); }
 int& dynamic_light_count() { return g_dynamic_light_count; }
 // get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
-float* near_falloffs() { return g_near_light_falloffs; }
-int* near_indexes() { return g_near_light_indexes; }
+float* near_falloffs() { return g_near_light_falloffs.data(); }
+int* near_indexes() { return g_near_light_indexes.data(); }
 
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
 float get_scaled(float brightness, float low, float high)

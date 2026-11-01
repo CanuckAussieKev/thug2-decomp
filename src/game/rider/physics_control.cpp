@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -29,11 +30,11 @@
 
 namespace objects {
 
-uint32_t g_physics_control_member_functions[66]{
+std::array<uint32_t, 66> g_physics_control_member_functions{{
     0x3522D612, 0xD9151D4D, 0, 0, 0, 0, 0x0595627C, 0xD9151D4D, 0, 0, 0, 0, 0x9569D5B1, 0xD9151D4D, 0, 0, 0, 0,
     0xA887285A, 0xD9151D4D, 0, 0, 0, 0, 0x9366A509, 0xD9151D4D, 0, 0, 0, 0, 0x04830E80, 0xD9151D4D, 0, 0, 0, 0,
     0xD5A9F889, 0xD9151D4D, 0, 0, 0, 0, 0x27FDDEB7, 0xD9151D4D, 0, 0, 0, 0, 0x174A6AD9, 0xD9151D4D, 0, 0, 0, 0,
-    0x246322C9, 0xD9151D4D, 0, 0, 0, 0, 0,          0xD9151D4D, 0, 0, 0, 0};
+    0x246322C9, 0xD9151D4D, 0, 0, 0, 0, 0,          0xD9151D4D, 0, 0, 0, 0}};
 
 namespace {
 
@@ -103,7 +104,7 @@ RiderBoardPhysics::RiderBoardPhysics() { kind_tag_ = kSkaterPhysicsControl; }
 void RiderBoardPhysics::publish_method_table()
 {
     script::register_member_function_table(cell::pointer<void>(kSkaterPhysicsControl),
-                                           g_physics_control_member_functions, 0x18);
+                                           g_physics_control_member_functions.data(), 0x18);
 }
 
 // 0x005176C0 (0x00517740 the deleting one)
@@ -163,9 +164,9 @@ void RiderBoardPhysics::dismount_to_walk()
     freeze_module(walk, false);
     walk_starting(walk, skater_state == 0);
     freeze_module(walk_camera, false);
-    alignas(16) uint8_t camera_state[0x60];
-    skater_camera_save(skater_camera, camera_state);
-    walk_camera_restore(walk_camera, camera_state);
+    alignas(16) std::array<uint8_t, 0x60> camera_state{};
+    skater_camera_save(skater_camera, camera_state.data());
+    walk_camera_restore(walk_camera, camera_state.data());
     if (is_halted_)
         set_frozen(is_halted_);
 }
@@ -195,9 +196,9 @@ void RiderBoardPhysics::remount_board()
     freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), false);
     freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), false);
     freeze_module(skater_camera, false);
-    alignas(16) uint8_t camera_state[0x60];
-    walk_camera_save(walk_camera, camera_state);
-    skater_camera_set(skater_camera, camera_state);
+    alignas(16) std::array<uint8_t, 0x60> camera_state{};
+    walk_camera_save(walk_camera, camera_state.data());
+    skater_camera_set(skater_camera, camera_state.data());
     if (is_halted_)
         set_frozen(is_halted_);
 }

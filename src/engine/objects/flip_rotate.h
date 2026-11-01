@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/anim_controller.h"
 
@@ -31,7 +32,7 @@ public:
 
     bool mirrored_{false};    // +0x14
     bool has_pivoted_{false}; // +0x15
-    uint8_t pad16[2]{};
+    std::array<uint8_t, 2> pad16{};
 };
 static_assert(offsetof(FlipRotateComponent, mirrored_) == 0x14);
 static_assert(sizeof(FlipRotateComponent) == 0x18);

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "formats/byte_stream.h"
 
@@ -34,7 +35,7 @@ struct Header {
 
 struct GlyphEntry {
     uint16_t baseline = 0;
-    uint8_t codes[4] = {}; // format 1: an i16 character / special glyph (codes 0-1); format 2: up to four characters
+    std::array<uint8_t, 4> codes = {}; // format 1: an i16 character / special glyph (codes 0-1); format 2: up to four characters
     [[nodiscard]] int16_t code() const { return static_cast<int16_t>(codes[0] | codes[1] << 8); }
 };
 

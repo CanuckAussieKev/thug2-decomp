@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/gfx/loading_bar.h"
 #include "engine/gfx/loading_screen.h"
@@ -29,14 +30,14 @@ bool choose_pair(script::Struct* params, uint32_t first, uint32_t second, int& s
 }
 
 // A colour from r, g, b (alpha 0x80).
-bool change_colour(script::Struct* params, uint8_t (&setting)[4])
+bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
 {
     int r = 0, g = 0, b = 0; // (unset when missing in the original)
     params->fetch_int_value(0x93F60062u, &r, 0);
     params->fetch_int_value(0xFE2BE489u, &g, 0);
     params->fetch_int_value(0x8E411006u, &b, 0);
-    uint8_t colour[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
-    std::memcpy(setting, colour, sizeof(colour));
+    std::array<uint8_t, 4> colour = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
+    std::memcpy(setting.data(), colour.data(), sizeof(colour));
     update_loading_bar_colors();
     return true;
 }

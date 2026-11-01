@@ -11,6 +11,7 @@
 #include <map>
 #include <unordered_map>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_node_create.h"
@@ -103,9 +104,9 @@ bool is_identifier(const std::string& text)
 
 std::string hex8(uint32_t value)
 {
-    char text[16];
-    std::snprintf(text, sizeof(text), "%08X", value);
-    return text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "%08X", value);
+    return text.data();
 }
 
 std::string get_trim(const std::string& text)
@@ -167,13 +168,13 @@ bool parse_float(const std::string& text, float* out)
 // A float as short as it reads back exactly.
 std::string float_text(float value)
 {
-    char text[32];
+    std::array<char, 32> text{};
     for (int digits = 6; digits <= 9; ++digits) {
-        std::snprintf(text, sizeof(text), "%.*g", digits, static_cast<double>(value));
-        if (std::strtof(text, nullptr) == value)
+        std::snprintf(text.data(), sizeof(text), "%.*g", digits, static_cast<double>(value));
+        if (std::strtof(text.data(), nullptr) == value)
             break;
     }
-    return text;
+    return text.data();
 }
 
 std::string get_join(const std::vector<std::string>& parts, const char* separator)
@@ -389,9 +390,9 @@ std::string escape(const std::string& text)
         if (plain) {
             out += static_cast<char>(c);
         } else {
-            char hex[4];
-            std::snprintf(hex, sizeof(hex), "%%%02X", c);
-            out += hex;
+            std::array<char, 4> hex{};
+            std::snprintf(hex.data(), sizeof(hex), "%%%02X", c);
+            out += hex.data();
         }
     }
     return out;
@@ -429,21 +430,21 @@ bool unescape(const std::string& text, std::string* out)
 
 std::string encode_value(const Value& value, const NameLookup& names)
 {
-    char text[96];
+    std::array<char, 96> text{};
     switch (value.kind) {
     case Kind::kInteger:
         return "i:" + std::to_string(value.integer);
     case Kind::kFloat:
-        std::snprintf(text, sizeof(text), "f:%.9g", static_cast<double>(value.numbers[0]));
-        return text;
+        std::snprintf(text.data(), sizeof(text), "f:%.9g", static_cast<double>(value.numbers[0]));
+        return text.data();
     case Kind::kPair:
-        std::snprintf(text, sizeof(text), "p:%.9g,%.9g", static_cast<double>(value.numbers[0]),
+        std::snprintf(text.data(), sizeof(text), "p:%.9g,%.9g", static_cast<double>(value.numbers[0]),
                       static_cast<double>(value.numbers[1]));
-        return text;
+        return text.data();
     case Kind::kVec4:
-        std::snprintf(text, sizeof(text), "v:%.9g,%.9g,%.9g", static_cast<double>(value.numbers[0]),
+        std::snprintf(text.data(), sizeof(text), "v:%.9g,%.9g,%.9g", static_cast<double>(value.numbers[0]),
                       static_cast<double>(value.numbers[1]), static_cast<double>(value.numbers[2]));
-        return text;
+        return text.data();
     case Kind::kName:
         return "n:" + record_name(value.checksum, names);
     case Kind::kChars:
@@ -469,8 +470,8 @@ std::string encode_value(const Value& value, const NameLookup& names)
     case Kind::kFloats: {
         std::vector<std::string> parts;
         for (const float f : value.floats) {
-            std::snprintf(text, sizeof(text), "%.9g", static_cast<double>(f));
-            parts.emplace_back(text);
+            std::snprintf(text.data(), sizeof(text), "%.9g", static_cast<double>(f));
+            parts.emplace_back(text.data());
         }
         return "af:" + get_join(parts, ",");
     }

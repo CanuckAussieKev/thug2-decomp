@@ -1,14 +1,15 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 namespace render {
 
 // A screen flash (0x24 bytes; made by add_flash, engine_effects.h).
 struct Flash {
     int viewport;     // +0x00
-    uint8_t start[4]; // +0x04: the colour it starts with (RGBA)
-    uint8_t end[4];   // +0x08: and ends with
+    std::array<uint8_t, 4> start; // +0x04: the colour it starts with (RGBA)
+    std::array<uint8_t, 4> end;   // +0x08: and ends with
     uint8_t red;      // +0x0C: the colour now
     uint8_t green;
     uint8_t blue;

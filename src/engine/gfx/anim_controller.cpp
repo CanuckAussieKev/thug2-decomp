@@ -120,7 +120,7 @@ void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
 void set_bones(void* source, const uint8_t* skeleton)
 {
     RigData* bones = raw::as<const Rig>(skeleton)->payload_;
-    static_cast<render::FrameSource*>(source)->bone_masks_ = bones ? bones->lod_masks_ : nullptr;
+    static_cast<render::FrameSource*>(source)->bone_masks_ = bones ? bones->lod_masks_.data() : nullptr;
 }
 void set_bone_count(void* source, const uint8_t* skeleton)
 {
@@ -467,7 +467,7 @@ void WobbleDriver::tick_frame()
 // 0x004A5730
 StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    auto* rotations = raw::as<float>(stance_);
+    auto* rotations = raw::as<float>(stance_.data());
     for (int i = 0; i < 64; ++i) {
         rotations[i * 4 + 0] = 0.0f;
         rotations[i * 4 + 1] = 0.0f;
@@ -482,7 +482,7 @@ StanceDriver::~StanceDriver() = default;
 // 0x004A4D30
 bool StanceDriver::fetch_pose(uint8_t* pose)
 {
-    std::memcpy(pose, stance_, sizeof(stance_));
+    std::memcpy(pose, stance_.data(), sizeof(stance_));
     return true;
 }
 

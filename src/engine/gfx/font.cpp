@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/gfx/font.h"
 
@@ -24,10 +25,10 @@ lists::KeyMap g_font_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it
 
 namespace {
 
-FontSlot* get_slots() { return g_font_slots; }
+FontSlot* get_slots() { return g_font_slots.data(); }
 lists::KeyMap& font_table() { return g_font_table; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
-char* glyph_escape_table() { return g_glyph_alias_table; }
+char* glyph_escape_table() { return g_glyph_alias_table.data(); }
 bool g_meta_button_map_loaded;
 
 bool& meta_button_map_loaded() { return g_meta_button_map_loaded; }
@@ -93,9 +94,9 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
             set_color_table(slot.font, colors);
         flag_button_font(slot.font, button_font);
         // The original copies the name with no length limit, like strcpy.
-        text::copy_unbounded(slot.name, name);
+        text::copy_unbounded(slot.name.data(), name);
         const uint32_t key = checksums::hash_from_text(name);
-        font_table().store_entry(key, slot.name);
+        font_table().store_entry(key, slot.name.data());
     }
     // (With every slot taken nothing is loaded, but the map below still is.)
 
@@ -128,7 +129,7 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
 
     // Up to 16 colours, each an array of up to 4 bytes (r g b a: lowest byte first). The original leaves the
     // entries the script doesn't give as stack garbage; here they're 0.
-    uint32_t colors[16] = {};
+    std::array<uint32_t, 16> colors = {};
     script::Array* table = nullptr;
     if (params->fetch_list("color_tab", &table, false)) {
         for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->extent_); ++i) {
@@ -142,7 +143,7 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
         }
     }
 
-    load_font(name, static_cast<int>(glyph_gap), static_cast<int>(blank_gap), colors, button_font);
+    load_font(name, static_cast<int>(glyph_gap), static_cast<int>(blank_gap), colors.data(), button_font);
     debug_font_loaded();
     return true;
 }

@@ -4,6 +4,7 @@
 #include "editor/level_editor_prefs.h"
 
 #include <algorithm>
+#include <array>
 
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8.h"
@@ -28,15 +29,15 @@ Values get_clamped(Values v)
 
 void get_accent_rgb(int accent, float rgb[3])
 {
-    static const float kRgb[kAccentCount][3] = {
+    static const std::array<std::array<float, 3>, kAccentCount> kRgb = {{
         {0.82f, 0.34f, 0.11f}, // orange (the plan's mockup: the editor's own until now)
         {0.20f, 0.48f, 0.86f}, // blue
         {0.24f, 0.62f, 0.30f}, // green
         {0.58f, 0.36f, 0.84f}, // purple
         {0.80f, 0.22f, 0.26f}, // red
         {0.10f, 0.60f, 0.62f}, // teal
-    };
-    const float* c = kRgb[std::clamp(accent, 0, kAccentCount - 1)];
+    }};
+    const float* c = kRgb[std::clamp(accent, 0, kAccentCount - 1)].data();
     rgb[0] = c[0];
     rgb[1] = c[1];
     rgb[2] = c[2];
@@ -44,7 +45,7 @@ void get_accent_rgb(int accent, float rgb[3])
 
 const char* accent_name(int accent)
 {
-    static const char* const kNames[kAccentCount] = {"Orange", "Blue", "Green", "Purple", "Red", "Teal"};
+    static const std::array<const char*, kAccentCount> kNames = {{"Orange", "Blue", "Green", "Purple", "Red", "Teal"}};
     return kNames[std::clamp(accent, 0, kAccentCount - 1)];
 }
 
@@ -62,7 +63,7 @@ struct Key {
     const char* name;
     int Values::* field;
 };
-const Key kIntKeys[] = {
+constexpr auto kIntKeys = std::to_array<Key>({
     {"fly_speed", &Values::fly_speed_},
     {"fly_accel_ms", &Values::fly_accel_ms_},
     {"look_pct", &Values::look_pct_},
@@ -72,17 +73,17 @@ const Key kIntKeys[] = {
     {"snap_move", &Values::snap_move_},
     {"snap_turn", &Values::snap_turn_},
     {"accent", &Values::accent},
-};
+});
 struct BitMark {
     const char* name;
     bool Values::* field;
 };
-const BitMark kFlags[] = {
+constexpr auto kFlags = std::to_array<BitMark>({
     {"invert_y", &Values::invert_y_},
     {"wasd_flies", &Values::wasd_flies_},
     {"speed_by_selection", &Values::speed_by_selection_},
     {"tips_seen", &Values::tips_seen_},
-};
+});
 
 void read_in()
 {
@@ -211,8 +212,8 @@ void pane(float scale, ImFont* heading, ImFont* small)
         slider("UI Scale", &v.ui_scale_pct_, 75, 400, "%d%%", nullptr);
     ImGui::TextUnformatted("Accent");
     for (int i = 0; i < kAccentCount; ++i) {
-        float rgb[3];
-        get_accent_rgb(i, rgb);
+        std::array<float, 3> rgb{};
+        get_accent_rgb(i, rgb.data());
         ImGui::SameLine(0.0f, 6.0f * scale);
         ImGui::PushID(i);
         const ImVec4 colour(rgb[0], rgb[1], rgb[2], 1.0f);

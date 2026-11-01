@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/assets/resource_entry.h"
@@ -66,11 +67,11 @@
 namespace commands {
 
 bool g_trying_to_join;
-char g_node_list_name[128];
+std::array<char, 128> g_node_list_name;
 namespace {
 tasks::Task<void>* g_second_controller_check;
 int g_view_mode_cfunc;
-char g_password_stars[32];
+std::array<char, 32> g_password_stars;
 } // namespace
 bool g_got_extra_memory;
 
@@ -134,7 +135,7 @@ tasks::Task<void>*& second_controller_check() { return g_second_controller_check
 int& view_mode() { return g_view_mode_cfunc; }
 
 // GetPreferencePassword's row of stars (0x007CEBD0).
-char* password_stars() { return g_password_stars; }
+char* password_stars() { return g_password_stars.data(); }
 
 objects::PreviewEntity* viewer_target(modules::Viewer* viewer)
 {
@@ -357,7 +358,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
-    text::copy_unbounded(g_node_list_name, file);
+    text::copy_unbounded(g_node_list_name.data(), file);
     assets::asset_manager()->load_asset(file, 11, 0, 0, false, false, false, nullptr, 0);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;
@@ -715,7 +716,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
     int count3 = 0;
     int count4 = 0;
     for (const uint8_t* at = data; at < data + size; ++at) {
-        static const char kTracking[] = "\nTracking";
+        static const auto kTracking = std::to_array("\nTracking");
         int matched = 0; // (compared a byte at a time: never past the first difference)
         while (matched < 9 && at[matched] == static_cast<uint8_t>(kTracking[matched]))
             ++matched;
@@ -723,7 +724,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
             continue;
         const int type = at[9] - '0';
         at += 11;
-        float values[6];
+        std::array<float, 6> values{};
         for (float& value : values) {
             value = static_cast<float>(game_atof(raw::chars(at)));
             while (*at == '-' || *at == '.' || (*at >= '0' && *at <= '9'))
@@ -781,10 +782,10 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
     void* face = word54(current_account());
     const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &name, 1); // "string"
-    char path[0x80];
+    std::array<char, 0x80> path{};
     THUG2_MSVC_WARNING(suppress : 4996)    // (unbounded: as in the original)
-    std::sprintf(path, "faces\\%s", name); // "faces\%s"
-    void* file = game_fopen(path, "rb");   // "rb"
+    std::sprintf(path.data(), "faces\\%s", name); // "faces\%s"
+    void* file = game_fopen(path.data(), "rb");   // "rb"
     if (!file)
         return false;
     game_fseek(file, 0, SEEK_END);
@@ -921,15 +922,15 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
     int count = 0;
     do {
         if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(found.cFileName) <= 90) {
-            char file[0x110];
-            char name[0xC8];
-            std::memcpy(file, found.cFileName, std::strlen(found.cFileName) + 1);
-            std::memcpy(name, found.cFileName, std::strlen(found.cFileName) + 1);
-            if (std::strlen(name) > 4)
-                name[std::strlen(name) - 4] = '\0';
+            std::array<char, 0x110> file{};
+            std::array<char, 0xC8> name{};
+            std::memcpy(file.data(), found.cFileName, std::strlen(found.cFileName) + 1);
+            std::memcpy(name.data(), found.cFileName, std::strlen(found.cFileName) + 1);
+            if (std::strlen(name.data()) > 4)
+                name[std::strlen(name.data()) - 4] = '\0';
             script::Struct* item = spawn_param_table();
-            item->append_word("name", name);                                      // "name"
-            item->append_word("file", file);                                      // "file"
+            item->append_word("name", name.data());                                      // "name"
+            item->append_word("file", file.data());                                      // "file"
             script::launch_script("add_item_to_face_menu", item, nullptr, false); // "add_item_to_face_menu"
             ++count;
             delete_structure(item);

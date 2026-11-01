@@ -34,6 +34,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/down_cast.h"
 
 namespace modules {
@@ -70,7 +71,7 @@ constexpr char kKeyEnter = 0x19;
 constexpr char kKeyEscape = 0x1A;
 
 // The button names of SetButtonEventMappings' xbox array, by index (the null ones are unused indexes).
-const char* const kXboxButtonNames[18] = {
+const std::array<const char*, 18> kXboxButtonNames = {{
     "left_trigger_full",
     "right_trigger_full",
     "left_trigger_half",
@@ -89,7 +90,7 @@ const char* const kXboxButtonNames[18] = {
     "null",
     "black",
     "white",
-};
+}};
 
 uint32_t g_front_end_refs;
 bool g_skateshop_override;
@@ -220,8 +221,8 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
         event = kPadDown;
     if (device_index == 0 && event == 0 && get_keyboard_on_screen()) {
         // The PC keyboard's arrows: the first one typed (the keys are left for the others to read).
-        char keys[256];
-        const int count = sio::get_keyboard_chars(keys);
+        std::array<char, 256> keys{};
+        const int count = sio::get_keyboard_chars(keys.data());
         for (int i = 0; i < count; ++i) {
             const char key = keys[i];
             if (key == kKeyLeft) {
@@ -389,8 +390,8 @@ bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*s
 void FrontEnd::keyboard_task(FrontEndTask* task)
 {
     const FrontEnd* front_end = task->content_;
-    char keys[256];
-    const int count = sio::get_keyboard_chars(keys);
+    std::array<char, 256> keys{};
+    const int count = sio::get_keyboard_chars(keys.data());
     for (int i = 0; i < count; ++i) {
         const char key = keys[i];
         // Printable (and the high half), Enter and Backspace.
@@ -402,8 +403,8 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
         } else if (keys[i] == kKeyBackspace) {
             params->put_name_key(0u, kBackspaceKey);
         } else {
-            char text[2] = {keys[i], '\0'};
-            params->append_word(kText, text);
+            std::array<char, 2> text = {{keys[i], '\0'}};
+            params->append_word(kText, text.data());
         }
         params->put_int(kKeyboardDeviceParam, front_end->keyboard_device_);
         script::launch_script(kHandleKeyboardInput, params, nullptr, false, nullptr);
@@ -475,9 +476,9 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
         return 0;
 
     // The PC keyboard, while the on-screen keyboard is up.
-    char keys[256];
+    std::array<char, 256> keys{};
     uint32_t event = 0;
-    const int count = sio::get_keyboard_chars(keys);
+    const int count = sio::get_keyboard_chars(keys.data());
     for (int i = 0; i < count; ++i) {
         const char key = keys[i];
         if (key == kKeyEscape) {

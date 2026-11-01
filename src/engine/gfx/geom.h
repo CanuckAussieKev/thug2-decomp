@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
@@ -26,8 +27,8 @@ struct Singleton {
     maths::Mat4* bones;    // +0x44
     int bone_count_;       // +0x48
     bool active{true};     // +0x4C
-    uint8_t color[4]{};    // +0x4D: RGBA (0x80 each: unchanged)
-    uint8_t pad51[3]{};
+    std::array<uint8_t, 4> color{};    // +0x4D: RGBA (0x80 each: unchanged)
+    std::array<uint8_t, 3> pad51{};
     void* model{nullptr}; // +0x54
     SceneRef* scene;    // +0x58: its mesh list (the bounding sphere at +0x64)
     Singleton* next;    // +0x5C
@@ -185,7 +186,7 @@ public:
     uint32_t mesh_count_{};       // +0x40
     uint32_t visibility{0xDEADBEEF}; // +0x44: a viewport mask (0xDEADBEEF until set)
     bool active{true};               // +0x48
-    uint8_t pad49[3]{};
+    std::array<uint8_t, 3> pad49{};
     Singleton* instance{nullptr}; // +0x4C: an instance's (null for a sector's geometry)
     uint8_t* source{};   // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
     maths::Vec4 scale{}; // +0x54

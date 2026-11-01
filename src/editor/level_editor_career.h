@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 
 namespace goals {
 class GapTally;
@@ -38,8 +39,8 @@ struct Gap {
     std::string name;
     int score = 0;
     int count = 0;
-    float pos[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    float dir[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+    std::array<float, 4> pos = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> dir = {{0.0f, 0.0f, 0.0f, 1.0f}};
 };
 struct Checklist {
     bool built = false;

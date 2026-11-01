@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -72,7 +73,7 @@ int ParkLayout::get_shell_size()
 const char* ParkLayout::get_park_name()
 {
     if (map_.rev_ == CompressedMap::kVersion)
-        return map_.label_;
+        return map_.label_.data();
     return nullptr;
 }
 
@@ -80,8 +81,8 @@ void ParkLayout::set_park_name(const char* name)
 {
     if (map_.rev_ != CompressedMap::kVersion)
         return;
-    copy_text(map_.label_, name);
-    copy_text(park_name_, name);
+    copy_text(map_.label_.data(), name);
+    copy_text(park_name_.data(), name);
 }
 
 void ParkLayout::rebuild_park_geometry(int how)
@@ -103,12 +104,12 @@ void ParkLayout::rebuild_park_geometry(int how)
 
 uint32_t ParkLayout::get_shell_checksum()
 {
-    char name[40];
+    std::array<char, 40> name{};
     if ((flag_bits_ & kMapInSync) && map_.shell_size_ != 0)
-        std::snprintf(name, sizeof(name), "sk5ed%d_shell", map_.shell_size_ + 1); // 0x0064F650
+        std::snprintf(name.data(), sizeof(name), "sk5ed%d_shell", map_.shell_size_ + 1); // 0x0064F650
     else
-        std::memcpy(name, "sk5ed_shell", 12); // 0x0064F644
-    return checksums::hash_from_text(name);
+        std::memcpy(name.data(), "sk5ed_shell", 12); // 0x0064F644
+    return checksums::hash_from_text(name.data());
 }
 
 MapListNode* ParkLayout::get_cell_chain(int x, int z) { return cell_metas_[x][z]; }

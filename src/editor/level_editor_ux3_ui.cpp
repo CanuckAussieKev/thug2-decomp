@@ -11,6 +11,7 @@
 #include <cstring>
 #include <unordered_map>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_clip.h"
@@ -67,7 +68,7 @@ bool begin_floating(const char* title, bool* open, ImVec2 pos, ImVec2 size)
 
 // --- the command search ---
 
-char g_query[128];
+std::array<char, 128> g_query;
 int g_highlight;
 bool g_palette_was_open;
 
@@ -92,7 +93,7 @@ void get_palette()
         g_palette_was_open = true;
     }
     ImGui::SetNextItemWidth(-1.0f);
-    const bool enter = ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", g_query, sizeof(g_query),
+    const bool enter = ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", g_query.data(), sizeof(g_query),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     if (ImGui::IsItemActive() || enter) {
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
@@ -106,10 +107,10 @@ void get_palette()
     std::vector<std::pair<int, int>> found; // (score, index)
     for (int i = 0; std::cmp_less(i, all.size()); ++i) {
         const actions::ActStep& a = all[i];
-        const int score = std::max({actions::fuzzy_score(g_query, a.name) * 2,
-                                    actions::fuzzy_score(g_query, a.category + " " + a.name),
-                                    std::strlen(g_query) >= 3 ? actions::fuzzy_score(g_query, a.tip) / 2 : 0,
-                                    actions::fuzzy_score(g_query, actions::get_keys_text(i))});
+        const int score = std::max({actions::fuzzy_score(g_query.data(), a.name) * 2,
+                                    actions::fuzzy_score(g_query.data(), a.category + " " + a.name),
+                                    std::strlen(g_query.data()) >= 3 ? actions::fuzzy_score(g_query.data(), a.tip) / 2 : 0,
+                                    actions::fuzzy_score(g_query.data(), actions::get_keys_text(i))});
         if (score > 0)
             found.emplace_back(score, i);
     }
@@ -196,9 +197,9 @@ void history_window()
     for (int i = 0; std::cmp_less(i, undo.size()); ++i) {
         ImGui::PushID(i);
         const bool current = i == static_cast<int>(undo.size()) - 1;
-        char text[200];
-        std::snprintf(text, sizeof(text), "%2d  %s", i + 1, undo[i].label.c_str());
-        if (ImGui::Selectable(text, current))
+        std::array<char, 200> text{};
+        std::snprintf(text.data(), sizeof(text), "%2d  %s", i + 1, undo[i].label.c_str());
+        if (ImGui::Selectable(text.data(), current))
             jump = -(static_cast<int>(undo.size()) - 1 - i), any = true;
         if (ImGui::IsItemHovered() && !undo[i].detail.empty())
             ImGui::SetTooltip("Selection: %s", undo[i].detail.c_str());
@@ -208,11 +209,11 @@ void history_window()
     }
     for (int j = 0; std::cmp_less(j, redo.size()); ++j) {
         ImGui::PushID(1000 + j);
-        char text[200];
-        std::snprintf(text, sizeof(text), "%2d  %s  (undone)", static_cast<int>(undo.size()) + j + 1,
+        std::array<char, 200> text{};
+        std::snprintf(text.data(), sizeof(text), "%2d  %s  (undone)", static_cast<int>(undo.size()) + j + 1,
                       redo[j].label.c_str());
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-        if (ImGui::Selectable(text, false))
+        if (ImGui::Selectable(text.data(), false))
             jump = j + 1, any = true;
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered() && !redo[j].detail.empty())
@@ -227,7 +228,7 @@ void history_window()
 
 // --- the changes ---
 
-char g_changes_filter[64];
+std::array<char, 64> g_changes_filter;
 
 void changes_window()
 {
@@ -244,7 +245,7 @@ void changes_window()
     const std::vector<ChangeRow>& rows = change_list();
     ImGui::TextDisabled("%d changes", static_cast<int>(rows.size()));
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_changes_filter, sizeof(g_changes_filter));
+    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_changes_filter.data(), sizeof(g_changes_filter));
     ImGui::Separator();
     ImGui::BeginChild("##changes");
     if (rows.empty())
@@ -252,14 +253,14 @@ void changes_window()
     for (const char* group : changes::bunches()) {
         std::vector<const ChangeRow*> in;
         for (const ChangeRow& row : rows) {
-            if (row.entry.group == group && actions::fuzzy_score(g_changes_filter, row.entry.summary + " " + group) > 0)
+            if (row.entry.group == group && actions::fuzzy_score(g_changes_filter.data(), row.entry.summary + " " + group) > 0)
                 in.push_back(&row);
         }
         if (in.empty())
             continue;
-        char header[96];
-        std::snprintf(header, sizeof(header), "%s (%d)###chg_%s", group, static_cast<int>(in.size()), group);
-        if (!ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen))
+        std::array<char, 96> header{};
+        std::snprintf(header.data(), sizeof(header), "%s (%d)###chg_%s", group, static_cast<int>(in.size()), group);
+        if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen))
             continue;
         for (const ChangeRow* row : in) {
             ImGui::PushID(row->entry.line);
@@ -289,7 +290,7 @@ void changes_window()
 
 // --- the keys ---
 
-char g_keys_filter[64];
+std::array<char, 64> g_keys_filter;
 
 void keys_window()
 {
@@ -312,7 +313,7 @@ void keys_window()
 
 // --- the snapshots ---
 
-char g_snapshot_name[40];
+std::array<char, 40> g_snapshot_name;
 std::vector<std::string> g_snapshots;
 uint32_t g_snapshots_at;
 bool g_snapshots_stale = true;
@@ -341,11 +342,11 @@ void snapshots_window()
     ImGui::Text("Active: %s", active.empty() ? "(none)" : active.c_str());
     ImGui::Separator();
     ImGui::SetNextItemWidth(200.0f * current_s());
-    const bool enter = ImGui::InputTextWithHint("##name", "Name", g_snapshot_name, sizeof(g_snapshot_name),
+    const bool enter = ImGui::InputTextWithHint("##name", "Name", g_snapshot_name.data(), sizeof(g_snapshot_name),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
     if ((ImGui::Button("Save Snapshot") || enter) && g_snapshot_name[0]) {
-        const std::string name = g_snapshot_name;
+        const std::string name = g_snapshot_name.data();
         get_queue([name] {
             std::string message;
             organize::save_snapshot(name, &message);
@@ -394,12 +395,12 @@ void snapshots_window()
 
 // --- the menus and name windows ---
 
-char g_group_name[48];
-char g_label_text[48];
+std::array<char, 48> g_group_name;
+std::array<char, 48> g_label_text;
 uint32_t g_label_for;
 bool g_label_asked, g_group_asked;
 int g_rename_group = -1;
-char g_rename_text[48];
+std::array<char, 48> g_rename_text;
 bool g_rename_asked;
 
 void get_menus()
@@ -414,10 +415,10 @@ void get_menus()
             organize::Similar by;
             const char* tip;
         };
-        static const Item kItems[] = {{"Same mesh", organize::Similar::kMesh, "Same model or scenery piece"},
+        static const auto kItems = std::to_array<Item>({{"Same mesh", organize::Similar::kMesh, "Same model or scenery piece"},
                                       {"Same class", organize::Similar::kClass, "Same node class"},
                                       {"Same family", organize::Similar::kFamily, "Same Outliner family"},
-                                      {"Same type", organize::Similar::kKindTag, "Same node type"}};
+                                      {"Same type", organize::Similar::kKindTag, "Same node type"}});
         for (const Item& item : kItems) {
             const organize::Similar by = item.by;
             if (ImGui::MenuItem(item.name))
@@ -436,7 +437,7 @@ void get_menus()
     }
     if (take_group_name() || g_group_asked) {
         g_group_asked = false;
-        std::snprintf(g_group_name, sizeof(g_group_name), "Group");
+        std::snprintf(g_group_name.data(), sizeof(g_group_name), "Group");
         ImGui::OpenPopup("Group the selection###ux3group");
     }
     if (ImGui::BeginPopupModal("Group the selection###ux3group", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -444,9 +445,9 @@ void get_menus()
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         const bool enter =
-            ImGui::InputText("##group", g_group_name, sizeof(g_group_name), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::InputText("##group", g_group_name.data(), sizeof(g_group_name), ImGuiInputTextFlags_EnterReturnsTrue);
         if (ImGui::Button("Make group") || enter) {
-            const std::string name = g_group_name;
+            const std::string name = g_group_name.data();
             get_queue([name] { organize::make_group(name); });
             ImGui::CloseCurrentPopup();
         }
@@ -464,9 +465,9 @@ void get_menus()
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         const bool enter =
-            ImGui::InputText("##label", g_label_text, sizeof(g_label_text), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::InputText("##label", g_label_text.data(), sizeof(g_label_text), ImGuiInputTextFlags_EnterReturnsTrue);
         if (ImGui::Button("Set") || enter) {
-            const std::string text = g_label_text;
+            const std::string text = g_label_text.data();
             const uint32_t id = g_label_for;
             get_queue([id, text] {
                 organize::State next = organize::at_hand();
@@ -489,9 +490,9 @@ void get_menus()
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         const bool enter =
-            ImGui::InputText("##rename", g_rename_text, sizeof(g_rename_text), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::InputText("##rename", g_rename_text.data(), sizeof(g_rename_text), ImGuiInputTextFlags_EnterReturnsTrue);
         if (ImGui::Button("Rename") || enter) {
-            const std::string text = g_rename_text;
+            const std::string text = g_rename_text.data();
             const int index = g_rename_group;
             get_queue([index, text] { organize::rename_group(index, text); });
             ImGui::CloseCurrentPopup();
@@ -506,10 +507,10 @@ void get_menus()
 // --- the Inspector's folding, remembered ---
 
 // The Inspector's foldable sections (their ### ids - the windows' root, where they're drawn).
-const char* const kSections[] = {"###fields",    "###levelprops", "###camera",  "###cameras", "###clusters",
-                                 "###faceflags", "###locks",      "###ux3clip", "###ux3multi"};
+constexpr auto kSections = std::to_array<const char*>({"###fields",    "###levelprops", "###camera",  "###cameras", "###clusters",
+                                 "###faceflags", "###locks",      "###ux3clip", "###ux3multi"});
 constexpr int kSectionCount = sizeof(kSections) / sizeof(kSections[0]);
-int g_section_state[kSectionCount];
+std::array<int, kSectionCount> g_section_state;
 bool g_sections_loaded;
 ImGuiID g_sections_window;
 
@@ -517,7 +518,7 @@ ImGuiID g_sections_window;
 
 struct SharedEdit {
     uint32_t key = 0;
-    char text[160] = "";
+    std::array<char, 160> text = {""};
 };
 std::vector<SharedEdit> g_shared;
 ImGuiID g_shared_active;
@@ -589,7 +590,7 @@ void keys_section()
     const std::vector<actions::ActStep>& all = actions::get_all();
     ImGui::TextDisabled("Click a key to rebind, + to add, right-click to remove");
     ImGui::SetNextItemWidth(220.0f * current_s());
-    ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", g_keys_filter, sizeof(g_keys_filter));
+    ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", g_keys_filter.data(), sizeof(g_keys_filter));
     ImGui::SameLine();
     if (ImGui::SmallButton("Reset all") && ImGui::GetIO().KeyShift) {
         for (int i = 0; std::cmp_less(i, all.size()); ++i)
@@ -611,7 +612,7 @@ void keys_section()
         for (int i = 0; std::cmp_less(i, all.size()); ++i) {
             const actions::ActStep& a = all[i];
             if (!a.rebindable ||
-                actions::fuzzy_score(g_keys_filter, a.category + " " + a.name + " " + actions::get_keys_text(i)) == 0)
+                actions::fuzzy_score(g_keys_filter.data(), a.category + " " + a.name + " " + actions::get_keys_text(i)) == 0)
                 continue;
             ImGui::PushID(i);
             ImGui::TableNextRow();
@@ -696,9 +697,9 @@ void bunches()
     const organize::State& state = organize::at_hand();
     if (state.groups.empty())
         return;
-    char header[48];
-    std::snprintf(header, sizeof(header), "Groups###ux3groups");
-    const bool open = ImGui::TreeNodeEx(header, ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen);
+    std::array<char, 48> header{};
+    std::snprintf(header.data(), sizeof(header), "Groups###ux3groups");
+    const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::SameLine();
     ImGui::TextDisabled("%d", static_cast<int>(state.groups.size()));
     if (!open)
@@ -706,9 +707,9 @@ void bunches()
     for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
         const organize::GroupSet& g = state.groups[i];
         ImGui::PushID(i);
-        char text[96];
-        std::snprintf(text, sizeof(text), "%s  (%d)", g.name.c_str(), static_cast<int>(g.members.size()));
-        if (ImGui::Selectable(text))
+        std::array<char, 96> text{};
+        std::snprintf(text.data(), sizeof(text), "%s  (%d)", g.name.c_str(), static_cast<int>(g.members.size()));
+        if (ImGui::Selectable(text.data()))
             get_queue([i] { organize::select_group(i); });
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Click to select; right-click for options");
@@ -717,7 +718,7 @@ void bunches()
                 get_queue([i] { organize::add_to_group(i); });
             if (ImGui::MenuItem("Rename...")) {
                 g_rename_group = i;
-                std::snprintf(g_rename_text, sizeof(g_rename_text), "%s", g.name.c_str());
+                std::snprintf(g_rename_text.data(), sizeof(g_rename_text), "%s", g.name.c_str());
                 g_rename_asked = true;
             }
             if (ImGui::MenuItem("Delete Group"))
@@ -746,11 +747,11 @@ void row_toggles(const nodes::Elem& node, float x)
         bool state;
         const char* tip;
     };
-    const FlipOver toggles[3] = {
+    const std::array<FlipOver, 3> toggles = {{
         {"\xE2\x80\xA2", "-", !hidden, "Visible in editor"},
         {"L", "L", locked, "Locked against changes"},
         {"S", "S", selectable, "Selectable in the view"},
-    };
+    }};
     const float step = ImGui::CalcTextSize("W").x + 6.0f * current_s();
     for (int t = 0; t < 3; ++t) {
         ImGui::SameLine(x + 6.0f * current_s() + step * static_cast<float>(t));
@@ -789,7 +790,7 @@ void row_menu(const nodes::Elem& node)
     ImGui::Separator();
     if (ImGui::MenuItem("Label...")) {
         g_label_for = node.name;
-        std::snprintf(g_label_text, sizeof(g_label_text), "%s", row_label(node.name).c_str());
+        std::snprintf(g_label_text.data(), sizeof(g_label_text), "%s", row_label(node.name).c_str());
         g_label_asked = true;
     }
     const nodes::Elem& copy = node;
@@ -868,9 +869,9 @@ void inspector_section(const ui::ShapeMesh& model)
     }
     if (nodes.size() < 2)
         return;
-    char header[64];
-    std::snprintf(header, sizeof(header), "Shared fields (%d nodes)###ux3multi", static_cast<int>(nodes.size()));
-    if (!ImGui::CollapsingHeader(header))
+    std::array<char, 64> header{};
+    std::snprintf(header.data(), sizeof(header), "Shared fields (%d nodes)###ux3multi", static_cast<int>(nodes.size()));
+    if (!ImGui::CollapsingHeader(header.data()))
         return;
     // (the fields every selected node has and can edit; a value where they agree, "mixed" where not)
     std::vector<std::vector<fields::Row>> rows;
@@ -922,12 +923,12 @@ void inspector_section(const ui::ShapeMesh& model)
         // (the value shown afresh unless it's being typed in)
         if (g_shared_active != id || edit.key != f.key) {
             edit.key = f.key;
-            std::snprintf(edit.text, sizeof(edit.text), "%s", f.mixed ? "" : f.text.c_str());
+            std::snprintf(edit.text.data(), sizeof(edit.text), "%s", f.mixed ? "" : f.text.c_str());
         }
         ImGui::SetNextItemWidth(-1.0f);
         if (g_fonts.mono)
             ImGui::PushFont(g_fonts.mono);
-        const bool enter = ImGui::InputTextWithHint("##value", f.mixed ? "mixed" : "", edit.text, sizeof(edit.text),
+        const bool enter = ImGui::InputTextWithHint("##value", f.mixed ? "mixed" : "", edit.text.data(), sizeof(edit.text),
                                                     ImGuiInputTextFlags_EnterReturnsTrue);
         if (g_fonts.mono)
             ImGui::PopFont();
@@ -941,15 +942,15 @@ void inspector_section(const ui::ShapeMesh& model)
             FieldSet set;
             set.key = f.key;
             set.kind = static_cast<int>(f.kind);
-            set.text = edit.text;
+            set.text = edit.text.data();
             const std::vector<uint32_t>& targets = nodes;
-            get_queue([targets, set] {
+            get_queue(([targets, set] {
                 std::string message;
                 const int n = set_fields_on_nodes(targets, {set}, "Field (all selected)", &message);
                 show_message(n ? "Set on " + std::to_string(n) + " nodes" +
                                      (message.empty() ? "" : " (" + message + ")")
                                : "Not set: " + message);
-            });
+            }));
             g_shared_active = 0;
         }
         ImGui::PopID();

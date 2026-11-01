@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -105,10 +106,10 @@ bool RiderSpinAndFlip::apply_board_turned(uint32_t object_id, bool rotated, uint
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
             net::Guest* app = client_app(player_skater_index(player));
-            uint8_t data[2] = {static_cast<uint8_t>(object_id), static_cast<uint8_t>(rotated)};
+            std::array<uint8_t, 2> data = {{static_cast<uint8_t>(object_id), static_cast<uint8_t>(rotated)}};
             message.ident_ = kMsgBoardRotated;
             message.byte_count_ = 2;
-            message.content_ = data;
+            message.content_ = data.data();
             app->send_to_host(&message);
         }
     }

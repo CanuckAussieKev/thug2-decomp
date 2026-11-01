@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -160,15 +161,15 @@ CollGrid* get_first_coll_grid()
 
 namespace {
 uint32_t g_next_sector_name{1};
-CollGrid* g_collision_grids[16];
+std::array<CollGrid*, 16> g_collision_grids;
 } // namespace
-WorldScene* g_collision_scenes[16];
+std::array<WorldScene*, 16> g_collision_scenes;
 
 // 0x0048C980
 CollGrid** get_coll_grids_on_line(const maths::Seg* line)
 {
-    auto* scenes = g_collision_scenes;
-    auto* grids = g_collision_grids;
+    auto* scenes = g_collision_scenes.data();
+    auto* grids = g_collision_grids.data();
     maths::BBox box(line->start);
     box.append_spot(line->end);
     uint32_t count = 0;
@@ -259,13 +260,13 @@ WorldScene* build_world_scene(const char* name, TextureSet* textures, bool with_
 WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky, bool mesh_flag,
                        int unused)
 {
-    char file[0x80];
-    build_scene_file_path(file, sizeof(file), name);
-    memory::push_mem_profile(file);
-    uint32_t vertex_arena[4] = {0, 0, 0, 0};
-    void* arena = g_stream_offset_supported ? vertex_arena : nullptr;
+    std::array<char, 0x80> file{};
+    build_scene_file_path(file.data(), sizeof(file), name);
+    memory::push_mem_profile(file.data());
+    std::array<uint32_t, 4> vertex_arena = {{0, 0, 0, 0}};
+    void* arena = g_stream_offset_supported ? vertex_arena.data() : nullptr;
     auto* scene = static_cast<WorldScene*>(
-        load_scene_from_file(file, textures, with_super_sectors, is_sky, mesh_flag, static_cast<int>(cell::of(arena))));
+        load_scene_from_file(file.data(), textures, with_super_sectors, is_sky, mesh_flag, static_cast<int>(cell::of(arena))));
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);
     return scene;
@@ -286,19 +287,19 @@ WorldScene* load_named_scene_from_memory(const char* name, const uint8_t* data, 
 // 0x0048CDD0
 WorldScene* add_scene(const char* scene_name, const char* add_name)
 {
-    char file[0x80];
-    char tex_file[0x80];
-    build_scene_file_path(file, sizeof(file), add_name);
-    std::snprintf(tex_file, sizeof(tex_file), "levels\\%s\\%s.tex", add_name, add_name);
+    std::array<char, 0x80> file{};
+    std::array<char, 0x80> tex_file{};
+    build_scene_file_path(file.data(), sizeof(file), add_name);
+    std::snprintf(tex_file.data(), sizeof(tex_file), "levels\\%s\\%s.tex", add_name, add_name);
     WorldScene* scene = look_up_scene(checksums::hash_from_text(scene_name));
-    if (std::strcmp(scene->add_name_, file) == 0) {
+    if (std::strcmp(scene->add_name_.data(), file.data()) == 0) {
         scene->unload_added_scene();
-        if (TextureSet* old = find_tex_dict(checksums::hash_from_text(tex_file)))
+        if (TextureSet* old = find_tex_dict(checksums::hash_from_text(tex_file.data())))
             unload_tex_dict(old);
     }
-    const TextureSet* textures = load_tex_dict(tex_file, 1, 0, 0, 0);
-    plat_load_add_scene(scene, file);
-    scene->finish_add(file, cell::of(textures));
+    const TextureSet* textures = load_tex_dict(tex_file.data(), 1, 0, 0, 0);
+    plat_load_add_scene(scene, file.data());
+    scene->finish_add(file.data(), cell::of(textures));
     return scene;
 }
 

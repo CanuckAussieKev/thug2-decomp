@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 // Texture splats on PC (Nx engine): textures projected onto the world (skid marks, splashes) - per texture a set of
 // up to 256 triangles kept in a table (0x007004B0, lists::KeyMap keyed by the set's address), drawn with a
@@ -14,17 +15,17 @@ struct MaterialRef;
 
 // A splat set (laid out as the original: arrays of 256).
 struct TextureSplats {
-    uint32_t alive[0x100];           // +0x0000: 0 once a triangle is killed
-    int correction_steps_[0x100];    // +0x0400 (the depth correction's, see draw_texture_splats)
-    float correction_a_[0x100];      // +0x0800
-    float correction_b_[0x100];      // +0x0C00
-    uint32_t base_colors_[0x100][3]; // +0x1000: each triangle's vertex colours before lighting (RGBA)
+    std::array<uint32_t, 0x100> alive;           // +0x0000: 0 once a triangle is killed
+    std::array<int, 0x100> correction_steps_;    // +0x0400 (the depth correction's, see draw_texture_splats)
+    std::array<float, 0x100> correction_a_;      // +0x0800
+    std::array<float, 0x100> correction_b_;      // +0x0C00
+    std::array<std::array<uint32_t, 3>, 0x100> base_colors_; // +0x1000: each triangle's vertex colours before lighting (RGBA)
     int last;                        // +0x1C00: the last vertex / triangle in use (-1: none)
     uint32_t texture;                // +0x1C04: the texture's checksum (set by the engine's splat maker)
-    uint8_t unknown1c08_[4];
+    std::array<uint8_t, 4> unknown1c08_;
     MaterialRef* material;            // +0x1C0C
-    float uvs[0x300][2];              // +0x1C10: each vertex's texture coordinates before the correction
-    uint8_t vertices[0x100][3][0x18]; // +0x3410: position, ARGB colour, u, v
+    std::array<std::array<float, 2>, 0x300> uvs;              // +0x1C10: each vertex's texture coordinates before the correction
+    std::array<std::array<std::array<uint8_t, 0x18>, 3>, 0x100> vertices; // +0x3410: position, ARGB colour, u, v
 };
 static_assert(offsetof(TextureSplats, last) == 0x1C00 && offsetof(TextureSplats, material) == 0x1C0C &&
                   offsetof(TextureSplats, uvs) == 0x1C10 && offsetof(TextureSplats, vertices) == 0x3410,
@@ -53,7 +54,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 
 // The vertex format the splitter works on: the colour's and the texture coordinates' offsets (0: none).
 struct SplitFormat {
-    uint8_t unknown0[0x1C];
+    std::array<uint8_t, 0x1C> unknown0;
     uint8_t color_offset_; // +0x1C
     uint8_t unknown1d_;
     uint8_t uv_offset_; // +0x1E
@@ -68,8 +69,8 @@ bool split_next_triangle(uint8_t** out, const SplitFormat* format);
 // it lasts (`lifetime` in seconds; below 0: for ever), the texture (+0x10 of `texture`, through one more pointer with
 // flag 1 of its +0x08).
 struct SplatParams {
-    float start[4]{};
-    float end[4]{};
+    std::array<float, 4> start{};
+    std::array<float, 4> end{};
     float size{0.0f};          // +0x20
     float depth{0.0f};         // +0x24 (each triangle's correction A)
     float angle{0.0f};         // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
@@ -79,7 +80,7 @@ struct SplatParams {
     uint32_t unknown38{0x54628ED7};
     const float* up{nullptr}; // +0x3C: a point the projection's up comes from, or null
     uint8_t unknown40{0};     // +0x40
-    uint8_t pad41[3]{};
+    std::array<uint8_t, 3> pad41{};
 
     // 0x00490E40: construct: the start and end (0, 0, 0, 1), everything else zero but +0x38 (0x54628ED7). Returns
     // this.

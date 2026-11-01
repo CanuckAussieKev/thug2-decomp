@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/vec4.h"
 
@@ -81,5 +82,5 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float bri
 void create_light_from_node(script::Struct* node);
 
 extern int g_scene_light_count;
-extern LevelLamp g_level_lamps[150];
+extern std::array<LevelLamp, 150> g_level_lamps;
 } // namespace render

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/particle_sets.h"
 #include "engine/maths/mat4.h"
@@ -21,7 +22,7 @@ struct ParticleBurst {
     float rate;       // +0x04: particles a second (the system's when it began)
     float period;     // +0x08: 1 / rate
     float age;        // +0x0C: of its first particle, seconds
-    uint32_t seed[3]; // +0x10: the random sequence its particles' spreads come from (rand(), 0x12B9B0A1, 0x0AA2FB3F)
+    std::array<uint32_t, 3> seed; // +0x10: the random sequence its particles' spreads come from (rand(), 0x12B9B0A1, 0x0AA2FB3F)
 
     // 0x004BB040 (Ghidra never made it): the seed moved on past `particles` particles (four numbers each); the random
     // sequence's state (0x00705608, 0x0067E974, 0x0067E978) left there too.
@@ -60,14 +61,14 @@ struct PcParticleSystem final : Sparkle {
     void update_path();
 
     bool emitting{}; // +0x190
-    uint8_t unknown191[3]{};
+    std::array<uint8_t, 3> unknown191{};
     int capacity{};          // +0x194: bursts (5)
     int live{};              // +0x198
     ParticleBurst* bursts{}; // +0x19C: a ring of `capacity`
     ParticleBurst* newest{}; // +0x1A0
     ParticleBurst* oldest{}; // +0x1A4
     maths::Mat4 matrix{};    // +0x1A8 (the identity)
-    uint8_t unknown1e8_[0x40]{};
+    std::array<uint8_t, 0x40> unknown1e8_{};
     MaterialRef* material{}; // +0x228: its own
     ParticleCurve spread{};  // +0x22C: the boxes and radii through time
     ParticleCurve path{};    // +0x25C: the positions and sizes through time, less 1.5 times the spread

@@ -7,6 +7,7 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/engine_effects.h"
@@ -25,8 +26,8 @@ namespace render {
 bool g_screen_copy_in_use;
 namespace {
 bool g_blur_second_pass{true};
-float g_blur_tap_weights[4]{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f};
-float g_blur_tap_offsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f};
+std::array<float, 4> g_blur_tap_weights{{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f}};
+std::array<float, 4> g_blur_tap_offsets{{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* device_copy() { return g_draw_device; } // (the same device)
@@ -117,23 +118,23 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, float du, floa
         auto v0 = static_cast<float>(static_cast<double>(half_y) + dv);
         auto u1 = static_cast<float>(static_cast<double>(right) + half_x);
         auto v1 = static_cast<float>((static_cast<double>(dv) + 1.0) + half_y);
-        TexturedVertex quad[4] = {
+        std::array<TexturedVertex, 4> quad = {{
             {0.0f, 0.0f, 0.0f, 1.0f, colour, u0, v0},
             {width, 0.0f, 0.0f, 1.0f, colour, u1, v0},
             {0.0f, height, 0.0f, 1.0f, colour, u0, v1},
             {width, height, 0.0f, 1.0f, colour, u1, v1},
-        };
-        device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(TexturedVertex));
+        }};
+        device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
     } else {
         set_pixel_shader(get_shader(kPixelShader94c), nullptr);
         // (the vertex format is left as it was)
-        FlatVertex quad[4] = {
+        std::array<FlatVertex, 4> quad = {{
             {0.0f, 0.0f, 0.0f, 1.0f, colour},
             {width, 0.0f, 0.0f, 1.0f, colour},
             {0.0f, height, 0.0f, 1.0f, colour},
             {width, height, 0.0f, 1.0f, colour},
-        };
-        device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(FlatVertex));
+        }};
+        device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(FlatVertex));
     }
     count_draw(2);
     change_fog(fog_was_on);
@@ -204,9 +205,9 @@ void get_bloom()
     set_pixel_shader(get_shader(kPixelShader948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
     const uint8_t* cutoff = raw::bytes(&g_bloom_cut_off);
-    float constant[4] = {static_cast<float>(cutoff[0] * (1.0 / 128)), static_cast<float>(cutoff[1] * (1.0 / 128)),
-                         static_cast<float>(cutoff[2] * (1.0 / 128)), 0.5f};
-    input_port()->SetPixelShaderConstantF(0, constant, 1);
+    std::array<float, 4> constant = {{static_cast<float>(cutoff[0] * (1.0 / 128)), static_cast<float>(cutoff[1] * (1.0 / 128)),
+                         static_cast<float>(cutoff[2] * (1.0 / 128)), 0.5f}};
+    input_port()->SetPixelShaderConstantF(0, constant.data(), 1);
     draw_screen_quad(0, bright, quarter, 0.0f, 0.0f, 0x80808080, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
     IDirect3DTexture9* a = screen_copy(3);
@@ -255,20 +256,20 @@ void get_bloom()
         auto height = static_cast<float>(g_back_buffer_height);
         uint32_t colour = alpha << 24 | 0x808080;
         // (as the original builds them: z 1, the second vertex's u 1, the last vertex half a texel short of the bottom)
-        TexturedVertex quad[4] = {
+        std::array<TexturedVertex, 4> quad = {{
             {0.0f, 0.0f, 1.0f, 1.0f, colour, half_x_float, half_y_float},
             {width, 0.0f, 1.0f, 1.0f, colour, 1.0f, half_y_float},
             {0.0f, height, 1.0f, 1.0f, colour, half_x_float,
              static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
             {width, static_cast<float>(static_cast<double>(height) - half_y_float), 1.0f, 1.0f, colour,
              static_cast<float>(half_x + 1.0), static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
-        };
+        }};
         set_texture(0, nullptr);
         set_texture(0, blurred);
         set_texture(1, nullptr);
         set_texture(2, nullptr);
         set_texture(3, nullptr);
-        device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(TexturedVertex));
+        device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
         count_draw(2);
     }
     change_phase(kAlphaTest, 1);

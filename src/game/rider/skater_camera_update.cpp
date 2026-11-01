@@ -120,7 +120,7 @@ void RiderChaseView::tick_frame()
     gfx::ViewCam* camera = core::down_cast<ViewpointModule>(camera_component)->view_camera_.get();
     camera->remember_prev_pos();
     maths::Mat4& view = camera_component->entity_->basis_frame_;
-    std::memcpy(&view, orientation_, sizeof(orientation_));
+    std::memcpy(&view, orientation_.data(), sizeof(orientation_));
     const float last_facing_z = view.row[2].z;
     const float last_facing_y = view.row[2].y;
     const float last_facing_x = view.row[2].x;
@@ -420,7 +420,7 @@ void RiderChaseView::tick_frame()
             }
         }
     }
-    std::memcpy(orientation_, &view, sizeof(orientation_));
+    std::memcpy(orientation_.data(), &view, sizeof(orientation_));
 
     // Where: the target, behind along the view and above along the up; looking at it from above the skater.
     maths::Vec4 target{};

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace maths {
 class Vec4;
@@ -83,7 +84,7 @@ DynamicLightBase* new_dynamic_light(int type);
 // subclass, nothing deleting through it: no vtable here): a point light at a position with a radius, an intensity and
 // a colour, held by an object (the dynamic light component, `owner` its id).
 struct DynamicLightBase {
-    float pos[4];          // +0x04
+    std::array<float, 4> pos;          // +0x04
     int type;              // +0x14
     float radius;          // +0x18
     float inverse_radius_; // +0x1C
@@ -105,7 +106,7 @@ struct DynamicLightBase {
 extern int g_dynamic_light_count;
 extern float g_ambient_intensity;
 extern LightingState g_active_lighting;
-extern DynamicLightBase* g_dynamic_lights[256];
+extern std::array<DynamicLightBase*, 256> g_dynamic_lights;
 extern float* g_intensities;
 extern uint32_t g_model_light_count;
 } // namespace render

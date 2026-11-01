@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace maths {
 class Vec4;
@@ -25,7 +26,7 @@ namespace surface_kind {
 
 // A terrain sound's settings (0x84 bytes; the defaults 100 except floor_loudness_ 0).
 struct SoundInfo {
-    char name[0x68];       // +0x00 the sound's file (sound=)
+    std::array<char, 0x68> name;       // +0x00 the sound's file (sound=)
     uint32_t checksum;     // +0x68 the checksum of its name without folders
     float max_pitch_;      // +0x6C
     float min_pitch_;      // +0x70

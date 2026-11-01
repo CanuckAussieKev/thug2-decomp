@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 // The pixel shader handles the pixel shader maker fills in (the original's table of 18 words at 0x007CA920; a slot is
 // named by its offset from it), and the vertex-format ids of the mesh loader (6 words at 0x00775B64).
@@ -30,9 +31,9 @@ enum PixelShaderSlot : uint8_t {
     kPixelShaderCount,
 };
 
-extern void* g_pixel_shaders[kPixelShaderCount];
+extern std::array<void*, kPixelShaderCount> g_pixel_shaders;
 
 // The vertex-format ids, in address order (0x00775B64 + 4 * index; a mesh's type t is index 6 - t).
-extern uint32_t g_vertex_shaders[6];
+extern std::array<uint32_t, 6> g_vertex_shaders;
 
 } // namespace render

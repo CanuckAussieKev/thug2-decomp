@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -331,7 +332,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
     struct ChangeLevelMessage {
         uint32_t level;
         bool show_warning_;
-        uint8_t pad[3];
+        std::array<uint8_t, 3> pad;
     } message{};
     message.level = level;
     message.show_warning_ = show_warning;
@@ -391,9 +392,9 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
     if (!params->read_hash_value(0u, &level, false)) {
         const char* name = nullptr;
         if (params->fetch_text(0u, &name, 1)) {
-            char script[0x80];
-            std::snprintf(script, sizeof(script), "load_%s", name); // "load_%s"
-            level = checksums::hash_from_text(script);
+            std::array<char, 0x80> script{};
+            std::snprintf(script.data(), sizeof(script), "load_%s", name); // "load_%s"
+            level = checksums::hash_from_text(script.data());
         }
     }
     if (level == kFromSettingsMarker) {

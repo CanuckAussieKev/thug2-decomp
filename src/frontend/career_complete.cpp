@@ -3,6 +3,7 @@
 #include "frontend/career_complete.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/objects/entity.h"
@@ -196,11 +197,11 @@ bool cfunc_apply(script::Struct* params, script::Script*)
 
 void register_script_functions()
 {
-    static const script::NativeCommand kFunctions[] = {
+    static const auto kFunctions = std::to_array<script::NativeCommand>({
         {"Career100_Available", code_address(&cfunc_available)},
         {"Career100_Apply", code_address(&cfunc_apply)},
-    };
-    script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
+    });
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
 } // namespace frontend::career_complete

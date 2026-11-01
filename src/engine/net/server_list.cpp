@@ -8,6 +8,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -195,8 +196,8 @@ HostListing::HostListing() : ListNode()
 {
     make_node(this);
     participants_.make_head();
-    std::sprintf(level_, "None");
-    std::sprintf(mode_sel_, "None");
+    std::sprintf(level_.data(), "None");
+    std::sprintf(mode_sel_.data(), "None");
 }
 
 // 0x00546640
@@ -225,7 +226,7 @@ void HostListing::enroll_player(const char* name, int rating)
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
     player->skill_points_ = rating;
-    std::strncpy(player->label_, name, 15);
+    std::strncpy(player->label_.data(), name, 15);
     player->label_[15] = '\0';
     get_append(&participants_, player);
     ram_stats()->leave_heap_scope();
@@ -253,7 +254,7 @@ const char* HostListing::get_entrant_name(int index)
         if (!player)
             return nullptr;
         if (index == 0)
-            return player->label_;
+            return player->label_.data();
         --index;
     }
     return nullptr;
@@ -301,16 +302,16 @@ void Hub::update_hosting_status()
     if (presence_service_->authenticated_) { // (0x005480B0: logged in to presence)
         const char* server_name = nullptr;
         get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
-        char location[1024];
+        std::array<char, 1024> location{};
         RoomManager* lobby = current_lobby(this);
         if (lobby->remote_) {
             const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote_); // (the peer's private address)
-            std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
-                         server_name, lobby->room_name_);
+            std::sprintf(location.data(), "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
+                         server_name, lobby->room_name_.data());
         } else {
-            std::sprintf(location, "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name_);
+            std::sprintf(location.data(), "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name_.data());
         }
-        presence_service_->change_standing(2, script::fetch_text(kHostingStatus), location);
+        presence_service_->change_standing(2, script::fetch_text(kHostingStatus), location.data());
     }
     ram_stats()->leave_heap_scope();
 }
@@ -394,9 +395,9 @@ void Hub::show_server_in_menu(void* item, int index)
         get_run(kDestroyServerChildren);
     get_run(kPrepareServerMenu);
     script::Struct* params = new_params();
-    params->append_word(kText, server->label_);
-    params->append_word(kMode, server->mode_sel_);
-    debug::printf("The game mode is: %s\n", server->mode_sel_);
+    params->append_word(kText, server->label_.data());
+    params->append_word(kMode, server->mode_sel_.data());
+    debug::printf("The game mode is: %s\n", server->mode_sel_.data());
     const uint32_t id = server_id(this, server);
     params->put_name_key(kId, id);
     params->put_name_key(kParent, kServerListMenu);
@@ -431,7 +432,7 @@ bool Hub::has_server(const char* name, uint32_t ip)
             auto* server = static_cast<HostListing*>(node->data);
             if (!server)
                 break;
-            if (server->remote_ip_ == ip && _stricmp(server->label_, name) == 0)
+            if (server->remote_ip_ == ip && _stricmp(server->label_.data(), name) == 0)
                 return true;
         }
     }
@@ -475,10 +476,10 @@ void Hub::refresh_server_list(bool force)
         return;
     }
     const Hub* manager = the_manager();
-    uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
+    std::array<uint8_t, 4> keys = {{8, 10, 4, 6}}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->lobby_service_->clear_lost_connection();
-    game_spy::peer_start_listing_games(current_lobby(this)->remote_, keys, 4, nullptr,
+    game_spy::peer_start_listing_games(current_lobby(this)->remote_, keys.data(), 4, nullptr,
                                        code_address(listing_games_callback),
                                        this); // (the games listed)
     ram_stats()->leave_heap_scope();
@@ -510,13 +511,13 @@ unsigned long __stdcall news_thread(void* argument)
     game_spy::get_msleep(100);
     manager->service_state_ = kStateNews;
     manager->request_started_at_ = frame_clock::get_time();
-    uint8_t* buffer = manager->news_buffer_;
+    uint8_t* buffer = manager->news_buffer_.data();
     std::memset(buffer, 0, 0x1900 * 4);
-    char url[256];
-    std::sprintf(url, commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
+    std::array<char, 256> url{};
+    std::sprintf(url.data(), commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
     manager->request_ =
-        game_spy::http_get_ex(url, nullptr, raw::chars(buffer), static_cast<int>(kNewsBufferSize), nullptr,
+        game_spy::http_get_ex(url.data(), nullptr, raw::chars(buffer), static_cast<int>(kNewsBufferSize), nullptr,
                               0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
     ram_stats()->leave_heap_scope();
     return 0;
@@ -573,9 +574,9 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
 // 0x00548040
 bool is_thug2_location(const char* location)
 {
-    char copy[256];
-    std::strcpy(copy, location);
-    return _stricmp(std::strtok(copy, ":"), "10thug211") == 0;
+    std::array<char, 256> copy{};
+    std::strcpy(copy.data(), location);
+    return _stricmp(std::strtok(copy.data(), ":"), "10thug211") == 0;
 }
 
 // --- The script commands ---

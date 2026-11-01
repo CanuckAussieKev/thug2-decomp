@@ -22,12 +22,13 @@
 #include "engine/objects/cutscene_list_cfuncs.h"
 #include "engine/sys/startup_init.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
 namespace objects {
 
-uint32_t g_composite_object_member_functions[186]{
+std::array<uint32_t, 186> g_composite_object_member_functions{{
     0xE90AAD2D, 0x0ADA4E74, 0, 0, 0, 0, 0xC2404947, 0x0ADA4E74, 0, 0, 0, 0, 0x406998A5, 0x0ADA4E74, 0, 0, 0, 0,
     0x2BFFEAA3, 0x0ADA4E74, 0, 0, 0, 0, 0xF7251A64, 0x0ADA4E74, 0, 0, 0, 0, 0xC6F3BAA5, 0x0ADA4E74, 0, 0, 0, 0,
     0x77403AFC, 0x0ADA4E74, 0, 0, 0, 0, 0xC1BFF0F3, 0x0ADA4E74, 0, 0, 0, 0, 0x11FE9F71, 0x0ADA4E74, 0, 0, 0, 0,
@@ -38,15 +39,15 @@ uint32_t g_composite_object_member_functions[186]{
     0x4AF57BBB, 0x0ADA4E74, 0, 0, 0, 0, 0x2A26FFA2, 0x0ADA4E74, 0, 0, 0, 0, 0xF8CFD515, 0x0ADA4E74, 0, 0, 0, 0,
     0x7DCC5FB9, 0x0ADA4E74, 0, 0, 0, 0, 0xE5DF66D7, 0x0ADA4E74, 0, 0, 0, 0, 0xDD468509, 0x0ADA4E74, 0, 0, 0, 0,
     0x37185D8A, 0x0ADA4E74, 0, 0, 0, 0, 0x70ED3048, 0x0ADA4E74, 0, 0, 0, 0, 0x33CAC5FF, 0x0ADA4E74, 0, 0, 0, 0,
-    0,          0x0ADA4E74, 0, 0, 0, 0};
+    0,          0x0ADA4E74, 0, 0, 0, 0}};
 
-uint32_t g_object_member_functions[102]{
+std::array<uint32_t, 102> g_object_member_functions{{
     0x3611C136, 0x57525413, 0, 0, 0, 0, 0x62C11CB9, 0x57525413, 0, 0, 0, 0, 0xEEEB7220, 0x57525413, 0, 0, 0, 0,
     0xA58079EB, 0x57525413, 0, 0, 0, 0, 0x0C7CD27A, 0x57525413, 0, 0, 0, 0, 0xB3C262EC, 0x57525413, 0, 0, 0, 0,
     0x500EB224, 0x57525413, 0, 0, 0, 0, 0x4BABC987, 0x57525413, 0, 0, 0, 0, 0x53EBEE03, 0x57525413, 0, 0, 0, 0,
     0x6C2B67F9, 0x57525413, 0, 0, 0, 0, 0xBE563426, 0x57525413, 0, 0, 0, 0, 0xFBD89CD5, 0x57525413, 0, 0, 0, 0,
     0x23A4E5C2, 0x57525413, 0, 0, 0, 0, 0x714937C7, 0x57525413, 0, 0, 0, 0, 0x20D125D7, 0x57525413, 0, 0, 0, 0,
-    0x3578E5A9, 0x57525413, 0, 0, 0, 0, 0,          0x57525413, 0, 0, 0, 0};
+    0x3578E5A9, 0x57525413, 0, 0, 0, 0, 0,          0x57525413, 0, 0, 0, 0}};
 
 namespace {
 int g_composite_mgr_block_header_size{16};
@@ -58,7 +59,7 @@ int g_coim_c;
 gsl::owner<memory::Zone*> g_coim_region;
 memory::Arena* g_coim_heap;
 // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
-ObjectModule* g_component_list[objects::EntityHub::kMaxComponentTypes];
+std::array<ObjectModule*, objects::EntityHub::kMaxComponentTypes> g_component_list;
 } // namespace
 gsl::owner<objects::EntityHub*> g_composite_registry;
 namespace {
@@ -143,9 +144,9 @@ EntityHub::EntityHub()
     update_job_ = std::make_unique<tasks::Task<EntityHub>>(&composite_object_manager_task, this, kLogicTaskPriority);
     register_logic_task(update_job_.get());
     script::register_member_function_table(cell::pointer<void>(kObjectMemberFunctionType),
-                                           g_object_member_functions, 0x18);
+                                           g_object_member_functions.data(), 0x18);
     script::register_member_function_table(cell::pointer<void>(kCompositeMemberFunctionType),
-                                           g_composite_object_member_functions, 0x18);
+                                           g_composite_object_member_functions.data(), 0x18);
 }
 
 // 0x0045F200

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/gfx/texture_splats.h"
 #include "engine/maths/vec4.h"
@@ -21,7 +22,7 @@ namespace render {
 struct VertexStack {
     uint32_t used{0};
     uint32_t vertex_size_{0};
-    uint8_t data[0x4000]{};
+    std::array<uint8_t, 0x4000> data{};
 
     // 0x00490D80: the top vertex popped into `out`.
     void stack_off(uint8_t* out);

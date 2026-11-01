@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -75,7 +76,7 @@ constexpr uint32_t kModelModuleName = 0x286A8D26; // Model
 // The balance tricks and boards for which going backwards isn't turned round (their checksums).
 constexpr uint32_t kBalanceTrickA = 0xEF24413B;
 constexpr uint32_t kBalanceTrickB = 0x0AC90769;
-constexpr uint32_t kBoards[] = {0xEF24413B, 0x89B7DBE4, 0xA84EF276, 0x2FD8E618, 0xEFF59585, 0xC692E824};
+constexpr auto kBoards = std::to_array<uint32_t>({0xEF24413B, 0x89B7DBE4, 0xA84EF276, 0x2FD8E618, 0xEFF59585, 0xC692E824});
 
 // The game's constants.
 constexpr float kTargetFirst = 10.0f;            // 0x00646710
@@ -342,7 +343,7 @@ void SkaterPhysicsModule::turn_round_if_backwards()
         special = trick == kBalanceTrickA || trick == kBalanceTrickB;
     }
     if (special) {
-        const uint32_t board = checksums::hash_from_text(trick_->trick_name_);
+        const uint32_t board = checksums::hash_from_text(trick_->trick_name_.data());
         bool plain = false;
         for (const uint32_t b : kBoards)
             plain = plain || board == b;
@@ -400,11 +401,11 @@ void SkaterPhysicsModule::check_flip_spin()
     bool found = false;
     for (int i = 0; i < count; ++i) {
         spin = spins->struct_at(static_cast<uint32_t>(i));
-        uint32_t sequence[3]; // (an entry without the two buttons leaves them unset, as the original does)
+        std::array<uint32_t, 3> sequence{}; // (an entry without the two buttons leaves them unset, as the original does)
         spin->read_hash_value(kSpinButton1, &sequence[0], 0);
         spin->read_hash_value(kSpinButton2, &sequence[1], 0);
         sequence[2] = input->pad_primary_.button_round_.held_down_ ? 0x2B489A86u : 0x321C9756u;
-        if (trick->check_spin_sequence(sequence, flip_spin_started_ != 0)) {
+        if (trick->check_spin_sequence(sequence.data(), flip_spin_started_ != 0)) {
             found = true;
             break;
         }

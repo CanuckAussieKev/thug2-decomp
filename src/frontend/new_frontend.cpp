@@ -23,6 +23,7 @@
 
 #include <SDL2/SDL.h>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/file/file_load.h"
@@ -134,9 +135,9 @@ std::string ini_path() { return game_folder_path(build_info::kFileName); }
 
 std::string ini_string(const char* key, const char* fallback)
 {
-    char value[512] = {};
-    GetPrivateProfileStringA("frontend", key, fallback, value, sizeof(value), ini_path().c_str());
-    return value;
+    std::array<char, 512> value = {};
+    GetPrivateProfileStringA("frontend", key, fallback, value.data(), sizeof(value), ini_path().c_str());
+    return value.data();
 }
 
 bool is_file_present(const std::string& path)
@@ -147,9 +148,9 @@ bool is_file_present(const std::string& path)
 
 std::string windows_fonts()
 {
-    char windows[MAX_PATH] = {};
-    const UINT n = GetWindowsDirectoryA(windows, MAX_PATH);
-    return std::string(windows, n) + "\\Fonts\\";
+    std::array<char, MAX_PATH> windows = {};
+    const UINT n = GetWindowsDirectoryA(windows.data(), MAX_PATH);
+    return std::string(windows.data(), n) + "\\Fonts\\";
 }
 
 // A font named in the ini (or the default list): a full path as it is, else the overlay's frontend\fonts, else
@@ -202,9 +203,9 @@ std::string read_text(const std::string& path)
     if (!file)
         return {};
     std::string text;
-    char buffer[4096];
-    for (size_t n = 0; (n = std::fread(buffer, 1, sizeof(buffer), file.get())) > 0;)
-        text.append(buffer, n);
+    std::array<char, 4096> buffer{};
+    for (size_t n = 0; (n = std::fread(buffer.data(), 1, sizeof(buffer), file.get())) > 0;)
+        text.append(buffer.data(), n);
     return text;
 }
 
@@ -918,8 +919,8 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
     static const uint32_t kLeft = name_hash("left_arrow"), kRight = name_hash("right_arrow");
     static const uint32_t kUp = name_hash("up_arrow");
     static const uint32_t kHueArrow = name_hash("hue_up_arrow");
-    static const uint32_t kColourArrows[] = {name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
-                                             name_hash("value_up_arrow"), name_hash("alpha_up_arrow")};
+    static const auto kColourArrows = std::to_array<uint32_t>({name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
+                                             name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
     for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
         if (type_of(e) == sprite_type()) {
             const uint32_t texture = core::down_cast<const ImageWidget>(e)->texture_;
@@ -1104,9 +1105,9 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
 // the reader would have to understand to restyle it (each element: type, id, text, texture, position, hidden).
 const char* current_type_name(uint32_t type)
 {
-    static const char* const kTypes[] = {
+    static const auto kTypes = std::to_array<const char*>({
         "TextElement",    "SpriteElement",    "ContainerElement", "VMenu",         "HMenu", "VScrollingMenu",
-        "HScrollingMenu", "TextBlockElement", "Element3d",        "WindowElement", "Menu"};
+        "HScrollingMenu", "TextBlockElement", "Element3d",        "WindowElement", "Menu"});
     for (const char* name : kTypes)
         if (name_hash(name) == type)
             return name;
@@ -1116,19 +1117,19 @@ const char* current_type_name(uint32_t type)
 void dump_tree(const UiWidget* element, int depth, int* budget)
 {
     for (; element && --*budget > 0; element = get_next(element)) {
-        char line[512];
+        std::array<char, 512> line{};
         const char* type = current_type_name(type_of(element));
-        const int at = std::snprintf(line, sizeof(line), "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?",
+        const int at = std::snprintf(line.data(), sizeof(line), "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?",
                                      id_of_element(element), element->aim_point_.x, element->aim_point_.y,
                                      get_visible(element) ? "" : " hidden");
         if (type_of(element) == text_type()) {
             const char* text = core::down_cast<const LabelWidget>(element)->chars_;
-            std::snprintf(line + at, sizeof(line) - at, " \"%.80s\"", text ? text : "");
+            std::snprintf(line.data() + at, sizeof(line) - at, " \"%.80s\"", text ? text : "");
         } else if (type_of(element) == sprite_type()) {
-            std::snprintf(line + at, sizeof(line) - at, " texture %08X",
+            std::snprintf(line.data() + at, sizeof(line) - at, " texture %08X",
                           core::down_cast<const ImageWidget>(element)->texture_);
         }
-        get_log("new front end: debug_restyle %s", line);
+        get_log("new front end: debug_restyle %s", line.data());
         if (depth < 8)
             dump_tree(first_child(element), depth + 1, budget);
     }
@@ -1159,10 +1160,10 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
             id_of_element(screen));
     int budget = 600;
     const UiWidget* one = screen;
-    char line[160];
-    std::snprintf(line, sizeof(line), "%s %08X",
+    std::array<char, 160> line{};
+    std::snprintf(line.data(), sizeof(line), "%s %08X",
                   current_type_name(type_of(one)) ? current_type_name(type_of(one)) : "?", id_of_element(one));
-    get_log("new front end: debug_restyle %s", line);
+    get_log("new front end: debug_restyle %s", line.data());
     dump_tree(first_child(screen), 1, &budget);
 }
 
@@ -1379,10 +1380,10 @@ mirror::View mirror_now()
     UiWidget* keyboard = in_dialog ? nullptr : keyboard_of(menu);
     mirror::View view = mirror::get_build(keyboard ? read_keyboard(keyboard, menu) : read_menu(menu, in_dialog), now);
     // (each menu's decision logged once)
-    char key[96];
-    std::snprintf(key, sizeof(key), "%08X %s %s", id_of_element(menu), mirror::kind_name(view.kind), view.why.c_str());
-    if (s_mirror_logged != key) {
-        s_mirror_logged = key;
+    std::array<char, 96> key{};
+    std::snprintf(key.data(), sizeof(key), "%08X %s %s", id_of_element(menu), mirror::kind_name(view.kind), view.why.c_str());
+    if (s_mirror_logged != key.data()) {
+        s_mirror_logged = key.data();
         if (view.kind != mirror::Kind::kNone)
             get_log("new front end: restyled - the original's %s (%08X) \"%s\", %zu rows", mirror::kind_name(view.kind),
                     id_of_element(menu), view.title.c_str(), view.rows.size());
@@ -2425,11 +2426,11 @@ bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 
 void register_script_functions()
 {
-    static const script::NativeCommand kFunctions[] = {
+    static const auto kFunctions = std::to_array<script::NativeCommand>({
         {"NewFrontend_Item", code_address(&cfunc_item)},
         {"NewFrontend_Open", code_address(&cfunc_show_new_frontend)},
-    };
-    script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
+    });
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
 void blit()
@@ -2570,10 +2571,10 @@ std::string automation_command(const std::string& line, bool* done)
         return "ok";
     }
     if (verb == "press") {
-        static const std::pair<const char*, Intake> kInputs[] = {
+        static const auto kInputs = std::to_array<std::pair<const char*, Intake>>({
             {"up", Intake::kUp},           {"down", Intake::kDown},       {"left", Intake::kLeft},
             {"right", Intake::kRight},     {"confirm", Intake::kConfirm}, {"back", Intake::kBack},
-            {"prevtab", Intake::kPrevTab}, {"nexttab", Intake::kNextTab}};
+            {"prevtab", Intake::kPrevTab}, {"nexttab", Intake::kNextTab}});
         if (words.size() < 2)
             return "error: fe press <up|down|left|right|confirm|back|resume|prevtab|nexttab>";
         for (const auto& [name, input] : kInputs)

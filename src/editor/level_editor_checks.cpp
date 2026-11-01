@@ -20,6 +20,7 @@
 #include <unordered_set>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "editor/level_editor_budget.h"
@@ -162,7 +163,7 @@ std::vector<int> lonely_points(const std::vector<std::vector<int>>& links)
 
 namespace {
 
-const char* const kTeamNames[4] = {"Red", "Blue", "Green", "Yellow"};
+const std::array<const char*, 4> kTeamNames = {{"Red", "Blue", "Green", "Yellow"}};
 
 } // namespace
 
@@ -274,7 +275,7 @@ namespace {
 
 float span_to(V3 a, V3 b) { return std::sqrt(get_dot(a - b, a - b)); }
 
-const V3 kDirections[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+const std::array<V3, 6> kDirections = {{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
 
 } // namespace
 
@@ -301,8 +302,8 @@ void probe_each(V3 point, const float reach[6], Probe probes[6])
 
 void probe_around(V3 point, float reach, Probe probes[6])
 {
-    const float reaches[6] = {reach, reach, reach, reach, reach, reach};
-    probe_each(point, reaches, probes);
+    const std::array<float, 6> reaches = {{reach, reach, reach, reach, reach, reach}};
+    probe_each(point, reaches.data(), probes);
 }
 
 namespace {
@@ -425,12 +426,12 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
     if (placed.world == world && placed.point.x == point.x && placed.point.y == point.y && placed.point.z == point.z)
         return placed;
     // (the sides only kSideReach: a wall's thickness - farther faces belong to other things; up and down kReach)
-    const float reaches[6] = {kSideReach, kSideReach, kReach, kReach, kSideReach, kSideReach};
-    Probe probes[6];
-    probe_each(point, reaches, probes);
+    const std::array<float, 6> reaches = {{kSideReach, kSideReach, kReach, kReach, kSideReach, kSideReach}};
+    std::array<Probe, 6> probes;
+    probe_each(point, reaches.data(), probes.data());
     placed.point = point;
     placed.world = world;
-    placed.place = get_judge(probes);
+    placed.place = get_judge(probes.data());
     placed.up_in_ = probes[2].in;
     V3 hit{};
     placed.ground = probes[3].out >= 0.0f || get_cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
@@ -519,9 +520,9 @@ void check_rails(std::vector<Issue>* out)
             continue;
         V3 pos = n.pos;
         scenery::get_rail_point(n.name, &pos);
-        Probe probes[6];
-        probe_around(pos, kRailNear, probes);
-        if (!floating(probes, kRailNear))
+        std::array<Probe, 6> probes;
+        probe_around(pos, kRailNear, probes.data());
+        if (!floating(probes.data(), kRailNear))
             continue;
         Issue issue;
         issue.rule = Rule::kFloatingRail;
@@ -749,7 +750,7 @@ void check_online(std::vector<Issue>* out)
 
 MpCounts count_multiplayer(bool shipped)
 {
-    static uint32_t g_names[4][3];
+    static std::array<std::array<uint32_t, 3>, 4> g_names;
     static bool made = false;
     if (!made) {
         for (int t = 0; t < 4; ++t) {
@@ -1228,14 +1229,14 @@ void problems_tab(float scale, ImFont* mono)
         own += issue.level_own_;
         ignored += ignored_state().count(issue.key) != 0;
     }
-    char label[64];
-    std::snprintf(label, sizeof(label), "Original Level (%d)", own);
-    ImGui::Checkbox(label, &g_show_own);
+    std::array<char, 64> label{};
+    std::snprintf(label.data(), sizeof(label), "Original Level (%d)", own);
+    ImGui::Checkbox(label.data(), &g_show_own);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Problems present in the original level");
     ImGui::SameLine();
-    std::snprintf(label, sizeof(label), "Ignored (%d)", ignored);
-    ImGui::Checkbox(label, &g_show_ignored);
+    std::snprintf(label.data(), sizeof(label), "Ignored (%d)", ignored);
+    ImGui::Checkbox(label.data(), &g_show_ignored);
     ImGui::SameLine();
     ImGui::TextDisabled(g_checked_once ? "%.0f ms" : "not checked", g_last_seconds * 1000.0);
     ImGui::Separator();
@@ -1328,13 +1329,13 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (ImGui::BeginTabBar("##problemTabs")) {
         int errors = 0, warnings = 0, infos = 0;
         shown_counts(&errors, &warnings, &infos);
-        char label[64];
-        std::snprintf(label, sizeof(label), "Problems (%d)###problemsTab", errors + warnings + infos);
+        std::array<char, 64> label{};
+        std::snprintf(label.data(), sizeof(label), "Problems (%d)###problemsTab", errors + warnings + infos);
         const ImGuiTabItemFlags problems_flags =
             g_tab_pending && g_tab == kProblemsTab ? ImGuiTabItemFlags_SetSelected : 0;
         const ImGuiTabItemFlags budget_flags = g_tab_pending && g_tab == kBudgetTab ? ImGuiTabItemFlags_SetSelected : 0;
         g_tab_pending = false;
-        if (ImGui::BeginTabItem(label, nullptr, problems_flags)) {
+        if (ImGui::BeginTabItem(label.data(), nullptr, problems_flags)) {
             g_tab = kProblemsTab;
             problems_tab(scale, mono);
             ImGui::EndTabItem();

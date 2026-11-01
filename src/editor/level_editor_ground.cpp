@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
@@ -333,9 +334,9 @@ namespace {
 
 std::string get_number(float v)
 {
-    char text[32];
-    std::snprintf(text, sizeof(text), "%.9g", v);
-    return text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "%.9g", v);
+    return text.data();
 }
 
 bool read_float(const std::string& text, float* out)
@@ -398,26 +399,26 @@ uint32_t name_checksum_for(const std::string& text)
 std::string link_record(const Spec& s, const char* material_name)
 {
     std::ostringstream out;
-    char colour[16];
-    std::snprintf(colour, sizeof(colour), "%08X", s.colour);
-    char material[16];
-    std::snprintf(material, sizeof(material), "0x%08X", s.material);
+    std::array<char, 16> colour{};
+    std::snprintf(colour.data(), sizeof(colour), "%08X", s.colour);
+    std::array<char, 16> material{};
+    std::snprintf(material.data(), sizeof(material), "0x%08X", s.material);
     const std::string material_text =
         material_name && *material_name && valid_word(material_name) && name_checksum_for(material_name) == s.material
             ? std::string(material_name)
-            : std::string(material);
+            : std::string(material.data());
     out << s.name << (s.lower ? " lower" : " raise") << " rect=" << get_number(s.x0) << ',' << get_number(s.z0) << ','
         << get_number(s.x1) << ',' << get_number(s.z1) << " base=" << get_number(s.base)
         << " height=" << get_number(s.height) << " ramps=" << ramp_letter(s.ramps[0]) << ',' << ramp_letter(s.ramps[1])
         << ',' << ramp_letter(s.ramps[2]) << ',' << ramp_letter(s.ramps[3]) << " length=" << get_number(s.length)
-        << " material=" << material_text << " uv=" << get_number(s.uv) << " color=" << colour
+        << " material=" << material_text << " uv=" << get_number(s.uv) << " color=" << colour.data()
         << " terrain=" << s.terrain;
     if (!s.hides.empty()) {
         out << " hides=";
         for (size_t i = 0; i < s.hides.size(); ++i) {
-            char hex[16];
-            std::snprintf(hex, sizeof(hex), "0x%08X", s.hides[i]);
-            out << (i ? "," : "") << hex;
+            std::array<char, 16> hex{};
+            std::snprintf(hex.data(), sizeof(hex), "0x%08X", s.hides[i]);
+            out << (i ? "," : "") << hex.data();
         }
     }
     return out.str();
@@ -515,11 +516,11 @@ bool read_record(const std::string& text, Spec* out)
 std::string fresh_name(const std::vector<Spec>& specs)
 {
     for (int n = 1;; ++n) {
-        char name[32];
-        std::snprintf(name, sizeof(name), "ed_ground%02d", n);
-        const bool taken = std::ranges::any_of(specs, [&](const Spec& s) { return s.name == name; });
+        std::array<char, 32> name{};
+        std::snprintf(name.data(), sizeof(name), "ed_ground%02d", n);
+        const bool taken = std::ranges::any_of(specs, [&](const Spec& s) { return s.name == name.data(); });
         if (!taken)
-            return name;
+            return name.data();
     }
 }
 

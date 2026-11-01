@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/memory_report.h"
@@ -47,9 +48,9 @@ const std::string& command_line() { return sys::startup_command_line(); }
 
 std::string from_ini(const char* key)
 {
-    char value[128] = {};
-    GetPrivateProfileStringA("features", key, "", value, sizeof(value), game_folder_path("thug2-decomp.ini").c_str());
-    return value;
+    std::array<char, 128> value = {};
+    GetPrivateProfileStringA("features", key, "", value.data(), sizeof(value), game_folder_path("thug2-decomp.ini").c_str());
+    return value.data();
 }
 
 // The level and where it came from: -edit, -level, edit_level=, start_level= (the first given).
@@ -87,9 +88,9 @@ bool scene_installed(const std::string& name)
     const char* scene = nullptr;
     if (!info || info->has_entry_named("scnpre") || !info->fetch_text("level", &scene, 0) || !scene)
         return true;
-    char path[160];
-    std::snprintf(path, sizeof(path), "levels\\%s\\%s.scn.xbx", scene, scene);
-    return file::is_present(path);
+    std::array<char, 160> path{};
+    std::snprintf(path.data(), sizeof(path), "levels\\%s\\%s.scn.xbx", scene, scene);
+    return file::is_present(path.data());
 }
 
 int s_frames; // the front end's frames with the main menu's scripts loaded
@@ -249,7 +250,7 @@ bool parse_spot(const std::string& text, Spot* out)
     s = s.substr(first, last - first + 1);
     if (!s.empty() && s.front() == '(' && s.back() == ')')
         s = s.substr(1, s.size() - 2);
-    float values[4];
+    std::array<float, 4> values{};
     int count = 0;
     size_t at = 0;
     for (;;) {

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <new>
+#include <array>
 
 #include "engine/core/mem.h"
 #include "platform/run_log.h"
@@ -32,7 +33,7 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
 
     // The original copies with no length limit, like strcpy.
     const char* source = name ? name : "unnamed";
-    text::copy_unbounded(label_, source);
+    text::copy_unbounded(label_.data(), source);
 }
 
 // 0x005BA3D0
@@ -41,7 +42,7 @@ void* SlabBank::carve()
     void* item = free_list_;
     if (!item) {
         // Not original - the log names a pool that ran dry, once per pool (most callers don't check for null).
-        static const SlabBank* reported[16];
+        static std::array<const SlabBank*, 16> reported;
         static int g_reported_count;
         bool seen = false;
         for (int i = 0; i < g_reported_count; ++i)
@@ -49,7 +50,7 @@ void* SlabBank::carve()
         // (a pool without a name is a self-test's: the game names every pool, "unnamed" for none)
         if (!seen && g_reported_count < 16 && label_[0] != '\0') {
             reported[g_reported_count++] = this;
-            get_log("pool %s full: all %d items (%d bytes each) in use", label_, num_, slot_bytes_);
+            get_log("pool %s full: all %d items (%d bytes each) in use", label_.data(), num_, slot_bytes_);
         }
         return nullptr;
     }
@@ -60,14 +61,14 @@ void* SlabBank::carve()
         // the script pools' sizes are ours, engine/core/memory_sizes.h).
         if (static_cast<int64_t>(taken_count_) * 5 == static_cast<int64_t>(num_) * 4 && num_ >= 50 &&
             label_[0] != '\0') {
-            static const SlabBank* g_nearly_full[32];
+            static std::array<const SlabBank*, 32> g_nearly_full;
             static int g_nearly_full_count;
             bool seen = false;
             for (int i = 0; i < g_nearly_full_count; ++i)
                 seen = seen || g_nearly_full[i] == this;
             if (!seen && g_nearly_full_count < 32) {
                 g_nearly_full[g_nearly_full_count++] = this;
-                get_log("pool %s 80%% full: %d of %d items in use", label_, taken_count_, num_);
+                get_log("pool %s 80%% full: %d of %d items in use", label_.data(), taken_count_, num_);
             }
         }
     }
@@ -93,7 +94,7 @@ bool SlabBank::get_holds(const void* pointer) const
 namespace slot_pool_setup {
 
 namespace {
-SlabBank* g_pools[2]; // (the memory card's path buffer follows)
+std::array<SlabBank*, 2> g_pools; // (the memory card's path buffer follows)
 
 SlabBank*& pool_at(int index) { return g_pools[index]; }
 } // namespace

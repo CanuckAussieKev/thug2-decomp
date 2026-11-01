@@ -3,6 +3,7 @@
 #include "engine/net/thugpro_compat.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/net/gamenet_manager.h"
 #include "engine/script/param_struct.h"
@@ -17,7 +18,7 @@ constexpr uint32_t kIsBigLevel = 0x3D70ED3F;  // IsBigLevel
 constexpr uint32_t kIsTallLevel = 0x7C793877; // IsTallLevel
 
 // The level select's lists: THUG2's own, then the ported levels' (tools/pipeline/menu_level/level_select.ts sections()).
-constexpr const char* kLevelLists[] = {
+constexpr auto kLevelLists = std::to_array<const char*>({
     "level_select_menu_level_info",
     "level_select_menu_thug1_level_info",
     "level_select_menu_thps4_level_info",
@@ -29,7 +30,7 @@ constexpr const char* kLevelLists[] = {
     "level_select_menu_thp8_level_info",
     "level_select_menu_thpg_level_info",
     "level_select_menu_misc_level_info", // (the MISCELLANEOUS section: skate shops, tutorials, test levels)
-};
+});
 
 PositionScale s_factor;
 uint32_t s_scale_level; // the level s_factor was found for (0: none)

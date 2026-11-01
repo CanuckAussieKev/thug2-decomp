@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/pointer_cell.h"
 
@@ -59,32 +60,32 @@ struct WadStream {
     _OVERLAPPED* async_ctl_{}; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
     bool reading_{};           // +0x0C
     bool read_done_{};         // +0x0D the read finished at once
-    uint8_t pad0e_[2]{};
+    std::array<uint8_t, 2> pad0e_{};
     uint32_t unknown10_{}; // +0x10
     bool from_wad_{};      // +0x14 read at shift_ (else from the start)
     bool unknown15_;     // +0x15
-    uint8_t pad16_[2]{};
+    std::array<uint8_t, 2> pad16_{};
     uint32_t shift_{};   // +0x18
     uint32_t extent_{};  // +0x1C
     uint32_t unknown20_{0}; // +0x20
     uint32_t unknown24_{0}; // +0x24
-    uint8_t unknown28_[4]{};
-    uint32_t cur_standing_[9]{}; // +0x2C indexed by status_index_ (0x8000000A: still fine)
+    std::array<uint8_t, 4> unknown28_{};
+    std::array<uint32_t, 9> cur_standing_{}; // +0x2C indexed by status_index_ (0x8000000A: still fine)
     uint32_t unknown50_{};       // +0x50
     bool is_halted_{};           // +0x54
     bool finished_{};            // +0x55
-    uint8_t pad56_[2]{};
+    std::array<uint8_t, 2> pad56_{};
     int status_index_{}; // +0x58
-    uint8_t unknown5c_[3]{};
+    std::array<uint8_t, 3> unknown5c_{};
     bool unknown5f_{true}; // +0x5F set by the constructor and the "start" calls, cleared once loaded
-    uint8_t unknown60_[0x30]{};
+    std::array<uint8_t, 0x30> unknown60_{};
     uint32_t unknown90_{0}; // +0x90
     void* octets_{nullptr}; // +0x94
     int ready_flag_{};    // +0x98
     int played_{};        // +0x9C
     int cur_phase_{};     // +0xA0 1: preloading
     bool stop_requested_{}; // +0xA4 freed by the update once ready_to_free
-    uint8_t pada5_[3]{};
+    std::array<uint8_t, 3> pada5_{};
 };
 static_assert(offsetof(WadStream, async_ctl_) == 0x08 && offsetof(WadStream, from_wad_) == 0x14 &&
                   offsetof(WadStream, shift_) == 0x18 && offsetof(WadStream, cur_standing_) == 0x2C &&
@@ -134,31 +135,31 @@ struct BinkStream {
     int wad_entry_{-1};      // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
     bool silent_{false};     // +0x10 the volume is 0: not updated
     bool is_halted_{false};  // +0x11 the pause state carried out
-    uint8_t unknown12_[6]{};
+    std::array<uint8_t, 6> unknown12_{};
     bool shared_file_{}; // +0x18 file_ref_ isn't closed with the stream
     bool unknown19_;   // +0x19
-    uint8_t unknown1a_[0xA]{};
+    std::array<uint8_t, 0xA> unknown1a_{};
     int plays_;                 // +0x24 plays left (counted down at the last frame; 0 after one: finished)
     render::Bink* bink_{nullptr}; // +0x28 null while paused
     void* memory_{nullptr};       // +0x2C freed with the stream
     uint32_t unknown30_{};      // +0x30
-    uint32_t status_words_[11]{}; // +0x34: indexed by status_index_ (see Status)
+    std::array<uint32_t, 11> status_words_{}; // +0x34: indexed by status_index_ (see Status)
     bool pause_requested_{false}; // +0x60
     bool finished_{false};        // +0x61
-    uint8_t unknown62_[2]{};
+    std::array<uint8_t, 2> unknown62_{};
     int status_index_{}; // +0x64
-    uint8_t unknown68_[3]{};
+    std::array<uint8_t, 3> unknown68_{};
     bool unknown6b_{true}; // +0x6B set by the constructor and the "start" calls, cleared once loaded
-    uint8_t unknown6c_[0x14]{};
+    std::array<uint8_t, 0x14> unknown6c_{};
     float loudness_{};         // +0x80
     uint32_t resume_frame_{};  // +0x84 the frame it was paused on
     bool from_handle_{};       // +0x88 from_where_ holds a file handle, not a path
-    char from_where_[0x11F]{}; // +0x89 the path, or the handle (video_open is given its address)
+    std::array<char, 0x11F> from_where_{}; // +0x89 the path, or the handle (video_open is given its address)
     uint32_t unknown1a8_{0};   // +0x1A8
     uint32_t unknown1ac_{0};   // +0x1AC
-    uint8_t unknown1b0_[0xC]{};
+    std::array<uint8_t, 0xC> unknown1b0_{};
     bool stop_requested_{}; // +0x1BC freed by the update once ready_to_free
-    uint8_t pad1bd_[3]{};
+    std::array<uint8_t, 3> pad1bd_{};
 
     // The status word status_index_ picks (0x8000000A: still fine).
     [[nodiscard]] uint32_t get_standing() const { return status_words_[status_index_]; }
@@ -193,7 +194,7 @@ struct StreamSlot {
     uint32_t unknown08; // +0x08
     float volume;       // +0x0C
     bool paused;        // +0x10 (cleared as a dword at start-up)
-    uint8_t pad11[3];
+    std::array<uint8_t, 3> pad11;
 };
 static_assert(sizeof(StreamSlot) == 0x14, "layout must match the original");
 
@@ -269,7 +270,7 @@ void sync_music_to_time(float seconds);
 // The sound streams.
 // A stream's volume: five channel levels (0-100), or the first two as left and right.
 struct StreamGain {
-    float level[5];
+    std::array<float, 5> level;
     int type; // 2: five channels; 0, 1, 3: left and right; others: unchanged
 };
 // 0x00454080: load pcm.wad's entry `checksum` into stream `slot` (free) as a Bink stream played `plays`

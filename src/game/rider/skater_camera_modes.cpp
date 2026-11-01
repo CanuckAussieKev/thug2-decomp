@@ -62,7 +62,7 @@ void RiderChaseView::seal()
 // 0x004F9A40
 void RiderChaseView::change_phase(const WalkCameraState* state)
 {
-    std::memcpy(orientation_, &state->orientation, sizeof(orientation_));
+    std::memcpy(orientation_.data(), &state->orientation, sizeof(orientation_));
     std::memcpy(&aim_point_, &state->target, sizeof(aim_point_));
     turn_cosine_ = state->turn_cosine_;
     zoom_ = state->zoom;

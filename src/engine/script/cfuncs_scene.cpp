@@ -24,6 +24,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/sys/game_config.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -139,8 +140,8 @@ bool cfunc_preload_model(Struct* params, Script*)
     text::Chars file;
     {
         // <name>.mdl (0x004879D0 returns a String: made in `storage`)
-        alignas(text::Chars) uint8_t storage[sizeof(text::Chars)];
-        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage), name, ".mdl");
+        alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
+        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), name, ".mdl");
         file = *path;
         path->~Chars();
     }

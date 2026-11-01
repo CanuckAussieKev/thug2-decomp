@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <vector>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_scenery.h"
@@ -53,7 +54,7 @@ bool is_none(const Placement& step)
 bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
 {
     const V3 d = p - box.origin;
-    float local[3];
+    std::array<float, 3> local{};
     for (int i = 0; i < 3; ++i) {
         const float length2 = get_dot(box.axes[i], box.axes[i]);
         if (!(length2 > 0.0f))
@@ -61,9 +62,9 @@ bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
         // (local units are the box's: a margin in world units is margin / |axis| of them)
         local[i] = get_dot(d, box.axes[i]) / length2;
     }
-    const float lengths[3] = {std::sqrt(get_dot(box.axes[0], box.axes[0])),
+    const std::array<float, 3> lengths = {{std::sqrt(get_dot(box.axes[0], box.axes[0])),
                               std::sqrt(get_dot(box.axes[1], box.axes[1])),
-                              std::sqrt(get_dot(box.axes[2], box.axes[2]))};
+                              std::sqrt(get_dot(box.axes[2], box.axes[2]))}};
     auto within = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
     return within(local[0], box.min.x - margin / lengths[0], box.max.x + margin / lengths[0]) &&
            within(local[2], box.min.z - margin / lengths[2], box.max.z + margin / lengths[2]) &&

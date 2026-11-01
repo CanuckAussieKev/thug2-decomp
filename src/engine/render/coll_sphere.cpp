@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/render/coll_cache.h"
@@ -227,8 +228,8 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
         else
             line.end = *corner; // (the original leaves it unset)
     }
-    maths::Vec4 touched[2];
-    if (!swept_sphere_hits_edge(&line, edge_motion, sphere, motion, t, limit, count, touched))
+    std::array<maths::Vec4, 2> touched{};
+    if (!swept_sphere_hits_edge(&line, edge_motion, sphere, motion, t, limit, count, touched.data()))
         return false;
     *point = touched[0];
     return true;
@@ -289,8 +290,8 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     auto edge = [&](const maths::Vec4& a, const maths::Vec4& b) {
         const maths::Seg line = get_segment(a, b);
         int touched = 0;
-        maths::Vec4 hit[2];
-        if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit))
+        std::array<maths::Vec4, 2> hit{};
+        if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit.data()))
             return false;
         *point = hit[0];
         return true;
@@ -434,8 +435,8 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
 bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
 {
     int count = 0;
-    uint16_t buffer[0x800];
-    const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer, 0x800);
+    std::array<uint16_t, 0x800> buffer{};
+    const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer.data(), 0x800);
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
         const uint32_t face = faces[i];

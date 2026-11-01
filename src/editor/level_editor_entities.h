@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
@@ -90,8 +91,8 @@ constexpr float kMinRadius = 1.0f, kRadiusCeiling = 100000.0f;
 struct ParticleEmitter {
     bool has_mid_ = false, has_end_ = false;
     V3 mid = {}, end = {};
-    bool has_box_[3] = {};
-    V3 box[3] = {}; // start, mid, end
+    std::array<bool, 3> has_box_ = {};
+    std::array<V3, 3> box = {}; // start, mid, end
 };
 ParticleEmitter turn_particle(const ParticleEmitter& origin, V3 from, V3 pos, float turn);
 V3 turn_box_extents(V3 extents, float turn);

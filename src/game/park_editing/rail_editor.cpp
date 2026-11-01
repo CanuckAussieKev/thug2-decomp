@@ -10,6 +10,7 @@
 #include <cstring>
 #include <new>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -576,9 +577,9 @@ EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
 {
     int i = 0;
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++i) {
-        char cluster[52];
-        std::snprintf(cluster, sizeof(cluster), "CreatedRailCluster%d", i);
-        if (name == checksums::hash_from_text(cluster))
+        std::array<char, 52> cluster{};
+        std::snprintf(cluster.data(), sizeof(cluster), "CreatedRailCluster%d", i);
+        if (name == checksums::hash_from_text(cluster.data()))
             return rail;
     }
     return nullptr;
@@ -733,8 +734,8 @@ void RailAuthoring::get_pack()
         return;
     while (rail->following_)
         rail = rail->following_;
-    uint16_t* count = packed_.point_counts_;
-    uint16_t* record = packed_.records_[0];
+    uint16_t* count = packed_.point_counts_.data();
+    uint16_t* record = packed_.records_[0].data();
     // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
     for (; rail; rail = rail->preceding_) {
         uint16_t points = 0;
@@ -778,8 +779,8 @@ void RailAuthoring::unpack()
     get_clear();
     if (!rail_buffer_format::counts_fit(packed_)) // Not original - counts past the arrays: no rails
         return;
-    const uint16_t* count = packed_.point_counts_;
-    const uint16_t* record = packed_.records_[0];
+    const uint16_t* count = packed_.point_counts_.data();
+    const uint16_t* record = packed_.records_[0].data();
     for (unsigned int rails = packed_.rail_count_; rails != 0; --rails) {
         const uint16_t points = *count++;
         EditedRail* rail = get_new_rail();

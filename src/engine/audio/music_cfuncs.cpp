@@ -3,6 +3,7 @@
 #include "engine/audio/music_cfuncs.h"
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -118,12 +119,12 @@ bool cfunc_play_track(Struct* params, Script*)
     const char* name = nullptr;
     int track = 999;
     int loop = 0;
-    char path[0x28];
+    std::array<char, 0x28> path{};
     if (!params->fetch_text(0u, &name, 0)) {
         params->fetch_int_value(0u, &track, 0);
         name = audio::track_label_at(track, 0);
-        get_sprintf(path, R"(MUSIC\VAG\SONGS\%s)", name); // "MUSIC\VAG\SONGS\%s"
-        name = path;
+        get_sprintf(path.data(), R"(MUSIC\VAG\SONGS\%s)", name); // "MUSIC\VAG\SONGS\%s"
+        name = path.data();
     }
     params->fetch_int_value(kLoop, &loop, 0);
     if (name) {

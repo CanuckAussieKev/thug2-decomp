@@ -3,6 +3,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 namespace maths {
 
@@ -20,7 +21,7 @@ struct SinCosEntry {
 
 constexpr int kSinTableSize = 119; // 0 .. pi/2 inclusive
 
-SinCosEntry g_sin_table[kSinTableSize];
+std::array<SinCosEntry, kSinTableSize> g_sin_table;
 
 // Constants taken bit-for-bit from the exe. (Typing them in as decimals once introduced an error in the
 // 5th significant digit of kAtanC3, so they stay as exact bit patterns.)
@@ -47,7 +48,7 @@ constexpr float kAtanC15 = get_bits(0xBB84D7E7); // -0.00405406
 constexpr float kMinusQuarterPi = get_bits(0xBF490FDB), kThreeQuarterPi = get_bits(0x4016CBE4),
                 kQuarterPi = get_bits(0x3F490FDB), kPiF = get_bits(0x40490FDB);
 
-SinCosEntry* sin_table() { return g_sin_table; }
+SinCosEntry* sin_table() { return g_sin_table.data(); }
 
 } // namespace
 

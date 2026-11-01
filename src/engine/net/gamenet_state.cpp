@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_manager.h"
@@ -51,8 +52,8 @@ constexpr uint32_t kCtfGameType = 0x15421B73;        // ctf_game_type
 constexpr uint32_t kTimedCtf = 0x938AB24B;           // timed_ctf
 constexpr uint32_t kStopAtZero = 0x48E748B5;         // stop_at_zero
 // num_0 ... num_9
-constexpr uint32_t kNum[] = {0x18CBB824, 0x6FCC88B2, 0xF6C5D908, 0x81C2E99E, 0x1FA67C3D,
-                             0x68A14CAB, 0xF1A81D11, 0x86AF2D87, 0x16103016, 0x61170080};
+constexpr auto kNum = std::to_array<uint32_t>({0x18CBB824, 0x6FCC88B2, 0xF6C5D908, 0x81C2E99E, 0x1FA67C3D,
+                             0x68A14CAB, 0xF1A81D11, 0x86AF2D87, 0x16103016, 0x61170080});
 // The game modes.
 constexpr uint32_t kNetGoalAttack = 0xEC200EAA;     // netgoalattack
 constexpr uint32_t kKing = 0x5D32129C;              // king
@@ -161,25 +162,25 @@ void Hub::scan_local_network()
     if (!browser_client_)
         return;
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
-    uint32_t message[3] = {frame_clock::get_time(), 0, 0};
+    std::array<uint32_t, 3> message = {{frame_clock::get_time(), 0, 0}};
     uint32_t& asked_for = g_asked_for;
     if (asked_for) {
-        browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message, asked_for, kLanPort, 0);
+        browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), asked_for, kLanPort, 0);
         asked_for = 0;
         return;
     }
-    browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message, 0xFFFFFFFF, kLanPort, 0);
+    browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), 0xFFFFFFFF, kLanPort, 0);
     const uint32_t command_line = g_command_line_server; // (parse_network_params)
     if (command_line != 0xFFFFFFFF)
-        browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message, command_line, kLanPort, 0);
+        browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), command_line, kLanPort, 0);
 }
 
 // 0x00532F70 / 0x00532F80
-prefs::Preferences* Hub::get_online_settings() { return raw::as<prefs::Preferences>(net_options_); }
-prefs::Preferences* Hub::get_taunt_settings() { return raw::as<prefs::Preferences>(taunt_options_); }
+prefs::Preferences* Hub::get_online_settings() { return raw::as<prefs::Preferences>(net_options_.data()); }
+prefs::Preferences* Hub::get_taunt_settings() { return raw::as<prefs::Preferences>(taunt_options_.data()); }
 
 // 0x00532F90
-void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_, words, 8 * sizeof(uint32_t)); }
+void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_.data(), words, 8 * sizeof(uint32_t)); }
 
 // 0x00532FD0
 uint32_t Hub::get_start_info_word(int index) { return (start_points_)[index]; }
@@ -301,15 +302,15 @@ bool Hub::has_created_goals() { return get_goal_editor()->count_complete_goals(0
 void Hub::prepare_created_goals(uint32_t level)
 {
     created_goals_level_ = level;
-    std::memcpy(created_goals_, &level, sizeof(level));
+    std::memcpy(created_goals_.data(), &level, sizeof(level));
     park_editing::ObjectiveAuthoring* editor = get_goal_editor();
-    const int size = static_cast<int>(editor->write_level_goals_to_buffer(level, created_goals_ + sizeof(level),
+    const int size = static_cast<int>(editor->write_level_goals_to_buffer(level, created_goals_.data() + sizeof(level),
                                                                           static_cast<uint32_t>(kGoalsBufferSize)));
     created_goals_size_ = size + 4;
 }
 
 // 0x005333E0 / 0x005333F0
-void* Hub::get_created_goals_message() { return created_goals_; }
+void* Hub::get_created_goals_message() { return created_goals_.data(); }
 uint32_t Hub::get_created_goals_size() { return created_goals_size_; }
 
 } // namespace online

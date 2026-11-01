@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
@@ -75,15 +76,15 @@ int get_worst(const std::vector<Meter>& meters)
 
 std::string get_bytes(double bytes)
 {
-    char text[32];
+    std::array<char, 32> text{};
     const double a = std::fabs(bytes);
     if (a < 1024.0)
-        std::snprintf(text, sizeof(text), "%.0f B", bytes);
+        std::snprintf(text.data(), sizeof(text), "%.0f B", bytes);
     else if (a < 1024.0 * 1024.0)
-        std::snprintf(text, sizeof(text), "%.1f KB", bytes / 1024.0);
+        std::snprintf(text.data(), sizeof(text), "%.1f KB", bytes / 1024.0);
     else
-        std::snprintf(text, sizeof(text), "%.2f MB", bytes / (1024.0 * 1024.0));
-    return text;
+        std::snprintf(text.data(), sizeof(text), "%.2f MB", bytes / (1024.0 * 1024.0));
+    return text.data();
 }
 
 namespace {
@@ -92,9 +93,9 @@ std::string get_amount(const Meter& meter, double value)
 {
     if (meter.bytes)
         return get_bytes(value);
-    char text[32];
-    std::snprintf(text, sizeof(text), "%.0f", value);
-    return text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "%.0f", value);
+    return text.data();
 }
 
 } // namespace
@@ -129,7 +130,7 @@ struct PoolInfo {
     const char* where;
 };
 // NOLINTNEXTLINE(cppcoreguidelines-interfaces-global-init): the table holds functions, called after start-up
-const PoolInfo kPools[] = {
+constexpr auto kPools = std::to_array<PoolInfo>({
     {[]() -> memory::PoolPair& { return script::g_struct_pools; }, "Script structures (CStruct)",
      "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
     {[]() -> memory::PoolPair& { return script::g_component_pools; }, "Script components",
@@ -142,7 +143,7 @@ const PoolInfo kPools[] = {
      "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
     {[]() -> memory::PoolPair& { return script::g_script_pools; }, "Running scripts",
      "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
-};
+});
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
 bool pool_use(memory::PoolPair& pools, int* used, int* count)
@@ -181,7 +182,7 @@ struct Datum {
     int loads = -1;
     bool taken = false;
     double main = 0.0, script = 0.0;
-    int pools[kPoolCount] = {};
+    std::array<int, kPoolCount> pools = {};
 };
 Datum g_base;
 

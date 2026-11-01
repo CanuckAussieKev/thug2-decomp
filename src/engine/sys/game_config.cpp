@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/script/cfuncs_scene.h"
@@ -39,13 +40,13 @@ bool& ntsc_flag() { return g_ntsc_flag; }
 
 namespace {
 
-char g_path_prefix[128];
-char g_bootstrap_argument[128];
-char g_bootstrap_return[128];
+std::array<char, 128> g_path_prefix;
+std::array<char, 128> g_bootstrap_argument;
+std::array<char, 128> g_bootstrap_return;
 
-char* path_prefix() { return g_path_prefix; }               // (0x80 bytes)
-char* bootstrap_return() { return g_bootstrap_return; }     // where a bootstrap demo returns to
-char* bootstrap_argument() { return g_bootstrap_argument; } // what it passes back
+char* path_prefix() { return g_path_prefix.data(); }               // (0x80 bytes)
+char* bootstrap_return() { return g_bootstrap_return.data(); }     // where a bootstrap demo returns to
+char* bootstrap_argument() { return g_bootstrap_argument.data(); } // what it passes back
 const char* const kEmpty = "";                              // ""
 
 // strcpy (unbounded, as the original's).
@@ -58,15 +59,15 @@ char get_lower(char c) { return static_cast<char>(std::tolower(static_cast<unsig
 // 0x005B5C90
 bool argument_starts_with(const char* argument, const char* option)
 {
-    char copy[100];
+    std::array<char, 100> copy{};
     if (!argument || !option)
         return false;
     const size_t length = std::strlen(option);
     if (std::strlen(argument) < length)
         return false;
-    copy_string(copy, argument);
+    copy_string(copy.data(), argument);
     copy[length] = '\0';
-    return std::strcmp(copy, option) == 0;
+    return std::strcmp(copy.data(), option) == 0;
 }
 
 // 0x005B5D30
@@ -98,8 +99,8 @@ const char* get_argument_value(const char* option, int argc, char** argv)
 // 0x005B5DD0
 bool got_argument(const char* option, int argc, char** argv)
 {
-    char wanted[256];
-    char argument[256];
+    std::array<char, 256> wanted{};
+    std::array<char, 256> argument{};
     if (!option)
         return false;
     for (size_t i = 0; i < std::strlen(option) + 1; ++i)
@@ -107,7 +108,7 @@ bool got_argument(const char* option, int argc, char** argv)
     for (int i = 0; i < argc; ++i) {
         for (size_t j = 0; j < std::strlen(argv[i]) + 1; ++j)
             argument[j] = get_lower(argv[i][j]);
-        if (std::strcmp(argument, wanted) == 0)
+        if (std::strcmp(argument.data(), wanted.data()) == 0)
             return true;
     }
     return false;

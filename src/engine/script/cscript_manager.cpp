@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -282,12 +283,12 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     online::RunScript message;
     message.name = name;
     message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;
-    uint8_t data[online::kRunScriptHeaderSize + online::kRunScriptParamsSize];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, online::kRunScriptHeaderSize + online::kRunScriptParamsSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_run_script(writer, message);
     const int size = emit_into_buffer(params, writer.cursor(), static_cast<int>(online::kRunScriptParamsSize));
     void* client = fetch_patron(net, 0);
-    desc.content_ = data;
+    desc.content_ = data.data();
     desc.byte_count_ = static_cast<uint16_t>(size + online::kRunScriptHeaderSize);
     desc.ident_ = kNetopSpawnScript;
     desc.queue_ = NetMessageInfo::kLaneOrdered;
@@ -309,11 +310,11 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;
     message.node = node;
     message.permanent = permanent;
-    uint8_t data[online::kSpawnScriptSize];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, online::kSpawnScriptSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_spawn_script(writer, message);
     void* client = fetch_patron(net, 0);
-    desc.content_ = data;
+    desc.content_ = data.data();
     desc.byte_count_ = sizeof(data);
     desc.ident_ = kMsgIdSpawnScript;
     desc.queue_ = NetMessageInfo::kLaneOrdered;

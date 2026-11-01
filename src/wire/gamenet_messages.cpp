@@ -3,6 +3,7 @@
 #include "wire/gamenet_messages.h"
 
 #include <cstring>
+#include <array>
 
 #include "formats/byte_stream.h"
 
@@ -18,14 +19,14 @@ bool read_server_info(util::ByteReader& reader, ServerInfo* message)
     message->in_game = reader.u8() != 0;
     message->host_mode = reader.u8();
     message->logged_in = reader.u8() != 0;
-    reader.fixed_string(message->name, sizeof(message->name), kServerInfoNameSize);
-    reader.fixed_string(message->level, sizeof(message->level), kServerInfoTextSize);
-    reader.fixed_string(message->mode, sizeof(message->mode), kServerInfoTextSize);
+    reader.fixed_string(message->name.data(), sizeof(message->name), kServerInfoNameSize);
+    reader.fixed_string(message->level.data(), sizeof(message->level), kServerInfoTextSize);
+    reader.fixed_string(message->mode.data(), sizeof(message->mode), kServerInfoTextSize);
     message->skill_level = reader.u8();
     reader.skip(3);
     message->time = reader.u32();
     for (auto& player : message->players)
-        reader.fixed_string(player, sizeof(player), kServerInfoNameSize);
+        reader.fixed_string(player.data(), sizeof(player), kServerInfoNameSize);
     return reader.ok();
 }
 
@@ -39,14 +40,14 @@ bool write_server_info(util::ByteWriter& writer, const ServerInfo& message)
     writer.u8(message.in_game ? 1 : 0);
     writer.u8(message.host_mode);
     writer.u8(message.logged_in ? 1 : 0);
-    writer.fixed_string(message.name, kServerInfoNameSize);
-    writer.fixed_string(message.level, kServerInfoTextSize);
-    writer.fixed_string(message.mode, kServerInfoTextSize);
+    writer.fixed_string(message.name.data(), kServerInfoNameSize);
+    writer.fixed_string(message.level.data(), kServerInfoTextSize);
+    writer.fixed_string(message.mode.data(), kServerInfoTextSize);
     writer.u8(message.skill_level);
     writer.fill(0, 3);
     writer.u32(message.time);
     for (const auto& player : message.players)
-        writer.fixed_string(player, kServerInfoNameSize);
+        writer.fixed_string(player.data(), kServerInfoNameSize);
     return writer.ok();
 }
 
@@ -145,10 +146,10 @@ bool read_connect_info(util::ByteReader& reader, ConnectInfo* message)
     message->version = reader.i32();
     message->observer = reader.u8() != 0;
     message->can_queue_up_ = reader.u8() != 0;
-    reader.fixed_string(message->password, sizeof(message->password), kPasswordSize);
+    reader.fixed_string(message->password.data(), sizeof(message->password), kPasswordSize);
     message->broadband = reader.u8() != 0;
     message->rank = reader.i8();
-    reader.fixed_string(message->cd_key_response_, sizeof(message->cd_key_response_), kCdKeyResponseSize);
+    reader.fixed_string(message->cd_key_response_.data(), sizeof(message->cd_key_response_), kCdKeyResponseSize);
     return reader.ok();
 }
 
@@ -157,10 +158,10 @@ bool write_connect_info(util::ByteWriter& writer, const ConnectInfo& message)
     writer.i32(message.version);
     writer.u8(message.observer ? 1 : 0);
     writer.u8(message.can_queue_up_ ? 1 : 0);
-    writer.fixed_string(message.password, kPasswordSize);
+    writer.fixed_string(message.password.data(), kPasswordSize);
     writer.u8(message.broadband ? 1 : 0);
     writer.i8(message.rank);
-    writer.fixed_string(message.cd_key_response_, kCdKeyResponseSize);
+    writer.fixed_string(message.cd_key_response_.data(), kCdKeyResponseSize);
     return writer.ok();
 }
 
@@ -170,7 +171,7 @@ bool read_join_request(util::ByteReader& reader, JoinRequestHeader* message)
     message->profile = reader.i32();
     message->rating = reader.i32();
     message->drive_scheme_ = reader.i32();
-    reader.fixed_string(message->name, sizeof(message->name), kNameSize);
+    reader.fixed_string(message->name.data(), sizeof(message->name), kNameSize);
     return reader.ok();
 }
 
@@ -180,7 +181,7 @@ bool write_join_request(util::ByteWriter& writer, const JoinRequestHeader& messa
     writer.i32(message.profile);
     writer.i32(message.rating);
     writer.i32(message.drive_scheme_);
-    writer.fixed_string(message.name, kNameSize);
+    writer.fixed_string(message.name.data(), kNameSize);
     return writer.ok();
 }
 
@@ -189,7 +190,7 @@ bool read_proceed_info(util::ByteReader& reader, ProceedInfo* message)
     message->public_ip_ = reader.u32();
     message->private_ip_ = reader.u32();
     message->port = reader.i32();
-    reader.fixed_string(message->server_name_, sizeof(message->server_name_), kServerNameSize);
+    reader.fixed_string(message->server_name_.data(), sizeof(message->server_name_), kServerNameSize);
     message->max_players_ = reader.i8();
     message->broadband = reader.u8() != 0;
     return reader.ok();
@@ -200,7 +201,7 @@ bool write_proceed_info(util::ByteWriter& writer, const ProceedInfo& message)
     writer.u32(message.public_ip_);
     writer.u32(message.private_ip_);
     writer.i32(message.port);
-    writer.fixed_string(message.server_name_, kServerNameSize);
+    writer.fixed_string(message.server_name_.data(), kServerNameSize);
     writer.i8(message.max_players_);
     writer.u8(message.broadband ? 1 : 0);
     writer.fill(0, 2);
@@ -219,7 +220,7 @@ bool read_player_arrived(util::ByteReader& reader, PlayerArrived* message)
     message->team = reader.i8();
     reader.skip(2);
     message->drive_scheme = reader.i32();
-    reader.fixed_string(message->name, sizeof(message->name), kNameSize);
+    reader.fixed_string(message->name.data(), sizeof(message->name), kNameSize);
     return reader.ok();
 }
 
@@ -235,7 +236,7 @@ bool write_player_arrived(util::ByteWriter& writer, const PlayerArrived& message
     writer.i8(message.team);
     writer.fill(0, 2);
     writer.i32(message.drive_scheme);
-    writer.fixed_string(message.name, kNameSize);
+    writer.fixed_string(message.name.data(), kNameSize);
     return writer.ok();
 }
 
@@ -244,8 +245,8 @@ bool read_hud_notice(util::ByteReader& reader, HudNotice* message)
     message->properties = reader.u32();
     message->text = reader.u32();
     message->time = reader.i32();
-    reader.fixed_string(message->string1, sizeof(message->string1), kHudNoticeTextSize);
-    reader.fixed_string(message->string2, sizeof(message->string2), kHudNoticeTextSize);
+    reader.fixed_string(message->string1.data(), sizeof(message->string1), kHudNoticeTextSize);
+    reader.fixed_string(message->string2.data(), sizeof(message->string2), kHudNoticeTextSize);
     return reader.ok();
 }
 
@@ -254,8 +255,8 @@ bool write_hud_notice(util::ByteWriter& writer, const HudNotice& message)
     writer.u32(message.properties);
     writer.u32(message.text);
     writer.i32(message.time);
-    writer.fixed_string(message.string1, kHudNoticeTextSize);
-    writer.fixed_string(message.string2, kHudNoticeTextSize);
+    writer.fixed_string(message.string1.data(), kHudNoticeTextSize);
+    writer.fixed_string(message.string2.data(), kHudNoticeTextSize);
     return writer.ok();
 }
 
@@ -299,7 +300,7 @@ bool read_kick_request(util::ByteReader& reader, KickRequest* message)
 {
     message->kick = reader.u8();
     message->index = reader.i8();
-    reader.fixed_string(message->name, sizeof(message->name), kNameSize);
+    reader.fixed_string(message->name.data(), sizeof(message->name), kNameSize);
     return reader.ok();
 }
 
@@ -307,7 +308,7 @@ bool write_kick_request(util::ByteWriter& writer, const KickRequest& message)
 {
     writer.u8(message.kick);
     writer.i8(message.index);
-    writer.fixed_string(message.name, kNameSize);
+    writer.fixed_string(message.name.data(), kNameSize);
     return writer.ok();
 }
 
@@ -373,18 +374,18 @@ void write_cut_string(util::ByteWriter& writer, const char* text, size_t size)
 bool read_chat(util::ByteReader& reader, Chat* message)
 {
     message->color = reader.u8();
-    reader.fixed_string(message->name, sizeof(message->name), kChatNameSize);
+    reader.fixed_string(message->name.data(), sizeof(message->name), kChatNameSize);
     if (!reader.ok())
         return false;
-    read_rest_string(reader, message->text, sizeof(message->text));
+    read_rest_string(reader, message->text.data(), sizeof(message->text));
     return reader.ok();
 }
 
 bool write_chat(util::ByteWriter& writer, const Chat& message)
 {
     writer.u8(message.color);
-    writer.fixed_string(message.name, kChatNameSize);
-    write_cut_string(writer, message.text, kChatTextSize);
+    writer.fixed_string(message.name.data(), kChatNameSize);
+    write_cut_string(writer, message.text.data(), kChatTextSize);
     return writer.ok();
 }
 
@@ -408,7 +409,7 @@ namespace thugpro {
 
 bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message)
 {
-    reader.bytes(message->magic, sizeof(message->magic));
+    reader.bytes(message->magic.data(), sizeof(message->magic));
     reader.skip(2);
     message->version = reader.u32();
     message->release = reader.u32();
@@ -420,7 +421,7 @@ bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message)
 
 bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& message)
 {
-    writer.bytes(message.magic, sizeof(message.magic));
+    writer.bytes(message.magic.data(), sizeof(message.magic));
     writer.fill(0, 2);
     writer.u32(message.version);
     writer.u32(message.release);
@@ -437,22 +438,22 @@ bool read_chat_message(util::ByteReader& reader, ChatMessage* message)
         return false;
     message->machine_id_ = reader.u32();
     message->obj_id_ = reader.u8();
-    char name[17];
-    reader.fixed_string(name, sizeof(name), 16);
-    if (std::strlen(name) >= 16)
+    std::array<char, 17> name{};
+    reader.fixed_string(name.data(), sizeof(name), 16);
+    if (std::strlen(name.data()) >= 16)
         return false;
-    std::memcpy(message->name, name, sizeof(message->name));
-    return read_rest_string(reader, message->text, sizeof(message->text)) && reader.ok();
+    std::memcpy(message->name.data(), name.data(), sizeof(message->name));
+    return read_rest_string(reader, message->text.data(), sizeof(message->text)) && reader.ok();
 }
 
 bool write_chat_message(util::ByteWriter& writer, const ChatMessage& message)
 {
     writer.u32(message.machine_id_);
     writer.u8(message.obj_id_);
-    char name[16] = {};
-    std::memcpy(name, message.name, strnlen(message.name, 15));
-    writer.bytes(name, sizeof(name));
-    write_cut_string(writer, message.text, kChatMessageTextSize);
+    std::array<char, 16> name = {};
+    std::memcpy(name.data(), message.name.data(), strnlen(message.name.data(), 15));
+    writer.bytes(name.data(), sizeof(name));
+    write_cut_string(writer, message.text.data(), kChatMessageTextSize);
     return writer.ok();
 }
 
@@ -478,10 +479,10 @@ bool write_server_info(util::ByteWriter& writer, const ServerInfo& message)
 bool write_change_level(util::ByteWriter& writer, const LevelSwitch& level, const char* name)
 {
     write_level_switch(writer, level);
-    char field[kChangeLevelNameSize] = {};
+    std::array<char, kChangeLevelNameSize> field = {};
     if (name)
-        std::memcpy(field, name, strnlen(name, kChangeLevelNameSize - 1));
-    writer.bytes(field, sizeof(field));
+        std::memcpy(field.data(), name, strnlen(name, kChangeLevelNameSize - 1));
+    writer.bytes(field.data(), sizeof(field));
     return writer.ok();
 }
 

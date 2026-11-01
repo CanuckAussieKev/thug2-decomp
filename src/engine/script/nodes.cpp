@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
@@ -141,8 +142,8 @@ void fetch_facing(Struct* node, maths::Mat4* out)
     sum += static_cast<double>(v.x) * v.x;
     if (sum > 1.0)
         sum = 1.0;
-    const float quat[4] = {v.x, v.y, v.z, static_cast<float>(std::sqrt(1.0 - sum))};
-    quat_to_matrix(quat, out);
+    const std::array<float, 4> quat = {{v.x, v.y, v.z, static_cast<float>(std::sqrt(1.0 - sum))}};
+    quat_to_matrix(quat.data(), out);
 }
 
 // 0x0045C1B0

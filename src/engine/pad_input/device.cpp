@@ -41,6 +41,7 @@
 #include "game/park_editing/park_editor.h"
 #include "frontend/screen_element_manager.h"
 #include <gsl/pointers>
+#include <array>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 
@@ -72,11 +73,11 @@ InputPort::InputPort(int index, int port, int slot)
     capabilities_ = 0;
     rumble_motor_count_ = 0;
     is_usable_ = 0;
-    std::memset(rumble_raw_, 0, sizeof(rumble_raw_));
-    std::memset(align_data_, 0xFF, sizeof(align_data_));
+    std::memset(rumble_raw_.data(), 0, sizeof(rumble_raw_));
+    std::memset(align_data_.data(), 0xFF, sizeof(align_data_));
     align_data_[0] = 0;
     align_data_[1] = 1;
-    std::memset(control_data_, 0, sizeof(control_data_));
+    std::memset(control_data_.data(), 0, sizeof(control_data_));
     octets_ = (buffer_raw_ + 63) & ~63u; // (buffer_raw_ is never set: as in the original)
     // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
     reconnect_delay_ = std::rand() & 63;
@@ -226,14 +227,14 @@ uint32_t g_keyboard_char_count;
 // Which of the two state buffers is current (2 at start: clear both first).
 int& keyboard_buffer() { return g_keyboard_buffer; }
 
-char g_key_name_result[256];
-char g_name_buffer[256];
-int g_keyboard_chars[16];
-uint8_t g_keyboard_state[2][256];
+std::array<char, 256> g_key_name_result;
+std::array<char, 256> g_name_buffer;
+std::array<int, 16> g_keyboard_chars;
+std::array<std::array<uint8_t, 256>, 2> g_keyboard_state;
 
-uint8_t (&keyboard_state())[2][256] { return g_keyboard_state; }
+std::array<std::array<uint8_t, 256>, 2>& keyboard_state() { return g_keyboard_state; }
 uint32_t& keyboard_char_count() { return g_keyboard_char_count; }
-int (&keyboard_chars())[16] { return g_keyboard_chars; }
+std::array<int, 16>& keyboard_chars() { return g_keyboard_chars; }
 } // namespace
 
 // 0x005BDD60
@@ -241,20 +242,20 @@ void read_keyboard()
 {
     keyboard_char_count() = 0;
     if (keyboard_buffer() == 2) {
-        std::memset(keyboard_state(), 0, sizeof(keyboard_state()));
+        std::memset(keyboard_state().data(), 0, sizeof(keyboard_state()));
         keyboard_buffer() = 1;
     }
     IDirectInputDevice8A* keyboard = keyboard_device();
     if (!keyboard)
         return;
     keyboard_buffer() = keyboard_buffer() == 0 ? 1 : 0;
-    const HRESULT result = keyboard->GetDeviceState(256, keyboard_state()[keyboard_buffer()]);
+    const HRESULT result = keyboard->GetDeviceState(256, keyboard_state()[keyboard_buffer()].data());
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
     if (SUCCEEDED(keyboard_device()->Acquire()))
-        keyboard_device()->GetDeviceState(256, keyboard_state()[keyboard_buffer()]);
+        keyboard_device()->GetDeviceState(256, keyboard_state()[keyboard_buffer()].data());
     else
-        std::memset(keyboard_state()[keyboard_buffer()], 0, 256);
+        std::memset(keyboard_state()[keyboard_buffer()].data(), 0, 256);
 }
 
 // 0x005BDD30
@@ -344,13 +345,13 @@ bool& quit_requested() { return render::g_quit_requested; }
 int key_binding(int action) { return os_layer::g_input_map[action]; }
 // The platform layer's key names.
 const wchar_t* key_name_w(int code) { return os_layer::get_key_name(code); }
-char (&name_buffer())[256] { return g_name_buffer; }
-char (&key_name_result())[256] { return g_key_name_result; }
+std::array<char, 256>& name_buffer() { return g_name_buffer; }
+std::array<char, 256>& key_name_result() { return g_key_name_result; }
 
 void convert_key_name(int code)
 {
     THUG2_MSVC_WARNING(suppress : 4996) // (as the original: the C runtime's conversion, at most 256 bytes)
-    std::wcstombs(name_buffer(), key_name_w(code), 256);
+    std::wcstombs(name_buffer().data(), key_name_w(code), 256);
     name_buffer()[255] = '\0';
 }
 
@@ -490,17 +491,17 @@ const char* get_button_key_name(int button)
     const bool menu_keys = !piece_menu && menu && !typing;
     const int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);
     convert_key_name(code);
-    std::snprintf(key_name_result(), sizeof(key_name_result()), "%s", name_buffer());
+    std::snprintf(key_name_result().data(), sizeof(key_name_result()), "%s", name_buffer().data());
     if (button == 0x12) {
         // two keys: "first+second"
         convert_key_name(key_binding(16));
-        std::snprintf(key_name_result(), sizeof(key_name_result()), "%s+", name_buffer());
+        std::snprintf(key_name_result().data(), sizeof(key_name_result()), "%s+", name_buffer().data());
         convert_key_name(key_binding(17));
-        const size_t used = std::strlen(key_name_result()); // (the original's strcat is unbounded)
-        size_t length = std::strlen(name_buffer());
+        const size_t used = std::strlen(key_name_result().data()); // (the original's strcat is unbounded)
+        size_t length = std::strlen(name_buffer().data());
         if (length > sizeof(key_name_result()) - 1 - used)
             length = sizeof(key_name_result()) - 1 - used;
-        std::memcpy(key_name_result() + used, name_buffer(), length);
+        std::memcpy(key_name_result().data() + used, name_buffer().data(), length);
         key_name_result()[used + length] = '\0';
     }
     if (menu_keys && (button == 0x14 || button == 0x13)) {
@@ -512,7 +513,7 @@ const char* get_button_key_name(int button)
         key_name_result()[2] = second;
         key_name_result()[3] = '\0';
     }
-    return key_name_result();
+    return key_name_result().data();
 }
 
 // 0x005BDF30
@@ -577,7 +578,7 @@ void special_key_input(int key, int flags)
 
 namespace {
 struct LevelInfo {
-    uint8_t unknown[0x40];
+    std::array<uint8_t, 0x40> unknown;
     uint32_t checksum;
 };
 } // namespace
@@ -678,7 +679,7 @@ void InputPort::pull_data(int)
 
     PadSnapshot pad;
     read_pad_state(port_no_, &pad);
-    const uint8_t* p = pad.pressure;
+    const uint8_t* p = pad.pressure.data();
     const uint16_t buttons = pad.buttons;
     const bool keyboard_menu = keyboard_control_ && menu_mode; // (the keyboard drives the menus: some buttons ignored)
     is_usable_ = 1;
@@ -745,8 +746,8 @@ void InputPort::pull_data(int)
     // The keyboard takes over the menus after start, a pressed trigger, a typed Enter, or (playing) Enter.
     bool enter_typed = false;
     if (typing) {
-        char typed[256];
-        const int count = get_keyboard_chars(typed);
+        std::array<char, 256> typed{};
+        const int count = get_keyboard_chars(typed.data());
         for (int i = 0; i < count; ++i) {
             if (typed[i] == 0x19) {
                 enter_typed = true;

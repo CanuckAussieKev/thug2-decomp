@@ -9,6 +9,7 @@
 #include <cstring>
 #include <functional>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"
@@ -142,12 +143,12 @@ namespace {
 
 bool g_armed;
 int g_picked; // (0, 1 or 2 ends)
-Spot g_spots[2];
+std::array<Spot, 2> g_spots;
 bool g_have_hover;
 Spot g_hover;
 // The form.
 bool g_form_open;
-char g_name[64] = "My Gap";
+std::array<char, 64> g_name = {"My Gap"};
 int g_score = 250;
 int g_type;
 std::vector<std::function<void()>> g_queue;
@@ -241,10 +242,10 @@ bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
 void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb)
 {
     OrientedBox box = triggers::box_of(gate.pos, gate.yaw, gate.size);
-    V3 c[8];
-    box_corners(box.origin, box.axes, box.min, box.max, c);
-    const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
-                              {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+    std::array<V3, 8> c{};
+    box_corners(box.origin, box.axes.data(), box.min, box.max, c.data());
+    const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
+                              {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
     for (const auto& e : edges)
         (void)painter.get_seg(c[e[0]], c[e[1]], argb, 2.0f);
 }
@@ -257,10 +258,10 @@ void get_make()
     // (a box is the same turned half round: the end's gate facing back to the start lies across the same line)
     start.pos = a.pos, start.yaw = a.yaw, start.spec.size = a.size;
     end.pos = b.pos, end.yaw = b.yaw, end.spec.size = b.size;
-    start.spec.text = g_name;
+    start.spec.text = g_name.data();
     start.spec.score = clamp_score(g_score);
     start.spec.flags = flags_for(static_cast<KindTag>(g_type));
-    get_log("level editor: gap wizard - \"%s\" (%d, %s) from %s to %s", g_name, start.spec.score,
+    get_log("level editor: gap wizard - \"%s\" (%d, %s) from %s to %s", g_name.data(), start.spec.score,
             current_type_name(static_cast<KindTag>(g_type)), spot_name(g_spots[0].kind), spot_name(g_spots[1].kind));
     triggers::get_queue([start, end] { triggers::add_gap_pair(start, end); });
 }
@@ -333,10 +334,10 @@ void add_overlay(const overlays::Painter& painter)
         painter.draw_label(g_spots[1].point, kEnd, std::string("end: ") + spot_name(g_spots[1].kind));
         (void)painter.get_seg(g_spots[0].point, g_spots[1].point, 0xFFFFFFFF, 2.0f);
         const V3 d = g_spots[1].point - g_spots[0].point;
-        char text[64];
-        std::snprintf(text, sizeof(text), "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
+        std::array<char, 64> text{};
+        std::snprintf(text.data(), sizeof(text), "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
                       d.y >= 0.0f ? "up" : "down");
-        painter.draw_label((g_spots[0].point + g_spots[1].point) * 0.5f, 0xFFFFFFFF, text);
+        painter.draw_label((g_spots[0].point + g_spots[1].point) * 0.5f, 0xFFFFFFFF, text.data());
     } else if (g_have_hover) {
         painter.get_dot(g_hover.point, 5.0f, kHover);
         painter.draw_label(g_hover.point, kHover, spot_name(g_hover.kind));
@@ -370,7 +371,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         return;
     }
     ImGui::TextDisabled("From %s to %s", spot_name(g_spots[0].kind), spot_name(g_spots[1].kind));
-    ImGui::InputText("Name", g_name, sizeof(g_name));
+    ImGui::InputText("Name", g_name.data(), sizeof(g_name));
     ImGui::SliderInt("Score", &g_score, kMinScore, kMaxScore, "%d", ImGuiSliderFlags_AlwaysClamp);
     for (int t = 0; t < kTypes; ++t) {
         if (t)
@@ -387,7 +388,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("Not supported in THUG2");
     ImGui::Separator();
-    const bool named = std::any_of(g_name, g_name + std::strlen(g_name), [](char c) { return c != ' '; });
+    const bool named = std::any_of(g_name.data(), g_name.data() + std::strlen(g_name.data()), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);
     if (ImGui::Button("Create Gap"))
         g_queue.emplace_back([] {

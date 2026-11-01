@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/net/gamespy.h"
@@ -113,13 +114,13 @@ void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
 {
     push_internet_heap();
     script::Struct* params = new_params();
-    params->append_word(kText, player->nick_);
+    params->append_word(kText, player->nick_.data());
     params->put_name_key(kPadChooseScript, kLobbyAddBuddy);
     params->put_name_key(kParentMenuId, kBuddyMenu);
     script::Struct* choose = new_params();
     choose->put_int(kProfile, player->account_);
-    choose->append_word(kNick, player->nick_);
-    choose->append_word(kNetName, player->nick_);
+    choose->append_word(kNick, player->nick_.data());
+    choose->append_word(kNetName, player->nick_.data());
     params->put_sub_struct(kPadChooseParams, choose);
     get_run(kMakeTextSubMenuItem, params);
     delete_params(params);
@@ -131,10 +132,10 @@ void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
 void RoomManager::room_message_callback(void*, int, const char* nick, const char* message, int, void*)
 {
     push_internet_heap();
-    char text[1024];
-    std::sprintf(text, "%s: %s", nick, message);
+    std::array<char, 1024> text{};
+    std::sprintf(text.data(), "%s: %s", nick, message);
     script::Struct* params = new_params();
-    params->append_word(kText, text);
+    params->append_word(kText, text.data());
     get_run(kCreateConsoleMessage, params);
     delete_params(params);
     pop_heap();
@@ -148,10 +149,10 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
     if (!params->fetch_text(kText, &message, 0))
         return true;
     if (params->has_bare_flag(kSystemMessage)) {
-        char text[1024];
-        std::sprintf(text, "<System> %s", message);
+        std::array<char, 1024> text{};
+        std::sprintf(text.data(), "<System> %s", message);
         script::Struct* console = new_params();
-        console->append_word(kText, text);
+        console->append_word(kText, text.data());
         get_run(kCreateConsoleMessage, console);
         delete_params(console);
         return true;
@@ -167,14 +168,14 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
 void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
 {
     push_internet_heap();
-    char text[64];
+    std::array<char, 64> text{};
     if (room->full_)
-        std::sprintf(text, "%s - %d/%d (%s)", room->label_, room->num_players_, room->max_players_,
+        std::sprintf(text.data(), "%s - %d/%d (%s)", room->label_.data(), room->num_players_, room->max_players_,
                      script::fetch_text(kNetLobbyFull));
     else
-        std::sprintf(text, "%s - %d/%d", room->label_, room->num_players_, room->max_players_);
+        std::sprintf(text.data(), "%s - %d/%d", room->label_.data(), room->num_players_, room->max_players_);
     script::Struct* params = new_params();
-    params->append_word(kText, text);
+    params->append_word(kText, text.data());
     const bool available = !room->full_ && !room->out_of_range_;
     if (available) {
         params->put_name_key(kPadChooseScript, kChooseSelectedLobby);
@@ -202,7 +203,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     script::Struct* params = new_params();
     script::Array* rgba = new_script_array();
     script::Struct* unfocus = new_params();
-    params->append_word(kText, player->nick_);
+    params->append_word(kText, player->nick_.data());
     rgba->configure_size_kind(4, script::kQbvalInteger);
     FriendsManager* buddy = manager->presence_service_.get();
     uint32_t script = 0;
@@ -211,8 +212,8 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
             !static_cast<FriendsManager*>(buddy)->is_buddy(player->account_)) { // not a buddy yet
             set_rgba(rgba, 0, 128, 0, 128);
             choose->put_int(kProfile, player->account_);
-            choose->append_word(kNick, player->nick_);
-            choose->append_word(kNetName, player->nick_);
+            choose->append_word(kNick, player->nick_.data());
+            choose->append_word(kNetName, player->nick_.data());
             params->put_sub_struct(kPadChooseParams, choose);
             script = static_cast<FriendsManager*>(buddy)->count_buddies() < kMaxBuddies ? kAddBuddyPrompt
                                                                                         : kCantAddBuddyPrompt3;
@@ -234,7 +235,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     if (rank > kMaxRank)
         rank = kMaxRank;
     params->put_int(kRank, rank);
-    params->put_name_key(kId, checksums::hash_from_text(player->nick_));
+    params->put_name_key(kId, checksums::hash_from_text(player->nick_.data()));
     params->put_name_key(kParentMenuId, kLobbyPlayerListMenu);
     params->push_float(kScale, kItemScale);
     unfocus->append_array_value(kRgba, rgba);
@@ -271,7 +272,7 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
     memory->enter_heap_scope(memory->internet_bottom_up_heap_);
     void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
     auto* room = block ? memory::construct_in<LobbyRoom>(block) : nullptr;
-    std::strncpy(room->label_, name, sizeof(room->label_) - 1);
+    std::strncpy(room->label_.data(), name, sizeof(room->label_) - 1);
     room->label_[sizeof(room->label_) - 1] = '\0';
     room->num_players_ = num_games;
     room->group_id_ = group_id;

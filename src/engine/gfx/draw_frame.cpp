@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "frontend/new_frontend.h"
@@ -178,33 +179,33 @@ void draw_2d_with_black_bars()
         auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_x * 640.0f)));
         const uint32_t bar_width = (back_buffer_width - width) / 2;
         set_texture(0, nullptr);
-        BarVertex bar[4] = {
+        std::array<BarVertex, 4> bar = {{
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {-0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {static_cast<float>(bar_width) + 0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack,
              0.0f, 0.0f},
             {static_cast<float>(bar_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-        };
-        draw_primitive_up(6 /* D3DPT_TRIANGLEFAN */, 2, bar, sizeof(BarVertex));
+        }};
+        draw_primitive_up(6 /* D3DPT_TRIANGLEFAN */, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
             corner.x += static_cast<float>(width + bar_width);
-        draw_primitive_up(6, 2, bar, sizeof(BarVertex));
+        draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
     } else if (back_buffer_aspect < desired_aspect_ratio()) {
         // bars top and bottom
         auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_y * 480.0f)));
         const uint32_t bar_height = (back_buffer_height - height) / 2;
         set_texture(0, nullptr);
-        BarVertex bar[4] = {
+        std::array<BarVertex, 4> bar = {{
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {-0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {static_cast<float>(back_buffer_width) + 0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack,
              0.0f, 0.0f},
             {static_cast<float>(back_buffer_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-        };
-        draw_primitive_up(6, 2, bar, sizeof(BarVertex));
+        }};
+        draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
             corner.y += static_cast<float>(height + bar_height);
-        draw_primitive_up(6, 2, bar, sizeof(BarVertex));
+        draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
     }
 }
 
@@ -232,10 +233,10 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     camera.up[0] = orientation->row[1].x;
     camera.up[1] = orientation->row[1].y;
     camera.up[2] = orientation->row[1].z;
-    float target[3] = {camera.position[0] - camera.backward[0], camera.position[1] - camera.backward[1],
-                       camera.position[2] - camera.backward[2]};
-    world = maths::Mat4{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
-    matrix_look_at(&view, camera.position, target, camera.up);
+    std::array<float, 3> target = {{camera.position[0] - camera.backward[0], camera.position[1] - camera.backward[1],
+                       camera.position[2] - camera.backward[2]}};
+    world = maths::Mat4{{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}}};
+    matrix_look_at(&view, camera.position.data(), target.data(), camera.up.data());
 
     // (not original: s_near_z - the original: camera.nearZ = 2.0f;)
     camera.near_z_ = s_near_z;
@@ -342,12 +343,12 @@ void draw_screen_blur()
     auto screen_width = static_cast<float>(g_present_parameters.BackBufferWidth);
     auto screen_height = static_cast<float>(g_present_parameters.BackBufferHeight);
     uint32_t color = 0x80808080;
-    ScreenVertex quad[4] = {
+    std::array<ScreenVertex, 4> quad = {{
         {0, 0, 0, 1, color, static_cast<float>(inset_u), inset_v},
         {screen_width, 0, 0, 1, color, static_cast<float>(1.0 - inset_u), inset_v},
         {0, screen_height, 0, 1, color, static_cast<float>(inset_u), 1.0f - inset_v},
         {screen_width, screen_height, 0, 1, color, static_cast<float>(1.0 - inset_u), 1.0f - inset_v},
-    };
+    }};
     // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
     //   float bar = static_cast<float>(g_back_buffer_height / 8);
@@ -380,7 +381,7 @@ void draw_screen_blur()
     if (g_screen_blur_frames > 2) {
         set_render_state(0x11, 1);
         set_texture(0, other);
-        draw_primitive_up(5 /* triangle strip */, 2, quad, sizeof(ScreenVertex));
+        draw_primitive_up(5 /* triangle strip */, 2, quad.data(), sizeof(ScreenVertex));
         ++g_draw_calls;         // draw calls
         g_drawn_triangles += 2; // triangles
     }
@@ -394,7 +395,7 @@ void draw_screen_blur()
     clear_target(fog_colour ? g_fog_colour : g_camera.background_colour_);
     set_render_state(0x11, 0);
     set_texture(0, texture);
-    draw_primitive_up(5, 2, quad, sizeof(ScreenVertex));
+    draw_primitive_up(5, 2, quad.data(), sizeof(ScreenVertex));
     set_render_state(0x11, 1);
     ++g_draw_calls;
     g_drawn_triangles += 2;
@@ -420,7 +421,7 @@ static_assert(offsetof(Viewport, camera) == 0x18, "viewport layout");
 // A world scene's mesh group: flagged 0x100 once its meshes are prepared.
 struct MeshGroup {
     uint32_t flags;
-    uint8_t unknown04[0x18];
+    std::array<uint8_t, 0x18> unknown04;
     void** meshes;   // +0x1C
     int mesh_count_; // +0x20
 };
@@ -428,12 +429,12 @@ static_assert(offsetof(MeshGroup, mesh_count_) == 0x20, "mesh group layout");
 
 // A loaded world scene (only what the render uses).
 struct Scene {
-    uint8_t unknown000[0x84];
+    std::array<uint8_t, 0x84> unknown000;
     uint32_t name;   // +0x84: the checksum of its name
     void* tex_dict_; // +0x88
     uint8_t unknown08c_;
     bool sky; // +0x8D: drawn in the sky pass
-    uint8_t unknown08e_[0x1F2];
+    std::array<uint8_t, 0x1F2> unknown08e_;
     MeshGroup* group; // +0x280
 };
 static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D && offsetof(Scene, name) == 0x84,
@@ -548,9 +549,9 @@ void draw_viewport(int index)
         frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, &vp.x);
         // Not original - the screenshot key's sidecar (platform/screenshot.h): the camera noted.
         const maths::Mat4* frame = cam_orientation(camera);
-        const float at[3] = {position->x, position->y, position->z};
-        const float forward[3] = {-frame->row[2].x, -frame->row[2].y, -frame->row[2].z};
-        sys::screenshot::note_view(index, at, forward);
+        const std::array<float, 3> at = {{position->x, position->y, position->z}};
+        const std::array<float, 3> forward = {{-frame->row[2].x, -frame->row[2].y, -frame->row[2].z}};
+        sys::screenshot::note_view(index, at.data(), forward.data());
     }
     for_each_scene([&](Scene* scene) {
         if (scene->sky)

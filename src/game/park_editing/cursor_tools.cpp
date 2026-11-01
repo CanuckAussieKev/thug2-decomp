@@ -40,7 +40,7 @@ void BuildPointer::set_gap_label_and_points(const char* name, int score)
             gap_.text_[0] = 'x';
             gap_.text_[1] = '\0';
         } else {
-            text::copy_unbounded(gap_.text_, name); // (no length limit, as in the original)
+            text::copy_unbounded(gap_.text_.data(), name); // (no length limit, as in the original)
         }
     }
     if (score >= 0)

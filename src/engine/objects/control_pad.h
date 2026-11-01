@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace objects {
 
@@ -29,12 +30,12 @@ public:
     int get_held_millis();
 
     uint8_t held_down_; // +0x00
-    uint8_t unknown1_[3];
+    std::array<uint8_t, 3> unknown1_;
     int press_time_;   // +0x04: the game clock (with its offset) at the last press
     int release_time_; // +0x08
     int press_amount_; // +0x0C
     uint8_t fired_;    // +0x10: went down (until reset_activation)
-    uint8_t unknown11_[3];
+    std::array<uint8_t, 3> unknown11_;
     int let_go_;         // +0x14: went up (until forget_let_go)
     uint32_t label_;     // +0x18
     float locked_until_; // +0x1C
@@ -72,17 +73,18 @@ public:
     ControlButton pos_x_{};             // +0x1A0
     ControlButton outset_{};            // +0x1C0
     ControlButton button_choose_{};     // +0x1E0
-    float stick_[4]{};                  // +0x200: two sticks' x, y: the data's 0x12-0x15 - 0x80
-    float scaled_stick_[4]{}; // +0x210: the data's 0-3 - 0x80, moved 50 towards 0 (past it: no dead band), / 77
+    std::array<float, 4> stick_{};                  // +0x200: two sticks' x, y: the data's 0x12-0x15 - 0x80
+    std::array<float, 4> scaled_stick_{}; // +0x210: the data's 0-3 - 0x80, moved 50 towards 0 (past it: no dead band), / 77
     // +0x220: each stick as an angle (atan2(x, -y): 0 = up, clockwise positive) and a length; the second is the
     // d-pad's (length 127) while that stick is centred.
     struct Polar {
         float angle;
         float length;
-    } polar_[2]{};
+    };
+    std::array<Polar, 2> polar_{};
     // +0x230: two frame_clock::GetTime times (0 = none; set by other code) for the second stick held up / down: Update
     // clears each once it has passed, or once the stick is centred or leaves that quarter.
-    uint32_t lock_[2]{};
+    std::array<uint32_t, 2> lock_{};
 };
 static_assert(offsetof(PadSnapshot, stick_) == 0x200 && offsetof(PadSnapshot, polar_) == 0x220 &&
                   offsetof(PadSnapshot, lock_) == 0x230,

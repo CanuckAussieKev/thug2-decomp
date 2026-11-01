@@ -99,7 +99,7 @@ struct WadFile {
     uint32_t users;
     uint32_t unknownc_;
 };
-WadFile* wad_files() { return raw::field_at<WadFile>(g_stream_files, 4); }
+WadFile* wad_files() { return raw::field_at<WadFile>(g_stream_files.data(), 4); }
 uint32_t use_counter() { return g_stream_file_uses; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -132,7 +132,7 @@ Result BinkStream::unseal(const char* path)
     if (!bink_)
         return kInvalidArgument;
     bink_set_video_on_off(bink_, 0);
-    std::memcpy(from_where_, path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
+    std::memcpy(from_where_.data(), path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
     from_handle_ = false;
     return 0;
 }
@@ -206,7 +206,7 @@ int BinkStream::tick_frame()
         if (!pause_requested_) {
             if (!bink_) {
                 // Reopen where it was paused.
-                bink_ = video_open(from_where_, from_handle_ ? kBinkFileHandle : kBinkIoSize);
+                bink_ = video_open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
                 if (bink_) {
                     bink_set_video_on_off(bink_, 0);
                     bink_goto(bink_, resume_frame_, 1);

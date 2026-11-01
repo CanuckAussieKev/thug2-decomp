@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -29,9 +30,9 @@
 
 namespace objects {
 
-uint32_t g_vehicle_sound_member_functions[24]{
+std::array<uint32_t, 24> g_vehicle_sound_member_functions{{
     0xB8451886, 0x1859F772, 0, 0, 0, 0, 0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
-    0xF876FAE9, 0x1859F772, 0, 0, 0, 0, 0,          0x1859F772, 0, 0, 0, 0};
+    0xF876FAE9, 0x1859F772, 0, 0, 0, 0, 0,          0x1859F772, 0, 0, 0, 0}};
 
 namespace {
 
@@ -113,7 +114,7 @@ gsl::owner<ObjectModule*> SkaterVehicleSoundComponent::fabricate() { return new 
 // 0x0051AD90
 void SkaterVehicleSoundComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_vehicle_sound_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_vehicle_sound_member_functions.data(), 0x18);
 }
 
 // 0x0051ADD0

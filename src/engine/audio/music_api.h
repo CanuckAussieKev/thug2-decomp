@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 // The music and streams front end: the game's calls for music tracks, music streams
 // and streamed sounds, each doing nothing when there's no sound system (0x007D6A38), the sound is off
@@ -70,7 +71,7 @@ bool update_stream_volume(int slot);
 struct FamData {
     uint32_t name;
     int size;
-    uint8_t data[0x1000];
+    std::array<uint8_t, 0x1000> data;
 
     // 0x00450540: load fam\<name in hex>.fam (blocking). False if it can't be opened or is 4 KB or more.
     bool read_in(uint32_t name);

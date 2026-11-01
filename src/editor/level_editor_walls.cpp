@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <map>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_scenery.h"
 #include "engine/render/coll_static.h"
@@ -352,14 +353,14 @@ std::string describe_state(uint32_t checksum)
     const bool off = disengaged(checksum);
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
     const bool moved = get_moved(checksum, &placement);
-    char text[192];
+    std::array<char, 192> text{};
     if (moved)
-        std::snprintf(text, sizeof(text), "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s",
+        std::snprintf(text.data(), sizeof(text), "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s",
                       off ? "OFF" : "on", placement.offset.x, placement.offset.y, placement.offset.z,
                       placement.quarters, placement.quarters == 1 ? "" : "s");
     else
-        std::snprintf(text, sizeof(text), "Collision %s - where the level has it", off ? "OFF" : "on");
-    return text;
+        std::snprintf(text.data(), sizeof(text), "Collision %s - where the level has it", off ? "OFF" : "on");
+    return text.data();
 }
 
 } // namespace frontend::level_editor::walls

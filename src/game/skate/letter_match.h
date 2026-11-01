@@ -6,6 +6,7 @@
 // text tell the scripts what happened.
 
 #include <cstdint>
+#include <array>
 
 #include "engine/core/text_store.h"
 
@@ -22,9 +23,9 @@ public:
     int points_target_{};     // +0x000 (0: none set)
     int skater_{};            // +0x004: the skater taking the run (its id)
     int last_skater_{};       // +0x008
-    char word_[0x200]{};      // +0x00C ("HORSE")
-    char panel_[0x200]{};     // +0x20C: what the last run did
-    int letters_[kPlayers]{}; // +0x40C: each player's letters
+    std::array<char, 0x200> word_{};      // +0x00C ("HORSE")
+    std::array<char, 0x200> panel_{};     // +0x20C: what the last run did
+    std::array<int, kPlayers> letters_{}; // +0x40C: each player's letters
     uint32_t unknown42c_{};
     int restart_{0};          // +0x430: the restart the next run starts from
     uint32_t cur_standing_{}; // +0x434: one of the table at 0x0067F340

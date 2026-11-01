@@ -18,6 +18,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
+#include <array>
 #include "platform/compiler.h"
 #include "engine/core/pointer_cell.h"
 
@@ -32,7 +33,7 @@ namespace {
 
 constexpr int kMaxHandles = 16;
 
-AsyncFileHandle* g_pool[kMaxHandles];
+std::array<AsyncFileHandle*, kMaxHandles> g_pool;
 int g_handles_in_use;
 int g_pending_reads;
 bool g_io_completed;
@@ -42,7 +43,7 @@ uint32_t g_loader_module_refs;
 bool g_use_overlapped_io;
 
 // Shared with the platform I/O thread: plain (volatile) accesses, as in the original.
-AsyncFileHandle** slab_bank() { return g_pool; }
+AsyncFileHandle** slab_bank() { return g_pool.data(); }
 int& handles_in_use() { return g_handles_in_use; }
 volatile int& pending_io_counter() { return g_pending_reads; }
 volatile bool& io_completed() { return g_io_completed; }
@@ -54,11 +55,11 @@ struct PendingCallback {
     int value;
 };
 
-PendingCallback g_pending_callbacks[2][kMaxHandles];
-int g_callback_counts[2];
+std::array<std::array<PendingCallback, kMaxHandles>, 2> g_pending_callbacks;
+std::array<int, 2> g_callback_counts;
 
-PendingCallback (&callback_lists())[2][kMaxHandles] { return g_pending_callbacks; }
-int (&callback_counts())[2] { return g_callback_counts; }
+std::array<std::array<PendingCallback, kMaxHandles>, 2>& callback_lists() { return g_pending_callbacks; }
+std::array<int, 2>& callback_counts() { return g_callback_counts; }
 int& current_list() { return g_current_list; }
 
 // The handle fields every allocation resets (as the original's Init and get_file_handle do).
@@ -168,7 +169,7 @@ bool AsyncFileHandle::unseal(const char* name, bool blocking, int priority)
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay isn't taken from an
     // archive (the platform's open reads the overlay's).
     // Original behaviour: a loaded archive's copy first.
-    char overlay[260];
+    std::array<char, 260> overlay{};
     if (pre::hub() && !frontend::data_overlay::get_overlay_path(name, overlay)) {
         pre_file_ = pre::unseal(name, "rb", true);
         if (pre_file_) {
@@ -402,7 +403,7 @@ public:
     int os_load_whole(void* buffer) override;
     int os_read_chunk(void* buffer, int size, int count) override;
 
-    uint8_t unknown3c_[0x7C - 0x3C]{};
+    std::array<uint8_t, 0x7C - 0x3C> unknown3c_{};
     int unknown7c_{0};
     void* destination_{nullptr}; // where a read through staging_bytes_ goes
     void* staging_bytes_{nullptr};
@@ -468,7 +469,7 @@ bool PcAsyncFileHandle::os_open_setup()
 bool PcAsyncFileHandle::os_open_file(const char* name)
 {
     anchor_point_ = 0;
-    char path[260];
+    std::array<char, 260> path{};
     // Not original - the data overlay: a file of it is opened there.
     // Original behaviour: the data folder's file.
     if (!frontend::data_overlay::get_overlay_path(name, path))
@@ -477,7 +478,7 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     in_flight_ops_ = in_flight_ops_ + 1;
     const bool overlapped = use_overlapped_io();
     file_ref_ =
-        CreateFileA(path, GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
+        CreateFileA(path.data(), GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
                     overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file_ref_ == INVALID_HANDLE_VALUE)
         return false; // (the busy counts stay raised, as in the original)

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/dbg.h"
@@ -222,13 +223,13 @@ void CameraAnimMovie::load_target(script::Struct* params)
         return;
     goal_shift_[0] = goal_shift_[1] = goal_shift_[2] = 0.0f;
     goal_shift_[3] = 1.0f;
-    params->fetch_vec(0x906642BF, raw::as<script::VectorValue>(goal_shift_), 0);
+    params->fetch_vec(0x906642BF, raw::as<script::VectorValue>(goal_shift_.data()), 0);
     const float zero = g_float_zero;
     // (not equal, or unordered: a NaN counts as set)
     target_offset_set_ = !(goal_shift_[0] == zero) || !(goal_shift_[1] == zero) || !(goal_shift_[2] == zero);
     look_offset_[0] = look_offset_[1] = look_offset_[2] = 0.0f;
     look_offset_[3] = 1.0f;
-    look_offset_set_ = params->fetch_vec(0xA00D3D6E, raw::as<script::VectorValue>(look_offset_), 0);
+    look_offset_set_ = params->fetch_vec(0xA00D3D6E, raw::as<script::VectorValue>(look_offset_.data()), 0);
 }
 
 // 0x00587540
@@ -296,14 +297,14 @@ void CameraAnimMovie::place_camera()
     }
     if (anim_) {
         // The camera from the asset's frame: its position and its rotation.
-        float quat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        float at[4];
+        std::array<float, 4> quat = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        std::array<float, 4> at{};
         bool flag = false;
-        static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quat, at, &flag, timeline_.ongoing_, 0);
+        static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quat.data(), at.data(), &flag, timeline_.ongoing_, 0);
         for (int i = 0; i < 4; ++i)
             pos[i] = at[i];
-        float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        quat_to_matrix(quat, origin, m);
+        std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        quat_to_matrix(quat.data(), origin.data(), m);
     } else {
         // Where it is; the field of view (0: the script global's).
         pos[0] = pos[1] = pos[2] = 0.0f;
@@ -316,38 +317,38 @@ void CameraAnimMovie::place_camera()
     }
     if (!has_goal_)
         return;
-    float dir[4];
+    std::array<float, 4> dir{};
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
         auto* object = core::down_cast<GameEntity>(
             static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(aim_point_));
         if (!object)
             return;
-        float target[4] = {object->at_point_.x, object->at_point_.y, object->at_point_.z, 1.0f};
-        float frame[16];
+        std::array<float, 4> target = {{object->at_point_.x, object->at_point_.y, object->at_point_.z, 1.0f}};
+        std::array<float, 16> frame{};
         auto moved = [&](float* offset) {
-            *raw::as<maths::Mat4>(frame) = object->basis_frame_;
+            *raw::as<maths::Mat4>(frame.data()) = object->basis_frame_;
             frame[12] = target[0];
             frame[13] = target[1];
             frame[14] = target[2];
             frame[15] = 1.0f;
-            raw::as<maths::Mat4>(frame)->offset_local(*raw::as<const maths::Vec4>(offset));
+            raw::as<maths::Mat4>(frame.data())->offset_local(*raw::as<const maths::Vec4>(offset));
         };
         if (target_offset_set_) {
-            moved(goal_shift_);
+            moved(goal_shift_.data());
             for (int i = 0; i < 4; ++i)
                 target[i] = frame[12 + i];
         }
         if (look_offset_set_) {
             for (int i = 0; i < 4; ++i)
                 pos[i] = target[i];
-            moved(look_offset_);
+            moved(look_offset_.data());
             for (int i = 0; i < 4; ++i)
                 pos[i] = frame[12 + i];
         }
         for (int i = 0; i < 4; ++i)
             dir[i] = pos[i] - target[i];
-        raw::as<maths::Vec4>(dir)->make_unit();
+        raw::as<maths::Vec4>(dir.data())->make_unit();
         set_identity(m);
         for (int i = 0; i < 4; ++i)
             m[8 + i] = dir[i];
@@ -420,11 +421,11 @@ void ObjectAnimMovie::tick_frame()
             debug::printf("object animation:  couldn't find object %s\n", script::find_checksum_name_or_unknown(name));
             continue;
         }
-        float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        float matrix[16];
-        quat_to_matrix(quats + 4 * i, origin, matrix);
-        std::memcpy(&object->basis_frame_, matrix, sizeof(matrix));    // its matrix
-        std::memcpy(&object->display_matrix_, matrix, sizeof(matrix)); // and its display matrix
+        std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        std::array<float, 16> matrix{};
+        quat_to_matrix(quats + 4 * i, origin.data(), matrix.data());
+        std::memcpy(&object->basis_frame_, matrix.data(), sizeof(matrix));    // its matrix
+        std::memcpy(&object->display_matrix_, matrix.data(), sizeof(matrix)); // and its display matrix
         std::memcpy(&object->at_point_, positions + 4 * i, 16);        // its position
         if (script::fetch_int_value(0x2F510F45)) {
             debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),

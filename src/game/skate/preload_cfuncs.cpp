@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -66,12 +67,12 @@ constexpr uint32_t kLight = 0x94E5A308, kTan = 0x85AAF0D8, kDark = 0xE4834204; /
 constexpr uint32_t kCarType = 0x5C0312EB;                                      // OBJECT_TYPE_CAR
 constexpr uint32_t kObjReplaceTexture = 0x83F9BE15;                            // Obj_ReplaceTexture
 // The capture-the-flag nodes' types (not preloaded in a game of one player).
-constexpr uint32_t kFlagTypes[] = {
+constexpr auto kFlagTypes = std::to_array<uint32_t>({
     0xBEBB41F0, 0x836284A5, 0xC3EBE05E, 0x4F8FF239,  // Flag_Red(_Base), Flag_Green(_Base)
-    0x8CCA938A, 0x041E5BCF, 0xC2AF1EB1, 0xED3AD7FE}; // Flag_Blue(_Base), Flag_Yellow(_Base)
+    0x8CCA938A, 0x041E5BCF, 0xC2AF1EB1, 0xED3AD7FE}); // Flag_Blue(_Base), Flag_Yellow(_Base)
 // The pedestrians' CAS part lists preloaded (unless no_random).
-constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC27BA,  // ped_m_head, torso, legs,
-                                      0x9FAD7C38, 0x24DE6A73, 0xC546C92E, 0x02159819}; // accessories; ped_f_...
+constexpr auto kPedPartLists = std::to_array<uint32_t>({0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC27BA,  // ped_m_head, torso, legs,
+                                      0x9FAD7C38, 0x24DE6A73, 0xC546C92E, 0x02159819}); // accessories; ped_f_...
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
@@ -154,8 +155,8 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
             continue;
         text::Chars path;
         {
-            alignas(4) uint8_t storage[sizeof(text::Chars)];
-            text::Chars* made = model_path(storage, model, ".mdl");
+            alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
+            text::Chars* made = model_path(storage.data(), model, ".mdl");
             path = *made;
             made->~Chars();
         }
@@ -163,25 +164,25 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
         ingest_mesh(nx_model, path.c_str(), 0, 1, 0, node->has_bare_flag(kAllowReplaceTex), 0, 1, 0);
         if (!node->has_bare_flag(kNoCollision)) {
             const char* file = path.c_str();
-            char name[0x100];
-            std::memcpy(name, file, std::strlen(file) + 1); // (no bound: as the original)
-            text::to_lower_text(name);
-            if (std::strstr(name, ".mdl")) {
-                get_base_name(file, name);
-                std::memcpy(name + std::strlen(name), ".col", 5);
+            std::array<char, 0x100> name{};
+            std::memcpy(name.data(), file, std::strlen(file) + 1); // (no bound: as the original)
+            text::to_lower_text(name.data());
+            if (std::strstr(name.data(), ".mdl")) {
+                get_base_name(file, name.data());
+                std::memcpy(name.data() + std::strlen(name.data()), ".col", 5);
                 assets::ResourceRegistry* assets = assets::asset_manager();
                 const bool permanent = assets->get_permanent_by_default();
-                assets->fetch_or_load_resource(name, 8, 0, checksums::hash_from_text(file), false, false, permanent,
+                assets->fetch_or_load_resource(name.data(), 8, 0, checksums::hash_from_text(file), false, false, permanent,
                                                nullptr, 0);
             }
         }
         if (node_class == kVehicle) {
-            char script[0x100];
-            get_base_name(path.c_str(), script);
-            std::memcpy(script + std::strlen(script), ".qb", 4);
+            std::array<char, 0x100> script{};
+            get_base_name(path.c_str(), script.data());
+            std::memcpy(script.data() + std::strlen(script.data()), ".qb", 4);
             assets::ResourceRegistry* assets = assets::asset_manager();
             const bool permanent = assets->get_permanent_by_default();
-            assets->fetch_or_load_resource(script, 0xA, 0, 0, false, false, permanent, nullptr, 0);
+            assets->fetch_or_load_resource(script.data(), 0xA, 0, 0, false, false, permanent, nullptr, 0);
         }
         delete_model(nx_model);
     }
@@ -215,8 +216,8 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         const char* model = nullptr;
         if (node->fetch_text(kModel, &model, 0) && checksums::hash_from_text(model) != kNone) {
             text::Chars path;
-            alignas(4) uint8_t storage[sizeof(text::Chars)];
-            text::Chars* made = model_path(storage, model, ".skin");
+            alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
+            text::Chars* made = model_path(storage.data(), model, ".skin");
             path = *made;
             made->~Chars();
             render::RenderModel* nx_model = spawn_render_model(1);
@@ -225,8 +226,8 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         }
         if (node->fetch_text(kSecondModel, &model, 0)) {
             text::Chars path;
-            alignas(4) uint8_t storage[sizeof(text::Chars)];
-            text::Chars* made = model_path(storage, model, ".mdl");
+            alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
+            text::Chars* made = model_path(storage.data(), model, ".mdl");
             path = *made;
             made->~Chars();
             render::RenderModel* nx_model = spawn_render_model(1);
@@ -326,19 +327,19 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     params->fetch_int_value(kNum, &wanted, 0);
     if (wanted > candidates)
         wanted = candidates;
-    script::Struct* matching[64];
+    std::array<script::Struct*, 64> matching{};
     int count = 0;
-    matching_options(part, 0, matching, &count);
+    matching_options(part, 0, matching.data(), &count);
     if (count) {
         get_choose(matching[maths::rnd(count)], wanted - 1);
     } else {
-        matching_options(part, kLight, matching, &count);
+        matching_options(part, kLight, matching.data(), &count);
         get_choose(matching[maths::rnd(count)], wanted - 1);
         --wanted;
-        matching_options(part, kTan, matching, &count);
+        matching_options(part, kTan, matching.data(), &count);
         get_choose(matching[maths::rnd(count)], wanted - 1);
         --wanted;
-        matching_options(part, kDark, matching, &count);
+        matching_options(part, kDark, matching.data(), &count);
         get_choose(matching[maths::rnd(count)], wanted - 1);
     }
     --wanted;
@@ -360,7 +361,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
 {
     auto* objects = objects::g_composite_registry;
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
-    uint32_t seen[32];
+    std::array<uint32_t, 32> seen{};
     int seen_count = 0;
     for (objects::ObjectModule* component = objects->find_first_module_of_kind(kModel); component;
          component = component->next_of_type_) {

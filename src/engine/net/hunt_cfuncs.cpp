@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
@@ -57,7 +58,7 @@ Hub* net_session_slot() { return online::g_online_hub; }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
 int& placed_count(online::PlayerRecord* player) { return player->num_placed_; }
-script::VectorValue* placed_positions(online::PlayerRecord* player) { return player->placed_; }
+script::VectorValue* placed_positions(online::PlayerRecord* player) { return player->placed_.data(); }
 
 // The player whose skater the script runs on (null without an object or a player).
 online::PlayerRecord* script_player(script::Script* script)
@@ -177,10 +178,10 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
         online::BoardVehicle msg;
         msg.skater_id = static_cast<int8_t>(skater);
         msg.control_type = steer_kind;
-        uint8_t data[online::kBoardVehicleSize];
-        util::ByteWriter writer(data, sizeof(data));
+        std::array<uint8_t, online::kBoardVehicleSize> data{};
+        util::ByteWriter writer(data.data(), sizeof(data));
         online::write_board_vehicle(writer, msg);
-        desc.content_ = data;
+        desc.content_ = data.data();
         desc.ident_ = kMsgBoardVehicle;
         desc.byte_count_ = sizeof(data);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -195,8 +196,8 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
 // true.
 bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 {
-    char typed[256];
-    if (sio::get_keyboard_chars(typed) > 0 && typed[0] == ' ') {
+    std::array<char, 256> typed{};
+    if (sio::get_keyboard_chars(typed.data()) > 0 && typed[0] == ' ') {
         Struct* check = online::detail::new_params();
         check->put_name_key(kId, kKeyboardAnchor);
         if (!objects::cfunc_object_exists(check, nullptr)) {
@@ -219,9 +220,9 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     net::NetMessageInfo desc;
     net::AppHost* server = manager->host_;
     online::HuntPlacements msg;
-    uint8_t data[online::kHuntPlacementsSize];
+    std::array<uint8_t, online::kHuntPlacementsSize> data{};
     desc.ident_ = kMsgObjectPlacements;
-    desc.content_ = data;
+    desc.content_ = data.data();
     desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
@@ -241,7 +242,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
                 msg.positions[i][2] = at.z;
                 msg.positions[i][3] = at.w;
             }
-            util::ByteWriter writer(data, sizeof(data));
+            util::ByteWriter writer(data.data(), sizeof(data));
             online::write_hunt_placements(writer, msg);
             server->put_on_outbox(online::detail::player_handle(receiver), &desc);
         }
@@ -261,11 +262,11 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
     net::AppHost* app = manager->fetch_patron(manager->in_net_game() ? 0 : static_cast<int>(client));
     if (app) {
         net::NetMessageInfo desc;
-        const float at[4] = {pos.x, pos.y, pos.z, pos.w};
-        uint8_t data[online::kHuntPlacementSize];
-        util::ByteWriter writer(data, sizeof(data));
-        online::write_hunt_position(writer, at);
-        desc.content_ = data;
+        const std::array<float, 4> at = {{pos.x, pos.y, pos.z, pos.w}};
+        std::array<uint8_t, online::kHuntPlacementSize> data{};
+        util::ByteWriter writer(data.data(), sizeof(data));
+        online::write_hunt_position(writer, at.data());
+        desc.content_ = data.data();
         desc.ident_ = kMsgObjectPlacements;
         desc.byte_count_ = sizeof(data);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -312,11 +313,11 @@ bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
     msg.type = type;
     msg.ammo_type = ammo_type;
     msg.time = 0;
-    uint8_t data[online::kProjectileSize];
-    util::ByteWriter writer(data, sizeof(data));
+    std::array<uint8_t, online::kProjectileSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
     online::write_projectile(writer, msg);
     desc.ident_ = kMsgProjectile;
-    desc.content_ = data;
+    desc.content_ = data.data();
     desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;

@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -75,10 +76,10 @@ public:
     float lag_{};                    // +0x74
     float lag_min_{};                // +0x78 LagRange
     float lag_max_{};                // +0x7C
-    float wobble_[2]{};              // +0x80 lagwobble
+    std::array<float, 2> wobble_{};              // +0x80 lagwobble
     int wobble_seed_{};              // +0x88 Rnd(1024)
     uint8_t lock_flags_{};           // +0x8C LOCK_FLAG_*
-    uint8_t pad8d_[3]{};
+    std::array<uint8_t, 3> pad8d_{};
 };
 static_assert(offsetof(PinnedObjectModule, entity_label_) == 0x18 && offsetof(PinnedObjectModule, shift_) == 0x24 &&
                   offsetof(PinnedObjectModule, orientation_turn_) == 0x34 &&

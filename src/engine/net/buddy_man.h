@@ -6,6 +6,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -27,16 +28,16 @@ namespace online {
 // carrying the GP buddy's details. (The buddy records' nodes keep the original's size.)
 struct Buddy {
     memory::ListNode list_link_; // +0x00 data = this
-    char nick_[32];              // +0x14
+    std::array<char, 32> nick_;              // +0x14
     int account_;                // +0x34 the GameSpy profile id
     int cur_standing_; // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
     bool pending_;     // +0x3C asked to be a buddy, no answer yet (not shown in the list)
-    uint8_t pad3d_[3];
+    std::array<uint8_t, 3> pad3d_;
     uint32_t join_ip_;         // +0x40 the game the buddy plays in (from the location string, kThug2Location)
     uint32_t join_private_ip_; // +0x44
     int join_port_;            // +0x48
-    char location_[256];       // +0x4C the game's name (or the GP location string)
-    char status_text_[256];    // +0x14C
+    std::array<char, 256> location_;       // +0x4C the game's name (or the GP location string)
+    std::array<char, 256> status_text_;    // +0x14C
 
     // 0x00548CF0 (scalar deleting): the node destructor (0x005484A0: unlinked), freed with
     // flag 1. Returns this.
@@ -49,8 +50,8 @@ struct Buddy {
 struct FriendNote {
     memory::ListNode list_link_{}; // +0x00 data = this
     int account_{0};               // +0x14 the sender
-    char nick_[16]{};            // +0x18
-    char text_[64]{};            // +0x28
+    std::array<char, 16> nick_{};            // +0x18
+    std::array<char, 64> text_{};            // +0x28
 
     // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text.
     FriendNote();

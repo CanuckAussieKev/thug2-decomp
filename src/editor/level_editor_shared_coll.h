@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor.h"
 #include "engine/render/coll_static.h"
@@ -66,9 +67,9 @@ inline bool takeable(uint32_t flags) { return !(flags & 0x50); }
 
 // A face as copied: its corners (world space), flags, terrain and its vertices' bytes (the ground's light).
 struct FaceCopy {
-    V3 v[3];
+    std::array<V3, 3> v;
     uint16_t flags, terrain;
-    uint8_t bytes[3];
+    std::array<uint8_t, 3> bytes;
 };
 // Face `face` of a geometry (compressed or not, small faces or not).
 FaceCopy read_face(const render::TriMeshSource* geometry, int face);

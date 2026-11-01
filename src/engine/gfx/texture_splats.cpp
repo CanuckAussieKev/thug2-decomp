@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -38,12 +39,12 @@ namespace render {
 
 VertexStack g_vertex_stack;
 namespace {
-uint8_t g_splat_middle20[128];
-uint8_t g_splat_middle12[128];
-uint8_t g_splat_middle01[128];
-uint8_t g_splat_vertex0[128];
-uint8_t g_splat_vertex1[128];
-uint8_t g_splat_vertex2[128];
+std::array<uint8_t, 128> g_splat_middle20;
+std::array<uint8_t, 128> g_splat_middle12;
+std::array<uint8_t, 128> g_splat_middle01;
+std::array<uint8_t, 128> g_splat_vertex0;
+std::array<uint8_t, 128> g_splat_vertex1;
+std::array<uint8_t, 128> g_splat_vertex2;
 } // namespace
 
 float g_split_area_limit{82944.0f};
@@ -93,26 +94,26 @@ float midpoint(float a, float b) { return static_cast<float>((static_cast<double
 // 0x004B7F30
 void collapse_splat_triangle(TextureSplats* splats, int index)
 {
-    uint8_t (*triangle)[0x18] = splats->vertices[index];
-    std::memcpy(triangle[1], triangle[0], 0x18);
-    std::memcpy(triangle[2], triangle[0], 0x18);
+    auto& triangle = splats->vertices[index];
+    triangle[1] = triangle[0];
+    triangle[2] = triangle[0];
 }
 
 // 0x004B87B0
 void light_texture_splats(TextureSplats* splats)
 {
     for (int i = 0; i <= splats->last; ++i) {
-        uint8_t (*triangle)[0x18] = splats->vertices[i];
-        const uint32_t* base = splats->base_colors_[i];
+        auto& triangle = splats->vertices[i];
+        const uint32_t* base = splats->base_colors_[i].data();
         // (the lit colours come back over `colors`, which first holds the base colours)
-        uint32_t colors[3];
-        std::memcpy(colors, base, 12);
-        float points[3][4];
+        std::array<uint32_t, 3> colors{};
+        std::memcpy(colors.data(), base, 12);
+        std::array<maths::Vec4, 3> points{};
         for (auto& point : points)
-            std::memcpy(point, triangle[0], 12);
-        light_vertex_colours(base, colors, raw::as<const maths::Vec4>(points), nullptr, 3);
+            std::memcpy(&point, triangle[0].data(), 12);
+        light_vertex_colours(base, colors.data(), points.data(), nullptr, 3);
         for (int k = 0; k < 3; ++k)
-            *raw::field_at<uint32_t>(triangle[k], 0xC) = to_argb(colors[k]);
+            *raw::field_at<uint32_t>(triangle[k].data(), 0xC) = to_argb(colors[k]);
     }
 }
 
@@ -140,7 +141,7 @@ void kill_texture_splats_in_box(const float* box)
     while (splats) {
         TextureSplats* next = next_splats(get_splats());
         for (int i = 0; i < 0x100; ++i) {
-            const auto* p = raw::as<const float>(splats->vertices[i][0]);
+            const auto* p = raw::as<const float>(splats->vertices[i].data()[0].data());
             if (p[0] >= box[0] && p[1] >= box[1] && p[2] >= box[2] && p[0] <= box[4] && p[1] <= box[5] &&
                 p[2] <= box[6])
                 splats->alive[i] = 0;
@@ -168,13 +169,13 @@ void draw_texture_splats()
                 const double t = (steps - static_cast<int>(splats->alive[j])) / steps;
                 factor = 1.0 / (t * (1.0 - r) + r);
             }
-            auto* uv = raw::field_at<float>(splats->vertices[0][0], 0x18 * j + 0x10);
+            auto* uv = raw::field_at<float>(splats->vertices[0].data()[0].data(), 0x18 * j + 0x10);
             uv[0] = static_cast<float>((static_cast<double>(splats->uvs[j][0]) - 0.5f) * factor + 0.5f);
             uv[1] = static_cast<float>((static_cast<double>(splats->uvs[j][1]) - 0.5f) * factor + 0.5f);
         }
         splats->material->hand_in(); // (the material's set-up)
         set_pixel_shader(g_pixel_shaders[kPixelShader964], splats->material);
-        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices, 0x18);
+        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices.data(), 0x18);
     }
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
 }
@@ -209,17 +210,17 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
         (y0 < -1.0f && y1 < -1.0f && y2 < -1.0f) || (y0 > 1.0f && y1 > 1.0f && y2 > 1.0f))
         return false;
     // the square's edges against the triangle's
-    const float corners[4][2] = {{-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}};
+    const std::array<std::array<float, 2>, 4> corners = {{{-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}}};
     for (int i = 0; i < 4; ++i) {
-        const float* a = corners[i];
-        const float* b = corners[(i + 1) % 4];
+        const float* a = corners[i].data();
+        const float* b = corners[(i + 1) % 4].data();
         if (segments_intersect(x0, y0, x1, y1, a[0], a[1], b[0], b[1]) ||
             segments_intersect(x1, y1, x2, y2, a[0], a[1], b[0], b[1]) ||
             segments_intersect(x2, y2, x0, y0, a[0], a[1], b[0], b[1]))
             return true;
     }
     // a vertex inside the square
-    const float vertices[3][2] = {{x0, y0}, {x1, y1}, {x2, y2}};
+    const std::array<std::array<float, 2>, 3> vertices = {{{x0, y0}, {x1, y1}, {x2, y2}}};
     for (const auto& v : vertices) {
         if (v[0] >= -1.0f && v[0] <= 1.0f && v[1] >= -1.0f && v[1] <= 1.0f)
             return true;
@@ -260,9 +261,9 @@ bool split_next_triangle(uint8_t** out, const SplitFormat* format)
 {
     if (!*raw::as<uint32_t>(&g_vertex_stack))
         return false;
-    uint8_t* v2 = g_splat_vertex2; // (the three popped, last pushed first)
-    uint8_t* v1 = g_splat_vertex1;
-    uint8_t* v0 = g_splat_vertex0;
+    uint8_t* v2 = g_splat_vertex2.data(); // (the three popped, last pushed first)
+    uint8_t* v1 = g_splat_vertex1.data();
+    uint8_t* v0 = g_splat_vertex0.data();
     pop_vertex(v2);
     pop_vertex(v1);
     pop_vertex(v0);
@@ -291,9 +292,9 @@ bool split_next_triangle(uint8_t** out, const SplitFormat* format)
         return true;
     }
     // the midpoints of the edges: v0-v1, v1-v2, v2-v0
-    uint8_t* m01 = g_splat_middle01;
-    uint8_t* m12 = g_splat_middle12;
-    uint8_t* m20 = g_splat_middle20;
+    uint8_t* m01 = g_splat_middle01.data();
+    uint8_t* m12 = g_splat_middle12.data();
+    uint8_t* m20 = g_splat_middle20.data();
     std::memcpy(m01, v0, size);
     auto* q01 = raw::as<float>(m01);
     q01[0] = static_cast<float>(ax * 0.5 + p0[0]);
@@ -385,9 +386,9 @@ TextureSplats* get_texture_splats(uint32_t texture)
     auto* splats = static_cast<TextureSplats*>(memory::alloc(sizeof(TextureSplats)));
     splats->last = 0;
     splats->material = material;
-    std::memset(splats->alive, 0, sizeof(splats->alive));
+    std::memset(splats->alive.data(), 0, sizeof(splats->alive));
     for (int v = 0; v < 0x300; ++v) {
-        uint8_t* vertex = splats->vertices[0][0] + 0x18 * v;
+        uint8_t* vertex = splats->vertices[0][0].data() + 0x18 * v;
         std::memset(vertex, 0, 12);
         get_color(vertex) = 0x80808080;
     }
@@ -399,13 +400,13 @@ TextureSplats* get_texture_splats(uint32_t texture)
 // 0x004B9C30
 TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams* params)
 {
-    float* start = params->start;
-    float* end = params->end;
+    float* start = params->start.data();
+    float* end = params->end.data();
     // the ray's direction (normalised when it has a length; the parts stored are floats) and length
     const double dz = static_cast<double>(end[2]) - start[2];
     auto dyf = static_cast<float>(static_cast<double>(end[1]) - start[1]);
     auto dxf = static_cast<float>(static_cast<double>(end[0]) - start[0]);
-    float direction[3] = {dxf, dyf, static_cast<float>(dz)};
+    std::array<float, 3> direction = {{dxf, dyf, static_cast<float>(dz)}};
     const double length_squared = static_cast<double>(dxf) * dxf + static_cast<double>(dyf) * dyf + dz * dz;
     auto length = static_cast<float>(std::sqrt(length_squared));
     const double norm = std::sqrt(length_squared);
@@ -418,7 +419,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
     const float cone = std::cos(params->cone_angle_);
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
-    float up[4];
+    std::array<float, 4> up{};
     maths::Mat4 view{}, projection{}, combined{};
     if (params->up) {
         const float* from = params->up;
@@ -437,8 +438,8 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
         end[1] = static_cast<float>(static_cast<double>(end[1]) - ay);
         end[2] = static_cast<float>(static_cast<double>(end[2]) - az);
         end[3] = static_cast<float>(static_cast<double>(end[3]) - 1.0f);
-        raw::as<maths::Vec4>(up)->make_unit();
-        get_look_at(&view, start, end, up);
+        raw::as<maths::Vec4>(up.data())->make_unit();
+        get_look_at(&view, start, end, up.data());
         ortho(&projection, params->size, height, 0.1f, length);
     } else {
         if (std::fabs(direction[1]) > 0.5f) {
@@ -455,7 +456,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
             up[2] = 0.0f;
         }
         up[3] = 1.0f;
-        get_look_at(&view, start, end, up);
+        get_look_at(&view, start, end, up.data());
         ortho(&projection, params->size, params->size, 0.1f, length);
     }
     get_multiply(&combined, &view, &projection);
@@ -502,7 +503,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     if (holder[8] & 1)
                         key = *raw::as<uint8_t*>(key);
                     splats = get_texture_splats(cell::of(key));
-                    splat_vertices = splats->vertices[0][0];
+                    splat_vertices = splats->vertices[0].data()[0].data();
                 }
                 slot = oldest_triangle(splats);
                 uint8_t* triangle = splat_vertices + slot * 0x48;
@@ -523,10 +524,10 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     const double ez1 = static_cast<double>(p1[2]) - p0[2];
                     auto ey1f = static_cast<float>(static_cast<double>(p1[1]) - p0[1]);
                     auto ex1f = static_cast<float>(static_cast<double>(p1[0]) - p0[0]);
-                    float normal[3] = {static_cast<float>(ez1 * ey2 - ey1f * ez2),
+                    std::array<float, 3> normal = {{static_cast<float>(ez1 * ey2 - ey1f * ez2),
                                        static_cast<float>(ex1f * ez2 - ez1 * ex2),
-                                       static_cast<float>(ey1f * ex2 - ex1f * ey2)};
-                    normalize3(normal);
+                                       static_cast<float>(ey1f * ex2 - ex1f * ey2)}};
+                    normalize3(normal.data());
                     const double facing = static_cast<double>(normal[2]) * direction[2] +
                                           static_cast<double>(normal[1]) * direction[1] +
                                           static_cast<double>(normal[0]) * direction[0];
@@ -538,8 +539,8 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                                           ? 0x7FFFFFFF
                                           : get_milliseconds(params->lifetime);
                 // texture coordinates from the projection (0-1 over the square)
-                const float* const t[3] = {t0, t1, t2};
-                uint8_t* const v[3] = {v0, v1, v2};
+                const std::array<const float*, 3> t = {{t0, t1, t2}};
+                const std::array<uint8_t*, 3> v = {{v0, v1, v2}};
                 for (int k = 0; k < 3; ++k) {
                     get_uv(v[k])[0] = static_cast<float>((static_cast<double>(t[k][0]) + 1.0f) * 0.5f);
                     get_uv(v[k])[1] = static_cast<float>((static_cast<double>(t[k][1]) + 1.0f) * 0.5f);
@@ -548,7 +549,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     splats->uvs[3 * slot + k][0] = get_uv(v[k])[0];
                     splats->uvs[3 * slot + k][1] = get_uv(v[k])[1];
                 }
-                const uint32_t index[3] = {ia, ib, ic};
+                const std::array<uint32_t, 3> index = {{ia, ib, ic}};
                 for (int k = 0; k < 3; ++k)
                     get_color(v[k]) =
                         splat_color(*raw::field_at<uint32_t>(vertices, stride * index[k] + mesh->unknown1c_[0]));

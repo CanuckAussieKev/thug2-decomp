@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -23,10 +24,10 @@ struct RenderCamera {
     uint8_t letterbox_active_;    // 0x00786CBE
     uint8_t unknown17;
     uint32_t background_colour_; // 0x00786CC0 (another)
-    float position[3];           // 0x00786CC4
-    uint8_t unknown28[0x0C];
-    float backward[3]; // 0x00786CDC: the orientation's row 2
-    float up[3];       // 0x00786CE8: row 1
+    std::array<float, 3> position;           // 0x00786CC4
+    std::array<uint8_t, 0x0C> unknown28;
+    std::array<float, 3> backward; // 0x00786CDC: the orientation's row 2
+    std::array<float, 3> up;       // 0x00786CE8: row 1
 };
 static_assert(offsetof(RenderCamera, position) == 0x1C, "0x00786CC4");
 static_assert(offsetof(RenderCamera, backward) == 0x34, "0x00786CDC");

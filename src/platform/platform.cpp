@@ -56,16 +56,16 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     // Per port: the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and
     // the motors' ranges and kinds; the key bindings (-1: none); the graphics options (0x007D6434...).
     g_joysticks[0] = nullptr;
-    std::memset(os_layer::g_joystick_states, 0, sizeof(os_layer::g_joystick_states));
+    std::memset(os_layer::g_joystick_states.data(), 0, sizeof(os_layer::g_joystick_states));
     g_joysticks[1] = nullptr;
-    std::memset(os_layer::g_last_joystick_states, 0, sizeof(os_layer::g_last_joystick_states));
+    std::memset(os_layer::g_last_joystick_states.data(), 0, sizeof(os_layer::g_last_joystick_states));
     g_effects[0] = nullptr;
     g_force_resolutions[0] = 0;
     g_effects[1] = nullptr;
     g_force_resolutions[1] = 0;
     g_force_resolutions[2] = 0;
     g_force_resolutions[3] = 0;
-    std::memset(os_layer::g_input_map, 0xFF, sizeof(os_layer::g_input_map));
+    std::memset(os_layer::g_input_map.data(), 0xFF, sizeof(os_layer::g_input_map));
     render::g_antialiasing = false;
     render::g_hq_shadows = 0;
     render::g_fog_setting = false;

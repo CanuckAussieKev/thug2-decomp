@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <utility>
+#include <array>
 
 #include "editor/level_editor_fields.h"
 
@@ -20,7 +21,7 @@ struct GroupRow {
     const char* keyword;
     const char* group;
 };
-const GroupRow kGroups[] = {
+constexpr auto kGroups = std::to_array<GroupRow>({
     {"level", "Level properties"},
     {"sector", "Scenery"},
     {"clone", "Scenery copies"},
@@ -47,7 +48,7 @@ const GroupRow kGroups[] = {
     {"cluster", "Trick objects"},
     {"camera", "Cameras"},
     {"lock", "Locks"},
-};
+});
 
 std::vector<std::string> get_lines(const std::string& text)
 {
@@ -72,9 +73,9 @@ bool is_hex8(const std::string& w)
 
 std::string get_num(float v)
 {
-    char text[32];
-    std::snprintf(text, sizeof(text), "%.0f", v);
-    return text;
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), sizeof(text), "%.0f", v);
+    return text.data();
 }
 
 } // namespace
@@ -198,9 +199,9 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                                               3.14159265358979);
             const std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? words[1] : "?")
                                           : name_of(e.id, words.empty() ? "?" : words[0]);
-            char text[96];
-            std::snprintf(text, sizeof(text), " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
-            e.summary = name + text + scale_of();
+            std::array<char, 96> text{};
+            std::snprintf(text.data(), sizeof(text), " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
+            e.summary = name + text.data() + scale_of();
         } else if (keyword == "set") {
             e.id = words.empty() ? 0 : id_of(words[0]);
             const std::string name = name_of(e.id, words.empty() ? "?" : words[0]);

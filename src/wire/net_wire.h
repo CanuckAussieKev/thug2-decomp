@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 namespace util {
 class ByteReader;
@@ -57,7 +58,7 @@ bool read_message_header(util::ByteReader& reader, MessageHeader* header);
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct StreamStart {
-    char desc[kStreamDescSize + 1] = {}; // (terminated here; on the wire 32 bytes, possibly without a terminator)
+    std::array<char, kStreamDescSize + 1> desc = {}; // (terminated here; on the wire 32 bytes, possibly without a terminator)
     int32_t total_size = 0;
     int32_t stream_id = 0;
     uint32_t checksum = 0;

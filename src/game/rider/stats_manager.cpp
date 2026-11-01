@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -34,11 +35,11 @@
 
 namespace objects {
 
-uint32_t g_stats_manager_member_functions[60]{
+std::array<uint32_t, 60> g_stats_manager_member_functions{{
     0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0, 0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0, 0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0,
     0xF1745991, 0x4FF8DAC6, 0, 0, 0, 0, 0x78E7D855, 0x4FF8DAC6, 0, 0, 0, 0, 0xB341B5A5, 0x4FF8DAC6, 0, 0, 0, 0,
     0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0, 0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0, 0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0,
-    0,          0x4FF8DAC6, 0, 0, 0, 0};
+    0,          0x4FF8DAC6, 0, 0, 0, 0}};
 
 namespace {
 
@@ -138,7 +139,7 @@ gsl::owner<ObjectModule*> AttributeTracker::fabricate() { return new AttributeTr
 // 0x0051C440
 void AttributeTracker::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_stats_manager_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_stats_manager_member_functions.data(), 0x18);
 }
 
 // 0x0051C5A0
@@ -257,7 +258,7 @@ bool AttributeTracker::is_operative()
         return false;
     // (Without a name the original compares what its slot held: this.)
     auto name = cell::of(this);
-    raw::as<script::Struct>(first_profile()->details_)->read_hash_value(0xA1DC81F9u, &name, 1);
+    raw::as<script::Struct>(first_profile()->details_.data())->read_hash_value(0xA1DC81F9u, &name, 1);
     return name == 0x0A7BE964;
 }
 

@@ -9,6 +9,7 @@
 #include <cstring>
 #include <memory>
 #include <utility>
+#include <array>
 
 #include "frontend/new_frontend_mirror.h"
 #include "frontend/new_frontend_options.h"
@@ -53,11 +54,11 @@ uint32_t get_mix(uint32_t a, uint32_t b, float t)
 
 // The sizes baked (CSS px at 1280 x 720): the display face's 120 (the big names: the level select's 112 drawn from
 // it), 78 (the main menu), 40 (the levels), 30 (Skate); the mono face's 12 and 13; the body's 14.
-constexpr Bake kBakes[] = {
+constexpr auto kBakes = std::to_array<Bake>({
     {Face::kDisplay, 120.0f}, {Face::kDisplay, kMainType}, {Face::kDisplay, kLevelType}, {Face::kDisplay, 28.0f},
     {Face::kMono, 12.0f},     {Face::kMono, 13.0f},        {Face::kBody, 14.0f},         {Face::kMono, 20.0f},
     {Face::kBody, 48.0f}, // (the restyled keyboard's keys and the text typed)
-};
+});
 constexpr int kBakeCount = static_cast<int>(sizeof(kBakes) / sizeof(kBakes[0]));
 
 struct FaceLayout {
@@ -65,22 +66,22 @@ struct FaceLayout {
     float ascent = 0.8f, descent = -0.2f;
     bool ok = false;
 };
-FaceLayout g_faces[3];
+std::array<FaceLayout, 3> g_faces;
 
 struct Baked {
     ImFont* font = nullptr;
     Face face = Face::kBody;
     float em_px_ = 0.0f; // the em in window px it was baked for
 };
-Baked g_baked[kBakeCount];
+std::array<Baked, kBakeCount> g_baked;
 float g_scale = 0.0f;
 ImFontAtlas* g_atlas = nullptr; // (the atlas the fonts are in: another context's means none built here)
 float g_condense = 1.0f, g_bold = 0.0f;
 
 // The display face's glyphs: upper case (the design sets it in capitals), figures, punctuation, the em dash. The
 // mono and body faces: ASCII, the em dash, the middle dot, the apostrophe.
-constexpr ImWchar kDisplayRanges[] = {0x0020, 0x0060, 0x00C0, 0x00DE, 0x2014, 0x2014, 0x2019, 0x2019, 0};
-constexpr ImWchar kTextRanges[] = {0x0020, 0x007E, 0x00B7, 0x00B7, 0x00C0, 0x00FF, 0x2014, 0x2014, 0x2019, 0x2019, 0};
+constexpr auto kDisplayRanges = std::to_array<ImWchar>({0x0020, 0x0060, 0x00C0, 0x00DE, 0x2014, 0x2014, 0x2019, 0x2019, 0});
+constexpr auto kTextRanges = std::to_array<ImWchar>({0x0020, 0x007E, 0x00B7, 0x00B7, 0x00C0, 0x00FF, 0x2014, 0x2014, 0x2019, 0x2019, 0});
 
 bool read_file(const std::string& path, std::vector<uint8_t>* out)
 {
@@ -264,8 +265,8 @@ std::vector<std::string> get_wrap(const Style& style, const TickCycle& frame, co
 // The design's clip-path: polygon(a 0, 100% 0, calc(100% - b) 100%, 0 100%) - a parallelogram leaning right.
 void get_cut(ImDrawList* dl, float x0, float y0, float x1, float y1, float top_inset, float bottom_inset, ImU32 colour)
 {
-    ImVec2 points[4] = {{x0 + top_inset, y0}, {x1, y0}, {x1 - bottom_inset, y1}, {x0, y1}};
-    dl->AddConvexPolyFilled(points, 4, colour);
+    std::array<ImVec2, 4> points = {{{x0 + top_inset, y0}, {x1, y0}, {x1 - bottom_inset, y1}, {x0, y1}}};
+    dl->AddConvexPolyFilled(points.data(), 4, colour);
 }
 
 // The vertices added since `start` turned by `radians` about (px, py) and moved by (dx, dy) - the row's
@@ -397,9 +398,9 @@ void backdrop(ImDrawList* dl, const TickCycle& f, const Art& art, float pan)
 
 std::string pad2(int n)
 {
-    char text[16];
-    std::snprintf(text, sizeof(text), "%02d", n);
-    return text;
+    std::array<char, 16> text{};
+    std::snprintf(text.data(), sizeof(text), "%02d", n);
+    return text.data();
 }
 
 // --- one screen's parts ---
@@ -680,12 +681,12 @@ float records_row(Ctx& c, const std::vector<std::string>& cols, float left, floa
 std::string get_clock(float seconds)
 {
     const int total = static_cast<int>(seconds);
-    char text[32];
+    std::array<char, 32> text{};
     if (total >= 3600)
-        std::snprintf(text, sizeof(text), "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60);
+        std::snprintf(text.data(), sizeof(text), "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60);
     else
-        std::snprintf(text, sizeof(text), "%02d:%02d", total / 60, total % 60);
-    return text;
+        std::snprintf(text.data(), sizeof(text), "%02d:%02d", total / 60, total % 60);
+    return text.data();
 }
 
 std::string thousands(int n)
@@ -977,16 +978,16 @@ void levels_screen(Ctx& c, int* visible_rows)
 
     // The picture's number at the top right (Q / E change it) - only for a level with more than one.
     if (level && level->art_variants_.size() > 1 && grow < 0.999f) {
-        char text[64];
+        std::array<char, 64> text{};
         if (level->variant >= 0 && std::cmp_less(level->variant, level->art_labels_.size()))
-            std::snprintf(text, sizeof(text), "Q  %s  E", level->art_labels_[level->variant].c_str());
+            std::snprintf(text.data(), sizeof(text), "Q  %s  E", level->art_labels_[level->variant].c_str());
         else
-            std::snprintf(text, sizeof(text), "Q  %d / %d  E", level->variant + 1,
+            std::snprintf(text.data(), sizeof(text), "Q  %d / %d  E", level->variant + 1,
                           static_cast<int>(level->art_variants_.size()));
         Style note = mono12(kMuted);
         note.alpha = 1.0f - grow;
-        const float nw = get_measure(note, c.f, text) / c.f.scale;
-        draw_text(c.dl, note, c.f, c.f.get_x(1240.0f - nw), datum(note, c.f, c.f.get_y(36.0f), 1.3f), text);
+        const float nw = get_measure(note, c.f, text.data()) / c.f.scale;
+        draw_text(c.dl, note, c.f, c.f.get_x(1240.0f - nw), datum(note, c.f, c.f.get_y(36.0f), 1.3f), text.data());
     }
 
     // The right's foot: Skate, the records, the name, the kicker.
@@ -1027,14 +1028,14 @@ void levels_screen(Ctx& c, int* visible_rows)
         // The records (only what the career keeps for this level).
         const Highscores rec = c.extras.records ? c.extras.records(*level) : Highscores{};
         std::vector<std::string> cols;
-        char text[64];
+        std::array<char, 64> text{};
         if (rec.gaps_total_ > 0) {
-            std::snprintf(text, sizeof(text), "%s %d/%d", text_tools::kGaps, rec.gaps_got_, rec.gaps_total_);
-            cols.emplace_back(text);
+            std::snprintf(text.data(), sizeof(text), "%s %d/%d", text_tools::kGaps, rec.gaps_got_, rec.gaps_total_);
+            cols.emplace_back(text.data());
         }
         if (rec.goals >= 0) {
-            std::snprintf(text, sizeof(text), "%s %d", text_tools::kGoals, rec.goals);
-            cols.emplace_back(text);
+            std::snprintf(text.data(), sizeof(text), "%s %d", text_tools::kGoals, rec.goals);
+            cols.emplace_back(text.data());
         }
         if (!cols.empty()) {
             Style s = mono12(kMuted, false);
@@ -1070,8 +1071,8 @@ void wipe(ImDrawList* dl, float t, uint32_t colour, float width, float height)
     float trail = -skew + (width + skew * 2.0f) * ease_out(std::max(0.0f, t * 2.0f - 1.0f));
     if (lead <= trail)
         return;
-    ImVec2 points[4] = {{trail + skew, 0.0f}, {lead + skew, 0.0f}, {lead, height}, {trail, height}};
-    dl->AddConvexPolyFilled(points, 4, get_col(colour));
+    std::array<ImVec2, 4> points = {{{trail + skew, 0.0f}, {lead + skew, 0.0f}, {lead, height}, {trail, height}}};
+    dl->AddConvexPolyFilled(points.data(), 4, get_col(colour));
 }
 
 // --- phase 3: the original screens restyled (new_frontend_mirror.h) ---
@@ -1313,8 +1314,8 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
 // (Mirror::skater_colour), and a marker where the value stands. The numbers are the menu's own (View::hue / sat / val).
 ImU32 skater_col(float hue, float sat, float val)
 {
-    float rgb[3];
-    mirror::skater_colour(hue, sat, val, rgb);
+    std::array<float, 3> rgb{};
+    mirror::skater_colour(hue, sat, val, rgb.data());
     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
     return IM_COL32(static_cast<int>(rgb[0] * 255.0f + 0.5f), static_cast<int>(rgb[1] * 255.0f + 0.5f),
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
@@ -1452,12 +1453,12 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         c.dl->AddRect(a, b, get_col(kRule), 0.0f, 0, std::max(1.0f, c.f.current_s(1.0f)));
         Style d = mono12(kMuted, false);
         d.css = 12.0f;
-        char numbers[48];
+        std::array<char, 48> numbers{};
         // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-        std::snprintf(numbers, sizeof(numbers), "H %d  S %d  V %d", static_cast<int>(v.hue + 0.5f),
+        std::snprintf(numbers.data(), sizeof(numbers), "H %d  S %d  V %d", static_cast<int>(v.hue + 0.5f),
                       // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                       static_cast<int>(v.sat + 0.5f), static_cast<int>(v.val + 0.5f));
-        draw_text(c.dl, d, c.f, c.f.get_x(left + 76.0f), datum(d, c.f, c.f.get_y(swatch_top + 8.0f), 1.3f), numbers);
+        draw_text(c.dl, d, c.f, c.f.get_x(left + 76.0f), datum(d, c.f, c.f.get_y(swatch_top + 8.0f), 1.3f), numbers.data());
         bottom = swatch_top - 12.0f;
     }
     if (v.editor) {
@@ -1770,7 +1771,7 @@ bool build_fonts(const FontFiles& files, float scale)
         b = Baked{};
     g_condense = std::clamp(files.condense, 0.5f, 1.5f);
     g_bold = std::clamp(files.bold, 0.0f, 0.1f);
-    const std::string* const paths[3] = {&files.display, &files.mono, &files.body};
+    const std::array<const std::string*, 3> paths = {{&files.display, &files.mono, &files.body}};
     bool all = true;
     for (int i = 0; i < 3; ++i) {
         FaceLayout& face = g_faces[i];
@@ -1800,7 +1801,7 @@ bool build_fonts(const FontFiles& files, float scale)
         const float pixel_height = em * (face.ascent - face.descent);
         ImFont* font =
             atlas->AddFontFromMemoryTTF(face.file.data(), static_cast<int>(face.file.size()), pixel_height, &config,
-                                        kBakes[i].face == Face::kDisplay ? kDisplayRanges : kTextRanges);
+                                        kBakes[i].face == Face::kDisplay ? kDisplayRanges.data() : kTextRanges.data());
         g_baked[i] = {font, kBakes[i].face, em};
     }
     g_scale = scale;

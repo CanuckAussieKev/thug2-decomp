@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/maths/vec4.h"
+#include <array>
 
 namespace maths {
 
@@ -16,7 +17,7 @@ struct MatrixProduct {
 // 4x4 matrix stored as four row vectors.
 class Mat4 {
 public:
-    Vec4 row[4];
+    std::array<Vec4, 4> row;
 
     // this = *product.left * *product.right
     Mat4& operator=(const MatrixProduct& product);

@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -109,7 +110,7 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
         if (!text[0]) {
             end_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
         } else {
-            copy_text(text_, text, sizeof(text_)); // (the original: the game's strncpy, 0x006239E0)
+            copy_text(text_.data(), text, sizeof(text_)); // (the original: the game's strncpy, 0x006239E0)
             end_time_ = 0;
         }
     }
@@ -145,9 +146,9 @@ void FloatingTextComponent::tick_frame()
     params->put_name_key(kId, ident_);
     // (the original: the game's sprintf, 0x006234FE, into 64 bytes - a text of more than about 60 characters overran
     // them into the stack cookie, ending the game; here it's cut short)
-    char text[0x40];
-    std::snprintf(text, sizeof(text), "\\c%d%s", tint_, text_);
-    params->append_word(kText, text);
+    std::array<char, 0x40> text{};
+    std::snprintf(text.data(), sizeof(text), "\\c%d%s", tint_, text_.data());
+    params->append_word(kText, text.data());
     const maths::Vec4& pos = entity_->at_point_;
     params->put_vec3(kPos3d, pos.x, pos.y + y_offset_, pos.z);
     frontend::ElementPtr found;

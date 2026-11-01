@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 
@@ -49,12 +50,12 @@ public:
     maths::Mat4* get_inverse_bind_matrices() { return inverse_bind_; }
 
     int num_{0};                     // +0x004
-    uint32_t names_[64]{};           // +0x008
-    uint32_t parent_names_[64]{};    // +0x108
-    uint32_t flip_names_[64]{};      // +0x208
-    int flip_indices_[64]{};         // +0x308
-    uint32_t lod_masks_[64]{};       // +0x408 per bone: the LODs it's collapsed into its parent at (bit per LOD)
-    float lod_distances_[32]{};      // +0x508
+    std::array<uint32_t, 64> names_{};           // +0x008
+    std::array<uint32_t, 64> parent_names_{};    // +0x108
+    std::array<uint32_t, 64> flip_names_{};      // +0x208
+    std::array<int, 64> flip_indices_{};         // +0x308
+    std::array<uint32_t, 64> lod_masks_{};       // +0x408 per bone: the LODs it's collapsed into its parent at (bit per LOD)
+    std::array<float, 32> lod_distances_{};      // +0x508
     uint32_t unknown588_{0};         // +0x588
     maths::Mat4* inverse_bind_{nullptr}; // +0x58C
     maths::Vec4* bind_translations_{}; // +0x590
@@ -124,7 +125,7 @@ public:
     // 0x004A4240: the matrices from the pose's rotations and translations: each bone's local matrix (scaled
     // when flagged) times its parent's (or its parent's when collapsed at this LOD), then times its inverse bind
     // matrix (rows scaled when flagged local), the rows' w cleared; then collapse_zero_scaled_bones.
-    void tick_frame(const float (*rotations)[4], const float (*translations)[4]);
+    void tick_frame(const std::array<float, 4>* rotations, const std::array<float, 4>* translations);
     // 0x004A44E0
     void tick_frame(const Stance* pose);
     // 0x004A4000: with kCollapseZeroScaled: the bones scaled to nothing (x, y, z all 0) put at the first scaled

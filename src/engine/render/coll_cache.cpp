@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <new>
+#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/engine_scene_list.h"
@@ -16,9 +17,9 @@ namespace render {
 
 namespace {
 
-HitMeshCache* g_caches[8];
+std::array<HitMeshCache*, 8> g_caches;
 
-HitMeshCache** caches() { return g_caches; }
+HitMeshCache** caches() { return g_caches.data(); }
 
 uint32_t g_caches_in_use;
 

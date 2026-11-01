@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
@@ -18,7 +19,7 @@
 namespace objects {
 
 namespace {
-char g_cutscene_name_buffer[256];
+std::array<char, 256> g_cutscene_name_buffer;
 
 constexpr uint32_t kSubtitleScript = 0x625985F9; // run with each subtitle's structure (name unknown)
 constexpr uint32_t kTime = 0x906B67BA;           // a subtitle's start (name unknown)
@@ -30,7 +31,7 @@ constexpr uint32_t kSlot12Global = 0xA2A4F02F;   // CinematicEntry::update_optio
 constexpr uint32_t kButtonX = 0x40;
 constexpr uint32_t kButtonStart = 0x800;
 
-char* name_buffer() { return g_cutscene_name_buffer; }
+char* name_buffer() { return g_cutscene_name_buffer.data(); }
 
 } // namespace
 
@@ -55,9 +56,9 @@ uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
 {
     if (number == -1)
         return checksums::fold_text_into_checksum(label_, suffix);
-    char text[0x200];
-    std::snprintf(text, sizeof(text), "%s%d\n", suffix, number);
-    return checksums::fold_text_into_checksum(label_, text);
+    std::array<char, 0x200> text{};
+    std::snprintf(text.data(), sizeof(text), "%s%d\n", suffix, number);
+    return checksums::fold_text_into_checksum(label_, text.data());
 }
 
 // 0x004639A0

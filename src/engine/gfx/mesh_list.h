@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/maths/shape_tests.h"
 
@@ -18,7 +19,7 @@ struct MeshRef;
 
 struct SceneRef {
     uint32_t flags{0}; // 0x100 once its meshes are prepared
-    uint8_t unknown4[0x14]{};
+    std::array<uint8_t, 0x14> unknown4{};
     lists::KeyMap* materials{nullptr}; // +0x18, by checksum
     MeshRef** meshes{nullptr};         // +0x1C
     int mesh_count_{0};                // +0x20
@@ -27,11 +28,11 @@ struct SceneRef {
     int first_transparent_{-1};        // +0x2C (meshCount when none)
     int first_flagged_{-1};            // +0x30: the first whose material has its byte +0xC set
     int flagged_count_{0};             // +0x34
-    uint8_t unknown38[8]{};
+    std::array<uint8_t, 8> unknown38{};
     uint8_t unknown40{0};
-    uint8_t pad41[3]{};
+    std::array<uint8_t, 3> pad41{};
     maths::BBox bounds; // +0x44
-    float centre[3]{};  // +0x64: the bounds' sphere
+    std::array<float, 3> centre{};  // +0x64: the bounds' sphere
     float radius{};     // +0x70
     uint8_t* extra{nullptr}; // +0x74: an array of 0x50-byte records (new[]'d: the count before it)
     uint32_t unknown78{0};

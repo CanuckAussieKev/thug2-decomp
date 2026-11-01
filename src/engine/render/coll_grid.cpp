@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -20,8 +21,8 @@ namespace {
 
 // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
 // last one that listed them, so each is listed once).
-HitMesh* g_found[2048];
-HitMesh** const kFound = g_found;
+std::array<HitMesh*, 2048> g_found;
+HitMesh** const kFound = g_found.data();
 
 uint8_t g_stamp;
 

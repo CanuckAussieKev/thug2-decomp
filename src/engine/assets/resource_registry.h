@@ -7,6 +7,7 @@
 #include "engine/assets/resource_entry.h"
 #include "engine/sys/game_module.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace frame_loop {
 struct Hub;
@@ -95,7 +96,7 @@ public:
 
     bool permanent_by_default_{}; // +0x14 what LoadAnim loads with
     bool unknown15_{false};       // +0x15 cleared by the constructor
-    uint8_t pad16[2]{};
+    std::array<uint8_t, 2> pad16{};
     int unknown18_{};       // +0x18 set by 0x00407A70 (not read here)
     lists::KeyMap* assets_; // +0x1C
     Resource* ready_flag_{nullptr};  // +0x20 the head of the loaded list
@@ -104,7 +105,7 @@ public:
     void* callback_data0_{}; // +0x2C
     void* callback_data1_{}; // +0x30
     bool callback_once_{false}; // +0x34 the callback cleared after one asset
-    uint8_t pad35[3]{};
+    std::array<uint8_t, 3> pad35{};
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x38 a tasks::Task<ResourceRegistry> running process_task
 };
 static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C &&

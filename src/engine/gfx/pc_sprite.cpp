@@ -50,7 +50,7 @@ void PcSprite::update_settings()
     sprite->hot_x_ = static_cast<float>((static_cast<double>(hot_x_) + 1.0f) * 0.5f * static_cast<int>(span_));
     sprite->hot_y_ = static_cast<float>((static_cast<double>(hot_y_) + 1.0f) * 0.5f * static_cast<int>(level_y_));
     sprite->rotation = orientation_turn_;
-    std::memcpy(&sprite->color, rgba_value_, 4);
+    std::memcpy(&sprite->color, rgba_value_.data(), 4);
 }
 
 // 0x004C70C0

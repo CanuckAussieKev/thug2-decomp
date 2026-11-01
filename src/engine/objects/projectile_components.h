@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 #include "engine/core/raw_view.h"
 
 namespace script {
@@ -66,7 +67,7 @@ public:
     uint32_t projectile_type_{}; // +0x2C projectile_type
     maths::Vec4 vel_{};          // +0x30 (0, 0, 1) normalised
     bool hit_{false};            // +0x40
-    uint8_t pad41[3]{};
+    std::array<uint8_t, 3> pad41{};
 };
 
 // The projectile proximity component (type 0x3618B878 "projectileproximity", vtable 0x0064B864, 0x24 bytes; made by

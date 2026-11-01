@@ -6,6 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Array;
@@ -135,12 +136,12 @@ public:
     void add_to_goal_manager(bool unwin);
 
     uint32_t level_{};                    // +0x000 the level's load script
-    char label_[0x32]{};                  // +0x004 view_goals_text
-    char ped_name_[0x15]{};               // +0x036
-    char summary_text_[0x64]{};           // +0x04B goal_description
-    char win_message_[0x65]{};            // +0x0AF
+    std::array<char, 0x32> label_{};                  // +0x004 view_goals_text
+    std::array<char, 0x15> ped_name_{};               // +0x036
+    std::array<char, 0x64> summary_text_{};           // +0x04B goal_description
+    std::array<char, 0x65> win_message_{};            // +0x0AF
     uint32_t kind_tag_{};                 // +0x114
-    EditedGoalPoint path_vertices_[13]{}; // +0x118
+    std::array<EditedGoalPoint, 13> path_vertices_{}; // +0x118
     uint8_t max_points_{};                // +0x284
     uint8_t min_points_{};                // +0x285 (complete with this many)
     uint8_t vertex_total_{};              // +0x286 set
@@ -162,15 +163,15 @@ public:
     int max_tricks_{};                 // +0x2B4
     int twist_rate_{};                 // +0x2B8
     bool single_combo_{};              // +0x2BC
-    uint8_t pad2bd_[3]{};
+    std::array<uint8_t, 3> pad2bd_{};
     int chain_length_{};               // +0x2C0
     int stack_block_span_{};           // +0x2C4
     int tricktris_total_to_win_{};     // +0x2C8
-    KeyComboSet key_combo_sets_[10]{}; // +0x2CC
+    std::array<KeyComboSet, 10> key_combo_sets_{}; // +0x2CC
     int num_key_combo_sets_{};         // +0x2F4
-    uint8_t gaps_[10]{};               // +0x2F8
+    std::array<uint8_t, 10> gaps_{};               // +0x2F8
     uint8_t num_gaps_{};               // +0x302
-    char required_trick_[0x35]{};      // +0x303
+    std::array<char, 0x35> required_trick_{};      // +0x303
 };
 static_assert(offsetof(EditedGoal, kind_tag_) == 0x114 && offsetof(EditedGoal, path_vertices_) == 0x118 &&
                   offsetof(EditedGoal, max_points_) == 0x284 && offsetof(EditedGoal, level_goal_number_) == 0x28C &&
@@ -352,7 +353,7 @@ public:
     // 0x004EC200 [0xD5F6EA3B]: every goal outside the park editor into the script's parameters. True.
     bool get_created_goals(script::Struct* params, script::Script* script);
 
-    EditedGoal goals_[50];               // +0x0018
+    std::array<EditedGoal, 50> goals_;               // +0x0018
     EditedGoal* active_node_{};          // +0xA108 the one being edited
     objects::ObjectModule* input_ptr_;   // +0xA10C the object's input component
     objects::ObjectModule* view_camera_; // +0xA110 its editor camera
@@ -365,5 +366,5 @@ static_assert(offsetof(ObjectiveAuthoring, goals_) == 0x18 && offsetof(Objective
 
 namespace park_editing {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern uint32_t g_goal_editor_member_functions[216];
+extern std::array<uint32_t, 216> g_goal_editor_member_functions;
 } // namespace park_editing

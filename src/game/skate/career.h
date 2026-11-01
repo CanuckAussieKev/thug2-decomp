@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 #include "engine/core/mem.h"
 
@@ -94,23 +95,23 @@ public:
     uint32_t* flag_words() { return &flag_bits_[0][0]; }
 
     // (The offsets are the original's, which has a vtable at +0x000 - 0x0064EFD4 - holding only the destructor.)
-    uint32_t goals_[kLevels][8]{};     // +0x004
-    uint32_t flag_bits_[kLevels][8]{}; // +0x2A4
-    uint32_t start_goals_[8]{};        // +0x544
-    uint32_t start_flags_[8]{};        // +0x564
-    uint16_t funds_[kLevels]{};        // +0x584
-    uint16_t amount_[kLevels]{};       // +0x5AE
+    std::array<std::array<uint32_t, 8>, kLevels> goals_{};     // +0x004
+    std::array<std::array<uint32_t, 8>, kLevels> flag_bits_{}; // +0x2A4
+    std::array<uint32_t, 8> start_goals_{};        // +0x544
+    std::array<uint32_t, 8> start_flags_{};        // +0x564
+    std::array<uint16_t, kLevels> funds_{};        // +0x584
+    std::array<uint16_t, kLevels> amount_{};       // +0x5AE
     uint16_t lifetime_funds_{};        // +0x5D8
     uint16_t total_amount_{};          // +0x5DA
-    uint8_t counter_[18]{};            // +0x5DC
+    std::array<uint8_t, 18> counter_{};            // +0x5DC
     uint8_t total_counter_{};          // +0x5EE
     uint8_t flag_5e_f_{};              // +0x5EF
-    uint32_t global_flags_[16]{};      // +0x5F0
+    std::array<uint32_t, 16> global_flags_{};      // +0x5F0
     int level_{};                      // +0x630
     int value634_{};                   // +0x634
     int max_value634_{};               // +0x638
-    goals::GapTally* gaps_[kLevels]{}; // +0x63C
-    bool visited_[kLevels]{};          // +0x690
+    std::array<goals::GapTally*, kLevels> gaps_{}; // +0x63C
+    std::array<bool, kLevels> visited_{};          // +0x690
     script::Struct* details_;        // +0x6A8
 };
 

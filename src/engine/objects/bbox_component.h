@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <array>
 
 namespace script {
 class Script;
@@ -37,10 +38,10 @@ public:
         maths::Vec4 upper_limit_; // +0x50 the box in the object's frame: (width / 2, height / 2, dist, 1) + shift_
         maths::Vec4 lower_limit_; // +0x60 (-width / 2, -height / 2, 0, -1) + shift_
         maths::Vec4 shift_;       // +0x70 the component's offset + offset (inches)
-        uint8_t unknown80[4];
+        std::array<uint8_t, 4> unknown80;
         bool computed_;        // +0x84 basis_frame_, upper_limit_ and lower_limit_ done (compute_rect)
         bool radius_computed_; // +0x85 reach_squared_ done (rect_radius_sqr)
-        uint8_t pad86[2];
+        std::array<uint8_t, 2> pad86;
         float reach_squared_; // +0x88
     };
 
@@ -80,7 +81,7 @@ public:
     maths::Vec4 box_max_{}; // +0x18
     maths::Vec4 box_min_{}; // +0x28
     maths::Vec4 shift_{};   // +0x38
-    uint8_t unknown48[4]{};
+    std::array<uint8_t, 4> unknown48{};
 };
 static_assert(offsetof(CbBoxComponent, box_max_) == 0x18 && offsetof(CbBoxComponent, box_min_) == 0x28 &&
                   offsetof(CbBoxComponent, shift_) == 0x38 && sizeof(CbBoxComponent) == 0x4C,

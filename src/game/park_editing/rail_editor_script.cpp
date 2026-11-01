@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "game/park_editing/park.h"
@@ -107,8 +108,8 @@ void RailAuthoring::tick_frame()
         uint32_t button;
         uint32_t script;
     };
-    static const Press kPresses[4] = {
-        {0x1A0, kRailEditorX}, {0x180, kRailEditorTriangle}, {0x160, kRailEditorSquare}, {0x140, kRailEditorCircle}};
+    static const std::array<Press, 4> kPresses = {{
+        {0x1A0, kRailEditorX}, {0x180, kRailEditorTriangle}, {0x160, kRailEditorSquare}, {0x140, kRailEditorCircle}}};
     for (const Press& press : kPresses) {
         objects::ControlButton* button = get_button(input_ptr_, press.button);
         if (button->fired_) {
@@ -232,9 +233,9 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             node->put_name_key(kName, name++);
             node->put_name_key(0u, kRailNodeClass);
             node->put_name_key(0u, kTrickObject);
-            char cluster[52];
-            std::snprintf(cluster, sizeof(cluster), "CreatedRailCluster%d", rail_index);
-            node->put_name_key(kCluster, checksums::hash_from_text(cluster));
+            std::array<char, 52> cluster{};
+            std::snprintf(cluster.data(), sizeof(cluster), "CreatedRailCluster%d", rail_index);
+            node->put_name_key(kCluster, checksums::hash_from_text(cluster.data()));
             node->put_name_key(kSurfaceKindKey, kMetalSmooth);
             if (p->following_) {
                 // linked to the next point's node (the next one written)

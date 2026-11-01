@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -79,7 +80,7 @@ UiTree::UiTree()
         entry.next = nullptr;
     }
     pad_event_kind_count_ = 0;
-    std::memset(pad_event_types_, 0, sizeof(pad_event_types_));
+    std::memset(pad_event_types_.data(), 0, sizeof(pad_event_types_));
     check_device_ = false;
     num_priorities_ = 0;
     for (PriorityEntry& entry : priorities_)
@@ -311,7 +312,7 @@ void UiTree::lock_tree(int lock)
 {
     if (!tree_root_)
         return;
-    UiWidget* stack[32];
+    std::array<UiWidget*, 32> stack{};
     stack[0] = tree_root_.owner_object_;
     int count = 1;
     while (count) {

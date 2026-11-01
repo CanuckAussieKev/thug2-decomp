@@ -7,6 +7,7 @@
 #include <cstring>
 #include <utility>
 #include <gsl/pointers>
+#include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -495,9 +496,9 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     if (scripts) {
         script = scripts->fetch_part(which);
     } else {
-        char name[100];
-        crt::get_sprintf(name, "%s%s", prefix, templates->find_inline_text(which));
-        script = checksums::hash_from_text(name);
+        std::array<char, 100> name{};
+        crt::get_sprintf(name.data(), "%s%s", prefix, templates->find_inline_text(which));
+        script = checksums::hash_from_text(name.data());
     }
     script::Struct* trick_params = nullptr;
     trick->read_sub_struct(kParams, &trick_params, 0);

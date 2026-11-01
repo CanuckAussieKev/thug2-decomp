@@ -109,9 +109,9 @@ std::string get_check(const fields::Row& row, uint32_t self, const char* text, s
     return "";
 }
 
-const fields::Kind kAddKinds[] = {fields::Kind::kInteger, fields::Kind::kFloat, fields::Kind::kName,
+constexpr auto kAddKinds = std::to_array<fields::Kind>({fields::Kind::kInteger, fields::Kind::kFloat, fields::Kind::kName,
                                   fields::Kind::kChars,   fields::Kind::kVec4,  fields::Kind::kBitMark,
-                                  fields::Kind::kNames};
+                                  fields::Kind::kNames});
 
 } // namespace
 
@@ -134,10 +134,10 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     for (const fields::Row& row : rows)
         any_edited = any_edited || row.edited;
     ImGui::Spacing();
-    char header[64];
-    std::snprintf(header, sizeof(header), "All fields (%d)%s###fields", static_cast<int>(rows.size()),
+    std::array<char, 64> header{};
+    std::snprintf(header.data(), sizeof(header), "All fields (%d)%s###fields", static_cast<int>(rows.size()),
                   any_edited ? " - edited" : "");
-    if (!ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen))
+    if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen))
         return;
     bool still_active = false;
     if (ImGui::BeginTable("##fields", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
@@ -407,18 +407,18 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             }
         }
         // Time of day.
-        static const char* const kStates[] = {"morning", "afternoon", "evening", "night"};
+        static const auto kStates = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Time of day");
         ImGui::TableNextColumn();
-        char own_state[48];
-        std::snprintf(own_state, sizeof(own_state), "(original: %s)",
+        std::array<char, 48> own_state{};
+        std::snprintf(own_state.data(), sizeof(own_state), "(original: %s)",
                       level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
                                                                              : "afternoon");
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::BeginCombo("##tod", props.tod >= 0 ? kStates[props.tod] : own_state)) {
-            if (ImGui::Selectable(own_state, props.tod < 0)) {
+        if (ImGui::BeginCombo("##tod", props.tod >= 0 ? kStates[props.tod] : own_state.data())) {
+            if (ImGui::Selectable(own_state.data(), props.tod < 0)) {
                 props.tod = -1;
                 send_props(requests, props, true);
             }
@@ -438,7 +438,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         const char* own_time = level.have_defaults_ && own.time == 0 ? "(original: no)" : "(original: yes)";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : own_time)) {
-            const char* const labels[] = {own_time, "no", "yes"};
+            const auto labels = std::to_array<const char*>({own_time, "no", "yes"});
             for (int i = -1; i <= 1; ++i) {
                 if (ImGui::Selectable(labels[i + 1], props.time == i)) {
                     props.time = i;
@@ -481,16 +481,16 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (ImGui::Checkbox("##ambient", &ambient)) {
             props.has_ambient_ = ambient;
             if (ambient && level.have_defaults_)
-                std::memcpy(props.ambient, own.ambient, sizeof(props.ambient));
+                std::memcpy(props.ambient.data(), own.ambient.data(), sizeof(props.ambient));
             send_props(requests, props, true);
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_ambient_);
-        const int* shown = props.has_ambient_ ? props.ambient : own.ambient;
-        float colour[3] = {static_cast<float>(shown[0]) / 255.0f, static_cast<float>(shown[1]) / 255.0f,
-                           static_cast<float>(shown[2]) / 255.0f};
+        const int* shown = (props.has_ambient_ ? props.ambient : own.ambient).data();
+        std::array<float, 3> colour = {{static_cast<float>(shown[0]) / 255.0f, static_cast<float>(shown[1]) / 255.0f,
+                           static_cast<float>(shown[2]) / 255.0f}};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::ColorEdit3("##ambientcolour", colour, ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
+        if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                 props.ambient[i] = level_props::get_channel(static_cast<int>(colour[i] * 255.0f + 0.5f));
@@ -509,17 +509,17 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (ImGui::Checkbox("##fog", &fog)) {
             props.has_fog_ = fog;
             if (fog && level.have_defaults_)
-                std::memcpy(props.fog, own.fog, sizeof(props.fog));
+                std::memcpy(props.fog.data(), own.fog.data(), sizeof(props.fog));
             send_props(requests, props, true);
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_fog_);
-        const int* f = props.has_fog_ ? props.fog : own.fog;
-        float fog_colour[4] = {static_cast<float>(f[0]) / 255.0f, static_cast<float>(f[1]) / 255.0f,
-                               static_cast<float>(f[2]) / 255.0f, static_cast<float>(f[3]) / 255.0f};
+        const int* f = (props.has_fog_ ? props.fog : own.fog).data();
+        std::array<float, 4> fog_colour = {{static_cast<float>(f[0]) / 255.0f, static_cast<float>(f[1]) / 255.0f,
+                               static_cast<float>(f[2]) / 255.0f, static_cast<float>(f[3]) / 255.0f}};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         bool changed = false;
-        if (ImGui::ColorEdit4("##fogcolour", fog_colour,
+        if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
                               ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB |
                                   ImGuiColorEditFlags_AlphaBar)) {
             for (int i = 0; i < 4; ++i)

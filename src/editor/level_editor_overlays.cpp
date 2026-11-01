@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+#include <array>
 
 #include "editor/level_editor_carry.h"
 #include "editor/level_editor_modules.h"
@@ -31,10 +32,10 @@ std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing
     if (!(spacing > 0.0f) || !(radius > 0.0f) || radius / spacing > 200.0f)
         return lines;
     // (the lines on multiples of the spacing, within the square round the centre)
-    const long first[2] = {static_cast<long>(std::ceil((centre.x - radius) / spacing)),
-                           static_cast<long>(std::ceil((centre.z - radius) / spacing))};
-    const long last[2] = {static_cast<long>(std::floor((centre.x + radius) / spacing)),
-                          static_cast<long>(std::floor((centre.z + radius) / spacing))};
+    const std::array<long, 2> first = {{static_cast<long>(std::ceil((centre.x - radius) / spacing)),
+                           static_cast<long>(std::ceil((centre.z - radius) / spacing))}};
+    const std::array<long, 2> last = {{static_cast<long>(std::floor((centre.x + radius) / spacing)),
+                          static_cast<long>(std::floor((centre.z + radius) / spacing))}};
     for (long i = first[0]; i <= last[0]; ++i) {
         float x = static_cast<float>(i) * spacing;
         lines.push_back({{x, y, centre.z - radius}, {x, y, centre.z + radius}, i % 5 == 0});
@@ -146,7 +147,7 @@ bool Painter::get_pixel(V3 p, float* x, float* y) const
     float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
         return false;
-    ndc_to_pixel(viewport, nx, ny, x, y);
+    ndc_to_pixel(viewport.data(), nx, ny, x, y);
     return true;
 }
 
@@ -247,10 +248,10 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
             OrientedBox box{};
             if (!object || (object->object_flags_ & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
                 continue;
-            V3 corners[8];
-            box_corners(box.origin, box.axes, box.min, box.max, corners);
-            static const int kEdges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
-                                              {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+            std::array<V3, 8> corners{};
+            box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
+            static const std::array<std::array<int, 2>, 12> kEdges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
+                                              {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
             for (const auto& e : kEdges)
                 (void)painter.get_seg(corners[e[0]], corners[e[1]], kCarried, 1.25f);
         }

@@ -27,7 +27,7 @@ SubMesh::SubMesh() { collision_name_[0] = 0; }
 void SubMesh::detach_hit_mesh()
 {
     if (collision_name_[0]) {
-        packs::offload(collision_name_);
+        packs::offload(collision_name_.data());
         collision_name_[0] = 0;
     }
 }
@@ -96,12 +96,12 @@ int SplatSlots::oldest_slot(uint32_t count)
 }
 
 // 0x00490D20
-VertexStack::VertexStack() noexcept { std::memset(data, 3, sizeof(data)); }
+VertexStack::VertexStack() noexcept { std::memset(data.data(), 3, sizeof(data)); }
 
 // 0x00490D50
 void VertexStack::stack_on(const uint8_t* in)
 {
-    std::memcpy(data + used, in, vertex_size_);
+    std::memcpy(data.data() + used, in, vertex_size_);
     used += vertex_size_;
 }
 

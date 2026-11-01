@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
 // The time-of-day manager (the TODManager_* script commands): a career level's day passing through four states -
 // morning, afternoon, evening, night - each a set of lighting parameters (the level's light colour, sky, fog,
@@ -210,7 +211,7 @@ public:
 
     lists::KeyMap* dead_objects_; // +0x000 nodes marked permanently dead (value: the manager)
     script::Struct* unknown4_;    // +0x004 made, emptied and freed, never filled
-    TodSystem systems_[kSystems]{}; // +0x008
+    std::array<TodSystem, kSystems> systems_{}; // +0x008
     BloomParams temp_bloom_{};      // +0x318 TODManager_SetTempBloomParams'
     int full_length_{};             // +0x32C milliseconds the manager has run
     float time_multiplier_{};       // +0x330 TODManager_SetTimeMultiplier
@@ -220,7 +221,7 @@ public:
     bool temp_tod_{};               // +0x33A a temporary state is up (time stops)
     bool active_{};                 // +0x33B TODManager_SetActive
     bool params_set_{};             // +0x33C
-    uint8_t pad33d_[3]{};
+    std::array<uint8_t, 3> pad33d_{};
 
 private:
     // The first system that isn't a sky system (index 2 - past the end - if both are; never checked).
