@@ -7,6 +7,9 @@
 #include <initializer_list>
 #include <new>
 #include <array>
+#include <utility>
+
+#include <gsl/assert>
 
 #include "engine/core/mem.h"
 #include "platform/run_log.h"
@@ -134,8 +137,12 @@ void return_entry(int index, void* item)
 
 void* PoolPair::carve(unsigned int size)
 {
-    if (SlabBank* pool = core::at(pools, current))
+    if (SlabBank* pool = core::at(pools, current)) {
+        // Not original - an object bigger than the pool's items (its class grew, the pool's size didn't) ends the
+        // game with a report instead of running into the next item.
+        Expects(std::cmp_less_equal(size, pool->slot_bytes_));
         return pool->carve();
+    }
     return alloc(size);
 }
 

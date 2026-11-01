@@ -12,6 +12,8 @@
 #include "engine/core/slab_bank.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/frame_source.h"
+#include "engine/gfx/anim_cache.h"
+#include "engine/gfx/anim_track.h"
 #include "engine/script/load.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
@@ -126,11 +128,11 @@ void load_boot_script_files()
 // 0x005A5B40 ... 0x005A5DF0
 void create_anim_cache_predictor_pool(int count, const char* name)
 {
-    create_pool_of(gfx::g_anim_slot_pools, 0x1E4, count, name);
+    create_pool_of(gfx::g_anim_slot_pools, static_cast<int>(sizeof(gfx::AnimCacheSlot)), count, name); // (0x1E4 in the original)
 }
 void create_blend_channel_pool(int count, const char* name)
 {
-    create_pool_of(gfx::g_anim_track_pools, 0x74, count, name);
+    create_pool_of(gfx::g_anim_track_pools, static_cast<int>(sizeof(gfx::AnimTrack)), count, name); // (0x74 in the original)
 }
 void create_boned_anim_controller_pool(int count, const char* name)
 {
