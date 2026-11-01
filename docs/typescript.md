@@ -46,6 +46,10 @@ Node strips the types and runs what is left, so only syntax that erases to plain
   them). Its entry: `if (isMain(import.meta.url)) await runMain(() => main());` (thug2-level-converter-core/lib/py.ts): `main` returns the
   exit code; `pyExit("message")` is `sys.exit("message")`.
 - Imports are relative (`import * as qb from "../level_port/qb.ts"`), not Python's `sys.path.insert` + `import qb`.
+  Another repository's module is imported by its package name and only if that repository exports it (its
+  package.json `exports`, listed in its README: `import * as qb from "thug2-level-converter-core/level_port/qb.ts"`);
+  a tool with a command line has its main block behind `isMain` and is listed in its repository's `commands`
+  (core's lib/package_check.ts, each repository's package.test.ts).
   Options that were Python keyword arguments become an options object when there are many
   (`new Translator(sources, thug2, translatable, nodeNames, allNodeNames, names, { full: true, objects })`); a Python
   subclass (thug1_port's `Thug1Translator`) is a TypeScript subclass overriding the same methods.

@@ -34,7 +34,8 @@ source is a trustworthy base. On top of that base:
   game's state alongside, debugging aids.
 - **Level converters** (installed by the [thug2-content-pipeline](https://github.com/CanuckAussieKev/thug2-content-pipeline)
   submodule: one repository per game, on
-  [thug2-level-converter-core](https://github.com/CanuckAussieKev/thug2-level-converter-core)): THPS2, THPS3, THPS4,
+  [thug2-level-converter-core](https://github.com/CanuckAussieKev/thug2-level-converter-core) and on the converters of
+  the games their game is built on - Project 8's on THAW's, Proving Ground's on Project 8's): THPS2, THPS3, THPS4,
   THUG, THAW, Project 8 and Proving Ground levels, generated from your own copies of those games - plus THAW's BMX,
   rideable in any level.
 

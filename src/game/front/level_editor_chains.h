@@ -73,7 +73,7 @@
 //     and the editor's fixed scripts ed_RailSpeed / ed_RailSpeedLoop (THAW's two, compiled - RailSpeedQb) do the rest:
 //     on getting onto the rail (TriggerType [3, 13, -1]: onto, grind - THUG2's rail event, on landing and at each next
 //     segment; THAW's own `land onto` is never true on a THUG2 rail: TriggerType needs every number - see
-//     thug2-level-converter-core/thaw/thaw_scripts.ts) the loop is spawned on the skater; each frame on the rail and
+//     thug2-thaw-level-converter/thaw/thaw_scripts.ts) the loop is spawned on the skater; each frame on the rail and
 //     higher than the last, its speed * (1 + rate). Taken off: the node's own TriggerScript put back as it was.
 //     ([features] debug_rail_speed=1 logs the loops' boosts - Skater::CorePhysicsComponent::SetSpeed.)
 //     Shown as chevrons along the segment (the level's own RailAccelerate rails too, in grey - read only).
