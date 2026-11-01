@@ -11,6 +11,8 @@
 #include "engine/gfx/pc_lights.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/gfx/pc_mesh.h"
+#include "engine/gfx/bone_volumes.h"
 
 namespace render {
 
@@ -29,10 +31,10 @@ ModelGeom* first_entry(RenderModel* model) { return table_row(get_first(model));
 
 // An asset's scene data's +0xB8 / +0xB4 (the folded getters 0x00490AC0 / 0x00490AB0).
 uint32_t scene_b8(void* scene) { return static_cast<SubMesh*>(scene)->get_hierarchy_count(); }
-uint32_t scene_b4(void* scene) { return cell::of(static_cast<SubMesh*>(scene)->fetch_bone_tree()); }
+HierarchyNode* scene_b4(void* scene) { return static_cast<SubMesh*>(scene)->fetch_bone_tree(); }
 
 // Lights made and deleted (the engine's 0x0048EA80 / 0x0048C080).
-uint8_t* new_lights() { return raw::bytes(spawn_model_lights()); }
+ModelLights* new_lights() { return spawn_model_lights(); }
 
 } // namespace
 
@@ -47,7 +49,7 @@ maths::Vec4* RenderModel::plat_get_bounding_sphere(maths::Vec4* out)
 }
 
 // 0x00492DD0
-bool RenderModel::choose_rig(uint8_t* skeleton)
+bool RenderModel::choose_rig(gfx::Rig* skeleton)
 {
     if (!skin_palette_) {
         bone_total_ = skeleton_bone_count(skeleton);
@@ -72,10 +74,10 @@ bool RenderModel::set_display_mode(int mode)
 int RenderModel::fetch_geom_total() { return geom_total_; }
 
 // 0x00492E50
-uint8_t* RenderModel::fetch_skinning_palette() { return skin_palette_; }
+maths::Mat4* RenderModel::fetch_skinning_palette() { return skin_palette_; }
 
 // 0x00493460
-void RenderModel::upload_skinning_palette(uint8_t* matrices)
+void RenderModel::upload_skinning_palette(maths::Mat4* matrices)
 {
     skin_palette_ = matrices;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
@@ -119,7 +121,7 @@ maths::Vec4* RenderModel::fetch_bound_sphere(maths::Vec4* out)
 }
 
 // 0x00492F90
-void RenderModel::set_bone_volumes(uint8_t* volumes)
+void RenderModel::set_bone_volumes(gfx::BoneVolumes* volumes)
 {
     if (!geom_list_size_)
         return;
@@ -129,7 +131,7 @@ void RenderModel::set_bone_volumes(uint8_t* volumes)
 }
 
 // 0x00492FC0
-uint8_t* RenderModel::get_bone_volumes()
+gfx::BoneVolumes* RenderModel::get_bone_volumes()
 {
     if (!geom_list_size_)
         return nullptr;
@@ -146,15 +148,15 @@ uint32_t RenderModel::get_asset_bone_count()
 }
 
 // 0x00493040
-uint32_t RenderModel::get_asset_hierarchy()
+HierarchyNode* RenderModel::get_asset_hierarchy()
 {
     if (num_asset_geoms_ != 1)
-        return 0;
+        return nullptr;
     return scene_b4(assets::asset_manager()->get_asset_data(first_entry(this)->asset_name_, 1));
 }
 
 // 0x00493410
-bool RenderModel::copy_bones(uint8_t* skeleton)
+bool RenderModel::copy_bones(gfx::Rig* skeleton)
 {
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
         copy_geom_bones(get_geom(node), skeleton_bones(skeleton), skeleton_bone_count(skeleton));
@@ -168,11 +170,10 @@ uint32_t RenderModel::get_strip_break_flags()
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if (entry->scene) {
-            flags |= *raw::field_at<uint32_t>(entry->scene, 0xB0);
+            flags |= entry->scene->bone_count_;
         } else if (entry->asset_name_) {
-            auto* scene = static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1));
-            if (scene)
-                flags |= *raw::field_at<uint32_t>(scene, 0xB0);
+            if (const auto* mesh = static_cast<const PcMesh*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1)))
+                flags |= mesh->bone_count_;
         }
     }
     return flags;
@@ -273,7 +274,7 @@ uint32_t RenderModel::fetch_part_label(int index)
 }
 
 // 0x004946C0
-uint8_t* RenderModel::get_geom_textures(int index)
+TextureSet* RenderModel::get_geom_textures(int index)
 {
     int i = 0;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++i) {

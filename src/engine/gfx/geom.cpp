@@ -2,6 +2,8 @@
 // them in registers, rounded to float where it stores them).
 
 #include "engine/gfx/geom.h"
+#include "engine/core/down_cast.h"
+#include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/d3dx.h"
 
 #include <cmath>
@@ -184,7 +186,7 @@ void PcGeom::free_mesh_table()
     if (!meshes)
         return;
     if (scene) {
-        if (auto* list = *raw::field_at<SceneRef*>(scene, 0x280))
+        if (SceneRef* list = scene->meshes)
             list->detach_meshes(static_cast<int>(mesh_count_), meshes);
     }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
@@ -200,7 +202,7 @@ void PcGeom::free_mesh_table()
 // 0x004B44D0
 bool PcGeom::add_to_mesh_list(bool count)
 {
-    auto* list = *raw::field_at<SceneRef*>(scene, 0x280);
+    SceneRef* list = scene->meshes;
     if (count)
         list->mesh_total(static_cast<int>(mesh_count_), meshes);
     else
@@ -223,10 +225,10 @@ SceneRef* PcGeom::create_mesh_list()
 }
 
 // 0x004B58C0
-Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
+Geom* PcGeom::plat_replicate(int instance_flag, WorldScene* into)
 {
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
-    auto* new_scene = static_cast<uint8_t*>(scene_bytes);
+    auto* new_scene = core::down_cast<PcScene>(into);
     auto* geom = new PcGeom;
     // (no check: a failed allocation writes through null, as the original)
     geom->meshes = static_cast<MeshRef**>(memory::alloc(4 * mesh_count_));
@@ -236,7 +238,7 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
     if (!share) {
         geom->change_live(true);
         // into the scene's mesh list: its meshes kept aside, room made for these ones too, all added back
-        auto* list = *raw::field_at<SceneRef*>(new_scene, 0x280);
+        SceneRef* list = new_scene->meshes;
         MeshRef** kept = list->mesh_count_ > 0 ? static_cast<MeshRef**>(memory::alloc(4 * list->mesh_count_)) : nullptr;
         geom->scene = new_scene;
         for (int i = 0; i < list->mesh_count_; ++i)
@@ -265,14 +267,12 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
 }
 
 // 0x004B5B80
-Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
+Geom* PcGeom::clone_instance(int instance_flag, RenderModel* model)
 {
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
-    auto* model = static_cast<uint8_t*>(model_bytes);
     auto scene_owner = std::make_unique<PcScene>(10); // (only for the copy)
-    auto* temp_scene = raw::bytes(scene_owner.get());
-    SceneRef* source_list = instance->scene;
-    *raw::field_at<SceneRef*>(temp_scene, 0x280) = source_list;
+    PcScene* temp_scene = scene_owner.get();
+    temp_scene->meshes = instance->scene;
     auto* geom = new PcGeom;
     geom->scene = temp_scene;
     auto count = static_cast<uint32_t>(instance->scene->mesh_count_);
@@ -283,12 +283,12 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
     std::memcpy(&geom->bounds, &bounds, sizeof(bounds));
     SceneRef* list = geom->create_mesh_list();
     // the scene was only for the copy: destroyed without its mesh list
-    *raw::field_at<SceneRef*>(temp_scene, 0x280) = nullptr;
+    temp_scene->meshes = nullptr;
     scene_owner.reset();
     geom->scene = nullptr;
     geom->change_live(true);
     // bones: the model's count (room for one more), each the identity
-    const int bone_count = *raw::field_at<int>(model, 8);
+    const int bone_count = model->bone_total_;
     auto* bones = static_cast<maths::Mat4*>(memory::alloc((bone_count + 1) * sizeof(maths::Mat4)));
     for (int i = 0; i < bone_count; ++i)
         get_identity(&bones[i]);
@@ -301,19 +301,18 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
 }
 
 // 0x004B54B0
-bool PcGeom::plat_init_instance(void* mesh_bytes, void* model_bytes, int /*unused*/)
+bool PcGeom::plat_init_instance(SubMesh* sub_mesh, RenderModel* model, int /*unused*/)
 {
-    auto* mesh = static_cast<uint8_t*>(mesh_bytes);
-    auto* model = static_cast<uint8_t*>(model_bytes);
-    const int bone_count = *raw::field_at<int>(model, 8);
+    auto* mesh = core::down_cast<PcMesh>(sub_mesh);
+    const int bone_count = model->bone_total_;
     source = mesh;
     maths::Mat4 identity{};
     get_identity(&identity);
     void* memory = memory::alloc(sizeof(Singleton));
     Singleton* inst = nullptr;
     if (memory) {
-        auto* list = *raw::as<SceneRef*>(*raw::field_at<uint8_t*>(mesh, 0xC4) + 0x280);
-        auto* bones = *raw::field_at<maths::Mat4*>(model, 0xC); // (the model's bones: 0x00492E50)
+        SceneRef* list = mesh->scene->meshes;
+        maths::Mat4* bones = model->skin_palette_; // (the model's bones: 0x00492E50)
         inst = memory::construct_in<Singleton>(memory, list, &identity, bone_count, bones);
     }
     instance = inst;
@@ -605,8 +604,7 @@ void PcGeom::set_bones(maths::Mat4* bones, int count)
 bool PcGeom::break_strips(uint32_t mask)
 {
     if (source)
-        instance->scene->break_strips(mask, *raw::field_at<uint32_t*>(source, 0xBC),
-                                      *raw::field_at<uint32_t>(source, 0xC0));
+        instance->scene->break_strips(mask, source->breaks, source->break_count_);
     return true;
 }
 

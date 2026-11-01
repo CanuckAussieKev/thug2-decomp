@@ -2,11 +2,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "platform/d3d_forward.h"
 
 // The GPU's vertex and index buffers (the boundary layer's gpu part: docs/architecture.md "Layers"): each a Direct3D
 // buffer and a copy of its bytes in memory, written to the card when unlocked and written again after the device is
 // reset. The vertex data itself is laid out by whoever fills it (the scene files' vertices go straight in - formats/
 // scene_format.h -, the screen's quads by their own layouts).
+
 namespace render {
 
 // A vertex buffer (0x24 bytes, constructor 0x004D3FF0; made by 0x004D5760): the size, the Direct3D buffer - its own,
@@ -16,7 +18,7 @@ namespace render {
 struct VertexBuffer {
     uint32_t size;
     uint32_t usage;
-    void* buffer{nullptr};                          // +0x08: IDirect3DVertexBuffer9
+    IDirect3DVertexBuffer9* buffer{nullptr};        // +0x08
     uint8_t* data;                                  // +0x0C
     uint32_t lock_offset_{}, lock_size_{}, lock_flags_; // +0x10 (lockFlags -1: not locked)
     uint32_t flags;                                 // +0x1C: 1 no copy in memory; 4 a share of an arena's buffer
@@ -51,7 +53,7 @@ struct IdxStore {
     uint32_t size;
     uint32_t usage;
     uint32_t format;
-    void* buffer{nullptr}; // IDirect3DIndexBuffer9
+    IDirect3DIndexBuffer9* buffer{nullptr};
     uint16_t* indices;
     uint32_t unknown14{}; // (cleared when destroyed)
 

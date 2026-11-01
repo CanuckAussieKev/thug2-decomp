@@ -5,6 +5,8 @@
 #include <array>
 
 #include "engine/maths/shape_tests.h"
+#include "platform/d3d_forward.h"
+
 
 namespace lists {
 class KeyMap;
@@ -16,6 +18,8 @@ class KeyMap;
 namespace render {
 
 struct MeshRef;
+struct HierarchyNode;
+struct StripBreak;
 
 struct SceneRef {
     uint32_t flags{0}; // 0x100 once its meshes are prepared
@@ -34,9 +38,9 @@ struct SceneRef {
     maths::BBox bounds; // +0x44
     std::array<float, 3> centre{};  // +0x64: the bounds' sphere
     float radius{};     // +0x70
-    uint8_t* extra{nullptr}; // +0x74: an array of 0x50-byte records (new[]'d: the count before it)
+    HierarchyNode* hierarchy{nullptr}; // +0x74: the scene's hierarchy (new_hierarchy's)
     uint32_t unknown78{0};
-    void* com_object_{nullptr}; // +0x7C: released with the scene
+    IDirect3DVertexBuffer9* arena_buffer_{nullptr}; // +0x7C: the vertex arena's buffer (released with the scene)
     uint32_t unknown80{0};
 
     // 0x004DE300: construct empty.
@@ -63,13 +67,13 @@ struct SceneRef {
     // 0x004DE060: break the meshes' triangle strips where the records (mask, mesh << 16 | a, c << 16 | b, the strip
     // index to search from) say: the index before a triangle (a, c, b) found is flagged, and the strips of meshes
     // with flags are rebuilt with each flagged index three times.
-    void break_strips(uint32_t mask, const uint32_t* records, uint32_t count);
+    void break_strips(uint32_t mask, const StripBreak* records, uint32_t count);
 
     // The counts after a change (shared by detach_meshes and order_meshes).
     void recount();
 };
 static_assert(offsetof(SceneRef, meshes) == 0x1C && offsetof(SceneRef, bounds) == 0x44 &&
-                  offsetof(SceneRef, radius) == 0x70 && offsetof(SceneRef, com_object_) == 0x7C,
+                  offsetof(SceneRef, radius) == 0x70 && offsetof(SceneRef, arena_buffer_) == 0x7C,
               "layout must match the original");
 
 // 0x004DDD50 (qsort's comparison of two mesh pointers): by the material's sort key (+0x1C), then its byte +0xC,
@@ -77,5 +81,8 @@ static_assert(offsetof(SceneRef, meshes) == 0x1C && offsetof(SceneRef, bounds) =
 int compare_meshes(const void* a, const void* b);
 // 0x004DE560: free a scene's materials, destroy it and free it.
 void discard_scene(SceneRef* scene);
+// A scene's hierarchy: `count` nodes (the game heap's), constructed; null without memory. Freed by free_hierarchy.
+HierarchyNode* new_hierarchy(int count);
+void free_hierarchy(HierarchyNode* nodes);
 
 } // namespace render

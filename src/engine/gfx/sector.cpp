@@ -59,7 +59,7 @@ gsl::owner<WorldCell*> WorldCell::plat_clone(int, void*)
 }
 
 // 0x0049EAD0
-WorldCell* WorldCell::replicate(int instance, bool flag, void* scene)
+WorldCell* WorldCell::replicate(int instance, bool flag, WorldScene* scene)
 {
     WorldCell* clone = plat_clone(instance, scene);
     if (!clone)

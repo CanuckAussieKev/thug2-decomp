@@ -26,6 +26,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/scene_load.h"
 
 namespace objects {
 
@@ -36,19 +37,20 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 
 // The model component's model (+0x208) and that model's hierarchy (0x00493040, not rewritten yet): objects of 0x50
 // bytes from +0x50, each with its matrix at +0x10.
-const uint8_t* hierarchy_of(ObjectModule* model)
+const render::HierarchyNode* hierarchy_of(ObjectModule* model)
 {
-    auto* m = raw::bytes(core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_);
-    return cell::pointer<const uint8_t>(raw::as<render::RenderModel>(m)->get_asset_hierarchy());
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->get_asset_hierarchy();
 }
 
-// The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
-uint8_t* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
-maths::Mat4* skeleton_palette(uint8_t* skeleton) { return raw::as<gfx::Rig>(skeleton)->matrix_array_; }
-int get_bone_count(uint8_t* skeleton) { return raw::as<gfx::Rig>(skeleton)->get_num_bones(); }
+// The skeleton component's skeleton.
+gfx::Rig* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
 
-// A model position in the game's axes: x and the model's y negated, y and z swapped.
-maths::Vec4 from_model(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
+// A node's place (its matrix's translation) in the game's axes: x and the model's y negated, y and z swapped.
+maths::Vec4 from_model(const render::HierarchyNode& node)
+{
+    const maths::Vec4& p = core::at(node.matrix.row, 3);
+    return {-p.x, p.z, -p.y, 1.0f};
+}
 
 } // namespace
 
@@ -64,17 +66,17 @@ ParkedVehicleModule::~ParkedVehicleModule() = default;
 // 0x004336F0
 void ParkedVehicleModule::seal()
 {
-    const uint8_t* hierarchy = hierarchy_of(entity_->fetch_module(kModel));
-    // The wheels: the hierarchy's objects 1-4 (their matrices' translations).
+    const render::HierarchyNode* hierarchy = hierarchy_of(entity_->fetch_module(kModel));
+    // The wheels: the hierarchy's nodes 2-5 (their matrices' translations).
     std::array<maths::Vec4, 4> wheels{};
     for (int k = 0; k < 4; ++k)
-        core::at(wheels, k) = from_model(raw::field_at<const float>(hierarchy, 0xE0 + 0x50 * k));
-    // The body: the root's (object 0's) translation.
-    const maths::Vec4 body = from_model(raw::field_at<const float>(hierarchy, 0x90));
+        core::at(wheels, k) = from_model(hierarchy[2 + k]);
+    // The body: node 1's translation.
+    const maths::Vec4 body = from_model(hierarchy[1]);
 
     ObjectModule* skeleton_component = entity_->fetch_module(kSkeleton);
-    maths::Mat4* bones = skeleton_palette(skeleton_of(skeleton_component));
-    for (int i = 0; i < get_bone_count(skeleton_of(skeleton_component)); ++i) {
+    maths::Mat4* bones = skeleton_of(skeleton_component)->matrix_array_;
+    for (int i = 0; i < skeleton_of(skeleton_component)->get_num_bones(); ++i) {
         maths::Mat4& bone = bones[i];
         std::memset(&bone, 0, sizeof(bone));
         if (i == 0)

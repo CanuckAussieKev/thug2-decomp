@@ -30,6 +30,8 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/gfx/scene_load.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -53,10 +55,7 @@ render::HitMesh* sector_collision(uint8_t* sector) { return raw::as<render::Worl
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
-const uint8_t* bone_of(uint8_t* model)
-{
-    return cell::pointer<const uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
-}
+const render::HierarchyNode* bone_of(uint8_t* model) { return raw::as<render::RenderModel>(model)->get_asset_hierarchy(); }
 
 void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
@@ -127,18 +126,18 @@ void ContactShapeModule::tick_frame()
     if (!collision)
         return;
     ObjectModule* model = entity_->fetch_module(kModelModuleName);
-    const uint8_t* bone = model ? bone_of(model_of(model)) : nullptr;
+    const render::HierarchyNode* bone = model ? bone_of(model_of(model)) : nullptr;
     if (!bone) {
         collision->place_at_absolute_point(&entity_->at_point_);
         collision->change_facing(&entity_->display_matrix_);
         return;
     }
-    const auto* translation = raw::field_at<const float>(bone, 0x40);
+    const maths::Vec4& translation = core::at(bone->matrix.row, 3);
     const maths::Vec4& pos = entity_->at_point_;
-    const maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
+    const maths::Vec4 position = {translation.x + pos.x, translation.y + pos.y, translation.z + pos.z, pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
-    d3dx_multiply(&orientation, raw::field_at<const maths::Mat4>(bone, 0x10), &entity_->display_matrix_);
+    d3dx_multiply(&orientation, &bone->matrix, &entity_->display_matrix_);
     collision->change_facing(&orientation);
 }
 

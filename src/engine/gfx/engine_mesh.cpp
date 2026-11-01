@@ -37,7 +37,7 @@ void SubMesh::detach_hit_mesh()
 SubMesh::~SubMesh() { detach_hit_mesh(); }
 
 // 0x00490AB0
-void* SubMesh::fetch_bone_tree() { return hierarchy_; }
+HierarchyNode* SubMesh::fetch_bone_tree() { return hierarchy_; }
 
 // 0x00490AC0
 uint32_t SubMesh::get_hierarchy_count() { return hierarchy_count_; }

@@ -130,10 +130,10 @@ void PcScene::post_load(void* arena_word)
     void* sector = first_sector(table);
     if (arena) {
         input_port()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                         raw::as<IDirect3DVertexBuffer9*>(&arena->buffer), nullptr);
-        static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->Lock(0, 0, &arena->data, 0);
+                                         &arena->buffer, nullptr);
+        arena->buffer->Lock(0, 0, &arena->data, 0);
         arena->used = 0;
-        meshes->com_object_ = arena->buffer;
+        meshes->arena_buffer_ = arena->buffer;
         meshes->unknown80 = arena->size;
     }
     for (; sector; sector = next_sector(table)) {
@@ -142,7 +142,7 @@ void PcScene::post_load(void* arena_word)
         geom->add_to_mesh_list(true);
     }
     if (arena) {
-        static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->Unlock();
+        arena->buffer->Unlock();
         arena->data = nullptr;
     }
     meshes->allocate_mesh_list();
@@ -188,17 +188,13 @@ MeshRef* new_mesh()
     void* memory = memory::alloc(sizeof(MeshRef));
     return memory ? memory::construct_in<MeshRef>(memory) : nullptr; // (its constructor)
 }
-void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius, const maths::Vec4* min,
-                             const maths::Vec4* max)
-{
-    mesh->change_bound_sphere(centre, radius, static_cast<int>(static_cast<intptr_t>(cell::address(min))),
-                              static_cast<int>(static_cast<intptr_t>(cell::address(max))));
-}
+// (the original passed the box too: unused)
+void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius) { mesh->change_bound_sphere(centre, radius); }
 // The rest of a mesh's set-up, the same for both loaders: the scene's box grown, a billboard made, the mesh added.
 void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
                  const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
 {
-    auto* bounds = raw::as<maths::BBox>(*raw::field_at<uint8_t*>(geom->scene, 0x280) + 0x44);
+    maths::BBox* bounds = &geom->scene->meshes->bounds;
     bounds->append_spot(*min);
     bounds->append_spot(*max);
     if (sector->flags & 0x800000) {
@@ -208,7 +204,7 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;
     geom->append_mesh(mesh);
-    raw::bytes(mesh)[0x1F] = light_group;
+    core::at(mesh->unknown1c_, 3) = light_group; // (the bone slot)
     make_grass(geom, mesh);
 }
 // The meshes the load put on the list, counted (to a node that is the head, data -1, or null).
@@ -267,11 +263,11 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             mesh->flags |= 0x20000;
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->load_index_ = static_cast<uint16_t>(i);
-        if (!load_body(mesh, fields.material, *raw::field_at<SceneRef*>(geometry->scene, 0x280))) {
+        if (!load_body(mesh, fields.material, geometry->scene->meshes)) {
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;
         }
-        set_mesh_sphere_and_box(mesh, centre.data(), fields.radius, &min, &max);
+        set_mesh_sphere_and_box(mesh, centre.data(), fields.radius);
         finish_mesh(sector, geometry, mesh, billboard_type, &pivot, &axis, &min, &max,
                     static_cast<uint8_t>(record.light_group));
     }
@@ -290,12 +286,11 @@ bool PcSector::read_from_ram_block(scene_format::MemoryStream& in)
 }
 
 // 0x004C6B10
-bool PcSector::ingest_from_file(scene_format::FileStream& in, uint32_t unknown)
+bool PcSector::ingest_from_file(scene_format::FileStream& in, VertexArena* arena)
 {
-    return read_sector(this, in, [this, &in, unknown](MeshRef* mesh, uint32_t material, SceneRef* list) {
-        // (the vertices given `unknown` unless a billboard; dynamic with the billboard bit, read as a byte: bit 23)
-        auto* arena = cell::pointer<VertexArena>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown));
-        return mesh->ingest_from_file(in, material, list, arena, ((flags >> 23) & 1) != 0);
+    return read_sector(this, in, [this, &in, arena](MeshRef* mesh, uint32_t material, SceneRef* list) {
+        // (the vertices into the arena unless a billboard; dynamic with the billboard bit, read as a byte: bit 23)
+        return mesh->ingest_from_file(in, material, list, (flags & 0x800000) ? nullptr : arena, ((flags >> 23) & 1) != 0);
     });
 }
 

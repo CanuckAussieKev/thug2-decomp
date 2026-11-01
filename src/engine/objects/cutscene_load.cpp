@@ -266,13 +266,11 @@ void CinematicTable::add_objects(script::Struct* params)
                     model_set_offset(model2, offset2.data());
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);
-                    auto mine =
-                        cell::of(static_cast<render::RenderModel*>(model2)->fetch_skinning_palette());
-                    auto theirs = cell::of(static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette());
-                    static_cast<render::RenderModel*>(model2)->upload_skinning_palette(
-                        cell::pointer<uint8_t>(theirs));
-                    static_cast<render::RenderModel*>(model_of(stand_in))
-                        ->upload_skinning_palette(cell::pointer<uint8_t>(mine));
+                    maths::Mat4* mine = static_cast<render::RenderModel*>(model2)->fetch_skinning_palette();
+                    maths::Mat4* theirs =
+                        static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette();
+                    static_cast<render::RenderModel*>(model2)->upload_skinning_palette(theirs);
+                    static_cast<render::RenderModel*>(model_of(stand_in))->upload_skinning_palette(mine);
                     core::down_cast<MeshInstanceModule>(level_model)->get_update_brightness();
                 }
                 stand_in->hold_off(true);

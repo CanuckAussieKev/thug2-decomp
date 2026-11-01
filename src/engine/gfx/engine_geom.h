@@ -17,6 +17,10 @@ class Vec4;
 // PcGeom overrides.
 namespace render {
 
+class RenderModel;
+class SubMesh;
+struct WorldScene;
+
 // What a geom is (the level editor only works on the PC's).
 enum class GeomKind : uint8_t {
     kEngine, // the engine's base (only stubs)
@@ -37,13 +41,13 @@ public:
 
     // 0x0048DD80: a copy (plat_replicate) - made with `instance` 1, else 2; given this one's collision faces (when it
     // has some), no colours (the low byte of `instance` tested, its whole word passed on). The copy (or null).
-    Geom* replicate(int instance, void* scene);
+    Geom* replicate(int instance, WorldScene* scene);
     // 0x0048DDC0: a copy for a model (clone_instance) - made with `instance` 1, else 2; no colours. The copy (or
     // null).
-    Geom* clone_for_model(int instance, void* model);
+    Geom* clone_for_model(int instance, RenderModel* model);
     // 0x0048DDF0: made an instance (1) of a mesh for a model, multicoloured or not (a jump to plat_init_instance -
     // the callee's arguments: `multicolour` is its third).
-    bool init_instance(void* mesh, void* model, int multicolour);
+    bool init_instance(SubMesh* mesh, RenderModel* model, int multicolour);
     // 0x0048DE10: the colour (plat_get_color) into `out`. Returns out.
     uint32_t* fetch_tint(uint32_t* out);
     // 0x0048DE90 (not a Ghidra function): the bounding sphere (plat_get_bounding_sphere) into `out`. Returns out.
@@ -57,9 +61,9 @@ public:
     // The platform's virtual functions (vtable slots 1 - 48; the base's bodies print their "STUB: ..." and do nothing
     // - or return what the comment says). The slots the same in both tables are plain methods below.
     // [1] / [2] 0x0049E8E0 (folded with WorldCell::plat_clone): null.
-    virtual Geom* clone_instance(int instance, void* model);
-    virtual Geom* plat_replicate(int instance, void* scene);
-    virtual bool plat_init_instance(void* mesh, void* model, int multicolour);     // [3] 0x0048DA90: true
+    virtual Geom* clone_instance(int instance, RenderModel* model);
+    virtual Geom* plat_replicate(int instance, WorldScene* scene);
+    virtual bool plat_init_instance(SubMesh* mesh, RenderModel* model, int multicolour);     // [3] 0x0048DA90: true
     virtual void clean_instance_strips() {}                                        // [4] (do_nothing)
     virtual void change_tint(uint32_t rgba);                                       // [6] 0x0048DAC0 PlatSetColor
     virtual uint32_t* plat_get_color(uint32_t* out);                               // [7] 0x0048E040: 0

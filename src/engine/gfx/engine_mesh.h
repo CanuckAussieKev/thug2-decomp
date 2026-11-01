@@ -11,6 +11,9 @@
 // bytes; vtable 0x006492E4): a skinned model's collision (from a .col file kept loaded by name) and its hierarchy.
 namespace render {
 
+struct HierarchyNode;
+class TextureSet;
+
 class SubMesh : public memory::HeapObject {
 public:
     // 0x00490A60: an empty box, no collision, no hierarchy.
@@ -29,16 +32,16 @@ public:
     // (not original: `size` - the file's bytes - bounds its reader: collision_format.h)
     bool add_collision(uint8_t* data, size_t size);
     // 0x00490AB0 / 0x00490AC0 (folded with other classes' getters): the hierarchy / its count.
-    void* fetch_bone_tree();
+    HierarchyNode* fetch_bone_tree();
     uint32_t get_hierarchy_count();
 
-    void* textures_{};            // +0x04: its texture dictionary (the PC loaders set it)
+    TextureSet* textures_{};      // +0x04: its texture dictionary (the PC loaders set it)
     std::array<char, 0x80> collision_name_{}; // +0x08: the .col file kept loaded (Pip)
     int collision_count_{};       // +0x88
     uint8_t* hit_shape_{};        // +0x8C: the objects (0x40 bytes each)
     maths::BBox box_;           // +0x90
     uint32_t bone_count_{0};    // +0xB0 (the PC skin file's, from version 2)
-    void* hierarchy_{nullptr};  // +0xB4
+    HierarchyNode* hierarchy_{nullptr}; // +0xB4: its scene's
     uint32_t hierarchy_count_{0}; // +0xB8
 };
 static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_count_) == 0xB8 && sizeof(SubMesh) == 0xBC,

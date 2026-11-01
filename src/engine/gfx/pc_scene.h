@@ -10,6 +10,8 @@
 #include "engine/maths/shape_tests.h"
 #include <gsl/pointers>
 #include <array>
+#include "platform/d3d_forward.h"
+
 
 namespace scene_format {
 class MemoryStream;
@@ -23,7 +25,7 @@ struct SceneRef;
 
 // What the scene's PostLoad packs the sectors' vertices into (one vertex buffer).
 struct VertexArena {
-    void* buffer;  // +0x00: IDirect3DVertexBuffer9
+    IDirect3DVertexBuffer9* buffer; // +0x00
     uint32_t used; // +0x04
     uint32_t size; // +0x08: bytes
     void* data;    // +0x0C: while locked
@@ -47,7 +49,7 @@ public:
     // False (the stream failed; the meshes made so far kept) if a record is damaged.
     bool read_from_ram_block(scene_format::MemoryStream& in);
     // 0x004C6B10: the same from a file (the vertices by 0x004D6100, given `unknown` unless a billboard).
-    bool ingest_from_file(scene_format::FileStream& in, uint32_t unknown);
+    bool ingest_from_file(scene_format::FileStream& in, VertexArena* arena);
     // 0x004C64E0 (slot 9, never called): an empty box (a static one, made the first time).
     static const maths::BBox* fetch_empty_bounds();
 

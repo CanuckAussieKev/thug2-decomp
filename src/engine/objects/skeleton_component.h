@@ -14,6 +14,10 @@ class Script;
 class Struct;
 } // namespace script
 
+namespace gfx {
+class Rig;
+}
+
 namespace objects {
 
 // The skeleton component (type 0x222756D5, "skeleton"; vtable 0x006464DC, 0x1C bytes; made by 0x00431F60): its
@@ -92,7 +96,7 @@ public:
     // rotvel= (all but offset asserted) and object_vel_factor= (1) to spawn_composite_object_at_bone. True.
     bool skeleton_spawn_composite_object(script::Struct* params, script::Script* script);
 
-    uint8_t* bone_rig_{nullptr}; // +0x18 the renderer's skeleton
+    gfx::Rig* bone_rig_{nullptr}; // +0x18 the renderer's skeleton
 };
 
 } // namespace objects

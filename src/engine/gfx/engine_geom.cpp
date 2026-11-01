@@ -46,7 +46,7 @@ Geom::~Geom()
 }
 
 // 0x0048DD80
-Geom* Geom::replicate(int instance, void* scene)
+Geom* Geom::replicate(int instance, WorldScene* scene)
 {
     Geom* clone = plat_replicate(instance, scene); // (the whole word passed on)
     if (clone) {
@@ -59,7 +59,7 @@ Geom* Geom::replicate(int instance, void* scene)
 }
 
 // 0x0048DDC0
-Geom* Geom::clone_for_model(int instance, void* model)
+Geom* Geom::clone_for_model(int instance, RenderModel* model)
 {
     Geom* clone = clone_instance(instance, model); // (the whole word passed on)
     if (clone) {
@@ -70,7 +70,7 @@ Geom* Geom::clone_for_model(int instance, void* model)
 }
 
 // 0x0048DDF0
-bool Geom::init_instance(void* mesh, void* model, int multicolour)
+bool Geom::init_instance(SubMesh* mesh, RenderModel* model, int multicolour)
 {
     clone_kind_ = 1;
     multicolour_ = static_cast<uint8_t>(multicolour);
@@ -112,19 +112,19 @@ void Geom::fetch_tints(uint32_t* out)
 // --- the base's platform calls ----------------------------------------------------------------------------------
 
 // 0x0049E8E0 (folded with WorldCell::plat_clone)
-Geom* Geom::clone_instance(int, void*)
+Geom* Geom::clone_instance(int, RenderModel*)
 {
     get_stub("STUB: PlatClone\n"); // "STUB: PlatClone\n"
     return nullptr;
 }
-Geom* Geom::plat_replicate(int, void*)
+Geom* Geom::plat_replicate(int, WorldScene*)
 {
     get_stub("STUB: PlatClone\n");
     return nullptr;
 }
 
 // 0x0048DA90
-bool Geom::plat_init_instance(void*, void*, int)
+bool Geom::plat_init_instance(SubMesh*, RenderModel*, int)
 {
     get_stub("STUB: PlatLoadGeomData\n"); // "STUB: PlatLoadGeomData\n"
     return true;

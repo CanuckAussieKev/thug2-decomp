@@ -64,13 +64,10 @@ constexpr uint32_t kBlue = 0x9D2D8850;
 
 // The model of an object's model component (+0x208), and the model calls (not rewritten yet).
 void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
-uint32_t model_get(void* model)
+maths::Mat4* model_get(void* model) { return static_cast<render::RenderModel*>(model)->fetch_skinning_palette(); }
+void model_set(void* model, maths::Mat4* palette)
 {
-    return cell::of(static_cast<render::RenderModel*>(model)->fetch_skinning_palette());
-}
-void model_set(void* model, uint32_t value)
-{
-    static_cast<render::RenderModel*>(model)->upload_skinning_palette(cell::pointer<uint8_t>(value));
+    static_cast<render::RenderModel*>(model)->upload_skinning_palette(palette);
 }
 
 // The asset manager (0x006918DC).
@@ -221,7 +218,7 @@ void CinematicTable::destroy_objects()
                 raw::as<const maths::Vec4>(lent_2c_.data()));
             static_cast<render::RenderModel*>(model)->conceal(lent_3c_);
             static_cast<render::RenderModel*>(model)->allow_resizing(lent_3d_);
-            const uint32_t mine = model_get(model);
+            maths::Mat4* mine = model_get(model);
             model_set(model, model_get(model_of(stand_in)));
             model_set(model_of(stand_in), mine);
             original->at_point_ = lent_pos_;
@@ -330,7 +327,7 @@ void CinematicTable::update_object_poses()
         if (!component)
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-        uint8_t* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
+        gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
         auto* source = static_cast<render::FrameSource*>(entry.animation->source);
         void* animation = entry.animation->data;
         raw::as<gfx::Rig>(skeleton)->set_lod(0.0f);

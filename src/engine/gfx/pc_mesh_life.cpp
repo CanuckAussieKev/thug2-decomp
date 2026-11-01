@@ -47,14 +47,11 @@ memory::ListNode* next_scene_node(memory::ListNode* node)
 }
 SceneRef* scene_meshes(memory::ListNode* node)
 {
-    auto* scene = static_cast<uint8_t*>(node->data);
-    return scene ? *raw::field_at<SceneRef*>(scene, 0x280) : nullptr;
+    const auto* scene = static_cast<const PcScene*>(node->data);
+    return scene ? scene->meshes : nullptr;
 }
 
-IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes)
-{
-    return memory::bits_as<IDirect3DVertexBuffer9*>(meshes->com_object_);
-}
+IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes) { return meshes->arena_buffer_; }
 
 } // namespace
 
@@ -171,7 +168,7 @@ void MeshRef::clean_strip()
 }
 
 // 0x004D5900
-void MeshRef::change_bound_sphere(const float* centre_in, float radius_in, int, int)
+void MeshRef::change_bound_sphere(const float* centre_in, float radius_in)
 {
     core::at(centre, 0) = centre_in[0];
     core::at(centre, 1) = centre_in[1];
@@ -207,7 +204,7 @@ void release_buffers()
         auto* vb = static_cast<VertexBuffer*>(node->buffer);
         if (!vb)
             continue;
-        void* buffer = vb->buffer;
+        IDirect3DVertexBuffer9* buffer = vb->buffer;
         if (buffer) {
             static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
             vb->buffer = nullptr;
@@ -257,7 +254,7 @@ void recreate_buffers()
         if (!ib)
             continue;
         input_port()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
-                                        D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&ib->buffer),
+                                        D3DPOOL_DEFAULT, &ib->buffer,
                                         nullptr);
         void* card = nullptr;
         if (static_cast<IDirect3DIndexBuffer9*>(ib->buffer)->Lock(0, 0, &card, 0) >= 0) {

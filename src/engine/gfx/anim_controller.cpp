@@ -70,7 +70,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 void base_init(AnimDriver* c, Struct* params) { c->AnimDriver::configure_from_data(params); }
 // The object (the blend timeline's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
 objects::GameEntity* object_of(AnimDriver* c) { return c->AnimDriver::fetch_subject(); }
-uint8_t* skeleton_of(AnimDriver* c) { return c->AnimDriver::fetch_rig(); }
+Rig* skeleton_of(AnimDriver* c) { return c->AnimDriver::fetch_rig(); }
 // The object's anim set (the animation blender component's 0x00419AB0) and an animation's length in it.
 uint32_t current_anim_set(objects::GameEntity* object)
 {
@@ -117,15 +117,14 @@ void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
                                                      index, source);
 }
 // The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
-void set_bones(void* source, const uint8_t* skeleton)
+void set_bones(void* source, const Rig* skeleton)
 {
-    RigData* bones = raw::as<const Rig>(skeleton)->payload_;
+    RigData* bones = skeleton->payload_;
     static_cast<render::FrameSource*>(source)->bone_masks_ = bones ? bones->lod_masks_.data() : nullptr;
 }
-void set_bone_count(void* source, const uint8_t* skeleton)
+void set_bone_count(void* source, const Rig* skeleton)
 {
-    static_cast<render::FrameSource*>(source)->mask_bit_ =
-        static_cast<int>(raw::as<const Rig>(skeleton)->lod_);
+    static_cast<render::FrameSource*>(source)->mask_bit_ = static_cast<int>(skeleton->lod_);
 }
 
 // The game clock (ms) plus its offset.

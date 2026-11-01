@@ -15,7 +15,18 @@ class Struct;
 // (with its own scene and textures), taken from the asset manager or added as it is - drawn together with a display
 // matrix and a skeleton's bones, shown or hidden as a whole or by geom, coloured, scaled, given a shadow, lights and
 // bone volumes.
+namespace gfx {
+struct BoneVolumes;
+class Rig;
+}
+
 namespace render {
+
+struct HierarchyNode;
+
+class PcMesh;
+class TextureSet;
+class ModelLights;
 
 // A node of a model's geom list (12 bytes, a ring with a head of its own): what it holds, the next and the previous
 // node. What it holds starts with the geom.
@@ -29,11 +40,11 @@ static_assert(sizeof(ModelGeomNode) == 0xC, "layout must match the original");
 // One of a model's geoms (0x18 bytes; what a node of the model's geom list holds).
 struct ModelGeom {
     void* geom;             // +0x00: the engine's geom (CGeom; on PC a PcGeom)
-    uint8_t* textures;      // +0x04: the scene's texture dictionary (its +4; null for a geom added as it is)
+    TextureSet* textures;   // +0x04: the mesh's texture dictionary (null for a geom added as it is)
     uint32_t name;          // +0x08: the geom's name (a checksum; 0: none)
-    uint8_t* scene;         // +0x0C: the scene loaded from a model file (the model's own; null otherwise)
+    PcMesh* scene;          // +0x0C: the mesh loaded from a model file (the model's own; null otherwise)
     uint32_t asset_name_;   // +0x10: the asset manager's scene (its checksum; 0 otherwise)
-    uint8_t* bone_volumes_; // +0x14: the bone volumes (the first geom's only)
+    gfx::BoneVolumes* bone_volumes_; // +0x14: the bone volumes (the first geom's only)
 };
 static_assert(offsetof(ModelGeom, asset_name_) == 0x10 && sizeof(ModelGeom) == 0x18, "layout must match the original");
 
@@ -81,15 +92,15 @@ public:
 
     // 0x00492DD0: the skeleton's bones taken once (their count, the platform told - virtual [1] -, the matrices).
     // Always true.
-    bool choose_rig(uint8_t* skeleton);
+    bool choose_rig(gfx::Rig* skeleton);
     // 0x00492E10: the display mode (0 normal, 1 the skeleton drawn, 5 a debug box; 6 when made) set if it's new and
     // the platform agrees (virtual [3]). Whether it was set.
     bool set_display_mode(int mode);
     // 0x00492E40: how many geoms.
     int fetch_geom_total();
     // 0x00492E50 / 0x00493460: the bone matrices; set (each geom pointed at them, with the bone count).
-    uint8_t* fetch_skinning_palette();
-    void upload_skinning_palette(uint8_t* matrices);
+    maths::Mat4* fetch_skinning_palette();
+    void upload_skinning_palette(maths::Mat4* matrices);
     // 0x00492E60: drawn scaled or not.
     void allow_resizing(uint8_t on);
     // 0x00492E80: the bounding sphere set (the platform's, virtual [13]); the cached one forgotten.
@@ -101,18 +112,18 @@ public:
     // 0x00492F30: the bounding sphere (the platform's, virtual [12], cached). Returns out.
     maths::Vec4* fetch_bound_sphere(maths::Vec4* out);
     // 0x00492F90 / 0x00492FC0: the bone volumes (the first geom's): set unless it has some; read (null if none).
-    void set_bone_volumes(uint8_t* volumes);
-    uint8_t* get_bone_volumes();
+    void set_bone_volumes(gfx::BoneVolumes* volumes);
+    gfx::BoneVolumes* get_bone_volumes();
     // 0x00492FF0 / 0x00493040: with exactly one geom from the asset manager, that scene's +0xB8 (0x00490AC0) / +0xB4
     // (0x00490AB0) - the bone count and the hierarchy; 0 otherwise.
     uint32_t get_asset_bone_count();
-    uint32_t get_asset_hierarchy();
+    HierarchyNode* get_asset_hierarchy();
     // 0x00493090: each geom made active (the model's display mode 0, active and the geom visible) and given the
     // display matrix (scaled when scaling is on) - with the skeleton's bones in mode 0 unless there's no skeleton or
     // `no_bones`; mode 1 draws the skeleton (0x004A31E0), mode 5 / above 6 a debug box (compiled out). Always true.
-    bool render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton);
+    bool render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton);
     // 0x00493410: the skeleton's bone matrices copied to each geom. Always true.
-    bool copy_bones(uint8_t* skeleton);
+    bool copy_bones(gfx::Rig* skeleton);
     // 0x004934A0: a geom made from the asset manager's scene `assetName` (named `name`) and added. The node comes
     // from the default heap with `default_heap`, else the pool heap (0x00658555: none - false); the geom made the
     // same way (none - false, only without `default_heap`). True when added.
@@ -148,7 +159,7 @@ public:
     void* get_geom_by_name(uint32_t name);
     void* fetch_geom(int index);
     uint32_t fetch_part_label(int index);
-    uint8_t* get_geom_textures(int index);
+    TextureSet* get_geom_textures(int index);
     // 0x00493D10: texture `source` (".png" added when missing) replaced by `dest` (cut at ".png") in the textures of
     // the geom `name` (all, or ones without a name) - (0x0049FB20). Whether any was; script integer 0x2A648514 read
     // when none (a debug leftover).
@@ -196,12 +207,12 @@ public:
 
     int display_mode_;           // +0x04
     int bone_total_;             // +0x08
-    uint8_t* skin_palette_;      // +0x0C
+    maths::Mat4* skin_palette_;  // +0x0C: the bones' matrices
     ModelGeomNode* geoms_;       // +0x10: the list's head (a ring of nodes: std::list)
     uint32_t geom_list_size_{0}; // +0x14
     uint32_t visible_geoms_{};   // +0x18: a bit per geom (in list order, modulo 32)
     maths::Vec4 size_factor_{};  // +0x1C
-    uint8_t* lights_ptr_;        // +0x2C
+    ModelLights* lights_ptr_;    // +0x2C
     uint32_t source_path_;       // +0x30: the first geom's (a checksum; "none" when made)
     maths::Vec4 enclosing_ball_{}; // +0x34 (with kModelSphereValid)
     uint8_t flag_bits_;          // +0x44

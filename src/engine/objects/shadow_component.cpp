@@ -24,6 +24,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/scene_load.h"
 
 namespace objects {
 
@@ -67,9 +68,9 @@ uint8_t* model_of(ObjectModule* component)
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
 void set_model_shadow(uint8_t* model, bool on) { raw::as<render::RenderModel>(model)->activate_shadow(on); }
 // 0x00493040 (not rewritten yet): the model's hierarchy (0x50-byte objects from +0x50; the root's matrix at +0x10).
-const uint8_t* hierarchy_of(uint8_t* model)
+const render::HierarchyNode* hierarchy_of(uint8_t* model)
 {
-    return cell::pointer<const uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
+    return raw::as<render::RenderModel>(model)->get_asset_hierarchy();
 }
 
 } // namespace
@@ -255,12 +256,12 @@ void GroundShadowModule::tick_frame()
             uint8_t* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
-                const auto* root = raw::field_at<const float>(hierarchy_of(model), 0x40);
-                pos = {root[0], root[1], root[2], 0.0f};
-                const maths::Mat4 base_mat = *raw::field_at<const maths::Mat4>(hierarchy_of(model), 0x10);
+                const maths::Vec4& root = core::at(hierarchy_of(model)->matrix.row, 3);
+                pos = {root.x, root.y, root.z, 0.0f};
+                const maths::Mat4 base_mat = hierarchy_of(model)->matrix;
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity_->at_point_;
-                matrix = maths::MatrixProduct{raw::field_at<const maths::Mat4>(hierarchy_of(model), 0x10),
+                matrix = maths::MatrixProduct{&hierarchy_of(model)->matrix,
                                               &entity_->display_matrix_};
             }
             core::at(matrix.row, 3) = pos;

@@ -68,12 +68,7 @@ constexpr uint32_t kBoneVolumesOn = 0x74FF5CB4; // (a script global integer: bon
 constexpr uint32_t kBoneVolumeHeap = 0xA432DC41;
 
 // A skeleton component's skeleton (0x005480F0: its +0x18), a skeleton's name (0x004A2BA0: its +0x14) and data (+0x08).
-void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
-uint32_t get_skeleton_name(void* skeleton)
-{
-    return *raw::field_at<uint32_t>(static_cast<uint8_t*>(skeleton), 0x14);
-}
-void* rig_definition(void* skeleton) { return *raw::field_at<void*>(static_cast<uint8_t*>(skeleton), 0x08); }
+gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 
 // Nx (not rewritten yet): a new model (0x0048BFA0) and its deletion (0x0048C3C0); the model's geoms cleared
 // (0x00494BA0), counted (0x00492E40), by index (0x00494640) and name (0x00493CD0), their names (0x00494680), one added
@@ -84,7 +79,7 @@ void* rig_definition(void* skeleton) { return *raw::field_at<void*>(static_cast<
 // (0x00493410).
 render::RenderModel* spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
 void delete_model(render::RenderModel* model) { delete model; }
-void* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
+render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
 void* clone_model_geom(void* geom, render::RenderModel* to)
 {
     return static_cast<render::Geom*>(geom)->clone_for_model(1, to);
@@ -107,7 +102,6 @@ void update_lights_brightness(void* lights) { static_cast<render::ModelLights*>(
 
 // Shared bone volumes (0x0C bytes: the volumes, their count, users), by skeleton name (0x0048B3C0); made (0x0048B350),
 // sized and registered (0x0048BEA0), filled from the skeleton's data (0x0048B430).
-void* find_bone_volumes(uint32_t name) { return gfx::find_bone_volumes(name); }
 
 } // namespace
 
@@ -150,17 +144,17 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
     if (params->has_bare_flag(kUseModelLights)) {
         if (!model_lights(mesh_instance_)) {
             mesh_instance_->create_lights();
-            void* lights = model_lights(mesh_instance_);
-            static_cast<render::ModelLights*>(lights)->bind_position_source(&entity_->at_point_);
+            render::ModelLights* lights = model_lights(mesh_instance_);
+            lights->bind_position_source(&entity_->at_point_);
             int count = 1;
             params->fetch_int_value(kMaxSceneLights, &count, 0);
-            *raw::field_at<int>(static_cast<uint8_t*>(lights), 4) = count; // (0x00407700)
+            lights->dynamic_radius_ = static_cast<uint32_t>(count); // (0x00407700)
         }
     } else if (model_lights(mesh_instance_)) {
         mesh_instance_->destroy_lights();
     }
     if (ObjectModule* skeleton = entity_->fetch_module(kSkeleton))
-        mesh_instance_->choose_rig(raw::bytes(skeleton_of(skeleton)));
+        mesh_instance_->choose_rig(skeleton_of(skeleton));
     int shadow = 0;
     params->fetch_int_value(kShadowVolume, &shadow, 0);
     mesh_instance_->activate_shadow_volume(shadow != 0);
@@ -178,19 +172,19 @@ void MeshInstanceModule::tick_frame()
         render::RenderModel* model = core::down_cast<MeshInstanceModule>(source->fetch_module(kModel))->mesh_instance_;
         ObjectModule* skeleton = object->fetch_module(kSkeleton);
         get_draw_matrix(&matrix);
-        model->render(&matrix, false, raw::bytes(skeleton_of(skeleton)));
-        model->copy_bones(raw::bytes(skeleton_of(skeleton)));
+        model->render(&matrix, false, skeleton_of(skeleton));
+        model->copy_bones(skeleton_of(skeleton));
         return;
     }
     const uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits_ : 0;
     if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4))
         return; // (not active, or hidden)
     get_draw_matrix(&matrix);
-    void* skeleton = bone_rig_ ? skeleton_of(bone_rig_) : nullptr;
+    gfx::Rig* skeleton = bone_rig_ ? skeleton_of(bone_rig_) : nullptr;
     bool ready = bone_rig_ != nullptr;
     if (anim_blender_ptr_)
         ready = core::down_cast<AnimBlenderComponent>(anim_blender_ptr_)->model_ready();
-    mesh_instance_->render(&matrix, !ready, raw::bytes(skeleton));
+    mesh_instance_->render(&matrix, !ready, skeleton);
 }
 
 // 0x00420480
@@ -263,20 +257,21 @@ void MeshInstanceModule::init_bone_volumes()
         return;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->fetch_heap_by_key(kBoneVolumeHeap, 1));
-    void* skeleton = skeleton_of(bone_rig_);
-    void* data = rig_definition(skeleton);
-    void* volumes = find_bone_volumes(get_skeleton_name(skeleton));
+    const gfx::Rig* skeleton = skeleton_of(bone_rig_);
+    gfx::RigData* data = skeleton->payload_;
+    // (the volumes are shared by skeletons of the same bone count)
+    gfx::BoneVolumes* volumes = gfx::find_bone_volumes(static_cast<uint32_t>(skeleton->bone_total_));
     if (volumes) {
-        ++*raw::field_at<int>(static_cast<uint8_t*>(volumes), 8); // (another user)
+        ++volumes->users_; // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
         void* made = memory::alloc(0x0C);
         if (made)
             made = new (made) gfx::BoneVolumes(0);
-        static_cast<gfx::BoneVolumes*>(made)->enrol(get_skeleton_name(skeleton));
-        static_cast<gfx::BoneVolumes*>(made)->get_fill(static_cast<gfx::RigData*>(data));
+        static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total_));
+        static_cast<gfx::BoneVolumes*>(made)->get_fill(data);
     }
-    mesh_instance_->set_bone_volumes(raw::bytes(volumes));
+    mesh_instance_->set_bone_volumes(volumes);
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

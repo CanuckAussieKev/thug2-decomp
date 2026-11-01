@@ -254,7 +254,7 @@ void AnimDriver::configure_from_data(script::Struct* params) { params->read_hash
 objects::GameEntity* AnimDriver::fetch_subject() { return core::down_cast<AnimTrack>(timeline_ptr_)->fetch_subject(); }
 
 // 0x00481770
-uint8_t* AnimDriver::fetch_rig()
+Rig* AnimDriver::fetch_rig()
 {
     objects::ObjectModule* component = core::down_cast<AnimTrack>(timeline_ptr_)->fetch_subject()->fetch_module(kSkeleton);
     return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig_ : nullptr;

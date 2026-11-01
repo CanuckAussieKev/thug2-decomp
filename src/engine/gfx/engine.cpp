@@ -196,11 +196,11 @@ bool split_skin_name(const char* name, char* base)
 }
 
 // 0x0048C030
-void* load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
-                             void* textures, int, uint32_t, uint32_t)
+PcMesh* load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
+                               TextureSet* textures, int, uint32_t, uint32_t)
 {
     memory::push_mem_profile("model_data_buffer");
-    void* model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
+    PcMesh* model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
     memory::pop_mem_profile();
     return model;
 }
@@ -212,7 +212,7 @@ void build_scene_file_path(char* out, const char* name, uint32_t)
 }
 
 // 0x0048C3D0
-void* load_model_file(const char* file_name, void* textures, int, bool)
+PcMesh* load_model_file(const char* file_name, TextureSet* textures, int, bool)
 {
     std::array<char, 0x200> base{};
     const bool skinned = split_skin_name(file_name, base.data());
@@ -222,7 +222,7 @@ void* load_model_file(const char* file_name, void* textures, int, bool)
     memory::push_mem_profile(path.data());
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
-    void* mesh = load_mesh_file(path.data(), textures);
+    PcMesh* mesh = load_mesh_file(path.data(), textures);
     memory::pop_mem_profile();
     return mesh;
 }

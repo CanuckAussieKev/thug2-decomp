@@ -11,6 +11,7 @@
 namespace render {
 
 struct SceneRef;
+struct PcScene;
 
 // A strip break (16 bytes: the file's 12 and a word cleared): a mask, mesh << 16 | an index, two more indices.
 struct StripBreak {
@@ -40,7 +41,7 @@ public:
 
     StripBreak* breaks{};    // +0xBC
     uint32_t break_count_{}; // +0xC0
-    uint8_t* scene{};        // +0xC4
+    PcScene* scene{};        // +0xC4: the scene loaded with it (a model file's)
 
     // 0x004B7B50: the skin file read (opened "rb"). Whether it had breaks.
     bool load_skin_file(const char* name);
@@ -49,7 +50,7 @@ public:
     // 0x004B7EB0: load_skin_from_memory when there is data.
     void load_skin(const uint8_t* data, size_t size);
     // 0x004B7ED0: its scene, and the scene's hierarchy.
-    void choose_scene(uint8_t* scene);
+    void choose_scene(PcScene* scene);
 };
 static_assert(offsetof(PcMesh, bone_count_) == 0xB0 && offsetof(PcMesh, scene) == 0xC4 && sizeof(PcMesh) == 0xC8,
               "layout must match the original");

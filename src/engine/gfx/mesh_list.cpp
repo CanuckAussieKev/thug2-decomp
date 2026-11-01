@@ -20,6 +20,9 @@
 #include "platform/crt.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_mesh.h"
+#include <d3d9.h>
+#include <span>
 
 namespace render {
 
@@ -138,10 +141,9 @@ void SceneRef::destroy_body()
     }
     if (meshes)
         memory::Hub::sole()->dealloc(static_cast<void*>(meshes));
-    if (extra) // (delete[]: the records' destructor is empty)
-        memory::Hub::sole()->dealloc(extra - 4);
-    if (com_object_)
-        static_cast<IUnknown*>(com_object_)->Release(); // (a COM object of the scene's)
+    free_hierarchy(hierarchy);
+    if (arena_buffer_)
+        arena_buffer_->Release();
 }
 
 // 0x004DE340
@@ -265,24 +267,24 @@ void* SceneRef::find_material(uint32_t checksum) const
 }
 
 // 0x004DE060
-void SceneRef::break_strips(uint32_t mask, const uint32_t* records, uint32_t count)
+void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t count)
 {
     if (count == 0 || mask == 0)
         return;
     // Breaks found per mesh load index. (The original's table has 64 entries; a larger index overruns it.)
     std::array<int, 64> breaks = {};
-    for (uint32_t r = 0; r < count; ++r, records += 4) {
-        if (!(records[0] & mask))
+    for (const StripBreak& record : std::span<const StripBreak>(records, count)) {
+        if (!(record.mask & mask))
             continue;
-        const uint32_t mesh_index = records[1] >> 16;
+        const uint32_t mesh_index = record.mesh_and_index_ >> 16;
         MeshRef* mesh = find_mesh(mesh_index);
         if (!mesh)
             continue;
-        const uint32_t a = records[1] & 0xFFFF;
-        const uint32_t b = records[2] & 0xFFFF;
-        const uint32_t c = records[2] >> 16;
+        const uint32_t a = record.mesh_and_index_ & 0xFFFF;
+        const uint32_t b = record.indices & 0xFFFF;
+        const uint32_t c = record.indices >> 16;
         uint16_t* indices = lock_indices(index_buffer_of(mesh));
-        uint32_t i = records[3];
+        uint32_t i = record.strip_index_;
         uint32_t first = indices[i] & 0x7FFF, second = indices[i + 1] & 0x7FFF;
         for (i += 2; i < get_index_count(mesh); ++i) {
             const uint32_t third = indices[i] & 0x7FFF;

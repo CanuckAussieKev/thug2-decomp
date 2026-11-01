@@ -88,7 +88,7 @@ struct MeshRef {
     // needs, and the strip written to the card.
     void clean_strip();
     // 0x004D5900: the bounding sphere (the two stack arguments after are unused).
-    void change_bound_sphere(const float* centre, float radius, int unused1, int unused2);
+    void change_bound_sphere(const float* centre, float radius);
     // 0x004D5C30: its first vertex buffer made (a share of `arena`'s, whose size grows by it, 32-byte aligned) and
     // filled with `bytes` of `vertices`.
     void create_vertex_buffer(const void* vertices, uint32_t bytes, VertexArena* arena);

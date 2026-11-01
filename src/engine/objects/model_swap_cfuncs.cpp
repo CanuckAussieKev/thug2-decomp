@@ -61,26 +61,19 @@ void record_swap(uint32_t a, uint32_t b) { commands::swap_mapping(a, b); }
 
 // A skeleton (the skeleton component's +0x18): 0x004A3D30 constructs one in `memory` from the asset at another's +8,
 // 0x004A2E20 copies one into another, 0x004A2CB0 is its destructor body.
-uint8_t* skeleton_of(objects::ObjectModule* component)
+gfx::Rig* skeleton_of(objects::ObjectModule* component)
 {
     return core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
 }
-void copy_skeleton(uint8_t* to, uint8_t* from)
-{
-    raw::as<gfx::Rig>(to)->copy_bone_scales(raw::as<gfx::Rig>(from), true);
-}
+void copy_skeleton(gfx::Rig* to, gfx::Rig* from) { to->copy_bone_scales(from, true); }
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t model_get(render::RenderModel* model) { return cell::of(model->fetch_skinning_palette()); }
-void model_set(render::RenderModel* model, uint32_t value)
-{
-    model->upload_skinning_palette(cell::pointer<uint8_t>(value));
-}
+maths::Mat4* model_get(render::RenderModel* model) { return model->fetch_skinning_palette(); }
+void model_set(render::RenderModel* model, maths::Mat4* palette) { model->upload_skinning_palette(palette); }
 void follow_position(render::RenderModel* model, maths::Vec4* position)
 {
-    void* lights = model->lights_ptr_;
-    static_cast<render::ModelLights*>(lights)->bind_position_source(position);
+    model->lights_ptr_->bind_position_source(position);
 }
 
 // The model component's change_mesh (the original's slot 14).
@@ -136,27 +129,25 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     shadow_b->destroy_shadow();
 
     // the skeletons swapped through a copy
-    uint8_t* skeleton_a = skeleton_of(a->fetch_module(kSkeleton));
-    uint8_t* skeleton_b = skeleton_of(b->fetch_module(kSkeleton));
+    gfx::Rig* skeleton_a = skeleton_of(a->fetch_module(kSkeleton));
+    gfx::Rig* skeleton_b = skeleton_of(b->fetch_module(kSkeleton));
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    void* memory = memory::alloc(0x1C);
-    uint8_t* temp = memory ? raw::bytes(memory::construct_in<gfx::Rig>(
-                                 memory, *raw::field_at<gfx::RigData*>(skeleton_a, 8)))
-                           : nullptr;
+    void* memory = memory::alloc(sizeof(gfx::Rig));
+    gfx::Rig* temp = memory ? memory::construct_in<gfx::Rig>(memory, skeleton_a->payload_) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     copy_skeleton(temp, skeleton_a);
     copy_skeleton(skeleton_a, skeleton_b);
     copy_skeleton(skeleton_b, temp);
     if (temp) {
-        raw::as<gfx::Rig>(temp)->~Rig();
+        temp->~Rig();
         memory::Hub::get_pull()->dealloc(temp);
     }
 
     // the renderable models swapped
     render::RenderModel* nx_a = model_a->mesh_instance_;
     render::RenderModel* nx_b = model_b->mesh_instance_;
-    const uint32_t value_a = model_get(nx_a);
+    maths::Mat4* value_a = model_get(nx_a);
     model_set(nx_a, model_get(nx_b));
     model_set(nx_b, value_a);
     set_model_virtual(model_a, nx_b);

@@ -30,6 +30,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/model.h"
 
 namespace render {
 
@@ -87,8 +88,7 @@ uint32_t get_channel(float value)
 // scene's.
 void refresh_instance_lighting(Singleton* instance)
 {
-    ModelLights* lights =
-        instance->model ? *raw::field_at<ModelLights*>(static_cast<uint8_t*>(instance->model), 0x2C) : nullptr;
+    ModelLights* lights = instance->model ? instance->model->lights_ptr_ : nullptr;
     if (!lights) {
         reset_lights();
         return;

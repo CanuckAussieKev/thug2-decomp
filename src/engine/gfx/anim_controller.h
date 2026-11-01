@@ -23,6 +23,8 @@ class Struct;
 // Their tables' slot 2 is the shared 0x005BAB90 (ignores its argument) in every one: left out.
 namespace gfx {
 
+class Rig;
+
 // The animation timeline a controller plays on (0x00481650 constructs one): an animation between two times, the
 // current time stepping by speed * 60 per second in a direction, with a loop type. It's a node of the engine's
 // intrusive lists itself (its list_link_ at +0). The original's table (0x00648768: Destroy, Reset, Update, PlayAnim
@@ -98,7 +100,7 @@ public:
     // 0x00481760: the object its timeline (a blend timeline) belongs to.
     objects::GameEntity* fetch_subject();
     // 0x00481770: the object's skeleton component (0x222756D5)'s skeleton (0x005480F0: its +0x18), or null.
-    uint8_t* fetch_rig();
+    Rig* fetch_rig();
 
     AnimTimeline* timeline_ptr_;        // +0x04 (the timeline of the blender channel it belongs to)
     objects::GameEntity* owner_object_{nullptr}; // +0x08 (set by some controllers only; fetch_subject asks the channel)

@@ -46,6 +46,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/scene_load.h"
 
 namespace objects {
 
@@ -411,14 +412,14 @@ GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sol
 uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_restart(static_cast<uint32_t>(index)); }
 // The model's geometry (0x00493040 on the model's +0x208): its matrix at +0x60, the wheels' places (z up) at +0xE0 +
 // 0x50 each.
-const uint8_t* model_geometry(ObjectModule* model)
+const render::HierarchyNode* model_geometry(ObjectModule* model)
 {
-    void* instance = core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_;
-    return cell::pointer<const uint8_t>(static_cast<render::RenderModel*>(instance)->get_asset_hierarchy());
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->get_asset_hierarchy();
 }
-const float* wheel_place(const uint8_t* geometry, int i)
+// Wheel `i`'s place: hierarchy node 2 + i's translation.
+const maths::Vec4& wheel_place(const render::HierarchyNode* geometry, int i)
 {
-    return raw::field_at<const float>(geometry, 0xE0 + i * 0x50);
+    return core::at(geometry[2 + i].matrix.row, 3);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
 void* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
@@ -669,13 +670,13 @@ void DrivableModule::seal()
 {
     input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
     mesh_instance_ = entity_->fetch_module(kModel);
-    const uint8_t* geometry = model_geometry(entity_->fetch_module(kModel));
+    const render::HierarchyNode* geometry = model_geometry(entity_->fetch_module(kModel));
     // The wheels' places from the model (z up there; always four).
     for (int i = 3; i >= 0; --i) {
-        const float* place = wheel_place(geometry, i);
-        wheels_[i].offset = {-place[0], place[2], -place[1], 1.0f};
+        const maths::Vec4& place = wheel_place(geometry, i);
+        wheels_[i].offset = {-place.x, place.z, -place.y, 1.0f};
     }
-    const maths::Mat4 bone = *raw::field_at<const maths::Mat4>(geometry, 0x60);
+    const maths::Mat4 bone = geometry[1].matrix;
     skater_bone_ = {-core::at(bone.row, 3).x, core::at(bone.row, 3).z, -core::at(bone.row, 3).y, 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).
@@ -696,9 +697,9 @@ void DrivableModule::seal()
         }
     }
     wheelbase_ = static_cast<float>(
-        std::fabs(static_cast<double>(wheel_place(geometry, left)[1]) - wheel_place(geometry, fixed)[1]));
+        std::fabs(static_cast<double>(wheel_place(geometry, left).y) - wheel_place(geometry, fixed).y));
     track_ = static_cast<float>(
-        std::fabs(static_cast<double>(wheel_place(geometry, left)[0]) - wheel_place(geometry, right)[0]));
+        std::fabs(static_cast<double>(wheel_place(geometry, left).x) - wheel_place(geometry, right).x));
     // The suspension: the wheel's place raised by its diameter; its rest extension down from there, sagged by its
     // share of the weight.
     for (int i = wheel_count_ - 1; i >= 0; --i) {

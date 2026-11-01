@@ -31,6 +31,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <utility>
 
 namespace objects {
 
@@ -52,30 +53,14 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
 
 // The renderer's skeleton (0x1C bytes; not rewritten yet): +0x00 flags, +0x08 its skeleton data (+0x04 the bone
 // count, +0x08 the bones' names), +0x10 the bone-skipping level of detail.
-bool skeleton_bone_position(uint8_t* skeleton, uint32_t bone, maths::Vec4* out)
+bool skeleton_bone_position(gfx::Rig* skeleton, uint32_t bone, maths::Vec4* out)
 {
-    return raw::as<gfx::Rig>(skeleton)->get_bone_position(bone, out);
+    return skeleton->get_bone_position(bone, out);
 }
-bool skeleton_bone_matrix(uint8_t* skeleton, uint32_t bone, maths::Mat4* out)
+bool skeleton_bone_matrix(gfx::Rig* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    return raw::as<gfx::Rig>(skeleton)->read_joint_matrix(bone, out);
+    return skeleton->read_joint_matrix(bone, out);
 }
-void change_bone_sizing(uint8_t* skeleton, uint32_t bone, const maths::Vec4* scale, bool alone)
-{
-    raw::as<gfx::Rig>(skeleton)->change_bone_sizing(bone, scale, alone);
-}
-// The skeleton data's index of the bone named `bone` (0x004A2C70), and whether bone `index` is `parent` or under it
-// (0x004A3100).
-uint32_t bone_index(uint8_t* data, uint32_t bone)
-{
-    return static_cast<uint32_t>(raw::as<gfx::RigData>(data)->fetch_slot_no(bone));
-}
-bool is_bone_under(uint8_t* data, uint32_t index, uint32_t parent)
-{
-    return raw::as<gfx::RigData>(data)->is_descendant(index, parent);
-}
-uint32_t get_bone_count(uint8_t* data) { return *raw::field_at<uint32_t>(data, 0x04); }
-uint32_t bone_name(uint8_t* data, uint32_t index) { return raw::field_at<uint32_t>(data, 0x08)[index]; }
 
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
 void* texture_named(const char* name) { return render::g_particle_texture_dict->get_texture_by_name(name); }
@@ -103,8 +88,8 @@ void BoneRigModule::publish_method_table()
 // 0x00431FE0 (0x00432790 the deleting one)
 BoneRigModule::~BoneRigModule()
 {
-    if (uint8_t* skeleton = bone_rig_) {
-        raw::as<gfx::Rig>(skeleton)->~Rig();
+    if (gfx::Rig* skeleton = bone_rig_) {
+        skeleton->~Rig();
         memory::Hub::get_pull()->dealloc(skeleton);
     }
 }
@@ -114,9 +99,7 @@ void BoneRigModule::prepare_rig(uint32_t name)
 {
     void* asset = assets::g_asset_manager->get_asset_data(name, 0);
     void* memory = memory::alloc(0x1C);
-    bone_rig_ =
-        memory ? raw::bytes(memory::construct_in<gfx::Rig>(memory, static_cast<gfx::RigData*>(asset)))
-               : nullptr;
+    bone_rig_ = memory ? memory::construct_in<gfx::Rig>(memory, static_cast<gfx::RigData*>(asset)) : nullptr;
 }
 
 // 0x00431CF0
@@ -127,9 +110,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
         auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(from));
         auto* other_skeleton = core::down_cast<BoneRigModule>(other->fetch_module(kType));
         void* memory = memory::alloc(0x1C);
-        bone_rig_ = memory ? raw::bytes(static_cast<gfx::Rig*>(memory)->construct_copy(
-                                 raw::as<const gfx::Rig>(other_skeleton->bone_rig_)))
-                           : nullptr;
+        bone_rig_ = memory ? static_cast<gfx::Rig*>(memory)->construct_copy(other_skeleton->bone_rig_) : nullptr;
         return;
     }
     // (the name is read into the parameters' own argument slot: neither given leaves the pointer's value)
@@ -139,7 +120,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
     prepare_rig(name);
     int skip = 0;
     if (params->fetch_int_value(kMaxBoneSkipLod, &skip, 0) && bone_rig_)
-        raw::as<gfx::Rig>(bone_rig_)->max_lod_ = static_cast<uint32_t>(skip);
+        bone_rig_->max_lod_ = static_cast<uint32_t>(skip);
 }
 
 // 0x00431C60
@@ -266,12 +247,13 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
 // 0x00431C00
 bool BoneRigModule::obj_set_bone_active(script::Struct* params, script::Script* /*script*/)
 {
-    auto bone = cell::of(this); // (the slot PUSH ECX made: missing, the component's address)
+    // (missing, the original's bone is the slot PUSH ECX made - the component's address, a name no bone has - and
+    // `active` the parameters' address: never 0, on)
+    uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
-    // (read into the parameters' own argument slot: missing, the pointer's value)
-    int active = static_cast<int>(cell::of(params));
+    int active = 1;
     params->fetch_int_value(0xB4E103FD, &active, 1); // active
-    raw::as<gfx::Rig>(bone_rig_)->enable_bone(bone, active != 0);
+    bone_rig_->enable_bone(bone, active != 0);
     return true;
 }
 
@@ -286,19 +268,19 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
     const bool reverse = params->has_bare_flag(0xBA05E2DE); // propagate_reverse
     const maths::Vec4 scales = {scale, scale, scale, 0.0f};
     if (!reverse) {
-        change_bone_sizing(bone_rig_, bone, &scales, !propagate);
+        bone_rig_->change_bone_sizing(bone, &scales, !propagate);
         return true;
     }
     // Every bone but this one and those under it.
-    auto* data = raw::bytes(raw::as<gfx::Rig>(bone_rig_)->payload_);
-    const uint32_t index = bone_index(data, bone);
-    for (uint32_t i = 1; i < get_bone_count(data); ++i) {
-        if (!is_bone_under(data, i, index) && i != index)
-            change_bone_sizing(bone_rig_, bone_name(data, i), &scales, true);
+    gfx::RigData* data = bone_rig_->payload_;
+    const auto index = static_cast<uint32_t>(data->fetch_slot_no(bone));
+    for (uint32_t i = 1; std::cmp_less(i, data->num_); ++i) {
+        if (!data->is_descendant(i, index) && i != index)
+            bone_rig_->change_bone_sizing(core::at(data->names_, i), &scales, true);
     }
-    *raw::as<uint32_t>(bone_rig_) |= 0x8000000;
+    bone_rig_->flag_bits_ |= 0x8000000;
     if (params->has_bare_flag(0x734AD918)) // force_update
-        raw::as<gfx::Rig>(bone_rig_)->collapse_zero_scaled_bones();
+        bone_rig_->collapse_zero_scaled_bones();
     return true;
 }
 
@@ -306,8 +288,8 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
 bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script* script)
 {
     maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    // (the bone is read into the parameters' own argument slot)
-    auto bone = cell::of(params);
+    // (missing, the original's bone is the parameters' address - a name no bone has)
+    uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     const bool found = get_bone_position(bone, &pos);
     script->args_->push_float(0x7323E97C, pos.x); // x

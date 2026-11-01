@@ -34,6 +34,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/scene_load.h"
 
 namespace objects {
 
@@ -70,9 +71,9 @@ constexpr float kRadiansPerDegree = 0.0174532924f;     // 0x00645464
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The model's skeleton description (0x00493040, no source yet).
-AutomobileDynamicsModule::BoneDesc* model_bones(void* model)
+const render::HierarchyNode* model_bones(void* model)
 {
-    return cell::pointer<AutomobileDynamicsModule::BoneDesc>(static_cast<render::RenderModel*>(model)->get_asset_hierarchy());
+    return static_cast<render::RenderModel*>(model)->get_asset_hierarchy();
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
 maths::Mat4* rig_matrix_block(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->matrix_array_; }
@@ -133,7 +134,7 @@ void AutomobileDynamicsModule::seal()
         return;
     mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance_;
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_;
-    const BoneDesc* bones = model_bones(mesh_instance_);
+    const render::HierarchyNode* bones = model_bones(mesh_instance_);
     maths::Mat4 a = bones[2].matrix;
     matrix_multiply(&a, &a, &bones[0].matrix);
     maths::Mat4 b = bones[4].matrix;
@@ -220,17 +221,17 @@ void AutomobileDynamicsModule::update_angles()
 // 0x0041BF00
 void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer)
 {
-    const BoneDesc* bones = model_bones(model);
+    const render::HierarchyNode* bones = model_bones(model);
     maths::Mat4* matrices = rig_matrix_block(skeleton);
     const float tilt_radians = tilt * kRadiansPerDegree;
     const float steer_radians = steer * kRadiansPerDegree;
     const float spin_radians = spin * kRadiansPerDegree;
     for (int i = 0; i < skeleton_bone_count(skeleton); ++i) {
-        const BoneDesc& bone = bones[i];
-        maths::Mat4* matrix = &matrices[bone.index];
+        const render::HierarchyNode& bone = bones[i];
+        maths::Mat4* matrix = &matrices[static_cast<int8_t>(bone.bone_slot_)];
         *matrix = bone.matrix;
         maths::Mat4 rotation{};
-        switch (bone.name) {
+        switch (bone.checksum) {
         case kWheelA:
         case kWheelB:
         case kWheelC:
@@ -249,7 +250,7 @@ void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, flo
             break;
         }
         if (i != 0)
-            matrix_multiply(matrix, matrix, &matrices[bone.parent]);
+            matrix_multiply(matrix, matrix, &matrices[static_cast<int16_t>(bone.parent_index_)]);
     }
 }
 

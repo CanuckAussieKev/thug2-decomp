@@ -17,6 +17,10 @@ class ViewCam;
 // 0x0048BF10-0x0048C860 are jumps to these, and most of these pass straight on into the PC engine.
 namespace render {
 
+struct PcScene;
+struct WorldScene;
+class TextureSet;
+
 class WeatherSystem;
 class ScreenEffects;
 class RenderModel;
@@ -59,9 +63,9 @@ void start_engine();
 void finish_rendering();
 // 0x004B28C0: a new PC scene (0x284 bytes; its mesh list at +0x280); `with_super_sectors` kept at +0x8C. The name and
 // textures aren't used here.
-void* make_empty_scene(const char* name, void* textures, bool with_super_sectors);
+PcScene* make_empty_scene(const char* name, TextureSet* textures, bool with_super_sectors);
 // 0x004B2990: a scene's sectors let go (0x004C6200) and its mesh list deleted. Always true.
-bool unload_scene(void* scene);
+bool unload_scene(WorldScene* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
 gsl::owner<RenderModel*> spawn_model();

@@ -18,6 +18,7 @@
 #include "engine/gfx/scene_file_stream.h"
 #include "formats/scene_format.h"
 #include "engine/core/raw_view.h"
+#include "engine/gfx/pc_scene.h"
 
 namespace render {
 
@@ -89,7 +90,7 @@ PcMesh::~PcMesh()
     if (breaks)
         memory::Hub::get_pull()->dealloc(breaks);
     if (scene)
-        engine::unload_scene(raw::as<WorldScene>(scene), 1); // (the engine's UnloadScene)
+        engine::unload_scene(scene, 1); // (the engine's UnloadScene)
 }
 
 // 0x004B7B50
@@ -119,11 +120,11 @@ void PcMesh::load_skin(const uint8_t* data, size_t size)
 }
 
 // 0x004B7ED0
-void PcMesh::choose_scene(uint8_t* new_scene)
+void PcMesh::choose_scene(PcScene* new_scene)
 {
     scene = new_scene;
-    auto* list = *raw::field_at<SceneRef*>(new_scene, 0x280);
-    hierarchy_ = list->extra;
+    const SceneRef* list = new_scene->meshes;
+    hierarchy_ = list->hierarchy;
     hierarchy_count_ = list->unknown78;
 }
 

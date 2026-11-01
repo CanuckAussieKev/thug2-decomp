@@ -41,6 +41,8 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/scene_load.h"
+#include "engine/gfx/rig.h"
 
 namespace objects {
 
@@ -157,12 +159,11 @@ int get_bone_count(uint8_t* model)
 {
     return static_cast<int>(raw::as<render::RenderModel>(model)->get_asset_bone_count());
 }
-uint8_t* hierarchy_of(uint8_t* model)
+const render::HierarchyNode* hierarchy_of(uint8_t* model)
 {
-    return cell::pointer<uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
+    return raw::as<render::RenderModel>(model)->get_asset_hierarchy();
 }
-uint8_t* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
-maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *raw::field_at<maths::Mat4*>(skeleton, 0x04); }
+gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 
 uint32_t g_no_skeleton_counter{10};
 int g_repeat_count;
@@ -348,12 +349,12 @@ void PreviewEntity::spin_wheels()
     if (!model)
         return;
     uint8_t* nx_model = model_of(model);
-    const uint8_t* hierarchy = hierarchy_of(nx_model);
+    const render::HierarchyNode* hierarchy = hierarchy_of(nx_model);
     if (!fetch_module(kSkeleton)) {
         no_skeleton_counter() = (no_skeleton_counter() + 1) & 0x1F;
         return;
     }
-    uint8_t* skeleton = skeleton_of(fetch_module(kSkeleton));
+    const gfx::Rig* skeleton = skeleton_of(fetch_module(kSkeleton));
     // The angle kept in double precision through the wrap (the original's x87 register), stored as a float each time.
     double angle = static_cast<double>(script::fetch_float(kMaxWheelSpeed)) * speed_ + wheel_angle();
     wheel_angle() = static_cast<float>(angle);
@@ -372,9 +373,9 @@ void PreviewEntity::spin_wheels()
     if (get_bone_count(nx_model) <= 5)
         return;
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
-    maths::Mat4* bones = skeleton_palette(skeleton);
+    maths::Mat4* bones = skeleton->matrix_array_;
     for (int i = 0; i < get_bone_count(nx_model); ++i)
-        bones[i] = *raw::field_at<const maths::Mat4>(hierarchy, 0x10 + i * 0x50);
+        bones[i] = hierarchy[i].matrix;
     for (int wheel = 2; wheel < 6; ++wheel) {
         maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);

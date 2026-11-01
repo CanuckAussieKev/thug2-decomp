@@ -29,15 +29,6 @@ public:
     AutomobileDynamicsModule& operator=(const AutomobileDynamicsModule&) = delete;
     static constexpr uint32_t kType = 0xC695136D;
 
-    // A bone of the model's skeleton description (0x50 bytes each; the model's 0x00493040).
-    struct BoneDesc {
-        uint32_t name; // +0x00
-        std::array<uint8_t, 4> unknown04;
-        int16_t parent; // +0x08 (the matrix it is relative to)
-        int8_t index;   // +0x0A (its matrix in the skeleton)
-        std::array<uint8_t, 5> unknown0b_;
-        maths::Mat4 matrix; // +0x10 (relative to its parent)
-    };
 
     // 0x0041BD90 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined; 0
     // if out of memory).
@@ -105,11 +96,6 @@ static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
                   offsetof(AutomobileDynamicsModule, tilt_divisor_) == 0x40 &&
                   offsetof(AutomobileDynamicsModule, body_shown_) == 0x44 &&
                   offsetof(AutomobileDynamicsModule, suspend_) == 0x54 && sizeof(AutomobileDynamicsModule) == 0x58,
-              "layout must match the original");
-static_assert(offsetof(AutomobileDynamicsModule::BoneDesc, parent) == 0x08 &&
-                  offsetof(AutomobileDynamicsModule::BoneDesc, index) == 0x0A &&
-                  offsetof(AutomobileDynamicsModule::BoneDesc, matrix) == 0x10 &&
-                  sizeof(AutomobileDynamicsModule::BoneDesc) == 0x50,
               "layout must match the original");
 
 } // namespace objects

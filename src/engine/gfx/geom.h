@@ -17,6 +17,8 @@ namespace render {
 
 struct MeshRef;
 struct SceneRef;
+struct PcScene;
+class PcMesh;
 
 // An instance (0x64 bytes, constructor 0x004D1030): a mesh list drawn with a transform of its own and bone matrices,
 // on the instances' list (0x007825C0).
@@ -29,7 +31,7 @@ struct Singleton {
     bool active{true};     // +0x4C
     std::array<uint8_t, 4> color{};    // +0x4D: RGBA (0x80 each: unchanged)
     std::array<uint8_t, 3> pad51{};
-    void* model{nullptr}; // +0x54
+    RenderModel* model{nullptr}; // +0x54
     SceneRef* scene;    // +0x58: its mesh list (the bounding sphere at +0x64)
     Singleton* next;    // +0x5C
     uint32_t viewports; // +0x60: a bit per viewport it shows in (all: -1)
@@ -96,12 +98,12 @@ public:
     // 0x004B58C0 (vtable slot 2): a copy - its meshes cloned (sharing buffers with `share`, the low byte of
     // `instance`), else, without `share`, into `scene`'s mesh list instead of these ones, which stay; with `share` an
     // instance of its own over a new mesh list.
-    Geom* plat_replicate(int instance, void* scene) override;
+    Geom* plat_replicate(int instance, WorldScene* scene) override;
     // 0x004B5B80 (slot 1): a copy of an instance - its own scene and mesh list, the meshes cloned (sharing with the
     // low byte of `instance`), a new instance with bones for each of `model`'s (+8).
-    Geom* clone_instance(int instance, void* model) override;
+    Geom* clone_instance(int instance, RenderModel* model) override;
     // 0x004B54B0 (slot 3): made an instance of `mesh` for `model` (its bones: +8 the count, +0xC the matrices).
-    bool plat_init_instance(void* mesh, void* model, int unused) override;
+    bool plat_init_instance(SubMesh* mesh, RenderModel* model, int unused) override;
     // 0x004B45F0 (slot 4): the degenerate runs in the instance meshes' strips shortened (0x004D57D0).
     void clean_instance_strips() override;
     // 0x004B48B0 (vtable slot 6): a colour (RGBA); 0x80/0x81, 0x80, 0x80: none (wipe_tint).
@@ -180,7 +182,7 @@ public:
     void reset_texture_anims() override;
 
     maths::BBox bounds;           // +0x14 (as loaded)
-    uint8_t* scene{};             // +0x34: the PC scene it's in
+    PcScene* scene{};             // +0x34: the PC scene it's in
     memory::ListNode* load_list_{nullptr}; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
     MeshRef** meshes{nullptr};             // +0x3C
     uint32_t mesh_count_{};       // +0x40
@@ -188,7 +190,7 @@ public:
     bool active{true};               // +0x48
     std::array<uint8_t, 3> pad49{};
     Singleton* instance{nullptr}; // +0x4C: an instance's (null for a sector's geometry)
-    uint8_t* source{};   // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
+    PcMesh* source{};    // +0x50: the mesh it's an instance of (its strip breaks)
     maths::Vec4 scale{}; // +0x54
 };
 static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 && offsetof(PcGeom, meshes) == 0x3C &&

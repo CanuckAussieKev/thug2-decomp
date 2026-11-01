@@ -33,6 +33,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_mesh.h"
 
 namespace render {
 
@@ -77,29 +78,25 @@ ModelGeom* new_entry(bool default_heap)
     return static_cast<ModelGeom*>(memory::Hub::get_pull()->carve(sizeof(ModelGeom), g_alloc_assert_flag, nullptr));
 }
 
-// A scene's texture dictionary (its +4).
-uint8_t* textures_of(uint8_t* scene) { return *raw::field_at<uint8_t*>(scene, 4); }
-
-// A geom's own scene deleted with its textures.
-void delete_own_scene(uint8_t* scene)
+// A geom's own mesh deleted with its textures.
+void delete_own_scene(PcMesh* mesh)
 {
-    uint8_t* textures = textures_of(scene);
-    discard_scene(scene);
+    TextureSet* textures = mesh->textures_;
+    discard_mesh(mesh);
     unload_textures(textures);
 }
 
 // The engine (not rewritten yet): a model file's textures (0x0049F180) and scene (0x0048C3D0) loaded; bone volumes
 // let go (0x0048B400); a line tested against bone volumes (0x0048B580) and a bone's volume (0x0048BC40); a skeleton
 // drawn (0x004A31E0).
-void* load_textures(const char* file_name, int tex_dict_offset, bool force_tex_dict)
+TextureSet* load_textures(const char* file_name, int tex_dict_offset, bool force_tex_dict)
 {
     return load_model_textures(file_name, tex_dict_offset, force_tex_dict);
 }
-uint8_t* load_scene(const char* file_name, void* textures, int tex_dict_offset, bool shadow_volume)
+PcMesh* load_scene(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume)
 {
-    return static_cast<uint8_t*>(engine::load_model_file(file_name, textures, tex_dict_offset, shadow_volume));
+    return engine::load_model_file(file_name, textures, tex_dict_offset, shadow_volume);
 }
-void release_bone_volumes(void* volumes) { gfx::release_bone_volumes(cell::of(volumes)); }
 
 // The texture dictionary (0x00700F1C): a texture by checksum (0x0049F540), one taken out (0x0049F500), a texture
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
@@ -168,8 +165,8 @@ RenderModel::~RenderModel()
     if (lights_ptr_)
         discard_lights(lights_ptr_);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
-        if (uint8_t* volumes = table_row(node)->bone_volumes_)
-            release_bone_volumes(*raw::field_at<void*>(volumes, 4));
+        if (const gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_)
+            gfx::release_bone_volumes(volumes->num_); // (the table keeps them by their bone count)
     }
     drop_geoms();
     erase_geoms(this, get_first(this), geoms_);
@@ -224,7 +221,7 @@ void RenderModel::detach_geom(uint32_t name)
 bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multicolor, bool default_heap)
 {
     flag_bits_ &= ~kModelSphereValid;
-    auto* scene = static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(asset_name, 0));
+    auto* scene = static_cast<PcMesh*>(assets::asset_manager()->get_asset_data(asset_name, 0));
     ModelGeom* entry = new_entry(default_heap);
     if (!default_heap && !entry)
         return false;
@@ -235,7 +232,7 @@ bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multic
     if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
     load_geom(entry->geom, scene, this, multicolor);
-    entry->textures = textures_of(scene);
+    entry->textures = scene->textures_;
     set_geom_shadow(entry->geom, (flag_bits_ >> 4) & 1);
     entry->name = name;
     visible_geoms_ |= geom_bit(geom_total_);
@@ -260,7 +257,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     ModelGeom* entry = new_entry(default_heap);
     if (!default_heap && !entry)
         return false;
-    uint8_t* scene = nullptr;
+    PcMesh* scene = nullptr;
     if (via_resource_store) {
         // The textures first ("<file without its .skin / .mdl>.tex"), then the file itself: the texture
         // dictionary's parameters (only these fields set - the rest as the stack left it in the original).
@@ -289,9 +286,9 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         skin_params.flag0 = (flag_bits_ >> 5) & 1;
         skin_params.value = tex_dict_offset;
         if (by_name)
-            scene = static_cast<uint8_t*>(assets->get_asset_data_by_name(file_name, 1));
+            scene = static_cast<PcMesh*>(assets->get_asset_data_by_name(file_name, 1));
         else
-            scene = static_cast<uint8_t*>(
+            scene = static_cast<PcMesh*>(
                 assets->fetch_or_load_resource(file_name, 0, 0, checksums::hash_from_text(tex_name.data()), false, false,
                                                assets->get_permanent_by_default(), &skin_params, 0));
         entry->asset_name_ = checksums::hash_from_text(file_name);
@@ -299,7 +296,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         entry->scene = nullptr;
     } else {
         memory::push_mem_profile(file_name);
-        void* textures = load_textures(file_name, tex_dict_offset, force_tex_dict);
+        TextureSet* textures = load_textures(file_name, tex_dict_offset, force_tex_dict);
         scene = load_scene(file_name, textures, tex_dict_offset, (flag_bits_ >> 5) & 1);
         memory::pop_mem_profile();
         entry->scene = scene;
@@ -310,7 +307,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
     load_geom(entry->geom, scene, this, multicolor);
-    entry->textures = textures_of(scene);
+    entry->textures = scene->textures_;
     set_geom_shadow(entry->geom, (flag_bits_ >> 4) & 1);
     entry->name = name;
     visible_geoms_ |= geom_bit(geom_total_);
@@ -353,7 +350,7 @@ bool RenderModel::add_geom(void* geom, uint32_t name, bool default_heap)
 }
 
 // 0x00493090
-bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
+bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
 {
     const bool normal = display_mode_ == 0;
     int index = 0;
@@ -378,7 +375,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
             for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
                 set_geom_bone_matrices(get_geom(node), matrix, nullptr, 0, 0, 0);
         } else {
-            uint8_t* bones = skeleton_bones(skeleton);
+            const maths::Mat4* bones = skeleton_bones(skeleton);
             const int count = skeleton_bone_count(skeleton);
             const int flag = get_bone_flag(count);
             int geom = 0;
@@ -389,8 +386,8 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
     case 1:
         if (skeleton)
             // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
-            raw::as<gfx::Rig>(skeleton)->blit(matrix, std::bit_cast<uint32_t>(0.5f),
-                                                        std::bit_cast<uint32_t>(0.5f), std::bit_cast<int>(1.0f));
+            skeleton->blit(matrix, std::bit_cast<uint32_t>(0.5f), std::bit_cast<uint32_t>(0.5f),
+                           std::bit_cast<int>(1.0f));
         break;
     case 2:
     case 3:
@@ -419,11 +416,11 @@ int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t 
     float nearest = 0.01f;
     uint32_t extra = e; // (the original's argument slot: each test's extra result lands there, kept between geoms)
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
-        uint8_t* volumes = table_row(node)->bone_volumes_;
+        gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
         float distance = nearest;
-        const int result = static_cast<int>(raw::as<gfx::BoneVolumes>(volumes)->segment_hits_bone(
+        const int result = static_cast<int>(volumes->segment_hits_bone(
             cell::pointer<const maths::Seg>(a), cell::pointer<gfx::Rig>(b),
             cell::pointer<const maths::Mat4>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
             raw::as<float>(&extra)));
@@ -442,11 +439,11 @@ int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t 
 float RenderModel::get_bone_volume(uint32_t a, uint32_t b, uint32_t bone)
 {
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
-        uint8_t* volumes = table_row(node)->bone_volumes_;
+        gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
         float value = 0.0f;
-        if (raw::as<gfx::BoneVolumes>(volumes)->get_bone_volume(
+        if (volumes->get_bone_volume(
                 cell::pointer<gfx::Rig>(a), cell::pointer<const maths::Mat4>(b), bone, &value))
             return value;
     }

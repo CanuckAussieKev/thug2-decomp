@@ -88,8 +88,8 @@ void* scene_collision(void* scene) { return static_cast<render::WorldScene*>(sce
 void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unload_collision(); }
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
 bool split_skin_name(const char* name, char* base) { return render::engine::split_skin_name(name, base); }
-void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, uint32_t cas_size, void* textures,
-                         int value, uint8_t has_cas, uint8_t flag)
+void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, uint32_t cas_size,
+                         render::TextureSet* textures, int value, uint8_t has_cas, uint8_t flag)
 {
     return render::engine::load_model_from_memory(checksum, static_cast<const uint8_t*>(buffer), static_cast<int>(size),
                                                   cas, cas_size, textures, value, has_cas, flag);
@@ -764,7 +764,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
 // 0x00409C70
 bool SkinResource::finish_loading(void* buffer, uint32_t size)
 {
-    void* textures = group_data(this);
+    auto* textures = static_cast<render::TextureSet*>(group_data(this));
     const SkinParams* p = args_;
     change_contents(
         make_skinned_model(checksum_, buffer, size, p->cas_data_, p->cas_size_, textures, p->value, p->has_cas_,

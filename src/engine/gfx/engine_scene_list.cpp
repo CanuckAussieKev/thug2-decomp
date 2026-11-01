@@ -25,6 +25,7 @@
 #include "platform/code_address.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/gfx/pc_scene.h"
 
 namespace render {
 
@@ -263,10 +264,9 @@ WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_s
     std::array<char, 0x80> file{};
     build_scene_file_path(file.data(), sizeof(file), name);
     memory::push_mem_profile(file.data());
-    std::array<uint32_t, 4> vertex_arena = {{0, 0, 0, 0}};
-    void* arena = g_stream_offset_supported ? vertex_arena.data() : nullptr;
-    auto* scene = static_cast<WorldScene*>(
-        load_scene_from_file(file.data(), textures, with_super_sectors, is_sky, mesh_flag, static_cast<int>(cell::of(arena))));
+    VertexArena vertex_arena{};
+    VertexArena* arena = g_stream_offset_supported ? &vertex_arena : nullptr;
+    WorldScene* scene = load_scene_from_file(file.data(), textures, with_super_sectors, is_sky, mesh_flag, arena);
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);
     return scene;
@@ -277,8 +277,7 @@ WorldScene* load_named_scene_from_memory(const char* name, const uint8_t* data, 
                                          bool with_super_sectors, bool is_sky, bool mesh_flag, int unused)
 {
     memory::push_mem_profile("Scene Processing");
-    auto* scene = static_cast<WorldScene*>(
-        render::load_scene_from_memory(data, size, textures, with_super_sectors, is_sky, mesh_flag));
+    WorldScene* scene = render::load_scene_from_memory(data, size, textures, with_super_sectors, is_sky, mesh_flag);
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, nullptr, unused);
     return scene;

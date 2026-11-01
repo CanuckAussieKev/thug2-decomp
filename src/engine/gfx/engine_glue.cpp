@@ -42,6 +42,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/down_cast.h"
 
 namespace render {
 
@@ -208,24 +209,24 @@ void finish_rendering()
 }
 
 // 0x004B28C0
-void* make_empty_scene(const char* /*name*/, void* /*textures*/, bool with_super_sectors)
+PcScene* make_empty_scene(const char* /*name*/, TextureSet* /*textures*/, bool with_super_sectors)
 {
-    auto* scene = raw::bytes(new PcScene(10));
+    auto* scene = new PcScene(10);
     // (no check: a failed allocation writes through null, as the original)
-    scene[0x8C] = with_super_sectors;
-    scene[0x8D] = 0;
+    scene->builds_collision_grid_ = with_super_sectors;
+    scene->is_sky_ = false;
     void* memory = memory::alloc(sizeof(SceneRef));
-    *raw::field_at<SceneRef*>(scene, 0x280) = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
+    scene->meshes = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
     return scene;
 }
 
 // 0x004B2990
-bool unload_scene(void* scene)
+bool unload_scene(WorldScene* world_scene)
 {
-    auto* bytes = static_cast<uint8_t*>(scene);
-    static_cast<PcScene*>(scene)->unload_sectors();
-    discard_scene(*raw::field_at<SceneRef*>(bytes, 0x280));
-    *raw::field_at<SceneRef*>(bytes, 0x280) = nullptr;
+    auto* scene = core::down_cast<PcScene>(world_scene);
+    scene->unload_sectors();
+    discard_scene(scene->meshes);
+    scene->meshes = nullptr;
     return true;
 }
 
