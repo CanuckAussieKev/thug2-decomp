@@ -169,7 +169,7 @@ void __cdecl Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
             if (info->add_at_frame_ > manager->client_app_->frame_count_)
                 break; // (its time hasn't come: the rest wait too)
             manager->add_new_player(info);
-            info->destroy_body(); // (its destructor)
+            info->~JoinerRecord(); // (its destructor)
             memory::Hub::get_pull()->dealloc(info);
             memory::ListNode::destroy(node); // (its node: 0x005367E0)
             added = true;
@@ -417,7 +417,7 @@ void __cdecl Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             }
             send_word(server, desc, player, kMsgReadyQuery, &now);
             player->await_ready_response(now);
-            info->destroy_body(); // (its destructor)
+            info->~JoinerRecord(); // (its destructor)
             memory::Hub::get_pull()->dealloc(info);
             memory::ListNode::destroy(node); // (its node: 0x005367E0)
             node = next;

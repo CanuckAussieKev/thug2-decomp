@@ -91,7 +91,9 @@ struct TrickObjectCluster {
     explicit TrickObjectCluster(uint32_t name);
     // 0x00588C30: the destructor's body - each object deleted (the first one each time), the list emptied, the head
     // and the cluster's own node out of their lists.
-    void destroy_body();
+    ~TrickObjectCluster();
+    TrickObjectCluster(const TrickObjectCluster&) = delete;
+    TrickObjectCluster& operator=(const TrickObjectCluster&) = delete;
     // 0x00588D20: every object given graffiti colour `index`; in a created park (the level loaded by
     // load_sk5ed_gameplay) the rail editor's rail of the cluster's name too (0x004F4950). True.
     bool set_graffiti_color(int index);

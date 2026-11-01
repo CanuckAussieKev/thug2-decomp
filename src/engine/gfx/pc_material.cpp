@@ -243,7 +243,7 @@ MaterialRef::MaterialRef()
 }
 
 // 0x004D2BD0
-void MaterialRef::destroy_body()
+MaterialRef::~MaterialRef()
 {
     memory::Hub* heap = memory::Hub::get_pull();
     if (color_anims_) {

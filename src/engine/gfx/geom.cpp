@@ -122,7 +122,7 @@ PcGeom::~PcGeom()
 {
     free_mesh_table();
     if (Singleton* inst = instance) {
-        inst->destroy_body();
+        inst->~Singleton();
         memory::Hub::get_pull()->dealloc(inst);
         instance = nullptr;
     }
@@ -191,7 +191,7 @@ void PcGeom::free_mesh_table()
     }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         if (MeshRef* mesh = meshes[i]) {
-            mesh->destroy_body(); // (the destructor's body)
+            mesh->~MeshRef(); // (the destructor's body)
             memory::Hub::get_pull()->dealloc(mesh);
         }
     }

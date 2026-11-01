@@ -209,7 +209,7 @@ HostListing::HostListing()
 }
 
 // 0x00546640
-void HostListing::destroy_body()
+HostListing::~HostListing()
 {
     clear_players();
     unlink_node(&participants_);
@@ -219,7 +219,7 @@ void HostListing::destroy_body()
 // 0x00547F70
 HostListing* HostListing::teardown(unsigned int flags)
 {
-    destroy_body();
+    this->~HostListing();
     if (flags & 1)
         ram_stats()->dealloc(this);
     return this;

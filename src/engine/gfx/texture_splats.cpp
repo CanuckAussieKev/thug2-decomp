@@ -114,7 +114,7 @@ void __cdecl kill_all_texture_splats()
     TextureSplats* splats = first_splats(get_splats());
     while (splats) {
         if (MaterialRef* material = splats->material) {
-            material->destroy_body(); // (the destructor's body)
+            material->~MaterialRef(); // (the destructor's body)
             memory::Hub::get_pull()->dealloc(material);
         }
         TextureSplats* next = next_splats(get_splats());
@@ -626,7 +626,7 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
                     splats->alive[slot] = 0;
                     collapse_splat_triangle(splats, slot);
                 }
-                reinterpret_cast<MeshRef*>(format)->destroy_body(); // (the format mesh's destructor body)
+                reinterpret_cast<MeshRef*>(format)->~MeshRef(); // (the format mesh's destructor body)
                 memory::Hub::get_pull()->dealloc(format);
                 memory::Hub::get_pull()->dealloc(pieces);
             }

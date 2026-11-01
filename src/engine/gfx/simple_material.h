@@ -17,7 +17,9 @@ struct SimpleMaterial {
     SimpleMaterial(uint32_t unused0, uint32_t unused1, uint32_t texture_checksum, uint32_t blend_checksum,
                              int fixed_alpha, uint32_t unused5, uint32_t unused6);
     // 0x004D9CD0: the destructor's body: the material destroyed and freed.
-    void destroy_body();
+    ~SimpleMaterial();
+    SimpleMaterial(const SimpleMaterial&) = delete;
+    SimpleMaterial& operator=(const SimpleMaterial&) = delete;
 };
 
 // 0x004D9CF0: a blend mode's number from its name's checksum: diffuse / none 0, add 1, fixadd 2, subtract / sub 3,

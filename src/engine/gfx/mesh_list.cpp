@@ -49,7 +49,7 @@ void set_vertex_buffer(MeshRef* mesh, int index, void* buffer)
 }
 void release_vertex_buffer(void* buffer) { static_cast<VertexBuffer*>(buffer)->teardown(); }
 // A material's destructor body (not rewritten yet; thiscall).
-void destroy_material(void* material) { static_cast<MaterialRef*>(material)->destroy_body(); }
+void destroy_material(void* material) { static_cast<MaterialRef*>(material)->~MaterialRef(); }
 
 // the rebuilt strip (0x1800 bytes: nothing of the original's refers to the bytes up to 0x007CC244)
 uint16_t g_index_scratch[3072];

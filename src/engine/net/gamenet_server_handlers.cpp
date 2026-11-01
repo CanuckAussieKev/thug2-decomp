@@ -355,7 +355,7 @@ int __cdecl on_peer_left_msg(net::InboundMsgCtx* context)
         if (info->conn_ == context->sender_conn_) {
             context->receiver_app_->sever_link(info->conn_);
             memory::ListNode::destroy(node); // the node deleted
-            info->destroy_body();
+            info->~JoinerRecord();
             memory::Hub::get_pull()->dealloc(info);
             return kKeep;
         }

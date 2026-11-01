@@ -62,7 +62,7 @@ PcShatter::~PcShatter()
 {
     memory::Hub::get_pull()->dealloc(vertices);
     if (uint8_t* own = material) {
-        reinterpret_cast<MaterialRef*>(own)->destroy_body(); // (the material's destructor body)
+        reinterpret_cast<MaterialRef*>(own)->~MaterialRef(); // (the material's destructor body)
         memory::Hub::get_pull()->dealloc(own);
     }
     if (positions)

@@ -143,7 +143,7 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
 }
 
 // 0x004D10C0
-void Singleton::destroy_body()
+Singleton::~Singleton()
 {
     if (flags & 1) {
         if (SceneRef* list = scene) {

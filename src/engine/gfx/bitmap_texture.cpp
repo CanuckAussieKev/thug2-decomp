@@ -121,7 +121,7 @@ void TextureRef::unlist()
 }
 
 // 0x004E06A0
-void TextureRef::destroy_body()
+TextureRef::~TextureRef()
 {
     unlist();
     if (surface)

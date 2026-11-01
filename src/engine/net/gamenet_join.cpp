@@ -798,7 +798,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         memory::Hub::get_pull()->dealloc(buffer);
         player->flag_bits_ = kPlayerLocal;
         late_player_arrival(manager, player, 0);
-        player->destroy_body();
+        player->~JoinerRecord();
         memory::Hub::get_pull()->dealloc(player);
         // On the internet the host checks its own CD key too: an answer nobody reads (no instance). NOT ORIGINAL:
         // not in the THUGPRO peer mode (TP-R12).
@@ -823,7 +823,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         player->account_->decode_from_bytes(appearance, sizeof(appearance));
     }
     late_player_arrival(manager, player, kDeferredJoinFrames);
-    player->destroy_body();
+    player->~JoinerRecord();
     memory::Hub::get_pull()->dealloc(player);
     // Busy until it's in: no game messages meanwhile.
     context->sender_conn_->cur_standing_ = (context->sender_conn_->cur_standing_ & ~Conn::kConnReady) | Conn::kStatus2;

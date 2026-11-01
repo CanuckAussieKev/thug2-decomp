@@ -97,10 +97,10 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
 }
 
 // 0x004D9CD0
-void SimpleMaterial::destroy_body()
+SimpleMaterial::~SimpleMaterial()
 {
     if (MaterialRef* m = material) {
-        m->destroy_body();
+        m->~MaterialRef();
         memory::Hub::sole()->dealloc(m);
     }
 }

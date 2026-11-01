@@ -72,7 +72,7 @@ void RiderIdentity::set_appearance(script::Struct* appearance, bool update)
     reinterpret_cast<gfx::ModelLook*>(this)->read_in(appearance, update);
 }
 // 0x00543010
-void RiderIdentity::destroy_body()
+RiderIdentity::~RiderIdentity()
 {
     details_params()->get_clear();
     appearance()->~ModelLook();

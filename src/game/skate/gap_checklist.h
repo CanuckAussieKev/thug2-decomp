@@ -46,7 +46,9 @@ public:
     // 0x00579690: no gaps, not built.
     GapTally();
     // 0x00585520: the destructor body (its list head unlinked, as a lists::Elem<GapEntry>; the gaps aren't freed).
-    void destroy_body();
+    ~GapTally();
+    GapTally(const GapTally&) = delete;
+    GapTally& operator=(const GapTally&) = delete;
 
     // 0x00578840: every gap deleted, not built.
     void get_clear();

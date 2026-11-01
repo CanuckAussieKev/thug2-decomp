@@ -287,7 +287,7 @@ PointTally::PointTally()
 }
 
 // 0x00564B80
-void PointTally::destroy_body()
+PointTally::~PointTally()
 {
     get_reset();
     memory::free_malloc(log_.items_);

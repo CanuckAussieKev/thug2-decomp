@@ -55,7 +55,7 @@ void start_movie(VideoEntry* movie) { movie->kickoff(); }
 
 // The timeline's code: constructor / destructor body, complete, PlayAnim (slot 3), Update (slot 2).
 void construct_timeline(AnimTimeline* t) { new (t) AnimTimeline; }
-void destroy_timeline(AnimTimeline* t) { t->destroy_body(); }
+void destroy_timeline(AnimTimeline* t) { t->~AnimTimeline(); }
 bool is_accomplished(AnimTimeline* t) { return t->is_accomplished(); }
 void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
 {

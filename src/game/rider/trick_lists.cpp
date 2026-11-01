@@ -40,7 +40,7 @@ TrickListEntry::TrickListEntry()
 }
 
 // 0x00579570
-void TrickListEntry::destroy_body()
+TrickListEntry::~TrickListEntry()
 {
     if (element_list_)
         script::release_array_storage(element_list_);
@@ -54,7 +54,7 @@ void TrickListEntry::destroy_body()
 // 0x00579820
 TrickListEntry* TrickListEntry::teardown(unsigned int flags)
 {
-    destroy_body();
+    this->~TrickListEntry();
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;

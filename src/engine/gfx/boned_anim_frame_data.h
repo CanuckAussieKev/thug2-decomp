@@ -135,7 +135,9 @@ public:
     // 0x00482AF0: empty.
     JointClipFrames();
     // 0x00482B30: its events deleted and their array freed; out of the frame cache (0x006F92B0) if it's in it.
-    void destroy_body();
+    ~JointClipFrames();
+    JointClipFrames(const JointClipFrames&) = delete;
+    JointClipFrames& operator=(const JointClipFrames&) = delete;
     // 0x00482BA0: one more reference, and its index in the frame cache (-1: none).
     int acquire_cache_index();
     // 0x00482BD0: with a reference, one less, and the cache told the index is let go.

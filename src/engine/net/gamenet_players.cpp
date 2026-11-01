@@ -422,8 +422,7 @@ void Hub::re_add_pending_players()
             info.account_->copy_from(player->account_); // its appearance
             memory::Hub::get_pull()->leave_heap_scope();
             remove_player_record(player);
-            add_joining_player(&info, frames); // (added back in `frames` frames, 10 apart)
-            info.destroy_body();
+            add_joining_player(&info, frames); // (added back in `frames` frames, 10 apart; then its destructor)
         }
         player = next;
     }

@@ -56,7 +56,7 @@ void delete_conn(Conn* conn)
 // PendingMsg's destructor (frees the data)
 void delete_msg(void* msg)
 {
-    static_cast<PendingMsg*>(msg)->destroy_body();
+    static_cast<PendingMsg*>(msg)->~PendingMsg();
     dealloc(msg);
 }
 

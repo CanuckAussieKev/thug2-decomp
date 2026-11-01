@@ -64,7 +64,7 @@ uint8_t* scene_of(void* scene) { return static_cast<uint8_t*>(scene); }
 
 } // namespace
 
-void ParkAssembler::destroy_body()
+ParkAssembler::~ParkAssembler()
 {
     if (scene_handle_)
         scene_handle_ = nullptr;

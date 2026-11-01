@@ -68,7 +68,9 @@ struct VaultCategory {
     // 0x0054B670: unlinked, no items, not skipped.
     VaultCategory();
     // 0x0054C890 (destructor body): the items deleted, the head and the node unlinked.
-    void destroy_body();
+    ~VaultCategory();
+    VaultCategory(const VaultCategory&) = delete;
+    VaultCategory& operator=(const VaultCategory&) = delete;
     // 0x0054C980 (scalar deleting)
     VaultCategory* teardown(unsigned int flags);
 };

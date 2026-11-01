@@ -64,7 +64,9 @@ struct JoinerRecord {
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left).
     JoinerRecord();
     // 0x00543560: the destructor: its profile destroyed and freed.
-    void destroy_body();
+    ~JoinerRecord();
+    JoinerRecord(const JoinerRecord&) = delete;
+    JoinerRecord& operator=(const JoinerRecord&) = delete;
 };
 
 // What the server last sent a player about each of the 8 skaters (by object id) - the player's +0x50 (SkateNet's
@@ -97,7 +99,9 @@ public:
     explicit PlayerRecord(uint32_t flags);
     // 0x00543810: the destructor: its profile (destroyed and freed), the observer task (deleted),
     // the face texture message (freed); then the node's (out of its list).
-    void destroy_body();
+    ~PlayerRecord();
+    PlayerRecord(const PlayerRecord&) = delete;
+    PlayerRecord& operator=(const PlayerRecord&) = delete;
     // 0x00544750: the scalar deleting destructor.
     PlayerRecord* teardown(unsigned int flags);
 

@@ -102,7 +102,7 @@ PcPrimitive::~PcPrimitive()
 {
     if (owns_vertices_ == 1 && vertices_)
         memory::Hub::get_pull()->dealloc(vertices_);
-    material_.destroy_body();
+    // (then material_'s destructor)
 }
 
 // 0x004C5A90

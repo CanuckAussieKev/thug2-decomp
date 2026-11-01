@@ -131,7 +131,9 @@ struct MeshRef {
     // 0x004D69E0: the destructor's body - off the billboards (0x10), its transform freed, and unless it shares
     // another mesh's buffers (1) its index and vertex buffers destroyed (the device's stream let go of if it is one),
     // its per-vertex data and billboard freed; its positions and triangles freed; all of it cleared.
-    void destroy_body();
+    ~MeshRef();
+    MeshRef(const MeshRef&) = delete;
+    MeshRef& operator=(const MeshRef&) = delete;
     // 0x004D4CA0: each vertex's colour from the material's colour animations (its per-vertex byte: 1-based; 0 none),
     // written into the current vertex buffer, unlocked after. Unlock's result (0 without per-vertex bytes).
     long apply_vertex_colors();

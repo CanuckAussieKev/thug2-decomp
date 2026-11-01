@@ -421,6 +421,6 @@ bool __cdecl cfunc_give_all_gaps(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x00585520
-void GapTally::destroy_body() { gaps_.uncouple(); }
+GapTally::~GapTally() { gaps_.uncouple(); }
 
 } // namespace goals

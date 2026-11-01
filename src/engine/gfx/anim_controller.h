@@ -35,7 +35,9 @@ struct AnimTimeline {
     AnimTimeline();
     // 0x00481690: the list node's destructor body - unlinked (the channel's list nodes and the blend timeline use
     // it too). 0x004816E0 (slot 0, also the channel list head's): that, then freed.
-    void destroy_body();
+    ~AnimTimeline();
+    AnimTimeline(const AnimTimeline&) = delete;
+    AnimTimeline& operator=(const AnimTimeline&) = delete;
     AnimTimeline* teardown(uint8_t flags);
     // 0x00481380 (slot 1): back to the constructor's times, speed, direction, loop type and animation.
     void get_reset();

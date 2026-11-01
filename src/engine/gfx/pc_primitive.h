@@ -85,7 +85,7 @@ public:
     int type_;               // +0x30: 0 lines, 2 triangles, 4 quads (also the sort key, weigh)
     int vertex_count_;       // +0x34
     int stride_;             // +0x38
-    MaterialRef material_;   // +0x3C (made by make_new 0x004D1A90, not constructed)
+    MaterialRef material_;   // +0x3C (its constructor 0x004D1A90)
     uint32_t colour_;        // +0x14C
     uint8_t unknown150_[8];
 };

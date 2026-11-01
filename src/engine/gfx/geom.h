@@ -38,7 +38,9 @@ struct Singleton {
     // every mesh asks for lighting (+0x38 bit 0x10) and has no flag 0x20000.
     Singleton(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones);
     // 0x004D10C0: the destructor's body - its mesh list and bones freed when it owns them (1), off the list.
-    void destroy_body();
+    ~Singleton();
+    Singleton(const Singleton&) = delete;
+    Singleton& operator=(const Singleton&) = delete;
     // 0x004D1130: drawn (draw_scene's flags, always with 8: no culling) - skinned by the vertex shader (bones, and
     // the scene's +0x78 not positive: the bones in 0x007825B0 / B4, the instance in B8, the lights set once per
     // set of bones), one draw per bone (up to 58: each mesh shown, 0x40, when its +0x1F is that bone; the bone

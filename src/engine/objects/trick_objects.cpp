@@ -454,7 +454,7 @@ memory::ListNode* object_at(const memory::ListNode& head, uint32_t index)
 } // namespace
 
 // 0x00588C30
-void TrickObjectCluster::destroy_body()
+TrickObjectCluster::~TrickObjectCluster()
 {
     for (uint32_t count = count_objects(entities_); count != 0; --count) {
         if (auto* object = static_cast<TrickSpot*>(object_at(entities_, 0)->data))
@@ -584,7 +584,7 @@ TrickSpotHub* __cdecl acquire_trick_object_manager(bool create)
 // 0x005891D0
 TrickObjectCluster* TrickObjectCluster::teardown(unsigned int flags)
 {
-    destroy_body();
+    this->~TrickObjectCluster();
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;

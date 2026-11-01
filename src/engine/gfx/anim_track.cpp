@@ -83,17 +83,17 @@ void* AnimTrack::operator new(size_t size) { return get_pools().carve(static_cas
 void AnimTrack::operator delete(void* item) { get_pools().dealloc(item); }
 
 // 0x00481F20
-void AnimTrack::destroy_body()
+AnimTrack::~AnimTrack()
 {
     delete_controllers();
     delete_events();
-    AnimTimeline::destroy_body();
+    // (then the timeline's destructor, as its base)
 }
 
 // 0x00482340
 AnimTrack* AnimTrack::teardown(uint8_t flags)
 {
-    destroy_body();
+    this->~AnimTrack();
     if (flags & 1)
         operator delete(this);
     return this;
@@ -178,8 +178,7 @@ void AnimTrack::delete_events()
     if (!event_count_ || !events_ptr_)
         return;
     event_count_ = 0;
-    delete[] events_ptr_; // (0x00481DB0, the vector deleting destructor: last to first, then freed)
-    events_ptr_ = nullptr;
+    events_ptr_.reset(); // (0x00481DB0, the vector deleting destructor: last to first, then freed)
 }
 
 // 0x00481C00
@@ -201,7 +200,7 @@ void AnimTrack::load_events(uint32_t anim)
     event_count_ = count;
     if (!count)
         return;
-    events_ptr_ = new TimedClipEvent[count]; // (the count before the array, as the original's)
+    events_ptr_.reset(new TimedClipEvent[count]); // (default-initialised; the count before the array, as the original's)
     for (uint32_t i = 0; i < event_count_; ++i) {
         auto* entry = reinterpret_cast<Struct*>(list->fetch_part(i));
         int frame = 0;

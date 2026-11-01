@@ -143,7 +143,7 @@ bool __cdecl cfunc_swap_object_models(script::Struct* params, script::Script*)
     copy_skeleton(skeleton_a, skeleton_b);
     copy_skeleton(skeleton_b, temp);
     if (temp) {
-        reinterpret_cast<gfx::Rig*>(temp)->destroy_body();
+        reinterpret_cast<gfx::Rig*>(temp)->~Rig();
         memory::Hub::get_pull()->dealloc(temp);
     }
 

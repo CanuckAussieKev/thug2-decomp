@@ -90,7 +90,9 @@ struct MaterialRef {
     // 0x004D1A90: construct - no passes, animations or wibbles; the per-pass defaults.
     MaterialRef();
     // 0x004D2BD0: the destructor's body - the animations and UV wibbles freed.
-    void destroy_body();
+    ~MaterialRef();
+    MaterialRef(const MaterialRef&) = delete;
+    MaterialRef& operator=(const MaterialRef&) = delete;
     // 0x004D1D90: a bit per pass taking its alpha from the texture alone (flag 0x1000).
     uint32_t texture_alpha_passes() const;
     // 0x004D1B40 / 0x004D1CC0 / 0x004D1DC0: the colour animations (with pass 0's flag 2), the texture animations

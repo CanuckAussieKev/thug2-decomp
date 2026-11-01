@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/custom_anim_key.h"
@@ -59,8 +60,10 @@ public:
     // 0x004819D0
     objects::GameEntity* fetch_subject();
 
-    // 0x00481F20: its controllers and events deleted, then the timeline's destructor body (0x00481690).
-    void destroy_body();
+    // 0x00481F20: its controllers and events deleted, then the timeline's destructor (0x00481690).
+    ~AnimTrack();
+    AnimTrack(const AnimTrack&) = delete;
+    AnimTrack& operator=(const AnimTrack&) = delete;
     // 0x00482340 (slot 0)
     AnimTrack* teardown(uint8_t flags);
     // 0x00481AC0 (slot 2): not complete; fading, the weight drops by the frame's share of the fade rate (off at
@@ -107,7 +110,7 @@ public:
     float fade_left_;                   // +0x5C
     float fade_scale_;                  // +0x60
     objects::GameEntity* owner_object_; // +0x64
-    TimedClipEvent* events_ptr_;        // +0x68 (an array of event_count_)
+    std::unique_ptr<TimedClipEvent[]> events_ptr_; // +0x68 (an array of event_count_)
     uint32_t event_count_;              // +0x6C
     bool events_on_;                    // +0x70
     uint8_t pad71_[3];

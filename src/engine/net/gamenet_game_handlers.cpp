@@ -155,8 +155,7 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
         delay = 10;
     }
     manager->add_joining_player(info, delay); // the new player (added in `delay` frames)
-    info->destroy_body();                     // (its destructor)
-    return kContinue;
+    return kContinue; // (the record's destructor on the way out)
 }
 
 // 0x0052E870

@@ -223,7 +223,7 @@ VaultCategory::VaultCategory()
 }
 
 // 0x0054C890
-void VaultCategory::destroy_body()
+VaultCategory::~VaultCategory()
 {
     for (memory::ListNode* node = get_next_node(&items_); node;) {
         memory::ListNode* next = get_next_node(node);
@@ -237,7 +237,7 @@ void VaultCategory::destroy_body()
 // 0x0054C980
 VaultCategory* VaultCategory::teardown(unsigned int flags)
 {
-    destroy_body();
+    this->~VaultCategory();
     if (flags & 1)
         ram_stats()->dealloc(this);
     return this;

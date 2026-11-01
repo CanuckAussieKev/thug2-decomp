@@ -47,7 +47,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 
 // The materials' code (0x004D1A90-0x004D3390).
 MaterialRef* construct_material(void* memory) { return new (memory) MaterialRef; }
-void destroy_material(MaterialRef* material) { material->destroy_body(); }
+void destroy_material(MaterialRef* material) { material->~MaterialRef(); }
 void set_material_states(MaterialRef* material) { material->submit_states(); }
 void change_material_layer(MaterialRef* material, int pass, int flags)
 {

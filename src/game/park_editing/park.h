@@ -699,8 +699,10 @@ public:
     void build_source_rails(script::Array* nodes);
     // --- park_generator.cpp (0x00591C70-0x00592740) ---
     // 0x00591C70: the destructor's body (the scenes forgotten, the node array's asset destroyed)
-    void destroy_body();
-    void teardown() { destroy_body(); }
+    ~ParkAssembler();
+    ParkAssembler(const ParkAssembler&) = delete;
+    ParkAssembler& operator=(const ParkAssembler&) = delete;
+    void teardown() { this->~ParkAssembler(); }
     // 0x00591CF0: every piece tinted red, or back to normal
     void glow_every_piece(bool on);
     // 0x00591D20

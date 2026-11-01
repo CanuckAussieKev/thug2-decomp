@@ -99,7 +99,7 @@ PendingMsg* construct_queued_msg(void* memory, uint8_t id, uint16_t length, void
     return new (memory) PendingMsg(id, length, data, compression);
 }
 // ~PendingMsg / ~SeqQueuedMsg: frees the data.
-void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)->destroy_body(); }
+void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)->~PendingMsg(); }
 
 // The links (net_messages.h): list nodes (+8 the priority) pointing at a queued message - the normal queue's (with
 // the time it may be sent), the important queue's (also when it was last sent, 0 = never) and the sequenced queue's
@@ -125,7 +125,7 @@ BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream)
 StreamDesc* stream_of(ListNode* link) { return reinterpret_cast<BulkStreamNode*>(link)->msg_meta_; }
 StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
-void destroy_stream_desc_body(StreamDesc* stream) { stream->destroy_body(); }
+void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
 
 // strcpy: the original copies descriptions with no length limit (32 bytes are kept for them).
 void copy_string(char* out, const char* source)

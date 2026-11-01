@@ -91,10 +91,10 @@ JoinerRecord::JoinerRecord()
 }
 
 // 0x00543560
-void JoinerRecord::destroy_body()
+JoinerRecord::~JoinerRecord()
 {
     if (objects::RiderIdentity* profile = account_) {
-        profile->destroy_body();
+        profile->~RiderIdentity();
         memory::Hub::get_pull()->dealloc(profile);
     }
 }
@@ -142,10 +142,10 @@ PlayerRecord::PlayerRecord(uint32_t flags)
 }
 
 // 0x00543810
-void PlayerRecord::destroy_body()
+PlayerRecord::~PlayerRecord()
 {
     if (objects::RiderIdentity* profile = account_) {
-        profile->destroy_body();
+        profile->~RiderIdentity();
         memory::Hub::get_pull()->dealloc(profile);
     }
     delete observer_task_;
@@ -159,7 +159,7 @@ void PlayerRecord::destroy_body()
 // 0x00544750
 PlayerRecord* PlayerRecord::teardown(unsigned int flags)
 {
-    destroy_body();
+    this->~PlayerRecord();
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;

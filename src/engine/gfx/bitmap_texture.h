@@ -25,7 +25,9 @@ struct TextureRef {
     // texels copied. Returns this.
     TextureRef* construct_copy(const TextureRef* source);
     // 0x004E06A0: the destructor's body: off the list, the surface and texture released, and unset where set.
-    void destroy_body();
+    ~TextureRef();
+    TextureRef(const TextureRef&) = delete;
+    TextureRef& operator=(const TextureRef&) = delete;
     // 0x004E03F0: off the list.
     void unlist();
     // 0x004E0380: set on a stage.

@@ -352,7 +352,7 @@ RiderStoryProgress::~RiderStoryProgress()
 {
     for (goals::GapTally* gaps : gaps_) {
         if (gaps) {
-            gaps->destroy_body();
+            gaps->~GapTally();
             memory::Hub::get_pull()->dealloc(gaps);
         }
     }

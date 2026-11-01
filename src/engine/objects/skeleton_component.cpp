@@ -102,7 +102,7 @@ void __cdecl BoneRigModule::publish_method_table()
 BoneRigModule::~BoneRigModule()
 {
     if (uint8_t* skeleton = bone_rig_) {
-        reinterpret_cast<gfx::Rig*>(skeleton)->destroy_body();
+        reinterpret_cast<gfx::Rig*>(skeleton)->~Rig();
         memory::Hub::get_pull()->dealloc(skeleton);
     }
 }

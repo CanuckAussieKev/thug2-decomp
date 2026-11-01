@@ -150,7 +150,7 @@ uint32_t get_colour(const EmitterInstance& system, uint32_t from, uint32_t to, f
 void free_material(SimpleMaterial* material)
 {
     if (material) {
-        material->destroy_body();
+        material->~SimpleMaterial();
         memory::Hub::get_pull()->dealloc(material);
     }
 }

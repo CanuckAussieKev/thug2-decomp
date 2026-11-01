@@ -88,7 +88,9 @@ public:
     // 0x004A3E80: a copy of `other` (its matrices and bones' state).
     Rig* construct_copy(const Rig* other);
     // 0x004A2CB0: the bones and matrices freed.
-    void destroy_body();
+    ~Rig();
+    Rig(const Rig&) = delete;
+    Rig& operator=(const Rig&) = delete;
     // 0x004A2BA0 (4 bytes, a getter folded with others'): the bone count.
     int get_num_bones() { return bone_total_; }
     // 0x004A2B60: the index of the bone named `name` (-1: none).

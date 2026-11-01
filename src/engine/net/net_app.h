@@ -57,7 +57,9 @@ struct StreamDesc {
     // 0x004549D0 (net_descs.cpp): size, data, next, group and borrow_caller_buffer zeroed.
     StreamDesc();
     // 0x00454E00: the data freed unless it's the sender's ("Destroying StreamDesc's Data").
-    void destroy_body();
+    ~StreamDesc();
+    StreamDesc(const StreamDesc&) = delete;
+    StreamDesc& operator=(const StreamDesc&) = delete;
 
     int extent_;     // 0x00
     int stream_id_;  // 0x04

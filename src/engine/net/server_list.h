@@ -56,7 +56,9 @@ struct HostListing : memory::ListNode {
     // reachable.
     HostListing();
     // 0x00546640: its players freed (0x005465A0), then the heads' destructors.
-    void destroy_body();
+    ~HostListing();
+    HostListing(const HostListing&) = delete;
+    HostListing& operator=(const HostListing&) = delete;
     // 0x00547F70: the scalar deleting destructor.
     HostListing* teardown(unsigned int flags);
     // 0x00545790: a player (a PlayerRecord with only its name - 15 characters - and rating) added (on the internet

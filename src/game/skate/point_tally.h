@@ -206,7 +206,9 @@ public:
     // 0x00563440: the constructor.
     PointTally();
     // 0x00564B80: the destructor body.
-    void destroy_body();
+    ~PointTally();
+    PointTally(const PointTally&) = delete;
+    PointTally& operator=(const PointTally&) = delete;
     // 0x00563580: one frame: the special meter running down, the pot's countdown and counting, the special bar's
     // size and colour.
     void tick_frame();

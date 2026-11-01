@@ -35,7 +35,7 @@ uint32_t g_next_conn_id{1};
 uint32_t& next_conn_id() { return g_next_conn_id; }
 
 // ~StreamDesc: frees the data unless it was sent in place.
-void destroy_stream_desc_body(StreamDesc* stream) { stream->destroy_body(); }
+void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
 
 // A link deleted (its scalar deleting destructor).
 template <typename Link>
@@ -49,7 +49,7 @@ template <typename Msg>
 void get_release(Msg* message)
 {
     if (--message->share_count_ == 0) {
-        message->destroy_body();
+        message->~Msg();
         memory::dealloc(message);
     }
 }
@@ -201,7 +201,7 @@ void Conn::destroy_received_sequenced_messages()
     for (ListNode& queue : received_queues_) {
         for_each<OrderedMsgNode>(&queue, [](OrderedMsgNode* link) {
             if (SeqQueuedMsg* message = link->shared_msg_) {
-                message->destroy_body();
+                message->~SeqQueuedMsg();
                 memory::dealloc(message);
             }
             delete_link(link);

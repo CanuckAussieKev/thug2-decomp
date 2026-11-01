@@ -86,7 +86,7 @@ ProjectionBatch* ProjectionBatch::make_new()
 }
 
 // 0x004C73D0
-void ProjectionBatch::teardown() { material.destroy_body(); }
+void ProjectionBatch::teardown() { material.~MaterialRef(); }
 
 // 0x004C73E0
 ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_name)
@@ -264,7 +264,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     batch->blend_name_ = blend_mode_;
                 if (fineness_) {
                     if (format) {
-                        reinterpret_cast<MeshRef*>(format)->destroy_body(); // (its destructor body)
+                        reinterpret_cast<MeshRef*>(format)->~MeshRef(); // (its destructor body)
                         memory::Hub::get_pull()->dealloc(format);
                     }
                     memory::Hub::get_pull()->dealloc(pieces);

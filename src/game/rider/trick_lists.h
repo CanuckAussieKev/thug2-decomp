@@ -40,7 +40,9 @@ struct TrickListEntry {
     TrickListEntry();
     // 0x00579570: the array's contents and the array freed, then the node unlinked (its node type's vtable).
     // 0x00579820: the scalar deleting destructor.
-    void destroy_body();
+    ~TrickListEntry();
+    TrickListEntry(const TrickListEntry&) = delete;
+    TrickListEntry& operator=(const TrickListEntry&) = delete;
     TrickListEntry* teardown(unsigned int flags);
 };
 

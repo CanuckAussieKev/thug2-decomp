@@ -240,7 +240,7 @@ Rig* Rig::construct_copy(const Rig* other)
 }
 
 // 0x004A2CB0
-void Rig::destroy_body()
+Rig::~Rig()
 {
     memory::Hub::get_pull()->dealloc(bone_array_);
     memory::Hub::get_pull()->dealloc(matrix_array_);

@@ -38,7 +38,7 @@ StreamDesc::StreamDesc()
 }
 
 // 0x00454E00
-void StreamDesc::destroy_body()
+StreamDesc::~StreamDesc()
 {
     if (content_ && !borrowed_payload_) {
         debug::printf("Destroying StreamDesc's Data\n");

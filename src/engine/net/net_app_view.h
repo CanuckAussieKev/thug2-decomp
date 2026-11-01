@@ -18,7 +18,9 @@ struct PendingMsg {
     // copy is compressed if that makes it smaller: the id becomes 0x12 (compressed) and the length shrinks.
     PendingMsg(uint8_t id, uint16_t length, void* data, uint8_t compression);
     // 0x004550F0 (SeqQueuedMsg's too): the data freed.
-    void destroy_body();
+    ~PendingMsg();
+    PendingMsg(const PendingMsg&) = delete;
+    PendingMsg& operator=(const PendingMsg&) = delete;
 
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
@@ -28,8 +30,10 @@ struct PendingMsg {
 struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
     SeqQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression);
-    // (0x004550F0: PendingMsg::destroy_body - the data is at the same place)
-    void destroy_body() { reinterpret_cast<PendingMsg*>(this)->destroy_body(); }
+    // (0x004550F0: PendingMsg's destructor - the data is at the same place)
+    ~SeqQueuedMsg() { reinterpret_cast<PendingMsg*>(this)->~PendingMsg(); }
+    SeqQueuedMsg(const SeqQueuedMsg&) = delete;
+    SeqQueuedMsg& operator=(const SeqQueuedMsg&) = delete;
 
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02

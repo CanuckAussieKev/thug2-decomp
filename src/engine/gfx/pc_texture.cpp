@@ -57,7 +57,7 @@ PcTexture::~PcTexture()
     if (flag_bits_ & 1)
         end_edit();
     if (auto* texture = static_cast<TextureRef*>(image_)) {
-        texture->destroy_body();
+        texture->~TextureRef();
         memory::Hub::get_pull()->dealloc(texture);
     }
 }
@@ -112,7 +112,7 @@ bool PcTexture::end_edit()
         get_edit(this)->original = nullptr;
     }
     if (TextureRef* kept = get_edit(this)->kept) {
-        kept->destroy_body();
+        kept->~TextureRef();
         memory::Hub::get_pull()->dealloc(kept);
         get_edit(this)->kept = nullptr;
     }

@@ -50,12 +50,12 @@ AnimTimeline::AnimTimeline()
 }
 
 // 0x00481690
-void AnimTimeline::destroy_body() { list_link_.uncouple(); }
+AnimTimeline::~AnimTimeline() { list_link_.uncouple(); }
 
 // 0x004816E0
 AnimTimeline* AnimTimeline::teardown(uint8_t flags)
 {
-    destroy_body();
+    this->~AnimTimeline();
     if (flags & 1)
         memory::dealloc(this);
     return this;

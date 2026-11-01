@@ -45,7 +45,9 @@ struct RiderIdentity {
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
     void erase_one();
     // 0x00543010: the destructor body (Delete without the free): the info cleared, the appearance's destructor body.
-    void destroy_body();
+    ~RiderIdentity();
+    RiderIdentity(const RiderIdentity&) = delete;
+    RiderIdentity& operator=(const RiderIdentity&) = delete;
 
     // (skater_profile.cpp) 0x00586000 / 0x00586040: the info's 0x471FC4DD integer increased (true) / read.
     // 0x00586060: max_specials increased (true). 0x005860C0: the info's stance or pushstyle (anything else: 0).

@@ -167,7 +167,7 @@ inline void add_packet_metric(void* metrics, uint32_t size, uint32_t time)
 }
 
 // Queued messages: the destructor frees the data (0x004550F0).
-inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->destroy_body(); }
+inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->~PendingMsg(); }
 inline SeqQueuedMsg* construct_seq_msg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group,
                                        bool compressed)
 {
@@ -182,6 +182,6 @@ inline BulkStreamNode* construct_stream_link(void* memory, StreamDesc* desc)
 {
     return new (memory) BulkStreamNode(desc);
 }
-inline void destroy_stream_desc(StreamDesc* desc) { desc->destroy_body(); }
+inline void destroy_stream_desc(StreamDesc* desc) { desc->~StreamDesc(); }
 
 } // namespace net

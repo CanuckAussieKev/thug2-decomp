@@ -432,7 +432,7 @@ JointClipFrames::JointClipFrames()
 }
 
 // 0x00482B30
-void JointClipFrames::destroy_body()
+JointClipFrames::~JointClipFrames()
 {
     for (int i = 0; i < event_count_; ++i) {
         delete events_ptr_[i];

@@ -168,7 +168,7 @@ PlayerRecord* find_player(Hub* manager, int (PlayerRecord::*test)())
 // A joining player's record deleted (JoinerRecord's destructor body 0x00543560, then freed).
 void delete_new_player(JoinerRecord* player)
 {
-    player->destroy_body();
+    player->~JoinerRecord();
     memory::Hub::get_pull()->dealloc(player);
 }
 

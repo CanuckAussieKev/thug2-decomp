@@ -297,7 +297,7 @@ void __cdecl recreate_buffers()
 }
 
 // 0x004D69E0
-void MeshRef::destroy_body()
+MeshRef::~MeshRef()
 {
     if (flags & 0x10)
         g_billboard_pool.remove_mesh(this);

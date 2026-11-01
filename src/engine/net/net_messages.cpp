@@ -71,7 +71,7 @@ SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t byte
 }
 
 // 0x004550F0
-void PendingMsg::destroy_body()
+PendingMsg::~PendingMsg()
 {
     if (content_)
         release_memory(content_);
