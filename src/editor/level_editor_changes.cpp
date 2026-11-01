@@ -178,7 +178,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             else if (hidden)
                 what += " - hidden";
             if (keyword == "rail")
-                what = "Rail point " + what;
+                what.insert(0, "Rail point ");
             e.summary = what;
         } else if (keyword == "object" || keyword == "copy") {
             bool copy = keyword == "copy";

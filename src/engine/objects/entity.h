@@ -218,7 +218,7 @@ public:
     static void operator delete(void*, void*) noexcept {}
 
     // 0x0045D730: no flags (the rest is the zeroed memory it is made in).
-    ObjectModule() {}
+    ObjectModule() = default;
     // 0x0045D740 (0x0045D780 the deleting one): if a script waited on it, every script lets go of it
     // (component_destroyed_all_scripts).
     virtual ~ObjectModule();

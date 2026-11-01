@@ -115,7 +115,7 @@ public:
 
 protected:
     // No flags or geometry (the checksum and the grid mark left as they were).
-    HitMesh() {}
+    HitMesh() = default;
     // The base's copy: checksum, flags, grid mark and geometry.
     HitMesh(const HitMesh& other)
         : checksum_(other.checksum_), flag_bits_(other.flag_bits_), visit_stamp_(other.visit_stamp_),

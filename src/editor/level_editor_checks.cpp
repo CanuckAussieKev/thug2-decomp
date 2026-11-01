@@ -202,7 +202,9 @@ std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
         add(t.flag, "its flag (TRG_CTF_" + colour + ")");
         add(t.base, "its base (TRG_CTF_" + colour + "_Base)");
         add(t.restart, "its team restart (TRG_CTF_Restart_" + colour + ")");
-        out.push_back({Severity::kWarning, "Capture the Flag, team " + colour + ": missing " + missing, team});
+        std::string message = "Capture the Flag, team " + colour;
+        message.append(": missing ").append(missing);
+        out.push_back({Severity::kWarning, message, team});
     }
     return out;
 }

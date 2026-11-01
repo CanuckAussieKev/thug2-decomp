@@ -28,7 +28,7 @@ class StaticCollider final : public HitMesh {
 public:
     // 0x00412730 (as `new StaticCollider[n]` builds each): no flags, geometry or buffer, +0x14 0 (the checksum and
     // the grid mark left as they were).
-    StaticCollider() {}
+    StaticCollider() = default;
     // 0x00412760: the buffer freed if this object owns it, the base.
     ~StaticCollider() override;
 
@@ -97,7 +97,7 @@ static_assert(sizeof(StaticCollider) == 0x18, "layout must match the original");
 class CollStaticInstance final : public CollScaled {
 public:
     // 0x004127C0
-    CollStaticInstance() {}
+    CollStaticInstance() = default;
     // 0x00414C30: a copy.
     CollStaticInstance(const CollStaticInstance& other) = default;
     // 0x00412840 (0x00413ED0 the deleting destructor)

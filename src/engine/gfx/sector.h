@@ -18,6 +18,7 @@ class HitMesh;
 
 // WorldCell::flag_bits_ (4, 8, 0x10 and 0x20 are acted on by the scene's next UpdateSuperSectors)
 constexpr uint32_t kSectorCollidable = 0x01; // (set when made)
+constexpr uint32_t kOutdoorLightGroup = 0xE3714DC1; // a sector's light group to start with
 constexpr uint32_t kSectorClone = 0x02;      // a clone: its collision object is its own (deleted with it)
 constexpr uint32_t kSectorAddToGrid =
     0x04; // its collision to be put in the super sectors (a clone made with Clone's flag)
@@ -108,7 +109,7 @@ public:
 
     uint32_t checksum_;                // +0x04: its name
     uint32_t flag_bits_{kSectorCollidable};     // +0x08
-    uint32_t light_group_;                      // +0x0C: its light group (the time of day's; outdoor by default)
+    uint32_t light_group_{kOutdoorLightGroup};  // +0x0C: its light group (the time of day's; outdoor by default)
     int rot_y_{0};                              // +0x10: quarter turns about y
     void* geom_handle_{nullptr};                // +0x14: CGeom (on PC a PcGeom), or null
     memory::owner<HitMesh*> hit_body_{nullptr}; // +0x18: or null (the sector's layout; deleted by its destructor)

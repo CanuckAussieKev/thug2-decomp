@@ -246,7 +246,9 @@ std::string point_suffix(KindTag type, int index)
         return "start";
     if (index >= 2 && index < 7 && type == KindTag::kSkate) {
         std::string letter = kSkateLetters[index - 2];
-        return std::string(1, static_cast<char>(letter[0] - 'A' + 'a'));
+        return std::string(
+            1, static_cast<char>(letter[0] - 'A' +
+                                 'a')); // NOLINT(modernize-return-braced-init-list): {1, c} would be two characters
     }
     if (index >= 2 && index < 7 && type == KindTag::kCombo)
         return kComboSuffixes[index - 2];
@@ -1406,7 +1408,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
             if (get_dot(d, d) < 3000.0f * 3000.0f && project(top + V3{0.0f, 12.0f, 0.0f}, &x, &y)) {
                 std::string label = point_label(g.type, static_cast<int>(k));
                 if (k == 0)
-                    label = g.name + ": " + label;
+                    label.insert(0, g.name + ": ");
                 texts->push_back({x, y, colour, label});
             }
             // (a race's checkpoints joined in order; the start to the first)

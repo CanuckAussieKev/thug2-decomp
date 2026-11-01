@@ -49,7 +49,7 @@ void check(bool condition, const std::string& what)
 std::vector<uint8_t> read_whole(const std::filesystem::path& path)
 {
     std::ifstream in(path, std::ios::binary);
-    return std::vector<uint8_t>((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
 }
 
 std::string lower(std::string text)

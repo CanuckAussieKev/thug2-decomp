@@ -67,7 +67,7 @@ void hide_goal_ped(ObjectiveNpc* ped, bool hide) { ped->conceal(hide); }
 // The first goal of the chain `goal` is in (its parents' first links, up to one without a parent): its id - `id`'s
 // if it has no parent. (A parent that isn't in the table is read through null, as the original.)
 template <typename F>
-Objective* walk_to_root(GoalManager* manager, Objective* goal, F&& on_parent)
+Objective* walk_to_root(GoalManager* manager, Objective* goal, const F& on_parent)
 {
     for (GoalEdge* link = goal->parents_; link && link->objective_key_;) {
         on_parent(link->objective_key_);

@@ -240,7 +240,9 @@ std::vector<std::string> get_wrap(const Style& style, const TickCycle& frame, co
         at = space == std::string::npos ? text.size() : space + 1;
         if (word.empty())
             continue;
-        std::string tried = line.empty() ? word : line + " " + word;
+        std::string tried = line.empty() ? word : line;
+        if (!line.empty())
+            tried.append(" ").append(word);
         if (!line.empty() && get_measure(style, frame, tried.c_str()) > width) {
             lines.push_back(line);
             line = word;

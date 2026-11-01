@@ -558,7 +558,7 @@ void ensure(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sec
     if (debug_enabled() || !faces.empty())
         get_log("level editor: shared collision of %08X: %u face%s taken along", checksum,
                 static_cast<unsigned>(faces.size()), faces.size() == 1 ? "" : "s");
-    append_one(checksum, scene, sector, geom, std::move(faces), std::move(taken));
+    append_one(checksum, scene, sector, geom, faces, std::move(taken));
 }
 
 void get_place(uint32_t checksum, const Placement& placement)

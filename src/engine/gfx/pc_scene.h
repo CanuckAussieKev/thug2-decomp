@@ -34,7 +34,7 @@ struct VertexArena {
 class PcSector final : public WorldCell {
 public:
     // 0x004C6550
-    PcSector() {}
+    PcSector() = default;
     // 0x004C65B0 (0x004C6580 the deleting destructor): a jump to the engine's.
     ~PcSector() override = default;
     // 0x004C6530 (slot 1): with `on`, its geometry given to the engine's 0x00490DC0.

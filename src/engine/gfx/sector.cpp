@@ -26,12 +26,11 @@ void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom
 // The collision object's flag byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder.
 uint8_t& coll_flags(HitMesh* coll) { return *reinterpret_cast<uint8_t*>(&coll->flag_bits_); }
 
-constexpr uint32_t kOutdoorLightGroup = 0xE3714DC1; // outdoor
 
 } // namespace
 
 // 0x0049E900
-WorldCell::WorldCell() : light_group_(kOutdoorLightGroup) {}
+WorldCell::WorldCell() = default;
 
 // 0x0049E630
 WorldCell::~WorldCell()

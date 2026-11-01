@@ -6,10 +6,8 @@
 namespace util {
 
 // 0x00401050
-PackedBitBuffer::PackedBitBuffer()
-{
-    // The original leaves outset_ uninitialised; zeroing it here is harmless.
-}
+// (the original leaves outset_ uninitialised; zeroing it here is harmless)
+PackedBitBuffer::PackedBitBuffer() = default;
 
 // 0x00401070
 void PackedBitBuffer::change_intake_contents(void* data, int size)

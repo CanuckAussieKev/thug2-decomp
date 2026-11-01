@@ -22,7 +22,7 @@ class Entity;
 class ObjectGroup {
 public:
     // 0x00414D70: no slots.
-    ObjectGroup() {}
+    ObjectGroup() = default;
     // 0x004694A0 (not a Ghidra function: only the array helpers point at it): the slots' smart pointers let go
     // (last first) and the array freed.
     ~ObjectGroup();

@@ -78,7 +78,7 @@ public:
 // the value 0) is known; the object built by 0x00418330 starts with one and then sets both. Assumed to be a
 // sphere (centre, radius) until its users are decompiled.
 struct Sphere {
-    Sphere() {}
+    Sphere() = default;
 
     Vec4 center;
     float radius{0.0f};

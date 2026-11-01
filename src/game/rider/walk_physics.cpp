@@ -115,11 +115,9 @@ void FootMovement::publish_method_table()
 }
 
 // 0x005288B0 (0x0052A290 the deleting one)
-FootMovement::~FootMovement()
-{
-    // (the members' destructors, as the original's order: the feeler's object let go, the cache unregistered, the
-    // contacts' feelers last to first)
-}
+// (the members' destructors, as the original's order: the feeler's object let go, the cache unregistered, the
+// contacts' feelers last to first)
+FootMovement::~FootMovement() = default;
 
 // 0x00526060
 void FootMovement::configure_from_data(script::Struct* params)

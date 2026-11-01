@@ -129,7 +129,7 @@ static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x3
 class AnimScriptKey final : public UserClipKey {
 public:
     // 0x00481A20: no parameters (the frame and the flag left as they are).
-    AnimScriptKey() {}
+    AnimScriptKey() = default;
     // 0x00486560 / 0x00481DB0: the structure freed.
     ~AnimScriptKey() override;
     // 0x004865D0: at `frame`, sending `event` with a copy of `params` (a new structure: the old one isn't freed).

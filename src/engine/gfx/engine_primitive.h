@@ -69,7 +69,7 @@ public:
 
     Primitive* following_ = nullptr; // +0x04: in the new or the drawing list
     uint32_t flag_bits_ = 0;         // +0x08: 0x100 on the list of new ones (the PC class's: 1 made, 2 set up, 4 ready)
-    uint32_t blend_mode_;            // +0x0C: a checksum (0x54628ED7 to start)
+    uint32_t blend_mode_{0x54628ED7}; // +0x0C: a checksum
     int owns_vertices_;              // +0x10: 1: listed (and the vertices its own)
     uint8_t unknown14 = 0;           // +0x14: set by the spawned polygons (their flag 2), the chains and the lens flare
     bool ready_ = false;             // +0x15: readied (get_ready): drawn by render_primitives

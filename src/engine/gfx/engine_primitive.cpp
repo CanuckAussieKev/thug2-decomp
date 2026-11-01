@@ -12,7 +12,6 @@ namespace render {
 
 namespace {
 
-constexpr uint32_t kDefaultBlendMode = 0x54628ED7;
 constexpr uint32_t kNewFlag = 0x100;
 
 uint32_t g_primitive_states;
@@ -26,7 +25,7 @@ uint32_t& primitive_states() { return g_primitive_states; }
 } // namespace
 
 // 0x0049C660
-Primitive::Primitive(int own) : blend_mode_(kDefaultBlendMode), owns_vertices_(own)
+Primitive::Primitive(int own) : owns_vertices_(own)
 {
     if (own == 1)
         link_primitive(this);

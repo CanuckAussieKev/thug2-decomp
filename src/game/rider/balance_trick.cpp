@@ -76,10 +76,8 @@ RiderTeeterMoves::RiderTeeterMoves()
 }
 
 // 0x004F8CF0 (0x004F9010 the deleting one)
-RiderTeeterMoves::~RiderTeeterMoves()
-{
-    // (the balances' destructors do nothing)
-}
+// (the balances' destructors do nothing)
+RiderTeeterMoves::~RiderTeeterMoves() = default;
 
 // 0x004F9040
 void RiderTeeterMoves::configure_from_data(script::Struct* /*params*/)

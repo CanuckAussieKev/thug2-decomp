@@ -69,7 +69,7 @@ float largest_scale(const Joint* bone)
 maths::Capsule get_between(const maths::Vec4& from, const maths::Vec4& to, float radius)
 {
     maths::Vec4 offset = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
-    return maths::Capsule(from, offset, radius);
+    return {from, offset, radius};
 }
 
 // A capsule's volume as the original's 0x00403390 leaves it in ST0 (to 53 bits, rounded only when stored - our
