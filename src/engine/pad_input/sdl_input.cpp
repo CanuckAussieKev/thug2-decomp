@@ -285,7 +285,7 @@ uint8_t s_in_menu = 0;
 uint8_t s_editing_park = 0;
 
 // Not original (PartyMod reads a Caveman binding and never uses it) - the Caveman key / button steps off the board
-// and back on, pressing what the game's SwitchControl_Trigger (game\rider\switch_control.qb) waits for in the
+// and back on, pressing what the game's SwitchControl_Trigger (game\skater\switch_control.qb) waits for in the
 // trigger set it reads (Skater::Component::platform_structure): with UsePS2Controls the PS2 one, L1 and R1 together
 // (PressTwoAnyOrder, 400 ms); without, the Xbox one, black (the original PC game's Key Pad 1 / spin left key). Not in a
 // menu or while editing a park, where those mean something else.

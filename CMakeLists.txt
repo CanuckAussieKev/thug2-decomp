@@ -16,7 +16,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
     "The game folder of a THUG2 install (its Data folder) the built exe is copied into, if it exists (an install root steps into its Game folder)")
 
-# --- SDL2 (PartyMod's window and input: src/engine/sys/sdl_*.cpp, src/engine/pad_input/sdl_input.cpp) --------------
+# --- SDL2 (PartyMod's window and input: src/platform/sdl_*.cpp, src/engine/pad_input/sdl_input.cpp) --------------
 # The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
 # game folder's SDL2.dll). Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
 include(FetchContent)
@@ -61,7 +61,7 @@ set_target_properties(d3dx9 PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${THUG2_D3DX9_NATIVE}/include")
 
 # --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
-# The level editor's UI layer (src/frontend/level_editor_ui*.cpp): the core, the official SDL2 platform backend
+# The level editor's UI layer (src/editor/level_editor_ui*.cpp): the core, the official SDL2 platform backend
 # and the Direct3D 9 renderer backend. Only level_editor_ui_backend.cpp includes the backends' headers.
 FetchContent_Declare(imgui
     URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz

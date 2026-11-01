@@ -7,10 +7,10 @@ groups A-D), and the code was checked wherever they disagreed. The code is `src/
 fields, flags) plus `cscript_core.cpp` (A), `cscript_exec.cpp` (B), `cscript_wait.cpp` (C) and
 `cscript_manager.cpp` (D). For the script cache (FetchScript / ReleaseScript use counting) see "What the cache
 does" (batch 70). For the token format see `src/engine/script/qb.h`. Sections 11 and 12
-(events, objects) come from batches 75-77 (`src/engine/objects/event.*`, `tracker.*`, `object.*`, `objman.*`), the
+(events, objects) come from batches 75-77 (`src/engine/objects/signal.*`, `tracker.*`, `entity.*`, `entity_hub.*`), the
 front end's part of the frame (section 2) from batch 78 (`src/frontend/front_end.*`), the frame order, the
 object walk, pausing objects and composite objects (sections 2 and 12) from batches 79-81
-(`src/engine/objects/compositemgr.*`, `composite.*`, `src/engine/lists/head.*`).
+(`src/engine/objects/compositemgr.*`, `composite.*`, `src/engine/lists/chain_start.*`).
 
 Conventions in this document:
 - "Update" means one call of `CScript::tick_frame` (0x004750B0). A "count" is one call of `update_wait` (0x00473050).
@@ -596,7 +596,7 @@ Stopped scripts stay on the list.
 
 ## 11. Events and event handlers
 
-The code: `src/engine/objects/event.*` (the event, event listeners, the handler table; batch 75), `tracker.*` (the
+The code: `src/engine/objects/signal.*` (the event, event listeners, the handler table; batch 75), `tracker.*` (the
 tracker, LaunchEvent, the event CFunctions; batch 76), and CScript's handler methods in `cscript_wait.cpp`.
 Everything here runs **synchronously**: an event is delivered, and its handlers run, inside the call that launched
 it. Nothing is queued for a later frame (test).
@@ -788,8 +788,8 @@ menu actions (presumably the screen element manager's, 0x004A1090) is open (sect
 
 ## 12. Objects and their scripts
 
-The code: `src/engine/objects/object.*` (`GameObjects::Entity`, 0x4C bytes, vtable 0x006477E8; CGameEntity's own fields
-start at +0x4C) and `objman.*` (CObjectHubBase / CMiscHub); batch 77. Composite objects: `composite.*`
+The code: `src/engine/objects/entity.*` (`GameObjects::Entity`, 0x4C bytes, vtable 0x006477E8; CGameEntity's own fields
+start at +0x4C) and `entity_hub.*` (CObjectHubBase / CMiscHub); batch 77. Composite objects: `composite.*`
 (batch 80) and `compositemgr.*` (the composite object manager, batch 79).
 
 - **Name -> object** (code): `name:` in a statement (section 4.2) and every CFunction that takes an object go

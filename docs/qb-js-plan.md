@@ -54,7 +54,7 @@ library.
 
 ## References and validation
 
-Behavior references are this project's `src/engine/script/{parse,eval,struct}.cpp`,
+Behavior references are this project's `src/engine/script/{token_reader,expression,param_struct}.cpp`,
 `cscript_exec.cpp`, `script_cfuncs.cpp` and [script-runtime.md](script-runtime.md).
 Use synthetic inputs in public tests; local game files remain private. Original
 executable probes are optional private checks outside tracked tools; public
