@@ -148,7 +148,7 @@ class Script;
 //     (Preferences), Alt+wheel drill-through, the follow camera (Shift+F), double-click teleport, walk mode (Shift+`).
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
-// game in the editor in that level (frontend/start_level.h; tools/pipeline/game/edit_level.ts). editor_ui=0 (default 1) brings
+// game in the editor in that level (frontend/start_level.h; tools/game/edit_level.ts). editor_ui=0 (default 1) brings
 // back the old HUD in place of the Dear ImGui panels.
 namespace frontend::level_editor {
 

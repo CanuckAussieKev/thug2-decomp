@@ -22,7 +22,7 @@
 // redo); Unlink is an undo step of its own. Saved in the layout as `link` records (an older reader skips them):
 //   link sector <source> <member>[@<quarters>],...      a sector: 8 hex digits, or c<n> - the layout's n-th clone record
 //   link object <source> <member>,...                   objects' ids / copies' names (8 hex digits)
-// tools/pipeline/game/layout_file.ts reads them; tools/pipeline/game/apply_layout.ts bakes the copies as plain copies (as they are now).
+// tools/game/layout_file.ts reads them; tools/game/apply_layout.ts bakes the copies as plain copies (as they are now).
 namespace frontend::level_editor::links {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------

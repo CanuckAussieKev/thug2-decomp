@@ -16,7 +16,7 @@
 //   - change level (70) has the level's name (32 bytes) after THUG2's 8 when we host.
 // Approach and message layouts from Morten1337's thugpro_proxy (online/GameMsg.h, Net/Application.cpp,
 // online/Manager.cpp, Modules/Skate/SkateNet.cpp) and its scripts (thugpro_server.q, tod_manager.q) - used with his
-// permission, rewritten here. Register: tools/pipeline/compat/thugpro/README.md, "Run time" (TP-R2 ... TP-R5).
+// permission, rewritten here. Register: thug2-thugpro-compat/thugpro/README.md, "Run time" (TP-R2 ... TP-R5).
 //
 // On when thug2-decomp.ini says [Miscellaneous] OnlineGameName=thugpro (THUGPRO's lobbies) or [online]
 // thugpro_peer=1. Off: THUG2's own protocol, unchanged.

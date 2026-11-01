@@ -15,7 +15,7 @@ struct ImFont;
 // editor as a pin with its text over the view, listed in the Outliner (its Notes section: + Note here, the list, a
 // click selects and opens the note's window - its text, colour, Move here, Go to, Delete). Editor-only: a note is no
 // node and no object, nothing of it exists in play (the pins are drawn only while the editor runs), and the bake
-// (tools/pipeline/game/apply_layout.ts) passes its records over silently (tools/pipeline/game/layout_file.ts reads them).
+// (tools/game/apply_layout.ts) passes its records over silently (tools/game/layout_file.ts reads them).
 //
 // Layout record (version 2 still; an older reader skips the kind):
 //   note <name> pos=x,y,z color=RRGGBB text="..."

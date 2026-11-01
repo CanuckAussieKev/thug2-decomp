@@ -58,7 +58,7 @@
 //     the rail manager's finds and the skater's 0x0043E29F, 0x0050E5FB, 0x00516ABF...) passes every rail only in the
 //     park editor's level. Ours lets a rail the editor marks pass too (GameObjects::set_rail_clear_override: its segments by their
 //     ends' places): an added point's `grindflat=1`, a level point's `grindflat` record, and in a baked level
-//     (tools/pipeline/game/apply_layout.ts) the node flag ed_grind_flat, which only this game reads.
+//     (tools/game/apply_layout.ts) the node flag ed_grind_flat, which only this game reads.
 //   - Ledges (the feature map): ClimbingNode chains of Type Ledge (THUG2's own form: CreatedAtStart, Type=Ledge, and
 //     HangLeft / HangRight when the level says which side the skater hangs from - ST's TRG_619... - append_vertex
 //     0x0057D090 reads them as for any climbing node), drawn and edited as rails are (Blit::Ledge: the clicks snapped
@@ -73,7 +73,7 @@
 //     and the editor's fixed scripts ed_RailSpeed / ed_RailSpeedLoop (THAW's two, compiled - rail_speed_qb) do the rest:
 //     on getting onto the rail (TriggerType [3, 13, -1]: onto, grind - THUG2's rail event, on landing and at each next
 //     segment; THAW's own `land onto` is never true on a THUG2 rail: TriggerType needs every number - see
-//     tools/pipeline/thaw_levels/thaw_scripts.ts) the loop is spawned on the skater; each frame on the rail and
+//     thug2-thaw-level-converter/thaw/thaw_scripts.ts) the loop is spawned on the skater; each frame on the rail and
 //     higher than the last, its speed * (1 + rate). Taken off: the node's own TriggerScript put back as it was.
 //     ([features] debug_rail_speed=1 logs the loops' boosts - Skater::SkaterPhysicsModule::SetSpeed.)
 //     Shown as chevrons along the segment (the level's own RailAccelerate rails too, in grey - read only).

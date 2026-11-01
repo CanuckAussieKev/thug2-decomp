@@ -7,12 +7,14 @@
 
 **It is not vendored here** (it has no licence file; byxor's README says "Feel free to fork the repo and make as many
 changes/improvements as you like. There's no license, you don't owe me a thing."; both are credited in
-`THIRD_PARTY_NOTICES.md`). `tools\build_neverscript.ps1` downloads it at build time:
+`THIRD_PARTY_NOTICES.md`). We use our fork of violetvandal's,
+[CanuckAussieKev/NeverScript](https://github.com/CanuckAussieKev/NeverScript): branch `master` follows violetvandal's,
+`lenient` adds our `-lenient` (below; offered upstream), `thug2` (the default) is `lenient` plus a build of `ns` for
+Windows, Linux and macOS in its GitHub Actions. `tools\build_neverscript.ps1` downloads it at build time:
 
-1. clones `violetvandal/NeverScript` at the pinned commit `73fe0f9` into `out\neverscript\src` (skipped when that
-   folder is already at the pin and patched);
-2. applies `tools/neverscript.patch` - our own changes (below) - with `git apply`;
-3. builds `out\neverscript\ns.exe` with Go (the one from PATH, or a portable Go 1.22.12 downloaded into
+1. clones the fork at the pinned commit of its `thug2` branch into `out\neverscript\src` (skipped when that folder is
+   already at the pin and unchanged; an older clone of violetvandal's is switched over);
+2. builds `out\neverscript\ns.exe` with Go (the one from PATH, or a portable Go 1.22.12 downloaded into
    `out\neverscript\go`, checked against its SHA-256).
 
 ```
@@ -22,8 +24,12 @@ ns -d levels\mainmenu\mainmenu_scripts.qb -o mainmenu_scripts.ns      decompile
 ns -c mainmenu_scripts.ns -o mainmenu_scripts.qb -targetGame thug2    compile
 ```
 
-To change the patch: edit the files under `out\neverscript\src`, then regenerate it, e.g.
-`git -C out\neverscript\src diff > tools\neverscript.patch` (paths in the patch are relative to the NeverScript root).
+The level converters find `ns` with thug2-level-converter-core's `lib/neverscript.ts`: here this build
+(`out\neverscript\ns.exe`); used on their own, outside this repo, `npx thug2-neverscript fetch` downloads the fork's
+release (`thug2-v1`: Windows, Linux and macOS builds, SHA-256 checked). A new release means new hashes in that file.
+
+To change NeverScript: commit to the fork (a fix meant for violetvandal's on a branch of its own from `master`, then
+merged into `thug2`), push, and move `$pin` in `tools\build_neverscript.ps1` to the new `thug2` commit.
 
 ## Our patch: -lenient (2026-10-19)
 

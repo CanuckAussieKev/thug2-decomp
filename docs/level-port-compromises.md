@@ -8,7 +8,7 @@ restarts, rails) is section 9.
 The goal ("exact assets"): the original game's own models, particles, sounds and animations, with THUG2's behaviour
 only where the original's logic is engine code that can't run.
 
-**Sources:** the converters (`tools/<game>_levels/`, shared `tools/pipeline/level_port/`) .
+**Sources:** the converters (`tools/<game>_levels/`, shared `thug2-level-converter-core/level_port/`) .
 
 How to read the tables:
 - **Original**: the original's own data, converted.
@@ -21,7 +21,7 @@ How to read the tables:
 | | THPS3 | THPS4 | THUG1 | THAW |
 |---|---|---|---|---|
 | Levels | 14: Foundry, Canada, Rio, Suburbia, Airport, Skater Island, Los Angeles, Tokyo, Cruise Ship, Warehouse, Burnside, Roswell, Tutorials, Skate shop | 11: Alcatraz, Carnival, Chicago, Shipyard, Kona, London, San Francisco, College, Zoo, Skate shop, Motocross | 16: NJ, NY, FL, SD, HI, VC, SJ, RU, SE, SC, DJ, PH, VN, HN, SC2, NJ skate shop | 15: Chicago, The Mall, Minneapolis, Kyoto, Santa Cruz, The Ruins, Vans Park, Hollywood, Beverly Hills, Downtown, East LA, Santa Monica, Skate Ranch, Casino, Oil Rig |
-| Converter | `tools/pipeline/thps3_levels` | `tools/pipeline/thps4_levels` (+ `thps4_scripts.ts`) | `tools/pipeline/thug1_levels` (+ `thug1_port.ts`) | `tools/pipeline/thaw_levels` (+ `thaw_scripts.ts`) |
+| Converter | `thug2-thps3-level-converter/thps3_levels` | `thug2-thps4-level-converter/thps4_levels` (+ `thps4_scripts.ts`) | `thug2-thug1-level-converter/thug1_levels` (+ `thug1_port.ts`) | `thug2-thaw-level-converter/thaw_levels` (+ `thaw_scripts.ts`) |
 | Static-only switch | (none) | `--no-scripts` | `--static` | `--static` |
 | Every level loads in free skate | Yes | Yes | Yes | Yes |
 | Played by a person | Geometry, glass, grinds; scripts / peds not yet | Not yet (scripts, peds, vehicles) | Not yet | Glass; scripts / peds not yet |
@@ -35,12 +35,12 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 |---|---|---|---|---|
 | Level geometry, textures | Original | Original (vertex colours halved to THUG2's scale) | Original | Original, from the online (`_net`) version (see 6) |
 | Mip levels | Made (THPS3 ships one level): 2 x 2 averages down to a shorter side of 4, as THUG2's own | Original | Original | Original |
-| Z bias of layers on other surfaces (decals, dirt / light layers) | Made from the geometry (THPS3 has none; tools/pipeline/level_port/overlay_bias.ts) | Made from the geometry (THPS4 has none) | Original | Original |
+| Z bias of layers on other surfaces (decals, dirt / light layers) | Made from the geometry (THPS3 has none; thug2-level-converter-core/level_port/overlay_bias.ts) | Made from the geometry (THPS4 has none) | Original | Original |
 | Collision, rails, restarts, kill zones | Original | Original | Original | Original (2 face flags dropped) |
 | Where the camera goes through (face flag 0x80: THUG2's "camera passes through"; THPS3 / THPS4's "camera collides") | Original (flag inverted) | Original (flag inverted) | Original (kept; inverted in DJ, PH, SC and the skate shop, which THUG1 shipped with the old meaning) | Original (kept) |
 | Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated (node array nearly whole) | Original, translated |
 | Gap checks that test how you landed (TriggerType) | Translated to THUG2's form | Translated to THUG2's form | Translated to THUG2's form | Translated (THAW's Smack / Natas / AcidDrop / STALL: no THUG2 event, left out - false) |
-| Peds: model | Original (THPS3's own models, `tools/pipeline/thps3_levels/thps3_peds.ts`); pros and crowds: THUG2 stand-ins (`--thug2-peds`: all stand-ins) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
+| Peds: model | Original (THPS3's own models, `thug2-thps3-level-converter/thps3_levels/thps3_peds.ts`); pros and crowds: THUG2 stand-ins (`--thug2-peds`: all stand-ins) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
 | Peds: where they stand or walk | Original | Original (walkers only; others stand) | Original | Original; ambient "life node" spots get standing peds (max 24) |
 | Peds: AI and animations | THUG2's ped AI playing THPS3's own animations on THPS3's skeletons (each animation it asks for: THPS3's of that name or role) | Stand-in | THUG2's ped AI (THUG1's is its predecessor); THUG1-only animations dropped | Stand-in |
 | Story and goal peds | Missing | Missing | Missing | Missing |
@@ -150,7 +150,7 @@ counts across all levels:
 
 ## 5. THPS4
 
-- The skate shop's door is open (2026-10-19, the user's request): port changes PC-THPS4-1 / PC-THPS4-2 (tools/pipeline/compat/thugpro/thps4_levels.json port_changes) leave out the shop-side face of InvisColl01, the invisible box THPS4 put round the skate park outside its menu shop, and the shop's (Object10's) two invisible faces that closed the doorway (the fence's gap at the end of the halfpipe stays closed); the fence piece there, SSO_Fence05, is created at the start (port change PC-THPS4-3: THPS4's menu killed it and its practice run created it again); the street is skateable collision, its far edges may have no walls.
+- The skate shop's door is open (2026-10-19, the user's request): port changes PC-THPS4-1 / PC-THPS4-2 (thug2-thugpro-compat/thugpro/thps4_levels.json port_changes) leave out the shop-side face of InvisColl01, the invisible box THPS4 put round the skate park outside its menu shop, and the shop's (Object10's) two invisible faces that closed the doorway (the fence's gap at the end of the halfpipe stays closed); the fence piece there, SSO_Fence05, is created at the start (port change PC-THPS4-3: THPS4's menu killed it and its practice run created it again); the street is skateable collision, its far edges may have no walls.
 
 **Rendering**: vertex colours halved (THPS4's PC files are 255 = full, THUG2's 128). Without it every level drew twice
 as bright.
@@ -214,7 +214,7 @@ nodes, run by THUG2's code.
   side (Vehicle / VehicleCamera / VehicleSound components, the skater's SetDriving) and the scripts calling into it.
   PC-THUG1-22 installs THUG1's two files in the data overlay (made from the user's THUG1 at conversion, in their THUG2
   form: THUG2 renamed the proximity events - ObjectInRadius / ObjectOutofRadius -, RunScriptOnObject + Block hangs, the
-  player's car needs a Motion component; tools/pipeline/thug1_levels/driving.ts) and keeps
+  player's car needs a Motion component; thug2-thug1-level-converter/thug1_levels/driving.ts) and keeps
   VC's limo, its unlocking goal (VC_Goal_Race4) counted as won - so it's parked by the SJ restart from the start, as in
   a finished THUG1 story. The other levels' drivable cars (NJ rally car, NY Impala, FL police car, SD gardener's cart,
   HI car, VC leaf blower - THUGPRO made it a static prop -, RU Lada, HH baja) stay as before (parked or absent): their
@@ -256,7 +256,7 @@ and VC's SJ kill zone (trp_death_SJ) kills, sending you to TRG_Restart_SJ.
 - The Mall: an invisible story blocker across the entrance doors removed (Z_MA_Mall_First_Rail_Blocker).
 - Node flags (pieces THAW makes from `CreatedFromVariable=NODEFLAG_...`): THAW's non-story values, **except 30 flags
   set as THUGPRO's table has them, for online play with THUGPRO - so these areas differ from the real THAW** (TP-40,
-  tools/pipeline/compat/thugpro/README.md): Skate Ranch has the dino head instead of its bare mound, the telescope, the crane's
+  thug2-thugpro-compat/thugpro/README.md): Skate Ranch has the dino head instead of its bare mound, the telescope, the crane's
   top and the camper corner's props; Oil Rig has its derrick and grate pieces before they were taken (not the
   wrecked derrick and the grate's 16 grind rails); Beverly Hills' exit to Skate Ranch is fenced and blocked and
   Rodeo's awning rails are gone; Downtown's Chinatown green is unbroken (no "after" rails); East LA has the roof
@@ -344,7 +344,7 @@ Formats marked "not identified" haven't been looked into yet.
 
 ## 9. THPS2 (phases 1 - 3, 2026-10-21 / 22)
 
-Converter `tools/pipeline/thps2_levels` (README there). All ten levels - Hangar, School II,
+Converter `thug2-thps2-level-converter/thps2_levels` (README there). All ten levels - Hangar, School II,
 Marseille, NY City, Venice Beach, Skatestreet, Philadelphia, The Bullring, Chopper Drop, Skate Heaven - from THPS2's own
 ALL.PKR, as `thps2_<name>` in a THPS2 level select section (THUG1's remakes of Hangar / School II / Venice / Philly stay
 in THUG1's). Every level loads in free skate (agents' load checks only - 2026-10-22, all fifteen again after the glow / cloud fixes; nobody has skated them yet).
@@ -371,7 +371,7 @@ in THUG1's). Every level loads in free skate (agents' load checks only - 2026-10
 
 ## 10. THP8 (phase 1, 2026-10-21; phase 2, 2026-10-22)
 
-Converter `tools/pipeline/thp8_levels` (README there). Tony Hawk's Project 8's Xbox 360 data
+Converter `thug2-thp8-level-converter/thp8_levels` (README there). Tony Hawk's Project 8's Xbox 360 data
 (the user's own, as the fan-made recompilation installs it in C:\Games\THP8\game\DATA - only the data is read). THP8's
 world is one streamed city; each of its zones is a level here (the whole city is ~10 times what THUG2's memory takes):
 the eleven city zones (Suburbs, School, School inside, Shops, Slums, Factory, Capitol, City park, Skate park, Fun park,

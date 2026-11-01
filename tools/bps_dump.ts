@@ -5,7 +5,7 @@
 //   node tools/bps_dump.ts <patch.bps>
 
 import * as fs from "node:fs";
-import { isMain, print, pyBytesRepr, runMain } from "./pipeline/lib/py.ts";
+import { isMain, print, pyBytesRepr, runMain } from "thug2-level-converter-core/lib/py.ts";
 
 // Python's f"{n:0<width>x}" (a negative number: "-" then the zero-padded digits, the sign counted in the width)
 const hex = (n: number, width: number): string =>

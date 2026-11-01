@@ -56,7 +56,7 @@ struct ImFont;
 // Layout records (version 2 still; an older reader skips them):
 //   speed <node> <mph>                                   a moving object's path speed
 //   emitter <node> sound=<checksum> vol=<percent> radius=<r>  an emitter's sound (sound=0: none), its radius (0: as is)
-// tools/pipeline/game/apply_layout.ts bakes them as node fields only this project's DLL reads - ed_path_speed (mph), ed_sound /
+// tools/game/apply_layout.ts bakes them as node fields only this project's DLL reads - ed_path_speed (mph), ed_sound /
 // ed_volume - and the radius as the node's Radius (warned); the game reads those fields when a level loads, too.
 // Offline only: layouts apply only offline (level_editor_layout.h); the baked fields are ignored in a network session.
 namespace frontend::level_editor::entities {

@@ -2,7 +2,7 @@
 // are verbatim game script text. A line counts when, trimmed, it has 20+ characters and is a line of the reference
 // scripts (decompiled game scripts as NeverScript .ns: THUG2's Data\scripts and Data\pre archives with ns.exe, THAW's
 // with tools/pipeline/thaw_bmx/dump_scripts.ts - made in a scratch folder, never committed). For .edits files
-// (tools/pipeline/lib/edits.ts) only the text they store counts: "+" lines and the text of "~" lines.
+// (thug2-level-converter-core/lib/edits.ts) only the text they store counts: "+" lines and the text of "~" lines.
 //
 //   node tools/verbatim_scan.ts --ref <folder of .ns> [--ref ...] [--min 20] [--runs] [--lines] [--runs-at N] <file or folder>...
 //

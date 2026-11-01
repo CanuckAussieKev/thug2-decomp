@@ -28,7 +28,7 @@
 //
 // Not catchable: our own build's /GS failures and other fast-fail exits (int 29h ends the process at once - no
 // handler runs). Windows Error Reporting is told not to show anything (SetErrorMode, WerSetFlags); its dump may still
-// be written to %LOCALAPPDATA%\CrashDumps when LocalDumps is set up: tools/pipeline/game/read_dump.ts reads it.
+// be written to %LOCALAPPDATA%\CrashDumps when LocalDumps is set up: tools/game/read_dump.ts reads it.
 
 // Installs everything: the vectored exception logger, the unhandled-exception filter, the CRT's invalid-parameter /
 // purecall / abort handlers, the Debug CRT's report and run-time check hooks, no error boxes. `console`: reports to

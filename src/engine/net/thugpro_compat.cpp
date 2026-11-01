@@ -23,8 +23,8 @@ constexpr const char* kLevelLists[] = {
     "level_select_menu_thps4_level_info",
     "level_select_menu_thps3_level_info",
     "level_select_menu_thaw_level_info",
-    // (not THUGPRO's: our THP8 / Proving Ground levels wider than half units reach - tools/pipeline/thp8_levels,
-    // NET_HALF_REACH; tools/pipeline/thpg_levels)
+    // (not THUGPRO's: our THP8 / Proving Ground levels wider than half units reach - thug2-thp8-level-converter/thp8_levels,
+    // NET_HALF_REACH; thug2-thpg-level-converter/thpg_levels)
     "level_select_menu_thps2_level_info",
     "level_select_menu_thp8_level_info",
     "level_select_menu_thpg_level_info",

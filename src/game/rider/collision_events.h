@@ -3,7 +3,7 @@
 // NOT ORIGINAL - [debug] collision_events (thug2-decomp.ini, default 0): logs each time the skater's velocity turns
 // round (reverses) on the ground, with what caused it - to find the spots in converted levels where the collision is
 // wrong (no ground, an invisible wall or ramp, a face flagged unskatable...) by skating round and reading the log
-// afterwards (tools/pipeline/game/collision_events.ts groups them). Our own debugging aid, not in the original game.
+// afterwards (tools/game/collision_events.ts groups them). Our own debugging aid, not in the original game.
 //
 // How it works:
 // - The skater's physics paths that turn, reflect or stop the skater against collision call note_path after they ran

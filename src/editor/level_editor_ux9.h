@@ -15,7 +15,7 @@ struct Painter;
 //   - the Ground tool (Alt+U - level_editor_ground.h): two clicks mark a rectangle on the ground (snapped to its grid),
 //     a form raises it (a platform) or lowers it (a pit) with kicker / quarter-pipe ramps on chosen sides - a generated
 //     piece; a click on a piece with the tool armed edits it (Apply / Remove). Pieces are saved as `ground` records (the
-//     layout's extension records) and baked by tools/pipeline/game/apply_layout.ts.
+//     layout's extension records) and baked by tools/game/apply_layout.ts.
 // The keys are the action registry's (level_editor_actions.h: gap_wizard, skateability, ground_tool - rebindable).
 namespace frontend::level_editor::ux9 {
 

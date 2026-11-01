@@ -17,7 +17,7 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 | LZHAM 1.0 (Richard Geldreich, Jr.) - https://github.com/richgel999/lzham_codec, commit d379b1f | downloaded at configure time (FetchContent, SHA-256 checked); built into the exe: THUGPRO's network compression (method 3, the THUGPRO peer mode) | public domain (dedicated by its author on 2020-09-15; releases before that were MIT) - below |
 | Microsoft.DXSDK.D3DX 9.29.952.8 (Microsoft) - https://www.nuget.org/packages/Microsoft.DXSDK.D3DX | downloaded at configure time (FetchContent, SHA-256 checked): its headers and import library are used by the game (`src/engine/gfx/d3dx.cpp` is the only place that calls D3DX9), and its `D3DX9_43.dll` (the DirectX SDK June 2010's runtime) is copied next to the exe | Microsoft Software License Terms "MICROSOFT DXSDK.D3DX" (the package's LICENSE.txt): use to develop and test on Windows; the listed DLLs may be redistributed in object form with an application that adds significant functionality, provided end users agree to terms protecting Microsoft at least as much and the distributor indemnifies Microsoft; no reverse engineering, no use of Microsoft's trademarks; the package's NOTICE.md lists its third-party parts (IJG jpeglib, libpng and others, with their notices) |
 | GameSpy SDK (December 2007 release, common 2.06; IGN Entertainment's 2011 open-source release) - https://github.com/nitrocaster/GameSpy, commit d1deb2d | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/gamespy_sdk.cmake`, which makes one change: the peer SDK's chat server name a variable); the modules the game uses built into the exe | BSD 3-clause - below. Its MD5 (md5c.c) is "derived from the RSA Data Security, Inc. MD5 Message-Digest Algorithm" (RSA's notice, in md5.h) |
-| NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript, commit 73fe0f9 | downloaded at build time into `out/neverscript/src` by `tools/build_neverscript.ps1`, plus our patch `tools/neverscript.patch` (a tool, not part of the game; nothing of it is in this repo) | no licence; the original author's permission - below |
+| NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript (commit 73fe0f9), with our changes in our fork https://github.com/CanuckAussieKev/NeverScript (branch `thug2`) | downloaded at build time into `out/neverscript/src` by `tools/build_neverscript.ps1` (a tool, not part of the game; nothing of it is in this repo) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
 | Real-ESRGAN v0.2.5.0 (Xintao Wang et al.) - https://github.com/xinntao/Real-ESRGAN: its Windows build of realesrgan-ncnn-vulkan (`realesrgan-ncnn-vulkan-20220424-windows.zip`, SHA-256 checked) with the models realesrgan-x4plus and realesrgan-x4plus-anime | **optional external tool**, not part of the game or the repo: downloaded on request by `tools/pipeline/hd_textures/fetch.ts` into `out\` (git-ignored) and run by the converters' `--hd-textures` pass. Only the textures it makes end up in a converted level (the user's own, from his own games' files) | Real-ESRGAN and its released models: BSD 3-clause - https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE; the ncnn front end (Real-ESRGAN-ncnn-vulkan, after nihui's realsr-ncnn-vulkan): MIT; Tencent ncnn: BSD 3-clause; the zip's vcomp140.dll is Microsoft's redistributable OpenMP runtime |
 
@@ -63,8 +63,8 @@ original's README (kept in the fork) says:
 > me a thing.
 
 Downloaded at build time by `tools/build_neverscript.ps1` (a clone at the pinned commit into `out/neverscript/src`);
-no NeverScript source is in this repository. Our own changes to it (`-lenient`) are the patch
-`tools/neverscript.patch`, applied after the download (docs/neverscript.md).
+no NeverScript source is in this repository. Our own changes to it (`-lenient`, a build workflow) are commits in our
+fork, https://github.com/CanuckAussieKev/NeverScript (docs/neverscript.md).
 
 Thanks to byxor for the compiler and decompiler, and to violetvandal for making them work with THUG2.
 
@@ -72,7 +72,7 @@ Thanks to byxor for the compiler and decompiler, and to violetvandal for making 
 
 Source: https://github.com/Morten1337/thps-formats (commit e0a6e06), MIT licence (its pyproject.toml; author "MK").
 Its experimental RenderWare reader for THPS3 (`thps_formats/experimental/chunky.py`, `enums.py`) was read as
-documentation for tools/pipeline/thps3_levels (the chunk ids, the geometry and atomic sector field order); no code was copied.
+documentation for thug2-thps3-level-converter/thps3_levels (the chunk ids, the geometry and atomic sector field order); no code was copied.
 Thanks to Morten1337.
 
 ```

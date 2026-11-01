@@ -45,7 +45,7 @@ constexpr float kSlabThickness = 0.1f;
 //     and the user saw clicks on it as clicking nothing). Kickers, banks and launch ramps that low and wide have sloped
 //     tops and stay pickable: Foundry's 360 x 48 x 680 kickers (43% level), z_ma's 353 x 48 x 915 bank (0%), BO's
 //     554 x 37 x 374 planter (44%), TR's NJ_bFloors_FarEast01 609 x 76 x 577 (0%) - measured by
-//     tools/pipeline/game/pick_census.ts from the levels' own files.
+//     tools/game/pick_census.ts from the levels' own files.
 constexpr float kLowHeight = 80.0f;
 constexpr float kLowSpan = 350.0f;
 constexpr float kLevelTopShare = 0.9f;

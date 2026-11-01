@@ -53,7 +53,7 @@ uint32_t main_block_size();
 
 // NOT ORIGINAL - the slots of the node manager's name hash (engine/script/node_manager.h): the original's 0x4000 (16,384
 // - a level with more named nodes filled it and its lookups never ended), ours 0x10000 by default (THP8's whole town,
-// tools/pipeline/thp8_levels, has ~34,000), [memory] node_hash_slots= (a power of two is taken: rounded up; 0x4000 to
+// thug2-thp8-level-converter/thp8_levels, has ~34,000), [memory] node_hash_slots= (a power of two is taken: rounded up; 0x4000 to
 // 0x100000); original_sizes=1 the original's. More than the original's live outside the node manager's object (its
 // layout is the original's): level_nodes::CNodeManager keeps them beside it, node indices in 32 bits.
 uint32_t node_hash_slots();

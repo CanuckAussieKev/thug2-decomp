@@ -3,7 +3,7 @@
 The project's tools (`tools/`, and the submodules `tools/pipeline` and `tools/anteara`) were rewritten from Python
 into TypeScript run by Node (the user's preference, 2026-10-20); each port was proven **output-equivalent** to its
 Python twin before the Python file was deleted (below). This page is the conventions for every tool. What stays
-Python: the pyghidra scripts (`tools/pipeline/thaw_bmx/thaw_ghidra.py`, `tools/pipeline/thug1_campaign/thug1_functions.py`
+Python: the pyghidra scripts (`tools/pipeline/thaw_bmx/thaw_ghidra.py`, `thug2-thug1-level-converter/thug1_campaign/thug1_functions.py`
 - pyghidra has no Node equivalent), the crash tools in `tools/standalone` (DbgHelp and the Win32 debug API through
 ctypes), and NeverScript (docs/neverscript.md) (not ours: Go). Node has no FFI: a tool that calls a Windows DLL does it through Windows PowerShell's Add-Type (C#
 P/Invoke) - `tools/symbolize.ts` (dbghelp).
@@ -11,7 +11,7 @@ P/Invoke) - `tools/symbolize.ts` (dbghelp).
 ## Running
 
 - Node 24+ (installed: v24.11.1). It runs `.ts` directly (type stripping) - no build step:
-  `node tools/pipeline/level_port/col_check.ts <file.col.xbx>`.
+  `node tools/pipeline/run.ts level_port/col_check.ts <file.col.xbx>`.
 - `npm install` once (devDependencies only: TypeScript, @types/node, Biome; `node_modules/` is ignored).
 - `npm run typecheck` (tsc, no output), `npm run lint` (Biome: lint + format check), `npm run format` (Biome fixes),
   `npm test` (node --test on `tools/**/*.test.ts`). All three must pass before a commit.
@@ -31,36 +31,40 @@ Node strips the types and runs what is left, so only syntax that erases to plain
 
 ## Layout and style
 
-- One `.ts` per Python file, in the same folder, same module boundaries: `tools/pipeline/level_port/qb.py` -> `qb.ts`. Python's
+- One `.ts` per Python file, in the same folder, same module boundaries: `thug2-level-converter-core/level_port/qb.py` -> `qb.ts`. Python's
   `snake_case` functions become `camelCase` (`read_scene` -> `readScene`, `node_array_ns` -> `nodeArrayNs`), classes
   stay `PascalCase`, constants `UPPER_CASE`. Named exports only.
 - The Python files' header comments carry real knowledge (formats, game addresses, why things are done): keep them,
   adapted; keep the `NOT ORIGINAL` headers.
 - Small typed interfaces for the file formats (`Scene`, `Mesh`, `ColObject`, `TexFile`...) with camelCase fields where
   Python had dicts with snake_case keys. Binary data: `Buffer` (`Uint8Array`), read / written through
-  `tools/pipeline/level_port/binio.ts` (`Reader` / `Writer` with Python struct format strings: `r.read("8I")`,
-  `w.write("IHHHBBI", ...)`) or `tools/pipeline/lib/struct.ts` (`pack`, `unpackFrom`, `"<3f"`, `">I"`, `"<8sIIII"`).
+  `thug2-level-converter-core/level_port/binio.ts` (`Reader` / `Writer` with Python struct format strings: `r.read("8I")`,
+  `w.write("IHHHBBI", ...)`) or `thug2-level-converter-core/lib/struct.ts` (`pack`, `unpackFrom`, `"<3f"`, `">I"`, `"<8sIIII"`).
 - Node built-ins with the `node:` prefix: `node:fs`, `node:path`, `node:zlib` (`crc32`), `node:util` (`parseArgs` for
   CLIs), `node:child_process`.
 - A CLI ported from Python kept its twin's commands, arguments, defaults and output exactly (users, docs and other tools rely on
-  them). Its entry: `if (isMain(import.meta.url)) await runMain(() => main());` (tools/pipeline/lib/py.ts): `main` returns the
+  them). Its entry: `if (isMain(import.meta.url)) await runMain(() => main());` (thug2-level-converter-core/lib/py.ts): `main` returns the
   exit code; `pyExit("message")` is `sys.exit("message")`.
 - Imports are relative (`import * as qb from "../level_port/qb.ts"`), not Python's `sys.path.insert` + `import qb`.
+  Another repository's module is imported by its package name and only if that repository exports it (its
+  package.json `exports`, listed in its README: `import * as qb from "thug2-level-converter-core/level_port/qb.ts"`);
+  a tool with a command line has its main block behind `isMain` and is listed in its repository's `commands`
+  (core's lib/package_check.ts, each repository's package.test.ts).
   Options that were Python keyword arguments become an options object when there are many
   (`new Translator(sources, thug2, translatable, nodeNames, allNodeNames, names, { full: true, objects })`); a Python
   subclass (thug1_port's `Thug1Translator`) is a TypeScript subclass overriding the same methods.
-- `tools/pipeline/lib/` holds what every port needs: `py.ts` (Python's semantics: below), `struct.ts`, `difflib.ts`
+- `thug2-level-converter-core/lib/` holds what every port needs: `py.ts` (Python's semantics: below), `struct.ts`, `difflib.ts`
   (SequenceMatcher, get_close_matches, unified_diff), `re.ts` (search / sub / finditer with Python's match object).
 - Formatting: Biome, 4 spaces, 120 columns, double quotes (`npm run format`).
 
 ## Python -> JavaScript traps
 
-Each of these changed (or would have changed) an output somewhere; `tools/pipeline/lib/py.ts` has the helper.
+Each of these changed (or would have changed) an output somewhere; `thug2-level-converter-core/lib/py.ts` has the helper.
 
 **Numbers**
 - NaN payload bits: Python keeps a float32 NaN's bits (THPS3's uvs hold 0x7FC0817D); V8 may reset them to
   0x7FC00000 when a NaN is the first value pushed into a fresh array, and only once the code is optimised - so the
-  output can even vary between runs. Start such arrays as doubles (`doubleArray` in `tools/pipeline/lib/struct.ts`, which
+  output can even vary between runs. Start such arrays as doubles (`doubleArray` in `thug2-level-converter-core/lib/struct.ts`, which
   `unpackFrom` uses) or build them with `concat`.
 - `round(x)` is banker's rounding (halves to even: `round(2.5) == 2`) - `roundHalfEven`, never `Math.round`.
   `round(x, n)` rounds the exact binary value (`round(2.675, 2) == 2.67`) - `pyRound`.
@@ -154,7 +158,7 @@ converters' z-fighting gates, the menu builder's outputs...) that skip when a ga
 
 ## The migration (finished)
 
-Every Python tool was ported in four stages (1: tools/pipeline/level_port's shared modules; 2: the THPS3, THPS4,
+Every Python tool was ported in four stages (1: thug2-level-converter-core/level_port's shared modules; 2: the THPS3, THPS4,
 THUG1 and THAW converters; 3: the menu builder and Anteara Mod's tool; 4: the game scripts and the decompilation's own
 tools), and each was compared with its Python twin on real game data before the
 Python file went: a harness ran both on the same inputs, each in a scratch folder of its own, and compared exit codes,

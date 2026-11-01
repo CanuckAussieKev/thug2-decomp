@@ -4,7 +4,7 @@
 //     node tools/symbolize.ts [--pdb-dir out/build/verify] [log or offsets...]
 //
 // With a log file: symbolizes every "thug2-decomp.exe+0x..." in its last crash report (EXCEPTION, RUN-TIME CHECK
-// FAILURE, ... - src/platform/crash.h; also tools/pipeline/game/read_dump.ts's output saved to a file). With hex
+// FAILURE, ... - src/platform/crash.h; also tools/game/read_dump.ts's output saved to a file). With hex
 // offsets (or "thug2-decomp.exe+0x..."): those.
 // The PDB must come from the same build as the exe that crashed (compare the deployed exe's timestamp).
 // Uses Windows' dbghelp.dll - through Windows PowerShell's Add-Type (C# P/Invoke), as Node has no FFI.
@@ -12,8 +12,16 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseCli } from "./pipeline/lib/cli.ts";
-import { isMain, print, pyExit, pyIntHex, pySplitlines, readTextPy, runMain } from "./pipeline/lib/py.ts";
+import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import {
+    isMain,
+    print,
+    pyExit,
+    pyIntHex,
+    pySplitlines,
+    readTextPy,
+    runMain,
+} from "thug2-level-converter-core/lib/py.ts";
 
 const USAGE = "usage: symbolize.ts [--pdb-dir PDB_DIR] [items ...]";
 

@@ -300,7 +300,7 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     if (s_done) {
         // (once the level is up and settled: what it costs the script pools - for the converters' load checks,
-        // tools/pipeline/game/load_check.ps1)
+        // tools/game/load_check.ps1)
         if (!s_pools_logged && s_started) {
             bool up = render::current_level() != 0 && objects::find_object(kSkater) != nullptr &&
                       !(front_end && front_end->is_halted_);

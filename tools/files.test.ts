@@ -1,10 +1,10 @@
-// NOT ORIGINAL - tests of the small tools' Python-compatibility helpers (tools/pipeline/lib/files.ts, py.ts's pyBytesRepr)
+// NOT ORIGINAL - tests of the small tools' Python-compatibility helpers (thug2-level-converter-core/lib/files.ts, py.ts's pyBytesRepr)
 // against values Python 3.14 gave (no game data).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { csvRow, readCsv, readCsvDicts } from "./pipeline/lib/files.ts";
-import { pyBytesRepr } from "./pipeline/lib/py.ts";
+import { csvRow, readCsv, readCsvDicts } from "thug2-level-converter-core/lib/files.ts";
+import { pyBytesRepr } from "thug2-level-converter-core/lib/py.ts";
 
 test("pyBytesRepr is repr(bytes)", () => {
     assert.equal(

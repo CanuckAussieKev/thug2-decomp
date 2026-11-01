@@ -5,8 +5,8 @@
 //   node tools/extract_cfuncs.ts <reference build exe> data/derived/cfuncs.csv
 
 import * as fs from "node:fs";
-import { decodeLatin1, isMain, print, pyTuple, runMain, writeTextPy } from "./pipeline/lib/py.ts";
-import { unpackNumbers } from "./pipeline/lib/struct.ts";
+import { decodeLatin1, isMain, print, pyTuple, runMain, writeTextPy } from "thug2-level-converter-core/lib/py.ts";
+import { unpackNumbers } from "thug2-level-converter-core/lib/struct.ts";
 
 const TABLE = 0x67f3a0;
 const ENTRIES = 0x4e6;

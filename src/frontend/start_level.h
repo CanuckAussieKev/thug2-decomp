@@ -14,11 +14,11 @@ struct FrontEnd;
 //
 // <name>: a level's load script without its Load_ (zoo, z_dt, BO, TR, TestLevel, SkateShopLevel...) or with
 // it (Load_BO). Once the main menu has been up a moment, what SKATE NOW does with a level chosen runs: EnableSun,
-// SetGameType freeskate, SetCurrentGameType, level_select_change_level level=Load_<name> (as tools/pipeline/game/boot_level.ts
+// SetGameType freeskate, SetCurrentGameType, level_select_change_level level=Load_<name> (as tools/game/boot_level.ts
 // makes SKATE NOW do). Once per run; an unknown name, or a level whose scene file isn't installed (Default: the PC
 // release ships only its scripts and sky), is logged and the main menu stays.
 //
-// Straight into the level editor (ours too, at the user's request - tools/pipeline/game/edit_level.ts starts it):
+// Straight into the level editor (ours too, at the user's request - tools/game/edit_level.ts starts it):
 //
 //   THUG2.exe -edit <name>                      (or --edit <name>, --edit=<name>)
 //   thug2-decomp.ini [features] edit_level=<name>    (the command line wins; -edit before -level, edit_level before
@@ -33,7 +33,7 @@ struct FrontEnd;
 // games (free skate only).
 //
 // At a spot, standing (ours too, at the user's request: "launch the game in the exact spot, standing so I don't move,
-// and I can try it" - tools/pipeline/game/try_spot.ts starts it):
+// and I can try it" - tools/game/try_spot.ts starts it):
 //
 //   THUG2.exe -level <name> -at x,y,z[,heading]  (or --at x,y,z / --at=x,y,z; commas and / or spaces, quoted if spaces)
 //   thug2-decomp.ini [features] start_at=x,y,z[,heading]   (the command line wins)

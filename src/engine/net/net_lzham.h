@@ -8,7 +8,7 @@
 // parameters: a 2^15 dictionary (LZHAM's smallest), the "uber" level, no helper threads, no flags; one LZHAM stream per
 // message, no header of its own (the compressed message's own header carries the expanded size). Parameters from
 // Morten1337's thugpro_proxy (Net/Encoding.cpp), used with his permission; the codec is the public lzham_codec
-// (CMakeLists.txt, THIRD_PARTY_NOTICES.md). Register: tools/pipeline/compat/thugpro/README.md, TP-R11.
+// (CMakeLists.txt, THIRD_PARTY_NOTICES.md). Register: thug2-thugpro-compat/thugpro/README.md, TP-R11.
 //
 // Unlike THUGPRO's, both directions here are bounded: the output never goes past the buffer it's given.
 namespace net::lzham {
