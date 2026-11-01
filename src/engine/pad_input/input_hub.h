@@ -1,10 +1,10 @@
 #pragma once
 
-#include <memory>
 #include <cstddef>
 #include <cstdint>
 
 #include "engine/core/task_list.h"
+#include "engine/core/owner.h"
 
 namespace sio {
 class InputPort;
@@ -129,7 +129,7 @@ static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 &&
 struct Hub {
     enum { kNumServers = 2 };
 
-    std::unique_ptr<tasks::Task<Hub>> task_;     // priority 2000, running the servers (service_task)
+    memory::owner<tasks::Task<Hub>*> task_;     // priority 2000, running the servers (service_task)
     HostEnd hosts_[kNumServers]; // +0x04
     bool stick_replaces_pad_;    // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;

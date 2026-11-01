@@ -2,7 +2,6 @@
 
 #include "engine/pad_input/input_hub.h"
 
-#include <memory>
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -221,7 +220,7 @@ Hub* Hub::make_new()
     for (HostEnd& server : hosts_)
         server.make_new();
     sio::Hub* devices = sio::g_manager;
-    task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, 2000);
+    task_ = new tasks::Task<Hub>(&Hub::service_task, this, 2000);
     for (int i = 0; i < kNumServers; ++i)
         hosts_[i].dev_ = devices->get_pad_at_slot(i);
     stick_replaces_pad_ = true;
@@ -269,7 +268,7 @@ void HostEnd::destruct() { handlers_.destruct(); }
 void Hub::destruct()
 {
     if (task_) {
-        task_.reset();
+        delete task_;
     }
     // (the C runtime's eh vector destructor iterator: the last first)
     for (int i = kNumServers - 1; i >= 0; --i)

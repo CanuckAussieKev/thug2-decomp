@@ -3,7 +3,6 @@
 #include "engine/net/vault_man.h"
 #include "engine/net/gamespy.h"
 
-#include <memory>
 #include <windows.h>
 
 #include <cstdint>
@@ -270,7 +269,7 @@ VaultMan* VaultMan::make_new()
     transfer_ = kNone;
     progress_ = 0;
     start_time_ = 0;
-    task_ = std::make_unique<tasks::Task<VaultMan>>(&vault_task, this, 0);
+    task_ = new tasks::Task<VaultMan>(&vault_task, this, 0);
     semaphore_ = CreateSemaphoreA(nullptr, 1, 10, nullptr);
     return this;
 }
@@ -279,7 +278,7 @@ VaultMan* VaultMan::make_new()
 void VaultMan::destroy_body()
 {
     get_release(semaphore_);
-    task_.reset();
+    delete task_;
     categories_.uncouple();
 }
 
@@ -290,7 +289,7 @@ void VaultMan::download(const DownloadRequest* request)
     VaultMan* vault = get_vault();
     vault->transfer_ = kDownload;
     vault->outcome_val_ = 0;
-    get_logic_tasks()->queue_job(vault->task_.get());
+    get_logic_tasks()->queue_job(vault->task_);
     vault->progress_ = 0;
     vault->start_time_ = frame_clock::get_time();
     vault->buffer_size_ = request->buffer_size_;
@@ -340,7 +339,7 @@ void VaultMan::list_categories()
     std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/dir_list.txt", folder_);
     start_list(url);
     outcome_val_ = 0;
-    get_logic_tasks()->queue_job(task_.get());
+    get_logic_tasks()->queue_job(task_);
 }
 
 // 0x0054C130
@@ -724,7 +723,7 @@ bool __cdecl upload_file(script::Struct* params, script::Script*)
     VaultMan* vault = get_vault();
     vault->transfer_ = VaultMan::kUpload;
     vault->outcome_val_ = 0;
-    get_logic_tasks()->queue_job(vault->task_.get());
+    get_logic_tasks()->queue_job(vault->task_);
     vault->progress_ = 0;
     vault->start_time_ = frame_clock::get_time();
     vault->fail_script_ = kFailScript;
@@ -791,7 +790,7 @@ bool __cdecl download_directory_list(script::Struct* params, script::Script*)
     char url[128];
     std::snprintf(url, sizeof(url), "http://www.thugonline.com/%s/uploads.txt", vault->folder_);
     vault->start_list(url);
-    get_logic_tasks()->queue_job(vault->task_.get());
+    get_logic_tasks()->queue_job(vault->task_);
     pop_heap();
     return true;
 }
