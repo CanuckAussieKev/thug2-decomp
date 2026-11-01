@@ -564,8 +564,20 @@ void end_permanent_strings()
 }
 
 namespace {
-char g_script_strings[128]; // (the strings SetScriptString / GetScriptString use, 128 bytes each, indexed from here)
-char (&script_string_slot(int index))[128] { return reinterpret_cast<char (*)[128]>(&g_script_strings)[index]; }
+// The strings SetScriptString / GetScriptString use, 128 bytes each. The original has one slot (0x006F3590) and
+// indexes past it into the structure pools that follow; the game's scripts use only index 0. Not original: 16 slots,
+// an index outside them ignored (an empty string read back).
+constexpr int kScriptStringSlots = 16;
+char g_script_strings[kScriptStringSlots][128];
+char g_no_script_string[128];
+char* script_string_slot(int index)
+{
+    if (index < 0 || index >= kScriptStringSlots) {
+        g_no_script_string[0] = 0;
+        return g_no_script_string;
+    }
+    return g_script_strings[index];
+}
 } // namespace
 
 // 0x00476370
