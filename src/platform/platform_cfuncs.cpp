@@ -9,6 +9,7 @@
 #include "engine/script/script_tables.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/script/cscript.h"
+#include "platform/code_address.h"
 
 namespace sys {
 
@@ -31,7 +32,7 @@ bool cfunc_is_ps2(script::Struct* /*params*/, script::Script* script)
 void install_is_ps2()
 {
     if (script::NativeCommand* entry = script::find_c_function("IsPS2"))
-        script::bind_native_command(*entry, reinterpret_cast<void*>(&cfunc_is_ps2));
+        script::bind_native_command(*entry, code_address(&cfunc_is_ps2));
 }
 
 } // namespace sys

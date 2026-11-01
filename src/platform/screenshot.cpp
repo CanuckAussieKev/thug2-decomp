@@ -47,6 +47,8 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/util/unique_handle.h"
+#include "engine/core/raw_view.h"
+#include "platform/code_address.h"
 
 namespace sys::screenshot {
 
@@ -88,7 +90,7 @@ float g_message_y = 40.0f; // (show_notice's lower, clear of the score: 100)
 
 // --- the game's state ---
 
-uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool loading_screen_up()
@@ -107,13 +109,13 @@ std::string get_name_of(uint32_t checksum)
 }
 std::string active_ruleset_label()
 {
-    void* mode = reinterpret_cast<void*>(goals::g_game_mode);
+    void* mode = raw::as<void>(goals::g_game_mode);
     return mode ? get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key()) : "";
 }
 // The local skater (the skate module's 0x00566520; null with none).
 objects::GameEntity* local_skater()
 {
-    return skate_module() ? reinterpret_cast<modules::Skate*>(skate_module())->get_home_rider() : nullptr;
+    return skate_module() ? raw::as<modules::Skate>(skate_module())->get_home_rider() : nullptr;
 }
 
 std::string vec(const float v[3], const char* format = "(%.1f, %.1f, %.1f)")
@@ -172,7 +174,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     HMODULE dll = nullptr;
     char dll_path[MAX_PATH] = "";
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCSTR>(&gather_sections), &dll))
+                           static_cast<LPCSTR>(code_address(&gather_sections)), &dll))
         GetModuleFileNameA(dll, dll_path, MAX_PATH);
     build.fields.push_back(
         {"dll",

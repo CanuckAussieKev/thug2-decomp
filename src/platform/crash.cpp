@@ -22,6 +22,9 @@
 
 #include "platform/run_log.h"
 #include "platform/compiler.h"
+#include "engine/core/pointer_cell.h"
+#include "platform/code_address.h"
+#include "platform/crt.h"
 
 namespace {
 
@@ -63,26 +66,26 @@ bool module_of(uintptr_t address, char (&name)[MAX_PATH], uintptr_t* offset)
 {
     HMODULE module = nullptr;
     if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                            reinterpret_cast<LPCSTR>(address), &module) ||
+                            cell::pointer<const char>(static_cast<uint32_t>(address)), &module) ||
         !module)
         return false;
     GetModuleFileNameA(module, name, MAX_PATH);
     if (const char* slash = strrchr(name, '\\'))
         memmove(name, slash + 1, strlen(slash));
-    *offset = address - reinterpret_cast<uintptr_t>(module);
+    *offset = address - cell::address(module);
     return true;
 }
 
 bool readable(uintptr_t address, size_t size, bool code)
 {
     MEMORY_BASIC_INFORMATION info;
-    if (!VirtualQuery(reinterpret_cast<void*>(address), &info, sizeof(info)) || info.State != MEM_COMMIT)
+    if (!VirtualQuery(cell::pointer<void>(address), &info, sizeof(info)) || info.State != MEM_COMMIT)
         return false;
     const DWORD wanted = code ? (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)
                               : (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ |
                                  PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY);
     return (info.Protect & wanted) && !(info.Protect & PAGE_GUARD) &&
-           address + size <= reinterpret_cast<uintptr_t>(info.BaseAddress) + info.RegionSize;
+           address + size <= cell::address(info.BaseAddress) + info.RegionSize;
 }
 
 // Whether `address` follows a CALL instruction (E8 rel32, FF /2 with a 0-, 1- or 4-byte displacement or SIB).
@@ -90,7 +93,7 @@ bool after_call(uintptr_t address)
 {
     if (!readable(address - 7, 7, true))
         return false;
-    const auto* p = reinterpret_cast<const uint8_t*>(address);
+    const auto* p = cell::pointer<const uint8_t>(address);
     if (p[-5] == 0xE8)
         return true;
     for (const int length : {2, 3, 4, 6, 7}) {
@@ -113,7 +116,7 @@ void crash_log_stack_scan(uintptr_t esp)
     for (uintptr_t slot = esp; found < 24 && slot < esp + 0x2000; slot += 4) {
         if (!readable(slot, 4, false))
             break;
-        const uintptr_t value = *reinterpret_cast<const uint32_t*>(slot);
+        const uintptr_t value = *cell::pointer<const uint32_t>(slot);
         if (!after_call(value) || !module_of(value, name, &offset))
             continue;
         get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name, static_cast<unsigned>(offset),
@@ -132,8 +135,8 @@ void log_backtrace()
     const USHORT count = CaptureStackBackTrace(2, 24, frames, nullptr);
     for (USHORT i = 0; i < count; ++i) {
         char name[MAX_PATH] = "?";
-        auto offset = reinterpret_cast<uintptr_t>(frames[i]);
-        module_of(reinterpret_cast<uintptr_t>(frames[i]), name, &offset);
+        auto offset = cell::address(frames[i]);
+        module_of(cell::address(frames[i]), name, &offset);
         get_log("    at %s+0x%X (%p)", name, static_cast<unsigned>(offset), frames[i]);
     }
 }
@@ -162,7 +165,7 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
     for (uintptr_t slot = c->Esp; slot < c->Esp + 0x80; slot += 0x20) {
         if (!readable(slot, 0x20, false))
             break;
-        const auto* w = reinterpret_cast<const uint32_t*>(slot);
+        const auto* w = cell::pointer<const uint32_t>(slot);
         get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0],
                 w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
     }
@@ -182,10 +185,10 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
     if (!any_module) {
         HMODULE ours = nullptr;
         GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCSTR>(&crash_logger), &ours);
+                           static_cast<LPCSTR>(code_address(&crash_logger)), &ours);
         HMODULE at = nullptr;
         GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCSTR>(info->ContextRecord->Eip), &at);
+                           cell::pointer<const char>(info->ContextRecord->Eip), &at);
         if (at != ours && at != GetModuleHandleA(nullptr))
             return EXCEPTION_CONTINUE_SEARCH;
     }
@@ -280,7 +283,7 @@ void __stdcall pops_its_argument(int) {}
 // the /RTCs check after the call reports.
 THUG2_NOINLINE void call_with_wrong_convention()
 {
-    auto call = reinterpret_cast<void (*)(int)>(&pops_its_argument);
+    auto call = function_at<void (*)(int)>(code_address(&pops_its_argument));
     call(1);
 }
 #endif
@@ -332,7 +335,7 @@ void install_crash_handling(bool console)
     // ...nor Windows Error Reporting's UI (its reports queued, not shown).
     using WerSetFlagsFn = HRESULT(WINAPI*)(DWORD);
     if (auto wer_set_flags =
-            reinterpret_cast<WerSetFlagsFn>(GetProcAddress(GetModuleHandleA("kernel32.dll"), "WerSetFlags")))
+            crt::library_function<WerSetFlagsFn>("kernel32.dll", "WerSetFlags"))
         wer_set_flags(WER_FAULT_REPORTING_FLAG_QUEUE);
     // abort(): no message box, no report - our handler logs it.
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);

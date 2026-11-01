@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/raw_view.h"
+
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -88,7 +90,7 @@ public:
     // A zero-terminated string in place (the terminator read too); null if there is no terminator before the end.
     const char* c_string()
     {
-        const auto* start = reinterpret_cast<const char*>(data_ + position_);
+        const auto* start = raw::chars(data_ + position_);
         const size_t length = size_ == kUnknownSize ? std::strlen(start) : strnlen_in_bounds(start);
         if (length == kNotFound) {
             fail();

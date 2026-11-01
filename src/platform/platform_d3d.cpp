@@ -7,6 +7,7 @@
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/pc_flexible_particles.h"
+#include "engine/core/raw_view.h"
 
 namespace os_layer {
 
@@ -77,7 +78,7 @@ HRESULT create_quad_index_buffer(uint32_t quads)
     uint16_t* index = nullptr;
     input_port()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
                                     &quad_indices(), nullptr);
-    quad_indices()->Lock(0, 0, reinterpret_cast<void**>(&index), 0);
+    quad_indices()->Lock(0, 0, raw::as<void*>(&index), 0);
     for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, index += 6) {
         index[0] = static_cast<uint16_t>(first);
         index[1] = static_cast<uint16_t>(first + 1);
@@ -98,7 +99,7 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuff
     const uint32_t start = first * stride;
     if (count * stride + start > dynamic_vertices_size()) {
         // Full: start again at the beginning.
-        dynamic_vertices()->Lock(0, 0, reinterpret_cast<void**>(&dynamic_vertices_locked()), D3DLOCK_DISCARD);
+        dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_DISCARD);
         dynamic_vertices_used() = 0;
         if (room)
             *room = dynamic_vertices_size() / stride;
@@ -109,7 +110,7 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuff
     dynamic_vertices_used() = start;
     if (room)
         *room = (dynamic_vertices_size() - start) / stride;
-    dynamic_vertices()->Lock(0, 0, reinterpret_cast<void**>(&dynamic_vertices_locked()), D3DLOCK_NOOVERWRITE);
+    dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_NOOVERWRITE);
     return dynamic_vertices_locked() + start;
 }
 

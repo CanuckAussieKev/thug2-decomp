@@ -32,6 +32,8 @@
 #include "formats/lzss.h"
 #include "tests/format_check_files.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace format_check_files {
 
@@ -86,13 +88,13 @@ struct WalkedFile {
 std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
 {
     std::vector<WalkedFile> files;
-    const int count = *reinterpret_cast<const int*>(archive.data() + 8);
+    const int count = *raw::as<const int>(archive.data() + 8);
     size_t offset = 12;
     for (int i = 0; i < count && offset + sizeof(ReferenceRow) <= archive.size(); ++i) {
-        const auto* row = reinterpret_cast<const ReferenceRow*>(archive.data() + offset);
+        const auto* row = raw::as<const ReferenceRow>(archive.data() + offset);
         const int stored = row->compressed_size ? row->compressed_size : row->size;
         files.push_back(
-            {offset, row->size, row->compressed_size, row->checksum, reinterpret_cast<const char*>(row + 1)});
+            {offset, row->size, row->compressed_size, row->checksum, raw::chars(row + 1)});
         offset += static_cast<size_t>(((stored + 3) & ~3) + row->name_size + static_cast<int>(sizeof(ReferenceRow)));
     }
     return files;
@@ -276,7 +278,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
     const bool ok = bundle_format::read_bundle_table(reader, table.data(), 450, &count);
     check(ok, name + ": bundle table");
     // the original's in-place reading: the count at +4, the entries from +8
-    const auto* words = reinterpret_cast<const uint32_t*>(data);
+    const auto* words = raw::as<const uint32_t>(data);
     check(size >= 8 && words[0] == 1 && words[1] == ints::as_unsigned(count), name + ": version 1, the count");
     for (int i = 0; ok && i < count; ++i) {
         const uint32_t* row = words + 2 + i * 4;
@@ -294,7 +296,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
         util::ByteReader colours(data + entry.offset, entry.size);
         bundle_format::SkinColours read;
         check(bundle_format::read_skin_colours(colours, &read) &&
-                  read.count == *reinterpret_cast<const int*>(data + entry.offset + 4) &&
+                  read.count == *raw::as<const int>(data + entry.offset + 4) &&
                   read.entries == data + entry.offset + 8,
               name + ": entry " + std::to_string(i) + "'s skin colours");
         g_skin_colour_tables += 1;
@@ -324,7 +326,7 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
         return;
     }
     // the original memory loader's walk in place: the count at +4, eight words a texture, each level {size, texels}
-    const auto* p = reinterpret_cast<const uint32_t*>(data);
+    const auto* p = raw::as<const uint32_t>(data);
     check(ints::as_signed(p[1]) == header.count, name + ": the count as in place");
     p += 2;
     for (int i = 0; i < header.count; ++i) {
@@ -344,7 +346,7 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
             check(false, what + ": palette");
             return;
         }
-        p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p) + texture.palette_size);
+        p = raw::field_at<const uint32_t>(p, texture.palette_size);
         for (uint32_t level = 0; level < texture.levels; ++level) {
             const uint8_t* texels = nullptr;
             uint32_t level_bytes = 0;
@@ -352,8 +354,8 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
                 check(false, what + ": level " + std::to_string(level));
                 return;
             }
-            check(*p == level_bytes && reinterpret_cast<const uint8_t*>(p + 1) == texels, what + ": level as in place");
-            p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p + 1) + level_bytes);
+            check(*p == level_bytes && raw::bytes(p + 1) == texels, what + ": level as in place");
+            p = raw::field_at<const uint32_t>(p + 1, level_bytes);
             if (level_bytes != texture_format::level_size(texture, level)) {
                 if (g_level_size_mismatches++ < 5)
                     std::printf("  note %s level %u: %u bytes, %ux%u depth %u compression %u expects %u\n",
@@ -430,7 +432,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     // (the game's files are loaded 16-byte aligned: a copy so)
     std::vector<uint8_t> copy(size + 16);
     auto* base =
-        reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~static_cast<uintptr_t>(15));
+        cell::pointer<uint8_t>((cell::address(copy.data()) + 15) & ~static_cast<uintptr_t>(15));
     std::memcpy(base, data, size);
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
@@ -440,16 +442,16 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     }
     check(header.version == 10, name + ": version 10");
     // the original's (WorldScene::load_collision_data) arithmetic
-    auto word = [base](int offset) { return *reinterpret_cast<const int*>(base + offset); };
+    auto word = [base](int offset) { return *raw::as<const int>(base + offset); };
     auto align = [](uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); };
-    const uintptr_t objects = reinterpret_cast<uintptr_t>(base) + 0x20;
+    const uintptr_t objects = cell::address(base) + 0x20;
     const uintptr_t vertices = align(objects + static_cast<uintptr_t>(word(4)) * 0x40, 16);
     const uintptr_t vertex_bytes = vertices + 6 * static_cast<uintptr_t>(word(0x18) + 2 * word(0x14));
     const uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
     auto nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
     const uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
     const uintptr_t nodes = faces + faces_size + 4;
-    const uintptr_t face_lists = nodes + *reinterpret_cast<const uint32_t*>(faces + faces_size);
+    const uintptr_t face_lists = nodes + *cell::pointer<const uint32_t>(faces + faces_size);
     check(layout.objects == objects && layout.vertices == vertices && layout.vertex_bytes == vertex_bytes &&
               layout.faces == faces && layout.face_buffers == faces + nodes_at && layout.nodes == nodes &&
               layout.face_lists == face_lists,
@@ -459,7 +461,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     // a size short of the tree's: refused
     collision_format::CollisionHeader again;
     collision_format::CollisionLayout cut;
-    const size_t short_size = static_cast<size_t>(layout.nodes - reinterpret_cast<uintptr_t>(base)) - 1;
+    const size_t short_size = static_cast<size_t>(layout.nodes - cell::address(base)) - 1;
     check(!collision_format::lay_out_collision(base, short_size, &again, &cut), name + ": cut short");
 }
 
@@ -478,13 +480,13 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
     g_bones += skeleton->count;
     check(reader.remaining() == 0, name + ": the bones end at the file's end");
     // the original's reading in place: the flags at +4, the count at +8, then the three name arrays and the poses
-    const auto* words = reinterpret_cast<const uint32_t*>(data);
+    const auto* words = raw::as<const uint32_t>(data);
     const int count = static_cast<int>(words[2]);
     bool same = words[1] == skeleton->flags && count == skeleton->count;
     for (int i = 0; same && i < count; ++i) {
         same = words[3 + i] == skeleton->names[i] && words[3 + count + i] == skeleton->parents[i] &&
                words[3 + 2 * count + i] == skeleton->mirrors[i];
-        const auto* bind = reinterpret_cast<const float*>(words + 3 + 3 * count) + i * 8;
+        const auto* bind = raw::as<const float>(words + 3 + 3 * count) + i * 8;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         same = same && std::memcmp(bind, skeleton->poses[i].rotation, 16) == 0 &&
                // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
@@ -712,7 +714,7 @@ void check_skin(const std::string& name, const uint8_t* data, size_t size)
     }
     g_scenes.breaks += static_cast<int>(skin.break_count);
     // the original's reading in place: version, bone count from version 2, break count, the breaks
-    const auto* words = reinterpret_cast<const uint32_t*>(data);
+    const auto* words = raw::as<const uint32_t>(data);
     const size_t at = words[0] >= 2 ? 2 : 1;
     const uint32_t breaks = words[at];
     check(breaks == skin.break_count && std::memcmp(words + at + 1, skin.breaks.data(), skin.breaks.size()) == 0 &&
@@ -854,21 +856,21 @@ struct AnimStats {
 
 uint8_t* reference_aligned(uint8_t* p)
 {
-    const uintptr_t misaligned = reinterpret_cast<uintptr_t>(p) & 3;
+    const uintptr_t misaligned = cell::address(p) & 3;
     return misaligned ? p + (4 - misaligned) : p;
 }
-uint8_t* reference_past_bone_bits(uint8_t* p) { return p + ((*reinterpret_cast<int32_t*>(p) - 1) / 32) * 4 + 8; }
+uint8_t* reference_past_bone_bits(uint8_t* p) { return p + ((*raw::as<int32_t>(p) - 1) / 32) * 4 + 8; }
 
 void check_animation(const std::string& name, const uint8_t* data, size_t size)
 {
     ++g_anims.files;
     std::vector<uint8_t> copy(size + 16);
     auto* base =
-        reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~static_cast<uintptr_t>(15));
+        cell::pointer<uint8_t>((cell::address(copy.data()) + 15) & ~static_cast<uintptr_t>(15));
     std::memcpy(base, data, size);
     anim_format::AnimHeader header;
     anim_format::AnimLayout layout;
-    const uint32_t flags = reinterpret_cast<const uint32_t*>(base)[1];
+    const uint32_t flags = raw::as<const uint32_t>(base)[1];
     if (!(flags & anim_format::kFloatKeys) && !(flags & anim_format::kCompressed)) {
         ++g_anims.neither; // (the frame data loads nothing of it)
         return;
@@ -879,7 +881,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     }
     // the original's arithmetic (JointClipFrames::set_up_float_keys / set_up_compressed)
     uint8_t* keys = base + 0xC;
-    const auto* words = reinterpret_cast<const uint32_t*>(keys);
+    const auto* words = raw::as<const uint32_t>(keys);
     const int bones = static_cast<int>(words[0]);
     const uint8_t* events = nullptr;
     if (flags & anim_format::kFloatKeys) {
@@ -896,9 +898,9 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
         uint8_t* translation = p + static_cast<int16_t>(words[1]) * key_size;
         p = translation + static_cast<int16_t>(words[2]) * key_size;
         events = reference_aligned(p);
-        check(layout.key_counts == reinterpret_cast<uintptr_t>(counts) &&
-                  layout.rotation_keys == reinterpret_cast<uintptr_t>(rotation) &&
-                  layout.translation_keys == reinterpret_cast<uintptr_t>(translation),
+        check(layout.key_counts == cell::address(counts) &&
+                  layout.rotation_keys == cell::address(rotation) &&
+                  layout.translation_keys == cell::address(translation),
               name + ": float keys as the original's arithmetic");
     } else {
         ++g_anims.compressed;
@@ -910,17 +912,17 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
             p = reference_past_bone_bits(p);
         p = reference_aligned(p);
         if (!(flags & 0x8000000) && !(flags & 0x1000000)) {
-            check(layout.rotation_keys == reinterpret_cast<uintptr_t>(p) &&
-                      layout.translation_keys == reinterpret_cast<uintptr_t>(p + words[4]),
+            check(layout.rotation_keys == cell::address(p) &&
+                      layout.translation_keys == cell::address(p + words[4]),
                   name + ": compressed keys as the original's arithmetic");
             p += words[4] + words[5];
         }
         events = reference_aligned(p);
     }
-    check(layout.custom_keys == reinterpret_cast<uintptr_t>(events),
+    check(layout.custom_keys == cell::address(events),
           name + ": custom keys as the original's arithmetic");
     check(anim_format::check_bone_keys(header, layout), name + ": the bones' keys within the totals");
-    util::ByteReader reader(reinterpret_cast<const uint8_t*>(layout.custom_keys), layout.end - layout.custom_keys);
+    util::ByteReader reader(cell::pointer<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
         anim_format::CustomKey key;
         if (!anim_format::read_custom_key(reader, &key)) {
@@ -931,8 +933,8 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     }
     anim_format::AnimHeader again;
     anim_format::AnimLayout cut;
-    if (layout.custom_keys > reinterpret_cast<uintptr_t>(base) + 0x24)
-        check(!anim_format::lay_out_animation(base, layout.custom_keys - reinterpret_cast<uintptr_t>(base) - 1, &again,
+    if (layout.custom_keys > cell::address(base) + 0x24)
+        check(!anim_format::lay_out_animation(base, layout.custom_keys - cell::address(base) - 1, &again,
                                               &cut) ||
                   layout.custom_keys - 3 <= layout.translation_keys,
               name + ": cut short");

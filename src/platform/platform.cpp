@@ -12,6 +12,7 @@
 #include "platform/sdl_events.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/view_cam.h"
+#include "engine/core/bits_as.h"
 
 namespace os_layer {
 
@@ -75,9 +76,9 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     render::g_distance_clipping = false;
     g_unknown643b = 0;
     g_force_axis_counts[1] = 0;
-    reinterpret_cast<uint32_t&>(render::g_resolution_setting) = 0;
+    memory::bits_as<uint32_t>(render::g_resolution_setting) = 0;
     g_distance_setting = 0;
-    reinterpret_cast<uint32_t&>(gfx::g_draw_distance_setting) = 0;
+    memory::bits_as<uint32_t>(gfx::g_draw_distance_setting) = 0;
     // Originally from PartyMod Fixes: the graphics settings from thug2-decomp.ini in place of the original's loader 0x005F34D0(config).
     render::write_graphics_settings();
     // Originally from PartyMod Fixes: SDL input (game controllers, the key bindings) in place of the original's

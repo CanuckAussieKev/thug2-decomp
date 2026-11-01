@@ -37,6 +37,8 @@
 #include "engine/gfx/movie.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -213,7 +215,7 @@ void read_network_params(const char* command_line)
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const char* at = find("-MAXPLAYERS")) {
         auto players = static_cast<uint32_t>(get_number(at + 11));
-        reinterpret_cast<uint32_t&>(online::g_net_max_players) = players < 2 ? 2 : players > 8 ? 8 : players;
+        memory::bits_as<uint32_t>(online::g_net_max_players) = players < 2 ? 2 : players > 8 ? 8 : players;
     }
     if (const char* at = find("-GROUP"))
         online::g_lobby_group_id = get_number(at + 6);
@@ -223,7 +225,7 @@ void read_network_params(const char* command_line)
     }
     if (const char* at = find("-SKILLLEVEL")) {
         auto skill = static_cast<uint32_t>(get_number(at + 11));
-        reinterpret_cast<uint32_t&>(online::g_net_skill_level) = skill > 4 ? 4 : skill;
+        memory::bits_as<uint32_t>(online::g_net_skill_level) = skill > 4 ? 4 : skill;
     }
     if (const char* at = find("-NAME"))
         copy_value(at + 5, commands::g_network_id, 15); // the player's name
@@ -328,7 +330,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
             write_default_setting(name, kDefaultBindings[device][i]);
         }
     }
-    os_layer::init_input(instance, game_window(), reinterpret_cast<int>(kSettingsKey));
+    os_layer::init_input(instance, game_window(), static_cast<int>(cell::of(kSettingsKey)));
 
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.

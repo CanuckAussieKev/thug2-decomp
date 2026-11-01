@@ -1,4 +1,5 @@
 #include "formats/pre_format.h"
+#include "engine/core/raw_view.h"
 
 #include <cstring>
 
@@ -22,7 +23,7 @@ bool read_file_record(util::ByteReader& reader, FileRecord* out)
     out->checksum = reader.u32();
     if (!reader.ok() || out->size < 0 || out->compressed_size < 0 || out->name_size == 0)
         return false;
-    out->name = reinterpret_cast<const char*>(reader.cursor());
+    out->name = raw::chars(reader.cursor());
     if (!reader.skip(out->name_size) || std::memchr(out->name, 0, out->name_size) == nullptr)
         return false;
     out->data = reader.cursor();

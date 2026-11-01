@@ -1,4 +1,5 @@
 #include "formats/collision_format.h"
+#include "engine/core/pointer_cell.h"
 
 namespace collision_format {
 
@@ -90,7 +91,7 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
     util::ByteReader reader(base, size);
     if (!read_collision_header(reader, header))
         return false;
-    auto start = reinterpret_cast<uintptr_t>(base);
+    auto start = cell::address(base);
     // (as the game computes them - in 32 bits on its platform; counts past what a file can hold fail below)
     const uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
     const uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) +
@@ -109,7 +110,7 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
     layout->end = known ? start + size : ~static_cast<uintptr_t>(0);
     if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start)
         return false;
-    const uint32_t node_size = util::ByteReader(reinterpret_cast<const uint8_t*>(layout->node_size_word), 4).u32();
+    const uint32_t node_size = util::ByteReader(cell::pointer<const uint8_t>(layout->node_size_word), 4).u32();
     layout->nodes = layout->node_size_word + 4;
     layout->face_lists = layout->nodes + node_size;
     return !known || (node_size <= layout->end - layout->nodes);
@@ -131,8 +132,8 @@ bool check_collision_objects(const uint8_t* base, const CollisionHeader& header,
             !within(object.vertex_bytes, object.vertex_count, header.vertex_byte_count) ||
             !within(object.faces, static_cast<uint64_t>(object.face_count) * (object.small_faces ? 8 : 10),
                     face_section) ||
-            !check_tree(reinterpret_cast<const uint8_t*>(layout.nodes), node_size,
-                        reinterpret_cast<const uint8_t*>(layout.face_lists), list_size, object.tree,
+            !check_tree(cell::pointer<const uint8_t>(layout.nodes), node_size,
+                        cell::pointer<const uint8_t>(layout.face_lists), list_size, object.tree,
                         object.face_count, 0, &visits))
             return false;
     }

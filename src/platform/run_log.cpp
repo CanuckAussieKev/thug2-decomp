@@ -13,6 +13,7 @@
 #include <io.h>
 
 #include "platform/crash.h"
+#include "engine/core/pointer_cell.h"
 
 namespace {
 FILE* g_log = nullptr;
@@ -75,7 +76,7 @@ void log_open()
 
 void* log_file_handle()
 {
-    return g_log ? reinterpret_cast<void*>(_get_osfhandle(_fileno(g_log))) : INVALID_HANDLE_VALUE;
+    return g_log ? cell::pointer<void>(_get_osfhandle(_fileno(g_log))) : INVALID_HANDLE_VALUE;
 }
 
 void log_line(const char* line)

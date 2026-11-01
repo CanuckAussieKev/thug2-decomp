@@ -11,6 +11,7 @@
 #include "engine/sound/mute_audio.h"
 #include "engine/gfx/device.h"
 #include "engine/audio/music_player.h"
+#include "engine/core/bits_as.h"
 
 namespace os_layer {
 
@@ -32,7 +33,7 @@ HWND& game_window() { return render::g_game_window; }
 int& get_frame_left() { return g_frame_left; }
 int& frame_top() { return g_frame_top; }
 
-IDirectSound8*& direct_sound() { return reinterpret_cast<IDirectSound8*&>(audio::g_sound_device); }
+IDirectSound8*& direct_sound() { return memory::bits_as<IDirectSound8*>(audio::g_sound_device); }
 
 // IMA ADPCM's tables (0x0068E0C0, 0x0068E0E0).
 const int kIndexSteps[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
