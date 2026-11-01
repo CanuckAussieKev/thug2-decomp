@@ -9,6 +9,8 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
+#include "engine/net/skater_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/objects/node_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -43,8 +45,6 @@ constexpr uint32_t kOnDestroyScript = 0x40764820;
 constexpr uint32_t kObjectId = 0x40C698AF;
 
 // Network messages to the server.
-constexpr uint8_t kMsgCreateSpecialItem = 0x77;
-constexpr uint8_t kMsgDestroySpecialItem = 0x78;
 
 template <typename T>
 T& prop(const void* object, uint32_t offset)
@@ -76,7 +76,7 @@ render::RenderModel* get_model_data(GameEntity* object)
 }
 
 // A message to the server, in a network game.
-void send_to_server(uint8_t id, void* data)
+void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
 {
     auto* manager = online::g_online_hub;
     if (!manager->in_net_game())
@@ -84,8 +84,11 @@ void send_to_server(uint8_t id, void* data)
     net::NetMessageInfo msg;
     msg.make_new();
     auto* client = static_cast<net::Guest*>(manager->fetch_patron(0));
+    uint8_t data[online::kSpecialItemSize];
+    util::ByteWriter writer(data, sizeof(data));
+    online::write_special_item(writer, item);
     msg.content_ = data;
-    msg.byte_count_ = 0xC;
+    msg.byte_count_ = sizeof(data);
     msg.ident_ = id;
     client->send_to_host(&msg);
 }
@@ -184,27 +187,22 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         lock->put_name_key(kObjectId, entity_->ident_);
         item->fetch_module(kLockObj)->configure_from_data(lock);
         delete_params(lock);
-        struct {
-            uint32_t params;
-            uint32_t bone;
-            uint8_t object_id_;
-            uint8_t slot;
-            uint8_t pad[2];
-        } created = {item_params, bone, static_cast<uint8_t>(entity_->ident_), static_cast<uint8_t>(slot), {}};
-        send_to_server(kMsgCreateSpecialItem, &created);
+        online::SpecialItemMessage created;
+        created.params = item_params;
+        created.bone = bone;
+        created.object_id = static_cast<uint8_t>(entity_->ident_);
+        created.slot = static_cast<int8_t>(slot);
+        send_to_server(online::kMsgCreateSpecialItem, created);
         return 1;
     }
     case kDestroySpecialItem: {
         int slot = static_cast<int>(reinterpret_cast<uint32_t>(params)); // (as above)
         params->fetch_int_value(kIndex, &slot, 1);
         destroy_item(slot);
-        struct {
-            uint32_t unused[2]; // (not set by the original)
-            uint8_t object_id_;
-            uint8_t slot;
-            uint8_t pad[2];
-        } destroyed = {{}, static_cast<uint8_t>(entity_->ident_), static_cast<uint8_t>(slot), {}};
-        send_to_server(kMsgDestroySpecialItem, &destroyed);
+        online::SpecialItemMessage destroyed; // (params and bone: not set by the original)
+        destroyed.object_id = static_cast<uint8_t>(entity_->ident_);
+        destroyed.slot = static_cast<int8_t>(slot);
+        send_to_server(online::kMsgDestroySpecialItem, destroyed);
         return 1;
     }
     case kDestroyAllSpecialItems:

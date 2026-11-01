@@ -40,12 +40,6 @@ int g_nonlocal_lag;
 
 namespace {
 
-template <typename T>
-T& prop(void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
-}
-
 // The model component's three spin axes (its twist_rate_, about X, Y, Z) the messages 0x76 / 0x8C start and stop.
 // Message 0x77: the made item's structure and component
 constexpr uint32_t kItemName = 0xCAB94088, kItemOwner = 0x40C698AF, kItemComponent = 0x5CB5CB7E;
@@ -535,65 +529,63 @@ void RiderRemoteSync::play_history_events()
     int i = first;
     do {
         StateHistoryMessage* msg = &messages[i];
-        uint8_t* m = reinterpret_cast<uint8_t*>(msg);
         if (msg->get_time() > last_event_time_ && msg->get_time() <= now) {
             switch (msg->ident_) {
             case 0x29: // an animation played (the primary channel)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->play_anim(prop<uint32_t>(m, 0x20), false, prop<float>(m, 0x10), prop<float>(m, 0x14),
-                                       prop<int8_t>(m, 0x02), prop<float>(m, 0x18), prop<float>(m, 0x1C), nullptr);
+                    channel->play_anim(msg->name_, false, msg->from_, msg->to_, static_cast<int8_t>(msg->loop_type_),
+                                       msg->blend_period_, msg->speed_, nullptr);
                 break;
             case 0x2A: // the board rotated (the byte passed as it was sent)
                 static_cast<RiderSpinAndFlip*>(flip_and_rotate_)
-                    ->apply_board_turned(static_cast<uint32_t>(prop<int8_t>(m, 0x01)), prop<bool>(m, 0x09), 0, false);
+                    ->apply_board_turned(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->rotated_, 0,
+                                         false);
                 break;
             case 0x2B:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->choose_wobble_goal(prop<float>(m, 0x0C), false);
+                    channel->choose_wobble_goal(msg->wobble_target_, false);
                 break;
             case 0x2C:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->set_flipped(static_cast<uint32_t>(prop<int8_t>(m, 0x01)), prop<bool>(m, 0x08), 0,
+                    channel->set_flipped(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->flipped_, 0,
                                          false); // (the byte passed as it was sent)
                 break;
-            case 0x3C: { // (20 bytes of the message passed by address)
-                uint32_t data[5];
-                std::memcpy(data, m + 0x28, sizeof(data));
+            case 0x3C: // (the five details passed by address)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->set_wobble_details(reinterpret_cast<const float*>(data), false);
+                    channel->set_wobble_details(msg->wobble_details_, false);
                 break;
-            }
             case 0x3D:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->change_repeat_mode(prop<int8_t>(m, 0x02), false);
+                    channel->change_repeat_mode(static_cast<int8_t>(msg->loop_type_), false);
                 break;
             case 0x3E:
-                mesh_set_->conceal_mesh(prop<uint32_t>(m, 0x20), prop<uint8_t>(m, 0x0A) != 0, false);
+                mesh_set_->conceal_mesh(msg->name_, msg->hidden_, false);
                 break;
             case 0x41:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->set_speed(prop<float>(m, 0x1C), false, false, false);
+                    channel->set_speed(msg->speed_, false, false, false);
                 break;
             case 0x76: { // the model's three parts set going, by the message's bits
                 mesh_set_->pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
                 int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
-                    if (prop<uint8_t>(m, 0x03) & (1u << bit))
-                        mesh_set_->twist_rate_[bit].append_one(
-                            static_cast<float>(prop<int>(m, 0x3C)), static_cast<uint32_t>(time), prop<float>(m, 0x48),
-                            prop<float>(m, 0x4C), prop<int>(m, 0x40), prop<uint8_t>(m, 0x50) != 0, false);
+                    if (msg->spin_axes_ & (1u << bit))
+                        mesh_set_->twist_rate_[bit].append_one(static_cast<float>(msg->spin_period_),
+                                                               static_cast<uint32_t>(time), msg->spin_start_,
+                                                               msg->spin_range_, msg->spin_power_, msg->spin_hold_,
+                                                               false);
                 }
                 break;
             }
             case 0x77: { // a special item made: its +0x5CB5CB7E component told its name and owner
                 auto* items = static_cast<PickupItemHandler*>(entity_->fetch_module(PickupItemHandler::kType));
                 script::Struct* structure =
-                    script::read_sub_struct(prop<uint32_t>(m, 0x20)); // (the original also passes 1)
-                GameEntity* item = items->create_item(prop<int>(m, 0x44), structure);
+                    script::read_sub_struct(msg->name_); // (the original also passes 1)
+                GameEntity* item = items->create_item(msg->item_slot_, structure);
                 script::Struct* params = script::spawn_param_bag();
                 if (params)
                     params = params->prepare_all();
-                params->put_name_key(kItemName, prop<uint32_t>(m, 0x24));
+                params->put_name_key(kItemName, msg->bone_);
                 params->put_name_key(kItemOwner, entity_->ident_);
                 item->fetch_module(kItemComponent)->configure_from_data(params);
                 if (params) {
@@ -604,7 +596,7 @@ void RiderRemoteSync::play_history_events()
             }
             case 0x78: // the special item gone
                 static_cast<PickupItemHandler*>(entity_->fetch_module(PickupItemHandler::kType))
-                    ->destroy_item(prop<int>(m, 0x44));
+                    ->destroy_item(msg->item_slot_);
                 break;
             case 0x8C:
                 for (ModelSpinAxis& axis : mesh_set_->twist_rate_)

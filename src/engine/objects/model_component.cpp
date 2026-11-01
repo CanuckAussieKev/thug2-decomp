@@ -18,6 +18,8 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/player_info.h"
+#include "engine/net/skater_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/render/probe_ray.h"
 #include "engine/script/names.h"
 #include "engine/core/dbg.h"
@@ -36,9 +38,6 @@ constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kLerpRateScale = 0.02f;            // 0x00646124
 constexpr double kTwoTo32 = 4294967296.0;          // 0x006453B4
 
-constexpr uint8_t kMsgHideGeom = 0x3E;
-constexpr uint8_t kMsgSpinModel = 0x76;
-constexpr uint8_t kMsgCancelRotateDisplay = 0x8C;
 
 // The x87 FSIN, as the originals take it.
 double x87_sin(double angle)
@@ -300,16 +299,14 @@ bool MeshInstanceModule::swap_texture(uint32_t mesh, const char* src, const char
 bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
 {
     if (send) {
-        struct {
-            uint32_t name;
-            uint8_t object;
-            uint8_t hide;
-            uint8_t pad[2];
-        } data;
-        data.hide = hide;
-        data.name = name;
-        data.object = static_cast<uint8_t>(entity_->ident_);
-        send_to_server(entity_, kMsgHideGeom, 8, &data);
+        online::HideGeomMessage sent;
+        sent.hide = hide;
+        sent.name = name;
+        sent.object_id = static_cast<uint8_t>(entity_->ident_);
+        uint8_t data[online::kHideGeomSize];
+        util::ByteWriter writer(data, sizeof(data));
+        online::write_hide_geom(writer, sent);
+        send_to_server(entity_, online::kMsgHideGeom, sizeof(data), data);
     }
     if (mesh_instance_)
         model_hide_geom(mesh_instance_, name, hide);
@@ -359,16 +356,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
         twist_rate_[axis].append_one(period, now, start, end - start, power, hold, false);
         axes |= static_cast<uint8_t>(1 << axis);
     }
-    struct {
-        int period;
-        int power;
-        int16_t start;
-        int16_t range;
-        uint8_t object;
-        uint8_t hold;
-        uint8_t axes;
-        uint8_t pad;
-    } data;
+    online::SpinModelMessage sent;
     void* manager = net_session_slot();
     void* player = find_player_slot_by_obj(entity_->ident_);
     if (!player || !is_own_player(player))
@@ -376,16 +364,19 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     net::NetMessageInfo message;
     message.make_new();
     net::Guest* app = client_app(manager, player_skater_index(player));
-    data.period = get_truncated(period);
-    data.start = static_cast<int16_t>(get_truncated(start));
-    data.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
-    data.power = power;
-    data.object = static_cast<uint8_t>(entity_->ident_);
-    message.content_ = &data;
-    data.hold = hold;
-    data.axes = axes;
-    message.byte_count_ = 0x10;
-    message.ident_ = kMsgSpinModel;
+    sent.period = get_truncated(period);
+    sent.start = static_cast<int16_t>(get_truncated(start));
+    sent.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
+    sent.power = power;
+    sent.object_id = static_cast<uint8_t>(entity_->ident_);
+    sent.hold = hold;
+    sent.axes = axes;
+    uint8_t data[online::kSpinModelSize];
+    util::ByteWriter writer(data, sizeof(data));
+    online::write_spin_model(writer, sent);
+    message.content_ = data;
+    message.byte_count_ = sizeof(data);
+    message.ident_ = online::kMsgSpinModel;
     app->send_to_host(&message);
 }
 
@@ -398,7 +389,7 @@ void MeshInstanceModule::cancel_rotate_display()
         axis.active_ = false;
     }
     uint8_t object = static_cast<uint8_t>(entity_->ident_);
-    send_to_server(entity_, kMsgCancelRotateDisplay, 1, &object);
+    send_to_server(entity_, online::kMsgCancelSpins, 1, &object);
 }
 
 } // namespace objects

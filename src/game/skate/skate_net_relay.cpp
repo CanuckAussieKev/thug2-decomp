@@ -55,6 +55,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/util/byte_stream.h"
 #include "game/skate/skate_net_messages.h"
+#include "engine/net/skater_messages.h"
 
 namespace gfx {
 extern float g_one_over255; // 0x00645D70 (defined in tod_manager.cpp)
@@ -201,11 +202,6 @@ objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, uint8
     auto* state = history->fetch_newest_snapshot();
     message->change_moment(state->get_time());
     return message;
-}
-template <typename T>
-T& get_at(objects::StateHistoryMessage* message, uint32_t offset)
-{
-    return prop<T>(message, offset);
 }
 float get_scaled(uint32_t value, float constant) { return static_cast<float>(static_cast<double>(value) * constant); }
 
@@ -741,30 +737,30 @@ int SkateNet::handle_history_value(net::InboundMsgCtx* context)
 int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
 {
     auto* skate = static_cast<Skate*>(context->content_);
-    auto* data = reinterpret_cast<uint8_t*>(context->body_);
     objects::ObjectHubBase* objects = entity_hub_handle();
-    // the object (by the message's id byte at `offset`) and, for some, the skater too
-    auto object = [&](int offset) { return objects->look_up_entity(static_cast<uint32_t>(id_byte(data, offset))); };
-    auto skater = [&](int offset) -> objects::Entity* {
-        if (!object(offset))
+    // the object (by the message's object id, read signed) and, for some, the skater too
+    auto object = [&](uint8_t id) { return objects->look_up_entity(static_cast<uint32_t>(static_cast<int8_t>(id))); };
+    auto skater = [&](uint8_t id) -> objects::Entity* {
+        if (!object(id))
             return nullptr;
         return reinterpret_cast<objects::Entity*>(
-            skate->get_rider_by_number(static_cast<uint32_t>(id_byte(data, offset))));
+            skate->get_rider_by_number(static_cast<uint32_t>(static_cast<int8_t>(id))));
     };
+    // (the messages: engine/net/skater_messages.h; NOT ORIGINAL: one too short for its fields is dropped - the
+    // original read on past its end)
+    util::ByteReader reader(context->body_, context->body_size_);
     objects::Entity* target = nullptr;
     objects::StateHistoryMessage* message;
     int result = 1;
     switch (context->type_code_) {
-    case 0x29: {
-        uint8_t first = data[0];
-        uint8_t id = data[1];
-        uint32_t value = prop<uint32_t>(data, 2);
-        uint16_t a = prop<uint16_t>(data, 6), b = prop<uint16_t>(data, 8), time = prop<uint16_t>(data, 10);
-        uint16_t c = prop<uint16_t>(data, 12);
-        target = objects->look_up_entity(static_cast<uint32_t>(static_cast<int8_t>(id)));
+    case online::kMsgPlayAnim: {
+        online::PlayAnimMessage sent;
+        if (!online::read_play_anim(reader, &sent))
+            return 4;
+        target = object(sent.object_id);
         if (!target)
             return 1;
-        float scaled_time = get_scaled(time, g_relay_time_scale);
+        float scaled_time = get_scaled(sent.blend_period, g_relay_time_scale);
         online::Hub* net = net_link();
         if (net->in_net_game()) {
             // (only the camera's own player's)
@@ -773,131 +769,174 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
             if (!camera || player != camera)
                 scaled_time = 0.0f;
         }
-        message = new_message(get_history(target), 0x29);
-        get_at<uint32_t>(message, 0x20) = value;
-        get_at<float>(message, 0x10) = get_scaled(a, g_relay_time_scale);
-        get_at<uint8_t>(message, 1) = id;
-        get_at<float>(message, 0x18) = scaled_time;
-        get_at<uint8_t>(message, 2) = first;
-        get_at<float>(message, 0x14) = get_scaled(b, g_relay_time_scale);
-        get_at<float>(message, 0x1C) = get_scaled(c, g_relay_time_scale);
+        message = new_message(get_history(target), online::kMsgPlayAnim);
+        message->name_ = sent.anim;
+        message->from_ = get_scaled(sent.from, g_relay_time_scale);
+        message->object_id_ = sent.object_id;
+        message->blend_period_ = scaled_time;
+        message->loop_type_ = sent.loop_type;
+        message->to_ = get_scaled(sent.to, g_relay_time_scale);
+        message->speed_ = get_scaled(sent.speed, g_relay_time_scale);
         break;
     }
-    case 0x2B:
-        target = object(0);
+    case online::kMsgWobbleTarget: {
+        online::PairMessage sent; // (the object id, the target x 255)
+        if (!online::read_pair(reader, &sent))
+            return 4;
+        target = object(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x2B);
-        get_at<uint8_t>(message, 1) = data[0];
-        get_at<float>(message, 0xC) = get_scaled(data[1], gfx::g_one_over255);
+        message = new_message(get_history(target), online::kMsgWobbleTarget);
+        message->object_id_ = sent.first;
+        message->wobble_target_ = get_scaled(sent.second, gfx::g_one_over255);
         break;
-    case 0x2A:
-        target = object(0);
+    }
+    case online::kMsgBoardRotated: {
+        online::PairMessage sent; // (the object id, rotated)
+        if (!online::read_pair(reader, &sent))
+            return 4;
+        target = object(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x2A);
-        get_at<uint8_t>(message, 1) = data[0];
-        get_at<bool>(message, 9) = data[1] != 0;
+        message = new_message(get_history(target), online::kMsgBoardRotated);
+        message->object_id_ = sent.first;
+        message->rotated_ = sent.second != 0;
         break;
-    case 0x3C: {
-        target = object(1);
+    }
+    case online::kMsgWobbleDetails: {
+        online::PairMessage sent; // (the details' bits, the object id)
+        if (!online::read_pair(reader, &sent))
+            return 4;
+        target = object(sent.second);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x3C);
-        get_at<uint8_t>(message, 1) = data[1];
-        uint32_t bits = data[0];
-        // five settings picked by the bits of [0]: two bits, then one each
+        message = new_message(get_history(target), online::kMsgWobbleDetails);
+        message->object_id_ = sent.second;
+        uint32_t bits = sent.first;
+        // five settings picked by the bits: two bits, then one each
         static const float kFirst[4] = {std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu),
                                         std::bit_cast<float>(0x4121999Au),
                                         0.0f}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
-        get_at<float>(message, 0x28) = kFirst[bits & 3];
-        get_at<float>(message, 0x2C) = (bits >> 2 & 1)
-                                           ? std::bit_cast<float>(0x4121999Au)
-                                           : std::bit_cast<float>(0x3D23D70Au); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
-        get_at<float>(message, 0x30) = (bits >> 3 & 1)
-                                           ? std::bit_cast<float>(0x41A00000u)
-                                           : std::bit_cast<float>(0x3B102DE0u); // 20 / 0.0022 (0x006486AC / 0x006486B0)
-        get_at<float>(message, 0x34) = (bits >> 4 & 1)
-                                           ? std::bit_cast<float>(0x41200000u)
-                                           : std::bit_cast<float>(0x3ADED289u); // 10 / 0.0017 (0x00646710 / 0x006486A8)
-        get_at<float>(message, 0x38) = (bits >> 5 & 1)
-                                           ? std::bit_cast<float>(0x3F800000u)
-                                           : std::bit_cast<float>(0x3FC00000u); // 1 / 1.5 (0x006453A8 / 0x00646744)
+        message->wobble_details_[0] = kFirst[bits & 3];
+        message->wobble_details_[1] = (bits >> 2 & 1)
+                                          ? std::bit_cast<float>(0x4121999Au)
+                                          : std::bit_cast<float>(0x3D23D70Au); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
+        message->wobble_details_[2] = (bits >> 3 & 1)
+                                          ? std::bit_cast<float>(0x41A00000u)
+                                          : std::bit_cast<float>(0x3B102DE0u); // 20 / 0.0022 (0x006486AC / 0x006486B0)
+        message->wobble_details_[3] = (bits >> 4 & 1)
+                                          ? std::bit_cast<float>(0x41200000u)
+                                          : std::bit_cast<float>(0x3ADED289u); // 10 / 0.0017 (0x00646710 / 0x006486A8)
+        message->wobble_details_[4] = (bits >> 5 & 1)
+                                          ? std::bit_cast<float>(0x3F800000u)
+                                          : std::bit_cast<float>(0x3FC00000u); // 1 / 1.5 (0x006453A8 / 0x00646744)
         break;
     }
-    case 0x3D:
-        target = object(0);
+    case online::kMsgLoopType: {
+        online::PairMessage sent; // (the object id, the loop type)
+        if (!online::read_pair(reader, &sent))
+            return 4;
+        target = object(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x3D);
-        get_at<uint8_t>(message, 1) = data[0];
-        get_at<uint8_t>(message, 2) = data[1];
+        message = new_message(get_history(target), online::kMsgLoopType);
+        message->object_id_ = sent.first;
+        message->loop_type_ = sent.second;
         break;
-    case 0x3E:
-        target = object(4);
+    }
+    case online::kMsgHideGeom: {
+        online::HideGeomMessage sent;
+        if (!online::read_hide_geom(reader, &sent))
+            return 4;
+        target = object(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x3E);
-        get_at<uint8_t>(message, 1) = data[4];
-        get_at<uint32_t>(message, 0x20) = prop<uint32_t>(data, 0);
-        get_at<bool>(message, 0xA) = data[5] != 0;
+        message = new_message(get_history(target), online::kMsgHideGeom);
+        message->object_id_ = sent.object_id;
+        message->name_ = sent.name;
+        message->hidden_ = sent.hide;
         break;
-    case 0x41:
-        target = object(4);
+    }
+    case online::kMsgAnimSpeed: {
+        online::AnimSpeedMessage sent;
+        if (!online::read_anim_speed(reader, &sent))
+            return 4;
+        target = object(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x41);
-        get_at<uint8_t>(message, 1) = data[4];
-        get_at<uint32_t>(message, 0x1C) = prop<uint32_t>(data, 0);
+        message = new_message(get_history(target), online::kMsgAnimSpeed);
+        message->object_id_ = sent.object_id;
+        message->speed_ = std::bit_cast<float>(sent.speed_bits);
         break;
-    case 0x2C:
+    }
+    case online::kMsgFlip: {
         // (also handled by 0x0056C8C0: 4 lets that run)
-        target = skater(0);
+        online::PairMessage sent; // (the object id, flipped)
+        if (!online::read_pair(reader, &sent))
+            return 4;
+        target = skater(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x2C);
-        get_at<bool>(message, 8) = data[1] != 0;
-        get_at<uint8_t>(message, 1) = data[0];
+        message = new_message(get_history(target), online::kMsgFlip);
+        message->flipped_ = sent.second != 0;
+        message->object_id_ = sent.first;
         result = 4;
         break;
-    case 0x76:
-        target = skater(0xC);
+    }
+    case online::kMsgSpinModel: {
+        online::SpinModelMessage sent;
+        if (!online::read_spin_model(reader, &sent))
+            return 4;
+        target = skater(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x76);
-        get_at<uint8_t>(message, 1) = data[0xC];
-        get_at<uint32_t>(message, 0x3C) = prop<uint32_t>(data, 0);
-        get_at<uint32_t>(message, 0x40) = prop<uint32_t>(data, 4);
-        get_at<float>(message, 0x48) = static_cast<float>(prop<int16_t>(data, 8));
-        get_at<float>(message, 0x4C) = static_cast<float>(prop<int16_t>(data, 0xA));
-        get_at<uint8_t>(message, 0x50) = data[0xD];
-        get_at<uint8_t>(message, 3) = data[0xE];
+        message = new_message(get_history(target), online::kMsgSpinModel);
+        message->object_id_ = sent.object_id;
+        message->spin_period_ = sent.period;
+        message->spin_power_ = sent.power;
+        message->spin_start_ = static_cast<float>(sent.start);
+        message->spin_range_ = static_cast<float>(sent.range);
+        message->spin_hold_ = sent.hold != 0;
+        message->spin_axes_ = sent.axes;
         break;
-    case 0x8C:
-        target = skater(0);
+    }
+    case online::kMsgCancelSpins: {
+        uint8_t id = reader.u8();
+        if (!reader.ok())
+            return 4;
+        target = skater(id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x8C);
-        get_at<uint8_t>(message, 1) = data[0];
+        message = new_message(get_history(target), online::kMsgCancelSpins);
+        message->object_id_ = id;
         break;
-    case 0x77:
-        target = skater(8);
+    }
+    case online::kMsgCreateSpecialItem: {
+        online::SpecialItemMessage sent;
+        if (!online::read_special_item(reader, &sent))
+            return 4;
+        target = skater(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x77);
-        get_at<uint8_t>(message, 1) = data[8];
-        get_at<uint32_t>(message, 0x24) = prop<uint32_t>(data, 4);
-        get_at<int>(message, 0x44) = static_cast<int8_t>(data[9]);
-        get_at<uint32_t>(message, 0x20) = prop<uint32_t>(data, 0);
+        message = new_message(get_history(target), online::kMsgCreateSpecialItem);
+        message->object_id_ = sent.object_id;
+        message->bone_ = sent.bone;
+        message->item_slot_ = sent.slot;
+        message->name_ = sent.params;
         break;
-    case 0x78:
-        target = skater(8);
+    }
+    case online::kMsgDestroySpecialItem: {
+        online::SpecialItemMessage sent;
+        if (!online::read_special_item(reader, &sent))
+            return 4;
+        target = skater(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), 0x78);
-        get_at<uint8_t>(message, 1) = data[8];
-        get_at<int>(message, 0x44) = static_cast<int8_t>(data[9]);
+        message = new_message(get_history(target), online::kMsgDestroySpecialItem);
+        message->object_id_ = sent.object_id;
+        message->item_slot_ = sent.slot;
         break;
+    }
     default:
         return 1;
     }

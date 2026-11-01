@@ -22,21 +22,40 @@ struct InboundMsgCtx;
 namespace objects {
 
 // One of the history's other messages (0x54 bytes, 20 of them at +0xA70; the newest at +0xA6C % 20): the message's
-// id first, then its time stamp as two halves.
+// id, its time stamp as two halves, then what the message said (engine/net/skater_messages.h; filled by
+// SkateNet::handle_skater_messages, played by RiderRemoteSync::play_history_events). Each kind uses its own fields.
 struct StateHistoryMessage {
-    uint8_t ident_; // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
-    uint8_t pad01[3];
+    uint8_t ident_;      // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
+    uint8_t object_id_;  // +0x01 the skater's object id (0x2A / 0x2C pass it on as the rotation's / flip's object)
+    uint8_t loop_type_;  // +0x02 0x29 / 0x3D
+    uint8_t spin_axes_;  // +0x03 0x76: the axes that spin (bit 0 x...)
     uint16_t clock_;     // +0x04 the low half of the 32-bit time stamp
     uint16_t time_high_; // +0x06 the high half
-    uint8_t content_[0x4C];
+    bool flipped_;       // +0x08 0x2C
+    bool rotated_;       // +0x09 0x2A
+    bool hidden_;        // +0x0A 0x3E
+    uint8_t pad0b;
+    float wobble_target_;     // +0x0C 0x2B
+    float from_;              // +0x10 0x29
+    float to_;                // +0x14 0x29
+    float blend_period_;      // +0x18 0x29
+    float speed_;             // +0x1C 0x29 / 0x41
+    uint32_t name_;           // +0x20 0x29 the animation / 0x3E the geom / 0x77 the item's params structure
+    uint32_t bone_;           // +0x24 0x77
+    float wobble_details_[5]; // +0x28 0x3C
+    int spin_period_;         // +0x3C 0x76
+    int spin_power_;          // +0x40 0x76
+    int item_slot_;           // +0x44 0x77 / 0x78
+    float spin_start_;        // +0x48 0x76
+    float spin_range_;        // +0x4C 0x76
+    bool spin_hold_;          // +0x50 0x76
+    uint8_t pad51[3];
 
     // 0x00519800: the 32-bit time stamp.
     uint32_t get_time();
     // 0x00519810: the time stamp set (its two halves).
     void change_moment(uint32_t time);
 };
-static_assert(offsetof(StateHistoryMessage, clock_) == 0x04 && sizeof(StateHistoryMessage) == 0x54,
-              "layout must match the original");
 
 class RiderFrameLog final : public ObjectModule {
 public:

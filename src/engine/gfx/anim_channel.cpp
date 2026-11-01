@@ -3,6 +3,7 @@
 
 #include "engine/gfx/anim_blend.h"
 
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -25,6 +26,8 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/player_info.h"
+#include "engine/net/skater_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/movie_manager.h"
@@ -66,15 +69,12 @@ constexpr uint32_t kCycle = 0x4F792E6C, kPingPong = 0x3153E314, kHoldLoop = 0x6D
 constexpr float kStockCrossfade = 0.3f;                                                 // 0x3E99999A
 constexpr float kFixedPoint = 4096.0f;                                                  // 0x00648730
 
-// The network messages a channel sends.
-enum : uint8_t {
-    kMsgPlayAnim = 0x29,
-    kMsgWobbleTarget = 0x2B,
-    kMsgFlip = 0x2C,
-    kMsgWobbleDetails = 0x3C,
-    kMsgLoopType = 0x3D,
-    kMsgSpeed = 0x41
-};
+// The network messages a channel sends (engine/net/skater_messages.h).
+using online::kMsgFlip;
+using online::kMsgLoopType;
+using online::kMsgPlayAnim;
+using online::kMsgWobbleDetails;
+using online::kMsgWobbleTarget;
 
 uint8_t g_last_wobble_target{0xFF};
 uint8_t g_last_wobble_details{0xFF};
@@ -658,13 +658,13 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
             if (net::Guest* app = client_of(player)) {
                 net::NetMessageInfo message;
                 message.make_new();
-                struct {
-                    float speed;
-                    uint8_t object;
-                } data;
-                data.speed = speed;
-                data.object = static_cast<uint8_t>(get_owner(this)->ident_);
-                post_out(app, message, kMsgSpeed, &data, 8, false);
+                online::AnimSpeedMessage sent;
+                sent.speed_bits = std::bit_cast<uint32_t>(speed);
+                sent.object_id = static_cast<uint8_t>(get_owner(this)->ident_);
+                uint8_t data[online::kAnimSpeedSize];
+                util::ByteWriter writer(data, sizeof(data));
+                online::write_anim_speed(writer, sent);
+                post_out(app, message, online::kMsgAnimSpeed, data, sizeof(data), false);
             }
         }
     }
@@ -767,16 +767,17 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
             message.make_new();
             net::Guest* app = client_of(player);
             // loop type, object, anim, then the times, blend period and speed x 4096 as shorts
-            uint8_t data[0xE];
-            uint8_t object = static_cast<uint8_t>(get_owner(this)->ident_);
-            int16_t times[4] = {static_cast<int16_t>(get_truncated(from * kFixedPoint)),
-                                static_cast<int16_t>(get_truncated(to * kFixedPoint)),
-                                static_cast<int16_t>(get_truncated(blend_period * kFixedPoint)),
-                                static_cast<int16_t>(get_truncated(speed * kFixedPoint))};
-            data[0] = static_cast<uint8_t>(loop_type);
-            data[1] = object;
-            std::memcpy(data + 2, &anim, 4);
-            std::memcpy(data + 6, times, sizeof(times));
+            online::PlayAnimMessage sent;
+            sent.loop_type = static_cast<uint8_t>(loop_type);
+            sent.object_id = static_cast<uint8_t>(get_owner(this)->ident_);
+            sent.anim = anim;
+            sent.from = static_cast<uint16_t>(get_truncated(from * kFixedPoint));
+            sent.to = static_cast<uint16_t>(get_truncated(to * kFixedPoint));
+            sent.blend_period = static_cast<uint16_t>(get_truncated(blend_period * kFixedPoint));
+            sent.speed = static_cast<uint16_t>(get_truncated(speed * kFixedPoint));
+            uint8_t data[online::kPlayAnimSize];
+            util::ByteWriter writer(data, sizeof(data));
+            online::write_play_anim(writer, sent);
             post_out(app, message, kMsgPlayAnim, data, sizeof(data), false);
         }
     }

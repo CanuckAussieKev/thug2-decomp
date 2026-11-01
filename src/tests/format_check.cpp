@@ -777,11 +777,16 @@ void check_skate_messages()
 }
 } // namespace
 
+namespace format_check_net {
+int run(); // format_check_net.cpp
+} // namespace format_check_net
+
 int main(int argc, char** argv)
 {
     check_byte_stream();
     check_wire_messages();
     check_skate_messages();
+    g_failures += format_check_net::run();
     for (int i = 1; i < argc; ++i) {
         std::filesystem::path path(argv[i]);
         if (std::filesystem::is_directory(path)) {

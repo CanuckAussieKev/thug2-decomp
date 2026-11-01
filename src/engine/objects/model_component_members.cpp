@@ -18,6 +18,8 @@
 #include "engine/core/checksums.h"
 #include "engine/objects/control_pad.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/net/skater_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace objects {
 
@@ -107,8 +109,6 @@ constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kFramesToMs = 16.666666f;          // 0x006460DC
 constexpr float kSecondsToMs = 1000.0f;            // 0x006453C0
 constexpr float kPercent = 0.01f;                  // 0x0064544C
-constexpr uint8_t kMsgSpinModel = 0x76;
-constexpr uint8_t kMsgCancelRotateDisplay = 0x8C;
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -264,7 +264,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             uint8_t object = static_cast<uint8_t>(entity_->ident_);
             message.content_ = &object;
             message.byte_count_ = 1;
-            message.ident_ = kMsgCancelRotateDisplay;
+            message.ident_ = online::kMsgCancelSpins;
             app->send_to_host(&message);
         }
         break;
@@ -302,26 +302,20 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             net::NetMessageInfo message;
             message.make_new();
             net::Guest* app = client_app(manager, player_skater_index(player));
-            struct {
-                int period;
-                int power;
-                int16_t start;
-                int16_t range;
-                uint8_t object;
-                uint8_t hold;
-                uint8_t axes;
-                uint8_t pad;
-            } data;
-            data.period = get_truncated(duration);
-            data.start = static_cast<int16_t>(get_truncated(start));
-            data.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
-            data.power = power;
-            data.object = static_cast<uint8_t>(entity_->ident_);
-            data.hold = hold;
-            data.axes = axes;
-            message.content_ = &data;
-            message.byte_count_ = 0x10;
-            message.ident_ = kMsgSpinModel;
+            online::SpinModelMessage sent;
+            sent.period = get_truncated(duration);
+            sent.start = static_cast<int16_t>(get_truncated(start));
+            sent.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
+            sent.power = power;
+            sent.object_id = static_cast<uint8_t>(entity_->ident_);
+            sent.hold = hold;
+            sent.axes = axes;
+            uint8_t data[online::kSpinModelSize];
+            util::ByteWriter writer(data, sizeof(data));
+            online::write_spin_model(writer, sent);
+            message.content_ = data;
+            message.byte_count_ = sizeof(data);
+            message.ident_ = online::kMsgSpinModel;
             app->send_to_host(&message);
         }
         break;
