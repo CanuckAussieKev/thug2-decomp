@@ -10,7 +10,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/script/member_code.h"
 #include "game/rider/core_physics.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -209,7 +209,7 @@ public:
 
     // --- walk_moves.cpp (skater-6: 0x00529F80-0x0052D6A0) ---
     // 0x0052A5C0: a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x0052A190: its type, the eight contacts (0xCC each at +0xA0), the
     // collision cache (+0x790), the trigger feeler (+0x17B4), no components yet, no control (0, 0, 0, 1), no extra
     // velocity (0, 0, 0, 1).

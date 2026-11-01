@@ -14,7 +14,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/objects/movie_manager.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 
@@ -27,7 +27,7 @@ float g_volume_scale{100.0f};
 SoundWaveSlot g_permanent_waves[256];
 SoundWaveSlot g_level_waves[256];
 PlayingSound g_playing_sounds[48];
-memory::owner<AudioMixer*> g_audio_mixer;
+gsl::owner<AudioMixer*> g_audio_mixer;
 PositionalSound* g_positional_head;
 int g_permanent_count;
 int g_level_count;

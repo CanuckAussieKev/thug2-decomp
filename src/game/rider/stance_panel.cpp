@@ -3,6 +3,7 @@
 #include "game/rider/stance_panel.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -36,7 +37,7 @@ const uint32_t* stance_textures() { return g_stance_textures; }
 } // namespace
 
 // 0x005193B0
-memory::owner<ObjectModule*> RiderStanceDisplay::fabricate() { return new RiderStanceDisplay; }
+gsl::owner<ObjectModule*> RiderStanceDisplay::fabricate() { return new RiderStanceDisplay; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderStanceDisplay::RiderStanceDisplay() { kind_tag_ = kSkaterStancePanel; }

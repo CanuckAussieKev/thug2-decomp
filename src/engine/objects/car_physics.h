@@ -5,7 +5,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -40,7 +40,7 @@ public:
 
     // 0x0041BD90 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined; 0
     // if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x0041B910 (not a Ghidra function; registered with Create): its member functions' table (0x006846A8; the
     // functions are put in by the static initialiser at 0x00643E80).
     static void publish_method_table();

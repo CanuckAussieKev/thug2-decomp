@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -25,7 +25,7 @@ public:
     RiderSfxPlayer& operator=(const RiderSfxPlayer&) = delete;
     // 0x00518E20 (registered by register_component_types): a new one (0 if out of memory): full speed 1, volume_mult 1,
     // not sliding.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderSfxPlayer();
     // 0x00518C80: the destructor body (the base's).

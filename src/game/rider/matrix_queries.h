@@ -5,7 +5,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -28,7 +28,7 @@ public:
     RiderFrameLookups(const RiderFrameLookups&) = delete;
     RiderFrameLookups& operator=(const RiderFrameLookups&) = delete;
     // 0x00514430 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderFrameLookups();
     // 0x00513FD0: the destructor body (the base's).

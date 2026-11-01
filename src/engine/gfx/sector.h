@@ -7,7 +7,7 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // The engine's sector (render::WorldCell; the PC sector PcSector - pc_scene.h - extends it): a piece of a scene with a
 // name, its geometry (a CGeom - drawn) and its collision (a HitMesh - collided with), moved, turned, scaled, shown,
@@ -41,7 +41,7 @@ public:
     virtual ~WorldCell();
     // 0x0049E8C0 / 0x0049E8E0 (the engine's stubs: "STUB: Plat...").
     virtual void plat_set_shatter(bool on);
-    virtual memory::owner<WorldCell*> plat_clone(int instance, void* scene);
+    virtual gsl::owner<WorldCell*> plat_clone(int instance, void* scene);
     // 0x0049E8D0 ("STUB: PlatGetShatter").
     bool plat_get_shatter();
 
@@ -112,7 +112,7 @@ public:
     uint32_t light_group_{kOutdoorLightGroup};  // +0x0C: its light group (the time of day's; outdoor by default)
     int rot_y_{0};                              // +0x10: quarter turns about y
     void* geom_handle_{nullptr};                // +0x14: CGeom (on PC a PcGeom), or null
-    memory::owner<HitMesh*> hit_body_{nullptr}; // +0x18: or null (the sector's layout; deleted by its destructor)
+    gsl::owner<HitMesh*> hit_body_{nullptr}; // +0x18: or null (the sector's layout; deleted by its destructor)
 };
 static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
                   sizeof(WorldCell) == 0x1C,

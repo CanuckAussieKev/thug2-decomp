@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <gsl/pointers>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -174,7 +175,7 @@ int get_half_turns(int degrees) { return degrees / 180; }
 } // namespace
 
 // 0x00512C60
-memory::owner<ObjectModule*> RiderGapTracker::fabricate() { return new RiderGapTracker; }
+gsl::owner<ObjectModule*> RiderGapTracker::fabricate() { return new RiderGapTracker; }
 
 // 0x005122A0
 RiderGapTracker::RiderGapTracker()

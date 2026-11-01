@@ -24,7 +24,7 @@
 
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -144,5 +144,5 @@ bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Scr
 extern bool g_menus_active;
 extern bool g_pending_script;
 
-extern memory::owner<modules::FrontEnd*> g_front_end_instance;
+extern gsl::owner<modules::FrontEnd*> g_front_end_instance;
 } // namespace modules

@@ -5,6 +5,7 @@
 #include "engine/objects/model_light_update.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -38,7 +39,7 @@ constexpr float kLerpRate = 0.02f;    // 0x3CA3D70A
 } // namespace
 
 // 0x00422DC0
-memory::owner<ObjectModule*> MeshLightingModule::fabricate() { return new MeshLightingModule; }
+gsl::owner<ObjectModule*> MeshLightingModule::fabricate() { return new MeshLightingModule; }
 
 // (the constructor: inlined in fabricate in the original)
 MeshLightingModule::MeshLightingModule() { kind_tag_ = kType; }

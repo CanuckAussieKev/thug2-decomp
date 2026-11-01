@@ -4,6 +4,7 @@
 #include "game/rider/adjust_physics.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -53,7 +54,7 @@ void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModu
 } // namespace
 
 // 0x004F80E0
-memory::owner<ObjectModule*> RiderPhysicsTweaks::fabricate() { return new RiderPhysicsTweaks; }
+gsl::owner<ObjectModule*> RiderPhysicsTweaks::fabricate() { return new RiderPhysicsTweaks; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPhysicsTweaks::RiderPhysicsTweaks() { kind_tag_ = kType; }

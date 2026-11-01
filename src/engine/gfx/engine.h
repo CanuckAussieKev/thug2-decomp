@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // The engine's own entry points (render::CEngine's statics, cdecl) at 0x0048BF20-0x0048C74F: starting it, a frame's
 // update and render, model and scene files, and the list of loaded scenes. (The ones that only jump into the
@@ -78,8 +78,8 @@ WorldScene* find_scene(uint32_t checksum);
 
 extern bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
 
-extern memory::owner<void*> g_flexible_particle_manager;
-extern memory::owner<void*> g_imposter_manager;
+extern gsl::owner<void*> g_flexible_particle_manager;
+extern gsl::owner<void*> g_imposter_manager;
 extern int g_render_mode;
 extern memory::ListNode g_scene_list;
 } // namespace render

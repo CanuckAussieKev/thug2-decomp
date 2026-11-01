@@ -17,7 +17,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/arena_alloc.h"
 
 namespace objects {
@@ -28,14 +28,14 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 
 // A projection (the renderer's, 0xC8 bytes; a list node with its checksum at +0x14): made (0x004C7E80), set up from
 // its structure (0x004A04C0) and updated from an object (0x0049FFE0).
-memory::owner<render::TextureProjection*> new_projection() { return new render::PcTextureProjection; }
+gsl::owner<render::TextureProjection*> new_projection() { return new render::PcTextureProjection; }
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 
 } // namespace
 
 // 0x00434870
-memory::owner<ObjectModule*> TextureProjectionComponent::fabricate() { return new TextureProjectionComponent; }
+gsl::owner<ObjectModule*> TextureProjectionComponent::fabricate() { return new TextureProjectionComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 TextureProjectionComponent::TextureProjectionComponent()

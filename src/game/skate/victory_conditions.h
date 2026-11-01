@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // goals::WinRule: how a game mode is won - a goal's victory_conditions entries (type= highest_score,
 // target_score, complete_goals, best_combo, last_man_standing, elimination, collect_all_objects) are made into
@@ -117,6 +117,6 @@ public:
 };
 
 // 0x00576810: a new condition from `params`' type= (null for an unknown type or out of memory).
-memory::owner<WinRule*> create_victory_condition(script::Struct* params);
+gsl::owner<WinRule*> create_victory_condition(script::Struct* params);
 
 } // namespace goals

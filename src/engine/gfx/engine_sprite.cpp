@@ -8,7 +8,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_texture.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -150,7 +150,7 @@ TexturedQuad::TexturedQuad(void* window) : screen_region_(window)
 }
 
 // 0x0049EF30
-memory::owner<TexturedQuad*> TexturedQuad::fabricate() { return new TexturedQuad(nullptr); }
+gsl::owner<TexturedQuad*> TexturedQuad::fabricate() { return new TexturedQuad(nullptr); }
 
 // 0x0049ED10
 void TexturedQuad::change_concealed(bool hidden) { invisible_ = hidden; }

@@ -4,6 +4,7 @@
 #include "engine/objects/vibration_component.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -41,7 +42,7 @@ bool is_game_halted() { return g_simulation_halted; }
 } // namespace
 
 // 0x0043D670
-memory::owner<ObjectModule*> PadRumbleModule::fabricate() { return new PadRumbleModule; }
+gsl::owner<ObjectModule*> PadRumbleModule::fabricate() { return new PadRumbleModule; }
 
 // (the constructor: inlined in fabricate in the original)
 PadRumbleModule::PadRumbleModule()

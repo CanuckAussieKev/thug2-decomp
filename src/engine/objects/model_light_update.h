@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Struct;
@@ -33,7 +33,7 @@ public:
 
     // 0x00422DC0 (registered with the composite object manager): a new one (the constructor inlined: the base's, its
     // vtable, no flags, interval or brightness, its type; 0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     MeshLightingModule();
     // 0x00422D00: the base's.

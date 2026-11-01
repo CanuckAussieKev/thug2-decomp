@@ -14,7 +14,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/tagging.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 namespace commands {
@@ -61,7 +61,7 @@ render::BitmapTexture* find_texture(void* dictionary, uint32_t name)
 {
     return static_cast<render::TextureSet*>(dictionary)->fetch_skin(name);
 }
-memory::owner<render::BitmapTexture*> alloc_pc_texture(uint32_t name, int width, int height, int a, int b)
+gsl::owner<render::BitmapTexture*> alloc_pc_texture(uint32_t name, int width, int height, int a, int b)
 {
     return static_cast<render::TextureSet*>(get_textures())->create_texture(name, width, height, a, b, 1, true);
 }

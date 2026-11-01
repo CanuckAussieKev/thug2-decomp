@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -92,7 +93,7 @@ bool suspend_should_update(uint8_t* suspend, float* distance)
 } // namespace
 
 // 0x0041BD90
-memory::owner<ObjectModule*> AutomobileDynamicsModule::fabricate() { return new AutomobileDynamicsModule; }
+gsl::owner<ObjectModule*> AutomobileDynamicsModule::fabricate() { return new AutomobileDynamicsModule; }
 
 // 0x0041B910
 void AutomobileDynamicsModule::publish_method_table()

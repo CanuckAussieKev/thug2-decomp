@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -27,7 +27,7 @@ public:
     RiderPointKeeper(const RiderPointKeeper&) = delete;
     RiderPointKeeper& operator=(const RiderPointKeeper&) = delete;
     // 0x00518B60 (registered by register_component_types): a new one (0 if out of memory), no score yet.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderPointKeeper();
     // 0x00518BE0: the score destroyed and freed, then the base's.

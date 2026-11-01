@@ -8,7 +8,7 @@
 #include "engine/gfx/screen_effects.h"
 
 #include "engine/maths/shape_tests.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace scene_format {
 class MemoryStream;
@@ -40,7 +40,7 @@ public:
     // 0x004C6530 (slot 1): with `on`, its geometry given to the engine's 0x00490DC0.
     void plat_set_shatter(bool on) override;
     // 0x004C65C0 (slot 3): a new sector (the arguments unused). Null if no memory.
-    memory::owner<PcSector*> plat_clone(int instance, void* scene) override;
+    gsl::owner<PcSector*> plat_clone(int instance, void* scene) override;
     // 0x004C6650: loaded from a scene in memory (scene_format.h; the stream moved past it): its checksum, flags,
     // box, billboard and meshes (each made, its vertices loaded by 0x004D5CC0, its index lists read and dropped).
     // False (the stream failed; the meshes made so far kept) if a record is damaged.
@@ -76,7 +76,7 @@ struct PcScene final : public WorldScene {
     // (Slot 6: a shared "false".)
     bool unload_add_scene() override { return false; }
     // 0x004C6190 (slot 7): a new sector. Null if no memory.
-    memory::owner<WorldCell*> plat_create_sector() override;
+    gsl::owner<WorldCell*> plat_create_sector() override;
     // 0x004C6200: the sectors gone through (nothing done with them - stripped).
     void unload_sectors();
 

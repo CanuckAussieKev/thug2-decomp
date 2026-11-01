@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -52,7 +53,7 @@ void probe_tip(int index, float x, float z, float* last_column, float* end_z)
 } // namespace
 
 // 0x004F3890
-memory::owner<ObjectModule*> ProjectileComponent::fabricate() { return new ProjectileComponent; }
+gsl::owner<ObjectModule*> ProjectileComponent::fabricate() { return new ProjectileComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 ProjectileComponent::ProjectileComponent() { kind_tag_ = kType; }

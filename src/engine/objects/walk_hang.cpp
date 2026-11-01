@@ -37,7 +37,7 @@
 #include "engine/gfx/model.h"
 #include "engine/objects/model_component.h"
 #include "game/rider/tagging.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -1568,6 +1568,6 @@ void walk::MovableContact::start_riding(objects::GameEntity* object)
 namespace objects {
 
 // 0x0043D930
-memory::owner<ObjectModule*> create_wait_and_die_component() { return new WaitAndDieComponent; }
+gsl::owner<ObjectModule*> create_wait_and_die_component() { return new WaitAndDieComponent; }
 
 } // namespace objects

@@ -27,7 +27,7 @@
 #include "formats/texture_format.h"
 #include "formats/byte_stream.h"
 #include "platform/crt.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 
@@ -38,7 +38,7 @@ namespace {
 TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->image_); }
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
-memory::owner<PcTexture*> alloc_pc_texture() { return new PcTexture; }
+gsl::owner<PcTexture*> alloc_pc_texture() { return new PcTexture; }
 
 } // namespace
 
@@ -1259,7 +1259,7 @@ bool PcTexDict::load_memory(const uint8_t* data, size_t size)
 PcTexDict::PcTexDict(const char* name) : TextureSet(name, true) { ingest_file(name); }
 
 // 0x004C7270
-memory::owner<PcTexDict*> load_tex_dict_file(const char* name) { return new PcTexDict(name); }
+gsl::owner<PcTexDict*> load_tex_dict_file(const char* name) { return new PcTexDict(name); }
 
 // 0x004C72E0
 PcTexDict* load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
@@ -1270,7 +1270,7 @@ PcTexDict* load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t s
 }
 
 // 0x004C7360
-memory::owner<PcTexDict*> create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
+gsl::owner<PcTexDict*> create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
 
 // 0x004C80B0
 void copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,

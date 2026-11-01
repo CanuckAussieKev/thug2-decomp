@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -51,7 +52,7 @@ double cos_degrees(float degrees) { return std::cos(static_cast<double>(degrees)
 } // namespace
 
 // 0x00514430
-memory::owner<ObjectModule*> RiderFrameLookups::fabricate() { return new RiderFrameLookups; }
+gsl::owner<ObjectModule*> RiderFrameLookups::fabricate() { return new RiderFrameLookups; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderFrameLookups::RiderFrameLookups() { kind_tag_ = kSkaterMatrixQueries; }

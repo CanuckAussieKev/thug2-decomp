@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -77,7 +78,7 @@ bool is_near(const GameEntity* object, const GameEntity* self, float reach_squar
 } // namespace
 
 // 0x0041ADC0
-memory::owner<ObjectModule*> CbBoxComponent::fabricate() { return new CbBoxComponent; }
+gsl::owner<ObjectModule*> CbBoxComponent::fabricate() { return new CbBoxComponent; }
 
 // 0x0041AAD0
 CbBoxComponent::CbBoxComponent()

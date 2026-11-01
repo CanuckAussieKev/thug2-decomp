@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include <new>
 #include <utility>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -87,7 +88,7 @@ const float* vector_of(uint32_t element) { return cell::pointer<const float>(ele
 } // namespace
 
 // 0x0042EF00
-memory::owner<ObjectModule*> BodyDynamicsModule::fabricate() { return new BodyDynamicsModule; }
+gsl::owner<ObjectModule*> BodyDynamicsModule::fabricate() { return new BodyDynamicsModule; }
 
 // 0x0042E3F0
 BodyDynamicsModule::BodyDynamicsModule()

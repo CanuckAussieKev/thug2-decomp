@@ -15,7 +15,7 @@
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 
 namespace assets {
@@ -24,7 +24,7 @@ assets::ResourceRegistry* g_asset_manager;
 namespace {
 int g_ass_man_references;
 } // namespace
-memory::owner<frame_loop::Hub*> g_main_loop_manager;
+gsl::owner<frame_loop::Hub*> g_main_loop_manager;
 
 namespace {
 
@@ -74,7 +74,7 @@ void get_append(Resource** head, Resource* asset)
 }
 
 // A new asset of `type` (null for a type that isn't one, or if the allocation fails).
-memory::owner<Resource*> make_asset(int type, bool with_cutscene)
+gsl::owner<Resource*> make_asset(int type, bool with_cutscene)
 {
     switch (type) {
     case kScene:

@@ -7,6 +7,7 @@
 #include "engine/gfx/particle_system.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -158,7 +159,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 } // namespace
 
 // 0x0041E1E0
-memory::owner<ObjectModule*> FlexibleParticleComponent::fabricate() { return new FlexibleParticleComponent; }
+gsl::owner<ObjectModule*> FlexibleParticleComponent::fabricate() { return new FlexibleParticleComponent; }
 
 // 0x0041D6E0
 void FlexibleParticleComponent::publish_method_table()

@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -54,7 +55,7 @@ void get_ease(float& angle, double target, float frame)
 } // namespace
 
 // 0x004E42E0
-memory::owner<ObjectModule*> FreeLookModule::fabricate() { return new FreeLookModule; }
+gsl::owner<ObjectModule*> FreeLookModule::fabricate() { return new FreeLookModule; }
 
 // (the constructor: inlined in fabricate in the original)
 FreeLookModule::FreeLookModule() { kind_tag_ = kCameraLookAround; }

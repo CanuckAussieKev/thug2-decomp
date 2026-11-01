@@ -6,7 +6,7 @@
 
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // GameObjects::EntityHub, the manager of every composite object (the singleton 0x006F0FB8, references
 // 0x006F0FBC): the component types (who makes each one), the list of all components of each type, making composite
@@ -99,7 +99,7 @@ void init_coim(int a, uint32_t heap_size, int b, int c);
 // 0x0045F1C0 (ResizeCOIMHeap's work): the heap made again `size` bytes, or destroyed for 0.
 void resize_coim_heap(uint32_t size);
 
-extern memory::owner<objects::EntityHub*> g_composite_registry;
+extern gsl::owner<objects::EntityHub*> g_composite_registry;
 
 extern float g_pi;
 } // namespace objects

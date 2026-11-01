@@ -22,7 +22,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -44,12 +44,12 @@ EntityHub* entity_hub_handle() { return g_composite_registry; }
 void seal(GameEntity* object) { object->seal(); }
 
 // The two components a game object gets after its array's (not rewritten yet).
-memory::owner<ObjectModule*> new_game_object_component_a()
+gsl::owner<ObjectModule*> new_game_object_component_a()
 {
     static_assert(sizeof(PinnedObjectModule) == 0x90, "the original allocates 0x90 bytes");
     return new PinnedObjectModule;
 }
-memory::owner<ObjectModule*> new_game_object_component_b()
+gsl::owner<ObjectModule*> new_game_object_component_b()
 {
     static_assert(sizeof(CbBoxComponent) == 0x4C, "the original allocates 0x4C bytes");
     return new CbBoxComponent;

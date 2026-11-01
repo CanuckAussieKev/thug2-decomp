@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Struct;
@@ -27,7 +27,7 @@ public:
     static constexpr uint32_t kType = 0x41272956;
 
     // 0x0043D430 (registered with the composite object manager): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     VelocityTrackerModule();
     // 0x0043D2B0: the destructor body (the base's).

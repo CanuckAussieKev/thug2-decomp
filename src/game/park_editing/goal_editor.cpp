@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <gsl/pointers>
 
 #include "engine/core/checksums.h"
 #include "game/rider/vehicle_sound.h"
@@ -99,7 +100,7 @@ bool get_outside(float x, float z, float x0, float z0, float x1, float z1)
 } // namespace
 
 // 0x004EB7F0
-memory::owner<objects::ObjectModule*> ObjectiveAuthoring::fabricate() { return new ObjectiveAuthoring; }
+gsl::owner<objects::ObjectModule*> ObjectiveAuthoring::fabricate() { return new ObjectiveAuthoring; }
 
 // 0x004E6FB0
 void ObjectiveAuthoring::publish_method_table()

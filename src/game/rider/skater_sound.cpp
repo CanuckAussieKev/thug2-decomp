@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -71,7 +72,7 @@ float full_length(const maths::Vec4& v, float full_speed)
 } // namespace
 
 // 0x00518E20
-memory::owner<ObjectModule*> RiderSfxPlayer::fabricate() { return new RiderSfxPlayer; }
+gsl::owner<ObjectModule*> RiderSfxPlayer::fabricate() { return new RiderSfxPlayer; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderSfxPlayer::RiderSfxPlayer() { kind_tag_ = kSkaterSound; }

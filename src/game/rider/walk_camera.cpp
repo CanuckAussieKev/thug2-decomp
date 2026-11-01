@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -87,7 +88,7 @@ maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::
 }
 
 // 0x00525DC0
-memory::owner<ObjectModule*> FootView::fabricate() { return new FootView; }
+gsl::owner<ObjectModule*> FootView::fabricate() { return new FootView; }
 
 // (the constructor: inlined in fabricate in the original)
 FootView::FootView()

@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -21,7 +21,7 @@ public:
     ObjectProximityComponent(const ObjectProximityComponent&) = delete;
     ObjectProximityComponent& operator=(const ObjectProximityComponent&) = delete;
     // 0x004EC420: a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x004EC220 (not a Ghidra function): its script member functions (the table at 0x00682620) registered.
     static void publish_method_table();
     // 0x004EC370: its type.

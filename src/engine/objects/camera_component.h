@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace gfx {
 class ViewCam;
@@ -29,7 +29,7 @@ public:
     static constexpr uint32_t kType = 0xC4E311FA;
 
     // 0x0041B840 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x0041B730: its type, a new camera (0xC4 bytes, gfx::ViewCam::make_new; null
     // when out of memory).
     ViewpointModule();

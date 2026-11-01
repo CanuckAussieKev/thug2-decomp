@@ -19,13 +19,13 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 
 namespace level_nodes {
 
-memory::owner<level_nodes::NodeManager*> g_node_manager;
+gsl::owner<level_nodes::NodeManager*> g_node_manager;
 
 using script::Array;
 using script::Struct;

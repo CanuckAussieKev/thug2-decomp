@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "formats/anim_format.h"
 #include "engine/gfx/frame_source.h"
 
@@ -191,7 +191,7 @@ public:
     uint32_t* bone_labels_{nullptr};          // +0x1C
     uint32_t* partial_bones_{nullptr};        // +0x20 (flag 0x80000: a count, then a bit for each bone)
     uint8_t* cache_slot_{nullptr};            // +0x24 (+4: the frame it was last used)
-    memory::owner<UserClipKey**> events_ptr_{nullptr}; // +0x28 the custom keys (create_custom_anim_key; each owned too)
+    gsl::owner<UserClipKey**> events_ptr_{nullptr}; // +0x28 the custom keys (create_custom_anim_key; each owned too)
     uint16_t* quat_sizes_{nullptr};                    // +0x2C (each bone's quaternion keys' size in bytes)
     uint16_t* trans_sizes_{nullptr};                   // +0x30
     int16_t quat_key_count_{};                // +0x34

@@ -8,7 +8,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -35,7 +35,7 @@ public:
     static constexpr uint32_t kType = 0xC5BCEB9E;
 
     // 0x0041E1E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x0041D6E0 (not a Ghidra function; registered with Create): its member functions' table (0x00683AC0; the
     // functions are put in by the static initialiser at 0x00642FD0).
     static void publish_method_table();

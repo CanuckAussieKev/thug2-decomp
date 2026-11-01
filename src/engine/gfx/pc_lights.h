@@ -5,7 +5,7 @@
 
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // Lighting on PC (Nx engine): the scene's lights (the engine's ambient colour 0x0067DC98, its scale 0x0067DC94, the
 // directional lights' directions 0x0067DC9C and colours 0x0067DCA0, their intensities 0x006FAAEC) and the PC model
@@ -76,7 +76,7 @@ bool update_light_direction(int light);
 // 0x004B6AB0: a scene light's direction (w 1; a static vector, 0x0070166C).
 maths::Vec4* get_light_direction(int light);
 // 0x004B6B10: new model lights (0x30 bytes).
-memory::owner<PcModelLights*> spawn_model_lights();
+gsl::owner<PcModelLights*> spawn_model_lights();
 
 extern float g_light_constants[28];
 

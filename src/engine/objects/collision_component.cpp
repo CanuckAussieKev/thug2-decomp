@@ -2,6 +2,7 @@
 // CollisionMode and its model's (or its level sector's) collision, placed where the object is.
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/objects/collision_component.h"
 #include "engine/gfx/d3dx.h"
@@ -61,7 +62,7 @@ void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 } // namespace
 
 // 0x0041C920
-memory::owner<ObjectModule*> ContactShapeModule::fabricate() { return new ContactShapeModule; }
+gsl::owner<ObjectModule*> ContactShapeModule::fabricate() { return new ContactShapeModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ContactShapeModule::ContactShapeModule() { kind_tag_ = kType; }

@@ -35,7 +35,7 @@
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/tagging.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 namespace skater {
@@ -81,7 +81,7 @@ objects::GameEntity* skater_object(SkaterPhysicsModule* component)
 } // namespace
 
 // 0x00505440
-memory::owner<void*> SkaterPhysicsModule::fabricate() { return new SkaterPhysicsModule; }
+gsl::owner<void*> SkaterPhysicsModule::fabricate() { return new SkaterPhysicsModule; }
 
 // 0x00500CA0
 SkaterPhysicsModule::SkaterPhysicsModule()

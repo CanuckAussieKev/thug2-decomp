@@ -17,7 +17,7 @@
 #include "engine/sys/game_module.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "platform/compiler.h"
 #include "engine/core/pointer_cell.h"
 
@@ -37,7 +37,7 @@ int g_handles_in_use;
 int g_pending_reads;
 bool g_io_completed;
 int g_current_list;
-memory::owner<AsyncLoaderModule*> g_loader_module;
+gsl::owner<AsyncLoaderModule*> g_loader_module;
 uint32_t g_loader_module_refs;
 bool g_use_overlapped_io;
 

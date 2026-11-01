@@ -19,6 +19,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -39,7 +40,7 @@
 
 namespace objects {
 
-memory::owner<objects::TrickSpotHub*> g_trick_spot_hub;
+gsl::owner<objects::TrickSpotHub*> g_trick_spot_hub;
 namespace {
 uint32_t g_trick_object_manager_references;
 

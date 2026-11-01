@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Struct;
@@ -23,7 +23,7 @@ public:
     RiderOverheadTag(const RiderOverheadTag&) = delete;
     RiderOverheadTag& operator=(const RiderOverheadTag&) = delete;
     // 0x00511810 (registered by register_component_types): a new one (0 if out of memory). The label's id isn't set.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderOverheadTag();
     // 0x00511AA0: the destructor body: the label destroyed (destroy_object_label, id = its id), then the base's.

@@ -3,6 +3,7 @@
 #include "game/rider/flip_and_rotate.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -79,7 +80,7 @@ int get_skater_index(GameEntity* skater) { return static_cast<Rider*>(skater)->v
 } // namespace
 
 // 0x00511470
-memory::owner<ObjectModule*> RiderSpinAndFlip::fabricate() { return new RiderSpinAndFlip; }
+gsl::owner<ObjectModule*> RiderSpinAndFlip::fabricate() { return new RiderSpinAndFlip; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderSpinAndFlip::RiderSpinAndFlip() { kind_tag_ = kSkaterFlipAndRotate; }

@@ -16,7 +16,7 @@
 #include <cstdint>
 
 #include "engine/maths/vec4.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace objects {
 class AudioEmitterModule;
@@ -283,7 +283,7 @@ extern float g_default_dropoff;
 extern SoundWaveSlot g_permanent_waves[256];
 extern SoundWaveSlot g_level_waves[256];
 extern PlayingSound g_playing_sounds[48];
-extern memory::owner<AudioMixer*> g_audio_mixer;
+extern gsl::owner<AudioMixer*> g_audio_mixer;
 extern PositionalSound* g_positional_head;
 extern int g_permanent_count;
 extern int g_level_count;

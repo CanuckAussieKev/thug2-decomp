@@ -5,7 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include "game/rider/manual_balance.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -34,7 +34,7 @@ public:
                               kSkitch = 0x3506CE64, kLip = 0xA549B57B;
 
     // 0x004F9170 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x004F8CD0 (registered with the type): the member function table 0x00683238 (in_balance_move).
     static void publish_method_table();
     // 0x004F8F80: the four balances made, no physics structure, no anim component.

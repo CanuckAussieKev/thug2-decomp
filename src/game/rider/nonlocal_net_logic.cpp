@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -85,7 +86,7 @@ void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multipl
 } // namespace
 
 // 0x005147F0
-memory::owner<ObjectModule*> RiderRemoteSync::fabricate() { return new RiderRemoteSync; }
+gsl::owner<ObjectModule*> RiderRemoteSync::fabricate() { return new RiderRemoteSync; }
 
 // 0x005144E0
 RiderRemoteSync::RiderRemoteSync()

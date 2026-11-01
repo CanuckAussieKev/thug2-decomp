@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -32,7 +32,7 @@ public:
     RiderSessionEnd(const RiderSessionEnd&) = delete;
     RiderSessionEnd& operator=(const RiderSessionEnd&) = delete;
     // 0x00510F90 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderSessionEnd();
     // 0x00510D20: the destructor body (the base's).

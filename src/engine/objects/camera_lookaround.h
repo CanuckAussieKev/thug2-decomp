@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -27,7 +27,7 @@ public:
     FreeLookModule(const FreeLookModule&) = delete;
     FreeLookModule& operator=(const FreeLookModule&) = delete;
     // 0x004E42E0: a new one (0 if out of memory): the base's constructor, its vtable and type.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     FreeLookModule();
     // 0x004E3F60: the destructor body (the base's).

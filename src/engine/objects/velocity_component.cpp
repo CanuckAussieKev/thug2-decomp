@@ -3,6 +3,7 @@
 #include "engine/objects/velocity_component.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -28,7 +29,7 @@ bool suspend_flag(ObjectModule* suspend) { return static_cast<DormancyModule*>(s
 } // namespace
 
 // 0x0043D430
-memory::owner<ObjectModule*> VelocityTrackerModule::fabricate() { return new VelocityTrackerModule; }
+gsl::owner<ObjectModule*> VelocityTrackerModule::fabricate() { return new VelocityTrackerModule; }
 
 // (the constructor: inlined in fabricate in the original)
 VelocityTrackerModule::VelocityTrackerModule() { kind_tag_ = kType; }

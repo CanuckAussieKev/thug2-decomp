@@ -6,7 +6,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/sound/sfx.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -33,7 +33,7 @@ public:
     RiderRollingAudio(const RiderRollingAudio&) = delete;
     RiderRollingAudio& operator=(const RiderRollingAudio&) = delete;
     // 0x00513AD0 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x00513860 (registered with Create): its script member functions (the table at 0x00684A68) registered.
     static void publish_method_table();
     // 0x005138E0: its type; on, the sound to be chosen (changed), in the air, volume_mult 1.

@@ -25,7 +25,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -96,7 +96,7 @@ void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, 
 int player_controller(int player) { return input_manager()->get_player_controller(player); }
 
 // A new handler (on the current heap).
-memory::owner<PadInputModule::Responder*> new_handler(int index, PadInputModule::Responder::Code code,
+gsl::owner<PadInputModule::Responder*> new_handler(int index, PadInputModule::Responder::Code code,
                                                       PadInputModule* component)
 {
     return new PadInputModule::Responder(code, component, -1, index);
@@ -115,7 +115,7 @@ frontend::UiWidget* find_element(uint32_t id)
 } // namespace
 
 // 0x0041EEC0
-memory::owner<ObjectModule*> PadInputModule::fabricate() { return new PadInputModule; }
+gsl::owner<ObjectModule*> PadInputModule::fabricate() { return new PadInputModule; }
 
 // 0x0041E6F0
 void PadInputModule::publish_method_table()

@@ -19,11 +19,11 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace commands {
 
-memory::owner<modules::Hub*> g_module_manager;
+gsl::owner<modules::Hub*> g_module_manager;
 namespace {
 bool g_viewer_launched;
 

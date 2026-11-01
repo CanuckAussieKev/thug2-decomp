@@ -5,7 +5,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/net/net_messages.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // The network manager (0x37C bytes; the instance at 0x006EFDD8, made and released by create_manager /
 // release_manager): the apps (servers and clients) it made and the network settings online copies from the network
@@ -141,6 +141,6 @@ Hub* create_manager(bool create);
 // 0x004558D0: one reference less; the last deletes it.
 void release_manager();
 
-extern memory::owner<Hub*> g_net_core;
+extern gsl::owner<Hub*> g_net_core;
 
 } // namespace net

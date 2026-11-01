@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "wire/gamenet_messages.h"
@@ -650,7 +650,7 @@ public:
     std::unique_ptr<tasks::SchedulerTask> server_list_job_;     // +0xF0 server_list_task (the server-list client's)
     std::unique_ptr<tasks::SchedulerTask> auto_serve_job_;      // +0xF4 auto_serve_task
     std::unique_ptr<tasks::SchedulerTask> flag_carry_job_;      // +0xF8 carried_flags_task
-    memory::owner<pad_input::InputHandler*> spectator_pad_listener_{}; // +0xFC (deleted where observing ends)
+    gsl::owner<pad_input::InputHandler*> spectator_pad_listener_{}; // +0xFC (deleted where observing ends)
     int spectate_request_{};                                           // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
     // original, whose sets had a table): get_online_settings / get_taunt_settings.

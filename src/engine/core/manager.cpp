@@ -10,7 +10,7 @@
 #include "engine/core/memory_sizes.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 
 namespace memory {
@@ -456,7 +456,7 @@ bool& manager_ready() { return g_manager_ready; }
 // The game CRT's malloc (the main block comes from it).
 void* get_crt_malloc(size_t size) { return crt::alloc_block(size); }
 
-memory::owner<MemoryArena*> new_alloc_region(uint32_t size) { return new MemoryArena(size); }
+gsl::owner<MemoryArena*> new_alloc_region(uint32_t size) { return new MemoryArena(size); }
 
 } // namespace
 

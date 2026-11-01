@@ -30,7 +30,7 @@
 #include "engine/lists/key_map.h"
 #include "engine/render/coll_movable.h"
 #include "engine/gfx/device.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -93,7 +93,7 @@ void PcSector::plat_set_shatter(bool on)
 }
 
 // 0x004C65C0
-memory::owner<PcSector*> PcSector::plat_clone(int, void*) { return new PcSector(); }
+gsl::owner<PcSector*> PcSector::plat_clone(int, void*) { return new PcSector(); }
 
 // 0x004C64E0
 const maths::BBox* PcSector::fetch_empty_bounds()
@@ -110,7 +110,7 @@ const maths::BBox* PcSector::fetch_empty_bounds()
 // --- the scene ---
 
 // 0x004C6190
-memory::owner<WorldCell*> PcScene::plat_create_sector() { return new PcSector(); }
+gsl::owner<WorldCell*> PcScene::plat_create_sector() { return new PcSector(); }
 
 // 0x004C6200
 void PcScene::unload_sectors()

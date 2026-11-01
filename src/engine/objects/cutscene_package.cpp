@@ -38,7 +38,7 @@
 #include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/cutscene.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -96,7 +96,7 @@ void discard_loaded_item(uint32_t name)
     get_assets()->discard_loaded_item(asset);
 }
 void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
-memory::owner<void*> new_anim_source() { return new render::FrameSource; }
+gsl::owner<void*> new_anim_source() { return new render::FrameSource; }
 script::Struct* make_struct()
 {
     script::Struct* memory = script::spawn_param_bag();

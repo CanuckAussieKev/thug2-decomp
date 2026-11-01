@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "engine/core/arena_alloc.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;

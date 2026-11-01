@@ -5,7 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -32,7 +32,7 @@ public:
     static constexpr int kHistory = 20;
 
     // 0x005147F0 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x005144E0: its type, no components, the two positions (0, 0, 0, 1), no updates.
     RiderRemoteSync();
     // 0x005144B0: the destructor body (the base's).

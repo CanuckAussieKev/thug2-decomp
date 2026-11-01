@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -154,7 +155,7 @@ void Chain::update_lines()
 // --- life ---
 
 // 0x004298B0
-memory::owner<ObjectModule*> ChainComponent::fabricate() { return new ChainComponent; }
+gsl::owner<ObjectModule*> ChainComponent::fabricate() { return new ChainComponent; }
 
 // 0x004296E0
 ChainComponent::ChainComponent()

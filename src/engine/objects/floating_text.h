@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace frontend {
 class UiTree;
@@ -40,7 +40,7 @@ public:
 
     // 0x0041E3C0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no text, colour 2, y_offset 120, no id, no end; 0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     FloatingTextComponent();
     // 0x0041E5E0: the element destroyed (the script 0x2575B406 with id=), then the base's body.

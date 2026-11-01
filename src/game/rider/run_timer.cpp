@@ -3,6 +3,7 @@
 #include "game/rider/run_timer.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -63,7 +64,7 @@ void tell_timer_script(GameEntity* skater, uint32_t type)
 } // namespace
 
 // 0x005185D0
-memory::owner<ObjectModule*> RiderRunClock::fabricate() { return new RiderRunClock; }
+gsl::owner<ObjectModule*> RiderRunClock::fabricate() { return new RiderRunClock; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderRunClock::RiderRunClock() { kind_tag_ = kSkaterRunTimer; }

@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -102,7 +103,7 @@ modules::PointTally* get_score_of(GameEntity* skater)
 // --- the projectile collision component ---
 
 // 0x004F3010
-memory::owner<ObjectModule*> ShotImpactModule::fabricate() { return new ShotImpactModule; }
+gsl::owner<ObjectModule*> ShotImpactModule::fabricate() { return new ShotImpactModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ShotImpactModule::ShotImpactModule() { kind_tag_ = kType; }
@@ -223,7 +224,7 @@ void ShotImpactModule::tick_frame()
 // --- the projectile proximity component ---
 
 // 0x004F3550
-memory::owner<ObjectModule*> ProjectileProximityComponent::fabricate() { return new ProjectileProximityComponent; }
+gsl::owner<ObjectModule*> ProjectileProximityComponent::fabricate() { return new ProjectileProximityComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 ProjectileProximityComponent::ProjectileProximityComponent() { kind_tag_ = kType; }

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -67,7 +68,7 @@ struct SoundParams {
 } // namespace
 
 // 0x00433100
-memory::owner<ObjectModule*> AudioEmitterModule::fabricate() { return new AudioEmitterModule; }
+gsl::owner<ObjectModule*> AudioEmitterModule::fabricate() { return new AudioEmitterModule; }
 
 // 0x00432C80
 void AudioEmitterModule::publish_method_table()

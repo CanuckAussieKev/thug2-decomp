@@ -5,7 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Array;
@@ -32,7 +32,7 @@ public:
 
     // 0x00431F60 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type, no skeleton.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     BoneRigModule();
     // 0x00431BE0 (not a Ghidra function; registered with Create): its script member functions registered.

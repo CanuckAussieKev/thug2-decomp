@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"
@@ -72,7 +73,7 @@ const uint8_t* hierarchy_of(uint8_t* model)
 } // namespace
 
 // 0x00431800
-memory::owner<ObjectModule*> GroundShadowModule::fabricate() { return new GroundShadowModule; }
+gsl::owner<ObjectModule*> GroundShadowModule::fabricate() { return new GroundShadowModule; }
 
 // 0x00431380
 GroundShadowModule::GroundShadowModule() : shadow_handle_(nullptr)

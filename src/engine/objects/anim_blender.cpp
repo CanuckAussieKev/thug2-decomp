@@ -5,6 +5,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -79,7 +80,7 @@ bool bool_arg(float word) { return bool_arg(std::bit_cast<uint32_t>(word)); }
 } // namespace
 
 // 0x0041A5B0
-memory::owner<ObjectModule*> AnimBlenderComponent::fabricate() { return new AnimBlenderComponent; }
+gsl::owner<ObjectModule*> AnimBlenderComponent::fabricate() { return new AnimBlenderComponent; }
 
 // 0x00419690
 void AnimBlenderComponent::publish_method_table()

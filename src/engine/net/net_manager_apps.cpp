@@ -15,12 +15,12 @@
 #include "engine/core/mem.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_server.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "platform/compiler.h"
 
 namespace net {
 
-memory::owner<Hub*> g_net_core;
+gsl::owner<Hub*> g_net_core;
 
 namespace {
 

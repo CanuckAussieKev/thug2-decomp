@@ -5,7 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Array;
@@ -197,7 +197,7 @@ public:
     ObjectiveAuthoring(const ObjectiveAuthoring&) = delete;
     ObjectiveAuthoring& operator=(const ObjectiveAuthoring&) = delete;
     // 0x004EB7F0: a new one (0 if out of memory).
-    static memory::owner<objects::ObjectModule*> fabricate();
+    static gsl::owner<objects::ObjectModule*> fabricate();
     // 0x004E6FB0 (not a Ghidra function): its script member functions (the table at 0x00684270) registered.
     static void publish_method_table();
     // 0x004EA230: its type, every goal's defaults (the array constructor with

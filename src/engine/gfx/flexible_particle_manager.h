@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 
@@ -17,10 +17,10 @@ struct EmitterInstance;
 // (0x28 bytes in the original, with a vtable 0x006494B0 holding only its destructor; one, made at start-up and never
 // deleted: no vtable here, 0x24 bytes.)
 struct FlexibleParticleManager : memory::HeapObject {
-    memory::owner<memory::Zone*>
+    gsl::owner<memory::Zone*>
         zone_; // (a memory manager region: deleted after its heap) its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
     memory::Arena* arena_;                     // "FlxParticles"
-    memory::owner<memory::Zone*> temp_region_; // (likewise, after the temporary heap)
+    gsl::owner<memory::Zone*> temp_region_; // (likewise, after the temporary heap)
     memory::Arena* temp_heap_;                 // "TEMPFlxPrtcl": systems are made on it while it's there
     memory::ListNode* systems_ptr_;            // the list's head (lists::Foremost<EmitterInstance>)
     float colour_scale_[4]{};                  // the level's colour (given to the systems with flag 0x10000)

@@ -6,7 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace render {
 class ProbeRay;
@@ -72,7 +72,7 @@ public:
     static constexpr uint32_t kType = 0x286A8D26;
 
     // 0x00421490 (registered with the composite object manager): a new one (Construct; 0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x00420BF0: its type, a new model (0x0048BFA0), the spins off, no display
     // offset (w 1), scale 1, no colour values, the pivot (0, 0, 0, 1).
     MeshInstanceModule();

@@ -19,7 +19,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/glow.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 namespace render {
@@ -63,7 +63,7 @@ void end_query_draw(uint8_t query)
 } // namespace
 
 // 0x004CB860
-memory::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera)
+gsl::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera)
 {
     return new PcViewport(rect, camera);
 }

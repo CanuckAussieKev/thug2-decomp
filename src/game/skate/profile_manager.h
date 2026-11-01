@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
@@ -187,6 +187,6 @@ public:
     RiderIdentity* extra_profiles_[3]{}; // +0x34
 };
 
-extern memory::owner<objects::ProfileRoster*> g_profile_roster;
+extern gsl::owner<objects::ProfileRoster*> g_profile_roster;
 
 } // namespace objects

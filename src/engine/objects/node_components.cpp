@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"
@@ -38,7 +39,7 @@ script::Array* node_array_of(ObjectModule* component)
 // --- the node array ---
 
 // 0x00428010
-memory::owner<ObjectModule*> WaypointListModule::fabricate() { return new WaypointListModule; }
+gsl::owner<ObjectModule*> WaypointListModule::fabricate() { return new WaypointListModule; }
 
 // (the constructor: inlined in fabricate in the original)
 WaypointListModule::WaypointListModule() { kind_tag_ = kType; }
@@ -73,7 +74,7 @@ void WaypointListModule::reapply_from_data(script::Struct* params)
 // --- the object hooks ---
 
 // 0x00428130
-memory::owner<ObjectModule*> HookPointRegistryModule::fabricate() { return new HookPointRegistryModule; }
+gsl::owner<ObjectModule*> HookPointRegistryModule::fabricate() { return new HookPointRegistryModule; }
 
 // (the constructor: inlined in fabricate in the original)
 HookPointRegistryModule::HookPointRegistryModule() { kind_tag_ = kType; }
@@ -103,7 +104,7 @@ void HookPointRegistryModule::configure_from_data(script::Struct*)
 // --- the rails ---
 
 // 0x0042B920
-memory::owner<ObjectModule*> GrindPathLinkModule::fabricate() { return new GrindPathLinkModule; }
+gsl::owner<ObjectModule*> GrindPathLinkModule::fabricate() { return new GrindPathLinkModule; }
 
 // (the constructor: inlined in fabricate in the original)
 GrindPathLinkModule::GrindPathLinkModule() { kind_tag_ = kType; }

@@ -6,7 +6,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -32,7 +32,7 @@ public:
     using Responder = pad_input::Responder<PadInputModule>;
 
     // 0x0041EEC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x0041E6F0 (not a Ghidra function; registered with Create): its member functions' table (0x00684C78; the
     // functions are put in by the static initialiser at 0x006445B0).
     static void publish_method_table();

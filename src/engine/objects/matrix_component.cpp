@@ -9,13 +9,14 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include <gsl/pointers>
 
 namespace objects {
 
 namespace {} // namespace
 
 // 0x0041CB20
-memory::owner<ObjectModule*> MatrixComponent::fabricate() { return new MatrixComponent; }
+gsl::owner<ObjectModule*> MatrixComponent::fabricate() { return new MatrixComponent; }
 
 // 0x0041CAD0
 MatrixComponent::MatrixComponent()

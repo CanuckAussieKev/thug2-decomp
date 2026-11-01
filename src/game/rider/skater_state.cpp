@@ -5,6 +5,7 @@
 #include "game/rider/state_history.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -63,7 +64,7 @@ int find_powerup(script::Struct* params)
 } // namespace
 
 // 0x00519740
-memory::owner<ObjectModule*> RiderPoseState::fabricate() { return new RiderPoseState; }
+gsl::owner<ObjectModule*> RiderPoseState::fabricate() { return new RiderPoseState; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPoseState::RiderPoseState()

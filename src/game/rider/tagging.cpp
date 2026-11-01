@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <gsl/pointers>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -140,7 +141,7 @@ float tag_setting(uint32_t name) { return FootMovement::get_param(name); }
 // --- TaggingComponent ---
 
 // 0x0051DA80
-memory::owner<ObjectModule*> TaggingComponent::fabricate() { return new TaggingComponent; }
+gsl::owner<ObjectModule*> TaggingComponent::fabricate() { return new TaggingComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 TaggingComponent::TaggingComponent() { kind_tag_ = kType; }
@@ -257,7 +258,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
 // --- TaggingControlComponent ---
 
 // 0x0051E280
-memory::owner<ObjectModule*> TaggingControlComponent::fabricate() { return new TaggingControlComponent; }
+gsl::owner<ObjectModule*> TaggingControlComponent::fabricate() { return new TaggingControlComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 TaggingControlComponent::TaggingControlComponent() { kind_tag_ = kType; }

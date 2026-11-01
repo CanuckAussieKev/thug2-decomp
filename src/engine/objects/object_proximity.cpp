@@ -6,6 +6,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -61,7 +62,7 @@ double get_distance_squared(const GameEntity* a, const GameEntity* b)
 } // namespace
 
 // 0x004EC420
-memory::owner<ObjectModule*> ObjectProximityComponent::fabricate() { return new ObjectProximityComponent; }
+gsl::owner<ObjectModule*> ObjectProximityComponent::fabricate() { return new ObjectProximityComponent; }
 
 // 0x004EC220
 void ObjectProximityComponent::publish_method_table()

@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -28,7 +28,7 @@ public:
     RiderHostSync& operator=(const RiderHostSync&) = delete;
     // 0x00513630 (registered by register_component_types): a new one (0 if out of memory): nothing sent yet (the state
     // and +0x35 0xFF, so the first update sends them).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderHostSync();
     // 0x00512E30: the destructor body (the base's).

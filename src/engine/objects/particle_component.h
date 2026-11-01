@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace render {
 struct EffectsDirector;
@@ -33,7 +33,7 @@ public:
     static constexpr uint32_t kType = 0xA9DB601E;
 
     // 0x0042A000 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x00429940: its member function table registered.
     static void publish_method_table();
     // 0x00429B20: its type, no particle system, no
@@ -107,7 +107,7 @@ public:
     uint32_t lifespan_{0};           // +0x2C ms (0: for ever)
 };
 
-extern memory::owner<render::EffectsDirector*> g_particle_hub;
+extern gsl::owner<render::EffectsDirector*> g_particle_hub;
 
 } // namespace objects
 

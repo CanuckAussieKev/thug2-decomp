@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <gsl/pointers>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -63,7 +64,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041D200
-memory::owner<ObjectModule*> FamComponent::fabricate() { return new FamComponent; }
+gsl::owner<ObjectModule*> FamComponent::fabricate() { return new FamComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 FamComponent::FamComponent() { kind_tag_ = kType; }

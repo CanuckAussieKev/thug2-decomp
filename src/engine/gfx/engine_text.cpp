@@ -10,7 +10,7 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 namespace render {
@@ -203,7 +203,7 @@ void GlyphString::set_char_rotation(int index, float rotation)
 }
 
 // 0x0048D1D0
-memory::owner<GlyphString*> new_text()
+gsl::owner<GlyphString*> new_text()
 {
     GlyphString* text = free_list();
     if (text)

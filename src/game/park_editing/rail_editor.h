@@ -18,7 +18,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "formats/rail_buffer_format.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Array;
@@ -177,7 +177,7 @@ public:
     // 0x004F4970: the rail editor (the component of the object 0x5B509AD3).
     static RailAuthoring* sole();
     // 0x004F7FB0 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<objects::ObjectModule*> fabricate();
+    static gsl::owner<objects::ObjectModule*> fabricate();
     // 0x004F7C90: the pools made, no rails, the buffer cleared.
     RailAuthoring();
     // 0x004F7D20: the destructor body: cleared, the current pools freed (when made here).

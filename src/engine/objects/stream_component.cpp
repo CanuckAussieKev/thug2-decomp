@@ -3,6 +3,7 @@
 #include "engine/objects/stream_component.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -37,7 +38,7 @@ const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewC
 } // namespace
 
 // 0x00433D90
-memory::owner<ObjectModule*> AudioStreamModule::fabricate() { return new AudioStreamModule; }
+gsl::owner<ObjectModule*> AudioStreamModule::fabricate() { return new AudioStreamModule; }
 
 // 0x00433870
 void AudioStreamModule::publish_method_table()

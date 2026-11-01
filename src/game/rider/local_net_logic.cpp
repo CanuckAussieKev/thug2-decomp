@@ -5,6 +5,7 @@
 #include "game/rider/local_net_logic.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -218,7 +219,7 @@ void RiderHostSync::send_update()
 }
 
 // 0x00513630
-memory::owner<ObjectModule*> RiderHostSync::fabricate() { return new RiderHostSync; }
+gsl::owner<ObjectModule*> RiderHostSync::fabricate() { return new RiderHostSync; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderHostSync::RiderHostSync()

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // The node arrays the level's objects come from (level_nodes::CNodeManager, a reference-counted singleton at
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name
@@ -121,7 +121,7 @@ void set_node_array_removed_hook(NodeArrayRemovedHook hook);
 using NodeArrayAddedHook = void (*)(uint32_t name);
 void set_node_array_added_hook(NodeArrayAddedHook hook);
 
-extern memory::owner<level_nodes::NodeManager*> g_node_manager;
+extern gsl::owner<level_nodes::NodeManager*> g_node_manager;
 inline NodeManager*& node_manager_instance() { return g_node_manager; }
 void release_node_manager();
 } // namespace level_nodes

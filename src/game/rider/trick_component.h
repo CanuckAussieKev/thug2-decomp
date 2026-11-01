@@ -5,7 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include "engine/objects/trick_objects.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -180,7 +180,7 @@ public:
 
     // --- 0x00521BA0-0x00524411 (trick_queue.cpp, trick_member_functions.cpp) ---
     // 0x00523490: a new one (0 if out of memory): 0x1BC0 bytes, constructed.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x00522390: its type, its trick object list (+0x13B4), no trick
     // mappings, no components, reset (0x0051F320).
     MoveExecutor();

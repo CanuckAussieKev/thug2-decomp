@@ -26,7 +26,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -223,7 +223,7 @@ void ParticleBurst::get_skip(int particles)
 }
 
 // 0x004BCE90
-memory::owner<Sparkle*> PcParticleManager::create_system() { return new PcParticleSystem; }
+gsl::owner<Sparkle*> PcParticleManager::create_system() { return new PcParticleSystem; }
 
 // 0x004BC250
 void PcParticleSystem::initialise()

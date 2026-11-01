@@ -5,6 +5,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -84,7 +85,7 @@ void play_sound_from_structure(ObjectModule* sound, script::Struct* description)
 } // namespace
 
 // 0x0043CFC0
-memory::owner<ObjectModule*> EngineAudioModule::fabricate() { return new EngineAudioModule; }
+gsl::owner<ObjectModule*> EngineAudioModule::fabricate() { return new EngineAudioModule; }
 
 // 0x0043C590
 EngineAudioModule::EngineAudioModule() { kind_tag_ = kType; }

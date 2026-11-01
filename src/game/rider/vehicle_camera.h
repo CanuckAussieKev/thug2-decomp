@@ -6,7 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -31,7 +31,7 @@ public:
     CarView& operator=(const CarView&) = delete;
     // 0x005248C0: a new one (0 if out of memory): the base's constructor, its vtable and type, height 60,
     // distance 144, lerp 3.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     CarView();
     // 0x00524420: its member function table (0x00684150) registered.

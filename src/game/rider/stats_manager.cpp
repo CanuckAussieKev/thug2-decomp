@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -131,7 +132,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0051CB90
-memory::owner<ObjectModule*> AttributeTracker::fabricate() { return new AttributeTracker; }
+gsl::owner<ObjectModule*> AttributeTracker::fabricate() { return new AttributeTracker; }
 
 // 0x0051C440
 void AttributeTracker::publish_method_table()

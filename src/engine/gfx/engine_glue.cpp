@@ -36,7 +36,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/gfx/pc_particles.h"
 #include "engine/objects/particle_component.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -45,9 +45,9 @@ namespace render {
 namespace {} // namespace
 
 bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
-memory::owner<WeatherSystem*> g_weather;
+gsl::owner<WeatherSystem*> g_weather;
 
-memory::owner<ScreenEffects*> g_screen_effects;
+gsl::owner<ScreenEffects*> g_screen_effects;
 uint32_t g_fog_colour;
 uint32_t g_screen_blur_frames;
 uint32_t g_screen_blur;
@@ -227,16 +227,16 @@ bool unload_scene(void* scene)
 }
 
 // 0x004B29C0
-memory::owner<RenderModel*> spawn_model() { return new PcModel; }
+gsl::owner<RenderModel*> spawn_model() { return new PcModel; }
 
 // 0x004B2A20
-memory::owner<Geom*> create_geom() { return new PcGeom; }
+gsl::owner<Geom*> create_geom() { return new PcGeom; }
 
 // 0x004B2A80
-memory::owner<BillboardQuad*> build_sprite_quad() { return new PcSprite; }
+gsl::owner<BillboardQuad*> build_sprite_quad() { return new PcSprite; }
 
 // 0x004B2AF0
-memory::owner<TexturedQuad*> create_textured_quad() { return new TexturedQuad(nullptr); }
+gsl::owner<TexturedQuad*> create_textured_quad() { return new TexturedQuad(nullptr); }
 
 // 0x004B2B60
 void* create_render_target(int width, int height, uint8_t depth, int unused)

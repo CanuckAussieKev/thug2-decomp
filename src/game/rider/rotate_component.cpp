@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -55,7 +56,7 @@ void start_turn(RiderTurning::Turn& turn, double degrees, float duration)
 } // namespace
 
 // 0x00517D40
-memory::owner<ObjectModule*> RiderTurning::fabricate() { return new RiderTurning; }
+gsl::owner<ObjectModule*> RiderTurning::fabricate() { return new RiderTurning; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderTurning::RiderTurning() { kind_tag_ = kSkaterRotate; }

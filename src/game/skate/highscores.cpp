@@ -13,14 +13,14 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
 namespace highscores {
 
-memory::owner<highscores::BestResults*> g_game_records;
+gsl::owner<highscores::BestResults*> g_game_records;
 namespace {
 uint32_t g_records_references;
 

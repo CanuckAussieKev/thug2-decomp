@@ -20,7 +20,7 @@
 #include "platform/platform_d3d.h"
 #include "platform/platform_system.h"
 #include "engine/gfx/device.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 namespace render {
@@ -43,7 +43,7 @@ void expand_palette(void* out, const void* indices, uint32_t size, const void* p
                              static_cast<const uint32_t*>(palette));
 }
 
-memory::owner<TextureRef*> alloc_pc_texture()
+gsl::owner<TextureRef*> alloc_pc_texture()
 {
     void* memory = memory::alloc(sizeof(TextureRef));
     return memory ? memory::construct_in<TextureRef>(memory) : nullptr;

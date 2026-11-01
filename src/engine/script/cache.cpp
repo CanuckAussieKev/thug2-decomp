@@ -13,7 +13,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_module.h"
 #include "formats/lzss.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
@@ -26,7 +26,7 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
                   offsetof(ScriptStore, oldest_unused_) == 0x1C && offsetof(ScriptStore, delete_unused_) == 0x20,
               "layout must match the original");
 
-memory::owner<script::ScriptStore*> g_script_store;
+gsl::owner<script::ScriptStore*> g_script_store;
 namespace {
 uint32_t g_cache_references;
 } // namespace

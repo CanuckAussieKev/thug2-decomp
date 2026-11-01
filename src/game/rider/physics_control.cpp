@@ -3,6 +3,7 @@
 #include "game/rider/physics_control.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -92,7 +93,7 @@ void walk_camera_restore(ObjectModule* camera, void* state)
 } // namespace
 
 // 0x00517830
-memory::owner<ObjectModule*> RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
+gsl::owner<ObjectModule*> RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderBoardPhysics::RiderBoardPhysics() { kind_tag_ = kSkaterPhysicsControl; }

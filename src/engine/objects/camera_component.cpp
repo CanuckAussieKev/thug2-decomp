@@ -15,6 +15,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -25,7 +26,7 @@ constexpr int kCameraPriority = -1000;
 } // namespace
 
 // 0x0041B840
-memory::owner<ObjectModule*> ViewpointModule::fabricate() { return new ViewpointModule; }
+gsl::owner<ObjectModule*> ViewpointModule::fabricate() { return new ViewpointModule; }
 
 // 0x0041B730
 ViewpointModule::ViewpointModule()

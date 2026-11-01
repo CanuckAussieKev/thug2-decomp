@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <gsl/pointers>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -162,7 +163,7 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 } // namespace
 
 // 0x00523490
-memory::owner<ObjectModule*> MoveExecutor::fabricate() { return new MoveExecutor; }
+gsl::owner<ObjectModule*> MoveExecutor::fabricate() { return new MoveExecutor; }
 
 // 0x00522390
 // (the trick objects' log made first by its constructor)

@@ -23,7 +23,7 @@
 #include "wire/net_wire.h"
 #include "formats/byte_stream.h"
 #include "platform/stopwatch.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
@@ -180,7 +180,7 @@ int dispatch_messages(HandlerLists* dispatcher, Conn* conn, int flags)
 }
 
 // A task of the app's (null if out of memory).
-memory::owner<tasks::SchedulerTask*> new_task(int priority, tasks::Task<AppHost>::Code callback, AppHost* app)
+gsl::owner<tasks::SchedulerTask*> new_task(int priority, tasks::Task<AppHost>::Code callback, AppHost* app)
 {
     return new tasks::Task<AppHost>(callback, app, priority);
 }

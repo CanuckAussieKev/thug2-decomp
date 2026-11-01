@@ -6,7 +6,7 @@
 
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // The viewer module (modules::Viewer: the debug viewer for looking at models and levels, driven from a PC tool over
 // the network, and the pad's viewer buttons) - 0x00576CB0-0x00577F20: its constructor, start and stop callbacks and
@@ -59,7 +59,7 @@ struct Viewer final : public PartUnit {
     uint32_t shift_makes_{0};                       // +0x48 the buttons pressed with select held
     int mode_sel_{};                                // +0x4C 0: object mode, 1: ...
     std::unique_ptr<net::AppHost> net_handler_;     // +0x50 the PC tool's message handler (a server app)
-    memory::owner<objects::PreviewEntity*> entity_{}; // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
+    gsl::owner<objects::PreviewEntity*> entity_{}; // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
 
     // 0x00577F20: the constructor (only cfunc_launch_viewer 0x005A54E0 makes one): the module, no commands; unless
     // the debug checks are on (0x00684FA8 - they are in this exe), the PC tool's app server "THUG2 Viewer" (port

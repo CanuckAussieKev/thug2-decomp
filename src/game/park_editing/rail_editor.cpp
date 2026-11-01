@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <gsl/pointers>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -390,7 +391,7 @@ RailAuthoring* RailAuthoring::sole()
 }
 
 // 0x004F7FB0
-memory::owner<objects::ObjectModule*> RailAuthoring::fabricate() { return new RailAuthoring; }
+gsl::owner<objects::ObjectModule*> RailAuthoring::fabricate() { return new RailAuthoring; }
 
 // 0x004F7C90
 RailAuthoring::RailAuthoring()

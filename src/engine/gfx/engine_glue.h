@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace maths {
 class Vec4;
@@ -62,10 +62,10 @@ void* make_empty_scene(const char* name, void* textures, bool with_super_sectors
 bool unload_scene(void* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
-memory::owner<RenderModel*> spawn_model();
-memory::owner<Geom*> create_geom();
-memory::owner<BillboardQuad*> build_sprite_quad();
-memory::owner<TexturedQuad*> create_textured_quad();
+gsl::owner<RenderModel*> spawn_model();
+gsl::owner<Geom*> create_geom();
+gsl::owner<BillboardQuad*> build_sprite_quad();
+gsl::owner<TexturedQuad*> create_textured_quad();
 // 0x004B2B60: a new render target (0x14 bytes) with a texture of its own made a width x height render target.
 void* create_render_target(int width, int height, uint8_t depth, int unused);
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer
@@ -76,12 +76,12 @@ void remove_texture_shadow_caster(const uint8_t* texture);
 
 extern bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
 
-extern memory::owner<WeatherSystem*> g_weather;
+extern gsl::owner<WeatherSystem*> g_weather;
 
 extern uint32_t g_fog_colour;
 extern uint32_t g_screen_blur;
 extern uint32_t g_screen_blur_frames;
 extern bool g_screen_shot_name_exact;
 extern char g_pending_screen_shot[128];
-extern memory::owner<ScreenEffects*> g_screen_effects;
+extern gsl::owner<ScreenEffects*> g_screen_effects;
 } // namespace render

@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -208,7 +209,7 @@ void set_camera_override(void* camera, const maths::Vec4* facing, float rate)
 } // namespace
 
 // 0x0052A5C0
-memory::owner<ObjectModule*> FootMovement::fabricate() { return new FootMovement; }
+gsl::owner<ObjectModule*> FootMovement::fabricate() { return new FootMovement; }
 
 // 0x0052A190
 FootMovement::FootMovement()

@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "engine/core/task_list.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace sio {
 class InputPort;
@@ -172,6 +172,6 @@ void release_manager();
 uint32_t button_hash(int index);
 int glyph_for_button_tag(uint32_t checksum);
 
-extern memory::owner<pad_input::Hub*> g_input_manager;
+extern gsl::owner<pad_input::Hub*> g_input_manager;
 
 } // namespace pad_input

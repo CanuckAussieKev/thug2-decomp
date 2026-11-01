@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -27,7 +27,7 @@ public:
     RiderStanceDisplay(const RiderStanceDisplay&) = delete;
     RiderStanceDisplay& operator=(const RiderStanceDisplay&) = delete;
     // 0x005193B0 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderStanceDisplay();
     // 0x00519130: the destructor body (the base's).

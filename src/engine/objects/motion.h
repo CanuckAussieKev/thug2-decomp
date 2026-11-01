@@ -6,7 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -65,7 +65,7 @@ public:
 
     // --- life ---
     // 0x00426650 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x00424AA0: its type, no path follower or path group,
     // only the ground's height taken (+0x70), no ground offset; then Reset.
     KinematicsModule();
@@ -307,7 +307,7 @@ public:
     float step_seconds_{};                       // +0x1E0 this frame's length (seconds, slow motion included)
     uint32_t own_node_name_{};                   // +0x1E4 its own node (Name)
     uint32_t list_link_{};                       // +0x1E8 the node it's at
-    memory::owner<PathFollower*> path_follower_{nullptr}; // +0x1EC
+    gsl::owner<PathFollower*> path_follower_{nullptr}; // +0x1EC
     FollowTrail* trail_{};                       // +0x1F0 obj_follow_leader's
     bool leave_y_unaffected_{};                  // +0x1F4 obj_follow_leader's LeaveYUnaffected
     uint8_t pad1f5_[3]{};

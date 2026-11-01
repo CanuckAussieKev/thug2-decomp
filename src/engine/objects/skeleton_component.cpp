@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"
@@ -85,7 +86,7 @@ script::VectorValue to_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}
 } // namespace
 
 // 0x00431F60
-memory::owner<ObjectModule*> BoneRigModule::fabricate() { return new BoneRigModule; }
+gsl::owner<ObjectModule*> BoneRigModule::fabricate() { return new BoneRigModule; }
 
 // (the constructor: inlined in fabricate in the original)
 BoneRigModule::BoneRigModule() { kind_tag_ = kType; }

@@ -164,8 +164,20 @@ add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 # that depends only on the standard library and engine/core's leaf headers (ints.h, checksums.h); the game sees their
 # typed APIs. (GPU vertex data: src/gpu, part of the game target - it needs the Direct3D device; the platform APIs:
 # src/platform.)
+# --- Microsoft GSL 4.2.0 (MIT; THIRD_PARTY_NOTICES.md) -----------------------------------------------------------
+# The C++ Core Guidelines' support library, header-only: gsl::owner (the ownership mark), gsl::at (indexing checked
+# against the extent - an index out of range ends the game with a report instead of reading past), gsl::narrow.
+FetchContent_Declare(gsl
+    URL https://github.com/microsoft/GSL/archive/refs/tags/v4.2.0.tar.gz
+    URL_HASH SHA256=2c717545a073649126cb99ebd493fa2ae23120077968795d2c69cbab821e4ac6
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+set(GSL_TEST OFF CACHE BOOL "" FORCE)
+set(GSL_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(gsl)
+
 add_library(thug2_options INTERFACE)
 target_compile_features(thug2_options INTERFACE cxx_std_20)
+target_link_libraries(thug2_options INTERFACE Microsoft.GSL::GSL)
 target_compile_definitions(thug2_options INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_include_directories(thug2_options INTERFACE src)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md)

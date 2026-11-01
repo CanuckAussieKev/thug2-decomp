@@ -7,7 +7,7 @@
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -28,7 +28,7 @@ namespace objects {
 class ObstacleDodgeModule final : public ObjectModule {
 public:
     // 0x004E39E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x004E3310 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x006839E8) registered.
     static void publish_method_table();

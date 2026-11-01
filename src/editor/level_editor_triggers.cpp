@@ -49,7 +49,7 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/ints.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/raw_view.h"
@@ -1264,7 +1264,7 @@ void read_level_gaps()
 
 // --- the boxes ---
 
-memory::owner<render::HitMovingBox*> make_box(uint32_t name)
+gsl::owner<render::HitMovingBox*> make_box(uint32_t name)
 {
     auto* box = new render::HitMovingBox();
     if (!box)

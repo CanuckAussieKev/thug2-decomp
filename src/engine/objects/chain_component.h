@@ -5,7 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace render {
 class PcPrimitive;
@@ -32,7 +32,7 @@ struct ChainLink {
     float value40_{};        // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
     float byte_count_{};     // +0x44 the rest length to the link before it
     uint32_t unused48_{};    // +0x48
-    memory::owner<render::PcPrimitive*> line_ptr_{nullptr}; // +0x4C the line drawn to the next link
+    gsl::owner<render::PcPrimitive*> line_ptr_{nullptr}; // +0x4C the line drawn to the next link
 };
 
 // A chain hung from a bone of its object to a bone of another object (0x684 bytes).
@@ -90,7 +90,7 @@ public:
     };
 
     // 0x004298B0 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x004296E0: its type, an empty list, nothing found yet,
     // the last frame's length (the slow motion frame) taken now.
     ChainComponent();

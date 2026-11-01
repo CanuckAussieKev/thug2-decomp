@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -147,7 +148,7 @@ bool line_collides(const maths::Vec4& start, const maths::Vec4& end)
 }
 
 // 0x004E39E0
-memory::owner<ObjectModule*> ObstacleDodgeModule::fabricate() { return new ObstacleDodgeModule; }
+gsl::owner<ObjectModule*> ObstacleDodgeModule::fabricate() { return new ObstacleDodgeModule; }
 
 // 0x004E3310
 void ObstacleDodgeModule::publish_method_table()

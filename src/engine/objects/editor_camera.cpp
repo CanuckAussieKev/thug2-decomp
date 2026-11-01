@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -179,7 +180,7 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
 }
 
 // 0x004E5940
-memory::owner<ObjectModule*> EditorViewModule::fabricate() { return new EditorViewModule; }
+gsl::owner<ObjectModule*> EditorViewModule::fabricate() { return new EditorViewModule; }
 
 // 0x004E5060
 EditorViewModule::EditorViewModule()

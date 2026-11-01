@@ -3,6 +3,7 @@
 #include "game/rider/special_item.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -97,7 +98,7 @@ void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
 } // namespace
 
 // 0x0051BD80
-memory::owner<ObjectModule*> PickupItemHandler::fabricate() { return new PickupItemHandler; }
+gsl::owner<ObjectModule*> PickupItemHandler::fabricate() { return new PickupItemHandler; }
 
 // (the constructor: inlined in fabricate in the original)
 PickupItemHandler::PickupItemHandler()

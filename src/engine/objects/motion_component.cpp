@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -43,7 +44,7 @@ int game_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // --- life ---
 
 // 0x00426650
-memory::owner<ObjectModule*> KinematicsModule::fabricate() { return new KinematicsModule; }
+gsl::owner<ObjectModule*> KinematicsModule::fabricate() { return new KinematicsModule; }
 
 // 0x00424AA0
 KinematicsModule::KinematicsModule()

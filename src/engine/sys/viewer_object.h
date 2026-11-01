@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/pad_input/input_hub.h"
 #include "engine/objects/entity.h"
 
@@ -81,7 +81,7 @@ public:
     // 0x0058AB30 (its own update): the commands carried out, the panel updated, the commands cleared.
     void own_update() override;
 
-    memory::owner<ViewerObjectInputHandler*> task_; // +0x108: its input handler (0x0058A060)
+    gsl::owner<ViewerObjectInputHandler*> task_; // +0x108: its input handler (0x0058A060)
     uint32_t unknown10c_{};
     uint32_t actions_{0};     // +0x110
     net::AppHost* owner_app_; // +0x114: the PC tool's (the viewer's net handler)

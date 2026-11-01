@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/d3dx.h"
@@ -74,7 +75,7 @@ void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 } // namespace
 
 // 0x0041FF20
-memory::owner<ObjectModule*> PinnedObjectModule::fabricate() { return new PinnedObjectModule; }
+gsl::owner<ObjectModule*> PinnedObjectModule::fabricate() { return new PinnedObjectModule; }
 
 // 0x0041F500
 PinnedObjectModule::PinnedObjectModule()

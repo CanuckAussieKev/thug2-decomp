@@ -6,7 +6,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/task_list.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // Modules: the engine's parts that are started and stopped as a whole - the front end, the
 // async file loader, the game's own modules. The module manager (the singleton 0x0044F6F0 makes) keeps them in a

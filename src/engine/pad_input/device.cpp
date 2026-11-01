@@ -40,7 +40,7 @@
 #include "engine/objects/cutscene.h"
 #include "game/park_editing/park_editor.h"
 #include "frontend/screen_element_manager.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 
@@ -271,7 +271,7 @@ void clear_keyboard_chars() { keyboard_char_count() = 0; }
 
 // --- the manager's lifetime --------------------------------------------------------------------------------
 
-memory::owner<Hub*> g_manager;
+gsl::owner<Hub*> g_manager;
 
 Hub*& manager_instance() { return g_manager; }
 

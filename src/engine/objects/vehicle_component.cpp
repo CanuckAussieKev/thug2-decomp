@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -428,7 +429,7 @@ void clear_to_w1(maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
 } // namespace
 
 // 0x0043AA30
-memory::owner<ObjectModule*> DrivableModule::fabricate() { return new DrivableModule; }
+gsl::owner<ObjectModule*> DrivableModule::fabricate() { return new DrivableModule; }
 
 // 0x00437C00
 DrivableModule::DrivableModule()

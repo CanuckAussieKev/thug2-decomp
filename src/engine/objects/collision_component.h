@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace render {
 class HitMesh;
@@ -35,7 +35,7 @@ public:
 
     // 0x0041C920 (registered with the composite object manager by 0x004E4860): a new one, without collision (0 if
     // out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     ContactShapeModule();
     // 0x0041C710: the collision object (if any) out of the movables' list and deleted, then the base's body.
@@ -54,7 +54,7 @@ public:
     // matrix times the object's display matrix; else at the object's position, turned by its display matrix.
     void tick_frame() override;
 
-    memory::owner<render::HitMesh*> hit_shape_{}; // +0x18
+    gsl::owner<render::HitMesh*> hit_shape_{}; // +0x18
 };
 
 } // namespace objects

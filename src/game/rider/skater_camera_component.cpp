@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -309,7 +310,7 @@ void RiderChaseView::next_mode()
 }
 
 // 0x004FA800
-memory::owner<ObjectModule*> RiderChaseView::fabricate() { return new RiderChaseView; }
+gsl::owner<ObjectModule*> RiderChaseView::fabricate() { return new RiderChaseView; }
 
 // --- the cleanup state ---
 
@@ -331,7 +332,7 @@ void RiderStateReset::tick_frame()
 }
 
 // 0x004FBE20
-memory::owner<ObjectModule*> RiderStateReset::fabricate() { return new RiderStateReset; }
+gsl::owner<ObjectModule*> RiderStateReset::fabricate() { return new RiderStateReset; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderStateReset::RiderStateReset() { kind_tag_ = kCleanupState; }

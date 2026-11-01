@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/arena_alloc.h"
 #include "engine/script/param_struct.h"
 
@@ -220,7 +220,7 @@ public:
     uint32_t last_impact_at_;             // +0x1E0
     int last_sent_skater_;                // +0x1E4
     uint8_t* face_texture_data_;          // +0x1E8
-    memory::owner<tasks::SchedulerTask*> observer_task_; // +0x1EC while observing (gamenet_observer.h; deleted with it)
+    gsl::owner<tasks::SchedulerTask*> observer_task_; // +0x1EC while observing (gamenet_observer.h; deleted with it)
 };
 
 // 0x00543180 (called by the constructor on the player's +0x50, returning it): the sent records' value68_ and

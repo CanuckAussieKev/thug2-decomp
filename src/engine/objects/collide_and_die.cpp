@@ -6,6 +6,7 @@
 #include "engine/objects/projectile_components.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -49,7 +50,7 @@ void projectile_hit(ObjectModule* projectile) { static_cast<ShotImpactModule*>(p
 } // namespace
 
 // 0x0041C370
-memory::owner<ObjectModule*> ImpactDestructModule::fabricate() { return new ImpactDestructModule; }
+gsl::owner<ObjectModule*> ImpactDestructModule::fabricate() { return new ImpactDestructModule; }
 
 // 0x0041C210
 ImpactDestructModule::ImpactDestructModule()

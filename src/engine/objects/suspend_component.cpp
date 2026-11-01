@@ -24,7 +24,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/mlp.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -35,7 +35,7 @@ namespace {
 int g_suspend_frame_count;
 int g_suspend_interleave2_count;
 int g_suspend_interleave4_count;
-memory::owner<SuspendTaskHolder*> g_suspend_task_holder;
+gsl::owner<SuspendTaskHolder*> g_suspend_task_holder;
 
 constexpr int kTaskPriority = -1100;
 
@@ -76,7 +76,7 @@ void change_model_enabled(uint8_t* model, bool active)
 } // namespace
 
 // 0x00434290
-memory::owner<ObjectModule*> DormancyModule::fabricate() { return new DormancyModule; }
+gsl::owner<ObjectModule*> DormancyModule::fabricate() { return new DormancyModule; }
 
 // 0x00434610
 void DormancyModule::publish_method_table()

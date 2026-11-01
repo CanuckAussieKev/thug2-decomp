@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "engine/core/slab_bank.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // The PC engine's scene and mesh loaders (Nx engine's platform calls, cdecl): a scene's geometry from a file
 // or from memory - its materials (with the texture dictionary's textures), its sectors (each with a PC geom), the
@@ -41,7 +41,7 @@ void* load_scene_from_memory(const uint8_t* data, size_t size, void* textures, b
 void* load_scene_from_file(const char* name, void* textures, bool with_super_sectors, bool flag_8d, bool mesh_flag,
                            int sector_flags);
 // 0x004B3990: a new animation frame source (0x214 bytes from the frame sources' pools 0x006FA7F4; 0x0048CF70).
-memory::owner<void*> create_frame_source();
+gsl::owner<void*> create_frame_source();
 // 0x004B3A20: a mesh (0xC8 bytes) from a scene file: the scene named by the file's name checksum (+0x84) with its
 // texture dictionary (+0x88), its sectors set up (0x0049C910) and the 2D clip turned off.
 void* load_mesh_file(const char* name, void* textures);

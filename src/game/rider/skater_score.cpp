@@ -3,6 +3,7 @@
 #include "game/rider/skater_score.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -71,7 +72,7 @@ int number_parameter(script::Struct* params)
 } // namespace
 
 // 0x00518B60
-memory::owner<ObjectModule*> RiderPointKeeper::fabricate() { return new RiderPointKeeper; }
+gsl::owner<ObjectModule*> RiderPointKeeper::fabricate() { return new RiderPointKeeper; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPointKeeper::RiderPointKeeper() { kind_tag_ = kSkaterScore; }

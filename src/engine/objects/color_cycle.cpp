@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -56,7 +57,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041B3C0
-memory::owner<ObjectModule*> ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
+gsl::owner<ObjectModule*> ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 ColorCycleComponent::ColorCycleComponent() { kind_tag_ = kType; }

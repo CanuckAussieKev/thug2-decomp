@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "engine/maths/vec4.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace objects {
 class ObjectModule;
@@ -37,5 +37,5 @@ int turned_round(const objects::PadSnapshot* pad);
 namespace objects {
 // 0x0043D930: a component of type 0x03AC8065 (WaitAndDie): the base component made (0x28 bytes, cleared), its vtable
 // 0x00646898 and its type. (Its other code, 0x0043D850-0x0043D8E0, isn't rewritten here.)
-memory::owner<ObjectModule*> create_wait_and_die_component();
+gsl::owner<ObjectModule*> create_wait_and_die_component();
 } // namespace objects

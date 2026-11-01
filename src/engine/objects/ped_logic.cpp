@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <new>
+#include <gsl/pointers>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -131,7 +132,7 @@ GroundTriangle& GroundTriangle::get_assign(const GroundTriangle& source)
 }
 
 // 0x004F0B10
-memory::owner<ObjectModule*> PedestrianBrainModule::fabricate() { return new PedestrianBrainModule; }
+gsl::owner<ObjectModule*> PedestrianBrainModule::fabricate() { return new PedestrianBrainModule; }
 
 // 0x004ECFB0
 void PedestrianBrainModule::publish_method_table()

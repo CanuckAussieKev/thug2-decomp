@@ -14,7 +14,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 namespace gfx {
@@ -193,7 +193,7 @@ bool AnimScriptKey::work_on(void* object)
 }
 
 // 0x00486680
-memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
+gsl::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
 {
     auto* header = raw::as<const uint32_t>(*cursor);
     const int frame = static_cast<int>(header[0]);
@@ -241,7 +241,7 @@ memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
 // NOT ORIGINAL - create_custom_anim_key in its reader form (the animation loader's): the key read through
 // anim_format::read_custom_key within the animation; null when it runs past the end, for unknown kinds (skipped) and
 // when memory runs out.
-memory::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
+gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
 {
     anim_format::CustomKey key;
     if (!anim_format::read_custom_key(reader, &key))

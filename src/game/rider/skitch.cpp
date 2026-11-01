@@ -4,6 +4,7 @@
 
 #include <bit>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -45,7 +46,7 @@ void place_nodes(ClassNodeList* nodes, GameEntity* object)
 } // namespace
 
 // 0x0051BA10
-memory::owner<ObjectModule*> TowRideHandler::fabricate() { return new TowRideHandler; }
+gsl::owner<ObjectModule*> TowRideHandler::fabricate() { return new TowRideHandler; }
 
 // (the constructor: inlined in fabricate in the original)
 TowRideHandler::TowRideHandler() { kind_tag_ = kType; }

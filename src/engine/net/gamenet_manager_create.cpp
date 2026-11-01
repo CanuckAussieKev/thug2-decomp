@@ -36,7 +36,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/raw_view.h"
 
 namespace online {

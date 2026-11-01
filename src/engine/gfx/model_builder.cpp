@@ -21,7 +21,7 @@
 #include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 
 namespace gfx {
@@ -30,7 +30,7 @@ namespace {
 
 render::RenderModel* g_built_model;
 Rig* g_built_skeleton;
-memory::owner<ModelLook*> g_built_appearance;
+gsl::owner<ModelLook*> g_built_appearance;
 
 // While Build runs: the model, its skeleton and the appearance's copy.
 render::RenderModel*& built_model() { return g_built_model; }

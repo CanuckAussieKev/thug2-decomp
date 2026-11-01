@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <new>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -59,7 +60,7 @@ script::Struct* spawn_param_bag()
 } // namespace
 
 // 0x004F9170
-memory::owner<ObjectModule*> RiderTeeterMoves::fabricate() { return new RiderTeeterMoves; }
+gsl::owner<ObjectModule*> RiderTeeterMoves::fabricate() { return new RiderTeeterMoves; }
 
 // 0x004F8CD0
 void RiderTeeterMoves::publish_method_table()

@@ -5,6 +5,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -106,7 +107,7 @@ float get_fraction(double value)
 } // namespace
 
 // 0x0051B880
-memory::owner<ObjectModule*> SkaterVehicleSoundComponent::fabricate() { return new SkaterVehicleSoundComponent; }
+gsl::owner<ObjectModule*> SkaterVehicleSoundComponent::fabricate() { return new SkaterVehicleSoundComponent; }
 
 // 0x0051AD90
 void SkaterVehicleSoundComponent::publish_method_table()

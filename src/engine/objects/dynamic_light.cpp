@@ -8,6 +8,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -72,7 +73,7 @@ render::DynamicLightBase* new_dynamic_light(int kind) { return render::new_dynam
 } // namespace
 
 // 0x0041D0F0
-memory::owner<ObjectModule*> DynamicLightComponent::fabricate() { return new DynamicLightComponent; }
+gsl::owner<ObjectModule*> DynamicLightComponent::fabricate() { return new DynamicLightComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 DynamicLightComponent::DynamicLightComponent() { kind_tag_ = kType; }

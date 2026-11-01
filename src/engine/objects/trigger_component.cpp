@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <set>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -84,7 +85,7 @@ script::Array* node_array_of(GameEntity* object)
 } // namespace
 
 // 0x00434B90
-memory::owner<ObjectModule*> ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
+gsl::owner<ObjectModule*> ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ActivationZoneModule::ActivationZoneModule() { kind_tag_ = kType; }

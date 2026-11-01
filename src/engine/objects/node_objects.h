@@ -11,7 +11,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -104,7 +104,7 @@ public:
     bool set_value20(uint32_t value);
 
     memory::ListNode list_link_{};              // +0x04 in the manager's queue (data = this)
-    memory::owner<gfx::ViewCam*> viewer_;       // +0x14
+    gsl::owner<gfx::ViewCam*> viewer_;       // +0x14
     bool flag18_{false};                        // +0x18 (0xEB300C29; held at its end)
     uint8_t flag19_{false};                     // +0x19 (0x8DDE72C0; a flag, any byte: skippable)
     bool is_finished_{};         // +0x1A

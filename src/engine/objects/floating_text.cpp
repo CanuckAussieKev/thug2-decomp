@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -79,7 +80,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041E3C0
-memory::owner<ObjectModule*> FloatingTextComponent::fabricate() { return new FloatingTextComponent; }
+gsl::owner<ObjectModule*> FloatingTextComponent::fabricate() { return new FloatingTextComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 FloatingTextComponent::FloatingTextComponent()

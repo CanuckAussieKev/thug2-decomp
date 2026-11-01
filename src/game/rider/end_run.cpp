@@ -3,6 +3,7 @@
 #include "game/rider/end_run.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -45,7 +46,7 @@ bool is_local_skater(GameEntity* object) { return object->is_local_skater_ != 0;
 } // namespace
 
 // 0x00510F90
-memory::owner<ObjectModule*> RiderSessionEnd::fabricate() { return new RiderSessionEnd; }
+gsl::owner<ObjectModule*> RiderSessionEnd::fabricate() { return new RiderSessionEnd; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderSessionEnd::RiderSessionEnd() { kind_tag_ = kSkaterEndRun; }

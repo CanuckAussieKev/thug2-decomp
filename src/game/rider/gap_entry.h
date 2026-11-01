@@ -5,7 +5,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -45,7 +45,7 @@ public:
     RiderGapTracker(const RiderGapTracker&) = delete;
     RiderGapTracker& operator=(const RiderGapTracker&) = delete;
     // 0x00512C60 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // 0x005122A0: its type, two empty lists, no core physics or balance trick yet.
     RiderGapTracker();
     // 0x00511F10: the two lists' heads unlinked (their entries aren't freed: clear_gaps), then the base's.

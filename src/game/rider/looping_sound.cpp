@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -93,7 +94,7 @@ LoopingSoundVolume* LoopingSoundVolume::get_assign(const sound::VolumeRef* other
 }
 
 // 0x00513AD0
-memory::owner<ObjectModule*> RiderRollingAudio::fabricate() { return new RiderRollingAudio; }
+gsl::owner<ObjectModule*> RiderRollingAudio::fabricate() { return new RiderRollingAudio; }
 
 // 0x00513860
 void RiderRollingAudio::publish_method_table()

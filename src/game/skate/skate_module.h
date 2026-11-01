@@ -14,7 +14,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/sys/game_module.h"
 #include "engine/core/mem.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace objects {
 class GameEntity;

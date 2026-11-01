@@ -5,7 +5,7 @@
 #include <new>
 #include "engine/core/slab_bank.h"
 #include "engine/sys/game_module.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace lists {
 class KeyMap;
@@ -84,7 +84,7 @@ ScriptStore* create_script_cache(bool create);
 // 0x00475A00: give back a reference; the last one destroys the cache.
 void release_script_cache();
 
-extern memory::owner<script::ScriptStore*> g_script_store;
+extern gsl::owner<script::ScriptStore*> g_script_store;
 extern memory::PoolPair g_cache_entry_pools;
 
 } // namespace script

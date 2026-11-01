@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include "engine/core/slab_bank.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "engine/maths/vec4.h"
 
 // The script system's data: structures of named components (Scripts::CStruct - also every script function's
@@ -215,7 +215,7 @@ Array* alloc_script_array();
 void delete_array(Array* array);
 void free_component(Component* component);
 // A new, empty component (from the component pool).
-memory::owner<Component*> new_component();
+gsl::owner<Component*> new_component();
 // Construct an empty component in place (leaves the second byte alone).
 Component* construct_component(Component* component);
 

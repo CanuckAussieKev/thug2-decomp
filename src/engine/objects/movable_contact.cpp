@@ -17,6 +17,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -31,7 +32,7 @@ float get_sum(float a, double b) { return static_cast<float>(static_cast<double>
 } // namespace
 
 // 0x00427AB0
-memory::owner<ObjectModule*> MovingSurfaceModule::fabricate() { return new MovingSurfaceModule; }
+gsl::owner<ObjectModule*> MovingSurfaceModule::fabricate() { return new MovingSurfaceModule; }
 
 // (the constructor: inlined in fabricate in the original)
 MovingSurfaceModule::MovingSurfaceModule() { kind_tag_ = kType; }

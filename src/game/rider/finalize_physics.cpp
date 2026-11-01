@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -64,7 +65,7 @@ void get_note(T& stored, T value, uint8_t& changed)
 } // namespace
 
 // 0x00511280
-memory::owner<ObjectModule*> RiderPhysicsCommit::fabricate() { return new RiderPhysicsCommit; }
+gsl::owner<ObjectModule*> RiderPhysicsCommit::fabricate() { return new RiderPhysicsCommit; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPhysicsCommit::RiderPhysicsCommit() { kind_tag_ = kSkaterFinalizePhysics; }

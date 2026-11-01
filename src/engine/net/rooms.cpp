@@ -40,7 +40,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 #include "platform/compiler.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"

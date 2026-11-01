@@ -5,6 +5,7 @@
 #include "engine/objects/pager_message.h"
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -71,7 +72,7 @@ PointerListNode** PointerList::get_erase(PointerListNode** out, PointerListNode*
 }
 
 // 0x004ECF20
-memory::owner<ObjectModule*> PagerMessageComponent::fabricate() { return new PagerMessageComponent; }
+gsl::owner<ObjectModule*> PagerMessageComponent::fabricate() { return new PagerMessageComponent; }
 
 // 0x004EC960
 void PagerMessageComponent::publish_method_table()

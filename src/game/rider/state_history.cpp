@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -193,7 +194,7 @@ void StateHistoryMessage::change_moment(uint32_t time)
 // --- RiderFrameLog ---
 
 // 0x0051AD30
-memory::owner<ObjectModule*> RiderFrameLog::fabricate() { return new RiderFrameLog; }
+gsl::owner<ObjectModule*> RiderFrameLog::fabricate() { return new RiderFrameLog; }
 
 // 0x0051ACB0
 RiderFrameLog::RiderFrameLog()

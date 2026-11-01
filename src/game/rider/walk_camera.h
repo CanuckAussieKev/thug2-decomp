@@ -6,7 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -51,7 +51,7 @@ public:
     FootView& operator=(const FootView&) = delete;
     // 0x00525DC0: a new one (0 if out of memory): the base's constructor, its vtable and type, the target (0, 0,
     // 0, 1).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     FootView();
     // 0x00524C20: the destructor body (the base's). 0x00524F20 (slot 0): the scalar deleting destructor.

@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/owner.h"
+#include <gsl/pointers>
 
 // The skater's finalize-physics component (SkaterFinalizePhysics, type 0x9B373E58, vtable 0x0064BDEC, 0x20 bytes):
 // after the physics each frame, the core physics component's results go to the skater's state component, the object's
@@ -24,7 +24,7 @@ public:
     RiderPhysicsCommit(const RiderPhysicsCommit&) = delete;
     RiderPhysicsCommit& operator=(const RiderPhysicsCommit&) = delete;
     // 0x00511280 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> fabricate();
+    static gsl::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderPhysicsCommit();
     // 0x00511010: the destructor body (the base's).

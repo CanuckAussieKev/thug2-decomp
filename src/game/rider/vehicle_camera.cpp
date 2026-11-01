@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -69,7 +70,7 @@ maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths:
 } // namespace
 
 // 0x005248C0
-memory::owner<ObjectModule*> CarView::fabricate() { return new CarView; }
+gsl::owner<ObjectModule*> CarView::fabricate() { return new CarView; }
 
 // (the constructor: inlined in fabricate in the original)
 CarView::CarView() { kind_tag_ = kVehicleCamera; }

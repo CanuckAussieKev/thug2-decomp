@@ -3,6 +3,7 @@
 // 0x00420BF0-0x00421225, 0x00421230-0x004213D6, 0x00421490-0x004215DE and 0x004219F0-0x00421AD7.
 
 #include <cstdint>
+#include <gsl/pointers>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -108,7 +109,7 @@ void* find_bone_volumes(uint32_t name) { return gfx::find_bone_volumes(name); }
 } // namespace
 
 // 0x00421490
-memory::owner<ObjectModule*> MeshInstanceModule::fabricate() { return new MeshInstanceModule; }
+gsl::owner<ObjectModule*> MeshInstanceModule::fabricate() { return new MeshInstanceModule; }
 
 // 0x00420BF0
 MeshInstanceModule::MeshInstanceModule()
