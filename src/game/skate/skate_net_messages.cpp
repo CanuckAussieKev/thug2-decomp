@@ -36,21 +36,6 @@ bool write_scores(util::ByteWriter& writer, const ScoresMessage& message)
     return writer.ok();
 }
 
-bool read_hunt_drop(util::ByteReader& reader, HuntDropMessage* message)
-{
-    message->player_id = reader.i8();
-    reader.skip(3);
-    message->count = reader.i32();
-    return reader.ok();
-}
-
-bool read_hunt_drop_position(util::ByteReader& reader, float position[4])
-{
-    for (int i = 0; i < 4; ++i)
-        position[i] = reader.f32();
-    return reader.ok();
-}
-
 bool read_graffiti_colors(util::ByteReader& reader, GraffitiColorsMessage* message)
 {
     return reader.bytes(message->counts, sizeof(message->counts));

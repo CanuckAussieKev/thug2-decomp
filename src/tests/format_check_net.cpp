@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/net/play_messages.h"
 #include "engine/net/skater_messages.h"
 #include "engine/util/byte_stream.h"
 
@@ -208,6 +209,169 @@ void check_graffiti_messages()
     check_message("points 0x52 / 0x86", points, points_ref, online::write_points, online::read_points);
 }
 
+// The other play messages as their senders built them (hunt_cfuncs, tagging, the terrain sounds, the cheats, the
+// script manager).
+#pragma pack(push, 1)
+struct ReferenceHuntPlacements {
+    uint8_t id, pad[3];
+    int32_t count;
+    float positions[5][4];
+};
+struct ReferenceBoardVehicle {
+    uint8_t skater, pad[3];
+    uint32_t control_type;
+};
+struct ReferenceProjectile {
+    uint32_t zero;
+    float pos[4], vel[4];
+    uint32_t type, ammo_type;
+    int32_t radius;
+    float scale;
+    uint8_t id, pad[3];
+};
+struct ReferencePlaceTag {
+    uint8_t object, sticker, pad[2];
+    float start[4], end[4];
+    int32_t size;
+};
+struct ReferenceTerrainSound {
+    int16_t x, y, z;
+    uint8_t table, terrain, volume, pitch, value, pad;
+};
+struct ReferenceToggleCheat {
+    uint32_t cheat;
+    uint8_t on, pad[3];
+};
+struct ReferenceCheats {
+    int32_t count;
+    uint32_t cheats[3];
+};
+struct ReferenceRunScript {
+    uint32_t name, object;
+};
+struct ReferenceSpawnScript {
+    uint32_t name, object;
+    int32_t node;
+    uint8_t permanent, pad[3];
+};
+#pragma pack(pop)
+static_assert(sizeof(ReferenceHuntPlacements) == online::kHuntPlacementsSize &&
+              sizeof(ReferenceBoardVehicle) == online::kBoardVehicleSize &&
+              sizeof(ReferenceProjectile) == online::kProjectileSize &&
+              offsetof(ReferenceProjectile, id) == online::kProjectileOwnerAt &&
+              sizeof(ReferencePlaceTag) == online::kPlaceTagSize &&
+              sizeof(ReferenceTerrainSound) == online::kTerrainSoundSize &&
+              sizeof(ReferenceToggleCheat) == online::kToggleCheatSize &&
+              sizeof(ReferenceRunScript) == online::kRunScriptHeaderSize &&
+              sizeof(ReferenceSpawnScript) == online::kSpawnScriptSize);
+
+// The placements' header and all five positions (the game reads `count` of them, one at a time).
+bool read_hunt_placements_whole(util::ByteReader& reader, online::HuntPlacements* message)
+{
+    online::read_hunt_placements(reader, message);
+    for (auto& position : message->positions)
+        online::read_hunt_position(reader, position);
+    return reader.ok();
+}
+
+void check_play_messages()
+{
+    {
+        ReferenceHuntPlacements ref = {3, {}, 2, {{1, 2, 3, 0}, {-4, 5.5f, 6, 1}, {}, {}, {}}};
+        online::HuntPlacements m;
+        m.player_id = 3;
+        m.count = 2;
+        std::memcpy(m.positions, ref.positions, sizeof(ref.positions));
+        check_message("hunt placements 0x8F", m, ref, online::write_hunt_placements, read_hunt_placements_whole);
+        float at[4];
+        util::ByteReader reader(&ref, sizeof(ref));
+        online::HuntPlacements back;
+        online::read_hunt_placements(reader, &back);
+        online::read_hunt_position(reader, at);
+        online::read_hunt_position(reader, at);
+        check(reader.ok() && at[1] == 5.5f && back.count == 2, "hunt placements 0x8F: the positions read");
+        const float one[4] = {7, 8, 9, 1};
+        uint8_t bytes[16];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        online::write_hunt_position(writer, one);
+        check(writer.ok() && std::memcmp(bytes, one, 16) == 0, "hunt placement 0x8F: as the original's vector");
+    }
+    {
+        ReferenceBoardVehicle ref = {5, {}, 0x8A6B04AD};
+        online::BoardVehicle m;
+        m.skater_id = 5;
+        m.control_type = 0x8A6B04AD;
+        check_message("board vehicle 0x89", m, ref, online::write_board_vehicle, online::read_board_vehicle);
+    }
+    {
+        ReferenceProjectile ref = {0, {1, 2, 3, 0}, {4, 5, 6, 0}, 0xD039432C, 0x11223344, 0xF0, 2.5f, 6, {}};
+        online::Projectile m;
+        std::memcpy(m.position, ref.pos, 16);
+        std::memcpy(m.velocity, ref.vel, 16);
+        m.type = 0xD039432C;
+        m.ammo_type = 0x11223344;
+        m.radius = 0xF0;
+        m.scale = 2.5f;
+        m.owner_id = 6;
+        check_message("projectile 0x83", m, ref, online::write_projectile, online::read_projectile, 0x35);
+    }
+    {
+        ReferencePlaceTag ref = {2, 1, {}, {1, 2, 3, 1}, {4, 5, 6, 1}, 64};
+        online::PlaceTag m;
+        m.object_id = 2;
+        m.sticker = true;
+        std::memcpy(m.start, ref.start, 16);
+        std::memcpy(m.end, ref.end, 16);
+        m.size = 64;
+        check_message("place tag 0x99", m, ref, online::write_place_tag, online::read_place_tag);
+    }
+    {
+        ReferenceTerrainSound ref = {-100, 250, 3000, 2, 17, 100, 0x9C, 50, 0};
+        online::TerrainSound m;
+        m.x = -100;
+        m.y = 250;
+        m.z = 3000;
+        m.table = 2;
+        m.terrain = 17;
+        m.volume = 100;
+        m.pitch = static_cast<int8_t>(0x9C);
+        m.value = 50;
+        check_message("terrain sound 0x35", m, ref, online::write_terrain_sound, online::read_terrain_sound, 11);
+    }
+    {
+        ReferenceToggleCheat ref = {0xEEFECF1B, 1, {}};
+        online::ToggleCheat m;
+        m.cheat = 0xEEFECF1B;
+        m.on = true;
+        check_message("toggle cheat 0x7F", m, ref, online::write_toggle_cheat, online::read_toggle_cheat, 5);
+    }
+    {
+        ReferenceCheats ref = {3, {0xEEFECF1B, 0xB38341C9, 0xCD09E062}};
+        online::Cheats m;
+        m.count = 3;
+        std::memcpy(m.cheats, ref.cheats, sizeof(ref.cheats));
+        check_message("cheats 0x82", m, ref, online::write_cheats, online::read_cheats);
+        ref.count = -1;
+        util::ByteReader reader(&ref, sizeof(ref));
+        online::Cheats back;
+        check(!online::read_cheats(reader, &back) && back.count == 0, "cheats 0x82: a negative count refused");
+    }
+    {
+        ReferenceRunScript ref = {0x12345678, 0xFFFFFFFF};
+        online::RunScript m;
+        m.name = 0x12345678;
+        m.object_id = 0xFFFFFFFF;
+        check_message("run script 0x48", m, ref, online::write_run_script, online::read_run_script);
+        ReferenceSpawnScript spawn_ref = {0x9ABCDEF0, 3, 77, 1, {}};
+        online::SpawnScript spawn;
+        spawn.name = 0x9ABCDEF0;
+        spawn.object_id = 3;
+        spawn.node = 77;
+        spawn.permanent = true;
+        check_message("spawn script 0x49", spawn, spawn_ref, online::write_spawn_script, online::read_spawn_script, 13);
+    }
+}
+
 } // namespace
 
 int run()
@@ -215,6 +379,7 @@ int run()
     std::printf("game messages (batch 9 on)\n");
     check_skater_messages();
     check_graffiti_messages();
+    check_play_messages();
     return g_failures;
 }
 

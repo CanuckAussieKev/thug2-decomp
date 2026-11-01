@@ -39,6 +39,8 @@
 #include "game/skate/point_tally.h"
 #include "game/rider/rider.h"
 #include "game/rider/skater_score.h"
+#include "engine/util/byte_stream.h"
+#include "engine/net/play_messages.h"
 
 namespace objects {
 
@@ -260,17 +262,20 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     online::Hub* manager = net_session_slot();
     if (!manager->in_net_game())
         return;
-    struct {
-        uint8_t object_id_;
-        uint8_t sticker;
-        uint8_t pad[2];
-        maths::Vec4 start;
-        maths::Vec4 end;
-        int size;
-    } tag = {static_cast<uint8_t>(entity_->ident_), sticker, {}, start, end, size};
-    msg.content_ = &tag;
-    msg.byte_count_ = 0x28;
-    msg.ident_ = 0x99;
+    online::PlaceTag tag;
+    tag.object_id = static_cast<int8_t>(entity_->ident_);
+    tag.sticker = sticker != 0;
+    for (int i = 0; i < 4; ++i) {
+        tag.start[i] = (&start.x)[i];
+        tag.end[i] = (&end.x)[i];
+    }
+    tag.size = size;
+    uint8_t data[online::kPlaceTagSize];
+    util::ByteWriter writer(data, sizeof(data));
+    online::write_place_tag(writer, tag);
+    msg.content_ = data;
+    msg.byte_count_ = sizeof(data);
+    msg.ident_ = online::kMsgPlaceTag;
     msg.group_id_ = 0xA;
     msg.queue_ = net::NetMessageInfo::kLaneOrdered;
     static_cast<net::Guest*>(manager->fetch_patron(0))->send_to_host(&msg);

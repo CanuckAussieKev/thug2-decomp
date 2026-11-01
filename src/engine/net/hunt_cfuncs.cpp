@@ -17,6 +17,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
+#include "engine/util/byte_stream.h"
+#include "engine/net/play_messages.h"
 
 namespace commands {
 
@@ -44,10 +46,11 @@ constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
 constexpr uint8_t kMsgObjectPickedUp = 0x90; // ReportObjectPickup: the object's id
 constexpr uint8_t kMsgNeedToPlaceObjects = 0x91;
 constexpr uint8_t kMsgHuntStarted = 0x93;
-constexpr uint8_t kMsgBoardVehicle = 0x89;     // BroadcastEnterVehicle: the skater and the control type
-constexpr uint8_t kMsgObjectPlacements = 0x8F; // a player's placed objects (from the server) / one placed (to it)
-constexpr uint8_t kMsgShotFired = 0x83;        // BroadcastProjectile
-constexpr int kMaxPlaced = 5;                  // (the placements message's room)
+// (their formats: engine/net/play_messages.h)
+using online::kMsgBoardVehicle; // BroadcastEnterVehicle: the skater and the control type
+constexpr uint8_t kMsgObjectPlacements = online::kMsgHuntPlacements; // a player's placed objects (from the server) /
+                                                                     // one placed (to it)
+using online::kMsgProjectile; // BroadcastProjectile
 constexpr uint8_t kGroupGame = 8;
 
 Hub* net_session_slot() { return online::g_online_hub; }
@@ -174,16 +177,15 @@ bool __cdecl cfunc_broadcast_enter_vehicle(script::Struct* params, script::Scrip
     if (client) {
         net::NetMessageInfo desc;
         desc.make_new();
-        struct {
-            uint8_t skater;
-            uint8_t pad[3];
-            uint32_t steer_kind_;
-        } msg;
-        msg.skater = static_cast<uint8_t>(skater);
-        msg.steer_kind_ = steer_kind;
-        desc.content_ = &msg;
+        online::BoardVehicle msg;
+        msg.skater_id = static_cast<int8_t>(skater);
+        msg.control_type = steer_kind;
+        uint8_t data[online::kBoardVehicleSize];
+        util::ByteWriter writer(data, sizeof(data));
+        online::write_board_vehicle(writer, msg);
+        desc.content_ = data;
         desc.ident_ = kMsgBoardVehicle;
-        desc.byte_count_ = sizeof(msg);
+        desc.byte_count_ = sizeof(data);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         online::detail::send_to_server(client, &desc);
@@ -220,15 +222,11 @@ bool __cdecl cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     net::NetMessageInfo desc;
     desc.make_new();
     net::AppHost* server = manager->host_;
-    struct {
-        uint8_t id;
-        uint8_t pad1[3];
-        int count;
-        script::VectorValue positions[kMaxPlaced];
-    } msg;
+    online::HuntPlacements msg;
+    uint8_t data[online::kHuntPlacementsSize];
     desc.ident_ = kMsgObjectPlacements;
-    desc.content_ = &msg;
-    desc.byte_count_ = sizeof(msg);
+    desc.content_ = data;
+    desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
     for (online::PlayerRecord* receiver = online::detail::start_roster_sweep(manager, &receivers, true); receiver;
@@ -237,10 +235,18 @@ bool __cdecl cfunc_broadcast_object_placements(script::Struct*, script::Script*)
              player = online::detail::step_roster_sweep(manager, &others, false)) {
             if (player == receiver)
                 continue;
-            msg.id = static_cast<uint8_t>(player->skater_->ident_);
+            msg.player_id = static_cast<int8_t>(player->skater_->ident_);
             msg.count = placed_count(player);
-            for (int i = 0; i < placed_count(player); ++i)
-                msg.positions[i] = placed_positions(player)[i];
+            // (NOT ORIGINAL: no more than the message holds - the original wrote a player's sixth on past it)
+            for (int i = 0; i < placed_count(player) && i < online::kHuntPlacements; ++i) {
+                const script::VectorValue& at = placed_positions(player)[i];
+                msg.positions[i][0] = at.x;
+                msg.positions[i][1] = at.y;
+                msg.positions[i][2] = at.z;
+                msg.positions[i][3] = at.w;
+            }
+            util::ByteWriter writer(data, sizeof(data));
+            online::write_hunt_placements(writer, msg);
             server->put_on_outbox(online::detail::player_handle(receiver), &desc);
         }
     }
@@ -260,10 +266,13 @@ bool __cdecl cfunc_report_object_placement(script::Struct* params, script::Scrip
     if (app) {
         net::NetMessageInfo desc;
         desc.make_new();
-        script::VectorValue msg = pos;
-        desc.content_ = &msg;
+        const float at[4] = {pos.x, pos.y, pos.z, pos.w};
+        uint8_t data[online::kHuntPlacementSize];
+        util::ByteWriter writer(data, sizeof(data));
+        online::write_hunt_position(writer, at);
+        desc.content_ = data;
         desc.ident_ = kMsgObjectPlacements;
-        desc.byte_count_ = sizeof(msg);
+        desc.byte_count_ = sizeof(data);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         online::detail::send_to_server(app, &desc);
@@ -294,29 +303,27 @@ bool __cdecl cfunc_broadcast_projectile(script::Struct* params, script::Script*)
     params->fetch_float(kScale, &scale, 0);
     int radius = 0;
     params->fetch_int_value(kRadius, &radius, 0);
-    struct {
-        uint32_t zero;
-        script::VectorValue pos;
-        script::VectorValue vel;
-        uint32_t type;
-        uint32_t ammo_type_;
-        int radius;
-        float scale;
-        uint8_t id;
-        uint8_t pad35[3];
-    } msg;
-    static_assert(sizeof(msg) == 0x38, "the message's size");
-    msg.id = static_cast<uint8_t>(id);
-    msg.pos = pos;
-    msg.vel = vel;
+    online::Projectile msg;
+    msg.owner_id = static_cast<int8_t>(id);
+    msg.position[0] = pos.x;
+    msg.position[1] = pos.y;
+    msg.position[2] = pos.z;
+    msg.position[3] = pos.w;
+    msg.velocity[0] = vel.x;
+    msg.velocity[1] = vel.y;
+    msg.velocity[2] = vel.z;
+    msg.velocity[3] = vel.w;
     msg.radius = radius;
     msg.scale = scale;
     msg.type = type;
-    msg.ammo_type_ = ammo_type;
-    msg.zero = 0;
-    desc.ident_ = kMsgShotFired;
-    desc.content_ = &msg;
-    desc.byte_count_ = sizeof(msg);
+    msg.ammo_type = ammo_type;
+    msg.time = 0;
+    uint8_t data[online::kProjectileSize];
+    util::ByteWriter writer(data, sizeof(data));
+    online::write_projectile(writer, msg);
+    desc.ident_ = kMsgProjectile;
+    desc.content_ = data;
+    desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
     online::detail::send_to_server(client, &desc);

@@ -33,6 +33,8 @@
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
+#include "engine/util/byte_stream.h"
+#include "engine/net/play_messages.h"
 
 namespace script {
 
@@ -286,17 +288,17 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
         return;
     NetMessageInfo desc;
     init_msg_desc(&desc);
-    struct {
-        uint32_t name;
-        uint32_t object_id_; // -1: none
-        uint8_t params[0x400];
-    } message;
+    // (the message: engine/net/play_messages.h)
+    online::RunScript message;
     message.name = name;
-    message.object_id_ = object ? current_object_id(object) : 0xFFFFFFFF;
-    int size = emit_into_buffer(params, message.params, sizeof(message.params));
+    message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;
+    uint8_t data[online::kRunScriptHeaderSize + online::kRunScriptParamsSize];
+    util::ByteWriter writer(data, sizeof(data));
+    online::write_run_script(writer, message);
+    int size = emit_into_buffer(params, writer.cursor(), static_cast<int>(online::kRunScriptParamsSize));
     void* client = fetch_patron(net, 0);
-    desc.content_ = &message;
-    desc.byte_count_ = static_cast<uint16_t>(size + 8);
+    desc.content_ = data;
+    desc.byte_count_ = static_cast<uint16_t>(size + online::kRunScriptHeaderSize);
     desc.ident_ = kNetopSpawnScript;
     desc.queue_ = NetMessageInfo::kLaneOrdered;
     desc.group_id_ = 8;
@@ -311,20 +313,18 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
         return;
     NetMessageInfo desc;
     init_msg_desc(&desc);
-    struct {
-        uint32_t name;
-        uint32_t object_id_; // -1: none
-        int node;
-        bool permanent;
-    } message = {}; // (16 bytes sent: the original leaves the last 3 as they were on the stack)
+    // (the message: engine/net/play_messages.h; the original leaves the last 3 bytes as they were on its stack)
+    online::SpawnScript message;
     message.name = name;
-    message.object_id_ = object ? current_object_id(object) : 0xFFFFFFFF;
+    message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;
     message.node = node;
     message.permanent = permanent;
-    static_assert(sizeof(message) == 0x10, "the message's size");
+    uint8_t data[online::kSpawnScriptSize];
+    util::ByteWriter writer(data, sizeof(data));
+    online::write_spawn_script(writer, message);
     void* client = fetch_patron(net, 0);
-    desc.content_ = &message;
-    desc.byte_count_ = sizeof(message);
+    desc.content_ = data;
+    desc.byte_count_ = sizeof(data);
     desc.ident_ = kMsgIdSpawnScript;
     desc.queue_ = NetMessageInfo::kLaneOrdered;
     desc.group_id_ = 8;

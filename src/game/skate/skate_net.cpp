@@ -42,6 +42,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_net_messages.h"
 #include "engine/net/gamenet_messages.h"
+#include "engine/net/play_messages.h"
 #include "engine/util/byte_stream.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
@@ -137,12 +138,6 @@ objects::ObjectHubBase* entity_hub_handle()
     return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
 }
 uint8_t* objective_board() { return reinterpret_cast<uint8_t*>(goals::get_objective_board()); }
-
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
-}
 
 Struct* spawn_param_table()
 {
@@ -398,8 +393,13 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     default:
         return 1;
     }
-    // Objects left: [0] the player (or the team), [1] how many.
-    auto* data = reinterpret_cast<const int8_t*>(context->body_);
+    // Objects left (engine/net/play_messages.h): [0] the player (or the team), [1] how many.
+    util::ByteReader reader(context->body_, context->body_size_);
+    int8_t data[2];
+    data[0] = reader.i8();
+    data[1] = reader.i8();
+    if (!reader.ok()) // NOT ORIGINAL: too short - dropped
+        return 4;
     online::Hub* net = net_session_slot();
     Struct* params = nullptr;
     char text[128];
@@ -456,8 +456,8 @@ int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
 int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
-    skate_net::HuntDropMessage message;
-    if (!skate_net::read_hunt_drop(reader, &message)) // NOT ORIGINAL: too short - dropped
+    online::HuntPlacements message;
+    if (!online::read_hunt_placements(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
     PlayerRecord* player = find_player_slot_by_obj(static_cast<uint32_t>(static_cast<int16_t>(message.player_id)));
     if (!player)
@@ -466,7 +466,7 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
     for (int i = 0; i < player->num_placed_; ++i) {
         float at[4];
         // NOT ORIGINAL: no positions past the message's end (the original read on)
-        if (!skate_net::read_hunt_drop_position(reader, at))
+        if (!online::read_hunt_position(reader, at))
             break;
         script::VectorValue position = {at[0], at[1], at[2], at[3]};
         Struct* params = spawn_param_table();
@@ -757,13 +757,18 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
 // 0x0056E380
 int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
 {
+    // (the message: engine/net/play_messages.h; NOT ORIGINAL: one too short for its header is dropped, and its
+    // parameters are read no further than its end)
+    util::ByteReader reader(context->body_, context->body_size_);
+    online::RunScript message;
+    if (!online::read_run_script(reader, &message))
+        return 4;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
-    auto* data = reinterpret_cast<const uint32_t*>(context->body_);
-    objects::Entity* object = entity_hub_handle()->look_up_entity(data[1]);
+    objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
     Struct* params = spawn_param_table();
-    script::decode_from_bytes(params, reinterpret_cast<const uint8_t*>(data + 2)); // the script reader
-    get_run(data[0], params, object);
+    script::decode_from_bytes(params, reader.cursor(), reader.remaining()); // the script reader
+    get_run(message.name, params, object);
     delete_structure(params);
     memory::Hub::get_pull()->leave_heap_scope();
     return 1;

@@ -55,6 +55,8 @@
 #include "engine/script/debug_cfuncs.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/gfx/engine.h"
+#include "engine/util/byte_stream.h"
+#include "engine/net/play_messages.h"
 
 namespace commands {
 
@@ -620,14 +622,15 @@ bool __cdecl cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
             continue;
         net::NetMessageInfo desc;
         desc.make_new();
-        struct {
-            uint32_t omnigon;
-            bool flag;
-            uint8_t pad[3]; // (unset in the original: sent as they are; zero here)
-        } message = {omnigon, flag, {}};
-        desc.content_ = &message;
-        desc.ident_ = 0x7F;
-        desc.byte_count_ = 8;
+        online::ToggleCheat message; // (engine/net/play_messages.h)
+        message.cheat = omnigon;
+        message.on = flag;
+        uint8_t data[online::kToggleCheatSize];
+        util::ByteWriter writer(data, sizeof(data));
+        online::write_toggle_cheat(writer, message);
+        desc.content_ = data;
+        desc.ident_ = online::kMsgToggleCheat;
+        desc.byte_count_ = sizeof(data);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = 8;
         server->put_on_outbox(conn->hdl_, &desc);

@@ -17,6 +17,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/startup_init.h"
+#include "engine/util/byte_stream.h"
+#include "engine/net/play_messages.h"
 
 namespace surface_kind {
 
@@ -87,18 +89,6 @@ void ingest_sound(const SoundInfo& info)
     sound_manager()->ingest_sound(info.name, 0, 1, 0, 0.0f, info.load_pitch_, info.load_vol_);
 }
 
-// The network message a propagated terrain sound sends (0x35, 12 bytes).
-struct SoundMessage {
-    int16_t x, y, z; // +0 the position, truncated
-    uint8_t table;   // +6
-    uint8_t terrain; // +7
-    uint8_t volume;  // +8 the percentages, truncated
-    uint8_t pitch;   // +9
-    uint8_t value;   // +A
-    uint8_t padb_;
-};
-static_assert(sizeof(SoundMessage) == 12, "the original sends 12 bytes");
-constexpr uint8_t kMsgTerrainSound = 0x35;
 
 } // namespace
 
@@ -370,18 +360,22 @@ void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec
         net::NetMessageInfo desc;
         desc.make_new();
         auto* client = static_cast<net::Guest*>(static_cast<online::Hub*>(net)->fetch_patron(0));
-        SoundMessage message;
+        // (the message a propagated terrain sound sends: engine/net/play_messages.h)
+        online::TerrainSound message;
         message.table = table;
         message.terrain = terrain;
         message.x = static_cast<int16_t>(get_truncated(position->x));
         message.y = static_cast<int16_t>(get_truncated(position->y));
         message.z = static_cast<int16_t>(get_truncated(position->z));
-        message.volume = static_cast<uint8_t>(get_truncated(loudness_percent));
-        message.pitch = static_cast<uint8_t>(get_truncated(pitch_percent));
-        message.value = static_cast<uint8_t>(get_truncated(value));
-        desc.content_ = &message;
-        desc.byte_count_ = sizeof(SoundMessage);
-        desc.ident_ = kMsgTerrainSound;
+        message.volume = static_cast<int8_t>(get_truncated(loudness_percent));
+        message.pitch = static_cast<int8_t>(get_truncated(pitch_percent));
+        message.value = static_cast<int8_t>(get_truncated(value));
+        uint8_t data[online::kTerrainSoundSize];
+        util::ByteWriter writer(data, sizeof(data));
+        online::write_terrain_sound(writer, message);
+        desc.content_ = data;
+        desc.byte_count_ = sizeof(data);
+        desc.ident_ = online::kMsgTerrainSound;
         client->send_to_host(&desc);
     }
     sound::VolumeRef volume;

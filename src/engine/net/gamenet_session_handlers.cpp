@@ -42,6 +42,7 @@
 #include "engine/sys/mlp.h"
 #include "game/rider/skater_score.h"
 #include "engine/net/gamenet_lists.h"
+#include "engine/net/play_messages.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -103,7 +104,7 @@ constexpr uint32_t kMpGameTypeInfo = 0x4DA72272;     // mp_game_type_info
 
 // Messages.
 constexpr uint8_t kMsgGameStateSent = 0x42;
-constexpr uint8_t kMsgSpawnedScript = 0x49;
+constexpr uint8_t kMsgSpawnedScript = kMsgSpawnScript;
 constexpr uint8_t kMsgKing = 0x55;
 constexpr uint8_t kMsgTrickObjects = 0x5C;
 constexpr uint8_t kMsgGameEnded = 0x6A;
@@ -569,7 +570,13 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
         node = node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
         for (auto* item = node ? static_cast<PendingScriptItem*>(node->data) : nullptr; item;) {
             desc.make_new();
-            uint32_t spawned[4] = {item->own_script_, item->entity_key_, static_cast<uint32_t>(item->list_link_), 0};
+            online::SpawnScript queued; // (not permanent: the joiner runs it once)
+            queued.name = item->own_script_;
+            queued.object_id = item->entity_key_;
+            queued.node = item->list_link_;
+            uint8_t spawned[kSpawnScriptSize];
+            util::ByteWriter writer(spawned, sizeof(spawned));
+            write_spawn_script(writer, queued);
             desc.content_ = spawned;
             desc.byte_count_ = sizeof(spawned);
             desc.ident_ = kMsgSpawnedScript;
