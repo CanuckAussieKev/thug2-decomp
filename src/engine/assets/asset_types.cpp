@@ -458,20 +458,15 @@ const char* SceneAsset::fetch_title() const { return "Scene"; }
 // 0x004092D0
 void SceneAsset::set_up_params(void* params, void* structure)
 {
-    args_ = static_cast<uint8_t*>(alloc_load_params(0x48));
-    *raw::as<uint32_t>(args_) = 0;
-    args_[4] = 1;
-    args_[5] = 0;
-    args_[6] = 0;
-    args_[7] = 0;
+    args_ = memory::construct_in<SceneLoadParams>(alloc_load_params(sizeof(SceneLoadParams)));
+    args_->textures = 0;
+    args_->flags = {{1, 0, 0, 0}};
     if (params)
         copy_words(args_, params, 0x12);
     if (auto* s = static_cast<Struct*>(structure)) {
-        s->read_hash_value(0xDC8116B2u, raw::as<uint32_t>(args_), 0);
-        args_[4] = s->has_bare_flag(0x9E6EA452u);
-        args_[5] = s->has_bare_flag(0xB5BD28D8u);
-        args_[6] = s->has_bare_flag(0x3D559E7Du);
-        args_[7] = s->has_bare_flag(0x417149C8u);
+        s->read_hash_value(0xDC8116B2u, &args_->textures, 0);
+        args_->flags = {{static_cast<uint8_t>(s->has_bare_flag(0x9E6EA452u)), static_cast<uint8_t>(s->has_bare_flag(0xB5BD28D8u)),
+                         static_cast<uint8_t>(s->has_bare_flag(0x3D559E7Du)), static_cast<uint8_t>(s->has_bare_flag(0x417149C8u))}};
     }
 }
 
@@ -494,9 +489,9 @@ int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void
 {
     start_loading();
     set_up_params(params, structure);
-    copy_string(raw::chars(args_ + 8), name);
+    copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
-    build_scene_file_path(file.data(), name, args_[7]);
+    build_scene_file_path(file.data(), name, core::at(args_->flags, 3));
     uint32_t size = 0;
     if (!read_file(this, file.data(), async, &size))
         return -1;
@@ -511,7 +506,7 @@ bool SceneAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
     change_contents(
-        make_scene(raw::chars(args_ + 8), buffer, size, textures, args_[4], args_[5], args_[6], args_[7]));
+        make_scene(args_->name.data(), buffer, size, textures, core::at(args_->flags, 0), core::at(args_->flags, 1), core::at(args_->flags, 2), core::at(args_->flags, 3)));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -537,14 +532,14 @@ const char* SceneCollisionAsset::fetch_title() const { return "SceneColl"; }
 // 0x00409690
 void SceneCollisionAsset::set_up_params(void* params, void* structure)
 {
-    args_ = static_cast<uint8_t*>(alloc_load_params(0x48));
-    *raw::as<uint32_t>(args_) = 0;
-    args_[4] = 0;
+    args_ = memory::construct_in<SceneCollisionLoadParams>(alloc_load_params(sizeof(SceneCollisionLoadParams)));
+    args_->checksum = 0;
+    args_->flag = 0;
     if (params)
         copy_words(args_, params, 0x12);
     if (auto* s = static_cast<Struct*>(structure)) {
-        s->read_hash_value(0x26861025u, raw::as<uint32_t>(args_), 0);
-        args_[4] = s->has_bare_flag(0x417149C8u);
+        s->read_hash_value(0x26861025u, &args_->checksum, 0);
+        args_->flag = s->has_bare_flag(0x417149C8u);
     }
 }
 
@@ -569,9 +564,9 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archiv
 {
     start_loading();
     set_up_params(params, structure);
-    copy_string(raw::chars(args_ + 5), name);
+    copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
-    collision_file_name(file.data(), name, args_[4]);
+    collision_file_name(file.data(), name, args_->flag);
     uint32_t size = 0;
     if (!read_file(this, file.data(), async, &size))
         return -1;
@@ -585,7 +580,7 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archiv
 bool SceneCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* scene = group_data(this);
-    add_collision(scene, buffer, size, args_[4]); // (not original: the size)
+    add_collision(scene, buffer, size, args_->flag); // (not original: the size)
     change_contents(scene_collision(scene));
     free_load_params(args_);
     args_ = nullptr;
@@ -834,14 +829,14 @@ const char* SkinCollisionAsset::fetch_title() const { return "SkinColl"; }
 
 namespace {
 // The skin collision's parameters (0x44 bytes): from `params`, then the structure's checksum.
-uint8_t* skin_collision_params(void* params, void* structure)
+SkinCollisionLoadParams* skin_collision_params(void* params, void* structure)
 {
-    auto* p = static_cast<uint8_t*>(alloc_load_params(0x44));
-    *raw::as<uint32_t>(p) = 0;
+    auto* p = memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)));
+    p->checksum = 0;
     if (params)
         copy_words(p, params, 0x11);
     if (structure)
-        static_cast<Struct*>(structure)->read_hash_value(0xFD8697E1u, raw::as<uint32_t>(p), 0);
+        static_cast<Struct*>(structure)->read_hash_value(0xFD8697E1u, &p->checksum, 0);
     return p;
 }
 } // namespace
@@ -865,7 +860,7 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive
 {
     start_loading();
     args_ = skin_collision_params(params, structure);
-    copy_string(raw::chars(args_ + 4), name);
+    copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
     skin_collision_file_name(file.data(), name);
     uint32_t size = 0;
@@ -908,18 +903,18 @@ const char* TexDictAsset::fetch_title() const { return "TexDict"; }
 // 0x0040A620
 void TexDictAsset::set_up_params(void* params, void* structure)
 {
-    args_ = static_cast<uint8_t*>(alloc_load_params(0x4C));
-    args_[0] = 1;
-    *raw::field_at<int>(args_, 4) = 0;
-    args_[8] = 0;
-    args_[9] = 0;
+    args_ = memory::construct_in<TexDictLoadParams>(alloc_load_params(sizeof(TexDictLoadParams)));
+    args_->flag = 1;
+    args_->value = 0;
+    args_->flag8 = 0;
+    args_->flag9 = 0;
     if (params)
         copy_words(args_, params, 0x13);
     if (auto* s = static_cast<Struct*>(structure)) {
-        s->fetch_int_value(0xBF34D221u, raw::field_at<int>(args_, 4), 0);
-        args_[0] = s->has_bare_flag(0xE6237329u);
-        args_[8] = s->has_bare_flag(0x6875B9C0u);
-        args_[9] = s->has_bare_flag(0x86B52462u);
+        s->fetch_int_value(0xBF34D221u, &args_->value, 0);
+        args_->flag = s->has_bare_flag(0xE6237329u);
+        args_->flag8 = s->has_bare_flag(0x6875B9C0u);
+        args_->flag9 = s->has_bare_flag(0x86B52462u);
     }
 }
 
@@ -942,7 +937,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
 {
     start_loading();
     set_up_params(params, structure);
-    copy_string(raw::chars(args_ + 0xA), name);
+    copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
     tex_dict_file_name(file.data(), name);
     uint32_t size = 0;
@@ -958,7 +953,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
 bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 {
     change_contents(
-        make_tex_dict(checksum_, buffer, size, args_[0], *raw::field_at<int>(args_, 4), args_[8], args_[9]));
+        make_tex_dict(checksum_, buffer, size, args_->flag, args_->value, args_->flag8, args_->flag9));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);

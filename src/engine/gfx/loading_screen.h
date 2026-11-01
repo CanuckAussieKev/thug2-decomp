@@ -6,6 +6,7 @@
 // "gr/"), shown full screen; the bar's timer that draws it while the game loads (loading_bar.h); taking it down.
 // Everything runs under the loading screen's lock (0x007052AC): the timer draws on winmm's thread.
 namespace render {
+class BitmapTexture;
 
 // 0x004B6CD0: the picture over the whole back buffer (its texture's rows upside down, as the original), linear
 // filtering (the minification filter put back after), no lighting or blending.
@@ -25,6 +26,6 @@ void show_loading_screen(const char* name, bool keep, bool black);
 // level_select_loading_screens): drawn cover-fitted, with a plate behind the bar (loading_bar.cpp).
 bool select_picture_up();
 
-extern uint8_t* g_loading_screen_picture;
+extern BitmapTexture* g_loading_screen_picture;
 
 } // namespace render

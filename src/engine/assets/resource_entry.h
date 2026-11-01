@@ -210,11 +210,38 @@ struct NodeTableResource final : Resource {
     void* build_node_table(uint32_t name, int count);
 };
 
+// The asset types' load parameters (a pool block each; a caller's `params` are copied in whole).
+struct SceneLoadParams {
+    uint32_t textures;              // the textures' checksum
+    std::array<uint8_t, 4> flags;   // (four flags: the scene maker's)
+    std::array<char, 0x40> name;
+};
+struct SceneCollisionLoadParams {
+    uint32_t checksum;
+    uint8_t flag;
+    std::array<char, 0x43> name;
+};
+struct SkinCollisionLoadParams {
+    uint32_t checksum;
+    std::array<char, 0x40> name;
+};
+struct TexDictLoadParams {
+    uint8_t flag;                  // (set by default)
+    std::array<uint8_t, 3> unknown01;
+    int value;
+    uint8_t flag8;
+    uint8_t flag9;
+    std::array<char, 0x42> name;
+};
+static_assert(sizeof(SceneLoadParams) == 0x48 && sizeof(SceneCollisionLoadParams) == 0x48 &&
+                  sizeof(SkinCollisionLoadParams) == 0x44 && sizeof(TexDictLoadParams) == 0x4C,
+              "the callers' parameter blocks (copied in whole)");
+
 // Scene (+0x4C its load parameters: +0x00 the textures' checksum, +0x04-0x07 four flags, +0x08 the name).
 struct SceneAsset final : Resource {
     // 0x00409220 (vtable 0x00645700)
     SceneAsset();
-    uint8_t* args_{nullptr};
+    SceneLoadParams* args_{nullptr};
     // 0x004093D0
     // (0x0049B8C0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kScene; }
@@ -234,7 +261,7 @@ struct SceneAsset final : Resource {
 struct SceneCollisionAsset final : Resource {
     // 0x004095F0 (vtable 0x00645778)
     SceneCollisionAsset();
-    uint8_t* args_{nullptr};
+    SceneCollisionLoadParams* args_{nullptr};
     // 0x00409750
     // (0x0049BB70, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kSceneCollision; }
@@ -313,7 +340,7 @@ struct SkinResource final : Resource {
 struct SkinCollisionAsset final : Resource {
     // 0x0040A210 (vtable 0x00645928)
     SkinCollisionAsset();
-    uint8_t* args_{nullptr};
+    SkinCollisionLoadParams* args_{nullptr};
     // 0x0040A290 / 0x0040A280
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
@@ -330,7 +357,7 @@ struct SkinCollisionAsset final : Resource {
 struct TexDictAsset final : Resource {
     // 0x0040A580 (vtable 0x006459A8)
     TexDictAsset();
-    uint8_t* args_{nullptr};
+    TexDictLoadParams* args_{nullptr};
     // 0x0040A710
     // (0x0049C0F0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kResTexDict; }

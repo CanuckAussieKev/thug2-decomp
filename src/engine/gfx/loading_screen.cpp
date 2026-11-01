@@ -29,10 +29,11 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <string>
 
 namespace render {
 
-uint8_t* g_loading_screen_picture;
+render::BitmapTexture* g_loading_screen_picture;
 
 namespace {
 
@@ -49,44 +50,16 @@ UINT start_timer(UINT delay, LPTIMECALLBACK callback) { return timeSetEvent(dela
 void stop_timer(UINT timer) { timeKillEvent(timer); }
 
 render::BillboardQuad* g_loading_screen_sprite;     // (nothing in this build sets it)
-std::array<uint32_t, 7> g_picture_name{{0, 0, 0, 0, 0, 0, 0x0F}}; // (a std::string: empty, its capacity 15)
+std::string g_picture_name; // the picture loaded
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
-uint8_t*& picture() { return g_loading_screen_picture; }
+render::BitmapTexture*& picture() { return g_loading_screen_picture; }
 render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 
-// The picture's name (a std::basic_string over the game's allocator at 0x0067E958 - library code: its characters
-// in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
-const char* picture_name()
-{
-    auto* name = raw::bytes(g_picture_name.data());
-    if (*raw::field_at<uint32_t>(name, 0x18) >= 16)
-        return *raw::field_at<const char*>(name, 4);
-    return raw::chars(name + 4);
-}
-void set_picture_name(const char* text)
-{
-    // std::string::assign(const char*) over the layout above (0x004B7880 / 0x004B7750 in the exe).
-    auto* name = raw::bytes(g_picture_name.data());
-    uint32_t& size = *raw::field_at<uint32_t>(name, 0x14);
-    uint32_t& capacity = *raw::field_at<uint32_t>(name, 0x18);
-    char*& heap = *raw::field_at<char*>(name, 4);
-    auto length = static_cast<uint32_t>(std::strlen(text));
-    if (length > capacity) {
-        const uint32_t new_capacity = length | 15;
-        char* grown = static_cast<char*>(crt::alloc_block(new_capacity + 1));
-        std::memcpy(grown, text, length + 1);
-        if (capacity >= 16)
-            crt::dealloc(heap);
-        heap = grown;
-        capacity = new_capacity;
-    } else {
-        char* destination = capacity >= 16 ? heap : raw::chars(name + 4);
-        std::memmove(destination, text, length + 1);
-    }
-    size = length;
-}
+// The picture's name (a std::string in the original too: its assign at 0x004B7880 / 0x004B7750).
+const char* picture_name() { return g_picture_name.c_str(); }
+void set_picture_name(const char* text) { g_picture_name = text; }
 
 // NOT ORIGINAL - the level select's loading pictures (tools/pipeline menu_level/loading_select.ts): a level whose
 // loading_screen is "loadscrn_sel_<load>__<the original picture>" shows the level select's picture (16:9, text-free);
@@ -163,7 +136,7 @@ void draw_loading_screen_picture()
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
     choose_blend_mode(0);
     set_texture(0, nullptr); // (the original passes a third 0, here and below)
-    set_texture(0, image_of(raw::as<BitmapTexture>(picture()))->texture); // (and its palette)
+    set_texture(0, image_of(picture())->texture); // (and its palette)
     auto width = static_cast<float>(g_back_buffer_width);
     auto height = static_cast<float>(g_back_buffer_height);
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
@@ -256,14 +229,14 @@ void show_loading_screen(const char* name, bool keep, bool black)
             apply_bar_style(false);
             input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         } else {
-            if (uint8_t* old = picture()) {
+            if (const render::BitmapTexture* old = picture()) {
                 if (std::strcmp(picture_name(), name) != 0) {
-                    delete raw::as<render::BitmapTexture>(old);
+                    delete old;
                     picture() = nullptr;
                     set_picture_name(name);
                 }
             }
-            picture() = raw::bytes(static_cast<render::BitmapTexture*>(new render::PcTexture));
+            picture() = new render::PcTexture;
             // the language's picture: French "fr/<name>", German "gr/<name>"
             std::array<char, 0xC8> localised{};
             const char* file = name;
@@ -276,7 +249,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
                 file = localised.data();
             }
             // (no check: a failed allocation calls through null, as the original)
-            const bool loaded = raw::as<render::BitmapTexture>(picture())->load_by_name(file, 1, 1);
+            const bool loaded = picture()->load_by_name(file, 1, 1);
             if (!loaded) {
                 get_unlock();
                 return;
