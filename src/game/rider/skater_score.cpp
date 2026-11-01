@@ -17,6 +17,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/rider.h"
 
 namespace objects {
 
@@ -103,7 +104,7 @@ void RiderPointKeeper::tick_frame()
         return;
     }
     get_score_of(points_held_)->tick_frame();
-    bool always_special = prop<uint8_t>(entity_, 0x168) != 0 ||
+    bool always_special = static_cast<Rider*>(entity_)->always_special_ ||
                           reinterpret_cast<RiderStoryProgress*>(get_career())->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
         uint8_t* career = get_career();

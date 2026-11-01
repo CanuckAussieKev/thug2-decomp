@@ -395,7 +395,7 @@ bool __cdecl cfunc_toggle_always_special(script::Struct* params, script::Script*
         objects::GameEntity* skater = get_rider_at(i);
         if (!skater)
             continue;
-        uint8_t& special = reinterpret_cast<uint8_t*>(skater)[0x168];
+        bool& special = static_cast<objects::Rider*>(skater)->always_special_;
         if (on)
             special = 1;
         else if (off)

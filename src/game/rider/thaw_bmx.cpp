@@ -25,6 +25,7 @@
 #include "engine/sys/mlp.h"
 #include "platform/screenshot_files.h"
 #include "platform/run_log.h"
+#include "game/rider/core_physics.h"
 
 namespace skater::thaw_bmx {
 
@@ -298,8 +299,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
     BikeState& state = *state_of(core, true);
     if (name == kOn) { // 0x005C98E0
         state.on = true;
-        void* skater = prop<void*>(core, kObject);
-        set_wheel_points(state, prop<maths::Vec4>(skater, kPosition), prop<maths::Vec4>(skater, kFacing));
+        objects::GameEntity* skater = core->entity_;
+        set_wheel_points(state, skater->at_point_, skater->basis_frame_.row[2]);
         return 1;
     }
     if (name == kOff) { // 0x005C74C0 (THAW clears only the flag; ours the bike's other states too)

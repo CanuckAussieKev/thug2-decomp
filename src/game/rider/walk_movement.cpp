@@ -20,6 +20,7 @@
 #include "platform/stopwatch.h"
 #include "platform/crt.h"
 #include "engine/objects/input_component.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -566,7 +567,7 @@ void FootMovement::apply_transition()
     object->basis_frame_ = matrix;
     model_lift_ = transition_display_offset_;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
-    auto callback = get_at<void(__thiscall*)(void*)>(this, kTransitionCallback);
+    auto callback = reinterpret_cast<void(__thiscall*)(void*)>(anim_done_.code_);
     if (callback)
         callback(reinterpret_cast<uint8_t*>(this) + anim_done_.this_adjust_);
 }
@@ -622,7 +623,7 @@ void FootMovement::copy_to_object()
     }
     // The model raised along the up vector by the display offset.
     float offset = model_lift_;
-    get_at<maths::Vec4>(model_, 0x1F8) = {matrix.row[1].x * offset, matrix.row[1].y * offset, matrix.row[1].z * offset,
+    model_->shift_ = {matrix.row[1].x * offset, matrix.row[1].y * offset, matrix.row[1].z * offset,
                                           matrix.row[1].w * offset};
 }
 

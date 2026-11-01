@@ -176,7 +176,8 @@ public:
     char given_name_[0x40];  // +0x118
     uint32_t label_;         // +0x158
     text::Chars shown_name_; // +0x15C
-    uint8_t unknown168_[0x16C - 0x168];
+    bool always_special_; // +0x168 (the special meter always full)
+    uint8_t pad169_[3];
     uint32_t last_restart_; // +0x16C
     bool sparks_;           // +0x170
     uint8_t pad171[3];
