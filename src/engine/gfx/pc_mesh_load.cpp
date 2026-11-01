@@ -363,7 +363,8 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     // per-vertex bytes and levels past the end, more than 3 vertex buffers (the original's arrays), or scaled
     // positions past their buffer end the load (the original read and wrote past them).
     scene_format::MeshBody body;
-    if (!scene_format::read_mesh_body(in, &body)) {
+    if (!scene_format::read_mesh_body(in, &body) || (body.vertex_types[0] && !scene_format::offsets_fit(body))) {
+        // (a vertex's offsets past its stride: the colour animations wrote past the buffer, grass / splats read past)
         debug::printf("scene mesh damaged: cut short or doesn't fit\n");
         in.fail();
         return false;

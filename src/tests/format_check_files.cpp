@@ -646,6 +646,9 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
             }
             check(scene_format::vertices_fit(body, vertex_size),
                   name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j) + "'s vertices fit");
+            // the offsets in a vertex (the normal's, the colour's, the texture coordinates') within the stride
+            check(!body.vertex_types[0] || scene_format::offsets_fit(body),
+                  name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j) + "'s offsets in a vertex");
         }
     }
     int nodes = scene_format::take<int>(in);

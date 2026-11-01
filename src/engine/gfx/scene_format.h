@@ -363,6 +363,14 @@ inline bool vertices_fit(const MeshBody& body, uint32_t vertex_bytes)
            uint64_t(body.vertex_count - 1) * body.stride + vertex_bytes <= body.vertices.size();
 }
 
+// Whether a mesh with a vertex format has its offsets inside a vertex: the normal (12 bytes), the colour (4 - the
+// colour animations write it each frame, splats and projections read it) and the texture coordinates (8 - grass).
+inline bool offsets_fit(const MeshBody& body)
+{
+    return body.offsets[0] + 12u <= body.stride && body.offsets[1] + 4u <= body.stride &&
+           body.offsets[2] + 8u <= body.stride;
+}
+
 // --- skins (.cas) ---
 
 struct Skin {
