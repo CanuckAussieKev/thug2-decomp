@@ -687,17 +687,17 @@ public:
     int spectate_request_;                            // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
     // original, whose sets had a table): get_online_settings / get_taunt_settings.
-    alignas(4) uint8_t net_options_[0xC];    // +0x104
-    alignas(4) uint8_t taunt_options_[0xC];  // +0x110
-    memory::PaddedListNode players_;         // +0x11C lists::Foremost<PlayerRecord>
-    memory::PaddedListNode joiners_;         // +0x130 lists::Foremost<JoinerRecord>: the joining players
-    memory::PaddedListNode queued_scripts_;  // +0x144 the scripts to run once the level is up
-    memory::PaddedListNode servers_;         // +0x158 lists::Foremost<HostListing>: the listed servers
-    memory::PaddedListNode waiting_servers_; // +0x16C lists::Foremost<HostListing>: found, not shown yet
-    uint32_t unknown180_;                    // +0x180 (zeroed by make_new)
-    uint32_t refused_reason_;                // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
-    uint32_t last_ready_probe_id_;           // +0x188
-    bool cleared_to_start_;                  // +0x18C
+    alignas(4) uint8_t net_options_[0xC];   // +0x104
+    alignas(4) uint8_t taunt_options_[0xC]; // +0x110
+    memory::ListNode players_;              // +0x11C lists::Foremost<PlayerRecord>
+    memory::ListNode joiners_;              // +0x130 lists::Foremost<JoinerRecord>: the joining players
+    memory::ListNode queued_scripts_;       // +0x144 the scripts to run once the level is up
+    memory::ListNode servers_;              // +0x158 lists::Foremost<HostListing>: the listed servers
+    memory::ListNode waiting_servers_;      // +0x16C lists::Foremost<HostListing>: found, not shown yet
+    uint32_t unknown180_;                   // +0x180 (zeroed by make_new)
+    uint32_t refused_reason_;               // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
+    uint32_t last_ready_probe_id_;          // +0x188
+    bool cleared_to_start_;                 // +0x18C
     uint8_t unknown18d_[3];
     uint32_t score_synced_at_;  // +0x190
     uint32_t script_flag_bits_; // +0x194 the pro set's bits (sent as a byte)
@@ -739,21 +739,6 @@ public:
     bool services_available_;       // +0xFE0A the GameSpy services are available
     uint8_t unknownfe0b_;
 };
-static_assert(offsetof(Hub, level_) == 0x34 && offsetof(Hub, join_mode_) == 0x3C &&
-                  offsetof(Hub, final_scores_received_) == 0x44 && offsetof(Hub, start_points_) == 0x48 &&
-                  offsetof(Hub, crown_) == 0x6C && offsetof(Hub, connection_job_) == 0xC0 &&
-                  offsetof(Hub, host_admit_job_) == 0xCC && offsetof(Hub, join_expiry_job_) == 0xDC &&
-                  offsetof(Hub, join_phase_job_) == 0xE4 && offsetof(Hub, flag_carry_job_) == 0xF8 &&
-                  offsetof(Hub, spectate_request_) == 0x100 && offsetof(Hub, taunt_options_) == 0x110 &&
-                  offsetof(Hub, players_) == 0x11C && offsetof(Hub, waiting_servers_) == 0x16C &&
-                  offsetof(Hub, refused_reason_) == 0x184 && offsetof(Hub, join_phase_) == 0x198 &&
-                  offsetof(Hub, join_began_at_) == 0x1AC && offsetof(Hub, match_being_set_up_) == 0x1B4 &&
-                  offsetof(Hub, service_state_) == 0x1B8 && offsetof(Hub, viewed_player_) == 0x1CC &&
-                  offsetof(Hub, created_goals_) == 0x1D8 && offsetof(Hub, created_goals_size_) == 0x1948 &&
-                  offsetof(Hub, room_id_) == 0x9950 && offsetof(Hub, news_buffer_) == 0x99F4 &&
-                  offsetof(Hub, motd_text_) == 0xFDF4 && offsetof(Hub, request_) == 0xFE00 &&
-                  offsetof(Hub, services_available_) == 0xFE0A && sizeof(Hub) == 0xFE0C,
-              "layout must match the original");
 
 // --- gamenet_players.cpp: outside the class ---
 // 0x00539610: the flag task's code (registered by the manager's constructor): in capture the flag, the carried flags

@@ -2,7 +2,7 @@
 
 // The net library's queued messages and their links (the types: PendingMsg / SeqQueuedMsg in net_app_view.h,
 // the links in net_access_c.h; their functions in net_messages.cpp). The links are their own list nodes (data = the
-// link); their node keeps the original's size (PaddedListNode: AppHost reads the links by byte offset).
+// link).
 
 #include <cstddef>
 #include <cstdint>
@@ -22,7 +22,7 @@ struct MsgNormalLink {
     // 0x004557C0: the scalar deleting destructor (out of its list: 0x00455B50).
     MsgNormalLink* teardown(unsigned int flags);
 
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     PendingMsg* shared_msg_;
     uint32_t due_time_; // not before this time
 };
@@ -32,7 +32,7 @@ struct ReliableMsgNode {
     // 0x004557F0: the scalar deleting destructor (0x00455B70).
     ReliableMsgNode* teardown(unsigned int flags);
 
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     uint32_t stamp_ms_; // when it was last sent (0: never)
     PendingMsg* shared_msg_;
     uint32_t packet_clock_; // the connection's timestamp it went out with (the ack names it)
@@ -47,7 +47,7 @@ struct OrderedMsgNode {
     // 0x00455820: the scalar deleting destructor (0x00455B90).
     OrderedMsgNode* teardown(unsigned int flags);
 
-    memory::PaddedListNode list_link_; // priority: the sequence number
+    memory::ListNode list_link_; // priority: the sequence number
     uint8_t retry_count_;
     uint8_t bundle_id_;
     uint8_t bulk_msg_; // a piece of a streamed message
@@ -58,8 +58,6 @@ struct OrderedMsgNode {
     uint32_t due_time_;
     SeqQueuedMsg* shared_msg_;
 };
-static_assert(offsetof(ReliableMsgNode, due_time_) == 0x24 && offsetof(OrderedMsgNode, shared_msg_) == 0x28 &&
-              offsetof(MsgNormalLink, due_time_) == 0x18 && sizeof(OrderedMsgNode) == 0x2C);
 
 // A stream being received in pieces: StreamDesc (net_app.h); its link (0x18).
 struct BulkStreamNode {
@@ -68,9 +66,8 @@ struct BulkStreamNode {
     // 0x00455850: the scalar deleting destructor (0x00455BB0).
     BulkStreamNode* teardown(unsigned int flags);
 
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     StreamDesc* msg_meta_;
 };
-static_assert(sizeof(BulkStreamNode) == 0x18);
 
 } // namespace net

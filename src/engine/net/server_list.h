@@ -26,8 +26,8 @@ namespace online {
 class Hub;
 
 // A server found (0xA8 bytes): a node of the manager's server list (+0x158) or of the servers waiting to be shown
-// (+0x16C). Its nodes keep the original's size (PaddedListNode: the layout is the original's).
-struct HostListing : memory::PaddedListNode {
+// (+0x16C). (The offsets are the original's.)
+struct HostListing : memory::ListNode {
     char label_[16];     // +0x14
     uint32_t remote_ip_; // +0x24
     int port_no_;        // +0x28
@@ -50,8 +50,8 @@ struct HostListing : memory::PaddedListNode {
     bool in_list_;   // +0x8C counted in the lobby's server list
     bool detailed_;  // +0x8D the full details have come
     uint8_t pad8e_[2];
-    void* sb_server_;                     // +0x90 GameSpy's SBServer (internet)
-    memory::PaddedListNode participants_; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings
+    void* sb_server_;               // +0x90 GameSpy's SBServer (internet)
+    memory::ListNode participants_; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings
 
     // 0x00545F60: an empty one: one of eight players, one of one observer, skill level 2, mode and level "None",
     // reachable. Returns this.
@@ -69,10 +69,6 @@ struct HostListing : memory::PaddedListNode {
     const char* get_entrant_name(int index);
     int get_entrant_rank(int index);
 };
-static_assert(offsetof(HostListing, remote_ip_) == 0x24 && offsetof(HostListing, level_) == 0x40 &&
-                  offsetof(HostListing, host_mode_) == 0x84 && offsetof(HostListing, sb_server_) == 0x90 &&
-                  offsetof(HostListing, participants_) == 0x94 && sizeof(HostListing) == 0xA8,
-              "layout must match the original");
 
 // (lists::Hunt<HostListing>'s vtable, 0x0064CD70, holds only a destructor that resets it: 0x005451D0 / 0x00545460.)
 

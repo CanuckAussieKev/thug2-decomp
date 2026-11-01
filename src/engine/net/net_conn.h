@@ -96,16 +96,15 @@ struct Conn {
     // 0x00456770: every queue emptied (as the destructor does).
     void drop_queued_traffic();
 
-    memory::PaddedListNode normal_msgs_; // +0x00 links: PendingMsg* at +0x14, send time at +0x18
-    memory::PaddedListNode
-        important_msgs_; // +0x14 links: last send time at +0x14 (0 = not sent), PendingMsg* at +0x18,
-                         //       a time at +0x24
-    memory::PaddedListNode sequenced_msgs_; // +0x28 links: last send time at +0x1C, a time at +0x24, SeqQueuedMsg* at
-                                            //       +0x28
-    int hdl_;                               // +0x3C
-    uint32_t remote_ip_;                    // +0x40
-    uint32_t ident_;                        // +0x44 a running number (0x0067D800, counted by the constructor)
-    uint16_t port_no_;                      // +0x48
+    memory::ListNode normal_msgs_;    // +0x00 links: PendingMsg* at +0x14, send time at +0x18
+    memory::ListNode important_msgs_; // +0x14 links: last send time at +0x14 (0 = not sent), PendingMsg* at +0x18,
+                                      //       a time at +0x24
+    memory::ListNode sequenced_msgs_; // +0x28 links: last send time at +0x1C, a time at +0x24, SeqQueuedMsg* at
+                                      //       +0x28
+    int hdl_;                         // +0x3C
+    uint32_t remote_ip_;              // +0x40
+    uint32_t ident_;                  // +0x44 a running number (0x0067D800, counted by the constructor)
+    uint16_t port_no_;                // +0x48
     uint8_t pad4a_[2];
     char* outgoing_bytes_;      // +0x4C the packet being built (0x514 bytes): its start
     char* write_ptr_;           // +0x50 and end
@@ -123,31 +122,20 @@ struct Conn {
     int stream_counter_;                         // +0x878
     // +0x87C sequenced messages received ahead of their turn, by group: links with the group at +0x15, the
     // sequence number at +0x20, SeqQueuedMsg* at +0x28.
-    memory::PaddedListNode received_queues_[kChannelGroups];
-    memory::PaddedListNode received_streams_; // +0x1C7C lists::Foremost<BulkStreamNode>: streams being received
-    memory::PaddedListNode send_streams_;     // +0x1C90 lists::Foremost<BulkStreamNode>: streams being sent
-    PingProbe ping_probe_;                    // +0x1CA4
-    Gauges receive_metrics_;                  // +0x1CDC
-    Gauges send_metrics_;                     // +0x2CE8
-    bool send_now_;                           // +0x3CF4 force a send this frame
+    memory::ListNode received_queues_[kChannelGroups];
+    memory::ListNode received_streams_; // +0x1C7C lists::Foremost<BulkStreamNode>: streams being received
+    memory::ListNode send_streams_;     // +0x1C90 lists::Foremost<BulkStreamNode>: streams being sent
+    PingProbe ping_probe_;              // +0x1CA4
+    Gauges receive_metrics_;            // +0x1CDC
+    Gauges send_metrics_;               // +0x2CE8
+    bool send_now_;                     // +0x3CF4 force a send this frame
     uint8_t pad3cf5_[3];
-    memory::PaddedListNode app_node_; // +0x3CF8 in the App's connection list (data = the connection)
-    Conn* alias_conn_;                // +0x3D0C
-    int link_class_;                  // +0x3D10
-    uint32_t last_timestamp_in_;      // +0x3D14
-    uint32_t timestamp_out_;          // +0x3D18
-    int link_speed_;                  // +0x3D1C bytes per second
+    memory::ListNode app_node_;  // +0x3CF8 in the App's connection list (data = the connection)
+    Conn* alias_conn_;           // +0x3D0C
+    int link_class_;             // +0x3D10
+    uint32_t last_timestamp_in_; // +0x3D14
+    uint32_t timestamp_out_;     // +0x3D18
+    int link_speed_;             // +0x3D1C bytes per second
 };
-static_assert(offsetof(Conn, hdl_) == 0x3C && offsetof(Conn, port_no_) == 0x48 &&
-                  offsetof(Conn, outgoing_bytes_) == 0x4C && offsetof(Conn, cur_standing_) == 0x60 &&
-                  offsetof(Conn, last_transmit_at_) == 0x70 && offsetof(Conn, next_sequence_ids_) == 0x78 &&
-                  offsetof(Conn, sequence_numbers_) == 0x478 && offsetof(Conn, stream_counter_) == 0x878 &&
-                  offsetof(Conn, received_queues_) == 0x87C && offsetof(Conn, received_streams_) == 0x1C7C &&
-                  offsetof(Conn, send_streams_) == 0x1C90 && offsetof(Conn, ping_probe_) == 0x1CA4 &&
-                  offsetof(Conn, receive_metrics_) == 0x1CDC && offsetof(Conn, send_metrics_) == 0x2CE8 &&
-                  offsetof(Conn, send_now_) == 0x3CF4 && offsetof(Conn, app_node_) == 0x3CF8 &&
-                  offsetof(Conn, alias_conn_) == 0x3D0C && offsetof(Conn, link_class_) == 0x3D10 &&
-                  offsetof(Conn, link_speed_) == 0x3D1C && sizeof(Conn) == 0x3D20,
-              "layout must match the original");
 
 } // namespace net

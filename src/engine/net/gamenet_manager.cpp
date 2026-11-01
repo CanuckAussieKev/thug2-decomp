@@ -11,8 +11,6 @@
 
 namespace online {
 
-static_assert(offsetof(Hub, level_) == 0x34, "layout must match the original");
-
 namespace {
 
 constexpr uint32_t kLevelSelectMenuLevelInfo = 0x394F0C5A; // level_select_menu_level_info
@@ -86,8 +84,6 @@ const char* Hub::level_list_name(uint32_t level)
 } // namespace online
 
 namespace online {
-
-static_assert(offsetof(Hub, host_) == 0x04 && offsetof(Hub, client_app_) == 0x08, "layout must match the original");
 
 // 0x0044E4E0
 int Hub::is_network_game() { return (flag_bits_ & 0x0C) != 0 ? 1 : 0; }

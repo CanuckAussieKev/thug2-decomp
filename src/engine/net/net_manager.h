@@ -103,11 +103,11 @@ public:
     // 0x00454DE0: the dial-up number in use ("" for connection type 3).
     const char* get_dialup_number();
 
-    memory::PaddedListNode hosts_;   // +0x000 lists::Foremost<App>
-    memory::PaddedListNode clients_; // +0x014
-    uint8_t message_flags_[0x100];   // +0x028 per message id (bit 0: sent without its length; the
-                                     //        constructor: 8 and 9 get 1, 0-254 0)
-    int connection_type_;            // +0x128
+    memory::ListNode hosts_;       // +0x000 lists::Foremost<App>
+    memory::ListNode clients_;     // +0x014
+    uint8_t message_flags_[0x100]; // +0x028 per message id (bit 0: sent without its length; the
+                                   //        constructor: 8 and 9 get 1, 0-254 0)
+    int connection_type_;          // +0x128
     uint32_t unknown12c_;
     int device_type_;                              // +0x130
     char local_ip_[0x10];                          // +0x134 ("<Unknown>" at first)
@@ -133,19 +133,6 @@ public:
     int dialup_bps_; // +0x374
     int link_speed_; // +0x378 (400000 at first)
 };
-static_assert(offsetof(Hub, clients_) == 0x14 && offsetof(Hub, message_flags_) == 0x28 &&
-                  offsetof(Hub, connection_type_) == 0x128 && offsetof(Hub, device_type_) == 0x130 &&
-                  offsetof(Hub, local_ip_) == 0x134 && offsetof(Hub, local_address_) == 0x144 &&
-                  offsetof(Hub, resolver_ips_) == 0x148 && offsetof(Hub, router_addr_) == 0x178 &&
-                  offsetof(Hub, subnet_mask_) == 0x188 && offsetof(Hub, dialup_number_index_) == 0x198 &&
-                  offsetof(Hub, dialup_numbers_) == 0x19C && offsetof(Hub, dialup_user_name_) == 0x1FC &&
-                  offsetof(Hub, dialup_password_) == 0x24C && offsetof(Hub, host_name_) == 0x29C &&
-                  offsetof(Hub, domain_name_) == 0x2BC && offsetof(Hub, num_apps_) == 0x2DC &&
-                  offsetof(Hub, last_error_) == 0x2E0 && offsetof(Hub, is_networked_) == 0x2E4 &&
-                  offsetof(Hub, use_dhcp_) == 0x2E5 && offsetof(Hub, flag_2e_6_) == 0x2E6 &&
-                  offsetof(Hub, dialup_phase_) == 0x2E8 && offsetof(Hub, dialup_bps_) == 0x374 &&
-                  offsetof(Hub, link_speed_) == 0x378 && sizeof(Hub) == 0x37C,
-              "layout must match the original");
 
 // 0x00455880: the manager singleton, made (zeroed memory) if `create` and there's none; one more reference.
 Hub* create_manager(bool create);

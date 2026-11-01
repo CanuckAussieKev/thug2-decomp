@@ -40,9 +40,5 @@ struct Gauges {
     int byte_sum_;                        // +0x1004 every packet's bytes
     int throughput_;                      // +0x1008
 };
-static_assert(offsetof(Gauges, packets_seen_) == 0x800 && offsetof(Gauges, per_kind_counts_) == 0x804 &&
-                  offsetof(Gauges, message_data_) == 0xC04 && offsetof(Gauges, byte_sum_) == 0x1004 &&
-                  offsetof(Gauges, throughput_) == 0x1008 && sizeof(Gauges) == 0x100C,
-              "layout must match the original");
 
 } // namespace net

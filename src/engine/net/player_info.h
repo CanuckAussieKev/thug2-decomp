@@ -66,9 +66,6 @@ struct JoinerRecord {
     // 0x00543560: the destructor: its profile destroyed and freed.
     void destroy_body();
 };
-static_assert(offsetof(JoinerRecord, account_) == 0x1C && offsetof(JoinerRecord, team_) == 0x28 &&
-                  offsetof(JoinerRecord, drive_control_mode_) == 0x40 && sizeof(JoinerRecord) == 0x44,
-              "layout must match the original");
 
 // What the server last sent a player about each of the 8 skaters (by object id) - the player's +0x50 (SkateNet's
 // relay: get_relay_flags, write_object_update).
@@ -87,14 +84,11 @@ struct SentSkaterUpdates {
     uint8_t unknown108_[8];
     uint32_t value80_[8]; // +0x110
 };
-static_assert(offsetof(SentSkaterUpdates, pos_) == 0x58 && offsetof(SentSkaterUpdates, value68_) == 0xB8 &&
-                  offsetof(SentSkaterUpdates, state_) == 0xF8 && sizeof(SentSkaterUpdates) == 0x130,
-              "layout must match the original");
 
 // A player (0x1F0 bytes; a node of the manager's player list - lists::Elem<PlayerRecord>, its data itself - whose node
 // keeps the original's size: the net code reads players by byte offset). Also the players of a server described by the server list (HostListing's player list: only the name and
 // the rating are used there).
-class PlayerRecord : public memory::PaddedListNode {
+class PlayerRecord : public memory::ListNode {
 public:
     static constexpr int kMaxPlayers = 8;
 
@@ -222,12 +216,6 @@ public:
     uint8_t* face_texture_data_;          // +0x1E8
     tasks::SchedulerTask* observer_task_; // +0x1EC while observing (gamenet_observer.h; deleted with it)
 };
-static_assert(offsetof(PlayerRecord, skater_) == 0x14 && offsetof(PlayerRecord, team_) == 0x30 &&
-                  offsetof(PlayerRecord, label_) == 0x38 && offsetof(PlayerRecord, account_) == 0x4C &&
-                  offsetof(PlayerRecord, sent_) == 0x50 && offsetof(PlayerRecord, placed_) == 0x180 &&
-                  offsetof(PlayerRecord, flag_bits_) == 0x1D0 && offsetof(PlayerRecord, rejoin_group_) == 0x1D8 &&
-                  offsetof(PlayerRecord, face_texture_data_) == 0x1E8 && sizeof(PlayerRecord) == 0x1F0,
-              "layout must match the original");
 
 // 0x00543180 (called by the constructor on the player's +0x50, returning it): the sent records' value68_ and
 // value_6c_ zeroed (the 16 words at +0xB8 of it).

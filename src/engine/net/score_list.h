@@ -17,7 +17,7 @@ class Hub;
 
 // A line of the score list (0x48 bytes), a node of a local list sorted by its priority, the score (its node keeps the
 // original's size).
-struct ScoreEntry : memory::PaddedListNode {
+struct ScoreEntry : memory::ListNode {
     // 0x00544720: the scalar deleting destructor (out of its list; freed with flag 1).
     ScoreEntry* teardown(unsigned int flags);
 
@@ -31,9 +31,6 @@ struct ScoreEntry : memory::PaddedListNode {
     int team_score_;     // +0x40 (teams)
     uint32_t unknown44_;
 };
-static_assert(offsetof(ScoreEntry, text_) == 0x14 && offsetof(ScoreEntry, flag_bits_) == 0x38 &&
-                  offsetof(ScoreEntry, team_score_) == 0x40 && sizeof(ScoreEntry) == 0x48,
-              "layout must match the original");
 
 // 0x00544780 (the task's callback; the manager at the task's +0x1C - made by 0x0053EE90): at most once a second,
 // clear_scores, then one line per player (team games other than the lobby: per team with players, the team's

@@ -185,19 +185,19 @@ public:
     // player's asked for (room_keys_callback).
     static void __cdecl join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby);
 
-    memory::PaddedListNode rooms_;        // +0x00 lists::Foremost<LobbyRoom>
-    memory::PaddedListNode participants_; // +0x14 lists::Foremost<LobbyPlayer>
-    int group_id_;            // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
-    int unknown2c_;           // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
-    int unknown30_;           // +0x30 the chosen room's players
-    char room_name_[0x80];    // +0x34
-    char server_name_[0x80];  // +0xB4
-    bool in_group_room_;      // +0x134
-    bool restricted_hosting_; // +0x135 only a few GameSpy profiles may host (CanHostGame)
-    bool drop_is_expected_;   // +0x136
-    bool lost_connection_;    // +0x137
-    bool connecting_;         // +0x138
-    bool hosting_;            // +0x139
+    memory::ListNode rooms_;        // +0x00 lists::Foremost<LobbyRoom>
+    memory::ListNode participants_; // +0x14 lists::Foremost<LobbyPlayer>
+    int group_id_;                  // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
+    int unknown2c_;                 // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
+    int unknown30_;                 // +0x30 the chosen room's players
+    char room_name_[0x80];          // +0x34
+    char server_name_[0x80];        // +0xB4
+    bool in_group_room_;            // +0x134
+    bool restricted_hosting_;       // +0x135 only a few GameSpy profiles may host (CanHostGame)
+    bool drop_is_expected_;         // +0x136
+    bool lost_connection_;          // +0x137
+    bool connecting_;               // +0x138
+    bool hosting_;                  // +0x139
     uint8_t unknown13a_[2];
     int negotiations_;                   // +0x13C NAT negotiations going on (the server's)
     void* remote_;                       // +0x140
@@ -206,12 +206,6 @@ public:
     tasks::SchedulerTask* nat_task_;     // +0x14C nat_negotiation_task
     tasks::SchedulerTask* hosting_task_; // +0x150 query_task
 };
-static_assert(offsetof(RoomManager, group_id_) == 0x28 && offsetof(RoomManager, participants_) == 0x14 &&
-                  offsetof(RoomManager, room_name_) == 0x34 && offsetof(RoomManager, server_name_) == 0xB4 &&
-                  offsetof(RoomManager, in_group_room_) == 0x134 && offsetof(RoomManager, hosting_) == 0x139 &&
-                  offsetof(RoomManager, negotiations_) == 0x13C && offsetof(RoomManager, remote_) == 0x140 &&
-                  offsetof(RoomManager, hosting_task_) == 0x150,
-              "layout must match the original");
 
 // The lobby's rooms and players are their own list nodes (data = the item; the node keeps the original's size). Their
 // deleting destructors (0x00540F80 / 0x00541AC0, over the bodies 0x00540840 / 0x00540860): out of the list, freed -
@@ -223,7 +217,7 @@ struct LobbyRoom {
     // this. (rooms.cpp)
     LobbyRoom* make_new();
 
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     char label_[0x40];  // +0x14 (63 characters)
     int group_id_;      // +0x54
     int num_players_;   // +0x58 (the room list's "num_games")
@@ -235,21 +229,17 @@ struct LobbyRoom {
     bool neversoft_;    // +0x6A
     uint8_t pad6b_;
 };
-static_assert(sizeof(LobbyRoom) == 0x6C && offsetof(LobbyRoom, group_id_) == 0x54 &&
-              offsetof(LobbyRoom, full_) == 0x68);
 
 // A player in the lobby's room (the lobby's player list).
 // (0x60 bytes; made by rooms.cpp's callbacks)
 struct LobbyPlayer {
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     char nick_[0x40];  // +0x14
     int account_;      // +0x54 the GameSpy profile
     int skill_points_; // +0x58 (the room key b_rating)
     bool listed_;      // +0x5C seen in the room (shown in the player list)
     uint8_t pad5d_[3];
 };
-static_assert(offsetof(LobbyPlayer, account_) == 0x54 && offsetof(LobbyPlayer, skill_points_) == 0x58 &&
-              offsetof(LobbyPlayer, listed_) == 0x5C && sizeof(LobbyPlayer) == 0x60);
 
 // The lobby's script commands from 0x00541870 on (rooms.cpp).
 bool __cdecl cfunc_num_players_in_lobby(script::Struct* params, script::Script* script);              // 0x00541A70

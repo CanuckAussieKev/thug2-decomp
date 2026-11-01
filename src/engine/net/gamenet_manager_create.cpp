@@ -115,13 +115,13 @@ Hub* Hub::make_new()
     created_goals_level_ = 0;
     join_mode_ = 0;
     motd_received_ = false;
-    void* memory = carve(0x154);
+    void* memory = carve(sizeof(RoomManager));
     lobby_service_ = memory ? static_cast<RoomManager*>(memory)->make_new() : nullptr;
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
     vault_man_ = memory ? static_cast<VaultMan*>(memory)->make_new() : nullptr;
-    memory = carve(0x3C);
+    memory = carve(sizeof(FriendsManager));
     presence_service_ = memory ? static_cast<FriendsManager*>(memory)->make_new() : nullptr;
-    memory = carve(0x200);
+    memory = carve(sizeof(RankingsManager));
     rating_service_ = memory ? static_cast<RankingsManager*>(memory)->make_new() : nullptr;
     game_spy::cd_key_init(kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
@@ -141,7 +141,7 @@ Hub* __cdecl Hub::fabricate(bool create)
 {
     Hub*& instance = g_online_hub;
     if (!instance && create) {
-        void* memory = memory::alloc_zeroed(0xFE0C, nullptr, 1);
+        void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1);
         instance = memory ? static_cast<Hub*>(memory)->make_new() : nullptr;
     }
     ++g_game_net_references; // (the references)

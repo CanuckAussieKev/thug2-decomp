@@ -47,6 +47,5 @@ public:
 
     uint8_t host_sock_addr_[0x10]; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
 };
-static_assert(sizeof(Guest) == 0x1F18, "allocated as 0x1F18 bytes (0x00455460)");
 
 } // namespace net

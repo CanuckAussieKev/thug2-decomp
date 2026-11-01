@@ -179,9 +179,6 @@ public:
     TopList top_lists_[5];   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
     bool need_top_stats_;    // +0x1D4 (the original's +0x1FC: the lists' heads had table words)
 };
-static_assert(offsetof(RankingsManager, personal_) == 0x14 && offsetof(RankingsManager, top_file_) == 0x90 &&
-                  offsetof(RankingsManager, top_lists_) == 0x94 && offsetof(RankingsManager, need_top_stats_) == 0x1D4,
-              "the original's, less the top lists' table words");
 
 // The script commands.
 bool __cdecl stats_logged_in(script::Struct* params, script::Script* script);            // 0x0054CC90

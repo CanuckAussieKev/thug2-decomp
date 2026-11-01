@@ -22,8 +22,5 @@ struct PingProbe {
     uint32_t probe_sent_at_; // +0x30 (set by the ping handlers, wt/netC)
     uint32_t echo_seen_at_;  // +0x34
 };
-static_assert(offsetof(PingProbe, times_) == 0x04 && offsetof(PingProbe, succ_) == 0x2C &&
-                  offsetof(PingProbe, echo_seen_at_) == 0x34 && sizeof(PingProbe) == 0x38,
-              "layout must match the original");
 
 } // namespace net

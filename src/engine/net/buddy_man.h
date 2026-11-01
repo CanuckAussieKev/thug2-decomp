@@ -24,9 +24,9 @@ namespace online {
 // A buddy (0x24C bytes, memory::alloc_zeroed'd): an lists::Elem<Buddy> (its scalar deleting destructor 0x00548CF0)
 // carrying the GP buddy's details. (The buddy records' nodes keep the original's size.)
 struct Buddy {
-    memory::PaddedListNode list_link_; // +0x00 data = this
-    char nick_[32];                    // +0x14
-    int account_;                      // +0x34 the GameSpy profile id
+    memory::ListNode list_link_; // +0x00 data = this
+    char nick_[32];              // +0x14
+    int account_;                // +0x34 the GameSpy profile id
     int cur_standing_; // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
     bool pending_;     // +0x3C asked to be a buddy, no answer yet (not shown in the list)
     uint8_t pad3d_[3];
@@ -40,18 +40,15 @@ struct Buddy {
     // flag 1. Returns this.
     Buddy* teardown(unsigned int flags);
 };
-static_assert(sizeof(Buddy) == 0x24C && offsetof(Buddy, account_) == 0x34 && offsetof(Buddy, join_ip_) == 0x40 &&
-                  offsetof(Buddy, location_) == 0x4C && offsetof(Buddy, status_text_) == 0x14C,
-              "layout must match the original");
 
 // A buddy message waiting to be shown (0x68 bytes): an lists::Elem<FriendNote> (its scalar deleting destructor
 // 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
 struct FriendNote {
-    memory::PaddedListNode list_link_; // +0x00 data = this
-    int account_;                      // +0x14 the sender
-    char nick_[16];                    // +0x18
-    char text_[64];                    // +0x28
+    memory::ListNode list_link_; // +0x00 data = this
+    int account_;                // +0x14 the sender
+    char nick_[16];              // +0x18
+    char text_[64];              // +0x28
 
     // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text. Returns this.
     FriendNote* make_new();
@@ -59,8 +56,6 @@ struct FriendNote {
     // flag 1. Returns this.
     FriendNote* teardown(unsigned int flags);
 };
-static_assert(sizeof(FriendNote) == 0x68 && offsetof(FriendNote, nick_) == 0x18 && offsetof(FriendNote, text_) == 0x28,
-              "layout must match the original");
 
 class FriendsManager {
 public:
@@ -143,12 +138,9 @@ public:
     tasks::SchedulerTask* task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
     bool authenticated_;         // +0x10
     uint8_t pad11_[3];
-    memory::PaddedListNode friends_;  // +0x14 lists::Foremost<Buddy>
-    memory::PaddedListNode messages_; // +0x28 lists::Foremost<FriendNote>
+    memory::ListNode friends_;  // +0x14 lists::Foremost<Buddy>
+    memory::ListNode messages_; // +0x28 lists::Foremost<FriendNote>
 };
-static_assert(offsetof(FriendsManager, authenticated_) == 0x10 && offsetof(FriendsManager, friends_) == 0x14 &&
-                  offsetof(FriendsManager, messages_) == 0x28 && sizeof(FriendsManager) == 0x3C,
-              "layout must match the original");
 
 // The script commands (CFunctions: the parameters, the script).
 bool __cdecl set_unique_id(script::Struct* params, script::Script* script);               // 0x00548940

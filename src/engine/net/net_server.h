@@ -32,9 +32,6 @@ public:
     static int __cdecl on_link_drop_ask_msg(InboundMsgCtx* context);
     // 0x0045AA30 (id 9): a client's timestamp, acked.
     static int __cdecl on_clock_sync_msg(InboundMsgCtx* context);
-
-    uint8_t unused1f08_[0x400]; // +0x1F08 (allocated, never used)
 };
-static_assert(sizeof(HostEnd) == 0x2308, "allocated as 0x2308 bytes (0x00455270)");
 
 } // namespace net

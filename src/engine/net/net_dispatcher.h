@@ -56,7 +56,7 @@ using HandlerSlotValue = int(__cdecl*)(InboundMsgCtx* context);
 // A message handler (0x20 bytes, from the network heap): an lists::Elem<NoteHandler> (data: itself, priority: the
 // order in its list) with the code, its data and the packet flags it takes.
 struct NoteHandler {
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     HandlerSlotValue code_;
     void* content_;
     uint32_t mode_bits_;
@@ -64,7 +64,6 @@ struct NoteHandler {
     // 0x0045A590 (scalar deleting destructor: the node unlinks itself)
     NoteHandler* teardown(unsigned int flags);
 };
-static_assert(sizeof(NoteHandler) == 0x20);
 
 // (lists::Hunt<NoteHandler>'s vtable, 0x006475E4, holds only a destructor that resets it: 0x0045A500 / 0x0045A510.)
 
@@ -87,6 +86,5 @@ public:
     // handler stopped the packet), or 3 (the connection was destroyed).
     int invoke_handlers_for_msg(Conn* conn, uint32_t flags);
 };
-static_assert(sizeof(Router) == 0x13EC);
 
 } // namespace net

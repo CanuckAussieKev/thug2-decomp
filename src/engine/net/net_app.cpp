@@ -97,35 +97,28 @@ PendingMsg* construct_queued_msg(void* memory, uint8_t id, uint16_t length, void
 // ~PendingMsg / ~SeqQueuedMsg: frees the data.
 void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)->destroy_body(); }
 
-// The links: lists::Nodes (+8 the priority) pointing at a PendingMsg.
-// TimedMsgNode (0x1C bytes): +0x18 the time it may be sent.
-ListNode* construct_msg_link(void* memory, PendingMsg* message)
+// The links (net_messages.h): list nodes (+8 the priority) pointing at a queued message - the normal queue's (with
+// the time it may be sent), the important queue's (also when it was last sent, 0 = never) and the sequenced queue's
+// (also the group, whether it's a stream piece and the sequence id).
+MsgNormalLink* construct_msg_link(void* memory, PendingMsg* message)
 {
-    return &static_cast<MsgNormalLink*>(memory)->make_new(message)->list_link_;
+    return static_cast<MsgNormalLink*>(memory)->make_new(message);
 }
-// MsgImportantLink (0x28): +0x14 when it was last sent (0 = never), +0x24 the time it may go.
-ListNode* construct_msg_important_link(void* memory, PendingMsg* message)
+ReliableMsgNode* construct_msg_important_link(void* memory, PendingMsg* message)
 {
-    return &static_cast<ReliableMsgNode*>(memory)->make_new(message)->list_link_;
+    return static_cast<ReliableMsgNode*>(memory)->make_new(message);
 }
-// OrderedMsgNode (0x2C): +0x15 the group, +0x16 a stream piece, +0x1C when last sent,
-// +0x20 the sequence id, +0x24 the time it may go.
-ListNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
+OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
 {
-    return &static_cast<OrderedMsgNode*>(memory)->make_new(message)->list_link_;
-}
-template <typename T>
-T& link_field(ListNode* link, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(link) + offset);
+    return static_cast<OrderedMsgNode*>(memory)->make_new(message);
 }
 
-// BulkStreamNode (0x18 bytes): a lists::Elem (data = itself) with +0x14 its StreamDesc.
-ListNode* construct_stream_link(void* memory, StreamDesc* stream)
+// BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
+BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream)
 {
-    return &static_cast<BulkStreamNode*>(memory)->make_new(stream)->list_link_;
+    return static_cast<BulkStreamNode*>(memory)->make_new(stream);
 }
-StreamDesc* stream_of(ListNode* link) { return link_field<StreamDesc*>(link, 0x14); }
+StreamDesc* stream_of(ListNode* link) { return reinterpret_cast<BulkStreamNode*>(link)->msg_meta_; }
 StreamDesc* construct_stream_desc(void* memory) { return static_cast<StreamDesc*>(memory)->make_new(); }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
 void destroy_stream_desc_body(StreamDesc* stream) { stream->destroy_body(); }
@@ -268,11 +261,11 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             if (desc->singular_)
                 free_messages(conn, desc->queue_, desc->ident_);
             ++message->share_count_;
-            void* link_memory = memory::alloc_zeroed(0x1C);
-            ListNode* link = link_memory ? construct_msg_link(link_memory, message) : nullptr;
-            link->priority = desc->rank_;
-            link_field<uint32_t>(link, 0x18) = desc->delay_ + clock_;
-            add_link(normal_queue(conn), link);
+            void* link_memory = memory::alloc_zeroed(sizeof(MsgNormalLink));
+            MsgNormalLink* link = link_memory ? construct_msg_link(link_memory, message) : nullptr;
+            link->list_link_.priority = desc->rank_;
+            link->due_time_ = desc->delay_ + clock_;
+            add_link(normal_queue(conn), &link->list_link_);
         });
         if (message->share_count_ == 0) {
             destroy_queued_msg_body(message);
@@ -289,12 +282,12 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             if (desc->singular_)
                 free_messages(conn, desc->queue_, desc->ident_);
             ++message->share_count_;
-            void* link_memory = memory::alloc_zeroed(0x28);
-            ListNode* link = link_memory ? construct_msg_important_link(link_memory, message) : nullptr;
-            link->priority = desc->rank_;
-            link_field<uint32_t>(link, 0x24) = desc->delay_ + clock_;
-            link_field<uint32_t>(link, 0x14) = 0;
-            add_link(important_queue(conn), link);
+            void* link_memory = memory::alloc_zeroed(sizeof(ReliableMsgNode));
+            ReliableMsgNode* link = link_memory ? construct_msg_important_link(link_memory, message) : nullptr;
+            link->list_link_.priority = desc->rank_;
+            link->due_time_ = desc->delay_ + clock_;
+            link->stamp_ms_ = 0;
+            add_link(important_queue(conn), &link->list_link_);
         });
         if (message->share_count_ == 0) {
             destroy_queued_msg_body(message);
@@ -307,19 +300,19 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             new_queued_msg(desc->ident_, desc->byte_count_, desc->content_, desc->group_id_, desc->compression_);
         for_each_target(not_disconnecting, [&](Conn* conn) {
             ++message->share_count_;
-            void* link_memory = memory::alloc_zeroed(0x2C);
-            ListNode* link = link_memory ? construct_msg_seq_link(link_memory, message) : nullptr;
+            void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
+            OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, message) : nullptr;
             // The original's broadcast gives the links the queue number (2) as their priority instead.
-            link->priority = handle == kHandleBroadcast ? desc->queue_ : desc->rank_;
-            link_field<uint32_t>(link, 0x1C) = 0;
-            link_field<uint32_t>(link, 0x24) = desc->delay_ + clock_;
-            link_field<uint8_t>(link, 0x15) = desc->group_id_;
+            link->list_link_.priority = handle == kHandleBroadcast ? desc->queue_ : desc->rank_;
+            link->stamp_ms_ = 0;
+            link->due_time_ = desc->delay_ + clock_;
+            link->bundle_id_ = desc->group_id_;
             if (desc->fixed_seq_no_)
-                link_field<uint32_t>(link, 0x20) = desc->fixed_seq_no_;
+                link->order_index_ = desc->fixed_seq_no_;
             else
-                link_field<uint32_t>(link, 0x20) = next_sequence_id(conn, desc->group_id_)++;
-            link_field<uint8_t>(link, 0x16) = desc->feed_;
-            add_link(sequenced_queue(conn), link);
+                link->order_index_ = next_sequence_id(conn, desc->group_id_)++;
+            link->bulk_msg_ = desc->feed_;
+            add_link(sequenced_queue(conn), &link->list_link_);
         });
         if (message->share_count_ == 0) {
             destroy_queued_msg_body(message);
@@ -392,8 +385,8 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
             uint8_t* next = copy + first;
             void* memory = memory::alloc(sizeof(StreamDesc));
             StreamDesc* stream = memory ? construct_stream_desc(memory) : nullptr;
-            void* link_memory = memory::alloc_zeroed(0x18);
-            ListNode* link = link_memory ? construct_stream_link(link_memory, stream) : nullptr;
+            void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
+            BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, stream) : nullptr;
             stream->extent_ = size;
             stream->stream_id_ = alloc_stream_key(conn);
             stream->msg_id_ = msg_id;
@@ -403,7 +396,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
             stream->succ_ = next;
             stream->order_number_ = next_sequence_id(conn, group_id);
             stream->borrowed_payload_ = borrow_caller_buffer;
-            append_last(get_streams(conn), link);
+            append_last(get_streams(conn), &link->list_link_);
             next_sequence_id(conn, group_id) += later_pieces;
             pop_heap();
         }

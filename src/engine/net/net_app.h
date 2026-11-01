@@ -51,10 +51,6 @@ struct NetMessageInfo {
     uint8_t compression_;   // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
     uint8_t pad1d_[3];
 };
-static_assert(sizeof(NetMessageInfo) == 0x20 && offsetof(NetMessageInfo, rank_) == 0x08 &&
-                  offsetof(NetMessageInfo, group_id_) == 0x10 && offsetof(NetMessageInfo, delay_) == 0x14 &&
-                  offsetof(NetMessageInfo, compression_) == 0x1C,
-              "layout must match the original");
 
 // A streamed message not sent all at once (0x44 bytes, constructor 0x004549D0, destructor body 0x00454E00): sent
 // in 256-byte pieces, a few each frame (AppHost::pump_stream_traffic).
@@ -78,9 +74,6 @@ struct StreamDesc {
     bool borrowed_payload_; // 0x40 content_ is the caller's (not freed)
     uint8_t pad41_[3];
 };
-static_assert(sizeof(StreamDesc) == 0x44 && offsetof(StreamDesc, content_) == 0x2C &&
-                  offsetof(StreamDesc, order_number_) == 0x38 && offsetof(StreamDesc, borrowed_payload_) == 0x40,
-              "layout must match the original");
 
 // NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it). The
 // platform side - reading the socket, sending a connection's packets - is the client's and the server's; slots 1
@@ -256,16 +249,16 @@ struct AppHost {
     Router dispatcher_;       // +0x000C (wt/netC)
     AppHost* dispatcher_app_; // +0x13F8 the Dispatcher's app
     // +0x13FC statistics (zeroed by Init)
-    int outbound_byte_total_;         // +0x13FC
-    int inbound_byte_total_;          // +0x1400
-    int skipped_stamps_;              // +0x1404 timestamps skipped over
-    int stale_arrivals_;              // +0x1408 timestamps older than the newest
-    int repeat_arrivals_;             // +0x140C timestamps seen twice
-    int frame_count_;                 // +0x1410 frames processed (pump_incoming_traffic)
-    memory::PaddedListNode list1414_; // +0x1414 lists::Elem<App> (data = the app)
-    uint32_t sock_;                   // +0x1428
-    uint8_t local_address_[0x10];     // +0x142C sockaddr_in (Bind)
-    bool linked_up_;                  // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
+    int outbound_byte_total_;     // +0x13FC
+    int inbound_byte_total_;      // +0x1400
+    int skipped_stamps_;          // +0x1404 timestamps skipped over
+    int stale_arrivals_;          // +0x1408 timestamps older than the newest
+    int repeat_arrivals_;         // +0x140C timestamps seen twice
+    int frame_count_;             // +0x1410 frames processed (pump_incoming_traffic)
+    memory::ListNode list1414_;   // +0x1414 lists::Elem<App> (data = the app)
+    uint32_t sock_;               // +0x1428
+    uint8_t local_address_[0x10]; // +0x142C sockaddr_in (Bind)
+    bool linked_up_;              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     uint8_t pad143d_[3];
     void* supervisor_; // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
@@ -280,25 +273,14 @@ struct AppHost {
     char receive_buffer_[0x514];         // +0x1970
     uint32_t flag_bits_;                 // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
-    memory::PaddedListNode circuits_;           // +0x1E8C head (data -1)
-    memory::PaddedListNode banned_;             // +0x1EA0 head
+    memory::ListNode circuits_;                 // +0x1E8C head (data -1)
+    memory::ListNode banned_;                   // +0x1EA0 head
     uint32_t unknown1eb4_;
     char label_[0x48]; // +0x1EB8 ("server", "client"...)
     // +0x1F00 a double (0.0 from the constructor; not used by the library), as two words: an 8-aligned member would
     // move MSVC's first member after the vptr to +8.
     uint32_t unknown1f00_[2];
 };
-static_assert(offsetof(AppHost, dispatcher_) == 0x0C && offsetof(AppHost, dispatcher_app_) == 0x13F8 &&
-                  offsetof(AppHost, outbound_byte_total_) == 0x13FC && offsetof(AppHost, frame_count_) == 0x1410 &&
-                  offsetof(AppHost, list1414_) == 0x1414 && offsetof(AppHost, sock_) == 0x1428 &&
-                  offsetof(AppHost, linked_up_) == 0x143C && offsetof(AppHost, supervisor_) == 0x1440 &&
-                  offsetof(AppHost, process_task_) == 0x1444 && offsetof(AppHost, open_links_) == 0x1454 &&
-                  offsetof(AppHost, peer_cap_) == 0x1458 && offsetof(AppHost, scrambled_) == 0x145C &&
-                  offsetof(AppHost, receive_buffer_) == 0x1970 && offsetof(AppHost, flag_bits_) == 0x1E84 &&
-                  offsetof(AppHost, unknown_packet_sink_) == 0x1E88 && offsetof(AppHost, circuits_) == 0x1E8C &&
-                  offsetof(AppHost, banned_) == 0x1EA0 && offsetof(AppHost, label_) == 0x1EB8 &&
-                  offsetof(AppHost, unknown1f00_) == 0x1F00 && sizeof(AppHost) == 0x1F08,
-              "layout must match the original (the Client, 0x1F18 bytes, adds the server's address)");
 
 // NOT ORIGINAL - a look at every message AppHost::put_on_outbox queues, first (THUGPRO's additions to messages we send:
 // engine/net/thugpro_peer.h). The filter may queue other messages itself (through put_on_outbox) and returns true

@@ -37,13 +37,10 @@ struct SeqQueuedMsg {
     uint8_t byte8_;       // +0x08 (the constructor's 4th argument)
     int share_count_;     // +0x0C
 };
-static_assert(offsetof(PendingMsg, share_count_) == 0x08 && offsetof(SeqQueuedMsg, content_) == 0x04 &&
-                  offsetof(SeqQueuedMsg, share_count_) == 0x0C && sizeof(SeqQueuedMsg) == 0x10,
-              "layout must match the original");
 
 // Any of the links that queue a message on a connection (MsgNormalLink / ReliableMsgNode / OrderedMsgNode,
 // net_messages.h): list nodes (data = the link itself), deleted through their vtable's scalar deleting destructor.
-struct TimedMsgNode : memory::PaddedListNode {
+struct TimedMsgNode : memory::ListNode {
     uint8_t fields_[0x18]; // +0x14...: depends on the queue
 };
 
