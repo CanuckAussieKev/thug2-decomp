@@ -26,6 +26,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/park_editing/park_editor.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -149,7 +150,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
     };
     const auto* node = static_cast<const RailNode*>(rail);
     objects::RiderPoseState* flags = state_;
-    const auto* last = reinterpret_cast<const RailNode*>(rail_node_);
+    const auto* last = raw::as<const RailNode>(rail_node_);
     auto same_rail = [&] { return last == node || last == node->previous || last == node->next; };
     // In the air after a grind: not the same rail (or its neighbours) again.
     if (flags->cur_phase_ == 1 && flags->flag(PoseFlag::kFromAcidDrop).on && flags->flag(PoseFlag::kJumpedOffRail).on &&
@@ -171,11 +172,11 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
                 const maths::Vec4 b = rail_node_position(rail_manager_, to);
                 return b - a;
             };
-            const maths::Vec4 d1 = between(node, reinterpret_cast<const RailNode*>(rail_node_));
-            const maths::Vec4 d2 = between(node->previous, reinterpret_cast<const RailNode*>(rail_node_));
-            const RailNode* last_previous = reinterpret_cast<const RailNode*>(rail_node_)->previous;
+            const maths::Vec4 d1 = between(node, raw::as<const RailNode>(rail_node_));
+            const maths::Vec4 d2 = between(node->previous, raw::as<const RailNode>(rail_node_));
+            const RailNode* last_previous = raw::as<const RailNode>(rail_node_)->previous;
             const maths::Vec4 d3 = between(node, last_previous);
-            last_previous = reinterpret_cast<const RailNode*>(rail_node_)->previous;
+            last_previous = raw::as<const RailNode>(rail_node_)->previous;
             const maths::Vec4 d4 = between(node->previous, last_previous);
             new_rail = std::fabs(length_unrounded(d1)) > kRailEndDistance &&
                        std::fabs(length_unrounded(d2)) > kRailEndDistance &&
@@ -540,7 +541,7 @@ bool SkaterPhysicsModule::apply_model_rotations()
         // The velocity turned with the model about the up axis.
         maths::Vec4& velocity = entity_->vel_;
         alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
-        auto* quat = reinterpret_cast<maths::QuatRotation*>(rotation);
+        auto* quat = raw::as<maths::QuatRotation>(rotation);
         quat->init_from_axis_angle(axis, angle);
         velocity = *quat->spin_by(&axis, velocity);
     }

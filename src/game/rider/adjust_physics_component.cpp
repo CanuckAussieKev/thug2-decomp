@@ -22,6 +22,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -40,7 +42,7 @@ constexpr float kBrightnessAbove = 12.0f; // 0x0064546C
 template <typename T>
 T& get_at(const void* base, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(base) + offset);
+    return *raw::as<T>(cell::address(base) + offset);
 }
 
 void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModule*>(core)->set_physics_state(state); }
@@ -63,10 +65,10 @@ RiderPhysicsTweaks::~RiderPhysicsTweaks() = default;
 void RiderPhysicsTweaks::seal()
 {
     core_ptr_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    mesh_instance_ = reinterpret_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
-    shadow_handle_ = reinterpret_cast<GroundShadowModule*>(entity_->fetch_module(kShadow));
-    ride_ = reinterpret_cast<MovingSurfaceModule*>(entity_->fetch_module(kMovableContact));
-    state_ref_ = reinterpret_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    mesh_instance_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
+    shadow_handle_ = raw::as<GroundShadowModule>(entity_->fetch_module(kShadow));
+    ride_ = static_cast<MovingSurfaceModule*>(entity_->fetch_module(kMovableContact));
+    state_ref_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
 }
 
 // 0x004F8C40
@@ -100,7 +102,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     const maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
-        reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(feeler.get_hit_object());
+        raw::as<walk::MovableContact>(ride_)->start_riding(feeler.get_hit_object());
     if (core_ptr_->state_->cur_phase_ == 4) {
         change_phase(core_ptr_, 1);
         entity_->post_own_event(kUnderTheFloor, nullptr);

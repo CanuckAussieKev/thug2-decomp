@@ -21,6 +21,7 @@
 #include "platform/crt.h"
 #include "engine/objects/input_component.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -561,7 +562,7 @@ void FootMovement::apply_transition()
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
     script::ObjectCallback callback = anim_done_.code_;
     if (callback)
-        callback(reinterpret_cast<uint8_t*>(this) + anim_done_.this_adjust_);
+        callback(raw::bytes(this) + anim_done_.this_adjust_);
 }
 
 // 0x00529CE0

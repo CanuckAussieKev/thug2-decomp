@@ -90,6 +90,8 @@
 #include "engine/render/coll_obj.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/gfx/model.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -146,7 +148,7 @@ bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_scree
 template <typename T>
 T& get_at(void* base, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(base) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(base) + offset);
 }
 
 } // namespace
@@ -216,7 +218,7 @@ void Rider::load_cat_info(script::Struct* params)
     script::Array* tricks = nullptr;
     params->fetch_list(kTricks, &tricks, 0);
     for (int i = 0; i < 11; ++i) {
-        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
+        auto* trick = tricks->struct_at(i);
         goals::CreateATrick* info = trick_slots_[i].get();
         script::Struct* other = nullptr;
         trick->read_sub_struct(kOther, &other, 1);
@@ -339,7 +341,7 @@ float Rider::fetch_tally(int index)
     // Online: the server's rules for this player.
     if (net_link()->in_net_game()) {
         auto* player =
-            reinterpret_cast<online::PlayerRecord*>(net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_)));
+            (net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_)));
         if (!player)
             // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
             stat = 10.0f;
@@ -351,7 +353,7 @@ float Rider::fetch_tally(int index)
             stat = 10.0f;
     } else if (rule_5a_1180()) {
         auto* player =
-            reinterpret_cast<online::PlayerRecord*>(net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_)));
+            (net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_)));
         if (player && player->holds_crown())
             stat = 1.0f;
     }
@@ -450,7 +452,7 @@ Entity* Rider::get_skater_camera()
 // 0x005808A0
 void Rider::set_pause_state(int state)
 {
-    void* front_end = reinterpret_cast<void*>(modules::g_front_end_instance);
+    void* front_end = raw::as<void>(modules::g_front_end_instance);
     if (pause_state_ == state || !fetch_module(kSkaterPhysicsControl))
         return;
     pause_state_ = state;
@@ -508,7 +510,7 @@ void Rider::update_shadow_light(int, int)
         void* lights = static_cast<MeshInstanceModule*>(fetch_module(kModelModuleName))->mesh_instance_->lights_ptr_;
         if (lights) {
             const auto* v =
-                reinterpret_cast<const float*>(static_cast<render::ModelLights*>(lights)->read_light_aim(0));
+                raw::as<const float>(static_cast<render::ModelLights*>(lights)->read_light_aim(0));
             const double x = v[0] * -1.0;
             const double y = v[1] * -1.0;
             const double z = v[2] * -1.0;
@@ -541,7 +543,7 @@ void Rider::update_shadow_light(int, int)
     else
         shadow_fade_ = shadow_fade_ < 16 ? shadow_fade_ + 1 : 16;
     maths::Vec4 direction;
-    walk::get_lerp(&direction, reinterpret_cast<const maths::Vec4*>(light), reinterpret_cast<const maths::Vec4*>(down),
+    walk::get_lerp(&direction, raw::as<const maths::Vec4>(light), raw::as<const maths::Vec4>(down),
                    static_cast<float>(shadow_fade_) * 0.0625f);
     static_cast<GroundShadowModule*>(shadow_)->set_light_direction(&direction);
 }
@@ -566,7 +568,7 @@ void balance_displays_off(void* score)
 
 // An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
 
-void* get_elements() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
+void* get_elements() { return raw::as<void>(render::g_game_texture_dict); }
 
 } // namespace
 
@@ -612,7 +614,7 @@ void Rider::update_from_profile(RiderIdentity* profile)
 // 0x00580FF0
 void Rider::reset_input()
 {
-    reinterpret_cast<RiderPointKeeper*>(score_holder_)->reset_score();
+    score_holder_->reset_score();
     static_cast<RiderTeeterMoves*>(fetch_module(0x589E5FB3))->clear_best_times();
     set_up_network();
     for (int i = 0; i < 24; ++i) {
@@ -728,7 +730,7 @@ void Rider::show_board_element(uint32_t type)
     params->fetch_text(0x49B318FD, &model, 1);
     // (the third is a checksum where swap_texture takes a texture name: passed on as it is)
     static_cast<MeshInstanceModule*>(fetch_module(kModelModuleName))
-        ->swap_texture(model_swap, model, reinterpret_cast<const char*>(static_cast<uintptr_t>(model_swap2)));
+        ->swap_texture(model_swap, model, cell::pointer<const char>(static_cast<uintptr_t>(model_swap2)));
     if (second)
         static_cast<render::TextureSet*>(get_elements())->unload_texture(overlay);
     static_cast<render::TextureSet*>(get_elements())->unload_texture(element);
@@ -1081,7 +1083,7 @@ void Rider::write_cat_info(script::Struct* save)
         trick->put_sub_struct(kOther, info->other_params_);
         trick->append_array_value(kAnimations, info->animations_);
         trick->append_array_value(kRotations, info->spin_list_);
-        tricks->set_element(i, reinterpret_cast<uint32_t>(trick));
+        tricks->set_element(i, cell::of(trick));
     }
     save->append_array_ref(kTricks, tricks);
 }
@@ -1311,7 +1313,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
 void Rider::reset_components()
 {
     if (is_local_skater_) {
-        reinterpret_cast<RiderGapTracker*>(gap_tracker_)->clear_gaps();
+        gap_tracker_->clear_gaps();
         static_cast<RiderTeeterMoves*>(fetch_module(0x589E5FB3))->clear_params();
     }
     static_cast<PickupItemHandler*>(fetch_module(0xF27A294D))->destroy_items();
@@ -1342,7 +1344,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
     }
     if (own_script_)
         own_script_->run_on_exit_scripts();
-    reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics_)->get_reset();
+    core_physics_->get_reset();
     auto* camera =
         static_cast<GameEntity*>(object_hub_slot()->look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
     static_cast<RiderChaseView*>(camera->fetch_module(0x5E43A604))->restore_default_state();
@@ -1388,7 +1390,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case 0x1B572ABF: { // KillSkater
         // (the original keeps the flag in the low byte of its params slot: the restart is told that word)
         const uint32_t walking =
-            (reinterpret_cast<uint32_t>(params) & 0xFFFFFF00u) | (params->has_entry_named(0xD6F06BF6) ? 1u : 0u);
+            (cell::of(params) & 0xFFFFFF00u) | (params->has_entry_named(0xD6F06BF6) ? 1u : 0u);
         uint32_t prefix = 0;
         const char* text = nullptr;
         if (!params->read_hash_value(0x6C4E7971, &prefix, 0) && params->fetch_text(0x6C4E7971, &text, 0)) // prefix
@@ -1433,7 +1435,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         if (!is_local_skater_)
             return false;
         if (stroke_kind_ == 0x0CDBA4F9) // mongo_when_switch
-            return (reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics_)->is_sides_swapped() & 0xFF) != 0;
+            return (core_physics_->is_sides_swapped() & 0xFF) != 0;
         return stroke_kind_ == 0x16C6DF0B; // always_mongo
     case 0x3F06191C:                       // LaunchDirtyProjectile
         debug::printf("LaunchDirtyProjectile\n");

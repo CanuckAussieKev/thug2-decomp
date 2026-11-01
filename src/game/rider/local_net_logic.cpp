@@ -31,6 +31,8 @@
 #include "engine/objects/rail_manager.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -58,7 +60,7 @@ uint8_t run_count() { return net_session_slot()->get_game_id(); }
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the

@@ -26,6 +26,9 @@
 #include "platform/screenshot_files.h"
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
+#include "platform/code_address.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace skater::thaw_bmx {
 
@@ -36,7 +39,7 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 // The core physics component's fields read here (THUG2's).
@@ -369,8 +372,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
 void register_script_functions()
 {
     static const script::NativeCommand kFunctions[] = {
-        {"ThawBmx_Available", reinterpret_cast<void*>(&cfunc_available)},
-        {"ThawBmx_LoadTexture", reinterpret_cast<void*>(&cfunc_load_texture)},
+        {"ThawBmx_Available", code_address(&cfunc_available)},
+        {"ThawBmx_LoadTexture", code_address(&cfunc_load_texture)},
     };
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
     if (!is_switched_on())

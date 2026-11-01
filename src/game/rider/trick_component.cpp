@@ -23,6 +23,8 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/flip_and_rotate.h"
 #include "game/rider/stats_manager.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -44,7 +46,7 @@ constexpr uint32_t kSecond = 1000; // the sequences' window (ms)
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 // The events from the newest back, `count` of them (the count read again each step, as the original does).
@@ -99,7 +101,7 @@ bool is_direction(uint32_t button)
 // 0x0051EA90
 void MoveExecutor::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_trick_component_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_trick_component_member_functions, 0x18);
 }
 
 // 0x0051F2B0
@@ -1096,10 +1098,10 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
     const int count = static_cast<int>(tricks->extent_);
     const uint32_t mask = ~used & 0xFFFFFFFB;
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(static_cast<uint32_t>(i)));
+        auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
         if (!is_trick_entry(trick))
             continue;
-        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(0x68B74085u, &alternate, 0);
         if (check_trigger(trigger, 1, mask, false) || check_trigger(alternate, 1, mask, false))
@@ -1124,10 +1126,10 @@ void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
         return;
     const int count = static_cast<int>(tricks->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(static_cast<uint32_t>(i)));
+        auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
         if (!is_trick_entry(trick))
             continue;
-        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(0x68B74085u, &alternate, 0);
         if (!check_trigger(trigger, 4, mask, false) && !check_trigger(alternate, 4, mask, false))

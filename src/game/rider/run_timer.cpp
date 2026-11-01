@@ -16,6 +16,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/walk_physics.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -69,7 +71,7 @@ RiderRunClock::RiderRunClock() { kind_tag_ = kSkaterRunTimer; }
 // 0x00518240
 void RiderRunClock::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kSkaterRunTimer), g_run_timer_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kSkaterRunTimer), g_run_timer_member_functions,
                                            0x18);
 }
 
@@ -77,7 +79,7 @@ void RiderRunClock::publish_method_table()
 RiderRunClock::~RiderRunClock() = default;
 
 // 0x005182E0
-void RiderRunClock::seal() { walk_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kWalk)); }
+void RiderRunClock::seal() { walk_ = raw::bytes(entity_->fetch_module(kWalk)); }
 
 // 0x00518270
 void RiderRunClock::fetch_diagnostics(script::Struct* params)
@@ -91,7 +93,7 @@ void RiderRunClock::fetch_diagnostics(script::Struct* params)
 void RiderRunClock::tick_frame()
 {
     if (cur_phase_ == kClockTicking) {
-        const int walk_state = reinterpret_cast<const objects::FootMovement*>(walk_)->state_;
+        const int walk_state = raw::as<const objects::FootMovement>(walk_)->state_;
         double elapsed = 0.0;
         if (walk_state >= 2 && walk_state <= 4) {
             const float adjustment = script::fetch_float(kHangSpeedAdjustment);

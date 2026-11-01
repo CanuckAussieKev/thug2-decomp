@@ -31,6 +31,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/bits_as.h"
 
 namespace skater {
 
@@ -240,7 +241,7 @@ double SkaterPhysicsModule::get_gravity()
     if (career->is_code_on(kMoonCheat)) {
         career->set_global_flag(script::fetch_int_value(kMoonCheat));
         result = static_cast<float>(static_cast<double>(tuning_float_lookup(kMoonGravity, object)) * result);
-        reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
+        memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
     }
     const float scale = script::fetch_float(kFallScale);
     if (scale != 0.0f && !(entity_->vel_.y > 0.0f) && entity_->vel_.y == entity_->vel_.y)
@@ -375,7 +376,7 @@ bool SkaterPhysicsModule::jump_released()
         return false;
     jump_charge_ms_ = static_cast<int>(get_since(static_cast<uint32_t>(flags->flag(PoseFlag::kCrouched).changed_at)));
     set_timed_flag(this, PoseFlag::kCrouched, 0);
-    reinterpret_cast<objects::ControlButton*>(button)->forget_let_go();
+    button->forget_let_go();
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kJumpReleaseEvent, nullptr);
     return true;
 }
@@ -397,7 +398,7 @@ void SkaterPhysicsModule::check_flip_spin()
     script::Struct* spin = nullptr;
     bool found = false;
     for (int i = 0; i < count; ++i) {
-        spin = reinterpret_cast<script::Struct*>(spins->fetch_part(static_cast<uint32_t>(i)));
+        spin = spins->struct_at(static_cast<uint32_t>(i));
         uint32_t sequence[3]; // (an entry without the two buttons leaves them unset, as the original does)
         spin->read_hash_value(kSpinButton1, &sequence[0], 0);
         spin->read_hash_value(kSpinButton2, &sequence[1], 0);

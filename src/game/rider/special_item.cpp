@@ -21,6 +21,8 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -49,7 +51,7 @@ constexpr uint32_t kObjectId = 0x40C698AF;
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 script::Struct* new_params()
@@ -176,7 +178,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         // function's name and the params pointer.)
         int slot = static_cast<int>(name);
         uint32_t bone = 0;
-        auto item_params = reinterpret_cast<uint32_t>(params);
+        auto item_params = cell::of(params);
         params->fetch_int_value(kIndex, &slot, 1);
         params->read_hash_value(kBone, &bone, 0);
         params->read_hash_value(kParams, &item_params, 1);
@@ -195,7 +197,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         return 1;
     }
     case kDestroySpecialItem: {
-        int slot = static_cast<int>(reinterpret_cast<uint32_t>(params)); // (as above)
+        int slot = static_cast<int>(cell::of(params)); // (as above)
         params->fetch_int_value(kIndex, &slot, 1);
         destroy_item(slot);
         online::SpecialItemMessage destroyed; // (params and bone: not set by the original)

@@ -26,6 +26,9 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -75,7 +78,7 @@ constexpr float kFeet = 12.0f; // 0x0064546C
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 void launch_script(uint32_t name, script::Struct* params = nullptr)
@@ -104,10 +107,10 @@ RiderIdentity* first_profile()
 void* game_flow() { return goals::get_objective_board(); }
 
 // The skater's score component and its counts.
-void* point_tally(GameEntity* skater) { return reinterpret_cast<Rider*>(skater)->get_points_total(); }
+void* point_tally(GameEntity* skater) { return static_cast<Rider*>(skater)->get_points_total(); }
 int count_tricks(void* score, uint32_t trick, int a, int b, int c)
 {
-    return static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, a, reinterpret_cast<bool&>(b), c);
+    return static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, a, static_cast<uint8_t>(b) != 0, c);
 }
 
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
@@ -133,7 +136,7 @@ memory::owner<ObjectModule*> AttributeTracker::fabricate() { return new Attribut
 // 0x0051C440
 void AttributeTracker::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_stats_manager_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_stats_manager_member_functions, 0x18);
 }
 
 // 0x0051C5A0
@@ -194,7 +197,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
     script::Array* goals = script::fetch_list(0x4E46CC28u);
     const int count = static_cast<int>(goals->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* source = reinterpret_cast<script::Struct*>(goals->fetch_part(static_cast<uint32_t>(i)));
+        auto* source = goals->struct_at(static_cast<uint32_t>(i));
         Goal& goal = goals_[i];
         uint32_t checksum = 0;
         if (source->has_entry_named(0x0FFD7BBEu)) {
@@ -251,8 +254,8 @@ bool AttributeTracker::is_operative()
     if (!activated_ || static_cast<modules::Skate*>(skate)->level_ == 0xE92ECAFE)
         return false;
     // (Without a name the original compares what its slot held: this.)
-    auto name = reinterpret_cast<uint32_t>(this);
-    reinterpret_cast<script::Struct*>(first_profile()->details_)->read_hash_value(0xA1DC81F9u, &name, 1);
+    auto name = cell::of(this);
+    raw::as<script::Struct>(first_profile()->details_)->read_hash_value(0xA1DC81F9u, &name, 1);
     return name == 0x0A7BE964;
 }
 
@@ -361,7 +364,7 @@ void AttributeTracker::announce_met_goals()
     }
     if (announced) {
         debug::printf("updating skater stats\n"); // "updating skater stats"
-        reinterpret_cast<Rider*>(skater_)->set_stats_from_profile(profile);
+        static_cast<Rider*>(skater_)->set_stats_from_profile(profile);
         if (!goal_done_ && static_cast<goals::GoalManager*>(game_flow())->may_begin_objective()) {
             launch_script(0xEF3A4EE5);
             goal_done_ = true;

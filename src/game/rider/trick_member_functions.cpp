@@ -23,6 +23,7 @@
 #include "game/rider/gap_entry.h"
 #include "game/rider/stats_manager.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -31,7 +32,7 @@ namespace {
 template <typename T>
 T& get_at(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // Member function names.
@@ -162,7 +163,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kClearPanelLanded: {
         modules::PointTally* score = score_;
-        if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
+        if (entity_->is_local_skater_) {
             char* deferred = &deferred_name_[0];
             if (*deferred) {
                 const bool on_rail = core_physics_->landed_from_air_vert_ != 0;
@@ -327,7 +328,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kClearPanelBailed: {
-        if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
+        if (entity_->is_local_skater_) {
             exit_combo(this);
             score_->get_bail(false);
         }
@@ -422,7 +423,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         } else if (params->fetch_int_value(kAddSpin, &add_spin, 0) && same_trick_shown(this, score)) {
             const double spin = static_cast<double>(add_spin) + spin_total_;
             spin_total_ = static_cast<float>(spin);
-            if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_)
+            if (entity_->is_local_skater_)
                 static_cast<modules::PointTally*>(score)->advance_turn(truncate(spin));
         } else {
             uint32_t flags = 0;
@@ -446,7 +447,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 flags |= 0x200;
             if (params->has_bare_flag(kNoSwitch))
                 flags |= 0x400;
-            if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
+            if (entity_->is_local_skater_) {
                 auto* core = core_physics_;
                 if (core->state_->cur_phase_ == 4) {
                     const int trick_score = trick_score_;

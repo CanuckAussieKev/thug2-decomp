@@ -18,6 +18,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -33,7 +34,7 @@ constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 bool find_acid_drop(objects::FootMovement* walk, float* velocity)
 {
     return walk->core_physics_->find_acid_drop(false, &walk->pos_, &walk->old_pos_,
-                                               reinterpret_cast<maths::Vec4*>(velocity), &walk->acid_drop_);
+                                               raw::as<maths::Vec4>(velocity), &walk->acid_drop_);
 }
 
 // The two buttons; PartyMod's PS2 controls skip the first (its NOP at 0x00527546 / 0x00527636).

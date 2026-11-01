@@ -24,6 +24,7 @@
 #include "game/rider/walk_physics.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -454,7 +455,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
         }
     }
     alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
-    auto* quat = reinterpret_cast<maths::QuatRotation*>(rotation);
+    auto* quat = raw::as<maths::QuatRotation>(rotation);
     quat->init_from_axis_angle(across, kQuarterTurn);
     maths::Vec4 turned{};
     maths::Vec4 target = *quat->spin_by(&turned, down);

@@ -20,6 +20,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/state_history.h"
 #include "engine/objects/control_pad.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -50,7 +51,7 @@ const uint32_t* powerup_names() { return g_powerup_names; }
 int find_powerup(script::Struct* params)
 {
     // (without one the original's variable keeps the params pointer: the stack slot it reuses)
-    auto name = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(params));
+    auto name = static_cast<uint32_t>(cell::address(params));
     params->read_hash_value(uint32_t{0}, &name, 1);
     for (int i = 0; i < kPowerups; ++i) {
         if (powerup_names()[i] == name)
@@ -74,7 +75,7 @@ RiderPoseState::RiderPoseState()
 // 0x00519430
 void RiderPoseState::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kSkaterState), g_skater_state_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kSkaterState), g_skater_state_member_functions,
                                            0x18);
 }
 

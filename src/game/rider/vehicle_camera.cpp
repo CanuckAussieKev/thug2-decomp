@@ -23,6 +23,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_component.h"
 #include "engine/objects/vehicle_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -75,7 +77,7 @@ CarView::CarView() { kind_tag_ = kVehicleCamera; }
 // 0x00524420
 void CarView::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kVehicleCamera), g_vehicle_camera_member_functions,
+    script::register_member_function_table(cell::pointer<void>(kVehicleCamera), g_vehicle_camera_member_functions,
                                            0x18);
 }
 
@@ -89,7 +91,7 @@ void CarView::configure_from_data(script::Struct* params)
         uint32_t id = 0;
         params->read_hash_value(kSubject, &id, 1);
         subject_ = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
-        vehicle_ = reinterpret_cast<uint8_t*>(subject_->fetch_module(kVehicle));
+        vehicle_ = raw::bytes(subject_->fetch_module(kVehicle));
     }
     params->fetch_float(kLerp, &lerp_, 0);
     params->fetch_float(kHeight, &level_y_, 0);
@@ -115,7 +117,7 @@ bool CarView::vehicle_camera_reset(script::Struct* params, script::Script* /*scr
 // 0x00524550
 void CarView::update_target_direction()
 {
-    const float* velocity = &reinterpret_cast<const objects::DrivableModule*>(vehicle_)->vel_.x;
+    const float* velocity = &raw::as<const objects::DrivableModule>(vehicle_)->vel_.x;
     float x = -velocity[0];
     float y = 0.0f;
     float z = -velocity[2];
@@ -128,7 +130,7 @@ void CarView::update_target_direction()
         y = static_cast<float>(0.0f * inverse);
         z = static_cast<float>(z * inverse);
     }
-    if (reinterpret_cast<const objects::DrivableModule*>(vehicle_)->wheels_in_contact_ < 2) {
+    if (raw::as<const objects::DrivableModule>(vehicle_)->wheels_in_contact_ < 2) {
         if (!(speed < kMinFlatSpeed))
             target_direction_ = {x, y, z, w};
         return;

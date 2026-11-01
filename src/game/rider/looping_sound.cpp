@@ -20,6 +20,8 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -46,7 +48,7 @@ constexpr float kCapsizedFraction = 0.5f;    // the core physics' +0x2EC
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
@@ -56,17 +58,17 @@ sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
 uint8_t sound_table(uint32_t name) { return surface_kind::get_table_index(name); }
 bool terrain_sound(uint8_t* entry, int terrain, uint8_t table)
 {
-    return surface_kind::get_terrain_sound(reinterpret_cast<surface_kind::SoundInfo*>(entry),
+    return surface_kind::get_terrain_sound(raw::as<surface_kind::SoundInfo>(entry),
                                            static_cast<uint8_t>(terrain), table, 0.0f);
 }
 double sound_volume(uint8_t* entry, float percent)
 {
-    return surface_kind::get_scaled_volume(reinterpret_cast<const surface_kind::SoundInfo*>(entry), percent, false);
+    return surface_kind::get_scaled_volume(raw::as<const surface_kind::SoundInfo>(entry), percent, false);
 }
 
-uint32_t sound_name_key(uint8_t* entry) { return reinterpret_cast<const surface_kind::SoundInfo*>(entry)->checksum; }
-float full_speed_pitch(uint8_t* entry) { return reinterpret_cast<const surface_kind::SoundInfo*>(entry)->max_pitch_; }
-float rest_pitch(uint8_t* entry) { return reinterpret_cast<const surface_kind::SoundInfo*>(entry)->min_pitch_; }
+uint32_t sound_name_key(uint8_t* entry) { return raw::as<const surface_kind::SoundInfo>(entry)->checksum; }
+float full_speed_pitch(uint8_t* entry) { return raw::as<const surface_kind::SoundInfo>(entry)->max_pitch_; }
+float rest_pitch(uint8_t* entry) { return raw::as<const surface_kind::SoundInfo>(entry)->min_pitch_; }
 
 // The air sound's entry (a terrain sound entry of its own: 0x84 bytes, its name, the sound's checksum, the pitches at
 // full speed and at rest).
@@ -79,7 +81,7 @@ struct AirSoundEntry {
 };
 static_assert(sizeof(AirSoundEntry) == 0x84, "a terrain sound entry");
 AirSoundEntry g_air_sound_entry{"wheels01", 0x24257432, 100.0f, 110.0f};
-const uint8_t* air_sound() { return reinterpret_cast<const uint8_t*>(&g_air_sound_entry); }
+const uint8_t* air_sound() { return raw::bytes(&g_air_sound_entry); }
 
 } // namespace
 
@@ -96,7 +98,7 @@ memory::owner<ObjectModule*> RiderRollingAudio::fabricate() { return new RiderRo
 // 0x00513860
 void RiderRollingAudio::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kSkaterLoopingSound),
+    script::register_member_function_table(cell::pointer<void>(kSkaterLoopingSound),
                                            g_looping_sound_member_functions, 0x18);
 }
 
@@ -292,7 +294,7 @@ void RiderRollingAudio::tick_frame()
         static_cast<LoopingSoundVolume*>(&prev_levels_)->get_assign(&volume);
         prev_pitch_value_ = pitch;
         sound_id_ = sfx->emit_sound(sound_name_key(sound_), &volume, pitch, 0, nullptr,
-                                    static_cast<int>(reinterpret_cast<uintptr_t>(sound_)));
+                                    static_cast<int>(cell::address(sound_)));
         if (sound_id_)
             playing_checksum_ = sound_name_key(sound_);
         return;

@@ -19,6 +19,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
+#include "platform/code_address.h"
 
 namespace skater::thaw_bmx {
 
@@ -115,7 +116,7 @@ bool thaw_spot(Point* pos, float* heading)
         return false;
     const uint32_t want = name_hash(name);
     for (uint32_t i = 0; i < bikes->extent_; ++i) {
-        auto* bike = reinterpret_cast<script::Struct*>(bikes->fetch_part(i));
+        auto* bike = bikes->struct_at(i);
         uint32_t level_name = 0;
         script::VectorValue p = {};
         if (!bike || !bike->read_hash_value("level", &level_name, 0) || level_name != want ||
@@ -265,9 +266,9 @@ void start_spot_candidates(Point pos, float heading, float distance, Point out[4
 void register_parked_functions()
 {
     static const script::NativeCommand kFunctions[] = {
-        {"ThawBmx_HomeSpot", reinterpret_cast<void*>(&cfunc_home_spot)},
-        {"ThawBmx_WalkToBike", reinterpret_cast<void*>(&cfunc_walk_to_bike)},
-        {"ThawBmx_BikeReachable", reinterpret_cast<void*>(&cfunc_bike_reachable)},
+        {"ThawBmx_HomeSpot", code_address(&cfunc_home_spot)},
+        {"ThawBmx_WalkToBike", code_address(&cfunc_walk_to_bike)},
+        {"ThawBmx_BikeReachable", code_address(&cfunc_bike_reachable)},
     };
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }

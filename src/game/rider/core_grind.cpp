@@ -38,6 +38,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/skater_score.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -507,7 +508,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     if (rail_node_ != node) {
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
         const uint32_t index =
-            static_cast<uint32_t>(reinterpret_cast<uint8_t*>(node) - reinterpret_cast<uint8_t*>(manager->nodes_)) /
+            static_cast<uint32_t>(raw::bytes(node) - raw::bytes(manager->nodes_)) /
             sizeof(objects::GrindPoint);
         static_cast<modules::PointTally*>(score_->points_held_)->refresh_bot_check(static_cast<int>(index));
     }
@@ -611,7 +612,7 @@ void SkaterPhysicsModule::try_grind(bool always)
             if (!can_grind(this, node, object_rails))
                 return;
             start_grind(&point, node, object_rails, false, false);
-            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(rails->entity_);
+            raw::as<walk::MovableContact>(ride_)->start_riding(rails->entity_);
             ride_->update_contact_point();
             entity_->vel_ -= get_tracker(this)->entity_.owner_object_->vel_;
             return;

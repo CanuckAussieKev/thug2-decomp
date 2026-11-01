@@ -34,6 +34,7 @@
 #include "game/rider/balance_trick.h"
 #include "engine/gfx/model.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/pointer_cell.h"
 
 namespace skater::thaw_bmx {
 
@@ -42,7 +43,7 @@ namespace {
 template <typename T>
 T& get_at(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *cell::pointer<T>(cell::address(object) + offset);
 }
 maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
@@ -572,7 +573,7 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
     script::Array* table = script::fetch_list(name_hash(kSoundTables[static_cast<int>(kind)]));
     if (!table || table->extent_ == 0)
         return -1;
-    auto* entry = reinterpret_cast<script::Struct*>(table->fetch_part(0));
+    auto* entry = table->struct_at(0);
     if (!surface_kind::get_sound_info(entry, static_cast<surface_kind::SoundInfo*>(info)))
         return 0;
     // (the first of each kind logged: the bike's sounds can be checked from the log)

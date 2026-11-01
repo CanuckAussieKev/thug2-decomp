@@ -23,6 +23,7 @@
 #include "game/rider/trick_component.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -31,7 +32,7 @@ namespace {
 template <typename T>
 T& get_at(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 using objects::PoseFlag; // (kSpin: cleared once a spin has gone on long enough)

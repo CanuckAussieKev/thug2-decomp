@@ -25,7 +25,7 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -38,6 +38,9 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/balance_trick.h"
 #include "engine/objects/vehicle_component.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -71,7 +74,7 @@ constexpr int kRequireShift = 16;
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // A gap in progress (the 0x64-byte TrickListEntry) and a gap trick (the 0x34-byte TrickNameEntry), by their fields.
@@ -83,7 +86,7 @@ int& gap_trick_count(TrickListEntry* gap) { return gap->trick_count_; } // the s
 uint32_t& gap_trick_script(TrickListEntry* gap) { return gap->trick_script_; }
 uint32_t& gap_trick_text(TrickListEntry* gap) { return gap->trick_text_; }
 int& gap_spin(TrickListEntry* gap) { return gap->spin_; }
-uint8_t& gap_perfect(TrickListEntry* gap) { return reinterpret_cast<uint8_t&>(gap->perfect_); }
+uint8_t& gap_perfect(TrickListEntry* gap) { return memory::bits_as<uint8_t>(gap->perfect_); }
 uint32_t& gap_tricks_count(TrickListEntry* gap) { return gap->tricks_count_; }
 int& gap_taps(TrickListEntry* gap) { return gap->taps_; }
 maths::Vec4& gap_start_pos(TrickListEntry* gap) { return gap->start_pos_; }
@@ -99,7 +102,7 @@ uint32_t& trick_frame(TrickNameEntry* trick) { return trick->frame_; }
 template <typename T>
 T* entry_of(memory::ListNode* node)
 {
-    return reinterpret_cast<intptr_t>(node->data) == -1 ? nullptr : reinterpret_cast<T*>(node);
+    return static_cast<intptr_t>(cell::address(node->data)) == -1 ? nullptr : raw::as<T>(node);
 }
 template <typename T>
 T* get_first(memory::ListNode& head)
@@ -109,7 +112,7 @@ T* get_first(memory::ListNode& head)
 template <typename T>
 T* get_next(T* entry)
 {
-    return entry_of<T>(reinterpret_cast<memory::ListNode*>(entry)->next);
+    return entry_of<T>(raw::as<memory::ListNode>(entry)->next);
 }
 // An entry deleted (its scalar deleting destructor).
 template <typename Entry>
@@ -144,16 +147,16 @@ int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, int ta
 }
 int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, uint32_t perfect, int taps)
 {
-    return score->count_key_combo(key_combo, spin, reinterpret_cast<bool&>(perfect), taps);
+    return score->count_key_combo(key_combo, spin, static_cast<uint8_t>(perfect) != 0, taps);
 }
 int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, uint32_t perfect, int taps)
 {
-    return score->count_trick_after_taps(trick, spin, reinterpret_cast<bool&>(perfect), taps);
+    return score->count_trick_after_taps(trick, spin, static_cast<uint8_t>(perfect) != 0, taps);
 }
 int tricks_array_count(modules::PointTally* /*score*/, script::Array* tricks, uint32_t since)
 {
     // (the shared "0": a stdcall stub of two stack arguments; the score is only in ECX)
-    return stubs::return_zero2(static_cast<int>(reinterpret_cast<intptr_t>(tricks)), static_cast<int>(since));
+    return stubs::return_zero2(static_cast<int>(static_cast<intptr_t>(cell::address(tricks))), static_cast<int>(since));
 }
 void add_gap_score(modules::PointTally* score, const char* text, int points, int flags)
 {

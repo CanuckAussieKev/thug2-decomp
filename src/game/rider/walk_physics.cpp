@@ -41,6 +41,7 @@
 #include "platform/crt.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -111,7 +112,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 // 0x00525E40
 void FootMovement::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kWalk), g_walk_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kWalk), g_walk_member_functions, 0x18);
 }
 
 // 0x005288B0 (0x0052A290 the deleting one)

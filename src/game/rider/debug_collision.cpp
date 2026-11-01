@@ -63,6 +63,7 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
+#include "engine/core/pointer_cell.h"
 
 namespace collision_overlay {
 
@@ -167,7 +168,7 @@ void log_hit(const void* feeler, uint32_t caller)
     const objects::Rider* skater_feeler = skater_of_feeler(feeler);
     if (get_mode() == 1 && (!skater_feeler || normal[1] > 0.7f))
         return;
-    if (!should_log(object ? reinterpret_cast<uintptr_t>(object) : reinterpret_cast<uintptr_t>(coll_object), face))
+    if (!should_log(object ? cell::address(object) : cell::address(coll_object), face))
         return;
 
     char what[160], name[96];

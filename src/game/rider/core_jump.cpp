@@ -24,6 +24,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -216,7 +217,7 @@ void SkaterPhysicsModule::begin_skitch()
     auto* object = skitch_target_.owner_object_;
     if (!object)
         return;
-    reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(object);
+    raw::as<walk::MovableContact>(ride_)->start_riding(object);
     set_flag(this, PoseFlag::kSkitching, 1);
     skitch_moving_ = 1;
     get_skitch();
@@ -239,7 +240,7 @@ void SkaterPhysicsModule::end_skitch()
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* tracker = ride->ride_) {
         ride->last_object_ = tracker->entity_.owner_object_; // (what it rode last)
-        reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(&tracker->entity_)->get_release();
+        raw::as<objects::SharedRef<objects::SharedBase>>(&tracker->entity_)->get_release();
         memory::Hub::get_pull()->dealloc(tracker);
         ride->ride_ = nullptr;
         ride->stop_time_ = get_now();

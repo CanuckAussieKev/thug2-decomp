@@ -42,6 +42,7 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/balance_trick.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
 
 namespace skater::thaw_bmx {
 
@@ -50,7 +51,7 @@ namespace {
 template <typename T>
 T& get_at(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *cell::pointer<T>(cell::address(object) + offset);
 }
 maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
@@ -1381,7 +1382,7 @@ script::Array* grind_trick_row(SkaterPhysicsModule* core, bool left_side, bool s
     auto row = static_cast<uint32_t>(bike::grind_row(pad_state_of(core)->stick_[3]));
     if (row >= list->extent_)
         row = 0;
-    return reinterpret_cast<script::Array*>(list->fetch_part(row));
+    return list->array_at(row);
 }
 
 bool grind_side(SkaterPhysicsModule*, bool left_side, bool bad_ledge_on_that_side)

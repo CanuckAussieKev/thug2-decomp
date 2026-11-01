@@ -22,6 +22,8 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -46,7 +48,7 @@ constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
@@ -98,7 +100,7 @@ RiderBoardPhysics::RiderBoardPhysics() { kind_tag_ = kSkaterPhysicsControl; }
 // 0x005176A0
 void RiderBoardPhysics::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kSkaterPhysicsControl),
+    script::register_member_function_table(cell::pointer<void>(kSkaterPhysicsControl),
                                            g_physics_control_member_functions, 0x18);
 }
 
@@ -124,7 +126,7 @@ void RiderBoardPhysics::set_frozen(bool paused)
         return;
     switch (pose_->physics_mode_) {
     case kSkating:
-        freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), paused);
+        freeze_module(static_cast<ObjectModule*>(core_physics_), paused);
         freeze_module(entity_->fetch_module(kSkaterRotate), paused);
         freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), paused);
         freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), paused);
@@ -150,7 +152,7 @@ void RiderBoardPhysics::dismount_to_walk()
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
     const int skater_state = core_physics_->state_->cur_phase_;
     core_leaving(core_physics_);
-    freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), true);
+    freeze_module(static_cast<ObjectModule*>(core_physics_), true);
     freeze_module(entity_->fetch_module(kSkaterRotate), true);
     freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), true);
     freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), true);
@@ -181,7 +183,7 @@ void RiderBoardPhysics::remount_board()
     freeze_module(walk, true);
     freeze_module(walk_camera, true);
     set_walking(pose_, false);
-    freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), false);
+    freeze_module(static_cast<ObjectModule*>(core_physics_), false);
     // The walk's ground state (0) and what it leaves for: 1 its grind, 2 its acid drop.
     const int hold = walk->leave_for_;
     const skater::AcidDrop* acid_drop = hold == 2 ? &walk->acid_drop_ : nullptr;
@@ -214,7 +216,7 @@ void RiderBoardPhysics::tick_frame()
     default:
         break;
     }
-    if (!(reinterpret_cast<ObjectModule*>(core_physics_)->flag_bits_ & kComponentFlagSuspended))
+    if (!(static_cast<ObjectModule*>(core_physics_)->flag_bits_ & kComponentFlagSuspended))
         set_frozen(true);
 }
 

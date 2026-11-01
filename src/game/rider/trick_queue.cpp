@@ -35,6 +35,8 @@
 #include "game/rider/core_physics.h"
 #include "game/skate/point_tally.h"
 #include "engine/objects/rail_manager.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -43,7 +45,7 @@ namespace {
 template <typename T>
 T& get_at(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 constexpr uint32_t kTrick = 0x270F56E1;
@@ -88,7 +90,7 @@ bool trigger_done(MoveExecutor* self, script::Struct* trigger, uint32_t kind, in
 // (trick_named: `ignore` is the trick name to compare, a string pointer kept in a word)
 bool matches_ignore(MoveExecutor* self, script::Struct* trick, uint32_t ignore)
 {
-    return self->trick_named(trick, reinterpret_cast<const char*>(static_cast<uintptr_t>(ignore)));
+    return self->trick_named(trick, cell::pointer<const char>(static_cast<uintptr_t>(ignore)));
 }
 void set_button(MoveExecutor* self, int button, bool pressed) { self->update_button(button, pressed); }
 void check_manual_tricks(MoveExecutor* self, uint32_t array, int ignore, bool special)
@@ -309,7 +311,7 @@ void MoveExecutor::reset_trick_objects()
 uint32_t MoveExecutor::end_trick_objects(uint32_t a, uint32_t b)
 {
     HitClusterLog& list = trick_objects_;
-    const uint32_t result = list.copy_cluster_names(reinterpret_cast<uint32_t*>(a), b);
+    const uint32_t result = list.copy_cluster_names(cell::pointer<uint32_t>(a), b);
     trick_objects_on_ = false;
     list.get_clear();
     return result;
@@ -383,7 +385,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
         entity_->create_script_if_needed();
         entity_->own_script_->preempt(first, params);
     }
-    auto* trick = reinterpret_cast<script::Struct*>(script::fetch_list(array)->fetch_part(index));
+    auto* trick = script::fetch_list(array)->struct_at(index);
     if (try_trick(trick, 0, trick_params))
         return;
     uint32_t slot = 0;
@@ -439,7 +441,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     script::Array* array = script::fetch_list(manual_.array_);
     if (!array)
         return;
-    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(manual_.index_));
+    auto* trick = array->struct_at(manual_.index_);
     if (script::Struct* mapped = mapped_trick(this, trick))
         trick = mapped;
     uint32_t script = 0;
@@ -472,7 +474,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     script::Array* array = script::fetch_list(grind_.array_);
     if (!array)
         return false;
-    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(grind_.index_));
+    auto* trick = array->struct_at(grind_.index_);
     script::Array* scripts = nullptr;
     script::Array* templates = nullptr;
     const char* prefix = nullptr;
@@ -531,10 +533,10 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
         return;
     const int count = static_cast<int>(tricks->extent_);
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
+        auto* trick = tricks->struct_at(i);
         if (!trick_has_script(this, trick))
             continue;
-        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
         if (!trigger_done(this, trigger, 8, -5, false) && !trigger_done(this, alt_trigger, 8, -5, false))
@@ -566,7 +568,7 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
     const int count = static_cast<int>(tricks->extent_); // (the original doesn't check the array exists)
     uint32_t mask = 0;
     for (int i = 0; i < count; ++i) {
-        if (matches_ignore(this, reinterpret_cast<script::Struct*>(tricks->fetch_part(i)), ignore))
+        if (matches_ignore(this, tricks->struct_at(i), ignore))
             mask |= 1u << i;
     }
     return mask;
@@ -592,10 +594,10 @@ bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
     for (int i = 0; i < count; ++i) {
         if (skip & (1u << i))
             continue;
-        auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
+        auto* trick = tricks->struct_at(i);
         if (!trick_has_script(this, trick))
             continue;
-        script::Struct* trigger = reinterpret_cast<skater::Component*>(this)->platform_structure(trick);
+        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
         if (trigger_done(this, trigger, 2, -5, false) || trigger_done(this, alt_trigger, 2, -5, false)) {
@@ -681,14 +683,14 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     extra_.special_mask_ = 0;
     const char* ignore = ""; // ("")
     if (params->fetch_text(kIgnore, &ignore, 0)) {
-        ignore_tricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
+        ignore_tricks(cell::of(ignore)); // (the string's address as a name, as the original)
         return;
     }
     script::Array* ignored = nullptr;
     if (params->fetch_list(kIgnore, &ignored, 0)) {
         const int n = static_cast<int>(ignored->extent_);
         for (int i = 0; i < n; ++i)
-            ignore_tricks(reinterpret_cast<uint32_t>(ignored->fetch_text(i)));
+            ignore_tricks(cell::of(ignored->fetch_text(i)));
     }
 }
 
@@ -726,7 +728,7 @@ void MoveExecutor::update_bash()
 // 0x005231D0
 void MoveExecutor::tick_frame()
 {
-    if (!reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
+    if (!entity_->is_local_skater_) {
         hold_off(true);
         return;
     }
@@ -754,7 +756,7 @@ void MoveExecutor::tick_frame()
 bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
 {
     auto* trick =
-        static_cast<MoveExecutor*>(reinterpret_cast<GameEntity*>(script->entity_.get_pull())->fetch_module(kTrick));
+        static_cast<MoveExecutor*>(static_cast<GameEntity*>(script->entity_.get_pull())->fetch_module(kTrick));
     uint32_t first = 0;
     script::Struct* first_params = nullptr;
     params->read_hash_value(kScriptToRunFirst, &first, 0);

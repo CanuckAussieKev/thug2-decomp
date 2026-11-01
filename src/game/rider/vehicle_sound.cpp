@@ -22,6 +22,8 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -46,7 +48,7 @@ const double kTwoTo32 = 4294967296.0;                        // 0x006453B4 (an u
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
@@ -109,7 +111,7 @@ memory::owner<ObjectModule*> SkaterVehicleSoundComponent::fabricate() { return n
 // 0x0051AD90
 void SkaterVehicleSoundComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_vehicle_sound_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_vehicle_sound_member_functions, 0x18);
 }
 
 // 0x0051ADD0
@@ -153,7 +155,7 @@ void SkaterVehicleSoundComponent::read_settings()
     settings_->fetch_list(0x83273E6B, &gears, 1);
     gear_count_ = static_cast<int>(gears->extent_);
     for (int i = 0; i < gear_count_; ++i) {
-        auto* gear = reinterpret_cast<script::Struct*>(gears->fetch_part(static_cast<uint32_t>(i)));
+        auto* gear = gears->struct_at(static_cast<uint32_t>(i));
         gear->fetch_float(0xFAD20901, &gear_steps_[i].up_at_, 1);
         gear->fetch_float(0xFCF5C8A2, &gear_steps_[i].down_at_, 1);
         gear->fetch_float(0x735B5CE4, &gear_steps_[i].low_rpm_, 1);

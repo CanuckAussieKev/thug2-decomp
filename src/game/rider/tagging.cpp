@@ -41,6 +41,8 @@
 #include "game/rider/skater_score.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -61,11 +63,11 @@ constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 // --- textures (the texture dictionary 0x00700F20) ---
-void* texture_bank() { return reinterpret_cast<void*>(render::g_particle_texture_dict); }
+void* texture_bank() { return raw::as<void>(render::g_particle_texture_dict); }
 void* ingest_skin(const char* name, bool a, bool b, bool c)
 {
     return static_cast<render::TextureSet*>(texture_bank())->ingest_skin(name, a, b, c);
@@ -153,7 +155,7 @@ TaggingComponent::~TaggingComponent()
 // 0x0051D890
 void TaggingComponent::configure_from_data(script::Struct* params)
 {
-    int skater = static_cast<int>(reinterpret_cast<uint32_t>(params));
+    int skater = static_cast<int>(cell::of(params));
     params->fetch_int_value(0xA2B033FDu, &skater, 0);
     char key[32];
     std::snprintf(key, sizeof(key), "_%d", skater);             // "_%d"
@@ -196,13 +198,13 @@ int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* param
 {
     switch (name) {
     case 0x19504222: { // SetGraffitiTexture
-        const char* texture = reinterpret_cast<const char*>(name);
+        const char* texture = cell::pointer<const char>(name);
         if (params->fetch_text(0u, &texture, 0))
             set_graffiti_texture(texture);
         return 1;
     }
     case 0x90042D4A: { // SetStickerTexture
-        const char* texture = reinterpret_cast<const char*>(name);
+        const char* texture = cell::pointer<const char>(name);
         if (params->fetch_text(0u, &texture, 0))
             set_sticker_texture(texture);
         return 1;

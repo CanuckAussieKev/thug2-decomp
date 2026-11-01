@@ -19,6 +19,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_score.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -63,7 +64,7 @@ memory::owner<ObjectModule*> RiderTeeterMoves::fabricate() { return new RiderTee
 // 0x004F8CD0
 void RiderTeeterMoves::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_balance_trick_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kType), g_balance_trick_member_functions, 0x18);
 }
 
 // 0x004F8F80

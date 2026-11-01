@@ -33,6 +33,8 @@
 #include "engine/objects/input_component.h"
 #include "game/rider/rotate_component.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -41,7 +43,7 @@ namespace {
 template <typename T>
 T& get_at(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // The input's buttons (offsets into the pad).
@@ -83,7 +85,7 @@ objects::ActivationZoneModule* trigger_of(SkaterPhysicsModule* component)
 {
     return static_cast<objects::ActivationZoneModule*>(component->trigger_);
 }
-const int* get_events(uint32_t address) { return reinterpret_cast<const int*>(address); }
+const int* get_events(uint32_t address) { return cell::pointer<const int>(address); }
 void stop_riding(void* ride) { static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding(); }
 
 // The two triggers: both held - or, under PartyMod's PS2 controls (its JZ -> JNZ at each check), either.
@@ -410,8 +412,8 @@ void SkaterPhysicsModule::check_for_ground()
         // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
         uint8_t drop[40];
         objects::GameEntity* o = entity_;
-        if (find_acid_drop(true, &o->at_point_, &o->old_pos_, &o->vel_, reinterpret_cast<AcidDrop*>(drop)))
-            start_acid_drop(reinterpret_cast<const AcidDrop*>(drop));
+        if (find_acid_drop(true, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop)))
+            start_acid_drop(raw::as<const AcidDrop>(drop));
     }
     trigger_of(this)->probe_touches_zone(kOtherFeelerLeaveEvents, &floor_feeler_);
 }
@@ -513,13 +515,13 @@ void SkaterPhysicsModule::do_air_physics()
     maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
     {
         objects::MovingSurfaceModule* ride = ride_;
-        auto* rider = reinterpret_cast<uint32_t*>(ride->ride_);
+        auto* rider = raw::as<uint32_t>(ride->ride_);
         const objects::GameEntity* object = object_of(this);
         if (rider) {
             if (*rider == 0)
                 // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
                 stop_riding(ride);
-            else if (!reinterpret_cast<objects::RideTracker*>(rider)->tick_frame(&object->at_point_))
+            else if (!raw::as<objects::RideTracker>(rider)->tick_frame(&object->at_point_))
                 stop_riding(ride);
             else if (!bit_mark(this, PoseFlag::kAcidDrop) || drop_object_hit_)
                 carried = ride_->ride_->carried_;
@@ -600,7 +602,7 @@ void SkaterPhysicsModule::do_air_physics()
     bool riding = false;
     {
         objects::MovingSurfaceModule* ride = ride_;
-        auto* rider = reinterpret_cast<uint32_t*>(ride->ride_);
+        auto* rider = raw::as<uint32_t>(ride->ride_);
         if (rider && *rider)
             riding = true;
         else if (rider)
@@ -743,8 +745,8 @@ void SkaterPhysicsModule::do_air_physics()
         recent = static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(air_start_))) < 0xFA;
     uint8_t drop[40];
     objects::GameEntity* o = object_of(this);
-    if (find_acid_drop(recent, &o->at_point_, &o->old_pos_, &o->vel_, reinterpret_cast<AcidDrop*>(drop)))
-        start_acid_drop(reinterpret_cast<const AcidDrop*>(drop));
+    if (find_acid_drop(recent, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop)))
+        start_acid_drop(raw::as<const AcidDrop>(drop));
 }
 
 // (Part of 0x0050CA00: landing on something skatable.)

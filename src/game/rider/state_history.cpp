@@ -33,6 +33,8 @@
 #include "engine/objects/input_component.h"
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -70,7 +72,7 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *raw::as<T>(cell::address(object) + offset);
 }
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---

@@ -25,6 +25,8 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/walk_physics.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -78,7 +80,7 @@ void SkaterPhysicsModule::step_coping_move()
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->lip_.lean_ = 0.0f;
             balance_->lip_.lean_speed_ = 0.0f;
-            reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
+            memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
         }
         balance_->lip_.tick_frame();
     }
@@ -144,13 +146,13 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         objects::MovingSurfaceModule* ride = ride_;
         if (objects::RideTracker* tracker = ride->ride_) {
             ride->last_object_ = tracker->entity_.owner_object_;
-            reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(&tracker->entity_)->get_release();
+            raw::as<objects::SharedRef<objects::SharedBase>>(&tracker->entity_)->get_release();
             memory::Hub::get_pull()->dealloc(tracker);
             ride->ride_ = nullptr;
             ride->stop_time_ = get_now();
         }
         if (objects::GameEntity* object = grind_from->grind_object_)
-            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(object);
+            raw::as<walk::MovableContact>(ride_)->start_riding(object);
         start_grind(&grind_from->grind_point_, grind_from->grind_node_, grind_from->grind_rails_, true, true);
         safe_pos_ = entity_->at_point_;
         entity_->old_pos_ = safe_pos_;

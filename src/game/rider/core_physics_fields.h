@@ -15,13 +15,14 @@
 #include "platform/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/raw_view.h"
 
 namespace skater::physics {
 
 template <typename T>
 T& get_at(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // --- the component's fields ---

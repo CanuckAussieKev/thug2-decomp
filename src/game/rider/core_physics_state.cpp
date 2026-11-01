@@ -36,6 +36,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/tagging.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -122,9 +123,9 @@ void SkaterPhysicsModule::get_reset()
     set_timed_flag(this, PoseFlag::kFlipped, !static_cast<objects::Rider*>(entity_)->goofy_);
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
-    auto* rider = reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(ride->ride_);
+    auto* rider = raw::as<objects::SharedRef<objects::SharedBase>>(ride->ride_);
     if (rider) {
-        ride->last_object_ = reinterpret_cast<objects::GameEntity*>(rider->owner_object_);
+        ride->last_object_ = static_cast<objects::GameEntity*>(rider->owner_object_);
         rider->get_release();
         memory::Hub::get_pull()->dealloc(rider);
         ride->ride_ = nullptr;
@@ -331,7 +332,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
     } else {
         // GrindTrickList[the rail's type (0-8; anything else 0)][the four trick buttons as bits 0-3].
         const uint32_t index = rail_type <= 8 ? rail_type : 0;
-        auto* tricks = reinterpret_cast<script::Array*>(script::fetch_list(kGrindTrickList)->fetch_part(index));
+        auto* tricks = script::fetch_list(kGrindTrickList)->array_at(index);
         uint32_t buttons = trick1 ? 1 : 0;
         if (trick2)
             buttons |= 2;

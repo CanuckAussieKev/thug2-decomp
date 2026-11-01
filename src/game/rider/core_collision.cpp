@@ -15,6 +15,8 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_sound.h"
 #include "engine/objects/trigger_events.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -35,14 +37,14 @@ constexpr uint32_t kAirExtraSide = 0x1C58C8B4;      // Skater_air_extra_side_col
 // A stack feeler: raw storage (see copy_feeler).
 struct alignas(16) FeelerStorage {
     uint8_t bytes[sizeof(render::ProbeRay)];
-    render::ProbeRay* operator->() { return reinterpret_cast<render::ProbeRay*>(bytes); }
-    render::ProbeRay* get() { return reinterpret_cast<render::ProbeRay*>(bytes); }
+    render::ProbeRay* operator->() { return raw::as<render::ProbeRay>(bytes); }
+    render::ProbeRay* get() { return raw::as<render::ProbeRay>(bytes); }
 };
 
 // The smart pointer of a stack feeler let go inline (the original's code on some paths instead of the destructor).
 void release_feeler_object(FeelerStorage& feeler)
 {
-    auto& object = reinterpret_cast<objects::SharedRef<objects::SharedBase>&>(feeler->entity_);
+    auto& object = memory::bits_as<objects::SharedRef<objects::SharedBase>>(feeler->entity_);
     if (object.owner_object_)
         object.owner_object_->detach_shared_ref(&object);
 }

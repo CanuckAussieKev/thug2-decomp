@@ -136,8 +136,7 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
         const objects::Rider* skater = get_skater_at(i);
         if (!skater)
             continue;
-        auto* info = reinterpret_cast<online::PlayerRecord*>(
-            net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+        auto* info = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
         if (!info)
             continue;
         if (info->team_ == exclude_team && !info->is_carrying_flag())
@@ -155,7 +154,7 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     }
     if (static_cast<int>(player) > -1)
         team =
-            reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(player)))->team_;
+            (net->find_player_slot_by_obj(static_cast<uint16_t>(player)))->team_;
     results->put_int(kTeam, team);
     results->put_int(kPlayer, static_cast<int>(player));
     return true;

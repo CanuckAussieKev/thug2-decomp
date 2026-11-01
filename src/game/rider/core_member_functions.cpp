@@ -21,6 +21,8 @@
 #include "game/rider/skater_state.h"
 #include "game/skate/point_tally.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -193,7 +195,7 @@ bool hit_wall(const render::ProbeRay& feeler)
 // 0x004FBE80
 void SkaterPhysicsModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kSkaterCorePhysics), g_core_member_functions, 0x18);
+    script::register_member_function_table(cell::pointer<void>(kSkaterCorePhysics), g_core_member_functions, 0x18);
 }
 
 // 0x004FBEA0
@@ -605,7 +607,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
     const int profile = static_cast<objects::Rider*>(entity_)->view_slot_;
-    auto* profiles = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    auto* profiles = raw::bytes(modules::g_skate_module);
     auto_kick_ = profiles[profile * 8 + 0x395];
     return 1;
 }
@@ -744,7 +746,7 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
     float* max = &limits_max_;
     params->fetch_float(kMax, max, 1);
     float* max_max = &limits_max_max_;
-    bits_as<uint32_t>(limits_max_max_) = *reinterpret_cast<uint32_t*>(max);
+    bits_as<uint32_t>(limits_max_max_) = *raw::as<uint32_t>(max);
     params->fetch_float(kMaxMax, max_max, 0);
     bits_as<uint32_t>(limits_time_) = kLimitsTimeDefault;
     params->fetch_float(kTime, &time, 0);

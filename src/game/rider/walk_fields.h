@@ -8,13 +8,14 @@
 #include "engine/objects/control_pad.h"
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
+#include "engine/core/raw_view.h"
 
 namespace objects::walk_fields {
 
 template <typename T>
 T& get_at(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 constexpr uint32_t kWalk = 0x726E85AA;

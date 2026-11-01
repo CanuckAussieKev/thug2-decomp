@@ -14,6 +14,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/thaw_bmx.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -47,7 +48,7 @@ constexpr float kUberFrigOffsets[5][4] = {
 template <typename T>
 T& get_at(const void* base, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(base) + offset);
+    return *cell::pointer<T>(cell::address(base) + offset);
 }
 maths::Vec4& vector_at(const void* base, uint32_t offset) { return get_at<maths::Vec4>(base, offset); }
 

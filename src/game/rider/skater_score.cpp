@@ -18,6 +18,9 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/rider.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -39,7 +42,7 @@ constexpr uint32_t kValue = 0xE288A7CB, kKeycombo = 0x95E16467, kSpin = 0xEDF5DB
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // The score (modules::PointTally).
@@ -54,13 +57,13 @@ int score_pot(modules::PointTally* score)
 int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-uint8_t* get_career() { return reinterpret_cast<uint8_t*>(modules::g_skate_module->career_.get()); }
+uint8_t* get_career() { return raw::bytes(modules::g_skate_module->career_.get()); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.
 int number_parameter(script::Struct* params)
 {
-    int value = static_cast<int>(reinterpret_cast<uintptr_t>(params));
+    int value = static_cast<int>(cell::address(params));
     params->fetch_int_value(uint32_t{0}, &value, 1);
     return value;
 }
@@ -101,12 +104,12 @@ void RiderPointKeeper::tick_frame()
     }
     get_score_of(points_held_)->tick_frame();
     const bool always_special = static_cast<Rider*>(entity_)->always_special_ ||
-                                reinterpret_cast<RiderStoryProgress*>(get_career())->is_code_on(kCheatAlwaysSpecial);
+                                raw::as<RiderStoryProgress>(get_career())->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
         uint8_t* career = get_career();
-        reinterpret_cast<RiderStoryProgress*>(career)->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
+        raw::as<RiderStoryProgress>(career)->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
         get_score_of(points_held_)->fill_special();
-        reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
+        memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
     }
 }
 
@@ -151,7 +154,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         return 1;
     case kSetSpecialValue: {
         // (no value: the params pointer, as number_parameter's)
-        int value = static_cast<int>(reinterpret_cast<uintptr_t>(params));
+        int value = static_cast<int>(cell::address(params));
         params->fetch_int_value(kValue, &value, 0);
         points_held_->special_ = value;
         return 1;

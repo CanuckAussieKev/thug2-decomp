@@ -32,6 +32,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/pointer_cell.h"
 
 namespace objects {
 
@@ -264,7 +265,7 @@ void RiderChaseView::configure_from_data(script::Struct* params)
     std::memcpy(orientation_, &matrix, sizeof(orientation_));
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);
-    bind_rider(static_cast<GameEntity*>(reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id)));
+    bind_rider(static_cast<GameEntity*>(static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id)));
 }
 
 // 0x004FA680
@@ -325,8 +326,8 @@ void RiderStateReset::seal() { state_ref_ = entity_->fetch_module(kSkaterState);
 void RiderStateReset::tick_frame()
 {
     GameEntity* skater = entity_;
-    reinterpret_cast<Rider*>(skater)->update_shadow_light(reinterpret_cast<int>(&skater->at_point_),
-                                                          reinterpret_cast<int>(&skater->basis_frame_));
+    static_cast<Rider*>(skater)->update_shadow_light(static_cast<int>(cell::of(&skater->at_point_)),
+                                                          static_cast<int>(cell::of(&skater->basis_frame_)));
 }
 
 // 0x004FBE20

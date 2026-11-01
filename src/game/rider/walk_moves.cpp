@@ -43,6 +43,8 @@
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/tagging.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -134,7 +136,7 @@ int get_now() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 bool halted(const FootMovement* walk) { return static_cast<bool>(walk->physics_control_->flag26_); }
 
 // Nx's current collision cache (0x00691974), cleared after each state's update.
-void clear_current_cache() { reinterpret_cast<void*&>(render::g_current_cache) = nullptr; }
+void clear_current_cache() { memory::bits_as<void*>(render::g_current_cache) = nullptr; }
 
 // The ride component's moving object containing the segment from `from` to `to` (0x00427B30), or null.
 GameEntity* moving_object_around(void* ride, maths::Vec4* to, maths::Vec4* from)
@@ -282,7 +284,7 @@ void FootMovement::update_anim_speed()
         script::Struct* params = script::spawn_param_bag();
         params = params ? new (params) script::Struct : nullptr;
         params->push_float(kSpeedName, speed);
-        reinterpret_cast<ObjectModule*>(animation)->invoke_method_by_name(kSetAnimSpeed, params, nullptr);
+        static_cast<ObjectModule*>(animation)->invoke_method_by_name(kSetAnimSpeed, params, nullptr);
         if (params) {
             params->get_clear();
             script::delete_struct(params);
@@ -389,7 +391,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
     if (!tracker)
         return;
     ride->last_object_ = tracker->entity_.get_pull();
-    reinterpret_cast<SharedRef<SharedBase>*>(&tracker->entity_)->get_release();
+    raw::as<SharedRef<SharedBase>>(&tracker->entity_)->get_release();
     memory::Hub::get_pull()->dealloc(tracker);
     ride->ride_ = nullptr;
     ride->stop_time_ = get_now();
@@ -636,7 +638,7 @@ void FootMovement::update_air()
     const maths::Vec4 bottom = entity_->at_point_ - up;
     feeler->change_finish(&bottom);
     if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive())
-        reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(feeler->get_hit_object());
+        raw::as<walk::MovableContact>(ride_)->start_riding(feeler->get_hit_object());
     vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     vertical = 0.0f;
     collide_air_move(&position, &start);
@@ -675,7 +677,7 @@ void FootMovement::update_anim_wait()
     float start = 0.0f;
     float current = 0.0f;
     float end = 0.0f;
-    reinterpret_cast<AnimBlenderComponent*>(anim_blender_)->get_times(&start, &current, &end);
+    anim_blender_->get_times(&start, &current, &end);
     auto t = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
     maths::Vec4 between{};
     walk::get_lerp(&between, &transition_start_, &transition_pos_, t);
@@ -742,7 +744,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
     up_speed_ = 0.0f;
     change_phase(0);
     render::ProbeRay* ground = &feeler_;
-    reinterpret_cast<render::ProbeRay*>(ground)->get_assign(*feeler); // (the feeler copied)
+    ground->get_assign(*feeler); // (the feeler copied)
     feeler_hit_ = true;
     static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c648, ground);
     if (!halted(this)) {
@@ -819,13 +821,13 @@ void FootMovement::settle_onto_floor()
                 return;
             }
         }
-        reinterpret_cast<render::ProbeRay*>(ground)->get_assign(*feeler); // (the feeler copied)
+        ground->get_assign(*feeler); // (the feeler copied)
         feeler_hit_ = true;
         floor_normal_ = feeler->surface_dir_;
         static_cast<MovingSurfaceModule*>(ride_)->start_riding(feeler); // (what it stands on)
         // (the terrain byte, passed as the dword there)
         static_cast<RiderPoseState*>(skater_state_)
-            ->set_surface_kind(static_cast<uint8_t>(*reinterpret_cast<const uint32_t*>(&feeler->hit_.terrain)));
+            ->set_surface_kind(static_cast<uint8_t>(*raw::as<const uint32_t>(&feeler->hit_.terrain)));
         release_hit(feeler);
         return;
     }
@@ -1211,7 +1213,7 @@ bool FootMovement::update_contacts()
             contact.hit = false;
             continue;
         }
-        reinterpret_cast<render::ProbeRay*>(&contact.feeler)->get_assign(*feeler); // (the feeler copied)
+        contact.feeler.get_assign(*feeler); // (the feeler copied)
         // The normal flattened and made unit length; how fast the object hit moves along it (not what it rides).
         contact.normal = feeler->surface_dir_;
         contact.normal.y = 0.0f;

@@ -25,6 +25,7 @@
 #include "game/rider/skater_sound.h"
 #include "game/rider/tagging.h"
 #include "game/rider/walk_physics.h"
+#include "engine/core/raw_view.h"
 
 namespace skater {
 
@@ -56,7 +57,7 @@ constexpr int kLip = 3;
 constexpr int kRail = 4;
 
 objects::RiderPoseState* state_of(SkaterPhysicsModule* component) { return component->state_; }
-uint8_t* sound_of(SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->sound_); }
+uint8_t* sound_of(SkaterPhysicsModule* component) { return raw::bytes(component->sound_); }
 objects::MoveExecutor* trick_of(SkaterPhysicsModule* component) { return component->trick_; }
 
 } // namespace

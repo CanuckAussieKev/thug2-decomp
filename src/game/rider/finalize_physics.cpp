@@ -19,6 +19,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_sound.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -34,7 +35,7 @@ constexpr float kStillSpeed = 1.0f; // 0x006453A8: x and z speeds below this cou
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // The skater state component's state (+0x18), as the core physics' update dispatches on it (0x00510830): 0 ground,
@@ -101,7 +102,7 @@ void RiderPhysicsCommit::tick_frame()
     maths::Mat4& physics_matrix = core->display_matrix_;
     physics_matrix.square_up_axes(1);
     if (entity_->basis_frame_.restore_right_angles())
-        physics_matrix = reinterpret_cast<ObjectModule*>(core)->entity_->basis_frame_;
+        physics_matrix = static_cast<ObjectModule*>(core)->entity_->basis_frame_;
     entity_->display_matrix_ = physics_matrix;
 
     // The sounds: terrain and state.

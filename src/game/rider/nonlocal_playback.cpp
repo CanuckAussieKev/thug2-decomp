@@ -32,6 +32,7 @@
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -127,8 +128,7 @@ void RiderRemoteSync::interpolate()
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    auto* player = reinterpret_cast<online::PlayerRecord*>(
-        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+    auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
     if (!player->has_finished_joining())
         player->set_finished_joining();
     const int count = past_frames_->state_count_;
@@ -223,7 +223,7 @@ void RiderRemoteSync::interpolate()
     state->set_surface_kind(to->value_7c_);
     state->set_physics_mode(to->flag75 != 0);
     pose_->in_vehicle_ = to->flag76 != 0;
-    reinterpret_cast<RiderSessionEnd*>(run_over_)->flag_bits_ = to->value_6c_; // (0x00407A70)
+    raw::as<RiderSessionEnd>(run_over_)->flag_bits_ = to->value_6c_; // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.
     const uint32_t bits = to->value68;
     for (int i = 0; i < kPoseFlagCount; ++i)

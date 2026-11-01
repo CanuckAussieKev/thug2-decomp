@@ -24,6 +24,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/model_component.h"
 #include "game/rider/rider.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -45,7 +46,7 @@ constexpr uint8_t kMsgBoardRotated = 0x2A;
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
@@ -53,8 +54,7 @@ T& prop(void* object, uint32_t offset)
 online::Hub* net_session_slot() { return online::g_online_hub; }
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return reinterpret_cast<online::PlayerRecord*>(
-        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
+    return (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
 }
 bool is_own_player(online::PlayerRecord* player) { return player->is_own_player() != 0; }
 int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_view_slot()); }

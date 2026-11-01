@@ -188,7 +188,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
             Array* voices = script::fetch_list(kPlayerVoices);
             const int size = static_cast<int>(voices->extent_);
             for (int i = 0; i < size; ++i) {
-                auto* entry = reinterpret_cast<Struct*>(voices->fetch_part(i));
+                auto* entry = voices->struct_at(i);
                 uint32_t id = 0;
                 entry->read_hash_value(kId, &id, 1);
                 if (id == voice_name) {

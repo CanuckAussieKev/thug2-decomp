@@ -33,6 +33,7 @@
 #include "game/rider/state_history.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -72,7 +73,7 @@ constexpr uint16_t kFaceSkatable = 0x1, kFaceNotSkatable = 0x2, kFaceWallride = 
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
 }
 
 // A physics value of the skater (GameObjects::read_tuning_float, asserting).
@@ -102,7 +103,7 @@ void RiderRemoteSync::seal()
 {
     past_frames_ = static_cast<RiderFrameLog*>(entity_->fetch_module(kSkaterStateHistory));
     pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
-    run_over_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterEndRun));
+    run_over_ = raw::bytes(entity_->fetch_module(kSkaterEndRun));
     anim_blender_ = entity_->fetch_module(kAnimBlender);
     flip_and_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
     mesh_set_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));

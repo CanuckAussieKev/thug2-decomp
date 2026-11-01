@@ -28,6 +28,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_score.h"
+#include "engine/core/bits_as.h"
 
 namespace skater {
 
@@ -380,7 +381,7 @@ void SkaterPhysicsModule::update_grind_balance()
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->grind_.lean_ = 0.0f;
             balance_->grind_.lean_speed_ = 0.0f;
-            reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
+            memory::bits_as<uint8_t>(online::g_cheat_flag) = 1;
         }
     }
 }
