@@ -598,6 +598,96 @@ void check_session_others()
     }
 }
 
+// Chat as the original's packet and THUGPRO's (its MsgChatTHUGPRO), THUGPRO's server info and change level.
+#pragma pack(push, 1)
+struct ReferenceChat {
+    uint8_t color;
+    char name[16];
+    char text[9]; // "hi there" and its NUL: the message is 0x12 + strlen(text) bytes
+};
+struct ReferenceThugproChat {
+    uint32_t machine_id;
+    uint8_t obj_id;
+    char name[16];
+    char text[6]; // "hello" and its NUL
+};
+struct ReferenceThugproServerInfo {
+    uint32_t time_of_day, weather;
+    uint64_t flags;
+};
+struct ReferenceThugproChangeLevel {
+    uint32_t level;
+    uint8_t flag, pad[3];
+    char name[32];
+};
+#pragma pack(pop)
+static_assert(sizeof(ReferenceChat) == 0x12 + 8 && sizeof(ReferenceThugproChat) == 21 + 6 &&
+              sizeof(ReferenceThugproServerInfo) == online::thugpro::kServerInfoSize &&
+              sizeof(ReferenceThugproChangeLevel) == online::thugpro::kChangeLevelThugproSize);
+
+void check_chat_messages()
+{
+    {
+        ReferenceChat ref = {3, {}, {}};
+        std::strcpy(ref.name, "skater");
+        std::strcpy(ref.text, "hi there");
+        online::Chat m;
+        m.color = 3;
+        std::strcpy(m.name, "skater");
+        std::strcpy(m.text, "hi there");
+        check_message("chat 0x4C", m, ref, online::write_chat, online::read_chat, 17);
+        // a text without its NUL: cut at the message's end
+        ReferenceChat open = ref;
+        open.text[8] = '!';
+        util::ByteReader reader(&open, sizeof(open));
+        online::Chat back;
+        check(online::read_chat(reader, &back) && std::strcmp(back.text, "hi there!") == 0,
+              "chat 0x4C: an unended text cut at the message's end");
+    }
+    {
+        ReferenceThugproChat ref = {0xDEADBEEF, 2, {}, {}};
+        std::strcpy(ref.name, "pro");
+        std::strcpy(ref.text, "hello");
+        online::thugpro::ChatMessage m;
+        m.machine_id_ = 0xDEADBEEF;
+        m.obj_id_ = 2;
+        std::strcpy(m.name, "pro");
+        std::strcpy(m.text, "hello");
+        check_message("THUGPRO chat 76 (TP-R2)", m, ref, online::thugpro::write_chat_message,
+                      online::thugpro::read_chat_message);
+        // THUGPRO's drops: a name filling its field, a text without its NUL
+        ReferenceThugproChat bad = ref;
+        std::memset(bad.name, 'n', 16);
+        util::ByteReader name_reader(&bad, sizeof(bad));
+        online::thugpro::ChatMessage back;
+        check(!online::thugpro::read_chat_message(name_reader, &back), "THUGPRO chat 76: an unended name dropped");
+        bad = ref;
+        bad.text[5] = '!';
+        util::ByteReader text_reader(&bad, sizeof(bad));
+        check(!online::thugpro::read_chat_message(text_reader, &back), "THUGPRO chat 76: an unended text dropped");
+    }
+    {
+        ReferenceThugproServerInfo ref = {0x12345678, 0x1CA1FF20, 0x0000000000004281ull};
+        online::thugpro::ServerInfo m;
+        m.time_of_day_ = 0x12345678;
+        m.weather = 0x1CA1FF20;
+        m.flags = 0x4281;
+        check_message("THUGPRO server info 155 (TP-R3)", m, ref, online::thugpro::write_server_info,
+                      online::thugpro::read_server_info);
+    }
+    {
+        ReferenceThugproChangeLevel ref = {0xB664035D, 0, {}, {}};
+        std::strcpy(ref.name, "Custom Park\n");
+        online::LevelSwitch level;
+        level.level = 0xB664035D;
+        uint8_t bytes[online::thugpro::kChangeLevelThugproSize];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        online::thugpro::write_change_level(writer, level, "Custom Park\n");
+        check(writer.ok() && writer.position() == sizeof(ref) && std::memcmp(bytes, &ref, sizeof(ref)) == 0,
+              "THUGPRO change level 70 (TP-R5): as THUGPRO's");
+    }
+}
+
 } // namespace
 
 int run()
@@ -608,6 +698,7 @@ int run()
     check_play_messages();
     check_join_messages();
     check_session_others();
+    check_chat_messages();
     return g_failures;
 }
 

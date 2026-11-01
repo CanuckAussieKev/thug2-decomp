@@ -28,29 +28,20 @@
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/gfx/draw_frame.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace online {
 
 namespace {
 
-constexpr uint8_t kMsgChat = 0x4C; // 'L'
 constexpr uint8_t kObserverColor = 8;
 // Sender colour for messages from "Server". The receiver writes the name colour as \c<color + 2> in decimal,
 // but the text renderer reads a single hex digit after \c - so only 0..7 work (the game's own observer
 // colour 8 comes out as colour 1 followed by a stray "0").
 constexpr uint8_t kServerColor = 7;
-constexpr int kMaxTextSize = 131; // (the name: online::kNameSize, 16)
-
-// What travels over the network: the receiver (0x00532050) shows "\c<color+2><name>\c0 : <text>". The
-// server relays it unchanged to every other player (0x0056A000).
-#pragma pack(push, 1)
-struct ChatPacket {
-    uint8_t color;
-    char name[kNameSize];
-    char text[kMaxTextSize];
-};
-#pragma pack(pop)
-static_assert(sizeof(ChatPacket) == 0x94);
+// What travels over the network (message 0x4C, 'L': Chat in gamenet_messages.h): the receiver (0x00532050) shows
+// "\c<color+2><name>\c0 : <text>". The server relays it unchanged to every other player (0x0056A000).
 
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
 using ::net::NetMessageInfo;
@@ -120,26 +111,29 @@ namespace {
 // Shared by the normal and the named send.
 void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
 {
-    ChatPacket packet = {};
+    Chat packet;
     packet.color = color;
-    dup_from(packet.name, sizeof(packet.name), name);
+    dup_from(packet.name, kNameSize, name);
     dup_from(packet.text, sizeof(packet.text), text);
+    uint8_t bytes[kChatSize];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    write_chat(writer, packet); // color + name + text + '\0'
 
     NetMessageInfo desc;
     init_msg_desc(&desc);
     desc.ident_ = kMsgChat;
-    desc.byte_count_ = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
-    desc.content_ = &packet;
+    desc.byte_count_ = static_cast<uint16_t>(writer.position());
+    desc.content_ = bytes;
     desc.queue_ = NetMessageInfo::kLaneOrdered;
     desc.group_id_ = 8;
     // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
     // to its 127 characters.
-    thugpro::ChatMessage thugpro;
+    uint8_t thugpro_bytes[thugpro::kChatMessageSize];
     if (thugpro::peer_mode()) {
         desc.byte_count_ = static_cast<uint16_t>(
-            thugpro::encode_chat(&thugpro, thugpro::get_machine_id(), color, packet.name, packet.text));
-        desc.content_ = &thugpro;
-        dup_from(packet.text, sizeof(packet.text), thugpro.text); // (what was sent, shown below)
+            thugpro::encode_chat(thugpro_bytes, thugpro::get_machine_id(), color, packet.name, packet.text));
+        desc.content_ = thugpro_bytes;
+        packet.text[thugpro::kChatMessageTextSize - 1] = '\0'; // (what was sent, shown below)
     }
     send_to_server(manager, &desc);
 
@@ -176,16 +170,6 @@ void run_script_with(uint32_t script, script::Struct* params)
 
 } // namespace
 
-namespace {
-
-// The length of the string at `text`, at most up to `end` (a string the message doesn't end is cut there).
-int bounded_length(const char* text, const char* end)
-{
-    return text < end ? static_cast<int>(strnlen(text, static_cast<size_t>(end - text))) : 0;
-}
-
-} // namespace
-
 // 0x00532050 (online::Hub's chat handler, message 76; its data: none)
 int __cdecl on_chat_msg(net::InboundMsgCtx* context)
 {
@@ -199,12 +183,13 @@ int __cdecl on_chat_msg(net::InboundMsgCtx* context)
         std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name, chat.text);
     } else {
         // The original sprintfs the name and the text with no bounds (a name without its NUL runs on into the text)
-        // into 256 bytes on the stack; here both stop at the message's end, and the line at 256.
-        const char* end = message + context->body_size_;
-        const char* name = message + 1;
-        const char* text = message + 1 + kNameSize;
-        std::snprintf(line, sizeof(line), "\\c%i%.*s\\c0 : %.*s", static_cast<int8_t>(message[0]) + 2,
-                      bounded_length(name, end), name, bounded_length(text, end), text);
+        // into 256 bytes on the stack; here the name stops at its 16 bytes, the text at the message's end, the line
+        // at 256.
+        util::ByteReader reader(message, context->body_size_);
+        Chat chat;
+        read_chat(reader, &chat);
+        std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", static_cast<int8_t>(chat.color) + 2, chat.name,
+                      chat.text);
     }
     ParamBag* params = new_script_struct();
     append_word(params, kText, line);

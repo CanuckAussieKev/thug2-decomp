@@ -2,6 +2,8 @@
 
 #include "engine/net/gamenet_messages.h"
 
+#include <cstring>
+
 #include "engine/util/byte_stream.h"
 
 namespace online {
@@ -340,6 +342,52 @@ bool write_level_switch(util::ByteWriter& writer, const LevelSwitch& message)
     return writer.ok();
 }
 
+namespace {
+
+// The rest of the message up to its NUL, into `out` (`size` bytes, terminated): false when there's no NUL before the
+// end (what there is still copied, cut to fit).
+bool read_rest_string(util::ByteReader& reader, char* out, size_t size)
+{
+    size_t length = 0;
+    const uint8_t* rest = reader.cursor();
+    size_t remaining = reader.remaining();
+    while (length < remaining && rest[length])
+        ++length;
+    bool ended = length < remaining;
+    size_t copy = length < size - 1 ? length : size - 1;
+    std::memcpy(out, rest, copy);
+    out[copy] = '\0';
+    reader.skip(ended ? length + 1 : length);
+    return ended;
+}
+
+void write_cut_string(util::ByteWriter& writer, const char* text, size_t size)
+{
+    size_t length = strnlen(text, size - 1);
+    writer.bytes(text, length);
+    writer.u8(0);
+}
+
+} // namespace
+
+bool read_chat(util::ByteReader& reader, Chat* message)
+{
+    message->color = reader.u8();
+    reader.fixed_string(message->name, sizeof(message->name), kChatNameSize);
+    if (!reader.ok())
+        return false;
+    read_rest_string(reader, message->text, sizeof(message->text));
+    return reader.ok();
+}
+
+bool write_chat(util::ByteWriter& writer, const Chat& message)
+{
+    writer.u8(message.color);
+    writer.fixed_string(message.name, kChatNameSize);
+    write_cut_string(writer, message.text, kChatTextSize);
+    return writer.ok();
+}
+
 namespace thugpro {
 
 bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message)
@@ -364,6 +412,60 @@ bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& messa
     writer.u32(message.machine_id_);
     writer.u8(message.modified_scripts_ ? 1 : 0);
     writer.fill(0, 3);
+    return writer.ok();
+}
+
+bool read_chat_message(util::ByteReader& reader, ChatMessage* message)
+{
+    if (reader.remaining() <= kChatMessageHeaderSize || reader.remaining() > kChatMessageSize)
+        return false;
+    message->machine_id_ = reader.u32();
+    message->obj_id_ = reader.u8();
+    char name[17];
+    reader.fixed_string(name, sizeof(name), 16);
+    if (std::strlen(name) >= 16)
+        return false;
+    std::memcpy(message->name, name, sizeof(message->name));
+    return read_rest_string(reader, message->text, sizeof(message->text)) && reader.ok();
+}
+
+bool write_chat_message(util::ByteWriter& writer, const ChatMessage& message)
+{
+    writer.u32(message.machine_id_);
+    writer.u8(message.obj_id_);
+    char name[16] = {};
+    std::memcpy(name, message.name, strnlen(message.name, 15));
+    writer.bytes(name, sizeof(name));
+    write_cut_string(writer, message.text, kChatMessageTextSize);
+    return writer.ok();
+}
+
+bool read_server_info(util::ByteReader& reader, ServerInfo* message)
+{
+    message->time_of_day_ = reader.u32();
+    message->weather = reader.u32();
+    uint64_t low = reader.u32();
+    uint64_t high = reader.u32();
+    message->flags = low | high << 32;
+    return reader.ok();
+}
+
+bool write_server_info(util::ByteWriter& writer, const ServerInfo& message)
+{
+    writer.u32(message.time_of_day_);
+    writer.u32(message.weather);
+    writer.u32(static_cast<uint32_t>(message.flags));
+    writer.u32(static_cast<uint32_t>(message.flags >> 32));
+    return writer.ok();
+}
+
+bool write_change_level(util::ByteWriter& writer, const LevelSwitch& level, const char* name)
+{
+    write_level_switch(writer, level);
+    char field[kChangeLevelNameSize] = {};
+    if (name)
+        std::memcpy(field, name, strnlen(name, kChangeLevelNameSize - 1));
+    writer.bytes(field, sizeof(field));
     return writer.ok();
 }
 

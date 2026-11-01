@@ -42,6 +42,8 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/gfx/weather.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 
 namespace script {
 class Struct;
@@ -153,37 +155,47 @@ uint32_t get_machine_id()
 
 // --- Layouts ---
 
-uint32_t encode_chat(ChatMessage* out, uint32_t machine_id, uint8_t obj_id, const char* name, const char* text)
+uint32_t encode_chat(uint8_t out[kChatMessageSize], uint32_t machine_id, uint8_t obj_id, const char* name,
+                     const char* text)
 {
-    std::memset(out, 0, sizeof(*out));
-    out->machine_id_ = machine_id;
-    out->obj_id_ = obj_id;
-    copy_field(out->name, sizeof(out->name), name);
-    copy_field(out->text, sizeof(out->text), text);
-    return kChatHeaderSize + static_cast<uint32_t>(std::strlen(out->text)) + 1;
+    ChatMessage message;
+    message.machine_id_ = machine_id;
+    message.obj_id_ = obj_id;
+    copy_field(message.name, sizeof(message.name), name);
+    copy_field(message.text, sizeof(message.text), text);
+    util::ByteWriter writer(out, kChatMessageSize);
+    write_chat_message(writer, message);
+    return static_cast<uint32_t>(writer.position());
 }
 
 bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* out)
 {
-    // THUGPRO: id, object, name, text - at most its struct (so text <= 127). THUG2: object, name, text - at most our
-    // 0x94-byte packet (text <= 130). The text ends inside the message (so the message is longer than its header).
-    const uint32_t header = thugpro ? kChatHeaderSize : 1 + kNameSize;
-    const uint32_t largest = thugpro ? static_cast<uint32_t>(sizeof(ChatMessage)) : 0x94;
-    if (!data || length <= header || length > largest)
+    // THUGPRO: id, object, name, text - at most its 149 bytes (so text <= 127). THUG2: object, name, text - at most
+    // its 0x94 bytes (text <= 130). The text ends inside the message (so the message is longer than its header), the
+    // name inside its field.
+    if (!data)
         return false;
-    const uint8_t* fields = data + (thugpro ? 4 : 0);
-    const char* name = reinterpret_cast<const char*>(fields + 1);
-    const char* text = reinterpret_cast<const char*>(data + header);
-    size_t name_length = strnlen(name, kNameSize);
-    size_t text_length = strnlen(text, length - header);
-    if (name_length >= static_cast<size_t>(kNameSize) || text_length >= length - header)
-        return false;
+    util::ByteReader reader(data, length);
     std::memset(out, 0, sizeof(*out));
-    if (thugpro)
-        std::memcpy(&out->machine_id_, data, 4);
-    out->obj_id_ = fields[0];
-    std::memcpy(out->name, name, name_length);
-    std::memcpy(out->text, text, text_length);
+    if (thugpro) {
+        ChatMessage message;
+        if (!read_chat_message(reader, &message))
+            return false;
+        out->machine_id_ = message.machine_id_;
+        out->obj_id_ = message.obj_id_;
+        std::memcpy(out->name, message.name, sizeof(out->name));
+        std::memcpy(out->text, message.text, sizeof(message.text));
+        return true;
+    }
+    if (length <= online::kChatHeaderSize || length > online::kChatSize)
+        return false;
+    Chat message;
+    if (!read_chat(reader, &message) || std::strlen(message.name) >= static_cast<size_t>(kNameSize) ||
+        (reader.remaining() == 0 && data[length - 1] != 0))
+        return false;
+    out->obj_id_ = message.color;
+    std::memcpy(out->name, message.name, sizeof(out->name));
+    std::memcpy(out->text, message.text, sizeof(out->text) - 1);
     return true;
 }
 
@@ -196,10 +208,10 @@ uint64_t make_flags(uint8_t level_options, uint8_t pro_sets)
 
 bool decode_server_info(const uint8_t* data, uint32_t length, HostListing* out)
 {
-    if (!data || length < sizeof(HostListing))
+    if (!data)
         return false;
-    std::memcpy(out, data, sizeof(HostListing));
-    return true;
+    util::ByteReader reader(data, length);
+    return read_server_info(reader, out);
 }
 
 const char* change_level_name(uint32_t level, const char* list_name)
@@ -216,11 +228,10 @@ const char* change_level_name(uint32_t level, const char* list_name)
     }
 }
 
-void extend_change_level(const uint8_t* message, const char* name, uint8_t out[kChangeLevelThugproSize])
+void extend_change_level(const LevelSwitch& level, const char* name, uint8_t out[kChangeLevelThugproSize])
 {
-    std::memset(out, 0, kChangeLevelThugproSize);
-    std::memcpy(out, message, kChangeLevelSize);
-    copy_field(reinterpret_cast<char*>(out + kChangeLevelSize), kChangeLevelNameSize, name);
+    util::ByteWriter writer(out, kChangeLevelThugproSize);
+    write_change_level(writer, level, name);
 }
 
 // --- Effects ---
@@ -443,21 +454,23 @@ void apply_session()
 
 uint32_t get_word(net::InboundMsgCtx* context)
 {
-    uint32_t value = 0;
-    if (context->body_size_ >= 4)
-        std::memcpy(&value, context->body_, 4);
-    return value;
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint32_t value = reader.u32();
+    return reader.ok() ? value : 0;
 }
 
 // Server info for `app`'s connection `handle`, before THUG2's start info.
 void send_server_info(net::AppHost* app, int handle)
 {
     HostListing info = host_server_info();
+    uint8_t bytes[kServerInfoSize];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    write_server_info(writer, info);
     net::NetMessageInfo desc;
     desc.make_new();
     desc.ident_ = kMsgServerInfo;
-    desc.byte_count_ = sizeof(info);
-    desc.content_ = &info;
+    desc.byte_count_ = sizeof(bytes);
+    desc.content_ = bytes;
     desc.rank_ = 0xFF;
     desc.queue_ = net::NetMessageInfo::kLanePriority;
     desc.group_id_ = kGroupPlayerMessages;
@@ -473,8 +486,11 @@ void get_broadcast(uint8_t id, uint32_t value)
     net::NetMessageInfo desc;
     desc.make_new();
     desc.ident_ = id;
-    desc.byte_count_ = 4;
-    desc.content_ = &value;
+    uint8_t bytes[4];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    writer.u32(value);
+    desc.byte_count_ = sizeof(bytes);
+    desc.content_ = bytes;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupPlayerMessages;
     manager->host_->put_on_outbox(kHandleBroadcast, &desc);
@@ -494,10 +510,10 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
     }
     if (desc->ident_ == kMsgLevelSwitch && desc->byte_count_ == kChangeLevelSize && desc->content_) {
         uint8_t message[kChangeLevelThugproSize];
-        const auto* data = static_cast<const uint8_t*>(desc->content_);
-        uint32_t level;
-        std::memcpy(&level, data, 4);
-        extend_change_level(data, change_level_name(level, Hub::level_list_name(level)), message);
+        util::ByteReader reader(desc->content_, desc->byte_count_);
+        LevelSwitch change;
+        read_level_switch(reader, &change);
+        extend_change_level(change, change_level_name(change.level, Hub::level_list_name(change.level)), message);
         net::NetMessageInfo extended = *desc;
         extended.content_ = message;
         extended.byte_count_ = kChangeLevelThugproSize;

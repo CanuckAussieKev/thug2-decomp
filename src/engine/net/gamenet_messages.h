@@ -264,6 +264,26 @@ struct LevelSwitch {
 bool read_level_switch(util::ByteReader& reader, LevelSwitch* message);
 bool write_level_switch(util::ByteWriter& writer, const LevelSwitch& message);
 
+// --- Chat ---
+//
+//   0x4C chat (0x12 + the text's length; at most 0x94): the sender's colour (u8: its skater's object id, 8 for an
+//     observer), the name (char[16]), the text and its NUL (at most 131 bytes) - the server relays it as it is
+//     (THUGPRO's peers put a machine id in front: thugpro::ChatMessage below)
+constexpr uint8_t kMsgChat = 0x4C;
+constexpr size_t kChatNameSize = 16;
+constexpr size_t kChatTextSize = 131;
+constexpr size_t kChatHeaderSize = 1 + kChatNameSize;
+constexpr size_t kChatSize = kChatHeaderSize + kChatTextSize; // 0x94
+
+struct Chat {
+    uint8_t color = 0;
+    char name[kChatNameSize + 1] = {}; // (terminated here; on the wire its 16 bytes)
+    char text[kChatTextSize] = {};     // (the text, cut to 130 characters, and its NUL)
+};
+// (the text: what is left of the message, up to its NUL - cut there when it has none)
+bool read_chat(util::ByteReader& reader, Chat* message);
+bool write_chat(util::ByteWriter& writer, const Chat& message);
+
 namespace thugpro {
 
 // NOT ORIGINAL - THUGPRO's connection request trailer (after THUG2's 92 bytes; engine/net/thugpro_join.h, TP-R12):
@@ -282,6 +302,43 @@ struct ConnectTrailer {
 };
 bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message);
 bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& message);
+
+// NOT ORIGINAL - THUGPRO's messages (engine/net/thugpro_peer.h: the peer mode; register TP-R2 ... TP-R5):
+//   76 chat (21 + the text's length; at most 149): the sender's machine id (u32), then THUG2's chat - the object id
+//     (u8), the name (char[16], ended inside it), the text and its NUL (at most 128 bytes)
+//   155 server info (16): the time of day (u32), the weather (u32), the flags (u64: bits 0-7 the level options,
+//     8-15 the pro sets)
+//   70 change level (40, when we host): THUG2's 8 bytes (LevelSwitch), then the level's name (char[32], NUL-ended)
+//   156 / 157 / 158 / 159 updates (4): a word
+constexpr size_t kChatMessageHeaderSize = 4 + 1 + 16;
+constexpr size_t kChatMessageTextSize = 128;
+constexpr size_t kChatMessageSize = kChatMessageHeaderSize + kChatMessageTextSize; // 149
+constexpr size_t kServerInfoSize = 16;
+constexpr size_t kChangeLevelNameSize = 32;
+constexpr size_t kChangeLevelThugproSize = kLevelSwitchSize + kChangeLevelNameSize;
+
+struct ChatMessage {
+    uint32_t machine_id_ = 0;
+    uint8_t obj_id_ = 0;
+    char name[16] = {};                    // (ended inside its field)
+    char text[kChatMessageTextSize] = {}; // (at most 127 characters and the NUL)
+};
+// (fails - as THUGPRO drops them - when the message is no longer than its header or longer than 149 bytes, or its
+// name or text doesn't end inside it)
+bool read_chat_message(util::ByteReader& reader, ChatMessage* message);
+// (the name cut to 15 characters, the text to 127)
+bool write_chat_message(util::ByteWriter& writer, const ChatMessage& message);
+
+struct ServerInfo {
+    uint32_t time_of_day_ = 0;
+    uint32_t weather = 0;
+    uint64_t flags = 0;
+};
+bool read_server_info(util::ByteReader& reader, ServerInfo* message);
+bool write_server_info(util::ByteWriter& writer, const ServerInfo& message);
+
+// (the name cut to 31 characters)
+bool write_change_level(util::ByteWriter& writer, const LevelSwitch& level, const char* name);
 
 } // namespace thugpro
 

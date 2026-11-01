@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/net/gamenet_messages.h"
+
 // NOT ORIGINAL - the THUGPRO peer mode: playing network games with THUGPRO players (THUG2 PC plus Morten1337's
 // thugpro.dll and scripts). THUGPRO keeps THUG2's protocol and adds to it (docs/thugpro-online.md section 3); in
 // this mode our side speaks those additions:
@@ -52,21 +54,14 @@ constexpr uint8_t kMsgModsAllowed = 159;       // S->C
 constexpr int kNameSize = 16;      // vMAX_PLAYER_NAME_LEN + 1
 constexpr int kChatTextSize = 128; // vMAX_CHAT_MSG_LEN + 1 (THUGPRO drops longer text)
 
-// Chat: THUG2's layout (object id / colour, name, text) with the sender's machine id first. Sent with the text's
-// length: 4 + 1 + 16 + strlen(text) + 1.
-#pragma pack(push, 1)
-struct ChatMessage {
-    uint32_t machine_id_;
-    uint8_t obj_id_; // the sender's skater's object id, 8 for an observer; shown as colour objId + 2
-    char name[kNameSize];
-    char text[kChatTextSize];
-};
-#pragma pack(pop)
-static_assert(sizeof(ChatMessage) == 149, "THUGPRO's MsgChatTHUGPRO");
-constexpr uint32_t kChatHeaderSize = 4 + 1 + kNameSize;
+// Chat: THUG2's layout (object id / colour, name, text) with the sender's machine id first (ChatMessage, its format
+// in gamenet_messages.h). Sent with the text's length: 4 + 1 + 16 + strlen(text) + 1.
+constexpr uint32_t kChatHeaderSize = static_cast<uint32_t>(kChatMessageHeaderSize);
 
-// A chat message for the wire: `text` cut to THUGPRO's 127 characters, `name` to 15. Returns the length to send.
-uint32_t encode_chat(ChatMessage* out, uint32_t machine_id, uint8_t obj_id, const char* name, const char* text);
+// A chat message for the wire, into `out`: `text` cut to THUGPRO's 127 characters, `name` to 15. Returns the length
+// to send.
+uint32_t encode_chat(uint8_t out[kChatMessageSize], uint32_t machine_id, uint8_t obj_id, const char* name,
+                     const char* text);
 // A received chat message (of either layout: THUGPRO's when `thugpro`, else THUG2's - object id, name, text):
 // false when it's too short, too long, or its name / text don't end inside it (THUGPRO drops those too).
 struct ChatLine {
@@ -77,14 +72,10 @@ struct ChatLine {
 };
 bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* out);
 
-// Server info (155): 16 bytes. Flags: bits 0-7 level options 1-8, bits 8-15 pro sets 1-7 and the competition's
-// geometry (G_COMP); the rest unused.
-struct HostListing {
-    uint32_t time_of_day_; // afternoon / night / morning / evening (THUG2's TOD states' checksums)
-    uint32_t weather;      // "default" / clear / rain / snow
-    uint64_t flags;
-};
-static_assert(sizeof(HostListing) == 16, "THUGPRO's MsgTHUGProServerInfo");
+// Server info (155, 16 bytes: ServerInfo in gamenet_messages.h): the time of day (afternoon / night / morning / evening:
+// THUG2's TOD states' checksums), the weather ("default" / clear / rain / snow), the flags - bits 0-7 level options
+// 1-8, bits 8-15 pro sets 1-7 and the competition's geometry (G_COMP); the rest unused.
+using HostListing = ServerInfo;
 constexpr uint32_t kWeatherDefault = 0x1CA1FF20; // "default"
 uint8_t get_level_options(const HostListing& info);
 uint8_t get_pro_sets(const HostListing& info);
@@ -93,13 +84,11 @@ bool decode_server_info(const uint8_t* data, uint32_t length, HostListing* out);
 
 // Change level (70): THUG2's 8 bytes (the level's load script, the show-warning byte, 3 bytes padding), then the
 // level's name, 32 bytes (strncpy_s'd: cut, NUL-ended).
-constexpr uint32_t kChangeLevelSize = 8;
-constexpr uint32_t kChangeLevelNameSize = 32;
-constexpr uint32_t kChangeLevelThugproSize = kChangeLevelSize + kChangeLevelNameSize;
+constexpr uint32_t kChangeLevelSize = static_cast<uint32_t>(kLevelSwitchSize);
 // The name THUGPRO sends for `level`: its own words for the skate shop, the park editor and a created park
 // (with a newline, as THUGPRO has them); else the level select's name (`list_name`, null: "Unknown\n").
 const char* change_level_name(uint32_t level, const char* list_name);
-void extend_change_level(const uint8_t* message, const char* name, uint8_t out[kChangeLevelThugproSize]);
+void extend_change_level(const LevelSwitch& level, const char* name, uint8_t out[kChangeLevelThugproSize]);
 
 // --- What the messages change ---
 
