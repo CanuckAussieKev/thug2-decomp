@@ -43,11 +43,6 @@ void set_object_color(uint32_t id, script::Struct* params) { commands::set_node_
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-script::Struct* new_params()
-{
-    script::Struct* params = script::spawn_param_bag();
-    return params ? memory::construct_in<script::Struct>(params) : nullptr;
-}
 void delete_params(script::Struct* params)
 {
     if (params) {
@@ -89,7 +84,7 @@ void ColorCycleComponent::change_colors(script::Array* colors)
 void ColorCycleComponent::set_on(bool on)
 {
     if (on_ && !on) {
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kName, entity_->ident_);
         params->put_int(kColor, kNeutralColor);
         set_object_color(entity_->ident_, params);
@@ -111,7 +106,7 @@ void ColorCycleComponent::tick_frame()
 {
     if (!on_)
         return;
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     const maths::Vec4& color = core::at(colors_, ongoing_);
     uint32_t rgb = static_cast<uint32_t>(get_truncated(color.z)) << 8;
     rgb = (rgb + static_cast<uint32_t>(get_truncated(color.y))) << 8;

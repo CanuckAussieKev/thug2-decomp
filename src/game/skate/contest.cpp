@@ -82,32 +82,7 @@ objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 // The goal manager (0x005591B0) and its active competition goal (0x00558D90; null: none).
 bool competition_goal_active() { return goals::get_objective_board()->get_active_competition() != nullptr; }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
-script::Array* alloc_script_array()
-{
-    script::Array* array = script::alloc_script_array();
-    return array ? memory::construct_in<script::Array>(array) : nullptr;
-}
 // An array handed to a structure (which copied it): its contents and itself freed.
-void free_array(script::Array* array)
-{
-    script::release_array_storage(array);
-    if (array) {
-        array->get_clear();
-        script::delete_array(array);
-    }
-}
 
 } // namespace
 
@@ -221,7 +196,7 @@ void Contest::sort_leaders()
 // 0x005504B0
 // (the leaders made first by their constructors - the compiler's array-constructor helper, 0x0062388B; destroyed by
 // the implicit destructor, 0x0054FFF0, through its array-destructor helper 0x0062382B: last to first)
-Contest::Contest() : args_(spawn_param_table()) {}
+Contest::Contest() : args_(script::new_struct()) {}
 
 // 0x00550560
 void Contest::kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score, float gold_score,
@@ -345,8 +320,8 @@ void Contest::show_leader_board()
 {
     if (!competition_goal_active())
         return;
-    script::Struct* params = spawn_param_table();
-    script::Array* board = alloc_script_array();
+    script::Struct* params = script::new_struct();
+    script::Array* board = script::new_array();
     board->configure_size_kind(5, script::kQbvalStruct);
     debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
@@ -356,7 +331,7 @@ void Contest::show_leader_board()
     }
     for (int i = 0; i < 5; ++i) {
         const Leader& leader = core::at(leaders_, i);
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         entry->append_word(kName, leader.label_.c_str());
         debug::printf("m_current_round: %i\n", runs_);
         entry->put_int(kScore, leader.best_two(runs_ + 1));
@@ -367,7 +342,7 @@ void Contest::show_leader_board()
     params->append_array_value(kRankingList, board);
     free_array(board);
     script::spawn_script(kAddLeaderBoard, params, 0, nullptr, 0, 0, false, false, false, false);
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 // 0x00550EF0
@@ -492,12 +467,12 @@ void Contest::end_run(int score)
 
     if (!competition_goal_active())
         return;
-    script::Struct* params = spawn_param_table();
-    script::Array* scores = alloc_script_array();
+    script::Struct* params = script::new_struct();
+    script::Array* scores = script::new_array();
     scores->configure_size_kind(5, script::kQbvalStruct);
     debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         entry->put_int("score", current_round(judges[i])); // "score"
         if (is_leading_scorer(i))
             entry->put_name_key(kNoName, kTopJudge);
@@ -509,7 +484,7 @@ void Contest::end_run(int score)
     free_array(scores);
     script::spawn_script("goal_comp_show_run_scores", params, 0, nullptr, 0, 0, false, false, false,
                          false); // goal_comp_show_run_scores
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 } // namespace modules

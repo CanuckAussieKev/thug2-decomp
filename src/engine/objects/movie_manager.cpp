@@ -64,18 +64,6 @@ void uncouple(memory::ListNode* node)
     node->prev = node;
 }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 } // namespace
 
@@ -218,7 +206,7 @@ void VideoHub::clear_movies()
 void VideoHub::end_movie(Movie* movie)
 {
     const uint32_t end_script = movie->label_;
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->append_structure_if_any(movie->args_);
     if (total_of() == 1)
         keep_camera(movie);

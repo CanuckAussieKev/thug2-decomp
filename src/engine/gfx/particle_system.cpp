@@ -50,11 +50,6 @@ void* allocate_zeroed(unsigned int size)
     return memory::Hub::get_pull()->allocate_zeroed(size, g_alloc_assert_flag, nullptr);
 }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
 
 } // namespace
 
@@ -388,7 +383,7 @@ void bind_script(EmitterInstance* system, script::Script*& slot, uint32_t script
     if (!slot)
         slot = script::Script::create();
     if (!system->script_args_)
-        system->script_args_ = spawn_param_table();
+        system->script_args_ = script::new_struct();
     system->script_args_->append_structure_if_any(params);
     slot->bind_script(script, system->script_args_, static_cast<objects::Entity*>(object));
 }

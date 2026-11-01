@@ -455,7 +455,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     if (_stricmp(player_name(player), name) != 0)
         return true;
     player->flag_bits_ |= kRemoveMark;
-    Struct* dialog = new_params();
+    Struct* dialog = script::new_struct();
     const int profile = player->profile_id_;
     if ((manager->flag_bits_ & kFlagsInternet) && profile && mark_friend_online(manager)) {
         dialog->put_int(kProfile, player->profile_id_);
@@ -464,7 +464,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     }
     dialog->append_word(kName, script::kQbvalString, name);
     get_run(kCreatePlayerOptionsDialog, dialog);
-    delete_params(dialog);
+    script::free_struct(dialog);
     return true;
 }
 
@@ -507,23 +507,23 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         }
         rgba->set_element(2, blue);
         rgba->set_element(3, 0x80);
-        Struct* item = new_params();
+        Struct* item = script::new_struct();
         item->append_word(kText, player_name(player));
         item->put_name_key(kCentered, kCentered);
         item->put_name_key(kId, static_cast<uint32_t>(index + kPlayerMenuIdBase));
         item->put_name_key(kPadChooseScript, kChooseSelectedPlayer);
-        Struct* unfocus = new_params();
+        Struct* unfocus = script::new_struct();
         unfocus->append_array_value(kRgba, rgba);
         item->append_array_value(kRgba, rgba);
         item->put_sub_struct(kUnfocusParams, unfocus);
-        Struct* choose = new_params();
+        Struct* choose = script::new_struct();
         choose->put_int(kIndex, index);
         choose->append_word(kName, player_name(player));
         item->put_sub_struct(kPadChooseParams, choose);
         get_run(kThemeMenuAddItem, item);
-        delete_params(item);
-        delete_params(choose);
-        delete_params(unfocus);
+        script::free_struct(item);
+        script::free_struct(choose);
+        script::free_struct(unfocus);
         if (rgba) {
             rgba->get_clear();
             script::delete_array(rgba);

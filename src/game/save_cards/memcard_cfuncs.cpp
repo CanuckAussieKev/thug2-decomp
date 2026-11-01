@@ -82,18 +82,6 @@ int os_layer() { return game_config::g_platform; }
 void pause_music(int pause) { audio::pause_music(pause); }
 void freeze_stream(int pause) { audio::freeze_stream(pause); }
 
-script::Struct* new_params()
-{
-    script::Struct* params = script::spawn_param_bag();
-    return params ? memory::construct_in<script::Struct>(params) : nullptr;
-}
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 // A save file: its header (save_file_format.h), then two structures written by the script writer (0x0047A0C0 reads
 // one back and returns the end of what it read) - the summary and the contents.
@@ -127,8 +115,8 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         pause_music(1);
         freeze_stream(1);
     }
-    script::Struct* header = new_params();   // the file's first structure (read, then dropped)
-    script::Struct* contents = new_params(); // the second: what's loaded
+    script::Struct* header = script::new_struct();   // the file's first structure (read, then dropped)
+    script::Struct* contents = script::new_struct(); // the second: what's loaded
     const char* name = "";                   // ""
     uint32_t type = 0;
     uint8_t* data = nullptr;
@@ -204,7 +192,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                             apply_loaded_contents(type, contents, script, params);
                         } else {
                             // (a null structure here would crash, as in the original; the previous one leaks)
-                            script::Struct* kept = new_params();
+                            script::Struct* kept = script::new_struct();
                             g_kept_params = kept;
                             kept->append_structure_if_any(contents);
                             g_kept_type = type;
@@ -225,8 +213,8 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                 memory::free_malloc(data);
         }
     }
-    delete_params(header);
-    delete_params(contents);
+    script::free_struct(header);
+    script::free_struct(contents);
     if (os_layer() != 4) {
         pause_music(-1);
         freeze_stream(-1);

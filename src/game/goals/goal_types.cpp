@@ -58,18 +58,6 @@ const char* const kRewardParams = "reward_params"; // "reward_params"
 
 int truncate(double value) { return static_cast<int>(value); }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 modules::Contest* the_competition() { return modules::Skate::sole()->competition_.get(); }
 
 } // namespace
@@ -203,19 +191,19 @@ bool ContestObjective::get_win()
             record_points_ = place;
         }
     }
-    script::Struct* rewards = spawn_param_table();
+    script::Struct* rewards = script::new_struct();
     if (!has_won()) {
-        script::Struct* own = spawn_param_table();
+        script::Struct* own = script::new_struct();
         get_prize_struct(own);
         rewards->append_structure_if_any(own);
-        delete_structure(own);
+        script::free_struct(own);
         open_up_prize_objectives();
     } else {
         args_->erase_module(kRewardParams);
     }
     args_->put_sub_struct(kRewardParams, rewards);
     invoke_hook_script(kSuccessScript);
-    delete_structure(rewards);
+    script::free_struct(rewards);
     if (!has_won())
         mark_won();
     return true;
@@ -361,19 +349,19 @@ void HuntGapsObjective::scan_for_gaps()
     args_->put_int(kNumberCollected, count);
     if (!found_new)
         return;
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kGoalIdChecksum, get_objective_key());
     script::launch_script(kFindGapsFoundGap, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 // 0x00552D20
 bool HuntGapsObjective::activate()
 {
     args_->erase_module(kGapsFound);
-    script::Struct* found = spawn_param_table();
+    script::Struct* found = script::new_struct();
     args_->put_sub_struct(kGapsFound, found);
-    delete_structure(found);
+    script::free_struct(found);
     args_->put_int(kNumGapsFound, 0);
     args_->put_int(kNumberCollected, 0);
     int to_find = 0;

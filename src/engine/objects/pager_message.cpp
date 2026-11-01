@@ -34,18 +34,6 @@ constexpr uint32_t kPagerScript = 0xE8DA4931;
 
 void dealloc(void* block) { memory::Hub::get_pull()->dealloc(block); }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // std::list<PagerMessage*>::push_back (0x004964A0, the game's: inserts before the sentinel).
 void get_push_back(PointerList* list, PagerMessage** message)
@@ -113,7 +101,7 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
     PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
     while (messages_.size > keep) {
         if (auto* message = static_cast<PagerMessage*>(node->data)) {
-            delete_structure(message->params);
+            script::free_struct(message->params);
             dealloc(message);
             node->data = nullptr;
         }
@@ -126,11 +114,11 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
         }
         node = next;
     }
-    script::Struct* data = spawn_param_table();
+    script::Struct* data = script::new_struct();
     data->put_name_key(0x14C4B1CC, 1u);
     script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
     entity_->spawn_script(kPagerScript, data, 0, false);
-    delete_structure(data);
+    script::free_struct(data);
 }
 
 // 0x004EC9A0
@@ -139,17 +127,17 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     auto* message = static_cast<PagerMessage*>(memory::alloc(sizeof(PagerMessage)));
     if (message)
         message->params = nullptr;
-    message->params = spawn_param_table();
+    message->params = script::new_struct();
     message->params->merge_structure(params);
     message->read = false;
     get_push_back(&messages_, &message);
-    script::Struct* data = spawn_param_table();
+    script::Struct* data = script::new_struct();
     data->put_name_key(0x34406F14, 1u);
     if (message->params->has_bare_flag(0x8E6DFA5D))
         data->put_name_key(0u, 0x8E6DFA5Du);
     script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
     entity_->spawn_script(kPagerScript, data, 0, false);
-    delete_structure(data);
+    script::free_struct(data);
     return true;
 }
 

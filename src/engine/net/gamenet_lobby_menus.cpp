@@ -84,11 +84,6 @@ void push_internet_heap()
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
 // A script array of four integers (an rgba).
-script::Array* new_script_array()
-{
-    script::Array* memory = script::alloc_script_array();
-    return memory ? memory::construct_in<script::Array>(memory) : nullptr;
-}
 void delete_script_array(script::Array* array)
 {
     if (array) {
@@ -114,18 +109,18 @@ int own_profile(FriendsManager* buddy) { return buddy->account_; }
 void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
 {
     push_internet_heap();
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(kText, player->nick_.data());
     params->put_name_key(kPadChooseScript, kLobbyAddBuddy);
     params->put_name_key(kParentMenuId, kBuddyMenu);
-    script::Struct* choose = new_params();
+    script::Struct* choose = script::new_struct();
     choose->put_int(kProfile, player->account_);
     choose->append_word(kNick, player->nick_.data());
     choose->append_word(kNetName, player->nick_.data());
     params->put_sub_struct(kPadChooseParams, choose);
     get_run(kMakeTextSubMenuItem, params);
-    delete_params(params);
-    delete_params(choose);
+    script::free_struct(params);
+    script::free_struct(choose);
     pop_heap();
 }
 
@@ -135,10 +130,10 @@ void RoomManager::room_message_callback(void*, int, const char* nick, const char
     push_internet_heap();
     std::array<char, 1024> text{};
     std::sprintf(text.data(), "%s: %s", nick, message);
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(kText, text.data());
     get_run(kCreateConsoleMessage, params);
-    delete_params(params);
+    script::free_struct(params);
     pop_heap();
 }
 
@@ -152,10 +147,10 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
     if (params->has_bare_flag(kSystemMessage)) {
         std::array<char, 1024> text{};
         std::sprintf(text.data(), "<System> %s", message);
-        script::Struct* console = new_params();
+        script::Struct* console = script::new_struct();
         console->append_word(kText, text.data());
         get_run(kCreateConsoleMessage, console);
-        delete_params(console);
+        script::free_struct(console);
         return true;
     }
     push_internet_heap();
@@ -175,7 +170,7 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
                      script::fetch_text(kNetLobbyFull));
     else
         std::sprintf(text.data(), "%s - %d/%d", room->label_.data(), room->num_players_, room->max_players_);
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(kText, text.data());
     const bool available = !room->full_ && !room->out_of_range_;
     if (available) {
@@ -185,13 +180,13 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
         params->put_name_key(0u, kNotFocusable);
         params->put_name_key(kPadChooseScript, kUnavailableLobby);
     }
-    script::Struct* choose = new_params();
+    script::Struct* choose = script::new_struct();
     choose->put_int(kIndex, index);
     if (available)
         params->put_sub_struct(kPadChooseParams, choose);
     get_run(kRegionsMenuAddItem, params);
-    delete_params(params);
-    delete_params(choose);
+    script::free_struct(params);
+    script::free_struct(choose);
     pop_heap();
 }
 
@@ -200,10 +195,10 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
 {
     const Hub* manager = net_session_slot();
     push_internet_heap();
-    script::Struct* choose = new_params();
-    script::Struct* params = new_params();
-    script::Array* rgba = new_script_array();
-    script::Struct* unfocus = new_params();
+    script::Struct* choose = script::new_struct();
+    script::Struct* params = script::new_struct();
+    script::Array* rgba = script::new_array();
+    script::Struct* unfocus = script::new_struct();
     params->append_word(kText, player->nick_.data());
     rgba->configure_size_kind(4, script::kQbvalInteger);
     FriendsManager* buddy = manager->presence_service_.get();
@@ -244,9 +239,9 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     params->put_sub_struct(kUnfocusParams, unfocus);
     get_run(kAddLobbyPlayer, params);
     delete_script_array(rgba);
-    delete_params(choose);
-    delete_params(params);
-    delete_params(unfocus);
+    script::free_struct(choose);
+    script::free_struct(params);
+    script::free_struct(unfocus);
     pop_heap();
 }
 

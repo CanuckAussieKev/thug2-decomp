@@ -548,6 +548,32 @@ void free_string(char* string)
 
 // 0x00409030 / 0x00409070
 Struct* spawn_param_bag() { return struct_pools().allocate<Struct>(); }
+
+gsl::owner<Struct*> new_struct()
+{
+    Struct* memory = spawn_param_bag();
+    return memory ? memory::construct_in<Struct>(memory) : nullptr;
+}
+gsl::owner<Array*> new_array()
+{
+    Array* memory = alloc_script_array();
+    return memory ? memory::construct_in<Array>(memory) : nullptr;
+}
+void free_struct(gsl::owner<Struct*> structure)
+{
+    if (structure) {
+        structure->get_clear();
+        delete_struct(structure);
+    }
+}
+void free_array(gsl::owner<Array*> array)
+{
+    if (array) {
+        release_array_storage(array);
+        array->get_clear();
+        delete_array(array);
+    }
+}
 void delete_struct(Struct* structure) { struct_pools().dealloc(structure); }
 // 0x00408F90 / 0x00408FD0
 Array* alloc_script_array() { return array_pools().allocate<Array>(); }

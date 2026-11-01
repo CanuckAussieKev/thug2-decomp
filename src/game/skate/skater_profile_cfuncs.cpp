@@ -118,18 +118,6 @@ script::Struct* table_row(script::Array* list, uint32_t index)
 {
     return list->struct_at(index);
 }
-script::Struct* new_params()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 } // namespace
 
@@ -169,7 +157,7 @@ bool cfunc_reset_all_to_default_stats(script::Struct*, script::Script*)
 {
     script::Array* list = script::fetch_list(kMasterSkaterList);
     for (uint32_t i = 0; i < list->extent_; ++i) {
-        script::Struct* stats = new_params();
+        script::Struct* stats = script::new_struct();
         script::Struct* entry = table_row(list, i);
         uint32_t skater_name = 0; // (uninitialised in the original when missing, as the values below)
         entry->read_hash_value(kName, &skater_name, 1);
@@ -194,7 +182,7 @@ bool cfunc_reset_all_to_default_stats(script::Struct*, script::Script*)
                 break;
             }
         }
-        delete_params(stats);
+        script::free_struct(stats);
     }
     return true;
 }
@@ -251,11 +239,11 @@ bool cfunc_for_each_skater_name(script::Struct* params, script::Script*)
     for (int i = 0; i < count; ++i) {
         uint32_t name = 0;
         template_at(i)->details_params()->read_hash_value(kName, &name, 1);
-        script::Struct* run = new_params();
+        script::Struct* run = script::new_struct();
         run->append_structure_if_any(script_params);
         run->put_name_key(kName, name);
         script::launch_script(script, run, nullptr, false, nullptr);
-        delete_params(run);
+        script::free_struct(run);
     }
     return true;
 }
@@ -271,11 +259,11 @@ bool cfunc_for_each_skater_profile(script::Struct* params, script::Script*)
     const int count = static_cast<int>(template_count());
     for (int i = 0; i < count; ++i) {
         script::Struct* info = template_at(i)->details_params();
-        script::Struct* run = new_params();
+        script::Struct* run = script::new_struct();
         run->append_structure_if_any(script_params);
         run->append_structure_if_any(info);
         script::launch_script(script, run, nullptr, false, nullptr);
-        delete_params(run);
+        script::free_struct(run);
     }
     return true;
 }

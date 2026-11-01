@@ -115,10 +115,10 @@ bool get_filled(const char* text) { return text && *text; }
 // A preference's ui_string set to `text` (the parameters freed again).
 void set_preference_text(prefs::Preferences* preferences, uint32_t name, const char* text)
 {
-    script::Struct* values = new_params();
+    script::Struct* values = script::new_struct();
     values->append_word(kUiString, script::kQbvalString, text);
     preferences->change_setting(name, values);
-    delete_params(values);
+    script::free_struct(values);
 }
 
 } // namespace

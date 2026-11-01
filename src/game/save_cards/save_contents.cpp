@@ -99,31 +99,19 @@ const modules::Skate::PlayerSettings& controller_flags(int controller)
     return core::at(get_skate()->participants_, controller);
 }
 
-Struct* spawn_param_table()
-{
-    Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
-}
-void delete_structure(Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 } // namespace
 
 // 0x005A7560
 void write_global_info(Struct* global)
 {
-    Struct* options = spawn_param_table();
+    Struct* options = script::new_struct();
     prefs::Preferences* split_screen = split_screen_preferences();
-    Struct* split_screen_copy = spawn_param_table();
+    Struct* split_screen_copy = script::new_struct();
     split_screen_copy->append_structure_if_any(preferences_structure(split_screen));
     options->append_struct_ref(kSplitScreenPreferences, split_screen_copy);
 
-    Struct* sound = spawn_param_table();
+    Struct* sound = script::new_struct();
     sound->push_float(kMasterGainKey, sound::fetch_master_loudness());
     sound->push_float(kMusicVolume, script::fetch_float(kMusicVolOutsideBox));
     std::array<uint64_t, 2> tracks_off{};
@@ -143,7 +131,7 @@ void write_global_info(Struct* global)
         controllers = new (controllers) script::Array;
     controllers->configure_size_kind(kControllers, script::kQbvalStruct);
     for (int i = 0; i < kControllers; ++i) {
-        Struct* controller = spawn_param_table();
+        Struct* controller = script::new_struct();
         const modules::Skate::PlayerSettings& flags = controller_flags(i);
         if (flags.auto_kick_)
             controller->put_name_key(0u, kAutokickOn);
@@ -159,7 +147,7 @@ void write_global_info(Struct* global)
 
     get_career()->write_to_structure(global);
     game_records()->write_to_structure(global);
-    Struct* pros = spawn_param_table();
+    Struct* pros = script::new_struct();
     get_profiles()->write_pros(pros);
     global->append_struct_ref(kPros, pros);
 }
@@ -185,10 +173,10 @@ void read_save_header(Struct* global, Script* script)
     float music_volume = 0.0f;
     if (sound->fetch_float(kMusicVolume, &music_volume, 0)) {
         audio::set_music_volume(music_volume);
-        Struct* change = spawn_param_table();
+        Struct* change = script::new_struct();
         change->push_float(kMusicVolOutsideBox, music_volume);
         script::launch_script("Change", change, nullptr, false);
-        delete_structure(change);
+        script::free_struct(change);
     }
     std::array<int, 4> tracks = {};
     if (sound->fetch_int_value(kForbiddenTracks1, &core::at(tracks, 0), 0)) {
@@ -207,10 +195,10 @@ void read_save_header(Struct* global, Script* script)
         sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
             symbol->value.set_word(soundtrack);
-        Struct* change = spawn_param_table();
+        Struct* change = script::new_struct();
         change->put_name_key(0x8C465905u, soundtrack);                       // trackchecksum
         script::launch_script(0xD44400C2u, change, nullptr, false, nullptr); // set_loaded_soundtrack
-        delete_structure(change);
+        script::free_struct(change);
     }
 
     Array* controllers = nullptr;
@@ -278,20 +266,20 @@ void write_save_contents(Struct* contents, uint32_t type)
         contents->append_structure_if_any(preferences_structure(online_hub_handle()->get_online_settings()));
         return;
     case kSaveOptionsAndPros: {
-        Struct* global = spawn_param_table();
+        Struct* global = script::new_struct();
         write_global_info(global);
         contents->append_struct_ref(kGlobalInfo, global);
-        Struct* story = spawn_param_table();
+        Struct* story = script::new_struct();
         // the goal manager's parameters (the shared getter of +0x14)
         story->put_sub_struct(kGoalManagerParams, goals::get_objective_board()->goal_data_);
         contents->append_struct_ref(kStory, story);
-        Struct* story_skater = spawn_param_table();
+        Struct* story_skater = script::new_struct();
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
         skater->write_cat_info(story_skater);
         skater->write_list_44b_66a_9f(story_skater);
         skater->write_chapter_info(story_skater);
         contents->append_struct_ref(kStorySkater, story_skater);
-        Struct* custom_skater = spawn_param_table();
+        Struct* custom_skater = script::new_struct();
         get_profiles()->write_custom_skaters(custom_skater);
         contents->append_struct_ref(kCustomSkater, custom_skater);
         // (on into CreatedGraphic's layer_infos, as the original does)

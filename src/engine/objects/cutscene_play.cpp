@@ -61,11 +61,6 @@ void get_run(uint32_t script, script::Struct* params = nullptr)
 {
     script::launch_script(script, params, nullptr, false, nullptr);
 }
-script::Struct* make_struct()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
 
 // The vblank count since a time, in seconds (the count as an unsigned 64-bit number).
 float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(static_cast<double>(vblanks) / rate); }
@@ -214,7 +209,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
     if (!flag_34b_0_)
         return;
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
-        script::Struct* info = make_struct();
+        script::Struct* info = script::new_struct();
         const int frame = fixed_frame();
         std::array<char, 128> line{};
         std::snprintf(line.data(), sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);

@@ -579,26 +579,14 @@ bool cfunc_force_server_list_refresh(script::Struct*, script::Script*)
 namespace {
 
 // A new, empty script structure (from the structures' pool) and its deletion.
-script::Struct* new_preference()
-{
-    auto* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
-}
-void delete_preference(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
 // The network preference `name` set to {ui_string="<text>"}.
 void set_string_preference(prefs::Preferences* prefs, const char* name, const char* text)
 {
-    script::Struct* preference = new_preference();
+    script::Struct* preference = script::new_struct();
     preference->append_word(get_checksums("ui_string"), script::kQbvalString, text); // "ui_string"
     prefs->change_setting(get_checksums(name), preference);
-    delete_preference(preference);
+    script::free_struct(preference);
 }
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.
 void set_choice_preference(script::Struct* preference, const char* text, const char* value)
@@ -621,7 +609,7 @@ void init_beenox_preferences()
     if (core::at(g_network_id, 0) != '\0')
         set_string_preference(prefs, "network_id", g_network_id.data()); // "network_id"
     game_net->set_max_players_preference(online::g_net_max_players);
-    script::Struct* teams = new_preference();
+    script::Struct* teams = script::new_struct();
     switch (online::g_network_team_mode) {
     case 0:
         set_choice_preference(teams, "None", "teams_none");
@@ -639,8 +627,8 @@ void init_beenox_preferences()
         break;
     }
     prefs->change_setting(get_checksums("team_mode"), teams); // "team_mode"
-    delete_preference(teams);
-    script::Struct* skill = new_preference();
+    script::free_struct(teams);
+    script::Struct* skill = script::new_struct();
     switch (online::g_net_skill_level) {
     case 1:
         set_choice_preference(skill, "1: Baby Steps", "num_1");
@@ -661,7 +649,7 @@ void init_beenox_preferences()
         break;
     }
     prefs->change_setting(get_checksums("skill_level"), skill); // "skill_level"
-    delete_preference(skill);
+    script::free_struct(skill);
 }
 
 // 0x005A4D90: InitPrefsBeenox: init_beenox_preferences. True.

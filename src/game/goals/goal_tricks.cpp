@@ -67,32 +67,7 @@ constexpr uint32_t kLoadPremadeCat = 0x466576C8;          // load_premade_cat
 
 constexpr int kLabelPoints = 0x200; // the texts' buffer
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
-script::Array* alloc_script_array()
-{
-    script::Array* array = script::alloc_script_array();
-    return array ? memory::construct_in<script::Array>(array) : nullptr;
-}
 // An array a structure has copied, or a temporary one: its contents and itself freed.
-void free_array(script::Array* array)
-{
-    script::release_array_storage(array);
-    if (array) {
-        array->get_clear();
-        script::delete_array(array);
-    }
-}
 RiderIdentity* current_profile() { return objects::g_profile_roster->fetch_active_account(); }
 
 } // namespace
@@ -100,12 +75,12 @@ RiderIdentity* current_profile() { return objects::g_profile_roster->fetch_activ
 // 0x005565C0
 void Objective::no_combo_sequence_left()
 {
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     uint32_t id = 0;
     args_->read_hash_value(kGoalIdName, &id, 1);
     params->put_name_key(kGoalIdChecksum, id);
     script::launch_script(kGoalNoValidKeyCombos, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 // 0x005568B0
@@ -229,8 +204,8 @@ bool Objective::swap_move_caption()
     int premade_cat = -1;
     if (args_->has_bare_flag(kCreateATrick))
         args_->fetch_int_value(kPremadeCatIndex, &premade_cat, 1);
-    script::Array* key_texts = alloc_script_array();
-    script::Array* trick_texts = alloc_script_array();
+    script::Array* key_texts = script::new_array();
+    script::Array* trick_texts = script::new_array();
     const uint32_t count = combos->extent_;
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
@@ -256,7 +231,7 @@ bool Objective::swap_move_caption()
         args_->append_word(kGoalDescription, text);
     } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
         const uint32_t size = lines->extent_;
-        script::Array* replaced = alloc_script_array();
+        script::Array* replaced = script::new_array();
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
             replace_trick_tokens(lines->find_inline_text(i), buffer.data(), key_texts, trick_texts, kLabelPoints);
@@ -393,12 +368,12 @@ bool Objective::award_special_trick()
         keys = free->step_to_entry(nullptr)->value.word();
         profile->add_max_specials(1);
         if (cat) {
-            script::Struct* params = spawn_param_table();
+            script::Struct* params = script::new_struct();
             params->put_name_key(kTrickslot, keys);
             params->put_int(kIndex, premade);
             params->put_int(kSpecialTrickIndex, slots);
             script::launch_script(kLoadPremadeCat, params, nullptr, false, nullptr);
-            delete_structure(params);
+            script::free_struct(params);
         } else {
             RiderIdentity::SpecialTrick special;
             special.trick = trick;
@@ -408,7 +383,7 @@ bool Objective::award_special_trick()
         args_->put_int(kShouldRemoveTrick, 1);
     }
     args_->erase_module(kButtonSequences);
-    script::Array* combos = alloc_script_array();
+    script::Array* combos = script::new_array();
     combos->configure_size_kind(1, script::kQbvalName);
     combos->set_element(0, keys);
     args_->append_array_ref(kButtonSequences, combos);

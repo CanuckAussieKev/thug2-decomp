@@ -45,8 +45,6 @@ float g_rank_scale{0.00028571428f};
 
 namespace {
 
-using detail::delete_params;
-using detail::new_params;
 
 constexpr uint32_t kLoginTimeout = 10000;   // ms
 constexpr uint32_t kReportInterval = 60000; // ms between reports of a game
@@ -264,10 +262,10 @@ void TopList::fill_level_scores()
         if (!level)
             break;
         if (total_of(&level->entries_) > 0) {
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             params->append_word(0xC4745838, RankingsManager::get_level_name(level->level_));
             get_run(0x1AADEE21, params);
-            delete_params(params);
+            script::free_struct(params);
         }
         int shown = 0;
         for (memory::ListNode* line = get_next_node(&level->entries_); line && shown < kLevelBest;
@@ -275,7 +273,7 @@ void TopList::fill_level_scores()
             auto* entry = static_cast<TopEntry*>(line->data);
             if (!entry)
                 break;
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             params->put_int(0x2776D9DD, entry->skill_points_);
             params->put_int(0xCD66C8AE, entry->points_held_);
             // (here the rating is read as unsigned)
@@ -283,14 +281,14 @@ void TopList::fill_level_scores()
             params->append_word(0xA1DC81F9, entry->label_.data());
             params->append_word(0x651533EC, RankingsManager::get_level_name(level->level_));
             get_run(0x19F7BC28, params);
-            delete_params(params);
+            script::free_struct(params);
             ++shown;
         }
     }
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(0xC4745838, script::fetch_text(0xC2283319u));
     get_run(0x1AADEE21, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x0054E4A0
@@ -333,7 +331,7 @@ void TopList::fill_sorted_scores(bool ratings)
         auto* line = static_cast<SortEntry*>(node->data);
         if (!line || line->points_held_ == 0 || shown == kMaxSorted)
             break;
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_int(0x2776D9DD, line->skill_points_);
         params->put_int(0xCD66C8AE, line->points_held_);
         params->put_int(0x7786171A, current_rank(static_cast<double>(line->skill_points_)));
@@ -344,7 +342,7 @@ void TopList::fill_sorted_scores(bool ratings)
             params->append_word(0x651533EC, RankingsManager::get_level_name(line->level_));
             get_run(0x19F7BC28, params);
         }
-        delete_params(params);
+        script::free_struct(params);
         ++shown;
     }
 }
@@ -375,7 +373,7 @@ void PersonalStats::get_fill()
         auto* line = static_cast<SortEntry*>(node->data);
         if (!line)
             break;
-        script::Struct* params = new_params(); // (never freed - as in the original)
+        script::Struct* params = script::new_struct(); // (never freed - as in the original)
         params->put_int(0xCD66C8AE, line->points_held_);
         params->append_word(0x651533EC, RankingsManager::get_level_name(line->level_));
         get_run(0xA6111F30, params);

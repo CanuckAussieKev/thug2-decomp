@@ -84,18 +84,6 @@ void set_face_texture_valid(FaceSkin* face, bool valid) { face->mark_usable(vali
 FaceSkin* construct_face_texture(void* memory) { return new (memory) FaceSkin; }
 
 // A temporary structure (from the structure pool; null if there's no memory) / cleared and given back.
-script::Struct* new_temp_struct()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_temp_struct(script::Struct* s)
-{
-    if (s) {
-        s->get_clear();
-        script::delete_struct(s);
-    }
-}
 
 } // namespace
 
@@ -203,7 +191,7 @@ void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* 
 {
     script::Struct* slot = nullptr;
     if (!structure_.read_sub_struct(part, &slot, 0)) {
-        slot = new_temp_struct();
+        slot = script::new_struct();
         structure_.append_struct_ref(part, slot);
     }
     slot->get_clear();
@@ -311,14 +299,14 @@ ModelLook* ModelLook::copy_from(ModelLook* other)
 // 0x004896A0
 int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
 {
-    script::Struct* copy = new_temp_struct();
+    script::Struct* copy = script::new_struct();
     copy->append_structure_if_any(&structure_); // (no memory: a crash, as the original)
     auto bytes = script::emit_into_buffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
     if (bytes > static_cast<uint32_t>(kMaxBufferBytes)) {
         remove_tattoos(copy);
         bytes = script::emit_into_buffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
     }
-    delete_temp_struct(copy);
+    script::free_struct(copy);
     uint8_t* end = buffer + bytes;
     if (no_face_texture)
         *end = 0;
@@ -330,11 +318,11 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
 // 0x00489400
 uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer, size_t size)
 {
-    script::Struct* read = new_temp_struct();
+    script::Struct* read = script::new_struct();
     uint8_t* end = script::decode_from_bytes(read, buffer, size);
     structure_.get_clear();
     structure_.append_structure_if_any(read);
-    delete_temp_struct(read);
+    script::free_struct(read);
     // (Not original: within the size - none left, no face texture and the end where it is)
     if (ints::as_unsigned(end - buffer) >= size) {
         has_face_texture_ = false;

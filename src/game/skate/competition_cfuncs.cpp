@@ -103,18 +103,6 @@ void push_skater_info_heap()
 }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
-script::Struct* new_params()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 } // namespace
 
@@ -133,11 +121,11 @@ bool cfunc_apply_split_screen_options(script::Struct*, script::Script*)
         const char* word = prefs->get_preference_string(kHorseWord, kUiString);
         // (the string is passed by value: the horse's code destroys it)
         the_horse()->set_letters(text::Chars(word));
-        script::Struct* options = new_params();
+        script::Struct* options = script::new_struct();
         options->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, static_cast<uint32_t>(time_limit));
         override_game_mode_options(options);
         set_countdown_seconds(time_limit);
-        delete_params(options);
+        script::free_struct(options);
     }
     return true;
 }
@@ -251,12 +239,12 @@ bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Script*)
     alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
     text::Chars* text = get_horse_string(storage.data(), which);
     objects::GameEntity* skater = get_rider_by_number(current_horse_skater());
-    script::Struct* panel = new_params();
+    script::Struct* panel = script::new_struct();
     panel->merge_structure(params);
     panel->append_word(kText, text->c_str());
     panel->put_name_key(kId, id);
     script::launch_script(kCreateHorsePanelMessage, panel, skater, false, nullptr);
-    delete_params(panel);
+    script::free_struct(panel);
     text->~Chars();
     return true;
 }

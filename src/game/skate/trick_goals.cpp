@@ -206,18 +206,6 @@ void change_owner(void* manager, void* parent, void* child)
     child_ptr.get_release();
 }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 script::Script* get_spawn(uint32_t name, script::Struct* params)
 {
     return script::spawn_script(name, params, 0, nullptr, 0, 0, false, false, false, false);
@@ -416,10 +404,10 @@ void FallingTricksGoal::drop_move_entry(int index)
     void* manager = ui_tree_handle();
     ElementPtr element;
     hub(manager)->fetch_part(&element, id, 1);
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kId, id);
     get_run(kResetContainer, params);
-    delete_structure(params);
+    script::free_struct(params);
 
     // Red tricks back to normal once the stack is under three quarters full.
     int red = 0;
@@ -434,11 +422,11 @@ void FallingTricksGoal::drop_move_entry(int index)
         }
     }
 
-    script::Struct* remove_params = spawn_param_table();
+    script::Struct* remove_params = script::new_struct();
     if (is_trick_tris())
         remove_params->put_name_key(0u, kTrickTris);
     run_on(get_spawn(kDropTrickScript, remove_params), element.get_pull());
-    delete_structure(remove_params);
+    script::free_struct(remove_params);
 
     // Every acceleration_interval tricks, the interval between tricks shortens by acceleration_percent.
     int completed = 0;
@@ -599,7 +587,7 @@ void FallingTricksGoal::add_tricks(int count)
         }
 
         // The trick's container in the stack, its text, and its key combo's text.
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         void* container = new_container();
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
@@ -609,9 +597,9 @@ void FallingTricksGoal::add_tricks(int count)
         frontend::UiWidget* menu = element_by_id(manager, kTetrisMenu);
         menu->set_focus_sent(0);
         change_owner(manager, menu, container);
-        delete_structure(params);
+        script::free_struct(params);
 
-        params = spawn_param_table();
+        params = script::new_struct();
         params->append_word(kText, text.data());
         params->put_name_key(kFont, kNewTrickFont);
         params->put_name_key(0u, kNotFocusable);
@@ -620,13 +608,13 @@ void FallingTricksGoal::add_tricks(int count)
         add_to_manager(manager, text_element);
         change_traits(text_element, params);
         change_owner(manager, container, text_element);
-        delete_structure(params);
+        script::free_struct(params);
 
         if (key_combo_text || key_combo) {
             script::Struct* texts = script::read_sub_struct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!key_combo_text)
                 texts->fetch_text(key_combo, &key_combo_text, 0);
-            params = spawn_param_table();
+            params = script::new_struct();
             params->append_word(kText, key_combo_text);
             params->put_name_key(kFont, kSmall);
             params->put_name_key(0u, kNotFocusable);
@@ -635,13 +623,13 @@ void FallingTricksGoal::add_tricks(int count)
             add_to_manager(manager, key_text);
             change_traits(key_text, params);
             change_owner(manager, container, key_text);
-            delete_structure(params);
+            script::free_struct(params);
         }
         t.element = *raw::as<uint32_t>(static_cast<uint8_t*>(container) + 0x14); // its id
         ++trick_total_;
 
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
-        params = spawn_param_table();
+        params = script::new_struct();
         if (!key_combo_text)
             params->put_name_key(0u, kNoKeyCombo);
         auto stack_full = [&]() {
@@ -650,7 +638,7 @@ void FallingTricksGoal::add_tricks(int count)
         };
         const uint32_t add_script = stack_full() ? kAddRedTrick : kPushTrickScript;
         run_on(get_spawn(add_script, params), container);
-        delete_structure(params);
+        script::free_struct(params);
         if (stack_full()) {
             args_->put_int(kRedTricks, 1);
             for (const StackedTrickEntry& other : tricks_) {
@@ -960,11 +948,11 @@ void TrickBeatGoal::pulse_tricks()
         if (t.free || t.landed)
             continue;
         frontend::UiWidget* element = element_by_id(ui_tree_handle(), t.element);
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         auto window = static_cast<float>(window_time_);
         params->put_int(kWaitTime, ftol(window / static_cast<double>(frame_clock::get_time_scale())));
         script::Script* script = get_spawn(kPulseTrick, params);
-        delete_structure(params);
+        script::free_struct(params);
         run_on(script, element);
     }
 }
@@ -975,16 +963,16 @@ void TrickBeatGoal::drop_move_entry(int index)
     const uint32_t id = core::at(tricks_, index).element;
     ElementPtr element;
     hub(ui_tree_handle())->fetch_part(&element, id, 1);
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kId, id);
     get_run(kBeatResetContainer, params);
-    delete_structure(params);
+    script::free_struct(params);
     int red = 0;
     args_->fetch_int_value(kRedTricks, &red, 0); // (unused)
-    script::Struct* remove_params = spawn_param_table();
+    script::Struct* remove_params = script::new_struct();
     remove_params->put_name_key(0u, kTrickTris);
     run_on(get_spawn(kBeatRemoveTrick, remove_params), element.get_pull());
-    delete_structure(remove_params);
+    script::free_struct(remove_params);
     int completed = 0;
     args_->fetch_int_value(kTricksDoneCount, &completed, 0);
     ++completed;
@@ -1197,7 +1185,7 @@ void TrickBeatGoal::add_tricks(int count)
             t.trick = checksums::hash_from_text(trick_text); // (trick_landed matches by the trick's name)
         }
 
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         void* container = new_container();
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
@@ -1206,9 +1194,9 @@ void TrickBeatGoal::add_tricks(int count)
         frontend::UiWidget* menu = element_by_id(manager, kBeatMenu);
         menu->set_focus_sent(0);
         change_owner(manager, menu, container);
-        delete_structure(params);
+        script::free_struct(params);
 
-        params = spawn_param_table();
+        params = script::new_struct();
         params->append_word(kText, text.data());
         params->put_name_key(kFont, kNewTrickFont);
         params->put_name_key(0u, kNotFocusable);
@@ -1217,13 +1205,13 @@ void TrickBeatGoal::add_tricks(int count)
         add_to_manager(manager, text_element);
         change_traits(text_element, params);
         change_owner(manager, container, text_element);
-        delete_structure(params);
+        script::free_struct(params);
 
         if (key_combo_text || key_combo) {
             script::Struct* texts = script::read_sub_struct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!key_combo_text)
                 texts->fetch_text(key_combo, &key_combo_text, 0);
-            params = spawn_param_table();
+            params = script::new_struct();
             params->append_word(kText, key_combo_text);
             params->put_name_key(kFont, kSmall);
             params->put_name_key(0u, kNotFocusable);
@@ -1232,15 +1220,15 @@ void TrickBeatGoal::add_tricks(int count)
             add_to_manager(manager, key_text);
             change_traits(key_text, params);
             change_owner(manager, container, key_text);
-            delete_structure(params);
+            script::free_struct(params);
         }
         t.element = *raw::as<uint32_t>(static_cast<uint8_t*>(container) + 0x14);
         ++trick_total_;
-        params = spawn_param_table();
+        params = script::new_struct();
         if (!key_combo_text)
             params->put_name_key(0u, kNoKeyCombo);
         run_on(get_spawn(kBeatAddTrick, params), container);
-        delete_structure(params);
+        script::free_struct(params);
     }
 }
 

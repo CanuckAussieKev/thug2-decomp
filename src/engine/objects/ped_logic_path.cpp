@@ -104,13 +104,6 @@ KinematicsModule* get_motion(GameEntity* object)
     return core::down_cast<KinematicsModule>(object->fetch_module(kMotion));
 }
 
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 // _ftol2: a 64-bit truncation whose low half is used (the integer indefinite, 2^63 - a NaN, what doesn't fit - gives
 // 0).
@@ -424,7 +417,7 @@ void PedestrianBrainModule::start_grind(script::Struct* node)
         set_sound_terrain(surface_kind::get_terrain_index(terrain));
     script::Struct* params = get_state_params(node);
     change_phase(kStateGrind, kTable, nullptr); // (the parameters aren't passed)
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1B10
@@ -457,7 +450,7 @@ void PedestrianBrainModule::get_jump(script::Struct* node, bool vert)
         state = kStateJump;
     }
     change_phase(state, kTable, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1BF0
@@ -467,7 +460,7 @@ void PedestrianBrainModule::get_lip_trick(script::Struct* node)
     lip_trick_update();
     script::Struct* params = get_state_params(node);
     change_phase(kStateLip, kTable, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1C40
@@ -476,7 +469,7 @@ void PedestrianBrainModule::get_manual(script::Struct* node)
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     script::Struct* params = get_state_params(node);
     change_phase(kStateManual, kTable, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1C90
@@ -485,7 +478,7 @@ void PedestrianBrainModule::manual_down(script::Struct* node)
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     script::Struct* params = get_state_params(node);
     change_phase(kStateManualDown, kTable, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1CE0
@@ -508,7 +501,7 @@ void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
         params->put_int(kIsJumping, jumping ? 1 : 0);
     }
     change_phase(kStateGrab, kTable, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1DC0
@@ -517,7 +510,7 @@ void PedestrianBrainModule::halt(script::Struct* node)
     flag_bits_ = (flag_bits_ & ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating)) | kPedFlagStopping;
     script::Struct* params = get_state_params(node);
     change_phase(kStateStop, kTable, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1F30
@@ -531,7 +524,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
     script::Struct* params = get_state_params(node);
     script::Struct* jump = leap_node_params(node, vert);
     params->append_structure_if_any(jump);
-    delete_params(jump);
+    script::free_struct(jump);
     if (vert) {
         flag_bits_ &= ~kPedFlagMoving;
         params->put_name_key(0u, kIsVert);
@@ -540,7 +533,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
     if (node->has_bare_flag(kJumpToNextNode))
         flag_bits_ = (flag_bits_ & ~kPedFlagMoving) | kPedFlagJumpingToNode;
     change_phase(kStateFlip, kTable, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x004F1E80

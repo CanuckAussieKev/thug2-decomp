@@ -6,6 +6,7 @@
 #include <gsl/pointers>
 #include "engine/maths/vec4.h"
 #include "engine/script/cell.h"
+#include <memory>
 
 // The script system's data: structures of named components (Scripts::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
@@ -200,6 +201,26 @@ void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_
 
 // An integer / name array's elements, in order.
 std::vector<uint32_t> words_of(Array* array);
+
+// The script structures and arrays made and freed whole (NOT ORIGINAL as shared functions - the original inlined
+// them, and this source had a copy in every file): from their pools, constructed (null when the pool and the heap are
+// out of memory, as the original); freed with what they own (the components / elements) and given back to the pool.
+// A null pointer is let go of as nothing.
+gsl::owner<Struct*> new_struct();
+gsl::owner<Array*> new_array();
+void free_struct(gsl::owner<Struct*> structure);
+void free_array(gsl::owner<Array*> array);
+// Their owners, for a structure or array that lives in a scope or a member (freed as above).
+struct StructFree {
+    void operator()(Struct* structure) const noexcept { free_struct(structure); }
+};
+struct ArrayFree {
+    void operator()(Array* array) const noexcept { free_array(array); }
+};
+using StructPtr = std::unique_ptr<Struct, StructFree>;
+using ArrayPtr = std::unique_ptr<Array, ArrayFree>;
+inline StructPtr make_struct() { return StructPtr(new_struct()); }
+inline ArrayPtr make_array() { return ArrayPtr(new_array()); }
 
 // The pooled allocations of the script's value objects.
 Struct* spawn_param_bag();

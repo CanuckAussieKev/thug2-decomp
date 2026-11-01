@@ -78,18 +78,6 @@ objects::EditorViewModule* view_cam(objects::ObjectModule* camera)
     return core::down_cast<objects::EditorViewModule>(camera);
 }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // Whether `x`, `z` lies outside x0..x1, z0..z1 (not a number: inside, as the original's comparisons).
 bool get_outside(float x, float z, float x0, float z0, float x1, float z1)
@@ -438,7 +426,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
 {
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     const uint8_t* end = script::decode_from_bytes(params, buffer, size);
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == level)
@@ -458,7 +446,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
         goal.level_ = level;
         --left;
     }
-    delete_structure(params);
+    script::free_struct(params);
     return end;
 }
 
@@ -479,7 +467,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || goal.level_ == kParkEditorLevel)
             continue;
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
     }
@@ -498,7 +486,7 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || goal.level_ != level)
             continue;
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
     }
@@ -508,12 +496,12 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
 // 0x004EBB70
 uint32_t ObjectiveAuthoring::write_level_goals_to_buffer(uint32_t level, uint8_t* buffer, uint32_t size)
 {
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     write_level_goals(level, params);
     const uint32_t written = script::emit_into_buffer(params, buffer, size, 1, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     return written;
 }
 
@@ -601,7 +589,7 @@ void ObjectiveAuthoring::conceal(bool hide)
         script::launch_script(0xFCC60D8B, nullptr, nullptr, false, nullptr);
         return;
     }
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->put_int(0x67E6859A, 0);
     input_ptr_->configure_from_data(params);
     if (params) {
@@ -628,7 +616,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || (level && goal.level_ != level) || goal.vertex_total_ < goal.min_points_)
             continue;
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
     }

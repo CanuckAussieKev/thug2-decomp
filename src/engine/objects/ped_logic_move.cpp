@@ -128,18 +128,6 @@ int truncate(double value)
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(value))));
 }
 
-script::Struct* new_params()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 // The collision feeler (0xB0 bytes): what it hit is held by a smart pointer at +0x98, let go when it goes.
 class Feeler {
@@ -1011,10 +999,10 @@ void PedestrianBrainModule::chase_update()
     if (distance_sqr <= kCatchDistanceSqr) {
         // Caught.
         face_along(&toward_player);
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kChaser, skater->ident_);
         change_phase(kStateChaseCatch, 0, params);
-        delete_params(params);
+        script::free_struct(params);
         return;
     }
     if (distance_sqr > kChaseOutOfRangeSqr) {
@@ -1077,10 +1065,10 @@ void PedestrianBrainModule::blocker_update()
     if (static_cast<double>(toward_player.x) * toward_player.x + static_cast<double>(sz) * sz <= kCatchDistanceSqr) {
         // Bumped.
         face_along(&across);
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_vec3(kVelDir, script::VectorValue{across.x, across.y, across.z, across.w});
         entity_->post_own_event(kBlockerBumpPlayer, params);
-        delete_params(params);
+        script::free_struct(params);
         return;
     }
     // Where the skater's going crosses the path.
@@ -1140,11 +1128,11 @@ void PedestrianBrainModule::blocker_update()
     if (!(needed > kRunRatio) && !(distance_f > kRunDistance)) {
         // Near enough: a shuffle to the side the point is on.
         face_along(&across);
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         const maths::Vec4 cross = maths::cross_vec(to_point, across);
         params->put_name_key(kDir, cross.y < 0.0f ? kLeft : kRight);
         entity_->post_own_event(kBlockerShuffle, params);
-        delete_params(params);
+        script::free_struct(params);
     } else {
         face_along(&to_point);
         entity_->post_own_event(kBlockerRun, nullptr);

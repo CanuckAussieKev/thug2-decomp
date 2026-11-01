@@ -149,7 +149,7 @@ uint16_t texture_palette_size(void* texture)
 // A network preference set from `values` (the original's new CStruct, never freed).
 void set_count_preference(Hub* manager, uint32_t preference, const char* ui_string, uint32_t checksum)
 {
-    script::Struct* values = new_params();
+    script::Struct* values = script::new_struct();
     values->append_word(kUiString, script::kQbvalString, ui_string);
     values->add_component_of_type(kChecksum, script::kQbvalName, checksum);
     manager->get_online_settings()->change_setting(preference, values);
@@ -188,10 +188,10 @@ void Hub::build_team_flag_set(int num_teams)
     get_run(kKillTeamFlags);
     if (!num_teams)
         return;
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->put_int(kNumTeams, num_teams);
     get_run(kCreateTeamFlags, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x00534090

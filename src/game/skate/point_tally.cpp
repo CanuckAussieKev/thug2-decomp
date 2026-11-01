@@ -23,6 +23,7 @@
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/param_struct.h"
 
 namespace lists {
 
@@ -74,19 +75,7 @@ namespace score_internal {
 std::array<int, 5> g_trick_reduction{{100, 75, 50, 25, 10}};
 std::array<int, 6> g_spin_multiplier{{2, 3, 4, 5, 6, 7}};
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
 
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 } // namespace score_internal
 
@@ -163,12 +152,12 @@ bool key_combo_name(uint32_t key_combo, int taps, uint32_t* name)
 // The trick text script `script` with the skater number's ids.
 void run_trick_text_script(uint32_t script, int skater)
 {
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kTrickTextContainerId, kTrickTextContainer + static_cast<uint32_t>(skater));
     params->put_name_key(kTheTrickTextId, kTheTrickText + static_cast<uint32_t>(skater));
     params->put_name_key(kTheScorePotTextId, kTheScorePotText + static_cast<uint32_t>(skater));
     script::launch_script(script, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 } // namespace

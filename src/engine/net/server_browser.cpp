@@ -110,13 +110,13 @@ template <typename F>
 void info_line(uint32_t title, F value)
 {
     std::array<char, 128> text{};
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     std::sprintf(text.data(), "%s:", script::fetch_text(title));
     params->append_word(kName, text.data());
     if (const char* shown = value(text.data()))
         params->append_word(kValue, shown);
     get_run(kAddInfoItem, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 const char* no_value(char*) { return nullptr; }
 
@@ -219,21 +219,21 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
         });
     }
     std::array<char, 128> value{};
-    script::Struct* title = new_params();
+    script::Struct* title = script::new_struct();
     std::sprintf(value.data(), ": %d/%d", server->num_players_, server->max_players_);
     title->append_word(kText, value.data());
     get_run(kUpdatePlayerTitle, title);
-    delete_params(title);
+    script::free_struct(title);
     for (int i = 0; i < server->num_players_; ++i) {
         const int rank = rank_of(server->get_entrant_rank(i));
-        script::Struct* player = new_params();
+        script::Struct* player = script::new_struct();
         std::sprintf(value.data(), "%d:", i + 1);
         player->put_int(kRank, rank);
         player->append_word(kName, value.data());
         std::sprintf(value.data(), "%s", server->get_entrant_name(i));
         player->append_word(kValue, value.data());
         get_run(kInfoAddPlayerText, player);
-        delete_params(player);
+        script::free_struct(player);
     }
     ram_stats()->leave_heap_scope();
     return true;
@@ -258,7 +258,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         if (server->num_observers_ >= server->max_observers_)
             refused = kReasonFullObservers;
     }
-    script::Struct* reply = new_params();
+    script::Struct* reply = script::new_struct();
     if (refused) {
         reply->put_name_key(kReason, refused);
         reply->put_name_key(kJustDialog, 0);
@@ -275,7 +275,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         reply->put_int(kMaxPlayers, server->max_players_);
         get_run(kChosenJoinServer, reply);
     }
-    delete_params(reply);
+    script::free_struct(reply);
     return true;
 }
 
@@ -403,10 +403,10 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         break;
     }
     case kListingRemove: {
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kServerId, cell::of(sb));
         get_run(kDestroyLobbyServer, params);
-        delete_params(params);
+        script::free_struct(params);
         if (HostListing* server = find_by_sb(manager, sb))
             server->teardown(1);
         get_run(kUpdateServerList);
@@ -437,10 +437,10 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         if (!server->detailed_ && game_spy::server_has_full_keys(sb)) {
             server->detailed_ = true;
             if (server->chosen_) {
-                script::Struct* params = new_params();
+                script::Struct* params = script::new_struct();
                 params->put_name_key(kId, cell::of(sb));
                 get_run(kDescribeSelectedServer, params);
-                delete_params(params);
+                script::free_struct(params);
             }
         }
         break;

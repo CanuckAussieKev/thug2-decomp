@@ -55,11 +55,6 @@ constexpr uint32_t kGrindParams = 0x6B7FDADD, kManualParams = 0xB8CC8633, kSkitc
 
 Rider* skater_of(GameEntity* object) { return core::down_cast<Rider>(object); }
 
-script::Struct* spawn_param_bag()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
 
 } // namespace
 
@@ -228,7 +223,7 @@ void RiderTeeterMoves::clear_params()
 void RiderTeeterMoves::change_args(script::Struct* params)
 {
     if (!call_args_)
-        call_args_ = spawn_param_bag();
+        call_args_ = script::new_struct();
     call_args_->get_clear();
     call_args_->append_structure_if_any(params);
 }

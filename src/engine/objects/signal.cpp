@@ -42,20 +42,10 @@ void tracker_log_event_read(Signal* event, uint32_t how, uint32_t script)
 }
 
 // `new CStruct` / `new CStruct(*source)` (null if the pool is full) and `delete structure`.
-Struct* new_empty_struct()
-{
-    Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
-}
 Struct* new_struct_copy(Struct* source)
 {
     Struct* structure = script::spawn_param_bag();
     return structure ? structure->init_copy(source) : nullptr;
-}
-void free_struct(Struct* structure)
-{
-    structure->get_clear();
-    script::delete_struct(structure);
 }
 // An entry's parameters go (and the pointer is cleared).
 void free_params(SignalRouteTable::TableRow& entry)
@@ -394,7 +384,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
             Struct* merged = nullptr;
             Struct* params = nullptr;
             if (event->payload_) {
-                merged = new_empty_struct();
+                merged = script::new_struct();
                 if (entry->params)
                     merged->merge_structure(entry->params);
                 merged->merge_structure(event->payload_);
@@ -407,7 +397,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 // An exception: first the script's OnExceptionRun script (once) as an interrupt, given an
                 // unnamed checksum 1 (the exception bit); then the handler replaces what the script runs.
                 if (script->get_on_exception_script()) {
-                    Struct* exception_params = new_empty_struct();
+                    Struct* exception_params = script::new_struct();
                     exception_params->add_component_of_type(0, script::kQbvalName,
                                                             entry->flags & TableRow::kFlagReplacesRunning);
                     const uint32_t on_exception = script->get_on_exception_script();

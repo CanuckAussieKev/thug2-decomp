@@ -60,18 +60,6 @@ void arm_event(TimedClipEvent* e, bool armed) { e->change_live(armed); }
 bool fire_event(TimedClipEvent* e, objects::GameEntity* object) { return e->process_if_active(object); }
 
 // A script structure from the structures' pools, and back.
-Struct* new_params()
-{
-    Struct* params = script::spawn_param_bag();
-    return params ? new (params) script::Struct : nullptr;
-}
-void delete_params(Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 } // namespace
 
@@ -331,43 +319,43 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
     cur_phase_ = kPlaying;
     fade_rate_ = 1.0f / 60.0f; // (0x3C888889)
 
-    Struct* settings = new_params();
+    Struct* settings = script::new_struct();
     settings->put_name_key(kType, loop_type == kLoopWobble ? kShakeController : kStandardController);
     attach_controller(settings);
-    delete_params(settings);
+    script::free_struct(settings);
 
     uint32_t weighted_anim = anim;
     float weight = 0.0f;
     if (params) {
         if (params->read_hash_value(kWeightedAnim, &weighted_anim, 0) || params->has_bare_flag(kWeightedFlag)) {
             params->fetch_float(kWeight, &weight, 0);
-            settings = new_params();
+            settings = script::new_struct();
             settings->put_name_key(kType, kWeightedController);
             attach_controller(settings);
-            delete_params(settings);
+            script::free_struct(settings);
         }
         Struct* controller_params = nullptr;
         if (params->read_sub_struct(kControllerParams, &controller_params, 0)) {
-            settings = new_params();
+            settings = script::new_struct();
             settings->put_name_key(kType, kProceduralController);
             settings->put_sub_struct(0u, controller_params); // (no name)
             attach_controller(settings);
-            delete_params(settings);
+            script::free_struct(settings);
         }
     }
-    settings = new_params();
+    settings = script::new_struct();
     settings->put_name_key(kType, kTumbleController);
     settings->put_int(kFlipped, flipped);
     attach_controller(settings);
-    delete_params(settings);
+    script::free_struct(settings);
 
-    settings = new_params();
+    settings = script::new_struct();
     settings->push_float(kFraction, 0.0f);
     for (int i = 0; i < controller_count_; ++i)
         core::at(controller_list_, i)->invoke_method_by_name(kSetTarget, settings, nullptr);
-    delete_params(settings);
+    script::free_struct(settings);
 
-    settings = new_params();
+    settings = script::new_struct();
     settings->put_name_key(kAnimName, anim);
     settings->push_float(kStartTime, start);
     settings->push_float(kEndTime, end);
@@ -378,7 +366,7 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
     settings->push_float(kWeight, weight);
     for (int i = 0; i < controller_count_; ++i)
         core::at(controller_list_, i)->invoke_method_by_name(kPlayAnim, settings, nullptr);
-    delete_params(settings);
+    script::free_struct(settings);
 }
 
 } // namespace gfx

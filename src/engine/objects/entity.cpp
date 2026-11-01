@@ -52,16 +52,6 @@ void launch_event(uint32_t type, uint32_t target, uint32_t source, Struct* data,
 }
 
 // `new CStruct` (the structure pool) / `delete`.
-Struct* new_empty_struct()
-{
-    Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
-}
-void free_struct(Struct* structure)
-{
-    structure->get_clear();
-    script::delete_struct(structure);
-}
 // A copy of `component` (from the component pool) added to `dest`.
 void add_copy(Struct* dest, Component* component)
 {
@@ -240,7 +230,7 @@ void Entity::create_tags_if_needed()
     if (tag_table_)
         return;
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    tag_table_ = new_empty_struct();
+    tag_table_ = script::new_struct();
     memory::leave_heap_scope();
 }
 
@@ -414,7 +404,7 @@ bool Entity::obj_get_tags(Struct* params, Script* script)
 {
     uint32_t name = 0;
     if (params->read_hash_value(kStructure, &name, 0)) {
-        Struct* copy = new_empty_struct();
+        Struct* copy = script::new_struct();
         if (tag_table_)
             copy->append_structure_if_any(tag_table_);
         script->args_->append_struct_ref(name, copy);

@@ -37,17 +37,7 @@ namespace {
 memory::PoolPair& script_pools() { return g_script_pools; }
 
 // A new empty structure from the structure pool (null if there's no room).
-Struct* new_empty_struct()
-{
-    Struct* structure = spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
 // `delete structure` (its destructor is Clear).
-void free_struct(Struct* structure)
-{
-    structure->get_clear();
-    delete_struct(structure);
-}
 
 } // namespace
 
@@ -207,7 +197,7 @@ Struct* Script::copy_params_if_owned(Struct* params)
     if (!params)
         return nullptr;
     if ((stmt_args_ && stmt_args_->ref_tally(params)) || (args_ && args_->ref_tally(params))) {
-        Struct* copy = new_empty_struct();
+        Struct* copy = script::new_struct();
         copy->append_structure_if_any(params); // (no check for a full pool)
         return copy;
     }
@@ -220,10 +210,10 @@ void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, obj
     // reset_script_state frees this script's parameters: keep what `params` needs.
     Struct* copy = copy_params_if_owned(params);
     reset_script_state();
-    stmt_args_ = new_empty_struct();
+    stmt_args_ = script::new_struct();
     script_title_ = name;
     entity_.assign_value(object);
-    args_ = new_empty_struct();
+    args_ = script::new_struct();
     pc_ = code ? code : script_store_instance()->fetch_script(name);
     if (!pc_) {
         // No such script.
@@ -273,7 +263,7 @@ void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entit
 // 0x004747F0
 void Script::relaunch()
 {
-    Struct* params = new_empty_struct();
+    Struct* params = script::new_struct();
     uint32_t name = 0;
     objects::Entity* object = nullptr;
     if (call_depth_) {

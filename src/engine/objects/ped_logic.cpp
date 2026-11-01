@@ -116,11 +116,6 @@ KinematicsModule* get_motion(GameEntity* object)
     return core::down_cast<KinematicsModule>(object->fetch_module(kMotion));
 }
 
-script::Struct* new_params()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
 
 } // namespace
 
@@ -279,7 +274,7 @@ bool PedestrianBrainModule::hide_board(int hide)
 // 0x004EFB10
 script::Struct* PedestrianBrainModule::get_state_params(script::Struct* params)
 {
-    script::Struct* out = new_params();
+    script::Struct* out = script::new_struct();
     out->append_structure_if_any(params);
     out->append_structure_if_any(entity_->tag_table_);
     return out;

@@ -54,18 +54,6 @@ void delete_entry(CutsceneDestroyEntry* entry)
 }
 
 // A new structure (`new CStruct`), deleted with Clear and delete_struct.
-Struct* new_params()
-{
-    Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
-}
-void delete_params(Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 } // namespace
 
@@ -167,15 +155,15 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
                              permanent, not_session_specific != 0, false);
     const uint32_t unique_id = spawned->unique_id_;
 
-    Struct* entry = new_params();
+    Struct* entry = script::new_struct();
     entry->put_name_key(kName, unique_id);
     entry->put_name_key(kDestroyFunc, kKillSpawnedScript);
-    Struct* destroy_params = new_params();
+    Struct* destroy_params = script::new_struct();
     destroy_params->put_name_key(kId, unique_id);
     entry->put_sub_struct(kDestroyParams, destroy_params);
-    delete_params(destroy_params);
+    script::free_struct(destroy_params);
     cfunc_add_to_cutscene_destroy_list(entry, nullptr);
-    delete_params(entry);
+    script::free_struct(entry);
     return true;
 }
 

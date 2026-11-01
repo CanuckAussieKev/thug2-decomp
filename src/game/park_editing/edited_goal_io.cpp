@@ -40,11 +40,6 @@ int get_sprintf(char* out, const char* format, Args... args)
 
 char* created_goal_name() { return g_created_goal_name.data(); } // the shared CreatedGoal<n> buffer
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
 script::Array* new_array_of(uint32_t size, uint32_t type)
 {
     script::Array* array = script::alloc_script_array();
@@ -179,7 +174,7 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
     script::Array* sets = new_array_of(static_cast<uint32_t>(num_key_combo_sets_), kStructureArray);
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         const KeyComboSet& set = core::at(key_combo_sets_, i);
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         entry->put_int(0xEB7D6498, set.set);
         if (set.must_be_flawless_)
             entry->put_name_key(0u, 0x687E2C25u);
@@ -213,7 +208,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
         script::Array* combos = nullptr;
         structure_element(all_sets, set.set)->fetch_list(0x79704516, &combos, 0);
         for (uint32_t j = 0; j < combos->extent_; ++j) {
-            script::Struct* entry = spawn_param_table();
+            script::Struct* entry = script::new_struct();
             if (combos->kind_tag_ == kChecksumArray)
                 entry->put_name_key(0xACFDB27A, combos->fetch_part(j));
             else
@@ -347,7 +342,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         static const std::array<const char*, 5> kLetters = {{"C", "O", "M", "B", "O"}};
         script::Array* letters = new_array_of(5, kStructureArray);
         for (int i = 0; i < 5; ++i) {
-            script::Struct* letter = spawn_param_table();
+            script::Struct* letter = script::new_struct();
             core::at(name, 0) = '\0';
             get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", level_goal_number_, i);
             letter->put_name_key(0x99F6CCBB, checksums::hash_from_text(name.data()));
@@ -363,7 +358,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         script::Array* flags = new_array_of(static_cast<uint32_t>(count), kChecksumArray);
         std::array<char, 0x64> flag{};
         for (int i = 0; i < count; ++i) {
-            script::Struct* waypoint = spawn_param_table();
+            script::Struct* waypoint = script::new_struct();
             waypoint->put_name_key(0x40C698AF, edited_goal_node_name(i + 2, level_goal_number_));
             get_sprintf(flag.data(), "got_%d", i + 1);
             flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(flag.data()));
@@ -433,7 +428,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
     script::Array* points = new_array_of(vertex_total_, kStructureArray);
     for (uint32_t i = 0; i < vertex_total_; ++i) {
         const EditedGoalPoint& point = core::at(path_vertices_, i);
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         entry->put_vec3(0x7F261953, point.pos.x, point.pos.y, point.pos.z);
         entry->push_float(0x0AB21AF0, point.height);
         entry->push_float(0xFF7EBAF6, point.angle);
@@ -445,7 +440,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
 // 0x004EB6B0
 void EditedGoal::add_to_goal_manager(bool unwin)
 {
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     write_goal_manager_params(params);
     goals::GoalManager* manager = goals::get_objective_board();
     get_sprintf(created_goal_name(), "CreatedGoal%d", level_goal_number_);

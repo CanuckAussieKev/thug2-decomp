@@ -62,18 +62,6 @@ GapEntry* gap_of(memory::ListNode* node)
 }
 GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
@@ -270,7 +258,7 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
     params->read_hash_value(kChooseScript, &choose_script, 0);
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next); gap;) {
-        script::Struct* item = spawn_param_table();
+        script::Struct* item = script::new_struct();
         GapEntry* next = get_next(gap);
         if (index == 0)
             item->put_name_key(0u, kFirstItem);
@@ -284,7 +272,7 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
         item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
         item->put_name_key(kChooseScript, choose_script);
         script::launch_script(kGapMenuAddItem, item, nullptr, false, nullptr);
-        delete_structure(item);
+        script::free_struct(item);
         ++index;
         gap = next;
     }
@@ -310,7 +298,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
         if (gap->num_)
             ++got;
-        script::Struct* item = spawn_param_table();
+        script::Struct* item = script::new_struct();
         item->put_int("gap_score", gap->points_held_);
         item->append_word("gap_name", gap->label_.c_str());
         item->put_int("times", gap->num_);
@@ -362,12 +350,12 @@ void GapTally::pay_out_queued_gaps()
                 goals->register_gap_hit(index);
             if (gap->num_ == 0) {
                 ++new_gaps;
-                script::Struct* params = spawn_param_table();
+                script::Struct* params = script::new_struct();
                 if (new_gaps > 1)
                     params->put_int(kMultipleNewGaps, new_gaps);
                 params->append_word(kGapText, gap->label_.c_str());
                 script::launch_script(kGotGapForFirstTime, params, nullptr, false, nullptr);
-                delete_structure(params);
+                script::free_struct(params);
             }
             gap->num_ += gap->pending_;
             gap->pending_ = 0;

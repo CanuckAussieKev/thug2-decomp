@@ -147,23 +147,6 @@ objects::ObjectHubBase* entity_hub_handle()
 }
 uint8_t* objective_board() { return raw::bytes(goals::get_objective_board()); }
 
-Struct* spawn_param_table()
-{
-    Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
-}
-void delete_structure(Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
-Array* new_array_init()
-{
-    Array* memory = script::alloc_script_array();
-    return memory ? new (memory) script::Array : nullptr;
-}
 void get_run(uint32_t name, Struct* params = nullptr, objects::Entity* object = nullptr)
 {
     script::launch_script(name, params, object, false, nullptr);
@@ -344,7 +327,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     const Skate* skate = skate_module();
     online::Hub* net = net_session_slot();
     script::kill_all_child_scripts();
-    Struct* params = spawn_param_table();
+    Struct* params = script::new_struct();
     params->add_component_of_type(kWidth, script::kQbvalInteger, 300);
     params->add_component_of_type(kTitle, kSymbolChecksum, kNetNoticeMsg);
     // (the dialogs get no parameters: the structure isn't passed)
@@ -352,7 +335,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
         get_run(kServerRemovedYouDialog);
     else if (context->type_code_ == 'V')
         get_run(kServerMovedOnDialog);
-    delete_structure(params);
+    script::free_struct(params);
     if (skate->pending_level_ == kLoadMainMenu) {
         net->cancel_join();
         net->set_entry_phase(10);
@@ -412,7 +395,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         PlayerRecord* local = net->get_own_player();
         if (local && !local->is_observer() && local->has_finished_joining())
             local_team = local->team_;
-        params = spawn_param_table();
+        params = script::new_struct();
         params->append_word(kName, local->label_.data()); // (no local player: read through null, as the original)
         if (core::at(data, 1) == 1 || core::at(data, 1) == 5) {
             const bool one = core::at(data, 1) == 1;
@@ -428,7 +411,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(core::at(data, 0))));
         if (!player)
             return 1;
-        params = spawn_param_table();
+        params = script::new_struct();
         params->append_word(kName, player->label_.data());
         if (core::at(data, 1) == 1 || core::at(data, 1) == 5) {
             const bool one = core::at(data, 1) == 1;
@@ -438,7 +421,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
                 get_run(one ? kOneLeftOther : kFiveLeftOther, params);
         }
     }
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 
@@ -449,10 +432,10 @@ int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
     const uint32_t id = reader.u32();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
-    Struct* params = spawn_param_table();
+    Struct* params = script::new_struct();
     params->put_name_key(kId, id);
     get_run(kRemoveHuntItem, params);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 
@@ -473,13 +456,13 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
         if (!online::read_hunt_position(reader, at))
             break;
         const script::VectorValue position = {core::at(at, 0), core::at(at, 1), core::at(at, 2), core::at(at, 3)};
-        Struct* params = spawn_param_table();
+        Struct* params = script::new_struct();
         params->put_int(kIndex, i);
         params->put_int(kObjId, static_cast<int>(player_skater(player)->ident_));
         params->put_vec3(kPos, position);
         params->put_name_key(kShowNow, kShowNow);
         get_run(kDropObject, params, player_skater(player));
-        delete_structure(params);
+        script::free_struct(params);
     }
     return 1;
 }
@@ -499,11 +482,11 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub.get();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
-    Struct* params = spawn_param_table();
+    Struct* params = script::new_struct();
     for (int i = 0; i < skate_net::kGraffitiSkaters; ++i) {
         if (!counts[i])
             continue;
-        Array* array = new_array_init();
+        Array* array = script::new_array();
         array->configure_size_kind(counts[i], static_cast<script::QbValueKind>(kSymbolChecksum));
         // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
         for (int j = 0; std::cmp_less(j, counts[i]); ++j)
@@ -515,7 +498,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     }
     trick_objects->change_args(params);
     trick_objects->apply_player_graffiti();
-    delete_structure(params);
+    script::free_struct(params);
     memory::Hub::get_pull()->leave_heap_scope();
     return 1;
 }
@@ -554,10 +537,10 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
                 // Eliminated.
                 if (PlayerRecord* player = find_player_slot_by_obj(object->ident_))
                     player->mark_eliminated();
-                Struct* params = spawn_param_table();
+                Struct* params = script::new_struct();
                 params->append_word(kName, skater->fetch_shown_name());
                 get_run(kAnnounceElimination, params);
-                delete_structure(params);
+                script::free_struct(params);
                 skate->conceal_skater(skater, 1 != 0);
             }
         }
@@ -601,11 +584,11 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             get_run(kLeaderYourTeam, nullptr, player_skater(local));
         } else {
             std::sprintf(text.data(), "team_%d_name", best + 1);
-            Struct* params = spawn_param_table();
+            Struct* params = script::new_struct();
             params->get_clear();
             params->append_word(kString0, kSymbolString, script::fetch_text(text.data()));
             get_run(kLeaderOtherTeam, params, player_skater(local));
-            delete_structure(params);
+            script::free_struct(params);
         }
         set_last_leading_team(net, best);
         return 1;
@@ -643,11 +626,11 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     if (is_own_player(best)) {
         get_run(kLeaderYou, nullptr, player_skater(best));
     } else {
-        Struct* params = spawn_param_table();
+        Struct* params = script::new_struct();
         params->get_clear();
         params->append_word(kString0, kSymbolString, best->label_.data());
         get_run(kLeaderOther, params, player_skater(local));
-        delete_structure(params);
+        script::free_struct(params);
     }
     net->set_last_leader(best);
     return 1;
@@ -672,11 +655,11 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     net->change_arena(brief.level);
     net->set_crown_start_spot(static_cast<char>(brief.crown_start_slot));
     net->set_start_info_words(brief.start_points.data());
-    Struct* params = spawn_param_table();
+    Struct* params = script::new_struct();
     params->get_clear();
     params->add_component_of_type(kLevel, kSymbolChecksum, brief.level);
     get_run(kRequestLevel, params);
-    delete_structure(params);
+    script::free_struct(params);
     get_run(kLeaveFrontEnd);
     get_run(kCleanupBeforeLoading);
     conn->stamp_last_heard(0);
@@ -693,18 +676,18 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     for (int i = 0; i < 7; ++i) {
         if (!(static_cast<int>(static_cast<int8_t>(brief.pro_option_bits)) & (1 << i)))
             continue;
-        Struct* flag = spawn_param_table();
+        Struct* flag = script::new_struct();
         flag->put_int(kFlag, script::fetch_int_value(kProSetGeoFlag) + i);
         get_run(kSetFlag, flag);
-        delete_structure(flag);
+        script::free_struct(flag);
     }
     // The victory conditions.
-    Struct* victory = spawn_param_table();
+    Struct* victory = script::new_struct();
     const uint32_t mode = brief.game_type;
     if (mode != kNetLobby) {
         if (brief.time_limit == 0 && mode != kNetCtf && mode != kNetGoalAttack) {
             if (mode != kFirefight && mode != kNetFirefight) {
-                Array* conditions = new_array_init();
+                Array* conditions = script::new_array();
                 script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
                 auto* condition = conditions->struct_at(0);
                 condition->add_component_of_type(kScore, script::kQbvalInteger, brief.target_score);
@@ -715,7 +698,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         } else {
             victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, brief.time_limit);
             if (brief.game_type == kNetCtf) {
-                Array* conditions = new_array_init();
+                Array* conditions = script::new_array();
                 script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
                 victory->append_array_value(kVictoryConditions, conditions);
             }
@@ -724,7 +707,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         }
         get_game_mode()->force_match_settings(victory);
     }
-    delete_structure(victory);
+    script::free_struct(victory);
     // The mode's goal_script.
     Array* types = script::fetch_list(net->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
@@ -733,7 +716,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != brief.game_type)
             continue;
-        Struct* goal_params = spawn_param_table();
+        Struct* goal_params = script::new_struct();
         goal_params->put_int(kTime, static_cast<int>(brief.time_limit));
         goal_params->put_int(kScore, static_cast<int>(brief.target_score));
         goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
@@ -747,7 +730,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         else if (brief.game_type == kNetScavengerHunt)
             script = variant == 1 ? kScavengerIntervalGoal : kScavengerCollectGoal;
         get_run(script, goal_params);
-        delete_structure(goal_params);
+        script::free_struct(goal_params);
         break;
     }
     if (net->in_net_game() && net->get_entry_mode() == 0 &&
@@ -770,10 +753,10 @@ int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
-    Struct* params = spawn_param_table();
+    Struct* params = script::new_struct();
     script::decode_from_bytes(params, reader.cursor(), reader.remaining()); // the script reader
     get_run(message.name, params, object);
-    delete_structure(params);
+    script::free_struct(params);
     memory::Hub::get_pull()->leave_heap_scope();
     return 1;
 }

@@ -72,6 +72,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/param_struct.h"
 
 namespace modules {
 
@@ -143,18 +144,6 @@ memory::Arena* rider_heap_at(int index) { return core::at(memory::Hub::get_pull(
 using PlayerSearch = online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // The skater list's node (lists::Elem<Rider>, +0x238 of the skater) out of the list.
 void unlink_skater_node(memory::ListNode* node)
@@ -223,26 +212,26 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
         entity_hub_handle()->flush_dead_objects();
     }
     if (!skater->is_local_skater_) {
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kSkaterId, skater->ident_);
         script::launch_script(kRemoveClientSkater, params, nullptr, false, nullptr);
-        delete_structure(params);
+        script::free_struct(params);
     }
     if (skater->is_local_skater_ && skater->view_slot_ == 0) {
         // The local player's created tricks and stat goals kept for the skater that replaces it.
         if (cat_info()) {
-            delete_structure(cat_info());
+            script::free_struct(cat_info());
             cat_info() = nullptr;
         }
         debug::printf("CAT: Storing Created Trick data\n"); // "CAT: Storing Created Trick data\n"
-        cat_info() = spawn_param_table();
+        cat_info() = script::new_struct();
         skater->write_cat_info(cat_info());
         if (stat_goal_params_ref()) {
-            delete_structure(stat_goal_params_ref());
+            script::free_struct(stat_goal_params_ref());
             stat_goal_params_ref() = nullptr;
         }
         debug::printf("CAT: Storing Stat Goal data\n"); // "CAT: Storing Stat Goal data\n"
-        stat_goal_params_ref() = spawn_param_table();
+        stat_goal_params_ref() = script::new_struct();
         skater->write_list_44b_66a_9f(stat_goal_params_ref());
     }
     unlink_skater_node(skater->get_skater_link());
@@ -297,10 +286,10 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
         new objects::Rider(viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local, id, heap, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->put_int(kPlayer, 0);
         script::launch_script(kModelApplyCustomLogos, params, nullptr, false, nullptr);
-        delete_structure(params);
+        script::free_struct(params);
     }
     if (!skater->is_local_skater_)
         script::launch_script(kClientSkaterInit, nullptr, skater, false, nullptr);
@@ -312,13 +301,13 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
         if (cat_info()) {
             debug::printf("CAT: Restoring Created Tricks\n"); // "CAT: Restoring Created Tricks\n"
             skater->load_cat_info(cat_info());
-            delete_structure(cat_info());
+            script::free_struct(cat_info());
             cat_info() = nullptr;
         }
         if (stat_goal_params_ref()) {
             debug::printf("CAT: Restoring Stat Goal data\n"); // "CAT: Restoring Stat Goal data\n"
             skater->load_list_44b_66a_9f(stat_goal_params_ref());
-            delete_structure(stat_goal_params_ref());
+            script::free_struct(stat_goal_params_ref());
             stat_goal_params_ref() = nullptr;
         }
     }
@@ -362,11 +351,11 @@ void Skate::set_skater_shadow(objects::Rider* skater)
         type = 2;
     if (!skater->is_local_skater_)
         type = 2;
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->push_float(kBlobSizeFactor, 1.0f);
     params->append_word(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
     shadow->configure_from_data(params);
-    delete_structure(params);
+    script::free_struct(params);
     shadow->destroy_shadow();
     shadow->build_blob_shadow(type, "Ped_Shadow");
     memory::leave_heap_scope();
@@ -528,19 +517,19 @@ void Skate::change_level(uint32_t level)
     debug::printf("-----------------------------------------Skate::ChangeLevel(%d)\n",
                   level); // "-----...Skate::ChangeLevel(%d)\n"
     memory::enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_);
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->get_clear();
     params->add_component_of_type(kLevel, script::kQbvalName, level);
     script::launch_script(kRequestLevel, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     previous_level_ = level_;
     level_ = level;
-    params = spawn_param_table();
+    params = script::new_struct();
     params->get_clear();
     if (level != kLoadMainMenu)
         params->add_component_of_type(0, script::kQbvalName, kPreserveSkaters);
     commands::cfunc_cleanup(params, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     stage_switched_ = true;
     game_flow_->get_request(kChangeLevelGameFlow);
     memory::leave_heap_scope();
@@ -944,7 +933,7 @@ void Skate::run_frame_logic()
             }
             params->put_int(kDeviceNum, device->dev_->port_no_);
             script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
-            delete_structure(params);
+            script::free_struct(params);
             ++unplugged_frames_;
             return;
         }

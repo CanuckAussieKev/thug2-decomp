@@ -44,23 +44,6 @@ constexpr uint32_t kTrickBeat = 0xD0DD047B;            // TrickBeat
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
-script::Array* alloc_script_array()
-{
-    script::Array* made = script::alloc_script_array();
-    return made ? memory::construct_in<script::Array>(made) : nullptr;
-}
 
 // The active list's nodes, counted (as get_engaged_objective walks them).
 int count_active(memory::ListNode* head)
@@ -140,8 +123,8 @@ void GoalManager::revoke_every_clear()
 void GoalManager::append_objective_list_entries()
 {
     const int count = goals_.num_; // (read once)
-    script::Array* ordered = alloc_script_array();
-    script::Array* unordered = alloc_script_array();
+    script::Array* ordered = script::new_array();
+    script::Array* unordered = script::new_array();
     ordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
     unordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
     // The goals with a place in the list first, then the others.
@@ -188,7 +171,7 @@ void GoalManager::append_objective_list_entries()
             continue;
         if (goal->is_online_objective())
             continue;
-        script::Struct* item = spawn_param_table();
+        script::Struct* item = script::new_struct();
         item->put_name_key(kGoalIdChecksum, goal->get_objective_key());
         item->append_word(kText, text);
         if (goal->has_won()) {
@@ -226,7 +209,7 @@ void GoalManager::append_objective_list_entries()
             }
         }
         script::launch_script(kViewGoalsMenuAddItem, item, nullptr, false, nullptr);
-        delete_structure(item);
+        script::free_struct(item);
     }
     script::release_array_storage(ordered);
     script::release_array_storage(unordered);

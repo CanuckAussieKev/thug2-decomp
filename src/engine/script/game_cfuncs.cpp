@@ -828,18 +828,6 @@ constexpr uint32_t kMenuScript = 0x2B0CFCA1; // its pad_choose script
 constexpr uint32_t kFirstRestartId = 123456; // the restart items' ids, from here
 
 // A new, empty script structure (from the structures' pool) and its deletion.
-script::Struct* spawn_param_table()
-{
-    auto* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // A restart menu item's fixed parts.
 void add_restart_item_flags(script::Struct* item)
@@ -863,28 +851,28 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
         const char* name = nullptr;
         if (!node->fetch_text("RestartName", &name, 0)) // "RestartName"
             name = "Unnamed restart";                   // "Unnamed restart"
-        script::Struct* item = spawn_param_table();
+        script::Struct* item = script::new_struct();
         item->append_word(kMenuText, name);
         item->put_name_key(kMenuId, kFirstRestartId + count);
         add_restart_item_flags(item);
-        script::Struct* choose = spawn_param_table();
+        script::Struct* choose = script::new_struct();
         choose->put_name_key(0x66780C6F, restart);
         item->put_sub_struct(kMenuParams, choose);
         float scale = 0.0f; // (unset in the original when missing - an asserted parameter)
         params->fetch_float(0x1B9E8272u, &scale, true);
         item->push_float(0x13B9DA7B, scale); // "scale"
         script::launch_script(0xC16BF7BD, item, nullptr, false, nullptr);
-        delete_structure(item);
-        delete_structure(choose);
+        script::free_struct(item);
+        script::free_struct(choose);
         ++count;
     }
     if (!count) {
-        script::Struct* item = spawn_param_table();
+        script::Struct* item = script::new_struct();
         item->append_word(kMenuText, "No restarts in level"); // "No restarts in level"
         item->put_name_key(kMenuId, kFirstRestartId);
         add_restart_item_flags(item);
         script::launch_script(0xC16BF7BD, item, nullptr, false, nullptr);
-        delete_structure(item);
+        script::free_struct(item);
     }
     return true;
 }
@@ -897,18 +885,18 @@ bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
     script::Array* nodes = nullptr;
     params->fetch_list(0xE2C2FA03u, &nodes, 0);
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        script::Struct* item = spawn_param_table();
+        script::Struct* item = script::new_struct();
         script::Struct* node = level_nodes::fetch_vertex(nodes->fetch_part(i), true);
         const char* name = nullptr;
         if (!node->fetch_text(0xFCD206E1u, &name, 0))
             name = "Unnamed restart"; // "Unnamed restart"
         item->append_word(kMenuText, name);
         item->put_name_key(kMenuScript, 0x54523C62);
-        script::Struct* choose = spawn_param_table();
+        script::Struct* choose = script::new_struct();
         choose->put_name_key(0x9F92BA78, nodes->fetch_part(i));
         item->put_sub_struct(kMenuParams, choose);
         script::launch_script(0xBEED50B6, item, nullptr, false, nullptr);
-        delete_structure(item);
+        script::free_struct(item);
     }
     return true;
 }
@@ -930,12 +918,12 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
             std::memcpy(name.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
             if (std::strlen(name.data()) > 4)
                 core::at(name, std::strlen(name.data()) - 4) = '\0';
-            script::Struct* item = spawn_param_table();
+            script::Struct* item = script::new_struct();
             item->append_word("name", name.data());                                      // "name"
             item->append_word("file", file.data());                                      // "file"
             script::launch_script("add_item_to_face_menu", item, nullptr, false); // "add_item_to_face_menu"
             ++count;
-            delete_structure(item);
+            script::free_struct(item);
         }
     } while (count < 11 && FindNextFileA(search, &found));
     FindClose(search);

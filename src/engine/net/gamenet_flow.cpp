@@ -276,11 +276,11 @@ void Hub::observer_input(pad_input::Responder<Hub>* input)
     objects::Entity* root = find_root_window();
     if (root) {
         // Not while a menu is up: the root window's menu_state tag on.
-        script::Struct* tags = new_params();
+        script::Struct* tags = script::new_struct();
         root->copy_tags_to(tags);
         uint32_t menu_state = 0; // (left as it was on the stack when the root window has no menu_state: the original)
         tags->read_hash_value(kMenuState, &menu_state, 0);
-        delete_params(tags);
+        script::free_struct(tags);
         if (menu_state == kOn)
             return;
     }
@@ -339,11 +339,11 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         manager->join_phase_job_->drop_out();
         break;
     case kJoinStateRefused: { // 9
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kReason, manager->refused_reason_);
         manager->join_phase_job_->drop_out();
         get_run(kCreateJoinRefusedDialog, params);
-        delete_params(params);
+        script::free_struct(params);
         break;
     }
     case 10: // cancelled

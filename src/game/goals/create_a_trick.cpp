@@ -46,11 +46,6 @@ T& prop(objects::Rider* skater, uint32_t offset)
 }
 script::Struct* get_results(script::Script* script) { return script->args_; }
 
-script::Array* alloc_script_array()
-{
-    script::Array* array = script::alloc_script_array();
-    return array ? memory::construct_in<script::Array>(array) : nullptr;
-}
 
 } // namespace
 
@@ -64,11 +59,11 @@ CreateATrick::CreateATrick()
     other_params_->append_structure_if_any(other);
     script::Array* rotations = script::fetch_list("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    spin_list_ = alloc_script_array();
+    spin_list_ = script::new_array();
     spin_list_->configure_size_kind(6, script::kQbvalStruct);
     script::duplicate_array(spin_list_, rotations);
     script::Array* animations = script::fetch_list("Default_CAT_animation_info"); // "Default_CAT_animation_info"
-    animations_ = alloc_script_array();
+    animations_ = script::new_array();
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     animations_->configure_size_kind(6, script::kQbvalStruct);
     script::duplicate_array(animations_, animations);

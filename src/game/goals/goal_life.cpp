@@ -90,18 +90,6 @@ uint32_t active_ruleset_label()
     return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->get_name_key();
 }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 GoalEdge* alloc_chain_link()
 {
     auto* link = static_cast<GoalEdge*>(memory::alloc(sizeof(GoalEdge)));
@@ -169,10 +157,10 @@ Objective::Objective(script::Struct* params)
     seconds_remaining_ = 0;
     unknown68_ = -1;
     unknown64_ = -1;
-    args_ = spawn_param_table();
+    args_ = script::new_struct();
     args_->append_structure_if_any(params);
     ped_ = new_goal_ped(args_);
-    goal_flags_ = spawn_param_table();
+    goal_flags_ = script::new_struct();
     num_flags_ = 0;
     num_flags_set_ = 0;
     elapsed_ = 0;
@@ -206,8 +194,8 @@ Objective::~Objective()
         destroy_goal_ped_body(ped_);
         memory::dealloc(ped_);
     }
-    delete_structure(args_);
-    delete_structure(goal_flags_);
+    script::free_struct(args_);
+    script::free_struct(goal_flags_);
     for (GoalEdge* link = sub_nodes_; link;) {
         GoalEdge* next = link->succ_;
         memory::dealloc(link);
@@ -387,7 +375,7 @@ bool Objective::get_win()
     }
     bool rewarded = false;
     if (!has_won() && !net->in_net_game()) {
-        script::Struct* rewards = spawn_param_table();
+        script::Struct* rewards = script::new_struct();
         get_prize_struct(rewards);
         if (new_record)
             rewards->put_name_key(kNoName, kNewRecord);
@@ -413,10 +401,10 @@ bool Objective::get_win()
             objects::RiderStoryProgress* career = skate_calls::get_career();
             if (skate_calls::game_mode_is_true(kIsCareer)) {
                 career->deposit_money(get_reward_points());
-                script::Struct* params = spawn_param_table();
+                script::Struct* params = script::new_struct();
                 params->put_int(kRewardPointsName, get_reward_points());
                 script::launch_script(kCheckChapterAdvancement, params, nullptr, false, nullptr);
-                delete_structure(params);
+                script::free_struct(params);
             } else if (skate_calls::game_mode_is_true(kIsClassic)) {
                 career->increment_counter();
             }
@@ -570,10 +558,10 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
         const uint32_t id = get_objective_key();
         complete_objective(goals, id);
     } else if (!sub && args_->has_bare_flag(kGaps) && !args_->has_bare_flag(kNoGapMessages)) {
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->append_structure_if_any(args_);
         script::launch_script(kGoalGapsGotGap, params, nullptr, false, nullptr);
-        delete_structure(params);
+        script::free_struct(params);
     }
     return changed;
 }
@@ -593,7 +581,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 auto* entry = flags->struct_at(static_cast<uint32_t>(i));
                 uint32_t skater = 0;
                 entry->read_hash_value(kSkater, &skater, 1);
-                script::Struct* own = spawn_param_table();
+                script::Struct* own = script::new_struct();
                 script::Array* names = nullptr;
                 entry->fetch_list(kGoalFlags, &names, 1);
                 const int count = static_cast<int>(names->extent_);
@@ -602,7 +590,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 own->put_int(kNumFlags, count);
                 own->put_int(kNumFlagsSet, 0);
                 goal_flags_->put_sub_struct(skater, own);
-                delete_structure(own);
+                script::free_struct(own);
             }
         } else {
             for (uint32_t i = 0; i < flags->extent_; ++i) {

@@ -59,18 +59,6 @@ bool goals_completed() { return CompleteGoalsVictoryCondition::all_goals_complet
 
 using PlayerSearch = online::PlayerSearch;
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 } // namespace
 
@@ -296,7 +284,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
             zero_objective_bits();
             return advance_race_gate(id);
         }
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kGoalIdChecksum, id);
         if (i == 0 && laps_ > 1)
             params->put_int(kStartLap, lap_);
@@ -325,7 +313,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
                       goal_name); // "%s_next_waypoint_script_id"
         script::spawn_script(kRaceNextWaypoint, params, 0, nullptr, 0, checksums::hash_from_text(script_name.data()), false,
                              false, false, false);
-        delete_structure(params);
+        script::free_struct(params);
         return true;
     }
     return true;

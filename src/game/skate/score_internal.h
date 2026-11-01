@@ -63,8 +63,5 @@ inline frontend::UiWidget* find_element(uint32_t id)
     return frontend::UiTree::sole()->fetch_part(&found, id, 0)->owner_object_;
 }
 
-// A structure from the pool (null if that fails: the original goes on with it) / deleted.
-script::Struct* spawn_param_table();
-void delete_structure(script::Struct* structure);
 
 } // namespace modules::score_internal

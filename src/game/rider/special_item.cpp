@@ -58,18 +58,6 @@ T& prop(const void* object, uint32_t offset)
     return *raw::as<T>(cell::address(object) + offset);
 }
 
-script::Struct* new_params()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 // The object marked dead (its vtable +0x18: a composite object tells its components first).
 void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
@@ -123,12 +111,12 @@ void PickupItemHandler::destroy_item(int slot)
 {
     if (!core::at(items_, slot))
         return;
-    script::Struct* tags = new_params();
+    script::Struct* tags = script::new_struct();
     core::at(items_, slot)->copy_tags_to(tags);
     uint32_t script = 0;
     if (tags->read_hash_value(kOnDestroyScript, &script, 0))
         script::launch_script(script, nullptr, core::at(items_, slot), false, nullptr);
-    delete_params(tags);
+    script::free_struct(tags);
     flag_as_dead(core::at(items_, slot));
     core::at(items_, slot) = nullptr;
 }
@@ -155,13 +143,13 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     memory::pop_mem_profile();
     core::at(items_, slot) = item;
 
-    script::Struct* tags = new_params();
+    script::Struct* tags = script::new_struct();
     tags->put_name_key(kOwner, entity_->ident_);
     uint32_t script = 0;
     if (params->read_hash_value(kOnDestroyScript, &script, 0))
         tags->put_name_key(kOnDestroyScript, script);
     core::at(items_, slot)->set_tags_from_struct(tags);
-    delete_params(tags);
+    script::free_struct(tags);
 
     // In the object's colour.
     const render::RenderModel* mine = get_model_data(entity_);
@@ -187,11 +175,11 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         params->read_hash_value(kBone, &bone, 0);
         params->read_hash_value(kParams, &item_params, 1);
         GameEntity* item = create_item(slot, script::read_sub_struct(item_params));
-        script::Struct* lock = new_params();
+        script::Struct* lock = script::new_struct();
         lock->append_structure_if_any(params);
         lock->put_name_key(kObjectId, entity_->ident_);
         item->fetch_module(kLockObj)->configure_from_data(lock);
-        delete_params(lock);
+        script::free_struct(lock);
         online::SpecialItemMessage created;
         created.params = item_params;
         created.bone = bone;

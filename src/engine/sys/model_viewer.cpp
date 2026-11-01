@@ -95,18 +95,6 @@ frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager.get();
 
 void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue_job(node); }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // A raw stick value through the dead zone: 0 within +-50, else scaled from there.
 float dead_zone(float value)
@@ -364,11 +352,11 @@ void select_combo_task(ViewerTask* task)
 int handle_add_to_scene(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->append_word(kScene, script::kQbvalString, message);
     params->append_word(kAdd, script::kQbvalString, message + 0x80);
     script::launch_script(kAddToScene, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 
@@ -376,12 +364,12 @@ int handle_add_to_scene(net::InboundMsgCtx* context)
 int handle_create_viewer_object(net::InboundMsgCtx* context)
 {
     auto* viewer = raw::as<Viewer>(context->body_); // (sic: see model_viewer.h)
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     const char* message = context->body_;
     params->append_word(kModelName, message);
     params->put_name_key(kSkeletonName, *raw::field_at<const uint32_t>(message, 0x84));
     viewer->create_viewer_object(params);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 
@@ -390,10 +378,10 @@ int on_remote_script_msg(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     const uint32_t name = *raw::as<const uint32_t>(message);
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     script::decode_from_bytes(params, raw::bytes(message + 4)); // the script reader
     script::launch_script(name, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 
@@ -505,10 +493,10 @@ void free_camera_task(ViewerTask* task)
 int handle_reload_scene(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->append_word(kScene, script::kQbvalString, message);
     script::launch_script(kReloadScene, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 

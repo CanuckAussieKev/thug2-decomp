@@ -50,11 +50,6 @@ constexpr int kDefaultPriority = 0x66;
 
 assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
 
-script::Struct* new_params()
-{
-    script::Struct* params = script::spawn_param_bag();
-    return params ? memory::construct_in<script::Struct>(params) : nullptr;
-}
 void delete_params(script::Struct* params)
 {
     if (params) {
@@ -86,7 +81,7 @@ void FamComponent::unload_fam()
     if (!fam_)
         return;
     script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kTypeParam, kPartialAnim);
     params->put_name_key(kId, kJawRotation);
     if (entity_)
@@ -126,7 +121,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
         audio::halt_stream(feed_);
         feed_ = 0;
     }
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kStreamChecksum, name);
     if (volume)
         params->put_int(kVol, volume);

@@ -99,18 +99,6 @@ void discard_loaded_item(uint32_t name)
 }
 void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
 gsl::owner<void*> new_anim_source() { return new render::FrameSource; }
-script::Struct* make_struct()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void free_struct(script::Struct* s)
-{
-    if (!s)
-        return;
-    s->get_clear();
-    script::delete_struct(s);
-}
 void get_run(uint32_t script, script::Struct* params = nullptr, Entity* object = nullptr)
 {
     script::launch_script(script, params, object, false, nullptr);
@@ -162,7 +150,7 @@ bool CinematicEntry::read_in(script::Struct* params)
         params->read_hash_value(kCutsceneName, &name, 1);
         asset_ = 0;
     }
-    script::Struct* settings = make_struct();
+    script::Struct* settings = script::new_struct();
     settings->append_structure_if_any(params);
     configure_from_data(settings);
     if (script::Struct* defaults = script::read_sub_struct(checksums::fold_text_into_checksum(name, "_params")))
@@ -254,7 +242,7 @@ void CinematicEntry::stop()
     memory::Hub::get_pull()->delete_cutscene_heaps();
     auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
     if (skater) {
-        script::Struct* flag = make_struct();
+        script::Struct* flag = script::new_struct();
         flag->put_name_key(kUnnamed, kFlagParam);
         get_run(0xABF617EE, flag, static_cast<Entity*>(skater));
         free_struct(flag);

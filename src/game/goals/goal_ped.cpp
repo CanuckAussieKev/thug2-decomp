@@ -96,36 +96,11 @@ objects::GameEntity* object_named(uint32_t id)
     return core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(id));
 }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
-script::Array* alloc_script_array()
-{
-    script::Array* made = script::alloc_script_array();
-    return made ? memory::construct_in<script::Array>(made) : nullptr;
-}
-void free_array(script::Array* array)
-{
-    script::release_array_storage(array);
-    if (array) {
-        array->get_clear();
-        script::delete_array(array);
-    }
-}
 
 // The numbers 1..count shuffled (each slot swapped with a random one).
 script::Array* shuffled_numbers(int count)
 {
-    script::Array* numbers = alloc_script_array();
+    script::Array* numbers = script::new_array();
     numbers->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalInteger);
     for (int i = 0; i < count; ++i)
         numbers->set_element(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));
@@ -377,12 +352,12 @@ void ObjectiveNpc::unload_anim_bank()
     if (anim_object_) {
         objects::GameEntity* object = object_named(anim_object_);
         script::stop_scripts_using_object_that_refer_to(object, kGoalPlayStream);
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kType, kPartialAnim);
         params->put_name_key(kId, kJawRotation);
         if (object)
             object->fetch_module(kAnimBlender)->invoke_method_by_name(kRemoveAnimController, params, nullptr);
-        delete_structure(params);
+        script::free_struct(params);
         anim_object_ = 0;
     }
     assets::ResourceRegistry* assets = assets::asset_manager();
@@ -403,7 +378,7 @@ void ObjectiveNpc::conceal(bool hide)
         return;
     if (auto* object = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(trigger)))
         object->conceal(hide);
-    script::Struct* arrow = spawn_param_table();
+    script::Struct* arrow = script::new_struct();
     arrow->put_name_key(kGoalIdChecksum, objective_key_);
     if (hide) {
         script::launch_script(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
@@ -412,7 +387,7 @@ void ObjectiveNpc::conceal(bool hide)
         if (!goal || !goal->has_won())
             script::launch_script(kGoalAddPedArrow, arrow, nullptr, false, nullptr);
     }
-    delete_structure(arrow);
+    script::free_struct(arrow);
 }
 
 // 0x0055F710
@@ -440,7 +415,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     objects::GameEntity* object = object_named(id);
     if (!object)
         return;
-    script::Struct* play_params = spawn_param_table();
+    script::Struct* play_params = script::new_struct();
     play_params->put_name_key(kStreamChecksum, stream);
     if (!no_anim) {
         play_params->put_int(kUsePosInfo, 0);
@@ -459,7 +434,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     script::Script* script =
         script::spawn_script(kGoalPlayStream, play_params, 0, nullptr, 0, 0, false, false, false, false);
     script->entity_.assign_object(object);
-    delete_structure(play_params);
+    script::free_struct(play_params);
 }
 
 // 0x0055F960

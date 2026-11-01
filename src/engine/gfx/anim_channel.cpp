@@ -172,13 +172,6 @@ Struct* spawn_param_bag()
     void* memory = struct_pools().carve(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
-void free_struct(Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 // The playing timeline's controllers given a member function with `params` (slot 5, no script).
 void pass_to_first(BlendChannel* channel, uint32_t name, Struct* params)
@@ -568,7 +561,7 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
     Struct* params = spawn_param_bag();
     params->push_float(0x4D747FA0, target);
     pass_to_first(this, 0xD0209498, params); // choose_wobble_goal
-    free_struct(params);
+    script::free_struct(params);
 }
 
 // 0x0047E450
@@ -608,7 +601,7 @@ void BlendChannel::set_wobble_details(const float* details, bool send)
     params->push_float(0x964AACF3, details[3]); // wobbleK2
     params->push_float(0xF90B0824, details[4]); // spazFactor
     pass_to_first(this, 0xEA6D0EFD, params);    // SetWobbleDetails
-    free_struct(params);
+    script::free_struct(params);
 }
 
 // 0x0047E740
@@ -711,7 +704,7 @@ void BlendChannel::set_anim_tags(uint32_t anim)
     copy->append_structure_if_any(tags);
     params->append_struct_ref(0x5DB4115F, copy); // AnimTags
     get_owner(this)->set_tags_from_struct(params);
-    free_struct(params);
+    script::free_struct(params);
 }
 
 // 0x0047EB30
@@ -930,7 +923,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
             break;
         }
         attach_controller(masked(timelines_.next), controller);
-        free_struct(controller);
+        script::free_struct(controller);
     }
     return anim;
 }

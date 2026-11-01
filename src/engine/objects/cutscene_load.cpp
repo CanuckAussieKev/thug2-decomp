@@ -75,13 +75,6 @@ script::Struct* make_struct()
     void* memory = struct_pools().carve(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
-void free_struct(script::Struct* s)
-{
-    if (!s)
-        return;
-    s->get_clear();
-    script::delete_struct(s);
-}
 
 void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
 bool stands_in(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->level_object_; }

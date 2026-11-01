@@ -64,31 +64,6 @@ constexpr uint32_t kSkater = 0x5B8AB877;                  // skater
 const char* const kNoDescription = "Define <goal_description> for this goal and it will appear here....If you'd like, "
                                    "also define <view_goals_tip>, it's optional."; // "Define <goal_description> ..."
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
-script::Array* alloc_script_array()
-{
-    script::Array* made = script::alloc_script_array();
-    return made ? memory::construct_in<script::Array>(made) : nullptr;
-}
-void free_array(script::Array* array)
-{
-    script::release_array_storage(array);
-    if (array) {
-        array->get_clear();
-        script::delete_array(array);
-    }
-}
 
 // The skater's score: its total (0x00561B40, no source yet) plus the pending trick's points (the base +0x14 times the
 // multiplier +0x60, truncated - _ftol).
@@ -102,10 +77,10 @@ int total_with_pending(void* score)
 // goal_lose_next_frame spawned for `goal`.
 void lose_next_frame(Objective* goal)
 {
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kGoalIdChecksum, goal->get_objective_key());
     script::spawn_script(kGoalLoseNextFrame, params, 0, nullptr, 0, 0, false, false, false, false);
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 } // namespace
@@ -131,11 +106,11 @@ void GoalManager::land()
             auto* score = static_cast<modules::PointTally*>(skater->get_points_total());
             if (score->pot_score_ <= 0)
                 continue;
-            script::Struct* check = spawn_param_table();
+            script::Struct* check = script::new_struct();
             check->put_name_key(kGoalIdChecksum, goal->get_objective_key());
             check->put_int(kLastScoreLanded, score->pot_score_);
             script::launch_script(kHighComboCheckScore, check, nullptr, false, nullptr);
-            delete_structure(check);
+            script::free_struct(check);
         } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
             if (!skater)
@@ -195,8 +170,8 @@ void GoalManager::get_bail()
 // 0x0055CD70
 void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 {
-    script::Struct* by_pro = spawn_param_table(); // each pro: its goals' info by id, and their number
-    script::Struct* info = spawn_param_table();
+    script::Struct* by_pro = script::new_struct(); // each pro: its goals' info by id, and their number
+    script::Struct* info = script::new_struct();
     const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         uint32_t key = 0;
@@ -210,7 +185,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         script::Struct* params = goal->fetch_args();
         const char* text = nullptr;
         params->fetch_text(kViewGoalsText, &text, 1);
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         entry->put_name_key(kGoalIdChecksum, id);
         entry->put_int(kBeaten, beaten);
         entry->put_int(kLocked, locked);
@@ -233,14 +208,14 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         if (cameras)
             entry->append_array_value(kViewGoalsCameras, cameras);
         if (!by_pro->has_entry_named(pro)) {
-            script::Struct* empty = spawn_param_table();
+            script::Struct* empty = script::new_struct();
             by_pro->put_sub_struct(pro, empty);
-            delete_structure(empty);
+            script::free_struct(empty);
         }
         script::Struct* goals = nullptr;
         by_pro->read_sub_struct(pro, &goals, 1);
         goals->put_sub_struct(id, entry);
-        delete_structure(entry);
+        script::free_struct(entry);
         int number = 0;
         goals->fetch_int_value(kNumGoals, &number, 0);
         goals->put_int(kNumGoals, ++number);
@@ -253,27 +228,27 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         int number = 0;
         goals->fetch_int_value(kNumGoals, &number, 1);
         goals->erase_module(kNumGoals);
-        script::Array* list = alloc_script_array();
+        script::Array* list = script::new_array();
         list->configure_size_kind(static_cast<uint32_t>(number), script::kQbvalStruct);
         uint32_t index = 0;
         for (script::Component* element = goals->step_to_entry(nullptr); element;) {
             script::Component* next = goals->step_to_entry(element);
-            script::Struct* copy = spawn_param_table();
+            script::Struct* copy = script::new_struct();
             copy->append_structure_if_any(element->value.structure());
             list->set_cell(index++, script::Cell::of(copy));
             element = next;
         }
         if (skater) {
             out->append_array_ref(kViewGoalsInfo, list);
-            delete_structure(by_pro);
-            delete_structure(info);
+            script::free_struct(by_pro);
+            script::free_struct(info);
             return;
         }
         info->append_array_value(component->name, list);
         free_array(list);
         component = next_pro;
     }
-    delete_structure(by_pro);
+    script::free_struct(by_pro);
     out->append_struct_ref(kViewGoalsInfo, info);
 }
 
@@ -344,11 +319,11 @@ bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script*
 bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
-    script::Array* list = alloc_script_array();
+    script::Array* list = script::new_array();
     list->configure_size_kind(static_cast<uint32_t>(manager->goals_.num_), script::kQbvalStruct);
     for (int i = 0; i < manager->goals_.num_; ++i) {
         Objective* goal = manager->goals_.get_by_index(i);
-        script::Struct* entry = spawn_param_table();
+        script::Struct* entry = script::new_struct();
         entry->put_name_key(kGoalIdKey, goal->get_objective_key());
         entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
         list->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));

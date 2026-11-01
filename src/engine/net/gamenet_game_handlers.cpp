@@ -105,17 +105,17 @@ void cancel_join(Hub* manager, bool notify_first)
 {
     script::Struct* params = nullptr;
     if (notify_first) {
-        params = new_params();
+        params = script::new_struct();
         params->put_name_key(0u, kShowTimeout);
     }
     manager->join_phase_job_->drop_out();
     manager->set_entry_phase(2);
     if (!notify_first) {
-        params = new_params();
+        params = script::new_struct();
         params->put_name_key(0u, kShowTimeout);
     }
     get_run(kCancelJoinServer, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 } // namespace
@@ -220,10 +220,10 @@ int handle_fcfs_notice(net::InboundMsgCtx* context)
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return kDone;
     local->set_host_player(); // (its flag 0x200 set)
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kChecksum, checksum);
     get_run(kLaunchFcfsNotification, params);
-    delete_params(params);
+    script::free_struct(params);
     return kContinue;
 }
 
@@ -241,11 +241,11 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     const int team = player->get_flag_team(); // the flag's team
     std::array<char, 64> name{};
     team_name_key(name.data(), team);
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->put_int(kTeam, team);
     params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
     get_run(kFlagReturned, params);
-    delete_params(params);
+    script::free_struct(params);
     if (is_own_player(player))
         get_run(kDestroyCtfPanelMessage);
     PlayerRecord* local = find_own_player_record(manager);
@@ -297,10 +297,10 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
             return kDone;
         park_editing::ObjectiveAuthoring::get_pull()->read_level_goals_from_buffer(level, reader.cursor(),
                                                                                    reader.remaining());
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_name_key(0u, kDoNotCreateGoalPeds);
         get_run(kInitialiseCreatedGoals, params);
-        delete_params(params);
+        script::free_struct(params);
         return kContinue;
     }
     if (modules::g_skate_module->level_ == kLoadMainMenu) {
@@ -366,10 +366,10 @@ int handle_selected_goals(net::InboundMsgCtx* context)
         entry->choose_one();
     }
     if (show == 1) {
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kGoalSummary, kGoalSummary);
         script::spawn_script(kViewSelectedGoalsMenu, params, 0, nullptr, 0, 0, false, false, false, false);
-        delete_params(params);
+        script::free_struct(params);
     }
     return kContinue;
 }
@@ -390,7 +390,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
     player->team_ = int{static_cast<int8_t>(core::at(msg, 1))};
     std::array<char, 64> name{};
     team_name_key(name.data(), static_cast<int8_t>(core::at(msg, 1)));
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     if (is_own_player(player)) {
         if (is_squad_match()) {
             params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
@@ -401,7 +401,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
         params->append_word(kString1, script::kQbvalString, script::fetch_text(name.data()));
         get_run(kJoinedTeamOther, params);
     }
-    delete_params(params);
+    script::free_struct(params);
     // Everyone else on the same team: a warning.
     int others = 0;
     bool same_team = true;
@@ -443,10 +443,10 @@ int handle_goal_completed(net::InboundMsgCtx* context)
         const int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
         const int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
         if (total > done) {
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             params->put_int(kNumGoalsLeft, total - done);
             get_run(kCompletedGoal, params);
-            delete_params(params);
+            script::free_struct(params);
         }
         static_cast<goals::ObjectiveNpc*>(goal->ped_)->remove_objective_npc();
         return kContinue;
@@ -478,12 +478,12 @@ int handle_goal_completed(net::InboundMsgCtx* context)
     if (total > done) {
         const char* text = nullptr;
         goal->get_objective_list_caption(&text);
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_int(kNumGoalsLeft, total - done);
         params->append_word(kPlayerName, player_name(player));
         params->append_word(kGoalText, text);
         get_run(kCompletedGoalSameTeam, params);
-        delete_params(params);
+        script::free_struct(params);
     }
     return kContinue;
 }
@@ -505,11 +505,11 @@ int handle_goal_started(net::InboundMsgCtx* context)
     if (player_team(find_own_player_record(manager)) != player_team(player))
         return kContinue;
     goal->get_objective_list_caption(&text);
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(kPlayerName, player_name(player));
     params->append_word(kGoalText, text);
     get_run(kStartedGoalSameTeam, params);
-    delete_params(params);
+    script::free_struct(params);
     return kContinue;
 }
 
@@ -533,21 +533,21 @@ int handle_eliminated(net::InboundMsgCtx* context)
         get_run(kEliminatedYou);
         return kContinue;
     }
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(kString0, player_name(player));
     get_run(kEliminatedOther, params);
-    delete_params(params);
+    script::free_struct(params);
     return kContinue;
 }
 
 // 0x00532390
 int handle_observers_full(net::InboundMsgCtx*)
 {
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->put_name_key(kReason, kFullObservers);
     params->put_name_key(kJustDialog, 0);
     get_run(kCreateJoinRefusedDialog, params);
-    delete_params(params);
+    script::free_struct(params);
     return kContinue;
 }
 

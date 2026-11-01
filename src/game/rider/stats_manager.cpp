@@ -89,18 +89,6 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
     script::launch_script(name, params, nullptr, false, nullptr);
 }
 
-script::Struct* new_params()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 void* skate_module() { return static_cast<void*>(modules::g_skate_module); }
 RiderIdentity* first_profile()
@@ -310,7 +298,7 @@ void AttributeTracker::announce_met_goals()
     if (!is_operative())
         return;
     RiderIdentity* profile = first_profile();
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     bool announced = false;
     for (Goal& goal : goals_) {
         if (goal.cur_standing_ != 0 || !goal.met_)
@@ -374,7 +362,7 @@ void AttributeTracker::announce_met_goals()
         }
         launch_script(0x5A90FB86);
     }
-    delete_params(params);
+    script::free_struct(params);
     count_a80_ = 0;
     count_a84_ = 0;
 }
@@ -384,7 +372,7 @@ void AttributeTracker::meet_goal(int index)
 {
     if (!is_operative())
         return;
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     Goal& goal = core::at(goals_, index);
     params->append_word(0x61414D56u, goal.label_);
     params->put_int(0xE288A7CBu, goal.aim_point_);
@@ -393,7 +381,7 @@ void AttributeTracker::meet_goal(int index)
     params->put_int(0x7F8C98FEu, index);
     launch_script(0x55E516C8, params);
     goal.met_ = true;
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // 0x0051CF90
@@ -490,10 +478,10 @@ void AttributeTracker::tick_frame()
             break;
         case kAirCombo:
             if (air_phase_ == 2 && air_best_ >= goal.aim_point_) {
-                script::Struct* params = new_params();
+                script::Struct* params = script::new_struct();
                 params->put_int(0xCD66C8AEu, air_best_);
                 launch_script(0x7C9C7232, params);
-                delete_params(params);
+                script::free_struct(params);
                 meets = true;
             }
             break;

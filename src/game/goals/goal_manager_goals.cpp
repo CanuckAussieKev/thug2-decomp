@@ -70,30 +70,6 @@ MatchRules* get_game_mode() { return g_game_mode; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
 bool in_multiplayer_game() { return static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0; }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
-script::Array* alloc_script_array()
-{
-    script::Array* made = script::alloc_script_array();
-    return made ? memory::construct_in<script::Array>(made) : nullptr;
-}
-void free_array(script::Array* array)
-{
-    if (array) {
-        array->get_clear();
-        script::delete_array(array);
-    }
-}
 
 // The goal's type by its flags (made zeroed: Objective is a HeapObject; the original allocated the sizes noted with
 // the types).
@@ -173,10 +149,10 @@ void GoalManager::retry_previous_objective()
     script::stop_scripts_targeting(kSk3KillSkaterFinish);
     script::launch_script(kKillBlur, nullptr, nullptr, false, nullptr);
     if (!goal->has_won() || goal->fetch_args()->has_bare_flag(kDontKillTriggerOnSuccess)) {
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->put_name_key("goal_id", goal->get_objective_key()); // "goal_id"
         script::launch_script(kResetGoalTrigger, params, nullptr, false, nullptr);
-        delete_structure(params);
+        script::free_struct(params);
     }
     goal->activate();
     goal->unset_quick_start();
@@ -187,18 +163,18 @@ void GoalManager::level_unload()
 {
     if (net_session_slot()->in_net_game())
         return;
-    script::Struct* own = spawn_param_table();
+    script::Struct* own = script::new_struct();
     own->put_sub_struct(kSkillTiers, args_);
     goal_data_->put_sub_struct(kGoalManagerParams, own);
-    delete_structure(own);
+    script::free_struct(own);
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->fetch_args()->has_bare_flag(kNullGoal) || goal->is_user_made_objective())
             continue;
-        script::Struct* data = spawn_param_table();
+        script::Struct* data = script::new_struct();
         goal->capture_save_block(data);
         goal_data_->put_sub_struct(goal->get_objective_key(), data);
-        delete_structure(data);
+        script::free_struct(data);
     }
 }
 
@@ -239,7 +215,7 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
             continue;
         if (edited_only && !goal->is_edited_goal2())
             continue;
-        script::Struct* choice = spawn_param_table();
+        script::Struct* choice = script::new_struct();
         choice->put_name_key(kGoalIdChecksum, goal->get_objective_key());
         choice->put_name_key(kParent, kCurrentMenu);
         choice->append_word(kText, text);
@@ -247,7 +223,7 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
         choice->put_int(kScale, 0);
         script::launch_script(selected_only ? kViewSelectedGoalsMenuSetEvents : kChooseGoalsMenuSetEvents, choice,
                               nullptr, false, nullptr);
-        delete_structure(choice);
+        script::free_struct(choice);
     }
 }
 
@@ -257,8 +233,8 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
     script::Struct* params = goals_.get_pull(id)->fetch_args();
     script::Array* key_combos = nullptr;
     params->fetch_list(kButtonSequences, &key_combos, 1);
-    script::Array* key_texts = alloc_script_array();
-    script::Array* trick_texts = alloc_script_array();
+    script::Array* key_texts = script::new_array();
+    script::Array* trick_texts = script::new_array();
     const uint32_t count = key_combos->extent_;
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
@@ -279,7 +255,7 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
 script::Struct* GoalManager::get_objective_try_details()
 {
     const int count = goals_.num_; // (read once)
-    script::Struct* info = spawn_param_table();
+    script::Struct* info = script::new_struct();
     int attempts = 0;
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);

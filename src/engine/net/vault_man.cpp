@@ -39,8 +39,6 @@ namespace online {
 
 namespace {
 
-using detail::delete_params;
-using detail::new_params;
 
 constexpr uint32_t kTimeout = 25000; // ms without progress
 constexpr uint32_t kListBufferSize = 100000;
@@ -368,10 +366,10 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         if (transfer == kDownload || transfer == kDownload6) {
             std::array<char, 16> text{};
             std::snprintf(text.data(), sizeof(text), "%d%%", vault->progress_);
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             params->append_word(get_checksums("text"), script::kQbvalString, text.data());
             get_run(vault->progress_script_, params);
-            delete_params(params);
+            script::free_struct(params);
         }
         return;
     }
@@ -385,13 +383,13 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         vault->task_->drop_out();
         vault->transfer_ = kNone;
         if (vault->outcome_val_ == 1) {
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             params->put_name_key("type", vault->kind_tag_);
             if (transfer == kUpload)
                 get_run("LaunchUploadCompleteDialog", params);
             else
                 get_run(vault->done_script_, params);
-            delete_params(params);
+            script::free_struct(params);
         } else {
             get_run(vault->fault_ == kErrorScriptResult ? vault->error_script_ : vault->fail_script_);
         }
@@ -478,11 +476,11 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             // All in: the menu.
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
             vault->task_->drop_out();
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             params->append_word("category", vault->category_->label_.data());
             params->put_name_key("type", vault->kind_tag_);
             get_run("net_vault_menu_create", params);
-            delete_params(params);
+            script::free_struct(params);
         }
         pop_heap();
         return;
@@ -804,7 +802,7 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         auto* item = static_cast<VaultItem*>(node->data);
         if (!item)
             break;
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->append_word("name", item->label_.data());
         params->append_word("creator", item->creator_.data());
         params->append_word("size", item->extent_.data());
@@ -818,7 +816,7 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         params->put_name_key("tod_script", item->tod_script_);
         params->put_int("is_male", item->has_male_body_);
         params->append_word("description", item->summary_text_.data());
-        script::Struct* choose = new_params();
+        script::Struct* choose = script::new_struct();
         choose->append_word("file", item->url_.data());
         params->put_sub_struct("pad_choose_params", choose);
         const char* script = nullptr;
@@ -840,8 +838,8 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         }
         if (script)
             get_run(script, params);
-        delete_params(params);
-        delete_params(choose);
+        script::free_struct(params);
+        script::free_struct(choose);
     }
     pop_heap();
     return true;

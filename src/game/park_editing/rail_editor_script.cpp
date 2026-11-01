@@ -65,23 +65,6 @@ objects::ControlButton* get_button(void* input, uint32_t offset)
     return raw::field_at<objects::ControlButton>(static_cast<uint8_t*>(input), 0x20 + offset);
 }
 
-script::Struct* spawn_param_bag()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-script::Array* alloc_script_array()
-{
-    script::Array* array = script::alloc_script_array();
-    return array ? memory::construct_in<script::Array>(array) : nullptr;
-}
-void free_struct(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 int rail_pool_used()
 {
@@ -135,10 +118,10 @@ void RailAuthoring::conceal(bool hide)
     script::launch_script(kCreateCursor, nullptr, nullptr, false, nullptr);
     manager->builder_->build_rails(manager->concrete_metas_);
     // The camera told whose it is (the input component's configure_from_data: player 0), the pad's events dropped.
-    script::Struct* params = spawn_param_bag();
+    script::Struct* params = script::new_struct();
     params->put_int(kPlayer, 0);
     static_cast<objects::ObjectModule*>(input_ptr_)->configure_from_data(params);
-    free_struct(params);
+    script::free_struct(params);
     pad_of(input_ptr_)->get_clear();
 }
 
@@ -148,18 +131,18 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
     info->put_int(kNumFreeRailPoints, free_points());
     info->put_int(kNumFreeRails, kMaxRails - rail_pool_used());
     if (active_node_)
-        info->append_struct_ref(kCurrentRail, spawn_param_bag());
+        info->append_struct_ref(kCurrentRail, script::new_struct());
     else
         info->put_name_key(kCurrentRail, kNull);
     int count = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
     if (count) {
-        script::Array* rails = alloc_script_array();
+        script::Array* rails = script::new_array();
         rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
         uint32_t i = 0;
         for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
-            rails->set_cell(i++, script::Cell::of(spawn_param_bag()));
+            rails->set_cell(i++, script::Cell::of(script::new_struct()));
         info->append_array_ref(kRails, rails);
     }
     // (then the base's - the empty 0x005BAB90)
@@ -172,19 +155,19 @@ void RailAuthoring::write_to_structure(script::Struct* params)
     int count = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
-    script::Array* rails = alloc_script_array();
+    script::Array* rails = script::new_array();
     rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     uint32_t r = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        script::Struct* rail_info = spawn_param_bag();
+        script::Struct* rail_info = script::new_struct();
         uint32_t point_count = 0;
         for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
             ++point_count;
-        script::Array* points = alloc_script_array();
+        script::Array* points = script::new_array();
         points->configure_size_kind(point_count, script::kQbvalStruct);
         uint32_t i = 0;
         for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
-            script::Struct* point = spawn_param_bag();
+            script::Struct* point = script::new_struct();
             point->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
             // (a post drawn, not has_post_)
             if (p->post_)
@@ -240,7 +223,7 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             node->put_name_key(kSurfaceKindKey, kMetalSmooth);
             if (p->following_) {
                 // linked to the next point's node (the next one written)
-                script::Array* links = alloc_script_array();
+                script::Array* links = script::new_array();
                 links->configure_size_kind(1, script::kQbvalInteger);
                 links->set_element(0, static_cast<uint32_t>(next));
                 node->append_array_ref(kLinks, links);
@@ -258,10 +241,10 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return free_points() == 0 ? 1 : 0;
     case kSetEditingMode: {
         params->read_hash_value(kMode, &mode_sel_, 0);
-        script::Struct* text = spawn_param_bag();
+        script::Struct* text = script::new_struct();
         text->put_name_key(kMode, kRailPlacement);
         script::launch_script(kHelperTextMode, text, nullptr, false, nullptr);
-        free_struct(text);
+        script::free_struct(text);
         return 1;
     }
     case kDeleteRail: {

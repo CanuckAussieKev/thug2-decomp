@@ -114,20 +114,10 @@ void trick_started(MoveExecutor* self) { self->skater_state_->in_trick_move_ = t
 script::Script* object_script(MoveExecutor* self) { return self->entity_->own_script_; }
 
 // A new structure, as the original's inlined `new CStruct` (from the structure pool; null if that fails).
-script::Struct* make_struct()
-{
-    script::Struct* structure = script::spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
 script::Struct* new_struct_copy(script::Struct* source)
 {
     script::Struct* structure = script::spawn_param_bag();
     return structure ? structure->init_copy(source) : nullptr;
-}
-void free_struct(script::Struct* structure)
-{
-    structure->get_clear();
-    script::delete_struct(structure);
 }
 
 // The goal manager told a mapped trick is about to start (0x005591B0 / 0x0055E790).
@@ -188,7 +178,7 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 {
     script::Struct*& mappings = trick_lists_;
     if (!mappings)
-        mappings = make_struct();
+        mappings = script::new_struct();
     mappings->get_clear();
     for (int i = 0; i < 12; ++i) {
         RiderIdentity::SpecialTrick special;
@@ -401,7 +391,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     int created = 0;
     if (mappings->fetch_int_value(slot, &created, 0)) {
         // A created trick: CreateATrick with its index.
-        script::Struct* create_params = make_struct();
+        script::Struct* create_params = script::new_struct();
         create_params->put_int(kTrickIndex, created);
         create_params->append_structure_if_any(trick_params);
         Entity* object = entity_;

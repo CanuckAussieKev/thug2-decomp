@@ -502,11 +502,11 @@ void Hub::flag_returned(PlayerRecord* player)
     const int team = player->get_flag_team(); // the flag's team
     std::array<char, 64> key{};
     team_name_key(key.data(), team);
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->put_int(kTeam, team);
     params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
     get_run(kFlagReturned, params);
-    delete_params(params);
+    script::free_struct(params);
     PlayerRecord* local = find_own_player_record(this);
     if (local && !is_observer(local) && player_team(local) == team)
         get_run(kHideCtfArrow);
@@ -533,11 +533,11 @@ void Hub::enter_observe_mode()
         const int team = local->get_flag_team();
         std::array<char, 64> key{};
         team_name_key(key.data(), team);
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_int(kTeam, team);
         params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
         get_run(kFlagReturned, params);
-        delete_params(params);
+        script::free_struct(params);
         get_run(kHideCtfArrow);
         local->clear_flags();
     }

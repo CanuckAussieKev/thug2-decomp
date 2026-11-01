@@ -138,13 +138,6 @@ Array* new_array_of(script::QbValueKind type, uint32_t value)
     array->set_element(0, value);
     return array;
 }
-void free_array(Array* array)
-{
-    if (array) {
-        array->get_clear();
-        script::delete_array(array);
-    }
-}
 
 } // namespace
 

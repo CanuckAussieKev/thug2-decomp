@@ -164,13 +164,6 @@ script::Struct* new_params()
         new (structure) script::Struct;
     return structure;
 }
-void free_params(Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 // The screen centre lens flares are placed from.
 maths::Vec4 screen_centre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
 
@@ -326,7 +319,7 @@ void hide_flare(Struct* params, script::Script* script)
     morph->push_float(kAlpha, 0.0f);
     morph->push_float(kTime, time);
     frontend::cfunc_do_screen_element_morph(morph, script);
-    free_params(morph);
+    script::free_struct(morph);
     if (params) {
         script::VectorValue sun{};
         if (params->fetch_vec(kSunPos, &sun, 0)) {
@@ -357,7 +350,7 @@ void unhide_flare(Struct*, script::Script* script)
     morph->push_float(kAlpha, 1.0f);
     morph->push_float(kTime, time);
     frontend::cfunc_do_screen_element_morph(morph, script);
-    free_params(morph);
+    script::free_struct(morph);
     flare_hidden() = false;
     container.get_release();
 }
@@ -498,7 +491,7 @@ void render(gfx::ViewCam* camera)
             if (!(static_cast<double>(morph_out_time()) * 1000.0f < static_cast<double>(unseen)))
                 params->push_float(kMorphTime, morph_out_time());
             script::launch_script(kMaybeHideLensFlare, params, nullptr, false, nullptr);
-            free_params(params);
+            script::free_struct(params);
         }
     } else {
         // seen: the corona at half the colour, the lens flare shown (morphed in if it was hidden for a while)

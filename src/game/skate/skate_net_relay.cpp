@@ -162,18 +162,6 @@ objects::Rider* skater_of(PlayerRecord* player) { return player->skater_; }
 uint8_t get_skater_id(objects::Rider* skater) { return static_cast<uint8_t>(skater->ident_); }
 PointTally* get_score_of(objects::Rider* skater) { return static_cast<PointTally*>(skater->get_points_total()); }
 
-Struct* spawn_param_table()
-{
-    Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
-}
-void delete_structure(Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // A skater's state history (+0x27C) and its newest state / message.
 objects::RiderFrameLog* get_history(const objects::Entity* object)
@@ -1154,7 +1142,7 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     position.x = static_cast<float>(velocity.x * seconds + position.x);
     position.y = static_cast<float>(position.y + velocity.y * seconds);
     position.z = static_cast<float>(position.z + velocity.z * seconds);
-    Struct* params = spawn_param_table();
+    Struct* params = script::new_struct();
     params->put_name_key(kOwnerId, static_cast<uint32_t>(message.owner_id));
     params->put_name_key(kAmmoType, message.ammo_type);
     params->put_int(kX, static_cast<int>(position.x));
@@ -1169,7 +1157,7 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     params->put_vec3(kVel, {core::at(message.velocity, 0), core::at(message.velocity, 1), core::at(message.velocity, 2), core::at(message.velocity, 3)});
     const uint32_t launch = message.type == kFireball ? kClientLaunchFireball : kClientLaunchProjectile;
     script::launch_script(launch, params, static_cast<objects::Entity*>(skater), false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 
@@ -1183,11 +1171,11 @@ int SkateNet::on_cheat_state_msg(net::InboundMsgCtx* context)
     online::Cheats message;
     online::read_cheats(reader, &message);
     for (int i = 0; i < message.count; ++i) {
-        Struct* params = spawn_param_table();
+        Struct* params = script::new_struct();
         params->put_name_key(kOn, 0);
         params->put_name_key(kCheatFlag, core::at(message.cheats, i));
         script::launch_script(kClientToggleCheat, params, nullptr, false, nullptr);
-        delete_structure(params);
+        script::free_struct(params);
     }
     return 1;
 }
@@ -1199,12 +1187,12 @@ int SkateNet::handle_toggle_cheat(net::InboundMsgCtx* context)
     online::ToggleCheat message;
     if (!online::read_toggle_cheat(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    Struct* params = spawn_param_table();
+    Struct* params = script::new_struct();
     if (message.on)
         params->put_name_key(kOn, 0);
     params->put_name_key(kCheatFlag, message.cheat);
     script::launch_script(kClientToggleCheat, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 

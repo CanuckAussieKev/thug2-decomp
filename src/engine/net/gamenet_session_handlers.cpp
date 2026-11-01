@@ -232,14 +232,14 @@ int handle_host_options(net::InboundMsgCtx* context)
         // The game's options, each a preference: its text and checksum.
         prefs::Preferences* prefs = net_game_options(manager);
         auto set = [&](uint32_t preference, uint32_t list, uint32_t value, bool fireball = false) {
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             const char* text = option_text(list, value);
             if (fireball)
                 option_field(list, value, kFireballLevel); // (looked up for nothing)
             params->append_word(kUiString, script::kQbvalString, text);
             params->add_component_of_type(kChecksum, script::kQbvalName, value);
             prefs->change_setting(preference, params);
-            delete_params(params);
+            script::free_struct(params);
         };
         set(0x9834C4FA, 0x2F94C542, request.game_type);            // game_type: net_game_type_info
         set(0x403DA0D0, 0x48DAE9CB, request.skill_level);          // skill_level: skill_level_info
@@ -252,17 +252,17 @@ int handle_host_options(net::InboundMsgCtx* context)
         set(0x38DBE1D0, 0x38DBE1D0, request.goals);                // goals: goals
         set(0xA8774BF7, 0xA8774BF7, request.team_graffiti_mode);   // team_graffiti_mode
         {                                                          // time_limit: time_limit_options, with its time
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             const char* text = option_text(0x834A7C01, request.time_limit);
             const int time = option_field(0x834A7C01, request.time_limit, kTime);
             params->append_word(kUiString, script::kQbvalString, text);
             params->add_component_of_type(kChecksum, script::kQbvalName, request.time_limit);
             params->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
             prefs->change_setting(0xC51BF6E3, params);
-            delete_params(params);
+            script::free_struct(params);
         }
         { // target_score: target_score_options, else capture_options, else time_limit_options (its time, in ms)
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             const char* text = option_text(0x52CE135D, request.target_score);
             int score = option_field(0x52CE135D, request.target_score, kScore);
             if (!text) {
@@ -278,7 +278,7 @@ int handle_host_options(net::InboundMsgCtx* context)
             if (score > 0)
                 params->add_component_of_type(kScore, script::kQbvalInteger, static_cast<uint32_t>(score));
             prefs->change_setting(kTargetScore, params);
-            delete_params(params);
+            script::free_struct(params);
         }
         get_run(kChosenStartGame);
         break;
@@ -310,12 +310,12 @@ int handle_host_options(net::InboundMsgCtx* context)
         const uint32_t level = reader.u32();
         if (!reader.ok())
             return kDone;
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->add_component_of_type(kLevel, script::kQbvalName, level);
         params->put_name_key(kChangeLevelFlag, kChangeLevelFlag);
         params->put_name_key(kShowWarning, kShowWarning);
         get_run(kChangeLevel, params);
-        delete_params(params);
+        script::free_struct(params);
         break;
     }
     case 0x64: {
@@ -346,9 +346,9 @@ int handle_host_options(net::InboundMsgCtx* context)
         const int teams = int{reader.i8()};
         if (!reader.ok())
             return kDone;
-        script::Struct* count = new_params();
+        script::Struct* count = script::new_struct();
         count->put_int(0u, teams);
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         static const auto kTexts = std::to_array<const char*>({"None", nullptr, "2", "3", "4"});
         static const auto kTeams = std::to_array<uint32_t>({kTeamsNone, 0, kTeamsTwo, kTeamsThree, kTeamsFour});
         if (teams >= 0 && teams <= 4 && teams != 1) {
@@ -356,9 +356,9 @@ int handle_host_options(net::InboundMsgCtx* context)
             params->put_name_key(kChecksum, core::at(kTeams, teams));
         }
         net_game_options(manager)->change_setting(kTeamMode, params);
-        delete_params(params);
+        script::free_struct(params);
         cfunc_set_num_teams(count, nullptr);
-        delete_params(count);
+        script::free_struct(count);
         break;
     }
     default: // (0x63: nothing)
@@ -395,11 +395,11 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     manager->level_ = message.level;
     g_level_change_time = frame_clock::get_time() + 3000; // when to change
     if (manager->get_on_server()) {
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->append_word(kUiString, script::kQbvalString, manager->get_map_name(false));
         params->add_component_of_type(kChecksum, script::kQbvalName, manager->level_);
         manager->get_online_settings()->change_setting(kLevel, params);
-        delete_params(params);
+        script::free_struct(params);
         if (manager->level_ == kLoadSk5edGameplay)
             g_level_change_time += 1000;
     } else if (old_level == kLoadSk5edGameplay && manager->level_ != old_level) {
@@ -440,7 +440,7 @@ int handle_start_game(net::InboundMsgCtx* context)
         ->disengage_every_objective(false);
     script::Array* types = script::fetch_list(manager->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     // The victory conditions.
-    script::Struct* victory = new_params();
+    script::Struct* victory = script::new_struct();
     if (start.time_limit == 0 && start.game_type != kNetGoalAttack) {
         victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
         if (start.game_type != kFirefight && start.game_type != kNetFirefight) {
@@ -469,7 +469,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     get_game_mode()->set_num_teams(static_cast<int>(start.teams));
     get_game_mode()->set_goals_mode(start.goals);
     get_game_mode()->set_team_graffiti_mode(start.team_graffiti_mode);
-    delete_params(victory);
+    script::free_struct(victory);
     get_run(kStartingNewNetGame);
     static_cast<modules::Skate*>(skate)->launch_game();
     manager->clear_roster();
@@ -506,7 +506,7 @@ int handle_start_game(net::InboundMsgCtx* context)
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != start.game_type)
             continue;
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->put_int(kTime, static_cast<int>(start.time_limit));
         params->put_int(kScore, static_cast<int>(start.target_score));
         params->put_int(kUnlimitedTime, start.time_limit == 0 ? 1 : 0);
@@ -514,7 +514,7 @@ int handle_start_game(net::InboundMsgCtx* context)
         auto script = static_cast<uint32_t>(cell::address(skate));
         type->read_hash_value(kGoalScript, &script, 1);
         get_run(script, params);
-        delete_params(params);
+        script::free_struct(params);
         break;
     }
     memory::Hub::get_pull()->leave_heap_scope();

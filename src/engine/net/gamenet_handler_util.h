@@ -120,18 +120,6 @@ inline void send_to_server(net::AppHost* app, net::NetMessageInfo* desc)
 
 // Script parameters: a new structure (the original's new CStruct - null if out of memory, then used anyway as the
 // original does), deleted with Clear.
-inline script::Struct* new_params()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-inline void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 // "team_<n + 1>_name" (the original's sprintf).
 inline void team_name_key(char* out, int team)

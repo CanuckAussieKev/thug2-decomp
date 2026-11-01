@@ -22,18 +22,6 @@ constexpr uint32_t kGoalObjectsIndex = 0x89B927D0; // goal_objects_index
 constexpr uint32_t kFirstSpotParams = 0xDB5515AA;  // first_spot_params
 constexpr uint32_t kNextCluster = 0x918C00F2;      // goal_skate_the_line_next_cluster
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* made = script::spawn_param_bag();
-    return made ? memory::construct_in<script::Struct>(made) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 } // namespace
 
@@ -66,14 +54,14 @@ void SkateLineGoal::next_cluster()
     int time = 0;
     if (cluster->fetch_int_value(kTime, &time, 1))
         set_seconds_remaining(time);
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->append_structure_if_any(args_);
     params->append_structure_if_any(cluster);
     params->put_int(kGoalObjectsIndex, num_flags_set_);
     if (num_flags_set_ == 1)
         params->put_sub_struct(kFirstSpotParams, objects->struct_at(0));
     script::launch_script(kNextCluster, params, nullptr, false, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 // 0x00569410 (vtable +0x4C)

@@ -132,18 +132,6 @@ constexpr float kSpeedStep = 0.25f;                           // 0x0064F130
 constexpr float kRadiansPerDegree = 0.017453292f;             // 0x00645464
 
 // A pooled script structure, and one cleared and freed (either may be null).
-script::Struct* spawn_param_table()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // D3DXMatrixMultiply (library code: stdcall), out = a * b.
 void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -300,10 +288,10 @@ void PreviewEntity::scale_anim_rate(float speed)
         speed_ = 0.0f;
     if (get_animation(this)) {
         get_animation(this)->first_channel_47e_850(speed_, 0.0f, 0.0f, 0.0f);
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->push_float(kSpeed, speed_);
         animation_base(this)->invoke_method_by_name(kSetSpeed, params, nullptr);
-        delete_structure(params);
+        script::free_struct(params);
     }
     is_halted_ = false;
 }
@@ -320,10 +308,10 @@ void PreviewEntity::step_animation(bool forward)
         if (forward) {
             get_animation(this)->pass_to_each_channel(std::bit_cast<uint32_t>(kStepSeconds));
             get_animation(this)->visit_channels();
-            script::Struct* params = spawn_param_table();
+            script::Struct* params = script::new_struct();
             params->push_float(kFrames, kStepSeconds);
             animation_base(this)->invoke_method_by_name(kStep, params, nullptr);
-            delete_structure(params);
+            script::free_struct(params);
         } else {
             // Reversed for a step forward, then turned round again.
             get_animation(this)->first_channel_47e_810(0);
@@ -331,10 +319,10 @@ void PreviewEntity::step_animation(bool forward)
             get_animation(this)->visit_channels();
             get_animation(this)->first_channel_47e_810(0);
             animation_base(this)->invoke_method_by_name(kReverse, nullptr, nullptr);
-            script::Struct* params = spawn_param_table();
+            script::Struct* params = script::new_struct();
             params->push_float(kFrames, -kStepSeconds);
             animation_base(this)->invoke_method_by_name(kStep, params, nullptr);
-            delete_structure(params);
+            script::free_struct(params);
             animation_base(this)->invoke_method_by_name(kReverse, nullptr, nullptr);
         }
         get_animation(this)->first_channel_47e_ff0();
@@ -391,7 +379,7 @@ void PreviewEntity::update_panel()
     if (get_animation(this) && panel_shown_) {
         const uint32_t anim = get_animation(this)->get_timeline30();
         if (get_animation(this)->has_value(anim)) {
-            script::Struct* params = spawn_param_table();
+            script::Struct* params = script::new_struct();
             std::array<char, 128> line1{};
             std::array<char, 128> line2{};
             std::array<char, 128> line3{};
@@ -415,7 +403,7 @@ void PreviewEntity::update_panel()
             std::snprintf(text_row4.data(), sizeof(text_row4), "frame %d of %d", frame, last_frame);
             params->append_word(kLine4, text_row4.data());
             script::launch_script(kDrawViewerObjectPanel, params, nullptr, false, nullptr);
-            delete_structure(params);
+            script::free_struct(params);
         }
     }
     ObjectModule* model = fetch_module(kModel);
@@ -554,11 +542,11 @@ int handle_reload_animation(net::InboundMsgCtx* context)
 int handle_reload_cam_animation(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     params->append_word(0u, message);
     params->put_name_key(0u, *raw::field_at<const uint32_t>(message, 0x80));
     commands::cfunc_reload_skater_cam_anim(params, nullptr);
-    delete_structure(params);
+    script::free_struct(params);
     return 1;
 }
 

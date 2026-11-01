@@ -75,10 +75,10 @@ void show_connection_metrics(net::Conn* conn, int index)
     const int resends = conn->get_highest_resend_count();
     std::array<char, 1024> line{};
     std::sprintf(line.data(), "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(kText, line.data());
     get_run(kUpdateNetMetrics, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // Each connection of `app` that isn't local.
@@ -126,7 +126,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         shown = state;
         return;
     }
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     std::array<char, 128> line{};
     std::array<char, 128> line2{};
     switch (state) {
@@ -176,7 +176,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
     default: // (6: nothing)
         break;
     }
-    delete_params(params);
+    script::free_struct(params);
     shown = state;
 }
 

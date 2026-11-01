@@ -71,18 +71,6 @@ void spawn_script(uint32_t name, script::Struct* params = nullptr)
 {
     script::spawn_script(name, params, 0, nullptr, 0, 0, false, false, false, false);
 }
-script::Struct* new_params()
-{
-    script::Struct* params = script::spawn_param_bag();
-    return params ? memory::construct_in<script::Struct>(params) : nullptr;
-}
-void delete_params(script::Struct* params)
-{
-    if (params) {
-        params->get_clear();
-        script::delete_struct(params);
-    }
-}
 
 // Pause (1), unpause (0) or restore (-1) the music streams.
 void freeze_stream(int pause) { audio::freeze_stream(pause); }
@@ -106,10 +94,10 @@ void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 // "No servers found" (the lobby list is empty).
 void show_no_servers()
 {
-    script::Struct* params = new_params();
+    script::Struct* params = script::new_struct();
     params->append_word(kText, script::kQbvalString, script::fetch_text(0x4AF78404));
     launch_script(0x43D52414, params);
-    delete_params(params);
+    script::free_struct(params);
 }
 
 // Done: state 2, and this task stops.
@@ -171,12 +159,12 @@ void service_task(tasks::Task<online::Hub>* task)
         if (count == 0) {
             spawn_script(0xBDA86A12);
         } else {
-            script::Struct* params = new_params();
+            script::Struct* params = script::new_struct();
             std::array<char, 256> text{};
             std::snprintf(text.data(), sizeof(text), "(%d) %s", count, script::fetch_text(0x78D25623));
             params->append_word(kText, script::kQbvalString, text.data());
             spawn_script(0xC072AC4E, params);
-            delete_params(params);
+            script::free_struct(params);
         }
         manager->service_state_ = 0;
         manager->service_wake_at_ = 0;
@@ -212,10 +200,10 @@ void service_task(tasks::Task<online::Hub>* task)
         break;
     case 9: { // show the message of the day
         ghttp_cleanup();
-        script::Struct* params = new_params();
+        script::Struct* params = script::new_struct();
         params->append_word(kText, raw::chars(manager->motd_text_));
         launch_script(0xF17B894C, params);
-        delete_params(params);
+        script::free_struct(params);
         manager->service_state_ = 0;
         manager->service_wake_at_ = 0;
         break;

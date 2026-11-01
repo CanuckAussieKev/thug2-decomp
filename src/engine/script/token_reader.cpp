@@ -19,6 +19,7 @@
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/param_struct.h"
 
 
 namespace script {
@@ -59,16 +60,6 @@ const uint8_t* skip_end_of_lines_in(const uint8_t* p)
     }
 }
 
-Struct* new_init_struct()
-{
-    Struct* structure = spawn_param_bag();
-    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-}
-Array* new_init_array()
-{
-    Array* array = alloc_script_array();
-    return array ? memory::construct_in<script::Array>(array) : nullptr;
-}
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
 ValueResolver& get_evaluator() { return g_evaluator; }
@@ -349,7 +340,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     const uint8_t* p = token + 1;
     switch (*token) {
     case 0x03: {
-        Struct* structure = new_init_struct();
+        Struct* structure = script::new_struct();
         p = parse_structure(structure, token, args);
         change_species(out, kQbvalStruct);
         out->value.set_structure(structure);
@@ -357,7 +348,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     }
     case 0x05: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-        Array* array = new_init_array();
+        Array* array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
         change_species(out, kQbvalArray);
@@ -420,7 +411,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     }
     case 0x2C: // <...>: all the caller's parameters
         if (args) {
-            Struct* structure = new_init_struct();
+            Struct* structure = script::new_struct();
             structure->get_assign(args);
             change_species(out, kQbvalStruct);
             out->value.set_structure(structure);
@@ -483,14 +474,14 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         return token + 5 + length;
     }
     case 0x03: {
-        Struct* structure = new_init_struct();
+        Struct* structure = script::new_struct();
         p = parse_structure(structure, token, args);
         dest->append_struct_ref(name, structure);
         return p;
     }
     case 0x05: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-        Array* array = new_init_array();
+        Array* array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
         dest->append_array_ref(name, array);
@@ -524,7 +515,7 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
     case 0x2C: // <...>
         if (args) {
             if (name) {
-                Struct* structure = new_init_struct();
+                Struct* structure = script::new_struct();
                 structure->get_assign(args);
                 dest->append_struct_ref(name, structure);
             } else {
@@ -731,7 +722,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x02) {
                 p += 5;
             } else if (t == 0x03) {
-                Struct* structure = new_init_struct();
+                Struct* structure = script::new_struct();
                 p = parse_structure(structure, p, args);
                 *element = Cell::of(structure);
                 ++element;
@@ -742,7 +733,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x05) {
-                Array* array = new_init_array();
+                Array* array = script::new_array();
                 p = parse_array(array, p - 1, args);
                 *element = Cell::of(array);
                 ++element;
@@ -939,7 +930,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                     // Called now, with the arguments that follow.
                     Script* script = get_running_script();
                     change_species(&value, kQbvalInteger);
-                    Struct* params = new_init_struct();
+                    Struct* params = script::new_struct();
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);

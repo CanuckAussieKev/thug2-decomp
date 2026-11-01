@@ -163,18 +163,6 @@ uint32_t color_from_array(script::Array* array)
     return get_rgba(r, g, b, 0);
 }
 
-script::Struct* spawn_param_table()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 // The engine (not rewritten yet).
 void change_fog(bool on) { render::engine::enable_fog(on); }
@@ -859,22 +847,22 @@ void CtodManager::mark_permanently_dead(script::Struct* params)
 // 0x00573500
 void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color)
 {
-    script::Struct* params = spawn_param_table();
+    script::Struct* params = script::new_struct();
     if (on)
         add_bloom_params(on, bloom1, bloom2, strength, color, params);
     else
         params->put_int(kOn, 0);
     set_bloom_structure(params);
-    delete_structure(params);
+    script::free_struct(params);
 }
 
 // 0x00573620
-CtodManager::CtodManager() : unknown4_(spawn_param_table())
+CtodManager::CtodManager() : unknown4_(script::new_struct())
 {
     void* table = memory::alloc(sizeof(lists::KeyMap));
     dead_objects_ = table ? memory::construct_in<lists::KeyMap>(table, 8) : nullptr;
     for (TodSystem& system : systems_)
-        system.params = spawn_param_table();
+        system.params = script::new_struct();
     get_reset();
 }
 
@@ -882,10 +870,10 @@ CtodManager::CtodManager() : unknown4_(spawn_param_table())
 CtodManager::~CtodManager()
 {
     for (TodSystem& system : systems_) {
-        delete_structure(system.params);
+        script::free_struct(system.params);
         system.params = nullptr;
     }
-    delete_structure(unknown4_);
+    script::free_struct(unknown4_);
     dead_objects_->empty_table();
     if (dead_objects_) {
         dead_objects_->~KeyMap();
@@ -938,7 +926,7 @@ void CtodManager::update_system(int index)
     const float threshold = system.state == kEvening ? get_zero() : get_half();
     if (!system.script_run_ && t > threshold) {
         system.script_run_ = true;
-        script::Struct* script_params = spawn_param_table();
+        script::Struct* script_params = script::new_struct();
         script_params->put_name_key(kCurrentTod, system.state);
         script_params->put_name_key(kNextTod, system.next_state_);
         script_params->put_sub_struct(kTodStateParams, system.params);
@@ -947,7 +935,7 @@ void CtodManager::update_system(int index)
                 script_params->put_name_key(kTransitionScript, transition_script_);
             script::spawn_script(kStateTransition, script_params, 0, nullptr, 0, 0, false, false, false, false);
         }
-        delete_structure(script_params);
+        script::free_struct(script_params);
     }
 
     if (system.time > system.transition_length_) {
@@ -1009,7 +997,7 @@ void CtodManager::refresh_all(bool temp_state)
         }
         if (sky)
             continue;
-        script::Struct* params = spawn_param_table();
+        script::Struct* params = script::new_struct();
         params->put_name_key(kCurrentTod, previous_tod_state(system.state));
         params->put_name_key(kNextTod, system.state);
         params->put_sub_struct(kTodStateParams, system.params);
@@ -1018,13 +1006,13 @@ void CtodManager::refresh_all(bool temp_state)
         params->put_name_key(0u, kInstantChange);
         if (temp_state)
             params->put_name_key(0u, kTempState);
-        script::Struct* bloom = spawn_param_table();
+        script::Struct* bloom = script::new_struct();
         add_bloom_params(current.bloom_on_, current.bloom1, current.bloom2, current.bloom_strength_,
                          current.bloom_color_, bloom);
         params->put_sub_struct(kBloomParams, bloom);
-        delete_structure(bloom);
+        script::free_struct(bloom);
         script::spawn_script(kStateTransition, params, 0, nullptr, 0, 0, false, false, false, false);
-        delete_structure(params);
+        script::free_struct(params);
     }
     active_ = was_active;
     const TodParams& current = system_at(this, current_system()).current;
@@ -1286,7 +1274,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     params->fetch_int_value(kSystemIndex, &index, 0);
     CtodManager* manager = tod_manager();
     const TodParams p = manager->get_tod_params(index);
-    script::Struct* out = spawn_param_table();
+    script::Struct* out = script::new_struct();
     out->put_int(kActive, manager->active_);
     int current = 0;
     while (current < CtodManager::kSystems && core::at(manager->systems_, current).sky)

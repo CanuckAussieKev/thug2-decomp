@@ -74,18 +74,6 @@ void init_component_from_structure(ObjectModule* component, script::Struct* para
 }
 // The model component's update after the object is finished (0x00420480).
 void update_model(ObjectModule* model) { core::down_cast<MeshInstanceModule>(model)->jump_to(); }
-script::Struct* spawn_param_table()
-{
-    script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-}
-void delete_structure(script::Struct* structure)
-{
-    if (structure) {
-        structure->get_clear();
-        script::delete_struct(structure);
-    }
-}
 
 } // namespace
 
@@ -237,10 +225,10 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
 {
     manager->enrol_subject(this);
     add_motion_components(this);
-    script::Struct* model = spawn_param_table();
+    script::Struct* model = script::new_struct();
     model->put_name_key(kComponent, kModel);
     create_component_from_structure(model, nullptr);
-    delete_structure(model);
+    script::free_struct(model);
     add_node_components(this, node);
     change_serial(kCrownObject);
     auto* suspend = core::down_cast<DormancyModule>(fetch_module(kSuspend));
