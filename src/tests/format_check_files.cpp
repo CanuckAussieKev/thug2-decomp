@@ -255,6 +255,8 @@ void check_patch(const std::filesystem::path& patch_path, const std::filesystem:
 
 // --- asset bundles (.cut) ----------------------------------------------------------------------------------------
 
+int g_skin_colour_tables = 0;
+
 void check_bundle(const std::string& name, const uint8_t* data, size_t size)
 {
     util::ByteReader reader(data, size);
@@ -272,6 +274,21 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
               name + ": entry " + std::to_string(i) + " as in place");
         check(entry.offset >= bundle_format::kHeaderSize + static_cast<size_t>(count) * bundle_format::kEntrySize,
               name + ": entry " + std::to_string(i) + " past the table");
+    }
+    // the skinned models' colour assets: their tables within the asset (the original took the count as it came)
+    for (int i = 0; ok && i < count; ++i) {
+        const bundle_format::Entry& entry = table[static_cast<size_t>(i)];
+        if (entry.type != 0x2CD4107Du)
+            continue;
+        util::ByteReader colours(data + entry.offset, entry.size);
+        bundle_format::SkinColours read;
+        check(bundle_format::read_skin_colours(colours, &read) &&
+                  read.count == *reinterpret_cast<const int*>(data + entry.offset + 4) &&
+                  read.entries == data + entry.offset + 8,
+              name + ": entry " + std::to_string(i) + "'s skin colours");
+        g_skin_colour_tables += 1;
+        util::ByteReader cut_colours(data + entry.offset, 8 + read.count * bundle_format::kSkinColourSize - 1);
+        check(!bundle_format::read_skin_colours(cut_colours, &read), name + ": skin colours cut short");
     }
     // cut short: refused
     util::ByteReader cut(data, bundle_format::kHeaderSize + static_cast<size_t>(count) * bundle_format::kEntrySize - 1);
@@ -883,7 +900,8 @@ int run(const std::filesystem::path& data)
     std::printf("images: %d (%d palettized, %d plain); the file loader's bytes within %d, the memory loader's %d\n",
                 g_images.files, g_images.palettized, g_images.plain, g_images.file_size_as_loaded,
                 g_images.memory_size_as_loaded);
-    std::printf("collision objects: %d\n", g_collision_objects);
+    std::printf("cutscene skin colour tables: %d", g_skin_colour_tables);
+    std::printf(" - collision objects: %d\n", g_collision_objects);
     std::printf("skeleton bones: %d\n", g_bones);
     std::printf("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", g_anims.files,
                 g_anims.float_keys, g_anims.compressed, g_anims.neither, g_anims.custom_keys);

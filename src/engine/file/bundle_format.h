@@ -26,4 +26,14 @@ struct Entry {
 // the first that isn't). `*count` gets the entry count read.
 bool read_bundle_table(util::ByteReader& reader, Entry* out, int capacity, int* count);
 
+// A skinned model's colour asset (type 0x2CD4107D): u32 (not read), i32 entry count, entries of kSkinColourSize
+// bytes (the skin's colour table: render::set_screen_clip's).
+constexpr size_t kSkinColourSize = 12;
+struct SkinColours {
+    int count = 0;
+    const uint8_t* entries = nullptr; // in place
+};
+// False if cut short or the count is negative.
+bool read_skin_colours(util::ByteReader& reader, SkinColours* out);
+
 } // namespace bundle_format

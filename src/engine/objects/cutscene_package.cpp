@@ -21,7 +21,10 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
+#include "engine/core/dbg.h"
 #include "engine/file/asset_bundle.h"
+#include "engine/file/bundle_format.h"
+#include "engine/util/byte_stream.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/node_objects.h"
 #include "engine/audio/music_player.h"
@@ -418,10 +421,17 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             script::Struct* from = part1->has_entry_named(kColourNames[k]) ? part1 : part2;
             std::memcpy(skin + 4 * (k + 1), read_colour(colour, from, kColourNames[k]), 16);
         }
-        int entries = *reinterpret_cast<const int*>(colours + 4);
+        // Not original - the colours read within their asset (bundle_format.h): a count past it reads none (the
+        // original's table ran past the asset).
+        util::ByteReader reader(colours, bundle_ptr_->find_entry(entry->name, kTypeColours, 0)->size);
+        bundle_format::SkinColours read;
+        if (!bundle_format::read_skin_colours(reader, &read)) {
+            debug::printf("cutscene skin colours damaged: %d entries\n", read.count);
+            read.count = 0;
+        }
         SkinColours table;
-        table.start = colours + 8;
-        table.end = table.start + entries * 12;
+        table.start = read.entries;
+        table.end = table.start + read.count * bundle_format::kSkinColourSize;
         table.table = g_skin_colour_table;
         table.colours = skin;
         // which skin this is: the next names along say (none after it: the last)

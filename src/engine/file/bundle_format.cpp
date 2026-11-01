@@ -23,4 +23,12 @@ bool read_bundle_table(util::ByteReader& reader, Entry* out, int capacity, int* 
     return true;
 }
 
+bool read_skin_colours(util::ByteReader& reader, SkinColours* out)
+{
+    reader.u32();
+    out->count = reader.i32();
+    out->entries = reader.cursor();
+    return reader.ok() && out->count >= 0 && reader.skip(static_cast<size_t>(out->count) * kSkinColourSize);
+}
+
 } // namespace bundle_format
