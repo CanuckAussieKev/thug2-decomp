@@ -26,7 +26,7 @@ assets::ResourceRegistry* g_asset_manager;
 namespace {
 int g_ass_man_references;
 } // namespace
-gsl::owner<frame_loop::Hub*> g_main_loop_manager;
+memory::HeapUnique<frame_loop::Hub> g_main_loop_manager;
 
 namespace {
 

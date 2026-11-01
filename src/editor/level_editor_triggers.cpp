@@ -1714,7 +1714,7 @@ bool array_loaded(level_nodes::NodeManager* manager, uint32_t name)
 void note_level()
 {
     node_create::set_array_removed_listener(&on_array_removed);
-    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance()) {
+    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get()) {
         if (g_level_array && array_loaded(manager, g_level_array))
             return;
         const uint32_t level = manager->get_last_node_array_name();

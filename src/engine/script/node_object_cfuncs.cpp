@@ -602,7 +602,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
 bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
 {
     mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap_));
-    level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance();
+    level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance().get();
     const char* loaded_node_list = g_node_list_name.data();
     assets::ResourceRegistry* assets = assets::asset_manager();
     assets->discard_loaded_item(assets->obtain_loaded_item(checksums::hash_from_text(loaded_node_list), 0));

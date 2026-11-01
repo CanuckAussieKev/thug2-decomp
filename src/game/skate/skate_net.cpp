@@ -230,7 +230,7 @@ void SkateNet::delete_network_tasks(Skate* skate)
 // 0x0056DEE0
 void SkateNet::launch_host(Skate* skate)
 {
-    frame_loop::Hub* mlp = assets::g_main_loop_manager;
+    frame_loop::Hub* mlp = assets::g_main_loop_manager.get();
     online::Hub* net = net_session_slot();
     bool auto_serving = false;
     if (net->is_network_game() != 0) {

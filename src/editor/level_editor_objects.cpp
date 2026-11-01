@@ -74,7 +74,7 @@ uint32_t copy_nodes_name()
     return kName;
 }
 
-level_nodes::NodeManager* get_node_manager() { return level_nodes::g_node_manager; }
+level_nodes::NodeManager* get_node_manager() { return level_nodes::g_node_manager.get(); }
 
 bool add_copy_node(script::Struct* node)
 {
@@ -554,7 +554,7 @@ void forget_level()
 std::vector<TableRow> copyable()
 {
     std::vector<TableRow> entries;
-    const level_nodes::NodeManager* manager = level_nodes::g_node_manager;
+    const level_nodes::NodeManager* manager = level_nodes::g_node_manager.get();
     if (!manager)
         return entries;
     static const uint32_t kModel = checksums::hash_from_text("model");

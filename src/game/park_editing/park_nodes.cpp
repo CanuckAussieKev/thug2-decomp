@@ -375,7 +375,7 @@ void ParkAssembler::build_goal_node_array()
     int index = 0;
     auto* nodes = static_cast<Array*>(node_table_resource(*this)->build_node_table(kParkNodeArray, count));
     goal_editor_write_nodes(nodes, &index, memory::top_down_heap());
-    level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (manager->has_node_array(kParkNodeArray))
         manager->remove_node_array(kParkNodeArray);
     manager->add_node_array(kParkNodeArray, true);
@@ -384,7 +384,7 @@ void ParkAssembler::build_goal_node_array()
 
 void ParkAssembler::remove_node_array()
 {
-    level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (manager->has_node_array(kParkNodeArray)) {
         manager->remove_node_array(kParkNodeArray);
         if (script::SymbolTableEntry* symbol = script::find_symbol(kParkNodeArray))
@@ -641,7 +641,7 @@ void ParkAssembler::build_node_array(MapListNode* metas)
     int total = core::at(counts, 0) + (goal_editor_constant82() + rail_editor_points);
     build_rails(metas);
     total += rails_.rail_point_total();
-    level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (manager->has_node_array(kParkNodeArray))
         manager->remove_node_array(kParkNodeArray);
     auto* nodes = static_cast<Array*>(node_table_resource(*this)->build_node_table(kParkNodeArray, total));

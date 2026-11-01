@@ -187,7 +187,7 @@ void Skate::start_callback()
     script::launch_script(kInitLightManager, nullptr, nullptr, false, nullptr);
     script::launch_script(kLoadPermanentPrefiles, nullptr, nullptr, false, nullptr);
     forced_stat_ = 0.0f;
-    frame_loop::Hub* main_loop = assets::g_main_loop_manager;
+    frame_loop::Hub* main_loop = assets::g_main_loop_manager.get();
     objects::nearby_zone_startup();
     objects::emitter_init();
     update_job_->skip_bits_ = 2;

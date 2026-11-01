@@ -419,7 +419,7 @@ int NodeTableResource::offload()
             object->flag_as_dead();
         nodes = static_cast<script::Array*>(nodes_);
     }
-    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance())
+    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get())
         manager->remove_node_array(array_name_);
     if (get_data())
         unload_qb_file(source_path_);

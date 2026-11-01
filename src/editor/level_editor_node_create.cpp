@@ -529,7 +529,7 @@ struct HiddenNode {
 };
 std::vector<HiddenNode> g_hidden;
 
-level_nodes::NodeManager* hub() { return level_nodes::node_manager_instance(); }
+level_nodes::NodeManager* hub() { return level_nodes::node_manager_instance().get(); }
 
 // The game's managers made at the level's load (null outside a level).
 bool have_proxim() { return objects::g_proximity_hub != nullptr; }

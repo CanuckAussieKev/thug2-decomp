@@ -27,7 +27,7 @@
 
 namespace level_nodes {
 
-gsl::owner<level_nodes::NodeManager*> g_node_manager;
+memory::HeapUnique<level_nodes::NodeManager> g_node_manager;
 
 using script::Array;
 using script::Struct;
@@ -40,7 +40,7 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;    // links
 constexpr uint32_t kPosition = 0xB9D31B0A; // position
 constexpr uint32_t kPos = 0x7F261953;      // pos
 
-NodeManager*& sole() { return g_node_manager; }
+memory::HeapUnique<NodeManager>& sole() { return g_node_manager; }
 uint32_t& ref_tally() { return g_node_manager_references; }
 
 // NOT ORIGINAL - a node asked for that must exist (the release build's assertion did nothing) and doesn't: logged, the
@@ -446,13 +446,13 @@ NodeManager* create_node_manager(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(NodeManager), nullptr, 1);
-        sole() = memory ? memory::construct_in<NodeManager>(memory) : nullptr;
+        sole() = memory::HeapUnique<NodeManager>(memory ? memory::construct_in<NodeManager>(memory) : nullptr);
         // NOT ORIGINAL: its name hash bigger than the original's (memory::sizes::node_hash_slots - see BigSlot).
         if (sole() && memory::sizes::node_hash_slots() > static_cast<uint32_t>(NodeManager::kSlots))
-            use_big_name_hash(sole(), memory::sizes::node_hash_slots());
+            use_big_name_hash(sole().get(), memory::sizes::node_hash_slots());
     }
     ++ref_tally();
-    return sole();
+    return sole().get();
 }
 
 // 0x0045D6E0
@@ -462,12 +462,12 @@ void release_node_manager()
         --ref_tally();
         return;
     }
-    if (sole())
-        memory::Hub::get_pull()->dealloc(sole());
+    NodeManager* const manager = sole().release(); // (no destructor: its block given back)
+    if (manager)
+        memory::Hub::get_pull()->dealloc(manager);
     // NOT ORIGINAL: its bigger name hash goes with it.
-    if (sole() == g_big_owner)
+    if (manager == g_big_owner)
         use_big_name_hash(nullptr, 0);
-    sole() = nullptr;
     ref_tally() = 0;
 }
 

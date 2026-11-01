@@ -16,11 +16,11 @@
 
 namespace pad_input {
 
-gsl::owner<pad_input::Hub*> g_input_manager;
+memory::HeapUnique<pad_input::Hub> g_input_manager;
 
 namespace {
 
-Hub*& sole() { return g_input_manager; }
+memory::HeapUnique<Hub>& sole() { return g_input_manager; }
 
 unsigned int g_input_manager_references;
 // The buttons' name checksums (index 0: none).
@@ -166,7 +166,7 @@ void HostEnd::poll_input_sinks()
     sio::InputPort* device = dev_;
     if (!device || !device->is_usable_)
         return;
-    Hub* manager = sole();
+    Hub* manager = sole().get();
     if (data_out_)
         data_out_->is_usable_ = 0;
     const uint8_t* control = device->control_data_.data();
@@ -232,14 +232,14 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = memory::construct_in<Hub>(memory);
+            sole() = memory::HeapUnique<Hub>(memory::construct_in<Hub>(memory));
             ++ref_tally();
-            return sole();
+            return sole().get();
         }
         sole() = nullptr;
     }
     ++ref_tally();
-    return sole();
+    return sole().get();
 }
 
 // 0x0044E6B0
@@ -249,11 +249,7 @@ void release_manager()
         --ref_tally();
         return;
     }
-    if (Hub* manager = sole()) {
-        manager->~Hub();
-        memory::Hub::get_pull()->dealloc(manager);
-    }
-    sole() = nullptr;
+    memory::destroy_then_clear(sole()); // (its destructor, then its block given back)
     ref_tally() = 0;
 }
 

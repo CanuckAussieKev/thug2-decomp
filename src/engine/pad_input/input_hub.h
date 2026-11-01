@@ -6,6 +6,7 @@
 
 #include "engine/core/task_list.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -174,6 +175,6 @@ void release_manager();
 uint32_t button_hash(int index);
 int glyph_for_button_tag(uint32_t checksum);
 
-extern gsl::owner<pad_input::Hub*> g_input_manager;
+extern memory::HeapUnique<pad_input::Hub> g_input_manager;
 
 } // namespace pad_input

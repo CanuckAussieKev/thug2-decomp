@@ -380,7 +380,7 @@ void Skate::bind_controllers()
         if (!skater || !skater->is_local_skater_)
             continue;
         const int number = skater->get_skater_number();
-        auto* input = pad_input::g_input_manager;
+        auto* input = pad_input::g_input_manager.get();
         int controller = input->get_player_controller(number);
         core::down_cast<objects::PadInputModule>(skater->fetch_module(kInput))->link_to_pad(controller);
         if (auto* camera = core::down_cast<objects::GameEntity>(skater->get_skater_camera())) {

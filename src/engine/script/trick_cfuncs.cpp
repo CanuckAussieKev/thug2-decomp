@@ -91,7 +91,7 @@ constexpr uint32_t kKeyCombo = 0xACFDB27A;            // "key_combo"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
-pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
+pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
 
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
 objects::GameEntity* local_skater() { return get_skate()->get_home_rider(); }

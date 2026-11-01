@@ -258,7 +258,7 @@ std::vector<Meter> get_meters()
           added_nodes,
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
-    if (const level_nodes::NodeManager* manager = level_nodes::node_manager_instance())
+    if (const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get())
         count("Node arrays", manager->num_, level_nodes::NodeManager::kMaxArrays, 0,
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
     count("Editor trigger volumes", static_cast<double>(triggers::added_triggers().size()), 0,

@@ -38,7 +38,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
     if (!nodes) {
         // Added to the node manager's last array, grown for them, and hashed there.
         nodes = cell::pointer<script::Array>(level_nodes::get_node_owner_value58());
-        manager = level_nodes::node_manager_instance();
+        manager = level_nodes::node_manager_instance().get();
         array_name = level_nodes::get_last_node_array_name();
         in_place = false;
         count = static_cast<int>(nodes->extent_);

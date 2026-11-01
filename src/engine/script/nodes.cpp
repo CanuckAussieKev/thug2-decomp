@@ -55,7 +55,7 @@ constexpr uint8_t kTokenMemberFunction = 0x44;      // a member function's name 
 constexpr uint8_t kTokenMemberFunctionEntry = 0x46; // a member function's table entry (its name first)
 constexpr uint8_t kTokenIf = 0x47;                  // (a short jump)
 
-NodeManager* hub() { return node_manager_instance(); }
+NodeManager* hub() { return node_manager_instance().get(); }
 
 VectorValue* as_value(maths::Vec4* v) { return v; }
 

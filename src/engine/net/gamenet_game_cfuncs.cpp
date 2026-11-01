@@ -284,7 +284,7 @@ bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_session_slot();
-    pad_input::Hub* input = pad_input::g_input_manager;
+    pad_input::Hub* input = pad_input::g_input_manager.get();
     PlayerRecord* local = find_own_player_record(manager);
     if (is_observer(local) || (local->flag_bits_ & kPlayerSurveying))
         return false;

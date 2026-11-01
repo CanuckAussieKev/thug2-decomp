@@ -205,7 +205,7 @@ uint32_t g_generation;
 std::vector<uint32_t> get_signature()
 {
     std::vector<uint32_t> signature;
-    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager)
         return signature;
     for (uint32_t i = 0; i < manager->num_ && i < level_nodes::NodeManager::kMaxArrays; ++i) {
@@ -245,7 +245,7 @@ void get_scan()
     g_nodes.clear();
     by_name().clear();
     std::memset(g_counts.data(), 0, sizeof(g_counts));
-    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager)
         return;
     static const uint32_t kRestartTypes = name_hash("restart_types"), kColor = name_hash("Color"),
@@ -485,7 +485,7 @@ int get_find(uint32_t name)
 
 script::Struct* struct_of(const Elem& node)
 {
-    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
         return nullptr;
     return get_node_at(core::at(manager->arrays_, node.array).node_entries_, static_cast<uint32_t>(node.index));
@@ -518,7 +518,7 @@ void reread(int index)
 
 uint32_t get_array_name(const Elem& node)
 {
-    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
         return 0;
     return core::at(manager->arrays_, node.array).label_;

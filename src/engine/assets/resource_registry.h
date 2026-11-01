@@ -6,6 +6,7 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/sys/game_module.h"
+#include "engine/core/mem.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -119,6 +120,6 @@ void release_asset_manager();
 extern ResourceRegistry* g_asset_manager;
 inline ResourceRegistry*& asset_manager() { return g_asset_manager; }
 
-extern gsl::owner<frame_loop::Hub*> g_main_loop_manager;
+extern memory::HeapUnique<frame_loop::Hub> g_main_loop_manager;
 
 } // namespace assets

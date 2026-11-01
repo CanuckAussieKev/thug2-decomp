@@ -576,7 +576,7 @@ bool cfunc_stop_keyboard_handler(script::Struct*, script::Script*)
 // own locals as its data - the task never reads it; null here.)
 bool cfunc_spawn_second_controller_check(script::Struct*, script::Script*)
 {
-    auto* main_loop = assets::g_main_loop_manager;
+    auto* main_loop = assets::g_main_loop_manager.get();
     if (second_controller_check())
         return true;
     auto* task = new tasks::Task<void>(&second_pad_watch_tick, nullptr, 0);

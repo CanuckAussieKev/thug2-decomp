@@ -175,7 +175,7 @@ uint32_t& no_skeleton_counter() { return g_no_skeleton_counter; }
 // The input handler's auto-repeat count (a function static: its guard is bit 1 of 0x007CE58C).
 int& repeat_count() { return g_repeat_count; }
 uint32_t& repeat_count_guard() { return g_repeat_count_guard; }
-pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
+pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
 
 PreviewEntity* object_of(net::InboundMsgCtx* context) { return static_cast<PreviewEntity*>(context->content_); }
 
