@@ -32,9 +32,6 @@ Checks:
   # Fixed-size members of the original's layouts and C-API buffers; std::array where code is rewritten.
   - '-cppcoreguidelines-avoid-c-arrays'
   - '-modernize-avoid-c-arrays'
-  # Byte-level views: file and wire formats after their readers' checks, COM / Win32 handles, the script values'
-  # pointer cells.
-  - '-cppcoreguidelines-pro-type-reinterpret-cast'
   # Both need gsl::at; the project uses no GSL.
   - '-cppcoreguidelines-pro-bounds-constant-array-index'
   - '-cppcoreguidelines-pro-bounds-avoid-unchecked-container-access'
@@ -47,8 +44,6 @@ Checks:
   - '-bugprone-easily-swappable-parameters'
   # The class hierarchy dispatches on its own type tags; the original has no RTTI.
   - '-cppcoreguidelines-pro-type-static-cast-downcast'
-  # 32-bit fields of the original's layouts and the script values carry pointers (x86 only, by design).
-  - '-performance-no-int-to-ptr'
   # It knows only gsl::owner; ownership here is memory::owner<> and std::unique_ptr.
   - '-cppcoreguidelines-owning-memory'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
