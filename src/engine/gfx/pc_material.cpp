@@ -26,6 +26,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/bitmap_texture.h"
 #include <bit>
+#include "platform/d3d_matrix.h"
 
 namespace render {
 
@@ -296,7 +297,7 @@ void MaterialRef::hand_in()
             matrix[0] = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
             matrix[5] = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
             change_phase(kLocalViewer, 1);
-            input_port()->SetTransform(texture_matrix, raw::as<const D3DMATRIX>(matrix));
+            input_port()->SetTransform(texture_matrix, d3d::matrix(matrix));
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
         } else if (flags & kPassUvWibble) {
@@ -304,7 +305,7 @@ void MaterialRef::hand_in()
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
             float* matrix = g_wibble_matrix_pass.data();
             fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-            input_port()->SetTransform(texture_matrix, raw::as<const D3DMATRIX>(matrix));
+            input_port()->SetTransform(texture_matrix, d3d::matrix(matrix));
         } else {
             if (g_billboard_flag) { // (the billboard flag: a static matrix's 2x2 part reset)
                 float* m = g_billboard_uv_matrix.data();
@@ -367,7 +368,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
                 float* matrix = g_wibble_matrix.data();
                 fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-                input_port()->SetTransform(D3DTS_TEXTURE0, raw::as<const D3DMATRIX>(matrix));
+                input_port()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix));
             } else {
                 DWORD transform_flags = 0, coordinates = 0;
                 input_port()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);

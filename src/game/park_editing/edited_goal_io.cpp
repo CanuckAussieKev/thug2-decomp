@@ -158,7 +158,7 @@ void EditedGoal::decode_from_struct(script::Struct* params)
         vertex_total_ = static_cast<uint8_t>(points->extent_);
         for (uint32_t i = 0; i < vertex_total_; ++i) {
             script::Struct* point = structure_element(points, i);
-            point->fetch_vec(0x7F261953, raw::as<script::VectorValue>(&core::at(path_vertices_, i).pos), 0);
+            point->fetch_vec(0x7F261953, (&core::at(path_vertices_, i).pos), 0);
             point->fetch_float(0x0AB21AF0, &core::at(path_vertices_, i).height, 0);
             point->fetch_float(0xFF7EBAF6, &core::at(path_vertices_, i).angle, 0);
         }

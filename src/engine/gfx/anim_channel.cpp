@@ -202,7 +202,7 @@ void attach_controller(AnimTrack* timeline, Struct* params) { timeline->attach_c
 // The skeleton component's skeleton (the getter folded at 0x005480F0).
 Rig* skeleton_of(objects::ObjectModule* component)
 {
-    return raw::as<Rig>(core::down_cast<objects::BoneRigModule>(component)->bone_rig_);
+    return (core::down_cast<objects::BoneRigModule>(component)->bone_rig_);
 }
 
 } // namespace

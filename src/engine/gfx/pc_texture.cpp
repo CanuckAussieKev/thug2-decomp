@@ -248,7 +248,7 @@ bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t hei
     default:
         break;
     }
-    auto** d3d = raw::as<IDirect3DTexture9*>(&texture->texture);
+    auto** d3d = (&texture->texture);
     input_port()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
     D3DSURFACE_DESC desc;
     (*d3d)->GetLevelDesc(0, &desc);
@@ -263,7 +263,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
 {
     const auto* source = core::down_cast<const PcTexture>(source_texture);
     const TextureRef* from = source->get_texture();
-    auto** into = raw::as<IDirect3DTexture9*>(&get_texture()->texture);
+    auto** into = (&get_texture()->texture);
     if (*into)
         (*into)->Release();
     auto* from_texture = static_cast<IDirect3DTexture9*>(from->texture);
@@ -338,7 +338,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = 32;
-        auto** kept_d3d = raw::as<IDirect3DTexture9*>(&kept->texture);
+        auto** kept_d3d = (&kept->texture);
         input_port()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
         (*kept_d3d)->GetLevelDesc(0, &desc);
         kept->height = static_cast<uint16_t>(desc.Height);
@@ -1104,7 +1104,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         format = pixel_layout(texture->unknownf_, texture->depth, format);
         if (texture->height < 4)
             texture->height = 4;
-        auto** d3d = raw::as<IDirect3DTexture9*>(&texture->texture);
+        auto** d3d = (&texture->texture);
         bool damaged = false;
         if (header.palette_size) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
@@ -1187,7 +1187,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
         texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout(static_cast<uint8_t>(header.compression), static_cast<uint8_t>(header.depth), format);
-        auto** d3d = raw::as<IDirect3DTexture9*>(&texture->texture);
+        auto** d3d = (&texture->texture);
         input_port()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
                                     static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);

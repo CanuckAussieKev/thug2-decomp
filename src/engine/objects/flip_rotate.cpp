@@ -59,8 +59,8 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
             auto* rotation = raw::field_at<float>(pose, 0x10 * bone);
             const std::array<float, 4> turn = {{0.0f, 0.0f, 1.0f, 0.0f}};
             std::array<float, 4> product{};
-            const auto* result = raw::as<const float>(quat_product(raw::as<maths::Vec4>(product.data()), raw::as<const maths::Vec4>(turn.data()),
-                             raw::as<const maths::Vec4>(rotation)));
+            const auto* result = (quat_product(raw::as<maths::Vec4>(product.data()), raw::as<const maths::Vec4>(turn.data()),
+                             raw::as<const maths::Vec4>(rotation)))->data();
             std::memcpy(rotation, result, 16);
             raw::as<maths::QuatRotation>(rotation)->make_unit(1.0f); // (to length 1)
         }
@@ -74,7 +74,7 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
         core::at(r, 0) = core::at(r, 1) = core::at(r, 2) = 0.0f;
         core::at(r, 3) = 1.0f;
     }
-    const int count = raw::as<gfx::Rig>(skeleton)->get_num_bones();
+    const int count = skeleton->get_num_bones();
     std::memcpy(rotations.data(), pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations.data(), pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {

@@ -209,7 +209,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
     objects::GameEntity* object = owner_object_;
     objects::ObjectModule* component = object->fetch_module(kSkeletonModuleName);
     auto* skeleton =
-        component ? raw::as<Rig>(core::down_cast<objects::BoneRigModule>(component)->bone_rig_) : nullptr;
+        component ? (core::down_cast<objects::BoneRigModule>(component)->bone_rig_) : nullptr;
     for (Bone& bone : bones_) {
         if (bone.bone_ == kNoBone)
             continue;

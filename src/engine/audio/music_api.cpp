@@ -351,9 +351,9 @@ bool update_stream_volume(int slot)
     if (stream->positional) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = render::fetch_nearest_camera(
-            &raw::as<objects::AudioStreamModule>(owner)->entity_->at_point_, nullptr);
+            &owner->entity_->at_point_, nullptr);
         if (object) {
-            auto* component = raw::as<objects::AudioStreamModule>(owner);
+            auto* component = owner;
             maths::Vec4 extent{};
             maths::Vec4* extent_or_null = nullptr;
             if (component->get_stream_extent(object, &extent))

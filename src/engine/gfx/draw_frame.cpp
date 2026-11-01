@@ -53,6 +53,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "platform/d3d_matrix.h"
 
 namespace render {
 
@@ -91,7 +92,7 @@ void* input_port() { return raw::as<void>(g_d3d_device); }
 void set_transform(int type, const maths::Mat4* m)
 {
     static_assert(sizeof(maths::Mat4) == sizeof(D3DMATRIX));
-    g_d3d_device->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), raw::as<const D3DMATRIX>(m));
+    g_d3d_device->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix((m)->data()));
 }
 void set_render_target(void* surface) { g_d3d_device->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
 void set_depth_stencil_surface(void* surface)

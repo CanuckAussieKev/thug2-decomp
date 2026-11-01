@@ -245,7 +245,7 @@ void shatter_geom(PcGeom* geom)
             continue; // (the buffers left locked, as the original)
         auto* shatter = new PcShatter(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
-        const auto* direction = raw::as<const float>(&g_glass_burst_velocity);
+        const auto* direction = g_glass_burst_velocity.data();
         const double scale = -static_cast<double>(g_shatter_velocity_scale);
         const double back_x = scale * direction[0];
         auto back_y = static_cast<float>(scale * direction[1]);

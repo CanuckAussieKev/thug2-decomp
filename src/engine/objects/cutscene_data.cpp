@@ -292,8 +292,8 @@ void CinematicTable::refresh_viewer(void* camera)
     if (!flag_34b_0_)
         return;
     static_cast<gfx::ViewCam*>(camera)->remember_prev_pos();
-    auto* position = raw::as<float>(static_cast<gfx::ViewCam*>(camera)->fetch_location());
-    auto* matrix = raw::as<float>(static_cast<gfx::ViewCam*>(camera)->fetch_mat());
+    auto* position = (static_cast<gfx::ViewCam*>(camera)->fetch_location())->data();
+    auto* matrix = (static_cast<gfx::ViewCam*>(camera)->fetch_mat())->data();
     std::array<float, 4> rotation = {{0.0f, 0.0f, 0.0f, 1.0f}};
     std::array<float, 4> translation{};
     bool flag = false;
@@ -329,8 +329,8 @@ void CinematicTable::update_object_poses()
         gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
         auto* source = static_cast<render::FrameSource*>(entry.animation->source);
         void* animation = entry.animation->data;
-        raw::as<gfx::Rig>(skeleton)->set_lod(0.0f);
-        auto* rig = raw::as<gfx::Rig>(skeleton);
+        skeleton->set_lod(0.0f);
+        auto* rig = skeleton;
         gfx::RigData* data = rig->payload_;
         source->bone_masks_ = data ? data->lod_masks_.data() : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
@@ -343,7 +343,7 @@ void CinematicTable::update_object_poses()
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
             raw::as<maths::QuatRotation>(rotations), raw::as<maths::Vec4>(translations),
             g_cutscene_camera_slot.data(), static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
-        raw::as<gfx::Rig>(skeleton)->tick_frame(raw::as<const std::array<float, 4>>(rotations),
+        skeleton->tick_frame(raw::as<const std::array<float, 4>>(rotations),
                                                           raw::as<const std::array<float, 4>>(translations));
     }
 }

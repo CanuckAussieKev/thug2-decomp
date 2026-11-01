@@ -70,7 +70,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
     input_port()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
-                                raw::as<IDirect3DTexture9*>(&texture), nullptr);
+                                &texture, nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
         D3DSURFACE_DESC level_desc;
         get_d3d(source)->GetLevelDesc(level, &level_desc);
@@ -161,8 +161,8 @@ bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new
         get_d3d(this)->Release();
     const HRESULT result =
         input_port()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
-                                    raw::as<IDirect3DTexture9*>(&texture), nullptr);
-    get_d3d(this)->GetSurfaceLevel(0, raw::as<IDirect3DSurface9*>(&surface));
+                                    &texture, nullptr);
+    get_d3d(this)->GetSurfaceLevel(0, &surface);
     render_target_ = true;
     if (result != D3D_OK)
         return false;

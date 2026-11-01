@@ -161,7 +161,7 @@ bool CameraKey::work_on(void* object)
     *pos = at_point_;
     std::array<float, 4> rotation = {{orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w}};
     const std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    objects::quat_to_matrix(rotation.data(), origin.data(), raw::as<float>(matrix));
+    objects::quat_to_matrix(rotation.data(), origin.data(), matrix->data());
     armed_ = true;
     return true;
 }

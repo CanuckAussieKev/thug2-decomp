@@ -44,6 +44,9 @@ public:
     // 0x00416D80: all 16 values equal (NaN never is).
     bool operator==(const Mat4& other) const;
     Vec4& operator[](int index);
+    // The 16 values, row by row, as an array of floats (for D3D / D3DX and the original's float-array code).
+    float* data() { return row.front().data(); }
+    [[nodiscard]] const float* data() const { return row.front().data(); }
 
     // this = rotation * this: rotate about the matrix's own (local) axis.
     Mat4& pitch_locally(float angle);

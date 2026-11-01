@@ -513,7 +513,7 @@ void Rider::update_shadow_light(int, int)
         void* lights = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_->lights_ptr_;
         if (lights) {
             const auto* v =
-                raw::as<const float>(static_cast<render::ModelLights*>(lights)->read_light_aim(0));
+                (static_cast<render::ModelLights*>(lights)->read_light_aim(0))->data();
             const double x = v[0] * -1.0;
             const double y = v[1] * -1.0;
             const double z = v[2] * -1.0;

@@ -593,7 +593,7 @@ void reset_render_state()
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
     for (maths::Mat4* matrix : {&g_world_matrix, &g_view_matrix, &g_projection_matrix}) {
-        auto* m = raw::as<float>(matrix);
+        auto* m = matrix->data();
         for (int i = 0; i < 16; ++i)
             m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
     }

@@ -237,7 +237,7 @@ BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 // 0x004CDAA0
 void BillboardSet::setup_axes()
 {
-    const auto* m = raw::as<float>(&g_view_matrix);
+    const auto* m = g_view_matrix.data();
     const float vz = m[10];
     core::at(view, 0) = m[2];
     core::at(view, 1) = m[6];
@@ -373,8 +373,8 @@ void BillboardBatch::render()
     std::array<float, 16> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
     std::array<float, 16> view_world{};
     std::array<float, 16> all{};
-    transpose(projection.data(), raw::as<float>(&g_projection_matrix));
-    transpose(view.data(), raw::as<float>(&g_view_matrix));
+    transpose(projection.data(), g_projection_matrix.data());
+    transpose(view.data(), g_view_matrix.data());
     core::at(view, 12) = core::at(view, 13) = core::at(view, 14) = 0.0f; // (its last row cleared)
     core::at(view, 15) = 1.0f;
     multiply(view_world.data(), view.data(), identity.data());

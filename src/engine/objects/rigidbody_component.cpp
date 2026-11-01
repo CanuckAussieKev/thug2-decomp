@@ -415,7 +415,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         level_nodes::read_turn_angles(params, &angles);
         maths::Mat4 turn;
         turn.init_from_angles(angles);
-        auto m = [&turn](int r, int c) { return static_cast<double>(raw::as<const float>(&core::at(turn.row, r))[c]); };
+        auto m = [&turn](int r, int c) { return static_cast<double>((core::at(turn.row, r)).data()[c]); };
         for (int i = contact_count_; i != 0;) {
             maths::Vec4& p = contacts_[--i];
             const double x = p.x;
@@ -521,7 +521,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The position is the centre of mass: moved by the (turned) model offset.
     auto r = [this](int row, int c) {
-        return static_cast<double>(raw::as<const float>(&core::at(basis_frame_.row, row))[c]);
+        return static_cast<double>((core::at(basis_frame_.row, row)).data()[c]);
     };
     const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
     const double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);

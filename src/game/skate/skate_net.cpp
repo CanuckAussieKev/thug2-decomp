@@ -297,7 +297,7 @@ void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index
     // The handlers of skate client's own skaters.
     for (uint32_t i = 0; i < 8; ++i) {
         auto* skater =
-            core::down_cast<objects::Rider>(raw::as<modules::Skate>(skate)->get_rider_at(static_cast<int>(i)));
+            core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (!skater || !skater->is_local_skater_ || skater->get_skater_number() != index)
             continue;
         append_listener(client, 0x3B, &modules::PointTally::on_score_msg, 0, skater);

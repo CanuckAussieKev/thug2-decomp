@@ -246,8 +246,8 @@ void CinematicTable::add_objects(script::Struct* params)
                     void* model2 = model_of(level_model);
                     if (!lent_saved_) {
                         std::array<float, 4> saved{};
-                        const auto* settings = raw::as<const float>(static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
-                                raw::as<maths::Vec4>(saved.data())));
+                        const auto* settings = (static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
+                                raw::as<maths::Vec4>(saved.data())))->data();
                         std::memcpy(lent_2c_.data(), settings, 16);
                         const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
                         lent_3c_ = flags >> 2 & 1;

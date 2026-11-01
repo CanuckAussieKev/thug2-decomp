@@ -124,7 +124,7 @@ void GroundShadowModule::refresh_shadow()
         const maths::Vec4 above = object->at_point_ + core::at(object->basis_frame_.row, 1) * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
-                raw::as<render::ModelLights>(raw::as<render::RenderModel>(model)->lights_ptr_)) {
+                (raw::as<render::RenderModel>(model)->lights_ptr_)) {
             const maths::Vec4* v = lights->read_light_aim(0);
             const maths::Vec4 unused = *v * -1.0f;
             (void)unused;

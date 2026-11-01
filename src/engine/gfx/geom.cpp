@@ -53,7 +53,7 @@ constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
 uint8_t color_offset(const MeshRef* mesh) { return core::at(mesh->unknown1c_, 0); }
-void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(raw::as<float>(out)); }
+void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(out->data()); }
 MaterialRef* material_of(MeshRef* mesh) { return mesh->material; }
 // A mesh's colour (flag 4) and its vertex shader (its vertex format's place).
 float* mesh_tint_ptr(MeshRef* mesh) { return mesh->color.data(); }
@@ -79,7 +79,7 @@ UvOscillator* new_uv_wibble()
 
 void get_identity(maths::Mat4* m)
 {
-    auto* f = raw::as<float>(m);
+    auto* f = m->data();
     for (int i = 0; i < 16; ++i)
         f[i] = (i % 5 == 0) ? 1.0f : 0.0f;
 }

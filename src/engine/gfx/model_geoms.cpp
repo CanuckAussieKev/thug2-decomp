@@ -458,7 +458,7 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
-            raw::as<TextureSet>(entry->textures)->replace_texture_from_file(from.data(), to.data()))
+            (entry->textures)->replace_texture_from_file(from.data(), to.data()))
             replaced = true;
     }
     if (!replaced)
@@ -479,7 +479,7 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all) && entry->textures &&
-            raw::as<TextureSet>(entry->textures)->swap_texture(from.data(), static_cast<BitmapTexture*>(texture)))
+            (entry->textures)->swap_texture(from.data(), static_cast<BitmapTexture*>(texture)))
             replaced = true;
     }
     if (!replaced)

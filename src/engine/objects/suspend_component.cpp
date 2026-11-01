@@ -280,7 +280,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
                 --component->frames_before_lod_;
             } else {
                 const maths::Vec4& pos = component->entity_->at_point_;
-                const auto* at = raw::as<const float>(&camera->viewer_pos_);
+                const auto* at = (camera->viewer_pos_).data();
                 const double dx = static_cast<double>(pos.x) - at[0];
                 const double dy = static_cast<double>(pos.y) - at[1];
                 const double dz = static_cast<double>(pos.z) - at[2];

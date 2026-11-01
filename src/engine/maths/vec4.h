@@ -15,6 +15,9 @@ public:
 
     // (0x00402320: the copy assignment - the implicit one; Vec4 stays a trivially copyable aggregate)
     float& operator[](int index);
+    // The four components as an array of floats (for the APIs that take one: D3DX, the script's vectors).
+    float* data() { return &x; }
+    [[nodiscard]] const float* data() const { return &x; }
     Vec4& operator+=(const Vec4& other);
     Vec4& operator-=(const Vec4& other);
     Vec4& operator*=(float scale);

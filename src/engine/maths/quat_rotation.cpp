@@ -15,7 +15,7 @@ namespace maths {
 namespace {
 
 // The matrix's element at row `r`, column `c`.
-double get_at(const Mat4& m, int r, int c) { return raw::as<const float>(&core::at(m.row, r))[c]; }
+double get_at(const Mat4& m, int r, int c) { return (core::at(m.row, r)).data()[c]; }
 
 } // namespace
 

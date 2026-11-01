@@ -32,6 +32,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "platform/d3d_matrix.h"
 
 namespace render {
 
@@ -42,9 +43,9 @@ std::array<float, 4> g_shadow_viewport{{256.0f, 256.0f, 256.0f, 256.0f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 lists::KeyMap* get_casters() { return g_shadow_casters; }
-float* view_matrix() { return raw::as<float>(&g_view_matrix); }
-float* projection_matrix() { return raw::as<float>(&g_projection_matrix); }
-const float* world_matrix() { return raw::as<float>(&g_world_matrix); }
+float* view_matrix() { return g_view_matrix.data(); }
+float* projection_matrix() { return g_projection_matrix.data(); }
+const float* world_matrix() { return g_world_matrix.data(); }
 uint8_t& custom_transforms() { return g_camera.custom_transforms_; } // the view / projection aren't the camera's
 bool omit_from_draw() { return g_suppress_draw; }
 uint32_t& get_fog() { return g_fog_active; }
@@ -205,7 +206,7 @@ int clip_shadow_triangles(const uint16_t* indices, uint32_t count)
 void shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
 {
     std::array<float, 16> view{};
-    input_port()->GetTransform(D3DTS_VIEW, raw::as<D3DMATRIX>(view.data()));
+    input_port()->GetTransform(D3DTS_VIEW, d3d::matrix(view.data()));
     std::array<float, 16> inverse{};
     matrix_inverse(inverse.data(), nullptr, view.data()); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
@@ -294,11 +295,11 @@ void render_shadow_textures()
         std::memcpy(view_matrix(), caster->view.data(), sizeof(caster->view));
         std::memcpy(projection_matrix(), caster->projection.data(), sizeof(caster->projection));
         custom_transforms() = 1;
-        input_port()->SetTransform(D3DTS_VIEW, raw::as<const D3DMATRIX>(caster->view.data()));
-        input_port()->SetTransform(D3DTS_PROJECTION, raw::as<const D3DMATRIX>(caster->projection.data()));
+        input_port()->SetTransform(D3DTS_VIEW, d3d::matrix(caster->view.data()));
+        input_port()->SetTransform(D3DTS_PROJECTION, d3d::matrix(caster->projection.data()));
         std::array<float, 16> identity{};
         get_identity(identity.data());
-        input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(identity.data()));
+        input_port()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
         auto draw_model = [](void* model) {
             const int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
@@ -328,8 +329,8 @@ void render_shadow_textures()
     std::memcpy(view_matrix(), saved_view.data(), sizeof(saved_view));
     std::memcpy(projection_matrix(), saved_projection.data(), sizeof(saved_projection));
     custom_transforms() = 0;
-    input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(world_matrix()));
-    input_port()->SetTransform(D3DTS_VIEW, raw::as<const D3DMATRIX>(view_matrix()));
+    input_port()->SetTransform(D3DTS_WORLD, d3d::matrix(world_matrix()));
+    input_port()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix()));
     input_port()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
     input_port()->SetRenderTarget(0, render_target);
     input_port()->SetDepthStencilSurface(depth);
@@ -384,11 +385,11 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
             input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
         input_port()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-        input_port()->SetTransform(D3DTS_PROJECTION, raw::as<const D3DMATRIX>(projection_matrix()));
-        input_port()->SetTransform(D3DTS_VIEW, raw::as<const D3DMATRIX>(view_matrix()));
+        input_port()->SetTransform(D3DTS_PROJECTION, d3d::matrix(projection_matrix()));
+        input_port()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix()));
         std::array<float, 16> identity{};
         get_identity(identity.data());
-        input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(identity.data()));
+        input_port()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
         choose_blend_mode(0xF);
         std::memcpy(view_matrix(), caster->view.data(), sizeof(caster->view));
         std::memcpy(projection_matrix(), caster->projection.data(), sizeof(caster->projection));

@@ -287,8 +287,8 @@ void CameraAnimMovie::tick_frame()
 // 0x00587A50
 void CameraAnimMovie::place_camera()
 {
-    auto* pos = raw::as<float>(viewer_->fetch_location());
-    auto* m = raw::as<float>(viewer_->fetch_mat());
+    auto* pos = viewer_->fetch_location()->data();
+    auto* m = viewer_->fetch_mat()->data();
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::g_front_end_instance->pad_listeners_) {
         if (handler->control_data_->makes_ & 0x40)

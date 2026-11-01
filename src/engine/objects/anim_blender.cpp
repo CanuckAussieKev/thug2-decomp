@@ -147,7 +147,7 @@ void AnimBlenderComponent::tick_frame()
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     auto skeleton = [this]() {
-        return raw::as<gfx::Rig>(core::down_cast<objects::BoneRigModule>(bone_rig_)->bone_rig_);
+        return (core::down_cast<objects::BoneRigModule>(bone_rig_)->bone_rig_);
     };
     if (count == 1) {
         notify_observers(gfx::g_blend_buffer);

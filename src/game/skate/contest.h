@@ -40,7 +40,7 @@ struct Contest {
         [[nodiscard]] int best_two(int count) const;
         // The same of the four words from the scores on (the debug output's: unknown1c_ and its padding the fourth).
         [[nodiscard]] int best_two_of_four_words() const;
-        [[nodiscard]] int get_word(int index) const { return raw::as<const int>(scores_.data())[index]; }
+        [[nodiscard]] int get_word(int index) const { return scores_.data()[index]; }
     };
 
     script::Struct* args_;             // +0x00: StartCompetition's extra parameters (leader_board_names,

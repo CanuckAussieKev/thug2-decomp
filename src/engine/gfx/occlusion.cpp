@@ -42,7 +42,7 @@ constexpr uint32_t kOccluderLimit = 8;
 // The object's transform for culling (set_world_transform), or null: only its position row is used here.
 const float* world_transform() { return g_world_transform; }
 // The view matrix (0x00786BD0) and the view's clip values.
-const void* view_matrix() { return raw::as<float>(&g_view_matrix); }
+const void* view_matrix() { return g_view_matrix.data(); }
 float near_plane_depth() { return g_camera.near_z_; }
 float far_clip() { return g_camera.far_z_; }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.

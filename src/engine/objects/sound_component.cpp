@@ -294,12 +294,12 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
     }
     if (params->fetch_float(0x330F3415, &loudness_percent, 0)) { // loudness_percent
         props->volume3 = static_cast<float>(static_cast<double>(loudness_percent) * props->volume2 * kPercent);
-        if (!params->fetch_float(0xDAA9A3C2, raw::as<float>(&props->unknown24), 0)) // volumeStep
+        if (!params->fetch_float(0xDAA9A3C2, (&props->unknown24), 0)) // volumeStep
             props->volume = props->volume3;
     }
     if (params->fetch_float(0xEE616C13, &pitch_percent, 0)) { // pitchPercent
         props->pitch3 = static_cast<float>(static_cast<double>(pitch_percent) * props->pitch2 * kPercent);
-        if (!params->fetch_float(0x7B090774, raw::as<float>(&props->unknown20), 0)) // pitchStep
+        if (!params->fetch_float(0x7B090774, (&props->unknown20), 0)) // pitchStep
             props->pitch = props->pitch3;
     }
 }
