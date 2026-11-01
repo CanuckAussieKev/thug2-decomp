@@ -19,6 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
+#include "engine/pad_input/device.h"
 
 namespace frontend::new_frontend::game_screens {
 
@@ -127,7 +128,7 @@ void launch_pad(modules::FrontEnd* front_end, uint32_t type, UiWidget* element)
     params.prepare_all();
     int device = 0;
     if (front_end && front_end->pad_listeners_[0] && front_end->pad_listeners_[0]->dev_)
-        device = *reinterpret_cast<int*>(front_end->pad_listeners_[0]->dev_ + 0xC);
+        device = front_end->pad_listeners_[0]->dev_->port_no_;
     params.put_int(kDeviceNum, device);
     params.put_int(kController, 0);
     objects::get_tracker()->launch_event(type, id_of(element), kMenuEvent, &params, false, -1.0f);

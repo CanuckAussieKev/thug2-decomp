@@ -440,6 +440,6 @@ bool __cdecl cfunc_update_initials(script::Struct*, script::Script*)
 }
 
 // 0x005AFB30
-bool __cdecl cfunc_new_record(script::Struct*, script::Script*) { return skate_calls::skate_field<bool>(0x384); }
+bool __cdecl cfunc_new_record(script::Struct*, script::Script*) { return modules::Skate::sole()->new_record_; }
 
 } // namespace highscores

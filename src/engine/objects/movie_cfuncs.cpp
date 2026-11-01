@@ -44,8 +44,8 @@ constexpr uint32_t kRestoreSkaterCamera = 0x15674315;  // Restore_skater_camera
 constexpr uint32_t kToggle = 0xDA155274;               // toggle
 
 // The skate module's movie managers: +0x368 skater camera animations and cutscenes, +0x36C object animations.
-objects::VideoHub* camera_movies() { return skate_field<objects::VideoHub*>(0x368); }
-objects::VideoHub* object_movies() { return skate_field<objects::VideoHub*>(0x36C); }
+objects::VideoHub* camera_movies() { return modules::Skate::sole()->movies_; }
+objects::VideoHub* object_movies() { return modules::Skate::sole()->object_movies_; }
 
 // The skater a camera command names: SkaterId=<object id>, else skater=<n> (0) of the skate module.
 objects::Entity* named_skater(script::Struct* params)

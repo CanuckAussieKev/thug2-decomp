@@ -605,7 +605,7 @@ void Skate::test_rider_contacts()
         return;
     for (uint32_t i = 0; i < 8; ++i) {
         if (objects::Rider* skater = get_skater_at(i))
-            reinterpret_cast<objects::RiderFrameLog*>(skater->unknown27c_)->check_for_collisions(0);
+            skater->state_history_->check_for_collisions(0);
     }
     if (get_game_mode()->get_name_key() != kNetKing && get_game_mode()->get_name_key() != kKing)
         return;
@@ -616,7 +616,7 @@ void Skate::test_rider_contacts()
     objects::Rider* king = nullptr;
     for (uint32_t i = 0; i < 8 && !king; ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (skater && reinterpret_cast<objects::RiderFrameLog*>(skater->unknown27c_)->is_near_local_skater())
+        if (skater && skater->state_history_->is_near_local_skater())
             king = skater;
     }
     if (!king)
@@ -916,7 +916,7 @@ void Skate::run_frame_logic()
         auto* skater = static_cast<objects::Rider*>(get_rider_at(i));
         if (!skater || !skater->is_local_skater_)
             continue;
-        device = *reinterpret_cast<uint8_t**>(skater->unknown264_ + 0x490);
+        device = reinterpret_cast<uint8_t*>(skater->pad_input_->handler_);
         if (reinterpret_cast<sio::InputPort*>(*reinterpret_cast<void**>(device + 0x1C))->is_attached())
             continue;
         unplugged = true;

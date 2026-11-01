@@ -79,7 +79,7 @@ public:
     InputHandler(int priority, int controller) : SchedulerTask(priority), ordinal_(controller) {}
 
     Payload* control_data_ = nullptr; // +0x18: the controller's data this frame (set when it's added to a list)
-    uint8_t* dev_ = nullptr;          // +0x1C: the controller's device (sio::InputPort; its number at +0x0C)
+    sio::InputPort* dev_ = nullptr;   // +0x1C: the controller's device
     int ordinal_;                     // +0x20: the controller
 };
 
@@ -105,10 +105,10 @@ static_assert(sizeof(Responder<void>) == 0x2C, "the original's size");
 // A controller's server (0x84 bytes).
 struct HostEnd {
     sio::InputPort* dev_;
-    tasks::PileUp handlers_;  // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
-    uint8_t pad38_[0x08];     // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
-    Payload content_;         // +0x40
-    PadFrameRecord* data_in_; // +0x74: the recording played back (null: none)
+    tasks::PileUp handlers_;        // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
+    uint8_t pad38_[0x08];           // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
+    Payload content_;               // +0x40
+    PadFrameRecord* data_in_;       // +0x74: the recording played back (null: none)
     PadFrameRecord* in_buf_limit_;  // +0x78
     PadFrameRecord* data_out_;      // +0x7C: the recording made (null: none)
     PadFrameRecord* out_buf_limit_; // +0x80

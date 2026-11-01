@@ -29,7 +29,7 @@ inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::Pil
     pad_input::HostEnd& server = input->hosts_[handler->ordinal_];
     server.handlers_.queue_job(handler);
     handler->control_data_ = &server.content_;
-    handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
+    handler->dev_ = server.dev_;
 }
 
 } // namespace online::detail

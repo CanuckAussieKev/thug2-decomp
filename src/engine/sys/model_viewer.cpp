@@ -127,7 +127,7 @@ void add_input_handler(ViewerInputHandler* handler)
     pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
     append_vertex(server.handlers_, handler);
     handler->control_data_ = &server.content_;
-    handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
+    handler->dev_ = server.dev_;
 }
 
 } // namespace

@@ -4,6 +4,8 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/skater_state.h"
 
 namespace net {
 struct InboundMsgCtx;
@@ -70,7 +72,7 @@ public:
     void check_for_collisions(int first);
     // 0x00569680: the newest state sent (+0x1C, 0x84 bytes each; the count at +0x18). 0x005696A0: the newest other
     // message (+0xA70; the count at +0xA6C - its slot, as the history fills it: count % 20).
-    uint8_t* fetch_newest_snapshot();
+    SkaterStateHistoryFrame* fetch_newest_snapshot();
     StateHistoryMessage* get_latest_message();
 
     // --- network message handlers (the skater's client app; the handler's data is the skater) ---
@@ -84,9 +86,15 @@ public:
     // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kResultPassOn.
     static int __cdecl handle_collision_messages(net::InboundMsgCtx* context);
 
-    // The fields after the base's (+0x18-+0x1107): reached by offset.
-    uint8_t fields_[0x1108 - 0x18];
+    int state_count_;                          // +0x18 the states received
+    SkaterStateHistoryFrame states_[kEntries]; // +0x1C (the newest at (state_count_ - 1) % 20)
+    int message_count_;                        // +0xA6C the messages received
+    StateHistoryMessage messages_[kEntries];   // +0xA70 (the newest at message_count_ % 20)
+    uint32_t unknown1100_;                     // +0x1100 (cleared)
+    uint32_t vehicle_control_type_;            // +0x1104 the vehicle's control type (message 0x?)
 };
-static_assert(sizeof(RiderFrameLog) == 0x1108, "fields are reached by offset (the original allocates 0x1108 bytes)");
+static_assert(offsetof(RiderFrameLog, states_) == 0x1C && offsetof(RiderFrameLog, messages_) == 0xA70 &&
+                  sizeof(RiderFrameLog) == 0x1108,
+              "the original allocates 0x1108 bytes");
 
 } // namespace objects

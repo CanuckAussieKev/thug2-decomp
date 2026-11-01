@@ -87,7 +87,7 @@ void CinematicTable::check_skip()
     if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0f)
         return;
     modules::FrontEndInputHandler* handler = modules::front_end_instance()->pad_listeners_[0];
-    auto* device = reinterpret_cast<sio::InputPort*>(handler->dev_);
+    auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return;
     if (handler->control_data_->makes_ & (kButtonX | kButtonStart)) {

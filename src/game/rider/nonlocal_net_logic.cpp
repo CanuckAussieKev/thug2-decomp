@@ -31,6 +31,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
+#include "game/rider/state_history.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -127,12 +129,12 @@ RiderRemoteSync::~RiderRemoteSync() {}
 // 0x00514580
 void RiderRemoteSync::seal()
 {
-    past_frames_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterStateHistory));
+    past_frames_ = static_cast<RiderFrameLog*>(entity_->fetch_module(kSkaterStateHistory));
     pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
     run_over_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterEndRun));
     anim_blender_ = entity_->fetch_module(kAnimBlender);
     flip_and_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
-    mesh_set_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kModel));
+    mesh_set_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
     shadow_ = entity_->fetch_module(kShadow);
 }
 
@@ -428,7 +430,7 @@ void RiderRemoteSync::tick_frame()
         bool extrapolate = online::g_online_hub->players_can_collide() ||
                            static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
                            static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;
-        if (extrapolate && prop<int>(past_frames_, 0x18) >= kHistory) {
+        if (extrapolate && past_frames_->state_count_ >= kHistory) {
             if (pose_->cur_phase_ == kStateRail) {
                 extrapolate_on_rail();
             } else {
@@ -450,7 +452,7 @@ void RiderRemoteSync::tick_frame()
 
     // Driving in or out: the scripts told (with the vehicle's control type when it starts).
     uint8_t driving = pose_->in_vehicle_;
-    uint32_t steer_kind = prop<uint32_t>(past_frames_, 0x1104);
+    uint32_t steer_kind = past_frames_->vehicle_control_type_;
     if ((driving && steer_kind) || (!driving && was_driving_)) {
         script::Struct* params = script::spawn_param_bag();
         if (params)

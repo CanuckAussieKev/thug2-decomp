@@ -34,7 +34,6 @@ constexpr const char* kHomeScript = "thaw_bmx_home_bike";         // makes it (t
 constexpr const char* kLevelStartScript = "thaw_bmx_level_start"; // a new level: the last level's bikes gone
 constexpr const char* kHomeBikes = "thaw_bmx_home_bikes"; // THAW's places: [{level=<name> pos=(...) heading=<deg>}]
 // The skate module's level structure name (+0x380, SetLevelStructureName) and the structure's `level` string.
-constexpr uint32_t kLevelDataKey = 0x380;
 
 constexpr int kSettleFrames = 30;   // (in a new level, unpaused, before the start spot is noted)
 constexpr int kCheckFrames = 30;    // (how often the level's bike is looked for)
@@ -100,7 +99,7 @@ Kickoff find_start_spot(Point pos, float heading)
 
 script::Struct* level_params_ref()
 {
-    uint32_t name = skate_calls::skate_field<uint32_t>(kLevelDataKey);
+    uint32_t name = modules::Skate::sole()->level_params_;
     return name ? script::read_sub_struct(name) : nullptr;
 }
 
@@ -275,7 +274,7 @@ void update_parked(modules::FrontEnd* front_end)
     if ((front_end && front_end->is_halted_) || frontend::level_editor::live_now())
         return;
     objects::Rider* skater = local_skater();
-    uint32_t structure = modules::Skate::sole() ? skate_calls::skate_field<uint32_t>(kLevelDataKey) : 0;
+    uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params_ : 0;
     if (!skater || !structure || render::current_level() == 0) {
         g_level.frames = 0;
         return;

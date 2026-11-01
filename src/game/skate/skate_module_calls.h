@@ -17,19 +17,12 @@ struct RiderIdentity;
 
 namespace skate_calls {
 
-// The skate module and a field of it.
-inline uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::Skate::sole()); }
-template <typename T>
-T& skate_field(uint32_t offset)
-{
-    return *reinterpret_cast<T*>(get_skate() + offset);
-}
-// +0x20: the career. +0x46: the run is to end (EndRun). +0x360: the competition. +0x364: the horse game.
-// +0x384: a record was set by the last UpdateRecords.
-inline objects::RiderStoryProgress* get_career() { return skate_field<objects::RiderStoryProgress*>(0x20); }
-inline bool& end_run_flag() { return skate_field<bool>(0x46); }
-inline uint8_t* get_competition() { return skate_field<uint8_t*>(0x360); }
-inline uint8_t* get_horse() { return skate_field<uint8_t*>(0x364); }
+// The skate module: its career, the run is to end (EndRun), the competition, the horse game.
+inline modules::Skate* get_skate() { return modules::Skate::sole(); }
+inline objects::RiderStoryProgress* get_career() { return get_skate()->career_; }
+inline bool& end_run_flag() { return get_skate()->run_over_; }
+inline uint8_t* get_competition() { return reinterpret_cast<uint8_t*>(get_skate()->competition_); }
+inline uint8_t* get_horse() { return reinterpret_cast<uint8_t*>(get_skate()->horse_); }
 
 // 0x005665C0: skater `index` of the list (null past the end). 0x00566520: the first local skater (null: none).
 // 0x00566600: the skater whose object id is `id` (null: none).

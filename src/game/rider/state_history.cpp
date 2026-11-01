@@ -195,11 +195,11 @@ RiderFrameLog::RiderFrameLog()
 {
     // (The original clears each state entry's +0x68 / +0x6C and the entry, the messages, the counts, then the
     // entries and the messages again.)
-    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1C, 0, kEntries * 0x84);
-    std::memset(reinterpret_cast<uint8_t*>(this) + 0xA70, 0, kEntries * sizeof(StateHistoryMessage));
-    prop<uint32_t>(this, 0x1100) = 0;
-    prop<int>(this, 0x18) = 0;  // the states received
-    prop<int>(this, 0xA6C) = 0; // the messages received
+    std::memset(states_, 0, sizeof(states_));
+    std::memset(messages_, 0, sizeof(messages_));
+    unknown1100_ = 0;
+    state_count_ = 0;
+    message_count_ = 0;
     kind_tag_ = kType;
 }
 
@@ -566,17 +566,9 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
 namespace objects {
 
 // 0x00569680
-uint8_t* RiderFrameLog::fetch_newest_snapshot()
-{
-    int count = *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(this) + 0x18);
-    return reinterpret_cast<uint8_t*>(this) + 0x1C + ((count + 19) % kEntries) * 0x84;
-}
+SkaterStateHistoryFrame* RiderFrameLog::fetch_newest_snapshot() { return &states_[(state_count_ + 19) % kEntries]; }
 
 // 0x005696A0
-StateHistoryMessage* RiderFrameLog::get_latest_message()
-{
-    int count = *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(this) + 0xA6C);
-    return reinterpret_cast<StateHistoryMessage*>(reinterpret_cast<uint8_t*>(this) + 0xA70 + (count % kEntries) * 0x54);
-}
+StateHistoryMessage* RiderFrameLog::get_latest_message() { return &messages_[message_count_ % kEntries]; }
 
 } // namespace objects

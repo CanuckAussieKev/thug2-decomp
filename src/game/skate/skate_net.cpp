@@ -186,39 +186,11 @@ void expire_goal(uint8_t* goal) { reinterpret_cast<goals::Objective*>(goal)->exp
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
 using PlayerSearch = online::PlayerSearch;
 
-// A skater's state history (+0x27C): the newest of 20 entries at count % 20.
-struct StateEntry {
-    int16_t pos[3]; // +0x00 the position, in half units (y in quarters)
-    uint16_t pad06;
-    maths::Mat4 matrix;   // +0x08 from the angles
-    maths::Vec4 position; // +0x48 (w 0)
-    float angles[3];      // +0x58
-    uint32_t unknown64;
-    uint32_t value68;   // +0x68 (5 bits)
-    uint32_t value_6c_; // +0x6C (3 bits)
-    int state;          // +0x70 (3 bits; kept as a signed byte)
-    uint8_t flag74;     // +0x74 (always 0 from a message: bit 7 of a 4-bit value)
-    uint8_t flag75;     // +0x75
-    uint8_t flag76;     // +0x76
-    uint8_t pad77;
-    uint16_t time;     // +0x78 the message's time stamp
-    uint16_t wraps;    // +0x7A the times the time stamp went back
-    uint8_t value_7c_; // +0x7C (6 bits)
-    uint8_t pad7d_[3];
-    uint32_t value80; // +0x80 (32 bits)
-};
-static_assert(sizeof(StateEntry) == 0x84 && offsetof(StateEntry, angles) == 0x58 &&
-                  offsetof(StateEntry, value80) == 0x80,
-              "layout must match the original");
-struct StateRingLog {
-    uint8_t unknown0[0x18];
-    int count;              // +0x18
-    StateEntry entries[20]; // +0x1C
-};
-// A skater's state history component's entries (objects::RiderFrameLog, the skater's +0x27C).
-StateRingLog* history_of(objects::Entity* object)
+// A skater's state history (+0x27C): the newest of 20 states at count % 20.
+using StateEntry = objects::SkaterStateHistoryFrame;
+objects::RiderFrameLog* history_of(objects::Entity* object)
 {
-    return reinterpret_cast<StateRingLog*>(static_cast<objects::Rider*>(object)->unknown27c_);
+    return static_cast<objects::Rider*>(object)->state_history_;
 }
 
 void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data,
@@ -815,17 +787,17 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         if (!object || (context->wire_options_ & 3))
             continue;
         auto* skater = static_cast<objects::GameEntity*>(object);
-        StateRingLog* history = history_of(object);
+        objects::RiderFrameLog* history = history_of(object);
         int previous;
-        if (history->count > 0) {
-            previous = (history->count - 1) % 20;
+        if (history->state_count_ > 0) {
+            previous = (history->state_count_ - 1) % 20;
         } else {
             // The first: what came before is where the skater is now.
             maths::Mat4 matrix;
             matrix = skater->basis_frame_;
             maths::Vec4 eulers;
             matrix.get_euler_angles(eulers);
-            StateEntry& first = history->entries[0];
+            StateEntry& first = history->states_[0];
             for (int k = 0; k < 3; ++k) {
                 // (TP-R6: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
                 if (k == 1)
@@ -836,8 +808,8 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             }
             previous = 0;
         }
-        StateEntry& prev = history->entries[previous];
-        StateEntry& cur = history->entries[history->count % 20];
+        StateEntry& prev = history->states_[previous];
+        StateEntry& cur = history->states_[history->state_count_ % 20];
         for (int k = 0; k < 3; ++k) {
             if (!(fields & (1u << k)))
                 pos[k] = prev.pos[k];
@@ -883,7 +855,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             ++wraps;
         cur.wraps = wraps;
         cur.time = time;
-        ++history->count;
+        ++history->state_count_;
     }
     return 1;
 }
@@ -946,8 +918,8 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     PlayerRecord* player = find_player_slot_by_obj(object->ident_);
     objects::Entity* skater = player_skater(player);
     auto index = static_cast<uint8_t>(skater->ident_);
-    StateRingLog* history = history_of(skater);
-    StateEntry& entry = history->entries[(history->count - 1) % 20];
+    objects::RiderFrameLog* history = history_of(skater);
+    StateEntry& entry = history->states_[(history->state_count_ - 1) % 20];
     online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent_;
     util::PackedBitBuffer& stream = out->feed_;
     sent->time_[index] = entry_time(entry);
@@ -1024,16 +996,16 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
         context->body_size_ = static_cast<uint32_t>((bits + 7) >> 3);
         return 1;
     }
-    StateRingLog* history = history_of(object);
-    StateEntry& cur = history->entries[history->count % 20];
+    objects::RiderFrameLog* history = history_of(object);
+    StateEntry& cur = history->states_[history->state_count_ % 20];
     // What isn't sent stays as it was (nothing yet: zero).
     StateEntry* prev = nullptr;
     int16_t pos[3] = {};
     float angles[3] = {};
     uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
     uint32_t value68 = 0, value_6c = 0, value80 = 0;
-    if (history->count > 0) {
-        prev = &history->entries[(history->count + 19) % 20];
+    if (history->state_count_ > 0) {
+        prev = &history->states_[(history->state_count_ + 19) % 20];
         value68 = prev->value68;
         flag74 = prev->flag74;
         value_6c = prev->value_6c_;
@@ -1073,7 +1045,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     if (fields & 0x100)
         value80 = stream.read_bits(32);
     context->body_size_ = static_cast<uint32_t>(stream.get_byte_count());
-    if (history->count > 0 && time < entry_time(*prev))
+    if (history->state_count_ > 0 && time < entry_time(*prev))
         return 4; // (an older update: dropped)
     maths::Mat4 matrix;
     matrix.set_from_euler_angles(angles[0], angles[1], angles[2]);
@@ -1095,7 +1067,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     cur.value80 = value80;
     cur.flag76 = flag76;
     cur.flag75 = flag75;
-    ++history->count;
+    ++history->state_count_;
     return 1;
 }
 

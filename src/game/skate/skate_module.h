@@ -254,13 +254,13 @@ public:
     uint32_t pending_level_;           // +0x374
     uint32_t level_;                   // +0x378
     uint32_t previous_level_;          // +0x37C
-    uint32_t unknown380_;              // +0x380
+    uint32_t level_params_;            // +0x380 the level's structure (its name)
     bool new_record_;                  // +0x384 a record was set by the last UpdateRecords
     uint8_t pad385[3];
     goals::MatchFlow* game_flow_;      // +0x388
     goals::GoalManager* goal_manager_; // +0x38C
     PlayerSettings participants_[8];   // +0x390
-    int unknown3d0_;                   // +0x3D0
+    float forced_stat_;                // +0x3D0 every skater's stats, forced (unless 0)
     bool debug_rails_;                 // +0x3D4
     uint8_t pad3d5_[3];
     script::Script* own_script_; // +0x3D8

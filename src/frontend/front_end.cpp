@@ -197,7 +197,7 @@ FrontEnd::~FrontEnd()
 bool FrontEnd::pads_plugged_in()
 {
     for (FrontEndInputHandler* handler : pad_listeners_) {
-        if (reinterpret_cast<sio::InputPort*>(handler->dev_)->is_attached())
+        if (handler->dev_->is_attached())
             return true;
     }
     return false;
@@ -285,7 +285,7 @@ void FrontEnd::start_callback()
         pad_input::HostEnd& server = input->hosts_[handler->ordinal_];
         append_vertex(server.handlers_, handler);
         handler->control_data_ = &server.content_;
-        handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
+        handler->dev_ = server.dev_;
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -603,7 +603,7 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
             continue;
         script::Struct params;
         params.prepare_all();
-        params.put_int(kDeviceNum, *reinterpret_cast<int*>(handler->dev_ + 0xC));
+        params.put_int(kDeviceNum, handler->dev_->port_no_);
         params.put_int(kController, 0); // (the original loads the mapping, then passes 0)
         static_cast<objects::EventWaitBoard*>(tracker)->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
                                                                      -1.0f);
@@ -635,7 +635,7 @@ void FrontEnd::update_input_mappings()
         pad_input::HostEnd& server = input.supervisor_->hosts_[device_server_map_[i]];
         append_vertex(server.handlers_, handler);
         handler->control_data_ = &server.content_;
-        handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
+        handler->dev_ = server.dev_;
     }
 }
 

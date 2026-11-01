@@ -196,19 +196,13 @@ bool RiderPoseState::set_sparks_pos(script::Struct* params, script::Script*)
 }
 
 // 0x005197D0
-uint32_t SkaterStateHistoryFrame::get_time()
-{
-    auto* self = reinterpret_cast<uint8_t*>(this);
-    return static_cast<uint32_t>(*reinterpret_cast<uint16_t*>(self + 0x7A)) << 16 |
-           *reinterpret_cast<uint16_t*>(self + 0x78);
-}
+uint32_t SkaterStateHistoryFrame::get_time() { return static_cast<uint32_t>(wraps) << 16 | time; }
 
 // 0x005197E0
-void SkaterStateHistoryFrame::change_moment(uint32_t time)
+void SkaterStateHistoryFrame::change_moment(uint32_t stamp)
 {
-    auto* self = reinterpret_cast<uint8_t*>(this);
-    *reinterpret_cast<uint16_t*>(self + 0x78) = static_cast<uint16_t>(time);
-    *reinterpret_cast<uint16_t*>(self + 0x7A) = static_cast<uint16_t>(time >> 16);
+    time = static_cast<uint16_t>(stamp);
+    wraps = static_cast<uint16_t>(stamp >> 16);
 }
 
 // 0x005197C0 (0x00519840 the deleting one)

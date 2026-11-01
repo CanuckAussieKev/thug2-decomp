@@ -261,7 +261,7 @@ bool __cdecl cfunc_preselect_random_pedestrians(script::Struct* params, script::
     params->read_hash_value(kPart, &part, 1);
     script::Array* list = script::fetch_list(part);
     uint32_t size = list->extent_;
-    uint32_t level = skate_field<uint32_t>(0x374); // (the level the parts are chosen for)
+    uint32_t level = modules::Skate::sole()->pending_level_; // (the level the parts are chosen for)
     for (uint32_t i = 0; i < size; ++i) {
         script::Struct* option = get_element(list, i);
         option->erase_module(kPickPermitted);

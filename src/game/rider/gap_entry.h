@@ -9,6 +9,9 @@
 namespace skater {
 class SkaterPhysicsModule;
 } // namespace skater
+namespace modules {
+class PointTally;
+}
 namespace script {
 class Script;
 class Struct;
@@ -88,7 +91,7 @@ public:
     memory::PaddedListNode gaps_;               // +0x18 lists::Foremost<TrickListEntry>
     memory::PaddedListNode gap_move_chain_;     // +0x2C lists::Foremost<TrickNameEntry>
     uint32_t tick_;                             // +0x40 counted by Update
-    uint8_t* points_held_;                      // +0x44 the skater's score (modules::PointTally; set by the skater)
+    modules::PointTally* points_held_;          // +0x44 the skater's score (set by the skater)
     skater::SkaterPhysicsModule* core_physics_; // +0x48 SkaterCorePhysics (0x5BD63B29)
     uint8_t* balance_trick_;                    // +0x4C SkaterBalanceTrick (0x589E5FB3)
     RiderBoardPhysics* physics_control_;        // +0x50 SkaterPhysicsControl (0xD9151D4D)

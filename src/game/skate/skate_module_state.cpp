@@ -186,7 +186,7 @@ void Skate::start_callback()
     surface_kind::load_terrain_types();
     script::launch_script(kInitLightManager, nullptr, nullptr, false, nullptr);
     script::launch_script(kLoadPermanentPrefiles, nullptr, nullptr, false, nullptr);
-    unknown3d0_ = 0;
+    forced_stat_ = 0.0f;
     frame_loop::Hub* main_loop = assets::g_main_loop_manager;
     objects::nearby_zone_startup();
     objects::emitter_init();

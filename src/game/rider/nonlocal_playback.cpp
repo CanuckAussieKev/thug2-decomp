@@ -47,7 +47,6 @@ T& prop(void* object, uint32_t offset)
 }
 
 // The model component's three spin axes (its twist_rate_, about X, Y, Z) the messages 0x76 / 0x8C start and stop.
-constexpr uint32_t kModelParts[3] = {0x38, 0xCC, 0x160};
 // Message 0x77: the made item's structure and component
 constexpr uint32_t kItemName = 0xCAB94088, kItemOwner = 0x40C698AF, kItemComponent = 0x5CB5CB7E;
 constexpr uint32_t kSkaterAppeared = 0x1011A5D6; // the script run when a skater's playback starts (name unknown)
@@ -69,15 +68,14 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 // A state the history keeps (0x84 bytes, 20 at the history's +0x1C): +0x08 the matrix (+0x28 its at row), +0x48 the
 // position, +0x68 the timed flags as bits, +0x6C the end run flags, +0x70 the state, +0x74 doing a trick, +0x75 the
 // physics mode, +0x76 driving, +0x78 the time, +0x7C the terrain.
-constexpr uint32_t kRecordStride = 0x84;
-uint8_t* history_frame(uint8_t* history, int index) { return history + 0x1C + index * kRecordStride; }
-uint32_t history_frame_stamp(uint8_t* frame) { return reinterpret_cast<SkaterStateHistoryFrame*>(frame)->get_time(); }
-maths::Mat4& snapshot_orientation(uint8_t* frame) { return prop<maths::Mat4>(frame, 0x08); }
-maths::Vec4& frame_position(uint8_t* frame) { return prop<maths::Vec4>(frame, 0x48); }
+SkaterStateHistoryFrame* history_frame(RiderFrameLog* history, int index) { return &history->states_[index]; }
+uint32_t history_frame_stamp(SkaterStateHistoryFrame* frame) { return frame->get_time(); }
+maths::Mat4& snapshot_orientation(SkaterStateHistoryFrame* frame) { return frame->matrix; }
+maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->position; }
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
 // The network manager's client app: +8 its frame count.
-uint8_t* client_app() { return reinterpret_cast<uint8_t*>(net_session_slot()->fetch_patron(0)); }
+net::AppHost* client_app() { return net_session_slot()->fetch_patron(0); }
 int frame_rate() { return game_config::g_frame_rate; }
 int get_now() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // The level's rails (the skate module's +0x24).
@@ -90,7 +88,7 @@ GrindRailHub* get_level_rails()
 // player, a client's first (to the server) - less a frame, over a frame, as unsigned numbers (0 without a frame).
 // (Quirk kept: a latency under a frame wraps round to a huge lag. The original's check for a negative result is
 // left out: it never is.)
-float connection_lag(uint8_t* app, GameEntity* skater, int frame_ms)
+float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
 {
     online::Hub* net = net_session_slot();
     net::Conn* conn;
@@ -99,7 +97,7 @@ float connection_lag(uint8_t* app, GameEntity* skater, int frame_ms)
         conn = player->conn_;
     } else {
         net::ConnSearch search;
-        conn = reinterpret_cast<net::AppHost*>(app)->begin_conn_walk(&search);
+        conn = app->begin_conn_walk(&search);
     }
     int latency = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
     if (frame_ms == 0)
@@ -113,20 +111,20 @@ float connection_lag(uint8_t* app, GameEntity* skater, int frame_ms)
 // 0x00515940
 void RiderRemoteSync::interpolate()
 {
-    uint8_t* app = client_app();
-    if (!app || prop<int>(past_frames_, 0x18) < kHistory)
+    net::AppHost* app = client_app();
+    if (!app || past_frames_->state_count_ < kHistory)
         return;
     auto* skater = static_cast<Rider*>(entity_);
     if (sync_frame_ == 0) {
         // Playback starts at the newest state, a fixed time behind it.
-        int newest = (prop<int>(past_frames_, 0x18) - 1) % kHistory;
-        sync_frame_ = prop<uint32_t>(app, 8);
+        int newest = (past_frames_->state_count_ - 1) % kHistory;
+        sync_frame_ = app->clock_;
         int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / frame_rate());
-        uint8_t* frame = history_frame(past_frames_, newest);
+        SkaterStateHistoryFrame* frame = history_frame(past_frames_, newest);
         play_idx_ = newest;
         sync_time_ = static_cast<int>(history_frame_stamp(frame) - delay);
         skater->basis_frame_ = snapshot_orientation(frame);
-        prop<maths::Mat4>(skater, 0xC0) = snapshot_orientation(frame);
+        skater->display_matrix_ = snapshot_orientation(frame);
         skater->at_point_ = frame_position(frame);
         skater->mark_jumped_ahead(true);
         skater->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -144,10 +142,10 @@ void RiderRemoteSync::interpolate()
         net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
     if (!player->has_finished_joining())
         player->set_finished_joining();
-    int count = prop<int>(past_frames_, 0x18);
+    int count = past_frames_->state_count_;
     int oldest = count % kHistory; // (the next to be written)
-    uint32_t now = prop<uint32_t>(app, 8) - sync_frame_ + sync_time_;
-    uint8_t* last = history_frame(past_frames_, (count - 1) % kHistory);
+    uint32_t now = app->clock_ - sync_frame_ + sync_time_;
+    SkaterStateHistoryFrame* last = history_frame(past_frames_, (count - 1) % kHistory);
     if (now > history_frame_stamp(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
         int adjust;
@@ -156,7 +154,7 @@ void RiderRemoteSync::interpolate()
         else
             adjust = -1000 / frame_rate();
         sync_time_ += adjust;
-        now = prop<uint32_t>(app, 8) - sync_frame_ + sync_time_;
+        now = app->clock_ - sync_frame_ + sync_time_;
     }
     // The first state not yet reached, from the oldest (none: nothing played this frame).
     int entry = oldest;
@@ -172,8 +170,8 @@ void RiderRemoteSync::interpolate()
         sync_time_ += 1000 / frame_rate() * 10; // (far behind: ten frames on)
     else if (lag == 0)
         skater->reset_27c();
-    uint8_t* from = history_frame(past_frames_, (entry + kHistory - 1) % kHistory);
-    uint8_t* to = history_frame(past_frames_, entry);
+    SkaterStateHistoryFrame* from = history_frame(past_frames_, (entry + kHistory - 1) % kHistory);
+    SkaterStateHistoryFrame* to = history_frame(past_frames_, entry);
     float elapsed = static_cast<float>(static_cast<int>(now - history_frame_stamp(from)));
     int span = static_cast<int>(history_frame_stamp(to) - history_frame_stamp(from));
     float t = static_cast<float>(static_cast<double>(elapsed) / span);
@@ -181,18 +179,18 @@ void RiderRemoteSync::interpolate()
     last_play_pos_ = play_pos_;
 
     // The orientation: slerped, unless the at rows are far apart (then the earlier state's).
-    maths::Vec4 turn = prop<maths::Vec4>(to, 0x28) - prop<maths::Vec4>(from, 0x28);
+    maths::Vec4 turn = to->matrix.row[2] - from->matrix.row[2];
     double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
                               static_cast<double>(turn.y) * turn.y);
     if (turned > kTurnSnap) {
         skater->basis_frame_ = snapshot_orientation(from);
-        prop<maths::Mat4>(skater, 0xC0) = snapshot_orientation(from);
+        skater->display_matrix_ = snapshot_orientation(from);
     } else {
         maths::Mat4 start = snapshot_orientation(from), end = snapshot_orientation(to), between;
         maths::ArcRotationBlender slerp(start, end);
         slerp.fetch_mat(between, t);
         skater->basis_frame_ = between;
-        prop<maths::Mat4>(skater, 0xC0) = between;
+        skater->display_matrix_ = between;
     }
 
     // The position: interpolated, unless it moved too far (then put at the later state's, standing).
@@ -229,14 +227,14 @@ void RiderRemoteSync::interpolate()
     // The state as the later state has it.
     play_pos_ = skater->at_point_;
     auto* state = pose_;
-    state->change_phase(prop<int>(to, 0x70));
-    pose_->in_trick_move_ = prop<uint8_t>(to, 0x74) != 0;
-    state->set_surface_kind(prop<uint8_t>(to, 0x7C));
-    state->set_physics_mode(prop<uint8_t>(to, 0x75) != 0);
-    pose_->in_vehicle_ = prop<uint8_t>(to, 0x76) != 0;
-    reinterpret_cast<RiderSessionEnd*>(run_over_)->flag_bits_ = prop<uint32_t>(to, 0x6C); // (0x00407A70)
+    state->change_phase(to->state);
+    pose_->in_trick_move_ = to->flag74 != 0;
+    state->set_surface_kind(to->value_7c_);
+    state->set_physics_mode(to->flag75 != 0);
+    pose_->in_vehicle_ = to->flag76 != 0;
+    reinterpret_cast<RiderSessionEnd*>(run_over_)->flag_bits_ = to->value_6c_; // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.
-    uint32_t bits = prop<uint32_t>(to, 0x68);
+    uint32_t bits = to->value68;
     for (int i = 0; i < kPoseFlagCount; ++i)
         pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1u << i)) != 0);
     if (pose_->flag(PoseFlag::kAcidDrop).on)
@@ -249,7 +247,7 @@ void RiderRemoteSync::interpolate()
 void RiderRemoteSync::get_extrapolate()
 {
     online::Hub* net = net_session_slot();
-    uint8_t* app = client_app();
+    net::AppHost* app = client_app();
     int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
     float lag = connection_lag(app, entity_, frame_ms);
     int slot = updates_ % kHistory;
@@ -474,7 +472,7 @@ void RiderRemoteSync::extrapolate_on_rail()
 {
     GrindRailHub* rails = get_level_rails();
     online::Hub* net = net_session_slot();
-    uint8_t* app = client_app();
+    net::AppHost* app = client_app();
     int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
     float lag = connection_lag(app, entity_, frame_ms);
     int slot = updates_ % kHistory;
@@ -512,7 +510,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     if (ahead > kOne)
         left = kOne;
 
-    GrindPoint* node = rails->find_node(prop<uint32_t>(history_frame(past_frames_, play_idx_), 0x80));
+    GrindPoint* node = rails->find_node(history_frame(past_frames_, play_idx_)->value80);
     if (!node || !(left > 0.0f))
         return;
     do {
@@ -530,12 +528,12 @@ void RiderRemoteSync::extrapolate_on_rail()
 // 0x00516180 (its EAX - left over from the loop - isn't read)
 void RiderRemoteSync::play_history_events()
 {
-    uint8_t* app = client_app();
-    if (!app || prop<int>(past_frames_, 0x18) < kHistory)
+    net::AppHost* app = client_app();
+    if (!app || past_frames_->state_count_ < kHistory)
         return;
-    int first = prop<int>(past_frames_, 0xA6C) % kHistory;
-    uint32_t now = prop<uint32_t>(app, 8) - sync_frame_ + sync_time_;
-    auto* messages = reinterpret_cast<StateHistoryMessage*>(past_frames_ + 0xA70);
+    int first = past_frames_->message_count_ % kHistory;
+    uint32_t now = app->clock_ - sync_frame_ + sync_time_;
+    auto* messages = past_frames_->messages_;
     auto* blender = static_cast<AnimBlenderComponent*>(anim_blender_);
     int i = first;
     do {
@@ -573,22 +571,20 @@ void RiderRemoteSync::play_history_events()
                     channel->change_repeat_mode(prop<int8_t>(m, 0x02), false);
                 break;
             case 0x3E:
-                reinterpret_cast<MeshInstanceModule*>(mesh_set_)->conceal_mesh(prop<uint32_t>(m, 0x20),
-                                                                               prop<uint8_t>(m, 0x0A) != 0, false);
+                mesh_set_->conceal_mesh(prop<uint32_t>(m, 0x20), prop<uint8_t>(m, 0x0A) != 0, false);
                 break;
             case 0x41:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->set_speed(prop<float>(m, 0x1C), false, false, false);
                 break;
             case 0x76: { // the model's three parts set going, by the message's bits
-                prop<maths::Vec4>(mesh_set_, 0x28) = {0.0f, 30.0f, 0.0f, 1.0f};
+                mesh_set_->pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
                 int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (prop<uint8_t>(m, 0x03) & (1u << bit))
-                        reinterpret_cast<ModelSpinAxis*>(mesh_set_ + kModelParts[bit])
-                            ->append_one(static_cast<float>(prop<int>(m, 0x3C)), static_cast<uint32_t>(time),
-                                         prop<float>(m, 0x48), prop<float>(m, 0x4C), prop<int>(m, 0x40),
-                                         prop<uint8_t>(m, 0x50) != 0, false);
+                        mesh_set_->twist_rate_[bit].append_one(
+                            static_cast<float>(prop<int>(m, 0x3C)), static_cast<uint32_t>(time), prop<float>(m, 0x48),
+                            prop<float>(m, 0x4C), prop<int>(m, 0x40), prop<uint8_t>(m, 0x50) != 0, false);
                 }
                 break;
             }
@@ -614,8 +610,8 @@ void RiderRemoteSync::play_history_events()
                     ->destroy_item(prop<int>(m, 0x44));
                 break;
             case 0x8C:
-                for (uint32_t part : kModelParts)
-                    reinterpret_cast<ModelSpinAxis*>(mesh_set_ + part)->get_clear();
+                for (ModelSpinAxis& axis : mesh_set_->twist_rate_)
+                    axis.get_clear();
                 break;
             default:
                 break;

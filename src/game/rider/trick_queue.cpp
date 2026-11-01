@@ -175,7 +175,7 @@ MoveExecutor::MoveExecutor()
     trick_objects_.make_new();
     kind_tag_ = kTrick;
     trick_lists_ = nullptr;
-    balance_1c_ = nullptr;
+    score_ = nullptr;
     input_ = nullptr;
     balance_trick_ = nullptr;
     core_physics_ = nullptr;

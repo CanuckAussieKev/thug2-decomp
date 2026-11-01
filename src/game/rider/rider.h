@@ -28,8 +28,20 @@ namespace objects {
 
 struct RiderIdentity;
 class EntityHub;
+class AnimBlenderComponent;
+class AttributeTracker;
 class FootMovement;
+class GroundShadowModule;
+class MeshInstanceModule;
+class MoveExecutor;
+class PadInputModule;
+class PadRumbleModule;
 class RiderBoardPhysics;
+class RiderFrameLog;
+class RiderGapTracker;
+class RiderPointKeeper;
+class RiderSfxPlayer;
+class SkaterVehicleSoundComponent;
 
 // The original's vtable (0x0064EF48) is GameEntity's with its own destructor and invoke_method_by_name and nine more
 // slots: +0x2C get_freeze, +0x30 unpause, +0x34 init_from_profile, +0x38 reset_input, +0x3C jump_to_spawn, +0x40
@@ -178,25 +190,25 @@ public:
         uint8_t pad5_[3];
         float pos[3]; // +0x08
         uint32_t unknown14_;
-    } projectiles_[5];                   // +0x1C0
-    memory::PaddedListNode skater_link_; // +0x238 its node in the skate module's skater list (data = itself)
-    void* unknown24c_;                   // +0x24C
-    uint8_t* unknown250_;                // +0x250
-    void* shadow_;                       // +0x254
-    void* unknown258_;                   // +0x258
-    void* unknown25c_;                   // +0x25C
+    } projectiles_[5];                    // +0x1C0
+    memory::PaddedListNode skater_link_;  // +0x238 its node in the skate module's skater list (data = itself)
+    AnimBlenderComponent* anim_blender_;  // +0x24C
+    MeshInstanceModule* model_component_; // +0x250
+    GroundShadowModule* shadow_;          // +0x254
+    MoveExecutor* trick_;                 // +0x258 SkaterTrick
+    PadRumbleModule* vibration_;          // +0x25C (local skaters only)
     uint8_t unknown260_[4];
-    uint8_t* unknown264_; // +0x264 (+0x20: reset; +0x490 -> +0x1C its input device)
-    void* unknown268_;    // +0x268 (component 0x187574FA)
-    void* unknown26c_;    // +0x26C (component 0x1859F772)
-    uint8_t* unknown270_; // +0x270
+    PadInputModule* pad_input_;                  // +0x264 (local skaters only)
+    RiderSfxPlayer* sound_;                      // +0x268 SkaterSound (0x187574FA)
+    SkaterVehicleSoundComponent* vehicle_sound_; // +0x26C SkaterVehicleSound (0x1859F772)
+    RiderGapTracker* gap_tracker_;               // +0x270 SkaterGap
     uint8_t unknown274_[4];
-    uint8_t* score_holder_;                     // +0x278 (+0x18 the score)
-    uint8_t* unknown27c_;                       // +0x27C
+    RiderPointKeeper* score_holder_;            // +0x278 SkaterScore
+    RiderFrameLog* state_history_;              // +0x27C SkaterStateHistory
     skater::SkaterPhysicsModule* core_physics_; // +0x280
     RiderBoardPhysics* physics_control_;        // +0x284 SkaterPhysicsControl (0xD9151D4D)
     FootMovement* walk_;                        // +0x288 Walk (0x726E85AA)
-    void* list_28c_;                            // +0x28C
+    AttributeTracker* stats_;                   // +0x28C SkaterStatsManager (0x4FF8DAC6)
     float stat_overrides_[10];                  // +0x290
     int skater_number_;                         // +0x2B8
     int view_slot_;                             // +0x2BC
@@ -216,9 +228,9 @@ static_assert(offsetof(Rider, style_) == 0x10C && offsetof(Rider, label_) == 0x1
                   offsetof(Rider, trick_slots_) == 0x17C && offsetof(Rider, shadow_) == 0x254 &&
                   offsetof(Rider, stat_overrides_) == 0x290 && offsetof(Rider, skater_number_) == 0x2B8 &&
                   offsetof(Rider, flag_2c_4_) == 0x2C4 && offsetof(Rider, shown_name_) == 0x15C &&
-                  offsetof(Rider, unknown264_) == 0x264 && offsetof(Rider, custom_restart_pos_) == 0x2C8 &&
+                  offsetof(Rider, pad_input_) == 0x264 && offsetof(Rider, custom_restart_pos_) == 0x2C8 &&
                   offsetof(Rider, custom_restart_walking_) == 0x318 && offsetof(Rider, projectiles_) == 0x1C0 &&
-                  offsetof(Rider, skater_link_) == 0x238 && offsetof(Rider, unknown270_) == 0x270 &&
+                  offsetof(Rider, skater_link_) == 0x238 && offsetof(Rider, gap_tracker_) == 0x270 &&
                   offsetof(Rider, is_halted_) == 0x320,
               "layout must match the original");
 

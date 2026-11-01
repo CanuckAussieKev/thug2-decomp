@@ -9,6 +9,9 @@
 namespace skater {
 class SkaterPhysicsModule;
 } // namespace skater
+namespace modules {
+class PointTally;
+}
 namespace script {
 class Script;
 class Struct;
@@ -277,7 +280,7 @@ public:
     int get_current_bail_endpose(script::Struct* params, script::Script* script);
 
     int busy_;                                  // +0x18 (counted up and down round a trick's script)
-    uint8_t* balance_1c_;                       // +0x1C (+0x74: manuals checked)
+    modules::PointTally* score_;                // +0x1C the skater's score (set by the skater)
     uint8_t* input_;                            // +0x20 (+0x498 / +0x499: no tricks)
     ObjectModule* balance_trick_;               // +0x24
     skater::SkaterPhysicsModule* core_physics_; // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)

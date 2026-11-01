@@ -17,6 +17,7 @@
 #include "engine/objects/control_pad.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "game/skate/point_tally.h"
 
 namespace objects {
 
@@ -1088,7 +1089,7 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
 // 0x00521A10
 void MoveExecutor::queue_all_done_tricks()
 {
-    if (manual_list_ && prop<bool>(balance_1c_, 0x74))
+    if (manual_list_ && score_->special_active_)
         queue_done_tricks(manual_list_, true, list_used_);
     for (int i = 0; i < extra_list_count_; ++i)
         queue_done_tricks(extra_lists_[i], false, list_used_);

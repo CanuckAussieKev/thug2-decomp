@@ -138,32 +138,30 @@ RiderStoryProgress* get_career()
 // The score (modules::PointTally; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
 // 0x00562510 with perfect) or by name (0x005625A0 / 0x005624C0) - with a spin and taps; 0x0049F4C0 (a shared "0"
 // for the tricks= arrays); a gap's points and text (0x00563990).
-int key_combo_count(uint8_t* score, uint32_t key_combo, int spin, int taps)
+int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_key_combo_repeats(key_combo, spin, taps);
+    return score->count_key_combo_repeats(key_combo, spin, taps);
 }
-int get_trick_count(uint8_t* score, uint32_t trick, int spin, int taps)
+int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_trick_repeats(trick, spin, taps);
+    return score->count_trick_repeats(trick, spin, taps);
 }
-int key_combo_count(uint8_t* score, uint32_t key_combo, int spin, uint32_t perfect, int taps)
+int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_key_combo(key_combo, spin,
-                                                                          reinterpret_cast<bool&>(perfect), taps);
+    return score->count_key_combo(key_combo, spin, reinterpret_cast<bool&>(perfect), taps);
 }
-int get_trick_count(uint8_t* score, uint32_t trick, int spin, uint32_t perfect, int taps)
+int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_trick_after_taps(
-        trick, spin, reinterpret_cast<bool&>(perfect), taps);
+    return score->count_trick_after_taps(trick, spin, reinterpret_cast<bool&>(perfect), taps);
 }
-int tricks_array_count(uint8_t* /*score*/, script::Array* tricks, uint32_t since)
+int tricks_array_count(modules::PointTally* /*score*/, script::Array* tricks, uint32_t since)
 {
     // (the shared "0": a stdcall stub of two stack arguments; the score is only in ECX)
     return stubs::return_zero2(static_cast<int>(reinterpret_cast<intptr_t>(tricks)), static_cast<int>(since));
 }
-void add_gap_score(uint8_t* score, const char* text, int points, int flags)
+void add_gap_score(modules::PointTally* score, const char* text, int points, int flags)
 {
-    reinterpret_cast<modules::PointTally*>(score)->fire_off(text, points, static_cast<uint32_t>(flags));
+    score->fire_off(text, points, static_cast<uint32_t>(flags));
 }
 
 // The state component (the physics control's).
@@ -419,7 +417,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
             gap_trick_count(gap) = get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap), gap_taps(gap));
         } else if (params->fetch_list(kTricks, &tricks, 0)) {
             script::duplicate_array(gap->element_list_, tricks);
-            gap_tricks_count(gap) = prop<uint32_t>(points_held_, 0x5C);
+            gap_tricks_count(gap) = static_cast<uint32_t>(points_held_->tricks_);
         }
         start_gap_trick(params, script);
     }

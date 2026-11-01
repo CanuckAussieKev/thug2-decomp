@@ -187,15 +187,15 @@ void delete_structure(Struct* structure)
 // A skater's state history (+0x27C) and its newest state / message.
 objects::RiderFrameLog* get_history(const objects::Entity* object)
 {
-    return reinterpret_cast<objects::RiderFrameLog*>(static_cast<const objects::Rider*>(object)->unknown27c_);
+    return static_cast<const objects::Rider*>(object)->state_history_;
 }
-int& message_count(objects::RiderFrameLog* history) { return prop<int>(history, 0xA6C); }
+int& message_count(objects::RiderFrameLog* history) { return history->message_count_; }
 // The newest message slot made a message of `id`, stamped with the newest state's time.
 objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, uint8_t id)
 {
     objects::StateHistoryMessage* message = history->get_latest_message();
     message->ident_ = id;
-    auto* state = reinterpret_cast<objects::SkaterStateHistoryFrame*>(history->fetch_newest_snapshot());
+    auto* state = history->fetch_newest_snapshot();
     message->change_moment(state->get_time());
     return message;
 }
@@ -729,8 +729,8 @@ int SkateNet::handle_history_value(net::InboundMsgCtx* context)
         static_cast<Skate*>(context->content_)->get_rider_by_number(static_cast<uint32_t>(id_byte(data, 0)));
     if (!skater)
         return 4;
-    auto* history = skater->fetch_module(objects::RiderFrameLog::kType);
-    prop<uint32_t>(history, 0x1104) = prop<uint32_t>(data, 4);
+    auto* history = static_cast<objects::RiderFrameLog*>(skater->fetch_module(objects::RiderFrameLog::kType));
+    history->vehicle_control_type_ = prop<uint32_t>(data, 4);
     return 1;
 }
 

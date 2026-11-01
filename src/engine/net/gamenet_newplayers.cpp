@@ -41,6 +41,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "game/rider/state_history.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -58,7 +59,7 @@ constexpr uint32_t kNewHasCrown = 0x80;
 constexpr uint32_t kNewPlayerFlags = 0x27805; // the flags a player keeps
 
 constexpr uint32_t kSkaterScore = 0xD262802F;      // the score component
-constexpr uint32_t kVehicleComponent = 0x18223FD6; // (its vehicle control type at +0x1104)
+constexpr uint32_t kVehicleComponent = 0x18223FD6; // SkaterStateHistory (its vehicle control type)
 constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 
 Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
@@ -101,8 +102,9 @@ void Hub::add_new_player(JoinerRecord* info)
             skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate,
                                                 info->account_, false, static_cast<int>(obj_id), count);
             if (info->drive_control_mode_) // its vehicle control type
-                prop<int>(static_cast<objects::GameEntity*>(skater)->fetch_module(kVehicleComponent), 0x1104) =
-                    info->drive_control_mode_;
+                static_cast<objects::RiderFrameLog*>(
+                    static_cast<objects::GameEntity*>(skater)->fetch_module(kVehicleComponent))
+                    ->vehicle_control_type_ = static_cast<uint32_t>(info->drive_control_mode_);
         }
     }
     PlayerRecord* player = find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(obj_id)));

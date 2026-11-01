@@ -576,7 +576,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     pad_input::HostEnd& controller = input->hosts_[handler->ordinal_];
     controller.handlers_.queue_job(handler);
     handler->control_data_ = &controller.content_;
-    handler->dev_ = reinterpret_cast<uint8_t*>(controller.dev_);
+    handler->dev_ = controller.dev_;
     saved_speed_ = 0.0f;
     panel_shown_ = true;
     speed_ = 1.0f;

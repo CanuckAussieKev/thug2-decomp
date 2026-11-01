@@ -752,9 +752,6 @@ int GoalManager::count_live_goals(bool all)
 }
 
 // 0x005591B0
-GoalManager* get_objective_board()
-{
-    return reinterpret_cast<modules::Skate*>(skate_calls::get_skate())->get_objective_board();
-}
+GoalManager* get_objective_board() { return skate_calls::get_skate()->get_objective_board(); }
 
 } // namespace goals

@@ -191,7 +191,7 @@ void ParkBuilderMode::start_callback()
     pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
     server.handlers_.queue_job(handler);
     handler->control_data_ = &input_manager()->hosts_[handler->ordinal_].content_;
-    handler->dev_ = reinterpret_cast<uint8_t*>(input_manager()->hosts_[handler->ordinal_].dev_);
+    handler->dev_ = input_manager()->hosts_[handler->ordinal_].dev_;
     main_loop->display_tasks_.queue_job(draw_job_);
 }
 
@@ -640,7 +640,7 @@ void ParkBuilderMode::link_to_pad(int controller)
     pad_input::HostEnd& server = input->hosts_[controller];
     server.handlers_.queue_job(handler);
     handler->control_data_ = &server.content_;
-    handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
+    handler->dev_ = server.dev_;
     pad_input::release_manager();
 }
 

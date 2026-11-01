@@ -340,7 +340,7 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
 // 0x005619E0
 void PointTally::test_record_score(int before, int after)
 {
-    auto* skate = reinterpret_cast<Skate*>(skate_calls::get_skate());
+    Skate* skate = skate_calls::get_skate();
     if (!get_game_mode()->is_true(kIsCareer))
         return;
     auto* goals = skate->score_goals_;

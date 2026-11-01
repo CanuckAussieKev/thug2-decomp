@@ -3,6 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/maths/mat4.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 
@@ -134,12 +137,34 @@ public:
     uint32_t sparks_pos_;                   // +0x124 a checksum
 };
 
-// The skater's state history (SkaterStateHistory, state_history.h): its state records (0x84 bytes; 20 of them from
-// the component's +0x1C) keep their time as two halves. (Its destructor body 0x005197C0 is here too.)
+// The skater's state history (SkaterStateHistory, state_history.h): a state a non-local skater was sent (0x84 bytes;
+// 20 of them from the component's +0x1C), its time as two halves. (Its destructor body 0x005197C0 is here too.)
 struct SkaterStateHistoryFrame {
-    // 0x005197D0 / 0x005197E0: the frame's time (+0x78 the low 16 bits, +0x7A the high).
+    // 0x005197D0 / 0x005197E0: the frame's time (time the low 16 bits, wraps the high).
     uint32_t get_time();
     void change_moment(uint32_t time);
+
+    int16_t pos[3]; // +0x00 the position, in half units (y in quarters)
+    uint16_t pad06;
+    maths::Mat4 matrix;   // +0x08 from the angles
+    maths::Vec4 position; // +0x48 (w 0)
+    float angles[3];      // +0x58
+    uint32_t unknown64;
+    uint32_t value68;   // +0x68 (5 bits: the state flags' bits are its bits... the original's)
+    uint32_t value_6c_; // +0x6C (3 bits)
+    int state;          // +0x70 (3 bits; kept as a signed byte)
+    uint8_t flag74;     // +0x74 (always 0 from a message: bit 7 of a 4-bit value)
+    uint8_t flag75;     // +0x75
+    uint8_t flag76;     // +0x76
+    uint8_t pad77;
+    uint16_t time;     // +0x78 the message's time stamp
+    uint16_t wraps;    // +0x7A the times the time stamp went back
+    uint8_t value_7c_; // +0x7C (6 bits)
+    uint8_t pad7d_[3];
+    uint32_t value80; // +0x80 (32 bits)
 };
+static_assert(sizeof(SkaterStateHistoryFrame) == 0x84 && offsetof(SkaterStateHistoryFrame, angles) == 0x58 &&
+                  offsetof(SkaterStateHistoryFrame, time) == 0x78 && offsetof(SkaterStateHistoryFrame, value80) == 0x80,
+              "the states' layout (sizes the history)");
 
 } // namespace objects

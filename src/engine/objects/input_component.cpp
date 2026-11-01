@@ -87,12 +87,9 @@ tasks::PileUp* server_handlers(pad_input::Hub* manager, int server) { return &ma
 void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, int server)
 {
     handler->control_data_ = &manager->hosts_[server].content_;
-    handler->dev_ = reinterpret_cast<uint8_t*>(manager->hosts_[server].dev_);
+    handler->dev_ = manager->hosts_[server].dev_;
 }
-int player_controller(int player)
-{
-    return input_manager()->get_player_controller(player);
-}
+int player_controller(int player) { return input_manager()->get_player_controller(player); }
 
 // A new handler (on the current heap).
 PadInputModule::Responder* new_handler(int index, PadInputModule::Responder::Code code, PadInputModule* component)
@@ -181,7 +178,7 @@ void PadInputModule::link_to_pad(int controller)
     server_handlers(manager, 1)->queue_job(handler2);
     place_handler(handler2, manager, 1);
     if (ObjectModule* vibration = entity_->fetch_module(kVibration))
-        static_cast<PadRumbleModule*>(vibration)->change_gadget(reinterpret_cast<sio::InputPort*>(handler_->dev_));
+        static_cast<PadRumbleModule*>(vibration)->change_gadget(handler_->dev_);
 }
 
 // 0x0041F170

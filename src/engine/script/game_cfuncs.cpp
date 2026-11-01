@@ -325,7 +325,7 @@ bool __cdecl cfunc_get_analogue_info(script::Struct* params, script::Script* scr
     objects::PadSnapshot pad;
     pad.prepare_all();
     pad.tick_frame(reinterpret_cast<const uint8_t*>(handler->control_data_));
-    auto* device = reinterpret_cast<sio::InputPort*>(handler->dev_);
+    auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return false;
     script->args_->push_float(kLeftX, pad.scaled_stick_[2]);
