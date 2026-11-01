@@ -212,10 +212,10 @@ void free_struct(gsl::owner<Struct*> structure);
 void free_array(gsl::owner<Array*> array);
 // Their owners, for a structure or array that lives in a scope or a member (freed as above).
 struct StructFree {
-    void operator()(Struct* structure) const noexcept { free_struct(structure); }
+    void operator()(gsl::owner<Struct*> structure) const noexcept { free_struct(structure); }
 };
 struct ArrayFree {
-    void operator()(Array* array) const noexcept { free_array(array); }
+    void operator()(gsl::owner<Array*> array) const noexcept { free_array(array); }
 };
 using StructPtr = std::unique_ptr<Struct, StructFree>;
 using ArrayPtr = std::unique_ptr<Array, ArrayFree>;

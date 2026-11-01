@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <gsl/pointers>
 
 // The loading screen (Nx engine, PC): its picture (a texture loaded by name, the language's version in "fr/" or
 // "gr/"), shown full screen; the bar's timer that draws it while the game loads (loading_bar.h); taking it down.
@@ -26,6 +27,6 @@ void show_loading_screen(const char* name, bool keep, bool black);
 // level_select_loading_screens): drawn cover-fitted, with a plate behind the bar (loading_bar.cpp).
 bool select_picture_up();
 
-extern BitmapTexture* g_loading_screen_picture;
+extern gsl::owner<BitmapTexture*> g_loading_screen_picture;
 
 } // namespace render

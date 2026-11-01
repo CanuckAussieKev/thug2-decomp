@@ -132,7 +132,7 @@ HANDLE screen_mutex() { return render::g_screen_mutex; }
 IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 bool load_screen_shown() { return render::g_loading_screen_up != 0; } // the main loop draws nothing then
 uint32_t bar_timer() { return render::g_loading_bar_timer; }          // the loading bar's timer (0x004B7400)
-void* screen_picture() { return render::g_loading_screen_picture; }   // the loading screen's picture
+bool screen_picture() { return render::g_loading_screen_picture != nullptr; } // the loading screen's picture is up
 void* movie_shown() { return render::g_current_movie; }               // a Bink movie playing (gfx/movie.cpp)
 int get_screen_width() { return render::g_back_buffer_width; }
 int get_screen_height() { return render::g_back_buffer_height; }

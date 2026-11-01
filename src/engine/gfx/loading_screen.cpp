@@ -33,7 +33,7 @@
 
 namespace render {
 
-render::BitmapTexture* g_loading_screen_picture;
+gsl::owner<render::BitmapTexture*> g_loading_screen_picture;
 
 namespace {
 
@@ -54,7 +54,6 @@ std::string g_picture_name; // the picture loaded
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
-render::BitmapTexture*& picture() { return g_loading_screen_picture; }
 render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 
 // The picture's name (a std::string in the original too: its assign at 0x004B7880 / 0x004B7750).
@@ -119,7 +118,7 @@ static_assert(sizeof(PictureVertex) == 0x18, "the original's vertex");
 // 0x004B6CD0
 void draw_loading_screen_picture()
 {
-    if (!picture())
+    if (!g_loading_screen_picture)
         return;
     get_lock();
     input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
@@ -136,7 +135,7 @@ void draw_loading_screen_picture()
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
     choose_blend_mode(0);
     set_texture(0, nullptr); // (the original passes a third 0, here and below)
-    set_texture(0, image_of(picture())->texture); // (and its palette)
+    set_texture(0, image_of(g_loading_screen_picture)->texture); // (and its palette)
     auto width = static_cast<float>(g_back_buffer_width);
     auto height = static_cast<float>(g_back_buffer_height);
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
@@ -229,14 +228,14 @@ void show_loading_screen(const char* name, bool keep, bool black)
             apply_bar_style(false);
             input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         } else {
-            if (const render::BitmapTexture* old = picture()) {
+            if (g_loading_screen_picture) {
                 if (std::strcmp(picture_name(), name) != 0) {
-                    delete old;
-                    picture() = nullptr;
+                    delete g_loading_screen_picture;
+                    g_loading_screen_picture = nullptr;
                     set_picture_name(name);
                 }
             }
-            picture() = new render::PcTexture;
+            g_loading_screen_picture = new render::PcTexture;
             // the language's picture: French "fr/<name>", German "gr/<name>"
             std::array<char, 0xC8> localised{};
             const char* file = name;
@@ -249,7 +248,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
                 file = localised.data();
             }
             // (no check: a failed allocation calls through null, as the original)
-            const bool loaded = picture()->load_by_name(file, 1, 1);
+            const bool loaded = g_loading_screen_picture->load_by_name(file, 1, 1);
             if (!loaded) {
                 get_unlock();
                 return;
