@@ -35,6 +35,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/engine_texture.h"
 
 namespace render {
 
@@ -388,7 +389,7 @@ struct RecentSplat {
 // 0x004928A0
 bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
                              float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
-                             uint32_t follow, uint8_t unknown40, uint8_t* texture)
+                             uint32_t follow, uint8_t unknown40, BitmapTexture* texture)
 {
     g_splat_reserve = script::fetch_int_value(0x26FCB7BE); // (asserted)
     RecentSplat* recent = nullptr;
@@ -428,7 +429,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     }
     if (!texture) {
         auto* textures = g_particle_texture_dict; // (the particles' dictionary)
-        texture = raw::bytes(textures->fetch_skin(checksums::hash_from_text(image_label)));
+        texture = textures->fetch_skin(checksums::hash_from_text(image_label));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.
     const maths::Seg line(*from, *to);
@@ -489,7 +490,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         if (!follow && splats) {
             age_texture_splats(splats, frame_milliseconds());
             light_texture_splats(splats);
-            splats->texture = raw::as<online::FoldedGetters>(texture)->word04();
+            splats->texture = texture->checksum_;
         }
     }
     if (recent) {

@@ -5,6 +5,8 @@
 
 namespace render {
 
+class BitmapTexture;
+
 // A screen flash (0x24 bytes; made by add_flash, engine_effects.h).
 struct Flash {
     int viewport;     // +0x00
@@ -18,7 +20,7 @@ struct Flash {
     float duration;   // +0x14
     float time_left_; // +0x18
     float z;          // +0x1C
-    uint8_t* texture; // +0x20 (null: untextured; nothing sets one)
+    BitmapTexture* texture; // +0x20 (null: untextured; nothing sets one)
 };
 
 // 0x004B9030: draw a flash over its viewport, with PartyMod's vertex order fix.

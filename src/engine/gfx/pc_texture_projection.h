@@ -15,9 +15,11 @@
 // per texture into batches (up to 10 a frame, 512 triangles each) and drawn after the world.
 namespace render {
 
+struct TextureImage;
+
 // A frame's batch for one texture (0x9120 bytes; ten at 0x00705758, how many in use at 0x00705750).
 struct ProjectionBatch {
-    uint32_t texture{};            // +0x00: its key
+    TextureImage* texture{};       // +0x00: its texture's image
     uint32_t blend_name_{};        // +0x04: the projection's last (a checksum)
     uint32_t triangle_count_{};    // +0x08
     MaterialRef material;          // +0x0C (made by make_new 0x004D1A90)
@@ -36,7 +38,7 @@ static_assert(offsetof(ProjectionBatch, material) == 0xC && offsetof(ProjectionB
 // 0x004C73E0: the frame's batch for a texture: the one made for it already, or the next (its material: one pass of
 // the texture, a random checksum - the game's rand() twice -, the blend mode from `blendName`, its pixel shader); a
 // message ("hmmm") and null when all ten are taken.
-ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name);
+ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name);
 // 0x004C7520 (draw_world's): the frame's batches drawn - with linear minification, put back after - and emptied.
 void draw_projection_batches();
 

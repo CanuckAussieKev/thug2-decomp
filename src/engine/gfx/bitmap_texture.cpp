@@ -21,7 +21,7 @@ namespace render {
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-IDirect3DTexture9* get_d3d(const TextureRef* t) { return static_cast<IDirect3DTexture9*>(t->texture); }
+IDirect3DTexture9* get_d3d(const TextureRef* t) { return t->texture; }
 
 // The list (0x007CC254): doubly linked nodes.
 struct Elem {
@@ -190,7 +190,7 @@ void release_render_target_textures()
         get_d3d(t)->Release();
         t->texture = nullptr;
         if (t->surface)
-            static_cast<IDirect3DSurface9*>(t->surface)->Release();
+            t->surface->Release();
         t->surface = nullptr;
     }
 }
@@ -203,9 +203,9 @@ void restore_render_target_textures()
         if (t->texture || !t->render_target_)
             continue;
         input_port()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
-                                    raw::as<IDirect3DTexture9*>(&t->texture), nullptr);
+                                    &t->texture, nullptr);
         if (t->texture)
-            get_d3d(t)->GetSurfaceLevel(0, raw::as<IDirect3DSurface9*>(&t->surface));
+            get_d3d(t)->GetSurfaceLevel(0, &t->surface);
     }
 }
 

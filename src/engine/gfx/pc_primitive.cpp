@@ -26,6 +26,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -106,11 +107,9 @@ PcPrimitive::~PcPrimitive()
 }
 
 // 0x004C5A90
-void PcPrimitive::set_texture(const uint8_t* texture, int, int)
+void PcPrimitive::set_texture(const BitmapTexture* texture, int, int)
 {
-    // (the engine texture's +0x10: its PC texture, or with flag 1 a pointer to it)
-    uint8_t* pc_texture = texture[8] & 1 ? **raw::field_at<uint8_t** const>(texture, 0x10)
-                                         : *raw::field_at<uint8_t* const>(texture, 0x10);
+    TextureImage* pc_texture = image_of(texture);
     core::at(material_.pass_flags_, 0) = pc_texture ? 4 : 0;
     const int r = get_rand();
     material_.checksum = static_cast<uint32_t>(r * get_rand());

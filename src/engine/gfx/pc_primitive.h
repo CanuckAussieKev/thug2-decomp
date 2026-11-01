@@ -26,7 +26,7 @@ public:
 
     // 0x004C5A90 (vtable slot 1): the texture (its key; none: the material's flag 4 off), a new sort key, the
     // material set up again.
-    void set_texture(const uint8_t* texture, int unused1, int unused2) override;
+    void set_texture(const BitmapTexture* texture, int unused1, int unused2) override;
     // 0x004C5310 (vtable slot 2)
     void change_colour(uint32_t rgba) override;
     // 0x004C5F00 (vtable slot 3): the vertex layout (1 colour, 2 texture, 4 normal), the type and the vertex count; the

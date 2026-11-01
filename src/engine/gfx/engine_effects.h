@@ -18,6 +18,8 @@ class KeyMap;
 
 namespace render {
 
+class BitmapTexture;
+
 // The vertex stack (0x006FC4A0): how many bytes are on it, a vertex's size, the vertices.
 struct VertexStack {
     uint32_t used{0};
@@ -82,7 +84,7 @@ void kill_texture_splats_of_texture(uint32_t texture);
 // fade threshold (0x0067DDE0) read from the script integer 0x26FCB7BE each time. Whether a splat was made.
 bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
                              float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
-                             uint32_t follow, uint8_t unknown40, uint8_t* texture);
+                             uint32_t follow, uint8_t unknown40, BitmapTexture* texture);
 
 // 0x00492000: each shatter's lifetime counted down: run out, it's destroyed; else a step (update_shatter). Not while
 // paused.

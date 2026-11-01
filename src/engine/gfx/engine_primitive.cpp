@@ -61,7 +61,7 @@ void Primitive::draw_if_ready(const float* positions, const uint32_t* colours, c
 
 // --- the virtuals' bodies (0x0049C390-0x0049C640) ---
 
-void Primitive::set_texture(const uint8_t*, int, int) { debug::printf("STUB: plat_set_texture\n"); }
+void Primitive::set_texture(const BitmapTexture*, int, int) { debug::printf("STUB: plat_set_texture\n"); }
 void Primitive::change_colour(uint32_t) { debug::printf("STUB: plat_set_base_color\n"); }
 void Primitive::prepare_all(uint32_t, int, int) { debug::printf("STUB: plat_begin\n"); }
 void Primitive::end_setup() { debug::printf("STUB: plat_end\n"); }

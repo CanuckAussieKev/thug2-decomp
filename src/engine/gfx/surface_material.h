@@ -10,6 +10,8 @@
 // through the fixed-function stages).
 namespace render {
 
+struct TextureImage;
+
 // A pass's UV wibble (0x30 bytes, constructor 0x004D1A60: all 0 but the matrix's first value, 1): velocities,
 // frequencies, amplitudes and phases (u, v each), an explicit UV matrix's 2x2 part (+0x20; only two values are
 // set) and its offsets (+0x28).
@@ -30,7 +32,7 @@ static_assert(sizeof(UvOscillator) == 0x30, "layout must match the original");
 // texture from then on), played from a phase, looping (`loops` times, then held at the end; 0: for ever).
 struct TextureKey {
     int time;
-    uint8_t* texture;
+    TextureImage* texture;
 };
 struct TextureAnim {
     uint32_t start_time_;    // (set by Restart; the animation doesn't read it)
@@ -73,7 +75,7 @@ struct MaterialRef {
                             // colour isn't to be changed, 0x100 (pass 0) specular, 0x200 a border colour, 0x400 bump
                             // environment, 0x800 texture animation, 0x1000 alpha from the texture alone, 0x4000
                             // explicit UV wibble (not animated)
-    std::array<uint8_t*, 4> textures{}; // +0x30 (+0x10 the Direct3D texture)
+    std::array<TextureImage*, 4> textures{}; // +0x30
     std::array<std::array<float, 4>, 4> pass_color_{};        // +0x40: r, g, b (0.5: unchanged) and a fourth value
     std::array<uint32_t, 4> blend_modes_{};       // +0x80 (choose_blend_mode's)
     std::array<uint32_t, 4> address_modes_{};     // +0x90 (kAddressMode0's)

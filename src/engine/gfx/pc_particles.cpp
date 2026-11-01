@@ -32,6 +32,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -58,16 +59,7 @@ void change_material_layer(MaterialRef* material, int pass, int flags)
     material->submit_pass(pass, cell::pointer<const float>(static_cast<intptr_t>(flags)));
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
-const uint8_t* find_texture(uint32_t checksum)
-{
-    return raw::bytes(g_particle_texture_dict->fetch_skin(checksum));
-}
-// (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
-uint8_t* texture_key(const uint8_t* texture)
-{
-    auto* const* key = raw::field_at<uint8_t* const>(texture, 0x10);
-    return texture[8] & 1 ? *raw::as<uint8_t* const>(*key) : *key;
-}
+const BitmapTexture* find_texture(uint32_t checksum) { return g_particle_texture_dict->fetch_skin(checksum); }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).
 uint32_t& random_a() { return g_particle_random_a; }
@@ -254,8 +246,8 @@ void PcParticleSystem::initialise()
     core::at(material->unknownc0_, 0) = 0x10001;
     core::at(material->blend_modes_, 0) = blend_mode_from_name(args_.blend_mode_);
     core::at(material->textures, 0) = nullptr;
-    if (const uint8_t* found = find_texture(args_.texture_))
-        core::at(material->textures, 0) = texture_key(found);
+    if (const BitmapTexture* found = find_texture(args_.texture_))
+        core::at(material->textures, 0) = image_of(found);
 
     // The spread: the boxes and their radii.
     std::array<float, 4> start = {{core::at(args_.box_, 0).x, core::at(args_.box_, 0).y, core::at(args_.box_, 0).z, core::at(args_.radius_, 0)}};

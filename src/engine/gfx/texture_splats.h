@@ -11,6 +11,9 @@
 // big (a stack of vertices at 0x006FC4A0).
 namespace render {
 
+class BitmapTexture;
+struct TextureImage;
+
 struct MaterialRef;
 
 // A splat set (laid out as the original: arrays of 256).
@@ -76,7 +79,7 @@ struct SplatParams {
     float angle{0.0f};         // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
     float cone_angle_{0.0f};   // +0x2C
     float lifetime{0.0f};      // +0x30
-    uint8_t* texture{nullptr}; // +0x34
+    BitmapTexture* texture{nullptr}; // +0x34
     uint32_t unknown38{0x54628ED7};
     const float* up{nullptr}; // +0x3C: a point the projection's up comes from, or null
     uint8_t unknown40{0};     // +0x40
@@ -92,7 +95,7 @@ static_assert(offsetof(SplatParams, texture) == 0x34 && offsetof(SplatParams, up
 
 // 0x004B9A60: the splat set for a texture: the table's, or a new one (its material: one pass of the texture, a random
 // checksum - the game's rand() twice -, blend mode 5) put in it.
-TextureSplats* get_texture_splats(uint32_t texture);
+TextureSplats* get_texture_splats(TextureImage* texture);
 // 0x004B9C30: a splat made on the sectors (a null-terminated array) along the ray: their meshes' strip triangles
 // that face it (within the cone) and fall inside the projection get the texture - split finer where they're big
 // (the pieces inside kept) - into the texture's set's oldest triangles (0x00490CD0). The set, or null if no

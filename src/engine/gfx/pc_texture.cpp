@@ -45,6 +45,8 @@ gsl::owner<PcTexture*> alloc_pc_texture() { return new PcTexture; }
 
 } // namespace
 
+TextureRef* image_of(const BitmapTexture* texture) { return core::down_cast<const PcTexture>(texture)->get_texture(); }
+
 TextureRef* PcTexture::get_texture() const
 {
     return flag_bits_ & 1 ? get_edit(this)->texture : static_cast<TextureRef*>(image_);

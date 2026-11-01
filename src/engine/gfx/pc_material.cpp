@@ -25,6 +25,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/bitmap_texture.h"
 
 namespace render {
 
@@ -276,12 +277,12 @@ void MaterialRef::hand_in()
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         if (!constants_changed() && std::memcmp(core::at(pass_color_, pass).data(), pass_constants() + 4 * pass, 16) != 0)
             constants_changed() = true;
-        uint8_t* texture = core::at(textures, pass);
+        const TextureImage* texture = core::at(textures, pass);
         if (!texture) {
             set_texture(static_cast<int>(pass), nullptr);
             continue;
         }
-        set_texture(static_cast<int>(pass), *raw::field_at<void*>(texture, 0x10));
+        set_texture(static_cast<int>(pass), texture->texture);
         change_phase(kAddressMode0 + static_cast<int>(pass), core::at(address_modes_, pass));
         change_phase(kMipLodBias0 + static_cast<int>(pass), core::at(mip_lod_bias_, pass));
         set_border_color(this, pass, pass);
@@ -342,11 +343,11 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         return;
     choose_blend_mode(core::at(blend_modes_, pass));
     if (!(g_skipped_passes & (1u << (pass & 31)))) {
-        uint8_t* texture = core::at(textures, pass);
+        const TextureImage* texture = core::at(textures, pass);
         if (!texture) {
             set_texture(0, nullptr);
         } else {
-            set_texture(0, *raw::field_at<void*>(texture, 0x10));
+            set_texture(0, texture->texture);
             change_phase(kAddressMode0, core::at(address_modes_, pass));
             change_phase(kMipLodBias0, core::at(mip_lod_bias_, pass));
             set_border_color(this, pass, pass);
@@ -380,12 +381,12 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                     set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
-                        set_texture(1, *raw::field_at<void*>(core::at(textures, pass - 1), 0x10));
+                        set_texture(1, core::at(textures, pass - 1)->texture);
                         change_phase(kAddressMode0 + 1, core::at(address_modes_, pass - 1));
                         change_phase(kMipLodBias0 + 1, core::at(mip_lod_bias_, pass - 1));
                     } else {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
-                        set_texture(1, *raw::field_at<void*>(core::at(textures, pass), 0x10));
+                        set_texture(1, core::at(textures, pass)->texture);
                     }
                 }
             }

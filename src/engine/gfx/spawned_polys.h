@@ -13,6 +13,8 @@
 // primitive of its own; kept in the table 0x007004AC (keyed by address).
 namespace render {
 
+class BitmapTexture;
+
 class PcPrimitive;
 
 // A spawned polygon (0xB8 bytes; the script command's SpawnedPolyDetails, from the pool pair 0x00700500).
@@ -28,7 +30,7 @@ struct SpawnedPoly {
     uint32_t flags{};               // +0x98: 1 done; 2 the primitive's +0x14
     float age{};                    // +0x9C: seconds
     float lifetime{};               // +0xA0
-    uint8_t* texture{};             // +0xA4 (null: untextured)
+    BitmapTexture* texture{};       // +0xA4 (null: untextured)
     PcPrimitive* primitive{};       // +0xA8
     uint32_t blend_mode_;         // +0xAC
     float align_h_;               // +0xB0 (-1 left, 0 centre, 1 right)

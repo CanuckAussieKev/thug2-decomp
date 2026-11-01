@@ -35,6 +35,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -361,10 +362,10 @@ uint32_t& get_color(uint8_t* vertex) { return *raw::field_at<uint32_t>(vertex, 0
 } // namespace
 
 // 0x004B9A60
-TextureSplats* get_texture_splats(uint32_t texture)
+TextureSplats* get_texture_splats(TextureImage* texture)
 {
     for (TextureSplats* splats = first_splats(get_splats()); splats; splats = next_splats(get_splats())) {
-        if (cell::of(core::at(splats->material->textures, 0)) == texture)
+        if (core::at(splats->material->textures, 0) == texture)
             return splats;
     }
     void* memory = memory::alloc(sizeof(MaterialRef));
@@ -374,7 +375,7 @@ TextureSplats* get_texture_splats(uint32_t texture)
     const int a = get_rand();
     const int b = get_rand();
     material->checksum = a * b;                                  // a random checksum
-    core::at(material->textures, 0) = cell::pointer<uint8_t>(texture); // (the texture's key: its PC texture's address)
+    core::at(material->textures, 0) = texture;
     material->pass_count_ = 1;                                   // one pass
     material->two_sided_ = 1;
     material->depth_bias_ = 0x14;
@@ -501,11 +502,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                 if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
                     continue;
                 if (!splat_vertices) {
-                    uint8_t* holder = params->texture;
-                    uint8_t* key = *raw::field_at<uint8_t*>(holder, 0x10);
-                    if (holder[8] & 1)
-                        key = *raw::as<uint8_t*>(key);
-                    splats = get_texture_splats(cell::of(key));
+                    splats = get_texture_splats(image_of(params->texture));
                     splat_vertices = core::at(splats->vertices, 0).data()[0].data();
                 }
                 slot = oldest_triangle(splats);

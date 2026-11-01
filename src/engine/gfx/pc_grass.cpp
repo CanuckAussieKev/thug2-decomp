@@ -30,6 +30,7 @@
 #include "engine/gfx/engine_scene.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -37,9 +38,9 @@ namespace {
 float g_grass_detail_uv_scale{0.010416667f};
 float g_grass_uv_scale{0.0052083335f};
 float g_grass_copy_uv_scale{0.020833334f};
-std::array<uint8_t, 0x20> g_grass_texture0; // the grass materials' texture slots (0x20 bytes each)
-std::array<uint8_t, 0x20> g_grass_texture1;
-std::array<uint8_t, 17 * 0x20> g_grass_texture_animation; // (17 slots of 0x20)
+TextureImage g_grass_texture0; // the grass materials' two textures (listed among the textures; see below)
+TextureImage g_grass_texture1;
+std::array<TextureImage, 17> g_grass_texture_animation; // (17 textures)
 
 constexpr uint32_t kAnimatedGrass = 0x8000000; // pass 0's flag: animated rather than layered
 constexpr int kMaxLayers = 5;
@@ -54,8 +55,8 @@ void* look_up_texture(void* dictionary, uint32_t checksum)
 // 0x004D08A0
 void set_up_animated_grass_material(MaterialRef* m)
 {
-    core::at(m->textures, 0) = g_grass_texture0.data();
-    core::at(m->textures, 1) = g_grass_texture1.data();
+    core::at(m->textures, 0) = &g_grass_texture0;
+    core::at(m->textures, 1) = &g_grass_texture1;
     core::at(m->blend_modes_, 0) = 0x40000006;
     core::at(core::at(m->pass_color_, 0), 3) = 0.5f;
     m->pass_count_ = 2;
@@ -80,7 +81,7 @@ void set_up_animated_grass_material(MaterialRef* m)
     core::at(m->texture_anim_->keys, 3) = nullptr;
     for (int k = 0; k < 18; ++k) { // (a frame every 1000 / 30 ms, through 17 textures)
         core::at(m->texture_anim_->keys, 0)[k].time = k * 1000 / 30;
-        core::at(m->texture_anim_->keys, 0)[k].texture = g_grass_texture_animation.data() + (k % 17) * 0x20;
+        core::at(m->texture_anim_->keys, 0)[k].texture = &core::at(g_grass_texture_animation, k % 17);
     }
 }
 
@@ -91,10 +92,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     auto* entry = static_cast<uint8_t*>(look_up_texture(dictionary, 0x96D0BF08));
     if (!entry)
         return false;
-    auto* texture = *raw::field_at<uint8_t*>(entry, 0x10);
-    if (entry[8] & 1)
-        texture = *raw::as<uint8_t*>(texture);
-    std::memcpy(g_grass_texture1.data(), texture, 0x20);
+    g_grass_texture1 = *image_of(raw::as<BitmapTexture>(entry)); // (a copy of the record, as the original)
     if ((mesh->stride - core::at(mesh->unknown1c_, 2)) / 8 == 1) { // (one texture coordinate set: room made for a second)
         VertexBuffer* wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
         uint8_t* from = nullptr;
@@ -183,18 +181,15 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
 
 namespace render {
 
-// 0x00640D90 (a static initialiser): the grass materials' two textures (each listed among the textures).
+// 0x00640D90 (a static initialiser): the grass materials' two textures, empty. (The original constructed them as
+// listed textures; the list is only walked for render targets, which these never are.)
 void construct_grass_textures()
 {
-    new (g_grass_texture0.data()) TextureRef;
-    new (g_grass_texture1.data()) TextureRef;
+    g_grass_texture0 = TextureImage{};
+    g_grass_texture1 = TextureImage{};
 }
 
-// 0x00640DC0 (a static initialiser): the grass animation's 17 textures.
-void construct_grass_texture_animation()
-{
-    for (int i = 0; i < 17; ++i)
-        new (g_grass_texture_animation.data() + 0x20 * i) TextureRef;
-}
+// 0x00640DC0 (a static initialiser): the grass animation's 17 textures, empty (as above).
+void construct_grass_texture_animation() { g_grass_texture_animation.fill(TextureImage{}); }
 
 } // namespace render

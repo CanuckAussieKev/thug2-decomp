@@ -164,10 +164,7 @@ void draw_loading_screen_picture()
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
     choose_blend_mode(0);
     set_texture(0, nullptr); // (the original passes a third 0, here and below)
-    uint8_t* texture = *raw::field_at<uint8_t*>(picture(), 0x10);
-    if (picture()[8] & 1)
-        texture = *raw::as<uint8_t*>(texture);
-    set_texture(0, *raw::field_at<void*>(texture, 0x10)); // (and its +0x14)
+    set_texture(0, image_of(raw::as<BitmapTexture>(picture()))->texture); // (and its palette)
     auto width = static_cast<float>(g_back_buffer_width);
     auto height = static_cast<float>(g_back_buffer_height);
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off

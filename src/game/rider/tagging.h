@@ -8,6 +8,10 @@
 #include <gsl/pointers>
 #include <array>
 
+namespace render {
+class BitmapTexture;
+}
+
 namespace skater {
 class SkaterPhysicsModule;
 } // namespace skater
@@ -56,8 +60,8 @@ public:
 
     bool custom_tag_{false}; // +0x18
     std::array<uint8_t, 3> pad19{};
-    void* graffiti_{nullptr}; // +0x1C the graffiti texture
-    void* sticker_{nullptr};  // +0x20 the sticker texture
+    render::BitmapTexture* graffiti_{nullptr}; // +0x1C the graffiti texture
+    render::BitmapTexture* sticker_{nullptr};  // +0x20 the sticker texture
 };
 
 // The tagging control component (TaggingControl, type 0x380D909A, vtable 0x0064C394, 0x38 bytes; made by 0x0051E280).

@@ -34,6 +34,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -98,7 +99,7 @@ ProjectionBatch* ProjectionBatch::make_new()
 void ProjectionBatch::teardown() { material.~MaterialRef(); }
 
 // 0x004C73E0
-ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name)
+ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name)
 {
     const uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
@@ -116,7 +117,7 @@ ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name)
     const int b = get_rand();
     material->checksum = a * b;                                  // a random checksum
     material->pass_count_ = 1;                                   // one pass
-    core::at(material->textures, 0) = cell::pointer<uint8_t>(texture); // (the texture's key: its PC texture's address)
+    core::at(material->textures, 0) = texture;
     material->two_sided_ = 1;
     material->depth_bias_ = 4;
     core::at(material->blend_modes_, 0) = blend_mode_from_name(blend_name);
@@ -192,10 +193,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
                     continue;
                 if (!batch_vertices) {
-                    uint8_t* key = *raw::field_at<uint8_t*>(bitmap_, 0x10);
-                    if (bitmap_[8] & 1)
-                        key = *raw::as<uint8_t*>(key);
-                    batch = get_projection_batch(cell::of(key), blend_mode_);
+                    batch = get_projection_batch(image_of(bitmap_), blend_mode_);
                     batch_vertices =
                         raw::bytes(batch) + 0x120; // (null: written near null, as the original)
                 }

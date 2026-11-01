@@ -28,6 +28,9 @@ struct TextureEdit {
 };
 
 // The PC texture (0x14 bytes, vtable 0x0064A770).
+// The engine texture's image (a PC texture's TextureRef, or the edit's while it's edited).
+TextureRef* image_of(const BitmapTexture* texture);
+
 class PcTexture final : public BitmapTexture {
 public:
     PcTexture(const PcTexture&) = delete;

@@ -15,21 +15,17 @@
 #include "engine/lists/key_map.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
 namespace {
 
-// A texture table's entry for the checksum (its texture at +0x10, or behind it with flag 1), or null.
-uint8_t* find_texture(const lists::KeyMap* textures, uint32_t checksum)
+// A texture table's texture's image for the checksum, or null.
+TextureImage* find_texture(const lists::KeyMap* textures, uint32_t checksum)
 {
-    auto* entry = static_cast<uint8_t*>(textures->fetch_entry(checksum));
-    if (!entry)
-        return nullptr;
-    auto* texture = *raw::field_at<uint8_t*>(entry, 0x10);
-    if (entry[8] & 1)
-        texture = *raw::as<uint8_t*>(texture);
-    return texture;
+    const auto* entry = static_cast<const BitmapTexture*>(textures->fetch_entry(checksum));
+    return entry ? image_of(entry) : nullptr;
 }
 
 // The table's size: 2^bits buckets, from 4 up to 4096, at least twice the count.

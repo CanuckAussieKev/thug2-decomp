@@ -63,8 +63,8 @@ bool skeleton_bone_matrix(gfx::Rig* skeleton, uint32_t bone, maths::Mat4* out)
 }
 
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
-void* texture_named(const char* name) { return render::g_particle_texture_dict->get_texture_by_name(name); }
-void* texture_by_checksum(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
+render::BitmapTexture* texture_named(const char* name) { return render::g_particle_texture_dict->get_texture_by_name(name); }
+render::BitmapTexture* texture_by_checksum(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
 
 // The game's C runtime rand().
 int get_rand() { return crt::get_rand(); }
@@ -146,7 +146,7 @@ bool BoneRigModule::get_bone_position(uint32_t bone, maths::Vec4* out)
 // 0x004320F0
 void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec4* end, uint32_t bone, float width,
                                       float height, float spin, float turn, float spread, float lifetime,
-                                      float dropdown_length, void* texture, uint32_t blend, bool follow, bool dropdown)
+                                      float dropdown_length, render::BitmapTexture* texture, uint32_t blend, bool follow, bool dropdown)
 {
     maths::Vec4 from;
     if (!bone)
@@ -198,7 +198,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         to.w = to.w + static_cast<float>(along * at.w);
     }
     render::engine::create_texture_splat_at(&from, &to, width, height, spin, turn, lifetime, nullptr, blend,
-                                            follow ? bone : 0, 0, static_cast<uint8_t*>(texture));
+                                            follow ? bone : 0, 0, texture);
 }
 
 // 0x00432490
@@ -321,7 +321,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     angle = angle * kRadiansPerDegree;
 
     // The texture: by name or by checksum, from name= or texture=.
-    void* texture = nullptr;
+    render::BitmapTexture* texture = nullptr;
     const char* image_label = nullptr;
     uint32_t texture_checksum = 0; // (read into the parameters' own argument slot, cleared first)
     if (params->fetch_text(0xA1DC81F9u, &image_label, 0) || params->fetch_text(0x7D99F28Du, &image_label, 0))

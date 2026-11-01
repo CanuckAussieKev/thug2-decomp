@@ -12,6 +12,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -49,10 +50,8 @@ void draw_flash(const Flash* flash)
                                {right, bottom, z, 1.0f, color, 1.0f, 1.0f},
                                {left, bottom, z, 1.0f, color, 0.0f, 1.0f}}};
     // (without a texture the original leaves u/v unset; they aren't used then)
-    if (uint8_t* texture = flash->texture) {
-        uint8_t* image = (texture[8] & 1) ? **raw::field_at<uint8_t**>(texture, 0x10)
-                                          : *raw::field_at<uint8_t*>(texture, 0x10);
-        set_texture(0, *raw::field_at<void*>(image, 0x10)); // (the original also passes 0, unused)
+    if (const BitmapTexture* texture = flash->texture) {
+        set_texture(0, image_of(texture)->texture); // (the original also passes 0, unused)
         set_sampler_state(4, 0x10001);
     } else {
         set_texture(0, nullptr);

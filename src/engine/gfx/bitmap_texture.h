@@ -2,22 +2,29 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "platform/d3d_forward.h"
 
 // A texture (Nx engine, PC): its Direct3D texture and, for render targets, the surface. Every texture is on a list
 // (0x007CC254) so the render targets can be released and made again around a device reset.
 namespace render {
 
-struct TextureRef {
+// A texture's image: its sizes and Direct3D objects (what a material's pass draws with). Copied as it is where the
+// original copied the record (the grass's snapshot of the sky's texture).
+struct TextureImage {
     uint32_t checksum{};
     uint16_t width{}, height{};               // the texture's
     uint16_t image_width_{}, image_height_{}; // the image's, at its top left
     uint8_t levels{};
     uint8_t depth{};
     uint8_t unknowne_{}, unknownf_{};
-    void* texture{nullptr}; // IDirect3DTexture9
-    void* palette{nullptr}; // (or an alpha texture: GetPaletteOwner)
-    void* surface{nullptr}; // a render target's level 0 (IDirect3DSurface9)
+    IDirect3DTexture9* texture{nullptr};
+    IDirect3DTexture9* palette{nullptr}; // (or an alpha texture: GetPaletteOwner)
+    IDirect3DSurface9* surface{nullptr}; // a render target's level 0
     bool render_target_{false};
+};
+
+// The texture itself: an image on the textures' list, its Direct3D objects released with it.
+struct TextureRef : TextureImage {
 
     // 0x004E04B0: construct (no texture) and go on the list.
     TextureRef();

@@ -76,7 +76,7 @@ void* ingest_skin(const char* name, bool a, bool b, bool c)
 {
     return static_cast<render::TextureSet*>(texture_bank())->ingest_skin(name, a, b, c);
 }
-void* copy_texture(uint32_t key, void* texture)
+render::BitmapTexture* copy_texture(uint32_t key, void* texture)
 {
     return static_cast<render::TextureSet*>(texture_bank())
         ->copy_texture(key, static_cast<render::BitmapTexture*>(texture));
@@ -97,12 +97,12 @@ void put_on(void* texture, void* image)
 }
 
 // One of the component's own textures given back.
-void free_texture(void*& texture)
+void free_texture(render::BitmapTexture*& texture)
 {
     if (!texture)
         return;
-    render::engine::kill_texture_splats_of_texture(static_cast<render::BitmapTexture*>(texture)->checksum_);
-    static_cast<render::BitmapTexture*>(texture)->pin_resident(false);
+    render::engine::kill_texture_splats_of_texture(texture->checksum_);
+    texture->pin_resident(false);
     release_texture(texture);
     unload_texture(texture);
     texture = nullptr;
@@ -220,7 +220,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
         spin = static_cast<float>((maths::rnd(90) - 45) * static_cast<double>(kRadiansPerDegree));
     auto width = static_cast<float>(size);
     render::engine::create_texture_splat_at(&start, &end, width, width, spin, turn, 5000.0f, "", 0x54628ED7, 0, 0,
-                                            static_cast<uint8_t*>(sticker ? sticker_ : graffiti_));
+                                            sticker ? sticker_ : graffiti_);
     if (!send)
         return;
     net::NetMessageInfo msg;

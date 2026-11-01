@@ -6,4 +6,6 @@
 // NOLINTBEGIN(cppcoreguidelines-virtual-class-destructor): COM interfaces: released, never deleted
 struct IDirect3DVertexBuffer9;
 struct IDirect3DIndexBuffer9;
+struct IDirect3DTexture9;
+struct IDirect3DSurface9;
 // NOLINTEND(cppcoreguidelines-virtual-class-destructor)

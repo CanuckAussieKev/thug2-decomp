@@ -21,6 +21,8 @@ class Struct;
 // each frame (the texture projection component's).
 namespace render {
 
+class BitmapTexture;
+
 // TextureProjection::flag_bits_
 constexpr uint32_t kProjectionFlag1 = 0x01;        // the structure's 0xAF06447B
 constexpr uint32_t kProjectionOrthographic = 0x02; // a size given (0x083FDB95)
@@ -58,7 +60,7 @@ public:
 
     memory::ListNode list_link_{}; // +0x04 in its component's list (data = this)
     uint32_t label_{0};            // +0x14: the structure's 0x1EE8B7B9 (the component sets it)
-    uint8_t* bitmap_{nullptr};     // +0x18: an engine BitmapTexture
+    BitmapTexture* bitmap_{nullptr}; // +0x18
     uint32_t blend_mode_{0};       // +0x1C
     maths::Mat4 projection_{};    // +0x20
     float extent_{0.0f};          // +0x60

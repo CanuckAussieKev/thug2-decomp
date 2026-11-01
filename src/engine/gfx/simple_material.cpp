@@ -14,16 +14,14 @@
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
 namespace {
 
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
-uint8_t* find_texture(uint32_t checksum)
-{
-    return raw::bytes(g_particle_texture_dict->fetch_skin(checksum));
-}
+const BitmapTexture* find_texture(uint32_t checksum) { return g_particle_texture_dict->fetch_skin(checksum); }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
 MaterialRef* construct_material(void* memory) { return new (memory) MaterialRef; }
 // The C runtime's rand (the game's: its sequence).
@@ -70,10 +68,9 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
                                uint32_t blend_checksum, int fixed_alpha, uint32_t /*unused5*/, uint32_t /*unused6*/)
 {
     // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
-    uint8_t* texture = nullptr;
-    if (uint8_t* entry = find_texture(texture_checksum))
-        texture =
-            (entry[8] & 1) ? **raw::field_at<uint8_t**>(entry, 0x10) : *raw::field_at<uint8_t*>(entry, 0x10);
+    TextureImage* texture = nullptr;
+    if (const BitmapTexture* entry = find_texture(texture_checksum))
+        texture = image_of(entry);
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
     core::at(m->pass_flags_, 0) = (texture ? 4 : 0) | 0x40;

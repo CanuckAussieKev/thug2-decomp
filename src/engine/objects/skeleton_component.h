@@ -18,6 +18,10 @@ namespace gfx {
 class Rig;
 }
 
+namespace render {
+class BitmapTexture;
+}
+
 namespace objects {
 
 // The skeleton component (type 0x222756D5, "skeleton"; vtable 0x006464DC, 0x1C bytes; made by 0x00431F60): its
@@ -65,7 +69,7 @@ public:
     // scattered by up to `spread` along the object's right and at (two rand()s). `width` / `height` / `spin` / `turn`
     // / `lifetime` / `texture` / `blend` passed on, and `bone` when `follow`.
     void place_decal_splat(const maths::Vec4* start, const maths::Vec4* end, uint32_t bone, float width, float height,
-                           float spin, float turn, float spread, float lifetime, float dropdown_length, void* texture,
+                           float spin, float turn, float spread, float lifetime, float dropdown_length, render::BitmapTexture* texture,
                            uint32_t blend, bool follow, bool dropdown);
     // 0x00432490 (RET 0x1C): a composite object made of `components` (0x0045F3A0, finalised) with `params` given
     // the position, orientation (a quaternion with w > 0), velocity and rotational velocity of the skeleton's `bone`

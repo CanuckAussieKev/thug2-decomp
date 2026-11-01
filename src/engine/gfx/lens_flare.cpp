@@ -62,8 +62,8 @@ float g_flare_sun_burst_out_time;
 uint8_t g_flare_query;
 bool g_flare_shown;
 bool g_flare_hidden;
-void* g_flare_sun_texture;
-void* g_flare_corona_texture;
+render::BitmapTexture* g_flare_sun_texture;
+render::BitmapTexture* g_flare_corona_texture;
 FlareElement* g_flare_elements;
 uint32_t g_flare_element_count;
 uint32_t g_flare_visible_time;
@@ -82,8 +82,8 @@ float& sun_burst_out_time() { return g_flare_sun_burst_out_time; }
 uint8_t& get_query() { return g_flare_query; } // the occlusion query's result number (0: none)
 bool& get_shown() { return g_flare_shown; }
 bool& flare_hidden() { return g_flare_hidden; }
-void*& sun_texture() { return g_flare_sun_texture; }
-void*& get_corona_texture() { return g_flare_corona_texture; }
+render::BitmapTexture*& sun_texture() { return g_flare_sun_texture; }
+render::BitmapTexture*& get_corona_texture() { return g_flare_corona_texture; }
 FlareElement*& get_elements() { return g_flare_elements; }
 uint32_t& element_count() { return g_flare_element_count; }
 uint32_t& visible_time() { return g_flare_visible_time; } // when the sun was last seen
@@ -92,8 +92,8 @@ maths::Vec4& get_color() { return g_flare_color; }
 maths::Vec4& get_position() { return g_flare_position; } // in the world, this frame
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted.
-void* find_texture(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
-void delete_texture(void* texture) { delete static_cast<render::BitmapTexture*>(texture); }
+render::BitmapTexture* find_texture(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
+void delete_texture(render::BitmapTexture* texture) { delete texture; }
 
 // The game's clock with its offset, and the milliseconds since `time`.
 uint32_t get_now() { return static_cast<uint32_t>(frame_clock::game_clock_time()); }
@@ -365,7 +365,7 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     facing[2] = maths::cross_vec((*camera->fetch_mat())[1], facing[0]);
     facing[1] = maths::cross_vec(facing[2], facing[0]);
     if (sun_texture())
-        quad->set_texture(static_cast<const uint8_t*>(sun_texture()), 0, 0);
+        quad->set_texture(sun_texture(), 0, 0);
     const float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
     float half = size / 2.0f;
     std::array<maths::Vec4, 4> quad_corners = {{
@@ -480,7 +480,7 @@ void render(gfx::ViewCam* camera)
             const std::array<float, 8> corona_uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
             build_sun_quad(camera, &corona, &sun_pos, corona_corners.data());
             if (get_corona_texture())
-                corona.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
+                corona.set_texture(get_corona_texture(), 0, 0);
             set_prim_state(1, 2);
             set_prim_state(4, 0);
             blit_quad(&corona, corona_corners.data(), &core::at(core::at(colors, 0), 0), corona_uvs.data());
@@ -502,7 +502,7 @@ void render(gfx::ViewCam* camera)
         (void)brightness; // (worked out, not used)
         corner_colors(colors, 0.5);
         if (get_corona_texture())
-            sun.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
+            sun.set_texture(get_corona_texture(), 0, 0);
         sun.blend_mode_ = kAdd;
         blit_quad(&sun, corners.data(), &core::at(core::at(colors, 0), 0), uvs.data());
         if (static_cast<double>(morph_in_time()) * 1000.0f < static_cast<double>(unseen))
