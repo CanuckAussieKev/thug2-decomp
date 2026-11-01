@@ -372,7 +372,7 @@ void assign_value(const State& state) { g_state = state; }
 bool linked_duplicate()
 {
     edit::Selected selection = edit::get_selection();
-    if (selection.kind != edit::Kind::object_edit && selection.kind != edit::Kind::kScenery) {
+    if (selection.kind != edit::Kind::kObject && selection.kind != edit::Kind::kScenery) {
         hud::get_message("Only objects and scenery can be linked", 4.0);
         return false;
     }

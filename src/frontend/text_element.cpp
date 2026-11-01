@@ -67,7 +67,7 @@ double two_to32() { return ::gfx::g_two_to32; }             // (unsigned to floa
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // An unsigned millisecond count as the original converts it (signed, then 2^32 added when negative).
-double Unsigned(int value)
+double as_unsigned(int value)
 {
     double d = value;
     if (value < 0)
@@ -165,7 +165,7 @@ void SmearEffect::tick_frame()
     int now = static_cast<int>(frame_clock::get_time());
     double k = get_one();
     if (remaining_)
-        k = Unsigned(now - last_time_) / Unsigned(remaining_);
+        k = as_unsigned(now - last_time_) / as_unsigned(remaining_);
     if (static_cast<uint32_t>(now - last_time_) < static_cast<uint32_t>(remaining_))
         remaining_ = last_time_ - now + remaining_;
     else

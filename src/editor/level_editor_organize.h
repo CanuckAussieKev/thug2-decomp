@@ -62,7 +62,7 @@ std::string get_label_of(const State& state, uint32_t id);
 void set_label(State* state, uint32_t id, const std::string& text);
 // A flag set in a list of ids, switched.
 bool get_has(const std::vector<uint32_t>& list, uint32_t id);
-void Switch(std::vector<uint32_t>* list, uint32_t id, bool on);
+void set_flag(std::vector<uint32_t>* list, uint32_t id, bool on);
 
 // The Outliner's search: type filters, then the words.
 struct Filter {

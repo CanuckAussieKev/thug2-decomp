@@ -1205,7 +1205,7 @@ bool restore_points(const std::string& id)
     return true;
 }
 
-bool Export(const std::string& id, std::string* message)
+bool export_goal(const std::string& id, std::string* message)
 {
     int i = index_of_goal_id(id);
     if (i < 0) {
@@ -1369,7 +1369,7 @@ std::vector<std::string> get_level_gaps()
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                 uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
+                 uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto project = [&](V3 p, float* x, float* y) {
         float nx, ny;

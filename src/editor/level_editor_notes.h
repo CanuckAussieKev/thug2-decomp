@@ -65,7 +65,7 @@ void tick_frame();
 // The pins over the view (the selected one brighter): a stem from the point up, a head, the text beside it.
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
-                 std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Overlay::OverlayText>* texts);
 // The Outliner's Notes section (`search`: the Outliner's search text - rows matching it) and the selected note's window.
 void outliner_section(ImFont* mono, const char* search);
 void pane(float view_x, float view_y, float view_width, float view_height, float scale);

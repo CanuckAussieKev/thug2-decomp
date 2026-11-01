@@ -209,7 +209,7 @@ bool add_checkpoint(const std::string& id);
 bool remove_checkpoint(const std::string& id);
 // Copied into the goal editor's own table (Create-a-Goal's created goals of this level - in memory; its SAVE GOALS
 // saves it). `message` says what happened.
-bool Export(const std::string& id, std::string* message);
+bool export_goal(const std::string& id, std::string* message);
 
 // Layouts: the goals now; a layout's made (how many); every goal removed (and out of play); a new level (forgotten -
 // any of ours still in the goal manager removed: their nodes went with the level).
@@ -225,7 +225,7 @@ void halt();
 void tick_frame();
 // Labels and lines over the view (the goal of `selected` - a node name, 0 none - brighter).
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                 uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+                 uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts);
 // The Inspector: the selected point's goal (`node`: its name, 0 none), and the Goals section (the list, new goals).
 void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font);
 void list_section(ImFont* mono, ImFont* small_font);

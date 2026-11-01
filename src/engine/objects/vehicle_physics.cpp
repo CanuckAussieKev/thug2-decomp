@@ -49,7 +49,7 @@ const double kTwoTo32 = 4294967296.0;                             // 0x006453B4
 constexpr uint32_t kParkEditorOff = 0xD443A2BC;
 
 // An unsigned count as the original's FILD (and its 2^32 fix for negatives).
-double Unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
+double as_unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
 
 // The cap on a brake-like torque: what stops the wheel in this step, |(-1 / (dt * inv_moment_)) * spin| as a float.
 float brake_turn_force(double per_step, float spin) { return static_cast<float>(std::fabs(-1.0 / per_step * spin)); }
@@ -250,7 +250,7 @@ void DrivableModule::apply_suspension()
         if (wheel.state == kWheelInAir) {
             // (In the air the history gets an even share of the weight; the average isn't updated.)
             wheel.load_history_[load_index_] =
-                static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / Unsigned(wheel_count_));
+                static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
             continue;
         }
         // The spring (by how far the suspension is compressed along the ground's normal) and the damper.
@@ -356,7 +356,7 @@ void DrivableModule::apply_engine_braking()
             continue;
         int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
         double ratio = transmission_ratios_[gear];
-        double braking = ratio * engine_braking_ * ratio / Unsigned(drive_wheel_count_);
+        double braking = ratio * engine_braking_ * ratio / as_unsigned(drive_wheel_count_);
         float stop = brake_turn_force(static_cast<double>(wheel.inv_moment_) * step_length_, wheel.spin);
         if (braking > stop)
             braking = stop;
@@ -385,7 +385,7 @@ void DrivableModule::apply_drive_torque()
             spin = wheel.spin < 0.0f ? -wheel.spin : 0.0f;
         int gear = get_gear(spin);
         double torque = static_cast<double>(transmission_ratios_[gear]) * final_drive_ratio_ * engine_torque_ /
-                        Unsigned(drive_wheel_count_) * grip;
+                        as_unsigned(drive_wheel_count_) * grip;
         if (reverse_)
             torque = -(torque * reverse_ratio_);
         if (handbrake_ && drive_wheel_count_ == 4)

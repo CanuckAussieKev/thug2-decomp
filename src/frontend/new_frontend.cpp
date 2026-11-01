@@ -1637,7 +1637,7 @@ void get_show(Anchor anchor)
     change_phase(State::kShown);
 }
 
-void Do(modules::FrontEnd* front_end, const ActStep& action)
+void run_action(modules::FrontEnd* front_end, const ActStep& action)
 {
     (void)front_end;
     switch (action.kind) {
@@ -1710,7 +1710,7 @@ void Do(modules::FrontEnd* front_end, const ActStep& action)
 
 bool get_key_down(SDL_Scancode key) { return SDL_GetKeyboardState(nullptr)[key] != 0; }
 
-void press_direction(modules::FrontEnd* front_end, Intake input) { Do(front_end, s_menu.get_press(input)); }
+void press_direction(modules::FrontEnd* front_end, Intake input) { run_action(front_end, s_menu.get_press(input)); }
 
 void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
 {
@@ -1750,36 +1750,36 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         case SDL_SCANCODE_KP_ENTER:
         case SDL_SCANCODE_SPACE:
             if (!repeat)
-                Do(front_end, s_menu.get_press(Intake::kConfirm));
+                run_action(front_end, s_menu.get_press(Intake::kConfirm));
             break;
         case SDL_SCANCODE_ESCAPE:
         case SDL_SCANCODE_BACKSPACE:
             if (!repeat)
-                Do(front_end, s_menu.get_press(Intake::kBack));
+                run_action(front_end, s_menu.get_press(Intake::kBack));
             break;
         case SDL_SCANCODE_Q:
             // (on the level select Q / E change the picture; the tabs keep Page Up / Down, 1 / 2, Tab and the shoulders)
             if (s_menu.get_shown() == Screen::kLevels)
                 cycle_level_art(-1);
             else
-                Do(front_end, s_menu.get_press(Intake::kPrevTab));
+                run_action(front_end, s_menu.get_press(Intake::kPrevTab));
             break;
         case SDL_SCANCODE_PAGEUP:
         case SDL_SCANCODE_1:
-            Do(front_end, s_menu.get_press(Intake::kPrevTab));
+            run_action(front_end, s_menu.get_press(Intake::kPrevTab));
             break;
         case SDL_SCANCODE_E:
             if (s_menu.get_shown() == Screen::kLevels)
                 cycle_level_art(1);
             else
-                Do(front_end, s_menu.get_press(Intake::kNextTab));
+                run_action(front_end, s_menu.get_press(Intake::kNextTab));
             break;
         case SDL_SCANCODE_PAGEDOWN:
         case SDL_SCANCODE_2:
-            Do(front_end, s_menu.get_press(Intake::kNextTab));
+            run_action(front_end, s_menu.get_press(Intake::kNextTab));
             break;
         case SDL_SCANCODE_TAB:
-            Do(front_end, s_menu.get_press(shift ? Intake::kPrevTab : Intake::kNextTab));
+            run_action(front_end, s_menu.get_press(shift ? Intake::kPrevTab : Intake::kNextTab));
             break;
         default:
             break;
@@ -1805,22 +1805,22 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             s_repeat = {static_cast<int>(Intake::kRight), kRepeatDelay};
             break;
         case SDL_CONTROLLER_BUTTON_A:
-            Do(front_end, s_menu.get_press(Intake::kConfirm));
+            run_action(front_end, s_menu.get_press(Intake::kConfirm));
             break;
         case SDL_CONTROLLER_BUTTON_START:
             // (Start on the pause menu resumes, as the original's; elsewhere it chooses)
-            Do(front_end,
-               s_menu.get_press(s_menu.get_shown() == Screen::kFreeze && s_menu.deepness() <= 1 ? Intake::kBack
-                                                                                                : Intake::kConfirm));
+            run_action(front_end, s_menu.get_press(s_menu.get_shown() == Screen::kFreeze && s_menu.deepness() <= 1
+                                                       ? Intake::kBack
+                                                       : Intake::kConfirm));
             break;
         case SDL_CONTROLLER_BUTTON_B:
-            Do(front_end, s_menu.get_press(Intake::kBack));
+            run_action(front_end, s_menu.get_press(Intake::kBack));
             break;
         case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
-            Do(front_end, s_menu.get_press(Intake::kPrevTab));
+            run_action(front_end, s_menu.get_press(Intake::kPrevTab));
             break;
         case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
-            Do(front_end, s_menu.get_press(Intake::kNextTab));
+            run_action(front_end, s_menu.get_press(Intake::kNextTab));
             break;
         default:
             break;
@@ -1855,14 +1855,14 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
     case SDL_MOUSEMOTION:
         if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
             if (hit->kind == paint::Hit::kItem)
-                Do(front_end, s_menu.hover_item(hit->index));
+                run_action(front_end, s_menu.hover_item(hit->index));
             else if (hit->kind == paint::Hit::kStageMap)
-                Do(front_end, s_menu.hover_level(hit->index));
+                run_action(front_end, s_menu.hover_level(hit->index));
         }
         return;
     case SDL_MOUSEBUTTONDOWN:
         if (e.button.button == SDL_BUTTON_RIGHT) {
-            Do(front_end, s_menu.get_press(Intake::kBack));
+            run_action(front_end, s_menu.get_press(Intake::kBack));
             return;
         }
         if (e.button.button != SDL_BUTTON_LEFT)
@@ -1871,32 +1871,32 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             paint::Hit clicked = *hit;
             switch (clicked.kind) {
             case paint::Hit::kItem:
-                Do(front_end, s_menu.click_item(clicked.index));
+                run_action(front_end, s_menu.click_item(clicked.index));
                 break;
             case paint::Hit::kStageMap:
-                Do(front_end, s_menu.click_level(clicked.index));
+                run_action(front_end, s_menu.click_level(clicked.index));
                 break;
             case paint::Hit::kTab:
-                Do(front_end, s_menu.click_tab(clicked.index));
+                run_action(front_end, s_menu.click_tab(clicked.index));
                 break;
             case paint::Hit::kBack:
-                Do(front_end, s_menu.click_back());
+                run_action(front_end, s_menu.click_back());
                 break;
             case paint::Hit::kSkate:
-                Do(front_end,
-                   s_menu.get_shown() == Screen::kOptions ? s_menu.get_press(Intake::kConfirm) : s_menu.click_skate());
+                run_action(front_end, s_menu.get_shown() == Screen::kOptions ? s_menu.get_press(Intake::kConfirm)
+                                                                             : s_menu.click_skate());
                 break;
             case paint::Hit::kContinue:
                 break; // (the restyled main menu's - mirror_mouse)
             case paint::Hit::kChoice:
-                Do(front_end, s_menu.click_choice(clicked.index / 16, clicked.index % 16));
+                run_action(front_end, s_menu.click_choice(clicked.index / 16, clicked.index % 16));
                 break;
             }
         }
         return;
     case SDL_MOUSEWHEEL:
         if (e.wheel.y)
-            Do(front_end, s_menu.get_wheel(e.wheel.y));
+            run_action(front_end, s_menu.get_wheel(e.wheel.y));
         return;
     default:
         return;
@@ -2227,14 +2227,14 @@ void tick_frame(modules::FrontEnd* front_end)
                     s_pending.confirm ? "chosen" : "selected");
             s_pending.result = "ok";
             if (s_pending.confirm)
-                Do(front_end, s_menu.get_press(Intake::kConfirm));
+                run_action(front_end, s_menu.get_press(Intake::kConfirm));
         } else {
             s_pending.result = "error: no item " + s_pending.item + " on " + get_screen_name(s_pending.screen);
             get_log("new front end: automation - %s", s_pending.result.c_str());
         }
     }
     if (s_state == State::kShown)
-        Do(front_end, s_menu.tick(dt));
+        run_action(front_end, s_menu.tick(dt));
 }
 
 bool owns_mouse() { return is_switched_on() && !showing() && s_mirror.get_up(); }
@@ -2323,7 +2323,7 @@ void continue_last_level(modules::FrontEnd* front_end)
     skate.load = s_saved.last_level_;
     get_log("new front end: continue - %s", skate.load.c_str());
     hide_root(false);
-    Do(front_end, skate);
+    run_action(front_end, skate);
 }
 
 // What a restyled screen needs besides the menu read: the pause menus' level and session, the levels' data for the
@@ -2536,7 +2536,7 @@ std::string automation_command(const std::string& line, bool* done)
     if (verb == "back") {
         if (s_state != State::kShown || s_menu.occupied())
             return "error: the new front end isn't up";
-        Do(the_front_end(), s_menu.get_press(Intake::kBack));
+        run_action(the_front_end(), s_menu.get_press(Intake::kBack));
         return "ok";
     }
     if (verb == "press") {
@@ -2552,7 +2552,7 @@ std::string automation_command(const std::string& line, bool* done)
                     return "error: the new front end isn't up";
                 if (input == Intake::kConfirm && get_refused(s_menu.get_shown(), s_menu.chosen_item_id()))
                     return "refused: online";
-                Do(the_front_end(), s_menu.get_press(input));
+                run_action(the_front_end(), s_menu.get_press(input));
                 return "ok";
             }
         return "error: no input " + words[1];

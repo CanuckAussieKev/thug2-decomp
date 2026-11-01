@@ -863,7 +863,7 @@ uint32_t g_palette_generation = 0xFFFFFFFF;
 std::vector<std::string> g_models;
 uint32_t g_models_generation = 0xFFFFFFFF;
 
-const char* Short(const std::string& path)
+const char* short_name(const std::string& path)
 {
     const char* text = path.c_str();
     const char* base = std::max(std::strrchr(text, '\\'), std::strrchr(text, '/'));
@@ -898,7 +898,7 @@ void build_palette()
             if (profile && profile != type)
                 label += " / " + nodes::caption(profile);
             if (!model.empty())
-                label += std::string(" (") + Short(model) + ")";
+                label += std::string(" (") + short_name(model) + ")";
             label += "  like " + nodes::caption(n.name);
             (cls == kPedestrian ? peds : cars).emplace_back(label, Source{SourceKind::kDupFrom, {n.name}});
         } else if ((cls == kLevelObject || cls == kGameObject) && s->has_bare_flag(k_bouncy()) && live_object(n.name)) {
@@ -965,7 +965,7 @@ void build_models()
             g_models.push_back(model);
     }
     std::sort(g_models.begin(), g_models.end(),
-              [](const std::string& a, const std::string& b) { return std::strcmp(Short(a), Short(b)) < 0; });
+              [](const std::string& a, const std::string& b) { return std::strcmp(short_name(a), short_name(b)) < 0; });
 }
 
 } // namespace
@@ -1222,7 +1222,7 @@ void attach_sound(uint32_t emitter, uint32_t sound)
 bool& show_uncreated() { return g_show_uncreated; }
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto to_pixel = [&](V3 p, float* x, float* y) {
         float nx, ny;

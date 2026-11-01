@@ -1543,8 +1543,7 @@ bool selection_scales()
 xform::Mode gizmo_mode()
 {
     xform::Mode mode = xform::at_hand().mode;
-    if ((mode == xform::Mode::kSpinBy && !selection_turns()) ||
-        (mode == xform::Mode::scale_tool && !selection_scales()))
+    if ((mode == xform::Mode::kSpinBy && !selection_turns()) || (mode == xform::Mode::kScale && !selection_scales()))
         return xform::Mode::kShiftBy;
     return mode;
 }
@@ -1599,7 +1598,7 @@ V3 transform_pivot(xform::Mode mode)
     if (xform::at_hand().pivot == xform::Pivot::kCentre)
         return selection_centre();
     V3 pos = selection_pos();
-    if (mode == xform::Mode::scale_tool && !get_primary() && scenery::has_selection())
+    if (mode == xform::Mode::kScale && !get_primary() && scenery::has_selection())
         return {pos.x, scenery::get_bottom(), pos.z};
     return pos;
 }
@@ -1989,7 +1988,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         rotate_drag(origin, dir, frame, snap.on);
         return;
     }
-    if (g_drag_mode == xform::Mode::scale_tool) {
+    if (g_drag_mode == xform::Mode::kScale) {
         scale_drag(origin, dir, frame, snap.on);
         return;
     }
@@ -2083,8 +2082,8 @@ void note_for_adjust(xform::Mode mode, V3 moved, bool uniform)
         action.quarters = !get_primary() && picked_node_index() < 0;
         action.degrees =
             action.quarters ? static_cast<float>(g_quarters_applied) * 90.0f : g_rot_applied * 180.0f / kPi;
-    } else if (mode == xform::Mode::scale_tool) {
-        action.kind = adjust::Kind::scale_tool;
+    } else if (mode == xform::Mode::kScale) {
+        action.kind = adjust::Kind::kScale;
         action.factor = scale_applied_now();
         action.uniform = uniform;
     } else {
@@ -2108,9 +2107,9 @@ void end_drag()
         note_for_adjust(g_drag_mode, selection_pos() - g_drag_start, uniform);
     V3 at = selection_pos();
     note_action("%s to (%.0f, %.0f, %.0f): %s",
-                g_drag_mode == xform::Mode::kSpinBy      ? "turned"
-                : g_drag_mode == xform::Mode::scale_tool ? "scaled"
-                                                         : "dragged",
+                g_drag_mode == xform::Mode::kSpinBy  ? "turned"
+                : g_drag_mode == xform::Mode::kScale ? "scaled"
+                                                     : "dragged",
                 at.x, at.y, at.z, describe_selection().c_str());
     g_drag_mode = xform::Mode::kShiftBy;
     g_modal = false;
@@ -2899,7 +2898,7 @@ const char* mode_name()
         return "ADD";
     if (g_dragging && g_drag_mode == xform::Mode::kSpinBy)
         return "ROTATING";
-    if (g_dragging && g_drag_mode == xform::Mode::scale_tool)
+    if (g_dragging && g_drag_mode == xform::Mode::kScale)
         return "SCALING";
     if (g_dragging && g_axis >= 0)
         return g_axis == 0 ? "MOVING ALONG X" : g_axis == 1 ? "MOVING ALONG Y" : "MOVING ALONG Z";
@@ -2919,7 +2918,7 @@ std::string handle_hover_text(int handle)
     switch (gizmo_mode()) {
     case xform::Mode::kSpinBy:
         return "Rotate ring (Ctrl: snap)";
-    case xform::Mode::scale_tool:
+    case xform::Mode::kScale:
         return handle == xform::kCentre ? std::string("Uniform scale handle")
                                         : std::string("the ") + axis + " handle - drag to scale it along that axis";
     default:
@@ -3075,7 +3074,7 @@ void place_node(int entry, V3 at)
     std::string name = e.lobby ? node_create::lobby_flag_name(e.team) : node_create::pinned_node_name(e.kind, e.team);
     if (name.empty())
         name = node_create::fresh_name(node_create::name_stem(e.kind), node_create::name_taken);
-    std::vector<node_create::Spec> specs = {node_create::Default(e.kind, e.team, at, g_yaw, name)};
+    std::vector<node_create::Spec> specs = {node_create::default_spec(e.kind, e.team, at, g_yaw, name)};
     if (e.kind == node_create::Kind::kFlagSet && !e.lobby) // (a lobby flag has no base - as the levels' own)
         specs.push_back(node_create::current_base(specs.front()));
     UndoStep step;
@@ -3152,7 +3151,7 @@ void run_chain_op(int op, uint32_t arg)
     chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;
-    chains::Do(static_cast<chains::Op>(op), target, arg, &message, &select);
+    chains::apply_op(static_cast<chains::Op>(op), target, arg, &message, &select);
     if (select == target && !g_node_selected)
         select = 0; // (a ped / car stays selected as the object)
     after_chain_change(before, select, message);
@@ -3310,7 +3309,7 @@ bool place_entity(int entry, V3 at)
         std::string name =
             node_create::fresh_name(node_create::name_stem(node_create::Kind::kSound), node_create::name_taken);
         node_create::Spec spec =
-            node_create::Default(node_create::Kind::kSound, node_create::Team::kRed, at, g_yaw, name);
+            node_create::default_spec(node_create::Kind::kSound, node_create::Team::kRed, at, g_yaw, name);
         std::string message;
         if (!node_create::fabricate(spec, -1, &message)) {
             hud::get_message(message, 5.0);
@@ -3416,7 +3415,7 @@ void stop_chain_drawing(const char* message)
 {
     std::string text;
     uint32_t select = 0;
-    chains::Do(chains::kOpCancel, 0, 0, &text, &select);
+    chains::apply_op(chains::kOpCancel, 0, 0, &text, &select);
     if (chain_kind_of(g_place_armed) != chains::Blit::kNone)
         g_place_armed = -1;
     if (message)
@@ -3579,7 +3578,7 @@ std::vector<std::pair<std::string, std::string>> keys_now()
     if (picked_node_index() >= 0)
         c.selection = wall_only() ? hints::Selection::kWall : hints::Selection::kPointNode;
     else if (get_primary())
-        c.selection = hints::Selection::object_edit;
+        c.selection = hints::Selection::kObject;
     else if (wall_only())
         c.selection = hints::Selection::kWall;
     else if (scenery::has_selection())
@@ -3589,10 +3588,10 @@ std::vector<std::pair<std::string, std::string>> keys_now()
     c.free_camera_ = g_free_camera;
     c.tool = static_cast<int>(xform::at_hand().mode);
     if (g_dragging)
-        c.drag = g_drag_mode == xform::Mode::kSpinBy      ? hints::Drag::kSpinBy
-                 : g_drag_mode == xform::Mode::scale_tool ? hints::Drag::scale_tool
-                 : g_axis >= 0                            ? hints::Drag::kMoveAxis
-                                                          : hints::Drag::kShiftBy;
+        c.drag = g_drag_mode == xform::Mode::kSpinBy  ? hints::Drag::kSpinBy
+                 : g_drag_mode == xform::Mode::kScale ? hints::Drag::kScale
+                 : g_axis >= 0                        ? hints::Drag::kMoveAxis
+                                                      : hints::Drag::kShiftBy;
     c.modal = g_modal;
     if (g_dragging && (!g_typed.text.empty() || g_typed.axis >= 0))
         c.typed = xform::describe(g_drag_mode, g_typed, g_axis >= 0 && g_axis < 3 ? g_axis : -1);
@@ -4155,9 +4154,8 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         made.push_back(copy.name);
     for (uint32_t sector : step.sectors)
         made.push_back(sector);
-    xform::note_duplicate(&xform::last_duplicate(),
-                          step.sectors.empty() ? xform::Kind::object_edit : xform::Kind::kScenery, made, source_pos,
-                          source_heading);
+    xform::note_duplicate(&xform::last_duplicate(), step.sectors.empty() ? xform::Kind::kObject : xform::Kind::kScenery,
+                          made, source_pos, source_heading);
     hud::get_message(repeat ? "Duplicated again" : "Duplicated");
     {
         // (the panel's numbers - level_editor_adjust.h: each copy's offset from the one before, its turn, how many)
@@ -4242,7 +4240,7 @@ void repeat_duplicate(const TickCycle& frame)
         kind = xform::Kind::kElem;
         ids.push_back(g_node_name);
     } else if (!objects.empty()) {
-        kind = xform::Kind::object_edit;
+        kind = xform::Kind::kObject;
         for (objects::GameEntity* object : objects)
             ids.push_back(object->ident_);
     } else if (scenery::has_selection()) {
@@ -5405,17 +5403,16 @@ void transform_keys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const 
         if (e)
             settings.mode = xform::Mode::kSpinBy;
         if (r)
-            settings.mode = xform::Mode::scale_tool;
+            settings.mode = xform::Mode::kScale;
     }
     if (space && !input.right && (!always || have_selection()))
         settings.mode = xform::next_mode(settings.mode);
     if (settings.mode != before) {
-        const char* why =
-            settings.mode == xform::Mode::kSpinBy && have_selection() && gizmo_mode() != settings.mode
-                ? " (selection can't rotate)"
-            : settings.mode == xform::Mode::scale_tool && have_selection() && gizmo_mode() != settings.mode
-                ? " (selection can't scale)"
-                : "";
+        const char* why = settings.mode == xform::Mode::kSpinBy && have_selection() && gizmo_mode() != settings.mode
+                              ? " (selection can't rotate)"
+                          : settings.mode == xform::Mode::kScale && have_selection() && gizmo_mode() != settings.mode
+                              ? " (selection can't scale)"
+                              : "";
         hud::get_message(std::string(xform::mode_name(settings.mode)) + " Tool" + why);
     }
     if (grave) {
@@ -6025,7 +6022,7 @@ void tick_frame()
                 int axis = scale_tool::main_axis(view.back);
                 if (scale_selection_by(scale_tool::along_axis(axis, factor), false)) {
                     adjust::ActStep action; // (level_editor_adjust.h)
-                    action.kind = adjust::Kind::scale_tool;
+                    action.kind = adjust::Kind::kScale;
                     action.factor = scale_tool::along_axis(axis, factor);
                     action.uniform = false;
                     adjust::get_note(action);
@@ -6036,7 +6033,7 @@ void tick_frame()
             } else if (scale_selection_by(scale_tool::get_uniform(factor), true)) {
                 note_action("scaled ([ / ]): %s", describe_selection().c_str());
                 adjust::ActStep action; // (level_editor_adjust.h)
-                action.kind = adjust::Kind::scale_tool;
+                action.kind = adjust::Kind::kScale;
                 action.factor = scale_tool::get_uniform(factor);
                 adjust::get_note(action);
             }
@@ -6947,7 +6944,7 @@ Selected get_selection()
     Selected out;
     std::vector<objects::GameEntity*> objects = selected_objects();
     if (!objects.empty()) {
-        out.kind = Kind::object_edit;
+        out.kind = Kind::kObject;
         for (objects::GameEntity* object : objects)
             out.ids.push_back(object->ident_);
     } else if (picked_node_index() >= 0) {
@@ -6966,7 +6963,7 @@ Selected get_selection()
 void choose_one(const Selected& selected)
 {
     switch (selected.kind) {
-    case Kind::object_edit: {
+    case Kind::kObject: {
         std::vector<objects::GameEntity*> objects;
         for (uint32_t id : selected.ids) {
             auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));

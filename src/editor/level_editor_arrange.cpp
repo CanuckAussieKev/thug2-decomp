@@ -399,7 +399,7 @@ std::vector<Unit> units_of(const edit::Selected& selection)
 {
     std::vector<Unit> units;
     OrientedBox box;
-    if (selection.kind == edit::Kind::object_edit) {
+    if (selection.kind == edit::Kind::kObject) {
         for (uint32_t id : selection.ids) {
             objects::GameEntity* object = live_object(id);
             if (!object)
@@ -701,7 +701,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
     }
     edit::fold(depth);
     if (!made.empty())
-        edit::choose_one({edit::Kind::object_edit, made});
+        edit::choose_one({edit::Kind::kObject, made});
     char text[160];
     std::snprintf(text, sizeof(text), "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()),
                   swaps);
@@ -724,11 +724,11 @@ bool get_replace()
     edit::Selected selection = edit::get_selection();
     if (selection.kind == edit::Kind::kScenery && tab == 0)
         return replace_scenery(selection, source);
-    if (selection.kind == edit::Kind::object_edit && tab == 1)
+    if (selection.kind == edit::Kind::kObject && tab == 1)
         return replace_objects(selection, source);
-    hud::get_message(selection.kind == edit::Kind::kScenery      ? "Replace: choose a scenery piece"
-                     : selection.kind == edit::Kind::object_edit ? "Replace: choose an object"
-                                                                 : "Replace: nothing selected",
+    hud::get_message(selection.kind == edit::Kind::kScenery  ? "Replace: choose a scenery piece"
+                     : selection.kind == edit::Kind::kObject ? "Replace: choose an object"
+                                                             : "Replace: nothing selected",
                      5.0);
     return false;
 }
@@ -998,7 +998,7 @@ bool selection_box(const edit::Selected& selection, Aabb* box, V3* size)
 {
     OrientedBox oriented;
     bool have = false;
-    if (selection.kind == edit::Kind::object_edit) {
+    if (selection.kind == edit::Kind::kObject) {
         for (uint32_t id : selection.ids) {
             objects::GameEntity* object = live_object(id);
             if (!object || !object_edit::model_box(object, &oriented))
@@ -1173,7 +1173,7 @@ struct Painter {
             overlay->triangles.push_back({x[0], y[0], x[2], y[2], x[3], y[3], fill});
         }
     }
-    void text_tools(float x, float y, uint32_t argb, const std::string& text) const
+    void draw_label(float x, float y, uint32_t argb, const std::string& text) const
     {
         overlay->texts.push_back({x, y, argb, text});
     }
@@ -1318,7 +1318,7 @@ void add_readout(const Painter& p)
     if (!have_box)
         lines.erase(lines.begin()); // (a node: no size)
     for (size_t i = 0; i < lines.size(); ++i)
-        p.text_tools(x + 22.0f * line / 17.0f, y + 18.0f * line / 17.0f + line * static_cast<float>(i), 0xFFE8F0FF,
+        p.draw_label(x + 22.0f * line / 17.0f, y + 18.0f * line / 17.0f + line * static_cast<float>(i), 0xFFE8F0FF,
                      lines[i]);
 }
 
@@ -1372,7 +1372,7 @@ void add_edges(const Painter& p)
             std::snprintf(text, sizeof(text), "rail here: %.0f long", runs[r].length);
             float px, py;
             if (p.get_pixel(runs[r].points.front(), &px, &py))
-                p.text_tools(px + 8.0f, py - 20.0f, 0xFFFFE040, text);
+                p.draw_label(px + 8.0f, py - 20.0f, 0xFFFFE040, text);
         }
     }
 }
@@ -1400,7 +1400,7 @@ bool place_click(bool more)
     // (an object stood square to the surface's slope - the ghost showed it so)
     V3 normal;
     edit::Selected placed = edit::get_selection();
-    if (tab == 1 && at_hand().ghost_slope_ && placed.kind == edit::Kind::object_edit && surface_normal(&normal)) {
+    if (tab == 1 && at_hand().ghost_slope_ && placed.kind == edit::Kind::kObject && surface_normal(&normal)) {
         for (uint32_t pid : placed.ids) {
             objects::GameEntity* object = live_object(pid);
             if (!object)

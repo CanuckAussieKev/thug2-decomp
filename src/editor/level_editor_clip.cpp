@@ -145,8 +145,8 @@ bool spec_of_level_node(const nodes::Elem& n, node_create::Spec* spec)
     default:
         return false;
     }
-    *spec = node_create::Default(kind, node_create::Team::kRed, n.pos, n.angles.y,
-                                 node_create::name_stem(kind) + std::string("01"));
+    *spec = node_create::default_spec(kind, node_create::Team::kRed, n.pos, n.angles.y,
+                                      node_create::name_stem(kind) + std::string("01"));
     spec->angles = n.angles;
     if (kind == node_create::Kind::kLight && n.radius > 0.0f) {
         spec->outer = n.radius;

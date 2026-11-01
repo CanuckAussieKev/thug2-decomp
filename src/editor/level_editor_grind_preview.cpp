@@ -204,7 +204,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         painter.get_dot(positions[e], 8.0f, 0xFFFFFFFF, false);
     for (int b : get_branches(rail)) {
         painter.get_dot(positions[b], 9.0f, 0xFFFFC040, false);
-        painter.text_tools(positions[b], 0xFFFFC040, "branch");
+        painter.draw_label(positions[b], 0xFFFFC040, "branch");
     }
     // Speed-ups on it (the level's and the editor's).
     int speed_ups = 0;
@@ -218,7 +218,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             painter.get_seg(s.a, s.b, 0xFF40FF70, 5.0f);
             char text[48];
             std::snprintf(text, sizeof(text), "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
-            painter.text_tools((s.a + s.b) * 0.5f, 0xFF40FF70, text);
+            painter.draw_label((s.a + s.b) * 0.5f, 0xFF40FF70, text);
             break;
         }
     }
@@ -245,7 +245,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             painter.get_dot(positions[q], 6.0f, 0xFFFF80FF, false);
             char text[48];
             std::snprintf(text, sizeof(text), "transfer %.0f", distance);
-            painter.text_tools((positions[e] + positions[q]) * 0.5f, 0xFFFF80FF, text);
+            painter.draw_label((positions[e] + positions[q]) * 0.5f, 0xFFFF80FF, text);
         }
     }
     // The label at the point: the rail, its size, terrain, speed-ups, connections.
@@ -261,12 +261,12 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
                   static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
                   g_terrain.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
                   rail.links.empty() ? ", a single point (not grindable)" : "");
-    painter.text_tools(positions[start], 0xFFFFF060, text, 10.0f, -24.0f);
+    painter.draw_label(positions[start], 0xFFFFF060, text, 10.0f, -24.0f);
     g_describe = text;
     if (transfers || !get_branches(rail).empty()) {
         std::snprintf(text, sizeof(text), "%d transfers within %.0f, %d branches", transfers, kTransferReach,
                       static_cast<int>(get_branches(rail).size()));
-        painter.text_tools(positions[start], 0xFFFF80FF, text, 10.0f, -8.0f);
+        painter.draw_label(positions[start], 0xFFFF80FF, text, 10.0f, -8.0f);
         g_describe += std::string("; ") + text;
     }
 }

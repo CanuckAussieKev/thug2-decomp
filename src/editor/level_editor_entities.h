@@ -189,7 +189,7 @@ void attach_sound(uint32_t emitter, uint32_t sound);
 bool& show_uncreated();
 // The ghosts and the previewed path drawn over the view (back buffer pixels).
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts);
 
 // The UI (level_editor_entities_ui.cpp, ImGui): the Inspector's sections for the selected node (`node`: Nodes::All()
 // index, -1 none) and object (`object`: its id, 0 none) - model, physics, moving, sound, particle; field edits go to

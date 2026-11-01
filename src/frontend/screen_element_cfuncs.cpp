@@ -58,17 +58,17 @@ uint32_t unassigned_id() { return g_unassigned_id; }
 
 // The text elements' pieces.
 ParagraphWidget* text_block(UiWidget* e) { return static_cast<ParagraphWidget*>(e); }
-LabelWidget* text_tools(UiWidget* e) { return static_cast<LabelWidget*>(e); }
+LabelWidget* as_label(UiWidget* e) { return static_cast<LabelWidget*>(e); }
 bool text_block_concatenate(UiWidget* e, const char* text, bool enforce_max_width, bool last_line)
 {
     return text_block(e)->join_onto(text, enforce_max_width, last_line);
 }
-bool text_concatenate(UiWidget* e, const char* text) { return text_tools(e)->join_onto(text); }
+bool text_concatenate(UiWidget* e, const char* text) { return as_label(e)->join_onto(text); }
 bool text_block_backspace(UiWidget* e) { return text_block(e)->backspace(); }
-bool text_backspace(UiWidget* e) { return text_tools(e)->backspace(); }
+bool text_backspace(UiWidget* e) { return as_label(e)->backspace(); }
 bool text_block_string(UiWidget* e, char* out, int size) { return text_block(e)->fetch_caption(out, size); }
 int text_block_length(UiWidget* e) { return text_block(e)->fetch_magnitude(); }
-int get_text_length(UiWidget* e) { return text_tools(e)->fetch_magnitude(); }
+int get_text_length(UiWidget* e) { return as_label(e)->fetch_magnitude(); }
 
 // A font (0x0048D760, cdecl) and the size of a string in it (0x0048D060, thiscall).
 void* get_font(uint32_t name) { return render::get_font(name); }

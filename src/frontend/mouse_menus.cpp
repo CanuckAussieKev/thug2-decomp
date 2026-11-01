@@ -104,7 +104,7 @@ Rect2 intersect(const Rect2& a, const Rect2& b)
     return {std::max(a.left, b.left), std::max(a.top, b.top), std::min(a.right, b.right), std::min(a.bottom, b.bottom)};
 }
 
-Rect2 Union(const Rect2& a, const Rect2& b)
+Rect2 union_of(const Rect2& a, const Rect2& b)
 {
     return {std::min(a.left, b.left), std::min(a.top, b.top), std::max(a.right, b.right), std::max(a.bottom, b.bottom)};
 }
@@ -129,7 +129,7 @@ Rect2 turned_box_rect(const Cuboid& box)
     for (const auto& corner : corners) {
         auto x = static_cast<float>(box.x + c * corner[0] - s * corner[1]);
         auto y = static_cast<float>(box.y + s * corner[0] + c * corner[1]);
-        rect = Union(rect, Rect2{x, y, x, y});
+        rect = union_of(rect, Rect2{x, y, x, y});
     }
     return rect;
 }
@@ -165,7 +165,7 @@ bool item_shape(const UiWidget* item, float x, float y, bool turned_in_bounds, R
         } else {
             rect = box_rect(box);
         }
-        *bounds = any ? Union(*bounds, rect) : rect;
+        *bounds = any ? union_of(*bounds, rect) : rect;
         any = true;
     };
     for_each_part(item, visit, true);

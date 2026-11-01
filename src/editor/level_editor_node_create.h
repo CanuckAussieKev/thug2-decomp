@@ -80,7 +80,7 @@ bool same_spec(const Spec& a, const Spec& b);
 // The kind of a node `spec` describes (false: not one the editor makes).
 bool kind_of(const Spec& spec, Kind* kind);
 // A new node of `kind` at `pos` facing `yaw` (radians: angles (0, yaw, 0)), named `name` (the flag set's base: Base).
-Spec Default(Kind kind, Team team, V3 pos, float yaw, const std::string& name);
+Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& name);
 // The flag set: its flag and its base (named-driven).
 Spec current_base(const Spec& flag);
 // The fixed names of the name-driven kinds ("" for the others): TRG_CTF_Restart_<Colour>, TRG_CTF_<Colour>.

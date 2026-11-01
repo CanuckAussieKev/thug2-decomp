@@ -910,7 +910,7 @@ void tick(bool dragging)
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
-                 std::vector<ui::Overlay::text_tools>* texts)
+                 std::vector<ui::Overlay::OverlayText>* texts)
 {
     if (g_simulating) {
         texts->push_back(

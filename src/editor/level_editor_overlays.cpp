@@ -167,7 +167,7 @@ void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
         overlay->circles.push_back({x, y, radius, argb, filled, 1.5f});
 }
 
-void Painter::text_tools(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
+void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
 {
     float x, y;
     if (get_pixel(p, &x, &y))

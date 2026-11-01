@@ -75,7 +75,7 @@ std::vector<Item> context_items(bool have_selection)
                 get_tool(xform::Mode::kSpinBy, kToolRotate),
                 action_by_id("snap25", "Snap", false),
                 act_step(kDrop, "Drop to the ground", true),
-                get_tool(xform::Mode::scale_tool, kToolScale),
+                get_tool(xform::Mode::kScale, kToolScale),
                 act_step(kDelete, "Delete / hide", true),
                 act_step(kDuplicate, nullptr, true),
                 act_step(kFrameSelection, nullptr, false),

@@ -320,21 +320,21 @@ void add_overlay(const overlays::Painter& painter)
     if (g_picked >= 1) {
         V3 other = g_picked >= 2 ? g_spots[1].point : g_have_hover ? g_hover.point : g_spots[0].point + V3{0, 0, 1};
         draw_gate(painter, gate_for(g_spots[0], other), kStart);
-        painter.text_tools(g_spots[0].point, kStart, std::string("start: ") + spot_name(g_spots[0].kind));
+        painter.draw_label(g_spots[0].point, kStart, std::string("start: ") + spot_name(g_spots[0].kind));
     }
     if (g_picked >= 2) {
         Gate b = gate_for(g_spots[1], g_spots[0].point);
         draw_gate(painter, b, kEnd);
-        painter.text_tools(g_spots[1].point, kEnd, std::string("end: ") + spot_name(g_spots[1].kind));
+        painter.draw_label(g_spots[1].point, kEnd, std::string("end: ") + spot_name(g_spots[1].kind));
         painter.get_seg(g_spots[0].point, g_spots[1].point, 0xFFFFFFFF, 2.0f);
         V3 d = g_spots[1].point - g_spots[0].point;
         char text[64];
         std::snprintf(text, sizeof(text), "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
                       d.y >= 0.0f ? "up" : "down");
-        painter.text_tools((g_spots[0].point + g_spots[1].point) * 0.5f, 0xFFFFFFFF, text);
+        painter.draw_label((g_spots[0].point + g_spots[1].point) * 0.5f, 0xFFFFFFFF, text);
     } else if (g_have_hover) {
         painter.get_dot(g_hover.point, 5.0f, kHover);
-        painter.text_tools(g_hover.point, kHover, spot_name(g_hover.kind));
+        painter.draw_label(g_hover.point, kHover, spot_name(g_hover.kind));
         if (g_picked == 1)
             painter.get_seg(g_spots[0].point, g_hover.point, 0x90FFFFFF, 1.0f);
     }

@@ -158,7 +158,7 @@ bool kind_of(const Spec& spec, Kind* kind)
     return true;
 }
 
-Spec Default(Kind kind, Team team, V3 pos, float yaw, const std::string& name)
+Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& name)
 {
     Spec s;
     s.name = name;

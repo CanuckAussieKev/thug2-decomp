@@ -302,7 +302,7 @@ void tick_frame()
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
-                 std::vector<ui::Overlay::text_tools>* texts)
+                 std::vector<ui::Overlay::OverlayText>* texts)
 {
     for (const Note& note : g_notes) {
         bool selected = note.name == g_selected;

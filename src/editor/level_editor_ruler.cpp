@@ -198,10 +198,10 @@ void add_overlay(const overlays::Painter& painter)
         V3 corner = {high.x, low.y, high.z};
         painter.get_seg(low, corner, kGap, 1.5f);
         painter.get_seg(corner, high, kRise, 1.5f);
-        painter.text_tools((g_a + b) * 0.5f, kRuler, arcs::span_to(m.distance));
-        painter.text_tools((low + corner) * 0.5f, kGap, "across " + arcs::span_to(m.horizontal), 6.0f, 6.0f);
+        painter.draw_label((g_a + b) * 0.5f, kRuler, arcs::span_to(m.distance));
+        painter.draw_label((low + corner) * 0.5f, kGap, "across " + arcs::span_to(m.horizontal), 6.0f, 6.0f);
         if (std::fabs(m.height) > 0.5f)
-            painter.text_tools((corner + high) * 0.5f, kRise,
+            painter.draw_label((corner + high) * 0.5f, kRise,
                                (m.height < 0.0f ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
     }
 }

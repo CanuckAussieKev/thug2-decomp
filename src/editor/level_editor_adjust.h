@@ -18,7 +18,7 @@
 // F4 hides / shows the panel.
 namespace frontend::level_editor::adjust {
 
-enum class Kind : uint8_t { kNone, kShiftBy, kTurn, scale_tool, kDuplicate, kJustify, kDistribute, kPlace };
+enum class Kind : uint8_t { kNone, kShiftBy, kTurn, kScale, kDuplicate, kJustify, kDistribute, kPlace };
 
 struct ActStep {
     Kind kind = Kind::kNone;

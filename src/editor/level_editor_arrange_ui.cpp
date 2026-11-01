@@ -166,7 +166,7 @@ void get_panel(float x, float y, float ui_scale)
         track(ImGui::DragFloat("Angle", &edit.degrees, edit.quarters ? 3.0f : 0.5f, -3600.0f, 3600.0f,
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;
-    case Kind::scale_tool:
+    case Kind::kScale:
         if (edit.uniform)
             track(ImGui::DragFloat("Factor", &edit.factor.x, 0.01f, 0.05f, 20.0f, "%.3f"));
         else

@@ -60,7 +60,7 @@ uint32_t get_since(int clock, int then)
 }
 int get_now(int clock) { return static_cast<int>(static_cast<uint32_t>(clock) + clock_offset()); }
 // An unsigned millisecond difference as a double (the original's FILD and its 2^32 fix for negatives).
-double Unsigned(uint32_t difference)
+double as_unsigned(uint32_t difference)
 {
     int value = static_cast<int>(difference);
     return value < 0 ? value + kTwoTo32 : value;
@@ -230,7 +230,7 @@ void EngineAudioModule::tick_engine()
     int shifted = shift_time_;
     uint32_t since_shift = get_since(frame_clock::game_clock_elapsed(), shifted);
     float quietest = get_rate(0xBFA32092);
-    double recovery = Unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
+    double recovery = as_unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
     float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
 
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
@@ -314,7 +314,7 @@ void EngineAudioModule::update_collide_sound()
     int last = collide_time_;
     float delay = get_rate(0x71B4B9FE);
     uint32_t since = get_since(frame_clock::game_clock_elapsed(), last);
-    if (Unsigned(since) < delay)
+    if (as_unsigned(since) < delay)
         return;
     float full_collision = get_setting(settings_, 0xCEA59D0B);
     auto strength = static_cast<float>(static_cast<double>(vehicle_ptr_->collision_impulse_) / full_collision);

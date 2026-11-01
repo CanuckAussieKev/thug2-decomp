@@ -250,7 +250,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
             b.get_raw("Mouse", "turns it");
             b.get_raw("Ctrl", "steps");
             b.get_raw("0-9", "degrees");
-        } else if (c.drag == Drag::scale_tool) {
+        } else if (c.drag == Drag::kScale) {
             b.get_raw("Mouse", "scales it");
             b.get_raw("Ctrl", "tenths");
             b.get_raw("X/Y/Z", "axis");

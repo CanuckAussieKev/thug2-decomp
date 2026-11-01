@@ -189,7 +189,7 @@ float get_measure(const Style& style, const TickCycle& frame, const char* text)
 }
 
 // The text with its baseline at window y `baseline`, starting at window x `x`.
-void text_tools(ImDrawList* dl, const Style& style, const TickCycle& frame, float x, float baseline, const char* text)
+void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, float x, float baseline, const char* text)
 {
     Gauges m = metrics_of(style, frame);
     if (!m.baked)
@@ -421,16 +421,16 @@ float get_header(Ctx& c, float top, float right, const char* left_text, bool bac
         Style b = mono12(kMuted, false);
         float adv = 0.0f;
         get_arrow(c.dl, x, base, c.f.current_s(12.0f), true, get_col(kMuted), &adv);
-        text_tools(c.dl, b, c.f, x + adv, base, text_tools::kBack);
+        draw_text(c.dl, b, c.f, x + adv, base, text_tools::kBack);
         float w = adv + get_measure(b, c.f, text_tools::kBack);
         c.get_hit(Hit::kBack, 0, 48.0f - 6.0f, top - 6.0f, 48.0f + w / c.f.scale + 6.0f, top + 12.0f * line_h + 6.0f);
         x += w + c.f.current_s(16.0f);
         s.colour = kPaper;
     }
-    text_tools(c.dl, s, c.f, x, base, left_text);
+    draw_text(c.dl, s, c.f, x, base, left_text);
     if (right_text && *right_text) {
         Style r = mono12(kMuted);
-        text_tools(c.dl, r, c.f, c.f.get_x(right) - get_measure(r, c.f, right_text), base, right_text);
+        draw_text(c.dl, r, c.f, c.f.get_x(right) - get_measure(r, c.f, right_text), base, right_text);
     }
     float rule = top + 12.0f * line_h + 12.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(48.0f), c.f.get_y(rule)),
@@ -473,9 +473,9 @@ void get_row(Ctx& c, const RowStyle& rs, float top, const char* number, const ch
     }
     Style name = rs.name;
     name.colour = get_mix(dim ? kMuted2 : kPaper, kGround, e);
-    text_tools(dl, name, c.f, c.f.get_x(rs.text_x_), base, label);
+    draw_text(dl, name, c.f, c.f.get_x(rs.text_x_), base, label);
     Style num = rs.number;
-    text_tools(dl, num, c.f, c.f.get_x(48.0f), base, number);
+    draw_text(dl, num, c.f, c.f.get_x(48.0f), base, number);
     if (e > 0.001f) {
         float pivot_y = c.f.get_y(top + rs.row_height_ * 0.5f);
         xform(dl, start, c.f.get_x(48.0f), pivot_y, -3.0f * 3.14159265f / 180.0f * e, c.f.current_s(24.0f) * e, 0.0f);
@@ -560,7 +560,7 @@ float big_name(Ctx& c, const std::string& name, float css, float left, float rig
         for (size_t i = 0; i < lines.size(); ++i) {
             float line_top = top + line_h * static_cast<float>(i);
             float base = datum(s, c.f, c.f.get_y(line_top), 0.85f);
-            text_tools(c.dl, s, c.f, c.f.get_x(left), base + dy, lines[i].c_str());
+            draw_text(c.dl, s, c.f, c.f.get_x(left), base + dy, lines[i].c_str());
         }
         if (slice > 0.0f)
             c.dl->PopClipRect();
@@ -580,7 +580,7 @@ float get_kicker(Ctx& c, const std::string& text, float left, float bottom, uint
     Style s = mono12(colour);
     s.alpha = alpha;
     float top = bottom - 12.0f * 1.3f;
-    text_tools(c.dl, s, c.f, c.f.get_x(left), datum(s, c.f, c.f.get_y(top), 1.3f), text.c_str());
+    draw_text(c.dl, s, c.f, c.f.get_x(left), datum(s, c.f, c.f.get_y(top), 1.3f), text.c_str());
     return top;
 }
 
@@ -601,7 +601,7 @@ float get_hints(Ctx& c, const std::vector<std::string>& hints, float left, float
     float gap = hints.size() > 1 ? (c.f.current_s(right - left) - total) / static_cast<float>(hints.size() - 1) : 0.0f;
     float x = c.f.get_x(left);
     for (size_t i = 0; i < hints.size(); ++i) {
-        text_tools(c.dl, s, c.f, x, base, hints[i].c_str());
+        draw_text(c.dl, s, c.f, x, base, hints[i].c_str());
         if (spans) // (design x: each hint's left and right)
             spans->emplace_back(c.f.design_x(x), c.f.design_x(x + widths[i]));
         x += widths[i] + gap;
@@ -645,8 +645,8 @@ float records_row(Ctx& c, const std::vector<std::string>& cols, float left, floa
     float top = bottom - 12.0f * 1.3f;
     float col_w = (right - left) / 3.0f;
     for (size_t i = 0; i < cols.size() && i < 3; ++i)
-        text_tools(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)), datum(s, c.f, c.f.get_y(top), 1.3f),
-                   cols[i].c_str());
+        draw_text(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)), datum(s, c.f, c.f.get_y(top), 1.3f),
+                  cols[i].c_str());
     float rule_y = top - 10.0f - 1.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule_y)),
                         ImVec2(c.f.get_x(right), c.f.get_y(rule_y) + std::max(1.0f, c.f.current_s(1.0f))),
@@ -716,7 +716,7 @@ float get_tabs(Ctx& c, const std::vector<std::pair<std::string, uint32_t>>& tabs
         bool on = i == selected;
         tab.colour = on ? tabs[i].second : kMuted;
         float base = datum(tab, c.f, c.f.get_y(y + 4.0f), 1.3f);
-        text_tools(c.dl, tab, c.f, c.f.get_x(x), base, tabs[i].first.c_str());
+        draw_text(c.dl, tab, c.f, c.f.get_x(x), base, tabs[i].first.c_str());
         if (on)
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), base + c.f.current_s(5.0f)),
                                 ImVec2(c.f.get_x(x + w), base + c.f.current_s(6.0f)), get_col(tabs[i].second));
@@ -743,7 +743,7 @@ void get_button(Ctx& c, float left, float bottom, const char* text, uint32_t col
     get_cut(c.dl, c.f.get_x(bx0), c.f.get_y(by0), c.f.get_x(bx1), c.f.get_y(by1), c.f.current_s(10.0f),
             c.f.current_s(10.0f), get_col(colour, alpha));
     float sb = datum(s, c.f, c.f.get_y(by0 + 6.0f), 1.15f);
-    text_tools(c.dl, s, c.f, c.f.get_x(bx0 + 22.0f), sb, text);
+    draw_text(c.dl, s, c.f, c.f.get_x(bx0 + 22.0f), sb, text);
     if (arrow) {
         float adv = 0.0f;
         get_arrow(c.dl, c.f.get_x(bx0 + 22.0f + tw + 10.0f), sb, c.f.current_s(30.0f), false, get_col(kGround, alpha),
@@ -791,7 +791,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
         // (the value at the column's right, where the label leaves room for it)
         float value_x = c.f.get_x(kColumnInner) - get_measure(value, c.f, shown.c_str());
         if (c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, label) + c.f.current_s(40.0f) < value_x)
-            text_tools(c.dl, value, c.f, value_x, base, shown.c_str());
+            draw_text(c.dl, value, c.f, value_x, base, shown.c_str());
         c.get_hit(Hit::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
     }
 
@@ -811,8 +811,8 @@ void options_screen(Ctx& c, float window_width, float window_height)
     if (action) {
         get_button(c, left, bottom, text_tools::kOpen, Menu::kHouseYellow, true, Hit::kSkate, 1.0f);
         bottom -= 30.0f * 1.15f + 12.0f + 14.0f;
-        text_tools(c.dl, body, c.f, c.f.get_x(left), datum(body, c.f, c.f.get_y(bottom - 21.0f), 1.5f),
-                   text_tools::kGameOptionsHelp);
+        draw_text(c.dl, body, c.f, c.f.get_x(left), datum(body, c.f, c.f.get_y(bottom - 21.0f), 1.5f),
+                  text_tools::kGameOptionsHelp);
         bottom -= 21.0f + 10.0f;
         name = text_tools::kGameOptions;
     } else {
@@ -834,8 +834,8 @@ void options_screen(Ctx& c, float window_width, float window_height)
                 c.dl->AddRect(ImVec2(c.f.get_x(x), c.f.get_y(y0)), ImVec2(c.f.get_x(x + w), c.f.get_y(bottom)),
                               get_col(kRule), 0.0f, 0, std::max(1.0f, c.f.current_s(1.0f)));
             seg.colour = on ? kGround : kPaper;
-            text_tools(c.dl, seg, c.f, c.f.get_x(x + 14.0f), datum(seg, c.f, c.f.get_y(y0 + 8.0f), 1.3f),
-                       spec.choices[i].label);
+            draw_text(c.dl, seg, c.f, c.f.get_x(x + 14.0f), datum(seg, c.f, c.f.get_y(y0 + 8.0f), 1.3f),
+                      spec.choices[i].label);
             c.get_hit(Hit::kChoice, menu.option_row() * 16 + static_cast<int>(i), x, y0, x + w, bottom);
             x += w + 6.0f;
         }
@@ -849,16 +849,16 @@ void options_screen(Ctx& c, float window_width, float window_height)
         if (!when.empty() || !where.empty()) {
             Style key = mono12(kMuted2, false);
             if (!where.empty())
-                text_tools(c.dl, key, c.f, c.f.get_x(left), datum(key, c.f, c.f.get_y(bottom - 15.6f), 1.3f),
-                           where.c_str());
+                draw_text(c.dl, key, c.f, c.f.get_x(left), datum(key, c.f, c.f.get_y(bottom - 15.6f), 1.3f),
+                          where.c_str());
             Style note = mono12(pending ? Menu::kHouseYellow : kMuted2, false);
             if (!when.empty())
-                text_tools(c.dl, note, c.f, c.f.get_x(right) - get_measure(note, c.f, when.c_str()),
-                           datum(note, c.f, c.f.get_y(bottom - 15.6f), 1.3f), when.c_str());
+                draw_text(c.dl, note, c.f, c.f.get_x(right) - get_measure(note, c.f, when.c_str()),
+                          datum(note, c.f, c.f.get_y(bottom - 15.6f), 1.3f), when.c_str());
             bottom -= 15.6f + 8.0f;
         }
         if (spec.help && *spec.help) {
-            text_tools(c.dl, body, c.f, c.f.get_x(left), datum(body, c.f, c.f.get_y(bottom - 21.0f), 1.5f), spec.help);
+            draw_text(c.dl, body, c.f, c.f.get_x(left), datum(body, c.f, c.f.get_y(bottom - 21.0f), 1.5f), spec.help);
             bottom -= 21.0f + 10.0f;
         }
         name = spec.label;
@@ -867,8 +867,8 @@ void options_screen(Ctx& c, float window_width, float window_height)
     get_kicker(c, kicker, left, name_top - 8.0f, Menu::kHouseYellow);
     if (!c.extras.options_note_.empty()) {
         Style note = mono12(kMuted2, false);
-        text_tools(c.dl, note, c.f, c.f.get_x(left), datum(note, c.f, c.f.get_y(36.0f), 1.3f),
-                   c.extras.options_note_.c_str());
+        draw_text(c.dl, note, c.f, c.f.get_x(left), datum(note, c.f, c.f.get_y(36.0f), 1.3f),
+                  c.extras.options_note_.c_str());
     }
 }
 
@@ -930,8 +930,8 @@ void levels_screen(Ctx& c, int* visible_rows)
         c.dl->PopClipRect();
         if (count == 0) {
             Style empty = mono12(kMuted2);
-            text_tools(c.dl, empty, c.f, c.f.get_x(48.0f), datum(empty, c.f, c.f.get_y(list_top), 1.3f),
-                       text_tools::kNoLevels);
+            draw_text(c.dl, empty, c.f, c.f.get_x(48.0f), datum(empty, c.f, c.f.get_y(list_top), 1.3f),
+                      text_tools::kNoLevels);
         }
         c.dl->PopClipRect();
     }
@@ -955,7 +955,7 @@ void levels_screen(Ctx& c, int* visible_rows)
         Style note = mono12(kMuted);
         note.alpha = 1.0f - grow;
         float nw = get_measure(note, c.f, text) / c.f.scale;
-        text_tools(c.dl, note, c.f, c.f.get_x(1240.0f - nw), datum(note, c.f, c.f.get_y(36.0f), 1.3f), text);
+        draw_text(c.dl, note, c.f, c.f.get_x(1240.0f - nw), datum(note, c.f, c.f.get_y(36.0f), 1.3f), text);
     }
 
     // The right's foot: Skate, the records, the name, the kicker.
@@ -981,7 +981,7 @@ void levels_screen(Ctx& c, int* visible_rows)
         get_cut(c.dl, c.f.get_x(bx0), c.f.get_y(by0), c.f.get_x(bx1), c.f.get_y(by1), c.f.current_s(10.0f),
                 c.f.current_s(10.0f), get_col(locked ? kMuted2 : colour, fade));
         float sb = datum(skate, c.f, c.f.get_y(by0 + 6.0f), 1.15f);
-        text_tools(c.dl, skate, c.f, c.f.get_x(bx0 + 22.0f), sb, skate_text);
+        draw_text(c.dl, skate, c.f, c.f.get_x(bx0 + 22.0f), sb, skate_text);
         if (!locked) {
             float adv = 0.0f;
             get_arrow(c.dl, c.f.get_x(bx0 + 22.0f + tw + 10.0f), sb, c.f.current_s(30.0f), false,
@@ -1007,8 +1007,8 @@ void levels_screen(Ctx& c, int* visible_rows)
             float top = y - 10.0f - 12.0f * 1.3f;
             float col_w = (right - left) / 3.0f;
             for (size_t i = 0; i < cols.size(); ++i)
-                text_tools(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)),
-                           datum(s, c.f, c.f.get_y(top), 1.3f), cols[i].c_str());
+                draw_text(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)),
+                          datum(s, c.f, c.f.get_y(top), 1.3f), cols[i].c_str());
             float rule_y = top - 10.0f - 1.0f;
             c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule_y)),
                                 ImVec2(c.f.get_x(right), c.f.get_y(rule_y) + std::max(1.0f, c.f.current_s(1.0f))),
@@ -1067,7 +1067,7 @@ float paragraphs(Ctx& c, const std::vector<std::string>& texts, float left, floa
             for (const std::string& line : get_wrap(body, c.f, part, c.f.current_s(right - left))) {
                 if (drawn >= max_lines)
                     break;
-                text_tools(c.dl, body, c.f, c.f.get_x(left), datum(body, c.f, c.f.get_y(top), 1.5f), line.c_str());
+                draw_text(c.dl, body, c.f, c.f.get_x(left), datum(body, c.f, c.f.get_y(top), 1.5f), line.c_str());
                 top += line_h;
                 ++drawn;
             }
@@ -1109,7 +1109,7 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
         title_lines.resize(2);
     float y = y0 + 56.0f;
     for (const std::string& line : title_lines) {
-        text_tools(c.dl, title, c.f, c.f.get_x(left), datum(title, c.f, c.f.get_y(y), 0.9f), line.c_str());
+        draw_text(c.dl, title, c.f, c.f.get_x(left), datum(title, c.f, c.f.get_y(y), 0.9f), line.c_str());
         y += 72.0f * 0.9f;
     }
     paragraphs(c, v.lines, left, text_right, y + 14.0f, 6, kPaper);
@@ -1137,8 +1137,8 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
         }
         Style name = rs.name;
         name.colour = get_mix(v.rows[i].focusable ? kPaper : kMuted2, kGround, e);
-        text_tools(dl, name, c.f, c.f.get_x(rs.text_x_), base, v.rows[i].label.c_str());
-        text_tools(dl, rs.number, c.f, c.f.get_x(rows_left), base, pad2(i + 1).c_str());
+        draw_text(dl, name, c.f, c.f.get_x(rs.text_x_), base, v.rows[i].label.c_str());
+        draw_text(dl, rs.number, c.f, c.f.get_x(rows_left), base, pad2(i + 1).c_str());
         if (e > 0.001f)
             xform(dl, start, c.f.get_x(rows_left), c.f.get_y(row_top + kLevelRowHeight * 0.5f),
                   -3.0f * 3.14159265f / 180.0f * e, c.f.current_s(24.0f) * e, 0.0f);
@@ -1209,7 +1209,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
                     get_col(Menu::kHouseYellow));
         Style s = name;
         s.colour = get_mix(v.rows[i].focusable ? kPaper : kMuted2, kGround, e);
-        text_tools(dl, s, c.f, c.f.get_x(x), datum(s, c.f, c.f.get_y(strip_top), 1.05f), v.rows[i].label.c_str());
+        draw_text(dl, s, c.f, c.f.get_x(x), datum(s, c.f, c.f.get_y(strip_top), 1.05f), v.rows[i].label.c_str());
         if (e > 0.001f)
             xform(dl, start, c.f.get_x(x), c.f.get_y(strip_top + line_h * 0.5f), -3.0f * 3.14159265f / 180.0f * e, 0.0f,
                   -c.f.current_s(4.0f) * e);
@@ -1241,7 +1241,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     for (int i = 0; i < stats; ++i) {
         float top = table_top + row_h * static_cast<float>(i);
         float base = datum(label, c.f, c.f.get_y(top + 4.0f), 1.3f);
-        text_tools(c.dl, label, c.f, c.f.get_x(left), base, v.stats[i].first.c_str());
+        draw_text(c.dl, label, c.f, c.f.get_x(left), base, v.stats[i].first.c_str());
         int value = std::clamp(v.stats[i].second, 0, 10);
         float bar_left = left + 110.0f, bar_right = right - 40.0f;
         float seg = (bar_right - bar_left) / 10.0f;
@@ -1251,7 +1251,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
                     c.f.current_s(3.0f), c.f.current_s(3.0f), get_col(k < value ? Menu::kHouseYellow : kRule));
         }
         std::string text = std::to_string(v.stats[i].second);
-        text_tools(c.dl, number, c.f, c.f.get_x(right) - get_measure(number, c.f, text.c_str()), base, text.c_str());
+        draw_text(c.dl, number, c.f, c.f.get_x(right) - get_measure(number, c.f, text.c_str()), base, text.c_str());
     }
     if (stats > 0) {
         float rule = table_top - 12.0f;
@@ -1372,7 +1372,7 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
             value.colour = i == v.selected ? Menu::kHouseYellow : kMuted;
             float value_x = c.f.get_x(kColumnInner) - get_measure(value, c.f, r.value.c_str());
             if (c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, r.label.c_str()) + c.f.current_s(24.0f) < value_x)
-                text_tools(c.dl, value, c.f, value_x, base, r.value.c_str());
+                draw_text(c.dl, value, c.f, value_x, base, r.value.c_str());
         }
         if (r.track > 0 && r.focusable) {
             // (between the label and the number: from past the widest label to a fixed width, at most; a selected row's
@@ -1406,7 +1406,7 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         char numbers[48];
         std::snprintf(numbers, sizeof(numbers), "H %d  S %d  V %d", static_cast<int>(v.hue + 0.5f),
                       static_cast<int>(v.sat + 0.5f), static_cast<int>(v.val + 0.5f));
-        text_tools(c.dl, d, c.f, c.f.get_x(left + 76.0f), datum(d, c.f, c.f.get_y(swatch_top + 8.0f), 1.3f), numbers);
+        draw_text(c.dl, d, c.f, c.f.get_x(left + 76.0f), datum(d, c.f, c.f.get_y(swatch_top + 8.0f), 1.3f), numbers);
         bottom = swatch_top - 12.0f;
     }
     if (v.editor) {
@@ -1415,8 +1415,8 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         if (sel && !sel->value.empty()) {
             Style d = mono12(Menu::kHouseYellow, false);
             d.css = 13.0f;
-            text_tools(c.dl, d, c.f, c.f.get_x(left), datum(d, c.f, c.f.get_y(bottom - 13.0f * 1.3f), 1.3f),
-                       sel->value.c_str());
+            draw_text(c.dl, d, c.f, c.f.get_x(left), datum(d, c.f, c.f.get_y(bottom - 13.0f * 1.3f), 1.3f),
+                      sel->value.c_str());
         }
         return;
     }
@@ -1425,7 +1425,7 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         Style d = mono12(Menu::kHouseYellow, false);
         d.css = 13.0f;
         float top = bottom - 13.0f * 1.3f;
-        text_tools(c.dl, d, c.f, c.f.get_x(left), datum(d, c.f, c.f.get_y(top), 1.3f), sel->value.c_str());
+        draw_text(c.dl, d, c.f, c.f.get_x(left), datum(d, c.f, c.f.get_y(top), 1.3f), sel->value.c_str());
         bottom = top - 12.0f;
     }
     float name_top = big_name(c, v.big_name_, 96.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
@@ -1537,7 +1537,7 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
             Style tag = mono12(kMuted2);
             float base = datum(rs.name, c.f, c.f.get_y(top + rs.row_pad_top_), rs.line_height_);
             float x = c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, r.label.c_str()) + c.f.current_s(16.0f);
-            text_tools(c.dl, tag, c.f, x, base - c.f.current_s(rs.name.css * 0.12f), r.tag.c_str());
+            draw_text(c.dl, tag, c.f, x, base - c.f.current_s(rs.name.css * 0.12f), r.tag.c_str());
         }
         if (r.focusable && top >= list_top - 1.0f && top + row_h <= list_bottom + 1.0f)
             c.get_hit(Hit::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
@@ -1552,7 +1552,7 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     float line_h = 14.0f * 1.5f;
     float y = 688.0f - line_h * static_cast<float>(lines.size());
     for (const std::string& line : lines) {
-        text_tools(c.dl, body, c.f, c.f.get_x(48.0f), datum(body, c.f, c.f.get_y(y), 1.5f), line.c_str());
+        draw_text(c.dl, body, c.f, c.f.get_x(48.0f), datum(body, c.f, c.f.get_y(y), 1.5f), line.c_str());
         y += line_h;
     }
 
@@ -1598,8 +1598,8 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
     typed_style.face = Face::kBody; // (the case as typed: the display face is capitals only)
     typed_style.css = 48.0f;
     float entry_x = c.f.get_x(48.0f);
-    text_tools(c.dl, typed_style, c.f, entry_x, datum(typed_style, c.f, c.f.get_y(entry_top + 12.0f), 1.0f),
-               typed.c_str());
+    draw_text(c.dl, typed_style, c.f, entry_x, datum(typed_style, c.f, c.f.get_y(entry_top + 12.0f), 1.0f),
+              typed.c_str());
     float cursor_x = entry_x + get_measure(typed_style, c.f, typed.c_str()) + c.f.current_s(4.0f);
     c.dl->AddRectFilled(ImVec2(cursor_x, c.f.get_y(entry_top + 58.0f)),
                         ImVec2(cursor_x + c.f.current_s(22.0f), c.f.get_y(entry_top + 62.0f)),
@@ -1626,8 +1626,7 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
             Style s = key;
             s.colour = sel ? kGround : kPaper;
             float tx = c.f.get_x(x + w * 0.5f) - get_measure(s, c.f, label.c_str()) * 0.5f;
-            text_tools(c.dl, s, c.f, tx, datum(s, c.f, c.f.get_y(top + (h - 20.0f * 1.3f) * 0.5f), 1.3f),
-                       label.c_str());
+            draw_text(c.dl, s, c.f, tx, datum(s, c.f, c.f.get_y(top + (h - 20.0f * 1.3f) * 0.5f), 1.3f), label.c_str());
             c.get_hit(Hit::kStageMap, static_cast<int>(r) * 64 + static_cast<int>(k), x, top, x + w, top + h);
             x += w + gap;
         }

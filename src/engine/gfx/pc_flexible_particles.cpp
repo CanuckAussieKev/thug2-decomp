@@ -87,15 +87,15 @@ const uint32_t* as_rgba(const uint8_t* colours) { return reinterpret_cast<const 
 // (BGRA bytes). Returns out.
 uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const uint8_t* from, const uint8_t* to, float t)
 {
-    const float* colour_scale_ = system.colour_scale_;
+    const float* colour_scale = system.colour_scale_;
     const float brightness = system.brightness_;
-    double red = static_cast<double>(colour_scale_[0]) * brightness;
-    double green = static_cast<double>(colour_scale_[1]) * brightness;
+    double red = static_cast<double>(colour_scale[0]) * brightness;
+    double green = static_cast<double>(colour_scale[1]) * brightness;
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(from[k] + truncate(static_cast<double>(to[k] - from[k]) * t));
     };
     uint8_t b = lerp(2), g = lerp(1), r = lerp(0), a = lerp(3);
-    double blue = static_cast<double>(colour_scale_[2]) * brightness;
+    double blue = static_cast<double>(colour_scale[2]) * brightness;
     uint8_t bytes[4] = {clamped_byte(blue * b), clamped_byte(green * g), clamped_byte(red * r), a};
     std::memcpy(out, bytes, 4);
     return out;
@@ -122,15 +122,15 @@ struct ColourSpan {
 };
 ColourSpan colour_span(const EmitterInstance& system, float life)
 {
-    const float colour_mid_ = system.colour_mid_;
+    const float colour_mid = system.colour_mid_;
     ColourSpan span{as_rgba(system.start_colour_), as_rgba(system.end_colour_), life};
-    if (colour_mid_ >= 0.0f) {
-        if (life < colour_mid_) {
-            span.t = static_cast<float>(static_cast<double>(life) / colour_mid_);
+    if (colour_mid >= 0.0f) {
+        if (life < colour_mid) {
+            span.t = static_cast<float>(static_cast<double>(life) / colour_mid);
             span.to = as_rgba(system.mid_colour_);
         } else {
-            span.t = static_cast<float>((static_cast<double>(life) - colour_mid_) /
-                                        (1.0f - static_cast<double>(colour_mid_)));
+            span.t =
+                static_cast<float>((static_cast<double>(life) - colour_mid) / (1.0f - static_cast<double>(colour_mid)));
             span.from = as_rgba(system.mid_colour_);
         }
     }
@@ -158,8 +158,8 @@ void free_material(SimpleMaterial* material)
 // normalised.
 void aligned_axes(const EmitterInstance& system, maths::Vec4& r, maths::Vec4& u)
 {
-    const maths::Vec4& align_to_ = system.align_to_;
-    double ax = align_to_.x, ay = align_to_.y, az = align_to_.z;
+    const maths::Vec4& align_to = system.align_to_;
+    double ax = align_to.x, ay = align_to.y, az = align_to.z;
     double p = 0.0f, q = 1.0f; // (up: y - or x when alignTo is y itself)
     double dot = az * 0.0f + ax * 0.0f + ay;
     if (1.0f == dot)
@@ -217,11 +217,11 @@ EmitterInstance* create_flexible_particles(uint32_t name, uint32_t type, int par
                                            uint32_t blend_mode, int fixed_alpha, int segments, float unknown,
                                            int history, const char* model)
 {
-    struct sType {
+    struct EmitterType {
         uint32_t type;
         EmitterInstance* (*construct)(const ConstructArgs&); // a new one of the class (null if no memory)
     };
-    static constexpr sType types[] = {
+    static constexpr EmitterType kTypes[] = {
         {0x15834EEA, &make_plain<PcGlowParticles>},                   // glow
         {0x0EE6FC5B, &make_with_history<PcRibbonParticles>},          // ribbon
         {0x097CB7A9, &make_plain<PcSmoothStarParticles>},             // smoothstar
@@ -236,8 +236,8 @@ EmitterInstance* create_flexible_particles(uint32_t name, uint32_t type, int par
         {0xF4D8D486, &make_five<PcShadedParticles>},                  // shaded
         {0xDEDFC057, &make_plain<PcNewFlatParticles>},                // newflat
     };
-    const sType* chosen = &types[12]; // (any other type: newflat)
-    for (const sType& t : types)
+    const EmitterType* chosen = &kTypes[12]; // (any other type: newflat)
+    for (const EmitterType& t : kTypes)
         if (t.type == type)
             chosen = &t;
     const ConstructArgs args{name, particle_cap, texture, blend_mode, fixed_alpha, segments, unknown, history, model};

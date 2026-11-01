@@ -29,7 +29,7 @@
 // axis, else all three), Backspace erases, Enter applies, Escape cancels. The status bar shows what's typed.
 namespace frontend::level_editor::xform {
 
-enum class Mode : uint8_t { kShiftBy, kSpinBy, scale_tool };
+enum class Mode : uint8_t { kShiftBy, kSpinBy, kScale };
 enum class Space : uint8_t { kWorld, kLocal };
 // Base: as the editor always did (objects turn about the first one's position, scenery about its pivot; scenery scales
 // about the middle of its bottom, objects each about its position). Centre: about the middle of the selection's box.
@@ -134,7 +134,7 @@ std::string describe(Mode mode, const Typed& typed, int default_axis);
 
 // The repeat of the last duplicate (Ctrl+Shift+D, Blender's Shift+R): what the last Ctrl+D (or repeat) copied from and
 // made - so the copies' move and turn since can be done again from them.
-enum class Kind : uint8_t { kNone, object_edit, kScenery, kElem };
+enum class Kind : uint8_t { kNone, kObject, kScenery, kElem };
 struct Repeat {
     Kind kind = Kind::kNone;
     std::vector<uint32_t> made; // (object ids, sector checksums, a node's name)

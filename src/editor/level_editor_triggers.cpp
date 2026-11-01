@@ -2273,7 +2273,7 @@ void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, const ui
 } // namespace
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     remember_view(camera, frame, lens, viewport, near_z); // (the resize handles are drawn and picked with it)
     if (!get_shown())
@@ -2364,7 +2364,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
 }
 
 void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
+                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     Painter paint = {camera, &frame, &lens, viewport, near_z, lines};
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {

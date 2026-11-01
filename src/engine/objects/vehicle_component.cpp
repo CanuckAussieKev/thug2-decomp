@@ -393,7 +393,7 @@ const float kSpokeAngle = std::bit_cast<float>(0x3F060A90u);     // 0x006467C8: 
 const double kTwoTo32 = 4294967296.0;                            // 0x006453B4
 
 // A count as the original loads it (FILD, then 2^32 added when negative: unsigned).
-double Unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
+double as_unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
 
 // 0x00434F20 (the previous range; stdcall): a wheel's parameters from a structure.
 void read_wheel(DrivableModule::Wheel* wheel, script::Struct* params) { read_wheel_settings(wheel, params); }
@@ -656,7 +656,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         wheel.torque = 0.0f;
         for (int k = 9; k >= 0; --k)
             wheel.load_history_[k] =
-                static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / Unsigned(wheel_count_));
+                static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
     }
     load_index_ = 0;
     gravity_time_ = 0.0f;
@@ -707,8 +707,9 @@ void DrivableModule::seal()
         double y = wheel.offset.y;
         double raised = (static_cast<double>(wheel.radius) + wheel.radius) + y;
         wheel.offset.y = static_cast<float>(raised);
-        wheel.rest_y_ = static_cast<float>(
-            (y - raised) - static_cast<double>(kGravity) / (Unsigned(wheel_count_) * wheel.spring_rate_ * inv_mass_));
+        wheel.rest_y_ =
+            static_cast<float>((y - raised) - static_cast<double>(kGravity) /
+                                                  (as_unsigned(wheel_count_) * wheel.spring_rate_ * inv_mass_));
     }
     // The colliders' lowest point.
     float lowest = colliders_[0].corner.y;
@@ -736,7 +737,7 @@ void DrivableModule::seal()
         sum_x += wheels_[i].offset.x;
         sum_z += wheels_[i].offset.z;
     }
-    double share = 1.0 / Unsigned(wheel_count_);
+    double share = 1.0 / as_unsigned(wheel_count_);
     auto centre_x = static_cast<float>(sum_x * share);
     double centre_z = sum_z * share;
     auto recentre = [centre_x, centre_z, lowest](maths::Vec4& v) {
@@ -983,7 +984,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     matrix_from_angles(&matrix, &angles);
     // How far the body's origin sits above the ground: the wheels' rest heights (sagged by their share of the
     // weight) less their radii, averaged (always four wheels).
-    double count = Unsigned(wheel_count_);
+    double count = as_unsigned(wheel_count_);
     double height = 0.0;
     for (int i = 3; i >= 0; --i) {
         const Wheel& wheel = wheels_[i];

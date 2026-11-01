@@ -107,7 +107,7 @@ void show_message(const std::string& text, double seconds = 4.0);
 // said). Only while the editor runs.
 namespace edit {
 
-enum class Kind : uint8_t { kNone, object_edit, kScenery, kElem, kWall };
+enum class Kind : uint8_t { kNone, kObject, kScenery, kElem, kWall };
 struct Selected {
     Kind kind = Kind::kNone;
     std::vector<uint32_t> ids; // objects' ids, sectors' checksums, the node's name, the wall's checksum

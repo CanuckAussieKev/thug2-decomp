@@ -20,8 +20,8 @@ namespace frontend::level_editor::hints {
 
 // --- the pieces (pure) ---------------------------------------------------------------------------------------------
 
-enum class Selection : uint8_t { kNone, object_edit, kScenery, kPointNode, kOtherNode, kWall };
-enum class Drag : uint8_t { kNone, kShiftBy, kMoveAxis, kSpinBy, scale_tool };
+enum class Selection : uint8_t { kNone, kObject, kScenery, kPointNode, kOtherNode, kWall };
+enum class Drag : uint8_t { kNone, kShiftBy, kMoveAxis, kSpinBy, kScale };
 
 struct CtxInfo {
     bool rmb = false;         // the right button held (looking / flying)

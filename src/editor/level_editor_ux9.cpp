@@ -394,7 +394,7 @@ void add_overlay(const overlays::Painter& painter)
             painter.get_seg(c[i], c[(i + 1) % 4], kRect, 2.0f);
         char text[64];
         std::snprintf(text, sizeof(text), "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
-        painter.text_tools(b, kRect, text);
+        painter.draw_label(b, kRect, text);
     } else if (g_stage == Stage::kFirst && g_have_hover) {
         painter.perpendicular(g_hover, 25.0f, kRect, 2.0f);
     }

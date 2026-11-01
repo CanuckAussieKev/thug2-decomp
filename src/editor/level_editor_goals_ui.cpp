@@ -252,7 +252,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::Button("Copy to Create-a-Goal##goal")) {
         get_queue([goal_id] {
             std::string message;
-            Export(goal_id, &message);
+            export_goal(goal_id, &message);
             hud::get_message(message, 6.0);
         });
     }

@@ -47,7 +47,7 @@ void count_draw(int triangles)
 }
 
 // An unsigned size as the x87 loads it (FILD, plus 2^32 when the top bit is set).
-double Unsigned(uint32_t value) { return static_cast<double>(value); }
+double as_unsigned(uint32_t value) { return static_cast<double>(value); }
 
 void set_target(IDirect3DTexture9* texture, IDirect3DSurface9* depth)
 {
@@ -99,15 +99,15 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, float du, floa
     device_copy()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
     change_phase(kAddressMode0, 0x10001);
     change_phase(kPhaseAlphaTest, 0);
-    auto width = static_cast<float>(Unsigned(target_desc.Width));
-    auto height = static_cast<float>(Unsigned(target_desc.Height));
+    auto width = static_cast<float>(as_unsigned(target_desc.Width));
+    auto height = static_cast<float>(as_unsigned(target_desc.Height));
     choose_blend_mode(blend);
     if (source) {
         auto* source_texture = static_cast<IDirect3DTexture9*>(source);
         D3DSURFACE_DESC source_desc;
         source_texture->GetLevelDesc(0, &source_desc); // (not used: half a texel of the target)
-        auto half_x = static_cast<float>(0.5 / Unsigned(target_desc.Width));
-        auto half_y = static_cast<float>(0.5 / Unsigned(target_desc.Height));
+        auto half_x = static_cast<float>(0.5 / as_unsigned(target_desc.Width));
+        auto half_y = static_cast<float>(0.5 / as_unsigned(target_desc.Height));
         set_texture(0, source);
         if (shader)
             set_pixel_shader(get_shader(kPixelShader950), nullptr);
@@ -247,8 +247,8 @@ void get_bloom()
         IDirect3DTexture9* blurred = pass ? screen_copy(7) : screen_copy(3);
         D3DSURFACE_DESC desc;
         current_screen_copy()->GetLevelDesc(0, &desc);
-        double half_x = 0.5 / Unsigned(desc.Width);
-        double half_y = 0.5 / Unsigned(desc.Height);
+        double half_x = 0.5 / as_unsigned(desc.Width);
+        double half_y = 0.5 / as_unsigned(desc.Height);
         uint32_t alpha = pass ? g_bloom_alpha_second : g_bloom_alpha_first;
         auto half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
         auto width = static_cast<float>(g_back_buffer_width);

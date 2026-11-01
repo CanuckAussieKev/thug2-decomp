@@ -62,7 +62,7 @@ const char* mode_name(Mode mode)
         return "Move";
     case Mode::kSpinBy:
         return "Rotate";
-    case Mode::scale_tool:
+    case Mode::kScale:
         return "Scale";
     }
     return "?";
@@ -95,7 +95,7 @@ const char* target_name(SnapTarget target)
 }
 Mode next_mode(Mode mode)
 {
-    return mode == Mode::kShiftBy ? Mode::kSpinBy : mode == Mode::kSpinBy ? Mode::scale_tool : Mode::kShiftBy;
+    return mode == Mode::kShiftBy ? Mode::kSpinBy : mode == Mode::kSpinBy ? Mode::kScale : Mode::kShiftBy;
 }
 
 // --- the pure parts ---
@@ -189,7 +189,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
             out.push_back({p, p + make_unit(forward) * (length * 0.8f), 1, false});
         break;
     }
-    case Mode::scale_tool: {
+    case Mode::kScale: {
         float cube = length * 0.06f;
         auto add_cube = [&](V3 c, int handle) {
             V3 corners[8];
@@ -220,7 +220,7 @@ int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, fl
     float best_distance = grab;
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
     float px, py;
-    if (gizmo.mode == Mode::scale_tool && project(gizmo.pivot, &px, &py) &&
+    if (gizmo.mode == Mode::kScale && project(gizmo.pivot, &px, &py) &&
         (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * 2.25f)
         return kCentre;
     for (const Segment& s : gizmo_segments(gizmo)) {
@@ -317,7 +317,7 @@ std::string describe(Mode mode, const Typed& typed, int default_axis)
     case Mode::kSpinBy:
         text = "Turn (degrees of heading)";
         break;
-    case Mode::scale_tool:
+    case Mode::kScale:
         text = axis >= 0 && axis < 3 ? std::string("Scale along ") + g_axis[axis] : std::string("Scale (all axes)");
         break;
     }

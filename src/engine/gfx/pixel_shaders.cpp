@@ -87,7 +87,7 @@ const char kTextureConstantAlpha[] =
     "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\nmul_x4 r0.rgb,v0,r0\n+mul_x2\tr0.a,c4.a,t0.a\n"; // 0x0067ED10
 
 // The shader text being written (the original sprintfs into a 1 KB buffer).
-struct text_tools {
+struct ShaderText {
     char buffer[1024];
     int length = 0;
     template <typename... Args>
@@ -174,7 +174,7 @@ void* generated_pixel_shader(const void* material)
             return item->value;
     }
 
-    text_tools text;
+    ShaderText text;
     text.append_one("ps.1.1\n");
     for (uint32_t pass = 0; pass < passes; ++pass)
         text.append_one("tex t%d\n", pass);

@@ -87,7 +87,7 @@ int get_now(int clock, int offset)
 }
 
 // An unsigned millisecond difference as a double (the original's FILD and its 2^32 fix for negatives).
-double Unsigned(int difference) { return difference < 0 ? difference + kTwoTo32 : difference; }
+double as_unsigned(int difference) { return difference < 0 ? difference + kTwoTo32 : difference; }
 
 // A fraction kept to [0, 1] as both sounds do it: over 1 -> 1 (compared unrounded); then, rounded, under 0 -> 0.
 float get_fraction(double value)
@@ -209,7 +209,7 @@ void SkaterVehicleSoundComponent::tick_engine()
         int last_driven = static_cast<int>(core_physics_->air_start_);
         float delay = get_rate(0xC0F451D4);
         int clock = get_clock();
-        if (Unsigned(get_since(clock, clock_offset(), last_driven)) > delay)
+        if (as_unsigned(get_since(clock, clock_offset(), last_driven)) > delay)
             gear_ = 0;
     } else {
         int gear = gear_;
@@ -228,7 +228,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     int clock = get_clock();
     int since_shift = get_since(clock, clock_offset(), shifted);
     float quietest = get_rate(0xBFA32092);
-    double recovery = Unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
+    double recovery = as_unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
     float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
 
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's

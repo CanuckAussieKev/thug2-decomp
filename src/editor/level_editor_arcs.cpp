@@ -491,7 +491,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
         char label[96];
         std::snprintf(label, sizeof(label), "lip %.0f high, %.0f deg%s", lip.height,
                       std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * 57.29578f, lip.vert ? " (vert)" : "");
-        painter.text_tools(lip.point, 0xFFFFFFFF, label, 6.0f, 6.0f);
+        painter.draw_label(lip.point, 0xFFFFFFFF, label, 6.0f, 6.0f);
         for (int i = 0; i < kSpeeds; ++i) {
             uint32_t colour = speed_colour(i);
             if (lip.vert) {
@@ -500,7 +500,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 V3 base = lip.point + side, apex = base + V3{0.0f, arcs.rise[i], 0.0f};
                 painter.get_seg(base, apex, colour, 2.0f);
                 painter.get_seg(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
-                painter.text_tools(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(arcs.rise[i]));
+                painter.draw_label(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(arcs.rise[i]));
                 continue;
             }
             const Flight& flight = arcs.flights[i];
@@ -508,7 +508,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 painter.get_seg(flight.points[k - 1], flight.points[k], colour, 2.0f);
             if (!flight.landed) {
                 if (!flight.points.empty())
-                    painter.text_tools(flight.points.back(), colour,
+                    painter.draw_label(flight.points.back(), colour,
                                        std::string(speed_name(i)) + ": no landing in 6 s");
                 continue;
             }
@@ -524,7 +524,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             if (arcs.landed_on_[i] && std::find(sectors.begin(), sectors.end(), arcs.landed_on_[i]) == sectors.end() &&
                 scenery::sector_geometry(arcs.landed_on_[i]))
                 text += " on " + object_edit::caption(arcs.landed_on_[i]);
-            painter.text_tools(flight.landing, colour, text, 8.0f, -10.0f - 14.0f * static_cast<float>(i));
+            painter.draw_label(flight.landing, colour, text, 8.0f, -10.0f - 14.0f * static_cast<float>(i));
         }
     }
 }

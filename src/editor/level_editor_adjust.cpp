@@ -25,7 +25,7 @@ const char* get_title(Kind kind)
         return "Move";
     case Kind::kTurn:
         return "Turn";
-    case Kind::scale_tool:
+    case Kind::kScale:
         return "Scale";
     case Kind::kDuplicate:
         return "Duplicate";
@@ -133,7 +133,7 @@ void get_apply(const ActStep& wanted)
         edit::turn_by(n.degrees * kPi / 180.0f);
         edit::get_end();
         break;
-    case Kind::scale_tool:
+    case Kind::kScale:
         edit::take_back();
         if (!edit::scale_by(n.factor, n.uniform)) {
             edit::get_begin(); // (at a limit, or back to 1: a step that changes nothing keeps the panel's place)

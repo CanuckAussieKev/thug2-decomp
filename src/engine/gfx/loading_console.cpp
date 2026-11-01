@@ -244,7 +244,7 @@ void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 }
 
 // Text from (x, y) (the line's top), at most `columns` characters.
-void text_tools(float x, float y, const char* text, size_t columns, uint32_t color)
+void draw_text(float x, float y, const char* text, size_t columns, uint32_t color)
 {
     for (size_t i = 0; text[i] && i < columns; ++i) {
         auto c = static_cast<unsigned char>(text[i]);
@@ -297,20 +297,20 @@ void get_layout(double now)
     else
         std::snprintf(right, sizeof(right), "last activity %.1f s ago", idle);
     float y = y0 + pad;
-    text_tools(x0 + pad, y, left, columns, 0xFFFFFFFFu);
+    draw_text(x0 + pad, y, left, columns, 0xFFFFFFFFu);
     size_t right_length = std::strlen(right);
     size_t left_length = std::strlen(left);
     if (left_length + 2 + right_length <= columns)
-        text_tools(x1 - pad - static_cast<float>(right_length) * g_advance, y, right, columns,
-                   stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
+        draw_text(x1 - pad - static_cast<float>(right_length) * g_advance, y, right, columns,
+                  stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     else
-        text_tools(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right,
-                   columns - std::min(columns, left_length + 2), stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
+        draw_text(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right,
+                  columns - std::min(columns, left_length + 2), stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     y += g_line_height + pad * 0.5f;
     for (size_t i = 0; i < lines.size(); ++i) {
         bool newest = i + 1 == lines.size();
         uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
-        text_tools(x0 + pad, y, lines[i].c_str(), columns, color);
+        draw_text(x0 + pad, y, lines[i].c_str(), columns, color);
         y += g_line_height;
     }
 }

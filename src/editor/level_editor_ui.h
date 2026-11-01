@@ -245,7 +245,7 @@ struct Overlay {
         float ax, ay, bx, by, cx, cy;
         uint32_t argb;
     };
-    struct text_tools {
+    struct OverlayText {
         float x, y;
         uint32_t argb;
         std::string text;
@@ -254,7 +254,7 @@ struct Overlay {
     std::vector<Circle> circles;
     std::vector<Triangle> triangles;
     std::vector<Triangle> under; // (drawn first, under the lines: the collision view - level_editor_view.h)
-    std::vector<text_tools> texts;
+    std::vector<OverlayText> texts;
     void get_clear()
     {
         lines.clear();

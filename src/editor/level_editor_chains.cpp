@@ -2091,7 +2091,7 @@ std::vector<uint32_t> chain_of(uint32_t name)
     return {name};
 }
 
-bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select)
+bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select)
 {
     *select = 0;
     message->clear();

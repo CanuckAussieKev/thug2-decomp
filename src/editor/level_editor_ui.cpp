@@ -1711,7 +1711,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
                                   c.thickness * g_scale);
     }
     if (g_mono) {
-        for (const Overlay::text_tools& t : overlay.texts) {
+        for (const Overlay::OverlayText& t : overlay.texts) {
             ImVec2 at(t.x * sx, t.y * sy);
             ImVec2 size = g_mono->CalcTextSizeA(g_mono->FontSize, 1e9f, 0.0f, t.text.c_str());
             background->AddRectFilled(ImVec2(at.x - 3.0f, at.y - 1.0f),

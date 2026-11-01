@@ -1572,7 +1572,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
 }
 
 // The running command's frame.
-void Continue(Runner& runner, modules::FrontEnd* front_end)
+void continue_command(Runner& runner, modules::FrontEnd* front_end)
 {
     switch (runner.command.op) {
     case Op::kPress:
@@ -1782,7 +1782,7 @@ void tick_frame(modules::FrontEnd* front_end)
         runner.hold_button_ = nullptr;
     poll_file(runner);
     if (runner.active)
-        Continue(runner, front_end);
+        continue_command(runner, front_end);
     for (int i = 0; i < 32 && !runner.active && !runner.queue.empty(); ++i)
         if (!kickoff(runner, front_end))
             break;

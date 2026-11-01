@@ -36,7 +36,7 @@ bool read_ints(const std::string& text, int* out, int count)
     return true;
 }
 
-fields::Value Int(int value)
+fields::Value int_field(int value)
 {
     fields::Value v;
     v.kind = fields::Kind::kInteger;
@@ -165,7 +165,7 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
         out.emplace_back("tod_state", v);
     }
     if (props.time == 0 || props.time == 1)
-        out.emplace_back("tod_manager_active", Int(props.time));
+        out.emplace_back("tod_manager_active", int_field(props.time));
     // (map4: our own keys - the engine reads no level structure's ambient_* / fog_*; on_level_up reads these)
     if (props.has_ambient_) {
         fields::Value v;

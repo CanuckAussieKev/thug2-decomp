@@ -153,7 +153,7 @@ bool read_record(const std::string& line, State* state)
         set_label(state, id, clean);
         return true;
     }
-    Switch(keyword == "edlock" ? &state->locked : &state->unpickable, id, true);
+    set_flag(keyword == "edlock" ? &state->locked : &state->unpickable, id, true);
     return true;
 }
 
@@ -201,7 +201,7 @@ bool get_has(const std::vector<uint32_t>& list, uint32_t id)
     return std::find(list.begin(), list.end(), id) != list.end();
 }
 
-void Switch(std::vector<uint32_t>* list, uint32_t id, bool on)
+void set_flag(std::vector<uint32_t>* list, uint32_t id, bool on)
 {
     auto it = std::find(list->begin(), list->end(), id);
     if (on && it == list->end())
@@ -607,7 +607,7 @@ void set_hidden_in_editor(const nodes::Elem& node, bool hidden)
             view::get_show(object ? none : one, object ? one : none);
         return;
     }
-    Switch(&g_hidden_gizmos, node.name, hidden);
+    set_flag(&g_hidden_gizmos, node.name, hidden);
 }
 
 bool latched(uint32_t id) { return get_has(g_state.locked, id); }
@@ -615,7 +615,7 @@ bool latched(uint32_t id) { return get_has(g_state.locked, id); }
 void set_locked(uint32_t id, bool locked)
 {
     State next = g_state;
-    Switch(&next.locked, id, locked);
+    set_flag(&next.locked, id, locked);
     get_change(next, locked ? "Lock (no changes)" : "Unlock");
 }
 
@@ -639,7 +639,7 @@ void set_selectable(const nodes::Elem& node, bool selectable)
         return;
     }
     State next = g_state;
-    Switch(&next.unpickable, node.name, !selectable);
+    set_flag(&next.unpickable, node.name, !selectable);
     get_change(next, selectable ? "Selectable" : "Not selectable");
 }
 

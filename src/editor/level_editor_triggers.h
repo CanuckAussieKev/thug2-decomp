@@ -273,7 +273,7 @@ void set_shown(bool shown);
 // The volumes drawn over the view (lines, labels) - and the selected editor trigger's resize handles (`selected`: its
 // node's name, 0 none; the handle under the cursor or being dragged lit).
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts);
 void set_selected(uint32_t node);
 // The resize handles (drawn by the last add_overlay): the one within `radius` back buffer pixels of (x, y) (-1: none),
 // and dragging one - started with the mouse ray, followed each frame (`snap`: sizes on 25s), ended (one undo step).
@@ -378,7 +378,7 @@ bool has_handles(uint32_t node);
 // The feature map's lines over the view, the trigger window shown or not: rail speed-ups' chevrons
 // (level_editor_chains.h), the selected / edited proximity nodes' shapes, breakables' cracks, boosts' arrows.
 void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts);
 
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.
 std::string describe();

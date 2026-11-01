@@ -187,7 +187,7 @@ void tick(bool dragging);
 // The trails and markers over the view (the UI's overlay; nothing while hidden).
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
-                 std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Overlay::OverlayText>* texts);
 
 bool get_simulating();
 // A gap's state for the UI: landed in a recorded run of this level (`known`: the level has any trail data at all).
