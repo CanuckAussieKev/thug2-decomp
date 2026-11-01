@@ -110,8 +110,7 @@ struct GapRead {
 // What changed since the last read: gaps got (pending went up), landed (count went up), lost (pending back to 0 with
 // no landing). The first read only learns the list.
 struct GapChange {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind { kGot, kLanded, kLost } kind;
+    enum class Kind { kGot, kLanded, kLost } kind;
     std::string name;
     int score = 0;
 };

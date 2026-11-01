@@ -361,7 +361,7 @@ void update_session(float dt)
     }
     s_session.gaps_total_ = static_cast<int>(read.size());
     for (const level_editor::play_test::GapChange& change : s_session.gaps.tick_frame(read))
-        if (change.kind == level_editor::play_test::GapChange::kLanded)
+        if (change.kind == level_editor::play_test::GapChange::Kind::kLanded)
             s_session.gaps_landed_.insert(change.name);
 }
 
@@ -1457,7 +1457,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
             // (the skater select: each step loads a skater - only a click selects there)
             if (!skaters)
                 if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y)))
-                    if (hit->kind == paint::Hit::kItem && hit->index != s_mirror.get_shown().selected)
+                    if (hit->kind == paint::Hit::Kind::kItem && hit->index != s_mirror.get_shown().selected)
                         step_to(front_end, hit->index);
             break;
         case SDL_MOUSEBUTTONDOWN:
@@ -1467,13 +1467,14 @@ void mirror_mouse(modules::FrontEnd* front_end)
                 const paint::Hit* hit = hit_at(static_cast<float>(e.button.x), static_cast<float>(e.button.y));
                 if (!hit)
                     break;
-                if (hit->kind == paint::Hit::kBack) {
+                if (hit->kind == paint::Hit::Kind::kBack) {
                     mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
-                } else if (hit->kind == paint::Hit::kStageMap && s_mirror.get_shown().kind == mirror::Kind::kKeyboard) {
+                } else if (hit->kind == paint::Hit::Kind::kStageMap &&
+                           s_mirror.get_shown().kind == mirror::Kind::kKeyboard) {
                     choose_key(front_end, hit->index / 64, hit->index % 64);
-                } else if (hit->kind == paint::Hit::kContinue) {
+                } else if (hit->kind == paint::Hit::Kind::kContinue) {
                     continue_last_level(front_end);
-                } else if (hit->kind == paint::Hit::kItem) {
+                } else if (hit->kind == paint::Hit::Kind::kItem) {
                     bool was_selected = hit->index == s_mirror.get_shown().selected;
                     if (step_to(front_end, hit->index) && (!skaters || was_selected)) {
                         // (a row whose value Left / Right change - a slider, an option: its sides do that, as the
@@ -1855,9 +1856,9 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
     }
     case SDL_MOUSEMOTION:
         if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
-            if (hit->kind == paint::Hit::kItem)
+            if (hit->kind == paint::Hit::Kind::kItem)
                 run_action(front_end, s_menu.hover_item(hit->index));
-            else if (hit->kind == paint::Hit::kStageMap)
+            else if (hit->kind == paint::Hit::Kind::kStageMap)
                 run_action(front_end, s_menu.hover_level(hit->index));
         }
         return;
@@ -1871,25 +1872,25 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         if (const paint::Hit* hit = hit_at(static_cast<float>(e.button.x), static_cast<float>(e.button.y))) {
             paint::Hit clicked = *hit;
             switch (clicked.kind) {
-            case paint::Hit::kItem:
+            case paint::Hit::Kind::kItem:
                 run_action(front_end, s_menu.click_item(clicked.index));
                 break;
-            case paint::Hit::kStageMap:
+            case paint::Hit::Kind::kStageMap:
                 run_action(front_end, s_menu.click_level(clicked.index));
                 break;
-            case paint::Hit::kTab:
+            case paint::Hit::Kind::kTab:
                 run_action(front_end, s_menu.click_tab(clicked.index));
                 break;
-            case paint::Hit::kBack:
+            case paint::Hit::Kind::kBack:
                 run_action(front_end, s_menu.click_back());
                 break;
-            case paint::Hit::kSkate:
+            case paint::Hit::Kind::kSkate:
                 run_action(front_end, s_menu.get_shown() == Screen::kOptions ? s_menu.get_press(Intake::kConfirm)
                                                                              : s_menu.click_skate());
                 break;
-            case paint::Hit::kContinue:
+            case paint::Hit::Kind::kContinue:
                 break; // (the restyled main menu's - mirror_mouse)
-            case paint::Hit::kChoice:
+            case paint::Hit::Kind::kChoice:
                 run_action(front_end, s_menu.click_choice(clicked.index / 16, clicked.index % 16));
                 break;
             }

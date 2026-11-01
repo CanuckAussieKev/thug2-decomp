@@ -439,9 +439,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
             float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
             ImGui::SetNextItemAllowOverlap();
             if (ImGui::Selectable(items[i].label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
-                request(ui::Request::kBrowserIndex, i);
+                request(ui::Request::Kind::kBrowserIndex, i);
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                    request(ui::Request::kBrowserPlace, 0);
+                    request(ui::Request::Kind::kBrowserPlace, 0);
             }
             if (ImGui::IsItemHovered())
                 hovered = i;
@@ -498,10 +498,10 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 bool selected = i == model.browser_index_;
                 ImGui::SetNextItemAllowOverlap();
                 if (ImGui::InvisibleButton("##thumb", ImVec2(cell, cell))) {
-                    request(ui::Request::kBrowserIndex, i);
+                    request(ui::Request::Kind::kBrowserIndex, i);
                 }
                 if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                    request(ui::Request::kBrowserPlace, 0);
+                    request(ui::Request::Kind::kBrowserPlace, 0);
                 bool hover = ImGui::IsItemHovered();
                 if (hover) {
                     hovered = i;

@@ -19,8 +19,7 @@ namespace {
 // --- a small JSON reader (the data file only: objects, arrays, strings, numbers, true / false / null) ---
 
 struct Json {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind { kNull, kBool, kNumber, kChars, kArray, kObject } kind = kNull;
+    enum class Kind { kNull, kBool, kNumber, kChars, kArray, kObject } kind = Kind::kNull;
     bool boolean = false;
     double number = 0.0;
     std::string text;
@@ -37,7 +36,7 @@ struct Json {
     std::string text_util(const char* key) const
     {
         const Json* v = get_pull(key);
-        return v && v->kind == kChars ? v->text : std::string();
+        return v && v->kind == Kind::kChars ? v->text : std::string();
     }
 };
 
@@ -144,7 +143,7 @@ private:
             return get_fail("the end of the text where a value should be");
         char c = text_[look_at_];
         if (c == '{') {
-            out->kind = Json::kObject;
+            out->kind = Json::Kind::kObject;
             ++look_at_;
             get_space();
             if (look_at_ < text_.size() && text_[look_at_] == '}') {
@@ -179,7 +178,7 @@ private:
             }
         }
         if (c == '[') {
-            out->kind = Json::kArray;
+            out->kind = Json::Kind::kArray;
             ++look_at_;
             get_space();
             if (look_at_ < text_.size() && text_[look_at_] == ']') {
@@ -204,16 +203,16 @@ private:
             }
         }
         if (c == '"') {
-            out->kind = Json::kChars;
+            out->kind = Json::Kind::kChars;
             return string_value(&out->text);
         }
         if (literal("true")) {
-            out->kind = Json::kBool;
+            out->kind = Json::Kind::kBool;
             out->boolean = true;
             return true;
         }
         if (literal("false")) {
-            out->kind = Json::kBool;
+            out->kind = Json::Kind::kBool;
             return true;
         }
         if (literal("null"))
@@ -224,7 +223,7 @@ private:
             out->number = std::strtod(start, &end);
             if (end == start)
                 return get_fail("a bad number");
-            out->kind = Json::kNumber;
+            out->kind = Json::Kind::kNumber;
             look_at_ += static_cast<size_t>(end - start);
             return true;
         }
@@ -298,21 +297,21 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
     Reader reader(json);
     if (!reader.parse(&root))
         return fail(reader.get_error());
-    if (root.kind != Json::kObject)
+    if (root.kind != Json::Kind::kObject)
         return fail("not an object");
     const Json* version = root.get_pull("version");
-    if (!version || version->kind != Json::kNumber || version->number != 1.0)
+    if (!version || version->kind != Json::Kind::kNumber || version->number != 1.0)
         return fail("not version 1");
     Catalogue result;
-    if (const Json* art = root.get_pull("menu_art"); art && art->kind == Json::kObject)
+    if (const Json* art = root.get_pull("menu_art"); art && art->kind == Json::Kind::kObject)
         for (const auto& [key, value] : art->members)
-            if (value.kind == Json::kChars)
+            if (value.kind == Json::Kind::kChars)
                 result.menu_art_.emplace_back(key, value.text);
     const Json* sections = root.get_pull("sections");
-    if (!sections || sections->kind != Json::kArray)
+    if (!sections || sections->kind != Json::Kind::kArray)
         return fail("no sections");
     for (const Json& s : sections->items) {
-        if (s.kind != Json::kObject)
+        if (s.kind != Json::Kind::kObject)
             return fail("a section isn't an object");
         Section section;
         section.id = s.text_util("id");
@@ -322,22 +321,22 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
         if (section.tab.empty())
             section.tab = section.id;
         const Json* levels = s.get_pull("levels");
-        if (!levels || levels->kind != Json::kArray)
+        if (!levels || levels->kind != Json::Kind::kArray)
             return fail("section " + section.id + " has no levels");
         for (const Json& l : levels->items) {
-            if (l.kind != Json::kObject)
+            if (l.kind != Json::Kind::kObject)
                 return fail("a level isn't an object");
             StageMap level;
             level.name = l.text_util("name");
             level.load = l.text_util("load");
             level.art = l.text_util("art");
-            if (const Json* variants = l.get_pull("art_variants"); variants && variants->kind == Json::kArray)
+            if (const Json* variants = l.get_pull("art_variants"); variants && variants->kind == Json::Kind::kArray)
                 for (const Json& v : variants->items)
-                    if (v.kind == Json::kChars && !v.text.empty())
+                    if (v.kind == Json::Kind::kChars && !v.text.empty())
                         level.art_variants_.push_back(v.text);
-            if (const Json* labels = l.get_pull("art_labels"); labels && labels->kind == Json::kArray)
+            if (const Json* labels = l.get_pull("art_labels"); labels && labels->kind == Json::Kind::kArray)
                 for (const Json& v : labels->items)
-                    if (v.kind == Json::kChars)
+                    if (v.kind == Json::Kind::kChars)
                         level.art_labels_.push_back(v.text);
             if (level.art_labels_.size() != level.art_variants_.size())
                 level.art_labels_.clear();
@@ -345,15 +344,15 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
             level.seen_flag_ = l.text_util("seen_flag");
             level.game_tag_ = l.text_util("game_tag");
             if (const Json* num = l.get_pull("level_num")) {
-                if (num->kind == Json::kNumber)
+                if (num->kind == Json::Kind::kNumber)
                     level.level_index_ = static_cast<int>(num->number);
-                else if (num->kind == Json::kChars)
+                else if (num->kind == Json::Kind::kChars)
                     level.level_num_name_ = num->text;
             }
             const Json* hide = l.get_pull("hide_when_locked");
-            level.hide_when_locked_ = hide && hide->kind == Json::kBool && hide->boolean;
+            level.hide_when_locked_ = hide && hide->kind == Json::Kind::kBool && hide->boolean;
             const Json* generic = l.get_pull("generic_art");
-            level.generic_art_ = generic && generic->kind == Json::kBool && generic->boolean;
+            level.generic_art_ = generic && generic->kind == Json::Kind::kBool && generic->boolean;
             if (level.name.empty() || level.load.empty())
                 return fail("a level of " + section.id + " has no name or load script");
             section.levels.push_back(std::move(level));

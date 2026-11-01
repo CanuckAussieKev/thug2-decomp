@@ -41,7 +41,7 @@ void view_mode_items()
 void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* requests)
 {
     if (ImGui::MenuItem("Collision", "C", model.view.collision)) {
-        ui::Request r{ui::Request::kCollision};
+        ui::Request r{ui::Request::Kind::kCollision};
         r.value = model.view.collision ? 0 : 1;
         requests->push_back(r);
     }
@@ -66,19 +66,19 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
             char item[48];
             std::snprintf(item, sizeof(item), "%s##fam%d", nodes::family_name(family), f);
             if (ImGui::MenuItem(item, nullptr, on)) {
-                ui::Request r{ui::Request::kFamilies};
+                ui::Request r{ui::Request::Kind::kFamilies};
                 r.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);
                 requests->push_back(r);
             }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Show All")) {
-            ui::Request r{ui::Request::kFamilies};
+            ui::Request r{ui::Request::Kind::kFamilies};
             r.id = nodes::kAllFamilies;
             requests->push_back(r);
         }
         if (ImGui::MenuItem("Hide All")) {
-            ui::Request r{ui::Request::kFamilies};
+            ui::Request r{ui::Request::Kind::kFamilies};
             r.id = 0;
             requests->push_back(r);
         }

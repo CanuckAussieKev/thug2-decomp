@@ -429,7 +429,8 @@ float get_header(Ctx& c, float top, float right, const char* left_text, bool bac
         get_arrow(c.dl, x, base, c.f.current_s(12.0f), true, get_col(kMuted), &adv);
         draw_text(c.dl, b, c.f, x + adv, base, text_tools::kBack);
         float w = adv + get_measure(b, c.f, text_tools::kBack);
-        c.get_hit(Hit::kBack, 0, 48.0f - 6.0f, top - 6.0f, 48.0f + w / c.f.scale + 6.0f, top + 12.0f * line_h + 6.0f);
+        c.get_hit(Hit::Kind::kBack, 0, 48.0f - 6.0f, top - 6.0f, 48.0f + w / c.f.scale + 6.0f,
+                  top + 12.0f * line_h + 6.0f);
         x += w + c.f.current_s(16.0f);
         s.colour = kPaper;
     }
@@ -726,7 +727,7 @@ float get_tabs(Ctx& c, const std::vector<std::pair<std::string, uint32_t>>& tabs
         if (on)
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), base + c.f.current_s(5.0f)),
                                 ImVec2(c.f.get_x(x + w), base + c.f.current_s(6.0f)), get_col(tabs[i].second));
-        c.get_hit(Hit::kTab, i, x - 4.0f, y, x + w + 4.0f, y + tab_h);
+        c.get_hit(Hit::Kind::kTab, i, x - 4.0f, y, x + w + 4.0f, y + tab_h);
         x += w + 16.0f;
     }
     return y + tab_h;
@@ -799,7 +800,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
         float value_x = c.f.get_x(kColumnInner) - get_measure(value, c.f, shown.c_str());
         if (c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, label) + c.f.current_s(40.0f) < value_x)
             draw_text(c.dl, value, c.f, value_x, base, shown.c_str());
-        c.get_hit(Hit::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
+        c.get_hit(Hit::Kind::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
     }
 
     // The right's foot.
@@ -816,7 +817,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
     std::string name,
         kicker = std::string(groups[menu.option_group()].name) + " \xE2\x80\x94 " + pad2(menu.option_row() + 1);
     if (action) {
-        get_button(c, left, bottom, text_tools::kOpen, Menu::kHouseYellow, true, Hit::kSkate, 1.0f);
+        get_button(c, left, bottom, text_tools::kOpen, Menu::kHouseYellow, true, Hit::Kind::kSkate, 1.0f);
         bottom -= 30.0f * 1.15f + 12.0f + 14.0f;
         draw_text(c.dl, body, c.f, c.f.get_x(left), datum(body, c.f, c.f.get_y(bottom - 21.0f), 1.5f),
                   text_tools::kGameOptionsHelp);
@@ -843,7 +844,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
             seg.colour = on ? kGround : kPaper;
             draw_text(c.dl, seg, c.f, c.f.get_x(x + 14.0f), datum(seg, c.f, c.f.get_y(y0 + 8.0f), 1.3f),
                       spec.choices[i].label);
-            c.get_hit(Hit::kChoice, menu.option_row() * 16 + static_cast<int>(i), x, y0, x + w, bottom);
+            c.get_hit(Hit::Kind::kChoice, menu.option_row() * 16 + static_cast<int>(i), x, y0, x + w, bottom);
             x += w + 6.0f;
         }
         bottom = y0 - 14.0f;
@@ -932,7 +933,7 @@ void levels_screen(Ctx& c, int* visible_rows)
             bool locked = row < static_cast<int>(view->locked.size()) && view->locked[row];
             get_row(c, rs, top, pad2(row + 1).c_str(), l.name.c_str(), menu.row_amount(row), colour, locked);
             if (top >= list_top - 1.0f && top + kLevelRowHeight <= list_bottom + 1.0f)
-                c.get_hit(Hit::kStageMap, row, 48.0f, top, kColumnInner + 20.0f, top + kLevelRowHeight);
+                c.get_hit(Hit::Kind::kStageMap, row, 48.0f, top, kColumnInner + 20.0f, top + kLevelRowHeight);
         }
         c.dl->PopClipRect();
         if (count == 0) {
@@ -994,7 +995,7 @@ void levels_screen(Ctx& c, int* visible_rows)
             get_arrow(c.dl, c.f.get_x(bx0 + 22.0f + tw + 10.0f), sb, c.f.current_s(30.0f), false,
                       get_col(kGround, fade), &adv);
         }
-        c.get_hit(Hit::kSkate, 0, bx0, by0, bx1, by1);
+        c.get_hit(Hit::Kind::kSkate, 0, bx0, by0, bx1, by1);
         float y = by0 - 6.0f;
         // The records (only what the career keeps for this level).
         Highscores rec = c.extras.records ? c.extras.records(*level) : Highscores{};
@@ -1150,7 +1151,7 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
             xform(dl, start, c.f.get_x(rows_left), c.f.get_y(row_top + kLevelRowHeight * 0.5f),
                   -3.0f * 3.14159265f / 180.0f * e, c.f.current_s(24.0f) * e, 0.0f);
         if (v.rows[i].focusable)
-            c.get_hit(Hit::kItem, i, rows_left, row_top, 1240.0f, row_top + kLevelRowHeight);
+            c.get_hit(Hit::Kind::kItem, i, rows_left, row_top, 1240.0f, row_top + kLevelRowHeight);
     }
     std::vector<std::string> hints = {text_tools::kHintSelect, text_tools::kHintBack};
     if (choices == 0)
@@ -1221,7 +1222,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
             xform(dl, start, c.f.get_x(x), c.f.get_y(strip_top + line_h * 0.5f), -3.0f * 3.14159265f / 180.0f * e, 0.0f,
                   -c.f.current_s(4.0f) * e);
         if (v.rows[i].focusable && x + widths[i] > 0.0f && x < 1280.0f)
-            c.get_hit(Hit::kItem, static_cast<int>(i), x - 10.0f, strip_top - 6.0f, x + widths[i] + 16.0f,
+            c.get_hit(Hit::Kind::kItem, static_cast<int>(i), x - 10.0f, strip_top - 6.0f, x + widths[i] + 16.0f,
                       strip_top + line_h + 6.0f);
         x += widths[i] + gap;
     }
@@ -1395,7 +1396,7 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
                 colour_track(c, v, r, i == v.selected, x0, x1, top + row_h * 0.5f);
         }
         if (r.focusable && top >= list_top - 1.0f && top + row_h <= list_bottom + 1.0f)
-            c.get_hit(Hit::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
+            c.get_hit(Hit::Kind::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
     }
     c.dl->PopClipRect();
 
@@ -1487,7 +1488,7 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
         const mirror::Row& r = v.rows[i];
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), t.row_amount(i), Menu::kHouseYellow, !r.focusable);
         if (r.focusable && top >= list_top - 1.0f && top + row_h <= list_bottom + 1.0f)
-            c.get_hit(Hit::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
+            c.get_hit(Hit::Kind::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
     }
     c.dl->PopClipRect();
 
@@ -1551,7 +1552,7 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
             draw_text(c.dl, tag, c.f, x, base - c.f.current_s(rs.name.css * 0.12f), r.tag.c_str());
         }
         if (r.focusable && top >= list_top - 1.0f && top + row_h <= list_bottom + 1.0f)
-            c.get_hit(Hit::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
+            c.get_hit(Hit::Kind::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
     }
     c.dl->PopClipRect();
     Style body;
@@ -1579,7 +1580,7 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     std::vector<std::pair<float, float>> spans;
     float bottom = get_hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
     if (resume_hint >= 0 && resume_hint < static_cast<int>(spans.size()))
-        c.get_hit(Hit::kContinue, 0, spans[resume_hint].first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f,
+        c.get_hit(Hit::Kind::kContinue, 0, spans[resume_hint].first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f,
                   spans[resume_hint].second + 6.0f, 688.0f + 6.0f);
     float name_top = big_name(c, v.big_name_, 120.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     get_kicker(c, v.kicker, left, name_top - 8.0f, Menu::kHouseYellow, 1.0f);
@@ -1638,7 +1639,7 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
             s.colour = sel ? kGround : kPaper;
             float tx = c.f.get_x(x + w * 0.5f) - get_measure(s, c.f, label.c_str()) * 0.5f;
             draw_text(c.dl, s, c.f, tx, datum(s, c.f, c.f.get_y(top + (h - 20.0f * 1.3f) * 0.5f), 1.3f), label.c_str());
-            c.get_hit(Hit::kStageMap, static_cast<int>(r) * 64 + static_cast<int>(k), x, top, x + w, top + h);
+            c.get_hit(Hit::Kind::kStageMap, static_cast<int>(r) * 64 + static_cast<int>(k), x, top, x + w, top + h);
             x += w + gap;
         }
         top += h + gap;

@@ -889,8 +889,7 @@ struct FieldUndo {
     fields::Own own;
 };
 struct UndoStep {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind {
+    enum class Kind {
         kObjects,
         kScenery,
         kMade,
@@ -908,7 +907,7 @@ struct UndoStep {
         kEntities,
         kModule,
         kGroup
-    } kind = kObjects;
+    } kind = Kind::kObjects;
     // kGroup (UX7 - level_editor_modules.h's Edit::fold): several steps made as one action, put back last first.
     std::vector<UndoStep> group;
     uint64_t serial = 0; // (a number for the step: the adjust-last panel knows its step is still the newest)
@@ -966,25 +965,25 @@ UndoStep get_snapshot()
     UndoStep step;
     std::vector<objects::GameEntity*> objects = selected_objects();
     if (picked_node_index() >= 0) {
-        step.kind = UndoStep::kNodes;
+        step.kind = UndoStep::Kind::kNodes;
         // (a rail point: the points that move with it too)
         std::vector<uint32_t> names = node_edit::moved_with(g_node_name, g_move_entire_rail);
         for (uint32_t name : names)
             node_edit::note_origin(name);
         step.nodes = node_edit::get_capture(names, node_edit::get_take_in);
     } else if (uint32_t wall = objects.empty() ? wall_only() : 0) {
-        step.kind = UndoStep::kWalls;
+        step.kind = UndoStep::Kind::kWalls;
         step.wall = wall;
         step.walls = walls::store_away({wall});
     } else if (!objects.empty()) {
-        step.kind = UndoStep::kObjects;
+        step.kind = UndoStep::Kind::kObjects;
         for (objects::GameEntity* object : objects) {
             object_edit::note_origin(object);
             object_edit::touch(object->ident_);
             step.objects.push_back(object_edit::store_away(object));
         }
     } else {
-        step.kind = UndoStep::kScenery;
+        step.kind = UndoStep::Kind::kScenery;
         step.scenery = scenery::save_state();
         // (what stands on it or is attached to it: carried by the change starting - level_editor_carry.h)
         carry::Taken taken = carry::arm();
@@ -1010,39 +1009,39 @@ void follow_scenery()
 const char* kind_label(UndoStep::Kind kind)
 {
     switch (kind) {
-    case UndoStep::kObjects:
+    case UndoStep::Kind::kObjects:
         return "Move objects";
-    case UndoStep::kScenery:
+    case UndoStep::Kind::kScenery:
         return "Move scenery";
-    case UndoStep::kMade:
+    case UndoStep::Kind::kMade:
         return "Copies";
-    case UndoStep::kNodes:
+    case UndoStep::Kind::kNodes:
         return "Move node";
-    case UndoStep::kAdded:
+    case UndoStep::Kind::kAdded:
         return "Add / remove node";
-    case UndoStep::kHidden:
+    case UndoStep::Kind::kHidden:
         return "Hide / show node";
-    case UndoStep::kOrder:
+    case UndoStep::Kind::kOrder:
         return "Crown order";
-    case UndoStep::kLevel:
+    case UndoStep::Kind::kLevel:
         return "Level layout";
-    case UndoStep::kChains:
+    case UndoStep::Kind::kChains:
         return "Chain edit";
-    case UndoStep::kWalls:
+    case UndoStep::Kind::kWalls:
         return "Walls";
-    case UndoStep::kTriggers:
+    case UndoStep::Kind::kTriggers:
         return "Trigger volume";
-    case UndoStep::kFields:
+    case UndoStep::Kind::kFields:
         return "Fields";
-    case UndoStep::kProps:
+    case UndoStep::Kind::kProps:
         return "Level properties";
-    case UndoStep::kLocks:
+    case UndoStep::Kind::kLocks:
         return "Locks";
-    case UndoStep::kEntities:
+    case UndoStep::Kind::kEntities:
         return "Path speed / sound";
-    case UndoStep::kModule:
+    case UndoStep::Kind::kModule:
         return "Faces / clusters / cameras";
-    case UndoStep::kGroup:
+    case UndoStep::Kind::kGroup:
         return "Several changes";
     }
     return "Change";
@@ -1065,7 +1064,7 @@ void push_undo(UndoStep step, const char* label = nullptr)
 void push_locks_undo(const char* label = "Lock / unlock")
 {
     UndoStep step;
-    step.kind = UndoStep::kLocks;
+    step.kind = UndoStep::Kind::kLocks;
     step.locks = picking::get_locks();
     step.where = selection_pos();
     push_undo(step, label);
@@ -1177,7 +1176,7 @@ void end_change()
         return;
     g_has_pending = false;
     V3 now = selection_pos();
-    bool changed = g_pending.kind == UndoStep::kNodes
+    bool changed = g_pending.kind == UndoStep::Kind::kNodes
                        ? node_edit::differs(g_pending.nodes, node_edit::get_take_in) // (moved or turned)
                        : g_pending.where.x != now.x || g_pending.where.y != now.y || g_pending.where.z != now.z;
     // (a turn or a scale by a drag - level_editor_transform.h: a step though the position may be where it was)
@@ -1233,7 +1232,7 @@ void set_exist(UndoStep* step, bool exist)
 void get_restore(UndoStep& step)
 {
     switch (step.kind) {
-    case UndoStep::kObjects: {
+    case UndoStep::Kind::kObjects: {
         std::vector<objects::GameEntity*> objects;
         for (const object_edit::State& state : step.objects) {
             if (object_edit::get_restore(state))
@@ -1242,7 +1241,7 @@ void get_restore(UndoStep& step)
         select_objects(objects);
         break;
     }
-    case UndoStep::kScenery:
+    case UndoStep::Kind::kScenery:
         g_objects.clear();
         scenery::restore_state(step.scenery);
         // (what it carried: back where it was - level_editor_carry.h)
@@ -1254,13 +1253,13 @@ void get_restore(UndoStep& step)
                 node_edit::assign_value(name, values);
         });
         break;
-    case UndoStep::kLocks:
+    case UndoStep::Kind::kLocks:
         picking::set_locks(step.locks);
         break;
-    case UndoStep::kMade:
+    case UndoStep::Kind::kMade:
         set_exist(&step, step.exist);
         break;
-    case UndoStep::kNodes: {
+    case UndoStep::Kind::kNodes: {
         node_edit::place_in(
             step.nodes, [](uint32_t name, const node_edit::Values& values) { node_edit::assign_value(name, values); });
         int index = step.nodes.nodes.empty() ? -1 : nodes::get_find(step.nodes.nodes.front().first);
@@ -1268,7 +1267,7 @@ void get_restore(UndoStep& step)
             select_node_only(index);
         break;
     }
-    case UndoStep::kAdded: {
+    case UndoStep::Kind::kAdded: {
         std::string message;
         if (step.exist) {
             // (made again where they were in the overlay: lowest index first)
@@ -1292,7 +1291,7 @@ void get_restore(UndoStep& step)
         }
         break;
     }
-    case UndoStep::kHidden: {
+    case UndoStep::Kind::kHidden: {
         for (uint32_t name : step.hidden_names_)
             node_create::conceal(name, step.hidden);
         int index = step.hidden_names_.empty() ? -1 : nodes::get_find(step.hidden_names_.front());
@@ -1300,10 +1299,10 @@ void get_restore(UndoStep& step)
             select_node_only(index);
         break;
     }
-    case UndoStep::kOrder:
+    case UndoStep::Kind::kOrder:
         node_create::set_order(step.order);
         break;
-    case UndoStep::kLevel: {
+    case UndoStep::Kind::kLevel: {
         std::string message, before;
         g_objects.clear();
         scenery::clear_selection();
@@ -1314,7 +1313,7 @@ void get_restore(UndoStep& step)
             layout::put_back(step.layout, &message);
         break;
     }
-    case UndoStep::kWalls:
+    case UndoStep::Kind::kWalls:
         walls::apply_states(step.walls);
         if (step.wall) {
             unpick();
@@ -1326,14 +1325,14 @@ void get_restore(UndoStep& step)
             scenery::set_selection(step.sectors);
         }
         break;
-    case UndoStep::kChains:
+    case UndoStep::Kind::kChains:
         g_node_selected = g_node_selected && nodes::get_find(g_node_name) >= 0;
         chains::change_phase(step.chains);
         if (g_node_selected && nodes::get_find(g_node_name) < 0)
             g_node_selected = false;
         break;
 
-    case UndoStep::kFields: {
+    case UndoStep::Kind::kFields: {
         for (const FieldUndo& f : step.fields)
             fields::place_in(f.node, f.key, f.own);
         int index = step.fields.empty() ? -1 : nodes::get_find(step.fields.front().node);
@@ -1341,20 +1340,20 @@ void get_restore(UndoStep& step)
             select_node_only(index);
         break;
     }
-    case UndoStep::kProps:
+    case UndoStep::Kind::kProps:
         level_props::assign_value(step.props);
         break;
-    case UndoStep::kTriggers:
+    case UndoStep::Kind::kTriggers:
         triggers::get_restore(step.triggers);
         break;
-    case UndoStep::kEntities:
+    case UndoStep::Kind::kEntities:
         entities::change_phase(step.entities);
         break;
-    case UndoStep::kModule:
+    case UndoStep::Kind::kModule:
         if (step.module)
             step.module->get_restore();
         break;
-    case UndoStep::kGroup:
+    case UndoStep::Kind::kGroup:
         for (size_t i = step.group.size(); i-- > 0;)
             get_restore(step.group[i]);
         break;
@@ -1366,14 +1365,14 @@ UndoStep at_hand(const UndoStep& step)
 {
     UndoStep now = step;
     switch (step.kind) {
-    case UndoStep::kObjects:
+    case UndoStep::Kind::kObjects:
         now.objects.clear();
         for (const object_edit::State& state : step.objects) {
             if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(state.id)))
                 now.objects.push_back(object_edit::store_away(object));
         }
         break;
-    case UndoStep::kScenery: {
+    case UndoStep::Kind::kScenery: {
         scenery::set_selection(step.scenery.selection);
         now.scenery = scenery::save_state();
         now.carried_objects_.clear();
@@ -1388,13 +1387,13 @@ UndoStep at_hand(const UndoStep& step)
         now.carried_nodes_ = node_edit::get_capture(names, node_edit::get_take_in);
         break;
     }
-    case UndoStep::kLocks:
+    case UndoStep::Kind::kLocks:
         now.locks = picking::get_locks();
         break;
-    case UndoStep::kMade:
+    case UndoStep::Kind::kMade:
         now.exist = !step.exist;
         break;
-    case UndoStep::kNodes: {
+    case UndoStep::Kind::kNodes: {
         std::vector<uint32_t> names;
         names.reserve(step.nodes.nodes.size());
         for (const auto& node : step.nodes.nodes)
@@ -1402,7 +1401,7 @@ UndoStep at_hand(const UndoStep& step)
         now.nodes = node_edit::get_capture(names, node_edit::get_take_in);
         break;
     }
-    case UndoStep::kAdded: {
+    case UndoStep::Kind::kAdded: {
         now.exist = !step.exist;
         if (now.exist) {
             // (there now: as they are now - moved since - and where)
@@ -1417,29 +1416,29 @@ UndoStep at_hand(const UndoStep& step)
         }
         break;
     }
-    case UndoStep::kHidden:
+    case UndoStep::Kind::kHidden:
         now.hidden = !step.hidden;
         break;
-    case UndoStep::kOrder:
+    case UndoStep::Kind::kOrder:
         now.order = node_create::get_order();
         break;
-    case UndoStep::kLevel:
+    case UndoStep::Kind::kLevel:
         now.reset = !step.reset;
         now.layout.clear();
         if (!now.reset)
             layout::capture_text(&now.layout);
         break;
-    case UndoStep::kChains:
+    case UndoStep::Kind::kChains:
         now.chains = chains::at_hand();
         break;
-    case UndoStep::kFields:
+    case UndoStep::Kind::kFields:
         for (FieldUndo& f : now.fields)
             fields::get_capture(f.node, f.key, &f.own);
         break;
-    case UndoStep::kProps:
+    case UndoStep::Kind::kProps:
         now.props = level_props::at_hand();
         break;
-    case UndoStep::kWalls: {
+    case UndoStep::Kind::kWalls: {
         std::vector<uint32_t> checksums;
         checksums.reserve(step.walls.size());
         for (const walls::WallState& state : step.walls)
@@ -1447,16 +1446,16 @@ UndoStep at_hand(const UndoStep& step)
         now.walls = walls::store_away(checksums);
         break;
     }
-    case UndoStep::kTriggers:
+    case UndoStep::Kind::kTriggers:
         now.triggers = triggers::store_away();
         break;
-    case UndoStep::kEntities:
+    case UndoStep::Kind::kEntities:
         now.entities = entities::at_hand();
         break;
-    case UndoStep::kModule:
+    case UndoStep::Kind::kModule:
         now.module = step.module ? step.module->get_now() : nullptr;
         break;
-    case UndoStep::kGroup:
+    case UndoStep::Kind::kGroup:
         for (size_t i = 0; i < step.group.size(); ++i)
             now.group[i] = at_hand(step.group[i]);
         break;
@@ -3086,7 +3085,7 @@ void place_node(int entry, V3 at)
     if (e.kind == node_create::Kind::kFlagSet && !e.lobby) // (a lobby flag has no base - as the levels' own)
         specs.push_back(node_create::current_base(specs.front()));
     UndoStep step;
-    step.kind = UndoStep::kAdded;
+    step.kind = UndoStep::Kind::kAdded;
     step.exist = false; // (undone: they're removed)
     std::string message;
     for (const node_create::Spec& spec : specs) {
@@ -3121,7 +3120,7 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
 {
     if (!chains::same_state(before, chains::at_hand())) {
         UndoStep step;
-        step.kind = UndoStep::kChains;
+        step.kind = UndoStep::Kind::kChains;
         step.chains = before;
         push_undo(step, "Chain edit");
         g_pickables.clear();
@@ -3208,14 +3207,14 @@ void field_request(const ui::Request& request)
     uint32_t node = request.node;
     if (!node || nodes::get_find(node) < 0)
         return;
-    if (request.id == fields::key_links() && request.kind != ui::Request::kFieldRemove) {
-        set_links_from_inspector(node, request.text, request.kind == ui::Request::kFieldHome);
+    if (request.id == fields::key_links() && request.kind != ui::Request::Kind::kFieldRemove) {
+        set_links_from_inspector(node, request.text, request.kind == ui::Request::Kind::kFieldHome);
         return;
     }
     UndoStep step;
-    step.kind = UndoStep::kFields;
+    step.kind = UndoStep::Kind::kFields;
     std::string message;
-    if (request.kind == ui::Request::kFieldHome) {
+    if (request.kind == ui::Request::Kind::kFieldHome) {
         std::vector<uint32_t> keys = request.id ? std::vector<uint32_t>{request.id} : fields::touched_keys(node);
         for (uint32_t key : keys) {
             fields::Own before, origin;
@@ -3238,7 +3237,7 @@ void field_request(const ui::Request& request)
         fields::get_capture(node, request.id, &before);
         fields::Value value;
         std::string error;
-        bool removed = request.kind == ui::Request::kFieldRemove;
+        bool removed = request.kind == ui::Request::Kind::kFieldRemove;
         if (!removed && !fields::parse(static_cast<fields::Kind>(request.value), request.text, &value, &error)) {
             hud::get_message("Not set: " + error, 5.0);
             return;
@@ -3269,7 +3268,7 @@ level_props::Props g_props_before;
 bool g_props_editing;
 void level_props_request(const ui::Request& request)
 {
-    if (request.kind == ui::Request::kLevelProps) {
+    if (request.kind == ui::Request::Kind::kLevelProps) {
         if (!g_props_editing) {
             g_props_before = level_props::at_hand();
             g_props_editing = true;
@@ -3282,7 +3281,7 @@ void level_props_request(const ui::Request& request)
     g_props_editing = false;
     if (!level_props::get_same(g_props_before, level_props::at_hand())) {
         UndoStep step;
-        step.kind = UndoStep::kProps;
+        step.kind = UndoStep::Kind::kProps;
         step.props = g_props_before;
         push_undo(step, "Level properties");
         note_action("level properties changed");
@@ -3325,7 +3324,7 @@ bool place_entity(int entry, V3 at)
         }
         entities::attach_sound(node_create::name_hash(name), placed.sound);
         UndoStep step;
-        step.kind = UndoStep::kAdded;
+        step.kind = UndoStep::Kind::kAdded;
         step.exist = false;
         step.added.push_back(spec);
         step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), name));
@@ -3344,7 +3343,7 @@ bool place_entity(int entry, V3 at)
         return true;
     }
     UndoStep step;
-    step.kind = UndoStep::kMade;
+    step.kind = UndoStep::Kind::kMade;
     step.exist = false;
     std::vector<objects::GameEntity*> made;
     for (uint32_t name : placed.copies) {
@@ -3447,7 +3446,7 @@ void unlink_list_node(bool confirmed)
     // A copy selected by its node (a particle system's - level_editor_entities.h): deleted as the object copies are.
     if (object_edit::is_copy(node.name)) {
         UndoStep step;
-        step.kind = UndoStep::kMade;
+        step.kind = UndoStep::Kind::kMade;
         step.exist = true; // (undone: made again)
         uint32_t source = 0;
         for (const object_edit::DupFrom& c : object_edit::get_copies()) {
@@ -3469,7 +3468,7 @@ void unlink_list_node(bool confirmed)
     }
     if (node.added) {
         UndoStep step;
-        step.kind = UndoStep::kAdded;
+        step.kind = UndoStep::Kind::kAdded;
         step.exist = true; // (undone: made again)
         node_create::Spec spec;
         int at = 0;
@@ -3502,7 +3501,7 @@ void unlink_list_node(bool confirmed)
     if (!node_create::conceal(node.name, true))
         return;
     UndoStep step;
-    step.kind = UndoStep::kHidden;
+    step.kind = UndoStep::Kind::kHidden;
     step.hidden_names_ = {node.name};
     step.hidden = false; // (undone: shown)
     push_undo(step, "Hide node");
@@ -3526,7 +3525,7 @@ bool show_hidden_node()
     if (!node_create::conceal(name, false))
         return false;
     UndoStep step;
-    step.kind = UndoStep::kHidden;
+    step.kind = UndoStep::Kind::kHidden;
     step.hidden_names_ = {name};
     step.hidden = true; // (undone: hidden again)
     push_undo(step, "Show node");
@@ -3543,7 +3542,7 @@ void move_selected_crown(int delta)
         return;
     const nodes::Elem& node = nodes::get_all()[index];
     UndoStep step;
-    step.kind = UndoStep::kOrder;
+    step.kind = UndoStep::Kind::kOrder;
     step.order = node_create::get_order();
     std::string message;
     uint32_t name = node.name;
@@ -4019,7 +4018,7 @@ void place_from_browser(V3 at, bool keep_open = false)
         return;
     uint32_t source = g_browser.items[g_browser.index].id;
     UndoStep step;
-    step.kind = UndoStep::kMade;
+    step.kind = UndoStep::Kind::kMade;
     step.exist = false;
     if (g_browser.tab == 0) {
         uint32_t copy = scenery::get_duplicate(source);
@@ -4067,7 +4066,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
     g_duplicate_pairs.clear();
     edit::Selected adjust_source = edit::get_selection(); // (level_editor_adjust.h: what it copied)
     UndoStep step;
-    step.kind = UndoStep::kMade;
+    step.kind = UndoStep::Kind::kMade;
     step.exist = false;
     V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
     std::vector<objects::GameEntity*> objects = selected_objects();
@@ -4221,7 +4220,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
         return false;
     }
     UndoStep step;
-    step.kind = UndoStep::kAdded;
+    step.kind = UndoStep::Kind::kAdded;
     step.exist = false;
     step.added.push_back(spec);
     step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), spec.name));
@@ -4287,7 +4286,7 @@ void switch_scenery_collision(bool off)
     if (get_primary() || sectors.empty())
         return;
     UndoStep step;
-    step.kind = UndoStep::kWalls;
+    step.kind = UndoStep::Kind::kWalls;
     step.walls = walls::store_away(sectors);
     step.sectors = sectors;
     int changed = 0;
@@ -4315,7 +4314,7 @@ void erase_one()
     std::vector<objects::GameEntity*> objects = selected_objects();
     if (!objects.empty()) {
         UndoStep step;
-        step.kind = UndoStep::kMade;
+        step.kind = UndoStep::Kind::kMade;
         step.exist = true; // (undone: they're made again)
         for (objects::GameEntity* object : objects) {
             if (!object_edit::is_copy(object->ident_))
@@ -4793,7 +4792,7 @@ void reset_level_now()
     end_drag();
     unpick();
     UndoStep step;
-    step.kind = UndoStep::kLevel;
+    step.kind = UndoStep::Kind::kLevel;
     std::string message;
     g_confirm_reset = false;
     if (!layout::reset_level(&step.layout, &message)) {
@@ -4988,65 +4987,65 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
     bool no_change = g_dragging || g_key_moving || g_field_editing || triggers::resizing();
     for (const ui::Request& request : ui::take_requests()) {
         switch (request.kind) {
-        case ui::Request::kUndo:
+        case ui::Request::Kind::kUndo:
             if (!no_change)
                 step_history(&g_undo, &g_redo, "Undone");
             break;
-        case ui::Request::kRedo:
+        case ui::Request::Kind::kRedo:
             if (!no_change)
                 step_history(&g_redo, &g_undo, "Redone");
             break;
-        case ui::Request::kSave:
+        case ui::Request::Kind::kSave:
             if (!no_change)
                 save_layout();
             break;
-        case ui::Request::kRestoreAutosave:
-        case ui::Request::kDiscardAutosave:
+        case ui::Request::Kind::kRestoreAutosave:
+        case ui::Request::Kind::kDiscardAutosave:
             if (!no_change)
-                answer_autosave(request.kind == ui::Request::kDiscardAutosave);
+                answer_autosave(request.kind == ui::Request::Kind::kDiscardAutosave);
             break;
-        case ui::Request::kToggleHelp:
+        case ui::Request::Kind::kToggleHelp:
             toggle_help();
             break;
-        case ui::Request::kToggleBrowser:
+        case ui::Request::Kind::kToggleBrowser:
             toggle_browser();
             break;
-        case ui::Request::kBrowserTab:
+        case ui::Request::Kind::kBrowserTab:
             if (g_browser.open && g_browser.tab != request.value) {
                 g_browser.tab = request.value ? 1 : 0;
                 g_browser.index = g_browser.top = 0;
                 fill_browser();
             }
             break;
-        case ui::Request::kBrowserIndex:
+        case ui::Request::Kind::kBrowserIndex:
             if (g_browser.open && request.value >= 0 && request.value < static_cast<int>(g_browser.items.size()))
                 g_browser.index = request.value;
             break;
-        case ui::Request::kBrowserPlace:
+        case ui::Request::Kind::kBrowserPlace:
             if (g_browser.open && !g_dragging)
                 place_from_browser(cursor_point(dir, have_ray, frame));
             break;
-        case ui::Request::kBrowserFocus:
+        case ui::Request::Kind::kBrowserFocus:
             if (g_browser.open)
                 focus_browser_item();
             break;
-        case ui::Request::kDrop:
+        case ui::Request::Kind::kDrop:
             drop_selection();
             break;
-        case ui::Request::kDeselect:
+        case ui::Request::Kind::kDeselect:
             if (!g_dragging)
                 unpick();
             break;
-        case ui::Request::kSnapAlways:
+        case ui::Request::Kind::kSnapAlways:
             g_snap_always = request.value != 0;
             break;
-        case ui::Request::kMemberRemove:
-        case ui::Request::kMemberKeep:
+        case ui::Request::Kind::kMemberRemove:
+        case ui::Request::Kind::kMemberKeep:
             // (the Inspector's list of the scenery selection's parts: x / Keep only this)
             if (g_dragging || !scenery::has_selection())
                 break;
             if (request.value) {
-                if (request.kind == ui::Request::kMemberRemove) {
+                if (request.kind == ui::Request::Kind::kMemberRemove) {
                     scenery::drop_rail(request.id);
                 } else {
                     // (a rail point by itself: the node selected, as its gizmo would)
@@ -5060,14 +5059,14 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                     }
                 }
             } else if (scenery::get_selected(request.id)) {
-                if (request.kind == ui::Request::kMemberRemove)
+                if (request.kind == ui::Request::Kind::kMemberRemove)
                     scenery::flip_over(request.id);
                 else
                     scenery::keep_only(request.id);
             }
             note_action("Inspector - selected: %s", describe_selection().c_str());
             break;
-        case ui::Request::kSelectScenery:
+        case ui::Request::Kind::kSelectScenery:
             if (!g_dragging && !scenery::why_not_movable(request.id)) {
                 g_objects.clear();
                 scenery::set_selection({request.id});
@@ -5075,57 +5074,57 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 note_action("selected in the Outliner: %s", describe_selection().c_str());
             }
             break;
-        case ui::Request::kFamilies:
+        case ui::Request::Kind::kFamilies:
             g_families = request.id & nodes::kAllFamilies;
             config_set_int("editor", "families", static_cast<int>(g_families));
             break;
-        case ui::Request::kPickFilter:
+        case ui::Request::Kind::kPickFilter:
             g_pick_filter = request.id & picking::kAll;
             config_set_int("editor", "pick", static_cast<int>(g_pick_filter));
             break;
-        case ui::Request::kToggleLock:
+        case ui::Request::Kind::kToggleLock:
             toggle_lock();
             break;
-        case ui::Request::kCollision:
+        case ui::Request::Kind::kCollision:
             show_collision(request.value != 0);
             break;
-        case ui::Request::kViewHide:
+        case ui::Request::Kind::kViewHide:
             view_hide(false);
             break;
-        case ui::Request::kViewIsolate:
+        case ui::Request::Kind::kViewIsolate:
             view_hide(true);
             break;
-        case ui::Request::kViewShowAll:
+        case ui::Request::Kind::kViewShowAll:
             view_show_all();
             break;
-        case ui::Request::kClearWall:
+        case ui::Request::Kind::kClearWall:
             view::clear_wall();
             break;
-        case ui::Request::kWallCollision:
+        case ui::Request::Kind::kWallCollision:
             if (uint32_t wall = wall_only(); wall && !no_change)
                 switch_wall(wall, request.value == 0);
             break;
-        case ui::Request::kSceneryCollision:
+        case ui::Request::Kind::kSceneryCollision:
             if (!no_change)
                 switch_scenery_collision(request.value == 0);
             break;
-        case ui::Request::kUnlock:
+        case ui::Request::Kind::kUnlock:
             if (!no_change && picking::latched(static_cast<uint32_t>(request.value), request.id)) {
                 push_locks_undo(); // (one undo step - unsaved with it)
                 picking::set_locked(static_cast<uint32_t>(request.value), request.id, false);
                 hud::get_message("Unlocked");
             }
             break;
-        case ui::Request::kCarry:
+        case ui::Request::Kind::kCarry:
             carry::set_enabled(request.value != 0);
             hud::get_message(request.value ? "Carry Objects on" : "Carry Objects off");
             break;
-        case ui::Request::kSelectNode:
+        case ui::Request::Kind::kSelectNode:
             select_node(request.value);
             if (picked_node_index() >= 0)
                 focus_on_selection(); // (the camera turns to it, at the distance it is - and orbits it)
             break;
-        case ui::Request::kNodeSet:
+        case ui::Request::Kind::kNodeSet:
             // The Inspector's fields (typed, or dragged to scrub): one undo step until they're let go.
             if (picked_node_index() >= 0 && !g_dragging && !g_key_moving) {
                 if (!g_field_editing) {
@@ -5139,13 +5138,13 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 note_action("set in the Inspector: %s", describe_selection().c_str());
             }
             break;
-        case ui::Request::kNodeSetDone:
+        case ui::Request::Kind::kNodeSetDone:
             if (g_field_editing) {
                 g_field_editing = false;
                 end_change();
             }
             break;
-        case ui::Request::kScaleSet:
+        case ui::Request::Kind::kScaleSet:
             // The Inspector's Scale X / Y / Z (level_editor_scale.h): scenery or objects scaled to them (along their own
             // axes) while dragged or typed; one undo step until let go.
             if ((get_primary() || scenery::has_selection()) && picked_node_index() < 0 && !g_dragging &&
@@ -5160,7 +5159,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                     follow_scenery();
             }
             break;
-        case ui::Request::kScaleDone:
+        case ui::Request::Kind::kScaleDone:
             if (g_field_editing) {
                 g_field_editing = false;
                 if (!get_primary())
@@ -5174,19 +5173,19 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 g_has_pending = false;
             }
             break;
-        case ui::Request::kReset:
+        case ui::Request::Kind::kReset:
             if (!no_change)
                 get_reset();
             break;
-        case ui::Request::kOnlineWarningSeen:
+        case ui::Request::Kind::kOnlineWarningSeen:
             g_online_warning_shown = false;
             break;
-        case ui::Request::kGoToNode:
+        case ui::Request::Kind::kGoToNode:
             go_to_node(request.value);
             if (have_selection())
                 go_to_selection();
             break;
-        case ui::Request::kPlaceToggle:
+        case ui::Request::Kind::kPlaceToggle:
             g_place_open = !g_place_open;
             if (g_place_open)
                 entities::refresh_palette();
@@ -5194,7 +5193,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 stop_chain_drawing(nullptr);
             g_place_armed = -1;
             break;
-        case ui::Request::kPlaceArm:
+        case ui::Request::Kind::kPlaceArm:
             if (chain_kind_of(g_place_armed) != chains::Blit::kNone)
                 stop_chain_drawing(nullptr);
             g_place_armed = request.value;
@@ -5204,7 +5203,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 hud::get_message(chains::get_waiting(), 6.0);
             }
             break;
-        case ui::Request::kChainOp:
+        case ui::Request::Kind::kChainOp:
             if (!no_change) {
                 run_chain_op(request.value, request.id);
                 if (request.value == chains::kOpExtend && chains::get_drawing() != chains::Blit::kNone) {
@@ -5213,7 +5212,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 }
             }
             break;
-        case ui::Request::kPlaceHere:
+        case ui::Request::Kind::kPlaceHere:
             if (chain_kind_of(request.value) != chains::Blit::kNone) {
                 hud::get_message("Click points in the view");
                 break;
@@ -5224,56 +5223,56 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 g_place_armed = -1;
             }
             break;
-        case ui::Request::kRemoveNodeAction:
+        case ui::Request::Kind::kRemoveNodeAction:
             if (!no_change)
                 unlink_list_node(false);
             break;
-        case ui::Request::kHideConfirmed: {
+        case ui::Request::Kind::kHideConfirmed: {
             uint32_t name = g_confirm_hide;
             g_confirm_hide = 0;
             if (!no_change && name && name == g_node_name)
                 unlink_list_node(true);
             break;
         }
-        case ui::Request::kHideCancelled:
+        case ui::Request::Kind::kHideCancelled:
             g_confirm_hide = 0;
             break;
-        case ui::Request::kResetLevel:
+        case ui::Request::Kind::kResetLevel:
             if (!no_change)
                 ask_reset_level();
             break;
-        case ui::Request::kResetConfirmed:
+        case ui::Request::Kind::kResetConfirmed:
             if (!no_change && g_confirm_reset)
                 reset_level_now();
             break;
-        case ui::Request::kResetCancelled:
+        case ui::Request::Kind::kResetCancelled:
             g_confirm_reset = false;
             break;
-        case ui::Request::kReqEntireRail:
+        case ui::Request::Kind::kReqEntireRail:
             g_move_entire_rail = request.value != 0;
             break;
-        case ui::Request::kFieldSet:
-        case ui::Request::kFieldRemove:
-        case ui::Request::kFieldHome:
+        case ui::Request::Kind::kFieldSet:
+        case ui::Request::Kind::kFieldRemove:
+        case ui::Request::Kind::kFieldHome:
             if (!no_change)
                 field_request(request);
             break;
-        case ui::Request::kLevelProps:
-        case ui::Request::kLevelPropsDone:
+        case ui::Request::Kind::kLevelProps:
+        case ui::Request::Kind::kLevelPropsDone:
             if (!g_dragging && !g_key_moving)
                 level_props_request(request);
             break;
-        case ui::Request::kCrownMove:
+        case ui::Request::Kind::kCrownMove:
             if (!no_change)
                 move_selected_crown(request.value);
             break;
-        case ui::Request::kBrowserPreview:
+        case ui::Request::Kind::kBrowserPreview:
             g_browser.preview = request.value;
             break;
-        case ui::Request::kPreviewOrbit:
+        case ui::Request::Kind::kPreviewOrbit:
             preview::intake(request.a[0], request.a[1], request.a[2]);
             break;
-        case ui::Request::kSelectObject:
+        case ui::Request::Kind::kSelectObject:
             if (!g_dragging) {
                 if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(request.id))) {
                     select_objects({object});
@@ -5742,12 +5741,12 @@ void tick_frame()
         triggers::set_selected(picked_node_index() >= 0 && triggers::has_handles(g_node_name) ? g_node_name : 0);
         UndoStep step;
         if (triggers::take_undo(&step.triggers)) {
-            step.kind = UndoStep::kTriggers;
+            step.kind = UndoStep::Kind::kTriggers;
             push_undo(step, "Trigger volume");
         }
         UndoStep entities;
         if (entities::take_undo(&entities.entities)) {
-            entities.kind = UndoStep::kEntities;
+            entities.kind = UndoStep::Kind::kEntities;
             push_undo(entities, "Path speed / sound");
         }
         int select = triggers::take_select();
@@ -6664,7 +6663,7 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
 void push_module_undo_labelled(std::shared_ptr<ModuleStep> before, const char* label)
 {
     UndoStep step;
-    step.kind = UndoStep::kModule;
+    step.kind = UndoStep::Kind::kModule;
     step.module = std::move(before);
     step.where = selection_pos();
     push_undo(step, label);
@@ -6712,7 +6711,7 @@ bool apply_layout_step(const std::string& text, const char* label, std::string* 
         return false;
     }
     UndoStep step;
-    step.kind = UndoStep::kLevel;
+    step.kind = UndoStep::Kind::kLevel;
     step.reset = false;
     if (!layout::capture_text(&step.layout)) {
         *message = "Not in a level";
@@ -6810,7 +6809,7 @@ int set_fields_on_nodes(const std::vector<uint32_t>& nodes, const std::vector<Fi
                         std::string* message)
 {
     UndoStep step;
-    step.kind = UndoStep::kFields;
+    step.kind = UndoStep::Kind::kFields;
     int set = 0;
     for (uint32_t node : nodes) {
         if (nodes::get_find(node) < 0)
@@ -7062,7 +7061,7 @@ void fold(size_t depth)
     if (g_undo.size() - depth < 2)
         return;
     UndoStep group;
-    group.kind = UndoStep::kGroup;
+    group.kind = UndoStep::Kind::kGroup;
     std::string label = g_undo.back().label;
     group.group.assign(g_undo.begin() + static_cast<long>(depth), g_undo.end());
     g_undo.erase(g_undo.begin() + static_cast<long>(depth), g_undo.end());
@@ -7086,7 +7085,7 @@ bool take_back()
 void push_made(const std::vector<uint32_t>& objects, const std::vector<uint32_t>& sectors)
 {
     UndoStep step;
-    step.kind = UndoStep::kMade;
+    step.kind = UndoStep::Kind::kMade;
     step.exist = false;
     for (uint32_t id : objects) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
@@ -7110,7 +7109,7 @@ void push_snapshot() { push_undo(get_snapshot()); }
 void remove_copies(const std::vector<uint32_t>& ids)
 {
     UndoStep step;
-    step.kind = UndoStep::kMade;
+    step.kind = UndoStep::Kind::kMade;
     step.exist = true; // (undone: made again)
     for (uint32_t id : ids) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
@@ -7136,7 +7135,7 @@ void get_settle() { level_editor::get_settle(); }
 bool set_field(uint32_t node, uint32_t key, int kind, const std::string& text)
 {
     ui::Request request;
-    request.kind = ui::Request::kFieldSet;
+    request.kind = ui::Request::Kind::kFieldSet;
     request.node = node;
     request.id = key;
     request.value = kind;

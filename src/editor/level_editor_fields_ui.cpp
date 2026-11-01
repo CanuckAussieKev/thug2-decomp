@@ -48,7 +48,7 @@ void dup_from(ScratchBuf* buffer, const std::string& text)
 void set_field(std::vector<Request>* requests, uint32_t node, uint32_t key, fields::Kind kind, const std::string& text,
                const std::string& label = "")
 {
-    Request request = {Request::kFieldSet};
+    Request request = {Request::Kind::kFieldSet};
     request.node = node;
     request.id = key;
     request.value = static_cast<int>(kind);
@@ -211,7 +211,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             if (row.edited) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Home"))
-                    simple(requests, Request::kFieldHome, node.name, row.key);
+                    simple(requests, Request::Kind::kFieldHome, node.name, row.key);
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Revert");
             }
@@ -219,7 +219,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 row.key != fields::key_links()) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("x"))
-                    simple(requests, Request::kFieldRemove, node.name, row.key);
+                    simple(requests, Request::Kind::kFieldRemove, node.name, row.key);
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip(row.overridden ? "Remove override" : "Remove field");
             }
@@ -290,7 +290,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     ImGui::PushFont(small_font);
     if (any_edited) {
         if (ImGui::SmallButton("Revert All Fields"))
-            simple(requests, Request::kFieldHome, node.name, 0);
+            simple(requests, Request::Kind::kFieldHome, node.name, 0);
         ImGui::SameLine();
     }
     ImGui::TextDisabled("Grey: shared by the class");
@@ -308,11 +308,11 @@ struct LevelTyping {
 
 void send_props(std::vector<Request>* requests, const level_props::Props& props, bool done)
 {
-    Request request = {Request::kLevelProps};
+    Request request = {Request::Kind::kLevelProps};
     request.props = props;
     requests->push_back(request);
     if (done)
-        requests->push_back(Request{Request::kLevelPropsDone});
+        requests->push_back(Request{Request::Kind::kLevelPropsDone});
 }
 
 void get_when(ImFont* small_font, const char* when, const char* tip)
@@ -488,7 +488,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             send_props(requests, props, false);
         }
         if (ImGui::IsItemDeactivatedAfterEdit())
-            requests->push_back(Request{Request::kLevelPropsDone});
+            requests->push_back(Request{Request::Kind::kLevelPropsDone});
         ImGui::EndDisabled();
         get_when(small_font, "live", "Ambient light colour");
         // Fog.
@@ -529,7 +529,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (changed)
             send_props(requests, props, false);
         if (done)
-            requests->push_back(Request{Request::kLevelPropsDone});
+            requests->push_back(Request{Request::Kind::kLevelPropsDone});
         ImGui::EndDisabled();
         get_when(small_font, "live", "Fog colour, alpha and distance (alpha 0: no fog)");
         ImGui::EndTable();

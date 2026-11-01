@@ -219,7 +219,7 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
             *error = "not a flag: " + token;
             return false;
         }
-        *out = {Param::kBitMark, "", token, 0, 0.0f};
+        *out = {Param::Kind::kBitMark, "", token, 0, 0.0f};
         return true;
     }
     std::string name = token.substr(0, equals), value = token.substr(equals + 1);
@@ -228,15 +228,15 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
         return false;
     }
     if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
-        *out = {Param::kChars, name, value.substr(1, value.size() - 2), 0, 0.0f};
+        *out = {Param::Kind::kChars, name, value.substr(1, value.size() - 2), 0, 0.0f};
     else if (value.find('"') != std::string::npos)
         return *error = "not a parameter: " + token, false;
     else if (is_integer(value) && value.size() <= 10)
-        *out = {Param::kInteger, name, value, std::atoi(value.c_str()), 0.0f};
+        *out = {Param::Kind::kInteger, name, value, std::atoi(value.c_str()), 0.0f};
     else if (is_float(value))
-        *out = {Param::kFloat, name, value, 0, static_cast<float>(std::atof(value.c_str()))};
+        *out = {Param::Kind::kFloat, name, value, 0, static_cast<float>(std::atof(value.c_str()))};
     else if (is_id(value))
-        *out = {Param::kName, name, value, 0, 0.0f};
+        *out = {Param::Kind::kName, name, value, 0, 0.0f};
     else
         return *error = "not a value: " + value, false;
     return true;
@@ -546,10 +546,10 @@ std::string refusal_by_name(const OrderCode& command)
         if (script_denied(command.target))
             return "the script " + command.target + " is online / network";
         for (const Param& param : command.params) {
-            const std::string& name = param.kind == Param::kBitMark ? param.text : param.name;
+            const std::string& name = param.kind == Param::Kind::kBitMark ? param.text : param.name;
             if (name_looks_online(name) || checksum_denied(name_hash(name)))
                 return "the parameter " + name + " is online / network";
-            if ((param.kind == Param::kName || param.kind == Param::kChars) && script_denied(param.text))
+            if ((param.kind == Param::Kind::kName || param.kind == Param::Kind::kChars) && script_denied(param.text))
                 return "the value " + param.text + " is online / network";
         }
         return {};
@@ -580,10 +580,10 @@ std::string describe(const OrderCode& command)
         std::string text = "run " + command.target;
         for (const Param& param : command.params) {
             text += " ";
-            if (param.kind == Param::kBitMark)
+            if (param.kind == Param::Kind::kBitMark)
                 text += param.text;
             else
-                text += param.name + "=" + (param.kind == Param::kChars ? "\"" + param.text + "\"" : param.text);
+                text += param.name + "=" + (param.kind == Param::Kind::kChars ? "\"" + param.text + "\"" : param.text);
         }
         return text;
     }
@@ -1106,19 +1106,19 @@ script::Struct* make_params(const std::vector<Param>& params)
     auto* out = new (script::spawn_param_bag()) script::Struct;
     for (const Param& param : params) {
         switch (param.kind) {
-        case Param::kBitMark:
+        case Param::Kind::kBitMark:
             out->put_name_key(0u, name_hash(param.text));
             break;
-        case Param::kInteger:
+        case Param::Kind::kInteger:
             out->put_int(name_hash(param.name), param.integer);
             break;
-        case Param::kFloat:
+        case Param::Kind::kFloat:
             out->push_float(name_hash(param.name), param.real);
             break;
-        case Param::kChars:
+        case Param::Kind::kChars:
             out->append_word(name_hash(param.name), param.text.c_str());
             break;
-        case Param::kName:
+        case Param::Kind::kName:
             out->put_name_key(name_hash(param.name), id_checksum(param.text));
             break;
         }

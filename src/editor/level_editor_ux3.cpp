@@ -111,11 +111,11 @@ void prepare_all()
     set_checked(kCollision, [] { return settings_now().collision ? 1 : 0; });
     add_toggle(
         "snap25", "Snap", "Snap moves to the grid", [] { return settings_now().snap_always_ ? 1 : 0; },
-        [] { get_ask(ui::Request::kSnapAlways, settings_now().snap_always_ ? 0 : 1); });
+        [] { get_ask(ui::Request::Kind::kSnapAlways, settings_now().snap_always_ ? 0 : 1); });
     add_toggle(
         "carry_objects", "Carry Objects", "Move objects standing on scenery with it",
         [] { return settings_now().carry ? 1 : 0; },
-        [] { get_ask(ui::Request::kCarry, settings_now().carry ? 0 : 1); });
+        [] { get_ask(ui::Request::Kind::kCarry, settings_now().carry ? 0 : 1); });
     struct PickToggle {
         const char *id, *name;
         uint32_t bit;
@@ -155,7 +155,7 @@ void prepare_all()
         add_toggle(
             p.id, p.name, "What a click in the view selects",
             [bit] { return (settings_now().pick_filter_ & bit) ? 1 : 0; },
-            [bit] { get_ask(ui::Request::kPickFilter, 0, settings_now().pick_filter_ ^ bit); });
+            [bit] { get_ask(ui::Request::Kind::kPickFilter, 0, settings_now().pick_filter_ ^ bit); });
     }
 }
 

@@ -53,8 +53,7 @@ using RecordsLookup = Highscores (*)(const StageMap& level);
 struct Hit {
     // (Item: a list's item / an option row; Tab: a game tab / an option group; Skate: the level select's Skate, the
     // Game options row's Open; Choice: an option's choice - index row * 16 + choice)
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind { kItem, kStageMap, kTab, kBack, kSkate, kContinue, kChoice } kind;
+    enum class Kind { kItem, kStageMap, kTab, kBack, kSkate, kContinue, kChoice } kind;
     int index;
     float x0, y0, x1, y1;
     bool get_holds(float x, float y) const { return x >= x0 && x < x1 && y >= y0 && y < y1; }

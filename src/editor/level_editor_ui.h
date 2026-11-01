@@ -269,8 +269,7 @@ struct Overlay {
 
 // What the user asked for on the panels, for the editor to do in its next Update.
 struct Request {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind {
+    enum class Kind {
         kUndo,
         kRedo,
         kSave,

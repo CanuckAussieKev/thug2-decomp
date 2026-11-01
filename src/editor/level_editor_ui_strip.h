@@ -74,8 +74,7 @@ struct State {
 };
 
 struct Occurrence {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind {
+    enum class Kind {
         kDeselect, // Fly
         kTool,     // value: 0 move, 1 rotate, 2 scale
         kSpace,    // World / Local switched

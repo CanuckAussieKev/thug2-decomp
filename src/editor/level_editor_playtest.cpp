@@ -178,14 +178,14 @@ std::vector<GapChange> GapTracker::tick_frame(const std::vector<GapRead>& now)
         }
         int old_pending = old ? old->pending : 0, old_count = old ? old->count : g.count;
         if (g.pending > old_pending)
-            changes.push_back({GapChange::kGot, g.name, g.score});
+            changes.push_back({GapChange::Kind::kGot, g.name, g.score});
         if (g.count > old_count) {
             // (got and landed between two reads: the got first)
             if (old_pending == 0 && g.pending <= old_pending)
-                changes.push_back({GapChange::kGot, g.name, g.score});
-            changes.push_back({GapChange::kLanded, g.name, g.score});
+                changes.push_back({GapChange::Kind::kGot, g.name, g.score});
+            changes.push_back({GapChange::Kind::kLanded, g.name, g.score});
         } else if (old_pending > 0 && g.pending == 0) {
-            changes.push_back({GapChange::kLost, g.name, g.score});
+            changes.push_back({GapChange::Kind::kLost, g.name, g.score});
         }
     }
     last = now;
@@ -655,20 +655,20 @@ void link_record(modules::FrontEnd* front_end)
     // The gaps: got, landed, lost.
     LevelTrails& level = g_levels[g_rec.scene];
     for (const GapChange& c : g_rec.gaps.tick_frame(read_gaps())) {
-        if (c.kind == GapChange::kGot) {
+        if (c.kind == GapChange::Kind::kGot) {
             run.events.push_back({EventKind::kGap, now.pos, c.name, c.score, GapStatus::kAwaiting});
             continue;
         }
         bool marked = false;
         for (auto e = run.events.rbegin(); e != run.events.rend(); ++e) {
             if (e->kind == EventKind::kGap && e->status == GapStatus::kAwaiting && e->name == c.name) {
-                e->status = c.kind == GapChange::kLanded ? GapStatus::kLanded : GapStatus::kLost;
+                e->status = c.kind == GapChange::Kind::kLanded ? GapStatus::kLanded : GapStatus::kLost;
                 marked = true;
-                if (c.kind == GapChange::kLanded)
+                if (c.kind == GapChange::Kind::kLanded)
                     break; // (one landing a got)
             }
         }
-        if (c.kind == GapChange::kLanded) {
+        if (c.kind == GapChange::Kind::kLanded) {
             if (!marked)
                 run.events.push_back({EventKind::kGap, now.pos, c.name, c.score, GapStatus::kLanded});
             if (level.landed.insert(c.name).second)
