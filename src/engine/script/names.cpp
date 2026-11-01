@@ -16,7 +16,6 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -160,7 +159,7 @@ void install_script_functions(const NativeCommand* functions, uint32_t count)
         register_name_hash(checksum, functions[i].name);
         SymbolTableEntry* symbol = create_symbol(checksum);
         symbol->type = kQbvalNativeFunc;
-        symbol->raw = cell::of(functions[i].function);
+        symbol->value = Cell::of(functions[i].function);
     }
 }
 
@@ -175,31 +174,29 @@ void publish_method_table(const char* const* names, uint32_t count)
 }
 
 // 0x0046F060
-void register_member_function_table(void*, const uint32_t* records, int stride)
+void register_member_function_table(std::span<const MemberFunctionEntry> records)
 {
-    while (*records) {
-        SymbolTableEntry* symbol = create_symbol(*records);
-        symbol->raw = cell::of(records);
-        records = raw::field_at<const uint32_t>(records, stride);
+    for (const MemberFunctionEntry& record : records) {
+        if (!record.callsign_)
+            break;
+        SymbolTableEntry* symbol = create_symbol(record.callsign_);
+        symbol->value = Cell::of(&record);
         symbol->type = kQbvalNativeMethod;
     }
 }
 
-void fill_member_function_code(uint32_t* records, const MemberCode* code, int count)
+void fill_member_function_code(std::span<MemberFunctionEntry> records, const MemberCode* code, int count)
 {
     for (int i = 0; i < count; ++i) {
-        uint32_t* record = records + 6 * i;
-        record[2] = cell::of(code_address(code[i]));
-        record[3] = 0;
-        record[4] = 0;
-        record[5] = 0;
+        MemberFunctionEntry& record = core::at(records, i);
+        record.method_code_ = code[i];
+        record.this_adjustment_ = 0;
+        record.virtual_base_offsets_ = {0, 0};
     }
-    uint32_t* terminator = records + 6 * count;
-    terminator[2] = 0;
-    terminator[3] = 0;
-    terminator[4] = 0;
-    terminator[5] = 0xFFFFFFFFu;
+    MemberFunctionEntry& terminator = core::at(records, count);
+    terminator.method_code_ = nullptr;
+    terminator.this_adjustment_ = 0;
+    terminator.virtual_base_offsets_ = {0, -1};
 }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

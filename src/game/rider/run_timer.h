@@ -41,7 +41,7 @@ public:
     ~RiderRunClock() override;
     // 0x004FBDA0 (slot 2, the cleanup component's, folded: its +0x18 cleared): state 0.
     void configure_from_data(script::Struct* /*params*/) override { cur_phase_ = 0; }
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -78,5 +78,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 42> g_run_timer_member_functions;
+extern std::array<script::MemberFunctionEntry, 7> g_run_timer_member_functions;
 } // namespace objects

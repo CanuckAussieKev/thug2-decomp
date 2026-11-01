@@ -141,8 +141,7 @@ void CinematicTable::refresh_objects()
     if (skater)
         script::launch_script(kRefreshScript, params, skater, false, nullptr);
     free_struct(params);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    script::find_symbol(kRefreshGlobal)->integer = 0;
+    script::find_symbol(kRefreshGlobal)->value.set_integer(0);
 }
 
 // 0x004648D0

@@ -75,7 +75,7 @@ public:
     // 0x0042EF60: the shape's, the friction's, the spheres' and the springs' arrays freed, the callback and sound
     // structures deleted; the base's body.
     ~BodyDynamicsModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -294,5 +294,5 @@ extern bool g_rigid_body_draw_details;
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 78> g_rigid_body_member_functions;
+extern std::array<script::MemberFunctionEntry, 13> g_rigid_body_member_functions;
 } // namespace objects

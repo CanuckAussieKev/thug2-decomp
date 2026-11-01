@@ -313,7 +313,11 @@ bool Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
 }
 
 // 0x00565250
-int Skate::cfunc_in_team_game(script::Struct*, script::Script*) { return get_game_mode()->is_squad_match(); }
+// (the script runtime reads the result's low byte)
+bool Skate::cfunc_in_team_game(script::Struct*, script::Script*)
+{
+    return static_cast<uint8_t>(get_game_mode()->is_squad_match()) != 0;
+}
 
 // 0x00565260
 bool Skate::cfunc_change_level(script::Struct* params, script::Script*)

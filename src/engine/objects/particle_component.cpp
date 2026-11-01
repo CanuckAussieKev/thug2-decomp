@@ -35,14 +35,13 @@
 
 namespace objects {
 
-std::array<uint32_t, 126> g_particle_component_member_functions{{
-    0x88BE2262, 0xA9DB601E, 0, 0, 0, 0, 0xBB6018F4, 0xA9DB601E, 0, 0, 0, 0, 0xE5134689, 0xA9DB601E, 0, 0, 0, 0,
-    0xF71D696E, 0xA9DB601E, 0, 0, 0, 0, 0x0AAB006D, 0xA9DB601E, 0, 0, 0, 0, 0xE2B99038, 0xA9DB601E, 0, 0, 0, 0,
-    0xC036F4D0, 0xA9DB601E, 0, 0, 0, 0, 0xC6525C4E, 0xA9DB601E, 0, 0, 0, 0, 0x31FCC8ED, 0xA9DB601E, 0, 0, 0, 0,
-    0x19AF74D1, 0xA9DB601E, 0, 0, 0, 0, 0x4AA40FB5, 0xA9DB601E, 0, 0, 0, 0, 0x234CEABB, 0xA9DB601E, 0, 0, 0, 0,
-    0x9E100F60, 0xA9DB601E, 0, 0, 0, 0, 0x2F0DA461, 0xA9DB601E, 0, 0, 0, 0, 0xEEFFAE18, 0xA9DB601E, 0, 0, 0, 0,
-    0x0FE869E8, 0xA9DB601E, 0, 0, 0, 0, 0x19AA4CD3, 0xA9DB601E, 0, 0, 0, 0, 0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
-    0x55835CF2, 0xA9DB601E, 0, 0, 0, 0, 0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0, 0,          0xA9DB601E, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 21> g_particle_component_member_functions{{
+    {0x88BE2262, 0xA9DB601E}, {0xBB6018F4, 0xA9DB601E}, {0xE5134689, 0xA9DB601E}, {0xF71D696E, 0xA9DB601E},
+    {0x0AAB006D, 0xA9DB601E}, {0xE2B99038, 0xA9DB601E}, {0xC036F4D0, 0xA9DB601E}, {0xC6525C4E, 0xA9DB601E},
+    {0x31FCC8ED, 0xA9DB601E}, {0x19AF74D1, 0xA9DB601E}, {0x4AA40FB5, 0xA9DB601E}, {0x234CEABB, 0xA9DB601E},
+    {0x9E100F60, 0xA9DB601E}, {0x2F0DA461, 0xA9DB601E}, {0xEEFFAE18, 0xA9DB601E}, {0x0FE869E8, 0xA9DB601E},
+    {0x19AA4CD3, 0xA9DB601E}, {0x5446AF14, 0xA9DB601E}, {0x55835CF2, 0xA9DB601E}, {0x3D05AFE0, 0xA9DB601E},
+    {0, 0xA9DB601E}}};
 std::unique_ptr<render::EffectsDirector> g_particle_hub;
 
 namespace {
@@ -102,7 +101,7 @@ gsl::owner<ObjectModule*> EffectsEmitterModule::fabricate() { return new Effects
 // 0x00429940
 void EffectsEmitterModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_particle_component_member_functions.data(), 0x18);
+    script::register_member_function_table(g_particle_component_member_functions);
 }
 
 // 0x00429B20

@@ -45,16 +45,14 @@ namespace objects {
 namespace {
 float g_particle_update_time{1.0f};
 } // namespace
-std::array<uint32_t, 156> g_flexible_particle_member_functions{{
-    0x63274395, 0xC5BCEB9E, 0, 0, 0, 0, 0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0, 0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
-    0xDB8621F7, 0xC5BCEB9E, 0, 0, 0, 0, 0xE985A9A6, 0xC5BCEB9E, 0, 0, 0, 0, 0xE3309AB5, 0xC5BCEB9E, 0, 0, 0, 0,
-    0xFBB6720D, 0xC5BCEB9E, 0, 0, 0, 0, 0xA075EE45, 0xC5BCEB9E, 0, 0, 0, 0, 0x2A479569, 0xC5BCEB9E, 0, 0, 0, 0,
-    0x2E66815E, 0xC5BCEB9E, 0, 0, 0, 0, 0xD3F1D333, 0xC5BCEB9E, 0, 0, 0, 0, 0xB373FB6E, 0xC5BCEB9E, 0, 0, 0, 0,
-    0x1CFBF078, 0xC5BCEB9E, 0, 0, 0, 0, 0x514B2584, 0xC5BCEB9E, 0, 0, 0, 0, 0x711B1A6A, 0xC5BCEB9E, 0, 0, 0, 0,
-    0x35B65BD4, 0xC5BCEB9E, 0, 0, 0, 0, 0x099CD17B, 0xC5BCEB9E, 0, 0, 0, 0, 0x4893F05D, 0xC5BCEB9E, 0, 0, 0, 0,
-    0x482482C6, 0xC5BCEB9E, 0, 0, 0, 0, 0x7F97BAD3, 0xC5BCEB9E, 0, 0, 0, 0, 0xE99D53A8, 0xC5BCEB9E, 0, 0, 0, 0,
-    0xED0FE310, 0xC5BCEB9E, 0, 0, 0, 0, 0x2A1F307B, 0xC5BCEB9E, 0, 0, 0, 0, 0xABF5F9E1, 0xC5BCEB9E, 0, 0, 0, 0,
-    0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0, 0,          0xC5BCEB9E, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 26> g_flexible_particle_member_functions{{
+    {0x63274395, 0xC5BCEB9E}, {0x8FFDEF38, 0xC5BCEB9E}, {0x7911855B, 0xC5BCEB9E}, {0xDB8621F7, 0xC5BCEB9E},
+    {0xE985A9A6, 0xC5BCEB9E}, {0xE3309AB5, 0xC5BCEB9E}, {0xFBB6720D, 0xC5BCEB9E}, {0xA075EE45, 0xC5BCEB9E},
+    {0x2A479569, 0xC5BCEB9E}, {0x2E66815E, 0xC5BCEB9E}, {0xD3F1D333, 0xC5BCEB9E}, {0xB373FB6E, 0xC5BCEB9E},
+    {0x1CFBF078, 0xC5BCEB9E}, {0x514B2584, 0xC5BCEB9E}, {0x711B1A6A, 0xC5BCEB9E}, {0x35B65BD4, 0xC5BCEB9E},
+    {0x099CD17B, 0xC5BCEB9E}, {0x4893F05D, 0xC5BCEB9E}, {0x482482C6, 0xC5BCEB9E}, {0x7F97BAD3, 0xC5BCEB9E},
+    {0xE99D53A8, 0xC5BCEB9E}, {0xED0FE310, 0xC5BCEB9E}, {0x2A1F307B, 0xC5BCEB9E}, {0xABF5F9E1, 0xC5BCEB9E},
+    {0x83B57984, 0xC5BCEB9E}, {0, 0xC5BCEB9E}}};
 
 namespace {
 
@@ -167,8 +165,7 @@ gsl::owner<ObjectModule*> FlexibleParticleComponent::fabricate() { return new Fl
 // 0x0041D6E0
 void FlexibleParticleComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(FlexibleParticleComponent::kType),
-                                           g_flexible_particle_member_functions.data(), 0x18);
+    script::register_member_function_table(g_flexible_particle_member_functions);
 }
 
 // 0x0041DA00
@@ -369,7 +366,7 @@ int FlexibleParticleComponent::invoke_method_by_name(uint32_t name, script::Stru
 }
 
 // 0x0041D700
-int ObjectModule::dispatch_named_script_method(script::MemberFunctionEntry* entry, script::Struct* params,
+int ObjectModule::dispatch_named_script_method(const script::MemberFunctionEntry* entry, script::Struct* params,
                                                script::Script* script)
 {
     if (entry->method_code_) {

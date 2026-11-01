@@ -149,18 +149,14 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
     for (script::Component* c = part->step_to_entry(nullptr); c; c = part->step_to_entry(c)) {
         switch (c->kind_tag()) {
         case script::kQbvalString:
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            if (c->string && is_path(c->string))
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                out->push_back(c->string);
+            if (c->value.text() && is_path(c->value.text()))
+                out->push_back(c->value.text());
             break;
         case script::kQbvalStruct:
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            collect_paths(c->structure, out, depth + 1);
+            collect_paths(c->value.structure(), out, depth + 1);
             break;
         case script::kQbvalArray:
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            collect_array_paths(c->array, out, depth + 1);
+            collect_array_paths(c->value.array(), out, depth + 1);
             break;
         default:
             break;
@@ -479,15 +475,14 @@ void load_once()
         if (!picked.empty()) {
             const uint32_t old = target.ours->extent_;
             target.ours->rescale(old + static_cast<uint32_t>(picked.size()));
-            uint32_t* elements = theirs->find_array_value();
             for (size_t k = 0; k < picked.size(); ++k) {
-                auto* part = cell::pointer<script::Struct>(elements[core::at(picked, k)]);
-                elements[core::at(picked, k)] = 0; // (now ours: not freed with THUGPRO's array)
+                script::Struct* part = theirs->struct_at(core::at(picked, k));
+                theirs->set_struct(core::at(picked, k), nullptr); // (now ours: not freed with THUGPRO's array)
                 if (setting == 1 && !part->has_bare_flag(kHidden))
                     part->put_name_key(0u, kHidden);
                 if (setting == 1 && !part->has_bare_flag(kNoRandom))
                     part->put_name_key(0u, kNoRandom);
-                target.ours->set_element(old + static_cast<uint32_t>(k), cell::of(part));
+                target.ours->set_struct(old + static_cast<uint32_t>(k), part);
             }
             ++lists;
         }

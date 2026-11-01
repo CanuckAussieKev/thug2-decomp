@@ -735,20 +735,20 @@ UiWidget* find_element(uint32_t id, ElementPtr* holder)
 // Whether a script's parameters name a denied script or id (structures and arrays too).
 bool struct_denied(script::Struct* params, int depth);
 
-bool value_denied(uint32_t type, uint32_t value, int depth)
+bool value_denied(uint32_t type, script::Cell value, int depth)
 {
     switch (type) {
     case script::kQbvalName:
-        return checksum_denied(value);
+        return checksum_denied(value.word());
     case script::kQbvalStruct:
     case script::kQbvalStructRef:
-        return struct_denied(cell::pointer<script::Struct>(value), depth + 1);
+        return struct_denied(value.structure(), depth + 1);
     case script::kQbvalArray:
     case script::kEsymboltypeArraypointer: {
-        auto* array = cell::pointer<script::Array>(value);
+        script::Array* array = value.array();
         if (!array || depth > 8)
             return false;
-        const uint32_t* elements = array->find_array_value();
+        const script::Cell* elements = array->find_array_value();
         for (uint32_t i = 0; elements && i < array->extent_; ++i)
             if (value_denied(array->kind_tag_, elements[i], depth + 1))
                 return true;
@@ -765,8 +765,7 @@ bool struct_denied(script::Struct* params, int depth)
         return false;
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (checksum_denied(component->name) || value_denied(component->kind_tag(), component->raw, depth))
+        if (checksum_denied(component->name) || value_denied(component->kind_tag(), component->value, depth))
             return true;
     }
     return false;

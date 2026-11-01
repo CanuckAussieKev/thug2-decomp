@@ -302,7 +302,7 @@ void PieceGroup::get_piece_list(script::Array* out)
         maths::Vec4 position;
         get_relative_position(&position, i);
         piece->put_vec3(0u, position.x, position.y, position.z);
-        out->set_element(i, cell::of(piece));
+        out->set_cell(i, script::Cell::of(piece));
     }
 }
 

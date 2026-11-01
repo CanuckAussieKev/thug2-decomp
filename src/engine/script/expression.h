@@ -70,13 +70,13 @@ public:
     };
 
     std::array<Component, 20> values_;
-    int value_top_;
-    std::array<Operator, 20> operators_;
-    int operator_top_;
-    bool has_operators_;
-    const uint8_t* token_;
-    const char* fault_;
-    bool unknown1f4_;
+    int value_top_{};
+    std::array<Operator, 20> operators_{};
+    int operator_top_{};
+    bool has_operators_{};
+    const uint8_t* token_{};
+    const char* fault_{};
+    bool unknown1f4_{};
 };
 static_assert(sizeof(Component) * 20 == 0x140, "layout must match the original");
 

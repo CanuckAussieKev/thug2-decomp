@@ -34,7 +34,8 @@
 
 namespace objects {
 
-std::array<uint32_t, 12> g_suspend_component_member_functions{{0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0, 0, 0xCE0CA665, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 2> g_suspend_component_member_functions{{
+    {0xA0B7E09B, 0xCE0CA665}, {0, 0xCE0CA665}}};
 namespace {
 int g_suspend_frame_count;
 int g_suspend_interleave2_count;
@@ -85,7 +86,7 @@ gsl::owner<ObjectModule*> DormancyModule::fabricate() { return new DormancyModul
 // 0x00434610
 void DormancyModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_suspend_component_member_functions.data(), 0x18);
+    script::register_member_function_table(g_suspend_component_member_functions);
     create_suspend_task();
 }
 

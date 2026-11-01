@@ -67,7 +67,7 @@ public:
     // passed on); anything else 2.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x0041D700 (vtable slot 11; the animation blender's too): ObjectModule::dispatch_named_script_method.
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_named_script_method(entry, params, script);
     }
@@ -106,5 +106,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 156> g_flexible_particle_member_functions;
+extern std::array<script::MemberFunctionEntry, 26> g_flexible_particle_member_functions;
 } // namespace objects

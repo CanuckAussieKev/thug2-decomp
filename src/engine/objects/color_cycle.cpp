@@ -25,9 +25,9 @@
 
 namespace objects {
 
-std::array<uint32_t, 30> g_color_cycle_member_functions{{
-    0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0, 0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0, 0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0,
-    0x80D5F732, 0xCDC76A22, 0, 0, 0, 0, 0,          0xCDC76A22, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 5> g_color_cycle_member_functions{{
+    {0x4AF8B9AE, 0xCDC76A22}, {0x1DE2F35B, 0xCDC76A22}, {0x4A752AAE, 0xCDC76A22}, {0x80D5F732, 0xCDC76A22},
+    {0, 0xCDC76A22}}};
 
 namespace {
 
@@ -67,7 +67,7 @@ ColorCycleComponent::ColorCycleComponent() { kind_tag_ = kType; }
 // 0x0041B280
 void ColorCycleComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_color_cycle_member_functions.data(), 0x18);
+    script::register_member_function_table(g_color_cycle_member_functions);
 }
 
 // 0x0041B2A0 (0x0041B2E0 the deleting one)

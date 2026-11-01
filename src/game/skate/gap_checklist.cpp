@@ -317,7 +317,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
         item->put_int("gap_number", index);
         item->put_vec3(kSkaterStartPos, gap->skater_start_pos_.x, gap->skater_start_pos_.y, gap->skater_start_pos_.z);
         item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
-        list->set_element(index, cell::of(item));
+        list->set_cell(index, script::Cell::of(item));
     }
     script->args_->append_array_ref(kGapList, list);
     script->args_->put_int(kGapsFoundCount, got);

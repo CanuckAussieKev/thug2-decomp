@@ -1087,7 +1087,7 @@ void Rider::write_cat_info(script::Struct* save)
         trick->put_sub_struct(kOther, info->other_params_);
         trick->append_array_value(kAnimations, info->animations_);
         trick->append_array_value(kRotations, info->spin_list_);
-        tricks->set_element(i, cell::of(trick));
+        tricks->set_cell(i, script::Cell::of(trick));
     }
     save->append_array_ref(kTricks, tricks);
 }

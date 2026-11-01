@@ -131,7 +131,7 @@ public:
     // 0x0043B990: the destructor body: the wheels destroyed and freed, the collision cache unregistered, the base's.
     ~DrivableModule() override;
     void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }

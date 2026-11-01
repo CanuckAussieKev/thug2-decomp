@@ -23,13 +23,13 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace commands {
 
 namespace {
 
 using script::Array;
+using script::Cell;
 using script::Component;
 using script::Script;
 using script::Struct;
@@ -63,7 +63,6 @@ constexpr uint32_t kCharArray = 0x3C5EC9E9;       // "char_array"
 constexpr uint32_t kArrayName = 0x8F61D602;       // "ArrayName"
 constexpr uint32_t kNewValue = 0x4B40630D;        // "NewValue"
 // add_component_of_type's type for a structure handed over by pointer.
-constexpr uint32_t kTypeStructurePointer = 11;
 
 // The calling script's object (null: not an object's script).
 objects::Entity* script_object(Script* script) { return script->entity_.get_pull(); }
@@ -434,7 +433,7 @@ bool cfunc_get_element(Struct* params, Script* script)
         if (copy)
             copy = new (copy) script::Struct;
         copy->append_structure_if_any(array->struct_at(index));
-        script->args_->add_component_of_type(kElement, kTypeStructurePointer, cell::of(copy));
+        script->args_->append_struct_ref(kElement, copy);
         break;
     }
     case script::kQbvalArray:
@@ -475,19 +474,19 @@ bool cfunc_permute_array(Struct* params, Script* script)
     }
     const int size = static_cast<int>(array->extent_);
     if (size) {
-        uint32_t* elements = array->find_array_value();
-        const uint32_t old_last = elements[size - 1];
+        Cell* elements = array->find_array_value();
+        const uint32_t old_last = elements[size - 1].word();
         for (int swaps = size * 10; swaps > 0; --swaps) {
             const int a = maths::rnd(size);
             const int b = maths::rnd(size);
-            const uint32_t swap = elements[a];
+            const Cell swap = elements[a];
             elements[a] = elements[b];
             elements[b] = swap;
         }
-        if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && elements[0] == old_last) {
+        if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && elements[0].word() == old_last) {
             // "MakeNewFirstDifferFromOldLast"
             const int other = maths::rnd(size - 1) + 1;
-            const uint32_t swap = elements[0];
+            const Cell swap = elements[0];
             elements[0] = elements[other];
             elements[other] = swap;
         }
@@ -638,7 +637,7 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     core::at(one, 1) = '\0';
     for (uint32_t i = 0; i < length; ++i) {
         core::at(one, 0) = string[i];
-        characters->set_element(i, cell::of(script::spawn_text(one.data())));
+        characters->set_text(i, script::spawn_text(one.data()));
     }
     script->args_->append_array_ref(kCharArray, characters);
     return true;
@@ -665,14 +664,14 @@ bool cfunc_set_array_element(Struct* params, Script* script)
     switch (array->kind_tag_) {
     case script::kQbvalInteger:
     case script::kQbvalName:
-        array->set_element(index, value->raw);
+        array->set_element(index, value->value.word());
         store = false;
         break;
     case script::kQbvalFloat:
         if (value->kind_tag() == script::kQbvalFloat)
-            array->change_float(index, value->float_value_);
+            array->change_float(index, value->value.real());
         else
-            array->change_float(index, static_cast<float>(value->integer));
+            array->change_float(index, static_cast<float>(value->value.integer()));
         store = false;
         break;
     case script::kQbvalString:
@@ -680,10 +679,10 @@ bool cfunc_set_array_element(Struct* params, Script* script)
         script::free_string(array->find_inline_text(index));
         break;
     case script::kQbvalPair:
-        script::free_pair(cell::pointer<void>(array->fetch_part(index)));
+        script::free_pair(array->pair_at(index));
         break;
     case script::kQbvalVector:
-        script::free_vector(cell::pointer<void>(array->fetch_part(index)));
+        script::free_vector(array->vector_at(index));
         break;
     case script::kQbvalStruct:
         if (auto* old = array->struct_at(index)) {
@@ -705,11 +704,10 @@ bool cfunc_set_array_element(Struct* params, Script* script)
         break;
     }
     if (store)
-        array->find_array_value()[index] = value->raw;
-    value->raw = 0;
+        array->set_cell(index, value->value);
+    value->value.clear();
     script::free_component(value);
     return true;
 }
 
 } // namespace commands
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

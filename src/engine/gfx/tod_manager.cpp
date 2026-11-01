@@ -1036,8 +1036,7 @@ void CtodManager::refresh_all(bool temp_state)
 void CtodManager::set_temp_tod(script::Struct* params)
 {
     temp_tod_ = true;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    script::find_symbol(kTempTodChanged)->integer = 1;
+    script::find_symbol(kTempTodChanged)->value.set_integer(1);
     for (TodSystem& system : systems_)
         parse_params(params, &system.current);
     refresh_all(true);

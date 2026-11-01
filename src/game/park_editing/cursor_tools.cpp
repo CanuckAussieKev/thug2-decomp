@@ -56,8 +56,7 @@ void BuildPointer::set_gap_void_mask(script::Struct* flags)
     uint32_t cancel = 0;
     for (script::Component* component = flags->step_to_entry(nullptr); component;
          component = flags->step_to_entry(component))
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        cancel |= static_cast<uint32_t>(script::fetch_int_value(component->checksum));
+        cancel |= static_cast<uint32_t>(script::fetch_int_value(component->value.word()));
     gap_.cancel_flags_ = cancel;
     store_gap_details(gap_.slot_index_, &gap_);
 }

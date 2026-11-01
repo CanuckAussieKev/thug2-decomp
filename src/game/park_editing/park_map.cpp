@@ -118,7 +118,8 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
     if (params->fetch_list("Park_editor_map", &map, 1)) {
         // (NOT ORIGINAL: no more words than the array has - the original read a whole map's worth past a short one's
         // end - and the rest of the map zeroed)
-        park_map_from_words(&map_, map->find_array_value(), map->extent_);
+        const std::vector<uint32_t> words = script::words_of(map);
+        park_map_from_words(&map_, words.data(), static_cast<uint32_t>(words.size()));
         if (apply_to_editor) {
             ParkBuilderMode::fabricate(false)->apply_map(&map_, map_size);
             ParkBuilderMode::get_release();

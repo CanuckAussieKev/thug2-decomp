@@ -458,9 +458,9 @@ bool PcAsyncFileHandle::os_open_setup()
     unknown7c_ = 0;
     destination_ = nullptr;
     staging_bytes_ = nullptr;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
     async_ctl_.Offset = 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
     async_ctl_.OffsetHigh = 0;
     async_ctl_.hEvent = nullptr;
     return false;
@@ -531,9 +531,9 @@ bool PcAsyncFileHandle::os_at_end() { return outcome_val_ == kErrorHandleEof; }
 // 0x005B9720: read the whole file from the start
 int PcAsyncFileHandle::os_load_whole(void* buffer)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
     async_ctl_.Offset = 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
     async_ctl_.OffsetHigh = 0;
     async_ctl_.hEvent = nullptr;
     return os_read_chunk(buffer, 1, get_file_size());

@@ -29,7 +29,7 @@ public:
     ObjectProximityComponent();
     // 0x004EC240: the destructor body (the base's).
     ~ObjectProximityComponent() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -78,5 +78,5 @@ static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == 0x18 
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 42> g_object_proximity_member_functions;
+extern std::array<script::MemberFunctionEntry, 7> g_object_proximity_member_functions;
 } // namespace objects

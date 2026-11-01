@@ -51,7 +51,7 @@ public:
     static void publish_method_table();
     // 0x0043D4B0: the destructor body: with a device, both motors stopped (1, then 0); then the base's.
     ~PadRumbleModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -88,5 +88,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 12> g_vibration_component_member_functions;
+extern std::array<script::MemberFunctionEntry, 2> g_vibration_component_member_functions;
 } // namespace objects

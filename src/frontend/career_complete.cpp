@@ -18,7 +18,6 @@
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/core/ints.h"
-#include "platform/code_address.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -199,8 +198,8 @@ bool cfunc_apply(script::Struct* params, script::Script*)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"Career100_Available", code_address(&cfunc_available)},
-        {"Career100_Apply", code_address(&cfunc_apply)},
+        {"Career100_Available", &cfunc_available},
+        {"Career100_Apply", &cfunc_apply},
     });
     script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }

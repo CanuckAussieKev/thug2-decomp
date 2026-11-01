@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/script/cscript.h"
+
 namespace script {
 class Script;
 class Struct;
@@ -96,5 +98,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 294> g_motion_path_member_functions;
+extern std::array<script::MemberFunctionEntry, 49> g_motion_path_member_functions;
 } // namespace objects

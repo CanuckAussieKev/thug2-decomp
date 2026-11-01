@@ -357,8 +357,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         script::Component* type = handler->step_to_entry(nullptr);
         const script::Component* script = handler->step_to_entry(type);
         if (replace)
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            remove_type(type->checksum);
+            remove_type(type->value.word());
         TableRow& entry = entries[used++];
         Struct* params = nullptr;
         entry.params = handler->read_sub_struct(kParamsName, &params, 0) ? new_struct_copy(params) : nullptr;
@@ -366,10 +365,8 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
             entry.group = kDefaultGroup;
         entry.flags = static_cast<uint8_t>((entry.flags & ~(TableRow::kFlagReplacesRunning | TableRow::kFlagMarked)) |
                                            (handler->has_bare_flag(kExceptionFlag) & TableRow::kFlagReplacesRunning));
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        entry.type = type->checksum;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        entry.script = script->checksum;
+        entry.type = type->value.word();
+        entry.script = script->value.word();
         altered_ = true;
     }
     // The old entries after the new ones.

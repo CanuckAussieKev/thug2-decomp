@@ -67,7 +67,6 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace commands {
 
@@ -535,7 +534,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
         if (component->name == 0 && component->kind_tag() == script::kQbvalName &&
-            game_mode_object()->is_true(component->checksum))
+            game_mode_object()->is_true(component->value.word()))
             return true;
     }
     return false;
@@ -840,4 +839,3 @@ bool cfunc_spawn_skater_script(script::Struct* params, script::Script* script)
 }
 
 } // namespace commands
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

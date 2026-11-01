@@ -17,7 +17,6 @@
 #include "engine/script/script_tables.h"
 #include "platform/run_log.h"
 #include "engine/objects/movie_manager.h"
-#include "platform/code_address.h"
 
 namespace sys::debug_mode {
 
@@ -45,7 +44,7 @@ bool is_startup_script(const script::Script* script)
 }
 
 // The table's CD entry is {"CD", function 0x005B9760 - return true}, and NotCD's {"NotCD", 0x005B9E50 - return false}.
-void get_point(const char* name, void* function)
+void get_point(const char* name, script::NativeFunction function)
 {
     if (script::NativeCommand* entry = script::find_c_function(name))
         script::bind_native_command(*entry, function);
@@ -93,8 +92,8 @@ void install()
 {
     if (!is_switched_on())
         return;
-    get_point("CD", code_address(&cfunc_cd));
-    get_point("NotCD", code_address(&cfunc_not_cd));
+    get_point("CD", &cfunc_cd);
+    get_point("NotCD", &cfunc_not_cd);
     get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
             "menu - and the viewer: F9 free camera)");
 }

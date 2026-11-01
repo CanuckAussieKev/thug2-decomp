@@ -508,8 +508,7 @@ bool Entity::obj_spawn_script(Struct* params, Script* script)
     Component* first = params->step_to_entry(nullptr);
     if (!first || first->kind_tag() != script::kQbvalName)
         return true;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    const uint32_t name = first->checksum;
+    const uint32_t name = first->value.word();
     uint32_t id = script::get_spawn_id(script);
     params->read_hash_value(kId, &id, 0);
     Struct* script_params = nullptr;

@@ -41,7 +41,7 @@ public:
     PadInputModule();
     // 0x0041E710: each handler out of its list and deleted; then the base's body.
     ~PadInputModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -124,5 +124,5 @@ static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInpu
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 90> g_input_component_member_functions;
+extern std::array<script::MemberFunctionEntry, 15> g_input_component_member_functions;
 } // namespace objects

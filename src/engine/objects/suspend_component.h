@@ -50,7 +50,7 @@ public:
     // 0x00433E10: the base's body.
     ~DormancyModule() override;
     void hold_off(bool /*suspend*/) override {} // (slot 7: never suspended)
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -121,5 +121,5 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* task);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 12> g_suspend_component_member_functions;
+extern std::array<script::MemberFunctionEntry, 2> g_suspend_component_member_functions;
 } // namespace objects

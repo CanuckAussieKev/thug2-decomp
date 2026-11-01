@@ -497,7 +497,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                     gap->put_int(kGapScore, g.score);
                     gap->put_vec3(kGapPos, core::at(g.pos, 0), core::at(g.pos, 1), core::at(g.pos, 2));
                     gap->put_vec3(kGapDir, core::at(g.dir, 0), core::at(g.dir, 1), core::at(g.dir, 2));
-                    list->set_element(static_cast<uint32_t>(i), cell::of(gap));
+                    list->set_cell(static_cast<uint32_t>(i), script::Cell::of(gap));
                 }
                 entry->append_array_ref(kGapList, list);
             }
@@ -517,20 +517,20 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                     checklist->get_gap_positions(i, &pos, &dir);
                 gap->put_vec3(kGapPos, pos.x, pos.y, pos.z);
                 gap->put_vec3(kGapDir, dir.x, dir.y, dir.z);
-                list->set_element(static_cast<uint32_t>(i), cell::of(gap));
+                list->set_cell(static_cast<uint32_t>(i), script::Cell::of(gap));
             }
             entry->append_array_ref(kGapList, list);
         }
-        gap_levels->set_element(static_cast<uint32_t>(level), cell::of(entry));
+        gap_levels->set_cell(static_cast<uint32_t>(level), script::Cell::of(entry));
     }
     script::Array* visited = alloc_script_array(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level)
         visited->set_element(static_cast<uint32_t>(level), core::at(visited_, level));
     script::Struct* career = spawn_param_table();
-    career->add_component_of_type(kGoalListName, script::kQbvalArray, cell::of(goals));
-    career->add_component_of_type(kFlagsArray, script::kQbvalArray, cell::of(flags));
-    career->add_component_of_type(kGlobalFlagsArray, script::kQbvalArray, cell::of(globals));
-    career->add_component_of_type(kGapLevelList, script::kQbvalArray, cell::of(gap_levels));
+    career->append_array_ref(kGoalListName, goals);
+    career->append_array_ref(kFlagsArray, flags);
+    career->append_array_ref(kGlobalFlagsArray, globals);
+    career->append_array_ref(kGapLevelList, gap_levels);
     career->append_array_ref(kVisitedArray, visited);
     career->put_name_key(0xE3335D2F, modules::g_skate_module->level_);
     career->put_name_key(0x2CC06F5E, goals::g_game_mode->get_name_key());
@@ -558,7 +558,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->put_int(kValue634, value634_);
     career->put_int(kMaxValue634, max_value634_);
     career->put_sub_struct(kCareerInfoKey, details_);
-    save->add_component_of_type(kCareerStructure, 11, cell::of(career));
+    save->append_struct_ref(kCareerStructure, career);
 }
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.

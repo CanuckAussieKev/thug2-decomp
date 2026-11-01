@@ -20,7 +20,6 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -42,25 +41,6 @@ std::unique_ptr<script::ScriptStore>& the_cache() { return g_script_store; }
 uint32_t& cache_references() { return g_cache_references; }
 memory::PoolPair& entry_pools() { return g_cache_entry_pools; }
 
-// A script in the symbol table: the loaded QB file's record {u32 checksum, u32 size, u32 stored size, the code -
-// LZSS-compressed when stored < size}, read from its bytes.
-struct StoredScript {
-    uint32_t size_ = 0;
-    uint32_t stored_size_ = 0;
-    const uint8_t* code_ = nullptr; // `stored_size_` bytes
-};
-constexpr size_t kStoredScriptHeader = 12;
-
-StoredScript read_stored_script(const uint8_t* record)
-{
-    util::ByteReader header(record, kStoredScriptHeader);
-    header.skip(4); // (the checksum)
-    StoredScript out;
-    out.size_ = header.u32();
-    out.stored_size_ = header.u32();
-    out.code_ = header.cursor();
-    return out;
-}
 
 } // namespace
 
@@ -175,7 +155,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     if (!symbol)
         return nullptr;
 
-    const StoredScript stored = read_stored_script(cell::pointer<const uint8_t>(symbol->raw));
+    const StoredScript stored = read_stored_script(symbol->value.code());
     const uint32_t size = stored.size_;
     const uint32_t stored_size = stored.stored_size_;
     make_room(static_cast<int>(size), name);
@@ -246,4 +226,3 @@ void release_script_cache()
 }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

@@ -205,7 +205,7 @@ public:
     uint32_t read_name();
     // 0x004731A0 / 0x004731E0: a member function on `object` (null: entity_; none: false) - by table entry
     // or by name.
-    bool invoke_method_by_name(MemberFunctionEntry* entry, objects::Entity* object);
+    bool invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object);
     bool invoke_method_by_name(uint32_t name, objects::Entity* object);
 
     // --- waiting, call stack, events (group C: cscript_wait.cpp) ---
@@ -340,7 +340,7 @@ inline bool& one_per_frame_released() { return g_one_per_frame_released; }
 // --- free functions ---
 // 0x00472980 (group B): a member function on `object` (no null check): the object itself for the two special
 // component types (vtable +0x08), else its component of that type (0x0045DB90; vtable +0x2C).
-bool invoke_method_by_name(MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script);
+bool invoke_method_by_name(const MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script);
 // 0x004734B0 (group A): the script with this unique id, or null.
 Script* find_script_with_unique_id(uint32_t id);
 

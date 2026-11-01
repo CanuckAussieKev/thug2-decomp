@@ -107,6 +107,6 @@ extern float g_pi;
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 186> g_composite_object_member_functions;
-extern std::array<uint32_t, 102> g_object_member_functions;
+extern std::array<script::MemberFunctionEntry, 31> g_composite_object_member_functions;
+extern std::array<script::MemberFunctionEntry, 17> g_object_member_functions;
 } // namespace objects

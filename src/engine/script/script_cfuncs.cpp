@@ -19,7 +19,6 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/pointer_cell.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace commands {
 
@@ -180,19 +179,19 @@ int format_text(script::Struct* results, script::Struct* params)
         }
         Component& value = format_text_value();
         value.type_and_flag_ = static_cast<uint8_t>((found->type_and_flag_ & ~1) | (value.type_and_flag_ & 1));
-        value.raw = found->raw;
+        value.value.set_word(found->value.word());
         script::evaluate_name_token(&value);
         std::array<char, 100> text{}; // (the original's sprintf into it is unbounded)
         switch (value.kind_tag()) {
         case script::kQbvalInteger:
             if (params->has_bare_flag(kUseCommas)) {
-                std::snprintf(text.data(), sizeof(text), "%s", text::format_with_separators(value.integer));
+                std::snprintf(text.data(), sizeof(text), "%s", text::format_with_separators(value.value.integer()));
             } else {
                 int width = 0;
                 if (params->fetch_int_value(kIntegerWidth, &width, 0))
-                    std::snprintf(text.data(), sizeof(text), "%0*d", width, value.integer);
+                    std::snprintf(text.data(), sizeof(text), "%0*d", width, value.value.integer());
                 else
-                    std::snprintf(text.data(), sizeof(text), "%d", value.integer);
+                    std::snprintf(text.data(), sizeof(text), "%d", value.value.integer());
             }
             out = get_append(out, text.data());
             break;
@@ -201,28 +200,28 @@ int format_text(script::Struct* results, script::Struct* params)
             params->fetch_int_value(kDecimalPlaces, &places, 0);
             std::array<char, 16> float_format{};
             std::snprintf(float_format.data(), sizeof(float_format), "%%.%df", places);
-            std::snprintf(text.data(), sizeof(text), float_format.data(), static_cast<double>(value.float_value_));
+            std::snprintf(text.data(), sizeof(text), float_format.data(), static_cast<double>(value.value.real()));
             out = get_append(out, text.data());
             break;
         }
         case script::kQbvalString:
         case script::kQbvalInlineText:
-            for (const char* c = value.string; *c; ++c)
+            for (const char* c = value.value.text(); *c; ++c)
                 *out++ = *c;
             break;
         case script::kQbvalPair:
-            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.pair->x),
-                          static_cast<double>(value.pair->y));
+            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x),
+                          static_cast<double>(value.value.pair()->y));
             out = get_append(out, text.data());
             break;
         case script::kQbvalVector:
-            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.vector->x),
-                          static_cast<double>(value.vector->y), static_cast<double>(value.vector->z));
+            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.value.vector()->x),
+                          static_cast<double>(value.value.vector()->y), static_cast<double>(value.value.vector()->z));
             out = get_append(out, text.data());
             break;
         case script::kQbvalName:
             result = 2;
-            std::snprintf(text.data(), sizeof(text), "%s", script::find_checksum_name_or_unknown(value.checksum));
+            std::snprintf(text.data(), sizeof(text), "%s", script::find_checksum_name_or_unknown(value.value.word()));
             out = get_append(out, text.data());
             break;
         default:
@@ -269,11 +268,11 @@ bool cfunc_change(script::Struct* params, script::Script*)
     Component copy;
     script::construct_component(&copy);
     copy.type_and_flag_ = static_cast<uint8_t>((value->type_and_flag_ & ~1) | (copy.type_and_flag_ & 1));
-    copy.raw = value->raw;
+    copy.value.set_word(value->value.word());
     if (copy.kind_tag() == script::kQbvalName && params->has_bare_flag(kResolve)) {
-        if (SymbolTableEntry* resolved = script::resolve_symbol(copy.checksum)) {
+        if (SymbolTableEntry* resolved = script::resolve_symbol(copy.value.word())) {
             copy.type_and_flag_ = static_cast<uint8_t>((resolved->type << 1) | (copy.type_and_flag_ & 1));
-            copy.raw = resolved->raw;
+            copy.value.set_word(resolved->value.word());
         }
     }
     switch (copy.kind_tag()) {
@@ -281,22 +280,22 @@ bool cfunc_change(script::Struct* params, script::Script*)
     case script::kQbvalFloat:
     case script::kQbvalName:
         entry->type = copy.kind_tag();
-        entry->raw = copy.raw;
+        entry->value.set_word(copy.value.word());
         break;
     case script::kQbvalStruct: {
         entry->type = script::kQbvalStruct;
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* structure = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        entry->structure = structure;
-        structure->append_structure_if_any(copy.structure);
+        entry->value.set_structure(structure);
+        structure->append_structure_if_any(copy.value.structure());
         break;
     }
     case script::kQbvalArray: {
         entry->type = script::kQbvalArray;
         script::Array* memory = script::alloc_script_array();
         script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-        entry->raw = cell::of(array);
-        script::duplicate_array(array, copy.array);
+        entry->value.set_array(array);
+        script::duplicate_array(array, copy.value.array());
         break;
     }
     default:
@@ -652,4 +651,3 @@ bool cfunc_get_script_string(script::Struct* params, script::Script* script)
 }
 
 } // namespace commands
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

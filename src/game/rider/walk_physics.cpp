@@ -48,14 +48,12 @@
 
 namespace objects {
 
-std::array<uint32_t, 114> g_walk_member_functions{{
-    0x893213E5, 0x726E85AA, 0, 0, 0, 0, 0x5012082E, 0x726E85AA, 0, 0, 0, 0, 0x9A3CA853, 0x726E85AA, 0, 0, 0, 0,
-    0x19702CA8, 0x726E85AA, 0, 0, 0, 0, 0x8FE2B013, 0x726E85AA, 0, 0, 0, 0, 0xCE64576C, 0x726E85AA, 0, 0, 0, 0,
-    0x83E4BD70, 0x726E85AA, 0, 0, 0, 0, 0xAF04B983, 0x726E85AA, 0, 0, 0, 0, 0x56112C03, 0x726E85AA, 0, 0, 0, 0,
-    0x9D3EEBE8, 0x726E85AA, 0, 0, 0, 0, 0xC6CD659E, 0x726E85AA, 0, 0, 0, 0, 0x55BF1CD6, 0x726E85AA, 0, 0, 0, 0,
-    0xE9B1CDE8, 0x726E85AA, 0, 0, 0, 0, 0xAC7B36C8, 0x726E85AA, 0, 0, 0, 0, 0x7E01B923, 0x726E85AA, 0, 0, 0, 0,
-    0x492EBA50, 0x726E85AA, 0, 0, 0, 0, 0xF8F754EF, 0x726E85AA, 0, 0, 0, 0, 0x8BC2C0EC, 0x726E85AA, 0, 0, 0, 0,
-    0,          0x726E85AA, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 19> g_walk_member_functions{{
+    {0x893213E5, 0x726E85AA}, {0x5012082E, 0x726E85AA}, {0x9A3CA853, 0x726E85AA}, {0x19702CA8, 0x726E85AA},
+    {0x8FE2B013, 0x726E85AA}, {0xCE64576C, 0x726E85AA}, {0x83E4BD70, 0x726E85AA}, {0xAF04B983, 0x726E85AA},
+    {0x56112C03, 0x726E85AA}, {0x9D3EEBE8, 0x726E85AA}, {0xC6CD659E, 0x726E85AA}, {0x55BF1CD6, 0x726E85AA},
+    {0xE9B1CDE8, 0x726E85AA}, {0xAC7B36C8, 0x726E85AA}, {0x7E01B923, 0x726E85AA}, {0x492EBA50, 0x726E85AA},
+    {0xF8F754EF, 0x726E85AA}, {0x8BC2C0EC, 0x726E85AA}, {0, 0x726E85AA}}};
 
 namespace {
 
@@ -115,7 +113,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 // 0x00525E40
 void FootMovement::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kWalk), g_walk_member_functions.data(), 0x18);
+    script::register_member_function_table(g_walk_member_functions);
 }
 
 // 0x005288B0 (0x0052A290 the deleting one)

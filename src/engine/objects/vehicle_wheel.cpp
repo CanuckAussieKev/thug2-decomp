@@ -11,11 +11,10 @@
 
 namespace objects {
 
-std::array<uint32_t, 60> g_vehicle_wheel_member_functions{{
-    0x93B713A6, 0xE47F1B79, 0, 0, 0, 0, 0xA80A0D36, 0xE47F1B79, 0, 0, 0, 0, 0x4B0B27DD, 0xE47F1B79, 0, 0, 0, 0,
-    0xC33608E4, 0xE47F1B79, 0, 0, 0, 0, 0xDB35AAD8, 0xE47F1B79, 0, 0, 0, 0, 0x5008B253, 0xE47F1B79, 0, 0, 0, 0,
-    0x279602ED, 0xE47F1B79, 0, 0, 0, 0, 0x4C73526B, 0xE47F1B79, 0, 0, 0, 0, 0x81FAAC21, 0xE47F1B79, 0, 0, 0, 0,
-    0,          0xE47F1B79, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 10> g_vehicle_wheel_member_functions{{
+    {0x93B713A6, 0xE47F1B79}, {0xA80A0D36, 0xE47F1B79}, {0x4B0B27DD, 0xE47F1B79}, {0xC33608E4, 0xE47F1B79},
+    {0xDB35AAD8, 0xE47F1B79}, {0x5008B253, 0xE47F1B79}, {0x279602ED, 0xE47F1B79}, {0x4C73526B, 0xE47F1B79},
+    {0x81FAAC21, 0xE47F1B79}, {0, 0xE47F1B79}}};
 
 namespace {
 
@@ -51,7 +50,7 @@ void read_feet(script::Struct* params, uint32_t name, float& value)
 // 0x00434F00
 void register_vehicle_member_functions()
 {
-    script::register_member_function_table(cell::pointer<void>(kVehicle), g_vehicle_wheel_member_functions.data(), 0x18);
+    script::register_member_function_table(g_vehicle_wheel_member_functions);
 }
 
 // 0x00434F20

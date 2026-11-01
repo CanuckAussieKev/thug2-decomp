@@ -420,17 +420,15 @@ bool cfunc_free_server_list(script::Struct*, script::Script*)
 }
 
 // 0x005A1180: InSplitScreenGame (12 callers): a multiplayer game (the skate module's 0x005651F0) that isn't a network
-// game. 1 or 0 in EAX.
-int cfunc_in_split_screen_game(script::Struct*, script::Script*)
+// game.
+bool cfunc_in_split_screen_game(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online_hub_handle();
-    if (modules::Skate::is_multiplayer() != 0 && !game_net->in_net_game())
-        return 1;
-    return 0;
+    return modules::Skate::is_multiplayer() != 0 && !game_net->in_net_game();
 }
 
 // 0x005A11B0: InMultiplayerGame (5 callers): the skate module's 0x005651F0 (a tail jump: its EAX).
-int cfunc_in_multiplayer_game(script::Struct*, script::Script*) { return modules::Skate::is_multiplayer(); }
+bool cfunc_in_multiplayer_game(script::Struct*, script::Script*) { return modules::Skate::is_multiplayer() != 0; }
 
 // 0x005A1220: OnServer.
 bool cfunc_on_server(script::Struct*, script::Script*) { return online_hub_handle()->get_on_server(); }

@@ -277,11 +277,9 @@ script::Struct* current_level_structure()
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
         uint32_t value = 0;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (e->type == script::kQbvalStruct && e->structure && e->structure->read_hash_value(kLoadScript, &value, 0) &&
+        if (e->type == script::kQbvalStruct && e->value.structure() && e->value.structure()->read_hash_value(kLoadScript, &value, 0) &&
             value == load)
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            return e->structure;
+            return e->value.structure();
     }
     return nullptr;
 }
@@ -406,10 +404,8 @@ const std::vector<std::string>& skies()
         const char* sky = nullptr;
         uint32_t load = 0;
         // (a level structure: it names its load script - not some other structure with a sky=)
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (e->type != script::kQbvalStruct || !e->structure || !e->structure->read_hash_value(kLoadScript, &load, 0) ||
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            !e->structure->fetch_text(kSky, &sky, 0) || !sky || !valid_sky(sky))
+        if (e->type != script::kQbvalStruct || !e->value.structure() || !e->value.structure()->read_hash_value(kLoadScript, &load, 0) ||
+            !e->value.structure()->fetch_text(kSky, &sky, 0) || !sky || !valid_sky(sky))
             continue;
         bool there = false;
         for (const std::string& s : g_skies)

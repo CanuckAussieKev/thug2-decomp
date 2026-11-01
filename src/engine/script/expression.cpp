@@ -12,7 +12,6 @@
 #include <cstring>
 #include <array>
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -53,12 +52,12 @@ float get_rounded(double value) { return static_cast<float>(value); }
 void set_result_float(double value)
 {
     set_result_type(kQbvalFloat);
-    get_result().float_value_ = get_rounded(value);
+    get_result().value.set_real(get_rounded(value));
 }
 void set_result_integer(uint32_t value)
 {
     set_result_type(kQbvalInteger);
-    get_result().raw = value;
+    get_result().value.set_word(value);
 }
 
 Pair* new_result_pair()
@@ -66,7 +65,7 @@ Pair* new_result_pair()
     set_result_type(kQbvalPair);
     Pair* pair = new_pair();
     pair = pair ? new (pair) script::Pair : nullptr;
-    get_result().pair = pair;
+    get_result().value.set_pair(pair);
     return pair;
 }
 Vector* new_result_vector()
@@ -74,7 +73,7 @@ Vector* new_result_vector()
     set_result_type(kQbvalVector);
     Vector* vector = alloc_script_vector();
     vector = vector ? new (vector) script::Vector : nullptr;
-    get_result().vector = vector;
+    get_result().value.set_vector(vector);
     return vector;
 }
 Struct* new_result_structure()
@@ -82,7 +81,7 @@ Struct* new_result_structure()
     set_result_type(kQbvalStruct);
     Struct* structure = spawn_param_bag();
     structure = structure ? new (structure) script::Struct : nullptr;
-    get_result().structure = structure;
+    get_result().value.set_structure(structure);
     return structure;
 }
 
@@ -101,7 +100,7 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
     std::memcpy(joined.data(), a, length_a);
     std::memcpy(joined.data() + length_a, b, length_b + 1);
     set_result_type(type);
-    get_result().string = spawn_text(joined.data());
+    get_result().value.set_text(spawn_text(joined.data()));
     return true;
 }
 
@@ -114,57 +113,57 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
     switch (array->kind_tag_) {
     case kQbvalInteger:
     case kQbvalName:
-        to->raw = array->fetch_part(index);
+        to->value.set_word(array->fetch_part(index));
         break;
     case kQbvalFloat:
-        to->float_value_ = array->fetch_float(index);
+        to->value.set_real(array->fetch_float(index));
         break;
     case kQbvalString:
-        to->string = spawn_text(array->find_inline_text(index));
+        to->value.set_text(spawn_text(array->find_inline_text(index)));
         break;
     case kQbvalPair: {
         auto* from = array->pair_at(index);
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
-        to->pair = pair;
+        to->value.set_pair(pair);
         pair->x = from->x;
-        to->pair->y = from->y;
+        to->value.pair()->y = from->y;
         break;
     }
     case kQbvalVector: {
         auto* from = array->vector_at(index);
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
-        to->vector = vector;
+        to->value.set_vector(vector);
         vector->x = from->x;
-        to->vector->y = from->y;
-        to->vector->z = from->z;
+        to->value.vector()->y = from->y;
+        to->value.vector()->z = from->z;
         break;
     }
     case kQbvalStruct:
         if (reference) {
             to->type_and_flag_ = static_cast<uint8_t>((to->type_and_flag_ & 1) | (kQbvalStructRef << 1));
-            to->raw = array->fetch_part(index);
+            to->value.set_word(array->fetch_part(index));
         } else {
             Struct* structure = spawn_param_bag();
-            to->structure = structure ? memory::construct_in<script::Struct>(structure) : nullptr;
-            to->structure->append_structure_if_any(array->struct_at(index));
+            to->value.set_structure(structure ? memory::construct_in<script::Struct>(structure) : nullptr);
+            to->value.structure()->append_structure_if_any(array->struct_at(index));
         }
         break;
     case kQbvalArray:
         if (reference) {
             to->type_and_flag_ = static_cast<uint8_t>((to->type_and_flag_ & 1) | (kEsymboltypeArraypointer << 1));
-            to->raw = array->fetch_part(index);
+            to->value.set_word(array->fetch_part(index));
         } else {
             Array* copy = alloc_script_array();
-            to->array = copy ? memory::construct_in<script::Array>(copy) : nullptr;
-            duplicate_array(to->array, array->array_at(index));
+            to->value.set_array(copy ? memory::construct_in<script::Array>(copy) : nullptr);
+            duplicate_array(to->value.array(), array->array_at(index));
         }
         break;
     default:
         // (local strings and the rest can't be taken out of arrays: the component is left empty)
         to->type_and_flag_ &= 1;
-        to->raw = 0;
+        to->value.set_word(0);
         break;
     }
 }
@@ -175,10 +174,10 @@ namespace {
 void resolved_value(const Component* component, uint32_t* type, uint32_t* value)
 {
     *type = component->kind_tag();
-    *value = component->raw;
+    *value = component->value.word();
     if (*type == kQbvalName) {
         if (const SymbolTableEntry* symbol = resolve_symbol(*value)) {
-            *value = symbol->raw;
+            *value = symbol->value.word();
             *type = symbol->type;
         }
     }
@@ -286,8 +285,8 @@ void make_owning(Component* component)
 int fetch_flag(const Component* component)
 {
     if (component->kind_tag() == kQbvalInteger)
-        return component->integer;
-    if (component->kind_tag() == kQbvalFloat && component->float_value_ != 0.0f)
+        return component->value.integer();
+    if (component->kind_tag() == kQbvalFloat && component->value.real() != 0.0f)
         return 1;
     return 0;
 }
@@ -442,7 +441,7 @@ void ValueResolver::execute()
     Component* a = b - 1;
     Component& result = get_result();
     result.type_and_flag_ &= 1;
-    result.raw = 0;
+    result.value.set_word(0);
     const uint32_t type_a = a->kind_tag();
     const uint32_t type_b = b->kind_tag();
     auto error = [&](const char* message) { change_fault(message); };
@@ -450,40 +449,40 @@ void ValueResolver::execute()
     switch (op) {
     case kOperatorOr:
         set_result_type(kQbvalInteger);
-        result.raw = static_cast<uint32_t>(fetch_flag(b) | fetch_flag(a));
+        result.value.set_word(static_cast<uint32_t>(fetch_flag(b) | fetch_flag(a)));
         break;
     case kOperatorAnd:
         set_result_type(kQbvalInteger);
-        result.raw = static_cast<uint32_t>(fetch_flag(b) & fetch_flag(a));
+        result.value.set_word(static_cast<uint32_t>(fetch_flag(b) & fetch_flag(a)));
         break;
     case kOperatorEquals:
         set_result_type(kQbvalInteger);
-        result.raw = components_equal(a, b) ? 1 : 0;
+        result.value.set_word(components_equal(a, b) ? 1 : 0);
         break;
     case kOperatorLessThan:
         set_result_type(kQbvalInteger);
-        result.raw = less_than(a, b) ? 1 : 0;
+        result.value.set_word(less_than(a, b) ? 1 : 0);
         break;
     case kOperatorGreaterThan:
         set_result_type(kQbvalInteger);
-        result.raw = greater_than(a, b) ? 1 : 0;
+        result.value.set_word(greater_than(a, b) ? 1 : 0);
         break;
 
     case kOperatorAdd:
         switch (type_a) {
         case kQbvalInteger:
             if (type_b == kQbvalInteger)
-                set_result_integer(static_cast<uint32_t>(a->integer) + static_cast<uint32_t>(b->integer));
+                set_result_integer(static_cast<uint32_t>(a->value.integer()) + static_cast<uint32_t>(b->value.integer()));
             else if (type_b == kQbvalFloat)
-                set_result_float(as_double(a->integer) + as_double(b->float_value_));
+                set_result_float(as_double(a->value.integer()) + as_double(b->value.real()));
             else
                 error("Second arg cannot be added to an integer"); // "Second arg cannot be added to an integer"
             break;
         case kQbvalFloat:
             if (type_b == kQbvalInteger)
-                set_result_float(as_double(b->integer) + as_double(a->float_value_));
+                set_result_float(as_double(b->value.integer()) + as_double(a->value.real()));
             else if (type_b == kQbvalFloat)
-                set_result_float(as_double(a->float_value_) + as_double(b->float_value_));
+                set_result_float(as_double(a->value.real()) + as_double(b->value.real()));
             else
                 error("Second arg cannot be added to a float"); // "Second arg cannot be added to a float"
             break;
@@ -491,7 +490,7 @@ void ValueResolver::execute()
             // A checksum plus an integer or checksum is a checksum.
             if (type_b == kQbvalInteger || type_b == kQbvalName) {
                 set_result_type(kQbvalName);
-                result.raw = b->raw + a->raw;
+                result.value.set_word(b->value.word() + a->value.word());
             } else {
                 error("Second arg cannot be added to a checksum"); // "Second arg cannot be added to a checksum"
             }
@@ -499,9 +498,9 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalVector) {
                 Vector* vector = new_result_vector();
-                vector->x = a->vector->x + b->vector->x;
-                result.vector->y = a->vector->y + b->vector->y;
-                result.vector->z = a->vector->z + b->vector->z;
+                vector->x = a->value.vector()->x + b->value.vector()->x;
+                result.value.vector()->y = a->value.vector()->y + b->value.vector()->y;
+                result.value.vector()->z = a->value.vector()->z + b->value.vector()->z;
             } else {
                 error("Second arg cannot be added to a vector"); // "Second arg cannot be added to a vector"
             }
@@ -509,8 +508,8 @@ void ValueResolver::execute()
         case kQbvalPair:
             if (type_b == kQbvalPair) {
                 Pair* pair = new_result_pair();
-                pair->x = a->pair->x + b->pair->x;
-                result.pair->y = a->pair->y + b->pair->y;
+                pair->x = a->value.pair()->x + b->value.pair()->x;
+                result.value.pair()->y = a->value.pair()->y + b->value.pair()->y;
             } else {
                 error("Second arg cannot be added to a pair"); // "Second arg cannot be added to a pair"
             }
@@ -518,21 +517,21 @@ void ValueResolver::execute()
         case kQbvalString:
             if (type_b != kQbvalString)
                 error("Second arg cannot be added to a string"); // "Second arg cannot be added to a string"
-            else if (!join_strings(a->string, b->string, kQbvalString))
+            else if (!join_strings(a->value.text(), b->value.text(), kQbvalString))
                 error("Result of string addition too long"); // "Result of string addition too long"
             break;
         case kQbvalInlineText:
             if (type_b != kQbvalInlineText)
                 error("Second arg cannot be added to a local-string"); // "Second arg cannot be added to a local-string"
-            else if (!join_strings(a->string, b->string, kQbvalInlineText))
+            else if (!join_strings(a->value.text(), b->value.text(), kQbvalInlineText))
                 error("Result of local-string addition too long"); // "Result of local-string addition too long"
             break;
         case kQbvalStruct:
         case kQbvalStructRef:
             if (is_structure(type_b)) {
                 Struct* structure = new_result_structure();
-                structure->append_structure_if_any(a->structure);
-                result.structure->append_structure_if_any(b->structure);
+                structure->append_structure_if_any(a->value.structure());
+                result.value.structure()->append_structure_if_any(b->value.structure());
             } else {
                 error(
                     "Structure add operator requires 2nd arg to be a structure"); // "Structure add operator requires 2nd arg to be a structure"
@@ -548,19 +547,19 @@ void ValueResolver::execute()
             Array* array = alloc_script_array();
             array = array ? new (array) script::Array : nullptr;
             set_result_type(kQbvalArray);
-            result.array = array;
-            const uint32_t size_a = a->array->extent_;
-            const uint32_t size_b = b->array->extent_;
+            result.value.set_array(array);
+            const uint32_t size_a = a->value.array()->extent_;
+            const uint32_t size_b = b->value.array()->extent_;
             if (size_a == 0) {
-                duplicate_array(array, b->array);
+                duplicate_array(array, b->value.array());
             } else if (size_b == 0) {
-                duplicate_array(array, a->array);
+                duplicate_array(array, a->value.array());
             } else {
                 // (the elements are all taken to be of the first array's type)
-                const QbValueKind type = a->array->kind_tag_;
+                const QbValueKind type = a->value.array()->kind_tag_;
                 array->configure_size_kind(size_a + size_b, type);
-                copy_array_elements(array->find_array_value(), a->array->find_array_value(), size_a, type);
-                copy_array_elements(array->find_array_value() + size_a, b->array->find_array_value(), size_b, type);
+                copy_array_elements(array->find_array_value(), a->value.array()->find_array_value(), size_a, type);
+                copy_array_elements(array->find_array_value() + size_a, b->value.array()->find_array_value(), size_b, type);
             }
             break;
         }
@@ -574,26 +573,26 @@ void ValueResolver::execute()
         switch (type_a) {
         case kQbvalInteger:
             if (type_b == kQbvalInteger)
-                set_result_integer(static_cast<uint32_t>(a->integer) - static_cast<uint32_t>(b->integer));
+                set_result_integer(static_cast<uint32_t>(a->value.integer()) - static_cast<uint32_t>(b->value.integer()));
             else if (type_b == kQbvalFloat)
-                set_result_float(as_double(a->integer) - as_double(b->float_value_));
+                set_result_float(as_double(a->value.integer()) - as_double(b->value.real()));
             else
                 error(
                     "Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
             break;
         case kQbvalFloat:
             if (type_b == kQbvalInteger)
-                set_result_float(as_double(a->float_value_) - as_double(b->integer));
+                set_result_float(as_double(a->value.real()) - as_double(b->value.integer()));
             else if (type_b == kQbvalFloat)
-                set_result_float(as_double(a->float_value_) - as_double(b->float_value_));
+                set_result_float(as_double(a->value.real()) - as_double(b->value.real()));
             else
                 error("Second arg cannot be subtracted from a float"); // "Second arg cannot be subtracted from a float"
             break;
         case kQbvalPair:
             if (type_b == kQbvalPair) {
                 Pair* pair = new_result_pair();
-                pair->x = a->pair->x - b->pair->x;
-                result.pair->y = a->pair->y - b->pair->y;
+                pair->x = a->value.pair()->x - b->value.pair()->x;
+                result.value.pair()->y = a->value.pair()->y - b->value.pair()->y;
             } else {
                 error("Second arg cannot be subtracted from a pair"); // "Second arg cannot be subtracted from a pair"
             }
@@ -601,9 +600,9 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalVector) {
                 Vector* vector = new_result_vector();
-                vector->x = a->vector->x - b->vector->x;
-                result.vector->y = a->vector->y - b->vector->y;
-                result.vector->z = a->vector->z - b->vector->z;
+                vector->x = a->value.vector()->x - b->value.vector()->x;
+                result.value.vector()->y = a->value.vector()->y - b->value.vector()->y;
+                result.value.vector()->z = a->value.vector()->z - b->value.vector()->z;
             } else {
                 error(
                     "Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
@@ -614,34 +613,34 @@ void ValueResolver::execute()
             if (type_b == kQbvalName) {
                 // Without the name (as a parameter or a flag).
                 Struct* structure = new_result_structure();
-                structure->append_structure_if_any(a->structure);
-                result.structure->erase_module(b->checksum);
-                result.structure->remove_flag(b->checksum);
+                structure->append_structure_if_any(a->value.structure());
+                result.value.structure()->erase_module(b->value.word());
+                result.value.structure()->remove_flag(b->value.word());
             } else if (is_array(type_b)) {
                 // Without each name in the array.
-                Array* names = b->array;
+                Array* names = b->value.array();
                 if (names->kind_tag_ != kQbvalName && names->kind_tag_ != kQbvalNone) {
                     // "Subtracting an array from a structure requires the array to be an array of names"
                     error("Subtracting an array from a structure requires the array to be an array of names");
                     break;
                 }
                 Struct* structure = new_result_structure();
-                structure->append_structure_if_any(a->structure);
+                structure->append_structure_if_any(a->value.structure());
                 for (uint32_t i = 0; i < names->extent_; ++i) {
-                    result.structure->erase_module(names->fetch_part(i));
-                    result.structure->remove_flag(names->fetch_part(i));
+                    result.value.structure()->erase_module(names->fetch_part(i));
+                    result.value.structure()->remove_flag(names->fetch_part(i));
                 }
             } else if (is_structure(type_b)) {
                 // Without each of the other structure's parameters (by name and type) and flags.
                 Struct* structure = new_result_structure();
-                structure->append_structure_if_any(a->structure);
-                Struct* other = b->structure;
+                structure->append_structure_if_any(a->value.structure());
+                Struct* other = b->value.structure();
                 for (Component* each = other->step_to_entry(nullptr); each; each = other->step_to_entry(each)) {
                     if (each->name) {
-                        result.structure->remove_component_of_type(each->name, each->kind_tag());
+                        result.value.structure()->remove_component_of_type(each->name, each->kind_tag());
                     } else if (each->kind_tag() == kQbvalName) {
-                        result.structure->erase_module(each->checksum);
-                        result.structure->remove_flag(each->checksum);
+                        result.value.structure()->erase_module(each->value.word());
+                        result.value.structure()->remove_flag(each->value.word());
                     }
                 }
             } else {
@@ -660,22 +659,22 @@ void ValueResolver::execute()
         case kQbvalInteger:
             switch (type_b) {
             case kQbvalInteger:
-                set_result_integer(static_cast<uint32_t>(b->integer) * static_cast<uint32_t>(a->integer));
+                set_result_integer(static_cast<uint32_t>(b->value.integer()) * static_cast<uint32_t>(a->value.integer()));
                 break;
             case kQbvalFloat:
-                set_result_float(as_double(a->integer) * as_double(b->float_value_));
+                set_result_float(as_double(a->value.integer()) * as_double(b->value.real()));
                 break;
             case kQbvalVector: {
                 Vector* vector = new_result_vector();
-                vector->x = get_rounded(as_double(a->integer) * as_double(b->vector->x));
-                result.vector->y = get_rounded(as_double(a->integer) * as_double(b->vector->y));
-                result.vector->z = get_rounded(as_double(a->integer) * as_double(b->vector->z));
+                vector->x = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->x));
+                result.value.vector()->y = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->y));
+                result.value.vector()->z = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->z));
                 break;
             }
             case kQbvalPair: {
                 Pair* pair = new_result_pair();
-                pair->x = get_rounded(as_double(a->integer) * as_double(b->pair->x));
-                result.pair->y = get_rounded(as_double(a->integer) * as_double(b->pair->y));
+                pair->x = get_rounded(as_double(a->value.integer()) * as_double(b->value.pair()->x));
+                result.value.pair()->y = get_rounded(as_double(a->value.integer()) * as_double(b->value.pair()->y));
                 break;
             }
             default:
@@ -687,22 +686,22 @@ void ValueResolver::execute()
         case kQbvalFloat:
             switch (type_b) {
             case kQbvalInteger:
-                set_result_float(as_double(b->integer) * as_double(a->float_value_));
+                set_result_float(as_double(b->value.integer()) * as_double(a->value.real()));
                 break;
             case kQbvalFloat:
-                set_result_float(as_double(b->float_value_) * as_double(a->float_value_));
+                set_result_float(as_double(b->value.real()) * as_double(a->value.real()));
                 break;
             case kQbvalVector: {
                 Vector* vector = new_result_vector();
-                vector->x = b->vector->x * a->float_value_;
-                result.vector->y = b->vector->y * a->float_value_;
-                result.vector->z = b->vector->z * a->float_value_;
+                vector->x = b->value.vector()->x * a->value.real();
+                result.value.vector()->y = b->value.vector()->y * a->value.real();
+                result.value.vector()->z = b->value.vector()->z * a->value.real();
                 break;
             }
             case kQbvalPair: {
                 Pair* pair = new_result_pair();
-                pair->x = b->pair->x * a->float_value_;
-                result.pair->y = b->pair->y * a->float_value_;
+                pair->x = b->value.pair()->x * a->value.real();
+                result.value.pair()->y = b->value.pair()->y * a->value.real();
                 break;
             }
             default:
@@ -713,12 +712,12 @@ void ValueResolver::execute()
         case kQbvalPair:
             if (type_b == kQbvalInteger) {
                 Pair* pair = new_result_pair();
-                pair->x = get_rounded(as_double(b->integer) * as_double(a->pair->x));
-                result.pair->y = get_rounded(as_double(b->integer) * as_double(a->pair->y));
+                pair->x = get_rounded(as_double(b->value.integer()) * as_double(a->value.pair()->x));
+                result.value.pair()->y = get_rounded(as_double(b->value.integer()) * as_double(a->value.pair()->y));
             } else if (type_b == kQbvalFloat) {
                 Pair* pair = new_result_pair();
-                pair->x = a->pair->x * b->float_value_;
-                result.pair->y = a->pair->y * b->float_value_;
+                pair->x = a->value.pair()->x * b->value.real();
+                result.value.pair()->y = a->value.pair()->y * b->value.real();
             } else {
                 error("Pair cannot be multiplied by second arg"); // "Pair cannot be multiplied by second arg"
             }
@@ -726,22 +725,22 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalInteger) {
                 Vector* vector = new_result_vector();
-                vector->x = get_rounded(as_double(b->integer) * as_double(a->vector->x));
-                result.vector->y = get_rounded(as_double(b->integer) * as_double(a->vector->y));
-                result.vector->z = get_rounded(as_double(b->integer) * as_double(a->vector->z));
+                vector->x = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->x));
+                result.value.vector()->y = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->y));
+                result.value.vector()->z = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->z));
             } else if (type_b == kQbvalFloat) {
                 Vector* vector = new_result_vector();
-                vector->x = a->vector->x * b->float_value_;
-                result.vector->y = a->vector->y * b->float_value_;
-                result.vector->z = a->vector->z * b->float_value_;
+                vector->x = a->value.vector()->x * b->value.real();
+                result.value.vector()->y = a->value.vector()->y * b->value.real();
+                result.value.vector()->z = a->value.vector()->z * b->value.real();
             } else if (type_b == kQbvalVector) {
                 // The cross product (each coordinate computed as the x87 does: in one go, then rounded).
-                const Vector* u = a->vector;
-                const Vector* v = b->vector;
+                const Vector* u = a->value.vector();
+                const Vector* v = b->value.vector();
                 Vector* vector = new_result_vector();
                 vector->x = get_rounded(as_double(v->z) * u->y - as_double(v->y) * u->z);
-                result.vector->y = get_rounded(as_double(v->x) * u->z - as_double(v->z) * u->x);
-                result.vector->z = get_rounded(as_double(v->y) * u->x - as_double(v->x) * u->y);
+                result.value.vector()->y = get_rounded(as_double(v->x) * u->z - as_double(v->z) * u->x);
+                result.value.vector()->z = get_rounded(as_double(v->y) * u->x - as_double(v->x) * u->y);
             } else {
                 error("Vector cannot be multiplied by second arg"); // "Vector cannot be multiplied by second arg"
             }
@@ -754,12 +753,12 @@ void ValueResolver::execute()
 
     case kOperatorDivide:
         if (type_b == kQbvalInteger) {
-            if (b->integer == 0) {
+            if (b->value.integer() == 0) {
                 error("Integer division by zero"); // "Integer division by zero"
                 break;
             }
         } else if (type_b == kQbvalFloat) {
-            if (std::fabs(b->float_value_) < g_eval_divisor_minimum) {
+            if (std::fabs(b->value.real()) < g_eval_divisor_minimum) {
                 error("Float division by zero"); // "Float division by zero"
                 break;
             }
@@ -767,29 +766,29 @@ void ValueResolver::execute()
         switch (type_a) {
         case kQbvalInteger:
             if (type_b == kQbvalInteger)
-                set_result_integer(static_cast<uint32_t>(a->integer / b->integer));
+                set_result_integer(static_cast<uint32_t>(a->value.integer() / b->value.integer()));
             else if (type_b == kQbvalFloat)
-                set_result_float(as_double(a->integer) / as_double(b->float_value_));
+                set_result_float(as_double(a->value.integer()) / as_double(b->value.real()));
             else
                 error("Integer cannot be divided by second arg"); // "Integer cannot be divided by second arg"
             break;
         case kQbvalFloat:
             if (type_b == kQbvalInteger)
-                set_result_float(as_double(a->float_value_) / as_double(b->integer));
+                set_result_float(as_double(a->value.real()) / as_double(b->value.integer()));
             else if (type_b == kQbvalFloat)
-                set_result_float(as_double(a->float_value_) / as_double(b->float_value_));
+                set_result_float(as_double(a->value.real()) / as_double(b->value.real()));
             else
                 error("Float cannot be divided by second arg"); // "Float cannot be divided by second arg"
             break;
         case kQbvalPair:
             if (type_b == kQbvalInteger) {
                 Pair* pair = new_result_pair();
-                pair->x = get_rounded(as_double(a->pair->x) / as_double(b->integer));
-                result.pair->y = get_rounded(as_double(a->pair->y) / as_double(b->integer));
+                pair->x = get_rounded(as_double(a->value.pair()->x) / as_double(b->value.integer()));
+                result.value.pair()->y = get_rounded(as_double(a->value.pair()->y) / as_double(b->value.integer()));
             } else if (type_b == kQbvalFloat) {
                 Pair* pair = new_result_pair();
-                pair->x = a->pair->x / b->float_value_;
-                result.pair->y = a->pair->y / b->float_value_;
+                pair->x = a->value.pair()->x / b->value.real();
+                result.value.pair()->y = a->value.pair()->y / b->value.real();
             } else {
                 error("Pair cannot be divided by second arg"); // "Pair cannot be divided by second arg"
             }
@@ -797,14 +796,14 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalInteger) {
                 Vector* vector = new_result_vector();
-                vector->x = get_rounded(as_double(a->vector->x) / as_double(b->integer));
-                result.vector->y = get_rounded(as_double(a->vector->y) / as_double(b->integer));
-                result.vector->z = get_rounded(as_double(a->vector->z) / as_double(b->integer));
+                vector->x = get_rounded(as_double(a->value.vector()->x) / as_double(b->value.integer()));
+                result.value.vector()->y = get_rounded(as_double(a->value.vector()->y) / as_double(b->value.integer()));
+                result.value.vector()->z = get_rounded(as_double(a->value.vector()->z) / as_double(b->value.integer()));
             } else if (type_b == kQbvalFloat) {
                 Vector* vector = new_result_vector();
-                vector->x = a->vector->x / b->float_value_;
-                result.vector->y = a->vector->y / b->float_value_;
-                result.vector->z = a->vector->z / b->float_value_;
+                vector->x = a->value.vector()->x / b->value.real();
+                result.value.vector()->y = a->value.vector()->y / b->value.real();
+                result.value.vector()->z = a->value.vector()->z / b->value.real();
             } else {
                 error("Vector cannot be divided by second arg"); // "Vector cannot be divided by second arg"
             }
@@ -819,8 +818,8 @@ void ValueResolver::execute()
         switch (type_a) {
         case kQbvalVector:
             if (type_b == kQbvalVector) {
-                const Vector* u = a->vector;
-                const Vector* v = b->vector;
+                const Vector* u = a->value.vector();
+                const Vector* v = b->value.vector();
                 set_result_float(as_double(v->z) * u->z + as_double(v->y) * u->y + as_double(v->x) * u->x);
             } else {
                 error(
@@ -829,8 +828,8 @@ void ValueResolver::execute()
             break;
         case kQbvalPair:
             if (type_b == kQbvalPair) {
-                const Pair* u = a->pair;
-                const Pair* v = b->pair;
+                const Pair* u = a->value.pair();
+                const Pair* v = b->value.pair();
                 set_result_float(as_double(v->y) * u->y + as_double(v->x) * u->x);
             } else {
                 error(
@@ -841,7 +840,7 @@ void ValueResolver::execute()
         case kQbvalStructRef:
             // A structure's member: copied (a referenced structure's members are referred to).
             if (type_b == kQbvalName) {
-                if (const Component* member = a->structure->find_last_component(b->checksum))
+                if (const Component* member = a->value.structure()->find_last_component(b->value.word()))
                     duplicate_component(&result, member, type_a == kQbvalStructRef);
             } else {
                 error(
@@ -860,10 +859,10 @@ void ValueResolver::execute()
                 "Array element operator not supported for this type"); // "Array element operator not supported for this type"
         } else if (type_b != kQbvalInteger) {
             error("[] index must be an integer"); // "[] index must be an integer"
-        } else if (b->raw >= a->array->extent_) {
+        } else if (b->value.word() >= a->value.array()->extent_) {
             error("[] index out of range"); // "[] index out of range"
         } else {
-            copy_array_element_to_component(a->array, b->raw, &result, type_a == kEsymboltypeArraypointer);
+            copy_array_element_to_component(a->value.array(), b->value.word(), &result, type_a == kEsymboltypeArraypointer);
             if ((result.type_and_flag_ & 0xFE) == 0)
                 error(
                     "Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
@@ -880,9 +879,9 @@ void ValueResolver::execute()
     release_component(a);
     release_component(b);
     a->type_and_flag_ = static_cast<uint8_t>((a->type_and_flag_ & 1) | (result.type_and_flag_ & 0xFE));
-    a->raw = result.raw;
+    a->value.set_word(result.value.word());
     result.type_and_flag_ &= 1;
-    result.raw = 0;
+    result.value.set_word(0);
     --value_top_;
     core::at(operators_, operator_top_).op = kOperatorNone;
     if (operator_top_ == 0)
@@ -912,4 +911,3 @@ struct ComponentAdapters {
 };
 
 } // namespace
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

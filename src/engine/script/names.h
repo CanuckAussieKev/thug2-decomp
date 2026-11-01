@@ -2,7 +2,10 @@
 
 #include <cstdint>
 
+#include "engine/script/cell.h"
 #include "engine/script/member_code.h"
+#include "engine/script/cscript.h"
+#include <span>
 
 // The names behind checksums (a debug aid, kept only while the lookup is switched on) and the registration
 // of the game's script functions as global symbols.
@@ -26,21 +29,20 @@ void load_checksum_names(const char* file);
 // A C++ function scripts can call by name.
 struct NativeCommand {
     const char* name;
-    void* function;
+    NativeFunction function;
 };
 // Make each function a global symbol (type 8) under its name's checksum.
 void install_script_functions(const NativeCommand* functions, uint32_t count);
 // Make each name a member-function symbol (type 9).
 void publish_method_table(const char* const* names, uint32_t count);
-// Make each record of a table (starting with its name's checksum, `stride` bytes each, ended by a 0
-// checksum) a member-function symbol whose value is the record.
-void register_member_function_table(void* unused, const uint32_t* records, int stride);
+// Make each record of a table (up to the one with a 0 name) a member-function symbol whose value is the record.
+void register_member_function_table(std::span<const MemberFunctionEntry> records);
 
 // The code half of a member-function table (0x18-byte records: name, component type, then a 16-byte member function
 // pointer), as the original's static initialisers write it: record i's function `code[i]` followed by three zero words,
 // and after the `count` records the terminator's {0, 0, 0, -1}. (NOT ORIGINAL as a function: each initialiser has
 // the stores written out.)
-void fill_member_function_code(uint32_t* records, const MemberCode* code, int count);
+void fill_member_function_code(std::span<MemberFunctionEntry> records, const MemberCode* code, int count);
 // Every table's code, in the original's initialiser order (0x00640E30 - 0x006448C0; generated:
 // member_function_code.cpp). Run at start-up.
 void fill_member_function_tables();

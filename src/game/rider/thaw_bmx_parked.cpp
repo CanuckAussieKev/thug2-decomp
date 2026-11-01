@@ -21,7 +21,6 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
-#include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -270,9 +269,9 @@ void start_spot_candidates(Point pos, float heading, float distance, std::span<P
 void register_parked_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"ThawBmx_HomeSpot", code_address(&cfunc_home_spot)},
-        {"ThawBmx_WalkToBike", code_address(&cfunc_walk_to_bike)},
-        {"ThawBmx_BikeReachable", code_address(&cfunc_bike_reachable)},
+        {"ThawBmx_HomeSpot", &cfunc_home_spot},
+        {"ThawBmx_WalkToBike", &cfunc_walk_to_bike},
+        {"ThawBmx_BikeReachable", &cfunc_bike_reachable},
     });
     script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }

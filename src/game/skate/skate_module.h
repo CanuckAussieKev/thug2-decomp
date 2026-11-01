@@ -218,7 +218,7 @@ public:
     // InitSkaterHeaps, 0x00566E70 Retry, 0x00566EA0 LaunchGame, 0x00566ED0 ResetLevel, 0x00568120
     // FillRankingScreen (skate_rankings.cpp).
     static bool cfunc_set_game_type(script::Struct* params, script::Script* script);
-    static int cfunc_in_team_game(script::Struct* params, script::Script* script);
+    static bool cfunc_in_team_game(script::Struct* params, script::Script* script);
     static bool cfunc_change_level(script::Struct* params, script::Script* script);
     static bool cfunc_launch_level(script::Struct* params, script::Script* script);
     static bool cfunc_request_level(script::Struct* params, script::Script* script);

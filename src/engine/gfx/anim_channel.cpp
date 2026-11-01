@@ -520,20 +520,16 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
             continue;
         script::Array* array = nullptr;
         if (component->kind_tag() == script::kQbvalName) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            const script::SymbolTableEntry* symbol = script::resolve_symbol(component->checksum);
+            const script::SymbolTableEntry* symbol = script::resolve_symbol(component->value.word());
             if (symbol && symbol->type == script::kQbvalArray) {
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                array = cell::pointer<script::Array>(symbol->raw);
+                array = symbol->value.array();
             } else {
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                if (component->checksum == anim)
+                if (component->value.word() == anim)
                     return true;
                 continue;
             }
         } else if (component->kind_tag() == script::kQbvalArray) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            array = component->array;
+            array = component->value.array();
         } else {
             continue;
         }

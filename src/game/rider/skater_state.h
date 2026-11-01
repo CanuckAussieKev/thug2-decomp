@@ -85,7 +85,7 @@ public:
     static void publish_method_table();
     // 0x00519450: the destructor body (the base's).
     ~RiderPoseState() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -177,5 +177,5 @@ struct SkaterStateHistoryFrame {
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 114> g_skater_state_member_functions;
+extern std::array<script::MemberFunctionEntry, 19> g_skater_state_member_functions;
 } // namespace objects

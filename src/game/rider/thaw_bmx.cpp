@@ -27,7 +27,6 @@
 #include "platform/screenshot_files.h"
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
-#include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
@@ -374,8 +373,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"ThawBmx_Available", code_address(&cfunc_available)},
-        {"ThawBmx_LoadTexture", code_address(&cfunc_load_texture)},
+        {"ThawBmx_Available", &cfunc_available},
+        {"ThawBmx_LoadTexture", &cfunc_load_texture},
     });
     script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
     if (!is_switched_on())

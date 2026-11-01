@@ -102,7 +102,7 @@ bool add_copy_node(script::Struct* node)
     auto count = static_cast<uint32_t>(g_copy_node_list.size());
     g_copy_nodes->configure_size_kind(count, script::kQbvalStruct);
     for (uint32_t i = 0; i < count; ++i)
-        g_copy_nodes->set_element(i, cell::of(core::at(g_copy_node_list, i)));
+        g_copy_nodes->set_cell(i, script::Cell::of(core::at(g_copy_node_list, i)));
     return manager->hash_node_in(name, count - 1, cell::of(node));
 }
 

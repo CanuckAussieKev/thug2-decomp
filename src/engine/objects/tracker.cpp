@@ -726,8 +726,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
         for (script::Component* component = structure->step_to_entry(nullptr); component;
              component = structure->step_to_entry(component)) {
             tracker->launched_from_script_ = from_script();
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            tracker->launch_event(component->checksum, target, source, data, broadcast, radius);
+            tracker->launch_event(component->value.word(), target, source, data, broadcast, radius);
         }
     }
     return true;

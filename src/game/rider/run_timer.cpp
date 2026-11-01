@@ -27,10 +27,9 @@ namespace objects {
 namespace {
 std::array<uint32_t, 4> g_run_timer_state_names{{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA}};
 } // namespace
-std::array<uint32_t, 42> g_run_timer_member_functions{{0x82445966, 0x8BCE7E66, 0, 0, 0, 0, 0x956236B1, 0x8BCE7E66, 0, 0, 0, 0,
-                                                 0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0, 0x96D81D8E, 0x8BCE7E66, 0, 0, 0, 0,
-                                                 0x81AAA6DD, 0x8BCE7E66, 0, 0, 0, 0, 0x37CC7691, 0x8BCE7E66, 0, 0, 0, 0,
-                                                 0,          0x8BCE7E66, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 7> g_run_timer_member_functions{{
+    {0x82445966, 0x8BCE7E66}, {0x956236B1, 0x8BCE7E66}, {0xAB04CBF9, 0x8BCE7E66}, {0x96D81D8E, 0x8BCE7E66},
+    {0x81AAA6DD, 0x8BCE7E66}, {0x37CC7691, 0x8BCE7E66}, {0, 0x8BCE7E66}}};
 
 namespace {
 
@@ -74,8 +73,7 @@ RiderRunClock::RiderRunClock() { kind_tag_ = kSkaterRunTimer; }
 // 0x00518240
 void RiderRunClock::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kSkaterRunTimer), g_run_timer_member_functions.data(),
-                                           0x18);
+    script::register_member_function_table(g_run_timer_member_functions);
 }
 
 // 0x00518260 (0x005182B0 the deleting one)

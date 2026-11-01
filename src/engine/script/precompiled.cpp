@@ -9,14 +9,13 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
 namespace {
 
 // A stored offset made an address.
-void relocate(uint32_t& offset, uint32_t base) { offset += base; }
+void relocate(Cell& value, uint32_t base) { value = Cell::of_word(value.word() + base); }
 template <typename T>
 void relocate(T*& pointer, uint32_t base)
 {
@@ -31,12 +30,9 @@ uint32_t stored_string_size(const char* text) { return align4(static_cast<uint32
 // 0x0046C7B0 (a CArray method)
 void relocate_array_elements(Array* array, uint32_t base)
 {
-    if (array->extent_ > 1) {
-        for (uint32_t i = 0; i < array->extent_; ++i)
-            array->elements_[i] += base;
-    } else if (array->extent_ == 1) {
-        array->single_ += base;
-    }
+    Cell* elements = array->find_array_value();
+    for (uint32_t i = 0; i < array->extent_; ++i)
+        relocate(elements[i], base);
 }
 
 // 0x0046C830
@@ -44,15 +40,12 @@ uint8_t* relocate_array(Array* array, uint32_t base)
 {
     const uint32_t size = array->extent_;
     auto* end = raw::bytes(array + 1);
-    const uint32_t* elements = nullptr;
     if (size > 1) {
-        if (array->elements_)
-            relocate(array->elements_, base);
-        elements = array->elements_;
-        end += size * 4; // (the element table follows the array)
-    } else {
-        elements = &array->single_;
+        if (!array->storage_.empty())
+            relocate(array->storage_, base);
+        end += size * sizeof(Cell); // (the element table follows the array)
     }
+    const Cell* elements = array->find_array_value();
     switch (array->kind_tag_) {
     case kQbvalString:
     case kQbvalInlineText: {
@@ -60,7 +53,7 @@ uint8_t* relocate_array(Array* array, uint32_t base)
         // (the texts one after another, padded once at the end)
         uint32_t total = 0;
         for (uint32_t i = 0; i < size; ++i)
-            total += static_cast<uint32_t>(std::strlen(cell::pointer<const char>(elements[i]))) + 1;
+            total += static_cast<uint32_t>(std::strlen(elements[i].text())) + 1;
         return end + align4(total);
     }
     case kQbvalPair:
@@ -72,12 +65,12 @@ uint8_t* relocate_array(Array* array, uint32_t base)
     case kQbvalStruct:
         relocate_array_elements(array, base);
         for (uint32_t i = 0; i < size; ++i)
-            end = relocate_struct(cell::pointer<Struct>(elements[i]), base);
+            end = relocate_struct(elements[i].structure(), base);
         return end;
     case kQbvalArray:
         relocate_array_elements(array, base);
         for (uint32_t i = 0; i < size; ++i)
-            end = relocate_array(cell::pointer<Array>(elements[i]), base);
+            end = relocate_array(elements[i].array(), base);
         return end;
     default: // (values kept in the element table: nothing to relocate)
         return end;
@@ -93,26 +86,26 @@ uint8_t* relocate_component(Component* component, uint32_t base)
     switch (component->kind_tag()) {
     case kQbvalString:
     case kQbvalInlineText:
-        relocate(component->string, base);
-        return end + stored_string_size(component->string);
+        relocate(component->value, base);
+        return end + stored_string_size(component->value.text());
     case kQbvalPair:
-        relocate(component->pair, base);
+        relocate(component->value, base);
         return end + sizeof(Pair);
     case kQbvalVector:
-        relocate(component->vector, base);
+        relocate(component->value, base);
         return end + sizeof(Vector);
     case kQbvalScriptBody: {
         // A script component: its tokens, up to and including the '$'.
-        relocate(component->raw, base);
-        auto* code = cell::pointer<const uint8_t>(component->raw);
+        relocate(component->value, base);
+        const uint8_t* code = component->value.code();
         return end + align4(static_cast<uint32_t>(skip_to_end_of_script(code) - code));
     }
     case kQbvalStruct:
-        relocate(component->structure, base);
-        return relocate_struct(component->structure, base);
+        relocate(component->value, base);
+        return relocate_struct(component->value.structure(), base);
     case kQbvalArray:
-        relocate(component->array, base);
-        return relocate_array(component->array, base);
+        relocate(component->value, base);
+        return relocate_array(component->value.array(), base);
     default:
         return end;
     }
@@ -137,27 +130,27 @@ uint8_t* relocate_symbol(SymbolTableEntry* symbol, uint32_t base)
     switch (symbol->type) {
     case kQbvalString:
     case kQbvalInlineText:
-        relocate(symbol->raw, base);
-        return end + stored_string_size(cell::pointer<const char>(symbol->raw));
+        relocate(symbol->value, base);
+        return end + stored_string_size(symbol->value.text());
     case kQbvalPair:
-        relocate(symbol->raw, base);
+        relocate(symbol->value, base);
         return end + sizeof(Pair);
     case kQbvalVector:
-        relocate(symbol->raw, base);
+        relocate(symbol->value, base);
         return end + sizeof(Vector);
     case kQbvalScriptBody: {
         // {checksum, size, stored size, code}: the stored size is read from right after the entry (where the
         // script is), not through the value.
         const uint32_t stored = raw::as<const uint32_t>(end)[2];
-        relocate(symbol->raw, base);
+        relocate(symbol->value, base);
         return end + 12 + align4(stored);
     }
     case kQbvalStruct:
-        relocate(symbol->structure, base);
-        return relocate_struct(symbol->structure, base);
+        relocate(symbol->value, base);
+        return relocate_struct(symbol->value.structure(), base);
     case kQbvalArray:
-        relocate(symbol->raw, base);
-        return relocate_array(cell::pointer<Array>(symbol->raw), base);
+        relocate(symbol->value, base);
+        return relocate_array(symbol->value.array(), base);
     default: // (integers, floats, names, C functions...: the value is in the entry)
         return end;
     }
@@ -207,12 +200,3 @@ void parse_precompiled_qb(const char* filename, uint8_t* data, int unused)
 
 } // namespace script
 
-namespace {
-struct ArrayAdapter {
-    void relocate_elements(uint32_t base)
-    {
-        script::relocate_array_elements(raw::as<script::Array>(this), base);
-    }
-};
-} // namespace
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

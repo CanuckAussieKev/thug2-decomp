@@ -82,12 +82,10 @@ int sanitise(script::Struct* appearance)
     std::vector<Change> changes;
     bool reset_body = false;
     for (script::Component* c = appearance->step_to_entry(nullptr); c; c = appearance->step_to_entry(c)) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (!is_structure(c) || !c->structure)
+        if (!is_structure(c) || !c->value.structure())
             continue;
         uint32_t desc = 0;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (!c->structure->read_hash_value(kDescId, &desc, 0))
+        if (!c->value.structure()->read_hash_value(kDescId, &desc, 0))
             continue; // (not a part)
         script::Array* list = part_list(c->name);
         if (!list) {
@@ -109,8 +107,7 @@ int sanitise(script::Struct* appearance)
             remove.push_back(c->name);
             continue;
         }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        changes.push_back({c->structure, c->name, desc, to});
+        changes.push_back({c->value.structure(), c->name, desc, to});
     }
     if (reset_body) {
         script::Struct* defaults = s_catalog.defaults();

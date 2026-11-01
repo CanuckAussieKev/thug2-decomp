@@ -27,7 +27,8 @@
 
 namespace objects {
 
-std::array<uint32_t, 12> g_balance_trick_member_functions{{0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0, 0, 0x589E5FB3, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 2> g_balance_trick_member_functions{{
+    {0x6DF82E70, 0x589E5FB3}, {0, 0x589E5FB3}}};
 
 namespace {
 
@@ -68,7 +69,7 @@ gsl::owner<ObjectModule*> RiderTeeterMoves::fabricate() { return new RiderTeeter
 // 0x004F8CD0
 void RiderTeeterMoves::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_balance_trick_member_functions.data(), 0x18);
+    script::register_member_function_table(g_balance_trick_member_functions);
 }
 
 // 0x004F8F80

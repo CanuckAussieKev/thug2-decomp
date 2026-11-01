@@ -211,11 +211,9 @@ int GoalManager::count_cleared_in_stage(int level, int)
     while (component) {
         script::Component* next = goal_data_->step_to_entry(component);
         int goal_level = 0;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (component->structure->fetch_int_value(kLevelNum, &goal_level, 0)) {
+        if (component->value.structure()->fetch_int_value(kLevelNum, &goal_level, 0)) {
             int beaten = 0;
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            component->structure->fetch_int_value(kAlreadyWon, &beaten, 0);
+            component->value.structure()->fetch_int_value(kAlreadyWon, &beaten, 0);
             if (goal_level == level && beaten)
                 ++count;
         }

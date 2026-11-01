@@ -153,23 +153,19 @@ void ModelLook::resolve_random_parts()
             continue;
         const uint32_t part = component->name;
         script::Struct* option = nullptr;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (component->structure->has_bare_flag(kRandomizedDescId)) {
+        if (component->value.structure()->has_bare_flag(kRandomizedDescId)) {
             option = random_cas_option(part, random_set);
         } else {
             int index = 0;
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            if (!component->structure->fetch_int_value(kShuffleIndex, &index, 0))
+            if (!component->value.structure()->fetch_int_value(kShuffleIndex, &index, 0))
                 continue;
             option = cas_option_at(part, index, random_set);
         }
         option->read_hash_value(kRandomSet, &random_set, 0);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        component->structure->get_clear();
+        component->value.structure()->get_clear();
         uint32_t descriptor_id = 0;
         option->read_hash_value(kDescId, &descriptor_id, 0);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        component->structure->put_name_key(kDescId, descriptor_id);
+        component->value.structure()->put_name_key(kDescId, descriptor_id);
     }
 }
 
@@ -208,7 +204,7 @@ void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* 
     script::Struct* slot = nullptr;
     if (!structure_.read_sub_struct(part, &slot, 0)) {
         slot = new_temp_struct();
-        structure_.add_component_of_type(part, kOwnedStructure, cell::of(slot));
+        structure_.append_struct_ref(part, slot);
     }
     slot->get_clear();
     int use_default_hsv = 1;

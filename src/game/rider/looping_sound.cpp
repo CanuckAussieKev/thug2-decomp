@@ -29,7 +29,8 @@
 
 namespace objects {
 
-std::array<uint32_t, 6> g_looping_sound_member_functions{{0, 0xB5F1E9D2, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 1> g_looping_sound_member_functions{{
+    {0, 0xB5F1E9D2}}};
 
 namespace {
 
@@ -102,8 +103,7 @@ gsl::owner<ObjectModule*> RiderRollingAudio::fabricate() { return new RiderRolli
 // 0x00513860
 void RiderRollingAudio::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kSkaterLoopingSound),
-                                           g_looping_sound_member_functions.data(), 0x18);
+    script::register_member_function_table(g_looping_sound_member_functions);
 }
 
 // 0x005138E0

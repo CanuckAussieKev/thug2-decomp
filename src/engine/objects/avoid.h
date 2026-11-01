@@ -37,7 +37,7 @@ public:
     ObstacleDodgeModule();
     // 0x004E3330: the destructor body (the base's).
     ~ObstacleDodgeModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -103,5 +103,5 @@ bool line_collides(const maths::Vec4& start, const maths::Vec4& end);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 54> g_avoid_member_functions;
+extern std::array<script::MemberFunctionEntry, 9> g_avoid_member_functions;
 } // namespace objects

@@ -51,7 +51,7 @@ public:
     // 0x00432DF0: every sound of it stopped (the manager's stop_object_sounds); the base's body.
     ~AudioEmitterModule() override;
     void jump_to() override { tick_frame(); } // (slot 9: a jump to slot 1)
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -105,5 +105,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 12> g_sound_component_member_functions;
+extern std::array<script::MemberFunctionEntry, 2> g_sound_component_member_functions;
 } // namespace objects

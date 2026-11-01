@@ -669,8 +669,7 @@ bool get_sync()
         new (g_array) script::Array;
         script::SymbolTableEntry* symbol = script::create_symbol(name);
         symbol->type = script::kQbvalArray;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        symbol->raw = cell::of(g_array);
+        symbol->value.set_array(g_array);
     }
     if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
         get_log("level editor: the node manager's 20 node arrays are in use - added nodes not registered");
@@ -679,7 +678,7 @@ bool get_sync()
     g_level_array = manager->get_last_node_array_name(); // (the overlay passed over: the level's)
     g_array->configure_size_kind(static_cast<uint32_t>(g_structs.size()), script::kQbvalStruct);
     for (size_t i = 0; i < g_structs.size(); ++i) {
-        g_array->set_element(static_cast<uint32_t>(i), cell::of(core::at(g_structs, i)));
+        g_array->set_cell(static_cast<uint32_t>(i), script::Cell::of(core::at(g_structs, i)));
         // (links= are names already: kept out of AddNodeArray's resolve_links, which reads indices - put on after)
         core::at(g_structs, i)->erase_module(kLinks);
     }

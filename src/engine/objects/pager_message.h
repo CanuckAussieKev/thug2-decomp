@@ -55,7 +55,7 @@ public:
     // 0x004ECE90: the destructor body: every message deleted, the list freed, the base's.
     ~PagerMessageComponent() override;
     void tick_frame() override {} // (slot 1: nothing to update)
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -84,5 +84,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 36> g_pager_message_member_functions;
+extern std::array<script::MemberFunctionEntry, 6> g_pager_message_member_functions;
 } // namespace objects

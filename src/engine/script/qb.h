@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include "engine/core/slab_bank.h"
@@ -31,6 +32,18 @@ const uint8_t* skip_newline_tokens(const uint8_t* token);
 const uint8_t* skip_to_end_of_statement(const uint8_t* token);
 // Past the script's '$' end token (and a line number after it).
 const uint8_t* skip_to_end_of_script(const uint8_t* token);
+
+// A script in the symbol table (a script body symbol's value): the record {u32 checksum, u32 size, u32 stored size,
+// the code - LZSS-compressed when stored < size}, as define_script_symbol makes it and pre-compiled images hold it.
+struct StoredScript {
+    uint32_t checksum_ = 0;
+    uint32_t size_ = 0;
+    uint32_t stored_size_ = 0;
+    const uint8_t* code_ = nullptr; // `stored_size_` bytes
+};
+constexpr size_t kStoredScriptHeader = 12;
+// The record at `record`, read from its bytes.
+StoredScript read_stored_script(const uint8_t* record);
 // A checksum of the script's tokens (line ends left out), up to its '$'.
 uint32_t calculate_script_checksum(const uint8_t* token);
 // Replace the names at the starts of statements that name C functions / member functions with direct

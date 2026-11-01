@@ -206,7 +206,7 @@ public:
     ObjectiveAuthoring();
     // 0x004E6FD0: the destructor body: the script 0xFCC60D8B run, then the base's.
     ~ObjectiveAuthoring() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -366,5 +366,5 @@ static_assert(offsetof(ObjectiveAuthoring, goals_) == 0x18 && offsetof(Objective
 
 namespace park_editing {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 216> g_goal_editor_member_functions;
+extern std::array<script::MemberFunctionEntry, 36> g_goal_editor_member_functions;
 } // namespace park_editing

@@ -55,7 +55,7 @@ NativeCommand* find_c_function(const char* name)
     return nullptr;
 }
 
-void bind_native_command(NativeCommand& entry, void* function) { entry.function = function; }
+void bind_native_command(NativeCommand& entry, NativeFunction function) { entry.function = function; }
 
 // 0x005A5960
 void load_qb_file(const char* filename, int unused)

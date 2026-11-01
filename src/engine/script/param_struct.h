@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
 #include "engine/maths/vec4.h"
+#include "engine/script/cell.h"
 
 // The script system's data: structures of named components (Scripts::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
@@ -45,7 +47,7 @@ public:
     Array();
     void get_clear();
     // The elements (for one element, the value stored in the array itself).
-    uint32_t* find_array_value();
+    Cell* find_array_value();
     // Make the array `size` zeroed elements of `type` (frees the old element block, not what it refers to).
     void configure_size_kind(uint32_t size, QbValueKind type);
     // Only the type (the elements are left as they are).
@@ -67,19 +69,23 @@ public:
     Array* array_at(uint32_t index);
     Pair* pair_at(uint32_t index);
     Vector* vector_at(uint32_t index);
-    // Store a pointer in the element's cell.
-    void set_pointer(uint32_t index, const void* value);
+    // The element's cell, and the cell stored (its kind the array's type: a structure / array / pair / vector /
+    // string array's element - the array takes it over).
+    [[nodiscard]] Cell cell_at(uint32_t index);
+    void set_cell(uint32_t index, Cell value);
+    void set_struct(uint32_t index, Struct* value) { set_cell(index, Cell::of(value)); }
+    void set_array(uint32_t index, Array* value) { set_cell(index, Cell::of(value)); }
+    void set_pair(uint32_t index, Pair* value) { set_cell(index, Cell::of(value)); }
+    void set_vector(uint32_t index, Vector* value) { set_cell(index, Cell::of(value)); }
+    void set_text(uint32_t index, char* value) { set_cell(index, Cell::of_text(value)); }
 
     uint8_t unknown0_{0};
     QbValueKind kind_tag_{kQbvalNone};
     uint16_t unknown2_{};
     uint32_t extent_{0};
-    // (one 32-bit cell: the element block, or the one element itself - which by extent_; not a std::variant: the
-    // arrays are pooled 12-byte records and the cell is copied raw)
-    union {
-        uint32_t* elements_;
-        uint32_t single_;
-    };
+    // One cell: the element block (Cell::block), or the one element itself - which by extent_ (the arrays are
+    // pooled 12-byte records, as the original's).
+    Cell storage_;
 };
 static_assert(sizeof(Array) == 0xC, "layout must match the original");
 
@@ -104,24 +110,14 @@ Pair* new_pair();
 Vector* alloc_script_vector();
 
 struct Component {
-    uint8_t type_and_flag_; // the type in the top 7 bits
-    uint8_t unknown1;
-    uint16_t unknown2;
-    uint32_t name;
-    // The value: one 32-bit cell whose kind is kind_tag() - an externally tagged union, not a std::variant (the
-    // components are pooled 16-byte records, and `raw` copies any kind as its 32 bits).
-    union {
-        int32_t integer;
-        float float_value_;
-        char* string; // (spawn_text's: owned)
-        uint32_t checksum;
-        Struct* structure;
-        Array* array;
-        Pair* pair;
-        Vector* vector;
-        uint32_t raw;
-    };
-    Component* next;
+    uint8_t type_and_flag_{}; // the type in the top 7 bits
+    uint8_t unknown1{};
+    uint16_t unknown2{};
+    uint32_t name{};
+    // The value, of the kind kind_tag() (a string: spawn_text's, owned; structures, arrays, pairs, vectors and
+    // script bodies owned too).
+    Cell value;
+    Component* next{};
 
     [[nodiscard]] QbValueKind kind_tag() const { return static_cast<QbValueKind>(type_and_flag_ >> 1); }
 };
@@ -135,14 +131,8 @@ struct SymbolTableEntry {
     uint16_t unknown2{};
     uint32_t name{0};
     uint32_t unknown8{0};
-    // The value: one 32-bit cell whose kind is `type` (as Component's).
-    union {
-        int32_t integer;
-        float float_value_;
-        Struct* structure;
-        uint32_t checksum;
-        uint32_t raw;
-    };
+    // The value, of the kind `type` (as Component's).
+    Cell value;
     SymbolTableEntry* next{nullptr};
 };
 
@@ -206,7 +196,10 @@ void duplicate_component(Component* dest, const Component* source, int reference
 // Make `dest` a deep copy of `source`.
 void duplicate_array(Array* dest, Array* source);
 // Deep copies of `count` elements of `type` (null elements are skipped).
-void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count, uint32_t type);
+void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_t type);
+
+// An integer / name array's elements, in order.
+std::vector<uint32_t> words_of(Array* array);
 
 // The pooled allocations of the script's value objects.
 Struct* spawn_param_bag();
@@ -235,8 +228,8 @@ public:
     // The first component named `name`, or the flag `name`, also in included structures.
     Component* find_component(uint32_t name);
     // The value of the last component `name` of type `type` (integers are converted for floats; name components
-    // naming a global symbol of the type count too), into `out` (4 bytes).
-    bool get_hunt(uint32_t name, uint32_t type, void* out);
+    // naming a global symbol of the type count too), into `out`.
+    bool get_hunt(uint32_t name, uint32_t type, Cell* out);
 
     bool has_entry_named(uint32_t name);
     bool has_entry_named(const char* name);

@@ -39,7 +39,6 @@
 #include "engine/core/pointer_cell.h"
 #include "platform/code_address.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -56,7 +55,7 @@ void halt(Script* script)
     script->report_stopped();
 }
 ScriptOutcome get_update_script(Script* script) { return script->tick_frame(); }
-bool call_member_function_of(MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
+bool call_member_function_of(const MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
 {
     return invoke_method_by_name(entry, params, object, script);
 }
@@ -163,7 +162,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
         manager->enter_heap_scope(manager->script_heap_);
         Script* script = Script::create();
         memory::Hub::get_pull()->leave_heap_scope();
-        function_at<Function>(symbol->raw)(params, script);
+        symbol->value.function()(params, script);
         Script::destroy(script);
         return nullptr;
     }
@@ -231,13 +230,13 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
     switch (symbol->type) {
     case kQbvalNativeMethod:
         // (no check that there is an object)
-        if (auto* entry = cell::pointer<MemberFunctionEntry>(symbol->raw))
+        if (auto* entry = symbol->value.method())
             call_member_function_of(entry, params, object, nullptr);
         else
             call_member_function_by_name(object, name, params, nullptr);
         return;
     case kQbvalNativeFunc:
-        function_at<Function>(symbol->raw)(params, nullptr);
+        symbol->value.function()(params, nullptr);
         return;
     default: {
         memory::Hub* manager = memory::Hub::get_pull();
@@ -435,4 +434,3 @@ void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t n
 }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

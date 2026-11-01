@@ -159,7 +159,7 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
         rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
         uint32_t i = 0;
         for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
-            rails->set_element(i++, cell::of(spawn_param_bag()));
+            rails->set_cell(i++, script::Cell::of(spawn_param_bag()));
         info->append_array_ref(kRails, rails);
     }
     // (then the base's - the empty 0x005BAB90)
@@ -189,10 +189,10 @@ void RailAuthoring::write_to_structure(script::Struct* params)
             // (a post drawn, not has_post_)
             if (p->post_)
                 point->put_name_key(0u, kHasPost);
-            points->set_element(i++, cell::of(point));
+            points->set_cell(i++, script::Cell::of(point));
         }
         rail_info->append_array_ref(kPoints, points);
-        rails->set_element(r++, cell::of(rail_info));
+        rails->set_cell(r++, script::Cell::of(rail_info));
     }
     params->append_array_ref(kCreatedRails, rails);
 }

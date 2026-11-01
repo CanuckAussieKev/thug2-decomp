@@ -72,7 +72,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
             node->put_name_key(0xA1DC81F9, checksums::hash_from_text(name.data()));
             node->put_int(0xE50D6573, *index);
             if (!in_place) {
-                nodes->set_element(static_cast<uint32_t>(*index), cell::of(node));
+                nodes->set_cell(static_cast<uint32_t>(*index), script::Cell::of(node));
                 manager->hash_node_in(array_name, static_cast<uint32_t>(*index), cell::of(node));
             }
             ++*index;

@@ -111,7 +111,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
             object->put_name_key(kUnnamed, kIsSkaterMarker);
         if (flags >> 31 & 1)
             object->put_name_key(kUnnamed, kSkaterFlag2);
-        objects->set_element(static_cast<uint32_t>(i), cell::of(object));
+        objects->set_cell(static_cast<uint32_t>(i), script::Cell::of(object));
     }
     params->append_array_ref(kObjects, objects);
     return true;

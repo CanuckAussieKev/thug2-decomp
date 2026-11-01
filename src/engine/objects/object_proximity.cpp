@@ -24,10 +24,9 @@
 
 namespace objects {
 
-std::array<uint32_t, 42> g_object_proximity_member_functions{{
-    0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0, 0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0, 0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0,
-    0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0, 0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0, 0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
-    0,          0x1D5B1AE6, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 7> g_object_proximity_member_functions{{
+    {0x82A0A873, 0x1D5B1AE6}, {0x8CB5D0C0, 0x1D5B1AE6}, {0x50F28D36, 0x1D5B1AE6}, {0x2D703B94, 0x1D5B1AE6},
+    {0x13C0D8DC, 0x1D5B1AE6}, {0x9522F906, 0x1D5B1AE6}, {0, 0x1D5B1AE6}}};
 
 namespace {
 
@@ -68,8 +67,7 @@ gsl::owner<ObjectModule*> ObjectProximityComponent::fabricate() { return new Obj
 // 0x004EC220
 void ObjectProximityComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kObjectProximity),
-                                           g_object_proximity_member_functions.data(), 0x18);
+    script::register_member_function_table(g_object_proximity_member_functions);
 }
 
 // 0x004EC370

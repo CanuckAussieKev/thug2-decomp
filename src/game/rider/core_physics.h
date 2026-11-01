@@ -594,7 +594,7 @@ public:
     // 0x004FC500 (0x00500DB0 the deleting one): the collision cache (+0x4F4) taken down, the smart pointers at +0x364
     // (the object skitched on) and in its two feelers (+0x1F0, +0x140) let go, then the base's.
     ~SkaterPhysicsModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -908,5 +908,5 @@ extern maths::Vec4 g_acid_hold;
 
 namespace skater {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 660> g_core_member_functions;
+extern std::array<script::MemberFunctionEntry, 110> g_core_member_functions;
 } // namespace skater

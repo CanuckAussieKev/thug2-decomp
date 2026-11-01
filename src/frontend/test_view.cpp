@@ -16,7 +16,6 @@
 #include "game/rider/rider.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
-#include "platform/code_address.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -190,7 +189,7 @@ void place_camera(gfx::ViewCam* camera, int viewport)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"TeleportSkaterStanding", code_address(&cfunc_teleport_skater_standing)},
+        {"TeleportSkaterStanding", &cfunc_teleport_skater_standing},
     });
     script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }

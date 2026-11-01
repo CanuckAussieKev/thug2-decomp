@@ -91,7 +91,7 @@ public:
     // 0x0045D850 (slot 2): a member function table entry run on the object: its member function pointer (on `this`
     // moved by the entry's adjustment), or, with none, invoke_method_by_name by the entry's name. Returns what that
     // returns.
-    bool invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
+    bool invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
     // 0x00460930: delete itself unless it is locked (no callers; the walks use the free dispose_when_free).
     void dispose_when_free();
 
@@ -252,7 +252,7 @@ public:
     virtual void fetch_diagnostics(script::Struct* /*info*/) {}
     // 0x0045D720 (slot 11): a member function table entry, run by its name (invoke_method_by_name) - the base ignores
     // the entry's member function pointer.
-    virtual int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
+    virtual int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
     // 0x0051ADC0 (slot 12, the base's and every component's without member functions of its own): a member function
     // by name: 0 = false, 1 = true, 2 = not one of its own.
     virtual int invoke_method_by_name(uint32_t /*name*/, script::Struct* /*params*/, script::Script* /*script*/)
@@ -262,10 +262,10 @@ public:
 
     // 0x0042BB20 (slot 11 of most components, shared): the entry's member function pointer (on `this` moved by the
     // entry's adjustment), or, with none, invoke_method_by_name by the entry's name. Returns what that returns.
-    int dispatch_script_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
+    int dispatch_script_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
     // 0x0041D700 (slot 11 of the flexible particle and animation blender components, shared): as
     // dispatch_script_method, but the member function is given the entry's name too.
-    int dispatch_named_script_method(script::MemberFunctionEntry* entry, script::Struct* params,
+    int dispatch_named_script_method(const script::MemberFunctionEntry* entry, script::Struct* params,
                                      script::Script* script);
 
     uint32_t kind_tag_{};        // +0x04 its component type (a checksum)

@@ -20,7 +20,6 @@
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -86,7 +85,7 @@ const uint8_t* add_expression(const uint8_t* token, Struct* dest, Struct* args)
     Component* value = new_component();
     token = parse_expression(token, args, value);
     if (value->kind_tag() == kQbvalStruct) {
-        dest->append_structure_if_any(value->structure);
+        dest->append_structure_if_any(value->value.structure());
         release_component(value);
         free_component(value);
     } else if (value->kind_tag() != kQbvalNone) {
@@ -302,7 +301,7 @@ const uint8_t* parse_random_range(const uint8_t* token, Component* out, bool det
         }
         const int range = high - low + 1;
         const int pick = deterministic ? maths::roll_side_stream(range) : maths::rnd(range);
-        out->raw = static_cast<uint32_t>(pick + low);
+        out->value.set_word(static_cast<uint32_t>(pick + low));
         change_species(out, kQbvalInteger);
         return token + 9;
     }
@@ -314,7 +313,7 @@ const uint8_t* parse_random_range(const uint8_t* token, Component* out, bool det
     const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
     change_species(out, kQbvalFloat);
     const double scale = g_parse_random_scale;
-    out->float_value_ = static_cast<float>((static_cast<double>(b) - a) * pick * scale + a);
+    out->value.set_real(static_cast<float>((static_cast<double>(b) - a) * pick * scale + a));
     return token + 9;
 }
 
@@ -323,7 +322,7 @@ void evaluate_name_token(Component* component)
 {
     if ((component->type_and_flag_ & 0xFE) != (kQbvalName << 1))
         return;
-    const SymbolTableEntry* symbol = resolve_symbol(component->checksum);
+    const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
     if (!symbol)
         return;
     switch (symbol->type) {
@@ -337,7 +336,7 @@ void evaluate_name_token(Component* component)
     case kQbvalArray:
     case kQbvalName:
         change_species(component, symbol->type);
-        component->raw = symbol->raw;
+        component->value.set_word(symbol->value.word());
         break;
     default:
         break;
@@ -353,7 +352,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         Struct* structure = new_init_struct();
         p = parse_structure(structure, token, args);
         change_species(out, kQbvalStruct);
-        out->structure = structure;
+        out->value.set_structure(structure);
         return p;
     }
     case 0x05: {
@@ -362,26 +361,26 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
         change_species(out, kQbvalArray);
-        out->array = array;
+        out->value.set_array(array);
         return p;
     }
     case 0x16:
         change_species(out, kQbvalName);
-        out->raw = fetch_word32(p);
+        out->value.set_word(fetch_word32(p));
         return token + 5;
     case 0x17:
         change_species(out, kQbvalInteger);
-        out->raw = fetch_word32(p);
+        out->value.set_word(fetch_word32(p));
         return token + 5;
     case 0x1A:
         change_species(out, kQbvalFloat);
-        out->raw = fetch_word32(p);
+        out->value.set_word(fetch_word32(p));
         return token + 5;
     case 0x1B:
     case 0x1C: {
         change_species(out, *token == 0x1B ? kQbvalString : kQbvalInlineText);
         const uint32_t length = fetch_word32(p);
-        out->string = spawn_text(raw::chars(token + 5));
+        out->value.set_text(spawn_text(raw::chars(token + 5)));
         return token + 5 + length;
     }
     case 0x1E: {
@@ -389,10 +388,10 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         uint32_t x = fetch_word32(p), y = fetch_word32(token + 5), z = fetch_word32(token + 9);
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
-        out->vector = vector;
+        out->value.set_vector(vector);
         std::memcpy(&vector->x, &x, 4);
-        std::memcpy(&out->vector->y, &y, 4);
-        std::memcpy(&out->vector->z, &z, 4);
+        std::memcpy(&out->value.vector()->y, &y, 4);
+        std::memcpy(&out->value.vector()->z, &z, 4);
         return token + 13;
     }
     case 0x1F: {
@@ -400,9 +399,9 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         uint32_t x = fetch_word32(p), y = fetch_word32(token + 5);
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
-        out->pair = pair;
+        out->value.set_pair(pair);
         std::memcpy(&pair->x, &x, 4);
-        std::memcpy(&out->pair->y, &y, 4);
+        std::memcpy(&out->value.pair()->y, &y, 4);
         return token + 9;
     }
     case 0x23: { // a script: its name goes in the component's name
@@ -416,7 +415,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         memory::leave_heap_scope();
         for (uint32_t i = 0; i < size; ++i)
             code[i] = start[i];
-        out->raw = cell::of(code);
+        out->value.set_code(code);
         return end;
     }
     case 0x2C: // <...>: all the caller's parameters
@@ -424,7 +423,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
             Struct* structure = new_init_struct();
             structure->get_assign(args);
             change_species(out, kQbvalStruct);
-            out->structure = structure;
+            out->value.set_structure(structure);
         }
         return token + 1;
     case 0x2D: { // <name>: one of the caller's parameters
@@ -513,7 +512,7 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         if (!found)
             return p;
         if (name == 0 && (found->type_and_flag_ & 0xFE) == (kQbvalStruct << 1)) {
-            dest->append_structure_if_any(found->structure);
+            dest->append_structure_if_any(found->value.structure());
             return p;
         }
         Component* copy = new_component();
@@ -720,7 +719,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
     memory::leave_heap_scope();
     if (type == 7 || type == 8 || type == 9 || type == 11)
         return token;
-    uint32_t* element = dest->find_array_value();
+    Cell* element = dest->find_array_value();
     p = resolve_random_jumps(first);
     while (*p != 0x06) {
         const uint8_t t = *p;
@@ -734,7 +733,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x03) {
                 Struct* structure = new_init_struct();
                 p = parse_structure(structure, p, args);
-                *element = cell::of(structure);
+                *element = Cell::of(structure);
                 ++element;
             }
             break;
@@ -745,7 +744,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x05) {
                 Array* array = new_init_array();
                 p = parse_array(array, p - 1, args);
-                *element = cell::of(array);
+                *element = Cell::of(array);
                 ++element;
             }
             break;
@@ -754,7 +753,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                *element = fetch_word32(p);
+                *element = Cell::of_word(fetch_word32(p));
                 ++element;
                 p += 4;
             }
@@ -764,12 +763,11 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                auto value = static_cast<float>(static_cast<int32_t>(fetch_word32(p)));
-                std::memcpy(element, &value, 4);
+                *element = Cell::of_real(static_cast<float>(static_cast<int32_t>(fetch_word32(p))));
                 ++element;
                 p += 4;
             } else if (t == 0x1A) {
-                *element = fetch_word32(p);
+                *element = Cell::of_word(fetch_word32(p));
                 ++element;
                 p += 4;
             }
@@ -779,7 +777,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x16) {
-                *element = fetch_word32(p);
+                *element = Cell::of_word(fetch_word32(p));
                 ++element;
                 p += 4;
             }
@@ -792,7 +790,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == (type == kQbvalString ? 0x1B : 0x1C)) {
                 const uint32_t length = fetch_word32(p);
                 p += 4;
-                *element = cell::of(spawn_text(raw::chars(p)));
+                *element = Cell::of_text(spawn_text(raw::chars(p)));
                 ++element;
                 p += length;
             }
@@ -809,7 +807,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&vector->y, &y, 4);
                 std::memcpy(&vector->z, &z, 4);
                 p += 12;
-                *element = cell::of(vector);
+                *element = Cell::of(vector);
                 ++element;
             }
             break;
@@ -824,7 +822,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&pair->x, &x, 4);
                 std::memcpy(&pair->y, &y, 4);
                 p += 8;
-                *element = cell::of(pair);
+                *element = Cell::of(pair);
                 ++element;
             }
             break;
@@ -915,7 +913,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             if (!expect_value)
                 break;
             p = parse_value(p, args, &value);
-            const SymbolTableEntry* symbol = after_dot ? nullptr : resolve_symbol(value.checksum);
+            const SymbolTableEntry* symbol = after_dot ? nullptr : resolve_symbol(value.value.word());
             if (symbol) {
                 bool push = true;
                 switch (symbol->type) {
@@ -927,15 +925,15 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                 case kQbvalVector:
                 case kQbvalName:
                     change_species(&value, symbol->type);
-                    value.raw = symbol->raw;
+                    value.value.set_word(symbol->value.word());
                     break;
                 case kQbvalStruct:
                     change_species(&value, kQbvalStructRef);
-                    value.raw = symbol->raw;
+                    value.value.set_word(symbol->value.word());
                     break;
                 case kQbvalArray:
                     change_species(&value, kEsymboltypeArraypointer);
-                    value.raw = symbol->raw;
+                    value.value.set_word(symbol->value.word());
                     break;
                 case kQbvalNativeFunc: {
                     // Called now, with the arguments that follow.
@@ -945,8 +943,8 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);
-                    const auto routine = function_at<Routine>(symbol->raw);
-                    value.raw = routine(params, script);
+                    const auto routine = symbol->value.function();
+                    value.value.set_word(routine(params, script));
                     if (params) {
                         params->get_clear();
                         delete_struct(params);
@@ -965,7 +963,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                 evaluator.intake(&value);
             }
             value.type_and_flag_ &= 1;
-            value.raw = 0;
+            value.value.set_word(0);
             pushed();
             continue;
         }
@@ -980,14 +978,14 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             }
             // A negative number right after a value: a subtraction ("a -1" is compiled as "a" "-1").
             const uint8_t* next = parse_value(p, args, &value);
-            const bool negative = t == 0x17 ? value.integer < 0 : value.float_value_ < 0.0f;
+            const bool negative = t == 0x17 ? value.value.integer() < 0 : value.value.real() < 0.0f;
             if (!negative || !have_value)
                 break;
             evaluator.intake(static_cast<int>(kOperatorMinus));
             if (t == 0x17)
-                value.integer = -value.integer;
+                value.value.set_integer(-value.value.integer());
             else
-                value.float_value_ = -value.float_value_;
+                value.value.set_real(-value.value.real());
             evaluator.intake(&value);
             release_component(&value);
             p = next;
@@ -1000,7 +998,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             ++p;
             if (args) {
                 change_species(&value, kQbvalStructRef);
-                value.structure = args;
+                value.value.set_structure(args);
                 evaluator.intake(&value);
             }
             pushed();
@@ -1014,12 +1012,12 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             if (found) {
                 value.type_and_flag_ =
                     static_cast<uint8_t>((value.type_and_flag_ & 1) | (found->type_and_flag_ & 0xFE));
-                value.raw = found->raw;
+                value.value.set_word(found->value.word());
                 evaluate_name_token(&value);
                 make_reference(&value);
                 evaluator.intake(&value);
                 value.type_and_flag_ &= 1;
-                value.raw = 0;
+                value.value.set_word(0);
             }
             pushed();
             continue;
@@ -1042,4 +1040,3 @@ namespace script {
 void construct_evaluator() { g_evaluator.prepare_all(); }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

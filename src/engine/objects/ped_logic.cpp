@@ -35,17 +35,15 @@
 
 namespace objects {
 
-std::array<uint32_t, 174> g_ped_logic_member_functions{{
-    0x3685B765, 0x6EFDDFB8, 0, 0, 0, 0, 0x423B7B29, 0x6EFDDFB8, 0, 0, 0, 0, 0xE9906815, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x0D711542, 0x6EFDDFB8, 0, 0, 0, 0, 0xCC85ADFE, 0x6EFDDFB8, 0, 0, 0, 0, 0x68D298B0, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x2CC086DD, 0x6EFDDFB8, 0, 0, 0, 0, 0xC643E8F5, 0x6EFDDFB8, 0, 0, 0, 0, 0x13713760, 0x6EFDDFB8, 0, 0, 0, 0,
-    0xF5627596, 0x6EFDDFB8, 0, 0, 0, 0, 0xE575EFA9, 0x6EFDDFB8, 0, 0, 0, 0, 0xB4445051, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x744CD649, 0x6EFDDFB8, 0, 0, 0, 0, 0xEE24A410, 0x6EFDDFB8, 0, 0, 0, 0, 0x0C076D74, 0x6EFDDFB8, 0, 0, 0, 0,
-    0xDA7BE9E2, 0x6EFDDFB8, 0, 0, 0, 0, 0x1AFFFFB3, 0x6EFDDFB8, 0, 0, 0, 0, 0x5C794C57, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x5BB23915, 0x6EFDDFB8, 0, 0, 0, 0, 0x56D9F55F, 0x6EFDDFB8, 0, 0, 0, 0, 0x749DE914, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x58A588B5, 0x6EFDDFB8, 0, 0, 0, 0, 0x5CFBFB31, 0x6EFDDFB8, 0, 0, 0, 0, 0x9C37FBF5, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x35D3CA5E, 0x6EFDDFB8, 0, 0, 0, 0, 0x9C209251, 0x6EFDDFB8, 0, 0, 0, 0, 0xC33754F7, 0x6EFDDFB8, 0, 0, 0, 0,
-    0x5F041C7D, 0x6EFDDFB8, 0, 0, 0, 0, 0,          0x6EFDDFB8, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 29> g_ped_logic_member_functions{{
+    {0x3685B765, 0x6EFDDFB8}, {0x423B7B29, 0x6EFDDFB8}, {0xE9906815, 0x6EFDDFB8}, {0x0D711542, 0x6EFDDFB8},
+    {0xCC85ADFE, 0x6EFDDFB8}, {0x68D298B0, 0x6EFDDFB8}, {0x2CC086DD, 0x6EFDDFB8}, {0xC643E8F5, 0x6EFDDFB8},
+    {0x13713760, 0x6EFDDFB8}, {0xF5627596, 0x6EFDDFB8}, {0xE575EFA9, 0x6EFDDFB8}, {0xB4445051, 0x6EFDDFB8},
+    {0x744CD649, 0x6EFDDFB8}, {0xEE24A410, 0x6EFDDFB8}, {0x0C076D74, 0x6EFDDFB8}, {0xDA7BE9E2, 0x6EFDDFB8},
+    {0x1AFFFFB3, 0x6EFDDFB8}, {0x5C794C57, 0x6EFDDFB8}, {0x5BB23915, 0x6EFDDFB8}, {0x56D9F55F, 0x6EFDDFB8},
+    {0x749DE914, 0x6EFDDFB8}, {0x58A588B5, 0x6EFDDFB8}, {0x5CFBFB31, 0x6EFDDFB8}, {0x9C37FBF5, 0x6EFDDFB8},
+    {0x35D3CA5E, 0x6EFDDFB8}, {0x9C209251, 0x6EFDDFB8}, {0xC33754F7, 0x6EFDDFB8}, {0x5F041C7D, 0x6EFDDFB8},
+    {0, 0x6EFDDFB8}}};
 
 namespace {
 
@@ -140,7 +138,7 @@ gsl::owner<ObjectModule*> PedestrianBrainModule::fabricate() { return new Pedest
 // 0x004ECFB0
 void PedestrianBrainModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_ped_logic_member_functions.data(), 0x18);
+    script::register_member_function_table(g_ped_logic_member_functions);
 }
 
 // 0x004ECFD0

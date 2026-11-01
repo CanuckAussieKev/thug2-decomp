@@ -57,7 +57,7 @@ public:
     AttributeTracker();
     // 0x0051C460: the destructor body (the base's).
     ~AttributeTracker() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -147,5 +147,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 60> g_stats_manager_member_functions;
+extern std::array<script::MemberFunctionEntry, 10> g_stats_manager_member_functions;
 } // namespace objects

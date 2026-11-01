@@ -31,9 +31,8 @@
 
 namespace objects {
 
-std::array<uint32_t, 24> g_trick_component_member_functions{{
-    0xE4AB4785, 0x270F56E1, 0, 0, 0, 0, 0x46D49242, 0x270F56E1, 0, 0, 0, 0,
-    0x1FC98415, 0x270F56E1, 0, 0, 0, 0, 0,          0x270F56E1, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 4> g_trick_component_member_functions{{
+    {0xE4AB4785, 0x270F56E1}, {0x46D49242, 0x270F56E1}, {0x1FC98415, 0x270F56E1}, {0, 0x270F56E1}}};
 
 namespace {
 
@@ -104,7 +103,7 @@ bool is_direction(uint32_t button)
 // 0x0051EA90
 void MoveExecutor::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_trick_component_member_functions.data(), 0x18);
+    script::register_member_function_table(g_trick_component_member_functions);
 }
 
 // 0x0051F2B0
@@ -418,8 +417,7 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
 uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, uint32_t* out)
 {
     for (int i = 0; i < count; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        uint32_t button = node->checksum;
+        uint32_t button = node->value.word();
         if (button == 0x03749393)
             button = core::at(button_map_, 1);
         else if (button == 0x7473A305)
@@ -430,10 +428,8 @@ uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, ui
         node = node->next;
     }
     if ((node->type_and_flag_ & 0xFE) == 2)
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        return node->checksum;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    return static_cast<uint32_t>(script::fetch_int_value(node->checksum));
+        return node->value.word();
+    return static_cast<uint32_t>(script::fetch_int_value(node->value.word()));
 }
 
 // 0x0051ECC0
@@ -723,8 +719,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     };
     auto finish = [&](Scan scan) { return scan == Scan::kFound ? succeed() : scan == Scan::kStopped ? false : fail(); };
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    switch (kind->checksum) {
+    switch (kind->value.word()) {
     case 0x823B8342: { // Press: the button pressed (the event gets the flags itself, nothing marked)
         uint32_t ms = read_trigger(node, 1, buttons.data());
         if (scaled) {
@@ -1013,12 +1008,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     }
     case 0xA8123ECF: { // HoldThree: the three (as named, not mapped) held; nothing marked
         const script::Component* second = node->next;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        const uint32_t a = node->checksum;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        const uint32_t b = second->checksum;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        const uint32_t c = second->next->checksum;
+        const uint32_t a = node->value.word();
+        const uint32_t b = second->value.word();
+        const uint32_t c = second->next->value.word();
         return is_key_held(a) && is_key_held(b) && is_key_held(c);
     }
     case 0x696E5E66: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,

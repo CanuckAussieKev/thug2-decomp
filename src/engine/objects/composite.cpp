@@ -176,7 +176,7 @@ float feet_as_inches() { return g_composite_feet_to_inches; } // 12
 // --- Entity: a member function table entry -------------------------------------------------------------------
 
 // 0x0045D850
-bool Entity::invoke_method(MemberFunctionEntry* entry, Struct* params, Script* script)
+bool Entity::invoke_method(const MemberFunctionEntry* entry, Struct* params, Script* script)
 {
     if (entry->method_code_) {
         void* self = raw::bytes(this) + entry->this_adjustment_;
@@ -209,7 +209,7 @@ void ObjectModule::hold_off(bool suspend)
 }
 
 // 0x0045D720 (a jump to slot 12 with the entry's name in place of the entry)
-int ObjectModule::invoke_method(MemberFunctionEntry* entry, Struct* params, Script* script)
+int ObjectModule::invoke_method(const MemberFunctionEntry* entry, Struct* params, Script* script)
 {
     return invoke_method_by_name(entry->callsign_, params, script);
 }
@@ -336,10 +336,9 @@ void GameEntity::attach_module(ObjectModule* component)
 // 0x0045DA90
 void GameEntity::build_modules_from_list(Array* components, Struct* extra)
 {
-    const uint32_t* elements = components->find_array_value();
     const int count = static_cast<int>(components->extent_);
     for (int i = 0; i < count; ++i)
-        create_component_from_structure(cell::pointer<Struct>(elements[i]), extra);
+        create_component_from_structure(components->struct_at(static_cast<uint32_t>(i)), extra);
 }
 
 // 0x0045EE20. With no component= the type looked up is `params`' own address [quirk]; a type the manager can't

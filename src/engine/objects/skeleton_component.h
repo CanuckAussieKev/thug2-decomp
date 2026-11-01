@@ -40,7 +40,7 @@ public:
     static void publish_method_table();
     // 0x00431FE0: the skeleton destroyed (0x004A2CB0) and freed; the base's body.
     ~BoneRigModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -99,5 +99,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 36> g_skeleton_component_member_functions;
+extern std::array<script::MemberFunctionEntry, 6> g_skeleton_component_member_functions;
 } // namespace objects

@@ -40,7 +40,6 @@ constexpr uint32_t kLongestManual = 0x82883251;       // longestmanual
 constexpr uint32_t kGameRecordsArray = 0xE764EDF2;    // (the game records' array, as written)
 constexpr uint32_t kDefaultInitialsName = 0x24EB19A8; // (the default initials, as written)
 // The type the records' structures are added with (11: not one of Scripts::QbValueKind's named ones).
-constexpr uint32_t kStructureComponent = 11;
 
 memory::HeapUnique<highscores::BestResults>& sole() { return g_game_records; }
 uint32_t& ref_tally() { return g_records_references; }
@@ -220,8 +219,8 @@ void BestEntryList::write_to_structure(script::Struct* params)
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(num_, script::kQbvalStruct);
     for (int i = 0; i < num_; ++i)
-        array->set_element(i, cell::of(record_structure(&records_[i])));
-    params->add_component_of_type(kRecordTable, script::kQbvalArray, cell::of(array));
+        array->set_cell(i, script::Cell::of(record_structure(&records_[i])));
+    params->append_array_ref(kRecordTable, array);
 }
 
 // 0x0057F120
@@ -287,23 +286,19 @@ void StageBests::write_to_structure(script::Struct* params)
 {
     script::Struct* structure = spawn_param_table();
     high_scores_->write_to_structure(structure);
-    params->add_component_of_type(kHighScores, kStructureComponent, cell::of(structure));
+    params->append_struct_ref(kHighScores, structure);
     structure = spawn_param_table();
     best_combos_->write_to_structure(structure);
-    params->add_component_of_type(kBestCombos, kStructureComponent, cell::of(structure));
+    params->append_struct_ref(kBestCombos, structure);
     if (arcade_scores_) {
         structure = spawn_param_table();
         arcade_scores_->write_to_structure(structure);
-        params->add_component_of_type(kArcadeScores, kStructureComponent, cell::of(structure));
+        params->append_struct_ref(kArcadeScores, structure);
     }
-    params->add_component_of_type(kLongestCombo, kStructureComponent,
-                                  cell::of(record_structure(biggest_chain_)));
-    params->add_component_of_type(kBestGrindKey, kStructureComponent,
-                                  cell::of(record_structure(grind_record_)));
-    params->add_component_of_type(kLongestLipTrick, kStructureComponent,
-                                  cell::of(record_structure(longest_lip_trick_)));
-    params->add_component_of_type(kLongestManual, kStructureComponent,
-                                  cell::of(record_structure(longest_manual_)));
+    params->append_struct_ref(kLongestCombo, record_structure(biggest_chain_));
+    params->append_struct_ref(kBestGrindKey, record_structure(grind_record_));
+    params->append_struct_ref(kLongestLipTrick, record_structure(longest_lip_trick_));
+    params->append_struct_ref(kLongestManual, record_structure(longest_manual_));
 }
 
 // 0x0057EE70
@@ -355,9 +350,9 @@ void BestResults::write_to_structure(script::Struct* params)
     for (int i = 0; i < level_count_; ++i) {
         script::Struct* structure = spawn_param_table();
         levels_[i].write_to_structure(structure);
-        array->set_element(i, cell::of(structure));
+        array->set_cell(i, script::Cell::of(structure));
     }
-    params->add_component_of_type(kGameRecordsArray, script::kQbvalArray, cell::of(array));
+    params->append_array_ref(kGameRecordsArray, array);
     params->append_word(kDefaultInitialsName, script::kQbvalString, default_initials_);
 }
 

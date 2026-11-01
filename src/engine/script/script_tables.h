@@ -13,6 +13,6 @@ extern std::array<const char*, 250> g_member_function_names;
 // The entry of the Function table with this name, or null.
 NativeCommand* find_c_function(const char* name);
 // Point an entry at another function (the debug mode's CD / NotCD, the platform's IsPS2).
-void bind_native_command(NativeCommand& entry, void* function);
+void bind_native_command(NativeCommand& entry, NativeFunction function);
 
 } // namespace script

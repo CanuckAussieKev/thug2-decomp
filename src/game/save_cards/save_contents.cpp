@@ -151,7 +151,7 @@ void write_global_info(Struct* global)
             controller->put_name_key(0u, kSpinTapsOn);
         if (flags.vibration_)
             controller->put_name_key(0u, kVibrationOn);
-        controllers->set_element(static_cast<uint32_t>(i), cell::of(controller));
+        controllers->set_cell(static_cast<uint32_t>(i), script::Cell::of(controller));
     }
     options->append_array_ref(kPadSettingsKey, controllers);
     options->put_sub_struct(kTaunts, preferences_structure(online_hub_handle()->get_taunt_settings()));
@@ -206,8 +206,7 @@ void read_save_header(Struct* global, Script* script)
         uint32_t soundtrack = 0xFFFFFFFF;
         sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            symbol->checksum = soundtrack;
+            symbol->value.set_word(soundtrack);
         Struct* change = spawn_param_table();
         change->put_name_key(0x8C465905u, soundtrack);                       // trackchecksum
         script::launch_script(0xD44400C2u, change, nullptr, false, nullptr); // set_loaded_soundtrack

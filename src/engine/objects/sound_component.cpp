@@ -29,7 +29,8 @@
 
 namespace objects {
 
-std::array<uint32_t, 12> g_sound_component_member_functions{{0xAFA20E18, 0x07713C7B, 0, 0, 0, 0, 0, 0x07713C7B, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 2> g_sound_component_member_functions{{
+    {0xAFA20E18, 0x07713C7B}, {0, 0x07713C7B}}};
 
 namespace {
 
@@ -75,7 +76,7 @@ gsl::owner<ObjectModule*> AudioEmitterModule::fabricate() { return new AudioEmit
 // 0x00432C80
 void AudioEmitterModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_sound_component_member_functions.data(), 0x18);
+    script::register_member_function_table(g_sound_component_member_functions);
 }
 
 // 0x00432D90

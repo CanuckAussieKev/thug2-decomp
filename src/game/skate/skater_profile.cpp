@@ -46,7 +46,6 @@ constexpr uint32_t kTrickStyleName = 0xE365363E; // its global structure's name 
 constexpr uint32_t kAppearanceName = 0x1D6F290C; // a global appearance structure's name (in params)
 constexpr uint32_t kCustomSkater = 0x0A7BE964;   // the custom skater's name
 constexpr uint32_t kStatCatalog = 0x61EB6BA9;    // the global array of stats (each a structure with a name)
-constexpr uint32_t kOwnedStructure = 11;         // a component type: a structure it owns, by pointer
 
 // The appearance's code (0x00488xxx-0x00489xxx).
 void free_face_texture(RiderIdentity* p) { raw::as<gfx::ModelLook>(p)->free_face_texture(); }
@@ -379,12 +378,10 @@ bool RiderIdentity::get_reset(script::Struct* params)
     script::Struct* mine = details_params();
     mine->get_clear();
     script::Struct* memory = script::spawn_param_bag();
-    mine->add_component_of_type(
-        kTrickStyle, kOwnedStructure,
-        cell::of(memory ? memory::construct_in<script::Struct>(memory) : nullptr));
+    mine->append_struct_ref(
+        kTrickStyle, memory ? memory::construct_in<script::Struct>(memory) : nullptr);
     memory = script::spawn_param_bag();
-    mine->add_component_of_type(kSpecials, kOwnedStructure,
-                                cell::of(memory ? new (memory) script::Struct : nullptr));
+    mine->append_struct_ref(kSpecials, memory ? new (memory) script::Struct : nullptr);
     pop_heap();
     if (!params)
         return true;
@@ -426,21 +423,21 @@ void RiderIdentity::write_to_save(script::Struct* save)
     if (!pro) {
         script::Struct* appearance = new_empty_struct();
         appearance->append_structure_if_any(&this->appearance()->structure_);
-        mine->add_component_of_type(kAppearance, kOwnedStructure, cell::of(appearance));
+        mine->append_struct_ref(kAppearance, appearance);
     }
     void* face = appearance()->face_skin_; // (the appearance's face: 0x00576E60, a folded getter)
     if (face && static_cast<gfx::FaceSkin*>(face)->is_sound()) {
         script::Struct* texture = new_empty_struct();
         static_cast<gfx::FaceSkin*>(face)->save_to_structure(texture);
-        mine->add_component_of_type(0xF0D3BC94, kOwnedStructure, cell::of(texture));
+        mine->append_struct_ref(0xF0D3BC94, texture);
     }
     script::Struct* info = new_empty_struct();
     info->append_structure_if_any(details_params());
-    mine->add_component_of_type(kInfo, kOwnedStructure, cell::of(info));
+    mine->append_struct_ref(kInfo, info);
     uint32_t name = 0;
     details_params()->read_hash_value(kName, &name, 1);
     mine->add_component_of_type(kDeckFlags, script::kQbvalInteger, 0);
-    save->add_component_of_type(name, kOwnedStructure, cell::of(mine));
+    save->append_struct_ref(name, mine);
 }
 
 // 0x00586D60
@@ -520,14 +517,12 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case 0x130618A0:
         case 0x2820E997:
         case 0x562E3ECD:
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            sent->append_word(c->name, script::kQbvalString, c->string);
+            sent->append_word(c->name, script::kQbvalString, c->value.text());
             break;
         case kStance:
         case kPushStyle:
         case kName:
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            sent->add_component_of_type(c->name, script::kQbvalName, c->checksum);
+            sent->add_component_of_type(c->name, script::kQbvalName, c->value.word());
             break;
         case 0x9B65D7B8:
         case 0x3F813177:
@@ -542,8 +537,7 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kIsPro:
         case 0xEDF5DB70:
         case 0xF73A13E3:
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            sent->add_component_of_type(c->name, script::kQbvalInteger, c->raw);
+            sent->add_component_of_type(c->name, script::kQbvalInteger, c->value.word());
             break;
         default:
             break;

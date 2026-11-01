@@ -133,8 +133,8 @@ bool cfunc_start_lobby_list(script::Struct* params, script::Script* script);    
 bool cfunc_stop_server_list(script::Struct* params, script::Script* script);           // 0x005A1160
 bool cfunc_free_server_list(script::Struct* params, script::Script* script);           // 0x005A1170
 // (these two return 1 or 0 in all of EAX: some of their callers read it)
-int cfunc_in_split_screen_game(script::Struct* params, script::Script* script); // 0x005A1180
-int cfunc_in_multiplayer_game(script::Struct* params, script::Script* script);  // 0x005A11B0
+bool cfunc_in_split_screen_game(script::Struct* params, script::Script* script); // 0x005A1180
+bool cfunc_in_multiplayer_game(script::Struct* params, script::Script* script);  // 0x005A11B0
 bool cfunc_on_server(script::Struct* params, script::Script* script);           // 0x005A1220
 bool cfunc_toggle_scores(script::Struct* params, script::Script* script);       // 0x005A12D0
 

@@ -23,9 +23,9 @@
 
 namespace objects {
 
-std::array<uint32_t, 36> g_pager_message_member_functions{{
-    0x4824484A, 0xD1515392, 0, 0, 0, 0, 0xD65B2BB5, 0xD1515392, 0, 0, 0, 0, 0x5B64BFEC, 0xD1515392, 0, 0, 0, 0,
-    0xAF88BE7A, 0xD1515392, 0, 0, 0, 0, 0xE7DF996D, 0xD1515392, 0, 0, 0, 0, 0,          0xD1515392, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 6> g_pager_message_member_functions{{
+    {0x4824484A, 0xD1515392}, {0xD65B2BB5, 0xD1515392}, {0x5B64BFEC, 0xD1515392}, {0xAF88BE7A, 0xD1515392},
+    {0xE7DF996D, 0xD1515392}, {0, 0xD1515392}}};
 
 namespace {
 
@@ -78,8 +78,7 @@ gsl::owner<ObjectModule*> PagerMessageComponent::fabricate() { return new PagerM
 // 0x004EC960
 void PagerMessageComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kPagerMessage), g_pager_message_member_functions.data(),
-                                           0x18);
+    script::register_member_function_table(g_pager_message_member_functions);
 }
 
 // 0x004ECE10

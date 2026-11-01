@@ -49,7 +49,7 @@ public:
     AutomobileDynamicsModule();
     // 0x0041B930: the base's body.
     ~AutomobileDynamicsModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -116,5 +116,5 @@ static_assert(offsetof(AutomobileDynamicsModule::BoneDesc, parent) == 0x08 &&
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 18> g_car_physics_member_functions;
+extern std::array<script::MemberFunctionEntry, 3> g_car_physics_member_functions;
 } // namespace objects

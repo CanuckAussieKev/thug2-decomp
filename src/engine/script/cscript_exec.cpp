@@ -57,7 +57,6 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -71,7 +70,7 @@ constexpr uint32_t kObjectComponentType2 = 0x0ADA4E74;
 
 // The object's and its components' script member functions. The object's: Entity::invoke_method (the original's
 // slot 2) and Entity::invoke_method_by_name (slot 3).
-bool object_call_member_function(objects::Entity* object, MemberFunctionEntry* entry, Struct* params, Script* script)
+bool object_call_member_function(objects::Entity* object, const MemberFunctionEntry* entry, Struct* params, Script* script)
 {
     return object->invoke_method(entry, params, script);
 }
@@ -80,7 +79,7 @@ bool object_call_member_function(objects::Entity* object, uint32_t name, Struct*
     return object->invoke_method_by_name(name, params, script);
 }
 // ObjectModule::invoke_method (vtable +0x2C; the original tests the whole of EAX, not just AL).
-bool component_call_member_function(objects::ObjectModule* component, MemberFunctionEntry* entry, Struct* params,
+bool component_call_member_function(objects::ObjectModule* component, const MemberFunctionEntry* entry, Struct* params,
                                     Script* script)
 {
     return component->invoke_method(entry, params, script) != 0;
@@ -106,7 +105,7 @@ void delete_component(Component* component)
 } // namespace
 
 // 0x00472980: run a member function's table entry on `object` (no null checks).
-bool invoke_method_by_name(MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
+bool invoke_method_by_name(const MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
 {
     const uint32_t type = entry->owner_kind_;
     if (type == kObjectComponentType || type == kObjectComponentType2)
@@ -115,7 +114,7 @@ bool invoke_method_by_name(MemberFunctionEntry* entry, Struct* params, objects::
 }
 
 // 0x004731A0
-bool Script::invoke_method_by_name(MemberFunctionEntry* entry, objects::Entity* object)
+bool Script::invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object)
 {
     if (!object)
         object = entity_.get_pull();
@@ -227,11 +226,11 @@ bool Script::execute_command()
         Component* value = new_component();
         pc_ = parse_expression(pc_, args_, value);
         if (value->kind_tag() != kQbvalName) {
-            const bool result = value->raw != 0;
+            const bool result = value->value.word() != 0;
             delete_component(value);
             return result;
         }
-        name = value->checksum;
+        name = value->value.word();
         delete_component(value);
         if (!name)
             name = read_name();
@@ -265,7 +264,7 @@ bool Script::execute_command()
             return true;
         }
         case kQbvalNativeMethod:
-            if (auto* entry = cell::pointer<MemberFunctionEntry>(symbol->raw))
+            if (auto* entry = symbol->value.method())
                 return invoke_method_by_name(entry, object);
             return invoke_method_by_name(function, object);
         default: // (C functions included: not run on an object)
@@ -311,9 +310,9 @@ bool Script::execute_command()
         return true;
     }
     case kQbvalNativeFunc:
-        return function_at<Function>(symbol->raw)(stmt_args_, this);
+        return symbol->value.function()(stmt_args_, this);
     case kQbvalNativeMethod: {
-        auto* entry = cell::pointer<MemberFunctionEntry>(symbol->raw);
+        auto* entry = symbol->value.method();
         objects::Entity* object = entity_.owner_object_;
         if (entry) {
             if (object)
@@ -607,4 +606,3 @@ ScriptOutcome Script::tick_frame()
 }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

@@ -77,7 +77,6 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
-#include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
@@ -126,8 +125,7 @@ int script_integer(const std::string& name)
     if (name.empty())
         return -1;
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name_hash(name.c_str()));
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    return symbol && symbol->type == script::kQbvalInteger ? symbol->integer : -1;
+    return symbol && symbol->type == script::kQbvalInteger ? symbol->value.integer() : -1;
 }
 
 // --- the setting and the files ---
@@ -2428,8 +2426,8 @@ bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"NewFrontend_Item", code_address(&cfunc_item)},
-        {"NewFrontend_Open", code_address(&cfunc_show_new_frontend)},
+        {"NewFrontend_Item", &cfunc_item},
+        {"NewFrontend_Open", &cfunc_show_new_frontend},
     });
     script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }

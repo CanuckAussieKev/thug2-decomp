@@ -42,7 +42,7 @@ public:
     // freed, the channel list's head unlinked, the base's destructor body.
     ~AnimBlenderComponent() override;
     // (slot 11: the flexible particle component's 0x0041D700, folded)
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_named_script_method(entry, params, script);
     }
@@ -167,5 +167,5 @@ static_assert(offsetof(VectorAt1c, vector_) == 0x1C, "layout must match the orig
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 180> g_anim_blender_member_functions;
+extern std::array<script::MemberFunctionEntry, 30> g_anim_blender_member_functions;
 } // namespace objects

@@ -151,8 +151,7 @@ void ParkLayout::set_up_abstract_metas()
             meta->commission(static_cast<int>(pieces->extent_));
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
                 auto* entry = pieces->struct_at(i);
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                const uint32_t name = entry->step_to_entry(nullptr)->checksum; // the piece's name comes first
+                const uint32_t name = entry->step_to_entry(nullptr)->value.word(); // the piece's name comes first
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1); // its unnamed [x y z (rot)]
                 TileTemplate* source = piece_source(builder_, name);
@@ -176,8 +175,7 @@ void ParkLayout::set_up_abstract_metas()
             meta->commission(static_cast<int>(pieces->extent_));
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
                 auto* entry = pieces->struct_at(i);
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                const uint32_t name = entry->step_to_entry(nullptr)->checksum;
+                const uint32_t name = entry->step_to_entry(nullptr)->value.word();
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1);
                 PieceGroup* part = nullptr;
@@ -420,7 +418,10 @@ void ParkLayout::export_to_struct(script::Struct* out)
     script::Array* memory = script::alloc_script_array();
     script::Array* map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
-    park_map_to_words(&map_, map->find_array_value());
+    std::array<uint32_t, kParkMapWords> words{};
+    park_map_to_words(&map_, words.data());
+    for (uint32_t i = 0; i < kParkMapWords; ++i)
+        map->set_element(i, core::at(words, i));
     out->append_array_ref(0x337C5289u, map); // Park_editor_map
     script::Struct* struct_memory = script::spawn_param_bag();
     script::Struct* goals = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;

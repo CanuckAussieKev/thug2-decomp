@@ -365,7 +365,8 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             // (the map's words into a map of its own: NOT ORIGINAL - the original read the array's storage as
             // a map, past the end of a short one)
             auto copy = std::make_unique<park_editing::CompressedMap>();
-            park_editing::park_map_from_words(copy.get(), map->find_array_value(), map->extent_);
+            const std::vector<uint32_t> words = script::words_of(map);
+            park_editing::park_map_from_words(copy.get(), words.data(), static_cast<uint32_t>(words.size()));
             add_map_info(copy.get());
             break;
         }

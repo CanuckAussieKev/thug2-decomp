@@ -25,7 +25,6 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -383,14 +382,13 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
     const int count = static_cast<int>(table->extent_);
     if (!signal_routes_ && count)
         signal_routes_ = new_event_handler_table();
-    const uint32_t* elements = table->find_array_value();
     for (int i = 0; i < count; ++i) {
-        const Component* flag = cell::pointer<Struct>(elements[i])->step_to_entry(nullptr);
+        const Component* flag = table->struct_at(static_cast<uint32_t>(i))->step_to_entry(nullptr);
         const Component* type = flag->next;
         const Component* script = type->next;
         const Component* params = script->next;
-        signal_routes_->append_listener(this, type->checksum, script->checksum, group, flag->checksum == kExceptionFlag,
-                                        params ? params->structure : nullptr);
+        signal_routes_->append_listener(this, type->value.word(), script->value.word(), group, flag->value.word() == kExceptionFlag,
+                                        params ? params->value.structure() : nullptr);
     }
     // (the group's handlers not added again go)
     if (signal_routes_)
@@ -399,4 +397,3 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
 }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

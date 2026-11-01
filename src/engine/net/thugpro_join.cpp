@@ -101,8 +101,7 @@ uint32_t refused_reason_text(int reason)
     if (!script::find_symbol(text.name)) {
         script::SymbolTableEntry* symbol = script::create_symbol(text.name);
         symbol->type = script::kQbvalString;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        symbol->raw = cell::of(script::spawn_text(text.words));
+        symbol->value.set_text(script::spawn_text(text.words));
     }
     get_log("THUGPRO join refused (TP-R13): reason %d - %s", reason, text.words);
     return text.name;

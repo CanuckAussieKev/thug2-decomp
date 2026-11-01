@@ -15,6 +15,7 @@
 #include "engine/core/checksums.h"
 #include "engine/script/names.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -133,7 +134,7 @@ namespace objects {
 namespace {
 
 // The proximity component's script member functions (three records and the terminator; no table registers them).
-std::array<uint32_t, 24> g_proximity_member_functions;
+std::array<script::MemberFunctionEntry, 4> g_proximity_member_functions;
 
 } // namespace
 
@@ -142,13 +143,13 @@ std::array<uint32_t, 24> g_proximity_member_functions;
 void fill_proximity_member_functions()
 {
     constexpr uint32_t kProximityType = 0xE54DB2EE;
-    uint32_t* records = g_proximity_member_functions.data();
-    records[0] = checksums::hash_from_text("Proximity_Init");
-    records[6] = checksums::hash_from_text("Proximity_SetActive");
-    records[12] = checksums::hash_from_text("Proximity_EnterProximityNotHandled");
-    records[18] = 0;
-    for (int i = 0; i < 4; ++i)
-        records[6 * i + 1] = kProximityType;
+    auto& records = g_proximity_member_functions;
+    core::at(records, 0).callsign_ = checksums::hash_from_text("Proximity_Init");
+    core::at(records, 1).callsign_ = checksums::hash_from_text("Proximity_SetActive");
+    core::at(records, 2).callsign_ = checksums::hash_from_text("Proximity_EnterProximityNotHandled");
+    core::at(records, 3).callsign_ = 0;
+    for (auto& record : records)
+        record.owner_kind_ = kProximityType;
     const auto code = std::to_array<script::MemberCode>({
         script::member_code<&objects::ProximityComponent::proximity_init>(),
         script::member_code<&objects::ProximityComponent::proximity_set_active>(),

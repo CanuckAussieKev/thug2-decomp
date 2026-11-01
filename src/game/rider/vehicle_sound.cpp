@@ -31,9 +31,8 @@
 
 namespace objects {
 
-std::array<uint32_t, 24> g_vehicle_sound_member_functions{{
-    0xB8451886, 0x1859F772, 0, 0, 0, 0, 0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
-    0xF876FAE9, 0x1859F772, 0, 0, 0, 0, 0,          0x1859F772, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 4> g_vehicle_sound_member_functions{{
+    {0xB8451886, 0x1859F772}, {0x0F6E8120, 0x1859F772}, {0xF876FAE9, 0x1859F772}, {0, 0x1859F772}}};
 
 namespace {
 
@@ -115,7 +114,7 @@ gsl::owner<ObjectModule*> SkaterVehicleSoundComponent::fabricate() { return new 
 // 0x0051AD90
 void SkaterVehicleSoundComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_vehicle_sound_member_functions.data(), 0x18);
+    script::register_member_function_table(g_vehicle_sound_member_functions);
 }
 
 // 0x0051ADD0

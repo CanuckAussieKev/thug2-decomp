@@ -57,8 +57,7 @@ void unload_texture_from(void* dictionary, void* texture)
 }
 
 // A component's raw value.
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-uint32_t raw_value(const Component* component) { return component->raw; }
+uint32_t raw_value(const Component* component) { return component->value.word(); }
 
 } // namespace
 
@@ -81,13 +80,11 @@ uint32_t find_name_of_value(Struct* structure, uint32_t value, int depth)
         Component* next = structure->step_to_entry(component);
         if (!found) {
             if (component->kind_tag() == script::kQbvalStruct)
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                found = find_name_of_value(component->structure, value, depth + 1);
+                found = find_name_of_value(component->value.structure(), value, depth + 1);
             else if (named)
                 found = find_name_of_value(named, value, depth + 1);
         }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (component->kind_tag() == script::kQbvalName && component->checksum == value)
+        if (component->kind_tag() == script::kQbvalName && component->value.word() == value)
             found = component->name;
         component = next;
     }
@@ -100,8 +97,7 @@ uint32_t find_name_of_integer(Struct* structure, uint32_t value)
     uint32_t found = 0;
     for (Component* component = structure->step_to_entry(nullptr); component;) {
         Component* next = structure->step_to_entry(component);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (component->kind_tag() == script::kQbvalInteger && component->raw == value) {
+        if (component->kind_tag() == script::kQbvalInteger && component->value.word() == value) {
             debug::printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
             found = component->name;
         }

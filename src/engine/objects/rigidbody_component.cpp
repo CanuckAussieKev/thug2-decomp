@@ -85,8 +85,8 @@ T* reallocate(T* old, uint32_t size)
     return static_cast<T*>(memory::alloc(size));
 }
 
-// A script vector's coordinates (x at +4).
-const float* vector_of(uint32_t element) { return cell::pointer<const float>(element) + 1; }
+// A script vector's coordinates as a point (w 0).
+maths::Vec4 point_of(const script::Vector* vector) { return {vector->x, vector->y, vector->z, 0.0f}; }
 
 } // namespace
 
@@ -126,11 +126,8 @@ void BodyDynamicsModule::set_contacts(script::Array* points)
 {
     contact_count_ = static_cast<uint16_t>(points->extent_);
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
-    const uint32_t* elements = points->find_array_value();
-    for (uint32_t i = 0; i < contact_count_; ++i) {
-        const float* v = vector_of(elements[i]);
-        contacts_[i] = {v[0], v[1], v[2], 0.0f};
-    }
+    for (uint32_t i = 0; i < contact_count_; ++i)
+        contacts_[i] = point_of(points->vector_at(i));
 }
 
 // 0x0042D560
@@ -201,9 +198,8 @@ void BodyDynamicsModule::set_spheres(script::Array* spheres)
 {
     sphere_count_ = static_cast<uint16_t>(spheres->extent_);
     spheres_ = reallocate(spheres_, sphere_count_ * sizeof(Sphere));
-    const uint32_t* elements = spheres->find_array_value();
     for (uint32_t i = 0; i < sphere_count_; ++i) {
-        auto* settings = cell::pointer<script::Struct>(elements[i]);
+        script::Struct* settings = spheres->struct_at(i);
         settings->fetch_vec(0u, &spheres_[i].center, 1);
         settings->fetch_float(0xC48391A5, &spheres_[i].radius, 1); // radius
     }
@@ -325,10 +321,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         spring_count_ = static_cast<uint16_t>(springs->extent_);
         springs_ = reallocate(springs_, spring_count_ * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
-        const uint32_t* elements = springs->find_array_value();
         for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
-            const float* v = vector_of(elements[i]);
-            springs_[i].point = {v[0], v[1], v[2], 0.0f};
+            springs_[i].point = point_of(springs->vector_at(static_cast<uint32_t>(i)));
             springs_[i].active = true;
         }
     }
@@ -404,10 +398,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         script::Array* friction = nullptr;
         params->fetch_list(0xC35CAC0D, &friction, 0);
         steer_friction_ = reallocate(steer_friction_, contact_count_ * sizeof(DirectedFriction));
-        const uint32_t* elements = friction->find_array_value();
         for (int i = contact_count_; i != 0;) {
             --i;
-            auto* settings = cell::pointer<script::Struct>(elements[i]);
+            script::Struct* settings = friction->struct_at(static_cast<uint32_t>(i));
             if (settings->has_entry_named(0x806FFF30)) { // none
                 steer_friction_[i].active = false;
             } else {
@@ -634,8 +627,7 @@ bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, scri
 // 0x0042E020
 bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, script::Script* /*script*/)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    const uint32_t id = params->step_to_entry(nullptr)->checksum;
+    const uint32_t id = params->step_to_entry(nullptr)->value.word();
     auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
     const bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
     vel_ = other->vel_;

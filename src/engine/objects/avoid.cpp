@@ -36,10 +36,10 @@
 
 namespace objects {
 
-std::array<uint32_t, 54> g_avoid_member_functions{{
-    0x6157CBC0, 0x6EB050ED, 0, 0, 0, 0, 0xD2AA4D2D, 0x6EB050ED, 0, 0, 0, 0, 0x41226942, 0x6EB050ED, 0, 0, 0, 0,
-    0x3C7F8F3E, 0x6EB050ED, 0, 0, 0, 0, 0x6A4BCA91, 0x6EB050ED, 0, 0, 0, 0, 0x3FB422E8, 0x6EB050ED, 0, 0, 0, 0,
-    0x539A32DC, 0x6EB050ED, 0, 0, 0, 0, 0x53BC3B4E, 0x6EB050ED, 0, 0, 0, 0, 0,          0x6EB050ED, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 9> g_avoid_member_functions{{
+    {0x6157CBC0, 0x6EB050ED}, {0xD2AA4D2D, 0x6EB050ED}, {0x41226942, 0x6EB050ED}, {0x3C7F8F3E, 0x6EB050ED},
+    {0x6A4BCA91, 0x6EB050ED}, {0x3FB422E8, 0x6EB050ED}, {0x539A32DC, 0x6EB050ED}, {0x53BC3B4E, 0x6EB050ED},
+    {0, 0x6EB050ED}}};
 
 namespace {
 
@@ -156,7 +156,7 @@ gsl::owner<ObjectModule*> ObstacleDodgeModule::fabricate() { return new Obstacle
 // 0x004E3310
 void ObstacleDodgeModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kAvoid), g_avoid_member_functions.data(), 0x18);
+    script::register_member_function_table(g_avoid_member_functions);
 }
 
 // 0x004E3660

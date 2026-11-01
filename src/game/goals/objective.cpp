@@ -129,8 +129,7 @@ void Objective::clear_flag_values(script::Struct* flags)
         script::Component* next = flags->step_to_entry(component);
         // (num_flags isn't stepped over: a structure with it loops here for ever, as in the original)
         if (component->name != kNumFlags) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            component->raw = 0;
+            component->value.set_word(0);
             component = next;
         }
     }
@@ -144,15 +143,13 @@ void Objective::zero_objective_bits()
         while (component) {
             script::Component* next = goal_flags_->step_to_entry(component);
             if ((component->type_and_flag_ & 0xFE) == (script::kQbvalStruct << 1)) {
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                script::Struct* skater = component->structure;
+                script::Struct* skater = component->value.structure();
                 script::Component* flag = skater->step_to_entry(nullptr);
                 while (flag) {
                     script::Component* following = skater->step_to_entry(flag);
                     // (the same endless loop at num_flags as clear_flag_values)
                     if (flag->name != kNumFlags) {
-                        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                        flag->raw = 0;
+                        flag->value.set_word(0);
                         flag = following;
                     }
                 }
@@ -175,8 +172,7 @@ bool Objective::has_every_bit()
         for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
             script::Component* next = goal_flags_->step_to_entry(component);
             if ((component->type_and_flag_ & 0xFE) == (script::kQbvalStruct << 1)) {
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                script::Struct* skater = component->structure;
+                script::Struct* skater = component->value.structure();
                 int set = 0;
                 int count = 0;
                 skater->fetch_int_value(kNumFlagsSet, &set, 1);
@@ -390,8 +386,7 @@ void Objective::restore_save_block(script::Struct* data)
         for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
             script::Component* next = goal_flags_->step_to_entry(component);
             ++num_flags_;
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            if (component->raw)
+            if (component->value.word())
                 ++num_flags_set_;
             component = next;
         }

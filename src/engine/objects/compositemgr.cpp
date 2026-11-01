@@ -29,26 +29,22 @@
 
 namespace objects {
 
-std::array<uint32_t, 186> g_composite_object_member_functions{{
-    0xE90AAD2D, 0x0ADA4E74, 0, 0, 0, 0, 0xC2404947, 0x0ADA4E74, 0, 0, 0, 0, 0x406998A5, 0x0ADA4E74, 0, 0, 0, 0,
-    0x2BFFEAA3, 0x0ADA4E74, 0, 0, 0, 0, 0xF7251A64, 0x0ADA4E74, 0, 0, 0, 0, 0xC6F3BAA5, 0x0ADA4E74, 0, 0, 0, 0,
-    0x77403AFC, 0x0ADA4E74, 0, 0, 0, 0, 0xC1BFF0F3, 0x0ADA4E74, 0, 0, 0, 0, 0x11FE9F71, 0x0ADA4E74, 0, 0, 0, 0,
-    0xC0CAAC4A, 0x0ADA4E74, 0, 0, 0, 0, 0x5B6634D4, 0x0ADA4E74, 0, 0, 0, 0, 0xB60D1F35, 0x0ADA4E74, 0, 0, 0, 0,
-    0xB16619AE, 0x0ADA4E74, 0, 0, 0, 0, 0x10C1C887, 0x0ADA4E74, 0, 0, 0, 0, 0xCE0CA665, 0x0ADA4E74, 0, 0, 0, 0,
-    0xCA3C59A6, 0x0ADA4E74, 0, 0, 0, 0, 0x28656D12, 0x0ADA4E74, 0, 0, 0, 0, 0xFF85D4D7, 0x0ADA4E74, 0, 0, 0, 0,
-    0x0168B09C, 0x0ADA4E74, 0, 0, 0, 0, 0xB9ED09D2, 0x0ADA4E74, 0, 0, 0, 0, 0xD96C0A20, 0x0ADA4E74, 0, 0, 0, 0,
-    0x4AF57BBB, 0x0ADA4E74, 0, 0, 0, 0, 0x2A26FFA2, 0x0ADA4E74, 0, 0, 0, 0, 0xF8CFD515, 0x0ADA4E74, 0, 0, 0, 0,
-    0x7DCC5FB9, 0x0ADA4E74, 0, 0, 0, 0, 0xE5DF66D7, 0x0ADA4E74, 0, 0, 0, 0, 0xDD468509, 0x0ADA4E74, 0, 0, 0, 0,
-    0x37185D8A, 0x0ADA4E74, 0, 0, 0, 0, 0x70ED3048, 0x0ADA4E74, 0, 0, 0, 0, 0x33CAC5FF, 0x0ADA4E74, 0, 0, 0, 0,
-    0,          0x0ADA4E74, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 31> g_composite_object_member_functions{{
+    {0xE90AAD2D, 0x0ADA4E74}, {0xC2404947, 0x0ADA4E74}, {0x406998A5, 0x0ADA4E74}, {0x2BFFEAA3, 0x0ADA4E74},
+    {0xF7251A64, 0x0ADA4E74}, {0xC6F3BAA5, 0x0ADA4E74}, {0x77403AFC, 0x0ADA4E74}, {0xC1BFF0F3, 0x0ADA4E74},
+    {0x11FE9F71, 0x0ADA4E74}, {0xC0CAAC4A, 0x0ADA4E74}, {0x5B6634D4, 0x0ADA4E74}, {0xB60D1F35, 0x0ADA4E74},
+    {0xB16619AE, 0x0ADA4E74}, {0x10C1C887, 0x0ADA4E74}, {0xCE0CA665, 0x0ADA4E74}, {0xCA3C59A6, 0x0ADA4E74},
+    {0x28656D12, 0x0ADA4E74}, {0xFF85D4D7, 0x0ADA4E74}, {0x0168B09C, 0x0ADA4E74}, {0xB9ED09D2, 0x0ADA4E74},
+    {0xD96C0A20, 0x0ADA4E74}, {0x4AF57BBB, 0x0ADA4E74}, {0x2A26FFA2, 0x0ADA4E74}, {0xF8CFD515, 0x0ADA4E74},
+    {0x7DCC5FB9, 0x0ADA4E74}, {0xE5DF66D7, 0x0ADA4E74}, {0xDD468509, 0x0ADA4E74}, {0x37185D8A, 0x0ADA4E74},
+    {0x70ED3048, 0x0ADA4E74}, {0x33CAC5FF, 0x0ADA4E74}, {0, 0x0ADA4E74}}};
 
-std::array<uint32_t, 102> g_object_member_functions{{
-    0x3611C136, 0x57525413, 0, 0, 0, 0, 0x62C11CB9, 0x57525413, 0, 0, 0, 0, 0xEEEB7220, 0x57525413, 0, 0, 0, 0,
-    0xA58079EB, 0x57525413, 0, 0, 0, 0, 0x0C7CD27A, 0x57525413, 0, 0, 0, 0, 0xB3C262EC, 0x57525413, 0, 0, 0, 0,
-    0x500EB224, 0x57525413, 0, 0, 0, 0, 0x4BABC987, 0x57525413, 0, 0, 0, 0, 0x53EBEE03, 0x57525413, 0, 0, 0, 0,
-    0x6C2B67F9, 0x57525413, 0, 0, 0, 0, 0xBE563426, 0x57525413, 0, 0, 0, 0, 0xFBD89CD5, 0x57525413, 0, 0, 0, 0,
-    0x23A4E5C2, 0x57525413, 0, 0, 0, 0, 0x714937C7, 0x57525413, 0, 0, 0, 0, 0x20D125D7, 0x57525413, 0, 0, 0, 0,
-    0x3578E5A9, 0x57525413, 0, 0, 0, 0, 0,          0x57525413, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 17> g_object_member_functions{{
+    {0x3611C136, 0x57525413}, {0x62C11CB9, 0x57525413}, {0xEEEB7220, 0x57525413}, {0xA58079EB, 0x57525413},
+    {0x0C7CD27A, 0x57525413}, {0xB3C262EC, 0x57525413}, {0x500EB224, 0x57525413}, {0x4BABC987, 0x57525413},
+    {0x53EBEE03, 0x57525413}, {0x6C2B67F9, 0x57525413}, {0xBE563426, 0x57525413}, {0xFBD89CD5, 0x57525413},
+    {0x23A4E5C2, 0x57525413}, {0x714937C7, 0x57525413}, {0x20D125D7, 0x57525413}, {0x3578E5A9, 0x57525413},
+    {0, 0x57525413}}};
 
 namespace {
 int g_composite_mgr_block_header_size{16};
@@ -144,10 +140,8 @@ EntityHub::EntityHub()
 {
     update_job_ = std::make_unique<tasks::Task<EntityHub>>(&composite_object_manager_task, this, kLogicTaskPriority);
     register_logic_task(update_job_.get());
-    script::register_member_function_table(cell::pointer<void>(kObjectMemberFunctionType),
-                                           g_object_member_functions.data(), 0x18);
-    script::register_member_function_table(cell::pointer<void>(kCompositeMemberFunctionType),
-                                           g_composite_object_member_functions.data(), 0x18);
+    script::register_member_function_table(g_object_member_functions);
+    script::register_member_function_table(g_composite_object_member_functions);
 }
 
 // 0x0045F200

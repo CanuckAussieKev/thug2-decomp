@@ -185,7 +185,7 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
             entry->put_name_key(0u, 0x687E2C25u);
         entry->put_int(0xEDF5DB70, set.spin * 180);
         entry->put_int(0xA4BEE6A1, set.tap_total_);
-        sets->set_element(static_cast<uint32_t>(i), cell::of(entry));
+        sets->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
     out->append_array_ref(0x0490F171, sets);
 }
@@ -224,7 +224,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
                 entry->put_name_key(0u, 0x687E2C25u);
             if (twist_rate_)
                 entry->put_int(0x8C8ABD19, twist_rate_);
-            result->set_element(index++, cell::of(entry));
+            result->set_cell(index++, script::Cell::of(entry));
         }
     }
     out->append_array_ref(kind_tag_ == kGoalTypeKeyCombo ? 0x548B4A38 : 0x7BE1E689, result);
@@ -352,7 +352,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
             get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", level_goal_number_, i);
             letter->put_name_key(0x99F6CCBB, checksums::hash_from_text(name.data()));
             letter->append_word(0xC4745838, core::at(kLetters, i));
-            letters->set_element(static_cast<uint32_t>(i), cell::of(letter));
+            letters->set_cell(static_cast<uint32_t>(i), script::Cell::of(letter));
         }
         out->append_array_ref(0xB3C7F1B2, letters);
         break;
@@ -371,7 +371,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
             if (race_per_checkpoint_time_ > 0)
                 waypoint->put_int(0x906B67BA, race_per_checkpoint_time_);
             waypoint->put_int(0xC48391A5, 5);
-            waypoints->set_element(static_cast<uint32_t>(i), cell::of(waypoint));
+            waypoints->set_cell(static_cast<uint32_t>(i), script::Cell::of(waypoint));
         }
         out->append_array_ref(0xA77B1F07, waypoints);
         out->append_array_ref(0xCC3C4CC4, flags);
@@ -437,7 +437,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
         entry->put_vec3(0x7F261953, point.pos.x, point.pos.y, point.pos.z);
         entry->push_float(0x0AB21AF0, point.height);
         entry->push_float(0xFF7EBAF6, point.angle);
-        points->set_element(i, cell::of(entry));
+        points->set_cell(i, script::Cell::of(entry));
     }
     out->append_array_ref(0x32DF12E0, points);
 }

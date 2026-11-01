@@ -77,7 +77,7 @@ public:
     PedestrianBrainModule();
     // 0x004F2120: the aux script deleted, then the base's body.
     ~PedestrianBrainModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -311,5 +311,5 @@ const char* profile_voice();
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 174> g_ped_logic_member_functions;
+extern std::array<script::MemberFunctionEntry, 29> g_ped_logic_member_functions;
 } // namespace objects

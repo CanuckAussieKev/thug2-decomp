@@ -29,8 +29,8 @@
 
 namespace objects {
 
-std::array<uint32_t, 18> g_fam_member_functions{{0xE5894C80, 0x0301D67C, 0, 0, 0,          0, 0x48AC2139, 0x0301D67C, 0,
-                                           0,          0,          0, 0, 0x0301D67C, 0, 0,          0,          0}};
+std::array<script::MemberFunctionEntry, 3> g_fam_member_functions{{
+    {0xE5894C80, 0x0301D67C}, {0x48AC2139, 0x0301D67C}, {0, 0x0301D67C}}};
 
 namespace {
 
@@ -74,7 +74,7 @@ FamComponent::FamComponent() { kind_tag_ = kType; }
 // 0x0041D170
 void FamComponent::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_fam_member_functions.data(), 0x18);
+    script::register_member_function_table(g_fam_member_functions);
 }
 
 // 0x0041D190 (0x0041D1A0 the deleting one)

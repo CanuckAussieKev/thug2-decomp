@@ -1,5 +1,6 @@
 #include "engine/core/within.h"
 #include "engine/script/qb.h"
+#include "formats/byte_stream.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -27,9 +28,19 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
+
+StoredScript read_stored_script(const uint8_t* record)
+{
+    util::ByteReader header(record, kStoredScriptHeader);
+    StoredScript out;
+    out.checksum_ = header.u32();
+    out.size_ = header.u32();
+    out.stored_size_ = header.u32();
+    out.code_ = header.cursor();
+    return out;
+}
 
 static_assert(offsetof(StoredRandom, num_) == 8, "layout must match the original");
 static_assert(offsetof(StoredRandom, order_) == 0x12, "layout must match the original");
@@ -261,10 +272,10 @@ void prepare_script_tokens(uint8_t* token)
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type == kQbvalNativeFunc) {
                     name[0] = 0x43;
-                    store_word32(name + 1, symbol->raw);
+                    store_word32(name + 1, symbol->value.word());
                 } else if (symbol->type == kQbvalNativeMethod) {
-                    if (symbol->raw) {
-                        store_word32(name + 1, symbol->raw);
+                    if (symbol->value.word()) {
+                        store_word32(name + 1, symbol->value.word());
                         name[0] = 0x46;
                     } else {
                         name[0] = 0x44;
@@ -552,26 +563,26 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     switch (symbol->type) {
     case kQbvalString:
     case kQbvalInlineText:
-        free_string(cell::pointer<char>(symbol->raw));
+        free_string(symbol->value.text());
         break;
     case kQbvalPair:
-        free_pair(cell::pointer<void>(symbol->raw));
+        free_pair(symbol->value.pair());
         break;
     case kQbvalVector:
-        free_vector(cell::pointer<void>(symbol->raw));
+        free_vector(symbol->value.vector());
         break;
     case kQbvalScriptBody:
-        memory::free_malloc(cell::pointer<void>(symbol->raw));
+        memory::free_malloc(symbol->value.code());
         break;
     case kQbvalStruct:
-        if (Struct* structure = symbol->structure) {
+        if (Struct* structure = symbol->value.structure()) {
             structure->get_clear();
             delete_struct(structure);
         }
         break;
     case kQbvalArray:
-        release_array_storage(cell::pointer<Array>(symbol->raw));
-        if (auto* array = cell::pointer<Array>(symbol->raw)) {
+        release_array_storage(symbol->value.array());
+        if (auto* array = symbol->value.array()) {
             array->get_clear();
             delete_array(array);
         }
@@ -579,7 +590,7 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     default:
         break;
     }
-    symbol->raw = 0;
+    symbol->value.set_word(0);
     free_symbol(symbol);
 }
 
@@ -607,4 +618,3 @@ void process_pending_symbols()
 }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

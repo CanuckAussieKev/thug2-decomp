@@ -193,8 +193,8 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
             script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
             params->fetch_text(kName, &trick_text, 1);
         }
-        key_texts->set_element(static_cast<uint32_t>(i), cell::of(script::spawn_text(key_text)));
-        trick_texts->set_element(static_cast<uint32_t>(i), cell::of(script::spawn_text(trick_text)));
+        key_texts->set_text(static_cast<uint32_t>(i), script::spawn_text(key_text));
+        trick_texts->set_text(static_cast<uint32_t>(i), script::spawn_text(trick_text));
     }
     return true;
 }
@@ -260,7 +260,7 @@ bool Objective::swap_move_caption()
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
             replace_trick_tokens(lines->find_inline_text(i), buffer.data(), key_texts, trick_texts, kLabelPoints);
-            replaced->set_element(i, cell::of(script::spawn_text(buffer.data())));
+            replaced->set_text(i, script::spawn_text(buffer.data()));
         }
         args_->append_array_value(kGoalDescription, replaced);
         free_array(replaced);
@@ -390,8 +390,7 @@ bool Objective::award_special_trick()
         free->remove_flag(special.keys);
     }
     if (!had) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        keys = free->step_to_entry(nullptr)->raw;
+        keys = free->step_to_entry(nullptr)->value.word();
         profile->add_max_specials(1);
         if (cat) {
             script::Struct* params = spawn_param_table();

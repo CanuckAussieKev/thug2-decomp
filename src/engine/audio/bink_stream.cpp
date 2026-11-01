@@ -250,9 +250,9 @@ Result WadStream::start_read()
     ready_flag_ = 0;
     played_ = 0;
     unknown10_ = 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
     async_ctl_->Offset = from_wad_ ? shift_ : 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
     async_ctl_->OffsetHigh = 0;
     if (ReadFile(file_ref_, octets_, 0x2000, nullptr, async_ctl_)) {
         read_done_ = true;

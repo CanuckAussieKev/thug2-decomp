@@ -35,12 +35,11 @@
 
 namespace objects {
 
-std::array<uint32_t, 90> g_input_component_member_functions{{
-    0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0, 0x6E24F5FD, 0x27D7CD28, 0, 0, 0, 0, 0x56C6C0CD, 0x27D7CD28, 0, 0, 0, 0,
-    0x6DF51774, 0x27D7CD28, 0, 0, 0, 0, 0x31C6454F, 0x27D7CD28, 0, 0, 0, 0, 0x0660746A, 0x27D7CD28, 0, 0, 0, 0,
-    0x78238598, 0x27D7CD28, 0, 0, 0, 0, 0x1D604A9D, 0x27D7CD28, 0, 0, 0, 0, 0x89AA9B5F, 0x27D7CD28, 0, 0, 0, 0,
-    0x83028FC5, 0x27D7CD28, 0, 0, 0, 0, 0xB2A022DE, 0x27D7CD28, 0, 0, 0, 0, 0x2366469C, 0x27D7CD28, 0, 0, 0, 0,
-    0x1090A150, 0x27D7CD28, 0, 0, 0, 0, 0x28729460, 0x27D7CD28, 0, 0, 0, 0, 0,          0x27D7CD28, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 15> g_input_component_member_functions{{
+    {0xBF7D6C46, 0x27D7CD28}, {0x6E24F5FD, 0x27D7CD28}, {0x56C6C0CD, 0x27D7CD28}, {0x6DF51774, 0x27D7CD28},
+    {0x31C6454F, 0x27D7CD28}, {0x0660746A, 0x27D7CD28}, {0x78238598, 0x27D7CD28}, {0x1D604A9D, 0x27D7CD28},
+    {0x89AA9B5F, 0x27D7CD28}, {0x83028FC5, 0x27D7CD28}, {0xB2A022DE, 0x27D7CD28}, {0x2366469C, 0x27D7CD28},
+    {0x1090A150, 0x27D7CD28}, {0x28729460, 0x27D7CD28}, {0, 0x27D7CD28}}};
 
 namespace {
 
@@ -123,7 +122,7 @@ gsl::owner<ObjectModule*> PadInputModule::fabricate() { return new PadInputModul
 // 0x0041E6F0
 void PadInputModule::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_input_component_member_functions.data(), 0x18);
+    script::register_member_function_table(g_input_component_member_functions);
 }
 
 // 0x0041E850

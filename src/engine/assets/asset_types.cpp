@@ -438,13 +438,12 @@ void* NodeTableResource::build_node_table(uint32_t name, int count)
         Struct* node = script::spawn_param_bag();
         if (node)
             new (node) script::Struct;
-        array->set_element(i, cell::of(node));
+        array->set_cell(i, script::Cell::of(node));
     }
     if (script::SymbolTableEntry* old = script::find_symbol(name))
         script::clean_up_and_remove_symbol(old);
     script::SymbolTableEntry* symbol = script::create_symbol(name);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    symbol->raw = cell::of(array);
+    symbol->value.set_array(array);
     symbol->type = script::kQbvalArray;
     array_name_ = name;
     nodes_ = array;

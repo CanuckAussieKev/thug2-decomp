@@ -28,7 +28,6 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace commands {
 
@@ -136,9 +135,9 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         float from = 0.0f;
         const uint8_t type = component->type_and_flag_ >> 1;
         if (type == script::kQbvalInteger) {
-            from = static_cast<float>(component->integer);
+            from = static_cast<float>(component->value.integer());
         } else if (type == script::kQbvalFloat) {
-            from = component->float_value_;
+            from = component->value.real();
             integer = false;
         } else {
             continue;
@@ -396,4 +395,3 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
 }
 
 } // namespace commands
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

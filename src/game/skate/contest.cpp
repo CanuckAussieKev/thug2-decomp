@@ -362,7 +362,7 @@ void Contest::show_leader_board()
         entry->put_int(kScore, leader.best_two(runs_ + 1));
         if (leader.ident_ == 0)
             entry->put_name_key(kNoName, kPlayer);
-        board->set_element(static_cast<uint32_t>(i), cell::of(entry));
+        board->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
     params->append_array_value(kRankingList, board);
     free_array(board);
@@ -501,7 +501,7 @@ void Contest::end_run(int score)
         entry->put_int("score", current_round(judges[i])); // "score"
         if (is_leading_scorer(i))
             entry->put_name_key(kNoName, kTopJudge);
-        scores->set_element(static_cast<uint32_t>(i), cell::of(entry));
+        scores->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
         debug::printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]), static_cast<int>(is_leading_scorer(i)));
     }
     params->append_array_value("scores", scores);                  // "scores"

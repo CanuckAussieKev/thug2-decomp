@@ -42,7 +42,7 @@ public:
     RiderTeeterMoves();
     // 0x004F8CF0: the destructor body (the balances', last first, then the base's). (0x004F9010 the deleting one)
     ~RiderTeeterMoves() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }
@@ -103,5 +103,5 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<uint32_t, 12> g_balance_trick_member_functions;
+extern std::array<script::MemberFunctionEntry, 2> g_balance_trick_member_functions;
 } // namespace objects

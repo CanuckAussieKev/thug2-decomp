@@ -27,7 +27,6 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/down_cast.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace commands {
 
@@ -111,13 +110,12 @@ bool cfunc_test(script::Struct*, script::Script*)
     print_bytes(&entry, sizeof(entry));
     entry.unknown0 &= ~4;
 
-    script::Component component;
+    script::Component component{};
     script::construct_component(&component);
-    std::memset(&component, 0, sizeof(component));
     component.type_and_flag_ = 0x57;
     component.unknown2 = 1000;
     component.name = 0x480A2607;
-    component.raw = 0x01020304;
+    component.value.set_word(0x01020304);
     debug::printf("CComponent:\n");
     print_bytes(&component, sizeof(component));
     return true;
@@ -213,4 +211,3 @@ bool cfunc_reset_engine(script::Struct*, script::Script*)
 }
 
 } // namespace commands
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

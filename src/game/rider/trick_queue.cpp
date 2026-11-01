@@ -676,8 +676,7 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     } else {
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
             if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                core::at(extra_.arrays_, count++) = c->checksum;
+                core::at(extra_.arrays_, count++) = c->value.word();
         }
     }
     uint32_t& special = extra_.special_;

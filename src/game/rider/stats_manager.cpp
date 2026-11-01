@@ -36,11 +36,10 @@
 
 namespace objects {
 
-std::array<uint32_t, 60> g_stats_manager_member_functions{{
-    0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0, 0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0, 0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0,
-    0xF1745991, 0x4FF8DAC6, 0, 0, 0, 0, 0x78E7D855, 0x4FF8DAC6, 0, 0, 0, 0, 0xB341B5A5, 0x4FF8DAC6, 0, 0, 0, 0,
-    0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0, 0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0, 0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0,
-    0,          0x4FF8DAC6, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 10> g_stats_manager_member_functions{{
+    {0x82CE30CE, 0x4FF8DAC6}, {0x57879C96, 0x4FF8DAC6}, {0xEE59073C, 0x4FF8DAC6}, {0xF1745991, 0x4FF8DAC6},
+    {0x78E7D855, 0x4FF8DAC6}, {0xB341B5A5, 0x4FF8DAC6}, {0xB7FAC894, 0x4FF8DAC6}, {0x629D29FA, 0x4FF8DAC6},
+    {0xB1652DEC, 0x4FF8DAC6}, {0, 0x4FF8DAC6}}};
 
 namespace {
 
@@ -140,7 +139,7 @@ gsl::owner<ObjectModule*> AttributeTracker::fabricate() { return new AttributeTr
 // 0x0051C440
 void AttributeTracker::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kType), g_stats_manager_member_functions.data(), 0x18);
+    script::register_member_function_table(g_stats_manager_member_functions);
 }
 
 // 0x0051C5A0

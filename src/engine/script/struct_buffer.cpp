@@ -16,7 +16,6 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -181,16 +180,14 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case kQbvalName: {
         if (uint64_t{count} * 4 > out.remaining())
             return 0;
-        const uint32_t* elements = array->find_array_value();
         for (uint32_t i = 0; i < count; ++i)
-            out.u32(elements[i]);
+            out.u32(array->fetch_part(i));
         break;
     }
     case kQbvalString:
     case kQbvalInlineText: {
-        const uint32_t* elements = array->find_array_value();
         for (uint32_t i = 0; i < count; ++i) {
-            if (!out.c_string(cell::pointer<const char>(elements[i])))
+            if (!out.c_string(array->fetch_text(i)))
                 return 0;
         }
         break;
@@ -198,36 +195,34 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case kQbvalPair: {
         if (uint64_t{count} * 8 > out.remaining())
             return 0;
-        auto* const* pairs = raw::as<Pair*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            out.f32(pairs[i]->x);
-            out.f32(pairs[i]->y);
+            const Pair* pair = array->pair_at(i);
+            out.f32(pair->x);
+            out.f32(pair->y);
         }
         break;
     }
     case kQbvalVector: {
         if (uint64_t{count} * 12 > out.remaining())
             return 0;
-        auto* const* vectors = raw::as<Vector*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            out.f32(vectors[i]->x);
-            out.f32(vectors[i]->y);
-            out.f32(vectors[i]->z);
+            const Vector* vector = array->vector_at(i);
+            out.f32(vector->x);
+            out.f32(vector->y);
+            out.f32(vector->z);
         }
         break;
     }
     case kQbvalStruct: {
-        auto* const* structures = raw::as<Struct*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            if (emit_structure(out, structures[i], assert, nullptr) == 0)
+            if (emit_structure(out, array->struct_at(i), assert, nullptr) == 0)
                 return 0;
         }
         break;
     }
     case kQbvalArray: {
-        auto* const* arrays = raw::as<Array*>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            if (write_array_to_buffer(out, arrays[i], assert) == 0)
+            if (write_array_to_buffer(out, array->array_at(i), assert) == 0)
                 return 0;
         }
         break;
@@ -254,32 +249,32 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
             const size_t at = out.position();
             switch (component->kind_tag()) {
             case kQbvalInteger:
-                written = emit_int(out, component->name, component->integer);
+                written = emit_int(out, component->name, component->value.integer());
                 break;
             case kQbvalFloat:
-                written = emit_real(out, component->name, component->float_value_);
+                written = emit_real(out, component->name, component->value.real());
                 break;
             case kQbvalString:
-                written = write_string(out, component->string, component->name);
+                written = write_string(out, component->value.text(), component->name);
                 break;
             case kQbvalInlineText:
-                written = write_local_string(out, component->string, component->name);
+                written = write_local_string(out, component->value.text(), component->name);
                 break;
             case kQbvalPair:
                 if (out.remaining() < 13)
                     return 0;
                 write_name_and_type(out, kQbvalPair, component->name);
-                out.f32(component->pair->x);
-                out.f32(component->pair->y);
+                out.f32(component->value.pair()->x);
+                out.f32(component->value.pair()->y);
                 written = written_since(out, at);
                 break;
             case kQbvalVector:
                 if (out.remaining() < 17)
                     return 0;
                 write_name_and_type(out, kQbvalVector, component->name);
-                out.f32(component->vector->x);
-                out.f32(component->vector->y);
-                out.f32(component->vector->z);
+                out.f32(component->value.vector()->x);
+                out.f32(component->value.vector()->y);
+                out.f32(component->value.vector()->z);
                 written = written_since(out, at);
                 break;
             case kQbvalScriptBody:
@@ -294,19 +289,19 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 if (out.remaining() < 5)
                     return 0;
                 write_name_and_type(out, kQbvalStruct, component->name);
-                written = emit_structure(out, component->structure, assert, nullptr);
+                written = emit_structure(out, component->value.structure(), assert, nullptr);
                 break;
             case kQbvalArray:
                 if (out.remaining() < 5)
                     return 0;
                 write_name_and_type(out, kQbvalArray, component->name);
-                written = write_array_to_buffer(out, component->array, assert);
+                written = write_array_to_buffer(out, component->value.array(), assert);
                 break;
             case kQbvalName:
                 if (out.remaining() < 9)
                     return 0;
                 write_name_and_type(out, kQbvalName, component->name);
-                out.u32(component->checksum);
+                out.u32(component->value.word());
                 written = written_since(out, at);
                 break;
             default:
@@ -468,7 +463,7 @@ void decode_array(Array* array, util::ByteReader& reader)
     case kQbvalString:
     case kQbvalInlineText:
         for (uint32_t i = 0; i < count; ++i)
-            array->set_element(i, cell::of(spawn_text(read_text(reader))));
+            array->set_text(i, spawn_text(read_text(reader)));
         break;
     case kQbvalPair:
         for (uint32_t i = 0; i < count; ++i) {
@@ -477,7 +472,7 @@ void decode_array(Array* array, util::ByteReader& reader)
                 new (pair) script::Pair;
             pair->x = reader.f32();
             pair->y = reader.f32();
-            array->set_element(i, cell::of(pair));
+            array->set_pair(i, pair);
         }
         break;
     case kQbvalVector:
@@ -488,7 +483,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             vector->x = reader.f32();
             vector->y = reader.f32();
             vector->z = reader.f32();
-            array->set_element(i, cell::of(vector));
+            array->set_vector(i, vector);
         }
         break;
     case kQbvalStruct:
@@ -497,7 +492,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             if (inner)
                 new (inner) script::Struct;
             decode_structure(inner, reader);
-            array->set_element(i, cell::of(inner));
+            array->set_cell(i, Cell::of(inner));
         }
         break;
     case kQbvalArray:
@@ -506,7 +501,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             if (inner)
                 new (inner) script::Array;
             decode_array(inner, reader);
-            array->set_element(i, cell::of(inner));
+            array->set_cell(i, Cell::of(inner));
         }
         break;
     default:
@@ -533,4 +528,3 @@ const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer, size_
 }
 
 } // namespace script
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

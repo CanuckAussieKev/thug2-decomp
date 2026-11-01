@@ -73,7 +73,7 @@ public:
     // 0x00424AE0: the destructor body: the path follower deleted (its vtable), the turn's interpolator and the
     // follow trail freed, then the base's.
     ~KinematicsModule() override;
-    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    int invoke_method(const script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
     {
         return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
     }

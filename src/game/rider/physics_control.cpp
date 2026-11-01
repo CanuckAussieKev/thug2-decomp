@@ -30,11 +30,10 @@
 
 namespace objects {
 
-std::array<uint32_t, 66> g_physics_control_member_functions{{
-    0x3522D612, 0xD9151D4D, 0, 0, 0, 0, 0x0595627C, 0xD9151D4D, 0, 0, 0, 0, 0x9569D5B1, 0xD9151D4D, 0, 0, 0, 0,
-    0xA887285A, 0xD9151D4D, 0, 0, 0, 0, 0x9366A509, 0xD9151D4D, 0, 0, 0, 0, 0x04830E80, 0xD9151D4D, 0, 0, 0, 0,
-    0xD5A9F889, 0xD9151D4D, 0, 0, 0, 0, 0x27FDDEB7, 0xD9151D4D, 0, 0, 0, 0, 0x174A6AD9, 0xD9151D4D, 0, 0, 0, 0,
-    0x246322C9, 0xD9151D4D, 0, 0, 0, 0, 0,          0xD9151D4D, 0, 0, 0, 0}};
+std::array<script::MemberFunctionEntry, 11> g_physics_control_member_functions{{
+    {0x3522D612, 0xD9151D4D}, {0x0595627C, 0xD9151D4D}, {0x9569D5B1, 0xD9151D4D}, {0xA887285A, 0xD9151D4D},
+    {0x9366A509, 0xD9151D4D}, {0x04830E80, 0xD9151D4D}, {0xD5A9F889, 0xD9151D4D}, {0x27FDDEB7, 0xD9151D4D},
+    {0x174A6AD9, 0xD9151D4D}, {0x246322C9, 0xD9151D4D}, {0, 0xD9151D4D}}};
 
 namespace {
 
@@ -103,8 +102,7 @@ RiderBoardPhysics::RiderBoardPhysics() { kind_tag_ = kSkaterPhysicsControl; }
 // 0x005176A0
 void RiderBoardPhysics::publish_method_table()
 {
-    script::register_member_function_table(cell::pointer<void>(kSkaterPhysicsControl),
-                                           g_physics_control_member_functions.data(), 0x18);
+    script::register_member_function_table(g_physics_control_member_functions);
 }
 
 // 0x005176C0 (0x00517740 the deleting one)

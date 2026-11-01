@@ -675,10 +675,8 @@ script::Struct* get_included(const script::Component* c)
 {
     if (c->name != 0 || c->kind_tag() != script::kQbvalName)
         return nullptr;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    const script::SymbolTableEntry* symbol = script::resolve_symbol(c->checksum);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    return symbol && symbol->type == script::kQbvalStruct ? symbol->structure : nullptr;
+    const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
+    return symbol && symbol->type == script::kQbvalStruct ? symbol->value.structure() : nullptr;
 }
 
 bool is_flag(const script::Component* c)
@@ -687,8 +685,7 @@ bool is_flag(const script::Component* c)
 }
 
 // The key a component goes by: its name, a bare flag's name.
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-uint32_t get_key_of(const script::Component* c) { return is_flag(c) ? c->checksum : c->name; }
+uint32_t get_key_of(const script::Component* c) { return is_flag(c) ? c->value.word() : c->name; }
 
 Value value_of(const script::Component* c)
 {
@@ -701,55 +698,42 @@ Value value_of(const script::Component* c)
     switch (c->kind_tag()) {
     case script::kQbvalInteger:
         v.kind = Kind::kInteger;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        v.integer = c->integer;
+        v.integer = c->value.integer();
         break;
     case script::kQbvalFloat:
         v.kind = Kind::kFloat;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        core::at(v.numbers, 0) = c->float_value_;
+        core::at(v.numbers, 0) = c->value.real();
         break;
     case script::kQbvalName:
         v.kind = Kind::kName;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        v.checksum = c->checksum;
+        v.checksum = c->value.word();
         break;
     case script::kQbvalString:
         v.kind = Kind::kChars;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        v.text = c->string ? c->string : "";
+        v.text = c->value.text() ? c->value.text() : "";
         break;
     case script::kQbvalInlineText:
         v.kind = Kind::kLocalisedText;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        v.text = c->string ? c->string : "";
+        v.text = c->value.text() ? c->value.text() : "";
         break;
     case script::kQbvalPair:
         v.kind = Kind::kPair;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (c->pair) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            core::at(v.numbers, 0) = c->pair->x;
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            core::at(v.numbers, 1) = c->pair->y;
+        if (c->value.pair()) {
+            core::at(v.numbers, 0) = c->value.pair()->x;
+            core::at(v.numbers, 1) = c->value.pair()->y;
         }
         break;
     case script::kQbvalVector:
         v.kind = Kind::kVec4;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        if (c->vector) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            core::at(v.numbers, 0) = c->vector->x;
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            core::at(v.numbers, 1) = c->vector->y;
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            core::at(v.numbers, 2) = c->vector->z;
+        if (c->value.vector()) {
+            core::at(v.numbers, 0) = c->value.vector()->x;
+            core::at(v.numbers, 1) = c->value.vector()->y;
+            core::at(v.numbers, 2) = c->value.vector()->z;
         }
         break;
     case script::kQbvalArray:
     case script::kEsymboltypeArraypointer: {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        script::Array* array = c->array;
+        script::Array* array = c->value.array();
         const uint32_t size = array ? array->extent_ : 0;
         const uint8_t type = array ? static_cast<uint8_t>(array->kind_tag_) : 0;
         if (size == 0 || type == script::kQbvalName) {
@@ -840,8 +824,7 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
 
 bool get_matches(const script::Component* c, uint32_t key, bool flag)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    return flag ? is_flag(c) && c->checksum == key : c->name == key && !is_flag(c);
+    return flag ? is_flag(c) && c->value.word() == key : c->name == key && !is_flag(c);
 }
 
 // The node's own field: the last own component of that key (flags: the bare name), and its place - how many of the

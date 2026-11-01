@@ -99,8 +99,7 @@ void collect_names(script::Struct* params, int& count, uint32_t* arrays)
     count = 0;
     for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
         if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            arrays[count++] = c->checksum;
+            arrays[count++] = c->value.word();
     }
 }
 
@@ -311,8 +310,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         const script::Component* c = params->step_to_entry(nullptr);
         if (!c || c->name != 0 || (c->type_and_flag_ & 0xFE) != script::kQbvalName << 1)
             return 1;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        script::Struct* mappings = script::read_sub_struct(c->checksum);
+        script::Struct* mappings = script::read_sub_struct(c->value.word());
         if (!mappings)
             return 1;
         trick_lists_->get_clear();
@@ -353,8 +351,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kClearTricksFrom:
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
             if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                remove_trick_list(c->checksum);
+                remove_trick_list(c->value.word());
         }
         return 1;
     case kSetTrickScore:

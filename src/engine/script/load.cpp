@@ -23,7 +23,6 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
-// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
 namespace script {
 
@@ -67,8 +66,8 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
         const uint8_t* end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
         symbol->type = value->kind_tag();
-        symbol->raw = value->raw;
-        value->raw = 0;
+        symbol->value.set_word(value->value.word());
+        value->value.set_word(0);
         free_component(value);
         return end;
     }
@@ -76,14 +75,14 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
         symbol->type = kQbvalStruct;
         Struct* structure = spawn_param_bag();
         structure = structure ? new (structure) script::Struct : nullptr;
-        symbol->structure = structure;
+        symbol->value.set_structure(structure);
         return parse_structure(structure, token, nullptr);
     }
     case 0x05: {
         symbol->type = kQbvalArray;
         Array* array = alloc_script_array();
         array = array ? new (array) script::Array : nullptr;
-        symbol->raw = cell::of(array);
+        symbol->value.set_array(array);
         return parse_array(array, token, nullptr);
     }
     default:
@@ -115,7 +114,7 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
     writer.u32(size);
     writer.u32(static_cast<uint32_t>(stored));
     writer.bytes(buffer, static_cast<size_t>(stored));
-    symbol->raw = cell::of(block);
+    symbol->value.set_code(block);
     memory::free_malloc(buffer);
     if (script_store_instance())
         remove_from_script_cache(name);
@@ -180,7 +179,7 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
-                if (existing->type == kQbvalScriptBody && checksum == *cell::pointer<uint32_t>(existing->raw))
+                if (existing->type == kQbvalScriptBody && checksum == read_stored_script(existing->value.code()).checksum_)
                     break;
                 get_replace(existing, temporary);
                 define_script_symbol(size, start, name, checksum, filename);
@@ -327,4 +326,3 @@ struct ScriptAdapter {
     bool refers_to(uint32_t name) { return script::script_refers_to(raw::as<script::Script>(this), name); }
 };
 } // namespace
-// NOLINTEND(cppcoreguidelines-pro-type-union-access)

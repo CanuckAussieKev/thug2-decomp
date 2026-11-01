@@ -534,7 +534,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             listing = new (listing) script::Array;
         listing->configure_size_kind(static_cast<uint32_t>(listed), script::kQbvalStruct);
         for (int j = 0; j < listed; ++j)
-            listing->set_element(static_cast<uint32_t>(j), cell::of(core::at(entries, j)));
+            listing->set_cell(static_cast<uint32_t>(j), script::Cell::of(core::at(entries, j)));
         result_params(script)->append_array_ref(kDirectoryListing, listing);
     }
     // the head unlinked (its destructor's body)
