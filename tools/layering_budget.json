@@ -25,8 +25,6 @@
     "src/engine/gfx/bitmap_texture.cpp": 3,
     "src/engine/gfx/bone_look_at.cpp": 1,
     "src/engine/gfx/bone_look_at.h": 1,
-    "src/engine/gfx/boned_anim_frame_data.cpp": 32,
-    "src/engine/gfx/boned_anim_frame_data_pose.cpp": 12,
     "src/engine/gfx/cag_cfuncs.cpp": 3,
     "src/engine/gfx/custom_anim_key.cpp": 11,
     "src/engine/gfx/d3dx.cpp": 6,

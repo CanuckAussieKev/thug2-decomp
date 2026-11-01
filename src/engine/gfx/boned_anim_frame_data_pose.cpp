@@ -16,6 +16,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -68,9 +69,9 @@ uint32_t& caches_built() { return g_caches_built; }
 // A plain key's time: its first short (rotation keys: 15 bits, signed).
 int rotation_key_time(const uint8_t* key)
 {
-    return static_cast<int16_t>(static_cast<int16_t>(*raw::as<const uint16_t>(key) << 1) >> 1);
+    return static_cast<int16_t>(static_cast<int16_t>(anim_format::key_time_word(key) << 1) >> 1);
 }
-int translation_key_time(const uint8_t* key) { return *raw::as<const int16_t>(key); }
+int translation_key_time(const uint8_t* key) { return static_cast<int16_t>(anim_format::key_time_word(key)); }
 
 // The pair of keys of `count` around `time` (each key 8 bytes) and how far between: the last key - itself twice, 0.
 // Without one, `from` / `to` / `fraction` stay as they were.
@@ -121,7 +122,10 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 decode_rotation(rot_keys, key.data(), flag_bits_, key_table_);
                 rotation_to_quat_b(decoded.data(), key.data());
                 maths::QuatRotation added = rotation;
-                added *= *raw::field_at<maths::QuatRotation>(decoded.data(), 4);
+                const FloatKey decoded_key = anim_format::float_key_at(decoded.data());
+                const maths::QuatRotation turn{std::get<0>(decoded_key.value), std::get<1>(decoded_key.value), std::get<2>(decoded_key.value),
+                                               std::get<3>(decoded_key.value)};
+                added *= turn;
                 maths::QuatRotation to = added;
                 std::array<float, 4> blended{};
                 const float* result = interpolate_rotation(blended.data(), &rotation.x, &to.x, weight);
@@ -132,10 +136,12 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 maths::Vec4& translation = translations[i];
                 std::array<uint8_t, 8> key{};
                 decode_translation(trans_keys, key.data(), flags);
-                const auto* values = raw::field_at<const int16_t>(key.data(), 2);
-                const double x = values[0] * static_cast<double>(kKeyScale);
-                auto y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
-                auto z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
+                ShortKey decoded_key{};
+                std::memcpy(&decoded_key, key.data(), sizeof(decoded_key));
+                const std::array<int16_t, 3>& values = decoded_key.value;
+                const double x = std::get<0>(values) * static_cast<double>(kKeyScale);
+                auto y = static_cast<float>(std::get<1>(values) * static_cast<double>(kKeyScale));
+                auto z = static_cast<float>(std::get<2>(values) * static_cast<double>(kKeyScale));
                 maths::Vec4 target{};
                 if ((flag_bits_ & kTwiceTranslation) && (flag_bits_ & kTranslationKeys)) {
                     auto z_sum = static_cast<float>(static_cast<double>(z) + translation.z);
@@ -190,7 +196,7 @@ void JointClipFrames::build_cache(int format)
             cache_slot_ = nullptr;
     }
     AnimCacheEntry* entry =
-        manager->add_row(cell::of(this), static_cast<int16_t>(bone_count_),
+        manager->add_row(this, static_cast<int16_t>(bone_count_),
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
     if (!entry)
         return;
@@ -267,10 +273,12 @@ void JointClipFrames::build_cache(int format)
         cursor = decode_translation(cursor, translation.data(), flag_bits_);
         const uint8_t* source = translation.data();
         if (format >= 3 && format <= 4) {
-            const auto* values = raw::field_at<const int16_t>(translation.data(), 2);
+            ShortKey decoded_key{};
+            std::memcpy(&decoded_key, translation.data(), sizeof(decoded_key));
+            const std::array<int16_t, 3>& values = decoded_key.value;
             std::memcpy(key.data(), translation.data(), 2);
             for (int i = 0; i < 3; ++i) {
-                auto value = static_cast<float>(values[i] * static_cast<double>(kKeyScale));
+                auto value = static_cast<float>(core::at(values, i) * static_cast<double>(kKeyScale));
                 std::memcpy(key.data() + 4 + i * 4, &value, 4);
             }
             source = key.data();
@@ -330,7 +338,7 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
     if (flags & kCompressed) {
         if (!(flags & kNoAutoCache) && !cache_slot_)
             build_cache(cache_format(cache_manager()));
-        return fetch_pose(raw::as<float>(rotations), raw::as<float>(translations), arg2, time, arg4,
+        return fetch_pose(&rotations->x, &translations->x, arg2, time, arg4,
                           static_cast<FrameSource*>(arg5));
     }
     const float frame = time * kFramesPerSecond;
@@ -346,17 +354,17 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
         int rot_count = 0;
         int trans_count = 0;
         if (flag_bits_ & kShortCounts) {
-            rot_count = raw::as<int16_t>(key_counts_)[i * 2];
-            trans_count = raw::as<int16_t>(key_counts_)[i * 2 + 1];
+            rot_count = anim_format::wide_key_count(key_counts_, i * 2);
+            trans_count = anim_format::wide_key_count(key_counts_, i * 2 + 1);
         } else {
             rot_count = key_counts_[i * 2];
             trans_count = key_counts_[i * 2 + 1];
         }
         find_keys(rot_keys, rot_count, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
-        interpolate_quat(raw::as<float>(rotations), rot_from, rot_to, rot_fraction,
+        interpolate_quat(&rotations->x, rot_from, rot_to, rot_fraction,
                          (flag_bits_ & kOtherInterpolation) != 0);
         find_keys(trans_keys, trans_count, frame, translation_key_time, trans_from, trans_to, trans_fraction);
-        interpolate_trans(raw::as<float>(translations), trans_from, trans_to, trans_fraction,
+        interpolate_trans(&translations->x, trans_from, trans_to, trans_fraction,
                           (flag_bits_ & kOtherInterpolation) != 0);
         rot_keys += rot_count * 8;
         rotations++;

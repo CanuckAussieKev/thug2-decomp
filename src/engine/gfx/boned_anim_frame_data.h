@@ -34,13 +34,8 @@ struct ShortKey {
 };
 static_assert(sizeof(ShortKey) == 8, "layout must match the original");
 
-// A key with floats (a quaternion's x, y, z, w or a translation's x, y, z after the time word).
-struct FloatKey {
-    uint16_t time;
-    uint16_t pad;
-    std::array<float, 4> value;
-};
-static_assert(offsetof(FloatKey, value) == 4, "layout must match the original");
+// A key with floats (formats/anim_format.h).
+using FloatKey = anim_format::FloatKey;
 
 // 0x00482970 (cdecl): 256 entries of four shorts read from `file` into `table`; false at the first short short of
 // a read.

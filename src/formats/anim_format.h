@@ -5,6 +5,8 @@
 #include <array>
 
 #include "formats/byte_stream.h"
+#include <cstring>
+#include "engine/core/pointer_cell.h"
 
 // NOT ORIGINAL - the animation format (.ska, PC: "x.ska.xbx"; also cutscenes' camera / object animations), its
 // headers and custom keys read through util::ByteReader and its sections laid out and checked before the frame data
@@ -67,6 +69,63 @@ struct AnimLayout {
     uintptr_t end = 0; // the animation's end
 };
 // NOLINTEND(readability-identifier-naming)
+
+// The sections as the frame data holds them (in place: the loaded animation's own bytes).
+inline uint16_t* rotation_size_list(const AnimLayout& layout) { return cell::at_address<uint16_t>(layout.rotation_sizes); }
+inline uint16_t* translation_size_list(const AnimLayout& layout)
+{
+    return cell::at_address<uint16_t>(layout.translation_sizes);
+}
+inline uint8_t* key_table_bytes(const AnimLayout& layout) { return cell::at_address<uint8_t>(layout.key_table); }
+inline uint32_t* bone_name_list(const AnimLayout& layout) { return cell::at_address<uint32_t>(layout.bone_names); }
+inline uint32_t* partial_bone_bits(const AnimLayout& layout)
+{
+    return cell::at_address<uint32_t>(layout.partial_bones);
+}
+inline uint8_t* key_count_bytes(const AnimLayout& layout) { return cell::at_address<uint8_t>(layout.key_counts); }
+inline uint8_t* rotation_key_bytes(const AnimLayout& layout) { return cell::at_address<uint8_t>(layout.rotation_keys); }
+inline uint8_t* translation_key_bytes(const AnimLayout& layout)
+{
+    return cell::at_address<uint8_t>(layout.translation_keys);
+}
+// The custom keys up to the animation's end.
+inline util::ByteReader custom_key_reader(const AnimLayout& layout)
+{
+    return {cell::at_address<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys};
+}
+
+// A bone's two key counts with kWideCounts: i16 each (`index`: 2 * bone, + 1 for the translations).
+inline int wide_key_count(const uint8_t* counts, size_t index)
+{
+    int16_t count = 0;
+    std::memcpy(&count, counts + 2 * index, sizeof(count));
+    return count;
+}
+
+// A key with floats (a quaternion's x, y, z, w or a translation's x, y, z after the time word), as the file keeps it.
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
+struct FloatKey {
+    uint16_t time;
+    uint16_t pad;
+    std::array<float, 4> value;
+};
+// NOLINTEND(readability-identifier-naming)
+static_assert(sizeof(FloatKey) == 20, "file format: a float key");
+// The float key at `key`, and one written back there (the frame data changes keys in place).
+inline FloatKey float_key_at(const uint8_t* key)
+{
+    FloatKey out{};
+    std::memcpy(&out, key, sizeof(out));
+    return out;
+}
+inline void store_float_key(uint8_t* key, const FloatKey& value) { std::memcpy(key, &value, sizeof(value)); }
+// A key's time word (the first 16 bits).
+inline uint16_t key_time_word(const uint8_t* key)
+{
+    uint16_t word = 0;
+    std::memcpy(&word, key, sizeof(word));
+    return word;
+}
 
 // The headers read and the sections laid out as the frame data lays them out. `size`: the animation's bytes (0: not
 // known - nothing checked past the headers). False when it is neither float keys nor compressed, a count is negative

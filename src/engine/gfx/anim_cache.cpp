@@ -82,7 +82,7 @@ void vacant(AnimCacheEntry* entry)
 {
     entry->rotation_keys_ptr_ = nullptr;
     entry->translation_keys_ptr_ = nullptr;
-    entry->lookup_key_ = 0;
+    entry->lookup_key_ = nullptr;
     entry->bones_ = 0;
     entry->rotation_key_size_ = 0;
     entry->translation_key_size_ = 0;
@@ -127,7 +127,7 @@ void AnimCacheSlot::get_clear()
 AnimCacheEntry::AnimCacheEntry() { flag_bits_ &= 0xA000; }
 
 // 0x00480810
-uint32_t AnimCacheEntry::carve(uint32_t key, int16_t bones, int rotation_keys, int translation_keys, int type)
+uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type)
 {
     flag_bits_ |= kReleasing;
     bones_ = bones;
@@ -349,7 +349,7 @@ uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, int rotation_keys, int 
 }
 
 // 0x00480980
-AnimCacheEntry* ClipStore::add_row(uint32_t key, int16_t bones, int rotation_keys, int translation_keys, int type)
+AnimCacheEntry* ClipStore::add_row(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type)
 {
     int i = 0;
     for (;; ++i) {
@@ -370,9 +370,9 @@ AnimCacheEntry* ClipStore::add_row(uint32_t key, int16_t bones, int rotation_key
 }
 
 // 0x004806C0
-uint32_t ClipStore::find_oldest(uint32_t size, uint32_t* users)
+const void* ClipStore::find_oldest(uint32_t size, uint32_t* users)
 {
-    uint32_t key = 0;
+    const void* key = nullptr;
     uint32_t oldest = frame_clock::get_time();
     for (const AnimCacheEntry* entry : slot_array_) {
         if (entry->allocated_ >= size && entry->last_used_ < oldest && !(entry->flag_bits_ & AnimCacheEntry::kKeep)) {
@@ -388,7 +388,7 @@ uint32_t ClipStore::find_oldest(uint32_t size, uint32_t* users)
 bool ClipStore::free_oldest(uint32_t max_users, uint32_t size)
 {
     uint32_t users = 999;
-    const uint32_t key = find_oldest(size, &users);
+    const void* key = find_oldest(size, &users);
     if (max_users > users && key) {
         drop_out(key);
         return true;
@@ -406,7 +406,7 @@ void ClipStore::drain(bool unused_only)
 }
 
 // 0x00480DF0
-void ClipStore::drop_out(uint32_t key)
+void ClipStore::drop_out(const void* key)
 {
     for (AnimCacheEntry* entry : slot_array_) {
         if (entry->lookup_key_ == key) {
@@ -417,7 +417,7 @@ void ClipStore::drop_out(uint32_t key)
 }
 
 // 0x00480E30
-int ClipStore::add_user(uint32_t key)
+int ClipStore::add_user(const void* key)
 {
     for (AnimCacheEntry* entry : slot_array_) {
         if (entry->lookup_key_ == key) {
@@ -432,7 +432,7 @@ int ClipStore::add_user(uint32_t key)
 }
 
 // 0x00480E80
-void ClipStore::remove_user(uint32_t key, int slot)
+void ClipStore::remove_user(const void* key, int slot)
 {
     for (AnimCacheEntry* entry : slot_array_) {
         if (entry->lookup_key_ == key) {

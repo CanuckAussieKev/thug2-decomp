@@ -43,7 +43,7 @@ struct AnimCacheEntry {
     // bytes each, 3: 16 each, 4: 20 / 16, others nothing), rounded up past the cache's granularity, allocated on
     // the AnimHeap (zeroed); the animation `key`, `bones`. The size allocated, or 0 (not in use) when the heap
     // hasn't room.
-    uint32_t carve(uint32_t key, int16_t bones, int rotation_keys, int translation_keys, int type);
+    uint32_t carve(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type);
     // 0x00480AD0: given back: the release callback called, the keys freed, every slot cleared and freed; the size
     // it had. Waits forever while it's busy, as the original.
     uint32_t get_release();
@@ -80,7 +80,7 @@ struct AnimCacheEntry {
     int find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
     int find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
 
-    uint32_t lookup_key_{0};           // +0x000 the animation (0: free)
+    const void* lookup_key_{nullptr};  // +0x000 the animation's frame data (null: free)
     uint32_t last_used_{};             // +0x004
     int kind_tag_{0};                  // +0x008 (0: not in use)
     uint8_t* payload_{nullptr};        // +0x00C
@@ -126,20 +126,20 @@ public:
     uint32_t fetch_record_bytes(uint32_t key, int rotation_keys, int translation_keys, int type);
     // 0x00480980: a new entry for `key` in the first entry not in use (none if `key` comes first or none is free, or
     // the heap hasn't room).
-    AnimCacheEntry* add_row(uint32_t key, int16_t bones, int rotation_keys, int translation_keys, int type);
+    AnimCacheEntry* add_row(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type);
     // 0x004806C0: the key of the least recently used entry (before frame_clock::GetTime) of at least `size` that may go,
     // its users in `users` (0 with none).
-    uint32_t find_oldest(uint32_t size, uint32_t* users);
+    const void* find_oldest(uint32_t size, uint32_t* users);
     // 0x00480ED0: that entry given back if it has fewer than `max_users` users.
     bool free_oldest(uint32_t max_users, uint32_t size);
     // 0x00480DB0: every entry in use given back (only those nobody uses with `unused_only`).
     void drain(bool unused_only);
     // 0x00480DF0: every entry whose key is `key` given back (the count taken down for each).
-    void drop_out(uint32_t key);
+    void drop_out(const void* key);
     // 0x00480E30: a user of `key`'s entry: its new slot's index, or -1.
-    int add_user(uint32_t key);
+    int add_user(const void* key);
     // 0x00480E80: a user of `key`'s entries gone; an entry nobody uses then removed with evict_unused_.
-    void remove_user(uint32_t key, int slot);
+    void remove_user(const void* key, int slot);
     // 0x00480F20: the unused entries given back and the rest moved down the AnimHeap (through a copy on the default
     // heap; everything given back when that can't be had). Always 0.
     int defragment();
