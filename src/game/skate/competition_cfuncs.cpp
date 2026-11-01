@@ -121,11 +121,10 @@ bool cfunc_apply_split_screen_options(script::Struct*, script::Script*)
         const char* word = prefs->get_preference_string(kHorseWord, kUiString);
         // (the string is passed by value: the horse's code destroys it)
         the_horse()->set_letters(text::Chars(word));
-        script::Struct* options = script::new_struct();
+        const script::StructPtr options = script::make_struct();
         options->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, static_cast<uint32_t>(time_limit));
-        override_game_mode_options(options);
+        override_game_mode_options(options.get());
         set_countdown_seconds(time_limit);
-        script::free_struct(options);
     }
     return true;
 }
@@ -239,12 +238,12 @@ bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Script*)
     alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
     text::Chars* text = get_horse_string(storage.data(), which);
     objects::GameEntity* skater = get_rider_by_number(current_horse_skater());
-    script::Struct* panel = script::new_struct();
+    script::StructPtr panel = script::make_struct();
     panel->merge_structure(params);
     panel->append_word(kText, text->c_str());
     panel->put_name_key(kId, id);
-    script::launch_script(kCreateHorsePanelMessage, panel, skater, false, nullptr);
-    script::free_struct(panel);
+    script::launch_script(kCreateHorsePanelMessage, panel.get(), skater, false, nullptr);
+    panel.reset();
     text->~Chars();
     return true;
 }

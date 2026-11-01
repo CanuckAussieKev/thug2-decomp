@@ -152,12 +152,11 @@ bool key_combo_name(uint32_t key_combo, int taps, uint32_t* name)
 // The trick text script `script` with the skater number's ids.
 void run_trick_text_script(uint32_t script, int skater)
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->put_name_key(kTrickTextContainerId, kTrickTextContainer + static_cast<uint32_t>(skater));
     params->put_name_key(kTheTrickTextId, kTheTrickText + static_cast<uint32_t>(skater));
     params->put_name_key(kTheScorePotTextId, kTheScorePotText + static_cast<uint32_t>(skater));
-    script::launch_script(script, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(script, params.get(), nullptr, false, nullptr);
 }
 
 } // namespace

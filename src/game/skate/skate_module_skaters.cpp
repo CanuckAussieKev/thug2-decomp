@@ -212,10 +212,9 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
         entity_hub_handle()->flush_dead_objects();
     }
     if (!skater->is_local_skater_) {
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->put_name_key(kSkaterId, skater->ident_);
-        script::launch_script(kRemoveClientSkater, params, nullptr, false, nullptr);
-        script::free_struct(params);
+        script::launch_script(kRemoveClientSkater, params.get(), nullptr, false, nullptr);
     }
     if (skater->is_local_skater_ && skater->view_slot_ == 0) {
         // The local player's created tricks and stat goals kept for the skater that replaces it.
@@ -286,10 +285,9 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
         new objects::Rider(viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local, id, heap, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->put_int(kPlayer, 0);
-        script::launch_script(kModelApplyCustomLogos, params, nullptr, false, nullptr);
-        script::free_struct(params);
+        script::launch_script(kModelApplyCustomLogos, params.get(), nullptr, false, nullptr);
     }
     if (!skater->is_local_skater_)
         script::launch_script(kClientSkaterInit, nullptr, skater, false, nullptr);
@@ -351,11 +349,11 @@ void Skate::set_skater_shadow(objects::Rider* skater)
         type = 2;
     if (!skater->is_local_skater_)
         type = 2;
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->push_float(kBlobSizeFactor, 1.0f);
     params->append_word(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
-    shadow->configure_from_data(params);
-    script::free_struct(params);
+    shadow->configure_from_data(params.get());
+    params.reset();
     shadow->destroy_shadow();
     shadow->build_blob_shadow(type, "Ped_Shadow");
     memory::leave_heap_scope();

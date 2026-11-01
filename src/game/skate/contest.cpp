@@ -320,8 +320,8 @@ void Contest::show_leader_board()
 {
     if (!competition_goal_active())
         return;
-    script::Struct* params = script::new_struct();
-    script::Array* board = script::new_array();
+    const script::StructPtr params = script::make_struct();
+    script::ArrayPtr board = script::make_array();
     board->configure_size_kind(5, script::kQbvalStruct);
     debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
@@ -339,10 +339,9 @@ void Contest::show_leader_board()
             entry->put_name_key(kNoName, kPlayer);
         board->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
-    params->append_array_value(kRankingList, board);
-    free_array(board);
-    script::spawn_script(kAddLeaderBoard, params, 0, nullptr, 0, 0, false, false, false, false);
-    script::free_struct(params);
+    params->append_array_value(kRankingList, board.get());
+    board.reset();
+    script::spawn_script(kAddLeaderBoard, params.get(), 0, nullptr, 0, 0, false, false, false, false);
 }
 
 // 0x00550EF0
@@ -467,8 +466,8 @@ void Contest::end_run(int score)
 
     if (!competition_goal_active())
         return;
-    script::Struct* params = script::new_struct();
-    script::Array* scores = script::new_array();
+    const script::StructPtr params = script::make_struct();
+    script::ArrayPtr scores = script::make_array();
     scores->configure_size_kind(5, script::kQbvalStruct);
     debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
@@ -479,12 +478,11 @@ void Contest::end_run(int score)
         scores->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
         debug::printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]), static_cast<int>(is_leading_scorer(i)));
     }
-    params->append_array_value("scores", scores);                  // "scores"
+    params->append_array_value("scores", scores.get());                  // "scores"
     params->put_int("total_score", current_round(path_vertices_)); // "total_score"
-    free_array(scores);
-    script::spawn_script("goal_comp_show_run_scores", params, 0, nullptr, 0, 0, false, false, false,
+    scores.reset();
+    script::spawn_script("goal_comp_show_run_scores", params.get(), 0, nullptr, 0, 0, false, false, false,
                          false); // goal_comp_show_run_scores
-    script::free_struct(params);
 }
 
 } // namespace modules

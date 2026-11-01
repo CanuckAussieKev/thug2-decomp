@@ -215,10 +215,9 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     int turned_on = 0;
     meter->read_int_tag(kTagTurnedOn, &turned_on);
     if (on != (turned_on != 0)) {
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->put_name_key(kId, kTheBalanceMeter + static_cast<uint32_t>(skater->get_skater_number()));
-        script::launch_script(on ? kShowBalanceMeter : kHideBalanceMeter, params, nullptr, false, nullptr);
-        script::free_struct(params);
+        script::launch_script(on ? kShowBalanceMeter : kHideBalanceMeter, params.get(), nullptr, false, nullptr);
     }
     meter->write_hash_tag(kTagMode, manual ? kManual : kBalance);
     // The arrow between the two arrow positions the lean falls between.

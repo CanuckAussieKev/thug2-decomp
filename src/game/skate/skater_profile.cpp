@@ -460,10 +460,10 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
 // 0x00586A40
 uint8_t* RiderIdentity::read_info_from_buffer(uint8_t* buffer, const uint8_t* limit)
 {
-    script::Struct* read = script::new_struct();
-    uint8_t* end = read_struct(read, buffer, limit);
-    details_params()->append_structure_if_any(read);
-    script::free_struct(read);
+    script::StructPtr read = script::make_struct();
+    uint8_t* end = read_struct(read.get(), buffer, limit);
+    details_params()->append_structure_if_any(read.get());
+    read.reset();
     return end;
 }
 

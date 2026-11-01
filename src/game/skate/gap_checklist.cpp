@@ -258,7 +258,7 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
     params->read_hash_value(kChooseScript, &choose_script, 0);
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next); gap;) {
-        script::Struct* item = script::new_struct();
+        script::StructPtr item = script::make_struct();
         GapEntry* next = get_next(gap);
         if (index == 0)
             item->put_name_key(0u, kFirstItem);
@@ -271,8 +271,8 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
         item->put_vec3(kSkaterStartPos, gap->skater_start_pos_.x, gap->skater_start_pos_.y, gap->skater_start_pos_.z);
         item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
         item->put_name_key(kChooseScript, choose_script);
-        script::launch_script(kGapMenuAddItem, item, nullptr, false, nullptr);
-        script::free_struct(item);
+        script::launch_script(kGapMenuAddItem, item.get(), nullptr, false, nullptr);
+        item.reset();
         ++index;
         gap = next;
     }
@@ -350,12 +350,11 @@ void GapTally::pay_out_queued_gaps()
                 goals->register_gap_hit(index);
             if (gap->num_ == 0) {
                 ++new_gaps;
-                script::Struct* params = script::new_struct();
+                const script::StructPtr params = script::make_struct();
                 if (new_gaps > 1)
                     params->put_int(kMultipleNewGaps, new_gaps);
                 params->append_word(kGapText, gap->label_.c_str());
-                script::launch_script(kGotGapForFirstTime, params, nullptr, false, nullptr);
-                script::free_struct(params);
+                script::launch_script(kGotGapForFirstTime, params.get(), nullptr, false, nullptr);
             }
             gap->num_ += gap->pending_;
             gap->pending_ = 0;

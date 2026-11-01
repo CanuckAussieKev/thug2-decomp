@@ -90,13 +90,12 @@ void delete_entry(online::ScoreEntry* entry) { entry->teardown(1); }
 // A player's (or team's) line in the player list.
 void add_player_line(const char* text, bool team_score)
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->append_word(kText, text);
     if (team_score)
         params->put_name_key(0u, kTeamScore);
     params->put_name_key(kParent, kPlayerListMenu);
-    script::launch_script(kPlayerMenuAddItem, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(kPlayerMenuAddItem, params.get(), nullptr, false, nullptr);
 }
 
 // Its score's line in the rankings list (a team's players': the font before the id) - the text written by `format`
@@ -104,7 +103,7 @@ void add_player_line(const char* text, bool team_score)
 template <typename Format>
 void add_score_line(Format format, uint32_t id, bool team_score, bool font_first = false)
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     std::array<char, 0x40> text{};
     format(text.data(), sizeof(text));
     params->append_word(kText, text.data());
@@ -116,8 +115,7 @@ void add_score_line(Format format, uint32_t id, bool team_score, bool font_first
     if (team_score)
         params->put_name_key(0u, kTeamScore);
     params->put_name_key(kParent, kRankingsListMenu);
-    script::launch_script(kScoreMenuAddItem, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(kScoreMenuAddItem, params.get(), nullptr, false, nullptr);
 }
 
 // A score as shown: a time (minutes:seconds) in king of the hill, else the number.

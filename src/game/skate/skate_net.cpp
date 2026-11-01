@@ -322,7 +322,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     const Skate* skate = skate_module();
     online::Hub* net = net_session_slot();
     script::kill_all_child_scripts();
-    Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->add_component_of_type(kWidth, script::kQbvalInteger, 300);
     params->add_component_of_type(kTitle, kSymbolChecksum, kNetNoticeMsg);
     // (the dialogs get no parameters: the structure isn't passed)
@@ -330,7 +330,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
         get_run(kServerRemovedYouDialog);
     else if (context->type_code_ == 'V')
         get_run(kServerMovedOnDialog);
-    script::free_struct(params);
+    params.reset();
     if (skate->pending_level_ == kLoadMainMenu) {
         net->cancel_join();
         net->set_entry_phase(10);
@@ -427,10 +427,10 @@ int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
     const uint32_t id = reader.u32();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
-    Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->put_name_key(kId, id);
-    get_run(kRemoveHuntItem, params);
-    script::free_struct(params);
+    get_run(kRemoveHuntItem, params.get());
+    params.reset();
     return 1;
 }
 
@@ -451,13 +451,12 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
         if (!online::read_hunt_position(reader, at))
             break;
         const script::VectorValue position = {core::at(at, 0), core::at(at, 1), core::at(at, 2), core::at(at, 3)};
-        Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->put_int(kIndex, i);
         params->put_int(kObjId, static_cast<int>(player_skater(player)->ident_));
         params->put_vec3(kPos, position);
         params->put_name_key(kShowNow, kShowNow);
-        get_run(kDropObject, params, player_skater(player));
-        script::free_struct(params);
+        get_run(kDropObject, params.get(), player_skater(player));
     }
     return 1;
 }
@@ -532,10 +531,10 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
                 // Eliminated.
                 if (PlayerRecord* player = find_player_slot_by_obj(object->ident_))
                     player->mark_eliminated();
-                Struct* params = script::new_struct();
+                script::StructPtr params = script::make_struct();
                 params->append_word(kName, skater->fetch_shown_name());
-                get_run(kAnnounceElimination, params);
-                script::free_struct(params);
+                get_run(kAnnounceElimination, params.get());
+                params.reset();
                 skate->conceal_skater(skater, 1 != 0);
             }
         }
@@ -579,11 +578,10 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             get_run(kLeaderYourTeam, nullptr, player_skater(local));
         } else {
             std::sprintf(text.data(), "team_%d_name", best + 1);
-            Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->get_clear();
             params->append_word(kString0, kSymbolString, script::fetch_text(text.data()));
-            get_run(kLeaderOtherTeam, params, player_skater(local));
-            script::free_struct(params);
+            get_run(kLeaderOtherTeam, params.get(), player_skater(local));
         }
         set_last_leading_team(net, best);
         return 1;
@@ -621,11 +619,10 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     if (is_own_player(best)) {
         get_run(kLeaderYou, nullptr, player_skater(best));
     } else {
-        Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->get_clear();
         params->append_word(kString0, kSymbolString, best->label_.data());
-        get_run(kLeaderOther, params, player_skater(local));
-        script::free_struct(params);
+        get_run(kLeaderOther, params.get(), player_skater(local));
     }
     net->set_last_leader(best);
     return 1;
@@ -650,11 +647,11 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     net->change_arena(brief.level);
     net->set_crown_start_spot(static_cast<char>(brief.crown_start_slot));
     net->set_start_info_words(brief.start_points.data());
-    Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->get_clear();
     params->add_component_of_type(kLevel, kSymbolChecksum, brief.level);
-    get_run(kRequestLevel, params);
-    script::free_struct(params);
+    get_run(kRequestLevel, params.get());
+    params.reset();
     get_run(kLeaveFrontEnd);
     get_run(kCleanupBeforeLoading);
     conn->stamp_last_heard(0);
@@ -671,13 +668,12 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     for (int i = 0; i < 7; ++i) {
         if (!(static_cast<int>(static_cast<int8_t>(brief.pro_option_bits)) & (1 << i)))
             continue;
-        Struct* flag = script::new_struct();
+        const script::StructPtr flag = script::make_struct();
         flag->put_int(kFlag, script::fetch_int_value(kProSetGeoFlag) + i);
-        get_run(kSetFlag, flag);
-        script::free_struct(flag);
+        get_run(kSetFlag, flag.get());
     }
     // The victory conditions.
-    Struct* victory = script::new_struct();
+    script::StructPtr victory = script::make_struct();
     const uint32_t mode = brief.game_type;
     if (mode != kNetLobby) {
         if (brief.time_limit == 0 && mode != kNetCtf && mode != kNetGoalAttack) {
@@ -700,9 +696,9 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
             skate->set_unknown370(static_cast<int>(brief.time_limit));
             get_game_mode()->set_goal_time_left(static_cast<int>(brief.time_left));
         }
-        get_game_mode()->force_match_settings(victory);
+        get_game_mode()->force_match_settings(victory.get());
     }
-    script::free_struct(victory);
+    victory.reset();
     // The mode's goal_script.
     Array* types = script::fetch_list(net->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
@@ -711,7 +707,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != brief.game_type)
             continue;
-        Struct* goal_params = script::new_struct();
+        script::StructPtr goal_params = script::make_struct();
         goal_params->put_int(kTime, static_cast<int>(brief.time_limit));
         goal_params->put_int(kScore, static_cast<int>(brief.target_score));
         goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
@@ -724,8 +720,8 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
             script = variant == 1 ? kElimiskateInterval : kElimiskateBreak;
         else if (brief.game_type == kNetScavengerHunt)
             script = variant == 1 ? kScavengerIntervalGoal : kScavengerCollectGoal;
-        get_run(script, goal_params);
-        script::free_struct(goal_params);
+        get_run(script, goal_params.get());
+        goal_params.reset();
         break;
     }
     if (net->in_net_game() && net->get_entry_mode() == 0 &&
@@ -748,10 +744,10 @@ int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
-    Struct* params = script::new_struct();
-    script::decode_from_bytes(params, reader.cursor(), reader.remaining()); // the script reader
-    get_run(message.name, params, object);
-    script::free_struct(params);
+    script::StructPtr params = script::make_struct();
+    script::decode_from_bytes(params.get(), reader.cursor(), reader.remaining()); // the script reader
+    get_run(message.name, params.get(), object);
+    params.reset();
     memory::Hub::get_pull()->leave_heap_scope();
     return 1;
 }

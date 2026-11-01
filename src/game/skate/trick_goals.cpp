@@ -402,10 +402,10 @@ void FallingTricksGoal::drop_move_entry(int index)
     void* manager = ui_tree_handle();
     ElementPtr element;
     hub(manager)->fetch_part(&element, id, 1);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->put_name_key(kId, id);
-    get_run(kResetContainer, params);
-    script::free_struct(params);
+    get_run(kResetContainer, params.get());
+    params.reset();
 
     // Red tricks back to normal once the stack is under three quarters full.
     int red = 0;
@@ -420,11 +420,11 @@ void FallingTricksGoal::drop_move_entry(int index)
         }
     }
 
-    script::Struct* remove_params = script::new_struct();
+    script::StructPtr remove_params = script::make_struct();
     if (is_trick_tris())
         remove_params->put_name_key(0u, kTrickTris);
-    run_on(get_spawn(kDropTrickScript, remove_params), element.get_pull());
-    script::free_struct(remove_params);
+    run_on(get_spawn(kDropTrickScript, remove_params.get()), element.get_pull());
+    remove_params.reset();
 
     // Every acceleration_interval tricks, the interval between tricks shortens by acceleration_percent.
     int completed = 0;
@@ -946,11 +946,11 @@ void TrickBeatGoal::pulse_tricks()
         if (t.free || t.landed)
             continue;
         frontend::UiWidget* element = element_by_id(ui_tree_handle(), t.element);
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         auto window = static_cast<float>(window_time_);
         params->put_int(kWaitTime, ftol(window / static_cast<double>(frame_clock::get_time_scale())));
-        script::Script* script = get_spawn(kPulseTrick, params);
-        script::free_struct(params);
+        script::Script* script = get_spawn(kPulseTrick, params.get());
+        params.reset();
         run_on(script, element);
     }
 }
@@ -961,16 +961,16 @@ void TrickBeatGoal::drop_move_entry(int index)
     const uint32_t id = core::at(tricks_, index).element;
     ElementPtr element;
     hub(ui_tree_handle())->fetch_part(&element, id, 1);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->put_name_key(kId, id);
-    get_run(kBeatResetContainer, params);
-    script::free_struct(params);
+    get_run(kBeatResetContainer, params.get());
+    params.reset();
     int red = 0;
     args_->fetch_int_value(kRedTricks, &red, 0); // (unused)
-    script::Struct* remove_params = script::new_struct();
+    script::StructPtr remove_params = script::make_struct();
     remove_params->put_name_key(0u, kTrickTris);
-    run_on(get_spawn(kBeatRemoveTrick, remove_params), element.get_pull());
-    script::free_struct(remove_params);
+    run_on(get_spawn(kBeatRemoveTrick, remove_params.get()), element.get_pull());
+    remove_params.reset();
     int completed = 0;
     args_->fetch_int_value(kTricksDoneCount, &completed, 0);
     ++completed;

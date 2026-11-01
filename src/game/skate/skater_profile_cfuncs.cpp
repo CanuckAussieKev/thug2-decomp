@@ -239,11 +239,10 @@ bool cfunc_for_each_skater_name(script::Struct* params, script::Script*)
     for (int i = 0; i < count; ++i) {
         uint32_t name = 0;
         template_at(i)->details_params()->read_hash_value(kName, &name, 1);
-        script::Struct* run = script::new_struct();
+        const script::StructPtr run = script::make_struct();
         run->append_structure_if_any(script_params);
         run->put_name_key(kName, name);
-        script::launch_script(script, run, nullptr, false, nullptr);
-        script::free_struct(run);
+        script::launch_script(script, run.get(), nullptr, false, nullptr);
     }
     return true;
 }
@@ -259,11 +258,10 @@ bool cfunc_for_each_skater_profile(script::Struct* params, script::Script*)
     const int count = static_cast<int>(template_count());
     for (int i = 0; i < count; ++i) {
         script::Struct* info = template_at(i)->details_params();
-        script::Struct* run = script::new_struct();
+        const script::StructPtr run = script::make_struct();
         run->append_structure_if_any(script_params);
         run->append_structure_if_any(info);
-        script::launch_script(script, run, nullptr, false, nullptr);
-        script::free_struct(run);
+        script::launch_script(script, run.get(), nullptr, false, nullptr);
     }
     return true;
 }
