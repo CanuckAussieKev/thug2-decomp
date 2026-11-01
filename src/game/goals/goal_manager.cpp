@@ -417,7 +417,7 @@ int GoalManager::has_beaten_goal(uint32_t id)
     if (Objective* goal = goals_.get_pull(id))
         return goal->has_won();
     int beaten = 0;
-    script::Struct* data;
+    script::Struct* data = nullptr;
     if (goal_data_->read_sub_struct(id, &data, 0))
         data->fetch_int_value(kAlreadyWon, &beaten, 1);
     return beaten != 0;
@@ -451,7 +451,7 @@ void GoalManager::restore_goal_data()
     while (component) {
         script::Component* next = goal_data_->step_to_entry(component);
         if (component->name == kGoalManagerParams) {
-            script::Struct* levels;
+            script::Struct* levels = nullptr;
             component->structure->read_sub_struct(kSkillTiers, &levels, 1);
             args_->get_clear();
             args_->append_structure_if_any(levels);
@@ -520,7 +520,7 @@ void GoalManager::unlock_all_pro_goals()
 // 0x00558C70
 void GoalManager::play_objective_voice_line(script::Struct* params)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     Objective* goal = goals_.get_pull(name);
     uint32_t stream = 0;
@@ -540,7 +540,7 @@ int GoalManager::is_goal_blocked(uint32_t id)
     if (Objective* goal = goals_.get_pull(id))
         return goal->is_latched();
     int locked = 0;
-    script::Struct* data;
+    script::Struct* data = nullptr;
     if (goal_data_->read_sub_struct(id, &data, 0))
         data->fetch_int_value(kIsLocked, &locked, 1);
     return locked != 0;
@@ -612,7 +612,7 @@ void GoalManager::build_goal_tree()
 void GoalManager::spawn_objective_props()
 {
     for (int i = 0; i < goals_.num_; ++i) {
-        script::Array* nodes;
+        script::Array* nodes = nullptr;
         if (!goals_.get_by_index(i)->fetch_args()->fetch_list(kCreateGeometry, &nodes, 0))
             continue;
         for (uint32_t n = 0; n < nodes->extent_; ++n)
@@ -624,7 +624,7 @@ void GoalManager::spawn_objective_props()
 int GoalManager::get_skill_tier(bool career)
 {
     uint32_t mode = career ? kCareer : get_game_mode()->get_name_key();
-    int level;
+    int level = 0;
     if (!args_->fetch_int_value(mode, &level, 0))
         level = 1;
     switch (level) {

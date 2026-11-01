@@ -392,8 +392,8 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
               reference.image_width == header.image_width && reference.image_height == header.image_height &&
               reference.palette_size == header.palette_size,
           name + ": header as in place");
-    uint32_t bits;
-    bool palettized;
+    uint32_t bits = 0;
+    bool palettized = false;
     image_format::decode_format(header.format, &bits, &palettized);
     if (palettized) {
         ++g_images.palettized;
@@ -534,7 +534,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         p += 4 + 1 + 4 + 1 + 1 + 4;
         if (word(1))
             p += 8;
-        float specular;
+        float specular = 0.0f;
         std::memcpy(&specular, p, 4);
         p += 4;
         if (specular > 0.0f)
@@ -809,7 +809,7 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
     uint8_t format[wave_format::kFormatSize] = {};
     bool looping = false;
     while (at + 8 <= size) {
-        uint32_t id, chunk;
+        uint32_t id = 0, chunk = 0;
         std::memcpy(&id, data + at, 4);
         std::memcpy(&chunk, data + at + 4, 4);
         at += 8;
@@ -870,7 +870,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     uint8_t* keys = base + 0xC;
     const auto* words = reinterpret_cast<const uint32_t*>(keys);
     int bones = static_cast<int>(words[0]);
-    uint8_t* events;
+    uint8_t* events = nullptr;
     if (flags & anim_format::kFloatKeys) {
         ++g_anims.float_keys;
         uint8_t* p = keys + 0x10;

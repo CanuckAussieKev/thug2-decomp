@@ -170,7 +170,7 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
     if (threshold > 0xFF)
         return false;
 
-    int count;
+    int count = 0;
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry->get_faces_in_box(line_box, &count, buffer, 0x800);
     bool any = false;
@@ -182,7 +182,7 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
             continue;
         maths::Vec4 v0, v1, v2;
         get_corners(geometry, face, &v0, &v1, &v2);
-        float t;
+        float t = 0.0f;
         if (!ray_hits_triangle(line->start, *direction, v0, v1, v2, &t))
             continue;
         // the normal (v1 - v0) x (v2 - v0), rounded where the original stores
@@ -214,7 +214,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
                     get_difference(local.end.z, local.start.z), get_difference(local.end.w, local.start.w)};
     maths::BBox around(local.start);
     around.append_spot(local.end);
-    int count;
+    int count = 0;
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry_->get_faces_in_box(&around, &count, buffer, 0x800);
     bool any = false;
@@ -223,7 +223,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
         uint32_t face = faces[i];
         maths::Vec4 v0, v1, v2;
         get_corners(geometry, face, &v0, &v1, &v2);
-        float t;
+        float t = 0.0f;
         if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))
             continue;
         double e0x = static_cast<double>(v1.x) - v0.x, e0y = static_cast<double>(v1.y) - v0.y,
@@ -292,7 +292,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         if (threshold > 0xFF)
             return false;
     }
-    int count;
+    int count = 0;
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry->get_faces_in_box(&around, &count, buffer, 0x800);
     bool any = false;
@@ -303,7 +303,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
             continue;
         maths::Vec4 v0, v1, v2;
         get_corners(geometry, face, &v0, &v1, &v2);
-        float t;
+        float t = 0.0f;
         if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))
             continue;
         double e0x = static_cast<double>(v1.x) - v0.x, e0y = static_cast<double>(v1.y) - v0.y,

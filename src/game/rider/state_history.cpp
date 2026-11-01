@@ -233,7 +233,7 @@ double RiderFrameLog::get_collision_reach(bool driving)
 // 0x0051A080
 double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 {
-    uint32_t name;
+    uint32_t name = 0;
     if (entity_->is_local_skater_)
         name = manager_flag4() ? 0xF2E35FA3u : 0xECB41860u;
     else
@@ -267,7 +267,7 @@ void RiderFrameLog::check_for_collisions(int first)
         return;
     auto* my_state = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
     // Whether this machine tells the players of a hit (not when the skater is in a bail, outside a slap game).
-    bool tell_players;
+    bool tell_players = false;
     if (!my_state->flag(PoseFlag::kBailing).on || in_slap_game()) {
         tell_players = true;
     } else {
@@ -323,7 +323,7 @@ void RiderFrameLog::check_for_collisions(int first)
 
         // Where they meet: the segments' closest points, else the first of the four pairs of ends close enough.
         maths::Vec4 my_point, their_point;
-        float scratch;
+        float scratch = 0.0f;
         if (maths::closest_points_between_lines(mine, theirs, my_point, their_point, scratch, scratch, true)) {
             if (!(length_of(my_point - their_point) < radius))
                 continue;
@@ -344,7 +344,7 @@ void RiderFrameLog::check_for_collisions(int first)
         }
 
         // Who hits whom: the faster skater (a driver beats one on foot); otherwise only the game's "it" does.
-        bool must_be_it;
+        bool must_be_it = false;
         if (my_driving == their_driving) {
             auto my_speed = static_cast<float>(length_of(my_move));
             must_be_it = length_of(their_move) < my_speed;
@@ -513,7 +513,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     // the original read past it)
     util::ByteReader reader(context->body_, context->body_size_);
     online::RanInto ran_into;
-    bool read;
+    bool read = false;
     if (id == kMsgRanIntoAck) {
         ran_into.object_id = reader.u8();
         read = reader.ok();
@@ -544,7 +544,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             float away[4] = {get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy),
                              static_cast<float>(dz), static_cast<float>(dw)};
             double length = std::sqrt((static_cast<double>(away[0]) * away[0] + dy * dy) + dz * dz);
-            double w, z;
+            double w = 0.0, z = 0.0;
             if (!(length < kTooClose)) {
                 // (0x00423650: each component times 1 / the length rounded to a float)
                 double inverse = 1.0 / static_cast<float>(length);

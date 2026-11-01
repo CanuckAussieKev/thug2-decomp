@@ -131,7 +131,7 @@ void update_scale()
 void get_mono(const char* format, ...)
 {
     ImGui::PushFont(g_mono);
-    va_list args;
+    va_list args = nullptr;
     va_start(args, format);
     ImGui::TextV(format, args);
     va_end(args);

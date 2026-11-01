@@ -81,7 +81,7 @@ GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_.
 float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
 {
     online::Hub* net = net_session_slot();
-    net::Conn* conn;
+    net::Conn* conn = nullptr;
     if (net->get_on_server()) {
         online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_));
         conn = player->conn_;
@@ -138,7 +138,7 @@ void RiderRemoteSync::interpolate()
     SkaterStateHistoryFrame* last = history_frame(past_frames_, (count - 1) % kHistory);
     if (now > history_frame_stamp(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
-        int adjust;
+        int adjust = 0;
         if (now - history_frame_stamp(last) > 1000)
             adjust = static_cast<int>(history_frame_stamp(last) - now);
         else

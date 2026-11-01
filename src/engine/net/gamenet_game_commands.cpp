@@ -485,7 +485,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         script::Array* array_memory = script::alloc_script_array();
         script::Array* rgba = array_memory ? new (array_memory) script::Array : nullptr;
         rgba->configure_size_kind(4, script::kQbvalInteger);
-        uint32_t blue;
+        uint32_t blue = 0;
         int profile = player->profile_id_;
         if (profile && mark_friend_online(manager)) {
             if (is_buddy(manager, player->profile_id_)) {
@@ -548,8 +548,8 @@ bool cfunc_cancel_remove_player(Struct*, Script*)
 bool cfunc_toggle_pro_set(Struct* params, Script*)
 {
     Hub* manager = net_link();
-    int bit;
-    uint32_t id;
+    int bit = 0;
+    uint32_t id = 0;
     params->fetch_int_value(kBit, &bit, 1);
     params->read_hash_value(kParamId, &id, 1);
     manager->toggle_pro_set(static_cast<uint8_t>(bit), id);

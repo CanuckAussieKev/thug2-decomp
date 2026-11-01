@@ -276,7 +276,7 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
     }
     if (name != kEnableShadowCast)
         return 2;
-    uint32_t type; // (read into the parameters' own argument slot)
+    uint32_t type = 0; // (read into the parameters' own argument slot)
     if (!params->read_hash_value(kShadowType, &type, 0))
         params->put_name_key(kShadowType, kSimple);
     configure_from_data(params);

@@ -458,7 +458,7 @@ void MoveExecutor::clear_queue()
 // 0x0051ED20
 void MoveExecutor::queue_trick(uint32_t list, int index, bool flag)
 {
-    int slot;
+    int slot = 0;
     if (queue_first_ == -1 && queue_last_ == -1) {
         slot = 0;
         queue_first_ = 0;

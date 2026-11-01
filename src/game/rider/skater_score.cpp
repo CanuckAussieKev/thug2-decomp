@@ -182,7 +182,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         return 1;
     case kIsLatestTrick: {
         // A trick by key combo or by name, with its spin (half turns) and taps (1 by default).
-        uint32_t key_combo;
+        uint32_t key_combo = 0;
         const char* text = nullptr;
         bool by_key_combo = params->read_hash_value(kKeycombo, &key_combo, 0);
         if (!by_key_combo && !params->fetch_text(kTrickText, &text, 0))

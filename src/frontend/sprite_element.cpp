@@ -49,7 +49,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // The shown colour with its alpha the shown alpha times the summed alpha (none below 0.0001).
 uint32_t shown_colour(const UiWidget* e)
 {
-    uint32_t rgba;
+    uint32_t rgba = 0;
     std::memcpy(&rgba, e->shown_.rgba, 4);
     uint8_t alpha = 0;
     if (e->summed_.alpha >= minimum_alpha()) // (NaN: transparent)
@@ -94,16 +94,16 @@ TextureElement::~TextureElement()
 void TextureElement::change_traits(Struct* params)
 {
     UiWidget::change_traits(params);
-    uint32_t texture;
+    uint32_t texture = 0;
     if (params->read_hash_value(kTexture, &texture, 0)) {
         texture_ = texture;
         piece_->set_texture(static_cast<uint8_t*>(find_texture(texture)));
         object_flags_ |= kVisibleNow;
     }
-    float angle;
+    float angle = 0.0f;
     if (params->fetch_float(kRotAngle, &angle, 0))
         change_spin(angle, 1);
-    uint32_t blend;
+    uint32_t blend = 0;
     if (params->read_hash_value(kBlend, &blend, 0))
         piece_->choose_blend_mode(blend);
 }
@@ -183,13 +183,13 @@ void ImageWidget::set_sprite_rotation(float degrees, int now)
 void ImageWidget::change_traits(Struct* params)
 {
     UiWidget::change_traits(params);
-    uint32_t texture;
+    uint32_t texture = 0;
     if (params->read_hash_value(kTexture, &texture, 0))
         set_texture(texture);
-    float angle;
+    float angle = 0.0f;
     if (params->fetch_float(kRotAngle, &angle, 0))
         set_sprite_rotation(angle, 1);
-    uint32_t blend;
+    uint32_t blend = 0;
     if (params->read_hash_value(kBlend, &blend, 0))
         quad_->choose_blend_mode(blend);
     if (params->has_bare_flag(kNoZWrite))
@@ -211,7 +211,7 @@ void ImageWidget::get_properties(Struct* out)
 void ImageWidget::blend_towards(Struct* params)
 {
     UiWidget::blend_towards(params);
-    float degrees;
+    float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
         if (radians != aim_point_.angle) {
@@ -242,7 +242,7 @@ void ImageWidget::tick_frame()
     quad_->change_scale(summed_.scale_x_, summed_.scale_y_);
     if (object_flags_ & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
-        uint32_t depth;
+        uint32_t depth = 0;
         std::memcpy(&depth, &summed_.z, 4);
         depth += (object_flags_ & kKeepScale) ? 5000u : 0u;
         quad_->set_depth(depth);

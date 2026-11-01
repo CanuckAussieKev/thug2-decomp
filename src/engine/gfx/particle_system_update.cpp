@@ -303,7 +303,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kSetColor: {
-        int first, last, value;
+        int first = 0, last = 0, value = 0;
         if (params->fetch_int_value(kCorner, &value, 0)) {
             first = last = value;
         } else {
@@ -463,7 +463,7 @@ void EmitterInstance::remove_particle(int index, bool through_accessors)
     particle_list_[index] = particle_list_[particle_count_];
     for (int step = 0; step < get_num_vertex_lists(); ++step) {
         if (through_accessors) {
-            float x, y, z;
+            float x = 0.0f, y = 0.0f, z = 0.0f;
             fetch_place(particle_count_, step, &x, &y, &z);
             change_place(index, step, x, y, z);
         } else {

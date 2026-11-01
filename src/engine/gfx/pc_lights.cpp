@@ -135,7 +135,7 @@ uint32_t* PcModelLights::read_diffuse_light_tint(uint32_t* out, int light)
 // 0x004B63B0
 void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius)
 {
-    uint32_t color;
+    uint32_t color = 0;
     if (overrides & 1)
         color = ambient;
     else
@@ -266,7 +266,7 @@ void reset_lights()
 {
     send_color(ambient_constant(), scene_ambient(), scene_scale());
     for (int i = 0; i < 2; ++i) {
-        uint32_t color;
+        uint32_t color = 0;
         fetch_light_tint(&color, i);
         send_color(light_color_constant(i), color, scene_intensities()[i]);
         send_negated(light_direction_constant(i), *get_light_direction(i));

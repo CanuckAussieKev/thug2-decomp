@@ -58,7 +58,7 @@ void insert_geom(RenderModel* model, ModelGeomNode* where, ModelGeom** entry)
 }
 void erase_geoms(RenderModel* model, ModelGeomNode* first, ModelGeomNode* last)
 {
-    ModelGeomNode* result;
+    ModelGeomNode* result = nullptr;
     reinterpret_cast<objects::PointerList*>(&model->geoms_)
         ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
                     reinterpret_cast<objects::PointerListNode*>(first),
@@ -118,7 +118,7 @@ uint32_t color_byte(float value)
 }
 uint32_t rgba_from_hsv(float h, float s, float v)
 {
-    float r, g, b;
+    float r = 0.0f, g = 0.0f, b = 0.0f;
     hsv_to_rgb(&r, &g, &b, h, s, v);
     return color_byte(r) | (color_byte(g) << 8) | (color_byte(b) << 16) | 0xFF000000u;
 }
@@ -257,7 +257,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     ModelGeom* entry = new_entry(default_heap);
     if (!default_heap && !entry)
         return false;
-    uint8_t* scene;
+    uint8_t* scene = nullptr;
     if (via_resource_store) {
         // The textures first ("<file without its .skin / .mdl>.tex"), then the file itself: the texture
         // dictionary's parameters (only these fields set - the rest as the stack left it in the original).
@@ -514,7 +514,7 @@ bool RenderModel::set_geom_color_hsv(uint32_t name, float h, float s, float v)
 bool RenderModel::set_color_from_script(script::Struct* params, float h, float s, float v)
 {
     bool any = false;
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     uint32_t rgba = rgba_from_hsv(h, s, v);
     bool all = name == kAllGeoms;
@@ -530,7 +530,7 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
             continue;
         }
         // A multicolour geom: its material passes.
-        script::Array* materials;
+        script::Array* materials = nullptr;
         if (params->fetch_list(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->extent_; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(materials->fetch_part(i));
@@ -539,7 +539,7 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
                 any |= set_geom_material_color(geom, material, pass, rgba);
             }
         } else if (params->read_hash_value(kMaterial, &material, 0)) {
-            script::Array* passes;
+            script::Array* passes = nullptr;
             if (params->fetch_list(kPass, &passes, 0)) {
                 for (uint32_t i = 0; i < passes->extent_; ++i)
                     any |= set_geom_material_color(geom, material, static_cast<int>(passes->fetch_part(i)), rgba);
@@ -556,7 +556,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
 {
     constexpr uint32_t kGray = 0x80808080;
     bool any = false;
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     bool all = name == kAllGeoms;
     uint32_t material = 0; // (as set_color_from_script)
@@ -570,7 +570,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
             }
             continue;
         }
-        script::Array* materials;
+        script::Array* materials = nullptr;
         if (params->fetch_list(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->extent_; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(materials->fetch_part(i));
@@ -579,7 +579,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
                 any |= set_geom_material_color(geom, material, pass, kGray);
             }
         } else if (params->read_hash_value(kMaterial, &material, 0)) {
-            script::Array* passes;
+            script::Array* passes = nullptr;
             if (params->fetch_list(kPass, &passes, 0)) {
                 for (uint32_t i = 0; i < passes->extent_; ++i)
                     any |= set_geom_material_color(geom, material, static_cast<int>(passes->fetch_part(i)), kGray);

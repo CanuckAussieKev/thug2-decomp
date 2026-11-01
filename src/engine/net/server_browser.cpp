@@ -193,7 +193,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
         std::sprintf(text, "%s", server->mode_sel_);
         return const_cast<const char*>(text);
     });
-    const char* skill;
+    const char* skill = nullptr;
     script::Array* skills = script::fetch_list(kSkillLevelInfo);
     reinterpret_cast<script::Struct*>(skills->fetch_part(server->skill_level_))->fetch_text(kName, &skill, 0);
     info_line(kTitleSkill, [skill](char* text) {

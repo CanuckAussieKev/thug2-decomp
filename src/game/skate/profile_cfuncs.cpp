@@ -98,7 +98,7 @@ void preload_meshes(uint32_t array_name)
         entry->fetch_int_value(0xF1E3CD22u, &allow_random, 0); // allow_random
         if (!allow_random)
             continue;
-        const char* mesh;
+        const char* mesh = nullptr;
         if (!entry->fetch_text(0x1E90C5A9u, &mesh, 0)) // mesh
             continue;
         // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
@@ -183,7 +183,7 @@ bool cfunc_add_skater_profile(Struct* params, Script*) { return get_profiles()->
 // 0x005AADC0
 bool cfunc_add_temporary_profile(Struct* params, Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name (asserted: used as it is)
     return get_profiles()->add_extra_profile(name);
 }
@@ -191,17 +191,17 @@ bool cfunc_add_temporary_profile(Struct* params, Script*)
 // 0x005AADF0
 bool cfunc_remember_temporary_appearance(Struct* params, Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name
     gfx::ModelLook appearance;                      // (destroyed at the end)
     objects::ProfileRoster* profiles = get_profiles();
-    uint8_t* source;
+    uint8_t* source = nullptr;
     Struct* structure = nullptr;
     if (params->read_sub_struct(0xEFC8944Cu, &structure, 0)) { // appearance_structure
         appearance.read_in(structure, true);
         source = reinterpret_cast<uint8_t*>(&appearance);
     } else {
-        int player;                                       // (asserted: used as it is)
+        int player = 0;                                   // (asserted: used as it is)
         params->fetch_int_value(0x67E6859Au, &player, 1); // player
         source = reinterpret_cast<uint8_t*>(profiles->fetch_account(player));
     }

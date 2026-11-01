@@ -131,7 +131,7 @@ prefs::Preferences* game_preferences(Hub* m)
 }
 uint32_t preference_checksum(prefs::Preferences* prefs, uint32_t name, uint32_t field)
 {
-    uint32_t value;
+    uint32_t value = 0;
     prefs->fetch_setting(name)->read_hash_value(field, &value, 1);
     return value;
 }
@@ -142,7 +142,7 @@ Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 // 0x0053AF90
 void Hub::reset_to_lobby()
 {
-    int teams;
+    int teams = 0;
     if (get_on_server()) {
         level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
         teams = get_num_teams();

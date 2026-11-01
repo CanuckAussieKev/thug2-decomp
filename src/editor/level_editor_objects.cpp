@@ -136,7 +136,7 @@ void pick_one(objects::Entity* object, void* data)
         view::hidden_object(composite->ident_) || // (H: level_editor_view.h)
         !model_box(composite, &box))
         return;
-    float t;
+    float t = 0.0f;
     bool hit = ray_box(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);
     if (hit && walk->all && t < walk->best_t_)
         walk->all->emplace_back(composite, t);

@@ -67,22 +67,22 @@ bool ScreenEffects::set_bloom_params(script::Struct* params, int)
 // ignores its argument on PC, would see it)
 bool ScreenEffects::set_dof_params(script::Struct* params, script::Script*)
 {
-    int on;
+    int on = 0;
     if (params->fetch_int_value(kOn, &on, 0))
         set_dof_on(on);
     float a = 0.0f;
     if (params->fetch_float(kDofFloatA, &a, 0))
         set_dof_value_a(a);
-    float b;
+    float b = 0.0f;
     if (params->fetch_float(kDofFloatB, &b, 0))
         set_dof_value_b(a); // (the first float's: the original passes the wrong variable)
-    float c;
+    float c = 0.0f;
     if (params->fetch_float(kColour, &c, 0))
         set_dof_value_c(c);
-    float d;
+    float d = 0.0f;
     if (params->fetch_float(kDofFloatD, &d, 0))
         set_dof_value_d(d);
-    script::Array* array;
+    script::Array* array = nullptr;
     if (params->fetch_list(kDofColourA, &array, 0))
         set_dof_colour_a(array_colour(array));
     if (params->fetch_list(kDofColourB, &array, 0))

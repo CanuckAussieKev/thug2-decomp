@@ -150,7 +150,7 @@ void ContestObjective::restore_save_block(script::Struct* data)
     int given = 0; // (the original's local is left as it was when reward_given is missing)
     data->fetch_int_value(kRewardGiven, &given, 0);
     prize_paid_ = given;
-    int record;
+    int record = 0;
     if (data->fetch_int_value(kWinRecordName, &record, 0))
         record_points_ = record;
     Objective::restore_save_block(data);
@@ -240,10 +240,10 @@ bool ShootVideoObjective::activate()
     checkpoints_ = 0;
     recording_shot_ = false;
     args_->put_int(kTimeOnCamera, 0);
-    int seconds;
+    int seconds = 0;
     if (args_->fetch_int_value(kTotalTimeRequired, &seconds, 0)) {
         time_needed_ = static_cast<uint32_t>(seconds * 1000);
-        int time;
+        int time = 0;
         args_->fetch_int_value(kTime, &time, 1);
         unknown7c_ = unknown7c_ * static_cast<uint32_t>(time) * 1000;
         return Objective::activate();
@@ -255,7 +255,7 @@ bool ShootVideoObjective::activate()
 // 0x005528D0
 bool ShootVideoObjective::target_in_view()
 {
-    uint32_t id;
+    uint32_t id = 0;
     args_->read_hash_value(kFilmTarget, &id, 1);
     objects::Entity* target = objects::find_object(id);
     if (!target)
@@ -282,7 +282,7 @@ bool ShootVideoObjective::target_in_view()
     float dx = (*camera)[0] - object->at_point_[0];
     float dy = (*camera)[1] - object->at_point_[1];
     float dz = (*camera)[2] - object->at_point_[2];
-    int maximum;
+    int maximum = 0;
     args_->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
     double distance =
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx);
@@ -341,9 +341,9 @@ HuntGapsObjective::~HuntGapsObjective() = default;
 void HuntGapsObjective::scan_for_gaps()
 {
     auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
-    script::Struct* found;
+    script::Struct* found = nullptr;
     args_->read_sub_struct(kGapsFound, &found, 1);
-    int count;
+    int count = 0;
     args_->fetch_int_value(kNumGapsFound, &count, 1);
     auto* score = static_cast<modules::PointTally*>(skater->get_points_total());
     int gaps = score->tricks_;
@@ -378,7 +378,7 @@ bool HuntGapsObjective::activate()
     delete_structure(found);
     args_->put_int(kNumGapsFound, 0);
     args_->put_int(kNumberCollected, 0);
-    int to_find;
+    int to_find = 0;
     args_->fetch_int_value(kNumGapsToFind, &to_find, 1); // (read and not used)
     return Objective::activate();
 }

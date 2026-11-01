@@ -470,7 +470,7 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
     bool any = false;
     Rect2 r = {0, 0, 0, 0};
     for (const V3& c : corners) {
-        float x, y;
+        float x = 0.0f, y = 0.0f;
         if (!project_to_back(c, &x, &y)) {
             if (whole)
                 return false;
@@ -863,7 +863,7 @@ void apply_box()
                     n.family == nodes::Family::kScenery || nodes::shape_of(n.family) == nodes::Shape::kNone ||
                     gizmo_hidden(n.name) || !gizmo_pickable(n.name))
                     continue;
-                float x, y;
+                float x = 0.0f, y = 0.0f;
                 if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
                     continue;
                 ++in_box;

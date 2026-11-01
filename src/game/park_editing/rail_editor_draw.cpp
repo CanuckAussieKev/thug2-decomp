@@ -145,8 +145,8 @@ Vec4* transform_rail_point(Vec4* out, const Vec4* point, const Vec4* origin, con
     double dx = static_cast<double>(point->x) - origin->x;
     auto dy = static_cast<float>(static_cast<double>(point->y) - origin->y);
     double dz = static_cast<double>(point->z) - origin->z;
-    float x;
-    double z;
+    float x = 0.0f;
+    double z = 0.0;
     turn_about_y(dx, dz, angle, &x, &z);
     // (w: the original adds an unset local - garbage - to the position's; here 0)
     out->x = static_cast<float>(static_cast<double>(x) + position->x);
@@ -174,7 +174,7 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
             *z = *z * inverse;
         }
     };
-    double x1, y1, z1, x2, y2, z2;
+    double x1 = 0.0, y1 = 0.0, z1 = 0.0, x2 = 0.0, y2 = 0.0, z2 = 0.0;
     direction(a, b, &x1, &y1, &z1);
     direction(b, c, &x2, &y2, &z2);
     auto dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
@@ -239,7 +239,7 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* 
     }
     // A side across the direction on the ground (straight up or down: z), and the up between them.
     Vec4 side;
-    float side_w;
+    float side_w = 0.0f;
     if ((y < 0.0f ? -y : y) > kNearlyVertical) {
         side = {0.0f, 0.0f, 1.0f, 0.0f}; // (its w isn't written: the last row's w is 1)
         side_w = 1.0f;
@@ -564,8 +564,8 @@ void EditedRail::xform(const Vec4* origin, const Vec4* position, float angle)
         double dx = static_cast<double>(p->at_point_.x) - origin->x;
         auto dy = static_cast<float>(static_cast<double>(p->at_point_.y) - origin->y);
         double dz = static_cast<double>(p->at_point_.z) - origin->z;
-        float x;
-        double z;
+        float x = 0.0f;
+        double z = 0.0;
         turn_about_y(dx, dz, angle, &x, &z);
         p->at_point_.z = static_cast<float>(z + position->z);
         p->at_point_.w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)

@@ -1228,7 +1228,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto to_pixel = [&](V3 p, float* x, float* y) {
-        float nx, ny;
+        float nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1237,7 +1237,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera, frame, near_z, &a, &b))
             return;
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (to_pixel(a, &ax, &ay) && to_pixel(b, &bx, &by))
             lines->push_back({ax, ay, bx, by, argb, thickness});
     };
@@ -1276,7 +1276,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             }
         }
         line(n->pos, n->pos + at * 30.0f, kGhost, 1.5f);
-        float x, y;
+        float x = 0.0f, y = 0.0f;
         if (d < 1500.0f && to_pixel(n->pos + up * 48.0f, &x, &y))
             texts->push_back({x, y, kGhost, nodes::caption(n->name) + " (uncreated)"});
     }
@@ -1328,7 +1328,7 @@ namespace detail {
 bool has_path(uint32_t id)
 {
     std::vector<V3> points;
-    bool closed;
+    bool closed = false;
     return path_of(id, &points, &closed);
 }
 float speed_set(uint32_t id)

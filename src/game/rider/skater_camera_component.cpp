@@ -140,8 +140,8 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
         rate_scale_ = 1.0f;
     }
     objects::RiderPoseState* state = state_ref_;
-    float across;
-    double up;
+    float across = 0.0f;
+    double up = 0.0;
     bool snap = instant;
     if (vert_air(state)) {
         across = static_cast<float>(

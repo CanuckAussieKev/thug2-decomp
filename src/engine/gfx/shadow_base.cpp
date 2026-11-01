@@ -332,7 +332,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
 {
     if (omit_from_draw())
         return;
-    DWORD saved_min_filter;
+    DWORD saved_min_filter = 0;
     input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &saved_min_filter);
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     input_port()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);

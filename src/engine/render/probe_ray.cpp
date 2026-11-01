@@ -179,14 +179,14 @@ double ProbeRay::get_hit_vertex_value() const
     const maths::Vec4 hit_point{0.0f, 0.0f, 0.0f, 1.0f};
     maths::Seg from_corner(corner[0], hit_point), opposite(corner[1], corner[2]);
     maths::Vec4 on_line{0.0f, 0.0f, 0.0f, 0.0f}, on_edge; // (the original's are left unset when the lines are parallel)
-    float s, t;
+    float s = 0.0f, t = 0.0f;
     maths::closest_points_between_lines(from_corner, opposite, on_line, on_edge, s, t, false);
     auto minus = [](const maths::Vec4& a, const maths::Vec4& b, double* x, double* y, double* z) {
         *x = static_cast<double>(a.x) - b.x;
         *y = static_cast<double>(a.y) - b.y;
         *z = static_cast<double>(a.z) - b.z;
     };
-    double x, y, z;
+    double x = 0.0, y = 0.0, z = 0.0;
     minus(on_line, corner[1], &x, &y, &z);
     const auto along_edge_squared = static_cast<float>(get_length_squared(x, y, z));
     minus(corner[2], corner[1], &x, &y, &z);

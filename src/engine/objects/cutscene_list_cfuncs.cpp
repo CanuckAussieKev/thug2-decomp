@@ -86,9 +86,9 @@ PointerList* PointerList::make_new()
 // own copy of the parameters) added at the end of the list. Always true.
 bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    uint32_t destroy_script;
+    uint32_t destroy_script = 0;
     params->read_hash_value(kDestroyFunc, &destroy_script, 1);
     Struct* destroy_params = nullptr;
     params->read_sub_struct(kDestroyParams, &destroy_params, 0);
@@ -121,7 +121,7 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
 {
     if (flushing())
         return false;
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     PointerList& list = free_node_chain();
     Elem* head = list.head_;
@@ -190,7 +190,7 @@ bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
         script::launch_script(entry->destroy_script_, entry->args_, nullptr, false, nullptr);
         delete_entry(entry_of(node));
     }
-    Elem* result;
+    Elem* result = nullptr;
     reinterpret_cast<objects::PointerList*>(&list)->get_erase(
         reinterpret_cast<objects::PointerListNode**>(&result),
         reinterpret_cast<objects::PointerListNode*>(list.head_ ? list.head_->next : nullptr),

@@ -300,7 +300,7 @@ ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
     piece->blend_source_ = from;
     piece->set_quarter_turns(0, 0);
     piece->flag_bits_ |= flags;
-    uint32_t rgba;
+    uint32_t rgba = 0;
     if (get_piece_color(piece, &rgba)) { // (never)
         if (uint8_t* sector = scene::look_up_sector(clone)) {
             if (uint8_t* geometry = scene::fetch_shape(sector))

@@ -215,7 +215,7 @@ bool TrickSpot::set_graffiti_color(int index)
     rgba[2] = static_cast<uint8_t>(color->fetch_part(2));
     rgba[3] = 0x80;
     if (auto* geom = static_cast<render::Geom*>(reinterpret_cast<render::WorldCell*>(sector)->geom_handle_)) {
-        uint32_t packed;
+        uint32_t packed = 0;
         std::memcpy(&packed, rgba, 4);
         geom->change_tint(packed);
     }
@@ -230,7 +230,7 @@ bool TrickSpot::clear_graffiti_color(int index)
     auto r = static_cast<uint8_t>(color->fetch_part(0));
     auto g = static_cast<uint8_t>(color->fetch_part(1));
     auto b = static_cast<uint8_t>(color->fetch_part(2));
-    uint32_t packed;
+    uint32_t packed = 0;
     get_sector_color(sector, &packed);
     uint8_t current[4];
     std::memcpy(current, &packed, 4);
@@ -554,7 +554,7 @@ void TrickSpotHub::apply_player_graffiti()
     for (int player = 0; player < 8; ++player) {
         char name[32];
         std::snprintf(name, sizeof(name), "Skater%d", player);
-        script::Array* objects;
+        script::Array* objects = nullptr;
         if (!args_->fetch_list(name, &objects, 0))
             continue;
         for (int i = 0; i < static_cast<int>(objects->extent_); ++i) {

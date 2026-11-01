@@ -157,7 +157,7 @@ bool BuildPointer::add_gap_half()
     if (metas.list) {
         void* meta = node_meta(metas.list);
         get_area().dump_to_log();
-        int half;
+        int half = 0;
         if (!gap_at(hub(), &get_area(), &half) && meta) {
             GapRecord& gap = current_gap();
             if (gap.halves_placed_ == 1)
@@ -205,7 +205,7 @@ bool BuildPointer::remove_gap_half()
         hub()->rebuild_area(&get_area(), false);
         return true;
     }
-    int half;
+    int half = 0;
     GapRecord* gap = gap_at(manager, &get_area(), &half);
     if (!gap)
         return false;
@@ -224,7 +224,7 @@ bool BuildPointer::remove_gap_half()
 // 0x0059D6B0
 bool BuildPointer::change_gap(int turn, int left, int right)
 {
-    int half;
+    int half = 0;
     GapRecord* gap = gap_at(hub(), &get_area(), &half);
     if (!gap)
         return false;

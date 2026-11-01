@@ -101,7 +101,7 @@ void set_texture_stage_state(int stage, int type, int value)
 }
 uint32_t get_sampler_state(int sampler, int type)
 {
-    DWORD value;
+    DWORD value = 0;
     g_d3d_device->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &value);
     return value;
 }

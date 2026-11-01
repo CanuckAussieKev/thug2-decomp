@@ -80,7 +80,7 @@ void BodyDynamicsModule::apply_springs()
     const maths::Vec4* world = world_spring_points();
     // The springs' points held still: each moving point's velocity taken out by an impulse, round after round.
     int round = 0;
-    bool settled;
+    bool settled = false;
     do {
         settled = true;
         for (int i = spring_count_; i != 0;) {

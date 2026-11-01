@@ -463,8 +463,8 @@ void ParkBuilderMode::tick_frame()
     pad_lx_ = static_cast<float>(move_x);
     double b = move_x * move_speed_ * seconds;
     double a = move_y * move_speed_ * seconds;
-    float offset_cell_x;
-    float offset_cell_z;
+    float offset_cell_x = 0.0f;
+    float offset_cell_z = 0.0f;
     turn_move(static_cast<double>(camera_angle_) * kAngleScaleToRad, a, b, &offset_cell_x, &offset_cell_z);
 
     // The right stick turns (0-360) and tilts (10-90) the camera.

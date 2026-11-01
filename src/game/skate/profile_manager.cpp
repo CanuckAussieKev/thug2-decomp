@@ -138,7 +138,7 @@ ProfileRoster::~ProfileRoster()
 {
     // Every template (the first each time: dropped from the table as it goes; a null one dropped too).
     for (uint32_t left = templates_.num_; left != 0; --left) {
-        uint32_t key;
+        uint32_t key = 0;
         if (RiderIdentity* profile = templates_.get_by_index(0, &key))
             profile->erase_one();
         templates_.drop_out(key);
@@ -178,7 +178,7 @@ void ProfileRoster::prepare_all()
 {
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
     script::launch_script(kInitProSkaters, nullptr, nullptr, false, nullptr);
-    uint32_t key;
+    uint32_t key = 0;
     profiles_[0] = templates_.get_by_index(0, &key);
     for (int i = 1; i < 2; ++i) {
         profiles_[i] = new_profile();
@@ -190,7 +190,7 @@ void ProfileRoster::prepare_all()
 // 0x0057B770
 uint32_t ProfileRoster::get_template_name(int index)
 {
-    uint32_t key;
+    uint32_t key = 0;
     templates_.get_by_index(index, &key);
     return key;
 }
@@ -212,7 +212,7 @@ void ProfileRoster::reset_templates()
 {
     uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
+        uint32_t key = 0;
         templates_.get_by_index(static_cast<int>(i), &key)->get_reset(nullptr);
     }
 }
@@ -222,7 +222,7 @@ void ProfileRoster::write_pros(script::Struct* save)
 {
     uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
+        uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
         if (profile->is_pro())
             profile->write_to_save(save);
@@ -237,7 +237,7 @@ void ProfileRoster::write_custom_skaters(script::Struct* save)
 {
     uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
+        uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
         if (!profile->is_pro())
             profile->write_to_save(save);
@@ -270,7 +270,7 @@ void ProfileRoster::read_pros(script::Struct* save)
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
     uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
+        uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
         if (profile->is_pro())
             profile->read_from_save(profile->fetch_title(), save);
@@ -285,7 +285,7 @@ void ProfileRoster::read_pros(script::Struct* save)
 bool ProfileRoster::add_template(script::Struct* params)
 {
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     RiderIdentity* profile = new_profile();
     profile->get_reset(params);
@@ -311,7 +311,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     custom->read_sub_struct(kAppearance, &appearance, 0);
     profile->set_appearance(appearance, true);
     if (void* face = face_of(profile)) {
-        script::Struct* texture;
+        script::Struct* texture = nullptr;
         bool found = custom->read_sub_struct(kFaceTexture, &texture, 0);
         if (found) {
             static_cast<gfx::FaceSkin*>(face)->load_from_structure(texture);

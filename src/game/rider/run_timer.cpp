@@ -90,7 +90,7 @@ void RiderRunClock::tick_frame()
 {
     if (cur_phase_ == kClockTicking) {
         int walk_state = reinterpret_cast<const objects::FootMovement*>(walk_)->state_;
-        double elapsed;
+        double elapsed = 0.0;
         if (walk_state >= 2 && walk_state <= 4) {
             float adjustment = script::fetch_float(kHangSpeedAdjustment);
             elapsed = frame_clock::get_slomo_frame_seconds() * adjustment;

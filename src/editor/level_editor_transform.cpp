@@ -219,12 +219,12 @@ int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, fl
     int best = -1;
     float best_distance = grab;
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
-    float px, py;
+    float px = 0.0f, py = 0.0f;
     if (gizmo.mode == Mode::kScale && project(gizmo.pivot, &px, &py) &&
         (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * 2.25f)
         return kCentre;
     for (const Segment& s : gizmo_segments(gizmo)) {
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by))
             continue;
         float d = distance_to_segment(x, y, ax, ay, bx, by);

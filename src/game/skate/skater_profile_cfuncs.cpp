@@ -210,7 +210,7 @@ bool cfunc_reset_to_default_profile(script::Struct* params, script::Script*)
         if (entry_name != name)
             continue;
         objects::RiderIdentity* profile = roster_handle()->get_template(name);
-        uint32_t partial;
+        uint32_t partial = 0;
         if (params->read_hash_value(kPartial, &partial, 0)) {
             if (partial == kStatsAndTricks)
                 profile->set_from_params(entry, false, true);
@@ -536,12 +536,12 @@ bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
     }
     uint32_t stat = 0; // (uninitialised in the original when missing)
     params->read_hash_value(0u, &stat, 1);
-    int value;
+    int value = 0;
     if (game_mode_is_true(kIsClassic)) {
         value = get_career()->get_info_integer(stat);
     } else {
         objects::ProfileRoster* manager = roster_handle();
-        uint32_t name;
+        uint32_t name = 0;
         objects::RiderIdentity* profile =
             params->read_hash_value(kSkater, &name, 0) ? manager->get_template(name) : manager->fetch_active_account();
         value = profile->fetch_tally(stat);

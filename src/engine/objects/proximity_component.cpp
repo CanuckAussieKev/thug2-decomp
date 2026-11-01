@@ -106,7 +106,7 @@ bool ProximityComponent::proximity_set_active(script::Struct* params, script::Sc
 {
     active_ = !params->has_bare_flag(kInactive);
     if (!active_) {
-        float delay;
+        float delay = 0.0f;
         if (params->fetch_float(kDelay, &delay, 0)) {
             int now = frame_clock::game_clock_elapsed();
             reactivate_time_ = now + (g_clock_offset - truncate(static_cast<double>(delay) * -1000.0f));

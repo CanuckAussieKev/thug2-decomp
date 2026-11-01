@@ -212,7 +212,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
         // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         if (statics[i].geometry_->tri_count_ == 0)
             continue;
-        int x0, x1, z0, z1;
+        int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
         // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         cells_of(&statics[i], x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {
@@ -235,7 +235,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
         // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         if (statics[i].geometry_->tri_count_ == 0)
             continue;
-        int x0, x1, z0, z1;
+        int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
         // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         cells_of(&statics[i], x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {

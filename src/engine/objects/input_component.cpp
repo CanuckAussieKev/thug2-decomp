@@ -143,7 +143,7 @@ PadInputModule::~PadInputModule()
 // 0x0041F390
 void PadInputModule::configure_from_data(script::Struct* params)
 {
-    int value;
+    int value = 0;
     if (params->fetch_int_value(kPlayer, &value, 0))
         link_to_pad(player_controller(value));
     else if (params->fetch_int_value(kController, &value, 0))
@@ -402,9 +402,9 @@ int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 // 0x0041EB20
 int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kButton, &name, 1);
-    float time;
+    float time = 0.0f;
     std::memcpy(&time, &params, sizeof(time)); // (the original's slot for it: the params argument)
     params->fetch_float(0u, &time, 1);
     double scaled = time;

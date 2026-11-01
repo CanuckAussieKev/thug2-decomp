@@ -229,7 +229,7 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
 void FootView::get_zoomed_offsets(float* height, float* distance)
 {
     float factor = 1.0f;
-    uint32_t factor_bits;
+    uint32_t factor_bits = 0;
     std::memcpy(&factor_bits, &free_look_->factor_, 4);
     if (free_look_->turning_ && factor_bits != 0x3F800000)
         factor = free_look_->factor_;
@@ -259,7 +259,7 @@ void FootView::tick_frame()
     }
     if (skater_->composite_flags_ & kCompositeFlagTeleported)
         instant_frames_ = 3;
-    bool instant;
+    bool instant = false;
     if (instant_frames_ > 0) {
         --instant_frames_;
         instant = true;
@@ -287,7 +287,7 @@ void FootView::tick_frame()
                                              static_cast<double>(skater_facing.z) * facing.z +
                                              static_cast<double>(skater_facing.y) * facing.y);
             if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
-                float full, least;
+                float full = 0.0f, least = 0.0f;
                 if (!walk_->using_dpad()) {
                     full = get_param(kFullSlerpSpeed);
                     least = get_param(kMinSlerpSpeed);
@@ -357,7 +357,7 @@ void FootView::tick_frame()
             // Slerped toward it: at matrix_slerp_rate, faster running (and twice that hanging or climbing), with
             // the stick, flushing; an override's own rate.
             maths::ArcRotationBlender slerp(matrix, look);
-            float base;
+            float base = 0.0f;
             script::read_sub_struct(kParameters)->fetch_float(kMatrixSlerpRate, &base, 1);
             float rate = base;
             if (walk_->running_)
@@ -394,7 +394,7 @@ void FootView::tick_frame()
     // Where to be: behind and above the point followed, looking at a point above the skater.
     maths::Vec4 target;
     fetch_goal(&target, instant);
-    float height, distance;
+    float height = 0.0f, distance = 0.0f;
     get_zoomed_offsets(&height, &distance);
     double up_x = static_cast<double>(skater_up.x) * height;
     double up_y = static_cast<double>(skater_up.y) * height;

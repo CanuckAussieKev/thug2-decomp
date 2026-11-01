@@ -244,7 +244,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
              component = structure->step_to_entry(component)) {
             if (callback)
                 callback();
-            uint32_t written;
+            uint32_t written = 0;
             size_t at = out.position();
             switch (component->kind_tag()) {
             case kQbvalInteger:

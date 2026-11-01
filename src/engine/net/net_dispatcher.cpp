@@ -90,7 +90,7 @@ int Router::dispatch_msg(InboundMsgCtx* context)
     if (guarded >= 0)
         return guarded;
     lists::Hunt<NoteHandler> search;
-    NoteHandler* next;
+    NoteHandler* next = nullptr;
     for (NoteHandler* handler = search.head_element(&link_chain(context->type_code_).list_link_); handler;
          handler = next) {
         next = search.following_item();

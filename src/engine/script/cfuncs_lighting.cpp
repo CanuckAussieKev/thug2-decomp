@@ -108,7 +108,7 @@ bool cfunc_get_terrain_type_param(Struct* params, Script* script)
     uint32_t terrain_name = 0;
     int terrain_index = 0;
     params->read_hash_value(kParam, &param, 1);
-    uint8_t terrain;
+    uint8_t terrain = 0;
     if (params->read_hash_value(kTerrain, &terrain_name, 0)) {
         terrain = surface_kind::get_terrain_index(terrain_name);
     } else {
@@ -187,7 +187,7 @@ void write_gamma(float red, float green, float blue)
 // does. Always true.
 bool cfunc_apply_change_gamma(Struct* params, Script*)
 {
-    float red, green, blue;
+    float red = 0.0f, green = 0.0f, blue = 0.0f;
     get_gamma(&red, &green, &blue);
     uint32_t color = 0; // (uninitialised in the original: both are asserted)
     float change = 0.0f;
@@ -259,7 +259,7 @@ bool cfunc_set_fog_exponent(Struct* params, Script*)
 // the scene has no such sector).
 bool cfunc_vc_wibble_play_from_keyframe(Struct* params, Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     if (!params->read_hash_value(kSector, &name, 0))
         return false;
     render::WorldCell* sector = look_up_sector(name);

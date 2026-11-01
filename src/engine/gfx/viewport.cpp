@@ -240,7 +240,7 @@ void set_screen_mode(int mode)
         gfx::ViewCam* camera = current_view_slot(i)->viewer_.get_pull(); // (no check, as the original)
         if (!camera)
             continue;
-        float angle;
+        float angle = 0.0f;
         if (mode == 1)
             angle = static_cast<float>(static_cast<double>(script::fetch_float("Skater_Cam_Horiz_FOV")) *
                                        gfx::g_half); // (0.5: split_vertical)
@@ -310,7 +310,7 @@ void pop_occlusion_request()
 // 0x004A07D0
 bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 {
-    float value;
+    float value = 0.0f;
     if (params->fetch_float(kScaleNumerator, &value, 0))
         g_scale_2d_in_3d_numerator = value;
     if (params->fetch_float(kMaxScale, &value, 0))

@@ -218,7 +218,7 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
         uint16_t a = indices[i - 2], b = indices[i - 1], c = indices[i];
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
-        float hit;
+        float hit = 0.0f;
         if (ray_triangle(origin, dir, at(a), at(b), at(c), &hit) && hit < best) {
             best = hit;
             found = true;

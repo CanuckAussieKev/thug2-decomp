@@ -151,7 +151,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
         if (*p == '\0')
             break;
         if (counted) {
-            int w;
+            int w = 0;
             if (glyph)
                 w = glyph->w;
             else if (*p == ' ')
@@ -297,7 +297,7 @@ void GlyphRun::draw()
             const TextEffect* e =
                 effects ? reinterpret_cast<const TextEffect*>(reinterpret_cast<const uint8_t*>(effects) + effect)
                         : nullptr;
-            float right, bottom;
+            float right = 0.0f, bottom = 0.0f;
             if (e) {
                 int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
                 right = static_cast<float>(static_cast<double>(w) + e->x + pos_x);
@@ -395,13 +395,13 @@ TypefaceData*& typeface_chain() { return g_typeface_head; }
 
 uint16_t u16(const uint8_t* p)
 {
-    uint16_t value;
+    uint16_t value = 0;
     std::memcpy(&value, p, sizeof(value));
     return value;
 }
 uint32_t get_u32(const uint8_t* p)
 {
-    uint32_t value;
+    uint32_t value = 0;
     std::memcpy(&value, p, sizeof(value));
     return value;
 }
@@ -562,7 +562,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     memory::HeapPtr<uint8_t> indices;
     memory::HeapPtr<uint32_t> game_pixels;
     std::vector<uint32_t> hd_pixels;
-    uint32_t* pixels;
+    uint32_t* pixels = nullptr;
     if (hd_scale != 1) {
         // (not original - HD menu UI: the texels as they are, in a buffer from the C runtime's heap - 4-16 MB, more
         // than the game's heap may have free while the front end loads)

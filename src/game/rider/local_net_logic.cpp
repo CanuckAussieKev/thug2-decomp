@@ -100,7 +100,7 @@ static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, U
             controls &= ~(1u << k);
     }
     out.controls = controls;
-    uint32_t value;
+    uint32_t value = 0;
     out.value_6c_ = *static_cast<RiderSessionEnd*>(component_6c)->fetch_bits(&value); // (SkaterEndRun)
 }
 
@@ -270,8 +270,8 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     Rider* victim = rider_for_slot(victim_id);
     if (!victim)
         return net::kResultPassOn;
-    uint32_t script;
-    Rider* other;
+    uint32_t script = 0;
+    Rider* other = nullptr;
     if (skater->ident_ == thief_id) {
         script = kGraffitiStealYou;
         other = victim;

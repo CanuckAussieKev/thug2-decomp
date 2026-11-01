@@ -63,7 +63,7 @@ void SkateLineGoal::next_cluster()
     script::Array* objects = nullptr;
     args_->fetch_list(kGoalObjects, &objects, 1);
     auto* cluster = reinterpret_cast<script::Struct*>(objects->fetch_part(static_cast<uint32_t>(num_flags_set_)));
-    int time;
+    int time = 0;
     if (cluster->fetch_int_value(kTime, &time, 1))
         set_seconds_remaining(time);
     script::Struct* params = spawn_param_table();
@@ -85,7 +85,7 @@ bool SkateLineGoal::set_flag(uint32_t flag, int value, uint32_t sub)
         return false;
     script::Array* objects = nullptr;
     args_->fetch_list(kGoalObjects, &objects, 1);
-    uint32_t cluster_flag;
+    uint32_t cluster_flag = 0;
     reinterpret_cast<script::Struct*>(objects->fetch_part(static_cast<uint32_t>(num_flags_set_)))
         ->read_hash_value(kFlag, &cluster_flag, 1);
     bool set = false;

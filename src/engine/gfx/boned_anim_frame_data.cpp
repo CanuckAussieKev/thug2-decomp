@@ -125,7 +125,7 @@ const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t 
 {
     const int16_t* shared = g_quat_table;
     uint16_t first = get_word(data);
-    uint16_t header;
+    uint16_t header = 0;
     if (flags & 0x100) {
         header = get_word(data + 2);
         out->time = static_cast<uint16_t>((header & 0x8000) | (first & 0x7FFF));
@@ -517,7 +517,7 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
     flag_bits_ |= 0x4000;
     int stride = quat_stride_;
     uint8_t* start = quat_keys_ + quat_offsets_[bone];
-    uint8_t* end;
+    uint8_t* end = nullptr;
     if (bone == bone_count_ - 1) {
         if (!(start + stride < trans_keys_)) {
             *second = *first = start;
@@ -585,7 +585,7 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
     flag_bits_ |= 0x4000;
     int stride = trans_stride_;
     uint8_t* start = trans_keys_ + trans_offsets_[bone];
-    uint8_t* end;
+    uint8_t* end = nullptr;
     if (bone == bone_count_ - 1) {
         end = quat_keys_ + extent_;
         if (!(start + stride < end)) {
@@ -842,7 +842,7 @@ bool JointClipFrames::get_float_key_pose(float* rotations, float* translations, 
     uint8_t* quat_keys = quat_keys_;
     uint8_t* trans_keys = trans_keys_;
     for (int bone = 0; bone < bone_count_; ++bone) {
-        int quat_count, trans_count;
+        int quat_count = 0, trans_count = 0;
         if (flag_bits_ & 0x400000) {
             quat_count = reinterpret_cast<const int16_t*>(key_counts_)[2 * bone];
             trans_count = reinterpret_cast<const int16_t*>(key_counts_)[2 * bone + 1];
@@ -936,8 +936,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
             } else {
                 bool done = false;
                 if (cache_slot_) {
-                    uint8_t* first;
-                    uint8_t* second;
+                    uint8_t* first = nullptr;
+                    uint8_t* second = nullptr;
                     int found = forwards ? entry->find_quat_keys(bone, quat_frame, &first, &second, cursor)
                                          : entry->find_quat_keys_backwards(bone, quat_frame, &first, &second, cursor);
                     if (found != -2) {
@@ -965,7 +965,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                     if (source && source->resume_ && source->quat_at_[bone])
                         at = source->quat_at_[bone];
                     ShortKey a, b;
-                    float t;
+                    float t = 0.0f;
                     for (;;) {
                         if (source)
                             source->quat_at_[bone] = at;
@@ -991,8 +991,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
             if (!((flag_bits_ & 0x20000) && *trans_size == 0)) {
                 bool done = false;
                 if (cache_slot_) {
-                    uint8_t* first;
-                    uint8_t* second;
+                    uint8_t* first = nullptr;
+                    uint8_t* second = nullptr;
                     int found = forwards ? entry->find_trans_keys(bone, trans_frame, &first, &second, cursor)
                                          : entry->find_trans_keys_backwards(bone, trans_frame, &first, &second, cursor);
                     if (found != -2) {

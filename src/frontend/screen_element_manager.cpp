@@ -200,7 +200,7 @@ ElementPtr* UiTree::find_by_local_id(ElementPtr* out, const ElementPtr* parent, 
     ElementPtr child;
     child.assign_value(parent->owner_object_->eldest_.owner_object_);
     while (child) {
-        uint32_t tag;
+        uint32_t tag = 0;
         if (child->read_hash_tag(kTagLocalId, &tag) && tag == local_id)
             break;
         child.assign_value(child->following_.owner_object_);
@@ -240,7 +240,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
         if (resolved)
             return true;
     }
-    uint32_t id;
+    uint32_t id = 0;
     if (params->read_hash_value(name, &id, 0)) {
         if (resolving_) {
             ElementPtr found;
@@ -257,7 +257,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
         *out = id;
         return true;
     }
-    int index;
+    int index = 0;
     if (params->fetch_int_value(name, &index, 0)) {
         if (!resolving_)
             return false;
@@ -276,7 +276,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
 // 0x004AD1E0
 ElementPtr* UiTree::resolve_element(ElementPtr* out, script::Struct* params, uint32_t name, int assert)
 {
-    uint32_t id;
+    uint32_t id = 0;
     if (resolve_id(params, name, &id))
         return fetch_part(out, id, assert);
     out->preceding_ = out->following_ = nullptr;
@@ -456,7 +456,7 @@ void UiTree::listener_receive(objects::Signal* event)
         }
     }
     if (manager->check_device_ && event->payload_) {
-        int device;
+        int device = 0;
         if (event->payload_->fetch_int_value(kDeviceNum, &device, 0)) {
             auto* input = pad_input::g_input_manager; // (the input manager)
             if (input->get_player_controller(0) != device)
@@ -615,7 +615,7 @@ void UiTree::update_priorities()
         PriorityEntry& entry = priorities_[i];
         if (!entry.active)
             continue;
-        UiWidget* element;
+        UiWidget* element = nullptr;
         {
             ElementPtr found;
             element = fetch_part(&found, entry.id, 0)->owner_object_;

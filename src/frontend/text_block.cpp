@@ -110,7 +110,7 @@ ParagraphWidget::~ParagraphWidget() { delete_blur(blur_); }
 void ParagraphWidget::change_typeface(uint32_t font)
 {
     font_name_ = font;
-    float width, height;
+    float width = 0.0f, height = 0.0f;
     read_string_param(get_font(font), sizing_text(), &width, &height);
     int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
     line_capacity_ = get_truncated(level_y_) / line_height;
@@ -123,11 +123,11 @@ void ParagraphWidget::add_words(const char* text)
     void* font = get_font(font_name_);
     const char* cursor = text;
     int previous = 0;
-    int result;
+    int result = 0;
     do {
         char word[0x64];
         result = text::next_word(word, cursor);
-        float width, height;
+        float width = 0.0f, height = 0.0f;
         read_string_param(font, word, &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span_;
@@ -191,7 +191,7 @@ void ParagraphWidget::change_caption(const char** texts, int count)
     if (num_lines_ >= line_capacity_) {
         if (may_grow_) {
             // the block grows to the lines' height and they are made again
-            float width, height;
+            float width = 0.0f, height = 0.0f;
             read_string_param(get_font(font_name_), sizing_text(), &width, &height);
             double line_height = static_cast<double>(line_spacing_) * internal_scale_ * height;
             double total = static_cast<double>(num_lines_) * line_height;
@@ -310,7 +310,7 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
         char word[0x64];
         while (text::next_word(word, cursor) != 2) {
         }
-        float width, height;
+        float width = 0.0f, height = 0.0f;
         read_string_param(font, word, &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         if (width > span_) {
@@ -359,7 +359,7 @@ void ParagraphWidget::change_traits(Struct* params)
     if (params->fetch_float(kInternalScale, &internal_scale_, 0))
         object_flags_ |= kVisibleNow;
     params->fetch_float(kLineSpacing, &line_spacing_, 0);
-    uint32_t font;
+    uint32_t font = 0;
     if (params->read_hash_value(kFont, &font, 0))
         change_typeface(font);
     if (read_alignment_param(params, kInnerAlign, &inner_align_h_, &inner_align_v_))
@@ -367,7 +367,7 @@ void ParagraphWidget::change_traits(Struct* params)
     if (params->has_bare_flag(kMayGrow))
         may_grow_ = true;
     const char* texts[kMaxTexts];
-    script::Array* array;
+    script::Array* array = nullptr;
     if (params->fetch_text(kText, &texts[0], 0)) {
         change_caption(texts, 1);
     } else if (params->fetch_list(kText, &array, 0)) {
@@ -386,7 +386,7 @@ void ParagraphWidget::change_traits(Struct* params)
         delete_blur(blur_);
         blur_ = nullptr;
     }
-    uint32_t rgba;
+    uint32_t rgba = 0;
     if (read_colour_param(params, kHaloColor, &rgba) && blur_)
         blur_->rgba_value_ = rgba;
     script::Pair offset;
@@ -419,14 +419,14 @@ void ParagraphWidget::blend_towards(Struct* params)
 {
     if (blur_) {
         tick_frame();
-        int ms;
+        int ms = 0;
         SmearEffect::Settings* target = blur_->set_from_params(params, &ms);
         ElementPtr child;
         child.assign_value(eldest_.owner_object_);
         while (child) {
             // each line's blur displaced towards the block's middle by how far its middle is from it
             SmearEffect::Settings settings = *target;
-            float x, y;
+            float x = 0.0f, y = 0.0f;
             child->fetch_location(&x, &y);
             y = static_cast<float>(static_cast<double>(child->level_y_) * get_half() + y);
             double offset = static_cast<double>(level_y_) * get_half() - y;
@@ -450,7 +450,7 @@ void ParagraphWidget::tick_frame()
     child.assign_value(eldest_.owner_object_);
     for (int i = 0; i < rows_filled_; ++i) {
         child->change_alignment(inner_align_h_, -1.0f);
-        uint32_t rgba;
+        uint32_t rgba = 0;
         std::memcpy(&rgba, shown_.rgba, 4);
         child->change_rgba(rgba, 1);
         auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span_ * get_half());

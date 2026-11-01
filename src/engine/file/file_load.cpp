@@ -165,7 +165,7 @@ int get_take_in(void* buffer, int size, int count, Hdl file)
         if (handled_by_archive())
             return result;
     }
-    DWORD bytes_read;
+    DWORD bytes_read = 0;
     if (!ReadFile(file, buffer, static_cast<DWORD>(size) * static_cast<DWORD>(count), &bytes_read, nullptr)) {
         DWORD error = GetLastError();
         if (error != ERROR_HANDLE_EOF)

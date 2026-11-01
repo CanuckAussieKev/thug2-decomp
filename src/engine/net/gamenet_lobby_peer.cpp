@@ -163,7 +163,7 @@ void RoomManager::queue_packet(char* data, int length, const void* from)
     if (queued_count() >= kMaxQueued)
         return;
     const auto* bytes = reinterpret_cast<const uint8_t*>(data);
-    int type;
+    int type = 0;
     if ((bytes[0] == 0xFE && bytes[1] == 0xFD) || bytes[0] == '\\')
         type = kPacketQuery;
     else if (length >= 6 && std::memcmp(bytes, kNatMagic, sizeof(kNatMagic)) == 0)

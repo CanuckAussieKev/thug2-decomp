@@ -127,7 +127,7 @@ void Objective::uninitialize(bool children, int depth)
 {
     if (is_operative())
         disengage(true, true);
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kUninit, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     flag_bits_ &= ~kFlagInitialized;
@@ -143,7 +143,7 @@ bool Objective::lose()
 {
     if (!is_operative())
         return false;
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kFail, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     disengage(true, true);
@@ -229,7 +229,7 @@ bool Objective::tick_frame()
 // 0x00554F40
 void Objective::expire()
 {
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kExpireScript, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     if (flag_bits_ & kFlagDeactivateOnExpire)
@@ -269,21 +269,21 @@ bool Objective::register_gap_hit(uint32_t gap)
 // 0x00555100
 bool Objective::step_to_next_waypoint()
 {
-    script::Array* waypoints;
+    script::Array* waypoints = nullptr;
     if (!args_->fetch_list(kWaypoints, &waypoints, 0))
         args_->fetch_list(kWaypoints2, &waypoints, 1);
     for (uint32_t i = 0; i < waypoints->extent_; ++i) {
         auto* waypoint = reinterpret_cast<script::Struct*>(waypoints->fetch_part(i));
-        uint32_t flag;
+        uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
         if (goal_flags_->has_entry_named(flag)) {
-            int set;
+            int set = 0;
             goal_flags_->fetch_int_value(flag, &set, 1);
             if (set == 1)
                 continue;
         }
         cur_phase_ |= kStatePaused;
-        int time;
+        int time = 0;
         waypoint->fetch_int_value(kTime, &time, 1);
         if (args_->has_bare_flag(kAddTime)) {
             seconds_remaining_ += time * 1000 + 20;
@@ -311,19 +311,19 @@ bool Objective::step_to_next_waypoint()
 // 0x005552D0
 void Objective::kill_cluster(uint32_t cluster, int score)
 {
-    script::Array* clusters;
+    script::Array* clusters = nullptr;
     args_->fetch_list(kKillClusters, &clusters, 1);
     for (uint32_t i = 0; i < clusters->extent_; ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(clusters->fetch_part(i));
-        uint32_t id;
+        uint32_t id = 0;
         entry->read_hash_value(kIdName, &id, 1);
-        int needed;
+        int needed = 0;
         if (!entry->fetch_int_value(kScore, &needed, 0))
             args_->fetch_int_value(kScore, &needed, 1);
         if (id == cluster && score > needed) {
             if (!objects::g_trick_spot_hub->set_object_graffiti_color(cluster, 0))
                 debug::printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
-            uint32_t flag;
+            uint32_t flag = 0;
             entry->read_hash_value(kFlag, &flag, 1);
             set_flag(flag, 1, 0u);
             return;
@@ -335,9 +335,9 @@ void Objective::kill_cluster(uint32_t cluster, int score)
 bool Objective::did_trick_string()
 {
     void* score = static_cast<objects::RiderPointKeeper*>(local_skater()->fetch_module(kSkaterScore))->points_held_;
-    const char* trick;
+    const char* trick = nullptr;
     args_->fetch_text(kTrickString, &trick, 1);
-    uint32_t type;
+    uint32_t type = 0;
     args_->read_hash_value(kTrickType, &type, 1);
     if (type == kGrind) {
         // (the original copies into its 128 bytes unbounded)
@@ -436,7 +436,7 @@ bool Objective::test_highest_air()
 // 0x00555800
 bool Objective::test_longest_jump()
 {
-    uint32_t id;
+    uint32_t id = 0;
     args_->read_hash_value(kDistanceObject, &id, 1);
     objects::Entity* object =
         reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(id);

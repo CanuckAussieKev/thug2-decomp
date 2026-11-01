@@ -333,7 +333,7 @@ bool PedestrianBrainModule::avoid_peds()
         double my_length = std::sqrt((static_cast<double>(at.x) * at.x + static_cast<double>(at.y) * at.y) +
                                      static_cast<double>(at.z) * at.z);
         float cosine = maths::confine(static_cast<float>(heading_dot / (other_length * my_length)), -1.0f, 1.0f);
-        bool above;
+        bool above = false;
         float angle = maths::acos_f(cosine, kFullTurn, &above);
         if (above)
             angle = static_cast<float>(
@@ -392,7 +392,7 @@ void PedestrianBrainModule::keep_to_path()
         angle = static_cast<float>(static_cast<double>(kDegrees) - angle);
     double sx = static_cast<double>(ax) - bx, sz = static_cast<double>(az) - bz;
     double segment = std::sqrt(sx * sx + sz * sz);
-    float off;
+    float off = 0.0f;
     if (segment == 0.0)
         off = 0.0f;
     else
@@ -400,7 +400,7 @@ void PedestrianBrainModule::keep_to_path()
             std::sqrt((static_cast<double>(cross_x) * cross_x + static_cast<double>(cross_z) * cross_z) +
                       static_cast<double>(cross_y) * cross_y) /
             segment);
-    float weight;
+    float weight = 0.0f;
     if (off > max_distance)
         weight = 1.0f;
     else
@@ -525,7 +525,7 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
             dot = kMaxCos;
         else if (dot < kMinCos)
             dot = kMinCos;
-        bool unused;
+        bool unused = false;
         float turn = std::fabs(maths::acos_f(dot, 0.0f, &unused));
         if (!(static_cast<double>(step_seconds_) * kTurnPerSecond >= turn)) {
             static float g_max_turn = 0.69813174f; // (40 degrees)
@@ -822,7 +822,7 @@ void PedestrianBrainModule::skater_move_update()
     if ((flag_bits_ & kPedFlagMoving) || airborne) {
         // Reaching the next waypoint (in the air, or for a vert node, in 3D).
         const maths::Vec4& at = entity_->at_point_;
-        double dx, dy, dz;
+        double dx = 0.0, dy = 0.0, dz = 0.0;
         if ((flag_bits_ & kPedFlagVertNext) || airborne) {
             dx = static_cast<double>(at.x) - next_node_pos_.x;
             dy = static_cast<float>(static_cast<double>(at.y) - next_node_pos_.y);
@@ -1078,7 +1078,7 @@ void PedestrianBrainModule::blocker_update()
     const maths::Vec4& at = skater->at_point_;
     maths::Vec4 end;
     maths::Vec4 on_path;
-    float s, t;
+    float s = 0.0f, t = 0.0f;
     if (!(speed_sqr < kFastSkaterSqr) && not_approaching) {
         auto ex = static_cast<float>(static_cast<double>(vel.x) * kLookAhead),
              ey = static_cast<float>(static_cast<double>(vel.y) * kLookAhead),

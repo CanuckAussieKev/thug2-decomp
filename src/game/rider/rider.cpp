@@ -178,7 +178,7 @@ bool Rider::matches_params(script::Struct* params)
         return false;
     if (params->has_bare_flag(kIsFemale) && male_)
         return false;
-    uint32_t value;
+    uint32_t value = 0;
     if (params->read_hash_value(kIsNamed, &value, 0) && value != label_)
         return false;
     if (params->read_hash_value(kStance, &value, 0) && value != (goofy_ ? kGoofy : kRegular))
@@ -306,7 +306,7 @@ script::Struct* get_physics_structure(GameEntity* skater)
 float read_tuning_float(uint32_t name, int assert, GameEntity* skater)
 {
     script::Struct* physics = get_physics_structure(skater);
-    float value;
+    float value = 0.0f;
     if (physics->fetch_float(name, &value, 0))
         return value;
     (void)assert;
@@ -317,7 +317,7 @@ float read_tuning_float(uint32_t name, int assert, GameEntity* skater)
 int read_tuning_int(uint32_t name, int assert, GameEntity* skater)
 {
     script::Struct* physics = get_physics_structure(skater);
-    int value;
+    int value = 0;
     if (physics->fetch_int_value(name, &value, 0))
         return value;
     (void)assert;
@@ -332,7 +332,7 @@ float Rider::fetch_tally(int index)
 {
     float stat = get_skate()->forced_stat_; // (forced by the skate module unless 0)
     if (stat == 0.0f) {
-        uint32_t bits;
+        uint32_t bits = 0;
         std::memcpy(&bits, &stat_overrides_[index], 4);
         stat = bits == 0xBF800000 ? script::fetch_float(kSkaterDefaultStats) : stat_overrides_[index];
     }
@@ -367,7 +367,7 @@ float Rider::get_scaled_value(script::Struct* params)
 {
     script::Pair range, switch_range;
     params->fetch_pair(0u, &range, false);
-    int stat_index;
+    int stat_index = 0;
     double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
     const float low = range.x, high = range.y;
     auto result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
@@ -399,7 +399,7 @@ float Rider::get_scaled_value(script::Struct* params)
         }
     }
     // The limit: a maximum for a rising range, a minimum otherwise.
-    float limit;
+    float limit = 0.0f;
     if (!params->fetch_float(kLimit, &limit, 0))
         return result;
     if (low < high)
@@ -430,7 +430,7 @@ float Rider::get_scaled_param(uint32_t name, script::Struct* params)
 void Rider::move_to_random_restart()
 {
     modules::Skate* skate = get_skate();
-    uint32_t restart;
+    uint32_t restart = 0;
     int tries = 0;
     do {
         restart = skate->warp_to_restart(static_cast<uint32_t>(maths::rnd(8)));
@@ -525,7 +525,7 @@ void Rider::update_shadow_light(int, int)
         }
     }
     // In the air (or not on the ground): fade towards straight down; else back.
-    bool fading;
+    bool fading = false;
     RiderBoardPhysics* control = physics_control_;
     if (control && !control->pose_->in_vehicle_ && !static_cast<uint32_t>(control->pose_->physics_mode_))
         fading = core_physics_->state_->cur_phase_ == 0;
@@ -594,7 +594,7 @@ void Rider::update_from_profile(RiderIdentity* profile)
     style_ = 0;
     info->fetch_int_value(kIsMale, &male_, 1);
     info->read_hash_value(kSkateStyle, &style_, 0);
-    const char* first_name;
+    const char* first_name = nullptr;
     info->fetch_text(kFirstName, &first_name, 1);
     for (int i = 0; (given_name_[i] = first_name[i]) != 0; ++i) { // (copied inline, unchecked)
     }
@@ -662,7 +662,7 @@ void Rider::set_up_network()
 // 0x00581260
 void Rider::show_board_element(uint32_t type)
 {
-    uint32_t name;
+    uint32_t name = 0;
     switch (type) {
     case 0x23A1DF80:
         name = 0x53409C6B;
@@ -683,9 +683,9 @@ void Rider::show_board_element(uint32_t type)
     if (!params)
         return;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
-    uint32_t model_swap, model_swap2;
-    float width, height;
-    const char* texture;
+    uint32_t model_swap = 0, model_swap2 = 0;
+    float width = 0.0f, height = 0.0f;
+    const char* texture = nullptr;
     params->read_hash_value(0xA01371B1, &model_swap, 1);
     params->fetch_float(0x6AA8D676, &width, 1);
     params->fetch_float(0xCCDFDDC2, &height, 1);
@@ -705,15 +705,15 @@ void Rider::show_board_element(uint32_t type)
     element->resize_from(parent, 1);
     element->get_border(0); // (black)
     element->get_zoom(width, height);
-    int flag;
+    int flag = 0;
     if (params->fetch_int_value(0xC876ADF3, &flag, 0))
         element->spin_by(1.5707964f, -1.0f, -1.0f);
     bool second = false;
     render::BitmapTexture* overlay = nullptr;
-    int unused;
+    int unused = 0;
     if (params->fetch_int_value(0x25A0E7E9, &unused, 0)) {
         second = true;
-        const char* overlay_texture;
+        const char* overlay_texture = nullptr;
         params->fetch_text(0x499F4BE9, &overlay_texture, 1);
         overlay = new_element(overlay_texture);
         reset(overlay);
@@ -721,7 +721,7 @@ void Rider::show_board_element(uint32_t type)
         overlay->write_back(1, nullptr);
     }
     element->write_back(1, nullptr);
-    const char* model;
+    const char* model = nullptr;
     params->fetch_text(0x49B318FD, &model, 1);
     // (the third is a checksum where swap_texture takes a texture name: passed on as it is)
     static_cast<MeshInstanceModule*>(fetch_module(kModelModuleName))
@@ -983,11 +983,11 @@ void Rider::prepare_all(RiderIdentity* profile)
     add_rigid_body_pusher(this);
     // Its controls' tag (a custom skater's own, if it has one) and sticker.
     script::Struct* info = profile->details_params();
-    const char* tag;
+    const char* tag = nullptr;
     info->fetch_text(0x4FA8DF27, &tag, 1); // tag_texture
     ObjectModule* controls = fetch_module(0x5B512EDC);
     if (label_ == kCustomSkater) {
-        int has_custom_tag;
+        int has_custom_tag = 0;
         info->fetch_int_value(0xB78D4AAE, &has_custom_tag, 1);
         if (has_custom_tag)
             static_cast<TaggingComponent*>(controls)->apply_custom_tag_texture();
@@ -996,7 +996,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     } else {
         static_cast<TaggingComponent*>(controls)->set_graffiti_texture(tag);
     }
-    const char* sticker;
+    const char* sticker = nullptr;
     if (info->fetch_text(0x130618A0, &sticker, 0)) // sticker_texture
         static_cast<TaggingComponent*>(controls)->set_sticker_texture(sticker);
 }
@@ -1421,7 +1421,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         get_skate()->conceal_skater(this, true);
         return true;
     case 0x1C5612EE: { // SkaterIsNamed
-        uint32_t named;
+        uint32_t named = 0;
         params->read_hash_value(0u, &named, 1);
         return named == label_;
     }
@@ -1470,7 +1470,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         script_results(script)->put_name_key(0x7A039889, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
         return true;
     case 0x7915AA31: { // fetch_tally
-        int stat;
+        int stat = 0;
         params->fetch_int_value(0xDF4700DE, &stat, 1);
         script::Struct* results = script_results(script);
         results->push_float(0x8EAF7ADD, fetch_tally(stat)); // stat_value
@@ -1555,7 +1555,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
             }
             // The restart node's TriggerScript, run on it.
             if (node && level_nodes::fetch_vertex(node, !net_link()->in_net_game())) {
-                uint32_t script;
+                uint32_t script = 0;
                 if (level_nodes::fetch_vertex(node, true)->read_hash_value(0x2CA8A299, &script, 0))
                     start_script_task(script, static_cast<int>(node), false, false, nullptr);
             }

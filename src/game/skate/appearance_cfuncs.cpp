@@ -167,7 +167,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
 bool cfunc_set_player_face_points(script::Struct* params, script::Script*)
 {
     void* face = face_of(rider_identity_from_params(params));
-    script::Struct* from;
+    script::Struct* from = nullptr;
     if (!params->read_sub_struct("face_points", &from, 0))
         from = params;
     FacePoints points;
@@ -264,7 +264,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     skater->update_from_profile(profile);
     memory::Hub::get_pull()->leave_heap_scope();
-    uint32_t no_board;
+    uint32_t no_board = 0;
     if (params->read_hash_value(kNoBoard, &no_board, 0)) {
         auto* skater_model = static_cast<objects::MeshInstanceModule*>(skater->fetch_module(kModel));
         skater_model->conceal_mesh(kBoard, true, true);
@@ -308,7 +308,7 @@ bool cfunc_get_actual_cas_option_struct(script::Struct* params, script::Script* 
 bool cfunc_get_actual_player_appearance_part(script::Struct* params, script::Script* script)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
-    uint32_t part;
+    uint32_t part = 0;
     if (!params->read_hash_value(kPart, &part, 0))
         return false;
     script::Struct* structure = actual_part(profile, part);
@@ -321,7 +321,7 @@ bool cfunc_get_actual_player_appearance_part(script::Struct* params, script::Scr
 bool cfunc_get_player_appearance_part(script::Struct* params, script::Script* script)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
-    uint32_t part;
+    uint32_t part = 0;
     if (!params->read_hash_value(kPart, &part, 0))
         return false;
     script::Struct* structure = appearance_part(profile, part);
@@ -380,14 +380,14 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script*)
         slot = memory ? new (memory) script::Struct : nullptr;
         appearance_structure(profile)->append_struct_ref(part, slot);
     }
-    float value;
+    float value = 0.0f;
     if (params->fetch_float(kX, &value, 0))
         slot->put_int(kX, truncate(value));
     if (params->fetch_float(kY, &value, 0))
         slot->put_int(kY, truncate(value));
     if (params->fetch_float(kZ, &value, 0))
         slot->put_int(kZ, truncate(value));
-    int use_default;
+    int use_default = 0;
     if (params->fetch_int_value(kKeepStockScale, &use_default, 0))
         slot->put_int(kKeepStockScale, use_default);
     return true;

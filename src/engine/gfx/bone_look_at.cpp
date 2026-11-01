@@ -355,8 +355,8 @@ int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Scr
 {
     if (name != kOn && name != kIsOn && name != kOff && name != kSettings)
         return 2;
-    bool all;
-    bool by_id;
+    bool all = false;
+    bool by_id = false;
     int index = bone_from_params(this, params, &all, &by_id);
     if (name == kOn) {
         if (all)

@@ -138,7 +138,7 @@ void GoalManager::land()
             if (!skater)
                 continue;
             void* score = skater->get_points_total();
-            int needed;
+            int needed = 0;
             goal->fetch_args()->fetch_int_value(kScore, &needed, 1);
             if (total_with_pending(score) < needed)
                 continue;
@@ -157,7 +157,7 @@ void GoalManager::land()
             if (!skater)
                 continue;
             void* score = skater->get_points_total();
-            int current;
+            int current = 0;
             goal->fetch_args()->fetch_int_value(kArcadeCurrentScoreTotal, &current, 0);
             if (total_with_pending(score) <= current)
                 continue;
@@ -180,7 +180,7 @@ void GoalManager::get_bail()
         if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag))
             lose_next_frame(goal);
         if (goal->is_tetris()) {
-            int flag;
+            int flag = 0;
             if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && flag)
                 goal->fetch_args()->put_int(kTrickMarker, 0);
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
@@ -196,7 +196,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
     script::Struct* info = spawn_param_table();
     int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
-        uint32_t key;
+        uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
         uint32_t pro = goal->skater_;
         if (skater && pro != skater)
@@ -205,7 +205,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         int beaten = goal->has_won() ? 1 : 0;
         int locked = goal->is_latched() ? 1 : 0;
         script::Struct* params = goal->fetch_args();
-        const char* text;
+        const char* text = nullptr;
         params->fetch_text(kViewGoalsText, &text, 1);
         script::Struct* entry = spawn_param_table();
         entry->put_name_key(kGoalIdChecksum, id);
@@ -247,7 +247,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
     for (script::Component* component = by_pro->step_to_entry(nullptr); component;) {
         script::Component* next_pro = by_pro->step_to_entry(component);
         script::Struct* goals = component->structure;
-        int number;
+        int number = 0;
         goals->fetch_int_value(kNumGoals, &number, 1);
         goals->erase_module(kNumGoals);
         script::Array* list = alloc_script_array();
@@ -278,9 +278,9 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 bool cfunc_goal_manager_add_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    script::Struct* goal_params;
+    script::Struct* goal_params = nullptr;
     params->read_sub_struct(kParams, &goal_params, 1);
     return manager->enrol_objective(name, goal_params);
 }
@@ -289,7 +289,7 @@ bool cfunc_goal_manager_add_goal(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     return manager->drop_objective(name);
 }
@@ -318,7 +318,7 @@ bool cfunc_goal_manager_level_unload(script::Struct*, script::Script*)
 // 0x0055D530: the beaten goals of the level the unnamed integer names, as the script's num_beaten.
 bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script::Script* script)
 {
-    int level;
+    int level = 0;
     params->fetch_int_value(0u, &level, 1);
     GoalManager* manager = get_objective_board();
     int flag = params->has_bare_flag(kBeatenInLevelFlag);
@@ -364,10 +364,10 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
         manager->replace_trick_text_all();
         return true;
     }
-    uint32_t name;
+    uint32_t name = 0;
     if (!params->read_hash_value(kName, &name, 0))
         return true;
-    const char* text;
+    const char* text = nullptr;
     if (!params->fetch_text(kText, &text, 0))
         return manager->goals_.get_pull(name)->swap_move_caption();
     char replaced[0x200];

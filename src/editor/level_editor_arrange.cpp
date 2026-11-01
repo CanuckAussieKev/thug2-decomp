@@ -350,7 +350,7 @@ int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, fl
     float best_d = grab;
     for (size_t r = 0; r < runs.size(); ++r) {
         for (size_t i = 1; i < runs[r].points.size(); ++i) {
-            float ax, ay, bx, by;
+            float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
             if (!project(runs[r].points[i - 1], &ax, &ay) || !project(runs[r].points[i], &bx, &by))
                 continue;
             float d = distance_to_segment(x, y, ax, ay, bx, by);
@@ -881,7 +881,7 @@ const std::vector<Run>& edge_runs()
 bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
 {
     TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    float nx, ny;
+    float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(view.pos, frame, view.lens, p, view.near_z_, &nx, &ny))
         return false;
     ndc_to_pixel(view.viewport, nx, ny, x, y);
@@ -1135,7 +1135,7 @@ struct Painter {
     ui::Overlay* overlay;
     bool get_pixel(V3 p, float* x, float* y) const
     {
-        float nx, ny;
+        float nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1145,7 +1145,7 @@ struct Painter {
     {
         if (!clip_to_near(camera, frame, near_z_ + 0.01f, &a, &b))
             return;
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (get_pixel(a, &ax, &ay) && get_pixel(b, &bx, &by))
             overlay->lines.push_back({ax, ay, bx, by, argb, thickness});
     }
@@ -1313,7 +1313,7 @@ void add_readout(const Painter& p)
             p.get_seg(from, nearest, 0xC0FF60D0, 1.0f);
         }
     }
-    float x, y;
+    float x = 0.0f, y = 0.0f;
     edit::get_cursor(&x, &y);
     float line = 17.0f * static_cast<float>(p.viewport[3]) / 720.0f;
     std::vector<std::string> lines = readout_lines(r);
@@ -1360,7 +1360,7 @@ void add_edges(const Painter& p)
     if (!g_edge_picking)
         return;
     const std::vector<Run>& runs = edge_runs();
-    float x, y;
+    float x = 0.0f, y = 0.0f;
     edit::get_cursor(&x, &y);
     g_edge_hover = run_at(
         runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
@@ -1372,7 +1372,7 @@ void add_edges(const Painter& p)
         if (lit) {
             char text[48];
             std::snprintf(text, sizeof(text), "rail here: %.0f long", runs[r].length);
-            float px, py;
+            float px = 0.0f, py = 0.0f;
             if (p.get_pixel(runs[r].points.front(), &px, &py))
                 p.draw_label(px + 8.0f, py - 20.0f, 0xFFFFE040, text);
         }

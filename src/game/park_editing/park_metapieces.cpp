@@ -114,8 +114,8 @@ void PieceGroup::set_quarter_turns(int rot)
         const PieceGroupDesc* from = i < 2 ? &desc_[i] : &extra_desc_[i - 2];
         *to = *from;
         // The entry's own size in cells, as it lies (x, z).
-        uint8_t across;
-        uint8_t along;
+        uint8_t across = 0;
+        uint8_t along = 0;
         if (flag_bits_ & kAbstract) {
             PieceGroup* entry =
                 ParkLayout::singleton()->fetch_meta_template(reinterpret_cast<uint32_t>(from->piece), nullptr);

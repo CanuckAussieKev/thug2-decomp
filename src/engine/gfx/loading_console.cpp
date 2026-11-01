@@ -266,7 +266,7 @@ void get_layout(double now)
     g_laid_out = now;
     g_vertices.clear();
     std::vector<std::string> lines;
-    double started, last;
+    double started = 0.0, last = 0.0;
     AcquireSRWLockShared(&g_lock);
     lines = g_ring.final_one(kShownLines);
     started = g_start;
@@ -405,7 +405,7 @@ void get_note(const char* format, ...)
     if (!g_active)
         return;
     char text[kLineWidth];
-    va_list args;
+    va_list args = nullptr;
     va_start(args, format);
     std::vsnprintf(text, sizeof(text), format, args);
     va_end(args);

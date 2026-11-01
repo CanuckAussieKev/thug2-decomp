@@ -108,7 +108,7 @@ int shot_frames(float seconds)
 
 void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, V3 out[4])
 {
-    float yaw, pitch;
+    float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(angles, &yaw, &pitch);
     TickCycle f = frame_from_yaw_pitch(yaw, pitch);
     V3 centre = pos - f.back * depth;
@@ -289,7 +289,7 @@ void keep_offsets(const ViewCam& c)
 
 bool look_through(const ViewCam& c)
 {
-    float yaw, pitch;
+    float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(c.angles, &yaw, &pitch);
     look_from(c.pos, yaw, pitch);
     hud::get_message("Viewing through " + c.name);
@@ -563,7 +563,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
             return;
-        float ax, ay, bx, by, nx, ny;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
             return;
         ndc_to_pixel(viewport, nx, ny, &ax, &ay);
@@ -587,7 +587,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
         }
         // (its up: a small triangle over the top edge; what it looks at: a line to the target and a cross there)
         V3 top = (corners[0] + corners[1]) * 0.5f;
-        float yaw, pitch;
+        float yaw = 0.0f, pitch = 0.0f;
         yaw_pitch_of(c.angles, &yaw, &pitch);
         V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0f;
         line(corners[0] * 0.75f + corners[1] * 0.25f, top + up, colour, thickness);
@@ -611,7 +611,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     ImGui::Separator();
     if (!ImGui::CollapsingHeader("Camera###camera", ImGuiTreeNodeFlags_DefaultOpen))
         return;
-    float yaw, pitch;
+    float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(c->angles, &yaw, &pitch);
     float pitch_degrees = pitch * 180.0f / kPi;
     ImGui::PushFont(mono);

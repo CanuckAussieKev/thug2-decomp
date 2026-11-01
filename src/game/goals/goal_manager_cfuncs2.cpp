@@ -51,7 +51,7 @@ script::Struct* level_params_ref() { return script::read_sub_struct(modules::Ska
 
 uint32_t get_goal_name(script::Struct* params)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     return name;
 }
@@ -74,9 +74,9 @@ Objective* name_then_goal(script::Struct* params)
 // and Goal_Type - into the script's goal_id / goal_name.
 bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script* script)
 {
-    const char* type;
+    const char* type = nullptr;
     params->fetch_text(kGoalType, &type, true);
-    const char* level;
+    const char* level = nullptr;
     level_params_ref()->fetch_text(kLevel, &level, 1);
     char name[128];
     dup_from(name, level);
@@ -92,7 +92,7 @@ bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script*
 // 0x00559AF0: the level's name into the script's level_prefix.
 bool cfunc_goal_manager_get_level_prefix(script::Struct*, script::Script* script)
 {
-    const char* level;
+    const char* level = nullptr;
     level_params_ref()->fetch_text(kLevel, &level, 1);
     script->args_->append_word(kLevelPrefix, level);
     return true;
@@ -148,7 +148,7 @@ bool cfunc_goal_manager_goals_are_selected(script::Struct*, script::Script*)
 // 0x00559CC0: an object of the goal's counter got (if it's active). False without Name.
 bool cfunc_goal_manager_got_counter_object(script::Struct* params, script::Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     if (!params->read_hash_value(kName, &name, 0))
         return false;
     Objective* goal = get_objective_board()->goals_.get_pull(name);
@@ -177,7 +177,7 @@ bool cfunc_goal_manager_add_goal_point(script::Struct*, script::Script*)
 bool cfunc_goal_manager_spend_goal_points(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    int points;
+    int points = 0;
     params->fetch_int_value(0u, &points, 1);
     manager->objective_score_ -= points;
     return true;
@@ -187,7 +187,7 @@ bool cfunc_goal_manager_spend_goal_points(script::Struct* params, script::Script
 bool cfunc_goal_manager_has_goal_points(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    int points;
+    int points = 0;
     params->fetch_int_value(0u, &points, 1);
     return manager->objective_score_ >= points;
 }
@@ -213,7 +213,7 @@ bool cfunc_goal_manager_get_number_of_goal_points(script::Struct* params, script
 // 0x00559E90: a goal of the proset named by the unnamed string is beaten.
 bool cfunc_goal_manager_has_beaten_goal_with_proset(script::Struct* params, script::Script*)
 {
-    const char* prefix;
+    const char* prefix = nullptr;
     params->fetch_text(0u, &prefix, 1);
     return get_objective_board()->has_won_proset_goal(prefix);
 }
@@ -222,7 +222,7 @@ bool cfunc_goal_manager_has_beaten_goal_with_proset(script::Struct* params, scri
 // (An empty string reads the byte after its end, as the original.)
 bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Script* script)
 {
-    const char* prefix;
+    const char* prefix = nullptr;
     params->fetch_text(0u, &prefix, 1);
     char text[128];
     text[0] = 0;

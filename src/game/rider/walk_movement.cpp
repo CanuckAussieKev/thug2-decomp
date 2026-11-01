@@ -84,7 +84,7 @@ void FootMovement::turn_facing_to_velocity()
     direction.make_unit();
     // The turn this frame: wall_turn_factor a second at max_wall_turn_speed_threshold and above, less from the
     // threshold up.
-    double rate;
+    double rate = 0.0;
     if (speed > walk_parameter(kMaxWallTurnSpeedThreshold)) {
         rate = static_cast<double>(walk_parameter(kWallTurnFactor)) * get_frame_length(this);
     } else {
@@ -271,7 +271,7 @@ void FootMovement::update_control()
     float angle = pad->polar_[1].angle;
     if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle))
         angle = 0.0f;
-    double turned_z, turned_x;
+    double turned_z = 0.0, turned_x = 0.0;
     maths::spin_by(angle, forward_z, forward_x, &turned_z, &turned_x);
     maths::Vec4& control = stick_heading_;
     control.x = static_cast<float>(turned_x);
@@ -365,7 +365,7 @@ void FootMovement::steer_jump()
                            walk_parameter(kJumpAdjustSpeed) * magnitude);
     auto forward = static_cast<float>((static_cast<double>(vel.z) * dir.z + static_cast<double>(vel.y) * dir.y) +
                                       static_cast<double>(vel.x) * dir.x);
-    bool ease;
+    bool ease = false;
     if (!jump_unsteered_ && stick_deflection_ == 0.0f) {
         // no push: along the jump, eased to a stop
         forward_target = 0.0f;
@@ -407,7 +407,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     // (past 0.01), else the facing.
     float magnitude = stick_deflection_;
     maths::Vec4 direction;
-    double direction_w;
+    double direction_w = 0.0;
     if (speed > walk_parameter(kIgnoreVelocityThreshold)) {
         double inverse = kOne / static_cast<double>(speed);
         auto inverse_f = static_cast<float>(inverse);
@@ -450,7 +450,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             if (blocked_) {
                 turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
             } else {
-                double turned_x, turned_z;
+                double turned_x = 0.0, turned_z = 0.0;
                 maths::spin_by(left ? turn : -turn, facing.x, facing.z, &turned_x, &turned_z);
                 auto ahead_x = static_cast<float>(turned_x), ahead_z = static_cast<float>(turned_z);
                 render::ProbeRay feeler;
@@ -465,7 +465,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                 if (feeler.get_hit_shape(false, false))
                     turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
             }
-            double new_x, new_z;
+            double new_x = 0.0, new_z = 0.0;
             maths::spin_by(left ? turn : -turn, facing.x, facing.z, &new_x, &new_z);
             facing.z = static_cast<float>(new_z);
             facing.x = static_cast<float>(new_x);
@@ -502,7 +502,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     // decel_factor (low_speed_decel_factor stopping from walking speed).
     speed_ = target;
     auto allowed = static_cast<float>(adjust_speed_for_slope(target, &direction));
-    double new_speed;
+    double new_speed = 0.0;
     if (speed > allowed) {
         float factor = walk_parameter(kDecelFactor);
         if (allowed == 0.0f && !(speed > walk_parameter(kWalkSpeed)))

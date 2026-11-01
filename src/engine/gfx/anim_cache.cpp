@@ -349,7 +349,7 @@ int ClipStore::fetch_kind() { return kind_tag_; }
 // 0x00480670
 uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, int rotation_keys, int translation_keys, int type)
 {
-    uint8_t rotation, translation;
+    uint8_t rotation = 0, translation = 0;
     key_sizes(type, rotation, translation);
     uint32_t size = rotation * rotation_keys + translation * translation_keys;
     return (size / granularity_ + 1) * granularity_;

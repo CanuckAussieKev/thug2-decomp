@@ -125,7 +125,7 @@ int Objective::pick_key_combo(script::Array* combos)
         mapping->read_hash_value(combo, &trick, 0);
         if (trick)
             return picked;
-        int slot;
+        int slot = 0;
         if (mapping->fetch_int_value(combo, &slot, 0))
             return picked;
         trick = 0;
@@ -173,7 +173,7 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
             if (k == specials)
                 return false;
         }
-        const char* key_text;
+        const char* key_text = nullptr;
         combo_texts->fetch_text(combo, &key_text, 1);
         if (in_slot) {
             objects::GameEntity* skater = static_cast<modules::Skate*>(skate)->get_home_rider();
@@ -186,7 +186,7 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
                 script::fetch_list(kPremadeCats)->fetch_part(static_cast<uint32_t>(premade_cat)));
             cat->fetch_text(kName, &trick_text, 1);
         } else {
-            script::Struct* params;
+            script::Struct* params = nullptr;
             script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
             params->fetch_text(kName, &trick_text, 1);
         }
@@ -203,9 +203,9 @@ bool Objective::swap_move_caption()
     if (!args_->fetch_list(kButtonSequences, &combos, 0))
         return false;
     // The texts as written, kept the first time.
-    const char* text;
+    const char* text = nullptr;
     if (!args_->has_entry_named(kOriginalGoalDescription)) {
-        script::Array* lines;
+        script::Array* lines = nullptr;
         if (args_->fetch_text(kGoalDescription, &text, 0))
             args_->append_word(kOriginalGoalDescription, text);
         else if (args_->fetch_list(kGoalDescription, &lines, 0))
@@ -246,7 +246,7 @@ bool Objective::swap_move_caption()
     }
     char buffer[kLabelPoints];
     text = nullptr;
-    script::Array* lines;
+    script::Array* lines = nullptr;
     if (args_->fetch_text(kOriginalGoalDescription, &text, 0)) {
         replace_trick_tokens(text, buffer, key_texts, trick_texts, kLabelPoints);
         // (the original adds the description as written, not the replaced text)
@@ -285,10 +285,10 @@ bool Objective::swap_move_caption()
 void Objective::remove_reward_trick()
 {
     RiderIdentity* profile = current_profile();
-    int remove;
+    int remove = 0;
     args_->fetch_int_value(kShouldRemoveTrick, &remove, 1);
     if (remove == 1) {
-        uint32_t trick;
+        uint32_t trick = 0;
         if (args_->has_bare_flag(kCreateATrick))
             trick = 0;
         else
@@ -320,7 +320,7 @@ void Objective::tint_tagged_props(int player, bool clear)
         return;
     int count = static_cast<int>(clusters->extent_);
     for (int i = 0; i < count; ++i) {
-        uint32_t id;
+        uint32_t id = 0;
         reinterpret_cast<script::Struct*>(clusters->fetch_part(static_cast<uint32_t>(i)))->read_hash_value(kId, &id, 1);
         if (!objects->get_cluster(id))
             continue;
@@ -337,11 +337,11 @@ void Objective::tint_tagged_props(int player, bool clear)
 bool Objective::award_special_trick()
 {
     bool cat = args_->has_bare_flag(kCreateATrick);
-    uint32_t type;
+    uint32_t type = 0;
     args_->read_hash_value(kTrickType, &type, 1);
     uint32_t trick = 0;
     int premade = 0;
-    const char* name;
+    const char* name = nullptr;
     if (cat) {
         args_->fetch_int_value(kPremadeCatIndex, &premade, 1);
         auto* premade_cat = reinterpret_cast<script::Struct*>(
@@ -349,7 +349,7 @@ bool Objective::award_special_trick()
         premade_cat->fetch_text(kName, &name, 1);
     } else {
         args_->read_hash_value(kTrickName, &trick, 1);
-        script::Struct* params;
+        script::Struct* params = nullptr;
         script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
         params->fetch_text(kName, &name, 1);
     }

@@ -16,7 +16,7 @@ void fix_nick(char* new_nick, const char* old_nick)
     static const char kValid[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]\\`_^{|}-";
     if (std::isdigit(static_cast<unsigned char>(*old_nick)) || *old_nick == '-')
         *new_nick++ = '_';
-    for (char c; (c = *old_nick++) != '\0';)
+    for (char c = 0; (c = *old_nick++) != '\0';)
         *new_nick++ = std::strchr(kValid, c) ? c : '_';
     *new_nick = '\0';
 }

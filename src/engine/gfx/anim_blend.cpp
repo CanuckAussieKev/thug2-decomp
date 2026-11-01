@@ -152,7 +152,7 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
     info->put_name_key(kAnim, timeline->anim_);
     info->push_float(kSpeed, timeline->speed_);
     info->put_name_key(kRepeatMode, (g_loop_type_checksums)[timeline->repeat_mode_]);
-    float start, current, end;
+    float start = 0.0f, current = 0.0f, end = 0.0f;
     timeline->get_times(&start, &current, &end);
     info->push_float(kStartTime, start);
     info->push_float(kCurrentTime, current);

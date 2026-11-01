@@ -181,7 +181,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
         // Turned on again by the walk-to-skate animation (its animTags in the skater's tags).
         script::Struct* tags = entity_->tag_table_;
         RiderPoseState* state = physics_control_->pose_;
-        script::Struct* anim_tags;
+        script::Struct* anim_tags = nullptr;
         if (tags && !state->in_vehicle_ && !state->physics_mode_ && tags->read_sub_struct(kAnimTags, &anim_tags, 0) &&
             anim_tags->has_bare_flag(kWalkToSkateTransition)) {
             hold_off(false);
@@ -264,7 +264,7 @@ void RiderRollingAudio::tick_frame()
     }
     last_pos_ = entity_->at_point_;
 
-    float pitch;
+    float pitch = 0.0f;
     if (cur_phase_ == kStateAir && sound_id_) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
         if (lean_pitch_angle_ > air_pitch_floor_) {

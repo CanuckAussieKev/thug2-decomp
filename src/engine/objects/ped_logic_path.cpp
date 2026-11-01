@@ -145,18 +145,18 @@ bool PedestrianBrainModule::get_chance(script::Struct* node, uint32_t weight_nam
 void PedestrianBrainModule::choose_node_after()
 {
     bool from_stop = false;
-    uint32_t action;
+    uint32_t action = 0;
     if (level_nodes::fetch_vertex(list_link_, true)->read_hash_value(kSkateAction, &action, 0) && action == kStopAction)
         from_stop = true;
     int count = static_cast<int>(level_nodes::get_link_count(next_node_));
-    uint32_t chosen;
+    uint32_t chosen = 0;
     if (count == 0) {
         chosen = list_link_;
     } else if (count == 1) {
         chosen = level_nodes::fetch_link(next_node_, 0);
         if (chosen == list_link_) {
             // A dead end, unless the node is a vert grab: back the way it came.
-            uint32_t next_action;
+            uint32_t next_action = 0;
             if (level_nodes::fetch_vertex(next_node_, true)->read_hash_value(kSkateAction, &next_action, 0) &&
                 next_action == kVertGrab)
                 chosen = next_node_;
@@ -183,7 +183,7 @@ void PedestrianBrainModule::choose_node_after()
             linked->read_hash_value(kTypeName, &link_type, 0);
             if (link_class != kWaypoint || link_type != kPedAi)
                 continue;
-            uint32_t link_action;
+            uint32_t link_action = 0;
             if (!from_stop && linked->read_hash_value(kSkateAction, &link_action, 0) && link_action == kStopAction)
                 continue;
             maths::Vec4 link_pos;
@@ -199,7 +199,7 @@ void PedestrianBrainModule::choose_node_after()
             }
             if (!(angle >= min_angle))
                 continue;
-            uint32_t priority;
+            uint32_t priority = 0;
             linked->read_hash_value(kPriority, &priority, 1);
             if (priority == kLow)
                 lows[low_count++] = i;
@@ -261,7 +261,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
     auto height = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
     params->fetch_float(kJumpHeight, &height, 1);
     float gravity = script::fetch_float(kLeapGravity);
-    float jump_time;
+    float jump_time = 0.0f;
     int spin = 0;
     if (!to_node && !params->has_bare_flag(kJumpToNextNode)) {
         // Straight up: the take-off speed for the height, and the time up and down.
@@ -313,7 +313,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
             half_turns = 4;
         spin = maths::rnd(half_turns + 1) * 180;
     } else {
-        float angle;
+        float angle = 0.0f;
         if (params->fetch_float(kSpinAngle, &angle, 0))
             spin = truncate(static_cast<double>(angle) + kSpinRound);
     }
@@ -409,7 +409,7 @@ void PedestrianBrainModule::lip_trick_update()
 void PedestrianBrainModule::start_grind(script::Struct* node)
 {
     flag_bits_ = (flag_bits_ & ~(kPedFlagSpinning | kPedFlagVertRotating)) | kPedFlagGrinding;
-    uint32_t terrain;
+    uint32_t terrain = 0;
     if (node->read_hash_value(kSurfaceKindKey, &terrain, 0))
         set_sound_terrain(surface_kind::get_terrain_index(terrain));
     script::Struct* params = get_state_params(node);
@@ -430,8 +430,8 @@ void PedestrianBrainModule::end_grind(script::Struct*)
 void PedestrianBrainModule::get_jump(script::Struct* node, bool vert)
 {
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
-    script::Struct* params;
-    uint32_t state;
+    script::Struct* params = nullptr;
+    uint32_t state = 0;
     if (vert) {
         flag_bits_ &= ~kPedFlagMoving;
         params = leap_node_params(node, vert);
@@ -481,7 +481,7 @@ void PedestrianBrainModule::manual_down(script::Struct* node)
 // 0x004F1CE0
 void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
 {
-    script::Struct* params;
+    script::Struct* params = nullptr;
     if (vert) {
         flag_bits_ &= ~kPedFlagMoving;
         params = leap_node_params(node, vert);
@@ -544,7 +544,7 @@ bool PedestrianBrainModule::bail_from_grind()
         // Off the grind the way its stop link goes.
         for (int i = 0; i < count; ++i) {
             uint32_t link = level_nodes::fetch_link(next_node_, i);
-            uint32_t action;
+            uint32_t action = 0;
             if (level_nodes::fetch_vertex(link, true)->read_hash_value(kSkateAction, &action, 0) &&
                 action == kStopAction) {
                 node_after_ = link;
@@ -562,7 +562,7 @@ void PedestrianBrainModule::do_skate_action(script::Struct* node)
 {
     if (flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing))
         return;
-    uint32_t action;
+    uint32_t action = 0;
     if (!node->read_hash_value(kSkateAction, &action, 0))
         return;
     switch (action) {
@@ -628,7 +628,7 @@ void PedestrianBrainModule::reach_waypoint()
     flag_bits_ &= ~kPedFlagVertNext;
     script::Struct* next = level_nodes::fetch_vertex(next_node_, true);
     flag_bits_ &= ~kPedFlagVertLip;
-    uint32_t ped_type;
+    uint32_t ped_type = 0;
     if (next->read_hash_value(kPedType, &ped_type, 0) && ped_type == kSkate) {
         // (Read over a slot holding a stale value: SkateAction is asserted.)
         uint32_t action = 0;
@@ -636,7 +636,7 @@ void PedestrianBrainModule::reach_waypoint()
         if (is_vert_node(next_node_))
             flag_bits_ |= kPedFlagVertNext;
         if (action == kVertGrab || action == kJump) {
-            uint32_t reached_action;
+            uint32_t reached_action = 0;
             if (level_nodes::fetch_vertex(list_link_, true)->read_hash_value(kSkateAction, &reached_action, 1) &&
                 reached_action != kGrind && !(flag_bits_ & (kPedFlagGrinding | kPedFlagVertLast)))
                 flag_bits_ |= kPedFlagCrouch;
@@ -650,9 +650,9 @@ void PedestrianBrainModule::reach_waypoint()
     script::Struct* left_node = level_nodes::fetch_vertex(left, true);
     script::Struct* reached_node = level_nodes::fetch_vertex(reached, true);
     run_waypoint_actions(reached_node);
-    uint32_t left_action;
+    uint32_t left_action = 0;
     if (!left_node->read_hash_value(kSkateAction, &left_action, 0) || left_action != kVertGrab) {
-        uint32_t reached_type;
+        uint32_t reached_type = 0;
         if (reached_node->read_hash_value(kPedType, &reached_type, 0) && reached_type == kSkate)
             do_skate_action(reached_node);
     }
@@ -702,7 +702,7 @@ bool PedestrianBrainModule::ped_hit_waypoint(script::Struct*, script::Script*)
 // 0x004EDEC0
 bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, script::Script* script)
 {
-    float height;
+    float height = 0.0f;
     params->fetch_float(kHeight, &height, 1);
     // (The gravity is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     auto gravity = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));

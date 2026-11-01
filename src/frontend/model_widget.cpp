@@ -269,7 +269,7 @@ void ModelWidget::change_traits(Struct* params)
         // level geometry: a LevelObject of that sector
         clear_models();
         params->put_name_key(kClass, kLevelObject);
-        uint32_t sector;
+        uint32_t sector = 0;
         params->read_hash_value(kSector, &sector, 1);
         params->put_name_key(kName, sector);
         attach_model(params, offset);
@@ -281,7 +281,7 @@ void ModelWidget::change_traits(Struct* params)
         params->fetch_list(kSectors, &sectors, 0);
         for (uint32_t i = 0; i < sectors->extent_; ++i) {
             auto* entry = reinterpret_cast<Struct*>(sectors->fetch_part(i));
-            uint32_t sector;
+            uint32_t sector = 0;
             entry->read_hash_value(0u, &sector, 0);
             params->put_name_key(kName, sector);
             entry->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&offset), 0);
@@ -346,7 +346,7 @@ void ModelWidget::change_traits(Struct* params)
     params->fetch_float(kDistanceScale, &distance_scale_, 0);
     max_scale_ = 3.0f;
     params->fetch_float(kMaxScale, &max_scale_, 0);
-    int viewport;
+    int viewport = 0;
     if (params->fetch_int_value(kTargetViewport, &viewport, 0)) {
         view_slot_ = viewport;
         apply_viewport();

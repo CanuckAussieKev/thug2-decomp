@@ -143,7 +143,7 @@ void GoalManager::append_objective_list_entries()
     // The goals with a place in the list first, then the others.
     int num_ordered = 0, num_unordered = 0;
     for (int i = 0; i < count; ++i) {
-        uint32_t key;
+        uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
         if (goal->fetch_args()->has_entry_named(kViewGoalsOrder))
             ordered->set_element(static_cast<uint32_t>(num_ordered++), goal->get_objective_key());
@@ -155,13 +155,13 @@ void GoalManager::append_objective_list_entries()
     for (int slot = 0; slot < num_ordered; ++slot) {
         for (int k = slot; k < num_ordered; ++k) {
             uint32_t id = ordered->fetch_part(static_cast<uint32_t>(k));
-            int place;
+            int place = 0;
             goals_.get_pull(id)->fetch_args()->fetch_int_value(kViewGoalsOrder, &place, 1);
             if (place - 1 != slot)
                 continue;
             if (k != slot) {
                 uint32_t other = ordered->fetch_part(static_cast<uint32_t>(slot));
-                int unused;
+                int unused = 0;
                 goals_.get_pull(other)->fetch_args()->fetch_int_value(kViewGoalsOrder, &unused, 1);
                 ordered->set_element(static_cast<uint32_t>(slot), id);
                 ordered->set_element(static_cast<uint32_t>(k), other);
@@ -201,7 +201,7 @@ void GoalManager::append_objective_list_entries()
                 std::snprintf(record + length, sizeof(record) - length, "%s", suffix);
                 item->append_word(kRecordText, record);
             } else {
-                uint32_t type;
+                uint32_t type = 0;
                 if (params->read_hash_value(kRecordType, &type, 0)) {
                     if (type == kScore) {
                         params->fetch_int_value(kWinRecord, &value, 0);

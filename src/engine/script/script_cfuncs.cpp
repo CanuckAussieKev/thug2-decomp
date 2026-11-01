@@ -242,7 +242,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
     params->read_hash_value(kGlobalName, &name, 0);
-    Component* value;
+    Component* value = nullptr;
     if (name) {
         value = params->find_component(kNewValue);
         if (!value)
@@ -403,7 +403,7 @@ bool cfunc_if_debug_on(script::Struct*, script::Script* script)
 // name. False without a structure.
 bool cfunc_structure_contains(script::Struct* params, script::Script*)
 {
-    script::Struct* structure;
+    script::Struct* structure = nullptr;
     if (!params->read_sub_struct(kStructure, &structure, 0))
         return false;
     uint32_t name = 0;

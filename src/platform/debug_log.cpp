@@ -31,7 +31,7 @@ void printf(StageMap level, const char* format, ...)
 {
     if (!s_configured || static_cast<int>(level) > s_level)
         return;
-    va_list args;
+    va_list args = nullptr;
     if (s_to_console) {
         va_start(args, format);
         std::vprintf(format, args);

@@ -163,7 +163,7 @@ bool parse_bookmarks(const std::string& text, Bookmark marks[kBookmarks])
         return false;
     while (std::getline(in, line)) {
         int n = 0, view = 0;
-        float x, y, z, yaw, pitch, equivalent;
+        float x = 0.0f, y = 0.0f, z = 0.0f, yaw = 0.0f, pitch = 0.0f, equivalent = 0.0f;
         if (sscanf_s(line.c_str(), "%d %f %f %f %f %f %d %f", &n, &x, &y, &z, &yaw, &pitch, &view, &equivalent) != 8)
             continue;
         if (n < 1 || n > kBookmarks || view < 0 || view > static_cast<int>(View::kDealloc))
@@ -542,7 +542,7 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
         V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : g_ortho.pivot) : look_point(rig);
         V3 d = pivot - *rig.pos;
         float equivalent = ortho() ? g_ortho.equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0f, 20000.0f);
-        float yaw, pitch;
+        float yaw = 0.0f, pitch = 0.0f;
         axis_yaw_pitch(view, &yaw, &pitch);
         enter_ortho(rig, view, yaw, pitch, pivot, equivalent);
     }

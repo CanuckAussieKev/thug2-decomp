@@ -194,7 +194,7 @@ void AnimTrack::load_events(uint32_t anim)
     Struct* table = script::read_sub_struct(table_name);
     if (!table)
         return;
-    script::Array* list;
+    script::Array* list = nullptr;
     if (!table->fetch_list(anim, &list, 0))
         return;
     uint32_t count = list->extent_;
@@ -245,10 +245,10 @@ void AnimTrack::fire_events(float from, float to)
 // 0x00481FB0
 AnimDriver* AnimTrack::attach_controller(Struct* params)
 {
-    uint32_t type;
+    uint32_t type = 0;
     params->read_hash_value(kType, &type, 1);
     int priority = 500;
-    AnimDriver* controller;
+    AnimDriver* controller = nullptr;
     switch (type) {
     case kWeightedController:
         controller = new WeightedAnimController(this, nullptr);
@@ -298,7 +298,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
     } else if (name == kNewAnim) {
         uint32_t anim = 0; // (the original's is left as it was found on the stack when missing - an assert)
         params->read_hash_value(kAnim, &anim, 1);
-        float duration;
+        float duration = 0.0f;
         std::memcpy(&duration, &params, sizeof(duration)); // (the argument's own slot, as above)
         params->fetch_float(kDuration, &duration, 1);
         bool sync = params->has_bare_flag(kSync);

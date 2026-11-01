@@ -302,7 +302,7 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
     // Which way round: compare ref x in_plane with the plane normal on its largest axis.
     Vec4 cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
                ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
-    int axis;
+    int axis = 0;
     bool cross_positive = cross.dominant_axis_index(&axis) > 0.0f;
     bool normal_positive = (&normal.x)[axis] > 0.0f;
     return cross_positive == normal_positive ? angle : -angle;
@@ -628,10 +628,10 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
 
     // (the original: -asin (its C runtime's), FCOS of it unrounded; the cosine and its reciprocals stay on the FPU
     // until stored)
-    bool above;
-    double inverse, neg_inverse;
+    bool above = false;
+    double inverse = 0.0, neg_inverse = 0.0;
     float y = maths::neg_asin_cos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
-    float x, z;
+    float x = 0.0f, z = 0.0f;
     if (above) {
         auto inv = static_cast<float>(inverse);
         auto neg_inv = static_cast<float>(neg_inverse);

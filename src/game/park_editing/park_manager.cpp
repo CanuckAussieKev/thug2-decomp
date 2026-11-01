@@ -172,9 +172,9 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
         return;
     if (BuildPointer* cursor = BuildPointer::sole())
         cursor->forget_gap_at(meta);
-    int gap;
+    int gap = 0;
     if (gap_registry_->get_gap_index(meta, &gap)) {
-        int half;
+        int half = 0;
         drop_gap_entry(gap_registry_->get_gap_info(gap, &half));
     }
     // A change to the park the player made: the compressed map is out of date.
@@ -231,7 +231,7 @@ PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int
     uint32_t flags = meta->flag_bits_;
     // The gap it's an end of goes with it (the lookup shrinks `pos` to 1x1x1, which the move ignores).
     bool had_gap = false;
-    int half;
+    int half = 0;
     GapDetails* gap = get_gap_info(&pos, &half);
     GapDetails moved;
     if (gap) {

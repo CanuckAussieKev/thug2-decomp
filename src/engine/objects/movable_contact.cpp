@@ -170,7 +170,7 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
 // 0x00427DD0
 void MovingSurfaceModule::update_contact_point()
 {
-    GameEntity* object;
+    GameEntity* object = nullptr;
     if (ride_ && ride_->entity_.owner_object_) {
         object = ride_->entity_.owner_object_;
     } else {

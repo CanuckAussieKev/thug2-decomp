@@ -240,7 +240,7 @@ void KinematicsModule::arrive_at_node(uint32_t node)
 {
     script::Struct* node_struct = level_nodes::fetch_vertex(node, false);
     list_link_ = node;
-    uint32_t script;
+    uint32_t script = 0;
     if (node_struct->read_hash_value(kSpawnObjScript, &script, 0)) {
         script::Struct* params = nullptr;
         node_struct->read_sub_struct(kParamsName, &params, 0);
@@ -261,7 +261,7 @@ void KinematicsModule::follow_path_linked(script::Struct* params, script::Script
     uint32_t links = level_nodes::get_link_count(node);
     if (!links)
         return;
-    uint32_t next;
+    uint32_t next = 0;
     if (static_cast<int>(links) > 1 && (motion_flags2_ & kMotion2RandomLinks))
         next = level_nodes::fetch_link(node, maths::rnd(static_cast<int>(links)));
     else
@@ -377,7 +377,7 @@ bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Sc
 bool KinematicsModule::obj_follow_path(script::Struct* params, script::Script*)
 {
     motion_flags2_ &= ~kMotion2StoppedOnPath;
-    uint32_t node;
+    uint32_t node = 0;
     if (params->read_hash_value(kName, &node, 0)) {
         start_path(node);
         motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingPath;

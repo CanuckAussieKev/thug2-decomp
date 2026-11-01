@@ -51,7 +51,7 @@ void HostEnd::pull_inbound()
     sockaddr_in from;
     if (has_no_socket(this))
         return;
-    int received;
+    int received = 0;
     do {
         char* buffer = receive_buffer_;
         received = recvfrom(sock_, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &from_length);

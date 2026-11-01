@@ -403,7 +403,7 @@ void RankingsManager::log_in()
     cur_phase_ = kLoggingIn;
     login_start() = frame_clock::get_time();
     get_run(0x23343580);
-    DWORD id;
+    DWORD id = 0;
     HANDLE thread = CreateThread(nullptr, 0x8000, &log_in_thread, this, CREATE_SUSPENDED, &id);
     net_session_slot()->set_room_id(id);
     ResumeThread(thread); // (never closed)
@@ -447,7 +447,7 @@ void RankingsManager::start_game()
     const char* challenge = get_challenge(game_);
     auto* server = static_cast<net::AppHost*>(manager->host_);
     prefs::Preferences* prefs = manager->get_online_settings();
-    const char* host_name;
+    const char* host_name = nullptr;
     prefs->fetch_setting(0x2A5CF019)->fetch_text(0x96875C0Fu, &host_name, 1);
     int time_limit = prefs->get_setting_value(0xC51BF6E3, 0x906B67BA);
     int frag_limit = prefs->get_setting_value(0x71CD53A2, 0xCD66C8AE);

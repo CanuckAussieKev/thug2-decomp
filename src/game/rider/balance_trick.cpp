@@ -183,7 +183,7 @@ float RiderTeeterMoves::get_physics_value(uint32_t name)
 {
     if (call_args_)
         return skater_of(entity_)->get_scaled_param(name, call_args_);
-    uint32_t structure;
+    uint32_t structure = 0;
     switch (trick_) {
     case kGrind:
     case kSlide:
@@ -318,7 +318,7 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         // The same trick (a manual and a nose manual count as one) or a tap: carried on.
         if (trick_ == type || (trick_ == kManual && type == kNoseManual) || (trick_ == kNoseManual && type == kManual))
             return 1;
-        int tap;
+        int tap = 0;
         if (params->fetch_int_value(kIsATap, &tap, 0))
             return 1;
         trick_ = type;

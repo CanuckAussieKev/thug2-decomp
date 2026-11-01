@@ -142,7 +142,7 @@ const char* view_mode_name(int mode) { return render::view_mode::get_name(static
 
 bool Painter::get_pixel(V3 p, float* x, float* y) const
 {
-    float nx, ny;
+    float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
         return false;
     ndc_to_pixel(viewport, nx, ny, x, y);
@@ -153,7 +153,7 @@ bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
 {
     if (!clip_to_near(camera, frame, near_z_ + 0.01f, &a, &b))
         return false;
-    float ax, ay, bx, by;
+    float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_pixel(a, &ax, &ay) || !get_pixel(b, &bx, &by))
         return false;
     overlay->lines.push_back({ax, ay, bx, by, argb, thickness});
@@ -162,14 +162,14 @@ bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
 
 void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
 {
-    float x, y;
+    float x = 0.0f, y = 0.0f;
     if (get_pixel(p, &x, &y))
         overlay->circles.push_back({x, y, radius, argb, filled, 1.5f});
 }
 
 void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
 {
-    float x, y;
+    float x = 0.0f, y = 0.0f;
     if (get_pixel(p, &x, &y))
         overlay->texts.push_back({x + dx, y + dy, argb, text});
 }

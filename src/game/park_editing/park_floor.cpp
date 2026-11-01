@@ -127,7 +127,7 @@ bool ParkLayout::can_change_floor_here(CellBox area, bool uneven)
             // Without `uneven`, the floor must be flat at the box's height.
             bool level = true;
             if (!uneven) {
-                bool flat;
+                bool flat = false;
                 level = get_ground_level(area, &flat) == area.y && flat;
             }
             if (level && !is_area_blocked(area))
@@ -209,11 +209,11 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
 
     // The piece on top: a riser of the cell's height (the floor itself at 0, a dug-in floor below 0), and the
     // riser_below wall where a neighbour is lower than this cell's floor.
-    uint32_t top;
+    uint32_t top = 0;
     uint32_t below = 0;
     int below_y = -15;
     int height = request->height;
-    bool in_park;
+    bool in_park = false;
     if (height > 0) {
         char name[128];
         std::snprintf(name, sizeof(name), "riser_above%d", request->index);
@@ -313,7 +313,7 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
         MapListNode* next = node->following_;
         CellBox area = node->get_placed_piece()->cell_footprint_;
         uint32_t flags = node->get_placed_piece()->flag_bits_;
-        bool destroy;
+        bool destroy = false;
         if (flags & PieceGroup::kFence)
             destroy = true;
         else if ((flags & PieceGroup::kBuiltShell) || !(flags & PieceGroup::kInPark))

@@ -136,7 +136,7 @@ void update_glows(bool queries)
     for (; glow; glow = next_glow()) {
         bool seen = false;
         if (!g_radeon8500) { // (not on a Radeon 8500)
-            uint32_t pixels;
+            uint32_t pixels = 0;
             int result = query_result(glow->queries[0], &pixels);
             if (result == 0) {
                 queries_in_use()[glow->queries[0]] = 0;

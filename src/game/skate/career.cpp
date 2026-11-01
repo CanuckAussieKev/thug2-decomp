@@ -144,7 +144,7 @@ bool RiderStoryProgress::just_got_flag(int flag)
 // 0x00584540 / 0x00584560
 int RiderStoryProgress::get_info_integer(uint32_t name)
 {
-    int value;
+    int value = 0;
     details_->fetch_int_value(name, &value, 1);
     return value;
 }
@@ -157,7 +157,7 @@ bool RiderStoryProgress::set_info_integer(uint32_t name, int value)
 // 0x00584580
 void RiderStoryProgress::add_to_info_471f_c_4d_d(int amount)
 {
-    int value;
+    int value = 0;
     details_->fetch_int_value(0x471FC4DD, &value, 1);
     details_->put_int(0x471FC4DD, value + amount);
 }

@@ -499,7 +499,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         bool left = true, right = true, below = true, above = true;
         float depth = 0.0f;
         for (int k = 0; k < count; ++k) {
-            float nx, ny;
+            float nx = 0.0f, ny = 0.0f;
             if (!cast_onto(camera_pos, frame, lens, clipped[k], near_z * 0.5f, &nx, &ny)) {
                 nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
             }
@@ -628,7 +628,7 @@ uint32_t pick_wall(V3 origin, V3 unit_dir)
     float best = 1e30f;
     const Drawn* nearest = nullptr;
     for (const Drawn& d : g_drawn) {
-        float t;
+        float t = 0.0f;
         if (d.companion)
             continue; // (as before the face flags: a wall's faces only compete with sectors' faces)
         if (picking::ray_triangle(origin, unit_dir, d.a, d.b, d.c, &t) && t < best) {
@@ -644,7 +644,7 @@ bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
     float best = 1e30f;
     const Drawn* nearest = nullptr;
     for (const Drawn& d : g_drawn) {
-        float t;
+        float t = 0.0f;
         if (d.face >= 0 && picking::ray_triangle(origin, unit_dir, d.a, d.b, d.c, &t) && t < best) {
             best = t;
             nearest = &d;

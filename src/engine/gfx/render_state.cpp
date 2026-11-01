@@ -187,7 +187,7 @@ void change_phase(int state, uint32_t value)
         uint32_t& cached = address_modes()[sampler];
         uint32_t u = value & 0xFFFF;
         if (u != (cached & 0xFFFF)) {
-            DWORD address;
+            DWORD address = 0;
             if (address_value(u, &address))
                 set_sampler(sampler, D3DSAMP_ADDRESSU, address);
             cached = (cached & 0xFFFF0000) | u;
@@ -195,7 +195,7 @@ void change_phase(int state, uint32_t value)
         uint32_t v = value & 0xFFFF0000;
         if (v == (cached & 0xFFFF0000))
             return;
-        DWORD address;
+        DWORD address = 0;
         if (address_value(v >> 16, &address))
             set_sampler(sampler, D3DSAMP_ADDRESSV, address);
         cached = (cached & 0xFFFF) | v;
@@ -322,7 +322,7 @@ void choose_blend_mode(uint32_t mode)
             else
                 set_device_render_state(D3DRS_FOGCOLOR, fog_color());
         }
-        uint32_t op, src, dest;
+        uint32_t op = 0, src = 0, dest = 0;
         switch (kind) {
         case 0:
         case 0xB:
@@ -437,7 +437,7 @@ void set_fixed_function_stages(void* shader, uint32_t factor)
 {
     // The last stage-0 state each one sets, then stage 1 off.
     D3DTEXTURESTAGESTATETYPE last_type;
-    DWORD last_value;
+    DWORD last_value = 0;
     if (shader == get_shader(kPixelShader964)) {
         set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE4X);
         set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);

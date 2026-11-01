@@ -213,7 +213,7 @@ bool cfunc_get_park_ed_mem_stats(script::Struct*, script::Script* script)
 // 0x0058D9B0
 bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script*)
 {
-    uint32_t marker;
+    uint32_t marker = 0;
     if (params->read_hash_value(0u, &marker, 0))
         get_marker(marker);
     return true;

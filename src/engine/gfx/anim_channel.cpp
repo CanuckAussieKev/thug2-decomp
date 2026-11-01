@@ -330,11 +330,11 @@ void BlendChannel::update_blend()
     if (!owner->own_script_) {
         owner->own_script_ = script::Script::create();
     }
-    bool stop;
+    bool stop = false;
     if (!owner->own_script_->is_blocked(false)) {
         stop = true;
     } else {
-        float start, current, end;
+        float start = 0.0f, current = 0.0f, end = 0.0f;
         objects::get_channel_times(this, &start, &current, &end);
         // (forwards: the time reached; backwards - or a range of none - reached the other way; NaN: never)
         if (start <= end && current >= wait_time_)
@@ -666,7 +666,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         return;
     }
     if (keep_ratio) {
-        float start, current, end;
+        float start = 0.0f, current = 0.0f, end = 0.0f;
         get_first(this)->get_times(&start, &current, &end);
         auto ratio = static_cast<float>(speed / (static_cast<double>(end) - start));
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
@@ -706,7 +706,7 @@ void BlendChannel::set_events_on(bool on)
 void BlendChannel::set_anim_tags(uint32_t anim)
 {
     Struct* all = script::read_sub_struct(0x95807202);
-    Struct* tags;
+    Struct* tags = nullptr;
     if (!all || !all->read_sub_struct(anim, &tags, 0))
         return;
     Struct* params = spawn_param_bag();
@@ -858,9 +858,9 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     float from = 0.0f;
     float start = 0.0f; // the time the new one starts at
     bool sync = true;
-    double fraction;
+    double fraction = 0.0;
     if (params->has_bare_flag(0x099371AE)) { // SyncToPreviousAnim: as far through as the playing one
-        float current, ends;
+        float current = 0.0f, ends = 0.0f;
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(0x4B4A153A, &playing_length, 0); // (read and not used here)
@@ -872,7 +872,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         else
             fraction = through;
     } else if (params->has_bare_flag(0xFF5AC79E)) { // as far from the end as the playing one
-        float current, ends;
+        float current = 0.0f, ends = 0.0f;
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(0x4B4A153A, &playing_length, 0);
@@ -904,7 +904,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         timeline->advance_clock(start);
     timeline->events_on_ = events_on_;
 
-    uint32_t partial;
+    uint32_t partial = 0;
     if (params->read_hash_value(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
         Struct* controller = script::spawn_param_bag();
         if (controller)
@@ -943,7 +943,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
 {
     switch (name) {
     case 0x1DF59A54: { // the info of timeline Index (0xD2D6A582; the playing one without it) to the script
-        int index;
+        int index = 0;
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             memory::ListNode* node = timelines_.next;
             if (!is_head(node) && node)
@@ -960,7 +960,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         return 1;
     }
     case 0x27A98022: { // Flip: flipped, and every timeline's (or timeline Index's) controllers told
-        int index;
+        int index = 0;
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             toggle_flipped();
             for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
@@ -1003,7 +1003,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         params->fetch_float(0x23272E4D, &duration, 1);
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
             auto* timeline = reinterpret_cast<AnimTrack*>(node);
-            float start, current, end;
+            float start = 0.0f, current = 0.0f, end = 0.0f;
             timeline->get_times(&start, &current, &end);
             float larger = start > end ? start : end;
             timeline->speed_ = static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame);
@@ -1071,7 +1071,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
 // from the current time (0x91A4C826), the end (FromEnd) or its start; the object's script made if it has none.
 int BlendChannel::wait_anim(Struct* params)
 {
-    float start, current, end;
+    float start = 0.0f, current = 0.0f, end = 0.0f;
     objects::get_channel_times(this, &start, &current, &end);
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);
@@ -1111,7 +1111,7 @@ int BlendChannel::wait_anim(Struct* params)
 // start) lies between the playing timeline's time last frame and now - either way round.
 int BlendChannel::time_passed(Struct* params)
 {
-    float start, current, end;
+    float start = 0.0f, current = 0.0f, end = 0.0f;
     objects::get_channel_times(this, &start, &current, &end);
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);
@@ -1141,7 +1141,7 @@ int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
         params->put_name_key(kAnim, kDefault);
     }
     params->push_float(0x79A07F3F, fetch_value(anim)); // Duration
-    int index;
+    int index = 0;
     AnimTrack* timeline = masked(timelines_.next);
     if (params->fetch_int_value(kIndex, &index, 0)) {
         for (; timeline && index; --index)

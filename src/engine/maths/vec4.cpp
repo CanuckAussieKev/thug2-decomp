@@ -92,7 +92,7 @@ void Vec4::echo_out() const { debug::printf("[%f %f %f %f]\n", x, y, z, w); }
 // 0x00406260
 float Vec4::dominant_axis_index(int* axis) const
 {
-    int index;
+    int index = 0;
     if (std::fabs(y) <= std::fabs(x))
         index = std::fabs(x) < std::fabs(z) ? 2 : 0;
     else

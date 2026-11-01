@@ -329,7 +329,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         // Couldn't start an async load: load it now instead.
     }
 
-    uint8_t* data;
+    uint8_t* data = nullptr;
     int size = file::cached_file_size(path);
     auto block_size = static_cast<size_t>(size); // (not original: the archive's bound for its reader)
     if (size != 0) {

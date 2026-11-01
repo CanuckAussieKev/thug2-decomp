@@ -82,7 +82,7 @@ void log_once(uint8_t id, uint32_t name, const char* what)
 
 uint32_t read32(const net::InboundMsgCtx* context, uint32_t offset)
 {
-    uint32_t value;
+    uint32_t value = 0;
     std::memcpy(&value, context->body_ + offset, 4);
     return value;
 }

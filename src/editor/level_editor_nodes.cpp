@@ -691,7 +691,7 @@ int pick_nearest(const std::vector<Pickable>& pickables, float x, float y, float
                 continue;
         }
         bool point = !p.segment;
-        bool better;
+        bool better = false;
         if (best < 0)
             better = true;
         else if (point != best_point)

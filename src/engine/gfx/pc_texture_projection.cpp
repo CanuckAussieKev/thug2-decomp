@@ -128,7 +128,7 @@ void draw_projection_batches()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
-    DWORD min_filter;
+    DWORD min_filter = 0;
     input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < batch_count(); ++i) {
@@ -157,7 +157,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
             MeshRef* mesh = meshes[m];
             if (mesh->flags & 2)
                 continue;
-            uint8_t* vertices;
+            uint8_t* vertices = nullptr;
             mesh->vertex_buffers_[0]->get_lock(0, 0, &vertices, 0x10);
             uint16_t* indices = nullptr;
             mesh->index_buffers_[0]->get_lock(0, 0, &indices, 0x10);
@@ -205,8 +205,8 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 get_colour(v1) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ib + colour_offset));
                 get_colour(v2) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ic + colour_offset));
                 uint8_t whole[3 * 0x18];
-                uint8_t* pieces;
-                uint8_t* end;
+                uint8_t* pieces = nullptr;
+                uint8_t* end = nullptr;
                 uint8_t* format = nullptr;
                 if (fineness_) {
                     // how fine to split it: the cross product of its edges, squared, over 16 times the fineness

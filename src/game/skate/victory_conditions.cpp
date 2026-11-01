@@ -226,16 +226,16 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
 // 0x00576810
 memory::owner<WinRule*> create_victory_condition(script::Struct* params)
 {
-    uint32_t type;
+    uint32_t type = 0;
     params->read_hash_value("type", &type, 1);
     switch (type) {
     case kTargetScore: {
-        int score;
+        int score = 0;
         params->fetch_int_value("score", &score, 1);
         return new ScoreReachedVictoryCondition(score);
     }
     case kLabelBestChain: {
-        int combos;
+        int combos = 0;
         params->fetch_int_value("num_combos", &combos, 1);
         return new BestComboVictoryCondition(combos);
     }

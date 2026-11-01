@@ -227,7 +227,7 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
     script::Struct* sounds = nullptr;
     script::read_sub_struct(0xB9738EBA)->read_sub_struct(type, &sounds, 0); // RigidBodySounds
     // (no such type: through null, as the original)
-    script::Struct* sound;
+    script::Struct* sound = nullptr;
     if (sounds->has_entry_named(0xBF8E0ACE)) { // CollideSound
         sounds->read_sub_struct(0xBF8E0ACE, &sound, 1);
         if (collide_sound_ptr_)
@@ -259,7 +259,7 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
 void BodyDynamicsModule::configure_from_data(script::Struct* params)
 {
     cur_phase_ = kStateAsleep;
-    uint32_t state;
+    uint32_t state = 0;
     if (params->read_hash_value(0x61FBB62C, &state, 0)) { // rigidbody_state
         if (state == 0x4484B712)                          // asleep
             cur_phase_ = kStateAsleep;
@@ -305,7 +305,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     params->fetch_float(0x85F112C1, &skater_radius_, 0);             // skater_collision_radius
     params->fetch_float(0x8AB2DB68, &skater_application_radius_, 0); // skater_collision_application_radius
     if (params->has_entry_named(0xE9156E6D)) {                       // skater_collision_assent (degrees)
-        float degrees;
+        float degrees = 0.0f;
         params->fetch_float(0xE9156E6D, &degrees, 0);
         double radians = static_cast<double>(degrees) * kRadiansPerDegree;
         skater_assent_cos_ = static_cast<float>(std::cos(radians));
@@ -317,12 +317,12 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     params->read_hash_value(0x571917FA, &settle_script_, 0);  // SettleScript
     params->read_hash_value(0xCCB84047, &script_d0_, 0);
     if (params->has_entry_named(0x0DD85BDA)) { // CallbackParams (the old copy is kept - leaked)
-        script::Struct* callback;
+        script::Struct* callback = nullptr;
         params->read_sub_struct(0x0DD85BDA, &callback, 1);
         callback_params_ptr_ = copy_of(callback);
     }
     if (params->has_entry_named(0x94956E48)) { // SoundType
-        uint32_t type;
+        uint32_t type = 0;
         params->read_hash_value(0x94956E48, &type, 1);
         set_sounds(type);
     }
@@ -332,7 +332,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         flag_bits_ &= ~kFlagDieUponSettling;
 
     if (params->has_entry_named(0xB77BE94A)) { // springs
-        script::Array* springs;
+        script::Array* springs = nullptr;
         params->fetch_list(0xB77BE94A, &springs, 1);
         spring_count_ = static_cast<uint16_t>(springs->extent_);
         springs_ = reallocate(springs_, spring_count_ * sizeof(Spring));
@@ -348,13 +348,13 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     // The shape: the contacts or spheres given, else Box (the default), Pyramid, Cylinder or Triangle.
     int shape = contact_count_ ? 4 : 0;
     if (params->has_entry_named(0xCCBFEA8C)) { // contacts
-        script::Array* contacts;
+        script::Array* contacts = nullptr;
         params->fetch_list(0xCCBFEA8C, &contacts, 0);
         set_contacts(contacts);
         shape = 4;
     }
     if (params->has_entry_named(0x5B6A8D18)) { // (the spheres)
-        script::Array* spheres;
+        script::Array* spheres = nullptr;
         params->fetch_list(0x5B6A8D18, &spheres, 0);
         set_spheres(spheres);
         shape = 4;
@@ -413,7 +413,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
 
     if (params->has_entry_named(0xC35CAC0D)) { // directed_friction: one structure per contact
-        script::Array* friction;
+        script::Array* friction = nullptr;
         params->fetch_list(0xC35CAC0D, &friction, 0);
         steer_friction_ = reallocate(steer_friction_, contact_count_ * sizeof(DirectedFriction));
         const uint32_t* elements = friction->find_array_value();

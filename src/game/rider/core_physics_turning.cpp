@@ -91,7 +91,7 @@ void turn_matrices(SkaterPhysicsModule* component, float angle)
 void SkaterPhysicsModule::turn_for_rail_jump()
 {
     objects::PadInputModule* input = input_;
-    float angle;
+    float angle = 0.0f;
     if (thaw_bmx::live_now(this)) {
         // Not original: THAW 0x005CF010 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
         const thaw_bmx::BikeState* bike = thaw_bmx::state_of(this, false);
@@ -124,9 +124,9 @@ void SkaterPhysicsModule::turn_on_ground()
     objects::GameEntity* object = object_of(this);
     // Left / right (&pad->left_side_ / +0x60); with the sharp turn button (+0x20) harder - and, slower than 10, the turn
     // ramps up over the first 600 ms the button is held.
-    objects::ControlButton* button;
-    bool sharp;
-    double rate;
+    objects::ControlButton* button = nullptr;
+    bool sharp = false;
+    double rate = 0.0;
     if (pad->left_side_.held_down_) {
         button = &pad->left_side_;
         sharp = pad->btn_down_.held_down_ != 0;
@@ -349,7 +349,7 @@ void SkaterPhysicsModule::keep_upright()
     // Leaning sideways (the up vector across the facing): rolled back at skater_upright_sideways_speed.
     double sideways = static_cast<double>(forward.x) * up.z + -static_cast<double>(forward.z) * up.x +
                       static_cast<double>(up.y) * 0.0f;
-    double angle;
+    double angle = 0.0;
     if (sideways > static_cast<double>(frame_length_) * kUprightRight) {
         angle = static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree * frame_length_;
     } else if (sideways < static_cast<double>(frame_length_) * kUprightLeft) {

@@ -158,7 +158,7 @@ bool is_part_list(script::Array* array)
     if (!array || array->kind_tag_ != script::kQbvalStruct || array->extent_ == 0)
         return false;
     auto* first = reinterpret_cast<script::Struct*>(array->fetch_part(0));
-    uint32_t desc;
+    uint32_t desc = 0;
     return first && first->read_hash_value(kDescId, &desc, 0);
 }
 
@@ -240,7 +240,7 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
     if (archive.size() < 12)
         return false;
     auto u32 = [&archive](size_t at) {
-        uint32_t value;
+        uint32_t value = 0;
         std::memcpy(&value, archive.data() + at, 4);
         return value;
     };
@@ -250,7 +250,7 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         if (offset + 16 > archive.size())
             return false;
         uint32_t size = u32(offset), compressed = u32(offset + 4);
-        uint16_t name_size;
+        uint16_t name_size = 0;
         std::memcpy(&name_size, archive.data() + offset + 8, 2);
         size_t body = offset + 16 + name_size;
         size_t stored = compressed ? compressed : size;
@@ -339,13 +339,13 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
     std::set<uint32_t> descs;
     for (uint32_t i = 0; i < ours->extent_; ++i) {
         auto* part = reinterpret_cast<script::Struct*>(ours->fetch_part(i));
-        uint32_t desc;
+        uint32_t desc = 0;
         if (part && part->read_hash_value(kDescId, &desc, 0))
             descs.insert(desc);
     }
     for (uint32_t i = 0; i < theirs->extent_; ++i) {
         auto* part = reinterpret_cast<script::Struct*>(theirs->fetch_part(i));
-        uint32_t desc;
+        uint32_t desc = 0;
         if (!part || !part->read_hash_value(kDescId, &desc, 0) || descs.count(desc))
             continue;
         std::vector<const char*> paths;
@@ -447,13 +447,13 @@ void load_once()
         if (theirs->kind_tag_ == script::kQbvalStruct) {
             std::set<uint32_t> descs;
             for (uint32_t i = 0; i < target.ours->extent_; ++i) {
-                uint32_t desc;
+                uint32_t desc = 0;
                 auto* part = reinterpret_cast<script::Struct*>(target.ours->fetch_part(i));
                 if (part && part->read_hash_value(kDescId, &desc, 0))
                     descs.insert(desc);
             }
             for (uint32_t i = 0; i < theirs->extent_; ++i) {
-                uint32_t desc;
+                uint32_t desc = 0;
                 auto* part = reinterpret_cast<script::Struct*>(theirs->fetch_part(i));
                 if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.count(desc))
                     ++their_new;

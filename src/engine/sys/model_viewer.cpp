@@ -407,7 +407,7 @@ bool Viewer::place_camera(script::Struct* params)
     identity.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     camera->basis_frame_ = identity;
     script::VectorValue at;
-    float x, y, z;
+    float x = 0.0f, y = 0.0f, z = 0.0f;
     if (params->fetch_vec("ViewerObjPos", &at, 0)) {
         x = at.x;
         y = static_cast<float>(static_cast<double>(at.y) + 35.0);

@@ -381,7 +381,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             if (global) {
                 Struct* career = nullptr;
                 global->read_sub_struct(0x4DA4937Bu, &career, 0); // career
-                int value; // (not initialised: a missing field after the first repeats the one before)
+                int value = 0; // (not initialised: a missing field after the first repeats the one before)
                 if (career && career->fetch_int_value(0x6C1A5E39u, &value, 0)) {
                     summary->put_int(kTotalGoalsComplete, value);
                     career->fetch_int_value(0x7A6BF912u, &value, 0);

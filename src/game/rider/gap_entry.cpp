@@ -206,7 +206,7 @@ void RiderGapTracker::seal()
 void RiderGapTracker::tick_frame()
 {
     ++tick_;
-    uint32_t cancel, require;
+    uint32_t cancel = 0, require = 0;
     fetch_gap_condition_masks(&cancel, &require);
     scan_for_gaps(cancel, require);
 }
@@ -388,14 +388,14 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     dir.w = -at.w;
 
     // The trick it needs.
-    uint32_t trick_script;
+    uint32_t trick_script = 0;
     if (params->read_hash_value(kTrickscript, &trick_script, 0)) {
         gap_trick_script(gap) = trick_script;
-        uint32_t key_combo;
-        const char* text;
-        script::Array* tricks;
+        uint32_t key_combo = 0;
+        const char* text = nullptr;
+        script::Array* tricks = nullptr;
         auto read_spin = [&]() {
-            int spin;
+            int spin = 0;
             if (params->fetch_int_value(kSpin, &spin, 0)) {
                 gap_perfect(gap) = params->has_bare_flag(kPerfect) ? 1 : 0;
                 gap_spin(gap) = get_half_turns(spin);
@@ -425,7 +425,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
         for (uint32_t i = 0; i < flags->extent_; ++i)
             gap_option_labels(gap) |= script::fetch_int_value(flags->fetch_part(i));
     } else {
-        uint32_t flag;
+        uint32_t flag = 0;
         if (params->read_hash_value(kFlags, &flag, 0))
             gap_option_labels(gap) |= script::fetch_int_value(flag);
     }
@@ -441,7 +441,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
     if (!driving_matters && park_editing::g_park_editor->cur_phase_ == kOff)
         return;
-    uint32_t cancel, require;
+    uint32_t cancel = 0, require = 0;
     fetch_gap_condition_masks(&cancel, &require);
     scan_for_gaps(cancel, require);
 }
@@ -484,7 +484,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                 script::delete_struct(results);
             }
         }
-        const char* text;
+        const char* text = nullptr;
         if (!params->fetch_text(kText, &text, 0))
             text = "Unnamed Gap";
         char coloured[256];
@@ -492,7 +492,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
 
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
         if (gap_trick_script(gap)) {
-            bool done;
+            bool done = false;
             if (!gap_key_combo(gap) && !gap_trick_text(gap) && gap->element_list_->extent_ == 0) {
                 done = true;
             } else {
@@ -527,7 +527,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
             gap_tally_ref()->register_gap_hit(text);
             entity_->start_script_task(kDefaultGapScript, 0, false, false, nullptr);
         }
-        uint32_t gap_script;
+        uint32_t gap_script = 0;
         if (params->read_hash_value(kGapScript, &gap_script, 0)) {
             bool permanent = params->has_bare_flag(kPermanent);
             bool replicate_flag = params->has_bare_flag(kOnlineFlag);

@@ -90,7 +90,7 @@ float fast_atan2(float y, float x)
     p = (p * t2 + t * kAtanC5) * t2 - t * kAtanC3;
     p = p * t2 + t * kAtanC1;
 
-    double result;
+    double result = 0.0;
     if (x_below_zero)
         result = y_not_positive ? (p + kQuarterPi) - kPiF : kThreeQuarterPi - p;
     else

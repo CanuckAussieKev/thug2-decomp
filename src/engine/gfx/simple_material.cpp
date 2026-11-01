@@ -106,7 +106,7 @@ SimpleMaterial::~SimpleMaterial()
 // 0x004DA6D0
 int skip_file_chunk(void* file)
 {
-    uint32_t id, size;
+    uint32_t id = 0, size = 0;
     file::get_take_in(&id, 4, 1, file);
     file::get_take_in(&size, 4, 1, file);
     file::seek_to(file, static_cast<int>(size), SEEK_CUR);

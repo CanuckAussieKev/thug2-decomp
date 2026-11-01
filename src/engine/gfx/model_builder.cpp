@@ -349,7 +349,7 @@ bool ModelAssembler::add_geom(uint32_t part)
     auto add = [&](const char* mesh) {
         built_model()->add_file_geom(mesh, part, via_asset_store_, dict_shift_, false, multicolor != 0, true, false);
     };
-    const char* mesh;
+    const char* mesh = nullptr;
     FaceSkin* face = built_appearance()->face_skin_;
     if ((face && face_texture_is_valid(face)) || built_appearance()->has_face_texture()) {
         if (option->fetch_text(kMeshIfFacemapped, &mesh, 0)) {
@@ -396,7 +396,7 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
     else
         slot->fetch_int_value(kUseDefaultHsv, &use_default, 0);
     if (use_default) {
-        int h, s, v;
+        int h = 0, s = 0, v = 0;
         script::Struct* option = built_appearance()->get_part_option(part);
         if (option && option->fetch_int_value(kDefaultH, &h, 0) && option->fetch_int_value(kDefaultS, &s, 0) &&
             option->fetch_int_value(kDefaultV, &v, 0)) {
@@ -406,7 +406,7 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
         }
         return false;
     }
-    int h, s, v;
+    int h = 0, s = 0, v = 0;
     if (!slot->fetch_int_value(kH, &h, 0) || !slot->fetch_int_value(kS, &s, 0) || !slot->fetch_int_value(kV, &v, 0))
         return true;
     built_model()->set_color_from_script(params, static_cast<float>(h), get_percent(s), get_percent(v));
@@ -429,7 +429,7 @@ bool ModelAssembler::swap_texture(uint32_t part)
         return false;
     const char* with = reinterpret_cast<const char*>(static_cast<uintptr_t>(part));
     for (const uint32_t* names : kReplacements) {
-        const char* source;
+        const char* source = nullptr;
         if (!option->fetch_text(names[0], &source, 0))
             continue;
         option->fetch_text(names[1], &with, 1);
@@ -548,7 +548,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
     if (use_default)
         return false;
-    int x, y, z;
+    int x = 0, y = 0, z = 0;
     if (!slot->fetch_int_value(kX, &x, 0) || !slot->fetch_int_value(kY, &y, 0) || !slot->fetch_int_value(kZ, &z, 0))
         return false;
     script::Array* bones = script::fetch_list(part);
@@ -595,7 +595,7 @@ bool ModelAssembler::apply_object_scale()
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
     if (use_default)
         return false;
-    int x, y, z;
+    int x = 0, y = 0, z = 0;
     if (slot->fetch_int_value(kX, &x, 0) && slot->fetch_int_value(kY, &y, 0) && slot->fetch_int_value(kZ, &z, 0)) {
         maths::Vec4 object_scale = {get_percent(x), get_percent(y), get_percent(z), 1.0f};
         built_model()->change_scale(&object_scale);
@@ -630,12 +630,12 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     uint32_t black = 0;                  // (four zero bytes)
     texture->get_border(black);          // (0x0048DED0)
     texture->get_zoom(x_scale, y_scale); // (0x0048DEB0)
-    int rotate;
+    int rotate = 0;
     if (option->fetch_int_value(kRotate, &rotate, 0))
         texture->spin_by(kQuarterTurn, -1.0f, -1.0f); // (0x0049F360)
     render::BitmapTexture* base = nullptr;
     bool deck = false;
-    int is_deck;
+    int is_deck = 0;
     if (option->fetch_int_value(kIsDeck, &is_deck, 0)) {
         deck = true;
         const char* base_name = nullptr; // (asserted; missing: the stack slot the colour above zeroed)

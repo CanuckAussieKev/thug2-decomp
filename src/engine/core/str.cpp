@@ -64,7 +64,7 @@ const char* format_with_separators(int value)
     char digits[32];
     snprintf(digits, sizeof(digits), "%d", value);
 
-    char separator;
+    char separator = 0;
     switch (game_config::g_language) { // the game's language setting
     case 3:
         separator = ' ';

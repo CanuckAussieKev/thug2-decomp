@@ -776,7 +776,7 @@ void carried_flags_task(tasks::Task<Hub>*)
          player = manager->step_player_walk(&search, false)) {
         if (!player->is_carrying_flag()) // (carries a flag)
             continue;
-        uint32_t name;
+        uint32_t name = 0;
         switch (player->get_flag_team()) {
         case 0:
             name = kTrgCtfRed;

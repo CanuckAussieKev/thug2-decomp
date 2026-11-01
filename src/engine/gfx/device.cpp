@@ -343,7 +343,7 @@ void create_render_targets()
 void load_gamma()
 {
     float red = 0.25f, green = 0.25f, blue = 0.25f;
-    HKEY key;
+    HKEY key = nullptr;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0, KEY_READ,
                       &key) == ERROR_SUCCESS) {
         DWORD size = 4;
@@ -369,8 +369,8 @@ void show_disc_error()
         init_direct_3d();
     // "There's a problem with the disc you're using." / "It may be dirty or damaged." in the language
     // (0x007CEFA0: 3 French, 5 German, else English).
-    const char* first;
-    const char* second;
+    const char* first = nullptr;
+    const char* second = nullptr;
     switch (game_config::g_language) {
     case 3:
         first = g_disc_error_french1;

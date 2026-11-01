@@ -102,7 +102,7 @@ void LetterGameObjective::expire() { Objective::expire(); }
 // 0x005609B0
 void LetterGameObjective::land()
 {
-    script::Array* spots;
+    script::Array* spots = nullptr;
     args_->fetch_list(kLetterSpots, &spots, 1);
     int count = static_cast<int>(spots->extent_);
     int i = 0;
@@ -111,7 +111,7 @@ void LetterGameObjective::land()
     for (; i < count; ++i) {
         auto* spot = reinterpret_cast<script::Struct*>(spots->fetch_part(static_cast<uint32_t>(i)));
         spot->read_hash_value(kFlag, &flag, 1);
-        int set;
+        int set = 0;
         goal_flags_->fetch_int_value(flag, &set, 1);
         if (set)
             continue;
@@ -283,11 +283,11 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         debug::printf("expired!\n"); // "expired!\n"
         return false;
     }
-    script::Array* waypoints;
+    script::Array* waypoints = nullptr;
     args_->fetch_list(kRaceWaypoints, &waypoints, 1);
     for (uint32_t i = 0; i < waypoints->extent_; ++i) {
         auto* waypoint = reinterpret_cast<script::Struct*>(waypoints->fetch_part(i));
-        uint32_t flag;
+        uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
         if (bit_matches(flag, 1, 0)) {
             if (i != waypoints->extent_ - 1)
@@ -312,14 +312,14 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         } else {
             params->put_name_key(kScr, kCheckpointMessage);
             if (!(cur_phase_ & kStateNoTimeLimit) && add_time_) {
-                int time;
+                int time = 0;
                 waypoint->fetch_int_value(kTime, &time, 0);
                 advance_clock(time);
                 params->put_int(kAddedTime, time);
             }
         }
         params->append_structure_if_any(waypoint);
-        const char* goal_name;
+        const char* goal_name = nullptr;
         args_->fetch_text(kGoalName, &goal_name, 1);
         char script_name[0x100];
         std::snprintf(script_name, sizeof(script_name), "%s_next_waypoint_script_id",

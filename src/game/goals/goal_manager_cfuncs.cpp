@@ -28,7 +28,7 @@ constexpr uint32_t kFlag = 0x2E0B1465;       // flag
 // The goal the command's Name names (asserted), and that name.
 uint32_t get_goal_name(script::Struct* params)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     return name;
 }
@@ -40,7 +40,7 @@ bool cfunc_goal_manager_edit_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     uint32_t name = get_goal_name(params);
-    script::Struct* edits;
+    script::Struct* edits = nullptr;
     params->read_sub_struct(kParams, &edits, 1);
     Objective* goal = manager->goals_.get_pull(name);
     if (goal)
@@ -199,9 +199,9 @@ bool cfunc_goal_manager_set_goal_flag(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     uint32_t name = get_goal_name(params);
-    uint32_t flag;
+    uint32_t flag = 0;
     params->read_hash_value(0u, &flag, 1);
-    int value;
+    int value = 0;
     params->fetch_int_value(0u, &value, 1);
     uint32_t skater = 0;
     params->read_hash_value(kSkater, &skater, 0);
@@ -231,7 +231,7 @@ bool cfunc_goal_manager_goal_flag_set(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     uint32_t name = get_goal_name(params);
-    uint32_t flag;
+    uint32_t flag = 0;
     params->read_hash_value(kFlag, &flag, 1);
     uint32_t skater = 0;
     params->read_hash_value(kSkater, &skater, 0);

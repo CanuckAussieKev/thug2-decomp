@@ -110,7 +110,7 @@ AnimBlenderComponent::~AnimBlenderComponent()
     // the list emptied (std::list::erase(begin, end), 0x004ECC30) - twice, as the original
     for (int pass = 0; pass < 2; ++pass) {
         auto** head = static_cast<void**>(observers_);
-        void* result;
+        void* result = nullptr;
         reinterpret_cast<objects::PointerList*>(&observers_)
             ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
                         reinterpret_cast<objects::PointerListNode*>(head ? head[1] : nullptr),
@@ -246,7 +246,7 @@ int AnimBlenderComponent::wait_on_channel(uint32_t, script::Struct* params, scri
 {
     uint32_t id = 0;
     Channel* first = masked(lanes_.next);
-    uint32_t wait_for;
+    uint32_t wait_for = 0;
     if (params && (params->read_hash_value(kId, &id, 0), id != 0))
         wait_for = id;
     else
@@ -292,7 +292,7 @@ int AnimBlenderComponent::blend_channel(uint32_t, script::Struct* params, script
     float a = 0.0f, b = 0.0f;
     params->fetch_float(0x4D786F62, &a, 1);
     params->fetch_float(0xBF237659, &b, 0);
-    uint32_t target; // (blend_to's target is a float here: its bits passed on)
+    uint32_t target = 0; // (blend_to's target is a float here: its bits passed on)
     std::memcpy(&target, &a, sizeof(target));
     channel->blend_to(target, b);
     return 1;

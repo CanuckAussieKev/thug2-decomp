@@ -315,7 +315,7 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
         if (script::Struct* old_table = script::read_sub_struct(state_table_)) {
             script::Struct* old_state = nullptr;
             if (old_table->read_sub_struct(cur_phase_, &old_state, 0)) {
-                uint32_t exit_action;
+                uint32_t exit_action = 0;
                 if (old_state->read_hash_value(kExitStateAction, &exit_action, 0)) {
                     if (exit_action == kWaitAnimFinished) {
                         if (!state_struct->has_bare_flag(kHighPriority)) {
@@ -387,7 +387,7 @@ const char* profile_voice()
 {
     RiderIdentity* profile = g_profile_roster->fetch_active_account();
     auto* info = reinterpret_cast<script::Struct*>(profile->details_);
-    uint32_t voice;
+    uint32_t voice = 0;
     if (!info->read_hash_value(kVoice, &voice, 0)) {
         int male = 0; // (the original's is uninitialised: is_male is asserted)
         info->fetch_int_value(kIsMale, &male, 1);
@@ -397,7 +397,7 @@ const char* profile_voice()
     int count = static_cast<int>(voices->extent_);
     for (int i = 0; i < count; ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(voices->fetch_part(static_cast<uint32_t>(i)));
-        uint32_t id;
+        uint32_t id = 0;
         entry->read_hash_value(kId, &id, 1);
         if (id == voice) {
             const char* name = nullptr;
@@ -637,7 +637,7 @@ bool PedestrianBrainModule::ped_bail(script::Struct*, script::Script*)
 bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script* script)
 {
     GameEntity* object = entity_;
-    uint32_t profile_name;
+    uint32_t profile_name = 0;
     if (object->tag_table_ && object->tag_table_->read_hash_value(kProfileName, &profile_name, 0)) {
         if (profile_name == kCustom) {
             if (const char* voice = profile_voice()) {
@@ -649,7 +649,7 @@ bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script
             int count = static_cast<int>(skaters->extent_);
             for (int i = 0; i < count; ++i) {
                 auto* skater = reinterpret_cast<script::Struct*>(skaters->fetch_part(static_cast<uint32_t>(i)));
-                uint32_t name;
+                uint32_t name = 0;
                 skater->read_hash_value(kName, &name, 1);
                 if (name == profile_name) {
                     // (Read over the slot that held `this`: missing - it's asserted - it stays that pointer.)

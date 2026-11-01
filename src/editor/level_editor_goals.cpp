@@ -1078,7 +1078,7 @@ std::vector<Goal> get_all()
 
 bool is_goal_point(uint32_t node)
 {
-    int goal, point;
+    int goal = 0, point = 0;
     return point_of(node, &goal, &point);
 }
 
@@ -1341,7 +1341,7 @@ int get_missing(const std::string& id)
 }
 bool point_of_node(uint32_t node, std::string* id, int* point)
 {
-    int goal;
+    int goal = 0;
     if (!point_of(node, &goal, point))
         return false;
     *id = g_goals[goal].id;
@@ -1373,7 +1373,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
                  uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto project = [&](V3 p, float* x, float* y) {
-        float nx, ny;
+        float nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1382,7 +1382,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
             return;
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (project(a, &ax, &ay) && project(b, &bx, &by))
             lines->push_back({ax, ay, bx, by, argb, thickness});
     };
@@ -1403,7 +1403,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
             // (its heading: a short arrow on the ground)
             V3 ahead = {std::sin(p.heading) * 40.0f, 0.0f, std::cos(p.heading) * 40.0f};
             line(p.pos, p.pos + ahead, colour, lit ? 2.0f : 1.25f);
-            float x, y;
+            float x = 0.0f, y = 0.0f;
             if (get_dot(d, d) < 3000.0f * 3000.0f && project(top + V3{0.0f, 12.0f, 0.0f}, &x, &y)) {
                 std::string label = point_label(g.type, static_cast<int>(k));
                 if (k == 0)

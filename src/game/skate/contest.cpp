@@ -276,8 +276,8 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     for (int i = 0; i < kLeaders - 1; ++i) {
         Leader& leader = leaders_[i + 1];
         leader.ident_ = ids[i];
-        script::Array* names;
-        const char* name;
+        script::Array* names = nullptr;
+        const char* name = nullptr;
         if (args_->fetch_list(kLeaderBoardNames, &names, 0))
             name = names->find_inline_text(static_cast<uint32_t>(i));
         else
@@ -285,7 +285,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         leader.label_ = name;
 
         // The first three pros near the medal points, the others near the bronze.
-        float points;
+        float points = 0.0f;
         if (i == 0) {
             points = gold;
         } else if (i == 1) {
@@ -306,7 +306,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         if (mirrored < high)
             low = mirrored;
         int first = maths::roll_side_stream(3);
-        int second;
+        int second = 0;
         do {
             second = maths::roll_side_stream(3);
         } while (second == first);
@@ -324,7 +324,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
                       leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     sort_leaders();
-    const char* first_place;
+    const char* first_place = nullptr;
     if (args_->fetch_text(kFirstPlaceName, &first_place, 0))
         leaders_[0].label_ = first_place;
     debug::printf("\nSorted\n");
@@ -379,7 +379,7 @@ void Contest::end_run(int score)
 
     // The points: linear between the medal scores (above gold: towards 100 at twice the gold score).
     double x = score;
-    float points;
+    float points = 0.0f;
     if (x < bronze_score_)
         points = static_cast<float>(static_cast<double>(third_mark_) / bronze_score_ * x);
     else if (x < silver_score_)

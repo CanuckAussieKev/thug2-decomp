@@ -111,7 +111,7 @@ bool script_flagged(uint32_t name)
         return false;
     token = script::skip_to_end_of_statement(token);
     while (*token != 0x24) { // (end of script)
-        const uint8_t* next;
+        const uint8_t* next = nullptr;
         if (*token == 0x16) { // a name: a script called?
             uint32_t called = script::fetch_word32(token + 1);
             next = token + 5;
@@ -282,7 +282,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
 {
     float above = cursor_.y + step;
     float below = get_global(0xF230D521) + cursor_.y;
-    float height;
+    float height = 0.0f;
     if (!ground_height({cursor_.x, above + level_y_, cursor_.z, cursor_.w},
                        {cursor_.x, below + level_y_, cursor_.z, cursor_.w}, &height))
         return false;

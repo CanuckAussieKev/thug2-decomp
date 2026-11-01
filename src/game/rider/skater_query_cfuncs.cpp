@@ -114,7 +114,7 @@ void send_to_players(online::Hub* manager, net::NetMessageInfo* desc, bool obser
 // speed given: false).
 bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script*)
 {
-    float speed;
+    float speed = 0.0f;
     if (!params->fetch_float(0u, &speed, 0))
         return false;
     objects::GameEntity* skater = get_home_rider();
@@ -123,7 +123,7 @@ bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script*)
 
 bool cfunc_skater_speed_less_than(script::Struct* params, script::Script*)
 {
-    float speed;
+    float speed = 0.0f;
     if (!params->fetch_float(0u, &speed, 0))
         return false;
     objects::GameEntity* skater = get_home_rider();
@@ -203,7 +203,7 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
     if (in_game <= 1)
         return true;
     net::NetMessageInfo desc;
-    uint32_t data;
+    uint32_t data = 0;
     if (highest == lowest) {
         desc = net::NetMessageInfo();
         data = 0xFFFFFFFF;
@@ -481,7 +481,7 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
 // 0x005AD5C0 / 0x005AD610: GoalsGreaterThan / GoalsEqualTo <n> - the career's goals got in all (false without n).
 bool cfunc_goals_greater_than(script::Struct* params, script::Script*)
 {
-    float goals;
+    float goals = 0.0f;
     if (!params->fetch_float(0u, &goals, 0))
         return false;
     return static_cast<double>(get_career()->count_total_goals()) > goals;
@@ -489,7 +489,7 @@ bool cfunc_goals_greater_than(script::Struct* params, script::Script*)
 
 bool cfunc_goals_equal_to(script::Struct* params, script::Script*)
 {
-    float goals;
+    float goals = 0.0f;
     if (!params->fetch_float(0u, &goals, 0))
         return false;
     return static_cast<double>(get_career()->count_total_goals()) == goals;
@@ -501,7 +501,7 @@ bool cfunc_toggle_skater_cam_mode(script::Struct* params, script::Script*)
 {
     int index = 0; // (uninitialised in the original when missing: the game's scripts always give skater=0)
     params->fetch_int_value(kSkater, &index, 0);
-    objects::GameEntity* skater;
+    objects::GameEntity* skater = nullptr;
     if (index == 0) {
         auto* local = static_cast<PlayerRecord*>(net_session_slot()->get_own_player());
         if (!local)

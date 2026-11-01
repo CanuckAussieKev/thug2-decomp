@@ -50,7 +50,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
     for (int goal = 0; goal < 10; ++goal) {
         // The pro, the restart, then eleven objects.
         for (int which = 0; which < 13; ++which) {
-            script::Struct* node;
+            script::Struct* node = nullptr;
             if (in_place) {
                 node = reinterpret_cast<script::Struct*>(nodes->fetch_part(static_cast<uint32_t>(*index)));
             } else {

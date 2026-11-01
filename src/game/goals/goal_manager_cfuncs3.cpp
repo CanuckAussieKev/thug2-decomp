@@ -79,7 +79,7 @@ objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
 
 uint32_t get_goal_name(script::Struct* params)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     return name;
 }
@@ -104,11 +104,11 @@ Objective* optional_goal(GoalManager* manager, script::Struct* params)
 // keys: its trick's name and checksum (an integer for a created trick) and its index. False if there's none.
 bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script::Script* script)
 {
-    uint32_t key_combo;
+    uint32_t key_combo = 0;
     params->read_hash_value(kKeyCombo, &key_combo, 1);
-    objects::RiderIdentity* profile;
+    objects::RiderIdentity* profile = nullptr;
     if (params->has_entry_named(kProfile)) {
-        uint32_t name;
+        uint32_t name = 0;
         params->read_hash_value(kProfile, &name, 1);
         profile = roster_handle()->get_template(name);
     } else {
@@ -116,31 +116,31 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
     }
     script::Struct* mapping = profile->fetch_details_params(kTrickMapping);
     if (!params->has_bare_flag(kSpecialFlag)) {
-        int created;
+        int created = 0;
         if (mapping->fetch_int_value(key_combo, &created, 0)) {
             script->args_->put_int(kCatNum, created);
             return true;
         }
-        uint32_t trick;
+        uint32_t trick = 0;
         if (!mapping->read_hash_value(key_combo, &trick, 0) || trick == kUnassigned)
             return false;
-        script::Struct* trick_params;
+        script::Struct* trick_params = nullptr;
         script::read_sub_struct(trick)->read_sub_struct(kParams, &trick_params, 1);
-        const char* name;
+        const char* name = nullptr;
         trick_params->fetch_text(kName, &name, 1);
         script->args_->append_word(kTrickString, name);
         script->args_->put_name_key(kTrickNameKey, trick);
         uint32_t extra = 0;
         if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
-            script::Array* extras;
+            script::Array* extras = nullptr;
             if (trick_params->fetch_list(kExtraTricks, &extras, 0))
                 extra = extras->fetch_part(0);
         }
         if (extra) {
             auto* entry = reinterpret_cast<script::Struct*>(script::fetch_list(extra)->fetch_part(0));
-            script::Struct* extra_params;
+            script::Struct* extra_params = nullptr;
             entry->read_sub_struct(kParams, &extra_params, 1);
-            const char* extra_name;
+            const char* extra_name = nullptr;
             extra_params->fetch_text(kName, &extra_name, 1);
             script->args_->append_word(kExtraTrickString, extra_name);
             script->args_->put_name_key(kExtraTrickChecksum, extra);
@@ -158,9 +158,9 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
         if (special.trick == kUnassigned)
             return false;
         if (script::Struct* structure = script::read_sub_struct(special.trick)) {
-            script::Struct* trick_params;
+            script::Struct* trick_params = nullptr;
             structure->read_sub_struct(kParams, &trick_params, 1);
-            const char* name;
+            const char* name = nullptr;
             trick_params->fetch_text(kName, &name, 1);
             script->args_->append_word(kTrickString, name);
         }
@@ -213,7 +213,7 @@ bool cfunc_goal_manager_expire_goal(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_add_time(script::Struct* params, script::Script*)
 {
     uint32_t name = get_goal_name(params);
-    int seconds;
+    int seconds = 0;
     params->fetch_int_value(0u, &seconds, 1);
     get_objective_board()->goals_.get_pull(name)->advance_clock(seconds);
     return true;
@@ -345,7 +345,7 @@ bool cfunc_goal_manager_set_end_run_type(script::Struct* params, script::Script*
 bool cfunc_goal_manager_set_should_deactivate_on_expire(script::Struct* params, script::Script*)
 {
     uint32_t name = get_goal_name(params);
-    int deactivate;
+    int deactivate = 0;
     params->fetch_int_value(0u, &deactivate, 1);
     GoalManager* manager = get_objective_board();
     bool on = deactivate != 0;
@@ -385,7 +385,7 @@ bool cfunc_goal_manager_suspend_goal_ped_logic(script::Struct* params, script::S
 // 0x0055B1A0: the game mode's difficulty level set to the unnamed integer. Whether it isn't 0.
 bool cfunc_goal_manager_set_difficulty_level(script::Struct* params, script::Script*)
 {
-    int level;
+    int level = 0;
     params->fetch_int_value(0u, &level, 1);
     GoalManager* manager = get_objective_board();
     manager->args_->put_int(get_game_mode()->get_name_key(), level);
@@ -397,10 +397,10 @@ bool cfunc_goal_manager_set_difficulty_level(script::Struct* params, script::Scr
 bool cfunc_goal_manager_get_difficulty_level(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
-    int level;
+    int level = 0;
     if (!manager->args_->fetch_int_value(get_game_mode()->get_name_key(), &level, 0))
         level = 1;
-    int result;
+    int result = 0;
     switch (level) {
     case 0:
         result = 0;
@@ -468,7 +468,7 @@ bool cfunc_goal_manager_start_filming(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_set_sponsor(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t sponsor;
+    uint32_t sponsor = 0;
     params->read_hash_value(0u, &sponsor, 1);
     manager->backer_ = sponsor;
     return true;
@@ -497,7 +497,7 @@ bool cfunc_goal_manager_get_team(script::Struct*, script::Script* script)
 bool cfunc_goal_manager_set_team_member(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t pro;
+    uint32_t pro = 0;
     params->read_hash_value(kPro, &pro, 1);
     bool remove = params->has_bare_flag(kRemove);
     bool mark_used = params->has_bare_flag(kFlagAsUsed);
@@ -519,7 +519,7 @@ bool cfunc_goal_manager_kill_team_members(script::Struct*, script::Script*)
 bool cfunc_goal_manager_set_team_name(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    const char* name;
+    const char* name = nullptr;
     params->fetch_text(0u, &name, 1);
     manager->team_->append_word(kTeamName, name);
     return true;
@@ -554,7 +554,7 @@ bool cfunc_goal_manager_stop_last_stream(script::Struct* params, script::Script*
 bool cfunc_goal_manager_hide_all_goal_peds(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    int hide;
+    int hide = 0;
     params->fetch_int_value(0u, &hide, 1);
     manager->conceal_every_objective_npc(hide != 0);
     return true;
@@ -564,9 +564,9 @@ bool cfunc_goal_manager_hide_all_goal_peds(script::Struct* params, script::Scrip
 bool cfunc_goal_manager_set_trick_beat_pattern(script::Struct* params, script::Script*)
 {
     auto* goal = reinterpret_cast<TrickBeatGoal*>(name_then_goal(params));
-    int tempo;
+    int tempo = 0;
     params->fetch_int_value(kTempo, &tempo, 1);
-    script::Array* pattern;
+    script::Array* pattern = nullptr;
     params->fetch_list(kBeatPattern, &pattern, 1);
     goal->set_beat_pattern(pattern, tempo);
     return true;
@@ -620,7 +620,7 @@ bool cfunc_goal_manager_get_goal_reward_points(script::Struct* params, script::S
 // are set.
 bool cfunc_goal_collect_active(script::Struct* params, script::Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(kGoalIdChecksum, &id, 1);
     GoalManager* manager = get_objective_board();
     if (manager->goals_.get_pull(id)->has_every_bit())

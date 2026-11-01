@@ -141,7 +141,7 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
     goals_.place_in(id, goal);
     goal->merge_skill_tier_args(); // (a failed allocation is used through null, as the original)
     script::Struct* own = goal->fetch_args();
-    script::Array* children;
+    script::Array* children = nullptr;
     if (own->fetch_list(kChildren, &children, 0)) {
         int count = static_cast<int>(children->extent_);
         for (int i = 0; i < count; ++i) {
@@ -149,7 +149,7 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
             goal->attach_child(children->fetch_part(i));
         }
     } else {
-        uint32_t child;
+        uint32_t child = 0;
         if (own->read_hash_value(kChild, &child, 0))
             goal->attach_child(child);
     }
@@ -255,7 +255,7 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
 bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, int size)
 {
     script::Struct* params = goals_.get_pull(id)->fetch_args();
-    script::Array* key_combos;
+    script::Array* key_combos = nullptr;
     params->fetch_list(kButtonSequences, &key_combos, 1);
     script::Array* key_texts = alloc_script_array();
     script::Array* trick_texts = alloc_script_array();

@@ -339,7 +339,7 @@ bool item_passed_over(const UiWidget* item)
 bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
 {
     Rect2 bounds;
-    bool turned_hit;
+    bool turned_hit = false;
     bool any = item_shape(item, x, y, false, &bounds, &turned_hit);
     if (turned_hit)
         return true;
@@ -349,7 +349,7 @@ bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
 Rect2 item_bounds(const UiWidget* item, const UiWidget* menu)
 {
     Rect2 bounds = {};
-    bool turned_hit;
+    bool turned_hit = false;
     if (!item_shape(item, 0.0f, 0.0f, true, &bounds, &turned_hit))
         return bounds;
     return widen(bounds, menu);
@@ -968,7 +968,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!input.used)
         return;
 
-    float x, y;
+    float x = 0.0f, y = 0.0f;
     if (!window_to_layout(current_mapping(input.window_width_, input.window_height_), input.x, input.y, &x, &y))
         return;
     if (input.moved)

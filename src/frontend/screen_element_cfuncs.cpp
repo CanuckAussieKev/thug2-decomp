@@ -93,7 +93,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
     bool push_heap = true;
     memory::MemSource* chosen = memory->front_end_heap_;
     if (params->read_hash_value(kHeap, &heap, 0)) {
-        int index;
+        int index = 0;
         switch (heap) {
         case kHeapNetwork:
             chosen = memory->network_heap_;
@@ -210,7 +210,7 @@ bool cfunc_screen_element_system_init(script::Struct*, script::Script*)
 // 0x004AD240: the element made; its id into the script's parameters.
 bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
 {
-    uint32_t type;
+    uint32_t type = 0;
     params->read_hash_value(kType, &type, 0);
     uint32_t id = unassigned_id();
     params->read_hash_value(kId, &id, 0);
@@ -224,7 +224,7 @@ bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
 bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script)
 {
     UiTree* manager = hub();
-    uint32_t id;
+    uint32_t id = 0;
     if (!manager->resolve_id(params, kId, &id))
         return false;
     int recurse = params->has_bare_flag("dont_recurse") ? 0 : 1; // dont_recurse
@@ -306,7 +306,7 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
 {
     UiTree* manager = hub();
     ElementPtr element;
-    uint32_t id;
+    uint32_t id = 0;
     if (manager->resolve_id(params, kId, &id)) {
         ElementPtr found;
         element.assign_value(manager->fetch_part(&found, id, 0)->owner_object_);
@@ -329,7 +329,7 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
 bool cfunc_set_root_screen_element(script::Struct* params, script::Script*)
 {
     UiTree* manager = hub();
-    uint32_t id;
+    uint32_t id = 0;
     if (!manager->resolve_id(params, kId, &id))
         return false;
     manager->change_root(id);
@@ -341,7 +341,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
 {
     UiTree* manager = hub();
     ElementPtr element;
-    uint32_t id;
+    uint32_t id = 0;
     if (manager->resolve_id(params, kId, &id)) {
         ElementPtr found;
         element.assign_value(manager->fetch_part(&found, id, 1)->owner_object_);
@@ -409,7 +409,7 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    int length;
+    int length = 0;
     if (element->kind_tag_ == kTextBlockElement)
         length = text_block_length(element.owner_object_);
     else if (element->kind_tag_ == kTextElement)
@@ -425,7 +425,7 @@ bool cfunc_get_screen_element_position(script::Struct* params, script::Script* s
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    float x, y;
+    float x = 0.0f, y = 0.0f;
     element->get_top_left(&x, &y);
     script->args_->insert_pair(kScreenElementPos, x, y);
     return true;
@@ -440,7 +440,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
     int selected = menu->selected_index_;
     if (selected == -1)
         return false;
-    int index;
+    int index = 0;
     if (params->fetch_int_value(0u, &index, 0))
         return index == selected;
     if (params->has_bare_flag("first")) // first
@@ -481,9 +481,9 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         text = texts->fetch_text(0);
     else
         params->fetch_text(kText, &text, 1);
-    uint32_t font_name;
+    uint32_t font_name = 0;
     params->read_hash_value(kFont, &font_name, 1);
-    float max_width;
+    float max_width = 0.0f;
     params->fetch_float(kWidth, &max_width, 1);
     void* font = get_font(font_name);
     const char* cursor = text;
@@ -504,7 +504,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
             script::delete_struct(element_params);
         }
     };
-    int result;
+    int result = 0;
     do {
         result = text::next_word(word, cursor);
         if (texts && result == 2 && text_index < texts->extent_ - 1) {
@@ -518,7 +518,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
             }
             result = 0;
         }
-        float word_width, word_height;
+        float word_width = 0.0f, word_height = 0.0f;
         read_string_param(font, word, &word_width, &word_height);
         bool new_line = false;
         bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;

@@ -200,7 +200,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
     for (int i = 0; i < count; ++i) {
         auto* source = reinterpret_cast<script::Struct*>(goals->fetch_part(static_cast<uint32_t>(i)));
         Goal& goal = goals_[i];
-        uint32_t checksum;
+        uint32_t checksum = 0;
         if (source->has_entry_named(0x0FFD7BBEu)) {
             source->read_hash_value(0x0FFD7BBEu, &checksum, 1);
             goal.kind_ = checksum;
@@ -209,7 +209,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
             source->read_hash_value(0xC2455018u, &checksum, 1);
             goal.attr_key_ = checksum;
         }
-        script::Array* by_difficulty;
+        script::Array* by_difficulty = nullptr;
         if (source->has_entry_named(0xE288A7CBu)) {
             by_difficulty = nullptr;
             source->fetch_list(0xE288A7CBu, &by_difficulty, 1);
@@ -226,7 +226,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
             goal.label_ = name;
         }
         if (source->has_entry_named(0xBD982FDCu)) {
-            int ignored;
+            int ignored = 0;
             source->fetch_int_value(0xBD982FDCu, &ignored, 1);
             goal.cur_standing_ = 0;
         }
@@ -320,7 +320,7 @@ void AttributeTracker::announce_met_goals()
         uint32_t stat = goal.attr_key_;
         goal.cur_standing_ = 1;
         // The stat's name (a global string per stat).
-        uint32_t text;
+        uint32_t text = 0;
         switch (stat) {
         case 0x6DCB497C:
             text = 0x585887CA;
@@ -573,7 +573,7 @@ void AttributeTracker::check_balance_time(uint32_t trick_type, float time, int)
         if (goal.cur_standing_ != 0 || goal.met_)
             continue;
         int target = goal.aim_point_;
-        uint32_t kind;
+        uint32_t kind = 0;
         if (trick_type == kSlide || trick_type == kGrind)
             kind = kGrindTime;
         else if (trick_type == kNoseManual || trick_type == kManual)
@@ -626,7 +626,7 @@ bool AttributeTracker::deactivate_goals(script::Struct*, script::Script*)
 // 0x0051CB30
 bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Script* script)
 {
-    int index;
+    int index = 0;
     params->fetch_int_value(0u, &index, 1);
     script->args_->put_int(0x84FF9AE3u, goals_[index].cur_standing_);
     return true;

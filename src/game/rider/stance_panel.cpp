@@ -75,7 +75,7 @@ int RiderStanceDisplay::get_stance()
 // 0x00519230
 void RiderStanceDisplay::tick_frame()
 {
-    frontend::UiWidget* panel;
+    frontend::UiWidget* panel = nullptr;
     {
         frontend::ElementPtr found;
         uint32_t id = static_cast<uint32_t>(static_cast<Rider*>(entity_)->get_skater_number()) - kPanelIdOffset;

@@ -542,7 +542,7 @@ void tick_frame()
     // (faces of a level gone: dropped from the selection)
     g_selection.erase(std::remove_if(g_selection.begin(), g_selection.end(),
                                      [](const FaceKey& key) {
-                                         uint16_t flags;
+                                         uint16_t flags = 0;
                                          return !get_take_in(key, &flags);
                                      }),
                       g_selection.end());
@@ -559,7 +559,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
             V3 a = p[k], b = p[(k + 1) % 3];
             if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
                 continue;
-            float ax, ay, bx, by, nx, ny;
+            float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, nx = 0.0f, ny = 0.0f;
             if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
                 continue;
             ndc_to_pixel(viewport, nx, ny, &ax, &ay);

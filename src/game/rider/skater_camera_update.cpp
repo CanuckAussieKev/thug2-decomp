@@ -191,7 +191,7 @@ void RiderChaseView::tick_frame()
     if (!(control && control->is_halted_)) {
         double horizontal =
             std::sqrt(static_cast<double>(velocity_x) * velocity_x + static_cast<double>(velocity_z) * velocity_z);
-        bool along;
+        bool along = false;
         if (horizontal > kSlowHorizontal)
             along = !look_down;
         else
@@ -211,8 +211,8 @@ void RiderChaseView::tick_frame()
                     facing += s->drop_velocity_;
                 }
                 facing.make_unit();
-                double ux, uy, uz, uw;
-                double k;
+                double ux = 0.0, uy = 0.0, uz = 0.0, uw = 0.0;
+                double k = 0.0;
                 if (physics_state == 1) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
                     if (s->flag(PoseFlag::kAcidDrop).on && facing.y < 0.0f)
@@ -426,7 +426,7 @@ void RiderChaseView::tick_frame()
     // Where: the target, behind along the view and above along the up; looking at it from above the skater.
     maths::Vec4 target;
     fetch_goal(&target, instant);
-    float height, distance;
+    float height = 0.0f, distance = 0.0f;
     if (instant) {
         float rate = zoom_ease_rate_;
         zoom_ease_rate_ = 1.0f;

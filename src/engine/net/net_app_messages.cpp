@@ -175,7 +175,7 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
     switch (queue) {
     case kQueueNormal: {
         lists::Hunt<MsgNormalLink> search;
-        MsgNormalLink* next;
+        MsgNormalLink* next = nullptr;
         for (MsgNormalLink* link = search.head_element(&conn->normal_msgs_); link; link = next) {
             next = search.following_item();
             if (get_timestamp(this) < link->due_time_)
@@ -424,7 +424,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
 
     {
         lists::Hunt<ReliableMsgNode> search;
-        ReliableMsgNode* next;
+        ReliableMsgNode* next = nullptr;
         for (ReliableMsgNode* link = search.head_element(&context->sender_conn_->important_msgs_); link; link = next) {
             next = search.following_item();
             if (packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
@@ -436,7 +436,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     }
     {
         lists::Hunt<OrderedMsgNode> search;
-        OrderedMsgNode* next;
+        OrderedMsgNode* next = nullptr;
         for (OrderedMsgNode* link = search.head_element(&context->sender_conn_->sequenced_msgs_); link; link = next) {
             next = search.following_item();
             if (packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {

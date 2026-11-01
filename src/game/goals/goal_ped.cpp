@@ -170,7 +170,7 @@ void ObjectiveNpc::add_success_suffix(bool add, char* text, int)
 const char* ObjectiveNpc::get_pro_given_name()
 {
     script::Struct* params = get_goal_params(objective_key_);
-    const char* pro;
+    const char* pro = nullptr;
     if (!params->fetch_text(kPro, &pro, false))
         return nullptr;
     objects::RiderIdentity* profile = current_profile();
@@ -179,7 +179,7 @@ const char* ObjectiveNpc::get_pro_given_name()
         char first[0x80];
         read_leading_name(first, &display, sizeof(first));
         if (profile->is_pro() && checksums::hash_from_text(pro) == checksums::hash_from_text(first)) {
-            const char* alternative;
+            const char* alternative = nullptr;
             return params->fetch_text(kProAlternative, &alternative, false) ? alternative : nullptr;
         }
     }
@@ -193,11 +193,11 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     const char* pro = get_pro_given_name();
     if (!pro)
         return false;
-    const char* goal_name;
+    const char* goal_name = nullptr;
     params->fetch_text(kGoalName, &goal_name, true);
     char base[0x200];
     std::snprintf(base, sizeof(base), kFormatTwo, pro, goal_name);
-    const char* difficulty;
+    const char* difficulty = nullptr;
     switch (hub()->get_skill_tier(false)) {
     case 0:
         difficulty = "easy";
@@ -213,7 +213,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     }
     bool female = false;
     if (suffix && checksums::hash_from_text(suffix) == kSkater) {
-        int male;
+        int male = 0;
         reinterpret_cast<script::Struct*>(current_profile()->details_)->fetch_int_value(kIsMale, &male, 1);
         if (!male)
             female = true;
@@ -319,7 +319,7 @@ void ObjectiveNpc::cut_voice_line()
 // 0x0055F270
 uint32_t ObjectiveNpc::get_objective_anim_sets(const char* type)
 {
-    const char* goal_name;
+    const char* goal_name = nullptr;
     get_goal_params(objective_key_)->fetch_text(kGoalName, &goal_name, 1);
     char name[0x80];
     std::snprintf(name, sizeof(name), kFormatTwo, goal_name, type);
@@ -534,7 +534,7 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
         return;
     bool random = params->has_bare_flag(kPlayRandom);
     bool by_name = params->has_bare_flag(kCallPlayerByName);
-    uint32_t vo;
+    uint32_t vo = 0;
     if (params->read_hash_value(kVo, &vo, 0)) {
         play_stream(vo, true, 0, false);
         return;

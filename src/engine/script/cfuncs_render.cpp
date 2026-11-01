@@ -164,7 +164,7 @@ bool cfunc_init_anim_system(Struct* params, Script*)
     params->fetch_int_value(kAnimHeapSize, &heap_size, 1);
     params->fetch_int_value(kAnimCacheSize, &cache_size, 1);
     params->read_hash_value(kDefCacheType, &cache_type, 1);
-    int type;
+    int type = 0;
     if (cache_type == kCacheType3)
         type = 3;
     else if (cache_type == kCacheType4)
@@ -238,13 +238,13 @@ bool cfunc_pop_world_lights(Struct*, Script*) { return render::pop_world_lights(
 // 0x00446790: SetScreen [aspect=<f>] [angle=<f>] [letterbox=<n>]: those given are set. Always true.
 bool cfunc_set_screen(Struct* params, Script*)
 {
-    float aspect;
+    float aspect = 0.0f;
     if (params->fetch_float(kAspect, &aspect, 0))
         render::set_screen_aspect_ratio(aspect);
-    float angle;
+    float angle = 0.0f;
     if (params->fetch_float(kAngle, &angle, 0))
         render::set_screen_field_of_view(angle);
-    int letterbox;
+    int letterbox = 0;
     if (params->fetch_int_value(kLetterbox, &letterbox, 0))
         render::set_letterbox(letterbox != 0);
     return true;
@@ -334,7 +334,7 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
 // Always true.
 bool cfunc_get_gamma_values(Struct*, Script* script)
 {
-    float red, green, blue;
+    float red = 0.0f, green = 0.0f, blue = 0.0f;
     render::get_gamma(&red, &green, &blue);
     Struct* out = script->args_;
     out->erase_module(kRed);
@@ -353,7 +353,7 @@ bool cfunc_get_gamma_values(Struct*, Script* script)
 bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
 {
     int directional = 0;
-    float low, high;
+    float low = 0.0f, high = 0.0f;
     if (params->has_bare_flag(kAmbient)) {
         low = render::fetch_ambient_scale(true);
         high = render::fetch_ambient_scale(false);
@@ -473,13 +473,13 @@ bool cfunc_set_light_diffuse_color(Struct* params, Script*)
 bool cfunc_get_light_current_color(Struct*, Script* script)
 {
     Struct* out = script->args_;
-    uint32_t colour;
+    uint32_t colour = 0;
     auto add = [&](uint32_t red, uint32_t green, uint32_t blue) {
         out->put_int(red, static_cast<int>(colour & 0xFF));
         out->put_int(green, static_cast<int>(colour >> 8 & 0xFF));
         out->put_int(blue, static_cast<int>(colour >> 16 & 0xFF));
     };
-    uint32_t buffer;
+    uint32_t buffer = 0;
     colour = *render::get_light_ambient_color(&buffer);
     add(kAmbientRed, kAmbientGreen, kAmbientBlue);
     colour = *render::get_light_diffuse_color(&buffer, 0);

@@ -125,9 +125,9 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     int team = -1;
     uint32_t player = 0xFFFFFFFF;
     float nearest = 1000000.0f;
-    int exclude_team;
+    int exclude_team = 0;
     params->fetch_int_value(kSkipTeam, &exclude_team, 1);
-    float radius;
+    float radius = 0.0f;
     params->fetch_float(kRadius, &radius, 1);
     double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
     auto radius_squared = static_cast<float>(inches * inches);

@@ -226,7 +226,7 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
 {
     (void)params;
     (void)script;
-    uint32_t object_type;
+    uint32_t object_type = 0;
     switch (type) {
     case kSkater:
         return any_skater_near(rect, reach_squared, point);
@@ -269,7 +269,7 @@ bool CbBoxComponent::query_objects(script::Struct* params, script::Script* scrip
         double radius = static_cast<double>(reach_squared) * kTwelveInchScale;
         reach_squared = static_cast<float>(radius * radius);
     }
-    uint32_t type;
+    uint32_t type = 0;
     if (params->read_hash_value(kTypeParam, &type, 0))
         return any_object_near(params, script, reach_squared, rect, type, point);
     script::Array* types = nullptr;
@@ -294,7 +294,7 @@ int CbBoxComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
     case kObjObjectInRadius:
         return query_objects(params, script, nullptr, nullptr) ? 1 : 0;
     case kObjObjectInRadiusOfNode: {
-        uint32_t node;
+        uint32_t node = 0;
         if (!params->read_hash_value(kNode, &node, 0))
             return 0;
         level_nodes::fetch_place(node, &position);

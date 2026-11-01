@@ -94,7 +94,7 @@ void ParkLayout::set_up_abstract_metas()
             piece_names[num_piece_names++] = name;
             meta->flag_bits_ |= PieceGroup::kSector;
             meta->name_key_ = name;
-            uint32_t special;                                     // (left unset if there's none, as in the original)
+            uint32_t special = 0;                                 // (left unset if there's none, as in the original)
             if (desc->read_hash_value(0xF176A9FD, &special, 0)) { // special_type
                 // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
                 switch (special) {
@@ -349,9 +349,9 @@ void ParkLayout::set_up_lights()
     script::Array* themes = script::fetch_list("Ed_Light_Info"); // (the original doesn't assert)
     auto* theme = reinterpret_cast<script::Array*>(themes->fetch_part(0));
     auto* info = reinterpret_cast<script::Struct*>(theme->fetch_part(0));
-    float ambient_const, falloff_const, cursor_ambience;
+    float ambient_const = 0.0f, falloff_const = 0.0f, cursor_ambience = 0.0f;
     script::VectorValue ambient, falloff;
-    script::Array* positions;
+    script::Array* positions = nullptr;
     info->fetch_float("ambient_const", &ambient_const, 1);
     info->fetch_vec("ambient_rgb", &ambient, 1);
     info->fetch_float("falloff_const", &falloff_const, 1);
@@ -378,7 +378,7 @@ void ParkLayout::update_percent_bar()
     uint8_t stats[0x6C];
     // 0x0059E730: the park's memory use (fills the stats at 0x007CE618, returns them)
     auto* use = reinterpret_cast<uint8_t*>(get_memory_stats(reinterpret_cast<MemoryStats*>(stats)));
-    float full;
+    float full = 0.0f;
     std::memcpy(&full, use + 0x2C, 4);
     float percent = full;
     if (full < 0.0f)
@@ -540,7 +540,7 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
         meta->spotlight(false, 0);
         meta->flag_bits_ &= ~PieceGroup::kHighlightable;
     }
-    int index;
+    int index = 0;
     // The gap of the first half, removed
     if (gap_registry_->get_gap_index(halves[0], &index))
         gap_registry_->drop_gap_entry(index, true);

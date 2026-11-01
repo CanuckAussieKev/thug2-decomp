@@ -44,7 +44,7 @@ constexpr uint32_t kWalkParameters = 0x6775E538;
 // A float of walk_parameters (asserted).
 inline float walk_parameter(uint32_t name)
 {
-    float value;
+    float value = 0.0f;
     script::read_sub_struct(kWalkParameters)->fetch_float(name, &value, 1);
     return value;
 }

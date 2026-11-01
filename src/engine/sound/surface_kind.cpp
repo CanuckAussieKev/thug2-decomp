@@ -217,8 +217,8 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
 // 0x00444710 (maxVol is compared with 100 by its bits)
 double get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
 {
-    double volume;
-    uint32_t max_bits;
+    double volume = 0.0;
+    uint32_t max_bits = 0;
     std::memcpy(&max_bits, &info->max_vol_, 4);
     if (info->floor_loudness_ == 0.0f && max_bits == kHundredBits)
         volume = percent;
@@ -233,10 +233,10 @@ double get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
 // 0x00444760
 Struct* pick_sound_action(Struct* entry)
 {
-    Struct* sound_action;
+    Struct* sound_action = nullptr;
     if (entry->read_sub_struct(kSoundAction, &sound_action, 0))
         return sound_action;
-    Array* choices;
+    Array* choices = nullptr;
     entry->fetch_list(kSoundAction, &choices, 1);
     int chance =
         0; // (kept from one element to the next when one has none; uninitialised for the first in the original)
@@ -263,14 +263,14 @@ Struct* pick_sound_action(Struct* entry)
 Struct* find_sound_action(Struct* sound_actions, uint8_t table, float value)
 {
     uint32_t action = get_table_action(table);
-    Struct* entry;
+    Struct* entry = nullptr;
     if (sound_actions->read_sub_struct(action, &entry, 0))
         return entry;
-    Array* entries;
+    Array* entries = nullptr;
     sound_actions->fetch_list(action, &entries, 1);
     for (uint32_t i = 0; i < entries->extent_; ++i) {
         entry = reinterpret_cast<Struct*>(entries->fetch_part(i));
-        float use_up_to;
+        float use_up_to = 0.0f;
         // (a NaN value never fits)
         if (!entry->fetch_float(kUseUpTo, &use_up_to, 0) || value <= use_up_to)
             return pick_sound_action(entry);
@@ -290,7 +290,7 @@ void load_sound_action(Struct* sound_action)
 void load_table_sounds(Struct* sound_actions, uint8_t table)
 {
     uint32_t action = get_table_action(table);
-    Struct* default_actions;
+    Struct* default_actions = nullptr;
     script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
     Struct* entry = nullptr;
     if (!sound_actions->read_sub_struct(action, &entry, 0)) {
@@ -302,17 +302,17 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
         load_sound_action(entry);
         return;
     }
-    Array* entries;
+    Array* entries = nullptr;
     if (!sound_actions->fetch_list(action, &entries, 0))
         default_actions->fetch_list(action, &entries, 1);
     for (uint32_t i = 0; i < entries->extent_; ++i) {
         auto* element = reinterpret_cast<Struct*>(entries->fetch_part(i));
-        Struct* sound_action;
+        Struct* sound_action = nullptr;
         if (element->read_sub_struct(kSoundAction, &sound_action, 0)) {
             load_sound_action(sound_action);
             continue;
         }
-        Array* choices;
+        Array* choices = nullptr;
         element->fetch_list(kSoundAction, &choices, 1);
         for (uint32_t j = 0; j < choices->extent_; ++j) {
             SoundInfo info;
@@ -344,7 +344,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
         return;
     sound::AudioMixer* sounds = sound_manager();
     void* net = online::g_online_hub;
-    Struct* sound_actions;
+    Struct* sound_actions = nullptr;
     if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions))
         return;
     if (!sound_actions->has_entry_named(get_table_action(table)))
@@ -408,7 +408,7 @@ bool load_terrain_sounds(uint32_t checksum)
     if (sound::no_sound())
         return false;
     uint8_t terrain = get_terrain_index(checksum);
-    Struct* default_actions;
+    Struct* default_actions = nullptr;
     script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
     Struct* terrain_actions = nullptr;
     if (get_terrain_structure(terrain, &terrain_actions, kSoundActions)) {

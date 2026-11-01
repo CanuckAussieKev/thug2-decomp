@@ -257,7 +257,7 @@ void AudioMixer::init_playback_props(PlaybackProps* props, SoundWaveSlot* entry,
         auto* given = reinterpret_cast<uint32_t*>(params);
         std::memcpy(&props->pitch, &given[0], 4);
         std::memcpy(&props->volume, &given[1], 4);
-        float dropoff;
+        float dropoff = 0.0f;
         std::memcpy(&dropoff, &given[2], 4);
         props->dropoff = dropoff != 0.0f ? dropoff : entry->dropoff;
         props->unknown20 = 0;
@@ -356,7 +356,7 @@ bool AudioMixer::ingest_sound(const char* path, uint16_t flags, int load_type, i
     uint32_t checksum = checksums::hash_from_text(name);
     if (fetch_wave_slot(checksum))
         return false;
-    SoundWaveSlot* entry;
+    SoundWaveSlot* entry = nullptr;
     if (load_type == 0) {
         if (get_level_count() >= kMaxWaves)
             return false;

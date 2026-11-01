@@ -111,7 +111,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
 {
     if (name != kRotate)
         return 2;
-    float duration;
+    float duration = 0.0f;
     if (params->fetch_float(kDuration, &duration, 0)) {
         // Over time: the duration in seconds (seconds / second), frames (frames / frame) or ms.
         if (!params->has_bare_flag(kSeconds) && !params->has_bare_flag(kSecond)) {
@@ -141,7 +141,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     // At once.
-    float degrees;
+    float degrees = 0.0f;
     if (params->fetch_float(kX, &degrees, 0)) {
         maths::Mat4 rotation;
         maths::make_pitch_matrix(rotation, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));

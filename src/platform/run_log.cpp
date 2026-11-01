@@ -81,7 +81,7 @@ void* log_file_handle()
 void get_log(const char* fmt, ...)
 {
     {
-        va_list args;
+        va_list args = nullptr;
         va_start(args, fmt);
         const char* line = keep_tail(fmt, args);
         va_end(args);
@@ -89,7 +89,7 @@ void get_log(const char* fmt, ...)
             listener(line);
     }
     if (g_console) {
-        va_list args;
+        va_list args = nullptr;
         va_start(args, fmt);
         vprintf(fmt, args);
         va_end(args);
@@ -98,7 +98,7 @@ void get_log(const char* fmt, ...)
     }
     if (!g_log)
         return;
-    va_list args;
+    va_list args = nullptr;
     va_start(args, fmt);
     vfprintf(g_log, fmt, args);
     va_end(args);

@@ -122,7 +122,7 @@ void GapRegistry::set_trigger_length(ParkTile* piece)
     for (Gap* gap : gaps_ptr_) {
         if (!gap)
             continue;
-        int half;
+        int half = 0;
         if (gap->pieces_[0] == piece)
             half = 0;
         else if (gap->pieces_[1] == piece)

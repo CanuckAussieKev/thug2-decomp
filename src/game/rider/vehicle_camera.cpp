@@ -92,7 +92,7 @@ CarView::~CarView() = default;
 void CarView::configure_from_data(script::Struct* params)
 {
     if (params->has_entry_named(kSubject)) {
-        uint32_t id;
+        uint32_t id = 0;
         params->read_hash_value(kSubject, &id, 1);
         subject_ = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
         vehicle_ = reinterpret_cast<uint8_t*>(subject_->fetch_module(kVehicle));
@@ -173,7 +173,7 @@ void CarView::apply_to_camera()
 void CarView::update_orientation()
 {
     double heading = free_look_->heading_;
-    double rotated_x, rotated_z;
+    double rotated_x = 0.0, rotated_z = 0.0;
     maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
     auto right = static_cast<float>(rotated_z);
     auto forward = static_cast<float>(rotated_x);
@@ -222,7 +222,7 @@ void CarView::tick_frame()
         cosine = 1.0f;
     else if (cosine < -1.0f)
         cosine = -1.0f;
-    bool obtuse;
+    bool obtuse = false;
     float angle = maths::acos_f(cosine, kHalfPi, &obtuse);
     if (obtuse)
         angle = kPi - angle;
@@ -233,7 +233,7 @@ void CarView::tick_frame()
     if (step > angle)
         step = angle;
     double turn = (left ? 1.0f : -1.0f) * step;
-    double x, z;
+    double x = 0.0, z = 0.0;
     maths::spin_by(turn, direction_.x, direction_.z, &x, &z);
     direction_.x = static_cast<float>(x);
     direction_.z = static_cast<float>(z);

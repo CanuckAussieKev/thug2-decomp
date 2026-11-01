@@ -267,7 +267,7 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     if (!params->has_bare_flag(kFlagCommandFlagA))
         params->has_bare_flag(kFlagCommandFlagB);
     FlagCommand command;
-    uint32_t id;
+    uint32_t id = 0;
     if (params->read_hash_value(kName, &id, 0)) {
         command.value = value;
         command.id = id;
@@ -277,7 +277,7 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
         object_edit()->for_each(&apply_flag_command_to_object, &command);
         return command.result;
     }
-    const char* prefix;
+    const char* prefix = nullptr;
     if (!params->fetch_text(kPrefix, &prefix, 0))
         return false;
     uint16_t count = 0;
@@ -302,7 +302,7 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
     objects::Entity* object = script ? script->entity_.get_pull() : nullptr;
-    objects::Rider* skater;
+    objects::Rider* skater = nullptr;
     if (object && object->kind_tag_ == kSkaterType) {
         skater = static_cast<objects::Rider*>(object);
     } else {
@@ -478,8 +478,8 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
         params->fetch_int_value(kEnd[i], &value, 0);
         end[i] = static_cast<uint8_t>(value);
     }
-    uint32_t start_colour;
-    uint32_t end_colour;
+    uint32_t start_colour = 0;
+    uint32_t end_colour = 0;
     std::memcpy(&start_colour, start, 4);
     std::memcpy(&end_colour, end, 4);
     render::engine::add_flash(viewport, start_colour, end_colour, duration, z, static_cast<uint32_t>(flags), texture);

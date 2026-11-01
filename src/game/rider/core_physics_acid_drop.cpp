@@ -75,7 +75,7 @@ double fall_time(SkaterPhysicsModule* component, float height, float upward)
     set_timed_flag(component, PoseFlag::kAcidDrop, 1);
     double down = -current_gravity(component);
     double discriminant = static_cast<double>(upward) * upward + 2.0 * (static_cast<double>(height) * down);
-    double time;
+    double time = 0.0;
     if (discriminant >= 0.0 || discriminant != discriminant)
         time = (std::sqrt(discriminant) + upward) / down;
     else
@@ -233,7 +233,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     auto gravity = static_cast<float>(current_gravity(this));
     set_timed_flag(this, PoseFlag::kAcidDrop, 0);
     // The highest the arc gets on its way to the wall.
-    float peak;
+    float peak = 0.0f;
     if (distance > 0.0f && horizontal > kMinHorizontal) {
         double ratio = static_cast<double>(distance) / horizontal;
         peak = static_cast<float>((static_cast<double>(gravity) * ratio * 0.5f + velocity->y) * ratio + position->y);

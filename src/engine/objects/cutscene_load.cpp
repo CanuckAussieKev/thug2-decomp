@@ -181,8 +181,8 @@ void CinematicTable::add_objects(script::Struct* params)
         auto* object = reinterpret_cast<script::Struct*>(objects->fetch_part(i));
         script::Struct* params2 = make_struct();
         uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
-        bool is_skater, is_skater2, special;
-        uint32_t model_file;
+        bool is_skater = false, is_skater2 = false, special = false;
+        uint32_t model_file = 0;
         if (version >= 2) {
             object->read_hash_value(kName, &name, 1);
             object->read_hash_value(kKind, &kind, 1);
@@ -419,7 +419,7 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
         saturation_name = 0x4CA9B693;
         value_name = 0x3CC3421C;
     }
-    int hue, saturation, value;
+    int hue = 0, saturation = 0, value = 0;
     if (!part->fetch_int_value(hue_name, &hue, 0) || !part->fetch_int_value(saturation_name, &saturation, 0) ||
         !part->fetch_int_value(value_name, &value, 0))
         return;

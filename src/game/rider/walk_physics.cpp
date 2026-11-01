@@ -122,7 +122,7 @@ FootMovement::~FootMovement() = default;
 // 0x00526060
 void FootMovement::configure_from_data(script::Struct* params)
 {
-    uint32_t id;
+    uint32_t id = 0;
     if (params->read_hash_value(kCamIdKey, &id, 0)) {
         auto* camera = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
         camera_ = camera;
@@ -212,7 +212,7 @@ maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
 {
     constexpr float kCameraOffset = -18.0f; // 0x0064C614
     int state = state_;
-    bool offset;
+    bool offset = false;
     if (state == 1) {
         int previous = previous_state_;
         offset = (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(state_time_)) < 150;
@@ -239,7 +239,7 @@ maths::Vec4* FootMovement::get_facing(maths::Vec4* out)
 maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
 {
     const maths::Vec4& facing = facing_;
-    float x, z;
+    float x = 0.0f, z = 0.0f;
     turn_flat(static_cast<double>(index) * kSeventhTurn, facing.x, facing.z, &x, &z);
     out->y = 0.0f;
     out->w = 1.0f;
@@ -317,7 +317,7 @@ bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script*
     if (params->has_bare_flag(kOff)) {
         if (anim_speed_scaling_) {
             anim_speed_scaling_ = 0;
-            float one;
+            float one = 0.0f;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
             anim_blender_->first_channel_47e_850(1.0f, 0.0f, one, 0.0f);
@@ -352,7 +352,7 @@ bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Scrip
 bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Script* script)
 {
     float speed = speed_;
-    uint32_t scale;
+    uint32_t scale = 0;
     if (speed < walk_parameter(kMaxSlowWalkSpeed))
         scale = kWalkSlow;
     else if (speed < walk_parameter(kMaxFastWalkSpeed))

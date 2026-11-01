@@ -38,7 +38,7 @@ FlipRotateComponent::FlipRotateComponent(gfx::AnimTimeline* timeline) : AnimDriv
 void FlipRotateComponent::configure_from_data(script::Struct* params)
 {
     AnimDriver::configure_from_data(params);
-    int value;
+    int value = 0;
     if (params->fetch_int_value(kFlipped, &value, 0))
         mirrored_ = value != 0;
     if (params->fetch_int_value(kRotated, &value, 0))

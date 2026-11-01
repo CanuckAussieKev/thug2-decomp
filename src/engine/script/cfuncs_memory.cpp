@@ -46,7 +46,7 @@ memory::Hub* hub() { return memory::Hub::get_pull(); }
 // The heap a command names: name="<text>" or name=<checksum>.
 uint32_t get_heap_name(Struct* params)
 {
-    const char* text;
+    const char* text = nullptr;
     uint32_t name = 0; // (uninitialised in the original: asserted)
     if (params->fetch_text(kName, &text, 0))
         name = checksums::hash_from_text(text);

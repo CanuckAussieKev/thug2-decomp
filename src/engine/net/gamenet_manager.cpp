@@ -56,7 +56,7 @@ const char* Hub::get_map_name(bool park_name)
         return nullptr;
     if (park_name && level_ == kLoadSk5edGameplay)
         return park_editing::ParkLayout::singleton()->get_park_name(); // (0x0058D720)
-    const char* name;
+    const char* name = nullptr;
     entry->fetch_text(kText, &name, 1);
     return name;
 }

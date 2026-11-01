@@ -103,7 +103,7 @@ Array* new_colour_array(Array* source)
 // texture image (0x0049FA20) as `name`. Whether a texture was made.
 bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kChecksum, &name, 1);
     void* face = get_face_texture();
     int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution(); // (0x4420)
@@ -119,7 +119,7 @@ bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script
 // The texture isn't checked for null. Always true.
 bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kCapturedTexture, &name, 1);
     void* face = get_face_texture();
     render::BitmapTexture* texture = find_texture(name);
@@ -149,7 +149,7 @@ bool cfunc_offset_texture(script::Struct* params, script::Script*)
     int y = 0;
     params->fetch_int_value(kXOffset, &x, 0);
     params->fetch_int_value(kYOffset, &y, 0);
-    bool given;
+    bool given = false;
     uint32_t colour = read_colour(params, &given);
     texture->get_offset(x, y, given, colour);
     return true;
@@ -188,7 +188,7 @@ bool cfunc_push_texture_to_point(script::Struct* params, script::Script*)
     params->fetch_int_value(kPushPoint, &point, 0);
     params->fetch_int_value(kAxis, &axis, 0);
     params->fetch_int_value(kPushAmount, &amount, 0);
-    bool given;
+    bool given = false;
     uint32_t colour = read_colour(params, &given);
     texture->squash(point, axis, amount, given, colour);
     return true;
@@ -328,8 +328,8 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
         max = b;
     auto delta = static_cast<float>(static_cast<double>(max) - min);
 
-    float s;
-    double hue;
+    float s = 0.0f;
+    double hue = 0.0;
     if (max == 0.0f) {
         hue = 0.0;
         s = 0.0f;

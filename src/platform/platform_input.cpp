@@ -307,7 +307,7 @@ BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device
 BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
 {
     DWORD type = device->dwDevType & 0xFF;
-    IDirectInputDevice8A* created;
+    IDirectInputDevice8A* created = nullptr;
     if (type == DI8DEVTYPE_GAMEPAD || type == DI8DEVTYPE_JOYSTICK) {
         int port = -1;
         for (int i = 0; i < kPorts; ++i) {
@@ -393,10 +393,10 @@ uint32_t parse_hex(const char** cursor)
 // 0x005F34D0
 void load_registry_options(const char* key)
 {
-    HKEY options;
+    HKEY options = nullptr;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, key, 0, KEY_QUERY_VALUE, &options) != ERROR_SUCCESS)
         return;
-    DWORD type, value;
+    DWORD type = 0, value = 0;
     // (The size starts at 1, so the first read - "distance" - always fails, setting it to 4: "distance" is
     // read again after "options".)
     DWORD size = 1;

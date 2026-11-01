@@ -514,7 +514,7 @@ bool PcAsyncFileHandle::os_read_finished()
     if (outcome_val_ == kErrorIoPending) {
         done = async_ctl_.Internal != kStatusPending;
         if (done) {
-            DWORD bytes;
+            DWORD bytes = 0;
             GetOverlappedResult(file_ref_, &async_ctl_, &bytes, FALSE);
             outcome_val_ = 0;
             io_done_handler(operation_, false, static_cast<int>(bytes), 0);

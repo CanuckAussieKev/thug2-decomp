@@ -340,8 +340,8 @@ bool cfunc_set_light_direction(Struct* params, Script*)
     int index = 0;                                     // (uninitialised in the original)
     params->fetch_int_value(kIndex, &index, 0);
     script::VectorValue direction = {0.0f, 0.0f, 1.0f, 0.0f};
-    float heading;
-    float pitch;
+    float heading = 0.0f;
+    float pitch = 0.0f;
     if (params->fetch_vec(kDirection, &direction, 0)) {
         direction.w = 0.0f;
     } else if (params->fetch_float(kHeading, &heading, 0) && params->fetch_float(kPitch, &pitch, 0)) {

@@ -323,7 +323,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
         return false;
     render::ProbeRay feeler;
     script::Struct* settings = script::read_sub_struct(0x6775E538u);
-    float reach;
+    float reach = 0.0f;
     maths::Vec4 facing;
     GameEntity* skater = core_physics_->entity_;
     if (!sticker) {
@@ -440,7 +440,7 @@ bool TaggingControlComponent::try_tagging()
         dz = static_cast<float>(s * heading.x + c * heading.z);
     };
     for (int i = 0; i < 6; ++i) {
-        float dx, dz;
+        float dx = 0.0f, dz = 0.0f;
         direction(i, dx, dz);
         feeler.set_excluded(0x3000, 0);
         float back_z = dz * kInch, back_x = dx * kInch;
@@ -472,7 +472,7 @@ bool TaggingControlComponent::try_tagging()
             nearest = i;
         }
     }
-    float dx, dz;
+    float dx = 0.0f, dz = 0.0f;
     direction(nearest, dx, dz);
     auto distance = static_cast<float>(nearest_distance);
     float back_z = dz * kInch, back_x = dx * kInch;

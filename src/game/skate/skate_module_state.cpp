@@ -232,7 +232,7 @@ void Skate::get_freeze(bool paused)
 // 0x00564F80
 objects::RiderIdentity* Skate::fetch_account(script::Struct* params)
 {
-    int skater;
+    int skater = 0;
     if (params && params->fetch_int_value(kSkater, &skater, 0))
         return roster_handle()->fetch_account(skater);
     return roster_handle()->fetch_active_account();
@@ -306,7 +306,7 @@ int Skate::is_multiplayer()
 bool Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
 {
     Skate* skate = sole();
-    uint32_t type;
+    uint32_t type = 0;
     params->read_hash_value(0u, &type, true);
     skate->match_style_ = type;
     return true;
@@ -320,7 +320,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
 {
     debug::printf("ScriptChangeLevel\n"); // "ScriptChangeLevel\n"
     online::Hub* net = net_session_slot();
-    uint32_t level;
+    uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 1);
     if (level == kFromSettingsMarker)
         level = net->get_level_preference();
@@ -388,9 +388,9 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
 {
     online::Hub* net = net_session_slot();
     Skate* skate = sole();
-    uint32_t level;
+    uint32_t level = 0;
     if (!params->read_hash_value(0u, &level, false)) {
-        const char* name;
+        const char* name = nullptr;
         if (params->fetch_text(0u, &name, 1)) {
             char script[0x80];
             std::snprintf(script, sizeof(script), "load_%s", name); // "load_%s"
@@ -409,7 +409,7 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
 bool Skate::cfunc_init_skater_heaps(script::Struct*, script::Script*)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
-    int skaters;
+    int skaters = 0;
     if (sole()->match_style_ == kFreeskate2p) {
         skaters = 2;
     } else {
@@ -451,7 +451,7 @@ prefs::Preferences* Skate::get_player_options(uint32_t name)
 // 0x00565D40
 prefs::Preferences* Skate::get_preferences_from_params(script::Struct* params)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kPrefs, &name, true);
     return get_player_options(name); // (inlined there)
 }

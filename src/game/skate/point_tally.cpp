@@ -138,7 +138,7 @@ uint32_t created_trick_name(int index)
     auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
     if (!skater)
         return 0;
-    const char* name;
+    const char* name = nullptr;
     skater->trick_slots_[index]->other_params_->fetch_text(kName, &name, 1);
     return checksums::hash_from_text(name);
 }
@@ -216,7 +216,7 @@ void PointTally::set_special_bar_colors()
 // 0x00561360
 uint32_t PointTally::trick_name_after_taps(uint32_t trick, int taps)
 {
-    script::Struct* params;
+    script::Struct* params = nullptr;
     script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
     if (taps > 1) {
         auto extra = static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
@@ -226,7 +226,7 @@ uint32_t PointTally::trick_name_after_taps(uint32_t trick, int taps)
                 ->read_sub_struct(kParams, &params, 1);
         }
     }
-    const char* name;
+    const char* name = nullptr;
     params->fetch_text(kName, &name, 1);
     return checksums::hash_from_text(name);
 }
@@ -386,12 +386,12 @@ uint32_t PointTally::trick_from_key_combo(uint32_t key_combo, int taps)
     script::Struct* mapping = profile->fetch_details_params(kTrickMapping);
     uint32_t trick = 0;
     if (!mapping->read_hash_value(key_combo, &trick, 0)) {
-        script::Array* specials;
+        script::Array* specials = nullptr;
         profile->get_specials()->fetch_list(0u, &specials, 1);
         int count = static_cast<int>(specials->extent_);
         for (int i = 0; i < count; ++i) {
             auto* special = reinterpret_cast<script::Struct*>(specials->fetch_part(static_cast<uint32_t>(i)));
-            uint32_t slot;
+            uint32_t slot = 0;
             special->read_hash_value(kTrickSlot, &slot, 1);
             if (slot == key_combo) {
                 special->read_hash_value(kTrickName, &trick, 1);
@@ -412,7 +412,7 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
     int index = -1;
     if (mapping->fetch_int_value(key_combo, &index, 0))
         return index;
-    script::Array* specials;
+    script::Array* specials = nullptr;
     profile->get_specials()->fetch_list(0u, &specials, 1);
     int count = static_cast<int>(specials->extent_);
     for (int i = 0; i < count; ++i) {
@@ -421,10 +421,10 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
         special->fetch_int_value(kIsCat, &is_cat, 0);
         if (!is_cat)
             continue;
-        uint32_t slot;
+        uint32_t slot = 0;
         special->read_hash_value(kTrickSlot, &slot, 1);
         if (slot == key_combo) {
-            uint32_t name;
+            uint32_t name = 0;
             special->read_hash_value(kTrickName, &name, 1);
             return static_cast<int>(name);
         }
@@ -515,7 +515,7 @@ bool PointTally::last_trick_is_key_combo(uint32_t key_combo, int spin, bool perf
             return false;
         --index;
     } while (!get_trick(index)->text_[0]);
-    uint32_t trick;
+    uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return false;
     return is_trick_at(index, trick, spin, perfect);
@@ -532,7 +532,7 @@ int PointTally::count_trick_after_taps(uint32_t name, int spin, bool perfect, in
 // 0x00562510
 int PointTally::count_key_combo(uint32_t key_combo, int spin, bool perfect, int taps)
 {
-    uint32_t trick;
+    uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return 0;
     return count_trick(trick, spin, perfect);
@@ -573,7 +573,7 @@ int PointTally::count_trick_repeats(uint32_t name, int spin, int taps)
 // 0x00562620
 int PointTally::count_key_combo_repeats(uint32_t key_combo, int spin, int taps)
 {
-    uint32_t trick;
+    uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return 0;
     return count_repeats(this, trick, spin);

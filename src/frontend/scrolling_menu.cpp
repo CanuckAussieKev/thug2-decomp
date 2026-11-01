@@ -102,7 +102,7 @@ void WindowedList::item_place(ElementPtr* item, float* x, float* y, float* w, fl
                             item->owner_object_->shown_.scale_x_);
     *h = static_cast<float>(static_cast<double>(menu_->shown_.scale_y_) * item->owner_object_->level_y_ *
                             item->owner_object_->shown_.scale_y_);
-    float align_h, align_v;
+    float align_h = 0.0f, align_v = 0.0f;
     item->owner_object_->fetch_alignment(&align_h, &align_v);
     *x = static_cast<float>(*x - (static_cast<double>(align_h) + 1.0) * *w * 0.5);
     *y = static_cast<float>(*y - (static_cast<double>(align_v) + 1.0) * *h * 0.5);
@@ -116,7 +116,7 @@ void WindowedList::change_traits(script::Struct* params)
         inner_align_h_ = align_h;
         inner_align_v_ = align_v;
     }
-    int speed;
+    int speed = 0;
     if (params->fetch_int_value(kScrollSpeed, &speed, 0))
         scroll_speed_ = static_cast<float>(speed);
     params->fetch_int_value(kNumItemsToShow, &num_items_to_show_, 0);
@@ -126,7 +126,7 @@ void WindowedList::change_traits(script::Struct* params)
     } else if (params->has_bare_flag(kResetWindowBottom)) {
         ElementPtr last;
         last.assign_value(menu_->fetch_youngest());
-        float x, y, w, h;
+        float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
         item_place(&last, &x, &y, &w, &h);
         rearrange_ = true;
         window_start_ = static_cast<float>(static_cast<double>(y) + h - window_length_);
@@ -228,9 +228,9 @@ void WindowedList::tick_frame()
             after = static_cast<float>(static_cast<double>(half) * regular_space_);
     }
     menu_->change_alignment(-1.0f, -1.0f);
-    float menu_x, menu_y;
+    float menu_x = 0.0f, menu_y = 0.0f;
     menu_->fetch_location(&menu_x, &menu_y);
-    float place, length, other1, other2; // along the menu, and across it
+    float place = 0.0f, length = 0.0f, other1 = 0.0f, other2 = 0.0f; // along the menu, and across it
     if (vertical_)
         item_place(&selected, &other1, &place, &other2, &length);
     else

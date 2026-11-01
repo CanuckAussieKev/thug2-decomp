@@ -122,7 +122,7 @@ constexpr float kHangTurnBack = -0.95f;         // 0xBF733333
 // walk_parameters' float `name` (asserted).
 float walk_parameter(uint32_t name)
 {
-    float value;
+    float value = 0.0f;
     script::read_sub_struct(kWalkParameters)->fetch_float(name, &value, 1);
     return value;
 }
@@ -680,9 +680,9 @@ void FootMovement::update_anim_wait()
 
     // How far through the animation it is: the position between the two ends (plus what it was carried), the
     // facing turned back from the full turn as the turn's time passes, the height eased.
-    float start;
-    float current;
-    float end;
+    float start = 0.0f;
+    float current = 0.0f;
+    float end = 0.0f;
     reinterpret_cast<AnimBlenderComponent*>(anim_blender_)->get_times(&start, &current, &end);
     auto t = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
     maths::Vec4 between;
@@ -1127,7 +1127,7 @@ bool FootMovement::try_barrier_jump()
         end.z = static_cast<float>((s * facing.x + c * facing.z) * reach) + start.z;
         end.w = reach + start.w;
         int tries = 8;
-        bool hit;
+        bool hit = false;
         do {
             start.y = start.y - step;
             end.y = end.y - step;
@@ -1393,8 +1393,8 @@ bool FootMovement::update_contacts()
     auto w_rounded = static_cast<float>(w);
     double length = std::sqrt((x * x + static_cast<double>(z) * z) + static_cast<double>(y) * y);
     auto length_rounded = static_cast<float>(length);
-    double new_x;
-    float new_y, new_z, new_w;
+    double new_x = 0.0;
+    float new_y = 0.0f, new_z = 0.0f, new_w = 0.0f;
     if (length <= kStillLength) {
         new_x = 0.0;
         new_y = 0.0f;

@@ -195,7 +195,7 @@ Objective::Objective(script::Struct* params)
 // 0x00556110
 Objective::~Objective()
 {
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kDestroy, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     if (ped_) {
@@ -220,7 +220,7 @@ Objective::~Objective()
 // 0x00556F90
 void Objective::merge_skill_tier_args()
 {
-    script::Array* levels;
+    script::Array* levels = nullptr;
     if (!args_->fetch_list(kDifficultyLevelParams, &levels, 0))
         return;
     int level = get_skill_tier(objective_board(), false);
@@ -234,14 +234,14 @@ void Objective::prepare_all()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->bottom_up_heap_);
     // (merge_skill_tier_args, inlined)
-    script::Array* levels;
+    script::Array* levels = nullptr;
     if (args_->fetch_list(kDifficultyLevelParams, &levels, 0)) {
         int level = get_skill_tier(objective_board(), false);
         args_->append_structure_if_any(
             reinterpret_cast<script::Struct*>(levels->fetch_part(static_cast<uint32_t>(level))));
         alloc_objective_bits(args_);
     }
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kInit, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     swap_move_caption();
@@ -294,7 +294,7 @@ bool Objective::activate()
         prepare_all();
     flag_bits_ &= ~kFlagEndOfRunStarted;
     args_->remove_flag(kChainActiveFlag);
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kActivate, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     if (!net->in_net_game())
@@ -316,7 +316,7 @@ bool Objective::disengage(bool, bool reset_tree)
     if (!args_->has_bare_flag(kSaveGoalFlags))
         zero_objective_bits();
     clear_child_wins();
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kDeactivate, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     if (!args_->has_bare_flag(kQuickStart))
@@ -353,12 +353,12 @@ bool Objective::get_win()
     args_->put_name_key(kNoName, kJustWonGoal);
     online::Hub* net = net_session_slot();
     bool new_record = false;
-    uint32_t type;
+    uint32_t type = 0;
     if (!net->in_net_game() && args_->read_hash_value(kRecordType, &type, 0)) {
         int record = 0;
         bool better = false;
         if (type == kScore) {
-            int custom;
+            int custom = 0;
             if (args_->fetch_int_value(kCustomScoreRecord, &custom, 0)) {
                 record = custom;
                 better = record > record_points_;
@@ -397,7 +397,7 @@ bool Objective::get_win()
         args_->put_name_key(kNoName, kNewRecord);
     else
         args_->remove_flag(kNewRecord);
-    uint32_t script;
+    uint32_t script = 0;
     if (args_->read_hash_value(kSuccess, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
     bool testing = args_->has_bare_flag(kTrialRunFlag);
@@ -479,7 +479,7 @@ void Objective::get_prize_struct(script::Struct* rewards)
         rewards->put_int(kRewardStat, 1);
         return;
     }
-    int stat;
+    int stat = 0;
     if (args_->fetch_int_value(kRewardStat, &stat, 0))
         rewards->put_int(kRewardStat, stat);
 }
@@ -493,7 +493,7 @@ void Objective::open_up_prize_objectives()
         open_up_objective(manager, goal);
         return;
     }
-    script::Array* goals;
+    script::Array* goals = nullptr;
     if (!args_->fetch_list(kRewardGoal, &goals, 0))
         return;
     int count = static_cast<int>(goals->extent_);
@@ -510,7 +510,7 @@ int Objective::get_reward_points()
     int points = 0;
     if (args_->fetch_int_value(kRewardPoints, &points, 0))
         return points;
-    script::Array* by_level;
+    script::Array* by_level = nullptr;
     if (args_->fetch_list(kRewardPoints, &by_level, 0)) {
         int level = get_skill_tier(objective_board(), false);
         if (level >= 0 && level < static_cast<int>(by_level->extent_))
@@ -534,13 +534,13 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
         goal_flags_->read_sub_struct(sub, &flags, 1);
     bool changed = false;
     if (flags->has_entry_named(flag)) {
-        int old;
+        int old = 0;
         flags->fetch_int_value(flag, &old, 1);
         flags->put_int(flag, value);
         if (old != value) {
-            bool counted;
+            bool counted = false;
             if (sub) {
-                int set;
+                int set = 0;
                 flags->fetch_int_value(kNumFlagsSet, &set, 1);
                 counted = value != 0;
                 set += counted ? 1 : -1;
@@ -579,7 +579,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
 {
     goal_flags_->get_clear();
     num_flags_ = 0;
-    script::Array* flags;
+    script::Array* flags = nullptr;
     if (params->fetch_list(kGoalFlags, &flags, 0)) {
         if (flags->kind_tag_ == script::kQbvalStruct) {
             // One structure per skater: its own flags and counts.
@@ -587,10 +587,10 @@ void Objective::alloc_objective_bits(script::Struct* params)
             int skaters = static_cast<int>(flags->extent_);
             for (int i = 0; i < skaters; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(flags->fetch_part(static_cast<uint32_t>(i)));
-                uint32_t skater;
+                uint32_t skater = 0;
                 entry->read_hash_value(kSkater, &skater, 1);
                 script::Struct* own = spawn_param_table();
-                script::Array* names;
+                script::Array* names = nullptr;
                 entry->fetch_list(kGoalFlags, &names, 1);
                 int count = static_cast<int>(names->extent_);
                 for (int k = 0; k < count; ++k)
@@ -623,7 +623,7 @@ bool Objective::all_skaters_run_done()
         if (active_ruleset_label() == kHorse &&
             (static_cast<objects::Rider*>(skater)->is_halted_ || (skater->composite_flags_ >> 2) & 1))
             continue;
-        bool done;
+        bool done = false;
         if (run_ending_ == 0)
             done = end_run->goal_run_done();
         else if (run_ending_ == 1)

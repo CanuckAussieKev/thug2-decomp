@@ -119,7 +119,7 @@ void IdentityQuat::assign_value()
 // 0x00463BA0
 const char* skater_model_name(script::Struct* params)
 {
-    uint32_t profile;
+    uint32_t profile = 0;
     if (params->read_hash_value(kProfile, &profile, 0)) {
         script::Array* profiles = script::fetch_list(kProfiles);
         for (int i = 0; i < static_cast<int>(profiles->extent_); ++i) {

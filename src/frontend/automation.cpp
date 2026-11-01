@@ -1056,7 +1056,7 @@ void poll_file(Runner& runner)
     runner.time = time;
     runner.offset += data.size();
     runner.partial += data;
-    size_t end;
+    size_t end = 0;
     while ((end = runner.partial.find('\n')) != std::string::npos) {
         std::string line = runner.partial.substr(0, end);
         if (!line.empty() && line.back() == '\r')

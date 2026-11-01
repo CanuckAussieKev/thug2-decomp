@@ -258,7 +258,7 @@ GapDetails* ParkLayout::get_gap_info(CellBox* cell, int* half)
     if (!metas.list)
         return nullptr;
     PieceGroup* meta = metas.list->get_piece_group()->get_cast();
-    int gap;
+    int gap = 0;
     // The gap a metapiece is a half of, and its info
     if (!gap_registry_->get_gap_index(meta, &gap))
         return nullptr;

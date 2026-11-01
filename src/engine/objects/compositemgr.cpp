@@ -345,7 +345,7 @@ void destroy_coim_heap()
             } while (node != instance_list_head());
         }
         head = instance_list_head();
-        MaterializeNode* result;
+        MaterializeNode* result = nullptr;
         erase_instances(&result, head ? head->next : nullptr, head);
     }
     if (coim_heap()) {

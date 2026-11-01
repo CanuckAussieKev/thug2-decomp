@@ -69,7 +69,7 @@ bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::
     render::TriMeshSource* geometry = object->geometry_;
     int face = static_cast<int>(feeler.hit_.face);
     for (int corner = 0; corner < 3; ++corner) {
-        int vertex;
+        int vertex = 0;
         if (geometry->small_faces_)
             vertex = geometry->faces_[face * 8 + 4 + corner];
         else
@@ -242,7 +242,7 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::V
         move_speed_ = static_cast<float>(static_cast<double>(move_distance_) / time);
         return false;
     }
-    float speed;
+    float speed = 0.0f;
     if (!params->fetch_float(kSpeed, &speed, 0)) {
         // (no speed or time: there at once)
         entity_->at_point_ = move_target_;

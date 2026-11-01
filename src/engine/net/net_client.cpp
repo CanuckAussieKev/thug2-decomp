@@ -99,7 +99,7 @@ void Guest::pull_inbound()
     sockaddr_in from = {}; // (the original leaves it uninitialised: recv doesn't fill it in)
     if (has_no_socket(this))
         return;
-    int received;
+    int received = 0;
     do {
         char* buffer = receive_buffer_;
         SOCKET socket = sock_;
@@ -251,7 +251,7 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
         return kResultPassOn;
     }
     uint32_t timestamp = *stamp;
-    bool late;
+    bool late = false;
     if (timestamp < newest) {
         late = newest - timestamp <= kTimestampWindow; // (else it has wrapped around: newer)
     } else if (timestamp == newest) {

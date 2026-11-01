@@ -66,14 +66,14 @@ bool FileLoad::drain()
 // 0x005BC850
 int FileLoad::emit_out(const void* data, int size)
 {
-    DWORD written;
+    DWORD written = 0;
     return WriteFile(hdl_, data, static_cast<DWORD>(size), &written, nullptr) ? static_cast<int>(written) : 0;
 }
 
 // 0x005BC880
 int FileLoad::get_take_in(void* buffer, int size)
 {
-    DWORD read;
+    DWORD read = 0;
     return ReadFile(hdl_, buffer, static_cast<DWORD>(size), &read, nullptr) ? static_cast<int>(read) : 0;
 }
 
@@ -91,7 +91,7 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
         if (!name[i])
             break;
     }
-    DWORD access, disposition;
+    DWORD access = 0, disposition = 0;
     switch (mode) {
     case 1:
         access = GENERIC_READ;

@@ -369,7 +369,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
             // The rest goes a few pieces a frame (pump_stream_traffic), with sequence ids reserved now.
             push_network_heap();
             int later_pieces = (size - 1) / kStreamPieceSize;
-            uint8_t* copy;
+            uint8_t* copy = nullptr;
             if (borrow_caller_buffer) {
                 copy = static_cast<uint8_t*>(data);
             } else {

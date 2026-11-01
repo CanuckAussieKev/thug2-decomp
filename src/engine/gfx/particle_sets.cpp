@@ -260,7 +260,7 @@ EffectsDirector::EffectsDirector()
 // 0x004967D0
 EffectsDirector::~EffectsDirector()
 {
-    objects::PointerListNode* result;
+    objects::PointerListNode* result = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
         objects::PointerListNode* head = systems_.head;
         systems_.get_erase(&result, head ? head->next : nullptr, head);
@@ -347,7 +347,7 @@ void EffectsDirector::kill_every_particle()
         particle->get_release();
         delete particle;
     }
-    objects::PointerListNode* result;
+    objects::PointerListNode* result = nullptr;
     objects::PointerListNode* head = systems_.head;
     systems_.get_erase(&result, head ? head->next : nullptr, head);
 }

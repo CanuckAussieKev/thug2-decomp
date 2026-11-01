@@ -127,7 +127,7 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
     uint32_t* scenes = grid_scenes();
     hit->scene = 0;
     for (; *grids; ++grids, ++scenes) {
-        int count;
+        int count = 0;
         for (HitMesh** objects = (*grids)->objects_along_line(line, &count); *objects; ++objects) {
             if (may_touch(*objects, &query.box) &&
                 collide_with_line(*objects, line, &query.direction, hit, &query.box)) {

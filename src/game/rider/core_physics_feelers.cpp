@@ -117,7 +117,7 @@ bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
     float normal_y = feeler_.surface_dir_.y;
     hit_wall_ = 0;
     hit_vert_ = (flags & kFaceVert) ? 1 : 0;
-    bool skatable;
+    bool skatable = false;
     // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
     if (flags & kFaceSkatable) {
         skatable = true;
@@ -212,7 +212,7 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
     // A feeler 20 up and down, a little to the side (Right: the other way).
-    float origin_coord_x, origin_coord_y;
+    float origin_coord_x = 0.0f, origin_coord_y = 0.0f;
     if (right) {
         origin_coord_x = static_cast<float>(position.x - x);
         origin_coord_y = position.y - y;

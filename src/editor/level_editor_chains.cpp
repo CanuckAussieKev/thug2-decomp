@@ -101,7 +101,7 @@ bool parse_names(const std::string& text, std::vector<uint32_t>* out)
     while (start <= text.size()) {
         size_t comma = text.find(',', start);
         std::string word = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
-        uint32_t value;
+        uint32_t value = 0;
         if (!parse_hex(word, &value))
             return false;
         out->push_back(value);
@@ -388,7 +388,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         return true;
     }
     if (kind == "drop") {
-        uint32_t name;
+        uint32_t name = 0;
         if (!read_hex_word(in, &name))
             return false;
         if (std::find(state->dropped.begin(), state->dropped.end(), name) == state->dropped.end()) {
@@ -423,7 +423,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         return true;
     }
     if (kind == "grindflat") {
-        uint32_t name;
+        uint32_t name = 0;
         if (!read_hex_word(in, &name))
             return false;
         if (std::find(state->grind_flat_.begin(), state->grind_flat_.end(), name) == state->grind_flat_.end()) {
@@ -1377,7 +1377,7 @@ bool change_phase(const State& target)
         if (!want || want->cls != p.cls || want->like != p.like || want->terrain != p.terrain ||
             !same_text(want->type, p.type.c_str()) || want->hang != p.hang) {
             node_create::Spec removed;
-            int at;
+            int at = 0;
             node_create::drop_out(name_hash(p.name), &removed, &at);
         }
     }

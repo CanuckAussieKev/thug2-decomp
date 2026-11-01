@@ -248,8 +248,8 @@ uint8_t is_controller_button_held(SDL_GameController* controller, PadButton butt
 // A stick into (x, y), where it's further from the centre than what's there (the keyboard's).
 void read_stick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8_t* y)
 {
-    uint8_t pad_axis_x;
-    uint8_t stick_y;
+    uint8_t pad_axis_x = 0;
+    uint8_t stick_y = 0;
     if (stick == kStickLeft) {
         pad_axis_x =
             static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
@@ -716,7 +716,7 @@ void key_pressed(SDL_Keycode key)
             key_input(0x1E, 0);
         return;
     }
-    int typed;
+    int typed = 0;
     if (key == SDLK_RETURN)
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         typed = '\r';

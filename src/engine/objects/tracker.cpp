@@ -284,7 +284,7 @@ Entity* EventWaitBoard::look_up_by_nickname(uint32_t alias)
 // 0x004621D0
 uint32_t EventWaitBoard::fetch_distinct_id()
 {
-    uint32_t checksum;
+    uint32_t checksum = 0;
     do {
         char name[64];
         std::snprintf(name, sizeof(name), "autoid%d", next_auto_id_++); // "autoid%d"
@@ -620,7 +620,7 @@ bool cfunc_wait_for_event(script::Struct* params, script::Script* script)
 // 0x00462340: ObjectExists id=<object>
 bool cfunc_object_exists(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t id;
+    uint32_t id = 0;
     if (!get_object_id(params, kId, &id))
         return false;
     return get_tracker()->look_up_object(id) != nullptr;
@@ -630,11 +630,11 @@ bool cfunc_object_exists(script::Struct* params, script::Script* /*script*/)
 // scripts that refer to these names (no name: 0).
 bool cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t id;
+    uint32_t id = 0;
     if (!get_object_id(params, kId, &id))
         return false;
     Entity* object = get_tracker()->look_up_object(id);
-    script::Array* scripts;
+    script::Array* scripts = nullptr;
     if (params->fetch_list(kScripts, &scripts, 0)) {
         for (uint32_t i = 0; i < scripts->extent_; ++i)
             script::stop_scripts_using_object_that_refer_to(object, scripts->fetch_part(i));
@@ -649,7 +649,7 @@ bool cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*s
 // 0x00462440: SetObjectProps id=<object> ... (the object takes the rest; not checked for null)
 bool cfunc_set_object_props(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t id;
+    uint32_t id = 0;
     if (!get_object_id(params, kId, &id))
         return false;
     change_traits(get_tracker()->look_up_object(id), params);
@@ -670,7 +670,7 @@ bool cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
 // 0x00462C40: AssignAlias id=<object> alias=<name>
 bool cfunc_assign_alias(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t id;
+    uint32_t id = 0;
     if (!get_object_id(params, kId, &id))
         return false;
     EventWaitBoard* tracker = get_tracker();
@@ -688,10 +688,10 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     auto own_object = [&]() {
         return script && script->entity_ ? current_object_id(script->entity_.get_pull()) : kNoObjectId;
     };
-    uint32_t target;
+    uint32_t target = 0;
     if (!get_object_id(params, kTarget, &target))
         target = own_object();
-    uint32_t source;
+    uint32_t source = 0;
     if (!get_object_id(params, kSource, &source))
         source = own_object();
     script::Struct* data = nullptr;
@@ -703,13 +703,13 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     // Whether this launch comes from a script with a name (only for the log).
     auto from_script = [&]() { return script && script->script_title_ ? 1 : 0; };
 
-    uint32_t type;
+    uint32_t type = 0;
     if (params->read_hash_value(kType, &type, 0)) {
         tracker->launched_from_script_ = from_script();
         tracker->launch_event(type, target, source, data, broadcast, radius);
         return true;
     }
-    script::Array* types;
+    script::Array* types = nullptr;
     if (params->fetch_list(kType, &types, 0)) {
         uint32_t size = types->extent_;
         for (uint32_t i = 0; i < size; ++i) {
@@ -718,7 +718,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
         }
         return true;
     }
-    script::Struct* structure;
+    script::Struct* structure = nullptr;
     if (params->read_sub_struct(kType, &structure, 0)) {
         for (script::Component* component = structure->step_to_entry(nullptr); component;
              component = structure->step_to_entry(component)) {

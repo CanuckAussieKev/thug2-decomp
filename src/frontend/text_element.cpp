@@ -216,7 +216,7 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
         aim_point_.max_displacement_[0] = pair.x;
         aim_point_.max_displacement_[1] = pair.y;
     }
-    float seconds;
+    float seconds = 0.0f;
     int ms = 0;
     if (params->fetch_float(kTime, &seconds, 0))
         ms = get_truncated(static_cast<double>(seconds) * get_milliseconds());
@@ -306,7 +306,7 @@ void LabelWidget::change_caption(const char* text)
     }
     *out = 0;
     if (typeface_) {
-        float width, height;
+        float width = 0.0f, height = 0.0f;
         read_string_param(typeface_, chars_, &width, &height);
         if (!(object_flags_ & kDimsLocked))
             fit_to_size(width, height, 0);
@@ -325,7 +325,7 @@ void LabelWidget::set_text_rotation(float degrees, int now)
     }
     if (!now || angle == shown_.angle)
         return;
-    float width, height;
+    float width = 0.0f, height = 0.0f;
     read_string_param(typeface_, chars_, &width, &height);
     // the point turned about: internal_just (left / top 0, middle half, right / bottom all) of the scaled size
     auto half_x = static_cast<float>(static_cast<double>(width) * summed_.scale_x_ * get_half());
@@ -469,7 +469,7 @@ void LabelWidget::disable_blur()
 void LabelWidget::change_traits(Struct* params)
 {
     UiWidget::change_traits(params);
-    uint32_t font;
+    uint32_t font = 0;
     if (params->read_hash_value(kFont, &font, 0)) {
         font_name_ = font;
         typeface_ = get_font(font);
@@ -480,14 +480,14 @@ void LabelWidget::change_traits(Struct* params)
         set_text_rotation(degrees, 1);
     if (read_alignment_param(params, kInnerAlign, &inner_align_h_, &inner_align_v_))
         object_flags_ |= kVisibleNow;
-    const char* text;
+    const char* text = nullptr;
     if (params->fetch_text(kText, &text, 0))
         change_caption(text);
     if (params->has_bare_flag(kBlurEffect))
         enable_blur();
     if (params->has_bare_flag(kNoBlurEffect))
         disable_blur();
-    uint32_t rgba;
+    uint32_t rgba = 0;
     if (read_colour_param(params, kHaloColor, &rgba) && blur_)
         blur_->rgba_value_ = rgba;
     script::Pair offset;
@@ -528,7 +528,7 @@ void LabelWidget::blend_towards(Struct* params)
     if (blur_)
         blur_->set_from_params(params, nullptr);
     UiWidget::blend_towards(params);
-    float degrees;
+    float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0))
         set_text_rotation(degrees, 0);
 }
@@ -542,7 +542,7 @@ void LabelWidget::tick_frame()
     bool outside = top < layout_top() || top > layout_bottom();
     float shown_angle = (object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle;
     if (num_) {
-        uint32_t shown;
+        uint32_t shown = 0;
         std::memcpy(&shown, shown_.rgba, 4);
         void* t = texts_[0];
         uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed_.alpha));
@@ -570,7 +570,7 @@ void LabelWidget::tick_frame()
         text_rotation(t, shown_angle, x, y);
         text_scale(t, summed_.scale_x_, summed_.scale_y_);
         change_glyph_text(t, chars_);
-        bool hidden;
+        bool hidden = false;
         if (object_flags_ & kPos3d) {
             text_depth(t, summed_.z);
             hidden = (object_flags_ & kOffScreen) || is_concealed();
@@ -581,7 +581,7 @@ void LabelWidget::tick_frame()
         text_hidden(t, hidden);
         if (shadow_) {
             void* s = shadows_[0];
-            uint32_t shadow;
+            uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_, 4);
             uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
             text_override_alpha(s, override_alpha_);
@@ -630,7 +630,7 @@ void LabelWidget::tick_frame()
         text_hidden(t, outside || is_concealed());
         if (shadow_) {
             void* s = shadows_[i];
-            uint32_t shadow;
+            uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_, 4);
             text_override_alpha(s, override_alpha_);
             uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));

@@ -54,7 +54,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
     *layout = {};
     layout->end = end;
     layout->keys_header = reinterpret_cast<uintptr_t>(base) + kHeaderSize;
-    uintptr_t p;
+    uintptr_t p = 0;
     if (float_keys) {
         p = layout->keys_header + 0x10;
         if (flags & kBoneNames) {
@@ -64,7 +64,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
             p += static_cast<uintptr_t>(bones * 4);
         }
         if (flags & kPartial) {
-            uintptr_t bits;
+            uintptr_t bits = 0;
             if (!partial_bits_size(p, end, &bits))
                 return false;
             layout->partial_bones = p;
@@ -95,7 +95,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
             p += 0x600;
         }
         if (flags & kPartial) {
-            uintptr_t bits;
+            uintptr_t bits = 0;
             if (!partial_bits_size(p, end, &bits))
                 return false;
             layout->partial_bones = p;

@@ -194,7 +194,7 @@ void Hub::assign_first_come_first_served()
         if (is_own_player(player) || !(player->flag_bits_ & kPlayerFcfsCandidate))
             continue;
         player->set_host_player(); // (its flag 0x200: first come, first served)
-        uint32_t text;
+        uint32_t text = 0;
         reinterpret_cast<prefs::Preferences*>(net_options_)
             ->fetch_setting(kFcfsPreference)
             ->read_hash_value("Checksum", &text, 1);

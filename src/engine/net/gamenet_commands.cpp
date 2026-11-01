@@ -298,8 +298,8 @@ bool cfunc_reattempt_join_server(Struct*, Script*)
 bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script*)
 {
     Hub* manager = net_link();
-    int bit;
-    uint32_t id;
+    int bit = 0;
+    uint32_t id = 0;
     params->fetch_int_value(kBit, &bit, 1);
     params->read_hash_value(kParamId, &id, 1);
     struct {
@@ -315,7 +315,7 @@ bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script*)
 bool cfunc_fcfs_request_toggle_goal_selection(Struct* params, Script*)
 {
     Hub* manager = net_link();
-    uint32_t goal; // (uninitialised in the original: a missing name sends what its slot held)
+    uint32_t goal = 0; // (uninitialised in the original: a missing name sends what its slot held)
     params->read_hash_value(kName, &goal, 1);
     uint32_t request = goal;
     send_request(manager, kMsgToggleGoalRequest, &request, 4);

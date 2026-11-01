@@ -110,7 +110,7 @@ bool AppHost::decrypt(const uint8_t* packet, uint8_t* out, int length)
         std::memcpy(out, packet, length);
         return true;
     }
-    uint16_t checksum;
+    uint16_t checksum = 0;
     std::memcpy(&checksum, packet, sizeof(checksum));
     length -= 2;
     uint8_t buffer[kMaxPacketSize]; // (a longer packet overruns it, as in the original)
@@ -194,7 +194,7 @@ bool AppHost::transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int l
     to.sin_family = AF_INET;
     to.sin_port = htons(port);
     to.sin_addr.s_addr = ip;
-    int result;
+    int result = 0;
     if (flag_bits_ & kSecure) {
         encrypt(data, scrambled_, length, &length);
         result = sendto(sock_, reinterpret_cast<const char*>(scrambled_), length, flags,
@@ -309,7 +309,7 @@ void AppHost::tear_down_state()
         closesocket(sock_);
     dispatcher_deinit(&dispatcher_);
     lists::Hunt<Conn> search;
-    for (Conn *conn = search.head_element(&circuits_), *next; conn; conn = next) {
+    for (Conn *conn = search.head_element(&circuits_), *next = nullptr; conn; conn = next) {
         next = search.following_item();
         delete_conn(conn);
     }
@@ -321,7 +321,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
     InboundMsgCtx context;
     for (memory::ListNode& queue : conn->received_queues_) {
         lists::Hunt<OrderedMsgNode> search;
-        for (OrderedMsgNode *link = search.head_element(&queue), *next; link; link = next) {
+        for (OrderedMsgNode *link = search.head_element(&queue), *next = nullptr; link; link = next) {
             next = search.following_item();
             uint8_t group = link->bundle_id_;
             if (link->order_index_ != conn->sequence_numbers_[group])
@@ -353,7 +353,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
 AppHost::~AppHost()
 {
     lists::Hunt<BlockedConnEntry> search;
-    for (BlockedConnEntry *banned = search.head_element(&banned_), *next; banned; banned = next) {
+    for (BlockedConnEntry *banned = search.head_element(&banned_), *next = nullptr; banned; banned = next) {
         next = search.following_item();
         if (banned)
             banned->destroy_banned(1);
@@ -436,7 +436,7 @@ bool AppHost::messages_due(Conn* conn)
 // 0x00457C80
 void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
 {
-    memory::ListNode* list;
+    memory::ListNode* list = nullptr;
     switch (queue) {
     case 0:
         list = &conn->normal_msgs_;
@@ -459,7 +459,7 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
         return reinterpret_cast<OrderedMsgNode*>(link)->shared_msg_;
     };
     lists::Hunt<TimedMsgNode> search;
-    for (TimedMsgNode *link = search.head_element(list), *next; link; link = next) {
+    for (TimedMsgNode *link = search.head_element(list), *next = nullptr; link; link = next) {
         next = search.following_item();
         void* msg = message_of(link);
         if (static_cast<PendingMsg*>(msg)->ident_ != id)

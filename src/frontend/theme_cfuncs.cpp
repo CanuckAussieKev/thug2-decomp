@@ -16,7 +16,7 @@ constexpr uint32_t kReturnValue = 0x3B3F0BA7; // "return_value"
 // The script's return_value parameter names the parameter to add; its value is the theme global `colour`.
 bool return_theme_colour(script::Struct* params, script::Script* script, uint32_t colour)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(kReturnValue, &name, 1);
     script->args_->put_name_key(name, colour);
     return true;

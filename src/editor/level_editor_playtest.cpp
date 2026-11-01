@@ -753,7 +753,7 @@ void simulate_event(SDL_Event* event)
     if (event->type == SDL_KEYDOWN && !event->key.repeat && ui::keys_to_editor()) {
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         bool ctrl = (event->key.keysym.mod & KMOD_CTRL) != 0, alt = (event->key.keysym.mod & KMOD_ALT) != 0;
-        int x, y;
+        int x = 0, y = 0;
         bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
         bool fly_keys_safe = right || !xform::fly_always();
         (void)keys;
@@ -925,7 +925,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         return;
     const std::vector<Run>& runs = it->second.runs;
     auto to_screen = [&](V3 p, float* x, float* y) {
-        float nx, ny;
+        float nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -934,7 +934,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera, frame, near_z + 0.01f, &a, &b))
             return;
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (to_screen(a, &ax, &ay) && to_screen(b, &bx, &by))
             lines->push_back({ax, ay, bx, by, argb, thickness});
     };
@@ -962,7 +962,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         if (!run.samples.empty()) {
             V3 s = run.samples.front().pos;
             V3 d = s - camera;
-            float x, y;
+            float x = 0.0f, y = 0.0f;
             if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
                 circles->push_back({x, y, 5.0f, 0xFFFFFFFF, false, 1.5f});
                 texts->push_back({x + 8.0f, y - 8.0f, 0xFFFFFFFF, "Run " + std::to_string(run.number)});
@@ -974,7 +974,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             float distance2 = get_dot(d, d);
             if (distance2 > kFar * kFar)
                 continue;
-            float x, y;
+            float x = 0.0f, y = 0.0f;
             if (e.kind == EventKind::kBail) {
                 constexpr float kS = 30.0f;
                 line(e.pos + V3{-kS, 0.0f, -kS}, e.pos + V3{kS, 0.0f, kS}, 0xFFFF3030, 2.0f);

@@ -435,7 +435,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     auto* sectors = *reinterpret_cast<lists::KeyMap**>(static_cast<uint8_t*>(source_world_) + 0xD0);
     sectors->iter_bucket_ = -1;
     sectors->iter_item_ = nullptr;
-    void* sector;
+    void* sector = nullptr;
     while (sectors->step_iterator() && sectors->iter_item_ && (sector = sectors->iter_item_->value) != nullptr) {
         memory::enter_heap_scope(get_park_heap());
         auto* source = new TemplateTile;

@@ -122,13 +122,13 @@ void push_vertex(const uint8_t* vertex)
 }
 uint8_t* lock_vertices(VertexBuffer* buffer)
 {
-    uint8_t* data;
+    uint8_t* data = nullptr;
     buffer->get_lock(0, 0, &data, 0x10);
     return data;
 }
 uint8_t* lock_indices(IdxStore* buffer)
 {
-    uint16_t* data;
+    uint16_t* data = nullptr;
     buffer->get_lock(0, 0, &data, 0x10);
     return reinterpret_cast<uint8_t*>(data);
 }

@@ -419,7 +419,7 @@ uint16_t* TriMeshSource::get_faces_in_box(const maths::BBox* box, int* count, ui
     s_face_buffer_size = buffer_size;
     s_face_count = 0;
     gather_faces(bsp_, box);
-    uint16_t* result;
+    uint16_t* result = nullptr;
     if (s_face_count < 0) {
         *count = tri_count_;
         result = all_faces();

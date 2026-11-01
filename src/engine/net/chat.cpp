@@ -299,7 +299,7 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     }
     // F1-F4: a taunt, at most one every two seconds. F1 comes as 0x1F with PartyMod's keyboard input (0x1B is
     // Escape there): its byte at 0x00533652 - the original compares with 0x1B.
-    uint32_t taunt;
+    uint32_t taunt = 0;
     switch (key) {
     case kKeyF1:
         taunt = 0x0E5FD359;

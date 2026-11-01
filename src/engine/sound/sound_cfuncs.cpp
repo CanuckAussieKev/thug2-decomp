@@ -59,7 +59,7 @@ void set_stereo(sound::VolumeRef& volume, float left, float right)
 // (2) with bank=, else permanently (1); the flags 1 / 2. Always true (nothing without a file).
 bool cfunc_load_sound(Struct* params, Script*)
 {
-    const char* file;
+    const char* file = nullptr;
     if (!params->fetch_text(0u, &file, 1))
         return true;
     float pitch = 100.0f;
@@ -243,7 +243,7 @@ bool cfunc_get_value_from_volume(Struct* params, Script* script)
 {
     uint32_t which = 0; // (uninitialised in the original without a name)
     params->read_hash_value(0u, &which, 1);
-    float volume;
+    float volume = 0.0f;
     switch (which) {
     case kSfxVol:
         volume = sound::fetch_master_loudness(); // (called on the manager in the original; it ignores it)

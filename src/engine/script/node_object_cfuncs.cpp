@@ -285,7 +285,7 @@ bool create_from_node(script::Struct* node)
     case kClassLevelObject:
         memory::push_mem_profile("LevelObjects"); // "LevelObjects"
         if (g_tod_manager->params_set_) {
-            uint32_t colour;
+            uint32_t colour = 0;
             g_tod_manager->get_level_color(&colour);
             node->put_int(kLevelColor, static_cast<int>(colour));
         }

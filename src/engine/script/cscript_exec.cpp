@@ -215,7 +215,7 @@ bool Script::execute_command()
     }
     }
 
-    uint32_t name;
+    uint32_t name = 0;
     if (*pc_ == 0x0E) {
         Component* value = new_component();
         pc_ = parse_expression(pc_, args_, value);

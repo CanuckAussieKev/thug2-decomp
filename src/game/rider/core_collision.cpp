@@ -131,7 +131,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         hit->line_.end.y = hit->line_.end.y + snap;
         if (!hit->get_hit_shape(true, false)) {
             if (snap > 4.0f) {
-                double lower;
+                double lower = 0.0;
                 do {
                     hit->line_.start.y = hit->line_.start.y - 2.0f;
                     hit->line_.end.y = hit->line_.end.y - 2.0f;
@@ -339,7 +339,7 @@ void SkaterPhysicsModule::test_lateral_hits()
 {
     maths::Vec4 saved = entity_->at_point_;
     float length = script::fetch_float(kSideLength);
-    bool both;
+    bool both = false;
     if (check_side_collision(-1.0f, length))
         both = check_side_collision(1.0f, length);
     else

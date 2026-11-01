@@ -173,7 +173,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         BoneVolume* volume = volumes_[index];
         float radius = volume ? volume->capsule_.radius : 0.0f;
         maths::Capsule capsule = get_between(at.row[3], parent.row[3], radius);
-        float distance_squared;
+        float distance_squared = 0.0f;
         if (!capsule.intersects_segment(*segment, nullptr, t, &distance_squared))
             return 0;
         if (distance)
@@ -201,7 +201,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         if (scale > 0.0f)
             radius *= scale;
         maths::Capsule capsule = get_between(at.row[3], parent, static_cast<float>(radius + extra_radius));
-        float hit_t, distance_squared;
+        float hit_t = 0.0f, distance_squared = 0.0f;
         if (capsule.intersects_segment(*segment, nullptr, &hit_t, &distance_squared) &&
             (!hit || distance_squared < nearest)) {
             hit = bone_state->name;

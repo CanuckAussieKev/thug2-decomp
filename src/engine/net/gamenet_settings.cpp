@@ -305,7 +305,7 @@ bool Hub::connect_to_internet(uint32_t online_script, uint32_t fail_script)
     net::Hub* net = net::Hub::sole();
     online_fail_script_ = fail_script;
     online_script_ = online_script;
-    bool online;
+    bool online = false;
     if (net->is_online()) {
         online = true;
     } else {

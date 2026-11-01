@@ -76,7 +76,7 @@ void CinematicTable::mark_loaded_models()
     call_args_->fetch_list(kObjects, &objects, 1);
     for (uint32_t i = 0; i < objects->extent_; ++i) {
         auto* object = reinterpret_cast<script::Struct*>(objects->fetch_part(i));
-        uint32_t model;
+        uint32_t model = 0;
         if (object->read_hash_value(version >= 2 ? kName : kModel, &model, 0) &&
             bundle_ptr_->has_asset(model, kTypeModel))
             object->put_name_key(kUnnamed, kKeepSkeleton);

@@ -1143,7 +1143,7 @@ void reset_all()
     std::vector<std::string> names = get_order();
     for (const std::string& name : names) {
         Spec spec;
-        int index;
+        int index = 0;
         drop_out(name_hash(name), &spec, &index);
     }
 }

@@ -197,7 +197,7 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
 // 0x00403C00
 void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
 {
-    uint32_t axes;
+    uint32_t axes = 0;
     if (count_axes_containing(point, axes) == 3) {
         // Inside: move along whichever axis reaches a face soonest.
         float best_value = 0.0f, best_distance = 0.0f; // always set on the first pass (axis 0)

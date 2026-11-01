@@ -50,8 +50,8 @@ bool stored_plain(const ImageHeader& header, bool memory)
 
 uint32_t texel_size(const ImageHeader& header, bool plain)
 {
-    uint32_t bits;
-    bool palette;
+    uint32_t bits = 0;
+    bool palette = false;
     decode_format(header.format, &bits, &palette);
     // (the sizes as the loaders keep them: 16 bits each)
     uint32_t width = plain ? header.image_width : static_cast<uint16_t>(header.width);

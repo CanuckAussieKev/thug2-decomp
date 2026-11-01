@@ -146,7 +146,7 @@ void draw_texture_splats()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
-    DWORD min_filter;
+    DWORD min_filter = 0;
     input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (TextureSplats* splats = first_splats(get_splats()); splats; splats = next_splats(get_splats())) {
@@ -462,9 +462,9 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
             MeshRef* mesh = meshes[m];
             if (mesh->flags & 2)
                 continue;
-            uint8_t* vertices;
+            uint8_t* vertices = nullptr;
             mesh->vertex_buffers_[0]->get_lock(0, 0, &vertices, 0x10);
-            uint16_t* indices;
+            uint16_t* indices = nullptr;
             mesh->index_buffers_[0]->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
             for (uint32_t strip = 2; strip < mesh->index_counts_[0]; ++strip) {

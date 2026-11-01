@@ -49,7 +49,7 @@ void get_refresh(render::Sparkle* particle) { particle->tick_frame(); }
 // value is the pointer's bits.
 float unnamed_float(script::Struct* params)
 {
-    float value;
+    float value = 0.0f;
     std::memcpy(&value, &params, 4);
     params->fetch_float(0u, &value, 1);
     return value;
@@ -197,7 +197,7 @@ bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
 }
 bool change_colour(EffectsEmitterModule* component, script::Struct* params, int which)
 {
-    script::Array* array;
+    script::Array* array = nullptr;
     params->fetch_list(0u, &array, 1);
     if (component->effect_handle_) {
         Colour colour = colour_of(array);
@@ -278,7 +278,7 @@ bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Sc
 // 0x00429F90
 bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::Script*)
 {
-    script::Array* array;
+    script::Array* array = nullptr;
     params->fetch_list(0u, &array, 1);
     if (effect_handle_) {
         Colour colour = colour_of(array);
@@ -381,7 +381,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
 
     // The colours (rgb from three arrays; the alphas at most 128).
     uint32_t value = 0;
-    script::Array* array;
+    script::Array* array = nullptr;
     static const uint32_t kColours[3] = {0xDAB75B6Cu, 0x0444769Au, 0x5A3728E7u};
     for (int i = 0; i < 3; ++i)
         if (params->fetch_list(kColours[i], &array, 0))

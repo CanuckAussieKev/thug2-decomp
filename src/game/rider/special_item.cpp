@@ -119,7 +119,7 @@ void PickupItemHandler::destroy_item(int slot)
         return;
     script::Struct* tags = new_params();
     items_[slot]->copy_tags_to(tags);
-    uint32_t script;
+    uint32_t script = 0;
     if (tags->read_hash_value(kOnDestroyScript, &script, 0))
         script::launch_script(script, nullptr, items_[slot], false, nullptr);
     delete_params(tags);
@@ -139,7 +139,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
 {
     if (items_[slot])
         destroy_item(slot);
-    uint32_t id;
+    uint32_t id = 0;
     if (params->read_hash_value(kId, &id, 0)) {
         id += entity_->ident_;
         params->put_name_key(kId, id);
@@ -151,7 +151,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
 
     script::Struct* tags = new_params();
     tags->put_name_key(kOwner, entity_->ident_);
-    uint32_t script;
+    uint32_t script = 0;
     if (params->read_hash_value(kOnDestroyScript, &script, 0))
         tags->put_name_key(kOnDestroyScript, script);
     items_[slot]->set_tags_from_struct(tags);
@@ -208,7 +208,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         destroy_items();
         return 1;
     case kSpecialItemExists: {
-        int slot;
+        int slot = 0;
         if (params->fetch_int_value(kIndex, &slot, 0))
             return items_[slot] != nullptr;
         for (GameEntity* item : items_)

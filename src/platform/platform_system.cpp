@@ -58,7 +58,7 @@ char find_cd_drive(const char* volume)
             if (drives & 1) {
                 root[0] = letter;
                 char name[0x100];
-                DWORD serial;
+                DWORD serial = 0;
                 if (GetDriveTypeA(root) == DRIVE_CDROM &&
                     GetVolumeInformationA(root, name, sizeof(name), &serial, nullptr, nullptr, nullptr, 0) &&
                     std::strcmp(name, volume) == 0) {
@@ -90,8 +90,8 @@ HWND create_game_window(const char* class_name, const char* title, int x, int y,
         window_class.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(icon & 0xFFFF));
     window_class.lpszClassName = class_name;
     RegisterClassExA(&window_class);
-    DWORD ex_style = 0, style;
-    int frame_width, frame_height;
+    DWORD ex_style = 0, style = 0;
+    int frame_width = 0, frame_height = 0;
     if (!full_screen) {
         // The frame around a width x height inside; centred when x / y are -1.
         style = WS_POPUP | WS_CAPTION | WS_SYSMENU;

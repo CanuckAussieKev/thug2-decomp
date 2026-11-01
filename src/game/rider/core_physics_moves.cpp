@@ -197,7 +197,7 @@ void SkaterPhysicsModule::update_speed_override()
         auto stat = static_cast<float>(stat_value(object_of(this), kOverrideStat));
         auto max = static_cast<float>(static_cast<double>(stat) * factor);
         object = object_of(this);
-        float limit;
+        float limit = 0.0f;
         if (state_->cur_phase_ != 1) {
             auto speed = static_cast<float>(length_unrounded(object->vel_) * kAirBoostFactor);
             limit = least_of(max, speed, limits_max_);

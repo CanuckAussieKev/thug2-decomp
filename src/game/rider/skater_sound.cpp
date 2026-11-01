@@ -86,7 +86,7 @@ RiderSfxPlayer::~RiderSfxPlayer() = default;
 // 0x00518CC0
 void RiderSfxPlayer::configure_from_data(script::Struct* params)
 {
-    float mult;
+    float mult = 0.0f;
     if (params->fetch_float(kVolumeMult, &mult, 0))
         volume_mult_ = mult;
 }

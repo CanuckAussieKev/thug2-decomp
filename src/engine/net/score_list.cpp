@@ -280,7 +280,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         script::Struct* params = new_params();
         params->append_word(kText, script::kQbvalString, text);
         params->add_component_of_type(kId, script::kQbvalName, id);
-        frontend::UiWidget* element;
+        frontend::UiWidget* element = nullptr;
         {
             frontend::ElementPtr found;
             frontend::fetch_part(&found, id);

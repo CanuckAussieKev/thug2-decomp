@@ -39,7 +39,7 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
         return false;
     normal->make_unit();
 
-    float s, t, along;
+    float s = 0.0f, t = 0.0f, along = 0.0f;
     const double distance = segment_triangle_distance_squared(capsule->line, *normal, *v0, *v1, *v2, &s, &t, &along);
 
     // The face's nearest point: v0 + s e1 + t e2.
@@ -88,7 +88,7 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
 // 0x004114E0 (slot 17, an instance's too: its faces are taken unplaced)
 bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits)
 {
-    int count;
+    int count = 0;
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {

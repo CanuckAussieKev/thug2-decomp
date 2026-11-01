@@ -43,7 +43,7 @@ IdxStore* new_index_buffer(uint32_t bytes)
 void upload_indices(IdxStore* buffer)
 {
     auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer);
-    void* locked;
+    void* locked = nullptr;
     if (FAILED(d3d->Lock(0, 0, &locked, 0)))
         return;
     std::memcpy(locked, buffer->indices, buffer->size);

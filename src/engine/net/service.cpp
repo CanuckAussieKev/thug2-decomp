@@ -96,7 +96,7 @@ void ghttp_cleanup() { game_spy::http_cleanup(); }
 // A download thread, started suspended so that the manager knows its id first. (The handle is never closed.)
 void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 {
-    DWORD id;
+    DWORD id = 0;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, manager, CREATE_SUSPENDED, &id);
     reinterpret_cast<online::Hub*>(manager)->set_room_id(id); // (+0x9950 = id)
     ResumeThread(handle);

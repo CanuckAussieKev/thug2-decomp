@@ -319,7 +319,7 @@ double stick_length(float x, float y, float angle)
     double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);
     // the angle brought into the quarter around up / down, then around left / right
     double a = angle;
-    double to_gate;
+    double to_gate = 0.0;
     if (a > -static_cast<double>(kQuarterPi) && a < kQuarterPi)
         to_gate = a;
     else if (a > kQuarterPi && a < kThreeQuarterPi)

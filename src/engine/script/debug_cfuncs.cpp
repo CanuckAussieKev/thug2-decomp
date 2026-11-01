@@ -157,7 +157,7 @@ bool cfunc_unload_qb(script::Struct* params, script::Script*)
 // 0x004494A0: ScreenShot [FileName="<name>" ("screen")].
 bool cfunc_screen_shot(script::Struct* params, script::Script*)
 {
-    const char* name;
+    const char* name = nullptr;
     if (!params->fetch_text(kFileName, &name, 0))
         name = "screen";
     take_screen_shot(name, 0);

@@ -147,17 +147,17 @@ bool ModelLook::load_by_name(uint32_t name, bool resolve) { return read_in(scrip
 void ModelLook::resolve_random_parts()
 {
     uint32_t random_set = 0; // (the last choice's random_set, carried on to the next)
-    script::Component* next;
+    script::Component* next = nullptr;
     for (script::Component* component = structure_.step_to_entry(nullptr); component; component = next) {
         next = structure_.step_to_entry(component);
         if (component->kind_tag() != script::kQbvalStruct)
             continue;
         uint32_t part = component->name;
-        script::Struct* option;
+        script::Struct* option = nullptr;
         if (component->structure->has_bare_flag(kRandomizedDescId)) {
             option = random_cas_option(part, random_set);
         } else {
-            int index;
+            int index = 0;
             if (!component->structure->fetch_int_value(kShuffleIndex, &index, 0))
                 continue;
             option = cas_option_at(part, index, random_set);
@@ -180,7 +180,7 @@ void remove_tattoos(script::Struct* appearance)
 // 0x00489050
 script::Struct* ModelLook::get_part_option(uint32_t part)
 {
-    script::Struct* slot;
+    script::Struct* slot = nullptr;
     if (!structure_.read_sub_struct(part, &slot, 0))
         return nullptr;
     uint32_t descriptor_id = 0;
@@ -202,7 +202,7 @@ bool ModelLook::has_face_texture() { return has_face_texture_; }
 // 0x004891F0
 void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* params)
 {
-    script::Struct* slot;
+    script::Struct* slot = nullptr;
     if (!structure_.read_sub_struct(part, &slot, 0)) {
         slot = new_temp_struct();
         structure_.add_component_of_type(part, kOwnedStructure, reinterpret_cast<uint32_t>(slot));

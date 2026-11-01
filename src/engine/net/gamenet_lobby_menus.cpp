@@ -204,7 +204,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     params->append_word(kText, player->nick_);
     rgba->configure_size_kind(4, script::kQbvalInteger);
     FriendsManager* buddy = manager->presence_service_.get();
-    uint32_t script;
+    uint32_t script = 0;
     if (player->account_ && mark_friend_online(buddy)) {
         if (player->account_ != own_profile(buddy) &&
             !static_cast<FriendsManager*>(buddy)->is_buddy(player->account_)) { // not a buddy yet
@@ -282,7 +282,7 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
     };
     int lobby = server_int("lobby_num", 0);
     if (lobby) {
-        uint32_t size;
+        uint32_t size = 0;
         void* data = manager->get_pending_data(&size);
         if (static_cast<uint32_t>(lobby) ==
             checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size)))

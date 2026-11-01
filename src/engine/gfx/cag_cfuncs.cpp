@@ -98,7 +98,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     int last_layer = -1;
     for (uint32_t i = 0; i < count; ++i) {
         auto* info = reinterpret_cast<Struct*>(layers->fetch_part(i));
-        uint32_t texture_id;
+        uint32_t texture_id = 0;
         info->read_hash_value(kTextureId, &texture_id, 1);
         render::BitmapTexture* source = find_texture(get_textures(), texture_id);
         source->begin_edit(false, false);
@@ -107,31 +107,31 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         workspace->resize_from(source, 0);
         source->end_edit();
         workspace->get_border(0u);
-        float scale;
+        float scale = 0.0f;
         info->fetch_float(kScale, &scale, 1);
         workspace->get_zoom(scale, scale);
-        int flip_h;
+        int flip_h = 0;
         info->fetch_int_value(kFlipH, &flip_h, 1);
-        int flip_v;
+        int flip_v = 0;
         info->fetch_int_value(kFlipV, &flip_v, 1);
         if (flip_h)
             workspace->get_mirror();
         if (flip_v)
             workspace->flip_vertically();
-        float rot;
+        float rot = 0.0f;
         info->fetch_float(kRot, &rot, 1);
         auto radians = static_cast<float>(static_cast<double>(rot) * g_degree_to_radian_ratio); // pi / 180
         workspace->spin_by(radians, -1.0f, -1.0f);
-        float x;
+        float x = 0.0f;
         info->fetch_float(kPosX, &x, 1);
-        float y;
+        float y = 0.0f;
         info->fetch_float(kPosY, &y, 1);
         if (static_cast<uint16_t>(size) == 0x80) {
             x = x + x;
             y = y + y;
         }
         workspace->get_offset(ftol(x), ftol(y), false, 0);
-        Array* rgba;
+        Array* rgba = nullptr;
         info->fetch_list(kRgba, &rgba, 1);
         auto a = static_cast<uint8_t>(ftol(rgba->fetch_float(3)));
         auto b = static_cast<uint8_t>(ftol(rgba->fetch_float(2)));
@@ -141,7 +141,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         workspace->modulate(colour, false);
         if (a < 0x80)
             translucent = true;
-        int layer;
+        int layer = 0;
         info->fetch_int_value(kLayerId, &layer, 1);
         if (last_layer != layer)
             last_layer = layer; // (kept, never used)
@@ -156,7 +156,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         tag->write_back(1, static_cast<void*>(nullptr));
     static_cast<render::TextureSet*>(get_textures())->unload_texture(static_cast<render::BitmapTexture*>(workspace));
 
-    int player;
+    int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
     if (player == 0) {
         auto* tagging = static_cast<objects::TaggingComponent*>(
@@ -177,7 +177,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
 // (the current profile is fetched and not used). Always true.
 bool cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
 {
-    int index;
+    int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_skate()->get_rider_at(index);
     get_skate()->fetch_account(static_cast<Struct*>(nullptr));
@@ -193,9 +193,9 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
 // sine and cosine). Always true.
 bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script)
 {
-    float magnitude;
+    float magnitude = 0.0f;
     params->fetch_float(kMagnitude, &magnitude, 1);
-    float theta;
+    float theta = 0.0f;
     params->fetch_float(kTheta, &theta, 1);
     bool negate_x = false;
     bool negate_y = false;
@@ -210,8 +210,8 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
         theta = static_cast<float>(360.0 - theta);
         negate_y = true;
     }
-    float x;
-    float y;
+    float x = 0.0f;
+    float y = 0.0f;
     if (theta == 0.0f || theta == 360.0f) {
         x = magnitude;
         y = 0.0f;
@@ -266,7 +266,7 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
     for (int i = 0; i < 4; ++i) {
         if (has[i])
             continue;
-        Struct* group;
+        Struct* group = nullptr;
         if (head->read_sub_struct(kHeadBoneGroups[i], &group, 0))
             appearance->put_sub_struct(kHeadBoneGroups[i], group);
     }

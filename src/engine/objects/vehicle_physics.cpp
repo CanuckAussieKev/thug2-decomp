@@ -171,8 +171,8 @@ void DrivableModule::update_steering()
     auto display = static_cast<float>(
         (static_cast<double>(steering_) - previous) * (static_cast<double>(step_length_) * kSteeringRate) + previous);
     display_steering_ = display;
-    float inner, display_inner;
-    double outer, display_outer;
+    float inner = 0.0f, display_inner = 0.0f;
+    double outer = 0.0, display_outer = 0.0;
     steering_angles(this, steering_, &inner, &outer);
     steering_angles(this, display, &display_inner, &display_outer);
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -226,7 +226,7 @@ void DrivableModule::apply_damping()
 // 0x00436280
 void DrivableModule::apply_gravity()
 {
-    double gravity;
+    double gravity = 0.0;
     if (righting_ && static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
                              (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(righting_start_)) >
                          300)
@@ -325,7 +325,7 @@ void DrivableModule::apply_tyre_forces()
         double along =
             (static_cast<double>(friction.z) * side.z + static_cast<double>(friction.y) * side.y) + friction_x * side.x;
         double friction_torque = -(along * wheel.radius);
-        float wheel_torque;
+        float wheel_torque = 0.0f;
         maths::Vec4 push;
         if (std::fabs(static_cast<double>(stop)) > std::fabs(friction_torque)) {
             push = {static_cast<float>(friction_x), friction.y, friction.z, friction.w};
@@ -378,7 +378,7 @@ void DrivableModule::apply_drive_torque()
         Wheel& wheel = wheels_[i];
         if (!wheel.drive || (handbrake_ && wheel.steering_side_ != 0))
             continue;
-        float spin;
+        float spin = 0.0f;
         if (!reverse_)
             spin = wheel.spin > 0.0f ? wheel.spin : 0.0f;
         else
@@ -712,7 +712,7 @@ void DrivableModule::read_controls()
     handbrake_ = input.shoulder_right_a_.held_down_ != 0 && !handbrake_disabled_;
     // The brake button: braking while moving forward, else reversing; with Exitable, the other button too, which
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
-    bool pressed, other = false;
+    bool pressed = false, other = false;
     if (input.button_box_.held_down_) {
         pressed = true;
     } else if (can_dismount_ && input.button_wedge_.held_down_) {
@@ -722,7 +722,7 @@ void DrivableModule::read_controls()
         pressed = false;
     }
     if (pressed) {
-        bool brake;
+        bool brake = false;
         const maths::Vec4& at = basis_frame_.row[2];
         if (!reverse_ && (!((static_cast<double>(vel_.z) * at.z + static_cast<double>(vel_.y) * at.y) +
                                 static_cast<double>(at.x) * vel_.x <

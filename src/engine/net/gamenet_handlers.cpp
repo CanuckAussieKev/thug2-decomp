@@ -85,10 +85,10 @@ void get_cd_key(char* key)
     static const char kPath[] = "Software\\Activision\\Tony Hawk's Underground 2";
     char value[100] = {};
     DWORD size = sizeof(value);
-    DWORD type;
-    HKEY handle;
+    DWORD type = 0;
+    HKEY handle = nullptr;
     auto query = [&] { RegQueryValueExA(handle, "key", nullptr, &type, reinterpret_cast<BYTE*>(value), &size); };
-    bool opened;
+    bool opened = false;
     if (RegCreateKeyA(HKEY_CURRENT_USER, kPath, &handle) == ERROR_SUCCESS &&
         RegQueryValueExA(handle, "key", nullptr, &type, reinterpret_cast<BYTE*>(value), &size) == ERROR_SUCCESS) {
         opened = true;

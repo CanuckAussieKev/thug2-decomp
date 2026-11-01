@@ -310,7 +310,7 @@ bool VideoHub::movie_flag18(uint32_t name)
 {
     if (!total_of())
         return false;
-    Movie* movie;
+    Movie* movie = nullptr;
     if (name) {
         movie = find_movie(name);
         if (!movie)

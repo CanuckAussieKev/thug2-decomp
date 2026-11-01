@@ -125,8 +125,8 @@ void ModelParticles::render()
         FlexibleParticle& particle = particle_list_[p];
         model(static_cast<unsigned int>(p))->change_live(1);
         float life = particle.age / particle.lifetime;
-        const uint8_t* from;
-        const uint8_t* to;
+        const uint8_t* from = nullptr;
+        const uint8_t* to = nullptr;
         if (!(colour_mid_ >= 0.0f)) { // (no mid colour; NaN too)
             from = start_colour_;
             to = end_colour_;
@@ -140,7 +140,7 @@ void ModelParticles::render()
             from = mid_colour_;
             to = end_colour_;
         }
-        uint32_t from_colour, to_colour, colour;
+        uint32_t from_colour = 0, to_colour = 0, colour = 0;
         std::memcpy(&from_colour, from, 4);
         std::memcpy(&to_colour, to, 4);
         colour = *lerp_colour(&colour, reinterpret_cast<const uint8_t*>(&from_colour),

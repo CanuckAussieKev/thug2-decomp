@@ -332,7 +332,7 @@ void ObjectiveAuthoring::refresh_cursor()
 {
     EditedGoal* goal = active_node_;
     int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
-    const char* model;
+    const char* model = nullptr;
     if (kind == kPointStart) {
         model = "gameobjects\\p1_cursor\\p1_cursor.mdl";
     } else if (kind == kPointObject) {

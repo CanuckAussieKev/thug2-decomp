@@ -131,7 +131,7 @@ bool clear_to_point(SkaterPhysicsModule* component, const maths::Vec4* point, bo
     if (!get_feel(component, 0x10, 0))
         return true;
     const maths::Vec4& hit = component->feeler_.contact_pos_;
-    double distance;
+    double distance = 0.0;
     if (from_vector) {
         maths::Vec4 d = *point - hit;
         distance = (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) + static_cast<double>(d.z) * d.z;
@@ -364,7 +364,7 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
     double along = (static_cast<double>(direction.z) * v.z + static_cast<double>(direction.y) * v.y) +
                    static_cast<double>(direction.x) * v.x;
     bool forward = along == 0.0 ? maths::rnd(2) != 0 : !(along < 0.0);
-    float sign;
+    float sign = 0.0f;
     maths::Vec4 end;
     if (forward) {
         sign = 1.0f;
@@ -576,7 +576,7 @@ void SkaterPhysicsModule::try_grind(bool always)
             static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));
     auto* manager = modules::g_skate_module->rail_manager_.get();
     maths::Vec4 point;
-    objects::GrindPoint* node;
+    objects::GrindPoint* node = nullptr;
     if (manager->find_grind_rail(&last, &now, &point, &node, nullptr, min_alignment, 0)) {
         objects::GameEntity* o = object_of(this);
         tracking_print(2, &o->old_pos_, &o->at_point_);

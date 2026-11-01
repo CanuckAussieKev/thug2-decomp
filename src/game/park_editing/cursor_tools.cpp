@@ -86,7 +86,7 @@ void BuildPointer::toggle_shown(bool visible)
 void BuildPointer::on_mode_changed()
 {
     script::Struct params;
-    uint32_t mode;
+    uint32_t mode = 0;
     if (mode_sel_ == kModeGapAdjust)
         mode = 0xE75A3A17; // gap_adjust
     else if (mode_sel_ == kModeGap)
@@ -194,7 +194,7 @@ void BuildPointer::free_copy_buffers()
 void BuildPointer::forget_gap_at(PieceGroup* meta)
 {
     CellBox area = meta->cell_footprint_;
-    int half;
+    int half = 0;
     GapDetails* gap = park_owner_->get_gap_info(&area, &half);
     if (!gap)
         return;

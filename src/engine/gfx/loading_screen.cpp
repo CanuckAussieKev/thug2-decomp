@@ -152,7 +152,7 @@ void draw_loading_screen_picture()
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
     input_port()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    DWORD min_filter;
+    DWORD min_filter = 0;
     input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     input_port()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);

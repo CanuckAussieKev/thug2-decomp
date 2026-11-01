@@ -228,8 +228,8 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -45.0);
     auto* arrow = static_cast<frontend::ImageWidget*>(meter->eldest_.owner_object_);
     bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
-    double x;
-    double y;
+    double x = 0.0;
+    double y = 0.0;
     if (manual) {
         meter->change_location(bars_[1].x, bars_[1].y, 1);
         meter->set_sprite_rotation(-90.0f, 1);
@@ -340,7 +340,7 @@ void PointTally::tick_frame()
             rgba[c] = static_cast<uint8_t>(ftol((bar_colors_[2][c] - from) * flash + from));
         }
     }
-    uint32_t color;
+    uint32_t color = 0;
     std::memcpy(&color, rgba, 4);
     element->change_rgba(color, 1);
 }
@@ -392,7 +392,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     trick->rotation_deg_ = 0;
     if (!unnamed) {
         escape_spaces(trick->text_, text);
-        const char* format;
+        const char* format = nullptr;
         if (flags & kTrickColour3)
             format = "\\c3%s%s\\c0 "; // "\c3%s%s\c0 "
         else if (flags & kTrickSpecial)
@@ -491,7 +491,7 @@ void PointTally::change_spin_degrees(int degrees)
     bool flipped =
         static_cast<objects::AnimBlenderComponent*>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
     int size = degrees;
-    const char* side;
+    const char* side = nullptr;
     if (degrees < 0) {
         size = -degrees;
         side = flipped ? "BS" : "FS"; // "BS" / "FS"
@@ -536,7 +536,7 @@ void PointTally::change_spin_degrees(int degrees)
     bool joined = log_.num_ - 1 > spin_trick_;
     auto flags = static_cast<uint8_t>(trick->flag_bits_);
     if (!renamed) {
-        const char* format;
+        const char* format = nullptr;
         if (flags & kTrickColour3)
             format = (joined ? R"(\c3%s\_%d\_%s\c0\_+ )" : R"(\c3%s\_%d\_%s\c0)"); // "\c3%s\_%d\_%s\c0[\_+ ]"
         else if (flags & kTrickSpecial)
@@ -545,7 +545,7 @@ void PointTally::change_spin_degrees(int degrees)
             format = (joined ? R"(%s\_%d\_%s\_+ )" : "%s\\_%d\\_%s"); // "%s\_%d\_%s[\_+ ]"
         std::snprintf(trick->shown_, sizeof(trick->shown_), format, side, shown_degrees, trick->text_);
     } else {
-        const char* format;
+        const char* format = nullptr;
         if (flags & kTrickColour3)
             format = (joined ? R"(\c3%s\_%s\c0\_+ )" : R"(\c3%s\_%s\c0)"); // "\c3%s\_%s\c0[\_+ ]"
         else if (flags & kTrickSpecial)
@@ -738,7 +738,7 @@ void TableItemEraser::free_table_contents()
     int count = lookup_table_->num_;
     int index = 0;
     for (; count > 0; --count) {
-        uint32_t key;
+        uint32_t key = 0;
         void* item = lookup_table_->fetch_entry_at(&index, &key);
         lookup_table_->erase_entry(&key);
         if (item)

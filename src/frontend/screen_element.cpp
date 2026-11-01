@@ -114,7 +114,7 @@ void top_left_scale_first(const UiWidget* e, ElementState* s, double width, doub
 
 uint32_t get_rgba(const uint8_t* bytes)
 {
-    uint32_t value;
+    uint32_t value = 0;
     std::memcpy(&value, bytes, 4);
     return value;
 }
@@ -455,7 +455,7 @@ ElementPtr* UiWidget::get_parent(ElementPtr* out) const
 // 0x004A8BB0
 UiWidget* UiWidget::fetch_pane() const
 {
-    UiWidget* element;
+    UiWidget* element = nullptr;
     {
         ElementPtr parent;
         element = get_parent(&parent)->owner_object_;
@@ -553,7 +553,7 @@ void UiWidget::change_owner(const ElementPtr* parent, int)
         // last among the new parent's children
         ElementPtr last;
         last.assign_value(container_->eldest_.owner_object_);
-        ElementPtr* slot;
+        ElementPtr* slot = nullptr;
         if (last) {
             while (last->following_)
                 last.assign_value(last->following_.owner_object_);
@@ -592,7 +592,7 @@ void UiWidget::update_layout()
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
         render::ViewRegion* camera = render::fetch_current_view(0);
-        float x, y, z;
+        float x = 0.0f, y = 0.0f, z = 0.0f;
         // (the depth written as an integer into z, as the original)
         float scale = camera->project_to_screen(&aim_point_.pos3d, &x, &y, reinterpret_cast<int*>(&z));
         if (scale < 0.0f) {
@@ -619,7 +619,7 @@ void UiWidget::update_layout()
                 t = 1.0f;
                 morph_length_ = 0;
             }
-            float curve;
+            float curve = 0.0f;
             switch ((object_flags_ >> 8) & 3) {
             case 1: // ease out
                 curve = static_cast<float>((static_cast<double>(t) + t) - static_cast<double>(t) * t);
@@ -700,7 +700,7 @@ void UiWidget::update_layout()
 bool UiWidget::read_position_param(script::Struct* params, float* x, float* y)
 {
     script::Pair pair;
-    Struct* pos;
+    Struct* pos = nullptr;
     if (params->read_sub_struct(kPos, &pos, 0)) {
         pos->fetch_pair(0, &pair, true);
         if (pos->has_bare_flag(kRelative)) {
@@ -731,7 +731,7 @@ bool UiWidget::read_position_param(script::Struct* params, float* x, float* y)
 // 0x004A8DC0
 bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, float* x, float* y)
 {
-    script::Array* array;
+    script::Array* array = nullptr;
     if (!params->fetch_list(name, &array, 0))
         return false;
     if (array->kind_tag_ == script::kQbvalFloat) {
@@ -757,7 +757,7 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, float
 // 0x004A8E90 (shifts past 31 bits wrap, as x86 SHL does)
 bool UiWidget::read_colour_param(script::Struct* params, uint32_t name, uint32_t* rgba)
 {
-    script::Array* array;
+    script::Array* array = nullptr;
     if (!params->fetch_list(name, &array, 0))
         return false;
     uint32_t count = array->extent_;
@@ -790,7 +790,7 @@ void UiWidget::change_traits(script::Struct* params)
     script::Pair dims;
     if (params->fetch_pair(kDims, &dims, false))
         fit_to_size(dims.x, dims.y, 1);
-    uint32_t parent_id;
+    uint32_t parent_id = 0;
     if (resolve_element_id(manager, params, kParent, &parent_id)) {
         ElementPtr parent;
         get_look_up(manager, &parent, parent_id, 0);
@@ -801,7 +801,7 @@ void UiWidget::change_traits(script::Struct* params)
     float align_h = 0.0f, align_v = 0.0f;
     if (read_alignment_param(params, kJust, &align_h, &align_v))
         change_alignment(align_h, align_v);
-    uint32_t rgba;
+    uint32_t rgba = 0;
     if (read_colour_param(params, kRgba, &rgba))
         change_rgba(rgba, 1);
     float degrees = 0.0f;
@@ -821,7 +821,7 @@ void UiWidget::change_traits(script::Struct* params)
         object_flags_ |= kFlipV;
     else
         object_flags_ &= ~kFlipV;
-    float z;
+    float z = 0.0f;
     if (params->fetch_float(kZPriorityName, &z, 0)) {
         z_priority_ = z;
         object_flags_ |= kZPriority | kVisibleNow;
@@ -830,7 +830,7 @@ void UiWidget::change_traits(script::Struct* params)
         write_hash_tag(0, kTagNotFocusable);
     else if (params->has_bare_flag(kFocusable))
         remove_tag_flag(kTagNotFocusable);
-    uint32_t local_id;
+    uint32_t local_id = 0;
     if (params->read_hash_value(kLocalId, &local_id, 0))
         write_hash_tag(kTagLocalId, local_id);
     if (params->has_bare_flag(kUnpause))
@@ -843,7 +843,7 @@ void UiWidget::change_traits(script::Struct* params)
         object_flags_ |= kHidden;
     else if (params->has_bare_flag(kUnHide))
         object_flags_ = (object_flags_ & ~kHidden) | kVisibleNow;
-    int priority;
+    int priority = 0;
     if (params->fetch_int_value(kPriorityName, &priority, 0) && priority > 0) {
         rank_ = priority;
         object_flags_ |= kPriority;
@@ -859,7 +859,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
         return true;
     }
     if (name == kDoMorph) {
-        float seconds;
+        float seconds = 0.0f;
         if (params->fetch_float(kTime, &seconds, 0))
             script->lull(get_truncated(static_cast<double>(seconds) * 1000.0f));
         blend_towards(params);
@@ -920,7 +920,7 @@ void UiWidget::get_properties(script::Struct* out)
 void UiWidget::blend_towards(script::Struct* params)
 {
     // (read_position_param may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
-    float x = 0.0f, y;
+    float x = 0.0f, y = 0.0f;
     std::memcpy(&y, &params, sizeof(y));
     if (read_position_param(params, &x, &y))
         change_location(x, y, 0);
@@ -931,7 +931,7 @@ void UiWidget::blend_towards(script::Struct* params)
             object_flags_ |= kDirty;
         }
     }
-    float alpha;
+    float alpha = 0.0f;
     if (params->fetch_float(kAlpha, &alpha, 0)) {
         if (params->has_bare_flag(kRememberAlpha))
             remembered_alpha_ = shown_.alpha;
@@ -941,13 +941,13 @@ void UiWidget::blend_towards(script::Struct* params)
         }
     }
     bool relative = params->has_bare_flag(kRelativeScale);
-    float scale;
+    float scale = 0.0f;
     if (params->fetch_float(kScale, &scale, 0))
         change_scale(scale, scale, relative, 0);
     script::Pair pair;
     if (params->fetch_pair(kScale, &pair, false))
         change_scale(pair.x, pair.y, relative, 0);
-    float degrees;
+    float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
         if (radians != aim_point_.angle) {
@@ -955,7 +955,7 @@ void UiWidget::blend_towards(script::Struct* params)
             object_flags_ |= kDirty;
         }
     }
-    float seconds;
+    float seconds = 0.0f;
     int ms = params->fetch_float(kTime, &seconds, 0) ? get_truncated(static_cast<double>(seconds) * 1000.0f) : 0;
     start_morph(ms);
     object_flags_ &= ~kMorphCurve;
@@ -968,7 +968,7 @@ void UiWidget::blend_towards(script::Struct* params)
         else if (anim == kGentle)
             object_flags_ |= 0x300;
     }
-    uint32_t rgba;
+    uint32_t rgba = 0;
     if (read_colour_param(params, kRgba, &rgba) && get_rgba(aim_point_.rgba) != rgba) {
         set_rgba_bytes(aim_point_.rgba, rgba);
         object_flags_ |= kDirty;

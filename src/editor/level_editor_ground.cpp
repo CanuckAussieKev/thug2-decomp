@@ -120,7 +120,7 @@ struct Builder {
     void get_corner(V3 p, V3 n)
     {
         float ax = std::fabs(n.x), ay = std::fabs(n.y), az = std::fabs(n.z);
-        float u, v;
+        float u = 0.0f, v = 0.0f;
         if (ay >= ax && ay >= az)
             u = p.x, v = p.z;
         else if (ax >= az)

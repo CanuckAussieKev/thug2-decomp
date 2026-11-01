@@ -356,7 +356,7 @@ void prepare_all(uint32_t level)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     const char* name = "Park Editor"; // "Park Editor"
-    int direction;
+    int direction = 0;
     if (level == kTopDownLevel) {
         manager->enter_heap_scope(manager->top_down_heap_);
         direction = -1;

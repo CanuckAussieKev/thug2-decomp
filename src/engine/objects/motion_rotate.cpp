@@ -97,7 +97,7 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, int axis, fl
             return;
         }
     }
-    float* speed_param;
+    float* speed_param = nullptr;
     if (params->fetch_float(kDeceleration, &deceleration, 0)) {
         deceleration = static_cast<float>(static_cast<double>(deceleration) * kDegrees);
         speed_param = &get_axis(rot_max_speed_, axis);
@@ -256,7 +256,7 @@ void KinematicsModule::update_turn()
 {
     auto elapsed = static_cast<float>(static_cast<double>(step_seconds_) + turn_elapsed_);
     turn_elapsed_ = elapsed;
-    float t;
+    float t = 0.0f;
     if (!(turn_time_ == 0.0f) && !(elapsed >= turn_time_)) {
         t = static_cast<float>(static_cast<double>(elapsed) / turn_time_);
     } else {
@@ -390,9 +390,9 @@ void KinematicsModule::look_at_position(script::Struct* params, bool absolute)
 // 0x00427500
 bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
 {
-    uint32_t type;
+    uint32_t type = 0;
     if (params->read_hash_value(kTypeName, &type, 0)) {
-        uint32_t object_type;
+        uint32_t object_type = 0;
         switch (type) {
         case kSkater:
             object_type = 0xBAF9B341; // OBJECT_TYPE_SKATER
@@ -414,7 +414,7 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
             return false;
         return get_look_at(params, &other->at_point_);
     }
-    uint32_t name;
+    uint32_t name = 0;
     if (!params->read_hash_value(kName, &name, 0))
         return false;
     // (the object of that id in its manager's list, not itself)

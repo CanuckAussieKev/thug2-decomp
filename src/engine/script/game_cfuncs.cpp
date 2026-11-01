@@ -174,8 +174,8 @@ bool cfunc_reload_viewer_anim(script::Struct* params, script::Script*)
     objects::PreviewEntity* object = viewer_target(viewer);
     if (!object)
         return true;
-    uint32_t anim;
-    const char* file;
+    uint32_t anim = 0;
+    const char* file = nullptr;
     if (params->read_hash_value(0u, &anim, 0) && params->fetch_text(0u, &file, 0))
         object->reload_animation(file, anim);
     return true;
@@ -304,7 +304,7 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script*)
     uint32_t button = 0;
     if (!params->read_hash_value(0u, &button, 0))
         return false;
-    int controller;
+    int controller = 0;
     if (params->fetch_int_value(0u, &controller, 0))
         return controller_pressed(front_end->pad_listeners_[controller].get(), button);
     for (const auto& pad_listener : front_end->pad_listeners_) {
@@ -619,7 +619,7 @@ inline void compiled_out_debug_call() {}
 // more; any other class: false. Also false (with a message) without the name or a position.
 bool cfunc_move_node(script::Struct* params, script::Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     if (!params->read_hash_value(0xA1DC81F9u, &name, 0)) { // "name"
         debug::printf("Missing Name\n");                   // "Missing Name\n"
         return false;
@@ -725,7 +725,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
         maths::Vec4 from = {values[0], values[1], values[2], 1.0f};
         maths::Vec4 to = {values[3], values[4], values[5], 1.0f};
         --at;
-        uint32_t colour;
+        uint32_t colour = 0;
         switch (type) {
         case 1:
             ++count1;
@@ -849,7 +849,7 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
     uint32_t restart = 0;
     while ((restart = objects::get_spawn_node(0, 0, restart)) != 0) {
         script::Struct* node = level_nodes::fetch_vertex(restart, true);
-        const char* name;
+        const char* name = nullptr;
         if (!node->fetch_text("RestartName", &name, 0)) // "RestartName"
             name = "Unnamed restart";                   // "Unnamed restart"
         script::Struct* item = spawn_param_table();
@@ -888,7 +888,7 @@ bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
         script::Struct* item = spawn_param_table();
         script::Struct* node = level_nodes::fetch_vertex(nodes->fetch_part(i), true);
-        const char* name;
+        const char* name = nullptr;
         if (!node->fetch_text(0xFCD206E1u, &name, 0))
             name = "Unnamed restart"; // "Unnamed restart"
         item->append_word(kMenuText, name);

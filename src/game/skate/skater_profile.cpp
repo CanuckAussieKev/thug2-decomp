@@ -113,7 +113,7 @@ void RiderIdentity::read_from_save(uint32_t name, script::Struct* save)
 // 0x00585FB0 / 0x00585FD0
 int RiderIdentity::fetch_tally(uint32_t name)
 {
-    int value;
+    int value = 0;
     details_params()->fetch_int_value(name, &value, 1);
     return value;
 }
@@ -128,14 +128,14 @@ bool RiderIdentity::set_ability_level(uint32_t name, int value)
 // 0x00586000 / 0x00586040
 bool RiderIdentity::add_to_info_471f_c_4d_d(int amount)
 {
-    int value;
+    int value = 0;
     details_params()->fetch_int_value(0x471FC4DD, &value, 1);
     details_params()->add_component_of_type(0x471FC4DD, script::kQbvalInteger, static_cast<uint32_t>(value + amount));
     return true;
 }
 int RiderIdentity::get_info_471f_c_4d_d()
 {
-    int value;
+    int value = 0;
     details_params()->fetch_int_value(0x471FC4DD, &value, 1);
     return value;
 }
@@ -143,14 +143,14 @@ int RiderIdentity::get_info_471f_c_4d_d()
 // 0x00586060 / 0x005860A0
 bool RiderIdentity::add_max_specials(int amount)
 {
-    int value;
+    int value = 0;
     details_params()->fetch_int_value(kMaxSpecials, &value, 1);
     details_params()->add_component_of_type(kMaxSpecials, script::kQbvalInteger, static_cast<uint32_t>(value + amount));
     return true;
 }
 int RiderIdentity::get_max_specials()
 {
-    int value;
+    int value = 0;
     details_params()->fetch_int_value(kMaxSpecials, &value, 1);
     return value;
 }
@@ -167,13 +167,13 @@ uint32_t RiderIdentity::get_name_key_field(uint32_t name)
 // 0x00586110 / 0x00586130
 script::Struct* RiderIdentity::fetch_details_params(uint32_t name)
 {
-    script::Struct* structure;
+    script::Struct* structure = nullptr;
     details_params()->read_sub_struct(name, &structure, 1);
     return structure;
 }
 script::Struct* RiderIdentity::get_specials()
 {
-    script::Struct* specials;
+    script::Struct* specials = nullptr;
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     return specials;
 }
@@ -181,13 +181,13 @@ script::Struct* RiderIdentity::get_specials()
 // 0x00586150 / 0x00586170
 uint32_t RiderIdentity::fetch_title()
 {
-    uint32_t name;
+    uint32_t name = 0;
     details_params()->read_hash_value(kName, &name, 1);
     return name;
 }
 bool RiderIdentity::is_pro()
 {
-    int pro;
+    int pro = 0;
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     return pro != 0;
 }
@@ -211,7 +211,7 @@ void RiderIdentity::set_string_f_36c_1878(const char* text) { details_params()->
 // 0x00586210
 const char* RiderIdentity::fetch_shown_name()
 {
-    const char* name;
+    const char* name = nullptr;
     details_params()->fetch_text(kDisplayName, &name, 1);
     return name;
 }
@@ -220,9 +220,9 @@ const char* RiderIdentity::fetch_shown_name()
 RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out, int index)
 {
     SpecialTrick trick;
-    script::Struct* specials;
+    script::Struct* specials = nullptr;
     details_params()->read_sub_struct(kSpecials, &specials, 1);
-    script::Array* slots;
+    script::Array* slots = nullptr;
     specials->fetch_list(0u, &slots, 1);
     if (index < 0 || index >= static_cast<int>(slots->extent_)) {
         // (asserts, compiled out)
@@ -244,9 +244,9 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
 // 0x00586710
 bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply)
 {
-    script::Struct* specials;
+    script::Struct* specials = nullptr;
     details_params()->read_sub_struct(kSpecials, &specials, 1);
-    script::Array* slots;
+    script::Array* slots = nullptr;
     specials->fetch_list(0u, &slots, 1);
     if (index < 0 || index >= static_cast<int>(slots->extent_))
         return false;
@@ -333,7 +333,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             mine->put_name_key(name, checksum);
         }
         // A custom skater (not a pro) gets a face texture, in the skater info heap.
-        int pro;
+        int pro = 0;
         mine->fetch_int_value(kIsPro, &pro, 1);
         if (!pro) {
             push_skater_info_heap();
@@ -345,10 +345,10 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         return true;
     params->read_sub_struct(kSpecials, reinterpret_cast<script::Struct**>(&checksum), 1);
     mine->put_sub_struct(kSpecials, reinterpret_cast<script::Struct*>(checksum));
-    int max_specials;
+    int max_specials = 0;
     params->fetch_int_value(kMaxSpecials, &max_specials, 1);
     mine->put_int(kMaxSpecials, max_specials);
-    uint32_t style_name;
+    uint32_t style_name = 0;
     params->read_hash_value(kTrickStyleName, &style_name, 1);
     script::Struct* style = script::read_sub_struct(style_name);
     mine->read_sub_struct(kTrickStyle, reinterpret_cast<script::Struct**>(&number), 1);
@@ -361,7 +361,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         params->fetch_int_value(stat_name, &stat, 1);
         mine->put_int(stat_name, stat);
     }
-    int points;
+    int points = 0;
     params->fetch_int_value(0x471FC4DD, &points, 1);
     mine->put_int(0x471FC4DD, points);
     return true;
@@ -389,24 +389,24 @@ bool RiderIdentity::get_reset(script::Struct* params)
     load_appearance(this, appearance, true);
     mine->get_clear();
     mine->append_structure_if_any(params);
-    int pro;
+    int pro = 0;
     mine->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
         push_skater_info_heap();
         make_face_texture(this);
         pop_heap();
     }
-    uint32_t style_name;
+    uint32_t style_name = 0;
     params->read_hash_value(kTrickStyleName, &style_name, 1);
     script::Struct* style = script::read_sub_struct(style_name);
     script::Struct* mine_style = params; // (the argument's slot)
     mine->read_sub_struct(kTrickStyle, &mine_style, 1);
     mine_style->get_clear();
     mine_style->append_structure_if_any(style);
-    uint32_t name;
+    uint32_t name = 0;
     mine->read_hash_value(kName, &name, 1);
     if (name != kCustomSkater) {
-        const char* unused; // (read, unused)
+        const char* unused = nullptr; // (read, unused)
         mine->fetch_text(0x37F745A5, &unused, 1);
     }
     return true;
@@ -433,7 +433,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
     script::Struct* info = new_empty_struct();
     info->append_structure_if_any(details_params());
     mine->add_component_of_type(kInfo, kOwnedStructure, reinterpret_cast<uint32_t>(info));
-    uint32_t name;
+    uint32_t name = 0;
     details_params()->read_hash_value(kName, &name, 1);
     mine->add_component_of_type(kDeckFlags, script::kQbvalInteger, 0);
     save->add_component_of_type(name, kOwnedStructure, reinterpret_cast<uint32_t>(mine));

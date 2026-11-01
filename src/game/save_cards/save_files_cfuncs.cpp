@@ -508,7 +508,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         result_params(script)->put_name_key(0u, kFilesLimitReached);
     if (listed) {
         // newest first (a bubble sort by the dates)
-        bool swapped;
+        bool swapped = false;
         do {
             swapped = false;
             for (int j = 0; j < listed - 1; ++j) {

@@ -89,7 +89,7 @@ void BoxPair::get_exchange()
 // 0x0057C260
 void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max)
 {
-    float min_x, max_x, min_y, max_y, min_z, max_z;
+    float min_x = 0.0f, max_x = 0.0f, min_y = 0.0f, max_y = 0.0f, min_z = 0.0f, max_z = 0.0f;
     if (a->x < b->x)
         min_x = a->x, max_x = b->x;
     else
@@ -277,7 +277,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     if (height_one > -1.0f && height_two > -1.0) { // (NaN: on to the next test)
         return false;
     }
-    double higher, lower;
+    double higher = 0.0, lower = 0.0;
     if (height_one < height_two) {
         higher = static_cast<float>(height_two);
         lower = height_one;
@@ -669,7 +669,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
         rail.start = node->at_point_;
         rail.end = next->at_point_;
         maths::Vec4 on_line, on_rail;
-        float s, t;
+        float s = 0.0f, t = 0.0f;
         if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
             continue;
         maths::Vec4 apart = on_rail - on_line;
@@ -732,7 +732,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         rail.start = node->at_point_;
         rail.end = next->at_point_;
         maths::Vec4 on_line, on_rail;
-        float s, t;
+        float s = 0.0f, t = 0.0f;
         if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
             continue;
         maths::Vec4 apart = on_rail - on_line;
@@ -933,7 +933,7 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             rail.start = node->at_point_;
             rail.end = next->at_point_;
             maths::Vec4 on_line, on_rail;
-            float s, t;
+            float s = 0.0f, t = 0.0f;
             if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
                 continue;
             float distance = (on_rail - on_line).len_of();

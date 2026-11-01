@@ -167,9 +167,9 @@ bool cfunc_placed_less_than(script::Struct* params, script::Script* script)
 bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
-    uint32_t skater;
+    uint32_t skater = 0;
     params->read_hash_value(kSkaterId, &skater, 1);
-    uint32_t steer_kind;
+    uint32_t steer_kind = 0;
     params->read_hash_value(kControlType, &steer_kind, 1);
     net::AppHost* client = manager->fetch_patron(0);
     if (client) {

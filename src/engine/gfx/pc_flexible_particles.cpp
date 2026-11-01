@@ -140,7 +140,7 @@ ColourSpan colour_span(const EmitterInstance& system, float life)
 // lerp_colour of two colours (copies).
 uint32_t get_colour(const EmitterInstance& system, uint32_t from, uint32_t to, float t)
 {
-    uint32_t colour;
+    uint32_t colour = 0;
     lerp_colour(system, &colour, reinterpret_cast<const uint8_t*>(&from), reinterpret_cast<const uint8_t*>(&to), t);
     return colour;
 }
@@ -284,7 +284,7 @@ void PcNewFlatParticles::render()
                                     particle->start_size_[0];
                     double up = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                                 particle->start_size_[1];
-                    float cx, cy, cz;
+                    float cx = 0.0f, cy = 0.0f, cz = 0.0f;
                     if (emitter_independent_) {
                         cx = place[0], cy = place[1], cz = place[2];
                     } else {
@@ -544,8 +544,8 @@ void PcFlatRibbonParticles::render()
                 auto u0 = static_cast<float>(u.x * size), u1 = static_cast<float>(u.y * size);
                 double u2 = u.z * size;
                 const float* p = position_array_ + 3 * index;
-                double px, py;
-                float pz;
+                double px = 0.0, py = 0.0;
+                float pz = 0.0f;
                 if (emitter_independent_) {
                     px = p[0], py = p[1], pz = p[2];
                 } else {
@@ -845,8 +845,8 @@ void PcRibbonParticles::render()
             static_cast<uint8_t*>(os_layer::lock_dynamic_vertices(remaining, stride, &buffer, &first_vertex, &room));
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
-            double hx, hy;
-            float hz, t[3];
+            double hx = 0.0, hy = 0.0;
+            float hz = 0.0f, t[3];
             if (emitter_independent_) {
                 hx = head[0], hy = head[1], hz = head[2];
                 t[0] = tail[0], t[1] = tail[1], t[2] = tail[2];
@@ -933,7 +933,7 @@ uint32_t PcRibbonTrailParticles::head_colour(uint32_t from, uint32_t to, float t
     uint8_t bytes[4] = {lerp(2), lerp(1), lerp(0), lerp(3)};
     for (int k = 0; k < 3; ++k)
         bytes[k] = static_cast<uint8_t>(truncate(static_cast<double>(bytes[k]) * brightness_));
-    uint32_t colour;
+    uint32_t colour = 0;
     std::memcpy(&colour, bytes, 4);
     return colour;
 }
@@ -1527,7 +1527,7 @@ void PcSmoothStarParticles::render()
                     double angle2 = static_cast<double>(k + 1) * step * kDegrees;
                     double s2 = std::sin(angle2), c2 = std::cos(angle2);
                     float next[3];
-                    double next_y;
+                    double next_y = 0.0;
                     {
                         double x = rv[0] * s2 * w;
                         double y = static_cast<double>(static_cast<float>(rv[1] * s2)) * w;
@@ -1747,7 +1747,7 @@ uint32_t PcGlowRibbonTrailParticles::fine_colour(uint32_t from, uint32_t to, dou
         return static_cast<uint8_t>(truncate((static_cast<double>(g[k] - f[k]) * t + (f[k] << 12)) * (1.0f / 4096.0f)));
     };
     uint8_t bytes[4] = {lerp(2), lerp(1), lerp(0), lerp(3)};
-    uint32_t colour;
+    uint32_t colour = 0;
     std::memcpy(&colour, bytes, 4);
     return colour;
 }

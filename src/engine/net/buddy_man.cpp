@@ -301,7 +301,7 @@ void FriendsManager::log_in()
     cur_phase_ = 2;
     login_start() = frame_clock::get_time();
     get_run("log_in_profile");
-    DWORD id;
+    DWORD id = 0;
     HANDLE thread = CreateThread(nullptr, 0x8000, kLoginThread, this, CREATE_SUSPENDED, &id);
     net_session_slot()->set_room_id(id);
     ResumeThread(thread); // (the handle is never closed)
@@ -318,7 +318,7 @@ void FriendsManager::spawn_account()
     cur_phase_ = 1;
     login_start() = frame_clock::get_time();
     push_top_down();
-    DWORD id;
+    DWORD id = 0;
     HANDLE thread = CreateThread(nullptr, 0x8000, &create_profile_thread, this, CREATE_SUSPENDED, &id);
     net_session_slot()->set_room_id(id);
     ResumeThread(thread);
@@ -456,7 +456,7 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     params->append_word("status", buddy->status_text_);
     params->append_word("location", buddy->location_);
     params->put_name_key("id", get_checksums("first_lobby_buddy") + buddy->account_);
-    const char* choose_script;
+    const char* choose_script = nullptr;
     if (!allow_join && !allow_remove) {
         choose_script = "do_nothing";
     } else {
@@ -596,7 +596,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
     if (buddies) {
         for (uint32_t i = 0; i < buddies->extent_; ++i) {
             auto* entry = reinterpret_cast<script::Struct*>(buddies->fetch_part(i));
-            int profile;
+            int profile = 0;
             entry->fetch_int_value("profile", &profile, 1);
             if (profile == status.profile) {
                 const char* nick = nullptr;
@@ -728,8 +728,8 @@ bool join_buddy(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     bool observe = params->has_bare_flag("observe");
-    const char* location;
-    int ip, private_ip, port;
+    const char* location = nullptr;
+    int ip = 0, private_ip = 0, port = 0;
     params->fetch_text("location", &location, 1);
     params->fetch_int_value("join_ip", &ip, 1);
     params->fetch_int_value("join_private_ip", &private_ip, 1);
@@ -742,7 +742,7 @@ bool join_buddy(script::Struct* params, script::Script*)
         port = kJoinPort;
         same_address = true;
     }
-    const char* text;
+    const char* text = nullptr;
     if (observe) {
         manager->set_join_mode(1);
         text = script::fetch_text("homie_status_observing");
@@ -774,8 +774,8 @@ FriendsManager* get_buddies() { return net_session_slot()->presence_service_.get
 // 0x00548E40: AddBuddy profile nick
 bool add_buddy(script::Struct* params, script::Script*)
 {
-    int profile;
-    const char* nick;
+    int profile = 0;
+    const char* nick = nullptr;
     params->fetch_int_value("profile", &profile, 1);
     params->fetch_text("nick", &nick, 1);
     get_buddies()->add_buddy(nick, profile);
@@ -818,7 +818,7 @@ bool cancel_add_buddy(script::Struct*, script::Script*)
 // 0x00549D90: RemoveBuddy profile
 bool remove_buddy(script::Struct* params, script::Script*)
 {
-    int profile;
+    int profile = 0;
     params->fetch_int_value("profile", &profile, 1);
     get_buddies()->remove_buddy(profile);
     return true;

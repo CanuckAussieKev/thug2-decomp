@@ -261,7 +261,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // source here, so nothing is loaded.)
     // (the game name: "thps6pc", or [Miscellaneous] OnlineGameName - engine/net/online_identity.h)
     gsi_start_available_check(net::get_game_name());
-    int available;
+    int available = 0;
     while ((available = gsi_available_check_think()) == 0)
         get_msleep(5);
     if (available != 1)
@@ -338,7 +338,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
         else if (name[0] == ';')
             name[0] = ':';
         wchar_t wide[10];
-        size_t converted;
+        size_t converted = 0;
         mbstowcs_s(&converted, wide, name, _TRUNCATE);
         set_key_name(scan_code, wide);
     }

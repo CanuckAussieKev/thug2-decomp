@@ -338,7 +338,7 @@ void CtodManager::get_level_color(uint32_t* out)
 void CtodManager::read_group(int index)
 {
     TodSystem& system = system_at(this, index);
-    script::Array* groups;
+    script::Array* groups = nullptr;
     system.params->fetch_list(kGroups, &groups, 1);
     system.group_count_ = static_cast<int>(groups->extent_);
     auto* group = reinterpret_cast<script::Struct*>(groups->fetch_part(static_cast<uint32_t>(system.group)));
@@ -490,12 +490,12 @@ void CtodManager::build_tod_objects(script::Struct* params, script::Script* /*sc
             create_from_node(name);
         return;
     }
-    uint32_t prefix;
+    uint32_t prefix = 0;
     if (!params->hash_from_name_or_text(kPrefix, &prefix, 0))
         return;
     // (NoPrefixWarning: passed on as the third argument of 0x0045BF90, which doesn't use it)
     params->has_bare_flag(kNoPrefixWarning);
-    uint16_t count;
+    uint16_t count = 0;
     uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
     for (int i = 0; i < count; ++i) {
         if (!dead_objects_->fetch_entry(nodes[i]))
@@ -507,14 +507,14 @@ void CtodManager::build_tod_objects(script::Struct* params, script::Script* /*sc
 void CtodManager::change_args(script::Struct* params)
 {
     params_set_ = true;
-    int number;
+    int number = 0;
     params->fetch_int_value(kSystem, &number, 1);
     TodSystem& system = system_at(this, number - 1);
     system.params->get_clear();
     system.params->append_structure_if_any(params);
     params->read_hash_value(kCurrentState, &system.state, 0);
     system.next_state_ = next_tod_state(system.state);
-    script::Struct* state;
+    script::Struct* state = nullptr;
     if (params->read_sub_struct(kOverwriteCurrentState, &state, 0)) {
         parse_params(state, &system.current);
     } else if (params->read_sub_struct(system.state, &state, 0)) {
@@ -555,7 +555,7 @@ void CtodManager::next_state(int index)
         ++system.days_passed_;
     system.state = system.next_state_;
     system.next_state_ = next_tod_state(system.state);
-    script::Struct* state;
+    script::Struct* state = nullptr;
     system.params->read_sub_struct(system.state, &state, 1);
     parse_params(state, &system.current);
     state->fetch_int_value(kStateLength, &system.state_length_, 1);
@@ -573,7 +573,7 @@ void CtodManager::next_state(int index)
 void CtodManager::update_sun()
 {
     TodSystem& system = systems_[0];
-    double t;
+    double t = 0.0;
     if (system.transitioning)
         t = get_fraction(system.time + system.state_length_, system.transition_length_ + system.state_length_);
     else
@@ -805,7 +805,7 @@ void CtodManager::set_scene_color(script::Struct* params)
     uint32_t reset_light_group = 0;
     params->read_hash_value(kResetLightGroup, &reset_light_group, 0);
     bool scene_only = params->has_bare_flag(kSceneColorFlag);
-    int value;
+    int value = 0;
     params->fetch_int_value(kColor, &value, 1);
     // (the colour's fourth byte isn't set by the original - stack garbage; nor the sky colour's, the top byte of the
     // parameters' pointer whose argument slot it's kept in)
@@ -827,13 +827,13 @@ void CtodManager::set_scene_color(script::Struct* params)
 // 0x00573400
 void CtodManager::mark_permanently_dead(script::Struct* params)
 {
-    uint32_t name;
+    uint32_t name = 0;
     if (params->read_hash_value(kName, &name, 0)) {
         if (!dead_objects_->fetch_entry(name, true))
             dead_objects_->store_entry(name, this);
         return;
     }
-    uint32_t prefix;
+    uint32_t prefix = 0;
     if (!params->hash_from_name_or_text(kPrefix, &prefix, 0))
         return;
     params->has_bare_flag(kNoPrefixWarning); // (see build_tod_objects)
@@ -961,7 +961,7 @@ void CtodManager::reset_level_lights(uint32_t state_name)
         level_lights_reset_ = false;
     } else {
         std::memset(&params, 0, sizeof(params)); // (the original's are uninitialised: what the state doesn't give)
-        script::Struct* state;
+        script::Struct* state = nullptr;
         system_at(this, current_system()).params->read_sub_struct(state_name, &state, 1);
         parse_params(state, &params);
         apply_tod_params(params);
@@ -980,11 +980,11 @@ void CtodManager::refresh_all(bool temp_state)
         uint32_t level_color = get_rgba(current.lev_red_, current.lev_green_, current.lev_blue_, 0x80);
         uint32_t sky_color = get_rgba(current.sky_red_, current.sky_green_, current.sky_blue_, 0x80);
         bool sky = system.sky;
-        script::Array* groups;
+        script::Array* groups = nullptr;
         system.params->fetch_list(kGroups, &groups, 1);
         for (int g = 0; g < system.group_count_; ++g) {
             auto* group = reinterpret_cast<script::Struct*>(groups->fetch_part(static_cast<uint32_t>(g)));
-            uint32_t light_group;
+            uint32_t light_group = 0;
             group->read_hash_value(kLightGroup, &light_group, 1);
             uint32_t reset_light_group = 0;
             group->read_hash_value(kResetLightGroup, &reset_light_group, 0);
@@ -1036,7 +1036,7 @@ void CtodManager::set_temp_tod(script::Struct* params)
 void CtodManager::restore_current_tod()
 {
     for (TodSystem& system : systems_) {
-        script::Struct* state;
+        script::Struct* state = nullptr;
         system.params->read_sub_struct(system.state, &state, 1);
         parse_params(state, &system.current);
     }
@@ -1109,9 +1109,9 @@ void CtodManager::set_tod_instant(uint32_t state)
     int remaining = current.transitioning ? current.transition_length_ - current.time
                                           : current.state_length_ - current.time + current.transition_length_;
     for (uint32_t s = next_tod_state(current.state); s != state; s = next_tod_state(s)) {
-        script::Struct* structure;
+        script::Struct* structure = nullptr;
         current.params->read_sub_struct(s, &structure, 1);
-        int length;
+        int length = 0;
         structure->fetch_int_value(kStateLength, &length, 1);
         remaining += current.transition_length_ + length;
     }
@@ -1209,7 +1209,7 @@ void release_tod_manager()
 bool cfunc_tod_manager_set_active(script::Struct* params, script::Script* /*script*/)
 {
     CtodManager* manager = tod_manager();
-    int active;
+    int active = 0;
     params->fetch_int_value(0u, &active, 1);
     manager->active_ = active != 0;
     return true;
@@ -1395,7 +1395,7 @@ bool cfunc_tod_manager_set_temp_bloom_params(script::Struct* params, script::Scr
 bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* /*script*/)
 {
     CtodManager* manager = tod_manager();
-    int on;
+    int on = 0;
     params->fetch_int_value(0u, &on, 1);
     manager->enable_bloom(on);
     return true;
@@ -1404,7 +1404,7 @@ bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* /*sc
 // 0x00574840: TODManager_SetTODInstant <state>
 bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t state;
+    uint32_t state = 0;
     params->read_hash_value(0u, &state, 1);
     if (!tod_manager())
         return false;

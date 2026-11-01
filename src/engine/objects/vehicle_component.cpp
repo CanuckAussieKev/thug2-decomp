@@ -83,7 +83,7 @@ void DrivableModule::update_wheel_rotations()
 double DrivableModule::get_tyre_friction(Wheel* wheel, float slip)
 {
     if (handbrake_) {
-        double friction;
+        double friction = 0.0;
         if (throttle_) {
             friction = wheel->parking_grip_powered_;
             wheel->state = kWheelHandbrakeThrottle;
@@ -504,7 +504,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     // their w less the corner's, which nothing sets). The points' average distance from the body's origin, less 48,
     // goes to the skater (Rider 0x005802C0).
     if (params->has_entry_named(0xFC8C4AC6)) {
-        script::Array* colliders;
+        script::Array* colliders = nullptr;
         params->fetch_list(0xFC8C4AC6, &colliders, 1);
         int count = static_cast<int>(colliders->extent_);
         float sum = 0.0f;
@@ -549,7 +549,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     // engine: drive_torque and 0xB2268648 in foot-pounds, upshift_rpm, differential_ratio, reverse_torque_ratio,
     // gear_ratios (as many as there are - room for six).
     if (params->has_entry_named(0x1757E572)) {
-        script::Struct* engine;
+        script::Struct* engine = nullptr;
         params->read_sub_struct(0x1757E572, &engine, 1);
         if (engine->has_entry_named(0x9AA9FAEE)) {
             engine->fetch_float(0x9AA9FAEE, &engine_torque_, 0);
@@ -566,7 +566,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         engine->fetch_float(0x94EA6601, &final_drive_ratio_, 0);
         engine->fetch_float(0x82BCBB10, &reverse_ratio_, 0);
         if (engine->has_entry_named(0xC023FA75)) {
-            script::Array* ratios;
+            script::Array* ratios = nullptr;
             engine->fetch_list(0xC023FA75, &ratios, 1);
             gear_count_ = static_cast<int>(ratios->extent_);
             for (int i = 0; i < gear_count_; ++i)
@@ -599,7 +599,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
             read_wheel(&wheels_[i], reinterpret_cast<script::Struct*>(wheels->fetch_part(static_cast<uint32_t>(i))));
     }
     if (params->has_entry_named(0x371BADFF)) {
-        script::Struct* all;
+        script::Struct* all = nullptr;
         params->read_sub_struct(0x371BADFF, &all, 1);
         for (int i = wheel_count_ - 1; i >= 0; --i)
             read_wheel(&wheels_[i], all);
@@ -921,7 +921,7 @@ void DrivableModule::debug_draw()
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         const Wheel& wheel = wheels_[i];
-        uint32_t colour;
+        uint32_t colour = 0;
         switch (wheel.state) {
         case kWheelStaticSlow:
             colour = 0xFF00FF00;
@@ -1046,7 +1046,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
 {
     // The node named; else the first restart linked from the script's node; else (outside the park editor) the skate
     // module's first restart.
-    uint32_t name;
+    uint32_t name = 0;
     if (params->read_hash_value(0u, &name, 0)) {
         glide_to_node(level_nodes::fetch_vertex(name, true));
         return true;

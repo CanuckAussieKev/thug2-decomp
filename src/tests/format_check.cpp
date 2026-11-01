@@ -237,7 +237,7 @@ void write_structure(util::ByteWriter& writer, const Structure& structure)
             continue;
         }
         if (value->type == kFloat) {
-            float f;
+            float f = 0.0f;
             std::memcpy(&f, &value->bits, sizeof(f));
             float magnitude = f < 0.0f ? -f : f;
             if (magnitude < 0.0001) {

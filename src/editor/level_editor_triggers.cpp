@@ -583,7 +583,7 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
     std::vector<uint8_t> out;
     std::vector<std::pair<uint32_t, std::string>> names;
     auto note = [&](const std::string& name) {
-        uint32_t value;
+        uint32_t value = 0;
         if (name.empty() || is_hex_form(name, &value))
             return;
         uint32_t checksum = get_checksums(name.c_str());
@@ -2113,7 +2113,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         if (!a.alive)
             continue;
         OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
-        float t;
+        float t = 0.0f;
         if (ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
             best = t;
             *node = nodes::get_find(hash_of_name(a.spec.name));
@@ -2124,14 +2124,14 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
     for (const LevelTrigger& l : g_level) {
         V3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
         V3 grow = {2.0f, 2.0f, 2.0f};
-        float t;
+        float t = 0.0f;
         if (!ray_box(origin, unit_dir, {0.0f, 0.0f, 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
             continue;
         // (the faces themselves when there are few; a big water plane by its box)
         float hit = t;
         bool found = l.face_count_ > kMaxFacesKept;
         for (size_t f = 0; !found && f + 2 < l.faces.size(); f += 3) {
-            float ft;
+            float ft = 0.0f;
             if (picking::ray_triangle(origin, unit_dir, l.faces[f], l.faces[f + 1], l.faces[f + 2], &ft) && ft < best) {
                 hit = ft;
                 found = true;
@@ -2161,7 +2161,7 @@ struct Painter {
 
     bool get_to_pixel(V3 p, float* x, float* y) const
     {
-        float nx, ny;
+        float nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera, *frame, *lens, p, near_z_, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -2171,7 +2171,7 @@ struct Painter {
     {
         if (!clip_to_near(camera, *frame, near_z_ + 0.01f, &a, &b))
             return;
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (get_to_pixel(a, &ax, &ay) && get_to_pixel(b, &bx, &by))
             lines->push_back({ax, ay, bx, by, argb, thickness});
     }
@@ -2190,7 +2190,7 @@ struct Painter {
     void get_arrow(V3 a, V3 b, uint32_t argb) const
     {
         get_seg(a, b, argb, 2.0f);
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!get_to_pixel(a, &ax, &ay) || !get_to_pixel(b, &bx, &by))
             return;
         float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
@@ -2283,7 +2283,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
         if (labels >= kMaxLabels)
             return;
-        float x, y;
+        float x = 0.0f, y = 0.0f;
         if (paint.get_to_pixel(at, &x, &y)) {
             texts->push_back({x, y, argb, text});
             ++labels;
@@ -2369,7 +2369,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
 {
     Painter paint = {camera, &frame, &lens, viewport, near_z, lines};
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
-        float x, y;
+        float x = 0.0f, y = 0.0f;
         if (paint.get_to_pixel(at, &x, &y))
             texts->push_back({x, y, argb, text});
     };
@@ -2621,7 +2621,7 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
         return;
     for (int h = 0; h < 6; ++h) {
         V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
-        float nx, ny, x, y;
+        float nx = 0.0f, ny = 0.0f, x = 0.0f, y = 0.0f;
         if (!cast_onto(g_last_view.camera, g_last_view.frame, g_last_view.lens, p, g_last_view.near_z_, &nx, &ny))
             continue;
         ndc_to_pixel(g_last_view.viewport, nx, ny, &x, &y);
@@ -2678,7 +2678,7 @@ void rescale(V3 origin, V3 dir, bool snap)
 {
     if (!g_resize.on)
         return;
-    float s;
+    float s = 0.0f;
     if (!closest_on_axis(g_resize.start, g_resize.direction, origin, dir, &s))
         return;
     float along = s - g_resize.s0;
@@ -2816,7 +2816,7 @@ void get_restore(const State& state)
                                 [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
         if (!keep) {
             node_create::Spec removed;
-            int at;
+            int at = 0;
             node_create::drop_out(hash_of_name(n.name), &removed, &at);
         }
     }
@@ -2913,7 +2913,7 @@ void reset_all()
 {
     for (const Spec& spec : std::vector<Spec>(g_specs)) {
         node_create::Spec removed;
-        int at;
+        int at = 0;
         node_create::drop_out(hash_of_name(spec.name), &removed, &at);
     }
     g_specs.clear();
@@ -3021,7 +3021,7 @@ void set_breakable(uint32_t sector, bool on)
     note_undo();
     std::string name = there->spec.name;
     node_create::Spec removed;
-    int at;
+    int at = 0;
     node_create::drop_out(hash_of_name(name), &removed, &at);
     int i = spec_index(name);
     if (i >= 0)

@@ -143,8 +143,8 @@ Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float 
     auto w1_end = static_cast<float>(static_cast<double>(w1) * end);
     auto dx2_mid = static_cast<float>(static_cast<double>(dx2f) * mid);
     auto w2_mid = static_cast<float>(static_cast<double>(w2) * mid);
-    float cx = static_cast<float>(static_cast<double>(dx2_mid) - dx1_end), cy;
-    double cz;
+    float cx = static_cast<float>(static_cast<double>(dx2_mid) - dx1_end), cy = 0.0f;
+    double cz = 0.0;
     if (spread_rounding) {
         cy = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy2f) * mid)) - dy1_end);
         cz = static_cast<double>(z2) * mid - z1_end;
@@ -412,7 +412,7 @@ void PcParticleSystem::draw(bool advance)
                     // The colour: start to end, or through the mid.
                     const float* from = colour_table[0];
                     const float* to = colour_table[2];
-                    double fraction;
+                    double fraction = 0.0;
                     if (args_.colour_use_mid_) {
                         if (t > colour_mid) {
                             fraction = (t - colour_mid) / (static_cast<double>(args_.lifetime_) - colour_mid);

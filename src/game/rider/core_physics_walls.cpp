@@ -161,7 +161,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     // Held against a wall to the left or right: a feeler that far out, Skate_wall_lean_push_length after
     // Skate_wall_lean_push_time.
     objects::PadSnapshot* pad = &input_->pad_primary_;
-    int held;
+    int held = 0;
     if (pad->left_side_.held_down_)
         held = time_since_press(&pad->left_side_);
     else if (pad->right_side_.held_down_)
@@ -386,7 +386,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     const maths::Vec4& up = object->basis_frame_.row[1];
     maths::Vec4 lift = {static_cast<float>(height * up.x), static_cast<float>(height * up.y),
                         static_cast<float>(height * up.z), static_cast<float>(height * up.w)};
-    float turn;
+    float turn = 0.0f;
     float angle = deflect_from_wall(normal, &turn, 1.0f);
 
     // Slowed the more head-on the wall is (unless within Wall_Bounce_Dont_Slow_Angle); fast enough, a flail.

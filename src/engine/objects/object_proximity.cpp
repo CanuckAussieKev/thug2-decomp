@@ -110,7 +110,7 @@ void ObjectProximityComponent::tick_frame()
     // otherwise; ours starts at 0)
     uint32_t id = 0;
     float distance = 0.0f;
-    bool dead;
+    bool dead = false;
     auto event = [this](uint32_t type, script::Struct* data) { entity_->post_own_event(type, data); };
     auto new_data = []() {
         script::Struct* data = script::spawn_param_bag();
@@ -219,7 +219,7 @@ bool ObjectProximityComponent::obj_set_attention_radius(script::Struct* params, 
 // 0x004EC480
 bool ObjectProximityComponent::obj_object_in_attention_radius(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    uint32_t skater;
+    uint32_t skater = 0;
     return local_skater_distance_squared(&skater) <= attention_radius_squared_;
 }
 

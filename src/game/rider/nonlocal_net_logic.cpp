@@ -293,7 +293,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     auto raise_z = static_cast<float>(height * up.z);
     auto raise_y = static_cast<float>(height * up.y);
     auto raise_x = static_cast<float>(height * up.x);
-    float turn;
+    float turn = 0.0f;
     auto angle = static_cast<float>(turn_towards(*normal, &turn));
     // Slowed by how far past Wall_Bounce_Dont_Slow_Angle it turned (to nothing at a right angle).
     double dont_slow = static_cast<double>(script::fetch_float(kWallBounceDontSlowAngle)) * kRadiansPerDegree;

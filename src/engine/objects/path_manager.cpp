@@ -145,7 +145,7 @@ void PathManager::number_paths()
         start->read_hash_value(kClass, &node_class, 0);
         if (node_class == 0x8E6B02AD || node_class == 0x30C19600)
             continue;
-        uint32_t type;
+        uint32_t type = 0;
         if (node_class == 0x4C23A77E && start->read_hash_value(kType, &type, 0) && type == 0xCBA10FFA)
             continue;
         if (level_nodes::get_link_count(start) == 0 && node_class != 0x4C23A77E)
@@ -156,7 +156,7 @@ void PathManager::number_paths()
         int path = path_count_;
         script::Struct* node = start;
         for (;;) {
-            int existing;
+            int existing = 0;
             if (node->fetch_int_value(kPathNum, &existing, 0)) {
                 if (existing == path)
                     break;

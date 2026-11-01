@@ -358,7 +358,7 @@ void Hub::choose_start_points()
 {
     int* points = reinterpret_cast<int*>(start_points_);
     int offset = maths::rnd(256);
-    int count;
+    int count = 0;
     if (in_net_game()) {
         count = 8;
     } else {
@@ -373,7 +373,7 @@ void Hub::choose_start_points()
         points[i] = -1;
     for (int i = 0; i < count; ++i) {
         // Drawn again until it's one no other slot has.
-        bool taken;
+        bool taken = false;
         do {
             points[i] = maths::rnd(count);
             taken = false;

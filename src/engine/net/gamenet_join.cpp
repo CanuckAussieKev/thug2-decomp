@@ -849,7 +849,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     info->observer = manager->join_mode_ == kJoinModeObserve;
     info->version = kVersion;
     info->can_queue_up_ = true;
-    bool narrowband;
+    bool narrowband = false;
     if (net->get_net_link_kind() == kConnectionTypeModem) {
         narrowband = true;
         info->broadband = false;

@@ -340,8 +340,8 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
     float rot_fraction = 0.0f;
     float trans_fraction = 0.0f;
     for (int i = 0; i < bone_count_; ++i) {
-        int rot_count;
-        int trans_count;
+        int rot_count = 0;
+        int trans_count = 0;
         if (flag_bits_ & kShortCounts) {
             rot_count = reinterpret_cast<int16_t*>(key_counts_)[i * 2];
             trans_count = reinterpret_cast<int16_t*>(key_counts_)[i * 2 + 1];

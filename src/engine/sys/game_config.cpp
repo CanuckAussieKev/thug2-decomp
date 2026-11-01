@@ -261,9 +261,9 @@ void read_registry(int, char**)
     get_language() = 2;
     get_extra_memory() = false;
     DWORD language = 0;
-    HKEY key;
-    DWORD type;
-    DWORD size;
+    HKEY key = nullptr;
+    DWORD type = 0;
+    DWORD size = 0;
     if (RegCreateKeyA(HKEY_CURRENT_USER, path, &key) == ERROR_SUCCESS) {
         size = 4;
         RegQueryValueExA(key, "language", nullptr, &type, reinterpret_cast<BYTE*>(&language), &size); // "language"

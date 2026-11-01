@@ -296,7 +296,7 @@ __declspec(naked) void acos_x87()
 
 double sin(double a)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fsin
         fstp r }
@@ -304,7 +304,7 @@ double sin(double a)
 }
 double cos(double a)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fcos
         fstp r }
@@ -312,7 +312,7 @@ double cos(double a)
 }
 double tan(double a)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fptan
         fstp st(0)
@@ -321,7 +321,7 @@ double tan(double a)
 }
 double atan(double a)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fld1
         fpatan
@@ -330,7 +330,7 @@ double atan(double a)
 }
 double atan2(double y, double x)
 {
-    double r;
+    double r = 0.0;
     __asm { fld y
         fld x
         fpatan
@@ -339,7 +339,7 @@ double atan2(double y, double x)
 }
 double sqrt(double a)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fsqrt
         fstp r }
@@ -347,7 +347,7 @@ double sqrt(double a)
 }
 double log10(double x)
 {
-    double r;
+    double r = 0.0;
     __asm { fldlg2
         fld x
         fyl2x
@@ -356,7 +356,7 @@ double log10(double x)
 }
 double ln(double x)
 {
-    double r;
+    double r = 0.0;
     __asm { fldln2
         fld x
         fyl2x
@@ -365,7 +365,7 @@ double ln(double x)
 }
 double asin(double v)
 {
-    double r;
+    double r = 0.0;
     void* function = asin_x87;
     __asm { fld v
         call function
@@ -374,7 +374,7 @@ double asin(double v)
 }
 double acos(double v)
 {
-    double r;
+    double r = 0.0;
     void* function = acos_x87;
     __asm { fld v
         call function
@@ -383,7 +383,7 @@ double acos(double v)
 }
 float sin_f(double a)
 {
-    float r;
+    float r = 0.0f;
     __asm { fld a
         fsin
         fstp r }
@@ -391,7 +391,7 @@ float sin_f(double a)
 }
 float cos_f(double a)
 {
-    float r;
+    float r = 0.0f;
     __asm { fld a
         fcos
         fstp r }
@@ -399,7 +399,7 @@ float cos_f(double a)
 }
 float atan2_f(double y, double x)
 {
-    float r;
+    float r = 0.0f;
     __asm { fld y
         fld x
         fpatan
@@ -408,7 +408,7 @@ float atan2_f(double y, double x)
 }
 double sin_times(double a, double f)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fsin
         fmul f
@@ -417,7 +417,7 @@ double sin_times(double a, double f)
 }
 double sin_product(double a, double b)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fsin
         fld b
@@ -428,7 +428,7 @@ double sin_product(double a, double b)
 }
 double cot(double a)
 {
-    double r;
+    double r = 0.0;
     __asm { fld a
         fld st(0)
         fcos
@@ -440,7 +440,7 @@ double cot(double a)
 }
 double atan2_difference(double y1, double x1, double y2, double x2)
 {
-    double r;
+    double r = 0.0;
     __asm { fld y1
         fld x1
         fpatan
@@ -453,9 +453,9 @@ double atan2_difference(double y1, double x1, double y2, double x2)
 }
 float acos_f(double value, float limit, bool* above_limit)
 {
-    float result;
+    float result = 0.0f;
     void* function = acos_x87;
-    uint16_t status;
+    uint16_t status = 0;
     __asm { fld value
         call function
         fst result
@@ -466,9 +466,9 @@ float acos_f(double value, float limit, bool* above_limit)
 }
 float neg_asin_cos(double value, float limit, bool* above, double* inverse, double* neg_inverse)
 {
-    float angle;
-    double inv, neg_inv;
-    uint16_t status;
+    float angle = 0.0f;
+    double inv = 0.0, neg_inv = 0.0;
+    uint16_t status = 0;
     void* function = asin_x87;
     const float one = 1.0f, minus_one = -1.0f;
     __asm {
@@ -496,7 +496,7 @@ float neg_asin_cos(double value, float limit, bool* above, double* inverse, doub
 }
 void spin_by(double angle, double a, double b, double* rotated_a, double* rotated_b)
 {
-    double ra, rb;
+    double ra = 0.0, rb = 0.0;
     __asm {
         fld angle
         fld st(0)
@@ -520,7 +520,7 @@ void spin_by(double angle, double a, double b, double* rotated_a, double* rotate
 }
 bool cos_above(double angle, float value)
 {
-    uint16_t status;
+    uint16_t status = 0;
     __asm { fld angle
         fcos
         fcomp value
@@ -529,7 +529,7 @@ bool cos_above(double angle, float value)
 }
 bool sin_at_least(double angle, float value)
 {
-    uint16_t status;
+    uint16_t status = 0;
     __asm { fld angle
         fsin
         fcomp value
@@ -538,7 +538,7 @@ bool sin_at_least(double angle, float value)
 }
 float tan_times(double angle, float factor)
 {
-    float result;
+    float result = 0.0f;
     __asm { fld angle
         fptan
         fstp st(0)
@@ -549,7 +549,7 @@ float tan_times(double angle, float factor)
 float atan2_less_quarter_turn(float y, float x)
 {
     const float quarter_turn = 1.5707963705062866f;
-    float result;
+    float result = 0.0f;
     __asm { fld y
         fld x
         fpatan
@@ -573,7 +573,7 @@ uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* 
     {
         int a = to[kOrder[k]];
         int b = from[kOrder[k]];
-        int64_t value;
+        int64_t value = 0;
         __asm {
             fild a
             fmul st(0), st(2)
@@ -592,7 +592,7 @@ uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* 
 }
 float wibble_time(uint32_t milliseconds)
 {
-    float result;
+    float result = 0.0f;
     float scale = 0.001f;
     float wrap = 4294967296.0f;
     __asm {
@@ -608,12 +608,12 @@ float wibble_time(uint32_t milliseconds)
 }
 float wibble_offset(float t, float frequency, float phase, float amplitude, float velocity, bool store_first)
 {
-    float result;
+    float result = 0.0f;
     float eight = 8.0f;
     float zero = 0.0f;
-    int64_t whole;
-    int truncated;
-    float stored;
+    int64_t whole = 0;
+    int truncated = 0;
+    float stored = 0.0f;
     __asm {
         fld t
         fmul frequency
@@ -652,7 +652,7 @@ float vblank_seconds(uint64_t vblanks, int rate)
 {
     uint64_t low_part[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
     uint64_t high_part[1] = {vblanks & 0x8000000000000000ull};
-    float result;
+    float result = 0.0f;
     __asm {
         fild qword ptr [low_part]
         fild qword ptr [high_part]
@@ -665,8 +665,8 @@ float vblank_seconds(uint64_t vblanks, int rate)
 }
 void probe_tip(int index, float x, float z, float step, float reach, float* last_column, float* end_z)
 {
-    float angle_f;
-    float slot;
+    float angle_f = 0.0f;
+    float slot = 0.0f;
     __asm {
         fild index
         fmul step
@@ -694,9 +694,9 @@ void probe_tip(int index, float x, float z, float step, float reach, float* last
 }
 void turn_move(double angle, double a, double b, float* x, float* z)
 {
-    float sine;
-    float result_x;
-    float result_z;
+    float sine = 0.0f;
+    float result_x = 0.0f;
+    float result_z = 0.0f;
     __asm {
         fld angle
         fld st(0)
@@ -720,9 +720,9 @@ void turn_move(double angle, double a, double b, float* x, float* z)
 }
 void turn_about_y(double delta_x, double delta_z, float angle, float scale, float* out_x, double* out_z)
 {
-    float sine;
-    float x;
-    double z;
+    float sine = 0.0f;
+    float x = 0.0f;
+    double z = 0.0;
     float degree_factor = scale;
     __asm {
         fld angle
@@ -750,7 +750,7 @@ void turn_about_y(double delta_x, double delta_z, float angle, float scale, floa
 }
 void turn_by_stick(double angle, float* x, float* z)
 {
-    float sine;
+    float sine = 0.0f;
     __asm {
         mov ecx, x
         mov edx, z
@@ -777,7 +777,7 @@ void turn_by_stick(double angle, float* x, float* z)
 }
 void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 {
-    float cosine, rx, rz;
+    float cosine = 0.0f, rx = 0.0f, rz = 0.0f;
     __asm {
         fld angle
         fld st(0)
@@ -801,7 +801,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 }
 float asin_degrees(double value, bool negate, float degrees)
 {
-    float result;
+    float result = 0.0f;
     void* function = asin_x87;
     __asm {
         fld value
@@ -817,7 +817,7 @@ float asin_degrees(double value, bool negate, float degrees)
 }
 float acos_degrees(float value, float degrees)
 {
-    float result;
+    float result = 0.0f;
     void* function = acos_x87;
     __asm {
         fld value
@@ -832,13 +832,13 @@ void refresh_fov(float h_fov, float factor, float divisor, float default_angle, 
 {
     const float to_half_radians = std::bit_cast<float>(0x3C0EFA35u), to_degrees = std::bit_cast<float>(0x42E52EE0u),
                 half = 0.5f, to_radians = std::bit_cast<float>(0x3C8EFA35u);
-    float half_angle;
+    float half_angle = 0.0f;
     __asm {
         fld h_fov
         fmul to_half_radians
         fstp half_angle
     }
-    float adjusted, tan_adjusted;
+    float adjusted = 0.0f, tan_adjusted = 0.0f;
     __asm {
         fld factor
         fld half_angle
@@ -855,7 +855,7 @@ void refresh_fov(float h_fov, float factor, float divisor, float default_angle, 
         fstp st(0)
         fstp tan_adjusted
     }
-    float ratio;
+    float ratio = 0.0f;
     __asm {
         fld default_angle
         fmul half
@@ -870,7 +870,7 @@ void refresh_fov(float h_fov, float factor, float divisor, float default_angle, 
 }
 float angle_factor(float degrees, float default_angle, float half_degree_radians)
 {
-    float factor;
+    float factor = 0.0f;
     __asm {
         fld degrees
         fmul half_degree_radians
@@ -888,8 +888,8 @@ float angle_factor(float degrees, float default_angle, float half_degree_radians
 }
 void versine_sine(float angle, double* out_t, float* out_s)
 {
-    double t;
-    float s;
+    double t = 0.0;
+    float s = 0.0f;
     const float one = 1.0f;
     __asm {
         fld angle
@@ -914,7 +914,8 @@ void skin_memory(const fresh::Skin& v, float* out)
     float px = v.p[0], py = v.p[1], pz = v.p[2], qx = v.q[0], qy = v.q[1], qz = v.q[2];
     float rx = v.r[0], ry = v.r[1], rz = v.r[2];
     float s0 = v.s[0], s1 = v.s[1], s2 = v.s[2];
-    float t0, t1, v2, w1, w2, x1, y1, z1, out_x, out_y, out_z;
+    float t0 = 0.0f, t1 = 0.0f, v2 = 0.0f, w1 = 0.0f, w2 = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
+          out_y = 0.0f, out_z = 0.0f;
     __asm {
         fld e0_0
         fld e0_8
@@ -1032,7 +1033,8 @@ void skin_file(const fresh::Skin& v, float* out)
     float px = v.p[0], py = v.p[1], pz = v.p[2], pw = v.p[3], qx = v.q[0], qy = v.q[1], qz = v.q[2], qw = v.q[3];
     float rx = v.r[0], ry = v.r[1], rz = v.r[2], rw = v.r[3];
     float s0 = v.s[0], s1 = v.s[1], s2 = v.s[2];
-    float cyw, czw, bzw, ayw, azw, x1, y1, z1, out_x, out_y, out_z;
+    float cyw = 0.0f, czw = 0.0f, bzw = 0.0f, ayw = 0.0f, azw = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
+          out_y = 0.0f, out_z = 0.0f;
     __asm {
         fld e0_0
         fld e0_8
@@ -1170,7 +1172,7 @@ uint64_t ulps(double a, double b)
 {
     if (std::isnan(a) || std::isnan(b))
         return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
-    int64_t ia, ib;
+    int64_t ia = 0, ib = 0;
     std::memcpy(&ia, &a, 8);
     std::memcpy(&ib, &b, 8);
     if (ia < 0)
@@ -1184,7 +1186,7 @@ uint64_t ulps(float a, float b)
 {
     if (std::isnan(a) || std::isnan(b))
         return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
-    int32_t ia, ib;
+    int32_t ia = 0, ib = 0;
     std::memcpy(&ia, &a, 4);
     std::memcpy(&ib, &b, 4);
     if (ia < 0)
@@ -1285,18 +1287,18 @@ void run(int count, std::mt19937_64& random)
         compare(t_sin_product, fresh::sin_product(a, b), ref::sin_product(a, b), a);
         compare(t_cot, fresh::cot(a), ref::cot(a), a);
         compare(t_atan2_diff, fresh::atan2_difference(a, w, b, u), ref::atan2_difference(a, w, b, u), a);
-        bool above_fresh, above_ref;
+        bool above_fresh = false, above_ref = false;
         const auto limit = static_cast<float>(weight(random) * 3.0f);
         compare(t_acos_f, fresh::acos_f(u, limit, &above_fresh), ref::acos_f(u, limit, &above_ref), u);
         compare_bool(t_acos_f_above, above_fresh, above_ref, u);
-        double inv_fresh, inv_ref, neg_fresh, neg_ref;
+        double inv_fresh = 0.0, inv_ref = 0.0, neg_fresh = 0.0, neg_ref = 0.0;
         const double s = static_cast<float>(u);
         compare(t_nac, fresh::neg_asin_cos(s, 0.005f, &above_fresh, &inv_fresh, &neg_fresh),
                 ref::neg_asin_cos(s, 0.005f, &above_ref, &inv_ref, &neg_ref), s);
         compare_bool(t_nac_above, above_fresh, above_ref, s);
         compare(t_nac_inv, inv_fresh, inv_ref, s);
         compare(t_nac_inv, neg_fresh, neg_ref, s);
-        double ra_fresh, rb_fresh, ra_ref, rb_ref;
+        double ra_fresh = 0.0, rb_fresh = 0.0, ra_ref = 0.0, rb_ref = 0.0;
         const double ca = coordinate(random), cb = coordinate(random);
         fresh::spin_by(a, ca, cb, &ra_fresh, &rb_fresh);
         ref::spin_by(a, ca, cb, &ra_ref, &rb_ref);
@@ -1344,18 +1346,18 @@ void run(int count, std::mt19937_64& random)
         }
         const uint64_t vb = vblanks(random);
         compare(t_vblank, fresh::vblank_seconds(vb, 60), ref::vblank_seconds(vb, 60), static_cast<double>(vb));
-        float lc_fresh, ez_fresh, lc_ref, ez_ref;
+        float lc_fresh = 0.0f, ez_fresh = 0.0f, lc_ref = 0.0f, ez_ref = 0.0f;
         const int index = i % 64;
         fresh::probe_tip(index, x, y, 0.09817477f, 12.0f, &lc_fresh, &ez_fresh);
         ref::probe_tip(index, x, y, 0.09817477f, 12.0f, &lc_ref, &ez_ref);
         compare(t_probe, lc_fresh, lc_ref, index);
         compare(t_probe, ez_fresh, ez_ref, index);
-        float x_fresh, z_fresh, x_ref, z_ref;
+        float x_fresh = 0.0f, z_fresh = 0.0f, x_ref = 0.0f, z_ref = 0.0f;
         fresh::turn_move(a, u, fb, &x_fresh, &z_fresh);
         ref::turn_move(a, u, fb, &x_ref, &z_ref);
         compare(t_turn_move, x_fresh, x_ref, a);
         compare(t_turn_move, z_fresh, z_ref, a);
-        double zd_fresh, zd_ref;
+        double zd_fresh = 0.0, zd_ref = 0.0;
         const auto degrees = static_cast<float>(a * 30.0);
         fresh::turn_about_y(ca, cb, degrees, 0.017453292f, &x_fresh, &zd_fresh);
         ref::turn_about_y(ca, cb, degrees, 0.017453292f, &x_ref, &zd_ref);
@@ -1375,7 +1377,7 @@ void run(int count, std::mt19937_64& random)
                 ref::asin_degrees(u, store_first, 57.29578f), u);
         const auto fu = static_cast<float>(u);
         compare(t_acos_deg, fresh::acos_degrees(fu, 57.29578f), ref::acos_degrees(fu, 57.29578f), fu);
-        float adjusted_fresh, ratio_fresh, adjusted_ref, ratio_ref;
+        float adjusted_fresh = 0.0f, ratio_fresh = 0.0f, adjusted_ref = 0.0f, ratio_ref = 0.0f;
         const float h_fov = fov(random), default_angle = fov(random), factor = weight(random) + 0.5f,
                     divisor = weight(random) + 0.5f;
         fresh::refresh_fov(h_fov, factor, divisor, default_angle, &adjusted_fresh, &ratio_fresh);
@@ -1384,8 +1386,8 @@ void run(int count, std::mt19937_64& random)
         compare(t_fov, ratio_fresh, ratio_ref, h_fov);
         compare(t_factor, fresh::angle_factor(h_fov, default_angle, 0.008726646f),
                 ref::angle_factor(h_fov, default_angle, 0.008726646f), h_fov);
-        double vt_fresh, vt_ref;
-        float vs_fresh, vs_ref;
+        double vt_fresh = 0.0, vt_ref = 0.0;
+        float vs_fresh = 0.0f, vs_ref = 0.0f;
         fresh::versine_sine(fa, &vt_fresh, &vs_fresh);
         ref::versine_sine(fa, &vt_ref, &vs_ref);
         compare(t_versine, static_cast<float>(vt_fresh), static_cast<float>(vt_ref), fa);

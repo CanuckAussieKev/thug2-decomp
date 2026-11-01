@@ -194,7 +194,7 @@ void PcPrimitive::render()
     std::memcpy(out, vertices_, static_cast<uint32_t>(vertex_count_ * stride_));
     os_layer::unlock_dynamic_vertices(vertex_count_, stride_);
     input_port()->SetStreamSource(0, buffer, 0, stride_);
-    int primitives;
+    int primitives = 0;
     if (type_ == 0) {
         primitives = vertex_count_ / 2;
         input_port()->DrawPrimitive(D3DPT_LINELIST, first_vertex, primitives);

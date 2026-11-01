@@ -265,7 +265,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
         crt::get_exit(0); // (the game's exit())
     for (DWORD level = 0; level < levels; ++level) {
         static_cast<IDirect3DTexture9*>(from->texture)->GetLevelDesc(level, &desc);
-        uint32_t row_bytes, rows = desc.Height;
+        uint32_t row_bytes = 0, rows = desc.Height;
         if (desc.Format == D3DFMT_A8R8G8B8 || desc.Format == D3DFMT_X8R8G8B8) {
             row_bytes = desc.Width << 2;
         } else { // (blocks of 4 rows; the row's bytes as the original works them out)
@@ -616,8 +616,8 @@ bool PcTexture::get_stretch(uint16_t position, int vertical, int amount)
     if (at + amount <= 0)
         amount = 1 - at;
     auto end = static_cast<uint32_t>(at + amount);
-    uint16_t read_x = 0, read_y = 0, read_width, read_height, new_width, new_height;
-    int offset;
+    uint16_t read_x = 0, read_y = 0, read_width = 0, read_height = 0, new_width = 0, new_height = 0;
+    int offset = 0;
     if (!vertical) { // (the part left of the column stretched by -amount, or the part from it by amount)
         if (end >= width)
             amount = static_cast<int>(width) - at - 1;
@@ -725,7 +725,7 @@ bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bo
     int width = fetch_breadth();
     int count = fetch_tallness() * width;
     for (int i = 0; i < count; ++i, from += 4, into += 4) {
-        float h, s, v;
+        float h = 0.0f, s = 0.0f, v = 0.0f;
         rgb_to_hsv(static_cast<float>(from[0] * (1.0f / 255.0f)), static_cast<float>(from[1] * (1.0f / 255.0f)),
                    static_cast<float>(from[2] * (1.0f / 255.0f)), &h, &s, &v);
         double turned = static_cast<double>(h) + hue;
@@ -749,7 +749,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
 {
     int width = fetch_breadth();
     int height = fetch_tallness();
-    int from_x, into_x, part_width, from_y = 0, into_y, part_height;
+    int from_x = 0, into_x = 0, part_width = 0, from_y = 0, into_y = 0, part_height = 0;
     if (dx >= 0) {
         from_x = 0;
         into_x = dx;
@@ -829,7 +829,8 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
     if (at + amount <= 0)
         amount = 1 - at;
     int end = at + amount;
-    uint16_t read_x = 0, read_y = 0, into_x = 0, into_y = 0, read_width, read_height, new_width, new_height;
+    uint16_t read_x = 0, read_y = 0, into_x = 0, into_y = 0, read_width = 0, read_height = 0, new_width = 0,
+             new_height = 0;
     if (!vertical) {
         if (end >= static_cast<int>(width))
             amount = static_cast<int>(width) - at - 1;
@@ -1253,8 +1254,8 @@ void copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, 
     int rows = from_height < into_height - y ? from_height : into_height - y;
     int offset = y * into_width;
     uint32_t bytes_per_pixel = bits_per_pixel >> 3;
-    int row_bytes;
-    uint32_t from_stride, into_stride;
+    int row_bytes = 0;
+    uint32_t from_stride = 0, into_stride = 0;
     if (bytes_per_pixel) {
         row_bytes = columns * static_cast<int>(bytes_per_pixel);
         from_stride = from_width * bytes_per_pixel;
@@ -1292,7 +1293,7 @@ void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
     *s = static_cast<float>(static_cast<double>(delta) / high);
     if (delta == 0.0f)
         return;
-    double hue;
+    double hue = 0.0;
     if (r == high)
         hue = (static_cast<double>(g) - b) / delta;
     else if (g == high)

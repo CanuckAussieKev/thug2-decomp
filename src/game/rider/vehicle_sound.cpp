@@ -58,13 +58,13 @@ int clock_offset() { return g_clock_offset; }
 // A float of the global structure kRates (asserted).
 float get_rate(uint32_t name)
 {
-    float value;
+    float value = 0.0f;
     script::read_sub_struct(kRates)->fetch_float(name, &value, 1);
     return value;
 }
 float get_setting(script::Struct* settings, uint32_t name)
 {
-    float value;
+    float value = 0.0f;
     settings->fetch_float(name, &value, 1);
     return value;
 }
@@ -163,7 +163,7 @@ void SkaterVehicleSoundComponent::read_settings()
     script::read_sub_struct(kAllSettings)->read_sub_struct(settings_name_, &settings_, 1);
     settings_->read_hash_value(0x306F8A9F, &engine_sound_name_, 0);
     settings_->read_hash_value(0x667FA96A, &skid_sound_name_, 0);
-    script::Array* gears;
+    script::Array* gears = nullptr;
     settings_->fetch_list(0x83273E6B, &gears, 1);
     gear_count_ = static_cast<int>(gears->extent_);
     for (int i = 0; i < gear_count_; ++i) {

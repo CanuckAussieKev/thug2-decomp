@@ -223,7 +223,7 @@ void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint3
 {
     if (!checksum)
         checksum = checksums::hash_from_text(name);
-    void* data;
+    void* data = nullptr;
     if (Resource* asset = get_find(assets_, checksum)) {
         data = asset->get_data();
         wait_until_loaded(asset);
@@ -262,7 +262,7 @@ void ResourceRegistry::discard_loaded_item(Resource* asset)
     uint32_t checksum = asset->checksum_;
     if (Resource* group = asset->bundle_)
         group->remove_dependent(asset);
-    Resource** list;
+    Resource** list = nullptr;
     if (asset->is_loaded()) {
         list = &ready_flag_;
     } else {

@@ -304,7 +304,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
 // 0x004E36F0
 bool ObstacleDodgeModule::debug_box(script::Struct* params, script::Script* /*script*/)
 {
-    float distance; // (read into the parameters' own argument slot: without one it keeps the pointer's bits)
+    float distance = 0.0f; // (read into the parameters' own argument slot: without one it keeps the pointer's bits)
     std::memcpy(&distance, &params, sizeof(distance));
     params->fetch_float("dist", &distance, 1);
     return false;

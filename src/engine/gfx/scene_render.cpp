@@ -158,7 +158,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
                 get_z_write() = 0;
             }
-            DWORD min_filter;
+            DWORD min_filter = 0;
             input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);

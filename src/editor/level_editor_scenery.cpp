@@ -391,7 +391,7 @@ void apply_track(Track* track)
             track->placement.scale = {1.0f, 1.0f, 1.0f};
         }
     }
-    int quarters;
+    int quarters = 0;
     V3 position;
     engine_state(track->quarters0, track->position0, track->placement, &quarters, &position);
     if (quarters != track->quarters) {
@@ -504,8 +504,8 @@ std::vector<uint32_t> g_dropped_rails; // (Ctrl+click / the Inspector's x: not c
 
 RailNode* find_rail(uint32_t name)
 {
-    RailNode* nodes;
-    int count;
+    RailNode* nodes = nullptr;
+    int count = 0;
     if (!rail_nodes(&nodes, &count))
         return nullptr;
     // (a ladder's point too - its moves are tracked as a rail's: level_editor_chains.h)
@@ -537,8 +537,8 @@ uint32_t g_rail_generation = 1;
 // them.
 void apply_rails(const std::vector<uint32_t>& names)
 {
-    RailNode* nodes;
-    int count;
+    RailNode* nodes = nullptr;
+    int count = 0;
     if (!rail_nodes(&nodes, &count))
         return;
     ++g_rail_generation; // (the node layer reads the places again)
@@ -596,8 +596,8 @@ void compute_pivot()
 void select_rails()
 {
     g_rails.clear();
-    RailNode* nodes;
-    int count;
+    RailNode* nodes = nullptr;
+    int count = 0;
     if (g_selection.empty() || !rail_nodes(&nodes, &count))
         return;
     std::vector<uint32_t> clusters;
@@ -858,7 +858,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
         render::MeshRef* mesh = meshes[i];
         if (!mesh)
             continue;
-        float hit;
+        float hit = 0.0f;
         if (mesh->billboard || (mesh->flags & 0x10)) {
             if (ray_sphere(origin, dir, {mesh->centre[0], mesh->centre[1], mesh->centre[2]}, mesh->radius, &hit) &&
                 hit < best) {
@@ -977,7 +977,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     V3 from = origin;
     for (int i = 0; i < 32; ++i) {
         V3 point;
-        uint32_t checksum;
+        uint32_t checksum = 0;
         if (!cast_static(from, origin + unit_dir * max_t, &point, &checksum))
             break;
         float t = get_dot(point - origin, unit_dir);
@@ -1384,8 +1384,8 @@ std::vector<uint32_t> rail_of(uint32_t name)
 {
     std::vector<uint32_t> names;
     RailNode* node = find_rail(name);
-    RailNode* nodes;
-    int count;
+    RailNode* nodes = nullptr;
+    int count = 0;
     if (!node || !rail_nodes(&nodes, &count))
         return names;
     names.push_back(name);
@@ -1423,8 +1423,8 @@ void rails_rebuilt()
 
 void for_each_rail_point(void (*each)(void* context, uint32_t name, V3 pos), void* context)
 {
-    RailNode* nodes;
-    int count;
+    RailNode* nodes = nullptr;
+    int count = 0;
     if (!rail_nodes(&nodes, &count))
         return;
     for (int i = 0; i < count; ++i)

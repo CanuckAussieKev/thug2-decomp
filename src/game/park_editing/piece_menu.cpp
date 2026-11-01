@@ -172,8 +172,8 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     void* elements = frontend::g_ui_element_hub;
     frontend::ElementPtr slider;
     fetch_part(elements, &slider, kPieceSlider);
-    float x;
-    float y;
+    float x = 0.0f;
+    float y = 0.0f;
     fetch_location(slider.get_pull(), &x, &y);
     auto start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->entry_total_);
     auto end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->entry_total_);

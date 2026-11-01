@@ -100,7 +100,7 @@ void RiderChaseView::change_regime(int mode, float time)
     script::Struct* params = script::read_sub_struct(modes->fetch_part(static_cast<uint32_t>(mode)));
     mode_sel_ = mode;
     lip_trick_tilt_ = 0.0f;
-    float fov, behind, above, tilt, offset;
+    float fov = 0.0f, behind = 0.0f, above = 0.0f, tilt = 0.0f, offset = 0.0f;
     params->fetch_float(kHorizFov, &fov, 0);
     params->fetch_float(kBehind, &behind, 0);
     params->fetch_float(kAbove, &above, 0);
@@ -117,7 +117,7 @@ void RiderChaseView::change_regime(int mode, float time)
     params->fetch_float(kHalfpipeAirBlendY, &halfpipe_up_blend_, 0);
     params->fetch_float(kLookRate, &look_rate_, 0);
     params->fetch_float(kWallrideOffsetAngle, &wallride_offset_angle_, 0);
-    float zoom_lerp;
+    float zoom_lerp = 0.0f;
     rail_zoom_factor_ = 1.0f;
     lip_trick_zoom_ = 1.0f;
     big_air_trick_zoom_ = 1.0f;
@@ -126,7 +126,7 @@ void RiderChaseView::change_regime(int mode, float time)
     params->fetch_float(kBigAirTrickZoom, &big_air_trick_zoom_, 0);
     params->fetch_float(kLipTrickZoom, &lip_trick_zoom_, 0);
     zoom_ease_rate_ = zoom_lerp;
-    const char* name;
+    const char* name = nullptr;
     params->fetch_text(kName, &name, 0);
     origin_offset_ = static_cast<float>(static_cast<double>(offset) * kFeet);
     horiz_fov_ = fov;
@@ -150,7 +150,7 @@ void RiderChaseView::change_regime(int mode, float time)
     // The camera component's camera (+0x18): its field of view (half across a vertical split).
     gfx::ViewCam* view = static_cast<objects::ViewpointModule*>(camera)->view_camera_.get();
     view->change_h_fov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
-    float heading;
+    float heading = 0.0f;
     switch (mode) {
     case 5:
     case 6:

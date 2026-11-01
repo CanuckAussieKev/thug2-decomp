@@ -467,7 +467,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     if (layout.diffuse >= 0 && mesh->vertex_count_) {
         double sum[4] = {};
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v) {
-            uint32_t c;
+            uint32_t c = 0;
             std::memcpy(&c, data + v * mesh->stride + layout.diffuse, 4);
             for (int k = 0; k < 4; ++k)
                 sum[k] += (c >> (8 * k)) & 0xFF;

@@ -84,7 +84,7 @@ void BuildPointer::glow_overlapping_pieces(int on)
 // 0x00598B40
 bool BuildPointer::is_over_gap()
 {
-    int half;
+    int half = 0;
     return park_owner_->get_gap_info(&cell_footprint_, &half) != nullptr;
 }
 
@@ -118,7 +118,7 @@ void BuildPointer::shift_by(int dx, int dz)
     MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
     if (metas.list) {
         CellBox pos = metas.list->get_placed_piece()->cell_footprint_;
-        int half;
+        int half = 0;
         if (GapDetails* gap = park_owner_->get_gap_info(&pos, &half)) {
             if (gap_.halves_placed_ != 1)
                 gap_ = *gap;

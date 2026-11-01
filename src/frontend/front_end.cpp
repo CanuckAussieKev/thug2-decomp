@@ -308,7 +308,7 @@ void FrontEnd::register_key_listener(int device)
 // 0x0054EF80
 void FrontEnd::update_button_event_mappings(script::Struct* params)
 {
-    script::Array* mappings;
+    script::Array* mappings = nullptr;
     if (!params->fetch_list("xbox", &mappings, 0))
         return;
     for (uint32_t i = 0; i < mappings->extent_; ++i) {
@@ -356,7 +356,7 @@ bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*
 // 0x0054F150
 bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*script*/)
 {
-    script::Array* mappings;
+    script::Array* mappings = nullptr;
     params->fetch_list(0u, &mappings, 1);
     FrontEnd* front_end = front_end_instance();
     for (int i = 0; i < 2; ++i) {

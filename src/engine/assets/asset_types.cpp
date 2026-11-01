@@ -250,7 +250,7 @@ int AnimResource::read_in(const char* name, bool async, bool use_archive, void* 
     memory::push_mem_profile(name);
     char file[256];
     platform_name(name, file);
-    uint32_t size;
+    uint32_t size = 0;
     if (use_archive) {
         read_archive(this, &archive_, file, &size, true);
     } else {
@@ -372,7 +372,7 @@ int NodeTableResource::read_in(const char* name, bool async, bool use_archive, v
         copy_words(args_, params, 0x10);
     copy_string(args_, name);
     memory::enter_heap_scope(memory::top_down_heap());
-    uint32_t size;
+    uint32_t size = 0;
     if (use_archive) {
         read_archive(this, &archive_, name, &size, true);
     } else {
@@ -411,7 +411,7 @@ int NodeTableResource::offload()
 {
     auto* nodes = static_cast<script::Array*>(nodes_);
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
-        uint32_t id;
+        uint32_t id = 0;
         reinterpret_cast<Struct*>(nodes->fetch_part(i))->read_hash_value(0xA1DC81F9u, &id, 0); // name
         if (objects::Entity* object = objects::find_object(id))
             object->flag_as_dead();
@@ -495,7 +495,7 @@ int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void
     copy_string(reinterpret_cast<char*>(args_ + 8), name);
     char file[256];
     build_scene_file_path(file, name, args_[7]);
-    uint32_t size;
+    uint32_t size = 0;
     if (!read_file(this, file, async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);
@@ -570,7 +570,7 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archiv
     copy_string(reinterpret_cast<char*>(args_ + 5), name);
     char file[256];
     collision_file_name(file, name, args_[4]);
-    uint32_t size;
+    uint32_t size = 0;
     if (!read_file(this, file, async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);
@@ -726,7 +726,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     std::snprintf(file, sizeof(file), "%s.%s.%s", base, kind, render::platform_suffix());
     args_->has_cas_ = has_cas;
     ++files_reading_;
-    uint32_t size;
+    uint32_t size = 0;
     if (has_cas && !async) {
         read_archive(this, &archive_, file, &size, false);
     } else {
@@ -866,7 +866,7 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive
     copy_string(reinterpret_cast<char*>(args_ + 4), name);
     char file[256];
     skin_collision_file_name(file, name);
-    uint32_t size;
+    uint32_t size = 0;
     if (!read_file(this, file, async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);
@@ -943,7 +943,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
     copy_string(reinterpret_cast<char*>(args_ + 0xA), name);
     char file[256];
     tex_dict_file_name(file, name);
-    uint32_t size;
+    uint32_t size = 0;
     if (!read_file(this, file, async, &size))
         return -1;
     start_reading(this, file_ref_, octets_, size, async);

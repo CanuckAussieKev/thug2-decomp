@@ -694,7 +694,7 @@ void steer_anim_off(SkaterPhysicsModule* core)
     state->steer_in_ = 0.0f;
     auto* skater = static_cast<objects::GameEntity*>(object_of(core));
     for (objects::GameEntity* object : {skater, bike_object_of(skater)}) {
-        objects::AnimBlenderComponent* blender;
+        objects::AnimBlenderComponent* blender = nullptr;
         if (steer_channel(object, &blender))
             remove_steer_channel(blender);
     }
@@ -711,7 +711,7 @@ void steer_anim(SkaterPhysicsModule* core)
         return;
     auto* skater = static_cast<objects::GameEntity*>(object_of(core));
     for (objects::GameEntity* object : {skater, bike_object_of(skater)}) {
-        objects::AnimBlenderComponent* blender;
+        objects::AnimBlenderComponent* blender = nullptr;
         gfx::BlendChannel* channel = steer_channel(object, &blender);
         if (!channel)
             continue;

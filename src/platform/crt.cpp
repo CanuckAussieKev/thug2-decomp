@@ -46,7 +46,7 @@ unsigned get_instant() { return linked_time(nullptr); }
 
 int linked_sprintf(char* out, const char* format, ...)
 {
-    va_list args;
+    va_list args = nullptr;
     va_start(args, format);
     int written = std::vsnprintf(out, static_cast<size_t>(INT_MAX), format, args); // (unbounded, as sprintf)
     va_end(args);

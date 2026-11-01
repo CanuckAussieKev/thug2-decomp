@@ -179,7 +179,7 @@ void MenuBase::get_step(int direction)
 {
     int grid_index = -1;
     if (chosen_item_id_) {
-        UiWidget* item;
+        UiWidget* item = nullptr;
         {
             ElementPtr found;
             item = get_look_up(hub(), &found, chosen_item_id_, 0)->owner_object_;
@@ -211,7 +211,7 @@ void MenuBase::arrange()
             }
         } else {
             for (; item; item.assign_value(item->following_.owner_object_)) {
-                double across, along;
+                double across = 0.0, along = 0.0;
                 if (vertical_) {
                     across = static_cast<double>(item->span_) * margin_factor_;
                     along = item->level_y_;
@@ -309,7 +309,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         // find the selected item again (by id, else by index), lay the items out
         bool refocus = false;
         if (chosen_item_id_) {
-            int index;
+            int index = 0;
             ElementPtr item;
             item.assign_value(find_child_with_id(chosen_item_id_, &index));
             if (!item) {
@@ -359,7 +359,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
                 chosen_item_id_ = 1;
             }
         }
-        uint32_t child_id;
+        uint32_t child_id = 0;
         if (event->payload_ && event->payload_->read_hash_value(kChildId, &child_id, 0)) {
             ElementPtr item;
             item.assign_value(eldest_.owner_object_);

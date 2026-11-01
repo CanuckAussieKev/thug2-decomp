@@ -149,7 +149,7 @@ bool CinematicEntry::read_in(script::Struct* params)
     char file_name[256] = "none"; // (from the game's 0x0064797C)
     uint32_t name = 0;
     if (owns_data_) {
-        const char* path;
+        const char* path = nullptr;
         params->fetch_text(kCutsceneName, &path, 1);
         name = checksums::hash_from_text(cutscene_name_from_path(path));
         asset_ = checksums::hash_from_text(path);
@@ -198,7 +198,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             get_run(0xE1CE826A, args_);
             content_ =
                 static_cast<CinematicTable*>(assets->load_asset(file_name, 0, 0, 0, false, false, false, settings_, 0));
-            float start;
+            float start = 0.0f;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
                 auto seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
@@ -206,7 +206,7 @@ bool CinematicEntry::read_in(script::Struct* params)
                 data->unknown3474_ = 1;
                 data->clock_ = seconds;
             }
-            float loop;
+            float loop = 0.0f;
             if (params->fetch_float(kLoopLength, &loop, 0)) {
                 loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
                 CinematicTable* data = content_;
@@ -452,7 +452,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         }
         auto* face = static_cast<gfx::FaceSkin*>(appearance_face(unknown34a8_));
         int skater_face = face && face->is_sound() ? 1 : 0;
-        int skater_male;
+        int skater_male = 0;
         static_cast<script::Struct*>(unknown34ac_)->fetch_int_value(0x3F813177, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;
         if (load)

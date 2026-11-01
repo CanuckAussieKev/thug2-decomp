@@ -320,7 +320,7 @@ void BodyDynamicsModule::feel_pushers()
         double approach = (std::fabs(ry * kUpShare) + get_wide(rx) * nx) + get_wide(rz) * nz;
         if (approach <= 0.0)
             continue;
-        double push;
+        double push = 0.0;
         if (approach > kHardPush)
             push = approach + kHardPushAdd;
         else if (approach > kMidPush)
@@ -355,7 +355,7 @@ void BodyDynamicsModule::feel_pushers()
             px = px * scale;
             pz = get_narrow(get_wide(pz) * scale);
         }
-        double py;
+        double py = 0.0;
         if (dy > 0.0f)
             py = get_wide(at.y) - at_point_.y;
         else if (-pusher_height() > dy)

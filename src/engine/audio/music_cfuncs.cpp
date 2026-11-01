@@ -239,8 +239,8 @@ bool cfunc_track_enabled(Struct* params, Script*)
     params->fetch_int_value(0u, &track, 0);
     if (!audio::track_total(0))
         return false;
-    uint64_t low;
-    uint64_t high;
+    uint64_t low = 0;
+    uint64_t high = 0;
     audio::get_tracks_off(&low, &high);
     if (track < 64)
         return (track_bit(track) & low) == 0;

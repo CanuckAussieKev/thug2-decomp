@@ -129,7 +129,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         if (array_has(ignore, component->name))
             continue;
         bool integer = true;
-        float from;
+        float from = 0.0f;
         uint8_t type = component->type_and_flag_ >> 1;
         if (type == script::kQbvalInteger) {
             from = static_cast<float>(component->integer);
@@ -151,7 +151,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         } else {
             continue;
         }
-        float value;
+        float value = 0.0f;
         if (array_has(angles, name)) {
             // x87: the wrapped difference, less a whole turn above pi, scaled and added in double
             double difference = wrapped_degrees(static_cast<float>(static_cast<double>(to) - from));
@@ -174,7 +174,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
 // copied into a 32-byte buffer, as in the original (a longer one overruns it). Always true.
 bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
 {
-    const char* path;
+    const char* path = nullptr;
     params->fetch_text(kPath, &path, 1);
     char name[32];
     int length = static_cast<int>(std::strlen(path));
@@ -255,7 +255,7 @@ bool cfunc_get_park_name(script::Struct*, script::Script* script)
 // 0x2E8B9F1C (0x005612D0; the skater isn't checked for null). Always true.
 bool cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
 {
-    int index;
+    int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(index));
     static_cast<modules::PointTally*>(skater->get_points_total())->set_special_bar_colors();
@@ -292,17 +292,17 @@ bool cfunc_get_fireball_level(script::Struct*, script::Script* script)
 // is no such entry or it has no last_name.
 bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* script)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
     Array* skaters = script::fetch_list(kMasterSkaterList);
     int count = static_cast<int>(skaters->extent_);
     for (int i = 0; i < count; ++i) {
         auto* skater = reinterpret_cast<Struct*>(skaters->fetch_part(i));
-        uint32_t entry;
+        uint32_t entry = 0;
         skater->read_hash_value(kName, &entry, 1);
         if (entry != name)
             continue;
-        const char* last_name;
+        const char* last_name = nullptr;
         if (!skater->fetch_text(kLastName, &last_name, 0))
             return false;
         script->args_->append_word(kLastName, last_name);
@@ -316,17 +316,17 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
 // checked for null. Always true.
 bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
 {
-    float heading;
+    float heading = 0.0f;
     params->fetch_float(kHeading, &heading, 1);
-    float pitch;
+    float pitch = 0.0f;
     params->fetch_float(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(g_game_util_minus_degrees_to_radians)); // -pi / 180
     heading = static_cast<float>((90.0 - heading) * g_degree_to_radian_ratio);                     // pi / 180
-    int r;
+    int r = 0;
     params->fetch_int_value(kR, &r, 1);
-    int g;
+    int g = 0;
     params->fetch_int_value(kG, &g, 1);
-    int b;
+    int b = 0;
     params->fetch_int_value(kBlue, &b, 1);
     objects::GameEntity* skater = get_skate()->get_home_rider();
     const maths::Vec4& position = skater->at_point_;
@@ -360,9 +360,9 @@ bool cfunc_in_slap_game(script::Struct*, script::Script*)
 bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
 {
     auto* preferences = modules::Skate::get_preferences_from_params(params);
-    const char* string;
+    const char* string = nullptr;
     params->fetch_text(kString, &string, 1);
-    const char* field;
+    const char* field = nullptr;
     params->fetch_text("field", &field, 1);
     Struct* memory = script::spawn_param_bag();
     Struct* value = memory ? new (memory) script::Struct : nullptr;
@@ -376,7 +376,7 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
         value->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
     }
     if (std::strcmp(field, "target_score") == 0) {
-        int score;
+        int score = 0;
         if (!params->fetch_int_value(kScore, &score, 0)) {
             params->fetch_int_value(kTime, &score, 1);
             score *= 1000;

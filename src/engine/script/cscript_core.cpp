@@ -273,8 +273,8 @@ void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entit
 void Script::relaunch()
 {
     Struct* params = new_empty_struct();
-    uint32_t name;
-    objects::Entity* object;
+    uint32_t name = 0;
+    objects::Entity* object = nullptr;
     if (call_depth_) {
         // The bottom level: the script it was started with.
         params->get_assign(frame_records_[0].arg_struct_);

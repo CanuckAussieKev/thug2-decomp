@@ -203,7 +203,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         bashing_ = false;
         return 1;
     case kPassToTrickObjects: {
-        uint32_t value;
+        uint32_t value = 0;
         params->read_hash_value(0u, &value, 1);
         if (trick_objects_on_)
             trick_objects_.append_one(value);

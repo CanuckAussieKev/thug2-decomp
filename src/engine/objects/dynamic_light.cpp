@@ -183,7 +183,7 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
     case kSetColor: {
         script::Array* bytes = nullptr;
         params->fetch_list(kColor, &bytes, 1);
-        uint32_t color;
+        uint32_t color = 0;
         auto* out = reinterpret_cast<uint8_t*>(&color);
         for (uint32_t i = 0; i < 4; ++i)
             out[i] = static_cast<uint8_t>(bytes->fetch_part(i));

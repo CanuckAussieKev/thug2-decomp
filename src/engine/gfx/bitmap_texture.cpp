@@ -78,7 +78,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
         get_d3d(source)->GetLevelDesc(level, &level_desc);
         // Rows of texels (or of 4x4 blocks for compressed formats: 8 bytes a block for DXT1, 16 for the others).
         uint32_t rows = level_desc.Height;
-        uint32_t row_bytes;
+        uint32_t row_bytes = 0;
         if (level_desc.Format == D3DFMT_A8R8G8B8) {
             row_bytes = level_desc.Width * 4;
         } else {

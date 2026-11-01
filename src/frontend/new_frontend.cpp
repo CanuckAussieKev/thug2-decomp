@@ -196,7 +196,7 @@ std::string read_text(const std::string& path)
         return {};
     std::string text;
     char buffer[4096];
-    for (size_t n; (n = std::fread(buffer, 1, sizeof(buffer), file.get())) > 0;)
+    for (size_t n = 0; (n = std::fread(buffer, 1, sizeof(buffer), file.get())) > 0;)
         text.append(buffer, n);
     return text;
 }
@@ -397,7 +397,7 @@ paint::Art load_image_file(const std::string& name)
     if (!read)
         return {};
     auto u32 = [&](size_t at) {
-        uint32_t v;
+        uint32_t v = 0;
         std::memcpy(&v, data.data() + at, 4);
         return v;
     };
@@ -1235,7 +1235,7 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
 // use, the meta buttons through the meta map; the arrow glyphs Up / Down / Left / Right, else the key's name.
 std::string pad_button_label_for(char tag, char digit)
 {
-    int button;
+    int button = 0;
     if (tag == 'm' || tag == 'M') {
         char d = digit;
         char mapped = render::button_glyph(&d);

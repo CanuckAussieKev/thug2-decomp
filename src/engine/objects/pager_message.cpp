@@ -96,7 +96,7 @@ PagerMessageComponent::~PagerMessageComponent()
 {
     clear_messages(nullptr);
     PointerListNode* head = messages_.head;
-    PointerListNode* end;
+    PointerListNode* end = nullptr;
     messages_.get_erase(&end, head ? head->next : nullptr, head);
     dealloc(messages_.head);
 }

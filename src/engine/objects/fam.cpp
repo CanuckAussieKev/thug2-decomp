@@ -151,7 +151,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
 // 0x0041D660
 int FamComponent::obj_play_fam(script::Struct* params, script::Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
     int volume = 0;
     params->fetch_int_value(kVol, &volume, 0);

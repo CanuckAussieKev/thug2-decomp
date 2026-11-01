@@ -419,7 +419,7 @@ void play_next_track()
     if (list.count == 0)
         return;
 
-    int position;
+    int position = 0;
     if (reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
         // here, as our globals aren't laid out as the original's)

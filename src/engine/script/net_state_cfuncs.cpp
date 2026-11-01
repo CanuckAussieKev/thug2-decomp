@@ -165,7 +165,7 @@ bool cfunc_test_net_setup(script::Struct* params, script::Script*)
         script::launch_script(script, params, nullptr, false, nullptr);
         return ok;
     }
-    const char* text;
+    const char* text = nullptr;
     if (net->get_last_error() == 5)
         text = "net_error_not_connected";
     else if (net->get_last_error() == 4)

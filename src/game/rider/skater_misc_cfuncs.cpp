@@ -78,9 +78,9 @@ void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen
 // isn't checked for null). Always true.
 bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script*)
 {
-    uint32_t part;
+    uint32_t part = 0;
     params->read_hash_value(kPart, &part, 1);
-    int player;
+    int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
     static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(player))->show_board_element(part);
     return true;
@@ -107,9 +107,9 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
     // x87: z * z + x * x and its root in double
     double speed =
         std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
-    float x;
-    float y;
-    float z;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
     if (speed > 100.0) {
         velocity.make_unit();
         if (skew == 0.0f) {
@@ -158,7 +158,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     char stream[128];
     char first_name[128];
     auto* skater = static_cast<objects::Rider*>(script->entity_.owner_object_);
-    const char* type;
+    const char* type = nullptr;
     params->fetch_text(kType, &type, 1);
     int count = 10;
     params->fetch_int_value(kStreamCount, &count, 0);
@@ -179,17 +179,17 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     copy_string(first_name, skater->given_name_); // (copied and not used)
     objects::RiderIdentity* profile = objects::g_profile_roster->get_template(skater->label_);
     if (skater->pro_) {
-        const char* last_name;
+        const char* last_name = nullptr;
         profile->details_params()->fetch_text(kLastName, &last_name, 1);
         copy_string(voice, last_name);
     } else {
-        uint32_t voice_name;
+        uint32_t voice_name = 0;
         if (profile->details_params()->read_hash_value(kVoice, &voice_name, 0)) {
             Array* voices = script::fetch_list(kPlayerVoices);
             int size = static_cast<int>(voices->extent_);
             for (int i = 0; i < size; ++i) {
                 auto* entry = reinterpret_cast<Struct*>(voices->fetch_part(i));
-                uint32_t id;
+                uint32_t id = 0;
                 entry->read_hash_value(kId, &id, 1);
                 if (id == voice_name) {
                     const char* name = nullptr;
@@ -199,7 +199,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
                 }
             }
         } else {
-            int male;
+            int male = 0;
             params->fetch_int_value(kIsMale, &male, 1);
             std::memcpy(voice, male == 1 ? "customM" : "customF", 8);
         }

@@ -152,7 +152,7 @@ uint32_t ParkAssembler::next_geometry_node(Array* nodes, int* index)
         Struct* node = elem(nodes, *index);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
-        uint32_t name;
+        uint32_t name = 0;
         if (node_class == kLevelGeometry && node->read_hash_value(kName, &name, 0)) {
             ++*index;
             return name;
@@ -174,7 +174,7 @@ uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry
     };
     int linked = -1; // a node linked from another (the next after `previous`, or one of a rail with no end)
     int first = -1;  // a node with no links: a rail's first
-    int from;
+    int from = 0;
     if (!previous) {
         from = 0;
         rail_search_start() = 0;

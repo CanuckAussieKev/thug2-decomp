@@ -120,7 +120,7 @@ void destroy_model(render::RenderModel* model) { delete model; }
 // 0x00445000
 bool cfunc_load_terrain_sounds(Struct* params, Script*)
 {
-    uint32_t terrain;
+    uint32_t terrain = 0;
     if (!params->read_hash_value(kTerrain, &terrain, 0))
         return false;
     surface_kind::load_terrain_sounds(terrain);
@@ -130,7 +130,7 @@ bool cfunc_load_terrain_sounds(Struct* params, Script*)
 // 0x00445030
 bool cfunc_preload_model(Struct* params, Script*)
 {
-    const char* name;
+    const char* name = nullptr;
     params->fetch_text(kName, &name, true);
     render::RenderModel* model = spawn_model(1);
     bool allow_replace_tex = params->has_bare_flag(kAllowReplaceTex);
@@ -210,7 +210,7 @@ bool cfunc_load_asset(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t parent = 0;
-    const char* name;
+    const char* name = nullptr;
     if (!params->fetch_text(kName, &name, false))
         params->fetch_text(0u, &name, true);
     params->read_hash_value(kParent, &parent, false);
@@ -227,7 +227,7 @@ bool cfunc_load_asset(Struct* params, Script*)
 bool cfunc_load_anim(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
-    const char* name;
+    const char* name = nullptr;
     uint32_t desc = 0;
     params->fetch_text(kName, &name, false);
     params->read_hash_value(kSpecKey, &desc, true);
@@ -240,8 +240,8 @@ bool cfunc_load_anim(Struct* params, Script*)
 bool cfunc_load_skeleton(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
-    const char* name;
-    uint32_t checksum;
+    const char* name = nullptr;
+    uint32_t checksum = 0;
     params->fetch_text(kName, &name, true);
     params->read_hash_value(0u, &checksum, 1);
     assets->fetch_or_load_resource(name, 0, checksum, 0, false, false, assets->get_permanent_by_default(), nullptr, 0);

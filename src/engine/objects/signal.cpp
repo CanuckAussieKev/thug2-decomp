@@ -368,7 +368,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         if (replace)
             remove_type(type->checksum);
         TableRow& entry = entries[used++];
-        Struct* params;
+        Struct* params = nullptr;
         entry.params = handler->read_sub_struct(kParamsName, &params, 0) ? new_struct_copy(params) : nullptr;
         if (!handler->read_hash_value(kGroupName, &entry.group, 0))
             entry.group = kDefaultGroup;
@@ -401,7 +401,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
         if (entry->type == event->kind_tag_ && entry->script != kNullScript) {
             // The event's data is added over the handler's own parameters, in a structure of its own.
             Struct* merged = nullptr;
-            Struct* params;
+            Struct* params = nullptr;
             if (event->payload_) {
                 merged = new_empty_struct();
                 if (entry->params)

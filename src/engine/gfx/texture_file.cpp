@@ -150,8 +150,8 @@ TextureRef* read_texture_file(const char* name)
         apply_hd_scale(hd, header);
         return hd;
     }
-    uint32_t bits;
-    bool palettized;
+    uint32_t bits = 0;
+    bool palettized = false;
     image_format::decode_format(header.format, &bits, &palettized);
     // Not as they are stored: the image is loaded as it is (no swizzling).
     bool plain = image_format::stored_plain(header, false);
@@ -177,7 +177,7 @@ TextureRef* read_texture_file(const char* name)
         void* buffer = new_texel_buffer(size, header);
         file::get_take_in(buffer, size, 1, file);
         void* indices = nullptr;
-        void* texels;
+        void* texels = nullptr;
         if (plain) {
             texels = buffer;
         } else {
@@ -221,8 +221,8 @@ TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
         apply_hd_scale(hd, header);
         return hd;
     }
-    uint32_t bits;
-    bool palettized;
+    uint32_t bits = 0;
+    bool palettized = false;
     image_format::decode_format(header.format, &bits, &palettized);
     bool plain = image_format::stored_plain(header, true);
     // (the memory loader's palette is always 0x400 bytes)
@@ -255,7 +255,7 @@ TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
         void* buffer = new_texel_buffer(size, header);
         copy_texels(buffer);
         void* indices = nullptr;
-        void* texels;
+        void* texels = nullptr;
         if (plain) {
             texels = buffer;
         } else {

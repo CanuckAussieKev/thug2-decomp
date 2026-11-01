@@ -112,7 +112,7 @@ void CinematicTable::update_subtitles()
     if (next_subtitle_ < subtitles_->extent_) {
         auto* next = reinterpret_cast<script::Struct*>(subtitles_->fetch_part(next_subtitle_));
         // (a subtitle without a time leaves the local as it was: the original's holds this object's address)
-        float time;
+        float time = 0.0f;
         const CinematicTable* self = this;
         std::memcpy(&time, &self, sizeof(time));
         next->fetch_float(kTime, &time, 1);

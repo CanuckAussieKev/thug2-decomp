@@ -216,7 +216,7 @@ void PreviewEntity::read_in(script::Struct* params)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(memory->debug_heap_)
                                                           : static_cast<memory::MemSource*>(memory->bottom_up_heap_));
-    const char* name;
+    const char* name = nullptr;
     for (int i = 0; i < 4; ++i) {
         char key[260];
         std::snprintf(key, sizeof(key), "model%d", i);
@@ -226,12 +226,12 @@ void PreviewEntity::read_in(script::Struct* params)
     if (params->fetch_text(kModelName, &name, 0) || params->fetch_text(kModel, &name, 0)) {
         drop_cached_model(name);
     } else {
-        script::Struct* profile;
+        script::Struct* profile = nullptr;
         params->read_sub_struct(kProfile, &profile, 0); // (not used)
     }
-    const char* skeleton_file;
+    const char* skeleton_file = nullptr;
     if (params->fetch_text(kSkeletonFileName, &skeleton_file, 0)) {
-        uint32_t skeleton; // (left unset if skeletonName is missing: as the original)
+        uint32_t skeleton = 0; // (left unset if skeletonName is missing: as the original)
         params->read_hash_value(kSkeletonName, &skeleton, 1);
         assets::ResourceRegistry* assets = assets::asset_manager();
         if (!assets->obtain_loaded_item(skeleton, 0)) {
@@ -454,7 +454,7 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     PreviewEntity* object = handler->content_;
     const int delay = script::fetch_int_value(kViewerAutoRepeatTime);
     const int rate = script::fetch_int_value(kViewerAutoRepeatSpeed);
-    int count; // (the static starts as the first call's delay)
+    int count = 0; // (the static starts as the first call's delay)
     if (!(repeat_count_guard() & 1)) {
         repeat_count_guard() |= 1;
         count = delay;

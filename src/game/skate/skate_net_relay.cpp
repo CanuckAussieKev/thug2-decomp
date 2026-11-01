@@ -626,7 +626,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
     }
     case 0x9A: { // which board parts show it - the last: passed on to the others by a server
         bool on_server = false;
-        PlayerRecord* player;
+        PlayerRecord* player = nullptr;
         if (net->get_on_server()) {
             player = by_connection(context->sender_conn_);
             on_server = true;
@@ -695,7 +695,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     void* texture = memory ? reinterpret_cast<void*>(new (memory) gfx::FaceSkin) : nullptr;
     auto* data = reinterpret_cast<uint8_t*>(context->body_);
     uint32_t size = context->body_size_;
-    PlayerRecord* player;
+    PlayerRecord* player = nullptr;
     if (net->get_on_server()) {
         player = by_connection(context->sender_conn_);
     } else {
@@ -785,7 +785,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
     // original read on past its end)
     util::ByteReader reader(context->body_, context->body_size_);
     objects::Entity* target = nullptr;
-    objects::StateHistoryMessage* message;
+    objects::StateHistoryMessage* message = nullptr;
     int result = 1;
     switch (context->type_code_) {
     case online::kMsgPlayAnim: {
@@ -1027,7 +1027,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
     online::Hub* net = net_link();
     if (message->game_id != net->get_game_id())
         return 4;
-    int owner;
+    int owner = 0;
     if (get_game_mode()->is_squad_match()) {
         PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(message->player));
         if (!player) // NOT ORIGINAL: no such player - dropped (the original read through null)
@@ -1307,7 +1307,7 @@ void Skate::broadcast_points(bool final)
             if (other == player && !all)
                 continue;
             uint8_t id = get_skater_id(skater_of(other));
-            int score;
+            int score = 0;
             if (get_game_mode()->get_name_key() == kNetGoalAttack)
                 score =
                     goals::get_objective_board()->count_cleared_by_player(static_cast<int>(skater_of(other)->ident_));

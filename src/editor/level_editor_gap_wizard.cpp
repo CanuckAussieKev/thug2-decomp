@@ -196,7 +196,7 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
             continue;
         V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
         V3 b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
             continue;
         float d = distance_to_segment(x, y, ax, ay, bx, by);

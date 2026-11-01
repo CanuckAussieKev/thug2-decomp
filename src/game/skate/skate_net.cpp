@@ -539,7 +539,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         if (!object)
             continue;
         auto* skater = static_cast<objects::Rider*>(object);
-        modules::PointTally* score;
+        modules::PointTally* score = nullptr;
         if (!get_game_mode()->is_true(kShouldModulateColor) && get_game_mode()->keeps_move_points()) {
             if (skater->is_local_skater_) // (a local skater keeps its own)
                 continue;
@@ -726,7 +726,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     Array* types = script::fetch_list(net->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     for (int i = 0; i < static_cast<int>(types->extent_); ++i) {
         auto* type = reinterpret_cast<Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
-        uint32_t checksum;
+        uint32_t checksum = 0;
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != brief.game_type)
             continue;
@@ -818,7 +818,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             continue;
         auto* skater = static_cast<objects::GameEntity*>(object);
         objects::RiderFrameLog* history = history_of(object);
-        int previous;
+        int previous = 0;
         if (history->state_count_ > 0) {
             previous = (history->state_count_ - 1) % 20;
         } else {

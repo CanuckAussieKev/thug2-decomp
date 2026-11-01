@@ -470,7 +470,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         return false;
     sectors[count] = nullptr;
     objects[count] = nullptr;
-    bool made;
+    bool made = false;
     if (follow && recent->pos.x == from->x && recent->pos.z == from->z) {
         made = false; // (it hasn't moved)
     } else {

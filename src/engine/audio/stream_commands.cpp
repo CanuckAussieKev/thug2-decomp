@@ -203,7 +203,7 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
             channel = i;
         }
     }
-    bool started;
+    bool started = false;
     if (free >= 0) {
         channel = free;
         started = preload ? preload_on_channel(checksum, channel, 0)

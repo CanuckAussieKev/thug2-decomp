@@ -183,7 +183,7 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
     objects::GameEntity* object = entity_for_id(id);
     if (!object)
         return false;
-    float x, y, depth;
+    float x = 0.0f, y = 0.0f, depth = 0.0f;
     project_to_screen(camera, &object->at_point_, &x, &y, &depth);
     script->args_->push_float(kScreenX, x);
     script->args_->push_float(kScreenY, y);

@@ -155,7 +155,7 @@ void MeshRef::clean_strip()
                 *from = strip[i - 2];
                 uint16_t last = strip[start - 1];
                 strip[start] = last;
-                uint32_t kept;
+                uint32_t kept = 0;
                 if (!(run & 1)) {
                     std::memmove(&strip[start + 1], from, (index_counts_[0] - i) * 2 + 6);
                     kept = 4;

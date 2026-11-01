@@ -120,7 +120,7 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
                 get_difference(motion->y, edge_motion->y) + centre.y,
                 get_difference(motion->z, edge_motion->z) + centre.z,
                 get_difference(motion->w, edge_motion->w) + centre.w};
-    float s, u;
+    float s = 0.0f, u = 0.0f;
     if (!capsule.intersects_segment(path, &s, &u, nullptr))
         return false;
     if (within01(s)) {
@@ -283,7 +283,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     };
     auto edge = [&](const maths::Vec4& a, const maths::Vec4& b) {
         maths::Seg line = get_segment(a, b);
-        int touched;
+        int touched = 0;
         maths::Vec4 hit[2];
         if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit))
             return false;
@@ -305,7 +305,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
         bool in20 = inside20((static_cast<double>(c20.z) * centre.z + static_cast<double>(c20.x) * centre.x) +
                              static_cast<double>(c20.y) * centre.y);
         if (in01 && in12 && in20) {
-            float s, u;
+            float s = 0.0f, u = 0.0f;
             point_triangle_distance_squared(centre, *v0, *v1, *v2, &s, &u);
             maths::Vec4 across2 = u * (*v2 - *v0);
             *point = (*v0 + s * (*v1 - *v0)) + across2;
@@ -396,7 +396,7 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
     if ((dy * normal->y + dx * normal->x) + dz * normal->z >= 0.0)
         return false; // (behind the face)
     normal->make_unit();
-    float s, u;
+    float s = 0.0f, u = 0.0f;
     double distance2 = point_triangle_distance_squared(c, *v0, *v1, *v2, &s, &u);
     // v0 + s (v1 - v0) + u (v2 - v0), rounded as the original
     double f2x = static_cast<double>(v2->x) - v0->x, f2y = static_cast<double>(v2->y) - v0->y;
@@ -419,7 +419,7 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
 // 0x004110B0 (slot 16 of a sector and of an instance - the instance's faces taken as they are, unplaced)
 bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
 {
-    int count;
+    int count = 0;
     uint16_t buffer[0x800];
     const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
@@ -498,7 +498,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
     if (!grids)
         return false;
     for (; *grids; ++grids) {
-        int count;
+        int count = 0;
         for (HitMesh** objects = (*grids)->objects_along_line(&diagonal, &count); *objects; ++objects) {
             if ((*objects)->inside_bounds(&grown))
                 collide_with_sphere(*objects, sphere, &grown, hits);

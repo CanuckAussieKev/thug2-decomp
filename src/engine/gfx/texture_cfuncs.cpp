@@ -116,7 +116,7 @@ float wrap_angle(float degrees)
 // 0x005A9ED0
 bool cfunc_composite_object_exists(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
     return objects::find_object(id) != nullptr;
 }
@@ -124,7 +124,7 @@ bool cfunc_composite_object_exists(Struct* params, Script*)
 // 0x005A9F00
 bool cfunc_load_texture(Struct* params, Script*)
 {
-    const char* file;
+    const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
     bool allocate_vram = !params->has_bare_flag(0x3955FF2Eu); // no_vram_alloc
     return read_texture_file(get_textures(), file, true, allocate_vram, true) != nullptr;
@@ -135,11 +135,11 @@ bool texture_loaded(const char* file) { return get_texture_by_name(get_textures(
 // 0x005A9F60
 bool cfunc_create_texture(Struct* params, Script*)
 {
-    uint32_t name;
+    uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
-    int width;
-    int height;
-    int bit_depth;
+    int width = 0;
+    int height = 0;
+    int bit_depth = 0;
     int clut_bits = 0; // (not initialised in the original: only read when needed)
     bool valid = params->fetch_int_value(kWidth, &width, 0);
     valid = params->fetch_int_value(kHeight, &height, 0) && valid;
@@ -156,8 +156,8 @@ bool cfunc_create_texture(Struct* params, Script*)
 bool cfunc_unload_texture(Struct* params, Script*)
 {
     void* texture = nullptr;
-    const char* file;
-    uint32_t checksum;
+    const char* file = nullptr;
+    uint32_t checksum = 0;
     if (params->fetch_text(0u, &file, 0))
         texture = get_texture_by_name(get_textures(), file);
     else if (params->read_hash_value(0u, &checksum, 0))
@@ -173,13 +173,13 @@ bool cfunc_unload_texture(Struct* params, Script*)
 // 0x005AA0C0
 bool cfunc_generate32_bit_image(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
         bool renderable = false;
         bool store_original = false;
-        int value;
+        int value = 0;
         if (params->fetch_int_value(0xA5D7CFAAu, &value, 0) && value == 1) // renderable
             renderable = true;
         if (params->fetch_int_value(0xEEFAF080u, &value, 0) && value == 1) // store_original
@@ -192,7 +192,7 @@ bool cfunc_generate32_bit_image(Struct* params, Script*)
 // 0x005AA160
 bool cfunc_put32_bit_image_into_texture(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
@@ -209,7 +209,7 @@ bool cfunc_put32_bit_image_into_texture(Struct* params, Script*)
 // 0x005AA1E0
 bool cfunc_flip_texture(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     int horizontal = 0;
     int vertical = 0;
@@ -228,9 +228,9 @@ bool cfunc_flip_texture(Struct* params, Script*)
 // 0x005AA270
 bool cfunc_resize_texture_into(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
-    uint32_t source; // (not initialised without src=, as in the original)
+    uint32_t source = 0; // (not initialised without src=, as in the original)
     params->read_hash_value(kSrc, &source, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
@@ -243,9 +243,9 @@ bool cfunc_resize_texture_into(Struct* params, Script*)
 // 0x005AA2E0
 bool cfunc_scale_texture(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
-    float scale; // (not initialised without scale=, as in the original)
+    float scale = 0.0f; // (not initialised without scale=, as in the original)
     params->fetch_float(0x13B9DA7Bu, &scale, 0);
     if (render::BitmapTexture* texture = fetch_skin(get_textures(), id))
         texture->get_zoom(scale, scale);
@@ -255,7 +255,7 @@ bool cfunc_scale_texture(Struct* params, Script*)
 // 0x005AA340
 bool cfunc_adjust_texture_region(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
@@ -282,7 +282,7 @@ bool cfunc_adjust_texture_region(Struct* params, Script*)
 // 0x005AA460
 bool cfunc_pull_texture_to_edge(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
@@ -300,7 +300,7 @@ bool cfunc_pull_texture_to_edge(Struct* params, Script*)
 // 0x005AA500
 bool cfunc_adjust_texture_brightness(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
@@ -319,7 +319,7 @@ bool cfunc_adjust_texture_brightness(Struct* params, Script*)
 // 0x005AA590
 bool cfunc_adjust_texture_hsv(Struct* params, Script*)
 {
-    uint32_t id;
+    uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
@@ -343,10 +343,10 @@ bool cfunc_adjust_texture_hsv(Struct* params, Script*)
 // 0x005AA670
 bool cfunc_copy_texture(Struct* params, Script*)
 {
-    uint32_t source;
+    uint32_t source = 0;
     params->read_hash_value(kSrc, &source, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), source);
-    uint32_t copy;
+    uint32_t copy = 0;
     if (texture && params->read_hash_value(kNew, &copy, 0))
         static_cast<render::TextureSet*>(get_textures())
             ->copy_texture(copy, static_cast<render::BitmapTexture*>(texture));
@@ -356,8 +356,8 @@ bool cfunc_copy_texture(Struct* params, Script*)
 // 0x005AA6E0
 bool cfunc_combine_textures(Struct* params, Script*)
 {
-    uint32_t source; // (src and top are not initialised when missing, as in the original)
-    uint32_t top;
+    uint32_t source = 0; // (src and top are not initialised when missing, as in the original)
+    uint32_t top = 0;
     uint32_t combined = 0;
     bool palette_gen = true;
     params->read_hash_value(kSrc, &source, 0);
@@ -385,7 +385,7 @@ bool cfunc_combine_textures(Struct* params, Script*)
 // 0x005AA7B0
 bool cfunc_load_particle_texture(Struct* params, Script*)
 {
-    const char* file;
+    const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
     if (file[0] == '\0')
         return false;
@@ -399,7 +399,7 @@ bool cfunc_load_particle_texture(Struct* params, Script*)
 // 0x005AA830
 bool cfunc_unload_particle_texture(Struct* params, Script*)
 {
-    const char* file;
+    const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
     if (render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file)) {
         texture->release_pixels(); // (its vtable +0x80 first)
@@ -411,7 +411,7 @@ bool cfunc_unload_particle_texture(Struct* params, Script*)
 // 0x005AA880
 bool cfunc_load_sfp_texture(Struct* params, Script*)
 {
-    const char* file;
+    const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
     return read_texture_file(particle_textures(), file, false, true, true) != nullptr;
 }
@@ -419,7 +419,7 @@ bool cfunc_load_sfp_texture(Struct* params, Script*)
 // 0x005AA8B0
 bool cfunc_unload_sfp_texture(Struct* params, Script*)
 {
-    const char* file;
+    const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
     if (render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file))
         unload_texture_from(particle_textures(), texture);

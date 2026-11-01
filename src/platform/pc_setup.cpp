@@ -28,7 +28,7 @@ void init_pc_setup()
     debug_log::configure(debug);
     if (debug) {
         AllocConsole();
-        FILE* unused;
+        FILE* unused = nullptr;
         freopen_s(&unused, "CONIN$", "r", stdin);
         freopen_s(&unused, "CONOUT$", "w", stderr);
         freopen_s(&unused, "CONOUT$", "w", stdout);

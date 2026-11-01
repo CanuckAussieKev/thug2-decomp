@@ -408,7 +408,7 @@ bool cfunc_get_level_gap_totals(script::Struct* params, script::Script* script)
 bool cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
 {
     void* career = get_career();
-    int level;
+    int level = 0;
     if (!params->fetch_int_value(kLevel, &level, 0))
         level = current_level(career);
     GapTally* checklist = level_checklist(career, level);

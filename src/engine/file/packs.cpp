@@ -118,8 +118,8 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
         }
     }
 
-    void* data;
-    int size;
+    void* data = nullptr;
+    int size = 0;
     if (async && !overlay) {
         file::AsyncFileRef* file = file::async_open(name);
         size = file::async_get_file_size(file);
@@ -339,7 +339,7 @@ void load_pre(const char* name)
 
         auto* target = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) &
                                                   ~static_cast<uintptr_t>(0xF));
-        uint8_t* end;
+        uint8_t* end = nullptr;
         if (from.compressed_size) {
             // Not original - unpacked bounded by the file's size (lzss::unpack: decode's bytes for a valid file).
             size_t written = 0;

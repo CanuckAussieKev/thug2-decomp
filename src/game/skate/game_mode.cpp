@@ -221,7 +221,7 @@ void MatchRules::clear_victory_conditions()
 void MatchRules::build_victory_conditions()
 {
     clear_victory_conditions();
-    script::Array* conditions;
+    script::Array* conditions = nullptr;
     if (!args_.fetch_list(kVictoryConditions, &conditions, 0))
         return;
     memory::Hub* memory = memory::Hub::get_pull();
@@ -297,11 +297,11 @@ bool MatchRules::apply_match_style(uint32_t type)
     script::Array* modes = script::fetch_list(kModeInfo);
     for (uint32_t i = 0; i < modes->extent_; ++i) {
         auto* mode = reinterpret_cast<script::Struct*>(modes->fetch_part(i));
-        uint32_t name;
+        uint32_t name = 0;
         mode->read_hash_value(kChecksum, &name, true);
         if (name != type)
             continue;
-        const char* definition;
+        const char* definition = nullptr;
         mode->fetch_text(kDefinition, &definition, true);
         args_.append_structure_if_any(script::read_sub_struct(definition));
         clear_victory_conditions();
@@ -340,7 +340,7 @@ bool MatchRules::keeps_running_total()
 // 0x00552FD0
 bool MatchRules::keeps_best_chain()
 {
-    int track;
+    int track = 0;
     if (!args_.fetch_int_value(kTrackBestCombo, &track, false))
         return false;
     return track != 0;
@@ -582,11 +582,11 @@ int MatchRules::is_squad_match()
 // 0x00553630
 int MatchRules::get_view_layout()
 {
-    uint32_t mode;
+    uint32_t mode = 0;
     args_.read_hash_value(kScreenMode, &mode, true);
     if (mode == kSplitScreen) {
         auto* prefs = modules::Skate::sole()->get_split_view_settings();
-        uint32_t viewport;
+        uint32_t viewport = 0;
         prefs->fetch_setting(kScreenLayoutKey)->read_hash_value(kChecksum, &viewport, true);
         if (viewport == kViewportVertical)
             return 1;

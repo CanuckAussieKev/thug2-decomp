@@ -45,7 +45,7 @@ void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)
 }
 void set_corner_colour(PcPrimitive* primitive, int corner, const uint8_t* colour)
 {
-    uint32_t rgba;
+    uint32_t rgba = 0;
     std::memcpy(&rgba, colour, 4);
     primitive->set_vertex_colour(corner, rgba);
 }

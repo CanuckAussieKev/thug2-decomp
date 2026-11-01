@@ -203,7 +203,7 @@ CameraAnimMovie::~CameraAnimMovie() { destroy_timeline(&timeline_); }
 bool CameraAnimMovie::read_in(script::Struct* params)
 {
     base_load(this, params);
-    float fov;
+    float fov = 0.0f;
     if (params->fetch_float(0x17E7321E, &fov, 0)) {
         field_of_view_ = fov;
         viewer_->change_h_fov(fov);

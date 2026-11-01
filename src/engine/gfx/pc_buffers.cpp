@@ -130,7 +130,7 @@ long VertexBuffer::get_unlock()
         }
         if (flags & kShared)
             lock_offset_ += arena_offset_;
-        void* card;
+        void* card = nullptr;
         if (d_3d(this)->Lock(lock_offset_, lock_size_, &card, lock_flags_) >= 0) {
             std::memcpy(card, data, lock_size_); // (from the copy's start, whatever the offset)
             d_3d(this)->Unlock();
@@ -217,7 +217,7 @@ void MeshRef::set_pixel_shader_colored()
     auto* constants = g_ps_constant_bank;
     auto* saved = g_saved_pixel_shader_constants;
     std::memcpy(saved, constants, bytes);
-    double r, g, b;
+    double r = 0.0, g = 0.0, b = 0.0;
     if (g_instance_colour_on) {
         r = g_instance_colour[0] * static_cast<double>(1.0f / 128);
         g = g_instance_colour[1] * static_cast<double>(1.0f / 128);

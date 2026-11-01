@@ -95,7 +95,7 @@ void TableItemEraser::empty_table_items(void (*destroy)(void* item))
 {
     for (int count = lookup_table_->num_; count > 0; --count) {
         int index = 0;
-        uint32_t key;
+        uint32_t key = 0;
         void* item = lookup_table_->fetch_entry_at(&index, &key);
         lookup_table_->erase_entry(&key);
         if (item)

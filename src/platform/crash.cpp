@@ -262,7 +262,7 @@ int crt_report_hook(int type, char* message, int* return_value)
 int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
 {
     wchar_t text[512] = L"";
-    va_list args;
+    va_list args = nullptr;
     va_start(args, format);
     if (format)
         vswprintf(text, 512, format, args);

@@ -135,7 +135,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     if (context->body_size_ != 0xC)
         return kDone;
     Hub* manager = manager_of(context);
-    const char* server_name;
+    const char* server_name = nullptr;
     manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
     // (the answer: gamenet_messages.h)
     util::ByteReader query(context->body_, context->body_size_);

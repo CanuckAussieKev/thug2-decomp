@@ -58,7 +58,7 @@ memory::owner<ObjectModule*> new_game_object_component_b()
 // The creation script 0x413B766D with the node's name and its integer 0x99A9B716 (if it has one).
 void run_creation_script(GameEntity* object, script::Struct* params)
 {
-    int value;
+    int value = 0;
     if (!params->fetch_int_value(kCreationValue, &value, 0))
         return;
     uint32_t name = level_nodes::get_node_name(params);

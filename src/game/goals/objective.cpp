@@ -62,7 +62,7 @@ void Objective::reset_timer()
     if (unlimited == 1)
         return;
     seconds_remaining_ = 120;
-    int seconds;
+    int seconds = 0;
     if (args_->fetch_int_value(kTime, &seconds, 0))
         seconds_remaining_ = seconds;
     seconds_remaining_ = seconds_remaining_ * 1000 + 20;
@@ -172,8 +172,8 @@ bool Objective::has_every_bit()
             script::Component* next = goal_flags_->step_to_entry(component);
             if ((component->type_and_flag_ & 0xFE) == (script::kQbvalStruct << 1)) {
                 script::Struct* skater = component->structure;
-                int set;
-                int count;
+                int set = 0;
+                int count = 0;
                 skater->fetch_int_value(kNumFlagsSet, &set, 1);
                 skater->fetch_int_value(kNumFlags, &count, 1);
                 if (set < count)
@@ -266,7 +266,7 @@ bool Objective::tally_objective_finished()
 {
     int collected = 0;
     args_->fetch_int_value(kNumberCollected, &collected, 0);
-    int number;
+    int number = 0;
     args_->fetch_int_value(kNumber, &number, 1);
     return collected >= number;
 }
@@ -277,7 +277,7 @@ bool Objective::state02() { return (cur_phase_ & kState02) != 0; }
 // 0x005543F0
 bool Objective::has_proset_prefix(const char* prefix)
 {
-    const char* own;
+    const char* own = nullptr;
     if (!args_->fetch_text(kProsetPrefix, &own, 0))
         return false;
     return _stricmp(own, prefix) == 0;
@@ -368,7 +368,7 @@ void Objective::restore_save_block(script::Struct* data)
     int record = 0;
     data->fetch_int_value(kWinRecord, &record, 1);
     args_->put_int(kWinRecord, record);
-    uint32_t type;
+    uint32_t type = 0;
     if (args_->read_hash_value(kRecordType, &type, 0)) {
         if (type == kTime)
             best_time_ = record;
@@ -402,7 +402,7 @@ void Objective::capture_save_block(script::Struct* data)
     data->put_int(kHasSeen, (flag_bits_ & kFlagSeen) ? 1 : 0);
     data->put_int(kAlreadyWon, has_won());
     int record = 0;
-    uint32_t type;
+    uint32_t type = 0;
     if (args_->read_hash_value(kRecordType, &type, 0)) {
         if (type == kTime)
             record = best_time_;

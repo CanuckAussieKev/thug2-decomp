@@ -79,7 +79,7 @@ bool ViewCam::invoke_method_by_name(uint32_t name, script::Struct* params, scrip
     if (name != kSetHfovRadians)
         return objects::Entity::invoke_method_by_name(name, params, script);
     // (the original reads the float into the stack slot of `params`: without one, the pointer's bits are the angle)
-    float radians;
+    float radians = 0.0f;
     std::memcpy(&radians, &params, 4);
     params->fetch_float(0u, &radians, 1);
     h_fov_ = radians * kDegreesPerRadian;

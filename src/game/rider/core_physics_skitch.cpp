@@ -125,7 +125,7 @@ void SkaterPhysicsModule::get_skitch()
         take_press(&pad->shoulder_left_b_);
         direction = 1.0f;
     }
-    bool move;
+    bool move = false;
     if (pad->shoulder_right_b_.fired_) {
         take_press(&pad->shoulder_right_b_);
         direction = -1.0f;
@@ -136,7 +136,7 @@ void SkaterPhysicsModule::get_skitch()
     if (move && (!skitch_moving_ || direction != skitch_direction_)) {
         // Further and further along the skater's side (6 at a time, short of 120) until another point is nearest.
         float reach = kSkitchStep;
-        double next;
+        double next = 0.0;
         do {
             objects::GameEntity* object = object_of(this);
             const maths::Vec4& side = object->basis_frame_.row[0];

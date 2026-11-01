@@ -107,9 +107,9 @@ void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, obje
 bool cfunc_swap_object_models(script::Struct* params, script::Script*)
 {
     objects::Rider* skater = nullptr;
-    uint32_t id1;
+    uint32_t id1 = 0;
     params->read_hash_value(kObj1, &id1, 1);
-    uint32_t id2;
+    uint32_t id2 = 0;
     params->read_hash_value(kObj2, &id2, 1);
     auto* a = static_cast<GameEntity*>(objects::object_hub_slot()->look_up_entity(id1));
     auto* b = static_cast<GameEntity*>(objects::object_hub_slot()->look_up_entity(id2));
@@ -221,8 +221,8 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
 // 0x005B3A30: GetSkaterModelIsSwapped [Skater=n]: whether skater n (or the local skater) wears another model.
 bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
 {
-    int index;
-    objects::Rider* skater;
+    int index = 0;
+    objects::Rider* skater = nullptr;
     if (params->fetch_int_value(kSkater, &index, 0))
         skater = static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(index));
     else

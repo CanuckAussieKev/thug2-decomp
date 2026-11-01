@@ -293,7 +293,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->form_ = kProximShapeSphere;
     script::Struct* params = level_nodes::fetch_vertex(name, true);
     params->read_hash_value(kName, &node->label_, 0);
-    uint32_t shape;
+    uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0))
         node->form_ = proxim_shape_from_checksum(shape);
     node->set_sector(look_up_sector(node->label_));
@@ -403,7 +403,7 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
             out[count++] = name;
             continue;
         }
-        script::Array* types;
+        script::Array* types = nullptr;
         if (!node->fetch_list("restart_types", &types, 0))
             continue;
         for (int i = 0; i < static_cast<int>(types->extent_); ++i) {

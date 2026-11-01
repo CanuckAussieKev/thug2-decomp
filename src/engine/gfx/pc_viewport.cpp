@@ -140,7 +140,7 @@ uint32_t occlusion_pixels()
 {
     if (radeon8500())
         return 0;
-    DWORD pixels;
+    DWORD pixels = 0;
     HRESULT result = os_layer::get_occlusion_result(g_occlusion_requests[0].slot, &pixels);
     if (result == S_OK) {
         g_occlusion_slots[g_occlusion_requests[0].slot] = 0;

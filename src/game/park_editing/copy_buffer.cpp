@@ -188,7 +188,7 @@ int ClipboardEntry::fetch_tallness(uint8_t centre_x, uint8_t centre_z, BuildPoin
 {
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     fetch_extent(&area, centre_x, centre_z, cursor);
-    bool flat;
+    bool flat = false;
     return ParkLayout::singleton()->get_ground_level(area, &flat);
 }
 

@@ -105,7 +105,7 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
 {
     if (!ident_)
         ident_ = entity_->ident_ - kIdBase;
-    const char* text;
+    const char* text = nullptr;
     if (params->fetch_text(kString, &text, 0)) {
         if (!text[0]) {
             end_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
@@ -118,7 +118,7 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
     params->fetch_float(kYOffset, &y_offset_, 0);
     params->read_hash_value(kElementId, &ident_, 0);
     if (params->has_entry_named(kDuration)) {
-        float duration;
+        float duration = 0.0f;
         params->fetch_float(kDuration, &duration, 0);
         int elapsed = frame_clock::game_clock_elapsed();
         int milliseconds = get_truncated(static_cast<double>(duration) * kMinusMilliseconds);

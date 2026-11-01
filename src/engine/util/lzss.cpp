@@ -134,7 +134,7 @@ void unlink_list_node(int p)
     if (parent[p] == kNil)
         return;
 
-    int q;
+    int q = 0;
     if (right[p] == kNil) {
         q = left[p];
     } else if (left[p] == kNil) {

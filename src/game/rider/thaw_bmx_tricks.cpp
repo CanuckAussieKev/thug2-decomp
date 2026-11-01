@@ -469,7 +469,7 @@ void manual_pose(SkaterPhysicsModule* core)
     const BikeState* state = state_of(core, false);
     if (!state)
         return;
-    float fraction;
+    float fraction = 0.0f;
     if (state->manual) {
         fraction = bike::manual_wobble(state->manual_angle_);
     } else {

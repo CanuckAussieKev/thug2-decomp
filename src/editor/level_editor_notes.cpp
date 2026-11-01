@@ -310,8 +310,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
         float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
         float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
         V3 top = note.pos + V3{0.0f, height, 0.0f};
-        float ax, ay, bx, by;
-        float px, py, tx, ty;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float px = 0.0f, py = 0.0f, tx = 0.0f, ty = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, note.pos, near_z, &ax, &ay) ||
             !cast_onto(camera_pos, frame, lens, top, near_z, &bx, &by))
             continue;

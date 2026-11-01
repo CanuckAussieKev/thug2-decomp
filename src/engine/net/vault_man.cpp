@@ -73,7 +73,7 @@ void get_release(void* semaphore) { ReleaseSemaphore(static_cast<HANDLE>(semapho
 // A thread made suspended; the manager notes its id (set_room_id) before it starts.
 HANDLE start_thread(LPTHREAD_START_ROUTINE thread, void* param)
 {
-    DWORD id;
+    DWORD id = 0;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, param, CREATE_SUSPENDED, &id);
     net_session_slot()->set_room_id(id);
     return handle; // (never closed)
@@ -561,7 +561,7 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
     prefs::Preferences* prefs = net_session_slot()->get_online_settings();
-    const char* network_id;
+    const char* network_id = nullptr;
     prefs->fetch_setting(get_checksums("network_id"))->fetch_text("ui_string", &network_id, 1);
     get_stall(vault->semaphore_);
     push_bottom_up();
@@ -725,8 +725,8 @@ bool upload_file(script::Struct* params, script::Script*)
     vault->fail_script_ = kFailScript;
     params->read_hash_value("type", &vault->kind_tag_, 1);
     params->read_sub_struct("data", &vault->content_, 0);
-    const char* description;
-    const char* file_name;
+    const char* description = nullptr;
+    const char* file_name = nullptr;
     params->fetch_text("description", &description, 1);
     params->fetch_text("filename", &file_name, 1);
     text_tools::dup_from(vault->source_path_, file_name);

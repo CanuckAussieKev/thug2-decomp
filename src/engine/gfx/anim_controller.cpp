@@ -382,7 +382,7 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
         frame_source_ = source_frame(blend_source_, false);
         return kNotMine;
     case kSetTarget: {
-        float fraction;
+        float fraction = 0.0f;
         if (params->fetch_float(kFraction, &fraction, 0)) {
             if (fraction < 0.0f)
                 fraction = 0.0f;
@@ -394,7 +394,7 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kSetWobbleDetails: {
-        float amp_a, amp_b, k1, k2, spaz;
+        float amp_a = 0.0f, amp_b = 0.0f, k1 = 0.0f, k2 = 0.0f, spaz = 0.0f;
         if (params->fetch_float(kWobbleAmpA, &amp_a, 0) && params->fetch_float(kSwayAmpSecond, &amp_b, 0) &&
             params->fetch_float(kWobbleK1, &k1, 0) && params->fetch_float(kWobbleK2, &k2, 0) &&
             params->fetch_float(kSpazFactor, &spaz, 0)) {

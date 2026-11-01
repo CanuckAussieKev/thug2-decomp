@@ -330,7 +330,7 @@ int walk::turned_round(const objects::PadSnapshot* pad)
 // 0x0043DA70
 float objects::FootMovement::get_param(uint32_t name)
 {
-    float value;
+    float value = 0.0f;
     script::read_sub_struct(kWalkParameters)->fetch_float(name, &value, 1);
     return value;
 }
@@ -726,8 +726,8 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     if (static_cast<double>(side_length) + 1.0f > distance) {
         // near the segment's end: look along the next segment instead, if it doesn't turn too far
         along = (towards_end ? 2.0f : -2.0f) + along;
-        objects::GrindPoint* next_start;
-        objects::GrindPoint* next_end;
+        objects::GrindPoint* next_start = nullptr;
+        objects::GrindPoint* next_end = nullptr;
         if (next_hang_rail(&along, start, end, &next_start, &next_end)) {
             float sign = along > 0.5f ? -1.0f : 1.0f;
             maths::Vec4 a, b;

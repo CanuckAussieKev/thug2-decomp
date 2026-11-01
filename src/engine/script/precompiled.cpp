@@ -40,7 +40,7 @@ uint8_t* relocate_array(Array* array, uint32_t base)
 {
     uint32_t size = array->extent_;
     auto* end = reinterpret_cast<uint8_t*>(array + 1);
-    uint32_t* elements;
+    uint32_t* elements = nullptr;
     if (size > 1) {
         if (array->elements_)
             relocate(array->elements_, base);

@@ -210,7 +210,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         node->read_hash_value(kClass, &node_class, 0);
         if (node_class != kPedestrian)
             continue;
-        const char* model;
+        const char* model = nullptr;
         if (node->fetch_text(kModel, &model, 0) && checksums::hash_from_text(model) != kNone) {
             text::Chars path;
             alignas(4) uint8_t storage[sizeof(text::Chars)];
@@ -231,7 +231,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
             ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             delete_model(nx_model);
         }
-        uint32_t profile_name;
+        uint32_t profile_name = 0;
         if (!node->read_hash_value(kProfile, &profile_name, 0))
             continue;
         script::Struct* profile = script::read_sub_struct(profile_name);
@@ -272,8 +272,8 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     int candidates = 0;
     for (uint32_t i = 0; i < size; ++i) {
         script::Struct* option = get_element(list, i);
-        script::Struct* levels;
-        bool candidate;
+        script::Struct* levels = nullptr;
+        bool candidate = false;
         if (option->has_entry_named(kNoRandom)) {
             if (option->read_sub_struct(kLevelSpecific, &levels, 0))
                 script::dump_to_log(option);
@@ -299,16 +299,16 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
         node->read_hash_value(kClass, &node_class, 0);
         if (node_class != kPedestrian)
             continue;
-        uint32_t profile_name;
+        uint32_t profile_name = 0;
         if (!node->read_hash_value(kProfile, &profile_name, 0))
             continue;
         script::Struct* profile = script::read_sub_struct(profile_name);
         if (!profile)
             continue;
-        script::Struct* slot;
+        script::Struct* slot = nullptr;
         if (!profile->read_sub_struct(part, &slot, 0))
             continue;
-        uint32_t descriptor_id;
+        uint32_t descriptor_id = 0;
         if (!slot->read_hash_value(kDescId, &descriptor_id, 0))
             continue;
         script::Struct* option = customise_choice(part, descriptor_id, false);
@@ -342,7 +342,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     --wanted;
     for (int n = 0; n < wanted; ++n) {
         int allowed = 0;
-        script::Struct* option;
+        script::Struct* option = nullptr;
         do {
             option = get_element(list, static_cast<uint32_t>(maths::rnd(static_cast<int>(size))));
             option->fetch_int_value(kPickPermitted, &allowed, 1);

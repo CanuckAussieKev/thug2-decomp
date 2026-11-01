@@ -214,7 +214,7 @@ bool get_less(uint32_t type_a, uint32_t a, uint32_t type_b, uint32_t b)
 // 0x00479410 (a member of the first component in the game)
 bool less_than(Component* a, Component* b)
 {
-    uint32_t type_a, value_a, type_b, value_b;
+    uint32_t type_a = 0, value_a = 0, type_b = 0, value_b = 0;
     resolved_value(a, &type_a, &value_a);
     resolved_value(b, &type_b, &value_b);
     return get_less(type_a, value_a, type_b, value_b);
@@ -223,7 +223,7 @@ bool less_than(Component* a, Component* b)
 // 0x004795A0
 bool greater_than(Component* a, Component* b)
 {
-    uint32_t type_a, value_a, type_b, value_b;
+    uint32_t type_a = 0, value_a = 0, type_b = 0, value_b = 0;
     resolved_value(a, &type_a, &value_a);
     resolved_value(b, &type_b, &value_b);
     // (the same cases, decided by a's type)

@@ -256,7 +256,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     V3 min, max;
     bounds_of(box, &min, &max);
     V3 centre;
-    float radius;
+    float radius = 0.0f;
     sphere_of(min, max, 4.0f, &centre, &radius);
     Lens lens = lens_for(kAngle, kSquareAspect);
     float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));

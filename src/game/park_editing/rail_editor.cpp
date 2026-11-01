@@ -544,7 +544,7 @@ void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int in
         z0 = z1;
         z1 = t;
     }
-    bool changed;
+    bool changed = false;
     do {
         changed = false;
         for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
@@ -688,7 +688,7 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
     // still "finds" one - the distance left from an earlier rail (or, for the first, the bits of the `index` pointer
     // the slot held), the point unset (here zero: what a cleared stack holds).
     maths::Vec4 nearest = {0.0f, 0.0f, 0.0f, 0.0f};
-    float distance;
+    float distance = 0.0f;
     std::memcpy(&distance, &index, sizeof(distance));
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
         int i = 0;

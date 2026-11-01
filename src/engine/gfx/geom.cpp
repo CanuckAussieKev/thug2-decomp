@@ -36,7 +36,7 @@ constexpr float kQuarterTurn = 1.57079637f; // 0x00645484
 VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
 uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 {
-    uint8_t* data;
+    uint8_t* data = nullptr;
     buffer->get_lock(0, 0, &data, flags);
     return data;
 }

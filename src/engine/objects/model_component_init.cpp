@@ -283,7 +283,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
     uint32_t type = 0;
     params->read_hash_value(kClass, &type, 0);
     if (type == kLevelObject) {
-        uint32_t name;
+        uint32_t name = 0;
         params->read_hash_value(kName, &name, 1);
         init_from_sector(name);
     } else {
@@ -291,7 +291,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
         params->fetch_int_value(kUseAssetManager, &via_resource_store, 0);
         int tex_dict_offset = 0;
         params->fetch_int_value(kTexDictOffset, &tex_dict_offset, 0);
-        uint32_t name;
+        uint32_t name = 0;
         if (params->read_hash_value(kRefObjectName, &name, 0)) {
             // A level object's model: its sector's (Update follows it).
             linked_entity_label_ = name;
@@ -309,7 +309,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             for (int i = 0; i < color_value_count_; ++i)
                 color_values_[i] = source->color_values_[i];
             uint32_t mesh_label = 0;
-            script::Array* geoms;
+            script::Array* geoms = nullptr;
             if (params->read_hash_value(kGeom, &mesh_label, 0)) {
                 void* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
                 if (!geom)
@@ -337,12 +337,12 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                 }
             }
         } else {
-            const char* file;
+            const char* file = nullptr;
             if (params->fetch_text(kModel, &file, false) || params->fetch_text(kModelName, &file, false)) {
                 // A model file (unless it's the "none" name).
                 if (checksums::hash_from_text(file) != kNoModel) {
                     char path[0x200];
-                    uint32_t skeleton_name;
+                    uint32_t skeleton_name = 0;
                     if (params->read_hash_value(kSkeletonName, &skeleton_name, 0))
                         model_path_for(file, ".skin", path);
                     else

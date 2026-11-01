@@ -67,7 +67,7 @@ HitMesh* StaticCollider::replicate(int argument)
         return nullptr;
     CollStaticInstance* copy_instance = nullptr;
     StaticCollider* copy = nullptr;
-    HitMesh* made;
+    HitMesh* made = nullptr;
     if (instance) {
         copy_instance = new CollStaticInstance();
         made = copy_instance;
@@ -336,7 +336,7 @@ bool HitMesh::is_point_behind_faces(const maths::Vec4* point, int unused)
 // 0x00414990 (a failed allocation of the box crashes when there are geometries, as in the original)
 HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, int owner)
 {
-    HitMesh* made;
+    HitMesh* made = nullptr;
     if (type == 1) {
         auto* box = new HitMovingBox();
         if (count >= 1) {

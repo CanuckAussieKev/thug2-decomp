@@ -332,7 +332,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
         if (!rail || !rail->label_)
             return false;
     }
-    script::Struct* params;
+    script::Struct* params = nullptr;
     if (trick->read_sub_struct(kParams, &params, 0) && !params->has_entry_named(kIsExtra))
         stats_manager_->total_of(script);
     if (!script)
@@ -365,8 +365,8 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     int& tail = queue_last_;
     if (head == -1)
         return;
-    uint32_t array;
-    uint32_t index;
+    uint32_t array = 0;
+    uint32_t index = 0;
     for (;;) {
         int entry = head;
         QueuedTrick* queued = &queue_[entry];
@@ -494,7 +494,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
         }
     }
     uint32_t which = (a ? 1 : 0) | (b ? 2 : 0) | (c ? 4 : 0) | (d ? 8 : 0);
-    uint32_t script;
+    uint32_t script = 0;
     if (scripts) {
         script = scripts->fetch_part(which);
     } else {
@@ -708,7 +708,7 @@ void MoveExecutor::update_bash()
         if (!(get_bash_speed() > kMashedFastEnough))
             return;
         if (static_cast<uint32_t>(skater_state_->physics_mode_)) {
-            float one;
+            float one = 0.0f;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
             blender->first_channel_47e_850(2.0f, one, 0.0f, 0.0f);
@@ -723,7 +723,7 @@ void MoveExecutor::update_bash()
             return;
         }
     }
-    float one;
+    float one = 0.0f;
     uint32_t bits = 1;
     std::memcpy(&one, &bits, 4);
     blender->first_channel_47e_850(static_cast<float>(get_bash_speed()), one, 0.0f, 0.0f);

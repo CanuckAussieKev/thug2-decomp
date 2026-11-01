@@ -129,7 +129,7 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
     // Up to 16 colours, each an array of up to 4 bytes (r g b a: lowest byte first). The original leaves the
     // entries the script doesn't give as stack garbage; here they're 0.
     uint32_t colors[16] = {};
-    script::Array* table;
+    script::Array* table = nullptr;
     if (params->fetch_list("color_tab", &table, false)) {
         for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->extent_); ++i) {
             if (i >= 16)

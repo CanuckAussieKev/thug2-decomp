@@ -130,17 +130,17 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     }
     D3DVIEWPORT9 viewport;
     input_port()->GetViewport(&viewport);
-    IDirect3DVertexBuffer9* stream;
-    UINT offset, stream_stride;
+    IDirect3DVertexBuffer9* stream = nullptr;
+    UINT offset = 0, stream_stride = 0;
     input_port()->GetStreamSource(0, &stream, &offset, &stream_stride);
-    IDirect3DPixelShader9* pixel_shader;
+    IDirect3DPixelShader9* pixel_shader = nullptr;
     input_port()->GetPixelShader(&pixel_shader);
-    IDirect3DVertexShader9* vertex_shader;
+    IDirect3DVertexShader9* vertex_shader = nullptr;
     input_port()->GetVertexShader(&vertex_shader);
-    IDirect3DIndexBuffer9* indices;
+    IDirect3DIndexBuffer9* indices = nullptr;
     input_port()->GetIndices(&indices);
     uint32_t primitives = primitive_count(mesh->primitive_type_, mesh->index_counts_[0]);
-    uint8_t* into;
+    uint8_t* into = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
     const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
     const float* pivot = mesh->billboard->pivot;
@@ -152,7 +152,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         rest -= 4;
     }
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
-        float x, y, z;
+        float x = 0.0f, y = 0.0f, z = 0.0f;
         std::memcpy(&x, from, 4);
         std::memcpy(&y, from + 4, 4);
         std::memcpy(&z, from + 8, 4);
@@ -174,7 +174,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         into += 0xC;
         if (table) {
             auto index = static_cast<uint32_t>(static_cast<int8_t>(mesh->per_vertex_bytes_[i]));
-            uint32_t value;
+            uint32_t value = 0;
             if (index)
                 value = table[index - 1];
             else
@@ -192,7 +192,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
                                   mesh->stride);
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
     input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(mesh->index_buffers_[0]->buffer));
-    DWORD format;
+    DWORD format = 0;
     input_port()->GetFVF(&format);
     input_port()->SetFVF(mesh->fvf);
     auto type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type_);

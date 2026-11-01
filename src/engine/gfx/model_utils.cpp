@@ -152,7 +152,7 @@ float least_of(float a, float b, float c)
 bool scale_from_args(maths::Vec4* scale, Struct* params)
 {
     if (params->has_entry_named(kScale)) {
-        float uniform;
+        float uniform = 0.0f;
         if (params->fetch_float(kScale, &uniform, 0)) {
             scale->x = uniform;
             scale->y = uniform;

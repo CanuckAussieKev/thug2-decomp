@@ -365,7 +365,7 @@ void apply_resume(const perform::Resume& resume);
 
 void note_action(const char* format, ...)
 {
-    va_list args;
+    va_list args = nullptr;
     va_start(args, format);
     std::vsnprintf(g_last_action, sizeof(g_last_action), format, args);
     va_end(args);
@@ -1284,7 +1284,7 @@ void get_restore(UndoStep& step)
         } else {
             for (const node_create::Spec& spec : step.added) {
                 node_create::Spec removed;
-                int at;
+                int at = 0;
                 node_create::drop_out(node_create::name_hash(spec.name), &removed, &at);
             }
             g_node_selected = false;
@@ -1521,7 +1521,7 @@ float arrow_length()
 // A world point in back-buffer pixels (false: behind the camera).
 bool get_to_pixel(const TickCycle& frame, V3 point, float* px, float* py)
 {
-    float nx, ny;
+    float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(g_pos, frame, g_lens, point, kNearZ, &nx, &ny))
         return false;
     ndc_to_pixel(g_viewport, nx, ny, px, py);
@@ -1734,7 +1734,7 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
             g_rot_last = xform::turn_around_axis(g_transform_pivot, origin + dir * t);
             return;
         }
-        float px, py, ax, ay, bx, by, r = arrow_length();
+        float px = 0.0f, py = 0.0f, ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, r = arrow_length();
         if (!get_to_pixel(frame, g_transform_pivot, &px, &py))
             return;
         g_rot_last = std::atan2(g_cursor_x - px, g_cursor_y - py);
@@ -1749,7 +1749,7 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
     if (g_axis >= 0 && g_axis < 3) {
         closest_on_axis(g_transform_pivot, axis_vector(g_axis), origin, dir, &g_scale_s0);
     } else {
-        float px, py;
+        float px = 0.0f, py = 0.0f;
         if (get_to_pixel(frame, g_transform_pivot, &px, &py))
             g_scale_s0 = std::hypot(g_cursor_x - px, g_cursor_y - py);
     }
@@ -1757,13 +1757,13 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
 
 void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
-    float typed, target;
+    float typed = 0.0f, target = 0.0f;
     if (xform::typed_value(g_typed, &typed)) {
         target = typed * kPi / 180.0f;
     } else {
         float angle = 0.0f;
         bool have = false;
-        float t, px, py;
+        float t = 0.0f, px = 0.0f, py = 0.0f;
         if (g_rot_by_plane) {
             if (ray_plane(origin, dir, g_transform_pivot, {0.0f, 1.0f, 0.0f}, &t) && t < kMaxPickDistance) {
                 angle = xform::turn_around_axis(g_transform_pivot, origin + dir * t);
@@ -1787,13 +1787,13 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
     int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 && g_axis < 3 ? g_axis : -1;
-    float factor = 1.0f, typed;
+    float factor = 1.0f, typed = 0.0f;
     if (xform::typed_value(g_typed, &typed)) {
         if (typed <= 0.0f)
             return;
         factor = typed;
     } else {
-        float s, px, py;
+        float s = 0.0f, px = 0.0f, py = 0.0f;
         if (g_axis >= 0 && g_axis < 3) {
             if (!closest_on_axis(g_transform_pivot, axis_vector(g_axis), origin, dir, &s))
                 return;
@@ -1998,7 +1998,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     }
     V3 pos = selection_pos();
     // (a typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started)
-    float typed;
+    float typed = 0.0f;
     if (xform::typed_value(g_typed, &typed)) {
         int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 ? g_axis : 0;
         V3 wanted = g_drag_start + axis_vector(axis) * typed;
@@ -2023,7 +2023,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     V3 wanted;
     if (g_axis >= 0) {
         V3 u = axis_vector(g_axis);
-        float s;
+        float s = 0.0f;
         if (!closest_on_axis(g_drag_from, u, origin, dir, &s))
             return;
         float along = s - g_axis_t0;
@@ -2044,7 +2044,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         wanted = g_drag_from + g_drag_right * right + g_drag_forward * away;
         wanted.y = pos.y;
     } else {
-        float t;
+        float t = 0.0f;
         if (!ray_plane(origin, dir, pos + g_drag_plane_offset, g_drag_plane_normal, &t) || t > g_drag_reach)
             return; // (towards the horizon)
         wanted = origin + dir * t + g_drag_offset;
@@ -2173,7 +2173,7 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
 {
     if (!clip_to_near(g_pos, frame, kNearZ + 0.01f, &a, &b))
         return;
-    float ax, ay, bx, by;
+    float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
         return;
     float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
@@ -2198,7 +2198,7 @@ void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std
 void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
 {
     add_line(from, to, frame, color, out, 3);
-    float ax, ay, bx, by;
+    float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_to_pixel(frame, from, &ax, &ay) || !get_to_pixel(frame, to, &bx, &by))
         return;
     float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
@@ -2240,7 +2240,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     auto world_line = [&](V3 a, V3 b, uint32_t c, float t) {
         if (!clip_to_near(g_pos, frame, kNearZ + 0.01f, &a, &b))
             return;
-        float ax, ay, bx, by;
+        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (get_to_pixel(frame, a, &ax, &ay) && get_to_pixel(frame, b, &bx, &by))
             line(ax, ay, bx, by, c, t);
     };
@@ -2282,7 +2282,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 V3 a = n.pos, b = m.pos;
                 if (!clip_to_near(g_pos, frame, kNearZ + 0.01f, &a, &b))
                     continue;
-                float ax, ay, bx, by;
+                float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
                 if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
                     continue;
                 if ((ax < left && bx < left) || (ax > right && bx > right) || (ay < top && by < top) ||
@@ -2314,7 +2314,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                        -get_dot(a - g_pos, frame.back), -get_dot(b - g_pos, frame.back)});
             }
             if (is_selected || is_hovered) {
-                float px, py;
+                float px = 0.0f, py = 0.0f;
                 if (get_to_pixel(frame, n.pos, &px, &py)) {
                     o.circles.push_back({px, py, 4.0f * k, is_selected ? kSelectedGizmo : kHoverGizmo, true, 1.0f});
                     o.texts.push_back({px + 8.0f * k, py - 8.0f * k, 0xFFFFFFFF, nodes::caption(n.name)});
@@ -2323,7 +2323,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             if (n.family == nodes::Family::kRail && (distance < 1500.0f || is_selected)) {
                 // (a rail's points, near: a dot each, picked before its segments - a point moves by itself or with
                 // its whole rail)
-                float px, py;
+                float px = 0.0f, py = 0.0f;
                 V3 front = n.pos - g_pos;
                 if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, n.pos, &px, &py) && px >= left &&
                     px <= right && py >= top && py <= bottom) {
@@ -2337,7 +2337,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         float cutoff = n.family == nodes::Family::kObject || n.family == nodes::Family::kParticle ? 2500.0f : 6000.0f;
         if (!is_selected && !is_hovered && distance > cutoff)
             continue;
-        float px, py;
+        float px = 0.0f, py = 0.0f;
         if (!get_to_pixel(frame, n.pos, &px, &py) || px < left || px > right || py < top || py > bottom)
             continue;
         float depth = -get_dot(d, frame.back);
@@ -2349,7 +2349,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             // A disc and its heading (an arrow along the ground).
             float length = std::max(30.0f, std::min(200.0f, depth * 0.08f));
             V3 tip = n.pos + n.forward * length;
-            float tx, ty;
+            float tx = 0.0f, ty = 0.0f;
             if (get_to_pixel(frame, tip, &tx, &ty)) {
                 line(px, py, tx, ty, c, 2.5f);
                 float dx = tx - px, dy = ty - py, l = std::sqrt(dx * dx + dy * dy);
@@ -3468,7 +3468,7 @@ void unlink_list_node(bool confirmed)
         step.kind = UndoStep::kAdded;
         step.exist = true; // (undone: made again)
         node_create::Spec spec;
-        int at;
+        int at = 0;
         if (!node_create::drop_out(node.name, &spec, &at))
             return;
         step.added.push_back(spec);
@@ -5506,7 +5506,7 @@ void tick_frame()
         input.left = input.left || pad.a_down_;
         input.left_presses_ += pad.a_presses_;
         input.left_releases_ += pad.a_releases_;
-        float cx, cy;
+        float cx = 0.0f, cy = 0.0f;
         pad_cursor = ux8::get_pad_cursor(pad, input.rel_x_ != 0.0f || input.rel_y_ != 0.0f, &cx, &cy) && !input.right;
         if (pad_cursor) {
             input.x = cx;
@@ -5879,7 +5879,7 @@ void tick_frame()
         mouse_menus::ScreenMapping mapping = mouse_menus::current_mapping(input.window_width_, input.window_height_);
         back_x = static_cast<float>(static_cast<double>(input.x) * mapping.back_buffer_width_ / input.window_width_);
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
-        float nx, ny;
+        float nx = 0.0f, ny = 0.0f;
         if (pixel_to_ndc(g_viewport, back_x, back_y, &nx, &ny)) {
             dir = ray_direction(frame, g_lens, nx, ny);
             have_ray = true;
@@ -5940,7 +5940,7 @@ void tick_frame()
         // Up/Down) down/up - and the camera follows it.
         V3 forward = make_unit({-frame.back.x, 0.0f, -frame.back.z});
         V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
-        int f, r, u;
+        int f = 0, r = 0, u = 0;
         if (xform::fly_always()) {
             // ([editor] wasd_flies=1: the fly keys nudge it as well as the arrows - Space aside, it cycles the tool)
             f = (actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kNudgeForward) ? 1
@@ -6790,7 +6790,7 @@ bool project_to_back(V3 point, float* x, float* y)
 {
     if (!g_active || !g_have_view)
         return false;
-    float nx, ny;
+    float nx = 0.0f, ny = 0.0f;
     if (!cast_onto(g_pos, frame_from_yaw_pitch(g_yaw, g_pitch), g_lens, point, kNearZ, &nx, &ny))
         return false;
     ndc_to_pixel(g_viewport, nx, ny, x, y);

@@ -50,7 +50,7 @@ objects::VideoHub* object_movies() { return modules::Skate::sole()->object_movie
 // The skater a camera command names: SkaterId=<object id>, else skater=<n> (0) of the skate module.
 objects::Entity* named_skater(script::Struct* params)
 {
-    uint32_t id;
+    uint32_t id = 0;
     if (params->read_hash_value(kSkaterId, &id, 0))
         return objects::find_object(id);
     int index = 0;
@@ -183,8 +183,8 @@ bool cfunc_skater_cam_anim_held(script::Struct* params, script::Script*)
 bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script*)
 {
     bool result = true;
-    objects::Entity* skater;
-    uint32_t id;
+    objects::Entity* skater = nullptr;
+    uint32_t id = 0;
     if (params->read_hash_value(kSkaterId, &id, 0)) {
         skater = objects::find_object(id);
     } else {
@@ -217,8 +217,8 @@ bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
 {
     if (!g_got_extra_memory)
         return false;
-    uint32_t name;
-    const char* file;
+    uint32_t name = 0;
+    const char* file = nullptr;
     if (!params->read_hash_value(0u, &name, 0) || !params->fetch_text(0u, &file, 0))
         return false;
     camera_movies()->clear_movies();

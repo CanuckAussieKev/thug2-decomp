@@ -104,7 +104,7 @@ void skin_matrix_ptr(ObjectModule* skeleton, uint32_t bone, maths::Mat4* out)
 // std::list<Chain*>::erase(first, last) (0x004ECC30, the game's).
 void erase_nodes(ChainComponent::ChainList* list, ChainComponent::Elem* first, ChainComponent::Elem* last)
 {
-    ChainComponent::Elem* result;
+    ChainComponent::Elem* result = nullptr;
     reinterpret_cast<objects::PointerList*>(list)->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
                                                              reinterpret_cast<objects::PointerListNode*>(first),
                                                              reinterpret_cast<objects::PointerListNode*>(last));

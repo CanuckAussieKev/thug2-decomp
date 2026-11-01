@@ -75,7 +75,7 @@ int64_t get_truncated(double value) { return static_cast<int64_t>(value); }
 // or on their side (the bottom band is turned by 180 degrees).
 void QuadSprite::draw()
 {
-    float u0 = 0.0f, v_top = 1.0f, u1, v_bottom;
+    float u0 = 0.0f, v_top = 1.0f, u1 = 0.0f, v_bottom = 0.0f;
     if (texture) {
         u1 = static_cast<float>(static_cast<double>(texture->actual_width_) / texture->base_width_);
         v_bottom = static_cast<float>(1.0 - static_cast<double>(texture->actual_height_) / texture->base_height_);

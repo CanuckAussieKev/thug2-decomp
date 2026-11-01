@@ -36,7 +36,7 @@ Kind get_classify(uint16_t flags, float normal_y, float threshold, int trigger)
         return Kind::kWater;
     if (flags & 0x10)
         return Kind::kNone; // (passed through)
-    bool skatable;
+    bool skatable = false;
     bool vert = (flags & 0x08) != 0;
     if (flags & 0x01)
         // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind

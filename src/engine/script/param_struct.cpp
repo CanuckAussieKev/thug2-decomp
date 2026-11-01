@@ -151,7 +151,7 @@ bool Struct::get_hunt(uint32_t name, uint32_t type, void* out)
                 }
             }
         } else if (Struct* included = included_structure(component)) {
-            uint32_t inner;
+            uint32_t inner = 0;
             if (included->get_hunt(name, type, &inner)) {
                 *value = inner;
                 found = true;
@@ -215,7 +215,7 @@ bool Struct::is_subset_of(Struct* other)
 // 0x00476590 (strings and local strings)
 bool Struct::fetch_text(uint32_t name, const char** out, int assert)
 {
-    const char* value;
+    const char* value = nullptr;
     if (!get_hunt(name, kQbvalString, &value) && !get_hunt(name, kQbvalInlineText, &value)) {
         if (assert)
             dump_to_log(this);
@@ -234,7 +234,7 @@ bool Struct::fetch_text(const char* name, const char** out, int assert)
 // 0x00476630
 bool Struct::fetch_int_value(uint32_t name, int* out, int assert)
 {
-    int value;
+    int value = 0;
     if (!get_hunt(name, kQbvalInteger, &value)) {
         if (assert)
             dump_to_log(this);
@@ -253,7 +253,7 @@ bool Struct::fetch_int_value(const char* name, int* out, int assert)
 // 0x004766D0
 bool Struct::fetch_float(uint32_t name, float* out, int assert)
 {
-    float value;
+    float value = 0.0f;
     if (!get_hunt(name, kQbvalFloat, &value)) {
         if (assert)
             dump_to_log(this);
@@ -272,7 +272,7 @@ bool Struct::fetch_float(const char* name, float* out, int assert)
 // 0x00476770
 bool Struct::fetch_pair(uint32_t name, float* x, float* y, int assert)
 {
-    Pair* pair;
+    Pair* pair = nullptr;
     if (!get_hunt(name, kQbvalPair, &pair)) {
         if (assert)
             dump_to_log(this);
@@ -286,7 +286,7 @@ bool Struct::fetch_pair(uint32_t name, float* x, float* y, int assert)
 // 0x00476DF0 (zero if missing)
 bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
 {
-    Pair* pair;
+    Pair* pair = nullptr;
     if (get_hunt(name, kQbvalPair, &pair)) {
         out->x = pair->x;
         out->y = pair->y;
@@ -302,7 +302,7 @@ bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
 // 0x004767C0
 bool Struct::read_sub_struct(uint32_t name, Struct** out, int assert)
 {
-    Struct* value;
+    Struct* value = nullptr;
     if (!get_hunt(name, kQbvalStruct, &value)) {
         if (assert)
             dump_to_log(this);
@@ -321,7 +321,7 @@ bool Struct::read_sub_struct(const char* name, Struct** out, int assert)
 // 0x00476860
 bool Struct::fetch_list(uint32_t name, Array** out, int assert)
 {
-    Array* value;
+    Array* value = nullptr;
     if (!get_hunt(name, kQbvalArray, &value)) {
         if (assert)
             dump_to_log(this);
@@ -340,7 +340,7 @@ bool Struct::fetch_list(const char* name, Array** out, int assert)
 // 0x00476900
 bool Struct::fetch_script(uint32_t name, ParamScript* out, int assert)
 {
-    const uint8_t* code;
+    const uint8_t* code = nullptr;
     if (!get_hunt(name, kQbvalScriptBody, &code)) {
         if (assert)
             dump_to_log(this);
@@ -396,7 +396,7 @@ bool Struct::hash_from_name_or_text(uint32_t name, uint32_t* out, int assert)
 // 0x00476FB0
 bool Struct::fetch_vec(uint32_t name, VectorValue* out, int assert)
 {
-    Vector* vector;
+    Vector* vector = nullptr;
     if (!get_hunt(name, kQbvalVector, &vector)) {
         if (assert)
             dump_to_log(this);
@@ -1530,7 +1530,7 @@ void unlink_symbol(SymbolTableEntry* entry)
 // 0x00478E50
 SymbolTableEntry* get_next_symbol(SymbolTableEntry* previous)
 {
-    SymbolTableEntry* entry;
+    SymbolTableEntry* entry = nullptr;
     if (!previous) {
         iterator_bucket() = 0;
         entry = script_symbol_slots()[0];
@@ -1596,7 +1596,7 @@ bool components_equal(Component* a, Component* b)
             }
         }
     };
-    uint32_t type_a, value_a, type_b, value_b;
+    uint32_t type_a = 0, value_a = 0, type_b = 0, value_b = 0;
     resolve(a, &type_a, &value_a);
     resolve(b, &type_b, &value_b);
     auto as_float = [](uint32_t bits) {

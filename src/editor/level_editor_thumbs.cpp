@@ -74,7 +74,7 @@ void cell_rect(int cell, int* x, int* y)
 
 void cell_uv(int cell, float* u0, float* v0, float* u1, float* v1)
 {
-    int x, y;
+    int x = 0, y = 0;
     cell_rect(cell, &x, &y);
     constexpr auto kSize = static_cast<float>(kAtlasPixels);
     *u0 = static_cast<float>(x) / kSize;
@@ -137,8 +137,8 @@ std::vector<std::string> split_list(const std::string& text)
     while (start <= text.size()) {
         size_t comma = text.find(',', start);
         std::string entry = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
-        int tab;
-        uint32_t id;
+        int tab = 0;
+        uint32_t id = 0;
         if (parse_entry(entry, &tab, &id) && std::find(list.begin(), list.end(), entry) == list.end())
             list.push_back(entry);
         if (comma == std::string::npos)
@@ -233,7 +233,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         auto failed = g_failed.find(key);
         if (failed != g_failed.end() && g_frame - failed->second < 300)
             continue;
-        int x, y;
+        int x = 0, y = 0;
         cell_rect(cell, &x, &y);
         if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, kBackground))
             return; // (no atlas: logged once by the backend)
@@ -397,8 +397,8 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         for (int i = 0; i < static_cast<int>(items.size()); ++i)
             by_id.emplace(items[i].id, i);
         for (const std::string& entry : g_recent) {
-            int entry_tab;
-            uint32_t id;
+            int entry_tab = 0;
+            uint32_t id = 0;
             if (!parse_entry(entry, &entry_tab, &id) || entry_tab != tab)
                 continue;
             auto found = by_id.find(id);
@@ -512,7 +512,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 int c = g_cells.get_take(key, g_frame);
                 wanted.push_back(key);
                 if (c >= 0 && texture && g_cells.drawn[c]) {
-                    float u0, v0, u1, v1;
+                    float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
                     cell_uv(c, &u0, &v0, &u1, &v1);
                     draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));
                 } else {

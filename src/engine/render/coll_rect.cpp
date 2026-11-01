@@ -111,7 +111,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
 bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits,
                         const CollScaled* placed)
 {
-    int count;
+    int count = 0;
     uint16_t buffer[0x800];
     const uint16_t* faces = object->geometry_->get_faces_in_box(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
@@ -216,7 +216,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     if (!grids)
         return false;
     for (; *grids; ++grids) {
-        int count;
+        int count = 0;
         for (HitMesh** objects = (*grids)->objects_along_line(&diagonal, &count); *objects; ++objects) {
             if ((*objects)->inside_bounds(&grown))
                 collide_with_rect(*objects, rect, &grown, hits);

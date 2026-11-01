@@ -195,7 +195,7 @@ PlaybackProps* AudioMixer::get_positional_props(objects::AudioEmitterModule* obj
     for (PositionalSound* entry = positional_head(); entry; entry = entry->next) {
         uint32_t key = by_checksum ? entry->checksum : entry->unique_id_;
         if (entry->object == object && key == id) {
-            int index;
+            int index = 0;
             if (!is_sound_playing(entry->unique_id_, &index))
                 return nullptr;
             return &get_playing()[index].props;
@@ -421,7 +421,7 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     PlaybackProps* props = &sound->props;
     float dropoff = props->dropoff == 0.0f ? default_dropoff() : props->dropoff;
     maths::Vec4 at = *object_position(object);
-    float distance;
+    float distance = 0.0f;
     void* camera = nearest_camera(&at, &distance);
     if (!camera)
         return true;
@@ -464,7 +464,7 @@ void AudioMixer::tick_positional_sounds()
     uint32_t time = frame_clock::get_time();
     for (PositionalSound* entry = positional_head(); entry;) {
         PositionalSound* next = entry->next;
-        int index;
+        int index = 0;
         if (!is_sound_playing(entry->unique_id_, &index)) {
             entry->in_use_ = 0;
             uncouple(entry);
@@ -562,7 +562,7 @@ void update_voice_states()
         Voice& voice = get_voices()[i];
         if (!voice.playing || !voice.buffer)
             continue;
-        DWORD status;
+        DWORD status = 0;
         if (com<long>(voice.buffer, 0x24, &status) == 0 && !(status & 1)) { // GetStatus: not playing
             --playing_voices();
             voice.playing = false;
@@ -774,8 +774,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     float left = volume->lanes_[0];
     float right = volume->lanes_[1];
     if (left > 0.0f || right > 0.0f) {
-        double louder;
-        double ratio;
+        double louder = 0.0;
+        double ratio = 0.0;
         if (!(left < right)) {
             louder = left;
             ratio = static_cast<double>(left) / right;
@@ -797,7 +797,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     com<long>(voice.buffer, 0x40, pan);                             // SetPan
     if (pitch == 0.0f)
         return;
-    int frequency;
+    int frequency = 0;
     if (pitch == 100.0f) {
         frequency = voice.base_frequency_;
     } else {
@@ -841,10 +841,10 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
             return -1;
         if (has_3d() && volume->kind_tag_ == VolumeRef::kType3d)
             com<long>(voice.buffer, 0, &g_iid_sound_3d_buffer, &voice.buffer_3d_);
-        void* first;
-        DWORD first_bytes;
-        void* second;
-        DWORD second_bytes;
+        void* first = nullptr;
+        DWORD first_bytes = 0;
+        void* second = nullptr;
+        DWORD second_bytes = 0;
         if (com<long>(voice.buffer, 0x2C, 0u, wave->desc_bytes_, &first, &first_bytes, &second, &second_bytes, 2u) ==
             0) { // Lock (the entire buffer)
             std::memcpy(first, wave->data, first_bytes);

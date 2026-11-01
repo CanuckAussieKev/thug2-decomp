@@ -156,7 +156,7 @@ void emitter_add_node(uint32_t name, bool active)
     script::Struct* params = level_nodes::fetch_vertex(name, true);
     params->read_hash_value(kName, &node->label_, 0);
     get_table()->store_entry(node->label_, node);
-    uint32_t shape;
+    uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0)) {
         if (shape == 0x03F1E5A7)
             node->form_ = kEmitterShapeOther;
@@ -231,7 +231,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     double remaining = reach_;
     maths::Vec4 previous = aim_point_;
     int index = head_;
-    float dx, dy, dz, dw, length;
+    float dx = 0.0f, dy = 0.0f, dz = 0.0f, dw = 0.0f, length = 0.0f;
     for (;;) {
         const maths::Vec4& point = path_vertices_[index];
         dx = static_cast<float>(static_cast<double>(point.x) - previous.x);
