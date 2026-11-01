@@ -70,8 +70,8 @@ bool is_bone_under(uint8_t* data, uint32_t index, uint32_t parent)
 {
     return raw::as<gfx::RigData>(data)->is_descendant(index, parent);
 }
-uint32_t get_bone_count(uint8_t* data) { return *raw::as<uint32_t>(data + 0x04); }
-uint32_t bone_name(uint8_t* data, uint32_t index) { return raw::as<uint32_t>(data + 0x08)[index]; }
+uint32_t get_bone_count(uint8_t* data) { return *raw::field_at<uint32_t>(data, 0x04); }
+uint32_t bone_name(uint8_t* data, uint32_t index) { return raw::field_at<uint32_t>(data, 0x08)[index]; }
 
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
 void* texture_named(const char* name) { return render::g_particle_texture_dict->get_texture_by_name(name); }

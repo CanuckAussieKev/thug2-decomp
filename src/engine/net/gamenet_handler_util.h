@@ -53,7 +53,7 @@ inline const uint8_t* get_message(net::InboundMsgCtx* context)
 }
 inline uint32_t message_word(net::InboundMsgCtx* context, uint32_t offset)
 {
-    return *raw::as<const uint32_t>(context->body_ + offset);
+    return *raw::field_at<const uint32_t>(context->body_, offset);
 }
 inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::Entity* object = nullptr)
 {

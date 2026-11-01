@@ -45,7 +45,7 @@ float gap_grid_offset() { return g_park_gap_grid_offset; }
 uint32_t editor_value78()
 {
     auto* editor = raw::bytes(g_park_editor);
-    return *raw::as<uint32_t>(editor + 0x78);
+    return *raw::field_at<uint32_t>(editor, 0x78);
 }
 uint8_t generator_max_players(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
 

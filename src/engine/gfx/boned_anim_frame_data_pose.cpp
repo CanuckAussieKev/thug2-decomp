@@ -120,7 +120,7 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 decode_rotation(rot_keys, key, flag_bits_, key_table_);
                 rotation_to_quat_b(decoded, key);
                 maths::QuatRotation added = rotation;
-                added *= *raw::as<maths::QuatRotation>(decoded + 4);
+                added *= *raw::field_at<maths::QuatRotation>(decoded, 4);
                 maths::QuatRotation to = added;
                 float blended[4];
                 const float* result = interpolate_rotation(blended, &rotation.x, &to.x, weight);
@@ -131,7 +131,7 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 maths::Vec4& translation = translations[i];
                 uint8_t key[8];
                 decode_translation(trans_keys, key, flags);
-                const auto* values = raw::as<const int16_t>(key + 2);
+                const auto* values = raw::field_at<const int16_t>(key, 2);
                 const double x = values[0] * static_cast<double>(kKeyScale);
                 auto y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
                 auto z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
@@ -267,7 +267,7 @@ void JointClipFrames::build_cache(int format)
         cursor = decode_translation(cursor, translation, flag_bits_);
         const uint8_t* source = translation;
         if (format >= 3 && format <= 4) {
-            const auto* values = raw::as<const int16_t>(translation + 2);
+            const auto* values = raw::field_at<const int16_t>(translation, 2);
             std::memcpy(key, translation, 2);
             for (int i = 0; i < 3; ++i) {
                 auto value = static_cast<float>(values[i] * static_cast<double>(kKeyScale));
@@ -290,7 +290,7 @@ void JointClipFrames::build_cache(int format)
     cache_slot_ = cache;
     entry->set_release_callback([](void* data) { JointClipFrames::forget_cache_entry(static_cast<JointClipFrames*>(data)); },
                                 this); // (the entry's owner and its release callback)
-    uint16_t& cache_flags = *raw::as<uint16_t>(cache_slot_ + 0x164);
+    uint16_t& cache_flags = *raw::field_at<uint16_t>(cache_slot_, 0x164);
     cache_flags = static_cast<uint16_t>(((flag_bits_ >> 11) & 1) << 13 | (cache_flags & 0xDFFF));
     ++caches_built();
     last_cache_vblank() = frame_clock::fetch_retrace_count();

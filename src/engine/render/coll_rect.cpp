@@ -120,7 +120,7 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
         const TriMeshSource* geometry = object->geometry_;
         const uint32_t face = faces[i];
         const uint16_t flags =
-            *raw::as<const uint16_t>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
+            *raw::field_at<const uint16_t>(geometry->faces_, face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
         maths::Vec4 v0{}, v1{}, v2{};

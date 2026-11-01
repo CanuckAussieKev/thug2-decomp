@@ -553,10 +553,10 @@ void PcWeather::tick_grid()
     auto* splash = raw::bytes(static_cast<TextureSet*>(dictionary)->fetch_skin(0x45C7EB0F));
     if (splash)
         splash_texture_ =
-            splash[8] & 1 ? **raw::as<void**>(splash + 0x10) : *raw::as<void*>(splash + 0x10);
+            splash[8] & 1 ? **raw::field_at<void**>(splash, 0x10) : *raw::field_at<void*>(splash, 0x10);
     auto* snow = raw::bytes(g_particle_texture_dict->fetch_skin(0xC97C5A4C));
     if (snow)
-        snow_texture_ = snow[8] & 1 ? **raw::as<void**>(snow + 0x10) : *raw::as<void*>(snow + 0x10);
+        snow_texture_ = snow[8] & 1 ? **raw::field_at<void**>(snow, 0x10) : *raw::field_at<void*>(snow, 0x10);
     active_ = true;
     std::memset(splash_frames_, 0, sizeof(splash_frames_));
     next_splash_ = 0;

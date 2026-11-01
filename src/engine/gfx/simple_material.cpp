@@ -72,7 +72,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
     uint8_t* texture = nullptr;
     if (uint8_t* entry = find_texture(texture_checksum))
         texture =
-            (entry[8] & 1) ? **raw::as<uint8_t**>(entry + 0x10) : *raw::as<uint8_t*>(entry + 0x10);
+            (entry[8] & 1) ? **raw::field_at<uint8_t**>(entry, 0x10) : *raw::field_at<uint8_t*>(entry, 0x10);
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
     m->pass_flags_[0] = (texture ? 4 : 0) | 0x40;
@@ -117,7 +117,7 @@ int skip_file_chunk(void* file)
 // 0x004DA710
 int skip_memory_chunk(uint8_t** data)
 {
-    *data = *data + *raw::as<uint32_t>(*data + 4) + 8;
+    *data = *data + *raw::field_at<uint32_t>(*data, 4) + 8;
     return 0;
 }
 

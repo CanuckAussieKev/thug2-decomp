@@ -589,7 +589,7 @@ bool PedestrianBrainModule::probe_ground(const maths::Vec4* start, const maths::
     for (int i = 0; i < 3; ++i) {
         const uint32_t vertex = geometry->small_faces_
                                     ? geometry->faces_[face * 8 + 4 + i]
-                                    : *raw::as<uint16_t>(geometry->faces_ + face * 10 + 4 + 2 * i);
+                                    : *raw::field_at<uint16_t>(geometry->faces_, face * 10 + 4 + 2 * i);
         triangle->corners[i] = object->read_vertex_point(static_cast<int>(static_cast<uint16_t>(vertex)));
     }
     *point = f->contact_pos_;

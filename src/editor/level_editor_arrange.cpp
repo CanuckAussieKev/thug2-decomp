@@ -846,7 +846,7 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         auto at = [&](uint16_t k) {
-            const auto* f = raw::as<const float>(vertices->data + static_cast<size_t>(k) * mesh->stride);
+            const auto* f = raw::field_at<const float>(vertices->data, static_cast<size_t>(k) * mesh->stride);
             return V3{f[0], f[1], f[2]};
         };
         const uint16_t* index = indices->indices;

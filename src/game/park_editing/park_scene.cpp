@@ -435,7 +435,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     next_piece_id_ = 0x20;
     source_world_ = look_up_scene("sk5ed");
     // every sector of the scene (its sector table at +0xD0)
-    auto* sectors = *raw::as<lists::KeyMap*>(static_cast<uint8_t*>(source_world_) + 0xD0);
+    auto* sectors = *raw::field_at<lists::KeyMap*>(static_cast<uint8_t*>(source_world_), 0xD0);
     sectors->iter_bucket_ = -1;
     sectors->iter_item_ = nullptr;
     void* sector = nullptr;
@@ -445,7 +445,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         memory::leave_heap_scope();
         source->following_ = sources_;
         sources_ = source;
-        source->sector_ = *raw::as<uint32_t>(static_cast<uint8_t*>(sector) + 4); // its checksum
+        source->sector_ = *raw::field_at<uint32_t>(static_cast<uint8_t*>(sector), 4); // its checksum
         const maths::Vec4* box = get_local_bounds(sector);                                 // min, max
         const maths::Vec4& min = box[0];
         const maths::Vec4& max = box[1];
@@ -462,7 +462,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         if (height < kGridStepUp && height > 0.0)
             source->extent_.y = kGridStepUp; // (at least a step high)
     }
-    scene_handle_ = clone_scene("cloned", *raw::as<void*>(static_cast<uint8_t*>(source_world_) + 0x88), 1);
+    scene_handle_ = clone_scene("cloned", *raw::field_at<void*>(static_cast<uint8_t*>(source_world_), 0x88), 1);
     park_editing::set_up_bounds(this);
     for (RestartPoint& restart : restarts_)
         restart.kind_tag_ = RestartPoint::kFree;

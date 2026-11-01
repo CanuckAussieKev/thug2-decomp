@@ -77,7 +77,7 @@ HierarchyNode* new_hierarchy(int count)
     if (!memory)
         return nullptr;
     *static_cast<int*>(memory) = count;
-    auto* nodes = raw::as<HierarchyNode>(static_cast<uint8_t*>(memory) + 4);
+    auto* nodes = raw::field_at<HierarchyNode>(static_cast<uint8_t*>(memory), 4);
     for (int i = 0; i < count; ++i)
         new (&nodes[i]) HierarchyNode;
     return nodes;
@@ -97,7 +97,7 @@ uint8_t* build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, S
     uint8_t* scene = new_pc_scene(table_bit_width(sectors));
     scene[0x8C] = with_super_sectors;
     scene[0x8D] = flag_8d;
-    *raw::as<SceneRef*>(scene + 0x280) = list;
+    *raw::field_at<SceneRef*>(scene, 0x280) = list;
     return scene;
 }
 
@@ -107,7 +107,7 @@ void set_mesh_scene(PcMesh* mesh, uint8_t* scene) { mesh->choose_scene(scene); }
 // The texture dictionary's table of textures by checksum (+0x0C).
 const lists::KeyMap* texture_table(void* textures)
 {
-    return static_cast<const lists::KeyMap*>(*raw::as<void*>(static_cast<uint8_t*>(textures) + 0xC));
+    return static_cast<const lists::KeyMap*>(*raw::field_at<void*>(static_cast<uint8_t*>(textures), 0xC));
 }
 
 // What both of the original's scene loaders do after the materials (0x004B3490 from memory, 0x004B36D0 from a file -
@@ -190,8 +190,8 @@ memory::owner<void*> create_frame_source() { return new FrameSource; }
 void* load_mesh_file(const char* name, void* textures)
 {
     auto* scene = static_cast<uint8_t*>(load_scene_from_file(name, textures, false, false, false, 0));
-    *raw::as<uint32_t>(scene + 0x84) = checksums::hash_from_text(name);
-    *raw::as<void*>(scene + 0x88) = textures;
+    *raw::field_at<uint32_t>(scene, 0x84) = checksums::hash_from_text(name);
+    *raw::field_at<void*>(scene, 0x88) = textures;
     set_up_sectors(scene, name);
     clear_screen_clip();
     auto* mesh = new PcMesh(name);
@@ -207,8 +207,8 @@ void* load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size,
     char name[16];
     std::snprintf(name, sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
     auto* scene = static_cast<uint8_t*>(load_scene_from_memory(data, size, textures, false, false, false));
-    *raw::as<uint32_t>(scene + 0x84) = checksums::hash_from_text(name);
-    *raw::as<void*>(scene + 0x88) = textures;
+    *raw::field_at<uint32_t>(scene, 0x84) = checksums::hash_from_text(name);
+    *raw::field_at<void*>(scene, 0x88) = textures;
     set_up_sectors(scene, name);
     auto* mesh = new PcMesh;
     mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);

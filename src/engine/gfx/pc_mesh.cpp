@@ -121,7 +121,7 @@ void PcMesh::load_skin(const uint8_t* data, size_t size)
 void PcMesh::choose_scene(uint8_t* new_scene)
 {
     scene = new_scene;
-    auto* list = *raw::as<SceneRef*>(new_scene + 0x280);
+    auto* list = *raw::field_at<SceneRef*>(new_scene, 0x280);
     hierarchy_ = list->extra;
     hierarchy_count_ = list->unknown78;
 }

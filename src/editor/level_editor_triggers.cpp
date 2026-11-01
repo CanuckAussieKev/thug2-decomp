@@ -1176,7 +1176,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     t->bounds_high_ = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
     bool any = false;
     for (int f = 0; std::cmp_less(f, tri->tri_count_); ++f) {
-        const uint16_t flags = *raw::as<const uint16_t>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+        const uint16_t flags = *raw::field_at<const uint16_t>(tri->faces_, f * (tri->small_faces_ ? 8 : 10));
         if (!(flags & 0x40)) {
             t->all_trigger_ = false;
             continue;

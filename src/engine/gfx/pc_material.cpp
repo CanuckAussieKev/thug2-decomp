@@ -279,7 +279,7 @@ void MaterialRef::hand_in()
             set_texture(static_cast<int>(pass), nullptr);
             continue;
         }
-        set_texture(static_cast<int>(pass), *raw::as<void*>(texture + 0x10));
+        set_texture(static_cast<int>(pass), *raw::field_at<void*>(texture, 0x10));
         change_phase(kAddressMode0 + static_cast<int>(pass), address_modes_[pass]);
         change_phase(kMipLodBias0 + static_cast<int>(pass), mip_lod_bias_[pass]);
         set_border_color(this, pass, pass);
@@ -344,7 +344,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         if (!texture) {
             set_texture(0, nullptr);
         } else {
-            set_texture(0, *raw::as<void*>(texture + 0x10));
+            set_texture(0, *raw::field_at<void*>(texture, 0x10));
             change_phase(kAddressMode0, address_modes_[pass]);
             change_phase(kMipLodBias0, mip_lod_bias_[pass]);
             set_border_color(this, pass, pass);
@@ -378,12 +378,12 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                     set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
-                        set_texture(1, *raw::as<void*>(textures[pass - 1] + 0x10));
+                        set_texture(1, *raw::field_at<void*>(textures[pass - 1], 0x10));
                         change_phase(kAddressMode0 + 1, address_modes_[pass - 1]);
                         change_phase(kMipLodBias0 + 1, mip_lod_bias_[pass - 1]);
                     } else {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
-                        set_texture(1, *raw::as<void*>(textures[pass] + 0x10));
+                        set_texture(1, *raw::field_at<void*>(textures[pass], 0x10));
                     }
                 }
             }

@@ -68,7 +68,7 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
                      uint32_t index_count, float best)
 {
     auto at = [&](uint16_t i) {
-        const auto* f = raw::as<const float>(positions + static_cast<size_t>(i) * stride);
+        const auto* f = raw::field_at<const float>(positions, static_cast<size_t>(i) * stride);
         return V3{f[0], f[1], f[2]};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
@@ -523,7 +523,7 @@ void get_drop(const std::map<uint32_t, TableRow>::iterator& it)
             if (entry.in_grid_)
                 tick_grid(entry.grid, {}, {entry.companion->get_object()}, {});
             for (const Taken& t : entry.taken)
-                *raw::as<uint16_t>(t.geometry->faces_ + t.face * (t.geometry->small_faces_ ? 8 : 10)) =
+                *raw::field_at<uint16_t>(t.geometry->faces_, t.face * (t.geometry->small_faces_ ? 8 : 10)) =
                     t.flags;
         }
         render::remove_from_caches(entry.companion->get_object());
@@ -556,7 +556,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
         entry.companion = std::make_unique<Companion>(checksum, faces);
         entry.companion->get_object()->geometry_->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
         for (const Taken& t : taken)
-            *raw::as<uint16_t>(t.geometry->faces_ + t.face * (t.geometry->small_faces_ ? 8 : 10)) =
+            *raw::field_at<uint16_t>(t.geometry->faces_, t.face * (t.geometry->small_faces_ ? 8 : 10)) =
                 static_cast<uint16_t>(t.flags | 0x10);
         entry.taken = std::move(taken);
         ++g_generation;
@@ -732,8 +732,7 @@ bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t f
             taken[i].flags = flags;
             if (entry.second.companion)
                 entry.second.companion->change_tri_flags(static_cast<int>(i), flags);
-            *raw::as<uint16_t>(taken[i].geometry->faces_ +
-                                         taken[i].face * (taken[i].geometry->small_faces_ ? 8 : 10)) =
+            *raw::field_at<uint16_t>(taken[i].geometry->faces_, taken[i].face * (taken[i].geometry->small_faces_ ? 8 : 10)) =
                 static_cast<uint16_t>(flags | 0x10);
             ++g_generation;
             return true;

@@ -339,7 +339,7 @@ int handle_checksum_request(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     net::NetMessageInfo desc;
     char* msg = context->body_;
-    *raw::as<uint32_t>(msg + 4) = static_cast<modules::Skate*>(skate)->get_cheats();
+    *raw::field_at<uint32_t>(msg, 4) = static_cast<modules::Skate*>(skate)->get_cheats();
     desc.group_id_ = kGroupGame;
     desc.byte_count_ = 8;
     desc.ident_ = kMsgDigest;

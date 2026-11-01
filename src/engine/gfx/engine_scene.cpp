@@ -183,7 +183,7 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, Sta
     // the static objects: an array new (the count before them)
     *statics = new StaticCollider[static_cast<unsigned int>(header.object_count)];
     for (int i = 0; i < header.object_count; ++i) {
-        auto* geometry = raw::as<TriMeshSource>(*objects + i * kTriDataSize);
+        auto* geometry = raw::field_at<TriMeshSource>(*objects, i * kTriDataSize);
         geometry->relocate(cell::of(this), static_cast<uint32_t>(vertices),
                            static_cast<uint32_t>(vertex_bytes), static_cast<uint32_t>(faces),
                            static_cast<uint32_t>(nodes), static_cast<uint32_t>(face_lists));

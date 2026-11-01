@@ -40,7 +40,7 @@ struct TypefaceData {
     // The colour "\c<index>" picks: index 1 is colors[0]; the original reads past the table for larger ones.
     [[nodiscard]] uint32_t get_color(int index) const
     {
-        return *raw::as<const uint32_t>(raw::bytes(this) + 0x134 + 4 * index);
+        return *raw::field_at<const uint32_t>(this, 0x134 + 4 * index);
     }
 
     // 0x004CECB0: the size `text` would be drawn at (pixels at scale 1): the width of the whole text

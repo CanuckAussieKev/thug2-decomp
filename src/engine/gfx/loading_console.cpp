@@ -203,7 +203,7 @@ void build_font()
     if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
         return;
     for (int y = 0; y < height; ++y) {
-        auto* row = raw::as<uint32_t>(static_cast<uint8_t*>(locked.pBits) + y * locked.Pitch);
+        auto* row = raw::field_at<uint32_t>(static_cast<uint8_t*>(locked.pBits), y * locked.Pitch);
         const unsigned char* in = rgba + static_cast<size_t>(y) * width * 4;
         for (int x = 0; x < width; ++x)
             row[x] = static_cast<uint32_t>(in[x * 4 + 3]) << 24 | 0x00FFFFFFu; // white, the glyph's coverage as alpha

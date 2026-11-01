@@ -25,7 +25,7 @@ uint8_t* find_texture(const lists::KeyMap* textures, uint32_t checksum)
     auto* entry = static_cast<uint8_t*>(textures->fetch_entry(checksum));
     if (!entry)
         return nullptr;
-    auto* texture = *raw::as<uint8_t*>(entry + 0x10);
+    auto* texture = *raw::field_at<uint8_t*>(entry, 0x10);
     if (entry[8] & 1)
         texture = *raw::as<uint8_t*>(texture);
     return texture;

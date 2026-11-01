@@ -149,7 +149,7 @@ void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on
 void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
 {
     maths::BBox box;
-    auto* sectors = *raw::as<lists::KeyMap*>(scene + 0xD0);
+    auto* sectors = *raw::field_at<lists::KeyMap*>(scene, 0xD0);
     if (sectors) {
         sectors->iter_bucket_ = -1;
         sectors->iter_item_ = nullptr;
@@ -158,7 +158,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
             if (!sector)
                 break;
             // (the sector's name: the getter folded at 0x005480C0, its +4)
-            if (!only || *raw::as<uint32_t>(sector + 4) == only) {
+            if (!only || *raw::field_at<uint32_t>(sector, 4) == only) {
                 uint8_t* geometry = nullptr;
                 if (as_sector(sector)->is_operative()) // active
                     geometry = static_cast<uint8_t*>(as_sector(sector)->geom_handle_);
@@ -345,8 +345,8 @@ bool create_from_node(script::Struct* node)
         duplicate_scene_sector(scene, sector, scene, 1, 1, section_id);
         copy = look_up_sector(scene, section_id);
     }
-    *raw::as<uint32_t>(sector + 8) |= 0x80;
-    *raw::as<uint32_t>(copy + 8) &= ~0x80u;
+    *raw::field_at<uint32_t>(sector, 8) |= 0x80;
+    *raw::field_at<uint32_t>(copy, 8) &= ~0x80u;
     script::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (node->fetch_vec(kAngles, &angles, 0)) {
         maths::Mat4 orientation;
@@ -496,7 +496,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 change_live(sector, false);
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                *raw::as<uint32_t>(sector + 0xC) = terrain;
+                *raw::field_at<uint32_t>(sector, 0xC) = terrain;
             }
         } else if (node_class == kClassLevelGeometry) {
             node->erase_module(kGeometryRemove);
@@ -526,7 +526,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 }
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                *raw::as<uint32_t>(sector + 0xC) = terrain;
+                *raw::field_at<uint32_t>(sector, 0xC) = terrain;
             } else {
                 uint32_t clone_from = 0;
                 node->read_hash_value(kCloneFrom, &clone_from, 0);
@@ -747,7 +747,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
     uint8_t* sector = find_scene_sector(section_id); // (not checked for null)
-    if (auto* geometry = *raw::as<uint8_t*>(sector + 0x14))
+    if (auto* geometry = *raw::field_at<uint8_t*>(sector, 0x14))
         raw::as<render::Geom>(geometry)->change_tint(rgba);
     return true;
 }
@@ -787,7 +787,7 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    *raw::as<uint32_t>(find_scene_sector(section_id) + 0xC) = terrain; // (not checked for null)
+    *raw::field_at<uint32_t>(find_scene_sector(section_id), 0xC) = terrain; // (not checked for null)
     return true;
 }
 

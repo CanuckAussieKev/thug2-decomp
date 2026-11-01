@@ -65,7 +65,7 @@ V& vertex_at(uint8_t* vertices, int index)
 }
 float* position_at(uint8_t* vertices, int stride, int index)
 {
-    return raw::as<float>(vertices + stride * index);
+    return raw::field_at<float>(vertices, stride * index);
 }
 
 // RGBA with red and blue swapped (d_3d's BGRA).
@@ -106,8 +106,8 @@ PcPrimitive::~PcPrimitive()
 void PcPrimitive::set_texture(const uint8_t* texture, int, int)
 {
     // (the engine texture's +0x10: its PC texture, or with flag 1 a pointer to it)
-    uint8_t* pc_texture = texture[8] & 1 ? **raw::as<uint8_t** const>(texture + 0x10)
-                                         : *raw::as<uint8_t* const>(texture + 0x10);
+    uint8_t* pc_texture = texture[8] & 1 ? **raw::field_at<uint8_t** const>(texture, 0x10)
+                                         : *raw::field_at<uint8_t* const>(texture, 0x10);
     material_.pass_flags_[0] = pc_texture ? 4 : 0;
     const int r = get_rand();
     material_.checksum = static_cast<uint32_t>(r * get_rand());

@@ -94,7 +94,7 @@ GroundShadowModule::~GroundShadowModule()
 void GroundShadowModule::seal()
 {
     mesh_instance_ = entity_->fetch_module(kModel);
-    const uint32_t checksum = *raw::as<uint32_t>(model_of(mesh_instance_) + 0x30);
+    const uint32_t checksum = *raw::field_at<uint32_t>(model_of(mesh_instance_), 0x30);
     void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
     if (shadow_handle_)
         shadow_handle_->change_mesh(raw::as<render::RenderModel>(model_of(mesh_instance_)),
@@ -252,12 +252,12 @@ void GroundShadowModule::tick_frame()
             uint8_t* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
-                const auto* root = raw::as<const float>(hierarchy_of(model) + 0x40);
+                const auto* root = raw::field_at<const float>(hierarchy_of(model), 0x40);
                 pos = {root[0], root[1], root[2], 0.0f};
-                const maths::Mat4 base_mat = *raw::as<const maths::Mat4>(hierarchy_of(model) + 0x10);
+                const maths::Mat4 base_mat = *raw::field_at<const maths::Mat4>(hierarchy_of(model), 0x10);
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity_->at_point_;
-                matrix = maths::MatrixProduct{raw::as<const maths::Mat4>(hierarchy_of(model) + 0x10),
+                matrix = maths::MatrixProduct{raw::field_at<const maths::Mat4>(hierarchy_of(model), 0x10),
                                               &entity_->display_matrix_};
             }
             matrix.row[3] = pos;

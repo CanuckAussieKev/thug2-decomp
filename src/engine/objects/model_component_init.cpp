@@ -67,9 +67,9 @@ constexpr uint32_t kBoneVolumeHeap = 0xA432DC41;
 void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 uint32_t get_skeleton_name(void* skeleton)
 {
-    return *raw::as<uint32_t>(static_cast<uint8_t*>(skeleton) + 0x14);
+    return *raw::field_at<uint32_t>(static_cast<uint8_t*>(skeleton), 0x14);
 }
-void* rig_definition(void* skeleton) { return *raw::as<void*>(static_cast<uint8_t*>(skeleton) + 0x08); }
+void* rig_definition(void* skeleton) { return *raw::field_at<void*>(static_cast<uint8_t*>(skeleton), 0x08); }
 
 // Nx (not rewritten yet): a new model (0x0048BFA0) and its deletion (0x0048C3C0); the model's geoms cleared
 // (0x00494BA0), counted (0x00492E40), by index (0x00494640) and name (0x00493CD0), their names (0x00494680), one added
@@ -95,7 +95,7 @@ void add_geom(render::RenderModel* model, void* geom, uint32_t name) { model->ad
 bool fetch_magnification(maths::Vec4* scale, script::Struct* params) { return gfx::scale_from_args(scale, params); }
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-void* sector_geom(void* sector) { return *raw::as<void*>(static_cast<uint8_t*>(sector) + 0x14); }
+void* sector_geom(void* sector) { return *raw::field_at<void*>(static_cast<uint8_t*>(sector), 0x14); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 // The model's lights' brightness (0x0048E660).
@@ -150,7 +150,7 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
             static_cast<render::ModelLights*>(lights)->bind_position_source(&entity_->at_point_);
             int count = 1;
             params->fetch_int_value(kMaxSceneLights, &count, 0);
-            *raw::as<int>(static_cast<uint8_t*>(lights) + 4) = count; // (0x00407700)
+            *raw::field_at<int>(static_cast<uint8_t*>(lights), 4) = count; // (0x00407700)
         }
     } else if (model_lights(mesh_instance_)) {
         mesh_instance_->destroy_lights();
@@ -263,7 +263,7 @@ void MeshInstanceModule::init_bone_volumes()
     void* data = rig_definition(skeleton);
     void* volumes = find_bone_volumes(get_skeleton_name(skeleton));
     if (volumes) {
-        ++*raw::as<int>(static_cast<uint8_t*>(volumes) + 8); // (another user)
+        ++*raw::field_at<int>(static_cast<uint8_t*>(volumes), 8); // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
         void* made = memory::alloc(0x0C);

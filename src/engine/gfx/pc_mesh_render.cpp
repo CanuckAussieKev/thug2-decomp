@@ -91,11 +91,11 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 // original does).
 IdxStore* index_buffer_at(MeshRef* mesh, int level)
 {
-    return *raw::as<IdxStore*>(raw::bytes(mesh) + 0x54 + 4 * level);
+    return *raw::field_at<IdxStore*>(mesh, 0x54 + 4 * level);
 }
 uint16_t index_count_at(MeshRef* mesh, int level)
 {
-    return *raw::as<uint16_t>(raw::bytes(mesh) + 0x24 + 2 * level);
+    return *raw::field_at<uint16_t>(mesh, 0x24 + 2 * level);
 }
 
 void count_draw(uint32_t primitives)

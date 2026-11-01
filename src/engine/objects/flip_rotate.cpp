@@ -47,13 +47,13 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
     uint8_t* skeleton = fetch_rig();
-    void* bones = *raw::as<void*>(skeleton + 8);
+    void* bones = *raw::field_at<void*>(skeleton, 8);
     auto* object = fetch_subject();
     ObjectModule* flip_and_rotate = object->fetch_module(0x488AF07A);
     if (flip_and_rotate && static_cast<RiderSpinAndFlip*>(flip_and_rotate)->deck_turned_) {
         const int bone = raw::as<gfx::Rig>(skeleton)->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
-            auto* rotation = raw::as<float>(pose + 0x10 * bone);
+            auto* rotation = raw::field_at<float>(pose, 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
             float product[4];
             const auto* result = raw::as<const float>(quat_product(raw::as<maths::Vec4>(product), raw::as<const maths::Vec4>(turn),
@@ -76,8 +76,8 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
     for (int i = 0; i < count; ++i) {
         const int mirror = static_cast<gfx::RigData*>(bones)->fetch_mirror_slot(i);
         const int from = mirror == -1 ? i : mirror;
-        auto* rotation = raw::as<float>(pose + 0x10 * i);
-        auto* translation = raw::as<float>(pose + 0x400 + 0x10 * i);
+        auto* rotation = raw::field_at<float>(pose, 0x10 * i);
+        auto* translation = raw::field_at<float>(pose, 0x400 + 0x10 * i);
         std::memcpy(rotation, rotations[from], 16);
         std::memcpy(translation, translations[from], 16);
         rotation[0] = -rotation[0];

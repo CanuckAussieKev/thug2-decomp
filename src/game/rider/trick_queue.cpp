@@ -45,7 +45,7 @@ namespace {
 template <typename T>
 T& get_at(void* object, uint32_t offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 
 constexpr uint32_t kTrick = 0x270F56E1;

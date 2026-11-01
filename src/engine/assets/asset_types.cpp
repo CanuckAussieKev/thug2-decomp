@@ -882,7 +882,7 @@ bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* model = group_data(this);
     add_skin_collision(model, buffer, size); // (not original: the size)
-    change_contents(*raw::as<void*>(static_cast<uint8_t*>(model) + 0x8C));
+    change_contents(*raw::field_at<void*>(static_cast<uint8_t*>(model), 0x8C));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -910,13 +910,13 @@ void TexDictAsset::set_up_params(void* params, void* structure)
 {
     args_ = static_cast<uint8_t*>(alloc_load_params(0x4C));
     args_[0] = 1;
-    *raw::as<int>(args_ + 4) = 0;
+    *raw::field_at<int>(args_, 4) = 0;
     args_[8] = 0;
     args_[9] = 0;
     if (params)
         copy_words(args_, params, 0x13);
     if (auto* s = static_cast<Struct*>(structure)) {
-        s->fetch_int_value(0xBF34D221u, raw::as<int>(args_ + 4), 0);
+        s->fetch_int_value(0xBF34D221u, raw::field_at<int>(args_, 4), 0);
         args_[0] = s->has_bare_flag(0xE6237329u);
         args_[8] = s->has_bare_flag(0x6875B9C0u);
         args_[9] = s->has_bare_flag(0x86B52462u);
@@ -958,7 +958,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
 bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 {
     change_contents(
-        make_tex_dict(checksum_, buffer, size, args_[0], *raw::as<int>(args_ + 4), args_[8], args_[9]));
+        make_tex_dict(checksum_, buffer, size, args_[0], *raw::field_at<int>(args_, 4), args_[8], args_[9]));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);

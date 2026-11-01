@@ -376,7 +376,7 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
     script::Struct* params = spawn_param_table();
     const char* message = context->body_;
     params->append_word(kModelName, message);
-    params->put_name_key(kSkeletonName, *raw::as<const uint32_t>(message + 0x84));
+    params->put_name_key(kSkeletonName, *raw::field_at<const uint32_t>(message, 0x84));
     viewer->create_viewer_object(params);
     delete_structure(params);
     return 1;

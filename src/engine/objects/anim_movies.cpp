@@ -79,7 +79,7 @@ constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point
 template <typename T>
 T& prop(void* base, uint32_t offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(base) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(base), offset);
 }
 
 // 0x00463AA0 (cdecl, cutscene.h): a rotation matrix from a quaternion (negated in place on the way) with `origin` as

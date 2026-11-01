@@ -533,8 +533,8 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
 {
     uint8_t* b = out->bytes;
     std::memset(b, 0, kTexelEdge);
-    auto u32 = [b](uint32_t offset) -> uint32_t& { return *raw::as<uint32_t>(b + offset); };
-    auto f32 = [b](uint32_t offset) -> float& { return *raw::as<float>(b + offset); };
+    auto u32 = [b](uint32_t offset) -> uint32_t& { return *raw::field_at<uint32_t>(b, offset); };
+    auto f32 = [b](uint32_t offset) -> float& { return *raw::field_at<float>(b, offset); };
     auto text = [b](uint32_t offset, const std::string& value, size_t room) {
         const size_t n = std::min(value.size(), room - 1);
         std::memcpy(b + offset, value.data(), n);
@@ -1239,8 +1239,8 @@ bool export_goal(const std::string& id, std::string* message)
     constexpr uint32_t kSlotSize = 0x338;
     uint8_t* slots = component + 0x18;
     auto used = [&](int s) { return slots[s * kSlotSize + 0x28A] != 0; };
-    auto level_of = [&](int s) { return *raw::as<uint32_t>(slots + s * kSlotSize); };
-    auto index_of = [&](int s) { return *raw::as<int>(slots + s * kSlotSize + 0x28C); };
+    auto level_of = [&](int s) { return *raw::field_at<uint32_t>(slots, s * kSlotSize); };
+    auto index_of = [&](int s) { return *raw::field_at<int>(slots, s * kSlotSize + 0x28C); };
     int index = -1;
     for (int candidate = 0; candidate < kMaxGoals && index < 0; ++candidate) {
         bool taken = false;

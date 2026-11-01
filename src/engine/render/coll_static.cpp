@@ -47,7 +47,7 @@ uint32_t HitMesh::read_face_attrs(int face) const
 // 0x00411750
 uint16_t HitMesh::read_face_terrain(int face) const
 {
-    return *raw::as<const uint16_t>(get_face(geometry_, face) + 2);
+    return *raw::field_at<const uint16_t>(get_face(geometry_, face), 2);
 }
 
 // 0x00412760

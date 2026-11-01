@@ -523,7 +523,7 @@ void set_fixed_function_stages_for_material(void* shader, const void* material)
         set_fixed_function_stages(shader, 0xFFFFFFFF);
         return;
     }
-    const auto* color = raw::as<const float>(static_cast<const uint8_t*>(material) + 0x40);
+    const auto* color = raw::field_at<const float>(static_cast<const uint8_t*>(material), 0x40);
     const uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(color[0]) * k255));
     const uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(color[1]) * k255));
     const uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(color[2]) * k255));

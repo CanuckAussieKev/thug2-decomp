@@ -62,7 +62,7 @@ const uint8_t* find_texture(uint32_t checksum)
 // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
 uint8_t* texture_key(const uint8_t* texture)
 {
-    auto* const* key = raw::as<uint8_t* const>(texture + 0x10);
+    auto* const* key = raw::field_at<uint8_t* const>(texture, 0x10);
     return texture[8] & 1 ? *raw::as<uint8_t* const>(*key) : *key;
 }
 

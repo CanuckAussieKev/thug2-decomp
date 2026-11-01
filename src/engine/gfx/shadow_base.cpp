@@ -285,7 +285,7 @@ void render_shadow_textures()
     for (ShadowCaster* caster = first_caster(); caster; caster = next_caster()) {
         if (!caster->model)
             continue;
-        input_port()->SetRenderTarget(0, *raw::as<IDirect3DSurface9*>(caster->target + 0x18));
+        input_port()->SetRenderTarget(0, *raw::field_at<IDirect3DSurface9*>(caster->target, 0x18));
         input_port()->SetDepthStencilSurface(nullptr);
         input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         std::memcpy(view_matrix(), caster->view, sizeof(caster->view));
@@ -373,7 +373,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
         set_texture(2, nullptr);
         set_texture(3, nullptr);
         set_texture(1, nullptr);
-        set_texture(0, *raw::as<void*>(caster->target + 0x10));
+        set_texture(0, *raw::field_at<void*>(caster->target, 0x10));
         change_phase(kAddressMode0, 0x20002); // border
         if (g_border_addressing_supported)
             input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);

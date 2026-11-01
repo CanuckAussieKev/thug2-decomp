@@ -132,7 +132,7 @@ struct TriMeshSource {
     [[nodiscard]] uint32_t face_vertex(int face, int corner) const
     {
         return small_faces_ ? faces_[face * 8 + 4 + corner]
-                            : raw::as<const uint16_t>(faces_ + face * 10 + 4)[corner];
+                            : raw::field_at<const uint16_t>(faces_, face * 10 + 4)[corner];
     }
 };
 // The collision file's object record, used in place (formats/collision_format.h): its layout is the file's.

@@ -908,7 +908,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
     const uint32_t mask = source && source->resume_ ? 1u << (source->mask_bit_ & 31) : 0u;
     if (cache_slot_) {
         uint32_t& counter = g_cache_use_counter;
-        *raw::as<uint32_t>(cache_slot_ + 4) = counter++;
+        *raw::field_at<uint32_t>(cache_slot_, 4) = counter++;
         if (cursor != -1 && cache_direction(cache_slot_, cursor, static_cast<int>(static_cast<int64_t>(time))) < 0)
             forwards = false;
     }

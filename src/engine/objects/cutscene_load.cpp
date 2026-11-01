@@ -337,7 +337,7 @@ void CinematicTable::add_objects(script::Struct* params)
                 apply_skater_look(entry);
         }
         void* anims = anim_list_;
-        for (int j = 0; j < *raw::as<int>(static_cast<uint8_t*>(anims) + 8); ++j) {
+        for (int j = 0; j < *raw::field_at<int>(static_cast<uint8_t*>(anims), 8); ++j) {
             if (entry.name == static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j)) {
                 entry.anim_index_ = j;
                 break;

@@ -54,7 +54,7 @@ struct PackLeadIn {
     int num_files_;
 };
 
-PackLeadIn* header_of(char* pre) { return raw::as<PackLeadIn>(pre + ((std::strlen(pre) + 0x10) & ~0xFu)); }
+PackLeadIn* header_of(char* pre) { return raw::field_at<PackLeadIn>(pre, ((std::strlen(pre) + 0x10) & ~0xFu)); }
 
 PreEntry* first_entry(PackLeadIn* header) { return raw::as<PreEntry>(header + 1); }
 
@@ -327,7 +327,7 @@ void load_pre(const char* name)
     for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
         repacked[i] = block[i];
 
-    auto* new_header = raw::as<PackLeadIn>(repacked + prefix);
+    auto* new_header = raw::field_at<PackLeadIn>(repacked, prefix);
     new_header->num_files_ = count;
     new_header->version = static_cast<int>(old_header.version);
     auto* to = first_entry(new_header);

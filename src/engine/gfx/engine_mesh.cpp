@@ -56,7 +56,7 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
     }
     collision_count_ = header.object_count;
     for (int i = 0; i < header.object_count; ++i) {
-        auto* object = raw::as<TriMeshSource>(hit_shape_ + i * collision_format::kObjectSize);
+        auto* object = raw::field_at<TriMeshSource>(hit_shape_, i * collision_format::kObjectSize);
         object->relocate(0, static_cast<uint32_t>(layout.vertices), static_cast<uint32_t>(layout.vertex_bytes),
                          static_cast<uint32_t>(layout.faces), static_cast<uint32_t>(layout.nodes),
                          static_cast<uint32_t>(layout.face_lists));

@@ -28,9 +28,9 @@ constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 constexpr uint32_t kHoldsClipboards = 0x45C6C158; // a piece set's flag: its entries are the clipboards
 constexpr uint32_t kMetaHasGap = 0x1000;          // a meta piece's flag
 
-uint32_t& get_meta_flags(void* meta) { return *raw::as<uint32_t>(static_cast<uint8_t*>(meta) + 0xC); }
-uint32_t meta_type(void* meta) { return *raw::as<uint32_t>(static_cast<uint8_t*>(meta) + 0x38); }
-CellBox& meta_footprint(void* meta) { return *raw::as<CellBox>(static_cast<uint8_t*>(meta) + 0x4); }
+uint32_t& get_meta_flags(void* meta) { return *raw::field_at<uint32_t>(static_cast<uint8_t*>(meta), 0xC); }
+uint32_t meta_type(void* meta) { return *raw::field_at<uint32_t>(static_cast<uint8_t*>(meta), 0x38); }
+CellBox& meta_footprint(void* meta) { return *raw::field_at<CellBox>(static_cast<uint8_t*>(meta), 0x4); }
 
 // The memory profiler's markers (compiled out of this build: the empty function 0x005480A0).
 inline void memory_marker(const char* /*what*/) {}

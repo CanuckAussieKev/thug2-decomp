@@ -48,9 +48,9 @@ void draw_flash(const Flash* flash)
                                {left, bottom, z, 1.0f, color, 0.0f, 1.0f}};
     // (without a texture the original leaves u/v unset; they aren't used then)
     if (uint8_t* texture = flash->texture) {
-        uint8_t* image = (texture[8] & 1) ? **raw::as<uint8_t**>(texture + 0x10)
-                                          : *raw::as<uint8_t*>(texture + 0x10);
-        set_texture(0, *raw::as<void*>(image + 0x10)); // (the original also passes 0, unused)
+        uint8_t* image = (texture[8] & 1) ? **raw::field_at<uint8_t**>(texture, 0x10)
+                                          : *raw::field_at<uint8_t*>(texture, 0x10);
+        set_texture(0, *raw::field_at<void*>(image, 0x10)); // (the original also passes 0, unused)
         set_sampler_state(4, 0x10001);
     } else {
         set_texture(0, nullptr);

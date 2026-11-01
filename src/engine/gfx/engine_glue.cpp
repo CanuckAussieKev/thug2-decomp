@@ -85,7 +85,7 @@ long save_surface_to_file(const char* file, IDirect3DSurface9* surface)
 // A shadow caster's key: the texture's (+0x10, through one more pointer with flag 1 of +0x08).
 uint8_t* caster_key(const uint8_t* texture)
 {
-    uint8_t* key = *raw::as<uint8_t* const>(texture + 0x10);
+    uint8_t* key = *raw::field_at<uint8_t* const>(texture, 0x10);
     if (texture[8] & 1)
         key = *raw::as<uint8_t*>(key);
     return key;
@@ -212,7 +212,7 @@ void* make_empty_scene(const char* /*name*/, void* /*textures*/, bool with_super
     scene[0x8C] = with_super_sectors;
     scene[0x8D] = 0;
     void* memory = memory::alloc(sizeof(SceneRef));
-    *raw::as<SceneRef*>(scene + 0x280) = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
+    *raw::field_at<SceneRef*>(scene, 0x280) = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
     return scene;
 }
 
@@ -221,8 +221,8 @@ bool unload_scene(void* scene)
 {
     auto* bytes = static_cast<uint8_t*>(scene);
     static_cast<PcScene*>(scene)->unload_sectors();
-    discard_scene(*raw::as<SceneRef*>(bytes + 0x280));
-    *raw::as<SceneRef*>(bytes + 0x280) = nullptr;
+    discard_scene(*raw::field_at<SceneRef*>(bytes, 0x280));
+    *raw::field_at<SceneRef*>(bytes, 0x280) = nullptr;
     return true;
 }
 

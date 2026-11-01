@@ -52,7 +52,7 @@ memory::ListNode* next_scene_node(memory::ListNode* node)
 SceneRef* scene_meshes(memory::ListNode* node)
 {
     auto* scene = static_cast<uint8_t*>(node->data);
-    return scene ? *raw::as<SceneRef*>(scene + 0x280) : nullptr;
+    return scene ? *raw::field_at<SceneRef*>(scene, 0x280) : nullptr;
 }
 
 IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes)

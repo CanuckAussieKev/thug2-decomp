@@ -76,7 +76,7 @@ ModelGeom* new_entry(bool default_heap)
 }
 
 // A scene's texture dictionary (its +4).
-uint8_t* textures_of(uint8_t* scene) { return *raw::as<uint8_t*>(scene + 4); }
+uint8_t* textures_of(uint8_t* scene) { return *raw::field_at<uint8_t*>(scene, 4); }
 
 // A geom's own scene deleted with its textures.
 void delete_own_scene(uint8_t* scene)
@@ -167,7 +167,7 @@ RenderModel::~RenderModel()
         discard_lights(lights_ptr_);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         if (uint8_t* volumes = table_row(node)->bone_volumes_)
-            release_bone_volumes(*raw::as<void*>(volumes + 4));
+            release_bone_volumes(*raw::field_at<void*>(volumes, 4));
     }
     drop_geoms();
     erase_geoms(this, get_first(this), geoms_);

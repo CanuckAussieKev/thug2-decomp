@@ -49,7 +49,7 @@ void add_shadow_volume(ShadowVolume* volume)
 }
 
 // The meshes of the model's collision scene: +0x88 their count, +0x8C the array (the volumes' key).
-int get_mesh_count(const uint8_t* asset_data) { return *raw::as<const int>(asset_data + 0x88); }
+int get_mesh_count(const uint8_t* asset_data) { return *raw::field_at<const int>(asset_data, 0x88); }
 
 bool get_skipped(const TriMeshSource& mesh) { return (raw::as<const uint16_t>(mesh.faces_)[0] & 0x40) != 0; }
 
@@ -91,7 +91,7 @@ void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const 
 void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
 {
     if (asset_data)
-        model_key_ = *raw::as<uint32_t>(asset_data + 0x8C);
+        model_key_ = *raw::field_at<uint32_t>(asset_data, 0x8C);
     edges_ = find_shadow_edges(model_key_);
     if (edges_) {
         ++edges_->users;
@@ -131,7 +131,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
                     b = face[5];
                     c = face[6];
                 } else {
-                    const auto* face = raw::as<const uint16_t>(mesh.faces_ + f * 10);
+                    const auto* face = raw::field_at<const uint16_t>(mesh.faces_, f * 10);
                     a = face[2];
                     b = face[3];
                     c = face[4];

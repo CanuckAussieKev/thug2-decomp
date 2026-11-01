@@ -35,7 +35,7 @@ void PcSprite::update_hidden() { sprite->change_concealed(invisible_); }
 void PcSprite::update_settings()
 {
     if (bitmap_) {
-        uint8_t* holder = *raw::as<uint8_t*>(bitmap_ + 0x10);
+        uint8_t* holder = *raw::field_at<uint8_t*>(bitmap_, 0x10);
         if (bitmap_[8] & 1)
             holder = *raw::as<uint8_t*>(holder);
         sprite->texture = raw::as<SpriteTexture>(holder);

@@ -48,7 +48,7 @@ constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 
 int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }

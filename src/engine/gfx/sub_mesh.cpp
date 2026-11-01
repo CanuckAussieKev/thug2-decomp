@@ -260,9 +260,9 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     VertexBuffer* buffer = vertex_buffers_[0];
     uint8_t* data = get_lock(buffer, 0x10);
     IdxStore* indices = index_buffers_[0];
-    const auto* p0 = raw::as<const float>(data + indices->indices[0] * stride);
-    const auto* p1 = raw::as<const float>(data + indices->indices[1] * stride);
-    const auto* p2 = raw::as<const float>(data + indices->indices[2] * stride);
+    const auto* p0 = raw::field_at<const float>(data, indices->indices[0] * stride);
+    const auto* p1 = raw::field_at<const float>(data, indices->indices[1] * stride);
+    const auto* p2 = raw::field_at<const float>(data, indices->indices[2] * stride);
     auto e2x = static_cast<float>(static_cast<double>(p2[0]) - p0[0]);
     auto e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
     auto e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
@@ -333,7 +333,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     }
     // The quad's four vertices into those axes about the pivot.
     for (int v = 0; v < 4; ++v) {
-        auto* p = raw::as<float>(data + v * stride);
+        auto* p = raw::field_at<float>(data, v * stride);
         const double dx = static_cast<double>(p[0]) - pivot->x;
         const double dy = static_cast<double>(p[1]) - pivot->y;
         const double dz = static_cast<double>(p[2]) - pivot->z;

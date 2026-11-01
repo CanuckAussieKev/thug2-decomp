@@ -196,7 +196,7 @@ void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius, c
 void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
                  const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
 {
-    auto* bounds = raw::as<maths::BBox>(*raw::as<uint8_t*>(geom->scene + 0x280) + 0x44);
+    auto* bounds = raw::as<maths::BBox>(*raw::field_at<uint8_t*>(geom->scene, 0x280) + 0x44);
     bounds->append_spot(*min);
     bounds->append_spot(*max);
     if (sector->flags & 0x800000) {
@@ -265,7 +265,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             mesh->flags |= 0x20000;
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->load_index_ = static_cast<uint16_t>(i);
-        if (!load_body(mesh, fields.material, *raw::as<SceneRef*>(geometry->scene + 0x280))) {
+        if (!load_body(mesh, fields.material, *raw::field_at<SceneRef*>(geometry->scene, 0x280))) {
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;
         }

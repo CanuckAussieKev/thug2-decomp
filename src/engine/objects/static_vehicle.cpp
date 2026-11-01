@@ -64,9 +64,9 @@ void ParkedVehicleModule::seal()
     // The wheels: the hierarchy's objects 1-4 (their matrices' translations).
     maths::Vec4 wheels[4];
     for (int k = 0; k < 4; ++k)
-        wheels[k] = from_model(raw::as<const float>(hierarchy + 0xE0 + 0x50 * k));
+        wheels[k] = from_model(raw::field_at<const float>(hierarchy, 0xE0 + 0x50 * k));
     // The body: the root's (object 0's) translation.
-    const maths::Vec4 body = from_model(raw::as<const float>(hierarchy + 0x90));
+    const maths::Vec4 body = from_model(raw::field_at<const float>(hierarchy, 0x90));
 
     ObjectModule* skeleton_component = entity_->fetch_module(kSkeleton);
     maths::Mat4* bones = skeleton_palette(skeleton_of(skeleton_component));

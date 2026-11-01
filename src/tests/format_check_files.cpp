@@ -88,10 +88,10 @@ struct WalkedFile {
 std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
 {
     std::vector<WalkedFile> files;
-    const int count = *raw::as<const int>(archive.data() + 8);
+    const int count = *raw::field_at<const int>(archive.data(), 8);
     size_t offset = 12;
     for (int i = 0; i < count && offset + sizeof(ReferenceRow) <= archive.size(); ++i) {
-        const auto* row = raw::as<const ReferenceRow>(archive.data() + offset);
+        const auto* row = raw::field_at<const ReferenceRow>(archive.data(), offset);
         const int stored = row->compressed_size ? row->compressed_size : row->size;
         files.push_back(
             {offset, row->size, row->compressed_size, row->checksum, raw::chars(row + 1)});
@@ -296,7 +296,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
         util::ByteReader colours(data + entry.offset, entry.size);
         bundle_format::SkinColours read;
         check(bundle_format::read_skin_colours(colours, &read) &&
-                  read.count == *raw::as<const int>(data + entry.offset + 4) &&
+                  read.count == *raw::field_at<const int>(data, entry.offset + 4) &&
                   read.entries == data + entry.offset + 8,
               name + ": entry " + std::to_string(i) + "'s skin colours");
         g_skin_colour_tables += 1;

@@ -548,7 +548,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
         auto* host = static_cast<uint8_t*>(get_host_by_name(address));
         ip = 0xFFFFFFFF;
         if (host) {
-            const uint8_t* first = **raw::as<uint8_t**>(host + 0xC); // h_addr_list[0]
+            const uint8_t* first = **raw::field_at<uint8_t**>(host, 0xC); // h_addr_list[0]
             ip = first[0] | first[1] << 8 | first[2] << 16 | static_cast<uint32_t>(first[3]) << 24;
         }
     }

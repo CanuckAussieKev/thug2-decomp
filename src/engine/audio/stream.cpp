@@ -389,7 +389,7 @@ int user_soundtrack_count()
 // 0x00454300
 const wchar_t* user_soundtrack_name(int index)
 {
-    return index < soundtrack_count() ? raw::as<const wchar_t>(get_soundtrack(index) + 8) : nullptr;
+    return index < soundtrack_count() ? raw::field_at<const wchar_t>(get_soundtrack(index), 8) : nullptr;
 }
 
 // 0x00454320

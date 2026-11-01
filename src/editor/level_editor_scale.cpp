@@ -179,7 +179,7 @@ void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t of
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
         const V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
-        auto* out = raw::as<float>(data + offset);
+        auto* out = raw::field_at<float>(data, offset);
         out[0] = n.x;
         out[1] = n.y;
         out[2] = n.z;

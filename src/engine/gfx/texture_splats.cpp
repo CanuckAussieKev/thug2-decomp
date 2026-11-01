@@ -112,7 +112,7 @@ void light_texture_splats(TextureSplats* splats)
             std::memcpy(point, triangle[0], 12);
         light_vertex_colours(base, colors, raw::as<const maths::Vec4>(points), nullptr, 3);
         for (int k = 0; k < 3; ++k)
-            *raw::as<uint32_t>(triangle[k] + 0xC) = to_argb(colors[k]);
+            *raw::field_at<uint32_t>(triangle[k], 0xC) = to_argb(colors[k]);
     }
 }
 
@@ -168,7 +168,7 @@ void draw_texture_splats()
                 const double t = (steps - static_cast<int>(splats->alive[j])) / steps;
                 factor = 1.0 / (t * (1.0 - r) + r);
             }
-            auto* uv = raw::as<float>(splats->vertices[0][0] + 0x18 * j + 0x10);
+            auto* uv = raw::field_at<float>(splats->vertices[0][0], 0x18 * j + 0x10);
             uv[0] = static_cast<float>((static_cast<double>(splats->uvs[j][0]) - 0.5f) * factor + 0.5f);
             uv[1] = static_cast<float>((static_cast<double>(splats->uvs[j][1]) - 0.5f) * factor + 0.5f);
         }
@@ -316,7 +316,7 @@ bool split_next_triangle(uint8_t** out, const SplitFormat* format)
     }
     if (uint8_t t = format->uv_offset_) {
         for (int k = 0; k < 2; ++k) {
-            auto at = [&](uint8_t* v) { return raw::as<float>(v + t) + k; };
+            auto at = [&](uint8_t* v) { return raw::field_at<float>(v, t) + k; };
             *at(m01) = midpoint(*at(v0), *at(v1));
             *at(m12) = midpoint(*at(v1), *at(v2));
             *at(m20) = midpoint(*at(v2), *at(v0));
@@ -353,8 +353,8 @@ int get_milliseconds(float seconds) { return static_cast<int>(static_cast<double
 uint32_t splat_color(uint32_t color) { return (color & 0xFFFFFF) | 0x80000000; }
 
 // The splat vertex layout: position, colour (+0x0C), u, v (+0x10).
-float* get_uv(uint8_t* vertex) { return raw::as<float>(vertex + 0x10); }
-uint32_t& get_color(uint8_t* vertex) { return *raw::as<uint32_t>(vertex + 0xC); }
+float* get_uv(uint8_t* vertex) { return raw::field_at<float>(vertex, 0x10); }
+uint32_t& get_color(uint8_t* vertex) { return *raw::field_at<uint32_t>(vertex, 0xC); }
 
 } // namespace
 
@@ -498,7 +498,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     continue;
                 if (!splat_vertices) {
                     uint8_t* holder = params->texture;
-                    uint8_t* key = *raw::as<uint8_t*>(holder + 0x10);
+                    uint8_t* key = *raw::field_at<uint8_t*>(holder, 0x10);
                     if (holder[8] & 1)
                         key = *raw::as<uint8_t*>(key);
                     splats = get_texture_splats(cell::of(key));
@@ -551,7 +551,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                 const uint32_t index[3] = {ia, ib, ic};
                 for (int k = 0; k < 3; ++k)
                     get_color(v[k]) =
-                        splat_color(*raw::as<uint32_t>(vertices + stride * index[k] + mesh->unknown1c_[0]));
+                        splat_color(*raw::field_at<uint32_t>(vertices, stride * index[k] + mesh->unknown1c_[0]));
                 // how fine to split it: a 128th of its cross product's square
                 {
                     const float* p0 = get_at(v0);
@@ -587,7 +587,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                 bool kept = false;
                 for (uint8_t* piece = pieces; piece != cursor; piece += 0x48) {
                     auto twice = [&](int offset) {
-                        const double value = *raw::as<const float>(piece + offset);
+                        const double value = *raw::field_at<const float>(piece, offset);
                         return static_cast<float>(value + value - 1.0f);
                     };
                     if (!triangle_overlaps_screen(twice(0x10), twice(0x14), twice(0x28), twice(0x2C), twice(0x40),

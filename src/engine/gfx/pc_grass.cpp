@@ -89,7 +89,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     auto* entry = static_cast<uint8_t*>(look_up_texture(dictionary, 0x96D0BF08));
     if (!entry)
         return false;
-    auto* texture = *raw::as<uint8_t*>(entry + 0x10);
+    auto* texture = *raw::field_at<uint8_t*>(entry, 0x10);
     if (entry[8] & 1)
         texture = *raw::as<uint8_t*>(texture);
     std::memcpy(g_grass_texture1, texture, 0x20);
@@ -116,8 +116,8 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     uint8_t* vertices = nullptr;
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
-        auto* v = raw::as<float>(vertices + mesh->stride * i);
-        auto* uv = raw::as<float>(vertices + mesh->stride * i + mesh->unknown1c_[2]);
+        auto* v = raw::field_at<float>(vertices, mesh->stride * i);
+        auto* uv = raw::field_at<float>(vertices, mesh->stride * i + mesh->unknown1c_[2]);
         const float x = v[0];
         const float z = v[2];
         uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_uv_scale);
@@ -150,7 +150,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         char name[64];
         std::snprintf(name, sizeof(name), "Grass-Grass_Layer%d", layer);
         const uint32_t checksum = checksums::generate_crc_from_buffer(name, static_cast<int>(std::strlen(name)));
-        auto* scene = *raw::as<SceneRef*>(geom->scene + 0x280);
+        auto* scene = *raw::field_at<SceneRef*>(geom->scene, 0x280);
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->material = material;
         material_pixel_shader(material, &copy->pixel_shader_);
@@ -163,9 +163,9 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         copy->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked)
         const double lift = static_cast<double>(layer + 1) * step;
         for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
-            auto* v = raw::as<float>(vertices + copy->stride * i);
+            auto* v = raw::field_at<float>(vertices, copy->stride * i);
             v[1] = static_cast<float>(lift + v[1]);
-            auto* uv = raw::as<float>(vertices + copy->stride * i + copy->unknown1c_[2]);
+            auto* uv = raw::field_at<float>(vertices, copy->stride * i + copy->unknown1c_[2]);
             const float x = v[0];
             const float z = v[2];
             uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale);

@@ -72,7 +72,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         // Split off what isn't needed, as a free block of its own.
         const int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
         if (rest > 0) {
-            auto* tail = raw::as<ChunkPrefix>(raw::bytes(best) + kBlockHeaderSize + rounded);
+            auto* tail = raw::field_at<ChunkPrefix>(best, kBlockHeaderSize + rounded);
             best->size = rounded;
             tail->allocator = this;
             tail->size = static_cast<uint32_t>(rest);
@@ -179,7 +179,7 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
         heap_busy() = 0;
         return block;
     }
-    auto* tail = raw::as<ChunkPrefix>(static_cast<uint8_t*>(block) + header->size - cut);
+    auto* tail = raw::field_at<ChunkPrefix>(static_cast<uint8_t*>(block), header->size - cut);
     tail->size = cut - kBlockHeaderSize;
     tail->allocator = this;
     debug_track_block(tail);

@@ -58,11 +58,11 @@ uint32_t pass_alpha_flags(const void* material)
 }
 uint32_t pass_count(const void* material)
 {
-    return *raw::as<const uint32_t>(static_cast<const uint8_t*>(material) + 8);
+    return *raw::field_at<const uint32_t>(static_cast<const uint8_t*>(material), 8);
 }
 uint32_t get_blend_mode(const void* material, uint32_t pass)
 {
-    return raw::as<const uint32_t>(static_cast<const uint8_t*>(material) + 0x80)[pass] & 0xFFFFFF;
+    return raw::field_at<const uint32_t>(static_cast<const uint8_t*>(material), 0x80)[pass] & 0xFFFFFF;
 }
 
 // The fixed shaders' sources.
@@ -289,7 +289,7 @@ void material_pixel_shader(const void* material, void** shader)
         *shader = generated_pixel_shader(material);
         return;
     }
-    if (!*raw::as<const uint32_t>(static_cast<const uint8_t*>(material) + 0x30)) { // no texture
+    if (!*raw::field_at<const uint32_t>(static_cast<const uint8_t*>(material), 0x30)) { // no texture
         *shader = hdl(kPixelShader95c);
         return;
     }

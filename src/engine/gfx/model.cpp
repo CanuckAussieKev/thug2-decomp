@@ -168,11 +168,11 @@ uint32_t RenderModel::get_strip_break_flags()
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if (entry->scene) {
-            flags |= *raw::as<uint32_t>(entry->scene + 0xB0);
+            flags |= *raw::field_at<uint32_t>(entry->scene, 0xB0);
         } else if (entry->asset_name_) {
             auto* scene = static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1));
             if (scene)
-                flags |= *raw::as<uint32_t>(scene + 0xB0);
+                flags |= *raw::field_at<uint32_t>(scene, 0xB0);
         }
     }
     return flags;

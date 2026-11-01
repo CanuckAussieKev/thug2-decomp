@@ -35,7 +35,7 @@ constexpr float kStillSpeed = 1.0f; // 0x006453A8: x and z speeds below this cou
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 
 // The skater state component's state (+0x18), as the core physics' update dispatches on it (0x00510830): 0 ground,

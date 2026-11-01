@@ -74,7 +74,7 @@ bool controller_pressed(const void* controller, uint32_t button)
 {
     if (!controller)
         return false;
-    auto* input = *raw::as<PadInputSample* const>(static_cast<const uint8_t*>(controller) + 0x18);
+    auto* input = *raw::field_at<PadInputSample* const>(static_cast<const uint8_t*>(controller), 0x18);
     if (!input)
         return false;
     const int index = glyph_for_button_tag(button);

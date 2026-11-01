@@ -48,7 +48,7 @@ constexpr float kCapsizedFraction = 0.5f;    // the core physics' +0x2EC
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }

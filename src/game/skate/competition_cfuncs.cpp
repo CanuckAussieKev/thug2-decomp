@@ -76,7 +76,7 @@ modules::Contest* the_competition() { return raw::as<modules::Contest>(get_compe
 // the next player; 0x00560380 whether it's over; 0x00560190 its status is the one `params` names; 0x00560440 one of
 // its strings (`which`); 0x005601F0 its word (H-O-R-S-E) set. The current skater's id is its +0x04 (0x005480C0).
 modules::LetterMatch* the_horse() { return raw::as<modules::LetterMatch>(get_horse()); }
-uint32_t current_horse_skater() { return *raw::as<uint32_t>(get_horse() + 4); }
+uint32_t current_horse_skater() { return *raw::field_at<uint32_t>(get_horse(), 4); }
 // The horse's string `which`, built in `storage` (the caller destroys it).
 text::Chars* get_horse_string(void* storage, uint32_t which)
 {

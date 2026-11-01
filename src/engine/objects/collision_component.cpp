@@ -111,8 +111,8 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
         assets::asset_manager()->get_asset_data(raw::as<render::RenderModel>(model)->source_path_, 0));
     if (data) {
         hit_shape_ =
-            render::build_dynamic_hit_mesh(type, *raw::as<render::TriMeshSource*>(data + 0x8C),
-                                           *raw::as<int>(data + 0x88), static_cast<int>(cell::of(entity_)));
+            render::build_dynamic_hit_mesh(type, *raw::field_at<render::TriMeshSource*>(data, 0x8C),
+                                           *raw::field_at<int>(data, 0x88), static_cast<int>(cell::of(entity_)));
     } else {
         hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, static_cast<int>(cell::of(entity_)));
     }
@@ -131,12 +131,12 @@ void ContactShapeModule::tick_frame()
         collision->change_facing(&entity_->display_matrix_);
         return;
     }
-    const auto* translation = raw::as<const float>(bone + 0x40);
+    const auto* translation = raw::field_at<const float>(bone, 0x40);
     const maths::Vec4& pos = entity_->at_point_;
     const maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
-    d3dx_multiply(&orientation, raw::as<const maths::Mat4>(bone + 0x10), &entity_->display_matrix_);
+    d3dx_multiply(&orientation, raw::field_at<const maths::Mat4>(bone, 0x10), &entity_->display_matrix_);
     collision->change_facing(&orientation);
 }
 

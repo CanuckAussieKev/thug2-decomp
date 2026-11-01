@@ -56,11 +56,11 @@ constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
 // The input component's pad (+0x20) and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140).
 objects::PadSnapshot* pad_of(void* input)
 {
-    return raw::as<objects::PadSnapshot>(static_cast<uint8_t*>(input) + 0x20);
+    return raw::field_at<objects::PadSnapshot>(static_cast<uint8_t*>(input), 0x20);
 }
 objects::ControlButton* get_button(void* input, uint32_t offset)
 {
-    return raw::as<objects::ControlButton>(static_cast<uint8_t*>(input) + 0x20 + offset);
+    return raw::field_at<objects::ControlButton>(static_cast<uint8_t*>(input), 0x20 + offset);
 }
 
 script::Struct* spawn_param_bag()
@@ -90,10 +90,10 @@ int rail_pool_used()
 // The editor camera's (0xAC8946E2) target: +0x3C its position, +0x78 its heading (radians), +0x88 the height over it.
 const Vec4& viewer_location(void* camera)
 {
-    return *raw::as<const Vec4>(static_cast<uint8_t*>(camera) + 0x3C);
+    return *raw::field_at<const Vec4>(static_cast<uint8_t*>(camera), 0x3C);
 }
-float camera_heading(void* camera) { return *raw::as<const float>(static_cast<uint8_t*>(camera) + 0x78); }
-float camera_height(void* camera) { return *raw::as<const float>(static_cast<uint8_t*>(camera) + 0x88); }
+float camera_heading(void* camera) { return *raw::field_at<const float>(static_cast<uint8_t*>(camera), 0x78); }
+float camera_height(void* camera) { return *raw::field_at<const float>(static_cast<uint8_t*>(camera), 0x88); }
 
 // The structure a script's member function writes its results to (CScript +0x14).
 script::Struct* get_results(script::Script* script) { return script->args_; }

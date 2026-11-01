@@ -445,7 +445,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     }
     case kSaveNetworkSettings: {
         auto* preferences = raw::bytes(online::g_online_hub->get_online_settings());
-        auto* settings = raw::as<Struct>(preferences + 4);
+        auto* settings = raw::field_at<Struct>(preferences, 4);
         Struct* network_id = nullptr;
         settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
         const char* text = empty;

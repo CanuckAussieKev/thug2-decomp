@@ -159,7 +159,7 @@ uint8_t* hierarchy_of(uint8_t* model)
     return cell::pointer<uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
 }
 uint8_t* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
-maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *raw::as<maths::Mat4*>(skeleton + 0x04); }
+maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *raw::field_at<maths::Mat4*>(skeleton, 0x04); }
 
 uint32_t g_no_skeleton_counter{10};
 int g_repeat_count;
@@ -371,7 +371,7 @@ void PreviewEntity::spin_wheels()
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
     maths::Mat4* bones = skeleton_palette(skeleton);
     for (int i = 0; i < get_bone_count(nx_model); ++i)
-        bones[i] = *raw::as<const maths::Mat4>(hierarchy + 0x10 + i * 0x50);
+        bones[i] = *raw::field_at<const maths::Mat4>(hierarchy, 0x10 + i * 0x50);
     for (int wheel = 2; wheel < 6; ++wheel) {
         maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
@@ -538,7 +538,7 @@ int handle_step_animation(net::InboundMsgCtx* context)
 int handle_reload_animation(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
-    object_of(context)->reload_animation(message, *raw::as<const uint32_t>(message + 0x80));
+    object_of(context)->reload_animation(message, *raw::field_at<const uint32_t>(message, 0x80));
     return 1;
 }
 
@@ -548,7 +548,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
     const char* message = context->body_;
     script::Struct* params = spawn_param_table();
     params->append_word(0u, message);
-    params->put_name_key(0u, *raw::as<const uint32_t>(message + 0x80));
+    params->put_name_key(0u, *raw::field_at<const uint32_t>(message, 0x80));
     commands::cfunc_reload_skater_cam_anim(params, nullptr);
     delete_structure(params);
     return 1;

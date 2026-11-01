@@ -86,7 +86,7 @@ uint32_t get_channel(float value)
 void refresh_instance_lighting(Singleton* instance)
 {
     ModelLights* lights =
-        instance->model ? *raw::as<ModelLights*>(static_cast<uint8_t*>(instance->model) + 0x2C) : nullptr;
+        instance->model ? *raw::field_at<ModelLights*>(static_cast<uint8_t*>(instance->model), 0x2C) : nullptr;
     if (!lights) {
         reset_lights();
         return;

@@ -112,7 +112,7 @@ void release_frame_index(void* frame, int index) { static_cast<JointClipFrames*>
 void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
 {
     static_cast<JointClipFrames*>(frame)->get_frames(raw::as<maths::QuatRotation>(pose),
-                                                     raw::as<maths::Vec4>(pose + 0x400), pose + 0x800, time,
+                                                     raw::field_at<maths::Vec4>(pose, 0x400), pose + 0x800, time,
                                                      index, source);
 }
 // The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
@@ -193,7 +193,7 @@ StandardAnimController::~StandardAnimController()
 bool StandardAnimController::fetch_pose(uint8_t* pose)
 {
     if (frame_index_ == -1) {
-        if (*raw::as<int>(static_cast<uint8_t*>(frame_source_) + 0x24))
+        if (*raw::field_at<int>(static_cast<uint8_t*>(frame_source_), 0x24))
             frame_index_ = frame_index(frame_source_);
         else
             frame_source_ = source_frame(blend_source_, false);
@@ -295,7 +295,7 @@ bool WeightedAnimController::fetch_pose(uint8_t* pose)
     set_bone_count(blend_source_, skeleton());
     static_cast<JointClipFrames*>(frame_source_)
         ->apply_additive_if_compressed(raw::as<maths::QuatRotation>(pose),
-                                       raw::as<maths::Vec4>(pose + 0x400), pose + 0x800, weight_,
+                                       raw::field_at<maths::Vec4>(pose, 0x400), pose + 0x800, weight_,
                                        static_cast<const render::FrameSource*>(blend_source_));
     source_frame(blend_source_, true);
     return true;

@@ -414,7 +414,7 @@ const uint8_t* model_geometry(ObjectModule* model)
 }
 const float* wheel_place(const uint8_t* geometry, int i)
 {
-    return raw::as<const float>(geometry + 0xE0 + i * 0x50);
+    return raw::field_at<const float>(geometry, 0xE0 + i * 0x50);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
 void* skeleton_of(ObjectModule* skeleton) { return static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_; }
@@ -671,7 +671,7 @@ void DrivableModule::seal()
         const float* place = wheel_place(geometry, i);
         wheels_[i].offset = {-place[0], place[2], -place[1], 1.0f};
     }
-    const maths::Mat4 bone = *raw::as<const maths::Mat4>(geometry + 0x60);
+    const maths::Mat4 bone = *raw::field_at<const maths::Mat4>(geometry, 0x60);
     skater_bone_ = {-bone.row[3].x, bone.row[3].z, -bone.row[3].y, 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).

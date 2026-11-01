@@ -60,17 +60,17 @@ render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 const char* picture_name()
 {
     auto* name = raw::bytes(g_picture_name);
-    if (*raw::as<uint32_t>(name + 0x18) >= 16)
-        return *raw::as<const char*>(name + 4);
+    if (*raw::field_at<uint32_t>(name, 0x18) >= 16)
+        return *raw::field_at<const char*>(name, 4);
     return raw::chars(name + 4);
 }
 void set_picture_name(const char* text)
 {
     // std::string::assign(const char*) over the layout above (0x004B7880 / 0x004B7750 in the exe).
     auto* name = raw::bytes(g_picture_name);
-    uint32_t& size = *raw::as<uint32_t>(name + 0x14);
-    uint32_t& capacity = *raw::as<uint32_t>(name + 0x18);
-    char*& heap = *raw::as<char*>(name + 4);
+    uint32_t& size = *raw::field_at<uint32_t>(name, 0x14);
+    uint32_t& capacity = *raw::field_at<uint32_t>(name, 0x18);
+    char*& heap = *raw::field_at<char*>(name, 4);
     auto length = static_cast<uint32_t>(std::strlen(text));
     if (length > capacity) {
         const uint32_t new_capacity = length | 15;
@@ -164,10 +164,10 @@ void draw_loading_screen_picture()
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
     choose_blend_mode(0);
     set_texture(0, nullptr); // (the original passes a third 0, here and below)
-    uint8_t* texture = *raw::as<uint8_t*>(picture() + 0x10);
+    uint8_t* texture = *raw::field_at<uint8_t*>(picture(), 0x10);
     if (picture()[8] & 1)
         texture = *raw::as<uint8_t*>(texture);
-    set_texture(0, *raw::as<void*>(texture + 0x10)); // (and its +0x14)
+    set_texture(0, *raw::field_at<void*>(texture, 0x10)); // (and its +0x14)
     auto width = static_cast<float>(g_back_buffer_width);
     auto height = static_cast<float>(g_back_buffer_height);
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off

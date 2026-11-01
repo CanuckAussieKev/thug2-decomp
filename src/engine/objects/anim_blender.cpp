@@ -68,7 +68,7 @@ bool is_over(memory::ListNode* node) { return is_head(node) || !node; }
 template <typename T>
 T& prop(void* object, int offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 uint32_t& ident_no(Channel* channel) { return channel->ident_; }
 

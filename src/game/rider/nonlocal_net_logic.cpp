@@ -73,7 +73,7 @@ constexpr uint16_t kFaceSkatable = 0x1, kFaceNotSkatable = 0x2, kFaceWallride = 
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 
 // A physics value of the skater (GameObjects::read_tuning_float, asserting).

@@ -218,7 +218,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
         std::memcpy(out, packed, 12); // the position
         if (suspect && i == 0xF7)
             debug::printf("euh");
-        const uint32_t normal = *raw::as<const uint32_t>(packed + 0x18);
+        const uint32_t normal = *raw::field_at<const uint32_t>(packed, 0x18);
         auto* f = raw::as<float>(out);
         f[3] = static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11_scale));
         f[4] = static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11_scale));
@@ -227,8 +227,8 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
         std::memcpy(out + 0x18, packed + 0x1C, 4); // the colour
         std::memcpy(out + 0x1C, packed + 0x20, sets * 8);
         for (int k = 0; k < 4; ++k)
-            out[0x3C + k] = static_cast<uint8_t>(*raw::as<const int16_t>(packed + 0x10 + 2 * k) / 3);
-        const uint32_t weights = *raw::as<const uint32_t>(packed + 0xC);
+            out[0x3C + k] = static_cast<uint8_t>(*raw::field_at<const int16_t>(packed, 0x10 + 2 * k) / 3);
+        const uint32_t weights = *raw::field_at<const uint32_t>(packed, 0xC);
         f[16] = static_cast<float>(unpack11(weights) * static_cast<double>(g_unpack11_scale));
         f[17] = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(g_unpack11_scale));
         const uint32_t w = weights >> 22;

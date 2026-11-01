@@ -181,7 +181,7 @@ int goal_editor_constant82() { return 0x82; }
 // 0x004E69D0
 void init_edited_goal(uint8_t* goal)
 {
-    auto u32 = [goal](uint32_t offset) -> uint32_t& { return *raw::as<uint32_t>(goal + offset); };
+    auto u32 = [goal](uint32_t offset) -> uint32_t& { return *raw::field_at<uint32_t>(goal, offset); };
     u32(0x2A4) = 5;
     u32(0x2B0) = 5;
     goal[0x28A] = 0;

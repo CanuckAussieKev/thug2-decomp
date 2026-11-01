@@ -53,7 +53,7 @@ int complete_stat_goals()
     if (!stats)
         return 0;
     for (int i = 0; i < kGoalStatCount; ++i) {
-        *raw::as<int>(stats + kStatGoalStatus + i * kStatGoalSize) = 1;
+        *raw::field_at<int>(stats, kStatGoalStatus + i * kStatGoalSize) = 1;
         stats[kStatGoalJustDone + i * kStatGoalSize] = 0;
     }
     return kGoalStatCount;

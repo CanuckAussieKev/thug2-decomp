@@ -46,7 +46,7 @@ constexpr uint8_t kMsgBoardRotated = 0x2A;
 template <typename T>
 T& prop(void* object, uint32_t offset)
 {
-    return *raw::as<T>(static_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this

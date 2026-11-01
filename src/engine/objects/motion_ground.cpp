@@ -74,7 +74,7 @@ bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::
         if (geometry->small_faces_)
             vertex = geometry->faces_[face * 8 + 4 + corner];
         else
-            vertex = *raw::as<const uint16_t>(geometry->faces_ + face * 10 + 4 + 2 * corner);
+            vertex = *raw::field_at<const uint16_t>(geometry->faces_, face * 10 + 4 + 2 * corner);
         triangle[corner] = vertex_position3(object, vertex);
     }
     *out = feeler.contact_pos_;

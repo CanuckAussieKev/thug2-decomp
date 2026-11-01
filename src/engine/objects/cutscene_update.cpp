@@ -232,7 +232,7 @@ void CinematicTable::update_object_transforms()
                              static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                              static_cast<int>(cell::of(object_source_)));
     // the animated objects of the level (not the cutscene's own)
-    for (int j = 0; j < *raw::as<int>(get_bytes(anim_list_) + 8); ++j) {
+    for (int j = 0; j < *raw::field_at<int>(get_bytes(anim_list_), 8); ++j) {
         const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
         bool own = false;
         for (int k = object_count_ - 1; k >= 0; --k) {

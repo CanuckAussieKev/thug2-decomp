@@ -300,7 +300,7 @@ bool cfunc_unload_scene(Struct* params, Script*)
         else
             scene = first_scene();
         if (scene) {
-            void* textures = *raw::as<void*>(static_cast<uint8_t*>(scene) + 0x88);
+            void* textures = *raw::field_at<void*>(static_cast<uint8_t*>(scene), 0x88);
             unload_scene(scene, 1);
             if (textures)
                 unload_tex_dict(textures);

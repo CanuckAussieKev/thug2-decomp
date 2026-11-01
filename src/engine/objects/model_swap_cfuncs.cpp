@@ -139,7 +139,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     manager->enter_heap_scope(manager->top_down_heap_);
     void* memory = memory::alloc(0x1C);
     uint8_t* temp = memory ? raw::bytes(memory::construct_in<gfx::Rig>(
-                                 memory, *raw::as<gfx::RigData*>(skeleton_a + 8)))
+                                 memory, *raw::field_at<gfx::RigData*>(skeleton_a, 8)))
                            : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     copy_skeleton(temp, skeleton_a);

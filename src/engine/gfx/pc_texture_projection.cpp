@@ -62,8 +62,8 @@ void transform_coord(float* out, const float* v, const maths::Mat4* m)
 uint8_t* vertex_stack() { return raw::bytes(&g_vertex_stack); }
 void push_vertex(const uint8_t* vertex) { raw::as<VertexStack>(vertex_stack())->stack_on(vertex); }
 
-float* get_uv(uint8_t* vertex) { return raw::as<float>(vertex + 0x10); }
-uint32_t& get_colour(uint8_t* vertex) { return *raw::as<uint32_t>(vertex + 0xC); }
+float* get_uv(uint8_t* vertex) { return raw::field_at<float>(vertex, 0x10); }
+uint32_t& get_colour(uint8_t* vertex) { return *raw::field_at<uint32_t>(vertex, 0xC); }
 uint32_t opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
 float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * 0.5f); }
 float from_uv(float uv)
@@ -180,15 +180,15 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     continue;
                 const uint32_t stride = mesh->stride;
                 float t0[3], t1[3], t2[3];
-                transform_coord(t0, raw::as<const float>(vertices + stride * ia), &projection_);
-                transform_coord(t1, raw::as<const float>(vertices + stride * ib), &projection_);
-                transform_coord(t2, raw::as<const float>(vertices + stride * ic), &projection_);
+                transform_coord(t0, raw::field_at<const float>(vertices, stride * ia), &projection_);
+                transform_coord(t1, raw::field_at<const float>(vertices, stride * ib), &projection_);
+                transform_coord(t2, raw::field_at<const float>(vertices, stride * ic), &projection_);
                 if (t0[2] < -1.0f && t1[2] < -1.0f && t2[2] < -1.0f) // (wholly behind)
                     continue;
                 if (!triangle_overlaps_screen(t0[0], t0[1], t1[0], t1[1], t2[0], t2[1]))
                     continue;
                 if (!batch_vertices) {
-                    uint8_t* key = *raw::as<uint8_t*>(bitmap_ + 0x10);
+                    uint8_t* key = *raw::field_at<uint8_t*>(bitmap_, 0x10);
                     if (bitmap_[8] & 1)
                         key = *raw::as<uint8_t*>(key);
                     batch = get_projection_batch(cell::of(key), blend_mode_);
@@ -210,9 +210,9 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 get_uv(v2)[0] = to_uv(t2[0]);
                 get_uv(v2)[1] = to_uv(t2[1]);
                 const uint32_t colour_offset = mesh->unknown1c_[0];
-                get_colour(v0) = opaque(*raw::as<uint32_t>(vertices + stride * ia + colour_offset));
-                get_colour(v1) = opaque(*raw::as<uint32_t>(vertices + stride * ib + colour_offset));
-                get_colour(v2) = opaque(*raw::as<uint32_t>(vertices + stride * ic + colour_offset));
+                get_colour(v0) = opaque(*raw::field_at<uint32_t>(vertices, stride * ia + colour_offset));
+                get_colour(v1) = opaque(*raw::field_at<uint32_t>(vertices, stride * ib + colour_offset));
+                get_colour(v2) = opaque(*raw::field_at<uint32_t>(vertices, stride * ic + colour_offset));
                 uint8_t whole[3 * 0x18];
                 uint8_t* pieces = nullptr;
                 uint8_t* end = nullptr;
