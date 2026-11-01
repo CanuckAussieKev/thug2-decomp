@@ -80,26 +80,25 @@ uint32_t flash_mask(int rate)
 }
 
 // The sector calls (the geometry's virtual functions; its collision is the word at +8).
-render::Geom* as_geom(uint8_t* geometry) { return raw::as<render::Geom>(geometry); }
-uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-uint8_t* fetch_shape(uint8_t* sector)
+render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
+render::Geom* fetch_shape(render::WorldCell* sector)
 {
-    return static_cast<uint8_t*>(raw::as<render::WorldCell>(sector)->geom_handle_);
+    return static_cast<render::Geom*>(sector->geom_handle_);
 }
-int get_vertex_count(uint8_t* geometry) { return static_cast<int>(as_geom(geometry)->fetch_vertex_tally()); }
-void get_vertices(uint8_t* geometry, Vec4* out) { as_geom(geometry)->get_vertices(out); }
-void set_vertices(uint8_t* geometry, Vec4* vertices) { as_geom(geometry)->set_vertices(vertices); }
-render::TriMeshSource* get_hit_shape(uint8_t* geometry)
+int get_vertex_count(render::Geom* geometry) { return static_cast<int>(geometry->fetch_vertex_tally()); }
+void get_vertices(render::Geom* geometry, Vec4* out) { geometry->get_vertices(out); }
+void set_vertices(render::Geom* geometry, Vec4* vertices) { geometry->set_vertices(vertices); }
+render::TriMeshSource* get_hit_shape(render::Geom* geometry)
 {
-    return static_cast<render::TriMeshSource*>(raw::as<render::Geom>(geometry)->hit_triangles_);
+    return static_cast<render::TriMeshSource*>(geometry->hit_triangles_);
 }
 uint16_t collision_vertex_count(const render::TriMeshSource* collision)
 {
     return *raw::field_at<const uint16_t>(collision, 6);
 }
-void set_collision_vertices(uint8_t* sector, Vec4* vertices)
+void set_collision_vertices(render::WorldCell* sector, Vec4* vertices)
 {
-    raw::as<render::WorldCell>(sector)->choose_raw_verts(vertices);
+    sector->choose_raw_verts(vertices);
 }
 
 // One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the differences (in double), the sine
@@ -117,7 +116,7 @@ void turn_about_y(double delta_x, double delta_z, float angle, float* out_x, dou
 bool sin_at_least(double angle, float value) { return !(std::sin(angle) < value); }
 
 // The clone of a source sector made for the park (its pieces' counts marked dirty, the collision rebuilt).
-uint8_t* duplicate_scene_sector(uint32_t source)
+render::WorldCell* duplicate_scene_sector(uint32_t source)
 {
     const uint32_t name = ParkLayout::singleton()->builder_->duplicate_scene_sector(source, 0, 1, 0);
     set_counts_dirty();
@@ -142,7 +141,7 @@ const std::array<int, 10> kEndVertices = {{6, 11, 7, 8, 15, 18, 4, 12, 5, 17}};
 } // namespace
 
 // 0x004F3E00 (cdecl)
-uint8_t* clone_rail_sector(uint32_t source) { return duplicate_scene_sector(source); }
+render::WorldCell* clone_rail_sector(uint32_t source) { return duplicate_scene_sector(source); }
 
 // 0x004F3D80
 Vec4* transform_rail_point(Vec4* out, const Vec4* point, const Vec4* origin, const Vec4* position, float angle)
@@ -289,10 +288,10 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* 
 }
 
 // 0x004F4E70
-void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous, const Vec4* to, uint8_t* sector,
-                         uint8_t* previous_sector, bool update_collision)
+void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous, const Vec4* to, render::WorldCell* sector,
+                         render::WorldCell* previous_sector, bool update_collision)
 {
-    uint8_t* source_geometry = fetch_shape(look_up_sector(source));
+    render::Geom* source_geometry = fetch_shape(look_up_sector(source));
     const int count = get_vertex_count(source_geometry);
     const uint32_t bytes = static_cast<uint32_t>(count) << 4;
     auto* vertices = static_cast<Vec4*>(memory::alloc_block(bytes));
@@ -316,7 +315,7 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
                         static_cast<float>(static_cast<double>(sy) * 0.5f), static_cast<float>(sz * 0.5f),
                         static_cast<float>(static_cast<double>(sw) * 0.5f)};
         orient_rail_vertices(&halfway, from, vertices, kStartVertices.data(), 10);
-        uint8_t* previous_geometry = fetch_shape(previous_sector);
+        render::Geom* previous_geometry = fetch_shape(previous_sector);
         auto* previous_vertices =
             static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(get_vertex_count(previous_geometry)) << 4));
         get_vertices(previous_geometry, previous_vertices);
@@ -421,7 +420,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         delete_post();
         return;
     }
-    uint8_t* geometry = fetch_shape(look_up_sector(kPostSource));
+    render::Geom* geometry = fetch_shape(look_up_sector(kPostSource));
     const int count = get_vertex_count(geometry);
     auto* vertices = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(count) << 4));
     get_vertices(geometry, vertices);
@@ -534,7 +533,7 @@ void EditedRailPoint::spotlight(bool flash, bool include_end_posts)
         return !p->following_ || !p->preceding_ ||
                rail_corner_ok(&p->following_->at_point_, &p->at_point_, &p->preceding_->at_point_);
     };
-    auto paint = [mask](uint8_t* sector, const Colour& colour) {
+    auto paint = [mask](render::WorldCell* sector, const Colour& colour) {
         set_sector_colour(sector, colour.get_word());
         set_sector_visibility(sector, mask);
     };

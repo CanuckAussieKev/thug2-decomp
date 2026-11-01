@@ -94,9 +94,9 @@ void KinematicsModule::get_reset()
     path_deceleration_ = 0.0f;
     path_max_speed_ = 0.0f;
     path_speed_ = 0.0f;
-    path_turn_distance_ = 0.0f;
-    path_speed_1a_4_ = 0.0f;
-    path_speed_1a_8_ = 0.0f;
+    path_stop_distance_ = 0.0f;
+    path_stop_covered_ = 0.0f;
+    path_stop_start_speed_ = 0.0f;
     path_min_stop_speed_ = 0.0f;
     turn_time_ = 0.0f;
     turn_elapsed_ = 0.0f;

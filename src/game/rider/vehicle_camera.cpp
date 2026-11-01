@@ -95,7 +95,7 @@ void CarView::configure_from_data(script::Struct* params)
         uint32_t id = 0;
         params->read_hash_value(kSubject, &id, 1);
         subject_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
-        vehicle_ = raw::bytes(subject_->fetch_module(kVehicle));
+        vehicle_ = core::down_cast<objects::DrivableModule>(subject_->fetch_module(kVehicle));
     }
     params->fetch_float(kLerp, &lerp_, 0);
     params->fetch_float(kHeight, &level_y_, 0);
@@ -121,7 +121,7 @@ bool CarView::vehicle_camera_reset(script::Struct* params, script::Script* /*scr
 // 0x00524550
 void CarView::update_target_direction()
 {
-    const float* velocity = &raw::as<const objects::DrivableModule>(vehicle_)->vel_.x;
+    const float* velocity = &vehicle_->vel_.x;
     float x = -velocity[0];
     float y = 0.0f;
     float z = -velocity[2];
@@ -134,7 +134,7 @@ void CarView::update_target_direction()
         y = static_cast<float>(0.0f * inverse);
         z = static_cast<float>(z * inverse);
     }
-    if (raw::as<const objects::DrivableModule>(vehicle_)->wheels_in_contact_ < 2) {
+    if (vehicle_->wheels_in_contact_ < 2) {
         if (!(speed < kMinFlatSpeed))
             target_direction_ = {x, y, z, w};
         return;

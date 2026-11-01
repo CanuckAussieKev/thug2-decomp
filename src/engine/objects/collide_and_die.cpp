@@ -77,12 +77,12 @@ void ImpactDestructModule::configure_from_data(script::Struct* params)
 }
 
 // 0x0041C330
-void ImpactDestructModule::seal() { suspend_ = raw::bytes(entity_->fetch_module(kSuspend)); }
+void ImpactDestructModule::seal() { suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(kSuspend)); }
 
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
 {
-    if (!g_online_hub->in_net_game() && raw::as<DormancyModule>(suspend_)->far_)
+    if (!g_online_hub->in_net_game() && suspend_->far_)
         return;
     const int& offset = g_clock_offset;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >

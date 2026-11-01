@@ -41,9 +41,6 @@ constexpr uint32_t kDistance = 0xE36D657E;        // distance
 constexpr uint32_t kOrientY = 0xE19E310A;         // OrientY
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;        // the pedlogic component
 
-// The speed along a path (motion_path.h).
-void update_path_speed(KinematicsModule* motion) { raw::as<MotionPathMembers>(motion)->update_path_speed(); }
-
 // The velocity of a step from where the object was (`back`: minus that position) to where it is now: x from the
 // unrounded difference and reciprocal, the others from the rounded ones (as the original's x87 code).
 void set_step_velocity(GameEntity* object, std::span<const float, 4> back, float frame_time)
@@ -185,7 +182,7 @@ void KinematicsModule::update_path()
         return;
     std::array<float, 4> back{};
     get_back(entity_, back);
-    update_path_speed(this);
+    update_path_speed();
     if (!(path_speed_ == 0.0f)) {
         maths::Mat4& matrix = entity_->basis_frame_;
         const maths::Vec4* along = (motion_flags2_ & kMotion2NoPathHeading) ? nullptr : &core::at(matrix.row, 2);

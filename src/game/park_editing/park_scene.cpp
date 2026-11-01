@@ -29,54 +29,39 @@ namespace {
 // The super sectors are brought up to date when sectors are deleted (0x0067F398; off while a rebuild runs).
 bool& scene_updates() { return g_collision_allowed; }
 
-// The engine's scenes and sectors (Nx).
-void* look_up_scene(const char* name) { return render::get_scene_by_name(name); }
-void* clone_scene(const char* name, void* textures, int flag)
+// The engine's scenes and sectors (Nx). WorldScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted
+// (0x0049D030), the super sectors updated (0x0049D780), a sector cloned into `scene` (0x0049DF30; returns the clone's
+// name). WorldCell: placed (0x0049E6C0), turned (0x0049E760), its box (0x0049E6A0), its geometry (+0x14, 0x004A2BA0).
+// The geometry's vertices: how many (0x0048DF70), their positions, their colours set and read (0x0049F3E0), its
+// collision.
+render::WorldScene* look_up_scene(const char* name) { return render::get_scene_by_name(name); }
+render::WorldScene* clone_scene(const char* name, render::TextureSet* textures, int flag)
 {
-    return render::build_world_scene(name, static_cast<render::TextureSet*>(textures), flag != 0);
+    return render::build_world_scene(name, textures, flag != 0);
 }
-void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-// WorldScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted (0x0049D030), the super sectors updated
-// (0x0049D780), a sector cloned into `scene` (0x0049DF30; returns the clone's name)
-void remove_scene_sector(void* scene, uint32_t name)
+render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
+void remove_scene_sector(render::WorldScene* scene, uint32_t name) { scene->delete_sector_named(name); }
+void delete_marked_sectors(render::WorldScene* scene) { scene->delete_marked_sectors(); }
+void update_super_sectors_of(render::WorldScene* scene) { scene->get_update_super_sectors(nullptr); }
+uint32_t duplicate_scene_sector(render::WorldScene* source, uint32_t name, render::WorldScene* scene, int cursor,
+                                int not_cursor)
 {
-    static_cast<render::WorldScene*>(scene)->delete_sector_named(name);
+    return source->clone_sector_named(name, scene, cursor, not_cursor != 0, 0);
 }
-void delete_marked_sectors(void* scene) { static_cast<render::WorldScene*>(scene)->delete_marked_sectors(); }
-void update_super_sectors_of(void* scene)
+void place_at_absolute_point(render::WorldCell* sector, const maths::Vec4* position)
 {
-    static_cast<render::WorldScene*>(scene)->get_update_super_sectors(nullptr);
+    sector->place_at_absolute_point(position);
 }
-uint32_t duplicate_scene_sector(void* source, uint32_t name, void* scene, int cursor, int not_cursor)
+void spin_around_up(render::WorldCell* sector, int rot) { sector->spin_around_up(rot); }
+const maths::BBox* get_local_bounds(render::WorldCell* sector) { return sector->fetch_bounds(); }
+render::Geom* fetch_shape(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle_); }
+int get_vertex_count(render::Geom* geometry) { return static_cast<int>(geometry->fetch_vertex_tally()); }
+void get_vertex_positions(render::Geom* geometry, maths::Vec4* out) { geometry->get_vertices(out); }
+void set_vertex_colours(render::Geom* geometry, const uint32_t* colours) { geometry->change_colors(colours); }
+void get_vertex_colours(render::Geom* geometry, uint32_t* out) { geometry->plat_get_render_colors(out); }
+render::TriMeshSource* get_hit_shape(render::Geom* geometry)
 {
-    return static_cast<render::WorldScene*>(source)->clone_sector_named(name, static_cast<render::WorldScene*>(scene),
-                                                                        cursor, not_cursor != 0, 0);
-}
-// WorldCell: placed (0x0049E6C0), turned (0x0049E760), its box (0x0049E6A0: min, max), its geometry (+0x14, 0x004A2BA0)
-void place_at_absolute_point(void* sector, const maths::Vec4* position)
-{
-    static_cast<render::WorldCell*>(sector)->place_at_absolute_point(position);
-}
-void spin_around_up(void* sector, int rot) { static_cast<render::WorldCell*>(sector)->spin_around_up(rot); }
-const maths::Vec4* get_local_bounds(void* sector)
-{
-    return raw::as<const maths::Vec4>(static_cast<render::WorldCell*>(sector)->fetch_bounds());
-}
-void* fetch_shape(void* sector) { return static_cast<render::WorldCell*>(sector)->geom_handle_; }
-// The geometry's vertices: how many (through 0x0048DF70), their positions, their colours set and read (0x0049F3E0), its collision (the word at +8, 0x0049E810)
-int get_vertex_count(void* geometry) { return static_cast<int>(scene::as_geom(geometry)->fetch_vertex_tally()); }
-void get_vertex_positions(void* geometry, maths::Vec4* out) { scene::as_geom(geometry)->get_vertices(out); }
-void set_vertex_colours(void* geometry, uint32_t* colours)
-{
-    scene::as_geom(geometry)->change_colors(raw::bytes(colours));
-}
-void get_vertex_colours(void* geometry, uint32_t* out)
-{
-    scene::as_geom(geometry)->plat_get_render_colors(raw::bytes(out));
-}
-render::TriMeshSource* get_hit_shape(void* geometry)
-{
-    return static_cast<render::TriMeshSource*>(static_cast<render::Geom*>(geometry)->hit_triangles_);
+    return static_cast<render::TriMeshSource*>(geometry->hit_triangles_);
 }
 
 // The rail editor (0x004F4970): its rails taken out of the scene (0x004F45C0, 0x004F45E0), put back (0x004F6650).
@@ -178,11 +163,11 @@ void ParkAssembler::move_light_source(const maths::Vec4* position, int index)
     light.w = position->w;
 }
 
-void ParkAssembler::sample_light_colour(const maths::Vec4* position, uint8_t* rgba)
+uint32_t ParkAssembler::sample_light_colour(const maths::Vec4* position, uint32_t rgba)
 {
-    const auto red = static_cast<float>(rgba[0] * static_cast<double>(core::at(ambient_, 0)));
-    const auto green = static_cast<float>(rgba[1] * static_cast<double>(core::at(ambient_, 1)));
-    const double blue = rgba[2] * static_cast<double>(core::at(ambient_, 2)); // (kept unrounded)
+    const auto red = static_cast<float>((rgba & 0xFF) * static_cast<double>(core::at(ambient_, 0)));
+    const auto green = static_cast<float>(((rgba >> 8) & 0xFF) * static_cast<double>(core::at(ambient_, 1)));
+    const double blue = ((rgba >> 16) & 0xFF) * static_cast<double>(core::at(ambient_, 2)); // (kept unrounded)
     double sum = 0.0;
     for (int i = 0; i < light_total_; ++i) {
         const double dx = static_cast<double>(position->x) - core::at(lights_, i).x;
@@ -192,18 +177,17 @@ void ParkAssembler::sample_light_colour(const maths::Vec4* position, uint8_t* rg
     sum *= 255.0;
     // (over 255 is 255; the original's _ftol otherwise, NaN included)
     auto channel = [](double value) {
-        return value > 255.0 ? static_cast<uint8_t>(0xFF) : static_cast<uint8_t>(static_cast<int>(value));
+        return value > 255.0 ? uint32_t{0xFF} : uint32_t{static_cast<uint8_t>(static_cast<int>(value))};
     };
-    rgba[0] = channel(sum * core::at(falloff_, 0) + red);
-    rgba[1] = channel(sum * core::at(falloff_, 1) + green);
-    rgba[2] = channel(sum * core::at(falloff_, 2) + blue);
+    return (rgba & 0xFF000000u) | channel(sum * core::at(falloff_, 0) + red) |
+           (channel(sum * core::at(falloff_, 1) + green) << 8) | (channel(sum * core::at(falloff_, 2) + blue) << 16);
 }
 
 void ParkAssembler::light_piece(ParkTile* p)
 {
     const DuplicatedTile* piece = get_cloned(p);
-    void* geometry = fetch_shape(look_up_sector(piece->sector_));
-    void* source_geometry = fetch_shape(look_up_sector(piece->blend_source_->sector_));
+    render::Geom* geometry = fetch_shape(look_up_sector(piece->sector_));
+    render::Geom* source_geometry = fetch_shape(look_up_sector(piece->blend_source_->sector_));
     const int count = get_vertex_count(geometry);
     if (count) {
         // (new[] of vectors and colours: their constructors do nothing)
@@ -212,7 +196,7 @@ void ParkAssembler::light_piece(ParkTile* p)
         get_vertex_positions(geometry, positions);
         get_vertex_colours(source_geometry, colours);
         for (int i = 0; i < count; ++i)
-            sample_light_colour(&positions[i], raw::bytes(&colours[i]));
+            colours[i] = sample_light_colour(&positions[i], colours[i]);
         set_vertex_colours(geometry, colours);
         memory::dealloc(positions);
         memory::dealloc(colours);
@@ -223,10 +207,9 @@ void ParkAssembler::light_piece(ParkTile* p)
     const int vertices = collision->num_vertices_;
     for (int i = 0; i < vertices; ++i) {
         const uint8_t grey = source_collision->vertex_bytes_[i];
-        std::array<uint8_t, 4> rgba = {{grey, grey, grey, 0xFF}};
         const maths::Vec4 position = collision->read_stored_vertex(i);
-        sample_light_colour(&position, rgba.data());
-        collision->vertex_bytes_[i] = static_cast<uint8_t>((core::at(rgba, 0) + core::at(rgba, 1) + core::at(rgba, 2)) / 3);
+        const uint32_t rgba = sample_light_colour(&position, 0xFF000000u | grey | (uint32_t{grey} << 8) | (uint32_t{grey} << 16));
+        collision->vertex_bytes_[i] = static_cast<uint8_t>(((rgba & 0xFF) + ((rgba >> 8) & 0xFF) + ((rgba >> 16) & 0xFF)) / 3);
     }
 }
 
@@ -373,7 +356,7 @@ void ParkAssembler::add_piece_to_scene(ParkTile* p)
     const int cursor = (piece->flag_bits_ & DuplicatedTile::kCursor) ? 1 : 0;
     piece->sector_ = park_editing::duplicate_scene_sector(source_world_, piece->blend_source_->sector_, scene_handle_,
                                                           cursor, !cursor);
-    void* sector = look_up_sector(piece->sector_);
+    render::WorldCell* sector = look_up_sector(piece->sector_);
     const maths::Vec4 position = piece->at_point_;
     place_at_absolute_point(sector, &position);
     spin_around_up(sector, piece->quarter_turns_);
@@ -437,20 +420,21 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     next_piece_id_ = 0x20;
     source_world_ = look_up_scene("sk5ed");
     // every sector of the scene (its sector table at +0xD0)
-    auto* sectors = *raw::field_at<lists::KeyMap*>(static_cast<uint8_t*>(source_world_), 0xD0);
+    lists::KeyMap* sectors = source_world_->sectors_;
     sectors->iter_bucket_ = -1;
     sectors->iter_item_ = nullptr;
-    void* sector = nullptr;
-    while (sectors->step_iterator() && sectors->iter_item_ && (sector = sectors->iter_item_->value) != nullptr) {
+    render::WorldCell* sector = nullptr;
+    while (sectors->step_iterator() && sectors->iter_item_ &&
+           (sector = static_cast<render::WorldCell*>(sectors->iter_item_->value)) != nullptr) {
         memory::enter_heap_scope(get_park_heap());
         auto* source = new TemplateTile;
         memory::leave_heap_scope();
         source->following_ = sources_;
         sources_ = source;
-        source->sector_ = *raw::field_at<uint32_t>(static_cast<uint8_t*>(sector), 4); // its checksum
-        const maths::Vec4* box = get_local_bounds(sector);                                 // min, max
-        const maths::Vec4& min = box[0];
-        const maths::Vec4& max = box[1];
+        source->sector_ = sector->checksum_;
+        const maths::BBox* box = get_local_bounds(sector);
+        const maths::Vec4& min = box->min;
+        const maths::Vec4& max = box->max;
         int cells = static_cast<int>((static_cast<double>(max.x) - min.x + kSizeSlack) * kInverseCell);
         if (cells < 1)
             cells = 1;
@@ -464,7 +448,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         if (height < kGridStepUp && height > 0.0)
             source->extent_.y = kGridStepUp; // (at least a step high)
     }
-    scene_handle_ = clone_scene("cloned", *raw::field_at<void*>(static_cast<uint8_t*>(source_world_), 0x88), 1);
+    scene_handle_ = clone_scene("cloned", source_world_->texture_set_, 1);
     park_editing::set_up_bounds(this);
     for (RestartPoint& restart : restarts_)
         restart.kind_tag_ = RestartPoint::kFree;

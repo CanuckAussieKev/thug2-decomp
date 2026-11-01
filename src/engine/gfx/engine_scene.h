@@ -96,7 +96,7 @@ struct WorldScene : public memory::HeapObject {
     // 0x0049CA10: a new sector (plat_create_sector) with +0x14 / +0x18 cleared (no null check, as the original).
     WorldCell* spawn_sector();
     // 0x0049CB00: the sector named `name` (the hash table's lookup, inlined), or null.
-    void* look_up_sector(uint32_t name);
+    WorldCell* look_up_sector(uint32_t name);
     // 0x0049CB40: `sector` deleted (out of the table if it's the one there under its name) - true; a sector with
     // flag 0x40 is only given flag 8 and the scene marked (+0x274) - false.
     bool remove_scene_sector(void* sector);

@@ -20,6 +20,7 @@ class PcMesh;
 class TextureSet;
 
 struct WorldScene;
+class WorldCell;
 struct FlexibleParticleManager;
 struct ImposterManager;
 
@@ -69,7 +70,7 @@ int sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius);
 
 // --- the loaded scenes (the list 0x006FA7E0) ---
 // 0x0048C510: the sector `checksum` from the first scene that has it, or null.
-void* look_up_sector(uint32_t checksum);
+WorldCell* look_up_sector(uint32_t checksum);
 // 0x0048C560: `scene` (from the file of the level `name`) named and given `textures`; unless it's `loaded`, its
 // load finished (with `arena`); added at the end of the list. (No scene: a crash, as the original.)
 void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded, void* arena);

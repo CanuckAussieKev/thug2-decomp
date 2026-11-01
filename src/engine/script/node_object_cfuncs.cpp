@@ -101,44 +101,30 @@ memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
 bool skips_node(script::Struct* node) { return modules::Skate::should_be_absent(node) != 0; }
 
-// The scenes (Nx), from their list (0x006FA7EC; 0x0048C7F0 gives the first node, its +8 the next - the one with
-// data -1 ends it - and +0 the scene; memory::ListNode).
-struct SceneNode {
-    uint8_t* scene; // +0x00 (memory::ListNode's data)
-    int priority;
-    SceneNode* next; // +0x08
-};
-static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-SceneNode* first_scene() { return raw::as<SceneNode>(render::first_scene_node()); }
-SceneNode* next_scene(SceneNode* node)
-{
-    return node->next->scene == cell::pointer<uint8_t>(-1) ? nullptr : node->next;
-}
+// The scenes (Nx), from their list (engine_scene_list.h).
+memory::ListNode* first_scene() { return render::first_scene_node(); }
+memory::ListNode* next_scene(memory::ListNode* node) { return render::next_scene_node(node); }
 
 // A scene's sector by name (0x0049CB00) and a copy of one (0x0049D510).
-render::WorldCell* as_sector(uint8_t* sector) { return raw::as<render::WorldCell>(sector); }
-render::WorldScene* as_scene(uint8_t* scene) { return raw::as<render::WorldScene>(scene); }
-uint8_t* look_up_sector(uint8_t* scene, uint32_t name)
+render::WorldCell* look_up_sector(render::WorldScene* scene, uint32_t name) { return scene->look_up_sector(name); }
+void duplicate_scene_sector(render::WorldScene* scene, render::WorldCell* sector, render::WorldScene* destination,
+                            int a, int b, uint32_t name)
 {
-    return static_cast<uint8_t*>(as_scene(scene)->look_up_sector(name));
-}
-void duplicate_scene_sector(uint8_t* scene, uint8_t* sector, uint8_t* destination, int a, int b, uint32_t name)
-{
-    as_scene(scene)->duplicate_scene_sector(as_sector(sector), as_scene(destination), a, b != 0, name);
+    scene->duplicate_scene_sector(sector, destination, a, b != 0, name);
 }
 // A sector's (WorldCell, thiscall) settings: the viewports it shows in (0x0049E680), drawn (0x0049E9B0), collided
 // with (0x0049EA30), its orientation (0x0049E700), scale (0x0049E7C0), position (0x0049E6C0).
-void toggle_shown(uint8_t* sector, uint32_t mask) { as_sector(sector)->toggle_shown(mask); }
-void change_live(uint8_t* sector, bool active) { as_sector(sector)->change_live(active); }
-void enable_collision(uint8_t* sector, bool on) { as_sector(sector)->enable_collision(on); }
-void change_facing(uint8_t* sector, const maths::Mat4* m) { as_sector(sector)->change_facing(m); }
-void change_scale(uint8_t* sector, const script::VectorValue* scale)
+void toggle_shown(render::WorldCell* sector, uint32_t mask) { sector->toggle_shown(mask); }
+void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
+void enable_collision(render::WorldCell* sector, bool on) { sector->enable_collision(on); }
+void change_facing(render::WorldCell* sector, const maths::Mat4* m) { sector->change_facing(m); }
+void change_scale(render::WorldCell* sector, const script::VectorValue* scale)
 {
-    as_sector(sector)->change_scale(scale);
+    sector->change_scale(scale);
 }
-void change_place(uint8_t* sector, const script::VectorValue* pos)
+void change_place(render::WorldCell* sector, const script::VectorValue* pos)
 {
-    as_sector(sector)->place_at_absolute_point(pos);
+    sector->place_at_absolute_point(pos);
 }
 // A sector name's flag 0x4E549FE1 effect on or off (0x0048BF90, a jump to 0x004B22F0).
 void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on != 0); }
@@ -149,23 +135,22 @@ void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on
 // or all): the box round their active geometry's vertices; the camera turned by `angleX` / `angleY` / `angleZ`
 // degrees (in that order, from no turn) and set back from the box's centre along its forward axis by the box's size
 // (at least 1000) times `scale` squared.
-void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
+void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
 {
     maths::BBox box;
-    auto* sectors = *raw::field_at<lists::KeyMap*>(scene, 0xD0);
+    lists::KeyMap* sectors = scene->sectors_;
     if (sectors) {
         sectors->iter_bucket_ = -1;
         sectors->iter_item_ = nullptr;
         for (const bool more = sectors->step_iterator(); more && sectors->iter_item_;) {
-            auto* sector = static_cast<uint8_t*>(sectors->iter_item_->value);
+            auto* sector = static_cast<render::WorldCell*>(sectors->iter_item_->value);
             if (!sector)
                 break;
             // (the sector's name: the getter folded at 0x005480C0, its +4)
-            if (!only || *raw::field_at<uint32_t>(sector, 4) == only) {
-                uint8_t* geometry = nullptr;
-                if (as_sector(sector)->is_operative()) // active
-                    geometry = static_cast<uint8_t*>(as_sector(sector)->geom_handle_);
-                auto* geom = raw::as<render::Geom>(geometry);
+            if (!only || sector->checksum_ == only) {
+                render::Geom* geom = nullptr;
+                if (sector->is_operative()) // active
+                    geom = static_cast<render::Geom*>(sector->geom_handle_);
                 const int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
                 if (count) {
                     if (!memory::g_manager_ready) // (the memory manager set up, if it isn't)
@@ -244,9 +229,9 @@ bool cfunc_center_camera(script::Struct* params, script::Script*)
     params->fetch_float("z", &z, 0); // "z"
     uint32_t id = 0;
     params->read_hash_value("id", &id, 0); // "id"
-    for (SceneNode* node = first_scene(); node;) {
-        SceneNode* next = next_scene(node);
-        fit_viewer_camera(node->scene, scale, x, y, z, id);
+    for (memory::ListNode* node = first_scene(); node;) {
+        memory::ListNode* next = next_scene(node);
+        fit_viewer_camera(render::scene_of_node(node), scale, x, y, z, id);
         node = next;
     }
     return true;
@@ -321,11 +306,11 @@ bool create_from_node(script::Struct* node)
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
     node->read_hash_value(kCloneFrom, &clone_from, 0);
-    uint8_t* scene = nullptr;
-    uint8_t* sector = nullptr;
-    for (SceneNode* at = first_scene(); at && !sector;) {
-        SceneNode* next = next_scene(at);
-        scene = at->scene;
+    render::WorldScene* scene = nullptr;
+    render::WorldCell* sector = nullptr;
+    for (memory::ListNode* at = first_scene(); at && !sector;) {
+        memory::ListNode* next = next_scene(at);
+        scene = render::scene_of_node(at);
         sector = look_up_sector(scene, clone_from ? clone_from : section_id);
         at = next;
     }
@@ -343,13 +328,13 @@ bool create_from_node(script::Struct* node)
             mark_as_occluder(section_id, 1);
         return true;
     }
-    uint8_t* copy = look_up_sector(scene, section_id);
+    render::WorldCell* copy = look_up_sector(scene, section_id);
     if (!copy) {
         duplicate_scene_sector(scene, sector, scene, 1, 1, section_id);
         copy = look_up_sector(scene, section_id);
     }
-    *raw::field_at<uint32_t>(sector, 8) |= 0x80;
-    *raw::field_at<uint32_t>(copy, 8) &= ~0x80u;
+    sector->flag_bits_ |= 0x80;
+    copy->flag_bits_ &= ~0x80u;
     script::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (node->fetch_vec(kAngles, &angles, 0)) {
         maths::Mat4 orientation;
@@ -415,9 +400,9 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
         uint32_t section_id = 0;
         if (!node->read_hash_value(kName, &section_id, 0))
             return true;
-        for (SceneNode* at = first_scene(); at;) {
-            SceneNode* next = next_scene(at);
-            if (uint8_t* sector = look_up_sector(at->scene, section_id)) {
+        for (memory::ListNode* at = first_scene(); at;) {
+            memory::ListNode* next = next_scene(at);
+            if (render::WorldCell* sector = look_up_sector(render::scene_of_node(at), section_id)) {
                 change_live(sector, false);
                 if (node->has_bare_flag(kOccluder))
                     mark_as_occluder(section_id, 0);
@@ -451,7 +436,7 @@ constexpr uint32_t kGeometryRemove = 0x2D7E583B;  // (name unknown) removed from
 constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 
 // The sector named `name` in any scene (0x0048C510; null if none).
-uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
+render::WorldCell* find_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 bool park_editor_off() { return park_editing::g_park_editor->cur_phase_ == kParkEditorOff; }
 objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
 
@@ -495,11 +480,11 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
         } else if (node_class == kClassLevelObject) {
             uint32_t name = 0;
             node->read_hash_value(kName, &name, 0);
-            if (uint8_t* sector = find_sector(name)) {
+            if (render::WorldCell* sector = find_sector(name)) {
                 change_live(sector, false);
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                *raw::field_at<uint32_t>(sector, 0xC) = terrain;
+                sector->light_group_ = terrain;
             }
         } else if (node_class == kClassLevelGeometry) {
             node->erase_module(kGeometryRemove);
@@ -510,7 +495,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 debug::printf("FAILED BECAUSE Node %d is LevelGeometry, but has no Name=....\n",
                               i); // "FAILED BECAUSE Node %d is LevelGeometry..."
             }
-            if (uint8_t* sector = find_sector(name)) {
+            if (render::WorldCell* sector = find_sector(name)) {
                 if (!park_editor_off()) {
                     if (node->has_bare_flag(kCreatedAtStart))
                         skips_node(node); // (asked, the answer unused)
@@ -522,14 +507,14 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                     change_live(sector, false);
                 }
                 if (node->has_bare_flag(kOccluder)) {
-                    as_sector(sector)->mark_as_occluder(true);
+                    sector->mark_as_occluder(true);
                     change_live(sector, false);
                     if (!node->has_bare_flag(kCreatedAtStart))
                         mark_as_occluder(name, 0);
                 }
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                *raw::field_at<uint32_t>(sector, 0xC) = terrain;
+                sector->light_group_ = terrain;
             } else {
                 uint32_t clone_from = 0;
                 node->read_hash_value(kCloneFrom, &clone_from, 0);
@@ -580,9 +565,9 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
     rails->remove_overlaps_if_not_park();
     if (!script::fetch_int_value(kNoGapChecklist))
         static_cast<goals::GapTally*>(get_skate()->fetch_gap_list())->get_build();
-    for (SceneNode* at = first_scene(); at;) {
-        SceneNode* next = next_scene(at);
-        as_scene(at->scene)->update_super_sectors_if_marked(nullptr);
+    for (memory::ListNode* at = first_scene(); at;) {
+        memory::ListNode* next = next_scene(at);
+        render::scene_of_node(at)->update_super_sectors_if_marked(nullptr);
         at = next;
     }
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
@@ -639,12 +624,12 @@ struct NodeFlagCommand {
 };
 
 // The first sector named `name` in any scene (null if none).
-uint8_t* find_scene_sector(uint32_t name)
+render::WorldCell* find_scene_sector(uint32_t name)
 {
-    uint8_t* sector = nullptr;
-    for (SceneNode* at = first_scene(); at;) {
-        SceneNode* next = next_scene(at);
-        sector = look_up_sector(at->scene, name);
+    render::WorldCell* sector = nullptr;
+    for (memory::ListNode* at = first_scene(); at;) {
+        memory::ListNode* next = next_scene(at);
+        sector = look_up_sector(render::scene_of_node(at), name);
         if (sector)
             break;
         at = next;
@@ -686,8 +671,8 @@ bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    uint8_t* sector = find_scene_sector(section_id);
-    const uint32_t mask = as_sector(sector)->fetch_shown(); // (not checked for null)
+    render::WorldCell* sector = find_scene_sector(section_id);
+    const uint32_t mask = sector->fetch_shown(); // (not checked for null)
     const uint32_t bit = second_viewport == 1 ? 2u : 1u;
     toggle_shown(sector, hide ? mask & ~bit : mask | bit);
     return true;
@@ -719,7 +704,7 @@ bool node_is_alive(uint32_t name)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    return as_sector(find_scene_sector(section_id))->is_operative(); // (not checked for null)
+    return find_scene_sector(section_id)->is_operative(); // (not checked for null)
 }
 
 // 0x005A3E80: the node `name`'s colour (0x99A9B716 of `params`, 0xBBGGRR (0x808080), with alpha 0x80): a level
@@ -749,9 +734,9 @@ bool set_node_color(uint32_t name, script::Struct* params)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    uint8_t* sector = find_scene_sector(section_id); // (not checked for null)
-    if (auto* geometry = *raw::field_at<uint8_t*>(sector, 0x14))
-        raw::as<render::Geom>(geometry)->change_tint(rgba);
+    const render::WorldCell* sector = find_scene_sector(section_id); // (not checked for null)
+    if (auto* geometry = static_cast<render::Geom*>(sector->geom_handle_))
+        geometry->change_tint(rgba);
     return true;
 }
 
@@ -772,8 +757,8 @@ bool shatter_node(uint32_t name)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    uint8_t* sector = find_scene_sector(section_id);                      // (not checked for null)
-    raw::as<render::WorldCell>(sector)->plat_set_shatter(true); // (0x004A1090: a jump to vtable +4)
+    render::WorldCell* sector = find_scene_sector(section_id);                      // (not checked for null)
+    sector->plat_set_shatter(true); // (0x004A1090: a jump to vtable +4)
     return true;
 }
 
@@ -790,7 +775,7 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    *raw::field_at<uint32_t>(find_scene_sector(section_id), 0xC) = terrain; // (not checked for null)
+    find_scene_sector(section_id)->light_group_ = terrain; // (not checked for null)
     return true;
 }
 
@@ -805,7 +790,7 @@ bool node_command(uint32_t name, int action, script::Script* script, script::Str
     int second_viewport = 0;
     if (script && script->entity_.get_pull() && !game_net->in_net_game() && modules::g_viewport_count == 2 &&
         script->entity_.get_pull() ==
-            raw::as<objects::Entity>(get_skate()->get_rider_at(1)))
+            get_skate()->get_rider_at(1))
         second_viewport = 1;
     switch (action) {
     case 0:

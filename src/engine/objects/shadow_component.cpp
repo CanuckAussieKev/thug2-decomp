@@ -61,16 +61,16 @@ render::BlobShadow* as_blob(render::ShadowBase* shadow) { return core::down_cast
 
 // The model component's model (+0x208), and that model's flags (+0x44: 0x2 visible, 0x4 hidden), its +0x1C (a
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
-uint8_t* model_of(ObjectModule* component)
+render::RenderModel* model_of(ObjectModule* component)
 {
-    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_);
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
 }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
-void set_model_shadow(uint8_t* model, bool on) { raw::as<render::RenderModel>(model)->activate_shadow(on); }
+void set_model_shadow(render::RenderModel* model, bool on) { model->activate_shadow(on); }
 // 0x00493040 (not rewritten yet): the model's hierarchy (0x50-byte objects from +0x50; the root's matrix at +0x10).
-const render::HierarchyNode* hierarchy_of(uint8_t* model)
+const render::HierarchyNode* hierarchy_of(render::RenderModel* model)
 {
-    return raw::as<render::RenderModel>(model)->get_asset_hierarchy();
+    return model->get_asset_hierarchy();
 }
 
 } // namespace
@@ -98,10 +98,10 @@ GroundShadowModule::~GroundShadowModule()
 void GroundShadowModule::seal()
 {
     mesh_instance_ = entity_->fetch_module(kModel);
-    const uint32_t checksum = *raw::field_at<uint32_t>(model_of(mesh_instance_), 0x30);
+    const uint32_t checksum = model_of(mesh_instance_)->source_path_;
     void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
     if (shadow_handle_)
-        shadow_handle_->change_mesh(raw::as<render::RenderModel>(model_of(mesh_instance_)),
+        shadow_handle_->change_mesh(model_of(mesh_instance_),
                                     static_cast<uint8_t*>(asset));
 }
 
@@ -110,10 +110,10 @@ void GroundShadowModule::refresh_shadow()
 {
     if (!shadow_handle_ || !mesh_instance_)
         return;
-    uint8_t* model = model_of(mesh_instance_);
+    const render::RenderModel* model = model_of(mesh_instance_);
     if (!model)
         return;
-    const uint8_t flags = model[0x44];
+    const uint8_t flags = model->flag_bits_;
     if (!(flags & 0x2) || (flags & 0x4)) {
         shadow_handle_->hide();
         return;
@@ -124,7 +124,7 @@ void GroundShadowModule::refresh_shadow()
         const maths::Vec4 above = object->at_point_ + core::at(object->basis_frame_.row, 1) * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
-                (raw::as<render::RenderModel>(model)->lights_ptr_)) {
+                (model->lights_ptr_)) {
             const maths::Vec4* v = lights->read_light_aim(0);
             const maths::Vec4 unused = *v * -1.0f;
             (void)unused;
@@ -133,7 +133,7 @@ void GroundShadowModule::refresh_shadow()
         break;
     }
     case kShadowSimple:
-        as_blob(shadow_handle_.get())->size_factor_ = raw::as<render::RenderModel>(model)->size_factor_.x;
+        as_blob(shadow_handle_.get())->size_factor_ = model->size_factor_.x;
         [[fallthrough]];
     case kShadowVolume:
         shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
@@ -161,23 +161,23 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     if (shadow_handle_)
         return;
     ObjectModule* model_component = entity_->fetch_module(kModel);
-    uint8_t* model = model_component ? model_of(model_component) : nullptr;
+    render::RenderModel* model = model_component ? model_of(model_component) : nullptr;
     switch (type) {
     case kShadowDetailed:
         shadow_handle_ =
-            std::make_unique<render::FullShadow>(raw::as<render::RenderModel>(model), kDown, kCastDistance);
+            std::make_unique<render::FullShadow>(model, kDown, kCastDistance);
         return;
     case kShadowSimple: {
         auto* shadow = new render::BlobShadow();
         // (no shadow - out of memory - is written through regardless, as the original)
-        shadow->size_factor_ = raw::as<render::RenderModel>(model)->size_factor_.x;
+        shadow->size_factor_ = model->size_factor_.x;
         shadow->load_mesh(model_name);
         shadow_handle_.reset(shadow);
         break;
     }
     case kShadowVolume:
         shadow_handle_ =
-            std::make_unique<render::ShadowVolume>(raw::as<render::RenderModel>(model), kDown, kCastDistance);
+            std::make_unique<render::ShadowVolume>(model, kDown, kCastDistance);
         break;
     default:
         return;
@@ -253,7 +253,7 @@ void GroundShadowModule::tick_frame()
         if (shadow_handle_) {
             maths::Mat4 matrix = entity_->display_matrix_;
             maths::Vec4 pos = entity_->at_point_;
-            uint8_t* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
+            render::RenderModel* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
                 const maths::Vec4& root = core::at(hierarchy_of(model)->matrix.row, 3);

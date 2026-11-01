@@ -122,13 +122,13 @@ int make_collision_file_name(char* out, const char* level)
 }
 
 // 0x0049CB00
-void* WorldScene::look_up_sector(uint32_t name)
+WorldCell* WorldScene::look_up_sector(uint32_t name)
 {
     const lists::KeyMap* table = sectors_;
     const lists::KeyMap::Item* item = &table->buckets_[name & ((1u << table->bits_) - 1)];
     for (; item; item = item->next) {
         if (item->key == name && item->value)
-            return item->value;
+            return static_cast<WorldCell*>(item->value);
     }
     return nullptr;
 }

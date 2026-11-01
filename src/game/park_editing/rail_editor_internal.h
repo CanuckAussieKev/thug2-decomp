@@ -20,30 +20,30 @@ memory::PoolPair& rail_pools();
 bool& get_update_super_sectors();
 // A rail sector deleted from the park (none: nothing), the piece counts marked dirty, the collision rebuilt when
 // UpdateSuperSectors; the pointer cleared.
-void remove_scene_sector(uint8_t*& sector);
+void remove_scene_sector(render::WorldCell*& sector);
 
 constexpr uint32_t kGraffitiColors = 0x7F1BA1AA; // graffitiColors
 
 // An render::WorldCell's: its checksum (+0x04); its geometry (+0x14) told a colour (its vtable +0x18); the colour cleared
 // (0x0049E670); the viewports it shows in (0x0049E680, a mask); drawn and collided with or not (0x0049E9B0).
-inline uint32_t sector_key_from_spec(const uint8_t* sector)
+inline uint32_t sector_key_from_spec(const render::WorldCell* sector)
 {
-    return *raw::field_at<const uint32_t>(sector, 0x04);
+    return sector->checksum_;
 }
-inline void set_sector_colour(uint8_t* sector, uint32_t rgba)
+inline void set_sector_colour(render::WorldCell* sector, uint32_t rgba)
 {
-    void* geometry = *raw::field_at<void*>(sector, 0x14);
+    void* geometry = sector->geom_handle_;
     if (geometry)
         static_cast<render::Geom*>(geometry)->change_tint(rgba);
 }
-inline void clear_sector_colour(uint8_t* sector) { raw::as<render::WorldCell>(sector)->wipe_tint(); }
-inline void set_sector_visibility(uint8_t* sector, uint32_t mask)
+inline void clear_sector_colour(render::WorldCell* sector) { sector->wipe_tint(); }
+inline void set_sector_visibility(render::WorldCell* sector, uint32_t mask)
 {
-    raw::as<render::WorldCell>(sector)->toggle_shown(mask);
+    sector->toggle_shown(mask);
 }
-inline void enable_sector(uint8_t* sector, bool active)
+inline void enable_sector(render::WorldCell* sector, bool active)
 {
-    raw::as<render::WorldCell>(sector)->change_live(active);
+    sector->change_live(active);
 }
 
 } // namespace park_editing::rail_editor_internal

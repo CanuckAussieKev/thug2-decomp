@@ -159,7 +159,7 @@ constexpr auto kComponentTypes = std::to_array<ComponentType>({
     {0xC695136D, &create_with<&objects::AutomobileDynamicsModule::fabricate>,
      &objects::AutomobileDynamicsModule::publish_method_table}, // CarPhysics
     {0x0A015E17, &create_with<&objects::KinematicsModule::fabricate>,
-     &objects::MotionPathMembers::publish_method_table}, // Motion
+     &objects::KinematicsModule::publish_method_table}, // Motion
     {0xCE0CA665, &create_with<&objects::DormancyModule::fabricate>,
      &objects::DormancyModule::publish_method_table}, // Suspend
     {0x270F56E1, &create_with<&objects::MoveExecutor::fabricate>,

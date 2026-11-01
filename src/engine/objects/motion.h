@@ -263,6 +263,53 @@ public:
     bool obj_move_to_rel_pos(script::Struct* params, script::Script* script);    // 0x00427490
     bool obj_move_to_link(script::Struct* params, script::Script* script);       // 0x004274B0
 
+    // 0x00423130 (not a Ghidra function; registered with the component's Create, 0x00426650): its member functions'
+    // table (0x00681EB8; filled by the static initialiser at 0x00640E30).
+    static void publish_method_table();
+    // --- the path members (0x00423130-0x00423642, motion_path.cpp) ---
+    // 0x00423150: turning (any of kMotionFlagRotating).
+    [[nodiscard]] bool is_spinning() const;
+    // 0x00423520: kMotionPathRandom (the path follower takes a random link).
+    [[nodiscard]] bool picks_random_link() const;
+    // 0x00423510: the path follower (+0x1EC; null while not on a path).
+    [[nodiscard]] PathFollower* get_path_follower() const { return path_follower_; }
+    // 0x00423530: the speed along a path (kMotionFlagOnPath): stopping - from the speed when it began, the stop's
+    // distance covered (the frame's travel added) eased linearly to the minimum stop speed, 0 at its end; else
+    // accelerating (or decelerating) towards the path velocity, by the frame's share, never past it (0 acceleration:
+    // at once).
+    void update_path_speed();
+
+    // --- the member functions scripts call (the table at 0x00681EB8) ---
+    // 0x00423160 [Obj_IsMoving] / 0x00423170 [Obj_IsRotating]: true / false.
+    int is_moving_from_script(script::Struct* params, script::Script* script);
+    int is_rotating_from_script(script::Struct* params, script::Script* script);
+    // 0x00423180 [Obj_StopMoving] / 0x00423190 [Obj_StopRotating]: the flags cleared. 1.
+    int stop_moving(script::Struct* params, script::Script* script);
+    int stop_rotating(script::Struct* params, script::Script* script);
+    // 0x004231A0 [Obj_SetPathVelocity] / 0x00423210 [Obj_SetPathMinStopVel]: the unnamed float, in miles an hour
+    // (into inches a second) - Fps: feet a second, ips: inches a second. 0x00423280 [Obj_SetPathAcceleration] /
+    // 0x004232F0 [Obj_SetPathDeceleration]: the same per second (Fpsps / ipsps). Not given: as it was. 1.
+    int set_path_velocity(script::Struct* params, script::Script* script);
+    int set_path_min_stop_vel(script::Struct* params, script::Script* script);
+    int set_path_acceleration(script::Struct* params, script::Script* script);
+    int set_path_deceleration(script::Struct* params, script::Script* script);
+    // 0x00423360 [Obj_PathHeading]: `Off` - kMotionPathNoHeading. 1.
+    int route_facing(script::Struct* params, script::Script* script);
+    // 0x004233A0 [Obj_RandomPathMode]: `Off` clears kMotionPathRandom, else sets it. 1.
+    int random_path_mode(script::Struct* params, script::Script* script);
+    // 0x004233E0 [Obj_StopAlongPath]: a stop over the unnamed distance (feet; `inches`: inches; 0 - or none: at
+    // once), from the speed now down to the minimum stop speed (15 if 0). 1.
+    int stop_along_path(script::Struct* params, script::Script* script);
+    // 0x00423480 [Obj_StartAlongPath]: the stop called off. 1.
+    int start_along_path(script::Struct* params, script::Script* script);
+    // 0x00423490 [Obj_WaitJumpFinished] / 0x004234B0 [Obj_WaitRotate] / 0x004234D0 [Obj_WaitMove] / 0x004234F0
+    // [Obj_WaitStop]: the script waits on the component (wait types 7, 9, 5, 8). 1.
+    int wait_jump_finished(script::Struct* params, script::Script* script);
+    int wait_rotate(script::Struct* params, script::Script* script);
+    int wait_move(script::Struct* params, script::Script* script);
+    int wait_stop(script::Struct* params, script::Script* script);
+
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
@@ -270,7 +317,7 @@ public:
     float path_deceleration_{};        // +0x28 Obj_SetPathDeceleration
     float path_max_speed_{};           // +0x2C Obj_SetPathVelocity
     float path_speed_{};               // +0x30 along the path: the speed now
-    float path_turn_distance_{};       // +0x34
+    float path_stop_distance_{};       // +0x34 Obj_StopAlongPath's (inches)
     float ground_above_{};             // +0x38 Obj_StickToGround DistAbove (feet)
     float ground_below_{};             // +0x3C DistBelow
     std::array<maths::Vec4, 3> ground_triangle_{}; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
@@ -293,8 +340,8 @@ public:
     maths::Vec4 move_start_{};            // +0x18C
     float ground_speed_{0.0f};            // +0x19C the ground offset's speed of change
     float ground_offset_{0.0f};           // +0x1A0 how far the height has still to go to the ground
-    float path_speed_1a_4_{};             // +0x1A4 (the path's speed handling: 0x00423530)
-    float path_speed_1a_8_{};             // +0x1A8
+    float path_stop_covered_{};           // +0x1A4 of the stop's distance (0x00423530)
+    float path_stop_start_speed_{};       // +0x1A8 the speed when the stop began
     float path_min_stop_speed_{};         // +0x1AC Obj_SetPathMinStopVel
     maths::Vec4 stored_pos_{};            // +0x1B0 Obj_StorePos
     uint32_t saved_node_id_{};            // +0x1C0 obj_store_node

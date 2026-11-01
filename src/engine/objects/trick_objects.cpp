@@ -192,11 +192,11 @@ constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the sk
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
 // (r, g, b, a; zero without a mesh), the mesh's (+0x14) vtable +0x18 set.
-uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-void clear_sector_color(uint8_t* sector) { raw::as<render::WorldCell>(sector)->wipe_tint(); }
-uint32_t* get_sector_color(uint8_t* sector, uint32_t* out)
+render::WorldCell* find_sector(uint32_t name) { return render::engine::look_up_sector(name); }
+void clear_sector_color(render::WorldCell* sector) { sector->wipe_tint(); }
+uint32_t* get_sector_color(render::WorldCell* sector, uint32_t* out)
 {
-    return raw::as<uint32_t>(raw::as<render::WorldCell>(sector)->fetch_tint(raw::bytes(out)));
+    return sector->fetch_tint(out);
 }
 
 // Graffiti colour `index`: graffitiColors[index]'s r, g, b.
@@ -211,14 +211,14 @@ script::Array* graffiti_color(int index)
 // 0x00588200
 bool TrickSpot::set_graffiti_color(int index)
 {
-    uint8_t* sector = find_sector(label_);
+    const render::WorldCell* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
     std::array<uint8_t, 4> rgba{};
     core::at(rgba, 0) = static_cast<uint8_t>(color->fetch_part(0));
     core::at(rgba, 1) = static_cast<uint8_t>(color->fetch_part(1));
     core::at(rgba, 2) = static_cast<uint8_t>(color->fetch_part(2));
     core::at(rgba, 3) = 0x80;
-    if (auto* geom = static_cast<render::Geom*>(raw::as<render::WorldCell>(sector)->geom_handle_)) {
+    if (auto* geom = static_cast<render::Geom*>(sector->geom_handle_)) {
         uint32_t packed = 0;
         std::memcpy(&packed, rgba.data(), 4);
         geom->change_tint(packed);
@@ -229,7 +229,7 @@ bool TrickSpot::set_graffiti_color(int index)
 // 0x00588270
 bool TrickSpot::clear_graffiti_color(int index)
 {
-    uint8_t* sector = find_sector(label_);
+    render::WorldCell* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
     auto r = static_cast<uint8_t>(color->fetch_part(0));
     auto g = static_cast<uint8_t>(color->fetch_part(1));

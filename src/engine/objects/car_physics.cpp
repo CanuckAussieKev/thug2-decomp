@@ -80,18 +80,18 @@ maths::Mat4* rig_matrix_block(void* skeleton) { return static_cast<gfx::Rig*>(sk
 int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->bone_total_; }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
-float motion_speed(uint8_t* motion) { return raw::as<KinematicsModule>(motion)->path_speed_; }
-PathFollower* motion_path_follower(uint8_t* motion)
+float motion_speed(KinematicsModule* motion) { return motion->path_speed_; }
+PathFollower* motion_path_follower(KinematicsModule* motion)
 {
-    return static_cast<PathFollower*>(raw::as<MotionPathMembers>(motion)->get_path_follower());
+    return motion->get_path_follower();
 }
 
 // The suspend component (no source yet): suspended (+0x30, the getter 0x00433E90), and whether its object should be
 // updated this frame (0x00433EA0).
-bool suspend_suspended(uint8_t* suspend) { return raw::as<DormancyModule>(suspend)->far_; }
-bool suspend_should_update(uint8_t* suspend, float* distance)
+bool suspend_suspended(const DormancyModule* suspend) { return suspend->far_; }
+bool suspend_should_update(DormancyModule* suspend, float* distance)
 {
-    return raw::as<DormancyModule>(suspend)->wants_animating(distance);
+    return suspend->wants_animating(distance);
 }
 
 } // namespace
@@ -127,8 +127,8 @@ void AutomobileDynamicsModule::configure_from_data(script::Struct* params)
 // 0x0041BE10
 void AutomobileDynamicsModule::seal()
 {
-    motion_ = raw::bytes(entity_->fetch_module(kMotion));
-    suspend_ = raw::bytes(entity_->fetch_module(kSuspend));
+    motion_ = core::down_cast<KinematicsModule>(entity_->fetch_module(kMotion));
+    suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(kSuspend));
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     if (!skeleton)
         return;
@@ -148,7 +148,7 @@ void AutomobileDynamicsModule::seal()
 // 0x0041BB30
 void AutomobileDynamicsModule::update_angles()
 {
-    uint8_t* motion = motion_;
+    KinematicsModule* motion = motion_;
     // The spin, kept within 0-360 (the steps taken on the FPU stack, from the stored value).
     const double frames = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond;
     const double spin =

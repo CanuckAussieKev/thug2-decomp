@@ -109,7 +109,6 @@ KinematicsModule* get_motion(GameEntity* object)
 {
     return core::down_cast<KinematicsModule>(object->fetch_module(kMotion));
 }
-MotionPathMembers* motion_path(KinematicsModule* motion) { return raw::as<MotionPathMembers>(motion); }
 
 GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider()); }
 
@@ -794,7 +793,7 @@ void PedestrianBrainModule::generic_move_update()
     if (!turn_towards_node_after() && !avoided)
         keep_to_path();
     const maths::Vec4 old = entity_->at_point_;
-    motion_path(motion)->update_path_speed();
+    motion->update_path_speed();
     move_steered();
     if (old != entity_->at_point_)
         face_movement(old);
@@ -806,7 +805,7 @@ void PedestrianBrainModule::generic_move_update()
 void PedestrianBrainModule::skater_move_update()
 {
     KinematicsModule* motion = get_motion(entity_);
-    motion_path(motion)->update_path_speed();
+    motion->update_path_speed();
     auto step = static_cast<float>(static_cast<double>(step_seconds_) * motion->path_speed_);
     const bool airborne = (motion->motion_flags_ & 0x100) != 0;
     if (flag_bits_ & kPedFlagGrinding) {
@@ -922,7 +921,7 @@ void PedestrianBrainModule::skater_move_update()
 void PedestrianBrainModule::bail_move_update()
 {
     KinematicsModule* motion = get_motion(entity_);
-    motion_path(motion)->update_path_speed();
+    motion->update_path_speed();
     auto step = static_cast<float>(static_cast<double>(step_seconds_) * motion->path_speed_);
     if (!(flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing))) {
         // The bail's over: back to skating.

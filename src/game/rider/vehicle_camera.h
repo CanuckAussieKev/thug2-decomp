@@ -16,6 +16,8 @@ class Struct;
 
 namespace objects {
 
+class DrivableModule;
+
 class FreeLookModule;
 
 // The VehicleCamera component (type 0x2C747D8A, vtable 0x0064C5A0, 0xA4 bytes; made by 0x005248C0, its member
@@ -69,7 +71,7 @@ public:
     void apply_to_camera();
 
     GameEntity* subject_{};          // +0x18 the vehicle
-    uint8_t* vehicle_{};             // +0x1C its Vehicle component (+0xA4 its velocity, +0x114 wheels down)
+    DrivableModule* vehicle_{};      // +0x1C its Vehicle component
     maths::Vec4 direction_{};        // +0x20 where the camera looks (flat, normalised)
     maths::Vec4 target_direction_{}; // +0x30
     maths::Vec4 anchor_point_{};     // +0x40

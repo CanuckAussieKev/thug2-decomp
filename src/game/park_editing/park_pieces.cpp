@@ -116,7 +116,7 @@ void ParkTile::change_place(maths::Vec4* position, int update)
 
 void ParkTile::set_length(float length)
 {
-    uint8_t* sector = scene::look_up_sector(sector_);
+    render::WorldCell* sector = scene::look_up_sector(sector_);
     const bool across = (quarter_turns_ & 1) != 0;
     // (w is a stack leftover in the original)
     const maths::Vec4 scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
@@ -125,7 +125,7 @@ void ParkTile::set_length(float length)
 
 void ParkTile::set_angle(float degrees)
 {
-    uint8_t* geometry = scene::fetch_shape(scene::look_up_sector(sector_));
+    render::Geom* geometry = scene::fetch_shape(scene::look_up_sector(sector_));
     if (!geometry)
         return;
     maths::Mat4 orientation{};
@@ -138,10 +138,10 @@ void ParkTile::set_angle(float degrees)
 
 void ParkTile::set_highlight(bool on, bool gap)
 {
-    uint8_t* sector = scene::look_up_sector(sector_);
+    render::WorldCell* sector = scene::look_up_sector(sector_);
     if (!sector)
         return;
-    uint8_t* geometry = scene::fetch_shape(sector);
+    render::Geom* geometry = scene::fetch_shape(sector);
     if (!geometry)
         return;
     if (!on) {

@@ -162,8 +162,8 @@ public:
     void set_vertices(const maths::Vec4* in) override;
     // 0x004B4160 (vtable slot 38) / 0x004B4210 (vtable slot 40): the vertex colours (RGBA; the buffers hold BGRA) read
     // from the first vertex buffers and written to all.
-    void plat_get_render_colors(uint8_t* out) override;
-    void change_colors(const uint8_t* in) override;
+    void plat_get_render_colors(uint32_t* out) override;
+    void change_colors(const uint32_t* in) override;
     // 0x004B4300 (vtable slot 42): the UV wibble of each mesh's first pass that has one.
     void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
                               float v_freq, float v_phase) override;

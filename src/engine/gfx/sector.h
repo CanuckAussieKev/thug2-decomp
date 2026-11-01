@@ -65,7 +65,7 @@ public:
     // 0x0049E670: the geometry's colour taken off.
     void wipe_tint();
     // 0x0049E980: the geometry's colour (RGBA) into `out` - 0 without geometry. Returns out.
-    uint8_t* fetch_tint(uint8_t* out);
+    uint32_t* fetch_tint(uint32_t* out);
     // 0x0049E680 / 0x0049E690: the viewports it shows in (a mask; 0 without geometry).
     void toggle_shown(uint32_t mask);
     uint32_t fetch_shown();

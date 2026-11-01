@@ -62,7 +62,6 @@ void CellChainScratch::teardown()
 
 namespace {
 
-uint8_t* scene_of(void* scene) { return static_cast<uint8_t*>(scene); }
 
 } // namespace
 
@@ -111,7 +110,7 @@ TileTemplate* ParkAssembler::get_piece_source(uint32_t name)
 
 bool ParkAssembler::remove_scene_sector(uint32_t name, int /*unused*/)
 {
-    return scene::remove_scene_sector(scene_of(scene_handle_), name);
+    return scene::remove_scene_sector(scene_handle_, name);
 }
 
 void ParkAssembler::destroy_rails()
@@ -198,7 +197,7 @@ void ParkAssembler::set_up_bounds()
     box.append_spot(low);
     const maths::Vec4 high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
     box.append_spot(high);
-    scene::assign_scene_bounds(scene_of(scene_handle_), &box);
+    scene::assign_scene_bounds(scene_handle_, &box);
 }
 
 void ParkAssembler::rebuild_collision()
@@ -207,7 +206,7 @@ void ParkAssembler::rebuild_collision()
         return;
     flag_bits_ &= ~ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
-    scene::get_update_super_sectors(scene_of(scene_handle_), nullptr);
+    scene::get_update_super_sectors(scene_handle_, nullptr);
     memory::leave_heap_scope();
     flag_bits_ |= ParkAssembler::kSuperSectorsUpdated;
 }
@@ -215,7 +214,7 @@ void ParkAssembler::rebuild_collision()
 void ParkAssembler::update_bounds(uint32_t /*unused*/)
 {
     ParkLayout* manager = ParkLayout::singleton();
-    uint8_t* shell = scene::look_up_scene(manager->get_shell_checksum());
+    render::WorldScene* shell = scene::look_up_scene(manager->get_shell_checksum());
     if (!shell)
         return;
     // The shell's first box: as big as can be.
@@ -266,14 +265,14 @@ uint32_t ParkAssembler::duplicate_scene_sector(uint32_t name, int a, int b, int 
     flag_bits_ |= ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
     const uint32_t clone =
-        scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), a, b, 0);
+        scene::duplicate_scene_sector(source_world_, name, scene_handle_, a, b, 0);
     memory::leave_heap_scope();
     return clone;
 }
 
 bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
 {
-    const bool deleted = scene::remove_scene_sector(scene_of(scene_handle_), name);
+    const bool deleted = scene::remove_scene_sector(scene_handle_, name);
     rebuild_collision();
     return deleted;
 }
@@ -290,8 +289,8 @@ ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
     memory::enter_heap_scope(memory::bottom_up_heap());
     const uint32_t clone =
         (flags & ParkTile::kCursor)
-            ? scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 1, 0, 0)
-            : scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 0, 1, 0);
+            ? scene::duplicate_scene_sector(source_world_, name, scene_handle_, 1, 0, 0)
+            : scene::duplicate_scene_sector(source_world_, name, scene_handle_, 0, 1, 0);
     memory::leave_heap_scope();
     cloning_piece() = 0;
     // The piece itself on the park editor's heap.
@@ -305,8 +304,8 @@ ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
     piece->flag_bits_ |= flags;
     uint32_t rgba = 0;
     if (get_piece_color(piece, &rgba)) { // (never)
-        if (uint8_t* sector = scene::look_up_sector(clone)) {
-            if (uint8_t* geometry = scene::fetch_shape(sector))
+        if (render::WorldCell* sector = scene::look_up_sector(clone)) {
+            if (render::Geom* geometry = scene::fetch_shape(sector))
                 scene::change_tint(geometry, rgba);
         }
     }

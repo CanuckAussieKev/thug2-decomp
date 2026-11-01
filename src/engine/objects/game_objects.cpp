@@ -130,9 +130,9 @@ void spawn_pedestrian(script::Struct* params)
     motion->path_max_speed_ = 44.0f;
     motion->path_acceleration_ = 48.0f;
     motion->path_deceleration_ = 12.0f;
-    motion->path_turn_distance_ = 24.0f;
+    motion->path_stop_distance_ = 24.0f;
     motion->init_path_follower(ped);
-    auto* path = static_cast<PathFollower*>(raw::as<MotionPathMembers>(motion)->get_path_follower());
+    auto* path = motion->get_path_follower();
     path->corner_distance_ = 24.0f;
     motion->motion_flags2_ |= 0x400;
     update_model(ped->fetch_module(kModel));
@@ -150,7 +150,7 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
     motion->path_deceleration_ = 384.0f;
     motion->ground_height_only_ = false;
     motion->init_path_follower(car);
-    auto* extra = static_cast<PathFollower*>(raw::as<MotionPathMembers>(motion)->get_path_follower());
+    auto* extra = motion->get_path_follower();
     extra->corner_distance_ = 240.0f;
     script::launch_script(kCarAddComponents, params, car, false, nullptr);
     car->seal();

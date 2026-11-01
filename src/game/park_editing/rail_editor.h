@@ -21,6 +21,9 @@
 #include <gsl/pointers>
 #include <array>
 
+namespace render {
+class WorldCell;
+}
 namespace script {
 class Array;
 class Script;
@@ -38,8 +41,8 @@ struct EditedRailPoint {
     float level_y_;              // +0x14 how far over the ground below it is (where its post stands)
     EditedRailPoint* following_; // +0x18
     EditedRailPoint* preceding_; // +0x1C
-    uint8_t* segment_;           // +0x20 the sector of the rail from here to the next point (an render::WorldCell)
-    uint8_t* post_;              // +0x24 its post's sector
+    render::WorldCell* segment_;  // +0x20 the sector of the rail from here to the next point
+    render::WorldCell* post_;     // +0x24 its post's sector
 
     // 0x004F3AD0: if highlighted, its sectors (and those of its neighbours that Highlight coloured: the previous
     // point's segment, an end point's post) back to their own colour and shown in every viewport; not highlighted.
@@ -136,7 +139,7 @@ static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail,
 
 // The rail editor's geometry (rail_editor_draw.cpp).
 // 0x004F3E00: a copy of the source sector `source` made in the park (counts dirty, collision rebuilt); its sector.
-uint8_t* clone_rail_sector(uint32_t source);
+render::WorldCell* clone_rail_sector(uint32_t source);
 // 0x004F3D80: `point` moved from `origin` to `position` turned `angle` degrees about y (x, z: the cosine at the x87's
 // full precision, the sine rounded to float; w: the original adds `position`'s to an unset local - here 0). Returns
 // `out`.
@@ -160,7 +163,7 @@ void orient_rail_vertices(const maths::Vec4* direction, const maths::Vec4* trans
 // the previous segment's direction and that segment's end moved onto it when `previous_sector` is given) and given to
 // `sector`; with `update_collision`, its collision's vertices too.
 void stretch_rail_sector(uint32_t source, const maths::Vec4* from, const maths::Vec4* previous, const maths::Vec4* to,
-                         uint8_t* sector, uint8_t* previous_sector, bool update_collision);
+                         render::WorldCell* sector, render::WorldCell* previous_sector, bool update_collision);
 
 // The rail editor component (type 0x5B509AD3, vtable 0x0064B918, 0x1168 bytes; made by 0x004F7FB0).
 //
@@ -289,7 +292,7 @@ public:
     EditedRail* active_node_{}; // +0x24 the rail points are added to
     uint32_t mode_sel_{};       // +0x28 SetEditingMode's Mode
     uint32_t dotted_line_name_; // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
-    uint8_t* dotted_line_;      // +0x30 its sector
+    render::WorldCell* dotted_line_; // +0x30 its sector
     RailBuffer packed_{};       // +0x34
     std::array<uint8_t, 2> pad1166{};
 };

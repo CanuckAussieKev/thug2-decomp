@@ -236,11 +236,11 @@ int sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius)
 }
 
 // 0x0048C510
-void* look_up_sector(uint32_t checksum)
+WorldCell* look_up_sector(uint32_t checksum)
 {
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
-        if (void* sector = scene_of(node)->look_up_sector(checksum))
+        if (WorldCell* sector = scene_of(node)->look_up_sector(checksum))
             return sector;
         node = next;
     }

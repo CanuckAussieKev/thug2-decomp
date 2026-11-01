@@ -11,6 +11,9 @@ namespace script {
 class Struct;
 class Script;
 } // namespace script
+namespace render {
+struct WorldScene;
+}
 namespace objects {
 class Entity;
 }
@@ -195,7 +198,7 @@ bool cfunc_create_from_structure(script::Struct* params, script::Script* script)
 bool cfunc_parse_node_array(script::Struct* params, script::Script* script);      // 0x005A34E0
 bool cfunc_re_load_node_array(script::Struct* params, script::Script* script);    // 0x005A39F0
 // 0x005A2A00: the viewer's camera object placed to look at a scene's sectors (all, or those named `only`).
-void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only);
+void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only);
 // 0x005A2E50 / 0x005A32A0: the object of a node (its structure / its name) made by its class.
 bool create_from_node(script::Struct* node);
 bool create_from_node_name(uint32_t name);

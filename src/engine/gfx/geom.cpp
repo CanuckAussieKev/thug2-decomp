@@ -668,39 +668,38 @@ void PcGeom::set_vertices(const maths::Vec4* in)
 }
 
 // 0x004B4160
-void PcGeom::plat_get_render_colors(uint8_t* out)
+void PcGeom::plat_get_render_colors(uint32_t* out)
 {
     if (!meshes)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
         const uint8_t* color = get_lock(get_vertex_buffer(mesh, 0), kReadOnly) + color_offset(mesh);
-        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, out += 4) {
-            out[0] = color[2];
-            out[1] = color[1];
-            out[2] = color[0];
-            out[3] = color[3];
+        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, ++out) {
+            // (the vertex's BGRA bytes as an RGBA word)
+            *out = color[2] | (uint32_t{color[1]} << 8) | (uint32_t{color[0]} << 16) | (uint32_t{color[3]} << 24);
         }
         get_unlock(get_vertex_buffer(mesh, 0));
     }
 }
 
 // 0x004B4210
-void PcGeom::change_colors(const uint8_t* in)
+void PcGeom::change_colors(const uint32_t* in)
 {
     if (!meshes)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
-        const uint8_t* mesh_colors = in;
+        const uint32_t* mesh_colors = in;
         for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count_); ++b) {
             in = mesh_colors;
             uint8_t* color = get_lock(get_vertex_buffer(mesh, b), 0) + color_offset(mesh);
-            for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, in += 4) {
-                color[2] = in[0];
-                color[1] = in[1];
-                color[0] = in[2];
-                color[3] = in[3];
+            for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, ++in) {
+                // (an RGBA word into the vertex's BGRA bytes)
+                color[2] = static_cast<uint8_t>(*in);
+                color[1] = static_cast<uint8_t>(*in >> 8);
+                color[0] = static_cast<uint8_t>(*in >> 16);
+                color[3] = static_cast<uint8_t>(*in >> 24);
             }
             get_unlock(get_vertex_buffer(mesh, b));
         }

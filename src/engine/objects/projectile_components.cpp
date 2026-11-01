@@ -114,6 +114,8 @@ void ShotImpactModule::configure_from_data(script::Struct* params)
 }
 
 // 0x004F2F40
+void ShotImpactModule::seal() { suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(DormancyModule::kType)); }
+
 void ShotImpactModule::mark_hit() { hit_ = true; }
 
 // 0x004F2F20
@@ -131,7 +133,7 @@ void ShotImpactModule::tick_frame()
     if (net->in_net_game() && projectile_type_ != kFireball && !net->players_can_collide())
         return;
     auto reach = static_cast<float>(static_cast<double>(radius_) + kReach);
-    if (raw::as<DormancyModule>(suspend_)->is_far() || hit_)
+    if (suspend_->is_far() || hit_)
         return;
     modules::Skate* skate = skate_module();
     auto count = static_cast<uint32_t>(skate->count_riders());

@@ -120,16 +120,13 @@ void WorldCell::wipe_tint()
 }
 
 // 0x0049E980
-uint8_t* WorldCell::fetch_tint(uint8_t* out)
+uint32_t* WorldCell::fetch_tint(uint32_t* out)
 {
     if (geom_handle_) {
-        static_cast<Geom*>(geom_handle_)->fetch_tint(raw::as<uint32_t>(out));
+        static_cast<Geom*>(geom_handle_)->fetch_tint(out);
         return out;
     }
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
+    *out = 0;
     return out;
 }
 

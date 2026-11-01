@@ -113,7 +113,7 @@ public:
     ObjectModule* anim_blender_{nullptr};    // +0x2A8 (0x7149B753)
     MeshInstanceModule* mesh_set_{nullptr};  // +0x2AC Model (0x286A8D26)
     RiderPoseState* pose_{nullptr};          // +0x2B0 SkaterState (0x43686585)
-    uint8_t* run_over_{nullptr};             // +0x2B4 SkaterEndRun (0xB1D5A3E1)
+    objects::ObjectModule* run_over_{nullptr}; // +0x2B4 SkaterEndRun (0xB1D5A3E1)
     ObjectModule* flip_and_rotate_{nullptr}; // +0x2B8 SkaterFlipAndRotate (0x488AF07A)
     ObjectModule* shadow_{nullptr};          // +0x2BC Shadow (0x8A897DD2)
 };

@@ -17,6 +17,8 @@ class Struct;
 
 namespace objects {
 
+class DormancyModule;
+
 // The collide-and-die component (type 0x6259B52B "collideanddie", vtable 0x00645EB4, 0x54 bytes; made by 0x0041C370):
 // a projectile's end - each update a collision feeler from where its object was (24 up) to where it is (24 up, plus
 // `radius` along its velocity); on a hit its projectile collision component (0x7767D6D7) is told, death_script runs
@@ -45,7 +47,7 @@ public:
     // 0x0041C3D0 (vtable slot 1): see the class. The times are the game clock's, compared unsigned.
     void tick_frame() override;
 
-    uint8_t* suspend_{};         // +0x18 the suspend component (+0x30: suspended)
+    DormancyModule* suspend_{};  // +0x18 the suspend component
     float radius_{0.0f};         // +0x1C radius
     float size_factor_{0.0f};    // +0x20 scale (given to death_script)
     uint32_t made_time_;         // +0x24

@@ -16,6 +16,8 @@ class Struct;
 
 namespace objects {
 
+class WaitAndDieComponent;
+
 // The dynamic light component (type 0xD8BFC9F7 - its name isn't in THUG2's scripts -, vtable 0x00645F58, 0x48 bytes;
 // made by 0x0041D0F0): a dynamic light at its object's position that changes over the object's life (its wait-and-die
 // component's elapsed / total time): radius, intensity and colour from their start values to their end values -
@@ -63,7 +65,7 @@ public:
     float middle_intensity_{};        // +0x38
     float end_intensity_{};           // +0x3C
     float middle_time_{};             // +0x40 the middle's fraction of the life (-1: none)
-    uint8_t* wait_and_die_{};         // +0x44 its +0x1C elapsed, +0x20 total (unsigned)
+    WaitAndDieComponent* wait_and_die_{}; // +0x44 (its elapsed and total time)
 };
 
 } // namespace objects

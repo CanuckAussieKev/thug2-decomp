@@ -213,7 +213,7 @@ void PedestrianBrainModule::initialize_movement()
 void PedestrianBrainModule::no_move_update()
 {
     GameEntity* object = entity_;
-    if (raw::as<MotionPathMembers>(get_motion(object))->is_spinning())
+    if (get_motion(object)->is_spinning())
         saved_matrix_ = object->basis_frame_;
     else
         object->display_matrix_ = saved_matrix_;

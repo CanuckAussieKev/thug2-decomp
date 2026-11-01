@@ -104,7 +104,7 @@ void Geom::fetch_tints(uint32_t* out)
         manager->enter_heap_scope(manager->front_end_heap_);
         render_colours_ = static_cast<uint32_t*>(memory::alloc_block(count * 4));
         memory::Hub::get_pull()->leave_heap_scope();
-        plat_get_render_colors(raw::bytes(render_colours_));
+        plat_get_render_colors(render_colours_);
     }
     std::memcpy(out, render_colours_, count * 4);
 }
@@ -292,7 +292,7 @@ uint32_t Geom::plat_get_num_render_base_polys()
     return 0;
 }
 // 0x0048DCA0
-void Geom::plat_get_render_colors(uint8_t*)
+void Geom::plat_get_render_colors(uint32_t*)
 {
     get_stub("STUB: CGeom::plat_get_render_colors\n");
 } // "STUB: CGeom::plat_get_render_colors\n"
@@ -302,7 +302,7 @@ void Geom::set_vertices(const maths::Vec4*)
     get_stub("STUB: CGeom::plat_set_render_verts\n");
 } // "STUB: CGeom::plat_set_render_verts\n"
 // 0x0048DCC0
-void Geom::change_colors(const uint8_t*)
+void Geom::change_colors(const uint32_t*)
 {
     get_stub("STUB: CGeom::plat_set_render_colors\n");
 } // "STUB: CGeom::plat_set_render_colors\n"

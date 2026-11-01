@@ -80,7 +80,7 @@ void RiderRunClock::publish_method_table()
 RiderRunClock::~RiderRunClock() = default;
 
 // 0x005182E0
-void RiderRunClock::seal() { walk_ = raw::bytes(entity_->fetch_module(kWalk)); }
+void RiderRunClock::seal() { walk_ = core::down_cast<FootMovement>(entity_->fetch_module(kWalk)); }
 
 // 0x00518270
 void RiderRunClock::fetch_diagnostics(script::Struct* params)
@@ -94,7 +94,7 @@ void RiderRunClock::fetch_diagnostics(script::Struct* params)
 void RiderRunClock::tick_frame()
 {
     if (cur_phase_ == kClockTicking) {
-        const int walk_state = raw::as<const objects::FootMovement>(walk_)->state_;
+        const int walk_state = walk_->state_;
         double elapsed = 0.0;
         if (walk_state >= 2 && walk_state <= 4) {
             const float adjustment = script::fetch_float(kHangSpeedAdjustment);

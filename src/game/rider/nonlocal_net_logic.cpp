@@ -106,7 +106,7 @@ void RiderRemoteSync::seal()
 {
     past_frames_ = core::down_cast<RiderFrameLog>(entity_->fetch_module(kSkaterStateHistory));
     pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
-    run_over_ = raw::bytes(entity_->fetch_module(kSkaterEndRun));
+    run_over_ = entity_->fetch_module(kSkaterEndRun);
     anim_blender_ = entity_->fetch_module(kAnimBlender);
     flip_and_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
     mesh_set_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel));

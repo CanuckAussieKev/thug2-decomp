@@ -69,13 +69,13 @@ void set_no_lod(float* distances)
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
-uint8_t* model_of(ObjectModule* component)
+render::RenderModel* model_of(ObjectModule* component)
 {
-    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_);
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
 }
-void change_model_enabled(uint8_t* model, bool active)
+void change_model_enabled(render::RenderModel* model, bool active)
 {
-    raw::as<render::RenderModel>(model)->change_live(active);
+    model->change_live(active);
 }
 
 } // namespace
@@ -197,7 +197,7 @@ void DormancyModule::refresh_shown_state()
         return;
     bool visible = false;
     if (!(entity_->object_flags_ & kEntityHiddenBit)) {
-        uint8_t* model = model_of(mesh_instance_);
+        render::RenderModel* model = model_of(mesh_instance_);
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (raw::as<const uint32_t>(lod_distances_.data())[2] == core::at(kNoLodBits, 2)) {
             visible = true;
@@ -210,7 +210,7 @@ void DormancyModule::refresh_shown_state()
             if (distance_squared_ < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 std::array<float, 4> sphere{};
-                raw::as<render::RenderModel>(model)->fetch_bound_sphere(
+                model->fetch_bound_sphere(
                     raw::as<maths::Vec4>(sphere.data()));
                 maths::Vec4 centre = {core::at(sphere, 0), core::at(sphere, 1), core::at(sphere, 2), 1.0f};
                 centre.multiply_by(entity_->basis_frame_);
@@ -219,7 +219,7 @@ void DormancyModule::refresh_shown_state()
             }
         }
     }
-    const uint8_t flags = model_of(mesh_instance_)[0x44];
+    const uint8_t flags = model_of(mesh_instance_)->flag_bits_;
     const bool shown = (flags & 0x2) && !(flags & 0x4);
     change_model_enabled(model_of(mesh_instance_), visible);
     if (visible && !shown)

@@ -44,18 +44,18 @@ constexpr uint32_t kLevelObject = 0xB7B3BD86;     // LevelObject
 constexpr uint32_t kName = 0xA1DC81F9;            // Name
 
 // The model component's model (+0x208).
-uint8_t* model_of(ObjectModule* model)
+render::RenderModel* model_of(ObjectModule* model)
 {
-    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_);
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_;
 }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
-uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-render::HitMesh* sector_collision(uint8_t* sector) { return raw::as<render::WorldCell>(sector)->hit_body_; }
+render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
+render::HitMesh* sector_collision(const render::WorldCell* sector) { return sector->hit_body_; }
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
-const render::HierarchyNode* bone_of(uint8_t* model) { return raw::as<render::RenderModel>(model)->get_asset_hierarchy(); }
+const render::HierarchyNode* bone_of(render::RenderModel* model) { return model->get_asset_hierarchy(); }
 
 void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
@@ -93,7 +93,7 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
     // (the original passes on whatever was in the name's slot when there's no Name - an assertion's case; ours 0)
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    uint8_t* sector = look_up_sector(name); // (no such sector: a crash, as in the original)
+    const render::WorldCell* sector = look_up_sector(name); // (no such sector: a crash, as in the original)
     if (sector_collision(sector))
         set_up_hit_shape(type, sector_collision(sector)->geometry_);
     else
@@ -107,9 +107,9 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
         hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, static_cast<int>(cell::of(entity_)));
         return;
     }
-    uint8_t* model = model_of(entity_->fetch_module(kModelModuleName));
+    const render::RenderModel* model = model_of(entity_->fetch_module(kModelModuleName));
     auto* data = static_cast<uint8_t*>(
-        assets::asset_manager()->get_asset_data(raw::as<render::RenderModel>(model)->source_path_, 0));
+        assets::asset_manager()->get_asset_data(model->source_path_, 0));
     if (data) {
         hit_shape_ =
             render::build_dynamic_hit_mesh(type, *raw::field_at<render::TriMeshSource*>(data, 0x8C),

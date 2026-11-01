@@ -38,7 +38,7 @@ memory::PoolPair& point_pools() { return g_rail_point_pools; }
 memory::PoolPair& rail_pools() { return g_rail_pools; }
 bool& get_update_super_sectors() { return g_rail_editor_flag; }
 
-void remove_scene_sector(uint8_t*& sector)
+void remove_scene_sector(render::WorldCell*& sector)
 {
     if (!sector)
         return;
@@ -113,7 +113,7 @@ void EditedRailPoint::clear_glow()
 {
     if (!highlighted_)
         return;
-    auto restore = [](uint8_t* sector) {
+    auto restore = [](render::WorldCell* sector) {
         clear_sector_colour(sector);
         set_sector_visibility(sector, 0xFFFFFFFF);
     };

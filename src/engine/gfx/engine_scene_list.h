@@ -33,6 +33,9 @@ struct SceneListHead : memory::ListNode {
 
 // 0x0048C7F0: the first node of the list (null when it's empty).
 memory::ListNode* first_scene_node();
+// The scenes' list walked: the node after `node` (null at its end) and a node's scene.
+memory::ListNode* next_scene_node(memory::ListNode* node);
+WorldScene* scene_of_node(const memory::ListNode* node);
 // 0x0048C750: the scene named `name` (its checksum looked up, 0x0048C700), or null.
 WorldScene* get_scene_by_name(const char* name);
 // 0x0048C770 / 0x0048C7B0: the first scene that isn't a sky / that is one (null if none).

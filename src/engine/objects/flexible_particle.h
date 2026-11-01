@@ -21,6 +21,8 @@ struct MemberFunctionEntry;
 
 namespace objects {
 
+class DormancyModule;
+
 // The flexible particle component (type 0xC5BCEB9E "flexibleparticle", vtable 0x00645FE4, 0x3C bytes; made by
 // 0x0041E1E0): a particle system of the particle manager (0x006FA7C0) made from its configure_from_data's parameters (or,
 // with perm, the one of its name if there is one), moved with its object and given time each update; its member
@@ -97,7 +99,7 @@ public:
     uint32_t label_{0};                         // +0x24 name (or the component's address)
     uint32_t unknown28_{0};                     // +0x28 0x184197D5 (given to the system's +0x78)
     float clock_{0.0f};                         // +0x2C the time not yet given to the system
-    uint8_t* suspend_{nullptr};                 // +0x30 the suspend component
+    DormancyModule* suspend_{nullptr};          // +0x30 the suspend component
     ObjectModule* brightness_model_{nullptr};   // +0x34 ObjID's model (update_Brightness)
     bool rotate_{false};                        // +0x38 EnableRotate
 };

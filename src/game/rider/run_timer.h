@@ -24,6 +24,8 @@ class Struct;
 // the shared invoke_method_by_name 0x0051ADC0.
 namespace objects {
 
+class FootMovement;
+
 class RiderRunClock final : public ObjectModule {
 public:
     RiderRunClock(const RiderRunClock&) = delete;
@@ -71,7 +73,7 @@ public:
     float seconds_remaining_{}; // +0x1C seconds
     int16_t resumes_{};         // +0x20
     std::array<uint8_t, 2> pad22{};
-    uint8_t* walk_{}; // +0x24 Walk (0x726E85AA)
+    FootMovement* walk_{}; // +0x24 Walk (0x726E85AA)
 };
 
 } // namespace objects

@@ -145,11 +145,11 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 // The suspend component (no source yet): whether its object should be updated (0x00433EA0), suspended (+0x30, the
 // getter 0x00433E90), told to start (0x00433E70).
-bool suspend_should_update(uint8_t* suspend)
+bool suspend_should_update(DormancyModule* suspend)
 {
-    return raw::as<DormancyModule>(suspend)->wants_animating(nullptr);
+    return suspend->wants_animating(nullptr);
 }
-void suspend_start(uint8_t* suspend) { raw::as<DormancyModule>(suspend)->disable_lod(); }
+void suspend_start(DormancyModule* suspend) { suspend->disable_lod(); }
 
 // The object dies.
 void get_kill(GameEntity* object) { object->flag_as_dead(); }
@@ -280,7 +280,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
 // 0x0041D740
 void FlexibleParticleComponent::seal()
 {
-    suspend_ = raw::bytes(entity_->fetch_module(kSuspend));
+    suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(kSuspend));
     if (suspend_)
         suspend_start(suspend_);
 }
@@ -296,7 +296,7 @@ void FlexibleParticleComponent::tick_frame()
     bool update = true;
     if (suspend_ && !suspend_should_update(suspend_))
         update = false;
-    if (suspend_ && raw::as<DormancyModule>(suspend_)->far_ && !g_online_hub->in_net_game()) {
+    if (suspend_ && suspend_->far_ && !g_online_hub->in_net_game()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
         if (clock_ >= particle_update_time()) {
             render::EmitterInstance* system = system_.get_pull();

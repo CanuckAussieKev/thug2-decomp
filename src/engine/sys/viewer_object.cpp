@@ -140,17 +140,17 @@ void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // The model component's model (+0x208), its bone count (0x00492FF0) and hierarchy (0x00493040: objects of 0x50 bytes,
 // each with its matrix at +0x10) - render::RenderModel, not rewritten yet; the skeleton component's skeleton (the folded
 // getter 0x005480F0: +0x18) and the skeleton's bone matrices (0x005480C0: +0x04).
-uint8_t* model_of(ObjectModule* component)
+render::RenderModel* model_of(ObjectModule* component)
 {
-    return raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_);
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
 }
-int get_bone_count(uint8_t* model)
+int get_bone_count(render::RenderModel* model)
 {
-    return static_cast<int>(raw::as<render::RenderModel>(model)->get_asset_bone_count());
+    return static_cast<int>(model->get_asset_bone_count());
 }
-const render::HierarchyNode* hierarchy_of(uint8_t* model)
+const render::HierarchyNode* hierarchy_of(render::RenderModel* model)
 {
-    return raw::as<render::RenderModel>(model)->get_asset_hierarchy();
+    return model->get_asset_hierarchy();
 }
 gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 
@@ -337,7 +337,7 @@ void PreviewEntity::spin_wheels()
     ObjectModule* model = fetch_module(kModel);
     if (!model)
         return;
-    uint8_t* nx_model = model_of(model);
+    render::RenderModel* nx_model = model_of(model);
     const render::HierarchyNode* hierarchy = hierarchy_of(nx_model);
     if (!fetch_module(kSkeleton)) {
         no_skeleton_counter() = (no_skeleton_counter() + 1) & 0x1F;

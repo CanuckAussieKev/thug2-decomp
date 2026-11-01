@@ -24,6 +24,9 @@
 #include "engine/core/slab_bank.h"
 #include "engine/core/raw_view.h"
 
+namespace render {
+struct WorldScene;
+}
 namespace script {
 class Array;
 class Script;
@@ -654,7 +657,7 @@ public:
     void move_light_source(const maths::Vec4* position, int index);
     // 0x00593010: `rgba`'s red, green and blue (0-255) lit at `position`: the ambient part plus the falloff part of
     // the lights' sum of 1 / (160000 + squared distance in x and z); over 255 is 255.
-    void sample_light_colour(const maths::Vec4* position, uint8_t* rgba);
+    uint32_t sample_light_colour(const maths::Vec4* position, uint32_t rgba); // (r g b a from the low byte; alpha kept)
     // 0x00594410: a piece's vertex colours (from its source's) and its collision's vertex intensities lit
     void light_piece(ParkTile* piece);
     // 0x00593370: how many restart points of `type` there are
@@ -770,8 +773,8 @@ public:
     uint32_t field_04_;
     ParkTile* pieces_;      // +0x008
     TileTemplate* sources_; // +0x00C
-    void* source_world_;    // +0x010: "sk5ed"
-    void* scene_handle_;    // +0x014: "cloned"
+    render::WorldScene* source_world_; // +0x010: "sk5ed"
+    render::WorldScene* scene_handle_; // +0x014: "cloned"
     uint32_t field_18_{};
     uint32_t next_piece_id_;                   // +0x01C (from 0x20)
     int max_players_;                          // +0x020

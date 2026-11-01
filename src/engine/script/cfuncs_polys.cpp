@@ -113,7 +113,7 @@ void get_positions(void* geometry, script::VectorValue* out)
 void get_colours(void* geometry, uint32_t* out) { static_cast<render::Geom*>(geometry)->fetch_tints(out); }
 void set_colours(void* geometry, uint32_t* colours)
 {
-    as_geom(geometry)->change_colors(raw::bytes(colours));
+    as_geom(geometry)->change_colors(colours);
 }
 
 // The CRT's _ftol (0x006236FC): truncation towards zero; callers keep the low bits.

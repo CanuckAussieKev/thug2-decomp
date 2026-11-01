@@ -39,11 +39,6 @@ BufferNode* index_buffer_list() { return buffer_lists::index_buffers(); }
 // The engine's scenes (a memory::ListNode list: data the scene; the head's data is -1) and a scene's mesh list
 // (+0x280), whose arena vertex buffer is its +0x7C and the buffer's size its +0x80.
 memory::ListNode* first_scene_node_bytes() { return render::first_scene_node(); }
-memory::ListNode* next_scene_node(memory::ListNode* node)
-{
-    memory::ListNode* next = node->next;
-    return next->is_head() ? nullptr : next;
-}
 SceneRef* scene_meshes(memory::ListNode* node)
 {
     const auto* scene = static_cast<const PcScene*>(node->data);

@@ -15,6 +15,9 @@ class Struct;
 
 namespace objects {
 
+class KinematicsModule;
+class DormancyModule;
+
 // The car physics component (type 0xC695136D "carphysics", vtable 0x00645E6C, 0x58 bytes; made by 0x0041BD90, and by
 // spawn_automobile through 0x0041BAD0): a car's look - its wheels spinning with its speed, the steering wheels turned
 // towards its path, the body tilting with acceleration - written into its skeleton's bone matrices after each update.
@@ -88,8 +91,8 @@ public:
     std::array<uint8_t, 3> pad45{};
     void* mesh_instance_{}; // +0x48 the model component's model (+0x208)
     void* bone_rig_{};      // +0x4C the skeleton component's skeleton (+0x18)
-    uint8_t* motion_{};     // +0x50 the motion component
-    uint8_t* suspend_{};    // +0x54 the suspend component
+    KinematicsModule* motion_{}; // +0x50 the motion component
+    DormancyModule* suspend_{};  // +0x54 the suspend component
 };
 static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
                   offsetof(AutomobileDynamicsModule, last_speed_) == 0x30 &&

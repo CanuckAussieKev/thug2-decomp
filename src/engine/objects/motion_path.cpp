@@ -12,8 +12,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -60,189 +58,189 @@ void get_speed(script::Struct* params, float* value, uint32_t feet, uint32_t inc
 }
 
 // The script waits on the component (CScript::set_wait_on_component).
-int wait_on(script::Script* script, MotionPathMembers* component, script::BlockReason type)
+int wait_on(script::Script* script, KinematicsModule* component, script::BlockReason type)
 {
-    script->set_wait_on_component(type, raw::as<ObjectModule>(component), 0);
+    script->set_wait_on_component(type, component, 0);
     return 1;
 }
 
 } // namespace
 
 // 0x00423130
-void MotionPathMembers::publish_method_table()
+void KinematicsModule::publish_method_table()
 {
     script::register_member_function_table(g_motion_path_member_functions);
 }
 
 // 0x00423150
-bool MotionPathMembers::is_spinning() const { return (motion_flags_ & kMotionFlagRotating) != 0; }
+bool KinematicsModule::is_spinning() const { return (motion_flags_ & kMotionFlagRotating) != 0; }
 
 // 0x00423520
-bool MotionPathMembers::picks_random_link() const { return (path_flags_ & kMotionPathRandom) != 0; }
+bool KinematicsModule::picks_random_link() const { return (motion_flags2_ & kMotionPathRandom) != 0; }
 
 // 0x00423530
-void MotionPathMembers::update_path_speed()
+void KinematicsModule::update_path_speed()
 {
     if (!(motion_flags_ & kMotionFlagOnPath))
         return;
-    if (path_flags_ & kMotionPathStopping) {
-        if (stop_covered_ >= stop_distance_)
+    if (motion_flags2_ & kMotionPathStopping) {
+        if (path_stop_covered_ >= path_stop_distance_)
             return; // (NaN goes on)
-        auto covered = static_cast<float>(static_cast<double>(step_seconds_) * velocity_ + stop_covered_);
-        stop_covered_ = covered;
-        if (stop_distance_ == 0.0f || covered >= stop_distance_) {
-            velocity_ = 0.0f;
+        auto covered = static_cast<float>(static_cast<double>(step_seconds_) * path_speed_ + path_stop_covered_);
+        path_stop_covered_ = covered;
+        if (path_stop_distance_ == 0.0f || covered >= path_stop_distance_) {
+            path_speed_ = 0.0f;
             return;
         }
-        const double t = static_cast<double>(covered) / stop_distance_;
-        velocity_ = static_cast<float>((1.0 - t) * stop_start_velocity_ + t * min_stop_velocity_);
+        const double t = static_cast<double>(covered) / path_stop_distance_;
+        path_speed_ = static_cast<float>((1.0 - t) * path_stop_start_speed_ + t * path_min_stop_speed_);
         return;
     }
-    if (velocity_ < path_velocity_) {
+    if (path_speed_ < path_max_speed_) {
         // Up to the path velocity.
-        if (acceleration_ == 0.0f) {
-            velocity_ = path_velocity_;
+        if (path_acceleration_ == 0.0f) {
+            path_speed_ = path_max_speed_;
             return;
         }
-        const double velocity = static_cast<double>(step_seconds_) * acceleration_ + velocity_;
-        velocity_ = static_cast<float>(velocity);
-        if (velocity > path_velocity_)
-            velocity_ = path_velocity_;
+        const double velocity = static_cast<double>(step_seconds_) * path_acceleration_ + path_speed_;
+        path_speed_ = static_cast<float>(velocity);
+        if (velocity > path_max_speed_)
+            path_speed_ = path_max_speed_;
         return;
     }
-    if (!(velocity_ > path_velocity_))
+    if (!(path_speed_ > path_max_speed_))
         return; // (there, or NaN)
     // Down to it.
-    if (slowdown_rate_ == 0.0f) {
-        velocity_ = path_velocity_;
+    if (path_deceleration_ == 0.0f) {
+        path_speed_ = path_max_speed_;
         return;
     }
-    const double velocity = velocity_ - static_cast<double>(step_seconds_) * slowdown_rate_;
-    velocity_ = static_cast<float>(velocity);
-    if (velocity < path_velocity_)
-        velocity_ = path_velocity_;
+    const double velocity = path_speed_ - static_cast<double>(step_seconds_) * path_deceleration_;
+    path_speed_ = static_cast<float>(velocity);
+    if (velocity < path_max_speed_)
+        path_speed_ = path_max_speed_;
 }
 
 // 0x00423160
-int MotionPathMembers::is_moving_from_script(script::Struct*, script::Script*)
+int KinematicsModule::is_moving_from_script(script::Struct*, script::Script*)
 {
     return (motion_flags_ & kMotionFlagMoving) ? 1 : 0;
 }
 
 // 0x00423170
-int MotionPathMembers::is_rotating_from_script(script::Struct*, script::Script*)
+int KinematicsModule::is_rotating_from_script(script::Struct*, script::Script*)
 {
     return (motion_flags_ & kMotionFlagRotating) ? 1 : 0;
 }
 
 // 0x00423180
-int MotionPathMembers::stop_moving(script::Struct*, script::Script*)
+int KinematicsModule::stop_moving(script::Struct*, script::Script*)
 {
     motion_flags_ &= ~kMotionFlagMoving;
     return 1;
 }
 
 // 0x00423190
-int MotionPathMembers::stop_rotating(script::Struct*, script::Script*)
+int KinematicsModule::stop_rotating(script::Struct*, script::Script*)
 {
     motion_flags_ &= ~(kMotionFlagRotating | 0x40u);
     return 1;
 }
 
 // 0x004231A0
-int MotionPathMembers::set_path_velocity(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_velocity(script::Struct* params, script::Script*)
 {
-    get_speed(params, &path_velocity_, kFps, kIps);
+    get_speed(params, &path_max_speed_, kFps, kIps);
     return 1;
 }
 
 // 0x00423210
-int MotionPathMembers::set_path_min_stop_vel(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_min_stop_vel(script::Struct* params, script::Script*)
 {
-    get_speed(params, &min_stop_velocity_, kFps, kIps);
+    get_speed(params, &path_min_stop_speed_, kFps, kIps);
     return 1;
 }
 
 // 0x00423280
-int MotionPathMembers::set_path_acceleration(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_acceleration(script::Struct* params, script::Script*)
 {
-    get_speed(params, &acceleration_, kFpsps, kIpsps);
+    get_speed(params, &path_acceleration_, kFpsps, kIpsps);
     return 1;
 }
 
 // 0x004232F0
-int MotionPathMembers::set_path_deceleration(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_deceleration(script::Struct* params, script::Script*)
 {
-    get_speed(params, &slowdown_rate_, kFpsps, kIpsps);
+    get_speed(params, &path_deceleration_, kFpsps, kIpsps);
     return 1;
 }
 
 // 0x00423360
-int MotionPathMembers::route_facing(script::Struct* params, script::Script*)
+int KinematicsModule::route_facing(script::Struct* params, script::Script*)
 {
     if (params->has_bare_flag(kOff))
-        path_flags_ |= kMotionPathNoHeading;
+        motion_flags2_ |= kMotionPathNoHeading;
     else
-        path_flags_ &= ~kMotionPathNoHeading;
+        motion_flags2_ &= ~kMotionPathNoHeading;
     return 1;
 }
 
 // 0x004233A0
-int MotionPathMembers::random_path_mode(script::Struct* params, script::Script*)
+int KinematicsModule::random_path_mode(script::Struct* params, script::Script*)
 {
     if (params->has_bare_flag(kOff))
-        path_flags_ &= ~kMotionPathRandom;
+        motion_flags2_ &= ~kMotionPathRandom;
     else
-        path_flags_ |= kMotionPathRandom;
+        motion_flags2_ |= kMotionPathRandom;
     return 1;
 }
 
 // 0x004233E0
-int MotionPathMembers::stop_along_path(script::Struct* params, script::Script*)
+int KinematicsModule::stop_along_path(script::Struct* params, script::Script*)
 {
-    stop_distance_ = 0.0f;
-    stop_covered_ = 0.0f;
-    if (min_stop_velocity_ == 0.0f)
-        min_stop_velocity_ = kDefaultMinStopVelocity;
-    params->fetch_float(0u, &stop_distance_, 0);
+    path_stop_distance_ = 0.0f;
+    path_stop_covered_ = 0.0f;
+    if (path_min_stop_speed_ == 0.0f)
+        path_min_stop_speed_ = kDefaultMinStopVelocity;
+    params->fetch_float(0u, &path_stop_distance_, 0);
     if (!params->has_bare_flag(kInches)) {
         // (in feet: the stop's starting speed noted - not with `inches`, as the original)
-        stop_start_velocity_ = velocity_;
-        stop_distance_ *= kTwelveInchScale;
+        path_stop_start_speed_ = path_speed_;
+        path_stop_distance_ *= kTwelveInchScale;
     }
-    if (stop_distance_ == 0.0f)
-        velocity_ = 0.0f;
-    path_flags_ |= kMotionPathStopping;
+    if (path_stop_distance_ == 0.0f)
+        path_speed_ = 0.0f;
+    motion_flags2_ |= kMotionPathStopping;
     return 1;
 }
 
 // 0x00423480
-int MotionPathMembers::start_along_path(script::Struct*, script::Script*)
+int KinematicsModule::start_along_path(script::Struct*, script::Script*)
 {
-    path_flags_ &= ~kMotionPathStopping;
+    motion_flags2_ &= ~kMotionPathStopping;
     return 1;
 }
 
 // 0x00423490
-int MotionPathMembers::wait_jump_finished(script::Struct*, script::Script* script)
+int KinematicsModule::wait_jump_finished(script::Struct*, script::Script* script)
 {
     return wait_on(script, this, static_cast<script::BlockReason>(7));
 }
 
 // 0x004234B0
-int MotionPathMembers::wait_rotate(script::Struct*, script::Script* script)
+int KinematicsModule::wait_rotate(script::Struct*, script::Script* script)
 {
     return wait_on(script, this, static_cast<script::BlockReason>(9));
 }
 
 // 0x004234D0
-int MotionPathMembers::wait_move(script::Struct*, script::Script* script)
+int KinematicsModule::wait_move(script::Struct*, script::Script* script)
 {
     return wait_on(script, this, static_cast<script::BlockReason>(5));
 }
 
 // 0x004234F0
-int MotionPathMembers::wait_stop(script::Struct*, script::Script* script)
+int KinematicsModule::wait_stop(script::Struct*, script::Script* script)
 {
     return wait_on(script, this, static_cast<script::BlockReason>(8));
 }

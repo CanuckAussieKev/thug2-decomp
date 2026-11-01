@@ -520,10 +520,10 @@ struct ObjectEntry {
 };
 std::vector<ObjectEntry> g_objects;
 
-uint8_t* model_of(objects::GameEntity* object)
+render::RenderModel* model_of(objects::GameEntity* object)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    return component ? raw::bytes(core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_)
+    return component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_
                      : nullptr;
 }
 
@@ -686,7 +686,7 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
     entry->scale = scale;
     // The model drawn scaled (RenderModel::change_scale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
     const maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
-    raw::as<render::RenderModel>(model_of(object))->change_scale(&factor);
+    model_of(object)->change_scale(&factor);
     apply_collision(*entry);
     object->mark_jumped_ahead(true); // (its components placed again at once)
     return true;

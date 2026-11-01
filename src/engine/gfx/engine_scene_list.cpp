@@ -92,6 +92,14 @@ memory::ListNode* first_scene_node()
     return is_head(node) ? nullptr : node;
 }
 
+memory::ListNode* next_scene_node(memory::ListNode* node)
+{
+    memory::ListNode* next = node->next;
+    return next->is_head() ? nullptr : next;
+}
+
+WorldScene* scene_of_node(const memory::ListNode* node) { return static_cast<WorldScene*>(node->data); }
+
 // 0x0048C750
 WorldScene* get_scene_by_name(const char* name) { return look_up_scene(checksums::hash_from_text(name)); }
 

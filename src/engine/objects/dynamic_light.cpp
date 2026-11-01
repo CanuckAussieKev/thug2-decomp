@@ -16,6 +16,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
+#include "engine/core/down_cast.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/wait_and_die.h"
 #include "engine/core/raw_view.h"
@@ -116,7 +117,7 @@ void DynamicLightComponent::configure_from_data(script::Struct* params)
 }
 
 // 0x0041CDA0
-void DynamicLightComponent::seal() { wait_and_die_ = raw::bytes(entity_->fetch_module(kWaitAndDie)); }
+void DynamicLightComponent::seal() { wait_and_die_ = core::down_cast<WaitAndDieComponent>(entity_->fetch_module(kWaitAndDie)); }
 
 // 0x0041CDC0
 void DynamicLightComponent::tick_frame()
@@ -126,7 +127,7 @@ void DynamicLightComponent::tick_frame()
         light_->owner = entity_->ident_;
     }
     // The life's fraction.
-    const auto* life = raw::as<const WaitAndDieComponent>(wait_and_die_);
+    const auto* life = wait_and_die_;
     double t = as_unsigned(life->elapsed_) / as_unsigned(life->lifespan_);
     uint32_t from_color = start_color_, to_color = end_color_;
     float from_radius = start_radius_, to_radius = end_radius_;

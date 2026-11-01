@@ -15,6 +15,8 @@ class Struct;
 
 namespace objects {
 
+class DormancyModule;
+
 class PedestrianBrainModule;
 class Rider;
 
@@ -47,7 +49,7 @@ public:
     ~ShotImpactModule() override;
     void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
     // 0x0041C330 (slot 3, the collide-and-die component's Finalize, folded): the object's suspend component kept.
-    void seal() override { suspend_ = raw::bytes(entity_->fetch_module(0xCE0CA665)); }
+    void seal() override;
     // 0x004F2F80 (vtable slot 2): radius, scale, owner_id, death_script, projectile_type (each asserted); vel
     // (0, 0, 1) normalised - not read from the parameters.
     void configure_from_data(script::Struct* params) override;
@@ -59,7 +61,7 @@ public:
     // anything else.
     int score_taken();
 
-    uint8_t* suspend_{};         // +0x18 the suspend component (Finalize)
+    DormancyModule* suspend_{};  // +0x18 the suspend component (Finalize)
     float radius_{0.0f};         // +0x1C radius
     float size_factor_{0.0f};    // +0x20 scale
     uint32_t on_collide_script_{0}; // +0x24 death_script

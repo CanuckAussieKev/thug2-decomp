@@ -29,7 +29,7 @@ ObjectModule* path_component(GameEntity* owner) { return owner->fetch_module(kPa
 // The component's choice: a random link (true) or the first (not rewritten yet).
 bool picks_random_link(ObjectModule* component)
 {
-    return raw::as<MotionPathMembers>(component)->picks_random_link();
+    return core::down_cast<KinematicsModule>(component)->picks_random_link();
 }
 // The component told that `node` has been passed (not rewritten yet).
 void node_passed(ObjectModule* component, uint32_t node)
