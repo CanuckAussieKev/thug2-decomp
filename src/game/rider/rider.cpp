@@ -217,7 +217,7 @@ void Rider::load_cat_info(script::Struct* params)
     params->fetch_list(kTricks, &tricks, 0);
     for (int i = 0; i < 11; ++i) {
         auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
-        goals::CreateATrick* info = trick_slots_[i];
+        goals::CreateATrick* info = trick_slots_[i].get();
         script::Struct* other = nullptr;
         trick->read_sub_struct(kOther, &other, 1);
         info->other_params_->append_structure_if_any(other);
@@ -971,8 +971,8 @@ void Rider::prepare_all(RiderIdentity* profile)
     script::launch_script(0xAE5438AF, nullptr, this, false, nullptr);
     anim_blender_->play_animation(0x1CA1FF20, std::bit_cast<uint32_t>(0.3f)); // default
     if (is_local_skater_) {
-        for (goals::CreateATrick*& trick : trick_slots_)
-            trick = new goals::CreateATrick;
+        for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_)
+            trick = std::make_unique<goals::CreateATrick>();
         script::launch_script(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         GameEntity::invoke_method_by_name(0x5C038F9B, nullptr, nullptr);  // SkaterPhysicsControl_SwitchWalkingToSkating
         for (int i = 0; i < 5; ++i) {
@@ -1079,7 +1079,7 @@ void Rider::write_cat_info(script::Struct* save)
     for (int i = 0; i < 11; ++i) {
         script::Struct* struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? struct_memory->prepare_all() : nullptr;
-        goals::CreateATrick* info = trick_slots_[i];
+        goals::CreateATrick* info = trick_slots_[i].get();
         trick->put_sub_struct(kOther, info->other_params_);
         trick->append_array_value(kAnimations, info->animations_);
         trick->append_array_value(kRotations, info->spin_list_);
@@ -1588,8 +1588,8 @@ Rider::~Rider()
     }
     reset_components();
     script::launch_script(0xF429E0AC, nullptr, this, false, nullptr);
-    for (goals::CreateATrick* trick : trick_slots_)
-        delete trick;
+    for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_)
+        trick.reset();
     if (is_local_skater_ && view_slot_ == 1) {
         if (Entity* camera = object_hub_slot()->look_up_entity(kSkaterCam1))
             camera->flag_as_dead();

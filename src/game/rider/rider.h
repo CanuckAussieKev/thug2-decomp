@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -183,7 +184,7 @@ public:
     uint8_t pad171[3];
     int shadow_fade_; // +0x174
     uint8_t unknown178_[4];
-    goals::CreateATrick* trick_slots_[11]; // +0x17C the created tricks
+    std::unique_ptr<goals::CreateATrick> trick_slots_[11]; // +0x17C the created tricks
     // The create-a-trick editor's state (CAT_Set... / CAT_Get..., create_a_trick.cpp).
     int cat_num_anims_;   // +0x1A8 num_animations_on
     bool cat_bail_done_;  // +0x1AC bailtimescriptdone

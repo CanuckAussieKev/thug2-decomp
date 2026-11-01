@@ -264,7 +264,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         return;
     case kSaveCat: {
         auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
-        goals::CreateATrick* trick_record = skater->trick_slots_[0];
+        goals::CreateATrick* trick_record = skater->trick_slots_[0].get();
         contents->put_sub_struct("other_params", trick_record->other_params_);
         contents->append_array_value("rotation_info", trick_record->spin_list_);
         contents->append_array_value("animation_info", trick_record->animations_);
@@ -322,16 +322,18 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
         objects::Rider* skater = get_skate()->get_home_rider();
         if (!skater)
             return;
+        // (its fields by name: these were the original's byte offsets +4 / +8 / +0xC on a CreateATrick*, which
+        // stepped whole objects past it - and the class has no vtable word here)
+        goals::CreateATrick* trick_record = skater->trick_slots_[0].get();
         Struct* other = nullptr;
         contents->read_sub_struct("other_params", &other, 1);
-        reinterpret_cast<Struct*>(*reinterpret_cast<Struct**>(skater->trick_slots_[0] + 4))
-            ->append_structure_if_any(other);
+        trick_record->other_params_->append_structure_if_any(other);
         Array* rotation = nullptr;
         contents->fetch_list("rotation_info", &rotation, 1);
-        script::duplicate_array(*reinterpret_cast<Array**>(skater->trick_slots_[0] + 8), rotation);
+        script::duplicate_array(trick_record->spin_list_, rotation);
         Array* animation = nullptr;
         contents->fetch_list("animation_info", &animation, 1);
-        script::duplicate_array(*reinterpret_cast<Array**>(skater->trick_slots_[0] + 0xC), animation);
+        script::duplicate_array(trick_record->animations_, animation);
         return;
     }
     case kSavePark:

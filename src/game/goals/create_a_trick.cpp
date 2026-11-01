@@ -34,7 +34,7 @@ const char* const kTotalX = "total_X_angle";               // "total_X_angle"
 const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
 objects::Rider* local_skater() { return static_cast<objects::Rider*>(skate_calls::get_home_rider()); }
-CreateATrick* created_trick(objects::Rider* skater, int index) { return skater->trick_slots_[index]; }
+CreateATrick* created_trick(objects::Rider* skater, int index) { return skater->trick_slots_[index].get(); }
 // The editor's state on the skater.
 template <typename T>
 T& prop(objects::Rider* skater, uint32_t offset)
