@@ -1,12 +1,12 @@
 // NOT ORIGINAL - [features] debug_collision (thug2-decomp.ini, default 0): logs what collision feelers hit, to find
 // invisible walls in converted levels. Our own debugging aid, not in the original game.
 //
-//   debug_collision=1  hits of feelers asked by the skater's code (callers in 0x004F8000-0x00534000) that aren't
-//                      floors (face normal's y <= 0.7) - walls, the things that stop the skater
+//   debug_collision=1  hits of the skaters' own feelers (their core physics' wall and floor feelers, the walk's
+//                      ledge feeler) that aren't floors (face normal's y <= 0.7) - walls, the things that stop them
 //   debug_collision=2  every hit of every feeler (cameras, peds, floors too)
 //
 // Each line: "collision: <what> face <i> flags <f> terrain <t> at (x y z) normal (x y z) line (a) -> (b) [skater (p)]
-// caller <address>". <what> is "sector <name/checksum> [obj flags <o>]" for level geometry, "object <name/id>" for a
+// caller <address>" (the return address into the code that asked: symbolize it with the build's PDB). <what> is "sector <name/checksum> [obj flags <o>]" for level geometry, "object <name/id>" for a
 // composite object (a movable collision: a level object, a car...). Each distinct hit (collision object / object
 // and face) is logged at most once every 2 seconds, and at most 8 lines a second in all.
 //
@@ -57,6 +57,9 @@
 #include "engine/render/coll_obj.h"
 #include "engine/render/probe_ray.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/rider.h"
+#include "game/rider/walk_physics.h"
+#include "game/skate/skate_module.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
@@ -83,20 +86,28 @@ const char* get_name_of(uint32_t checksum, char* buffer, size_t size)
     return buffer;
 }
 
-// The skater core physics component (its feelers are at +0xA8 and +0x158, its object at +0x0C, the object's
-// position at +0x4C), learned from the skater's feeler check 0x005003A0 (which asks with the feeler at +0xA8).
-uintptr_t g_skater_component = 0;
-
-bool get_skater_position(const void* feeler, float* position)
+// The skater whose own feeler `feeler` is (its core physics' wall or floor feeler, or its walk's ledge feeler), or
+// null: the skate module's skaters looked through.
+const objects::Rider* skater_of_feeler(const void* feeler)
 {
-    uintptr_t self = reinterpret_cast<uintptr_t>(feeler);
-    if (!g_skater_component || (self != g_skater_component + offsetof(skater::SkaterPhysicsModule, feeler_) &&
-                                self != g_skater_component + offsetof(skater::SkaterPhysicsModule, floor_feeler_)))
-        return false; // (only read while one of the component's own feelers is in use: it's alive)
-    const objects::GameEntity* object =
-        reinterpret_cast<const skater::SkaterPhysicsModule*>(g_skater_component)->entity_;
-    if (!object)
+    modules::Skate* skate = modules::Skate::sole();
+    if (!skate)
+        return nullptr;
+    for (uint32_t i = 0; objects::Rider* rider = skate->get_skater_at(i); ++i) {
+        const skater::SkaterPhysicsModule* core = rider->core_physics_;
+        if (core && (feeler == &core->feeler_ || feeler == &core->floor_feeler_))
+            return rider;
+        if (rider->walk_ && feeler == &rider->walk_->feeler_)
+            return rider;
+    }
+    return nullptr;
+}
+
+bool get_skater_position(const objects::Rider* skater, float* position)
+{
+    if (!skater)
         return false;
+    const objects::GameEntity* object = skater;
     position[0] = object->at_point_.x;
     position[1] = object->at_point_.y;
     position[2] = object->at_point_.z;
@@ -153,8 +164,8 @@ void log_hit(const void* feeler, uint32_t caller)
     void* object = ray->entity_.owner_object_;
     uint32_t object_id = ray->entity_key_;
 
-    bool skater_caller = caller >= 0x004F8000 && caller < 0x00534000;
-    if (get_mode() == 1 && (!skater_caller || normal[1] > 0.7f))
+    const objects::Rider* skater_feeler = skater_of_feeler(feeler);
+    if (get_mode() == 1 && (!skater_feeler || normal[1] > 0.7f))
         return;
     if (!should_log(object ? reinterpret_cast<uintptr_t>(object) : reinterpret_cast<uintptr_t>(coll_object), face))
         return;
@@ -170,7 +181,7 @@ void log_hit(const void* feeler, uint32_t caller)
 
     char skater[64] = "";
     float position[3];
-    if (get_skater_position(feeler, position))
+    if (get_skater_position(skater_feeler, position))
         std::snprintf(skater, sizeof(skater), " skater (%.1f %.1f %.1f)", position[0], position[1], position[2]);
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
@@ -186,8 +197,6 @@ void note_feeler_query(const void* feeler, int hit, uint32_t caller)
 {
     if (get_mode() == 0)
         return;
-    if (caller == 0x005003E0) // the skater's feeler check: this feeler is its core physics component's +0xA8
-        g_skater_component = reinterpret_cast<uintptr_t>(feeler) - offsetof(skater::SkaterPhysicsModule, feeler_);
     if (hit)
         log_hit(feeler, caller);
 }
