@@ -967,12 +967,24 @@ void load_pad_binds()
     s_pad.camera = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "CameraStick", kStickRight));
 }
 
-// Stores 32 bits at `offset` into the device. PartyMod's view of the device has these fields as 32-bit (the game's
-// are bytes followed by padding - and +0xEC's second byte is keyboard_control_, cleared this way); its last one,
-// "start or A pressed" at +0xF0, lies just past the end of the 0xF0-byte device. Kept as it was.
-void put_word32(InputPort* device, uint32_t offset, uint32_t value)
+// PartyMod's view of the device has these flags as 32-bit words (the game's are bytes followed by padding): the
+// byte set and the padding after it cleared, as its word stores did. The held-down word's second byte is
+// keyboard_control_, cleared this way too.
+void set_usable(InputPort* device, bool on)
 {
-    std::memcpy(reinterpret_cast<uint8_t*>(device) + offset, &value, sizeof(value));
+    device->is_usable_ = on ? 1 : 0;
+    std::memset(device->pad15_, 0, sizeof(device->pad15_));
+}
+void set_connected(InputPort* device, bool on)
+{
+    device->is_connected_ = on;
+    std::memset(device->pade1_, 0, sizeof(device->pade1_));
+}
+void set_held_down(InputPort* device, bool on)
+{
+    device->held_down_ = on ? 1 : 0;
+    device->keyboard_control_ = 0;
+    std::memset(device->padee_, 0, sizeof(device->padee_));
 }
 
 } // namespace
@@ -1030,8 +1042,8 @@ void process_sdl_device(InputPort* device)
 
     os_layer::pump_sdl_events();
 
-    put_word32(device, 0x14, 0); // is_usable_
-    put_word32(device, 0xE0, 0); // is_connected_
+    set_usable(device, false);
+    set_connected(device, false);
     uint8_t* data = device->control_data_;
     data[0] = 0;
     data[1] = 0x70;
@@ -1052,8 +1064,8 @@ void process_sdl_device(InputPort* device)
     // Original behaviour: the keyboard and the controller always read.
     bool new_frontend = frontend::new_frontend::blocks_game_input();
     if (device->port_no_ == 0) {
-        put_word32(device, 0x14, 1);
-        put_word32(device, 0xE0, 1);
+        set_usable(device, true);
+        set_connected(device, true);
         if (!get_keyboard_on_screen() && !new_frontend)
             poll_keyboard(device);
     }
@@ -1065,8 +1077,8 @@ void process_sdl_device(InputPort* device)
 
     data[2] = static_cast<uint8_t>(~data[2]);
     data[3] = static_cast<uint8_t>(~data[3]);
-    put_word32(device, 0xEC, (0xFFFF ^ (data[2] << 8 | data[3])) ? 1 : 0); // held_down_ (and keyboard_control_)
-    put_word32(device, 0xF0, ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0); // start or A (past the end)
+    set_held_down(device, (0xFFFF ^ (data[2] << 8 | data[3])) != 0);
+    device->start_or_a_ = ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0;
 
     // (typed text only works with these set)
     online::g_text_entry = 1;

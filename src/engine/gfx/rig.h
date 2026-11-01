@@ -19,9 +19,8 @@ namespace gfx {
 
 struct Stance;
 
-// A skeleton asset (0x598 bytes, vtable 0x00649F48 - only its deleting destructor).
-// (No subclass: no vtable here - its
-// word is kept, as the cutscene data read the skeleton data by offset. Stage 5.)
+// A skeleton asset (0x598 bytes in the original, vtable 0x00649F48 - only its deleting destructor; no subclass: no
+// vtable here).
 class RigData : public memory::HeapObject {
 public:
     // 0x004A2C20: empty, no flags, the first LOD distance FLT_MAX-ish (0x7F7FC99E).
@@ -49,7 +48,6 @@ public:
     // 0x004A2CA0
     maths::Mat4* get_inverse_bind_matrices() { return inverse_bind_; }
 
-    uint32_t vtable_slot_unused_ = 0;
     int num_;                        // +0x004
     uint32_t names_[64];             // +0x008
     uint32_t parent_names_[64];      // +0x108
@@ -62,9 +60,6 @@ public:
     maths::Vec4* bind_translations_; // +0x590
     uint32_t flag_bits_;             // +0x594 1: the skeleton's flag 0x10000000
 };
-static_assert(offsetof(RigData, lod_masks_) == 0x408 && offsetof(RigData, inverse_bind_) == 0x58C &&
-                  sizeof(RigData) == 0x598,
-              "layout must match the original");
 
 // A skeleton's bone (0x1C bytes).
 struct Joint {

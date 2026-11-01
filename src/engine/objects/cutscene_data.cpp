@@ -327,10 +327,11 @@ void CinematicTable::update_object_poses()
         auto* source = static_cast<uint8_t*>(entry.animation->source);
         void* animation = entry.animation->data;
         reinterpret_cast<gfx::Rig*>(skeleton)->set_lod(0.0f);
-        uint8_t* data = *reinterpret_cast<uint8_t**>(skeleton + 8);
-        *reinterpret_cast<uint8_t**>(source + 0x20C) = data ? data + 0x408 : nullptr;
-        *reinterpret_cast<uint32_t*>(source + 0x210) = *reinterpret_cast<uint32_t*>(skeleton + 0xC);
-        const uint8_t* base_pose = *reinterpret_cast<uint8_t**>(*reinterpret_cast<uint8_t**>(skeleton + 8) + 0x590);
+        auto* rig = reinterpret_cast<gfx::Rig*>(skeleton);
+        gfx::RigData* data = rig->payload_;
+        *reinterpret_cast<uint8_t**>(source + 0x20C) = data ? reinterpret_cast<uint8_t*>(data->lod_masks_) : nullptr;
+        *reinterpret_cast<uint32_t*>(source + 0x210) = rig->lod_;
+        const auto* base_pose = reinterpret_cast<const uint8_t*>(rig->payload_->bind_translations_);
         uint32_t count =
             reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);
         std::memcpy(translations, base_pose, count * 16);

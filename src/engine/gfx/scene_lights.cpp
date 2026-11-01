@@ -17,7 +17,6 @@
 #include "engine/gfx/sector.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/shape_tests.h"
-#include "engine/render/dynamic_light.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/movie_manager.h"
@@ -431,7 +430,7 @@ void __cdecl update_scene_light(uint32_t name, script::Struct* params)
         (*slot)->intensity = value;
     }
     if (params->fetch_float(0x0999151Bu, &value, 0))
-        reinterpret_cast<DynamicLight*>(*slot)->set_reach(value);
+        (*slot)->set_reach(value);
     if (params->fetch_int_value(0x059EA070u, &red, 0)) {
         params->fetch_int_value(0x2F6511DEu, &green, 1);
         params->fetch_int_value(0x61C9354Bu, &blue, 1);

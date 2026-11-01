@@ -148,10 +148,8 @@ void BoneVolumes::get_fill(RigData* data)
                 continue;
             float radius = kDefaultRadius;
             auto* volume = static_cast<BoneVolume*>(memory::alloc(sizeof(BoneVolume)));
-            if (volume) {
-                volume->vtable_slot_unused_ = 0;
+            if (volume)
                 new (&volume->capsule_) maths::Capsule();
-            }
             volumes_[i] = volume;
             reinterpret_cast<script::Struct*>(descriptions->fetch_part(j))->fetch_float(kRadius, &radius, 1);
             volumes_[i]->capsule_.radius = radius;

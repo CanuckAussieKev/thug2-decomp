@@ -1,4 +1,4 @@
-// The dynamic light component (GameObjects::DynamicLightComponent) and the light's radius (render::DynamicLight::set_reach): see
+// The dynamic light component (GameObjects::DynamicLightComponent) and the light's radius (render::DynamicLightBase::set_reach): see
 // dynamic_light.h. From the disassembly of 0x0041CB90-0x0041D161. The x87 roundings are kept: values the original
 // stores are rounded to float, the ones it keeps on the FPU stack are worked in double.
 
@@ -10,7 +10,6 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/render/dynamic_light.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -21,10 +20,10 @@
 namespace render {
 
 // 0x0041CB90
-void DynamicLight::set_reach(float radius)
+void DynamicLightBase::set_reach(float reach)
 {
-    radius_ = radius;
-    inverse_radius_ = radius == 0.0f ? 1e10f : 1.0f / radius;
+    radius = reach;
+    inverse_radius_ = reach == 0.0f ? 1e10f : 1.0f / reach;
 }
 
 } // namespace render
@@ -66,10 +65,7 @@ double Unsigned(uint32_t value)
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // 0x0048FB80 (cdecl; no source yet): a new dynamic light.
-render::DynamicLight* new_dynamic_light(int kind)
-{
-    return reinterpret_cast<render::DynamicLight*>(render::new_dynamic_light(kind));
-}
+render::DynamicLightBase* new_dynamic_light(int kind) { return render::new_dynamic_light(kind); }
 
 } // namespace
 
@@ -87,7 +83,7 @@ DynamicLightComponent::DynamicLightComponent()
 DynamicLightComponent::~DynamicLightComponent()
 {
     if (light_) {
-        light_->holder_key_ = 0;
+        light_->owner = 0;
         light_ = nullptr;
     }
     wait_and_die_ = nullptr;
@@ -127,7 +123,7 @@ void DynamicLightComponent::tick_frame()
 {
     if (!light_) {
         light_ = new_dynamic_light(1);
-        light_->holder_key_ = entity_->ident_;
+        light_->owner = entity_->ident_;
     }
     // The life's fraction.
     const auto* life = reinterpret_cast<const WaitAndDieComponent*>(wait_and_die_);
@@ -158,10 +154,13 @@ void DynamicLightComponent::tick_frame()
         color |= static_cast<uint32_t>(static_cast<uint8_t>(get_truncated(static_cast<double>(to - from) * t + from)))
                  << (8 * i);
     }
-    render::DynamicLight* light = light_;
-    light->at_point_ = entity_->at_point_;
-    light->tint_ = color;
-    light->strength_ = static_cast<float>((static_cast<double>(to_intensity) - from_intensity) * t + from_intensity);
+    render::DynamicLightBase* light = light_;
+    light->pos[0] = entity_->at_point_.x;
+    light->pos[1] = entity_->at_point_.y;
+    light->pos[2] = entity_->at_point_.z;
+    light->pos[3] = entity_->at_point_.w;
+    light->colour = color;
+    light->intensity = static_cast<float>((static_cast<double>(to_intensity) - from_intensity) * t + from_intensity);
     light->set_reach(radius);
 }
 
@@ -178,7 +177,7 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
     case kSetIntensity: {
         float intensity = 0.0f;
         params->fetch_float(kIntensity, &intensity, 1);
-        light_->strength_ = intensity;
+        light_->intensity = intensity;
         return 1;
     }
     case kSetColor: {
@@ -188,7 +187,7 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
         auto* out = reinterpret_cast<uint8_t*>(&color);
         for (uint32_t i = 0; i < 4; ++i)
             out[i] = static_cast<uint8_t>(bytes->fetch_part(i));
-        light_->tint_ = color;
+        light_->colour = color;
         return 1;
     }
     default:

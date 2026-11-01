@@ -1,5 +1,6 @@
 // The animation controllers (standard, weighted, wobble, pose, partial animation): see anim_controller.h.
 
+#include "engine/gfx/rig.h"
 #include "engine/gfx/anim_controller.h"
 
 #include <cmath>
@@ -126,13 +127,13 @@ void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
 // (+0x210, from the skeleton's +0x0C).
 void set_bones(void* source, const uint8_t* skeleton)
 {
-    auto* bones = *reinterpret_cast<uint8_t* const*>(skeleton + 8);
-    *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(source) + 0x20C) = bones ? bones + 0x408 : nullptr;
+    RigData* bones = reinterpret_cast<const Rig*>(skeleton)->payload_;
+    *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(source) + 0x20C) =
+        bones ? reinterpret_cast<uint8_t*>(bones->lod_masks_) : nullptr; // (the bones' LOD masks)
 }
 void set_bone_count(void* source, const uint8_t* skeleton)
 {
-    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(source) + 0x210) =
-        *reinterpret_cast<const uint32_t*>(skeleton + 0xC);
+    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(source) + 0x210) = reinterpret_cast<const Rig*>(skeleton)->lod_;
 }
 
 // The game clock (ms) plus its offset.

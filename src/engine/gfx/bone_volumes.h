@@ -16,19 +16,15 @@ namespace gfx {
 class Rig;
 class RigData;
 
-// One bone's volume (0x2C bytes). (The original's vtable 0x00648988 holds only intersects_segment, never called
-// through it, and it has no subclass: no vtable here; its word is kept with the layout.)
+// One bone's volume (0x2C bytes in the original: its vtable 0x00648988 holds only intersects_segment, never called
+// through it, and it has no subclass - no vtable here -, then a word never set).
 struct BoneVolume {
-    uint32_t vtable_slot_unused_;
-    uint32_t unknown4_;      // (never set)
     maths::Capsule capsule_; // +0x08 (its radius +0x28)
 
     // 0x0048B330 (not a Ghidra function; the vtable's slot 0): whether `segment` passes through the capsule (where along
     // the capsule's line: `s`).
     int intersects_segment(const maths::Seg* segment, float* s);
 };
-static_assert(offsetof(BoneVolume, capsule_) == 0x08 && sizeof(BoneVolume) == 0x2C,
-              "layout must match the original (the radius at +0x28)");
 
 // A skeleton's bone volumes (0x0C bytes): one per bone (the root has none).
 struct BoneVolumes {

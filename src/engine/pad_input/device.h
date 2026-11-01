@@ -58,9 +58,7 @@ public:
     // 0x005BDC60: stop the motors and forget the remembered levels.
     void stop_actuators();
 
-    // +0x00: the original's vtable (only the destructor) - its place kept, since PartyMod's input code
-    // and the menus read the device by byte offset (to be typed in stage 5).
-    uint32_t vtable_slot_unused_ = 0;
+    // (The original's vtable held only the destructor: no vtable here.)
     memory::ListNode* list_link_; // in the manager's device list
     int kind_tag_;
     int port_no_;
@@ -90,11 +88,10 @@ public:
     uint8_t held_down_;        // any button down
     uint8_t keyboard_control_; // set by the original read (start, the keyboard's char 0x19...)
     uint8_t padee_[2];
+    // Not original: PartyMod's "start or A pressed", written by its pad read (sdl_input.cpp) and never read. (PartyMod
+    // wrote it just past the end of the original's 0xF0-byte device.)
+    uint32_t start_or_a_ = 0;
 };
-static_assert(offsetof(InputPort, control_data_) == 0x1C && offsetof(InputPort, rumble_raw_) == 0x5C &&
-                  offsetof(InputPort, pause_count_) == 0xBC && offsetof(InputPort, cur_phase_) == 0xD4 &&
-                  offsetof(InputPort, is_connected_) == 0xE0 && sizeof(InputPort) == 0xF0,
-              "layout must match the original");
 
 // The platform layer's pad state for a port (0x005F5BC0 fills it).
 struct PadSnapshot {

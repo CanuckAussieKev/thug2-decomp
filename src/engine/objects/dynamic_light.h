@@ -6,7 +6,7 @@
 #include "engine/objects/entity.h"
 
 namespace render {
-struct DynamicLight;
+struct DynamicLightBase;
 } // namespace render
 namespace script {
 class Script;
@@ -49,18 +49,18 @@ public:
     // 0x1A0F4C50 its colour (rgba=, four bytes; read whether given or not) - each asserted; 1. Anything else: 2.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    render::DynamicLight* light_; // +0x18
-    uint32_t start_color_;        // +0x1C
-    uint32_t middle_color_;       // +0x20
-    uint32_t end_color_;          // +0x24
-    float start_radius_;          // +0x28
-    float middle_radius_;         // +0x2C
-    float end_radius_;            // +0x30
-    float start_intensity_;       // +0x34
-    float middle_intensity_;      // +0x38
-    float end_intensity_;         // +0x3C
-    float middle_time_;           // +0x40 the middle's fraction of the life (-1: none)
-    uint8_t* wait_and_die_;       // +0x44 its +0x1C elapsed, +0x20 total (unsigned)
+    render::DynamicLightBase* light_; // +0x18
+    uint32_t start_color_;            // +0x1C
+    uint32_t middle_color_;           // +0x20
+    uint32_t end_color_;              // +0x24
+    float start_radius_;              // +0x28
+    float middle_radius_;             // +0x2C
+    float end_radius_;                // +0x30
+    float start_intensity_;           // +0x34
+    float middle_intensity_;          // +0x38
+    float end_intensity_;             // +0x3C
+    float middle_time_;               // +0x40 the middle's fraction of the life (-1: none)
+    uint8_t* wait_and_die_;           // +0x44 its +0x1C elapsed, +0x20 total (unsigned)
 };
 
 } // namespace objects

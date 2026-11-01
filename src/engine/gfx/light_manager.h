@@ -15,7 +15,6 @@ class Vec4;
 // renderer's light constants (PC: pc_lights.h).
 namespace render {
 
-struct DynamicLight;
 struct DynamicLightBase;
 
 // The world lights (0x1C bytes: 0x0067DC98, and each of the stack's entries).
@@ -80,19 +79,17 @@ DynamicLightBase* __cdecl create_dynamic_light(int type);
 // (none past 256 or when that slot isn't empty).
 DynamicLightBase* __cdecl new_dynamic_light(int type);
 
-// A dynamic light's base (0x30 bytes, vtable 0x00649290; nx/dynamic_light.h's DynamicLight is its layout): [0] on,
-// [1] in reach, [2] the falloff.
-// (That vtable - is_on, in_reach, get_falloff - has no subclass, and nothing deletes through
-// it: no vtable here; its word is kept, as the PC lights read the lights by offset. Stage 5.)
+// A dynamic light (0x30 bytes in the original, vtable 0x00649290 - [0] on, [1] in reach, [2] the falloff - with no
+// subclass, nothing deleting through it: no vtable here): a point light at a position with a radius, an intensity and
+// a colour, held by an object (the dynamic light component, `owner` its id).
 struct DynamicLightBase {
-    uint32_t vtable_slot_unused_;
     float pos[4];          // +0x04
     int type;              // +0x14
     float radius;          // +0x18
     float inverse_radius_; // +0x1C
     float intensity;       // +0x20
-    uint32_t colour;       // +0x24
-    uint32_t owner;        // +0x28
+    uint32_t colour;       // +0x24 (bytes r, g, b, a)
+    uint32_t owner;        // +0x28 the id of the object it belongs to (0 once it's let go)
     bool unknown2c_;
 
     // 0x0048E8C0 (its vtable's slot 0): its intensity is above 0 (1 / 0).
@@ -101,9 +98,9 @@ struct DynamicLightBase {
     int in_reach(float distance);
     // 0x0048EAB0 (slot 2): the distance times the inverse radius (in ST0 unrounded: a double here).
     double get_falloff(float distance);
+    // 0x0041CB90 (dynamic_light.cpp): the radius, and its inverse (1e10 for a radius of 0).
+    void set_reach(float reach);
 };
-static_assert(offsetof(DynamicLightBase, owner) == 0x28 && sizeof(DynamicLightBase) == 0x30,
-              "layout must match the original");
 
 extern int g_dynamic_light_count;
 extern float g_ambient_intensity;
