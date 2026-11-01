@@ -263,7 +263,7 @@ std::vector<uint32_t> chain_of(uint32_t name);
 // The editing operations (the Inspector, keys): each builds the new state and puts it in place. `message` says what
 // happened (or why not); `select`: the node to select after (0: as it was).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): passed in the panels' requests' integer value
-enum Op : int {
+enum Op : uint8_t {
     kOpInsert = 1,  // a point put halfway to the next one
     kOpDelete,      // the point deleted, its neighbours linked
     kOpUnlink,      // its link to the next removed

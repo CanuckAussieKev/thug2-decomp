@@ -88,11 +88,11 @@ void complete_from_archive(AsyncFileHandle* file)
     file->io_done_handler(file->operation_, false, file->outcome_val_, 0);
 }
 
-} // namespace
 
 // The platform (PC) side, below.
-static void platform_init();
-static DWORD WINAPI async_io_thread(void*);
+void platform_init();
+DWORD WINAPI async_io_thread(void*);
+} // namespace
 
 // 0x005B69A0 (the constructor: in it the base's own init runs, a debug stub - as the original's call through the
 // base's table)
@@ -557,6 +557,7 @@ int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
     return 0;
 }
 
+namespace {
 // 0x005B9B40: the I/O thread - every 66 ms, lets each busy handle check whether its I/O has finished
 DWORD WINAPI async_io_thread(void*)
 {
@@ -588,6 +589,7 @@ void platform_init()
     if (GetVersionExA(&version))
         use_overlapped_io() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > 5;
 }
+} // namespace
 
 bool& async_use_overlapped_io() { return use_overlapped_io(); }
 
@@ -622,12 +624,14 @@ void async_poll_handles()
     }
 }
 
+namespace {
 // 0x005B6990: the module's task, every frame
-static void async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
+void async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
 {
     async_poll_handles();
     async_execute_callbacks();
 }
+} // namespace
 
 // 0x005B6CA0: returns the module (null if it doesn't exist) - the start-up code keeps it
 AsyncLoaderModule* create_async_loader_module(bool create)

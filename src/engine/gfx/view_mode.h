@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 // NOT ORIGINAL - the level editor's view modes (ours, added at the user's request; not the game's and not PartyMod's):
@@ -20,7 +21,7 @@
 //     shows of the level. Objects, peds and the skater drawn as usual.
 namespace render::view_mode {
 
-enum class Mode { kLit, kUnlit, kWireframe, kCollisionOnly, kCount };
+enum class Mode : uint8_t { kLit, kUnlit, kWireframe, kCollisionOnly, kCount };
 const char* get_name(Mode mode);
 
 Mode at_hand();

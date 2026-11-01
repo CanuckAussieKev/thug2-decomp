@@ -25,10 +25,10 @@ void delete_region(Zone* region) { delete region; }
 
 MemSource* current_heap(Hub* manager) { return *manager->ongoing_; }
 
-} // namespace
 
 // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
-static Hub* g_memory_manager;
+Hub* g_memory_manager;
+} // namespace
 bool g_manager_ready; // the memory manager is set up
 
 Hub* Hub::get_pull() { return g_memory_manager; }
@@ -438,13 +438,12 @@ void* regrow(void* memory, unsigned int size)
 
 namespace memory {
 
-// Where the manager and its main region and heaps live (static storage in the game, as words).
-static uint32_t g_manager_storage[(sizeof(Hub) + 3) / 4];
-static uint32_t g_main_region_storage[(sizeof(Zone) + 3) / 4];
-static uint32_t g_top_down_storage[(sizeof(Arena) + 3) / 4];
-static uint32_t g_bottom_up_storage[(sizeof(Arena) + 3) / 4];
-
 namespace {
+// Where the manager and its main region and heaps live (static storage in the game, as words).
+uint32_t g_manager_storage[(sizeof(Hub) + 3) / 4];
+uint32_t g_main_region_storage[(sizeof(Zone) + 3) / 4];
+uint32_t g_top_down_storage[(sizeof(Arena) + 3) / 4];
+uint32_t g_bottom_up_storage[(sizeof(Arena) + 3) / 4];
 
 void* const kManagerStorage = g_manager_storage;
 void* const kMainRegionStorage = g_main_region_storage;
@@ -462,12 +461,14 @@ memory::owner<MemoryArena*> new_alloc_region(uint32_t size) { return new MemoryA
 
 Hub*& Hub::sole() { return g_memory_manager; }
 
-static uint8_t* g_heap_block_limit;
-static uint8_t* g_heap_block_end;
-static uint8_t* g_heap_block_start;
-static uintptr_t g_data_end;
-static uintptr_t g_data_start;
-static uintptr_t g_text_seg_base;
+namespace {
+uint8_t* g_heap_block_limit;
+uint8_t* g_heap_block_end;
+uint8_t* g_heap_block_start;
+uintptr_t g_data_end;
+uintptr_t g_data_start;
+uintptr_t g_text_seg_base;
+} // namespace
 
 // 0x005BBC00
 Hub::Hub()

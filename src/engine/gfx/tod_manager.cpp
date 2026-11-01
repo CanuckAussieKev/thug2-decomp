@@ -42,7 +42,9 @@
 
 namespace gfx {
 
-static uint32_t g_tod_references;
+namespace {
+uint32_t g_tod_references;
+} // namespace
 
 float g_two_to32{4294967300.0f};
 float g_half{0.5f};
@@ -593,9 +595,10 @@ void CtodManager::update_sun()
     set_sun(&sun, kSunAngles | kSunColor | kSunShown);
 }
 
+namespace {
 // 0x005725F0
-static void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t light_group,
-                                 uint32_t reset_light_group, int start_percent, int end_percent)
+void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
+                          int start_percent, int end_percent)
 {
     // The scene's sectors: their light group and geometry (change_tint: its colour).
     lists::KeyMap* table = scene->sectors_;
@@ -657,6 +660,7 @@ static void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint
         } while ((sector = next()) != nullptr);
     }
 }
+} // namespace
 
 // 0x005727F0 (and 0x00572821)
 void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint32_t light_group,

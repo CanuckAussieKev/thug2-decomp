@@ -132,9 +132,9 @@ public:
             get_object()->attach_shared_ref(get_generic());
     }
 
-    T* get_pull() const { return owner_object_; }
+    [[nodiscard]] T* get_pull() const { return owner_object_; }
     // 0x00442670 (the screen elements' instance, written out in the unoptimised lens flare code).
-    bool is_null() const { return owner_object_ == nullptr; }
+    [[nodiscard]] bool is_null() const { return owner_object_ == nullptr; }
     T* operator->() const { return owner_object_; }
     explicit operator bool() const { return owner_object_ != nullptr; }
 
@@ -143,7 +143,7 @@ public:
     SharedRef* following_ = nullptr;
 
 private:
-    SharedBase* get_object() const { return reinterpret_cast<SharedBase*>(owner_object_); }
+    [[nodiscard]] SharedBase* get_object() const { return reinterpret_cast<SharedBase*>(owner_object_); }
     SharedRef<SharedBase>* get_generic() { return reinterpret_cast<SharedRef<SharedBase>*>(this); }
 };
 static_assert(sizeof(SharedRef<SharedBase>) == 12, "a smart pointer is 12 bytes");

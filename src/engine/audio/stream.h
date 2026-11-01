@@ -50,7 +50,7 @@ struct WadStream {
     void destruct() {}
 
     // The status word status_index_ picks (E_PENDING 0x8000000A: still going).
-    uint32_t get_standing() const { return cur_standing_[status_index_]; }
+    [[nodiscard]] uint32_t get_standing() const { return cur_standing_[status_index_]; }
 
     Hdl file_ref_{reinterpret_cast<Hdl>(-1)}; // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t unknown04_{0};                   // +0x04
@@ -159,7 +159,7 @@ struct BinkStream {
     uint8_t pad1bd_[3]{};
 
     // The status word status_index_ picks (0x8000000A: still fine).
-    uint32_t get_standing() const { return status_words_[status_index_]; }
+    [[nodiscard]] uint32_t get_standing() const { return status_words_[status_index_]; }
 };
 static_assert(offsetof(BinkStream, wad_entry_) == 0x0C && offsetof(BinkStream, shared_file_) == 0x18 &&
                   offsetof(BinkStream, plays_) == 0x24 && offsetof(BinkStream, bink_) == 0x28 &&
@@ -184,7 +184,7 @@ struct StreamSlot {
     // 0x004538F0: the stream deleted (either class).
     void dealloc();
 
-    bool get_playing() const { return wad || bink; }
+    [[nodiscard]] bool get_playing() const { return wad || bink; }
 
     WadStream* wad;     // +0x00
     BinkStream* bink;   // +0x04

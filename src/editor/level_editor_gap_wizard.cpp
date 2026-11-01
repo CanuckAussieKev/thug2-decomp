@@ -246,7 +246,7 @@ void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb
     const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
     for (const auto& e : edges)
-        painter.get_seg(c[e[0]], c[e[1]], argb, 2.0f);
+        (void)painter.get_seg(c[e[0]], c[e[1]], argb, 2.0f);
 }
 
 void get_make()
@@ -331,7 +331,7 @@ void add_overlay(const overlays::Painter& painter)
         const Gate b = gate_for(g_spots[1], g_spots[0].point);
         draw_gate(painter, b, kEnd);
         painter.draw_label(g_spots[1].point, kEnd, std::string("end: ") + spot_name(g_spots[1].kind));
-        painter.get_seg(g_spots[0].point, g_spots[1].point, 0xFFFFFFFF, 2.0f);
+        (void)painter.get_seg(g_spots[0].point, g_spots[1].point, 0xFFFFFFFF, 2.0f);
         const V3 d = g_spots[1].point - g_spots[0].point;
         char text[64];
         std::snprintf(text, sizeof(text), "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
@@ -341,7 +341,7 @@ void add_overlay(const overlays::Painter& painter)
         painter.get_dot(g_hover.point, 5.0f, kHover);
         painter.draw_label(g_hover.point, kHover, spot_name(g_hover.kind));
         if (g_picked == 1)
-            painter.get_seg(g_spots[0].point, g_hover.point, 0x90FFFFFF, 1.0f);
+            (void)painter.get_seg(g_spots[0].point, g_hover.point, 0x90FFFFFF, 1.0f);
     }
 }
 

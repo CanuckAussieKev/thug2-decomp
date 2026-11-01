@@ -14,10 +14,9 @@
 
 namespace park_editing {
 
-static memory::PoolPair g_park_string_pools;
-static memory::PoolPair g_park_point_pools;
-
 namespace {
+memory::PoolPair g_park_string_pools;
+memory::PoolPair g_park_point_pools;
 
 // The classes' pool pairs (CPoolable): a set's pool is lent to them while one of its items is made or freed.
 memory::PoolPair& string_pools() { return g_park_string_pools; }

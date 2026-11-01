@@ -66,7 +66,7 @@ public:
     // 0x004F8E20: the current balance's two buttons into `buttons` (`*count` 2), or `*count` 0 without one.
     void get_buttons(int* count, uint32_t* buttons) const;
     // 0x004F8F20: the current balance's lean (0 without one; the original also leaves the balance in EAX).
-    float get_lean() const;
+    [[nodiscard]] float get_lean() const;
     // 0x004F90A0: the physics value `name` scaled for the skater, from DoBalanceTrick's structure if there is one,
     // else the type's structure (0 for other types).
     float get_physics_value(uint32_t name);
@@ -80,7 +80,7 @@ public:
 
     // The balance of the current type (null for none).
     Balance* at_hand();
-    const Balance* at_hand() const;
+    [[nodiscard]] const Balance* at_hand() const;
 
     uint32_t trick_{}; // +0x18 the balance trick being balanced (0: none)
     bool started_{};   // +0x1C StartBalanceTrick

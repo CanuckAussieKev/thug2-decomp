@@ -45,7 +45,7 @@ void invalidate_context_objects();
 // A picture for ImGui made from texels in memory (the new front end's loading screens): `rows` rows of `row_bytes`
 // bytes - 32-bit BGRA texels (A8R8G8B8), or rows of 4x4 DXT1 blocks. A managed texture (it survives a device reset);
 // 0 when it can't be made. release_texture frees it.
-enum class PixelLayout { kBgra32, kDxt1 };
+enum class PixelLayout : uint8_t { kBgra32, kDxt1 };
 uint64_t create_texture(int width, int height, PixelLayout format, const void* data, int row_bytes, int rows);
 void release_texture(uint64_t id);
 

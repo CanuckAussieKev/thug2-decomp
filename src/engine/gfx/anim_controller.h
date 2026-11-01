@@ -30,7 +30,7 @@ namespace gfx {
 // has its own get_reset / tick_frame / teardown).
 struct AnimTimeline {
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum RepeatMode : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
+    enum RepeatMode : uint8_t { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
 
     // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
     AnimTimeline();

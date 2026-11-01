@@ -17,9 +17,8 @@
 
 namespace objects {
 
-static char g_cutscene_name_buffer[256];
-
 namespace {
+char g_cutscene_name_buffer[256];
 
 constexpr uint32_t kSubtitleScript = 0x625985F9; // run with each subtitle's structure (name unknown)
 constexpr uint32_t kTime = 0x906B67BA;           // a subtitle's start (name unknown)

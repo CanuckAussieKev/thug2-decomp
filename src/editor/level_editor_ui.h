@@ -269,7 +269,7 @@ struct Overlay {
 
 // What the user asked for on the panels, for the editor to do in its next Update.
 struct Request {
-    enum class Kind {
+    enum class Kind : uint8_t {
         kUndo,
         kRedo,
         kSave,

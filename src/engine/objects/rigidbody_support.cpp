@@ -32,9 +32,8 @@ uint32_t g_rigid_body_member_functions[78]{
     0x39D708AC, 0xFFB39248, 0, 0, 0, 0, 0x92F5DB9A, 0xFFB39248, 0, 0, 0, 0, 0x0A2BBB3A, 0xFFB39248, 0, 0, 0, 0,
     0x49F44585, 0xFFB39248, 0, 0, 0, 0, 0xD4A0946B, 0xFFB39248, 0, 0, 0, 0, 0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
     0,          0xFFB39248, 0, 0, 0, 0};
-static int g_next_collide_sound_time;
-
 namespace {
+int g_next_collide_sound_time;
 
 constexpr uint32_t kSound = 0x07713C7B;        // the sound component
 constexpr uint32_t kFrames = 0x019176C5;       // frames

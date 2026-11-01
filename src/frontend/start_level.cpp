@@ -104,7 +104,7 @@ constexpr int kLevelSettleFrames = 90;   // (in the level, unpaused, before Star
 constexpr int kPauseWaitFrames = 120;    // (for the pause menu, before Start is pressed again)
 constexpr int kPauseMenuFrames = 20;     // (the pause menu up this long before LEVEL EDITOR is chosen)
 constexpr int kStartPresses = 5;
-enum class Edit { kDisengaged, kWaitLevel, kWaitPause, kDone };
+enum class Edit : uint8_t { kDisengaged, kWaitLevel, kWaitPause, kDone };
 Edit s_edit = Edit::kDisengaged;
 int s_edit_frames;
 int s_presses;
@@ -114,7 +114,7 @@ int s_pool_frames;
 
 // -at / start_at: the skater put there standing once the level is up (at_update).
 constexpr int kAtSettleFrames = 60; // (in the level, unpaused, before the teleport)
-enum class At { kDisengaged, kWaitLevel, kDone };
+enum class At : uint8_t { kDisengaged, kWaitLevel, kDone };
 At s_at = At::kDisengaged;
 int s_at_frames;
 

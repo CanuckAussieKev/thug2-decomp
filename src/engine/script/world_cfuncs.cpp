@@ -24,9 +24,8 @@
 namespace commands {
 
 memory::owner<modules::Hub*> g_module_manager;
-static bool g_viewer_launched;
-
 namespace {
+bool g_viewer_launched;
 
 using script::Script;
 using script::Struct;

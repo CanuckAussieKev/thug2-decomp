@@ -13,9 +13,8 @@
 
 namespace objects {
 
-static PathManager* g_path_manager;
-
 namespace {
+PathManager* g_path_manager;
 
 constexpr uint32_t kPathNum = 0x9C91C3CA; // PathNum
 constexpr uint32_t kClass = 0x12B4E660;   // class

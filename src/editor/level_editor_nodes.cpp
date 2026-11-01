@@ -139,8 +139,8 @@ uint32_t team_colour(const char* text)
     if (!text)
         return 0;
     std::string lower = text;
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](char c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c); });
+    std::ranges::transform(lower, lower.begin(),
+                           [](char c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c); });
     auto has = [&](const char* colour) {
         // (a whole word: _red, _red_base, _red01 - not "_reduce")
         for (size_t at = lower.find(colour); at != std::string::npos; at = lower.find(colour, at + 1)) {

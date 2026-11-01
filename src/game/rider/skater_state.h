@@ -36,7 +36,7 @@ struct TimedFlag {
 // NOLINTEND(readability-identifier-naming)
 
 // The skater's state flags (RiderPoseState::timed_flags_), by what sets them.
-enum class PoseFlag : int {
+enum class PoseFlag : uint8_t {
     kCrouched = 0,         // +0x20 the jump button held (crouching to jump)
     kFlipped = 1,          // +0x28 riding the other way round (switch)
     kVertAir = 2,          // +0x30 in the air off a vert ramp
@@ -70,10 +70,10 @@ public:
     RiderPoseState& operator=(const RiderPoseState&) = delete;
     // The skater's state (+0x18).
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : int { kGround = 0, kAir = 1, kWall = 2, kLip = 3, kRail = 4, kWallplant = 5 };
+    enum State : uint8_t { kGround = 0, kAir = 1, kWall = 2, kLip = 3, kRail = 4, kWallplant = 5 };
     // The physics running it (+0x1C).
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum PhysicsMode : int { kSkating = 0, kWalking = 1 };
+    enum PhysicsMode : uint8_t { kSkating = 0, kWalking = 1 };
 
     // 0x00519740 (registered by register_component_types): a new one (0 if out of memory), no powerups.
     static memory::owner<ObjectModule*> fabricate();
@@ -124,8 +124,8 @@ public:
 
     // The timed flags (+0x20): a byte each and the time (the game clock plus g_clock_offset) it last changed.
     TimedFlag& flag(PoseFlag f) { return timed_flags_[static_cast<int>(f)]; }
-    const TimedFlag& flag(PoseFlag f) const { return timed_flags_[static_cast<int>(f)]; }
-    uint8_t is_on(PoseFlag f) const { return flag(f).on; }
+    [[nodiscard]] const TimedFlag& flag(PoseFlag f) const { return timed_flags_[static_cast<int>(f)]; }
+    [[nodiscard]] uint8_t is_on(PoseFlag f) const { return flag(f).on; }
     // The flag set to `value`; its time noted if it changes.
     void set_flag(PoseFlag f, uint8_t value);
 

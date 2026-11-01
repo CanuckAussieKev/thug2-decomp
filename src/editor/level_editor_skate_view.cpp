@@ -234,8 +234,7 @@ void add_overlay(const overlays::Painter& painter)
                 w->found.push_back({checksum, tri, distance});
         },
         &walk);
-    std::sort(walk.found.begin(), walk.found.end(),
-              [](const Candidate& a, const Candidate& b) { return a.distance < b.distance; });
+    std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.distance < b.distance; });
     struct Polygon {
         float depth;
         uint32_t argb;
@@ -279,7 +278,7 @@ void add_overlay(const overlays::Painter& painter)
         if (g_capped)
             break;
     }
-    std::sort(polygons.begin(), polygons.end(), [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
+    std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     auto& under = painter.overlay->under;
     for (const Polygon& p : polygons) {
         under.push_back({p.x[0], p.y[0], p.x[1], p.y[1], p.x[2], p.y[2], p.argb});
@@ -297,7 +296,7 @@ void add_overlay(const overlays::Painter& painter)
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
         const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
         for (const auto& e : edges)
-            painter.get_seg(corner[e[0]], corner[e[1]], colour, 2.0f);
+            (void)painter.get_seg(corner[e[0]], corner[e[1]], colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
     const modules::Skate* skate = modules::g_skate_module;

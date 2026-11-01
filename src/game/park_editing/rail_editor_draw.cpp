@@ -28,9 +28,8 @@ namespace park_editing {
 using namespace rail_editor_internal;
 using maths::Vec4;
 
-static int g_rail_flash_counter;
-
 namespace {
+int g_rail_flash_counter;
 
 constexpr float float_bits(uint32_t bits) noexcept
 {
@@ -126,7 +125,10 @@ uint8_t* duplicate_scene_sector(uint32_t source)
 // The bytes of a colour word (red, green, blue; alpha 0) as the highlight writes them.
 struct Colour {
     uint8_t r, g, b;
-    uint32_t get_word() const { return r | static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b) << 16; }
+    [[nodiscard]] uint32_t get_word() const
+    {
+        return r | static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b) << 16;
+    }
 };
 
 // The template's vertices of the segment as Stretch turns them: the 10 at the start of the piece, then the 10 at its

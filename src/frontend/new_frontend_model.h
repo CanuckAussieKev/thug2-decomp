@@ -24,7 +24,7 @@ struct StageMap {
         art_labels_; // a label per picture for the indicator (levels.json art_labels, e.g. "70%"; may be empty)
     int variant = 0; // the one shown (Q / E on the level select; saved in thug2-decomp-art.txt)
     // The picture shown: the chosen variant, else `art`.
-    const std::string& current_art() const
+    [[nodiscard]] const std::string& current_art() const
     {
         return variant >= 0 && std::cmp_less(variant, art_variants_.size()) ? art_variants_[variant] : art;
     }
@@ -50,14 +50,14 @@ struct Catalogue {
     std::vector<Section> sections;
     std::vector<std::pair<std::string, std::string>> menu_art_; // a main menu item's id -> its image
     // The image for a menu item ("" if none).
-    std::string menu_art(const std::string& id) const;
+    [[nodiscard]] std::string menu_art(const std::string& id) const;
     // The level whose load script is `load` (any case): its section and index. False if none.
     bool get_find(const std::string& load, int* section, int* level) const;
     // The level's next (`step` 1) or previous (-1) picture, wrapping. False when it has only one.
     bool cycle_art(const std::string& load, int step);
     // The saved picture choices applied / read back (only the levels not on their first picture).
     void apply_art_choices(const std::vector<std::pair<std::string, int>>& choices);
-    std::vector<std::pair<std::string, int>> art_choices() const;
+    [[nodiscard]] std::vector<std::pair<std::string, int>> art_choices() const;
 };
 // thug2-decomp-art.txt: one `<load script> <picture number>` line per level (0-based; '#' comments).
 std::vector<std::pair<std::string, int>> parse_art_choices(const std::string& text);
@@ -86,12 +86,12 @@ constexpr float kDesignWidth = 1280.0f;
 constexpr float kDesignHeight = 720.0f;
 struct TickCycle {
     float left = 0.0f, top = 0.0f, scale = 1.0f;
-    float get_x(float x) const { return left + x * scale; }
-    float get_y(float y) const { return top + y * scale; }
-    float current_s(float v) const { return v * scale; }
+    [[nodiscard]] float get_x(float x) const { return left + x * scale; }
+    [[nodiscard]] float get_y(float y) const { return top + y * scale; }
+    [[nodiscard]] float current_s(float v) const { return v * scale; }
     // Window point -> design point.
-    float design_x(float x) const { return (x - left) / scale; }
-    float design_y(float y) const { return (y - top) / scale; }
+    [[nodiscard]] float design_x(float x) const { return (x - left) / scale; }
+    [[nodiscard]] float design_y(float y) const { return (y - top) / scale; }
 };
 TickCycle fit_frame(float window_width, float window_height);
 
@@ -115,7 +115,7 @@ float ease_out(float t);                // cubic: 1 - (1 - t)^3, t clamped to 0.
 struct RowAnim {
     float value = 0.0f;
     void tick(bool selected, float dt);
-    float get_eased() const { return ease_out(value); }
+    [[nodiscard]] float get_eased() const { return ease_out(value); }
 };
 
 // --- the menus -----------------------------------------------------------------------------------------------------
@@ -123,7 +123,7 @@ struct RowAnim {
 // The screens. The new front end's own screens are only those with no menu of the game's behind them - the settings
 // and the level select -, opened by a menu's item (NewFrontend_Open); every menu is the game's, restyled
 // (new_frontend_mirror.h). Main and Pause are the roots they open on (never drawn: back at one, ours goes aside).
-enum class Screen {
+enum class Screen : uint8_t {
     kMain,    // the root in the front end
     kOptions, // thug2-decomp.ini's settings (new_frontend_options.h) and the game's GAME OPTIONS
     kLevels,  // the level select (Free Skate, the pause menu's Change level, the Level Editor's level)
@@ -135,10 +135,10 @@ bool screen_from_name(const std::string& name, Screen* out);
 bool is_pause_screen(Screen screen); // Pause - and Options / Levels when opened from it (over_pause)
 
 // What the player did (the keyboard, a controller, the mouse - new_frontend.cpp turns them into these).
-enum class Intake { kUp, kDown, kLeft, kRight, kConfirm, kBack, kPrevTab, kNextTab };
+enum class Intake : uint8_t { kUp, kDown, kLeft, kRight, kConfirm, kBack, kPrevTab, kNextTab };
 
 // What the menus ask the game for.
-enum class ActionKind {
+enum class ActionKind : uint8_t {
     kNone,
     kMoveSound,   // the selection moved (the menus' up / down sound)
     kChooseSound, // something chosen
@@ -147,7 +147,7 @@ enum class ActionKind {
     kOption,      // option: an index into Options::get_specs(), value: its choice
     kSkate,       // load; levels: what the level select was opened for
 };
-enum class LevelsFor { kFreeSkate, kFreeze, kEdit };
+enum class LevelsFor : uint8_t { kFreeSkate, kFreeze, kEdit };
 struct ActStep {
     ActionKind kind = ActionKind::kNone;
     std::string load;
@@ -177,10 +177,10 @@ public:
     void set_last_level(const std::string& load) { last_level_ = load; }
     // The sections' views made again (the locks changed): each section's row kept where it still is.
     void set_views(std::vector<SectionView> views);
-    const std::string& get_last_level() const { return last_level_; }
+    [[nodiscard]] const std::string& get_last_level() const { return last_level_; }
     // The options' choices, one per Options::get_specs() entry.
     void set_option_values(std::vector<int> choices) { options_ = std::move(choices); }
-    const std::vector<int>& option_values() const { return options_; }
+    [[nodiscard]] const std::vector<int>& option_values() const { return options_; }
     void set_option_group(int group);
 
     // A screen opened from outside the menus (with the wipe): the level select for `levels` when it's Levels.
@@ -209,53 +209,53 @@ public:
     // "tab:<section id>" / "group:<group id>"). False if it isn't there (or disabled).
     bool select_id(const std::string& id);
     // The shown screen's selection as such an id ("" if none).
-    std::string chosen_item_id() const;
+    [[nodiscard]] std::string chosen_item_id() const;
 
     // --- what is drawn ---
-    Screen get_shown() const { return shown_; } // the screen drawn (changes half-way through a wipe)
-    Screen get_target() const { return pile_.empty() ? Screen::kMain : pile_.back(); }
-    int deepness() const { return static_cast<int>(pile_.size()); }
+    [[nodiscard]] Screen get_shown() const { return shown_; } // the screen drawn (changes half-way through a wipe)
+    [[nodiscard]] Screen get_target() const { return pile_.empty() ? Screen::kMain : pile_.back(); }
+    [[nodiscard]] int deepness() const { return static_cast<int>(pile_.size()); }
     // Whether the screens open are the pause menu's (Options / Levels opened from it are drawn over the game too).
-    bool over_pause() const;
-    int get_selected() const; // the shown list's selection (-1: none)
-    LevelsFor levels_purpose() const { return levels_for_; }
-    int get_section_index() const { return section_; }
-    int level_row() const;                  // the selected row in the section's list (-1: an empty list)
-    const SectionView* get_view() const;    // the section's view (null: no sections)
-    const StageMap* selected_level() const; // (null: none)
-    bool selected_locked() const;
-    int section_count() const { return static_cast<int>(views_.size()); }
-    const Catalogue* payload() const { return catalogue_; }
+    [[nodiscard]] bool over_pause() const;
+    [[nodiscard]] int get_selected() const; // the shown list's selection (-1: none)
+    [[nodiscard]] LevelsFor levels_purpose() const { return levels_for_; }
+    [[nodiscard]] int get_section_index() const { return section_; }
+    [[nodiscard]] int level_row() const;                  // the selected row in the section's list (-1: an empty list)
+    [[nodiscard]] const SectionView* get_view() const;    // the section's view (null: no sections)
+    [[nodiscard]] const StageMap* selected_level() const; // (null: none)
+    [[nodiscard]] bool selected_locked() const;
+    [[nodiscard]] int section_count() const { return static_cast<int>(views_.size()); }
+    [[nodiscard]] const Catalogue* payload() const { return catalogue_; }
     // Options: the group shown, its rows (indices into Options::get_specs()) and the selected row (rows.size(): the
     // Game options row).
-    int option_group() const { return bundle_; }
-    const std::vector<int>& option_rows() const;
-    int option_row() const { return option_row_; }
-    int option_choice(int option) const;
+    [[nodiscard]] int option_group() const { return bundle_; }
+    [[nodiscard]] const std::vector<int>& option_rows() const;
+    [[nodiscard]] int option_row() const { return option_row_; }
+    [[nodiscard]] int option_choice(int option) const;
     // The list's first row shown (animated toward keeping the selection in view): rows `visible_rows` tall.
-    float list_scroll() const { return scroll_; }
+    [[nodiscard]] float list_scroll() const { return scroll_; }
     void set_visible_rows(int rows) { visible_rows_ = rows > 0 ? rows : 1; }
-    int get_visible_rows() const { return visible_rows_; }
+    [[nodiscard]] int get_visible_rows() const { return visible_rows_; }
     // The rows' selection amounts (the current list).
-    float row_amount(int row) const;
+    [[nodiscard]] float row_amount(int row) const;
     // The wipe under way: its 0..1 progress (-1: none) and its colour.
-    float wipe() const { return wipe_ < 0.0f ? -1.0f : wipe_ / kWipeSeconds; }
-    uint32_t wipe_colour() const { return wipe_colour_; }
+    [[nodiscard]] float wipe() const { return wipe_ < 0.0f ? -1.0f : wipe_ / kWipeSeconds; }
+    [[nodiscard]] uint32_t wipe_colour() const { return wipe_colour_; }
     // The launch under way: its 0..1 progress (-1: none; it stays at 1 once Skate was given, until the next Reset),
     // and the level going.
-    float get_launch() const { return launch_ < 0.0f ? -1.0f : launch_ / kLaunchSeconds; }
-    const std::string& launch_load() const { return launch_load_; }
+    [[nodiscard]] float get_launch() const { return launch_ < 0.0f ? -1.0f : launch_ / kLaunchSeconds; }
+    [[nodiscard]] const std::string& launch_load() const { return launch_load_; }
     // The game couldn't start the level: the launch undone (the menus take input again).
     void cancel_launch()
     {
         launch_ = -1.0f;
         launch_load_.clear();
     }
-    bool occupied() const { return wipe_ >= 0.0f || launch_ >= 0.0f; }
+    [[nodiscard]] bool occupied() const { return wipe_ >= 0.0f || launch_ >= 0.0f; }
     // The art's pan, 0..1..0 over kPanSeconds * 2.
-    float get_pan() const;
+    [[nodiscard]] float get_pan() const;
     // The colour of the section shown (the house yellow outside the level select).
-    uint32_t accent_colour() const;
+    [[nodiscard]] uint32_t accent_colour() const;
 
     static constexpr uint32_t kHouseYellow = 0xFFF2E205;
 
@@ -263,7 +263,7 @@ private:
     void get_go(Screen screen);
     void stack_off();
     void get_show(Screen screen); // (the wipe's half-way)
-    int list_count() const;
+    [[nodiscard]] int list_count() const;
     ActStep move_to(int index);
     ActStep move_by(int step);
     ActStep move_level(int row);
@@ -307,7 +307,7 @@ private:
 // original has stood still for kSettleSeconds; kMaxSeconds at most.
 class Cover {
 public:
-    enum class Over { kNone, kOurs, kRestyled }; // what is drawn meanwhile
+    enum class Over : uint8_t { kNone, kOurs, kRestyled }; // what is drawn meanwhile
     static constexpr float kSettleSeconds = 0.25f;
     static constexpr float kMaxSeconds = 3.0f;
     struct Now {
@@ -320,9 +320,9 @@ public:
     void halt() { over_ = Over::kNone; }
     // A frame. Returns whether the cover is still on; `why` says why it ended (when it just did).
     bool tick_frame(const Now& now, float dt, const char** why = nullptr);
-    bool get_on() const { return over_ != Over::kNone; }
-    Over get_drawn() const { return over_; }
-    float get_instant() const { return clock_; }
+    [[nodiscard]] bool get_on() const { return over_ != Over::kNone; }
+    [[nodiscard]] Over get_drawn() const { return over_; }
+    [[nodiscard]] float get_instant() const { return clock_; }
 
 private:
     Over over_ = Over::kNone;

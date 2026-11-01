@@ -427,7 +427,7 @@ bool read_record(const std::string& text, Goal* out)
             value = text.substr(at, stop == std::string::npos ? std::string::npos : stop - at);
             at = stop == std::string::npos ? text.size() : stop;
         }
-        if (std::find(seen.begin(), seen.end(), key) != seen.end())
+        if (std::ranges::find(seen, key) != seen.end())
             return false;
         seen.push_back(key);
         bool ok = true;
@@ -511,7 +511,7 @@ bool read_record(const std::string& text, Goal* out)
     if (!have_type)
         return false;
     // (the points: p0.. with none missing, within the type's most)
-    std::sort(points.begin(), points.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::ranges::sort(points, [](const auto& a, const auto& b) { return a.first < b.first; });
     for (size_t i = 0; i < points.size(); ++i) {
         if (points[i].first != ints::as_signed(i))
             return false;
@@ -780,7 +780,7 @@ struct Step : ModuleStep {
         g_goals = goals;
         sync_nodes(goals);
     }
-    std::shared_ptr<ModuleStep> get_now() const override
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         get_refresh();
         auto now = std::make_shared<Step>();
@@ -1051,7 +1051,7 @@ std::string fresh_title(KindTag type)
 {
     // (goal_editor_set_type: the menu's name, then "<name> 2", "<name> 3"... while a goal has it)
     auto taken = [](const std::string& name) {
-        return std::any_of(g_goals.begin(), g_goals.end(), [&](const Goal& g) { return same_text(g.name, name); });
+        return std::ranges::any_of(g_goals, [&](const Goal& g) { return same_text(g.name, name); });
     };
     std::string name = type_title(type);
     for (int suffix = 2; taken(name) && suffix < 100; ++suffix)

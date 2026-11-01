@@ -27,9 +27,8 @@ namespace objects {
 
 using namespace vehicle;
 
-static int g_vehicle_net_update_counter;
-
 namespace {
+int g_vehicle_net_update_counter;
 
 const float kHalf = 0.5f;                                         // 0x006453BC
 const float kTenth = std::bit_cast<float>(0x3DCCCCCDu);           // 0x00645D74

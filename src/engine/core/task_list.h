@@ -30,7 +30,7 @@ public:
     // 0x004068F0: out of its list (if in one; the list is told it changed).
     void drop_out();
     // 0x00406850: whether it's in a list (its node isn't linked to itself).
-    bool is_on_task_list() const;
+    [[nodiscard]] bool is_on_task_list() const;
 
     int disabled_{0};             // +0x04 not run while nonzero
     memory::ListNode* list_link_; // +0x08 data = this

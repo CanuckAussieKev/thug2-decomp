@@ -47,7 +47,7 @@ void tick_frame(modules::FrontEnd* front_end);
 
 // What the key does in play (pure): the play key pressed, and whether it's allowed (in a level, the skater there, not
 // paused, the editor offered here).
-enum class Step { kNone, kPauseThenEnter };
+enum class Step : uint8_t { kNone, kPauseThenEnter };
 Step on_key(bool pressed, bool in_level, bool paused, bool offered);
 // Whether the play key is down: F5, or Ctrl+P (pure, from SDL's keyboard state).
 bool get_key_down(const uint8_t* keys);

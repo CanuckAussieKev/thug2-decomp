@@ -37,21 +37,24 @@ namespace render {
 namespace {} // namespace
 
 uint32_t g_bloom_on;
-static uint32_t g_screen_effect_unknown5724;
-static uint32_t g_screen_effect_unknown5728;
+namespace {
+uint32_t g_screen_effect_unknown5724;
+uint32_t g_screen_effect_unknown5728;
 // The empty bounding box (all zero at start, as the original's) and its guard.
-static maths::BBox g_empty_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
-static uint32_t g_empty_bounding_box_guard;
+maths::BBox g_empty_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
+uint32_t g_empty_bounding_box_guard;
+} // namespace
 
 uint32_t g_bloom_alpha_first{0x10};
 uint32_t g_bloom_alpha_second{0x10};
-static uint32_t g_screen_effect_unknown984{0x42A00000};
-static uint32_t g_screen_effect_unknown988{0x43000000};
-uint32_t g_bloom_cut_off{0x80808080};
-static uint32_t g_screen_effect_unknown990{0x80808080};
-static uint32_t g_screen_effect_unknown994{0x80808080};
-
 namespace {
+uint32_t g_screen_effect_unknown984{0x42A00000};
+uint32_t g_screen_effect_unknown988{0x43000000};
+} // namespace
+uint32_t g_bloom_cut_off{0x80808080};
+namespace {
+uint32_t g_screen_effect_unknown990{0x80808080};
+uint32_t g_screen_effect_unknown994{0x80808080};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 PcGeom* geometry_of(void* sector)

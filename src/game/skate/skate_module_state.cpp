@@ -52,10 +52,9 @@
 
 namespace modules {
 
-static int g_skate_module_references;
-static float g_next_beep;
-
 namespace {
+int g_skate_module_references;
+float g_next_beep;
 
 constexpr uint32_t kInitLightManager = 0x7004771D;      // init_light_manager
 constexpr uint32_t kLoadPermanentPrefiles = 0x7690764F; // load_permanent_prefiles

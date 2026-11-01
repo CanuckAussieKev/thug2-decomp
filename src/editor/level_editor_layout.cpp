@@ -159,7 +159,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
             return false;
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
-        if (std::find(seen.begin(), seen.end(), key) != seen.end())
+        if (std::ranges::find(seen, key) != seen.end())
             return false;
         seen.push_back(key);
         float v[3];
@@ -198,7 +198,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
                                  : spec->radius) = number;
         }
     }
-    return std::find(seen.begin(), seen.end(), "pos") != seen.end();
+    return std::ranges::find(seen, "pos") != seen.end();
 }
 
 } // namespace
@@ -639,7 +639,7 @@ void apply_extensions(const std::vector<std::string>& extra)
         std::vector<std::string> mine;
         for (const std::string& line : extra) {
             const std::string word = line.substr(0, line.find(' '));
-            if (std::find(e.keywords.begin(), e.keywords.end(), word) != e.keywords.end())
+            if (std::ranges::find(e.keywords, word) != e.keywords.end())
                 mine.push_back(line);
         }
         e.apply(mine);
@@ -765,9 +765,7 @@ bool get_capture(FileLoad* file)
     file->sectors = scenery::changed_sectors();
     file->rails = scenery::changed_rails();
     // (a rail point the editor added: its `point` record has where it is now - not a `rail` offset)
-    file->rails.erase(std::remove_if(file->rails.begin(), file->rails.end(),
-                                     [](const scenery::RailState& r) { return node_create::is_added(r.name); }),
-                      file->rails.end());
+    std::erase_if(file->rails, [](const scenery::RailState& r) { return node_create::is_added(r.name); });
     std::vector<uint32_t> clone_order; // (UX7: the linked copies' clones by their records' order)
     for (const scenery::Replicate& clone : scenery::get_clones()) {
         Placement now;
@@ -802,19 +800,15 @@ bool get_capture(FileLoad* file)
     file->entities = entities::at_hand(); // (speeds, emitters' sounds)
     file->added = node_create::at_hand();
     // (a trigger volume's node: its own `trigger` record - level_editor_triggers.h)
-    file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
-                                     [](const node_create::Spec& spec) { return spec.owned; }),
-                      file->added.end());
+    std::erase_if(file->added, [](const node_create::Spec& spec) { return spec.owned; });
     file->triggers = triggers::capture_added();
     file->proxims = triggers::capture_proxims();
-    file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
-                                     [](const node_create::Spec& s) { return chains::is_chain_class(s.cls); }),
-                      file->added.end());
+    std::erase_if(file->added, [](const node_create::Spec& s) { return chains::is_chain_class(s.cls); });
     const std::vector<std::string> crowns = node_create::crown_order(file->added);
     if (crowns.size() > 1)
         file->crown_order_ = crowns;
     for (const uint32_t name : node_create::hidden_names()) {
-        if (std::find(file->chains.dropped.begin(), file->chains.dropped.end(), name) == file->chains.dropped.end())
+        if (std::ranges::find(file->chains.dropped, name) == file->chains.dropped.end())
             file->hidden.push_back(name);
     }
     file->locks = picking::get_locks();
@@ -828,8 +822,7 @@ bool get_capture(FileLoad* file)
     }
     // (phase 6) the Inspector's field edits: on the node's set record (one made for a node not moved)
     for (const fields::NodeEdits& node : fields::get_changed()) {
-        auto it = std::find_if(file->nodes.begin(), file->nodes.end(),
-                               [&](const SetRecord& s) { return s.name == node.name; });
+        auto it = std::ranges::find_if(file->nodes, [&](const SetRecord& s) { return s.name == node.name; });
         if (it == file->nodes.end()) {
             SetRecord record = {};
             record.name = node.name;
@@ -1680,8 +1673,8 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
             if (!entry || !entry->read_hash_value(kLevel, &load, 0))
                 continue;
             auto level = levels.find(load);
-            if (level == levels.end() || std::find(saved.begin(), saved.end(), level->second.scene) == saved.end() ||
-                std::find(done.begin(), done.end(), level->second.scene) != done.end())
+            if (level == levels.end() || std::ranges::find(saved, level->second.scene) == saved.end() ||
+                std::ranges::find(done, level->second.scene) != done.end())
                 continue;
             done.push_back(level->second.scene);
             const char* text = nullptr;

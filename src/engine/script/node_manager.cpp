@@ -29,9 +29,8 @@ memory::owner<level_nodes::NodeManager*> g_node_manager;
 using script::Array;
 using script::Struct;
 
-static uint32_t g_node_manager_references;
-
 namespace {
+uint32_t g_node_manager_references;
 
 constexpr uint32_t kName = 0xA1DC81F9;     // name
 constexpr uint32_t kLinks = 0x2E7D5EE7;    // links
@@ -88,10 +87,13 @@ public:
         : small_(m->slots_), big_(is_big(m) ? g_big_slots.data() : nullptr),
           skip_bits_(big_ ? static_cast<uint32_t>(g_big_slots.size()) - 1 : NodeManager::kSlots - 1)
     {}
-    uint32_t get_mask() const { return skip_bits_; }
-    bool vacant(uint32_t i) const { return elem(i) == -1; }
-    int elem(uint32_t i) const { return big_ ? big_[i].list_link_ : small_[i].list_link_; }
-    uint32_t get_array(uint32_t i) const { return big_ ? big_[i].element_list_ : small_[i].element_list_; }
+    [[nodiscard]] uint32_t get_mask() const { return skip_bits_; }
+    [[nodiscard]] bool vacant(uint32_t i) const { return elem(i) == -1; }
+    [[nodiscard]] int elem(uint32_t i) const { return big_ ? big_[i].list_link_ : small_[i].list_link_; }
+    [[nodiscard]] uint32_t get_array(uint32_t i) const
+    {
+        return big_ ? big_[i].element_list_ : small_[i].element_list_;
+    }
     void assign_value(uint32_t i, uint32_t array, int node)
     {
         if (big_)
@@ -110,8 +112,8 @@ private:
 // The walk's place, whichever kind (as the slots).
 struct Walk {
     explicit Walk(NodeManager* m) : big(is_big(m)), small(m->walk_) {}
-    int elem() const { return big ? g_big_walk.list_link_ : small.list_link_; }
-    uint32_t get_array() const { return big ? g_big_walk.element_list_ : small.element_list_; }
+    [[nodiscard]] int elem() const { return big ? g_big_walk.list_link_ : small.list_link_; }
+    [[nodiscard]] uint32_t get_array() const { return big ? g_big_walk.element_list_ : small.element_list_; }
     void assign_value(uint32_t array, int node)
     {
         if (big)

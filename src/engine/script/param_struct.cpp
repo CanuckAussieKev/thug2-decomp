@@ -18,19 +18,27 @@
 
 namespace script {
 
-static int g_struct_copy_peak{18000};
+namespace {
+int g_struct_copy_peak{18000};
+} // namespace
 memory::PoolPair g_array_pools;
 memory::PoolPair g_component_pools;
-static bool g_use_permanent_strings;
+namespace {
+bool g_use_permanent_strings;
+} // namespace
 char* g_permanent_strings_start;
 char* g_permanent_strings_next;
 uint32_t g_permanent_strings_size;
 uint32_t g_permanent_string_count;
-static int g_struct_copy_count;
-static SymbolTableEntry** g_name_table;
+namespace {
+int g_struct_copy_count;
+SymbolTableEntry** g_name_table;
+} // namespace
 memory::PoolPair g_symbol_pools;
-static SymbolTableEntry* g_iterator_entry;
-static uint32_t g_iterator_bucket;
+namespace {
+SymbolTableEntry* g_iterator_entry;
+uint32_t g_iterator_bucket;
+} // namespace
 memory::PoolPair g_pair_pools;
 memory::PoolPair g_vector_pools;
 

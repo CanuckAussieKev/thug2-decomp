@@ -78,9 +78,8 @@
 
 namespace frontend::new_frontend {
 
-static void continue_last_level(modules::FrontEnd* front_end); // (below)
-
 namespace {
+void continue_last_level(modules::FrontEnd* front_end); // (below)
 
 namespace ui_backend = frontend::level_editor::ui_backend;
 using game_screens::Anchor;
@@ -227,7 +226,7 @@ std::string art_choices_path() { return game_folder_path("thug2-decomp-art.txt")
 
 // --- the state ---
 
-enum class State {
+enum class State : uint8_t {
     kIdle,      // not up (a level being played, the game's screens restyled or as they are)
     kShown,     // our screen a menu's item asked for: drawn, with the input
     kAway,      // the game's screens up (restyled or as they are)
@@ -293,7 +292,7 @@ bool s_ticked = false;
 
 // The Level Editor chosen on the Create screen: the level loads, then Start pauses it and the pause menu's LEVEL
 // EDITOR opens the editor (as -edit does - frontend/start_level.h).
-enum class Edit { kDisengaged, kWaitLevel, kWaitPause };
+enum class Edit : uint8_t { kDisengaged, kWaitLevel, kWaitPause };
 Edit s_edit = Edit::kDisengaged;
 float s_edit_time = 0.0f;
 int s_edit_frames = 0, s_edit_presses = 0;
@@ -853,7 +852,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
 {
     if (!element || --*budget <= 0)
         return;
-    if (std::find(skip.begin(), skip.end(), element) != skip.end())
+    if (std::ranges::find(skip, element) != skip.end())
         return;
     if (visible_only && !get_visible(element))
         return;
@@ -882,7 +881,7 @@ void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string
 {
     if (!element || --*budget <= 0 || !get_visible(element))
         return;
-    if (std::find(skip.begin(), skip.end(), element) != skip.end())
+    if (std::ranges::find(skip, element) != skip.end())
         return;
     if (type_of(element) == text_type()) {
         const char* text = reinterpret_cast<const LabelWidget*>(element)->chars_;
@@ -2314,8 +2313,9 @@ void before_screen_layout()
     }
 }
 
+namespace {
 // The pause menus' level and session (the level as the data names it; the session so far).
-static paint::Extras pause_extras()
+paint::Extras pause_extras()
 {
     paint::Extras extras;
     const Section* section = nullptr;
@@ -2334,7 +2334,7 @@ static paint::Extras pause_extras()
 }
 
 // The last level played, as the data names it ("": none, or not in the data) - the main menu's Continue.
-static std::string continue_level_name()
+std::string continue_level_name()
 {
     int section = -1, level = -1;
     if (s_saved.last_level_.empty() || !s_catalogue_ok || !s_catalogue.get_find(s_saved.last_level_, &section, &level))
@@ -2358,7 +2358,7 @@ void continue_last_level(modules::FrontEnd* front_end)
 
 // What a restyled screen needs besides the menu read: the pause menus' level and session, the levels' data for the
 // items' art, the main menu's Continue level.
-static paint::Extras restyle_extras()
+paint::Extras restyle_extras()
 {
     paint::Extras extras = pause_extras();
     extras.art = art_for;
@@ -2374,7 +2374,7 @@ static paint::Extras restyle_extras()
 // the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
 // EDITOR (Create-a-modes: [features] level_editor and its scripts). False while the new front end is off, and in
 // network games: the menus as they were.
-static bool cfunc_item(script::Struct* params, script::Script*)
+bool cfunc_item(script::Struct* params, script::Script*)
 {
     if (!is_switched_on() || game_screens::net_session())
         return false;
@@ -2400,7 +2400,7 @@ static bool cfunc_item(script::Struct* params, script::Script*)
 // NewFrontend_Open screen=levels | editlevels | options [back=<script>]: our screen (the menu's item chose it: its own
 // sound played) - shown the next frame over whatever is up; closed with Back to the restyled menu it came from, or
 // `back` spawned (its menu went: the skate shop's).
-static bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
+bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 {
     uint32_t screen = 0, back = 0;
     if (!is_switched_on() || !params || !params->read_hash_value(name_hash("screen"), &screen, 0))
@@ -2422,6 +2422,7 @@ static bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
     get_log("new front end: %s asked for%s", get_screen_name(s_open_screen), back ? " (with a back script)" : "");
     return true;
 }
+} // namespace
 
 void register_script_functions()
 {

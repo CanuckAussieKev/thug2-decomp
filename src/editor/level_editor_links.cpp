@@ -86,9 +86,7 @@ bool uncouple(State* state, uint32_t id)
         return false;
     GroupSet& group = (*state)[index];
     if (!is_source) {
-        group.members.erase(
-            std::remove_if(group.members.begin(), group.members.end(), [&](const Member& m) { return m.id == id; }),
-            group.members.end());
+        std::erase_if(group.members, [&](const Member& m) { return m.id == id; });
     }
     if (is_source || group.members.empty())
         state->erase(state->begin() + index);
@@ -267,7 +265,7 @@ V3 get_ratio(V3 now, V3 before)
 struct Step : ModuleStep {
     State state;
     void get_restore() override { g_state = state; }
-    std::shared_ptr<ModuleStep> get_now() const override
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
         now->state = g_state;
@@ -472,7 +470,7 @@ std::vector<LinkRecord> get_capture(const std::vector<uint32_t>& clones)
             return objects::find_object(id) != nullptr;
         }
         if (scenery::is_clone(id)) {
-            auto it = std::find(clones.begin(), clones.end(), id);
+            auto it = std::ranges::find(clones, id);
             if (it == clones.end())
                 return false; // (a hidden copy isn't written)
             ref->clone = static_cast<int>(it - clones.begin());

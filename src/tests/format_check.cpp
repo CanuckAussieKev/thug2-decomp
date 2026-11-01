@@ -791,7 +791,8 @@ namespace format_check_net {
 int run(); // format_check_net.cpp
 } // namespace format_check_net
 
-static int run_checks(int argc, char** argv)
+namespace {
+int run_checks(int argc, char** argv)
 {
     check_byte_stream();
     check_wire_messages();
@@ -813,6 +814,7 @@ static int run_checks(int argc, char** argv)
     std::printf(g_failures ? "%d FAILED\n" : "all passed\n", g_failures);
     return g_failures ? 1 : 0;
 }
+} // namespace
 
 int main(int argc, char** argv)
 {

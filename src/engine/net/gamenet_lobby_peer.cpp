@@ -129,14 +129,17 @@ int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, gam
 }
 void* const kNoProgress = code_address(stubs::do_nothing); // (an empty function: no progress callback)
 
+bool g_not_posted_shown;
 } // namespace
-
-static bool g_not_posted_shown;
 uint32_t g_connection_timer;
-static uint32_t g_last_report_time;
-static uint32_t g_hosting_since;
+namespace {
+uint32_t g_last_report_time;
+uint32_t g_hosting_since;
+} // namespace
 bool g_game_posted;
-static uint32_t g_connected_time;
+namespace {
+uint32_t g_connected_time;
+} // namespace
 
 // 0x0053F570
 void RoomManager::disconnected_callback(void*, const char* reason, void* param)

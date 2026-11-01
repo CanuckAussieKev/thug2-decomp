@@ -110,7 +110,7 @@ class RankingsManager {
 public:
     // cur_phase_.
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : int {
+    enum State : uint8_t {
         kNone = 0,
         kLoggingIn = 1, // the login thread runs
         kAuthDone = 2,  // (the thread's answer: the task makes it 4)

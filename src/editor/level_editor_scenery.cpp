@@ -378,7 +378,7 @@ bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
 
 void mark_dirty(render::WorldScene* scene)
 {
-    if (std::find(g_dirty_scenes.begin(), g_dirty_scenes.end(), scene) == g_dirty_scenes.end())
+    if (std::ranges::find(g_dirty_scenes, scene) == g_dirty_scenes.end())
         g_dirty_scenes.push_back(scene);
 }
 
@@ -574,9 +574,7 @@ void apply_rails(const std::vector<uint32_t>& names)
         track.pos = pos;
         moved.push_back(track.node);
     }
-    auto is_moved = [&](const RailNode* node) {
-        return node && std::find(moved.begin(), moved.end(), node) != moved.end();
-    };
+    auto is_moved = [&](const RailNode* node) { return node && std::ranges::find(moved, node) != moved.end(); };
     for (int i = 0; i < count; ++i) {
         RailNode* node = &nodes[i];
         if (!is_moved(node) && !is_moved(node->succ_))
@@ -593,8 +591,8 @@ void compute_pivot()
     V3 min = {}, max = {};
     bool have = false;
     // (its shadows left out while it has anything else: a shadow lies wider than its caster, on the floor below)
-    const bool casters = std::any_of(g_selection.begin(), g_selection.end(),
-                                     [](uint32_t checksum) { return !shadow_of().count(checksum); });
+    const bool casters =
+        std::ranges::any_of(g_selection, [](uint32_t checksum) { return !shadow_of().count(checksum); });
     for (const uint32_t checksum : g_selection) {
         if (casters && shadow_of().count(checksum))
             continue;
@@ -642,16 +640,16 @@ void select_rails()
         }
         return false;
     };
-    auto listed = [&](uint32_t c) { return c && std::find(clusters.begin(), clusters.end(), c) != clusters.end(); };
+    auto listed = [&](uint32_t c) { return c && std::ranges::find(clusters, c) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
         const RailNode& node = nodes[i];
         if (node.flag_bits_ & 0x10)
             continue;
         bool in = listed(node.label_) || listed(cluster_of(node.label_)) ||
                   (within(rail_pos(&node)) && (!node.succ_ || within(rail_pos(node.succ_))));
-        if (in && std::find(g_dropped_rails.begin(), g_dropped_rails.end(), node.label_) != g_dropped_rails.end())
+        if (in && std::ranges::find(g_dropped_rails, node.label_) != g_dropped_rails.end())
             in = false;
-        if (in && std::find(g_rails.begin(), g_rails.end(), node.label_) == g_rails.end())
+        if (in && std::ranges::find(g_rails, node.label_) == g_rails.end())
             g_rails.push_back(node.label_);
     }
 }
@@ -861,9 +859,7 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
     return ray->hit_.object != nullptr;
 }
 
-} // namespace
 
-namespace {
 
 // The ray against a geometry's meshes as drawn (their vertex copies are where the sector is now: moving it moves
 // them): each mesh's first index buffer as a triangle strip; a billboard (turned to the camera when drawn) by its
@@ -1054,13 +1050,13 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
         for (const picking::Met& m : met) {
             if (m.locked)
                 continue;
-            auto it = std::find_if(layers->begin(), layers->end(), [&](const Layer& l) { return l.checksum == m.id; });
+            auto it = std::ranges::find_if(*layers, [&](const Layer& l) { return l.checksum == m.id; });
             if (it == layers->end())
                 layers->push_back({m.id, m.t, m.passed});
             else if (m.t < it->t)
                 it->t = m.t;
         }
-        std::stable_sort(layers->begin(), layers->end(), [](const Layer& a, const Layer& b) { return a.t < b.t; });
+        std::ranges::stable_sort(*layers, [](const Layer& a, const Layer& b) { return a.t < b.t; });
     }
     return hit->checksum || hit->passed || hit->nearest;
 }
@@ -1145,10 +1141,7 @@ std::string describe_selection()
 bool has_selection() { return !g_selection.empty(); }
 const std::vector<uint32_t>& get_selection() { return g_selection; }
 
-bool get_selected(uint32_t checksum)
-{
-    return std::find(g_selection.begin(), g_selection.end(), checksum) != g_selection.end();
-}
+bool get_selected(uint32_t checksum) { return std::ranges::find(g_selection, checksum) != g_selection.end(); }
 
 void clear_selection()
 {
@@ -1169,14 +1162,14 @@ bool is_shadow(uint32_t checksum, uint32_t* caster)
 
 const std::vector<uint32_t>& selected_rail_names() { return g_rails; }
 
-bool carries_rail(uint32_t name) { return std::find(g_rails.begin(), g_rails.end(), name) != g_rails.end(); }
+bool carries_rail(uint32_t name) { return std::ranges::find(g_rails, name) != g_rails.end(); }
 
 void drop_rail(uint32_t name)
 {
     if (!carries_rail(name))
         return;
     g_dropped_rails.push_back(name);
-    g_rails.erase(std::find(g_rails.begin(), g_rails.end(), name));
+    g_rails.erase(std::ranges::find(g_rails, name));
 }
 
 void keep_only(uint32_t checksum)
@@ -1194,9 +1187,10 @@ const std::vector<uint32_t>& hover_group(uint32_t checksum)
     return g_hover_group;
 }
 
+namespace {
 // [features] debug_editor: how the first selected sector's meshes are drawn (whether the material lets a colour
 // through).
-static void log_meshes()
+void log_meshes()
 {
     if (!debug_enabled() || g_selection.empty())
         return;
@@ -1218,6 +1212,7 @@ static void log_meshes()
                 static_cast<uint8_t>(render::g_shaders_available));
     }
 }
+} // namespace
 
 void select_group(uint32_t checksum)
 {
@@ -1239,7 +1234,7 @@ void select_group(uint32_t checksum)
 
 void flip_over(uint32_t checksum)
 {
-    auto it = std::find(g_selection.begin(), g_selection.end(), checksum);
+    auto it = std::ranges::find(g_selection, checksum);
     if (it != g_selection.end())
         g_selection.erase(it);
     else if (!why_not_movable(checksum))
@@ -1421,7 +1416,7 @@ std::vector<uint32_t> rail_of(uint32_t name)
     for (const RailNode* at = first; at && steps < count; at = at->succ_, ++steps) {
         // (a rail's points, or a ladder's: not the other kind)
         if (at != node && (at->flag_bits_ & 0x10) == (node->flag_bits_ & 0x10) &&
-            std::find(names.begin(), names.end(), at->label_) == names.end())
+            std::ranges::find(names, at->label_) == names.end())
             names.push_back(at->label_);
         if (at->succ_ == first)
             break;
@@ -1596,7 +1591,7 @@ std::vector<Replicate>& get_clones()
 bool is_clone(uint32_t checksum)
 {
     const auto& clones = get_clones();
-    return std::any_of(clones.begin(), clones.end(), [&](const Replicate& c) { return c.checksum == checksum; });
+    return std::ranges::any_of(clones, [&](const Replicate& c) { return c.checksum == checksum; });
 }
 
 uint32_t get_duplicate(uint32_t source)
@@ -1807,7 +1802,7 @@ void get_tint(TintOwner owner, void* geom, uint32_t rgba)
     if (!tintable(geom))
         return;
     auto* g = static_cast<render::PcGeom*>(geom);
-    auto it = std::find_if(g_tinted.begin(), g_tinted.end(), [&](const Saved& s) { return s.geom == g; });
+    auto it = std::ranges::find_if(g_tinted, [&](const Saved& s) { return s.geom == g; });
     if (it == g_tinted.end())
         g_tinted.push_back(save_colour(owner, g));
     else

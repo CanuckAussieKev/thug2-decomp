@@ -105,7 +105,7 @@ class VaultMan {
 public:
     // What transfer_ is doing.
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum Transfer : int {
+    enum Transfer : uint8_t {
         kNone = 0,
         kCategories = 1, // the directory list (dir_list.txt of the folder)
         kItems = 2,      // a category's items

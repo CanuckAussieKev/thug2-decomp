@@ -35,7 +35,7 @@ struct Header {
 struct GlyphEntry {
     uint16_t baseline = 0;
     uint8_t codes[4] = {}; // format 1: an i16 character / special glyph (codes 0-1); format 2: up to four characters
-    int16_t code() const { return static_cast<int16_t>(codes[0] | codes[1] << 8); }
+    [[nodiscard]] int16_t code() const { return static_cast<int16_t>(codes[0] | codes[1] << 8); }
 };
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data

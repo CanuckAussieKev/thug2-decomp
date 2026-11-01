@@ -43,7 +43,7 @@ public:
 
     // The wheels' grip states (Wheel::state).
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum WheelState : int {
+    enum WheelState : uint8_t {
         kWheelOnGround = 0, // touching, grip not worked out yet this step
         kWheelInAir = 1,
         kWheelStaticSlow = 2,      // static friction below min_static_grip_velocity (scaled down to 0)

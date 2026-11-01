@@ -20,9 +20,8 @@
 
 namespace goals {
 
-static GapTally* g_building_gap_checklist;
-
 namespace {
+GapTally* g_building_gap_checklist;
 
 // Names.
 constexpr uint32_t kPrintGaps = 0x2E75A8A7;          // PrintGaps (a script global)

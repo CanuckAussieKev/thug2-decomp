@@ -86,19 +86,19 @@ public:
     // The vertices where they are now become the base (a placement of none leaves them).
     void rebase();
     // The faces as they are now (a copy's).
-    std::vector<FaceCopy> get_faces() const;
+    [[nodiscard]] std::vector<FaceCopy> get_faces() const;
     // On / off (the object's flag 4, as WorldCell::change_live turns a sector's collision off).
     void change_live(bool active);
     // A face's flags set (level_editor_faces.h: the face flags edited).
     void change_tri_flags(int face, uint16_t flags);
-    bool live_now() const;
+    [[nodiscard]] bool live_now() const;
 
     render::StaticCollider* get_object() { return &entity_; }
-    const render::TriMeshSource& get_geometry() const { return geometry_; }
-    int face_count() const { return geometry_.tri_count_; }
-    int get_vertex_count() const { return geometry_.num_vertices_; }
-    V3 base_vertex(int i) const { return base_[i]; }
-    V3 get_vertex(int i) const;
+    [[nodiscard]] const render::TriMeshSource& get_geometry() const { return geometry_; }
+    [[nodiscard]] int face_count() const { return geometry_.tri_count_; }
+    [[nodiscard]] int get_vertex_count() const { return geometry_.num_vertices_; }
+    [[nodiscard]] V3 base_vertex(int i) const { return base_[i]; }
+    [[nodiscard]] V3 get_vertex(int i) const;
 
 private:
     void update_box();

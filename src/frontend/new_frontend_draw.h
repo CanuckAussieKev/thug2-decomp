@@ -21,7 +21,7 @@ struct FontFiles {
 };
 
 // The design's CSS font size (px at 1280 x 720) a font is baked for.
-enum class Face { kDisplay, kMono, kBody };
+enum class Face : uint8_t { kDisplay, kMono, kBody };
 struct Bake {
     Face face;
     float css; // its CSS font-size (design px)
@@ -53,10 +53,10 @@ using RecordsLookup = Highscores (*)(const StageMap& level);
 struct Hit {
     // (Item: a list's item / an option row; Tab: a game tab / an option group; Skate: the level select's Skate, the
     // Game options row's Open; Choice: an option's choice - index row * 16 + choice)
-    enum class Kind { kItem, kStageMap, kTab, kBack, kSkate, kContinue, kChoice } kind;
+    enum class Kind : uint8_t { kItem, kStageMap, kTab, kBack, kSkate, kContinue, kChoice } kind;
     int index;
     float x0, y0, x1, y1;
-    bool get_holds(float x, float y) const { return x >= x0 && x < x1 && y >= y0 && y < y1; }
+    [[nodiscard]] bool get_holds(float x, float y) const { return x >= x0 && x < x1 && y >= y0 && y < y1; }
 };
 
 // The session in the level (the pause menu's panel; -1: not known - not shown).

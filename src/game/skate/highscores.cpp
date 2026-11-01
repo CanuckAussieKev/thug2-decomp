@@ -19,9 +19,8 @@
 namespace highscores {
 
 memory::owner<highscores::BestResults*> g_game_records;
-static uint32_t g_records_references;
-
 namespace {
+uint32_t g_records_references;
 
 // Names.
 constexpr uint32_t kValue = 0xE288A7CB;               // value

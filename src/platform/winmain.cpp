@@ -43,9 +43,8 @@
 
 namespace sys {
 
-static char g_command_line_server_name[256]; // "-connect"'s value
-
 namespace {
+char g_command_line_server_name[256]; // "-connect"'s value
 
 // --- the command line's network options ----------------------------------------------------------------------
 

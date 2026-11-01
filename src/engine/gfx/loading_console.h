@@ -104,7 +104,7 @@ struct Ring {
     // Add `text` at `time`; the same text as the newest line counts that one up instead.
     void append_one(const char* text, double time);
     // The newest `n` lines' text ("[  1.2] text (x3)"), oldest first.
-    std::vector<std::string> final_one(size_t n) const;
+    [[nodiscard]] std::vector<std::string> final_one(size_t n) const;
 };
 
 } // namespace gfx::loading_console

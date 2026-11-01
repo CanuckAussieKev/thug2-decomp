@@ -19,7 +19,7 @@ struct SphereHits;
 struct CapsuleHits;
 
 // What a collision object is (NOT ORIGINAL: the level editor told them apart by their vtables).
-enum class HitMeshKind {
+enum class HitMeshKind : uint8_t {
     kGroup,           // HitMeshGroup
     kMovingBox,       // HitMovingBox
     kMovingTriangles, // HitMovingTriangles
@@ -50,12 +50,12 @@ public:
     virtual ~HitMesh();
 
     // NOT ORIGINAL: what this object is.
-    virtual HitMeshKind kind() const = 0;
+    [[nodiscard]] virtual HitMeshKind kind() const = 0;
     // (slot 1) Whether its hits are triangles (the base's: no).
     virtual bool is_triangle_hit() { return false; }
     // (slots 2, 3) A face's flags and terrain.
-    virtual uint32_t get_triangle_attrs(int face) const = 0;
-    virtual uint16_t get_face_terrain(int face) const = 0;
+    [[nodiscard]] virtual uint32_t get_triangle_attrs(int face) const = 0;
+    [[nodiscard]] virtual uint16_t get_face_terrain(int face) const = 0;
     // 0x0040B370 (slot 4): the geometry, and its checksum (the sector's name) as the object's.
     virtual void assign_shape_data(TriMeshSource* geometry);
     // (slots 5-8) Where it is and its orientation.
@@ -64,9 +64,9 @@ public:
     virtual const maths::Vec4* get_absolute_point() = 0;
     virtual const maths::Mat4* fetch_facing() = 0;
     // (slot 9) The geometry's vertex `index` in the world.
-    virtual maths::Vec4 read_vertex_point(int index) const = 0;
+    [[nodiscard]] virtual maths::Vec4 read_vertex_point(int index) const = 0;
     // (slots 10, 11; the base's: 0 and nothing) The object it belongs to (a movable's: its GameEntity).
-    virtual int get_owner() const { return 0; }
+    [[nodiscard]] virtual int get_owner() const { return 0; }
     virtual void set_owner(int /*owner*/) {}
     // (slot 12) A copy: `argument` the original's (a sector's: an instance rather than a copy).
     virtual HitMesh* replicate(int argument) = 0;
@@ -125,8 +125,8 @@ protected:
 
     // The triangle objects' slots 2 / 3 (sectors, instances, movable triangles): the face's flags / terrain from the
     // geometry (0x00410BF0 / 0x00411750).
-    uint32_t read_face_attrs(int face) const;
-    uint16_t read_face_terrain(int face) const;
+    [[nodiscard]] uint32_t read_face_attrs(int face) const;
+    [[nodiscard]] uint16_t read_face_terrain(int face) const;
     // 0x004110B0 / 0x004114E0 (a sector's slots 16 / 17, an instance's too: the faces taken as they are, unplaced):
     // see StaticCollider::collide_with_sphere / collide_with_capsule.
     bool collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits);
@@ -150,7 +150,7 @@ public:
     // of the caches, the base.
     ~HitMeshGroup() override;
 
-    HitMeshKind kind() const override { return HitMeshKind::kGroup; }
+    [[nodiscard]] HitMeshKind kind() const override { return HitMeshKind::kGroup; }
     // 0x00413490 (slot 12): a copy owning its geometry flag, with a clone of each child.
     HitMeshGroup* replicate(int argument) override;
     // 0x00411BE0: `child` onto the end of the list.
@@ -159,8 +159,8 @@ public:
     // 0x00411D90 (slot 1): whether every child is (stops asking at the first that isn't).
     bool is_triangle_hit() override;
     // (slot 2, the shared "return 0" stub) / 0x0040AE30 (slot 3): 0.
-    uint32_t get_triangle_attrs(int /*face*/) const override { return 0; }
-    uint16_t get_face_terrain(int /*face*/) const override { return 0; }
+    [[nodiscard]] uint32_t get_triangle_attrs(int /*face*/) const override { return 0; }
+    [[nodiscard]] uint16_t get_face_terrain(int /*face*/) const override { return 0; }
     // 0x00411CC0 / 0x00411C30 (slots 4, 5): passed to each child; the box to be recomputed. 0x00411C80 (slot 6):
     // passed to each child.
     void assign_shape_data(TriMeshSource* geometry) override;
@@ -170,9 +170,9 @@ public:
     const maths::Vec4* get_absolute_point() override;
     const maths::Mat4* fetch_facing() override;
     // 0x00410960 (slot 9): a zero vector.
-    maths::Vec4 read_vertex_point(int index) const override;
+    [[nodiscard]] maths::Vec4 read_vertex_point(int index) const override;
     // 0x0040AE20 / 0x0040AE10 (slots 10, 11)
-    int get_owner() const override { return owner_; }
+    [[nodiscard]] int get_owner() const override { return owner_; }
     void set_owner(int owner) override { owner_ = owner; }
     // 0x00411E80 (slot 13): false only if the box is known and doesn't touch `box`.
     bool inside_bounds(const maths::BBox* box) override;

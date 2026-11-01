@@ -64,11 +64,11 @@ public:
     }
     bool skip(size_t bytes) { return in_.skip(bytes); }
     // Whether `bytes` more are there to read.
-    bool fits(uint64_t bytes) const { return in_.ok() && bytes <= in_.remaining(); }
-    bool ok() const { return in_.ok(); }
+    [[nodiscard]] bool fits(uint64_t bytes) const { return in_.ok() && bytes <= in_.remaining(); }
+    [[nodiscard]] bool ok() const { return in_.ok(); }
     void fail() { in_.seek(in_.size() + 1); }
-    size_t position() const { return in_.position(); }
-    const uint8_t* cursor() const { return in_.cursor(); }
+    [[nodiscard]] size_t position() const { return in_.position(); }
+    [[nodiscard]] const uint8_t* cursor() const { return in_.cursor(); }
 
 private:
     util::ByteReader in_;

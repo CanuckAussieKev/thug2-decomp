@@ -20,17 +20,16 @@
 namespace modules {
 
 float g_competition_tiny{0.0001f};
-static float g_competition_two{2.0f};
-static float g_competition_third{0.33333334f};
-static float g_competition_three{3.0f};
-static float g_competition_eighth{0.125f};
-static float g_competition_nearly_half{0.499999f};
-static float g_competition_ninety_nine{99.0f};
-static float g_competition_over_half{0.500099f};
-static float g_competition_max_judge{99.85f};
-static float g_competition_max_points{99.9f};
-
 namespace {
+float g_competition_two{2.0f};
+float g_competition_third{0.33333334f};
+float g_competition_three{3.0f};
+float g_competition_eighth{0.125f};
+float g_competition_nearly_half{0.499999f};
+float g_competition_ninety_nine{99.0f};
+float g_competition_over_half{0.500099f};
+float g_competition_max_judge{99.85f};
+float g_competition_max_points{99.9f};
 
 constexpr uint32_t kNoName = 0;                    // (an unnamed component: a flag)
 constexpr uint32_t kLeaderBoardNames = 0x1CC6F48D; // leader_board_names

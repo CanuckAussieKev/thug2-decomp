@@ -73,7 +73,7 @@ Attachment attached(uint32_t cluster, const std::vector<uint32_t>& links, uint32
                     const std::vector<uint32_t>& members, const std::vector<uint32_t>& member_clusters)
 {
     auto in = [](const std::vector<uint32_t>& list, uint32_t id) {
-        return id != 0 && std::find(list.begin(), list.end(), id) != list.end();
+        return id != 0 && std::ranges::find(list, id) != list.end();
     };
     if (in(members, cluster) || in(member_clusters, cluster))
         return Attachment::kCluster;
@@ -180,13 +180,13 @@ struct Gather {
 // the shared collision's 6 units.
 uint32_t ground_under(const Gather& g, V3 p)
 {
-    const bool over = std::any_of(g.boxes.begin(), g.boxes.end(),
-                                  [&](const auto& box) { return over_footprint(box.second, p, kMargin, kAbove); });
+    const bool over =
+        std::ranges::any_of(g.boxes, [&](const auto& box) { return over_footprint(box.second, p, kMargin, kAbove); });
     if (!over)
         return 0;
     V3 point = {};
     const uint32_t hit = first_hit({p.x, p.y + kRayUp, p.z}, {p.x, p.y - kRayDown, p.z}, &point);
-    if (!hit || std::find(g.members.begin(), g.members.end(), hit) != g.members.end() || scenery::sector_geometry(hit))
+    if (!hit || std::ranges::find(g.members, hit) != g.members.end() || scenery::sector_geometry(hit))
         return hit;
     for (const auto& box : g.boxes) {
         if (over_footprint(box.second, point, 6.0f, 6.0f))
@@ -282,7 +282,7 @@ Taken arm()
         if (!node_edit::get_take_in(node.name, &values))
             continue;
         if (attachment_of(g, node.name, values.pos) != Attachment::kNone &&
-            std::find(g_carried.nodes.begin(), g_carried.nodes.end(), node.name) == g_carried.nodes.end())
+            std::ranges::find(g_carried.nodes, node.name) == g_carried.nodes.end())
             g_carried.nodes.push_back(node.name);
     }
     g_carried.taken.nodes = node_edit::get_capture(g_carried.nodes, node_edit::get_take_in);
@@ -310,7 +310,7 @@ void get_follow(void (*on_node)(uint32_t name))
         objects::GameEntity* object = live_object(id);
         if (!object)
             continue;
-        if (std::find(g_carried.noted.begin(), g_carried.noted.end(), id) == g_carried.noted.end()) {
+        if (std::ranges::find(g_carried.noted, id) == g_carried.noted.end()) {
             object_edit::note_origin(object);
             object_edit::touch(id);
             g_carried.noted.push_back(id);

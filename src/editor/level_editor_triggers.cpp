@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_triggers.h"
 
+#include <algorithm>
 #include <bit>
 #include <algorithm>
 #include <cmath>
@@ -1154,10 +1155,7 @@ render::HitMesh* coll_of(render::WorldCell* sector)
     render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
     return render::is_static_collider(coll) ? coll : nullptr;
 }
-bool turned_off_by_us(uint32_t sector)
-{
-    return std::find(g_turned_off.begin(), g_turned_off.end(), sector) != g_turned_off.end();
-}
+bool turned_off_by_us(uint32_t sector) { return std::ranges::find(g_turned_off, sector) != g_turned_off.end(); }
 
 V3 to_v3(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
 
@@ -1250,7 +1248,7 @@ void read_level_gaps()
         script::Struct* s = nodes::struct_of(node);
         uint32_t script = 0;
         if (s && s->read_hash_value(kTriggerScript, &script, 0) && script &&
-            std::find(scripts.begin(), scripts.end(), script) == scripts.end())
+            std::ranges::find(scripts, script) == scripts.end())
             scripts.push_back(script);
     }
     g_names = &g_level_gap_names;
@@ -1316,7 +1314,7 @@ goals::GapTally* get_checklist()
 
 bool level_gap(const std::string& name)
 {
-    return std::find(g_level_gap_names.begin(), g_level_gap_names.end(), name) != g_level_gap_names.end();
+    return std::ranges::find(g_level_gap_names, name) != g_level_gap_names.end();
 }
 
 // The editor's gaps that are no longer wanted out of `checklist` (a level's own gap of that name stays).
@@ -1325,7 +1323,7 @@ void take_out_gaps(goals::GapTally* checklist, const std::vector<std::pair<std::
     if (!checklist)
         return;
     for (const auto& gap : g_gaps_added) {
-        if (std::find(wanted.begin(), wanted.end(), gap) != wanted.end() || level_gap(gap.first))
+        if (std::ranges::find(wanted, gap) != wanted.end() || level_gap(gap.first))
             continue;
         const int index = checklist->find_gap(gap.first.c_str());
         goals::GapEntry* check = index >= 0 ? checklist->get_gap(index) : nullptr;
@@ -1474,8 +1472,7 @@ void sync_proxims()
     }
     // (put back: those not edited now)
     for (auto it = proxim_originals().begin(); it != proxim_originals().end();) {
-        const bool kept =
-            std::any_of(live.begin(), live.end(), [&](const auto& l) { return l.first->node == it->first; });
+        const bool kept = std::ranges::any_of(live, [&](const auto& l) { return l.first->node == it->first; });
         if (!kept) {
             if (objects::ProximNode* p = objects::proxim_get_node(it->first))
                 put_proxim_back(p, it->second);
@@ -1577,7 +1574,7 @@ void get_sync()
         if (!a.alive || a.broken || network)
             continue;
         uint32_t name = hash_of_name(a.spec.name);
-        auto it = std::find_if(g_boxes.begin(), g_boxes.end(), [&](const Cuboid& b) { return b.name == name; });
+        auto it = std::ranges::find_if(g_boxes, [&](const Cuboid& b) { return b.name == name; });
         if (it == g_boxes.end()) {
             Cuboid b = {name, make_box(name), {}, {}, 0.0f};
             if (!b.coll)
@@ -1598,7 +1595,7 @@ void get_sync()
             replaced.push_back(a.spec.replaces);
     }
     for (size_t i = 0; i < g_turned_off.size();) {
-        if (std::find(replaced.begin(), replaced.end(), g_turned_off[i]) == replaced.end()) {
+        if (std::ranges::find(replaced, g_turned_off[i]) == replaced.end()) {
             walls::set_off(g_turned_off[i], false);
             g_turned_off.erase(g_turned_off.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
@@ -1619,7 +1616,7 @@ void get_sync()
         if (a.alive && !a.problem && a.spec.kind == Kind::kGapEnd)
             wanted.emplace_back(clean_text(a.spec.text), a.spec.score);
     }
-    std::sort(wanted.begin(), wanted.end());
+    std::ranges::sort(wanted);
     if (redefined || wanted != g_gaps_added) {
         goals::GapTally* checklist = get_checklist();
         if (checklist && !script::fetch_int_value(0xF7ECD937u)) {
@@ -1753,7 +1750,7 @@ bool name_taken(const std::string& name) { return spec_index(name) >= 0 || node_
 std::string fresh_gap()
 {
     return node_create::fresh_name("ed_gap", [](const std::string& id) {
-        return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return same_text(s.gap, id); });
+        return std::ranges::any_of(g_specs, [&](const Spec& s) { return same_text(s.gap, id); });
     });
 }
 
@@ -1866,7 +1863,7 @@ const std::vector<Added>& added_triggers() { return g_added; }
 
 bool is_trigger(uint32_t name)
 {
-    return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return hash_of_name(s.name) == name; });
+    return std::ranges::any_of(g_specs, [&](const Spec& s) { return hash_of_name(s.name) == name; });
 }
 
 bool get_shown()
@@ -2050,7 +2047,7 @@ void turn_off(uint32_t sector, bool off)
         hud::get_message("Has non-trigger faces; can't be disabled", 5.0);
         return;
     }
-    if (std::find(g_switched.begin(), g_switched.end(), sector) == g_switched.end())
+    if (std::ranges::find(g_switched, sector) == g_switched.end())
         g_switched.push_back(sector); // (its wall state in the undo steps from now on)
     note_undo();
     if (!walls::set_off(sector, off)) {
@@ -2312,7 +2309,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         if (d <= kDrawRadius)
             near.emplace_back(d, &l);
     }
-    std::sort(near.begin(), near.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::ranges::sort(near, [](const auto& a, const auto& b) { return a.first < b.first; });
     if (near.size() > static_cast<size_t>(kMaxLevelDrawn))
         near.resize(kMaxLevelDrawn);
     for (const auto& n : near) {
@@ -2785,7 +2782,7 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
 
 void perform(bool editing)
 {
-    const bool any = std::any_of(g_added.begin(), g_added.end(), [](const Added& a) { return a.alive && a.spec.exit; });
+    const bool any = std::ranges::any_of(g_added, [](const Added& a) { return a.alive && a.spec.exit; });
     if (editing || !any || g_boxes.empty() || layout::get_refused()) { // (a network session or a career-type mode)
         g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
@@ -2799,7 +2796,7 @@ void perform(bool editing)
             continue;
         uint32_t node = hash_of_name(a.spec.name);
         const bool now = get_inside(box_of(a.pos, a.yaw, a.spec.size), at);
-        auto it = std::find_if(g_seen.begin(), g_seen.end(), [&](const Seen& s) { return s.node == node; });
+        auto it = std::ranges::find_if(g_seen, [&](const Seen& s) { return s.node == node; });
         const bool known = it != g_seen.end();
         if (get_left(known, known && it->inside, now))
             fire_on_leaving(skater, node);
@@ -2832,8 +2829,8 @@ void get_restore(const State& state)
     for (const node_create::Spec& n : node_create::at_hand()) {
         if (!n.owned || spec_index(n.name) < 0)
             continue;
-        const bool keep = std::any_of(state.nodes.begin(), state.nodes.end(),
-                                      [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
+        const bool keep =
+            std::ranges::any_of(state.nodes, [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
         if (!keep) {
             node_create::Spec removed;
             int at = 0;

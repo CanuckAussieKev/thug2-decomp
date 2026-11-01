@@ -238,7 +238,7 @@ bool parse_keys(const std::string& text, std::vector<Chord>* keys)
         Chord c;
         if (!parse_chord(part, &c))
             return false;
-        if (std::find(out.begin(), out.end(), c) == out.end())
+        if (std::ranges::find(out, c) == out.end())
             out.push_back(c);
         if (comma == std::string::npos)
             break;

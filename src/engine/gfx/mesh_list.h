@@ -56,9 +56,9 @@ struct SceneRef {
     // 0x004DDFA0: sort the list (compare_meshes) and count again.
     void order_meshes();
     // 0x004DE020: the mesh with this load index (+0x20), or null.
-    MeshRef* find_mesh(uint32_t index) const;
+    [[nodiscard]] MeshRef* find_mesh(uint32_t index) const;
     // 0x004DE420: the material with this checksum (its first field), or null.
-    void* find_material(uint32_t checksum) const;
+    [[nodiscard]] void* find_material(uint32_t checksum) const;
     // 0x004DE060: break the meshes' triangle strips where the records (mask, mesh << 16 | a, c << 16 | b, the strip
     // index to search from) say: the index before a triangle (a, c, b) found is flagged, and the strips of meshes
     // with flags are rebuilt with each flagged index three times.

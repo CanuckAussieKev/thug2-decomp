@@ -35,10 +35,10 @@ struct Contest {
         // (text_store.cpp): the implicit ones)
 
         // The best two of the first `count` scores summed (none above 0: 0).
-        int best_two(int count) const;
+        [[nodiscard]] int best_two(int count) const;
         // The same of the four words from the scores on (the debug output's: unknown1c_ and its padding the fourth).
-        int best_two_of_four_words() const;
-        int get_word(int index) const { return reinterpret_cast<const int*>(scores_)[index]; }
+        [[nodiscard]] int best_two_of_four_words() const;
+        [[nodiscard]] int get_word(int index) const { return reinterpret_cast<const int*>(scores_)[index]; }
     };
 
     script::Struct* args_;             // +0x00: StartCompetition's extra parameters (leader_board_names,

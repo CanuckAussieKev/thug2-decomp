@@ -28,11 +28,11 @@ public:
     maths::Vec4* get_absolute_point() override;
     maths::Mat4* fetch_facing() override;
     // 0x00412230 (slot 9): the geometry's vertex `index` rotated and placed (w = the position's).
-    maths::Vec4 read_vertex_point(int index) const override;
+    [[nodiscard]] maths::Vec4 read_vertex_point(int index) const override;
     // 0x004122C0: `box` in the object's space (its corners moved back and turned by the inverse).
     void box_to_local(const maths::BBox* box, maths::BBox* out) const;
     // 0x0040AE50 / 0x0040AE40 (slots 10, 11)
-    int get_owner() const override { return owner_; }
+    [[nodiscard]] int get_owner() const override { return owner_; }
     void set_owner(int owner) override { owner_ = owner; }
 
     maths::Vec4 anchor_point_; // +0x10
@@ -68,12 +68,12 @@ public:
     // 0x004125F0 (0x004136D0 the deleting destructor)
     ~HitMovingBox() override = default;
 
-    HitMeshKind kind() const override { return HitMeshKind::kMovingBox; }
+    [[nodiscard]] HitMeshKind kind() const override { return HitMeshKind::kMovingBox; }
     // 0x00412600 (slot 4): the geometry and its box (a null geometry crashes, as in the original).
     void assign_shape_data(TriMeshSource* geometry) override;
     // 0x0040AE60 / 0x0040AE70 (slots 2, 3)
-    uint32_t get_triangle_attrs(int face) const override;
-    uint16_t get_face_terrain(int face) const override;
+    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override;
+    [[nodiscard]] uint16_t get_face_terrain(int face) const override;
     // 0x00414BE0 (slot 12): a copy (no geometry, flag 0x8000; a failed allocation crashes, as in the original).
     HitMovingBox* replicate(int argument) override;
     // (slot 13: the shared "true", folded with SaveCard::always_true)
@@ -118,7 +118,7 @@ public:
     // 0x00412060 (slot 8; folded with HitMovingMesh::fetch_facing): the matrix.
     maths::Mat4* fetch_facing() override { return &basis_frame_; }
     // 0x004109D0 (slot 9): vertex `index` scaled (w the scale's w), through the matrix.
-    maths::Vec4 read_vertex_point(int index) const override;
+    [[nodiscard]] maths::Vec4 read_vertex_point(int index) const override;
 
     maths::Vec4 size_factor_; // +0x10
     maths::Mat4 basis_frame_{}; // +0x20 (row 3, +0x50, the position)

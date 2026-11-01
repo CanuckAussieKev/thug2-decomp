@@ -81,7 +81,7 @@ Resolved settle_up(const std::vector<Met>& met)
     order.reserve(met.size());
     for (const Met& m : met)
         order.push_back(&m);
-    std::stable_sort(order.begin(), order.end(), [](const Met* a, const Met* b) { return a->t < b->t; });
+    std::ranges::stable_sort(order, [](const Met* a, const Met* b) { return a->t < b->t; });
     Resolved r;
     bool searching = true; // (a plain click's search: until the first occluding entry)
     for (const Met* m : order) {
@@ -248,7 +248,7 @@ bool latched(uint32_t kind, uint32_t id)
 
 bool set_locked(uint32_t kind, uint32_t id, bool locked)
 {
-    auto it = std::find_if(g_locks.begin(), g_locks.end(), [&](const Lock& l) { return l.kind == kind && l.id == id; });
+    auto it = std::ranges::find_if(g_locks, [&](const Lock& l) { return l.kind == kind && l.id == id; });
     if (locked == (it != g_locks.end()))
         return false;
     if (locked)

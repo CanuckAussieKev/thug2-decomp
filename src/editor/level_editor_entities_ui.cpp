@@ -97,7 +97,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
     if (ImGui::BeginTable("##physics", 2, ImGuiTableFlags_SizingStretchProp)) {
         for (const char* field : kPhysics) {
             uint32_t key = checksums::hash_from_text(field);
-            auto row = std::find_if(rows.begin(), rows.end(), [&](const fields::Row& r) { return r.key == key; });
+            auto row = std::ranges::find_if(rows, [&](const fields::Row& r) { return r.key == key; });
             if (row == rows.end())
                 continue;
             ImGui::TableNextRow();

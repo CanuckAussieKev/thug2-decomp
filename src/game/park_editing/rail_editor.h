@@ -83,9 +83,9 @@ struct EditedRail {
     // 0x004F6E20 (also the destructor, 0x004F70F0 - a jump to it): every point's sectors deleted and the point freed.
     void get_clear();
     // 0x004F3B90
-    int rail_point_total() const;
+    [[nodiscard]] int rail_point_total() const;
     // 0x004F3BB0: the point `index` from the head (counting stops at the end: then null).
-    EditedRailPoint* fetch_vertex_at(int index) const;
+    [[nodiscard]] EditedRailPoint* fetch_vertex_at(int index) const;
     // 0x004F3BD0: its sectors' colours cleared.
     void clear_colours();
     // 0x004F41C0 / 0x004F4220: every point's segment / post deleted.
@@ -96,14 +96,14 @@ struct EditedRail {
     bool find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared, int* index,
                             int skip) const;
     // 0x004F4310: how many points lie strictly inside (x0, z0)-(x1, z1).
-    int count_points_inside(float x0, float z0, float x1, float z1) const;
+    [[nodiscard]] int count_points_inside(float x0, float z0, float x1, float z1) const;
     // 0x004F4370: every point moved from `origin` to `position` turned `angle` degrees about y (w: the original adds
     // `position`'s to an unset local - here 0).
     void xform(const maths::Vec4* origin, const maths::Vec4* position, float angle);
     // 0x004F4420: its sectors coloured as graffitiColors[`index`].
     void change_colour(int index);
     // 0x004F44B0: whether any point lies outside [x0, x1] x [z0, z1].
-    bool any_point_outside(float x0, float z0, float x1, float z1) const;
+    [[nodiscard]] bool any_point_outside(float x0, float z0, float x1, float z1) const;
     // 0x004F61C0 / 0x004F6210: every point's segment (from the last laid to the first) / post drawn.
     void draw_segments(const maths::Vec4* origin, const maths::Vec4* position, float angle);
     void draw_posts(const maths::Vec4* origin, const maths::Vec4* position, float angle);
@@ -217,14 +217,14 @@ public:
     // freed.
     void delete_points(float x0, float z0, float x1, float z1, int inside);
     // 0x004F3C50: the rail whose id is `id` (null if none).
-    EditedRail* find_rail(uint32_t id) const;
+    [[nodiscard]] EditedRail* find_rail(uint32_t id) const;
     // 0x004F3CA0: the rail the cluster `name` (CreatedRailCluster<n>: the n-th rail) stands for (null if none).
-    EditedRail* find_rail_by_cluster(uint32_t name) const;
+    [[nodiscard]] EditedRail* find_rail_by_cluster(uint32_t name) const;
     // 0x004F3D10 (thiscall, RET 4): that rail's colours cleared. 0x004F4950: that rail coloured as graffitiColors[i].
     void clear_cluster_colours(uint32_t name);
     void set_cluster_colour(uint32_t name, int colour_index);
     // 0x004F3C70: the points of every rail.
-    int rail_point_total() const;
+    [[nodiscard]] int rail_point_total() const;
     // 0x004F3C20: every point UnHighlighted.
     void un_highlight_all();
     // 0x004F3D30: every rail's sectors drawn and collided with, or neither.
@@ -233,9 +233,9 @@ public:
     void delete_all_segments();
     void delete_all_posts();
     // 0x004F4600: whether any rail point lies outside the rectangle (corners in any order).
-    bool any_point_outside(float x0, float z0, float x1, float z1) const;
+    [[nodiscard]] bool any_point_outside(float x0, float z0, float x1, float z1) const;
     // 0x004F4690: how many rail points lie inside it.
-    int count_points_inside(float x0, float z0, float x1, float z1) const;
+    [[nodiscard]] int count_points_inside(float x0, float z0, float x1, float z1) const;
     // 0x004F4710: the rail point nearest `position` (ground plane), skipping the point `bypass_idx` of the rail
     // `skip_rail`: its position, squared distance, rail id and index. Whether one was found.
     bool find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared, uint32_t* rail_id,
@@ -270,7 +270,7 @@ public:
     // 0x004F6650: the collision rebuilt, heights kept, everything drawn again.
     void reassemble();
     // 0x004F7230: copy_inside of every rail, into one list (returned).
-    EditedRail* copy_rails_inside(float x0, float z0, float x1, float z1) const;
+    [[nodiscard]] EditedRail* copy_rails_inside(float x0, float z0, float x1, float z1) const;
     // 0x004F6BF0 (no this): the free points of the current pool.
     static int free_points();
 

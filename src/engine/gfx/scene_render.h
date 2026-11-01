@@ -9,7 +9,7 @@ namespace render {
 
 // Render flags (draw_scene's `flags`).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-enum DrawOptionBits : uint32_t {
+enum DrawOptionBits : uint8_t {
     kRenderOpaque = 0x1,      // the meshes before the first transparent one
     kRenderTransparent = 0x2, // the rest: transparent, then the flagged ones sorted by depth, then the others
     kRenderOcclusion = 0x4,   // skip meshes hidden by an occluder

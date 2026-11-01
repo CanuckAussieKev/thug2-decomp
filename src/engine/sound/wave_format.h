@@ -31,10 +31,10 @@ struct Wave {
     bool has_data = false;
     bool looping = false;
     // the format's fields
-    uint32_t samples_per_second() const { return word(4); }
-    uint32_t bytes_per_second() const { return word(8); }
-    uint16_t block_align() const { return static_cast<uint16_t>(format[0xC] | format[0xD] << 8); }
-    uint32_t word(size_t at) const
+    [[nodiscard]] uint32_t samples_per_second() const { return word(4); }
+    [[nodiscard]] uint32_t bytes_per_second() const { return word(8); }
+    [[nodiscard]] uint16_t block_align() const { return static_cast<uint16_t>(format[0xC] | format[0xD] << 8); }
+    [[nodiscard]] uint32_t word(size_t at) const
     {
         return format[at] | format[at + 1] << 8 | format[at + 2] << 16 | static_cast<uint32_t>(format[at + 3]) << 24;
     }

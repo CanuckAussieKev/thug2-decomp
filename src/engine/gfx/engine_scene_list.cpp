@@ -156,8 +156,10 @@ CollGrid* get_first_coll_grid()
     return nullptr;
 }
 
-static uint32_t g_next_sector_name{1};
-static CollGrid* g_collision_grids[16];
+namespace {
+uint32_t g_next_sector_name{1};
+CollGrid* g_collision_grids[16];
+} // namespace
 WorldScene* g_collision_scenes[16];
 
 // 0x0048C980

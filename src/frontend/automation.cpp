@@ -1361,7 +1361,7 @@ std::string log_tricks(int count, std::string* failed)
             if (!item->value)
                 continue;
             objects.push_back(item->key);
-            if (std::find(clusters.begin(), clusters.end(), item->value) == clusters.end())
+            if (std::ranges::find(clusters, item->value) == clusters.end())
                 clusters.push_back(item->value);
         }
     }

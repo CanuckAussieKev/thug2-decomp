@@ -89,7 +89,7 @@ public:
     Vec4& get_euler_angles(Vec4& out) const;
 
     // Full 4x4 determinant (to 53 bits: the original returns it unrounded in ST0, and Invert divides by that).
-    double get_det() const;
+    [[nodiscard]] double get_det() const;
     // this = adjugate of `source` (transposed cofactors). `source` must not be this matrix.
     Mat4& get_adjugate(const Mat4& source);
     // Invert in place: adjugate / determinant. Like the original, a zero determinant isn't checked for.

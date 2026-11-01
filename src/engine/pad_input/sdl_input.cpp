@@ -74,7 +74,8 @@ struct KeyBinds {
 };
 
 // SDL_GameControllerButton, plus the two triggers.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
+// (an int: holds the ini's number as read, any value kept as given)
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class, performance-enum-size): indexes into tables and arrays; the ini's int
 enum PadButton : int {
     kUnbound = -1,
     kButtonA = SDL_CONTROLLER_BUTTON_A,
@@ -95,7 +96,8 @@ enum PadButton : int {
     kLeftTrigger = 22,
 };
 
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
+// (an int: holds the ini's number as read, any value kept as given)
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class, performance-enum-size): indexes into tables and arrays; the ini's int
 enum PadStick : int { kStickUnbound = -1, kStickLeft = 0, kStickRight = 1 };
 
 struct PadBinds {
@@ -194,7 +196,7 @@ void prune_players()
 void detach_anim_driver(SDL_GameController* controller)
 {
     debug_log::printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
-    auto found = std::find(s_controllers.begin(), s_controllers.end(), controller);
+    auto found = std::ranges::find(s_controllers, controller);
     // (PartyMod looked one past the last entry when it wasn't found - past the end of its array when that was full)
     if (found == s_controllers.end()) {
         debug_log::printf(StageMap::kWarn, "Did not find disconnected controller in list\n");

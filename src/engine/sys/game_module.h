@@ -23,9 +23,9 @@ public:
     static void operator delete(void* memory) { memory::HeapObject::operator delete(memory); }
 
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : int { kStopped = 0, kRunning = 1 };
+    enum State : uint8_t { kStopped = 0, kRunning = 1 };
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum OrderCode : int { kNone = 0, kStart = 1, kStop = 2, kRestart = 3 };
+    enum OrderCode : uint8_t { kNone = 0, kStart = 1, kStop = 2, kRestart = 3 };
 
     // 0x0044F7E0: stopped, unlocked, with a list node of its own (none if out of memory).
     PartUnit();

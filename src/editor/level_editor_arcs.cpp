@@ -83,7 +83,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     for (size_t i = 0; i < faces.size(); ++i)
         if (info[i].use)
             order.push_back(static_cast<int>(i));
-    std::sort(order.begin(), order.end(), [&](int a, int b) { return info[a].area > info[b].area; });
+    std::ranges::sort(order, [&](int a, int b) { return info[a].area > info[b].area; });
     std::vector<GroupSet> groups;
     auto heading_of = [](V3 n) { return make_unit({-n.x, 0.0f, -n.z}); };
     for (const int i : order) {
@@ -122,7 +122,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             }
         }
     }
-    std::sort(groups.begin(), groups.end(), [](const GroupSet& a, const GroupSet& b) { return a.area > b.area; });
+    std::ranges::sort(groups, [](const GroupSet& a, const GroupSet& b) { return a.area > b.area; });
 
     for (const GroupSet& g : groups) {
         if (std::cmp_greater_equal(lips.size(), max_lips))
@@ -496,8 +496,8 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
     for (const LipArcs& arcs : g_cache.arcs) {
         const Lip& lip = arcs.lip;
         const V3 half = lip.across * (lip.width * 0.5f);
-        painter.get_seg(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
-        painter.get_seg(lip.point, lip.point + lip.tangent * 40.0f, 0xC0FFFFFF, 1.5f);
+        (void)painter.get_seg(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
+        (void)painter.get_seg(lip.point, lip.point + lip.tangent * 40.0f, 0xC0FFFFFF, 1.5f);
         char label[96];
         std::snprintf(label, sizeof(label), "lip %.0f high, %.0f deg%s", lip.height,
                       std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * 57.29578f, lip.vert ? " (vert)" : "");
@@ -509,14 +509,14 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 const V3 side = lip.across * (lip.width * (0.15f * static_cast<float>(i - 1)));
                 const V3 base = lip.point + side;
                 const V3 apex = base + V3{0.0f, arcs.rise[i], 0.0f};
-                painter.get_seg(base, apex, colour, 2.0f);
-                painter.get_seg(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
+                (void)painter.get_seg(base, apex, colour, 2.0f);
+                (void)painter.get_seg(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
                 painter.draw_label(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(arcs.rise[i]));
                 continue;
             }
             const Flight& flight = arcs.flights[i];
             for (size_t k = 1; k < flight.points.size(); ++k)
-                painter.get_seg(flight.points[k - 1], flight.points[k], colour, 2.0f);
+                (void)painter.get_seg(flight.points[k - 1], flight.points[k], colour, 2.0f);
             if (!flight.landed) {
                 if (!flight.points.empty())
                     painter.draw_label(flight.points.back(), colour,
@@ -532,7 +532,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             text += drop;
             if (std::fabs(flight.normal.y) < 0.5f)
                 text += " - hits a wall";
-            if (arcs.landed_on_[i] && std::find(sectors.begin(), sectors.end(), arcs.landed_on_[i]) == sectors.end() &&
+            if (arcs.landed_on_[i] && std::ranges::find(sectors, arcs.landed_on_[i]) == sectors.end() &&
                 scenery::sector_geometry(arcs.landed_on_[i]))
                 text += " on " + object_edit::caption(arcs.landed_on_[i]);
             painter.draw_label(flight.landing, colour, text, 8.0f, -10.0f - 14.0f * static_cast<float>(i));

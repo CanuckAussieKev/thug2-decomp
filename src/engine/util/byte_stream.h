@@ -21,12 +21,12 @@ public:
 
     ByteReader(const void* data, size_t size) : data_(static_cast<const uint8_t*>(data)), size_(size) {}
 
-    bool ok() const { return ok_; }
-    size_t position() const { return position_; }
-    size_t size() const { return size_; }
-    size_t remaining() const { return size_ - position_; }
+    [[nodiscard]] bool ok() const { return ok_; }
+    [[nodiscard]] size_t position() const { return position_; }
+    [[nodiscard]] size_t size() const { return size_; }
+    [[nodiscard]] size_t remaining() const { return size_ - position_; }
     // The next byte to be read.
-    const uint8_t* cursor() const { return data_ + position_; }
+    [[nodiscard]] const uint8_t* cursor() const { return data_ + position_; }
 
     // Move to `position` (fails beyond the end).
     bool seek(size_t position)
@@ -114,7 +114,7 @@ public:
 private:
     static constexpr size_t kNotFound = ~static_cast<size_t>(0);
 
-    bool has(size_t count) const { return ok_ && count <= size_ - position_; }
+    [[nodiscard]] bool has(size_t count) const { return ok_ && count <= size_ - position_; }
     bool fail()
     {
         ok_ = false;
@@ -153,11 +153,11 @@ class ByteWriter {
 public:
     ByteWriter(void* data, size_t capacity) : data_(static_cast<uint8_t*>(data)), capacity_(capacity) {}
 
-    bool ok() const { return ok_; }
-    size_t position() const { return position_; }
-    size_t capacity() const { return capacity_; }
-    size_t remaining() const { return capacity_ - position_; }
-    uint8_t* cursor() const { return data_ + position_; }
+    [[nodiscard]] bool ok() const { return ok_; }
+    [[nodiscard]] size_t position() const { return position_; }
+    [[nodiscard]] size_t capacity() const { return capacity_; }
+    [[nodiscard]] size_t remaining() const { return capacity_ - position_; }
+    [[nodiscard]] uint8_t* cursor() const { return data_ + position_; }
 
     bool seek(size_t position)
     {
@@ -238,7 +238,7 @@ public:
     }
 
 private:
-    bool has(size_t count) const { return ok_ && count <= capacity_ - position_; }
+    [[nodiscard]] bool has(size_t count) const { return ok_ && count <= capacity_ - position_; }
     bool fail()
     {
         ok_ = false;

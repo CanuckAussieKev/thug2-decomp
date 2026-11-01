@@ -18,7 +18,7 @@ struct FrontEnd;
 namespace frontend::new_frontend::game_screens {
 
 // The game's menus the new front end knows by name.
-enum class Anchor {
+enum class Anchor : uint8_t {
     kNone,
     kMainMenu,      // the front end's main menu (main_vmenu: the overlay's roundbar menu or the game's wheel)
     kCareerOptions, // STORY MODE / CLASSIC MODE OPTIONS (career_options_vmenu)

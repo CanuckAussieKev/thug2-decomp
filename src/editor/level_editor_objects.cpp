@@ -290,7 +290,7 @@ std::vector<std::pair<objects::GameEntity*, float>> pick_all(V3 origin, V3 dir, 
         PickWalk walk = {origin, make_unit(dir), max_t, nullptr, &all};
         manager->for_each(pick_one, &walk);
     }
-    std::stable_sort(all.begin(), all.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
+    std::ranges::stable_sort(all, [](const auto& a, const auto& b) { return a.second < b.second; });
     return all;
 }
 
@@ -496,7 +496,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
 
 bool remove_copy(uint32_t name)
 {
-    auto it = std::find_if(g_copies.begin(), g_copies.end(), [&](const DupFrom& c) { return c.name == name; });
+    auto it = std::ranges::find_if(g_copies, [&](const DupFrom& c) { return c.name == name; });
     if (it == g_copies.end())
         return false;
     g_copies.erase(it);
@@ -511,12 +511,12 @@ const std::vector<DupFrom>& get_copies() { return g_copies; }
 
 bool is_copy(uint32_t id)
 {
-    return std::any_of(g_copies.begin(), g_copies.end(), [&](const DupFrom& c) { return c.name == id; });
+    return std::ranges::any_of(g_copies, [&](const DupFrom& c) { return c.name == id; });
 }
 
 void touch(uint32_t id)
 {
-    if (!is_copy(id) && std::find(g_touched.begin(), g_touched.end(), id) == g_touched.end())
+    if (!is_copy(id) && std::ranges::find(g_touched, id) == g_touched.end())
         g_touched.push_back(id);
 }
 
@@ -580,7 +580,7 @@ std::vector<TableRow> copyable()
             entries.push_back({name, label});
         }
     }
-    std::sort(entries.begin(), entries.end(), [](const TableRow& a, const TableRow& b) { return a.label < b.label; });
+    std::ranges::sort(entries, [](const TableRow& a, const TableRow& b) { return a.label < b.label; });
     return entries;
 }
 

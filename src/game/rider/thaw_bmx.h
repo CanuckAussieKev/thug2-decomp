@@ -207,7 +207,7 @@ void air_rotation(SkaterPhysicsModule* core);
 // skater hit or not); kWheelsNotUsed: THUG2's own check (in a manual, or [features] thaw_bmx_wheels=0).
 // [debug] thaw_bmx_wheels=1 logs each frame the wheels leave the ground (`thaw_bmx wheels off:` - each wheel's hit,
 // why not, distance, reach, turn).
-enum class WheelGround { kWheelsNotUsed, kWheelsOff, kWheelsOnGround, kWheelsOnGroundNoHit };
+enum class WheelGround : uint8_t { kWheelsNotUsed, kWheelsOff, kWheelsOnGround, kWheelsOnGroundNoHit };
 WheelGround wheel_ground_check(SkaterPhysicsModule* core);
 // Whether the skater rolls backwards on the bike (the velocity against the facing) - THAW's ground check (0x005DEB08)
 // turns the facing round for its steepness test then.
@@ -258,7 +258,7 @@ void manual_pose(SkaterPhysicsModule* core);
 // 0x0046A097 / 0x0046A0D3: on the bike BIKE_LAND, BIKE_GRINDLAND, BIKE_OLLIE, BIKE_GRINDJUMP, BIKE_BONK, BIKE_ROLL,
 // BIKE_GRIND - TERRAIN_BIKE_DEFAULT_*, every terrain the same; nothing in the air), from THAW's tables copied into the
 // overlay (thaw_bmx_terrain_land ...).
-enum class BikeSound { kLand, kGrindLand, kOllie, kGrindJump, kBonk, kRoll, kGrind, kAir };
+enum class BikeSound : uint8_t { kLand, kGrindLand, kOllie, kGrindJump, kBonk, kRoll, kGrind, kAir };
 // For the skater object `skater`: -1 not on the bike (THUG2's terrain sound), 0 no sound, 1 the sound in `info`
 // (a surface_kind::SoundInfo).
 int bike_sound_of(const void* skater, BikeSound kind, void* info);
@@ -380,7 +380,16 @@ bool stall_steep_rail(SkaterPhysicsModule* core);
 //   first button (the last trick's) is this one, only after the right stick has been back in the middle (0x4723D0:
 //   none of its eight directions down).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum StickButtonIndex { kLeftUp, kLeftDown, kLeftLeft, kLeftRight, kRightUp, kRightDown, kRightLeft, kRightRight };
+enum StickButtonIndex : uint8_t {
+    kLeftUp,
+    kLeftDown,
+    kLeftLeft,
+    kLeftRight,
+    kRightUp,
+    kRightDown,
+    kRightLeft,
+    kRightRight
+};
 // The eight directions (a bit each, 1 << StickButtonIndex) from a pad's data: its bytes 0-3, the tolerance-centred
 // right x, y and left x, y (0x80 the middle).
 uint32_t stick_directions(const uint8_t* data);
@@ -468,7 +477,7 @@ struct ManualInput {
     float lean;                 // Physics_Ground_Lean_stat
     float frame_length_;
 };
-enum class ManualEvent { kNone, kEnterManual, kEnterNoseManual, kEnterEndo, kBail, kLanded, kExitEndo };
+enum class ManualEvent : uint8_t { kNone, kEnterManual, kEnterNoseManual, kEnterEndo, kBail, kLanded, kExitEndo };
 struct ManualOutput {
     bool manual, nose, endo;
     float angle;

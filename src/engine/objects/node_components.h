@@ -47,7 +47,7 @@ public:
     void reapply_from_data(script::Struct* params) override;
     // 0x005480F0 (slot 13, GetNodeArray: a getter of +0x18 shared with other classes; only this class's table has
     // it as a slot, so a plain method here): the node array.
-    script::Array* get_node_array() const { return nodes_; }
+    [[nodiscard]] script::Array* get_node_array() const { return nodes_; }
 
     script::Array* nodes_{nullptr}; // +0x18
 };
@@ -73,7 +73,7 @@ public:
     // nodes (no node array component: a crash).
     void configure_from_data(script::Struct* params) override;
     // 0x005480F0 (slot 13, the shared getter of +0x18): the hook list.
-    ClassNodeList* get_hooks() const { return hooks_ptr_; }
+    [[nodiscard]] ClassNodeList* get_hooks() const { return hooks_ptr_; }
 
     ClassNodeList* hooks_ptr_{nullptr}; // +0x18 (0x4C bytes)
 };
@@ -103,7 +103,7 @@ public:
     // manager and copied to `out`; returns `out`.
     maths::Mat4* update_rail_matrix(maths::Mat4* out);
     // 0x005480F0 (slot 13, the shared getter of +0x18): the rail manager.
-    GrindRailHub* get_rail_groups() const { return rail_groups_.get(); }
+    [[nodiscard]] GrindRailHub* get_rail_groups() const { return rail_groups_.get(); }
 
     memory::HeapUnique<GrindRailHub> rail_groups_; // +0x18 (0x54 bytes)
 };

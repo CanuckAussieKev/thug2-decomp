@@ -29,7 +29,9 @@ void sync_music_to_time(float seconds);
 
 namespace objects {
 
-static char g_cutscene_shot_name[256];
+namespace {
+char g_cutscene_shot_name[256];
+} // namespace
 bool g_cutscene_playing;
 int g_cutscene_fixed_frame;
 

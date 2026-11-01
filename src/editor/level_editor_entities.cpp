@@ -183,7 +183,7 @@ const EmitterSound* emitter_of(const State& state, uint32_t name)
 
 void set_speed(State* state, uint32_t name, float mph)
 {
-    auto it = std::find_if(state->speeds.begin(), state->speeds.end(), [&](const Pace& s) { return s.name == name; });
+    auto it = std::ranges::find_if(state->speeds, [&](const Pace& s) { return s.name == name; });
     if (!(mph > 0.0f)) {
         if (it != state->speeds.end())
             state->speeds.erase(it);
@@ -198,8 +198,7 @@ void set_speed(State* state, uint32_t name, float mph)
 
 void set_emitter(State* state, const EmitterSound& emitter)
 {
-    auto it = std::find_if(state->emitters.begin(), state->emitters.end(),
-                           [&](const EmitterSound& e) { return e.name == emitter.name; });
+    auto it = std::ranges::find_if(state->emitters, [&](const EmitterSound& e) { return e.name == emitter.name; });
     if (!emitter.sound && emitter.radius <= 0.0f) {
         if (it != state->emitters.end())
             state->emitters.erase(it);
@@ -619,8 +618,7 @@ void update_sounds()
     const bool off = !m || sound::no_sound() || !in_level() || layout::network_active();
     // (those no longer wanted, or of another sound now: stopped)
     for (auto it = g_playing.begin(); it != g_playing.end();) {
-        auto e =
-            std::find_if(emitters.begin(), emitters.end(), [&](const EmitterSound& x) { return x.name == it->name; });
+        auto e = std::ranges::find_if(emitters, [&](const EmitterSound& x) { return x.name == it->name; });
         if (off || e == emitters.end() || e->sound != it->sound) {
             stop_playing(&*it);
             it = g_playing.erase(it);
@@ -633,7 +631,7 @@ void update_sounds()
     for (const EmitterSound& e : emitters) {
         if (!e.sound)
             continue;
-        auto p = std::find_if(g_playing.begin(), g_playing.end(), [&](const Playing& x) { return x.name == e.name; });
+        auto p = std::ranges::find_if(g_playing, [&](const Playing& x) { return x.name == e.name; });
         if (p == g_playing.end()) {
             g_playing.push_back({e.name, e.sound, 0});
             p = g_playing.end() - 1;
@@ -800,7 +798,7 @@ bool path_of(uint32_t name, std::vector<V3>* points, bool* closed)
     uint32_t next = level_nodes::fetch_link(node, 0);
     std::vector<uint32_t> seen;
     while (next && points->size() < 512) {
-        if (std::find(seen.begin(), seen.end(), next) != seen.end()) {
+        if (std::ranges::find(seen, next) != seen.end()) {
             *closed = next == seen.front();
             break;
         }
@@ -932,7 +930,7 @@ void build_palette()
         }
     }
     auto add = [](std::vector<std::pair<std::string, Source>>& list, uint32_t colour) {
-        std::sort(list.begin(), list.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        std::ranges::sort(list, [](const auto& a, const auto& b) { return a.first < b.first; });
         for (auto& e : list) {
             g_palette.push_back({e.first, colour, ""});
             g_sources.push_back(e.second);
@@ -962,7 +960,7 @@ void build_palette()
             label += " (loop)";
         sounds.emplace_back(label, Source{SourceKind::kSound, {}, waves[i].checksum});
     }
-    std::sort(sounds.begin(), sounds.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::ranges::sort(sounds, [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& e : sounds) {
         g_palette.push_back({e.first, 0xFF4FD1C5, why ? why : ""});
         g_sources.push_back(e.second);
@@ -981,8 +979,9 @@ void build_models()
         if (!model.empty() && seen.insert(key).second)
             g_models.push_back(model);
     }
-    std::sort(g_models.begin(), g_models.end(),
-              [](const std::string& a, const std::string& b) { return std::strcmp(short_name(a), short_name(b)) < 0; });
+    std::ranges::sort(g_models, [](const std::string& a, const std::string& b) {
+        return std::strcmp(short_name(a), short_name(b)) < 0;
+    });
 }
 
 } // namespace
@@ -1276,7 +1275,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         if (d < 4000.0f)
             near.emplace_back(d, &n);
     }
-    std::sort(near.begin(), near.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::ranges::sort(near, [](const auto& a, const auto& b) { return a.first < b.first; });
     if (near.size() > 200)
         near.resize(200);
     constexpr uint32_t kGhost = 0xB0B0A0FF;
@@ -1394,7 +1393,7 @@ std::vector<std::pair<uint32_t, std::string>> get_sounds()
     const int count = std::clamp(sound::g_level_count, 0, 256);
     for (int i = 0; i < count; ++i)
         out.emplace_back(waves[i].checksum, nodes::caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : ""));
-    std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
+    std::ranges::sort(out, [](const auto& a, const auto& b) { return a.second < b.second; });
     return out;
 }
 void set_ui_active(bool active) { g_ui_active = active; }

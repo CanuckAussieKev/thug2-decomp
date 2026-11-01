@@ -31,13 +31,12 @@ using script::MemberFunctionEntry;
 using script::Script;
 using script::Struct;
 
-static float g_composite_acos_a0{1.5707288f};
-static float g_composite_acos_a1{0.2121144f};
-static float g_composite_acos_a2{0.074261f};
-static float g_composite_acos_a3{-0.0187293f};
-static float g_composite_feet_to_inches{12.0f};
-
 namespace {
+float g_composite_acos_a0{1.5707288f};
+float g_composite_acos_a1{0.2121144f};
+float g_composite_acos_a2{0.074261f};
+float g_composite_acos_a3{-0.0187293f};
+float g_composite_feet_to_inches{12.0f};
 
 // Names (checksums).
 constexpr uint32_t kUnnamed = 0;

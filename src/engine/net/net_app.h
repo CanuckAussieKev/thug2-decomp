@@ -34,7 +34,7 @@ using UnknownPacketCallback = void (*)(char* data, int size, sockaddr* from);
 // A message to be sent (0x20 bytes; the constructor 0x004549F0 sets every field: zero, priority 0x80).
 struct NetMessageInfo {
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum Queue : int { kLaneNormal = 0, kLanePriority = 1, kLaneOrdered = 2 };
+    enum Queue : uint8_t { kLaneNormal = 0, kLanePriority = 1, kLaneOrdered = 2 };
 
     // 0x004549F0 (net_descs.cpp)
     NetMessageInfo();

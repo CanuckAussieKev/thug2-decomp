@@ -61,9 +61,9 @@ int CellCache::get_take(uint64_t key, uint64_t frame)
 
 void CellCache::get_clear()
 {
-    std::fill(keys.begin(), keys.end(), 0);
-    std::fill(shown.begin(), shown.end(), 0);
-    std::fill(drawn.begin(), drawn.end(), 0);
+    std::ranges::fill(keys, 0);
+    std::ranges::fill(shown, 0);
+    std::ranges::fill(drawn, 0);
 }
 
 void cell_rect(int cell, int* x, int* y)
@@ -105,7 +105,7 @@ bool parse_entry(const std::string& text, int* tab, uint32_t* id)
 
 void push_recent(std::vector<std::string>* list, const std::string& entry, size_t cap)
 {
-    list->erase(std::remove(list->begin(), list->end(), entry), list->end());
+    std::erase(*list, entry);
     list->insert(list->begin(), entry);
     if (list->size() > cap)
         list->resize(cap);
@@ -113,7 +113,7 @@ void push_recent(std::vector<std::string>* list, const std::string& entry, size_
 
 void toggle_in(std::vector<std::string>* list, const std::string& entry)
 {
-    auto found = std::find(list->begin(), list->end(), entry);
+    auto found = std::ranges::find(*list, entry);
     if (found != list->end())
         list->erase(found);
     else
@@ -140,7 +140,7 @@ std::vector<std::string> split_list(const std::string& text)
         const std::string entry = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         int tab = 0;
         uint32_t id = 0;
-        if (parse_entry(entry, &tab, &id) && std::find(list.begin(), list.end(), entry) == list.end())
+        if (parse_entry(entry, &tab, &id) && std::ranges::find(list, entry) == list.end())
             list.push_back(entry);
         if (comma == std::string::npos)
             break;
@@ -275,7 +275,7 @@ void note_used(int tab, uint32_t id)
 bool favourite(int tab, uint32_t id)
 {
     const std::string entry = get_entry_name(tab, id);
-    return std::find(g_favourites.begin(), g_favourites.end(), entry) != g_favourites.end();
+    return std::ranges::find(g_favourites, entry) != g_favourites.end();
 }
 
 void toggle_favourite(int tab, uint32_t id)
@@ -312,8 +312,8 @@ bool get_matches(const std::string& text, const char* filter)
         return true;
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
     std::string a = text, b = filter;
-    std::transform(a.begin(), a.end(), a.begin(), lower);
-    std::transform(b.begin(), b.end(), b.begin(), lower);
+    std::ranges::transform(a, a.begin(), lower);
+    std::ranges::transform(b, b.begin(), lower);
     return a.find(b) != std::string::npos;
 }
 
@@ -482,7 +482,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     std::vector<uint64_t> wanted;
     // (keys moved the highlight: its row scrolled into view)
     if (follow) {
-        auto at = std::find(shown.begin(), shown.end(), model.browser_index_);
+        auto at = std::ranges::find(shown, model.browser_index_);
         if (at != shown.end()) {
             // NOLINTNEXTLINE(bugprone-integer-division): whole rows: an integer division meant
             const float y = static_cast<float>((at - shown.begin()) / columns) * row_height;

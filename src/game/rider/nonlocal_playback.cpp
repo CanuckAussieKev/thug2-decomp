@@ -35,9 +35,8 @@
 
 namespace objects {
 
-static int g_nonlocal_lag;
-
 namespace {
+int g_nonlocal_lag;
 
 // The model component's three spin axes (its twist_rate_, about X, Y, Z) the messages 0x76 / 0x8C start and stop.
 // Message 0x77: the made item's structure and component

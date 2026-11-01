@@ -14,7 +14,7 @@ public:
     // Prepare to write into `data` (capacity `size` bytes).
     void bind_output_buffer(void* data, int size);
     // Bytes touched so far, rounding a partial byte up.
-    int get_byte_count() const;
+    [[nodiscard]] int get_byte_count() const;
     // Write out a partially filled word (writing only).
     void drain();
 

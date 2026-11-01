@@ -163,7 +163,7 @@ struct GroundStep : ModuleStep {
         std::string message;
         apply_to_each(specs, &message);
     }
-    std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<GroundStep>(g_specs); }
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<GroundStep>(g_specs); }
 };
 
 // The generated piece written into a copy of its donor (see the header). False and why.
@@ -638,8 +638,7 @@ void drop_out(const std::string& name)
         return;
     push_module_undo_labelled(std::make_shared<GroundStep>(g_specs), "Remove ground piece");
     unmake(name);
-    g_specs.erase(std::remove_if(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return s.name == name; }),
-                  g_specs.end());
+    std::erase_if(g_specs, [&](const Spec& s) { return s.name == name; });
 }
 
 int apply_to_each(const std::vector<Spec>& specs, std::string* message)
@@ -648,7 +647,7 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message)
     // (gone: taken out; changed or new: made; the same: left)
     std::vector<std::string> gone;
     for (const auto& made : made_state()) {
-        if (std::none_of(specs.begin(), specs.end(), [&](const Spec& s) { return s.name == made.first; }))
+        if (std::ranges::none_of(specs, [&](const Spec& s) { return s.name == made.first; }))
             gone.push_back(made.first);
     }
     for (const std::string& name : gone)
@@ -726,9 +725,9 @@ void add_preview(const overlays::Painter& painter, const Spec& spec, uint32_t ar
         const V3 a = mesh.vertices[face.a].pos;
         const V3 b = mesh.vertices[face.b].pos;
         const V3 c = mesh.vertices[face.c].pos;
-        painter.get_seg(a, b, argb);
-        painter.get_seg(b, c, argb);
-        painter.get_seg(c, a, argb);
+        (void)painter.get_seg(a, b, argb);
+        (void)painter.get_seg(b, c, argb);
+        (void)painter.get_seg(c, a, argb);
     }
 }
 

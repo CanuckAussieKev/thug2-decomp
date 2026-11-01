@@ -61,10 +61,9 @@
 
 namespace modules {
 
-static uint8_t g_net_relay_object_id;
-static float g_relay_time_scale{0.000244140625f}; // (2^-12: the relayed times and positions)
-
 namespace {
+uint8_t g_net_relay_object_id;
+float g_relay_time_scale{0.000244140625f}; // (2^-12: the relayed times and positions)
 
 using online::PlayerRecord;
 using script::Struct;

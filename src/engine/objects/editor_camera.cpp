@@ -32,13 +32,12 @@
 
 namespace objects {
 
-static uint32_t g_editor_camera_skip_names[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
-static uint32_t g_editor_camera_name{0x43BFAB74};
-static uint32_t g_editor_camera_seen[20];
-static uint8_t g_editor_camera_flagged;
-static int g_editor_camera_seen_count;
-
 namespace {
+uint32_t g_editor_camera_skip_names[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
+uint32_t g_editor_camera_name{0x43BFAB74};
+uint32_t g_editor_camera_seen[20];
+uint8_t g_editor_camera_flagged;
+int g_editor_camera_seen_count;
 
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
@@ -78,8 +77,8 @@ public:
     maths::Vec4& kickoff() { return ray_.line_.start; }
     maths::Vec4& get_end() { return ray_.line_.end; }
     render::FeelerCallback& hook_fn() { return ray_.callback_; }
-    const maths::Vec4& get_point() const { return ray_.contact_pos_; }
-    const maths::Vec4& get_normal() const { return ray_.surface_dir_; }
+    [[nodiscard]] const maths::Vec4& get_point() const { return ray_.contact_pos_; }
+    [[nodiscard]] const maths::Vec4& get_normal() const { return ray_.surface_dir_; }
 
 private:
     render::ProbeRay ray_;

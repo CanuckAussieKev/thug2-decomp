@@ -31,9 +31,8 @@
 
 namespace assets {
 
-static uint32_t g_params_in_use;
-
 namespace {
+uint32_t g_params_in_use;
 
 using script::Struct;
 

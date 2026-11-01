@@ -20,9 +20,8 @@
 
 namespace render {
 
-static MeshRef* g_drawn_meshes[4096];
-
 namespace {
+MeshRef* g_drawn_meshes[4096];
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 uint8_t& get_z_write() { return g_z_write; }

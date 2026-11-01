@@ -53,11 +53,11 @@ void update_lists()
         uint32_t script = 0;
         if (s && s->read_hash_value(kTriggerScript, &script, 0) && script) {
             const std::string name = get_name_of(script);
-            if (std::find(g_scripts.begin(), g_scripts.end(), name) == g_scripts.end())
+            if (std::ranges::find(g_scripts, name) == g_scripts.end())
                 g_scripts.push_back(name);
         }
     }
-    std::sort(g_scripts.begin(), g_scripts.end());
+    std::ranges::sort(g_scripts);
 }
 
 // A name field: typed, applied when let go (Enter or leaving it). Its buffer follows `value` while it isn't edited.
@@ -433,12 +433,12 @@ void inspector_section(int index)
         }
         if (ImGui::TreeNode("Flags")) {
             for (const char* flag : gap_option_labels()) {
-                bool on = std::find(s.flags.begin(), s.flags.end(), flag) != s.flags.end();
+                bool on = std::ranges::find(s.flags, flag) != s.flags.end();
                 if (ImGui::Checkbox(flag, &on)) {
                     if (on)
                         s.flags.emplace_back(flag);
                     else
-                        s.flags.erase(std::remove(s.flags.begin(), s.flags.end(), flag), s.flags.end());
+                        std::erase(s.flags, flag);
                     changed = true;
                 }
             }

@@ -15,13 +15,15 @@
 
 namespace render {
 
-static OccluderPolygon g_occluder_quads[512];
-static Occluder g_occluders[8];
+namespace {
+OccluderPolygon g_occluder_quads[512];
+Occluder g_occluders[8];
 
-static uint32_t g_occlusion_poly_count;
-static uint32_t g_occlusion_next_poly;
-static int g_occlusion_frame;
-static uint32_t g_occluder_count;
+uint32_t g_occlusion_poly_count;
+uint32_t g_occlusion_next_poly;
+int g_occlusion_frame;
+uint32_t g_occluder_count;
+} // namespace
 float g_last_sphere_distance;
 
 namespace {
@@ -56,8 +58,8 @@ void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const v
 }
 
 // How each of the original's (inlined) plane calculations rounds.
-enum class LengthOrder { kXzy, kZyx }; // the order the squares are added in
-enum class DotOrder { kZyx, kXyz };    // ... and the products of the plane's distance
+enum class LengthOrder : uint8_t { kXzy, kZyx }; // the order the squares are added in
+enum class DotOrder : uint8_t { kZyx, kXyz };    // ... and the products of the plane's distance
 
 // A plane through `point` with the normal (v x u) normalised, where u = u_end - origin (kept in double precision)
 // and v = vEnd - origin (x and y rounded to floats, z kept).

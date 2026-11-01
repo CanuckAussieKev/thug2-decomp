@@ -18,19 +18,25 @@
 
 namespace render {
 
-static uint32_t g_occlusion_request_count;
+namespace {
+uint32_t g_occlusion_request_count;
+} // namespace
 OcclusionRequest g_occlusion_requests[4];
-static float g_screen_angle;
+namespace {
+float g_screen_angle;
+} // namespace
 int g_screen_mode;
 ViewRegion* g_viewports[10];
 
-static float g_minus_one{-1.0f};
-static float g_half_degree_radians{0.008726646f};
-static float g_split_layouts[40]{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f,
-                                 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f,
-                                 0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
-static int g_mode_viewport_counts[6]{1, 2, 2, 4, 1, 1};
-static int g_mode_maps[24]{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1};
+namespace {
+float g_minus_one{-1.0f};
+float g_half_degree_radians{0.008726646f};
+float g_split_layouts[40]{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f,
+                          0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f,
+                          0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+int g_mode_viewport_counts[6]{1, 2, 2, 4, 1, 1};
+int g_mode_maps[24]{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1};
+} // namespace
 const int* g_mode_map{g_mode_maps};
 
 namespace {

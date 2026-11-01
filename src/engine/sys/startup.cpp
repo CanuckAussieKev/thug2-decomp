@@ -83,9 +83,8 @@ void pop_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->leave_heap
 
 bool quit_requested() { return render::g_quit_requested; }
 
+bool g_demo_mode;
 } // namespace
-
-static bool g_demo_mode;
 
 // 0x004E1EF0
 int game_main(int argc, char** argv)

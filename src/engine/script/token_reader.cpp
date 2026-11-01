@@ -21,14 +21,17 @@
 namespace script {
 
 float g_parse_nudge{0.1f};
-static float g_parse_random_scale{0.000030525032f};
-StoredRandom* g_stored_randoms_newest;
-static StoredRandom* g_stored_randoms_oldest;
-static int g_stored_random_count;
-ValueResolver g_evaluator;
-static Component g_parse_scratch;
-
 namespace {
+float g_parse_random_scale{0.000030525032f};
+} // namespace
+StoredRandom* g_stored_randoms_newest;
+namespace {
+StoredRandom* g_stored_randoms_oldest;
+int g_stored_random_count;
+} // namespace
+ValueResolver g_evaluator;
+namespace {
+Component g_parse_scratch;
 
 float get_as_float(uint32_t bits)
 {

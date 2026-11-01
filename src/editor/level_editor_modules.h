@@ -16,7 +16,7 @@ namespace frontend::level_editor {
 struct ModuleStep {
     virtual ~ModuleStep() = default;
     virtual void get_restore() = 0;
-    virtual std::shared_ptr<ModuleStep> get_now() const = 0;
+    [[nodiscard]] virtual std::shared_ptr<ModuleStep> get_now() const = 0;
 };
 // A change is about to be made: `before` (as things are now) goes on the undo stack; the redo stack is dropped and the
 // level marked unsaved (the autosave).

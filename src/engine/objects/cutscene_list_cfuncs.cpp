@@ -14,10 +14,9 @@
 
 namespace commands {
 
-static bool g_cutscene_list_flushing;
-static PointerList g_cutscene_destroy_list;
-
 namespace {
+bool g_cutscene_list_flushing;
+PointerList g_cutscene_destroy_list;
 
 using script::Struct;
 using Elem = PointerList::Elem;

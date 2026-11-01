@@ -56,7 +56,9 @@
 
 namespace commands {
 
-static float g_node_object_minimum_area{5000.0f};
+namespace {
+float g_node_object_minimum_area{5000.0f};
+} // namespace
 gfx::CtodManager* g_tod_manager;
 
 namespace {

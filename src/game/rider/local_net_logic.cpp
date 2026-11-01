@@ -34,10 +34,9 @@
 
 namespace objects {
 
-static maths::Vec4 g_local_net_position;
-static uint32_t g_local_net_guard;
-
 namespace {
+maths::Vec4 g_local_net_position;
+uint32_t g_local_net_guard;
 
 namespace thugpro = online::thugpro;
 
@@ -77,10 +76,9 @@ struct UpdateState {
 
 int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(static_cast<double>(angle) * 4096.0)); }
 
-} // namespace
 
 // (shared by both: the original repeats it in each)
-static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
+void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
 {
     self->entity_->display_matrix_.get_euler_angles(out.angles);
     const objects::RiderPoseState* core = self->pose_;
@@ -103,6 +101,7 @@ static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, U
     uint32_t value = 0;
     out.value_6c_ = *static_cast<RiderSessionEnd*>(component_6c)->fetch_bits(&value); // (SkaterEndRun)
 }
+} // namespace
 
 // 0x00512EA0
 uint32_t RiderHostSync::fetch_sync_field_mask()

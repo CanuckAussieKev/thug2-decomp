@@ -22,11 +22,10 @@
 namespace render {
 
 bool g_screen_copy_in_use;
-static bool g_blur_second_pass{true};
-static float g_blur_tap_weights[4]{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f};
-static float g_blur_tap_offsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f};
-
 namespace {
+bool g_blur_second_pass{true};
+float g_blur_tap_weights[4]{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f};
+float g_blur_tap_offsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* device_copy() { return g_draw_device; } // (the same device)

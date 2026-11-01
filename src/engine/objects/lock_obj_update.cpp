@@ -25,9 +25,8 @@
 
 namespace objects {
 
-static float g_lock_obj_update_wobble_step{0.0061359233f};
-
 namespace {
+float g_lock_obj_update_wobble_step{0.0061359233f};
 
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kModel = 0x286A8D26;

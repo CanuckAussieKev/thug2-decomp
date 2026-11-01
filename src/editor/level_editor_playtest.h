@@ -110,7 +110,7 @@ struct GapRead {
 // What changed since the last read: gaps got (pending went up), landed (count went up), lost (pending back to 0 with
 // no landing). The first read only learns the list.
 struct GapChange {
-    enum class Kind { kGot, kLanded, kLost } kind;
+    enum class Kind : uint8_t { kGot, kLanded, kLost } kind;
     std::string name;
     int score = 0;
 };
@@ -144,9 +144,9 @@ struct Run {
     float motion_seconds_[kMotions] = {};
     bool visible = true;
     bool full = false;
-    int gaps_landed() const;
-    int bails() const;
-    int top_combo_value() const;
+    [[nodiscard]] int gaps_landed() const;
+    [[nodiscard]] int bails() const;
+    [[nodiscard]] int top_combo_value() const;
 };
 
 // A level's trails: its runs (the newest last, at most kMaxRuns) and the gaps landed in them.
@@ -202,7 +202,7 @@ bool& window_open();
 void pane(float scale, ImFont* heading, ImFont* small);
 void restart_section(int node_index);
 // What the UI asks for (done in the next Tick).
-enum class Ask { kNone, kToggleSimulate, kClear, kStoreAway, kReadIn, kToggleKeepSimulation };
+enum class Ask : uint8_t { kNone, kToggleSimulate, kClear, kStoreAway, kReadIn, kToggleKeepSimulation };
 void get_request(Ask ask);
 void delete_run(int number);
 void set_run_visible(int number, bool visible);

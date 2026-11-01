@@ -78,7 +78,7 @@ public:
 
     // 0x00407A50 / 0x00407A60 / 0x00407A70
     void set_permanent_by_default(bool permanent);
-    bool get_permanent_by_default() const;
+    [[nodiscard]] bool get_permanent_by_default() const;
     void set_unknown18(int value);
 
     // 0x00407DD0 (the task's work, each frame): each pending asset that's read (and whose group is loaded) or being

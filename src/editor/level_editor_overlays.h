@@ -24,7 +24,7 @@
 namespace frontend::level_editor::overlays {
 
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-enum Bit : uint32_t {
+enum Bit : uint16_t {
     kLabels = 1u << 0,        // texts over the view (gizmo labels, trigger names, the feature map's numbers)
     kLegend = 1u << 1,        // the collision's legend (bottom left)
     kFeatureMap = 1u << 2,    // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::add_extras)
@@ -74,7 +74,7 @@ struct Painter {
     float near_z_;
     ui::Overlay* overlay;
     // False when it is wholly behind the near plane.
-    bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
+    [[nodiscard]] bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
     // A point's pixel (false: behind the camera).
     bool get_pixel(V3 p, float* x, float* y) const;
     void get_dot(V3 p, float radius, uint32_t argb, bool filled = true) const;
@@ -82,7 +82,7 @@ struct Painter {
     void draw_label(V3 p, uint32_t argb, const std::string& text, float dx = 6.0f, float dy = -8.0f) const;
     // A cross on the ground (in the plane y = p.y), `size` units.
     void perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0f) const;
-    float span_to(V3 p) const;
+    [[nodiscard]] float span_to(V3 p) const;
 };
 // The painter for this frame's view (false: the editor's view isn't known yet).
 bool painter_now(ui::Overlay* overlay, Painter* painter);

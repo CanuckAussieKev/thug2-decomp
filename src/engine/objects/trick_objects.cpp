@@ -37,9 +37,8 @@
 namespace objects {
 
 memory::owner<objects::TrickSpotHub*> g_trick_spot_hub;
-static uint32_t g_trick_object_manager_references;
-
 namespace {
+uint32_t g_trick_object_manager_references;
 
 constexpr uint32_t kNetGraffiti = 0x5E2EA50C;         // netgraffiti
 constexpr uint32_t kGraffitiTeamScoring = 0xAB80CC2F; // graffiti_team_scoring (team_graffiti_mode)

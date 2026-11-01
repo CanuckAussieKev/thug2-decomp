@@ -18,9 +18,13 @@
 
 namespace render {
 
-static float g_width_over_height;
+namespace {
+float g_width_over_height;
+} // namespace
 float g_base_fov_angle;
-static int g_script_screen_blur;
+namespace {
+int g_script_screen_blur;
+} // namespace
 
 float g_angle_factor{1.0f};
 

@@ -24,7 +24,9 @@
 
 namespace park_editing {
 
-static float g_park_gap_grid_offset{28.0f};
+namespace {
+float g_park_gap_grid_offset{28.0f};
+} // namespace
 park_editing::ParkBuilderMode* g_park_editor;
 
 namespace {

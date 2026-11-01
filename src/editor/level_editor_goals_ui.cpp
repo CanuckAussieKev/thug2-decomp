@@ -106,7 +106,7 @@ void current_settings(const Goal& goal, ImFont* mono)
         ImGui::TextUnformatted("Gaps");
         std::vector<std::string> gaps = get_level_gaps();
         for (const std::string& name : g.gaps) {
-            if (std::find(gaps.begin(), gaps.end(), name) == gaps.end())
+            if (std::ranges::find(gaps, name) == gaps.end())
                 gaps.push_back(name); // (one the list hasn't now: shown so it can be taken off)
         }
         if (gaps.empty())
@@ -114,7 +114,7 @@ void current_settings(const Goal& goal, ImFont* mono)
         ImGui::BeginChild("##goalgaps", ImVec2(0.0f, std::min(160.0f, 22.0f * static_cast<float>(gaps.size()) + 4.0f)),
                           true);
         for (const std::string& name : gaps) {
-            auto it = std::find(g.gaps.begin(), g.gaps.end(), name);
+            auto it = std::ranges::find(g.gaps, name);
             bool on = it != g.gaps.end();
             if (ImGui::Checkbox(name.c_str(), &on)) {
                 if (on && g.gaps.size() < 10)
@@ -186,7 +186,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (!node || !point_of_node(node, &id, &point))
         return;
     std::vector<Goal> all = get_all();
-    auto it = std::find_if(all.begin(), all.end(), [&](const Goal& g) { return g.id == id; });
+    auto it = std::ranges::find_if(all, [&](const Goal& g) { return g.id == id; });
     if (it == all.end())
         return;
     const Goal& g = *it;

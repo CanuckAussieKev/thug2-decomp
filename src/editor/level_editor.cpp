@@ -727,7 +727,7 @@ void select_node_only(int index)
 }
 bool is_picked(objects::GameEntity* object)
 {
-    return std::any_of(g_objects.begin(), g_objects.end(), [&](const Picked& p) { return p.object == object; });
+    return std::ranges::any_of(g_objects, [&](const Picked& p) { return p.object == object; });
 }
 void select_objects(const std::vector<objects::GameEntity*>& objects)
 {
@@ -904,7 +904,7 @@ struct FieldUndo {
     fields::Own own;
 };
 struct UndoStep {
-    enum class Kind {
+    enum class Kind : uint8_t {
         kObjects,
         kScenery,
         kMade,
@@ -1133,7 +1133,7 @@ bool scale_selection_by(V3 factor, bool uniform)
         hud::get_message("Nodes can't be scaled");
         return false;
     }
-    if (!objects.empty() && std::none_of(objects.begin(), objects.end(), scale_tool::object_scalable)) {
+    if (!objects.empty() && std::ranges::none_of(objects, scale_tool::object_scalable)) {
         hud::get_message("Object has no model to scale");
         return false;
     }
@@ -1289,8 +1289,7 @@ void get_restore(UndoStep& step)
             std::vector<size_t> by_index(step.added.size());
             for (size_t i = 0; i < by_index.size(); ++i)
                 by_index[i] = i;
-            std::sort(by_index.begin(), by_index.end(),
-                      [&](size_t a, size_t b) { return step.added_at_[a] < step.added_at_[b]; });
+            std::ranges::sort(by_index, [&](size_t a, size_t b) { return step.added_at_[a] < step.added_at_[b]; });
             for (const size_t i : by_index)
                 node_create::fabricate(step.added[i], step.added_at_[i], &message);
             const int index =
@@ -1556,7 +1555,7 @@ bool selection_scales()
     std::vector<objects::GameEntity*> objects = selected_objects();
     if (objects.empty())
         return scenery::has_selection();
-    return std::any_of(objects.begin(), objects.end(), scale_tool::object_scalable);
+    return std::ranges::any_of(objects, scale_tool::object_scalable);
 }
 // The tool the gizmo shows: the toolbar's, or Move when the selection can't do that.
 xform::Mode gizmo_mode()
@@ -2482,12 +2481,9 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         g_pickables.push_back({i, px, py, px, py, false, depth});
     }
     // (the Outliner's selectable off: drawn, not picked - level_editor_organize.h)
-    g_pickables.erase(std::remove_if(g_pickables.begin(), g_pickables.end(),
-                                     [&](const nodes::Pickable& p) {
-                                         return p.node >= 0 && std::cmp_less(p.node, nodes.size()) &&
-                                                !organize::gizmo_pickable(nodes[p.node].name);
-                                     }),
-                      g_pickables.end());
+    std::erase_if(g_pickables, [&](const nodes::Pickable& p) {
+        return p.node >= 0 && std::cmp_less(p.node, nodes.size()) && !organize::gizmo_pickable(nodes[p.node].name);
+    });
     // (a box being dragged - level_editor_organize.h: its outline, solid inside / dashed crossing)
     organize::Rect2 box{};
     bool crossing = false;
@@ -2573,9 +2569,11 @@ bool& debug_enabled()
 }
 
 bool live_now() { return g_active; }
+namespace {
 // Occlusion culling switched off while editing (O; render::occlusion_off).
-static bool g_occlusion_off = true;
-static bool g_occlusion_in_play; // (render::occlusion_off as it was when the editor opened)
+bool g_occlusion_off = true;
+bool g_occlusion_in_play; // (render::occlusion_off as it was when the editor opened)
+} // namespace
 
 bool pass_key(bool* released, bool down)
 {
@@ -3204,8 +3202,7 @@ void set_links_from_inspector(uint32_t node, const std::string& text, bool home)
 {
     const chains::State before = chains::at_hand();
     chains::State state = before;
-    auto it =
-        std::find_if(state.links.begin(), state.links.end(), [&](const chains::LinkEdit& l) { return l.name == node; });
+    auto it = std::ranges::find_if(state.links, [&](const chains::LinkEdit& l) { return l.name == node; });
     if (home) {
         if (it != state.links.end())
             state.links.erase(it);
@@ -3222,8 +3219,8 @@ void set_links_from_inspector(uint32_t node, const std::string& text, bool home)
             it->links = value.list;
         } else {
             state.links.push_back({node, value.list});
-            std::sort(state.links.begin(), state.links.end(),
-                      [](const chains::LinkEdit& a, const chains::LinkEdit& b) { return a.name < b.name; });
+            std::ranges::sort(state.links,
+                              [](const chains::LinkEdit& a, const chains::LinkEdit& b) { return a.name < b.name; });
         }
     }
     if (!chains::change_phase(state)) {
@@ -3258,8 +3255,8 @@ void field_request(const ui::Request& request)
         // (and the links, when every field goes back)
         if (!request.id) {
             chains::State chains = chains::at_hand();
-            const bool relinked = std::any_of(chains.links.begin(), chains.links.end(),
-                                              [&](const chains::LinkEdit& l) { return l.name == node; });
+            const bool relinked =
+                std::ranges::any_of(chains.links, [&](const chains::LinkEdit& l) { return l.name == node; });
             if (relinked)
                 set_links_from_inspector(node, "", true);
         }
@@ -3992,8 +3989,8 @@ void fill_browser()
                               box.max.z - box.min.z);
             g_browser.items.push_back({checksum, object_edit::caption(checksum) + size});
         }
-        std::sort(g_browser.items.begin(), g_browser.items.end(),
-                  [](const Browser::Item& a, const Browser::Item& b) { return a.label < b.label; });
+        std::ranges::sort(g_browser.items,
+                          [](const Browser::Item& a, const Browser::Item& b) { return a.label < b.label; });
     } else {
         for (const object_edit::TableRow& entry : object_edit::copyable())
             g_browser.items.push_back({entry.name, entry.label});
@@ -6416,9 +6413,7 @@ void tick_frame()
             g_node_selected = false;
             if (shift) {
                 if (is_picked(hover))
-                    g_objects.erase(std::remove_if(g_objects.begin(), g_objects.end(),
-                                                   [&](const Picked& p) { return p.object == hover; }),
-                                    g_objects.end());
+                    std::erase_if(g_objects, [&](const Picked& p) { return p.object == hover; });
                 else
                     g_objects.push_back({hover, hover->ident_});
             } else {
@@ -6426,8 +6421,7 @@ void tick_frame()
                     select_objects({hover});
                 else if (get_primary() != hover) {
                     // (the clicked one first: the camera and the arrows go by it)
-                    auto it = std::find_if(g_objects.begin(), g_objects.end(),
-                                           [&](const Picked& p) { return p.object == hover; });
+                    auto it = std::ranges::find_if(g_objects, [&](const Picked& p) { return p.object == hover; });
                     std::rotate(g_objects.begin(), it, it + 1);
                 }
                 drag = true;

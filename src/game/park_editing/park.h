@@ -328,7 +328,7 @@ struct MapListNode {
     MapListNode* following_;  // +0x08
 
     // 0x005480C0 (one of many getters folded together there)
-    PieceGroup* get_piece_group() const { return piece_group_; }
+    [[nodiscard]] PieceGroup* get_piece_group() const { return piece_group_; }
     PieceGroup* get_placed_piece() { return piece_group_->as_placed_piece(); }
 
     // A new node from the pools (or the heap), zeroed; null if out of memory.
@@ -597,7 +597,7 @@ static_assert(sizeof(GapRegistry::Gap) == 0xEC && offsetof(GapRegistry::Gap, det
 // A restart point of the park generator (0x24 bytes).
 struct RestartPoint {
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum KindTag {
+    enum KindTag : uint8_t {
         kFree = 0,
         kPlayer1 = 1,
         kPlayer2 = 2,
@@ -1084,7 +1084,7 @@ extern BuildPointer* g_cursor;
 class BuildPointer {
 public:
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Mode {
+    enum Mode : uint8_t {
         kModeNone = 0,
         kModeRegular = 1,
         kModeGap = 2,           // "gap_regular": the gap tool

@@ -29,11 +29,10 @@
 
 namespace commands {
 
-static float g_game_util_whole_turn{360.0f};
-static float g_game_util_half_turn{180.0f};
-static float g_game_util_minus_degrees_to_radians{-0.017453292f};
-
 namespace {
+float g_game_util_whole_turn{360.0f};
+float g_game_util_half_turn{180.0f};
+float g_game_util_minus_degrees_to_radians{-0.017453292f};
 
 using script::Array;
 using script::Component;

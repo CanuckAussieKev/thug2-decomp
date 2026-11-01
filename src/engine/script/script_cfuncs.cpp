@@ -21,14 +21,13 @@
 
 namespace commands {
 
-static float g_script_frame_milliseconds{16.666666f};
-static bool g_script_printf_enabled{true};
-static bool g_first_time_not_called{true};
-static char g_format_text_buffer[1004];
-static script::Component g_format_text_value;
-static int g_script_warning_level;
-
 namespace {
+float g_script_frame_milliseconds{16.666666f};
+bool g_script_printf_enabled{true};
+bool g_first_time_not_called{true};
+char g_format_text_buffer[1004];
+script::Component g_format_text_value;
+int g_script_warning_level;
 
 using script::Component;
 using script::SymbolTableEntry;

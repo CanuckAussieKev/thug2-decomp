@@ -46,7 +46,17 @@ namespace frontend::level_editor::view {
 //   kNotSkatable:   0x02 - not skatable (0x005003A0, unless 0x01 or 0x08);
 //   kSkatable:      0x01 - skatable whatever its slope (0x005003A0);
 //   kPlain:         none of those: skatable when flat enough (0x005003A0 compares the slope with a physics angle).
-enum class Surface { kInvisibleWall, kTrigger, kNoCollide, kWallride, kVert, kNotSkatable, kSkatable, kPlain, kCount };
+enum class Surface : uint8_t {
+    kInvisibleWall,
+    kTrigger,
+    kNoCollide,
+    kWallride,
+    kVert,
+    kNotSkatable,
+    kSkatable,
+    kPlain,
+    kCount
+};
 Surface get_classify(uint32_t face_flags, bool collision_only);
 // The colour drawn (ARGB, see-through) and the legend's name.
 uint32_t surface_colour(Surface surface);
@@ -65,7 +75,7 @@ float distance_to_box(V3 point, V3 min, V3 max);
 // The editor-only hidden set: ids hidden; Isolate keeps `keep` shown and hides `all` but those.
 struct HiddenSet {
     std::vector<uint32_t> ids;
-    bool get_has(uint32_t id) const;
+    [[nodiscard]] bool get_has(uint32_t id) const;
     // Added (false: already there).
     bool append_one(uint32_t id);
 };

@@ -220,8 +220,7 @@ struct Step : ModuleStep {
         const std::vector<ViewCam> now = get_all();
         // (those not in the step: removed; those in it: made, or put where the step has them)
         for (const ViewCam& c : now) {
-            const bool keep = std::any_of(cameras.begin(), cameras.end(),
-                                          [&](const ViewCam& k) { return same_text(k.name, c.name); });
+            const bool keep = std::ranges::any_of(cameras, [&](const ViewCam& k) { return same_text(k.name, c.name); });
             if (!keep) {
                 node_create::Spec removed;
                 int at = -1;
@@ -242,7 +241,7 @@ struct Step : ModuleStep {
             }
         }
     }
-    std::shared_ptr<ModuleStep> get_now() const override
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
         now->cameras = get_all();

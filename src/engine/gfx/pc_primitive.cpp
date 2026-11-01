@@ -24,10 +24,9 @@
 
 namespace render {
 
-// The game's buffer for the vertices of a primitive drawn without one of its own.
-static uint8_t g_primitive_vertex_buffer[0x100];
-
 namespace {
+// The game's buffer for the vertices of a primitive drawn without one of its own.
+uint8_t g_primitive_vertex_buffer[0x100];
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }

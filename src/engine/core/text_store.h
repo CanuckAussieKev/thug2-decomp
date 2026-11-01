@@ -13,7 +13,7 @@ public:
     Chars& operator=(const char* text);
     Chars& operator=(const Chars& other);
 
-    const char* c_str() const { return octets_; }
+    [[nodiscard]] const char* c_str() const { return octets_; }
 
     // Number of live String objects when this one was created; the destructor decrements the same global
     // counter. Probably a leak-tracking aid.

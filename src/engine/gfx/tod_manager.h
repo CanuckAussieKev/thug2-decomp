@@ -205,8 +205,8 @@ public:
     // NOT ORIGINAL (THUGPRO's time of day in network games - engine/net/thugpro_peer.h): the first non-sky system's
     // state (0 if both are sky systems), and whether set_tod_instant(state) can run - it loops for ever unless the
     // current state and `state` are among the four, and reads each state's structure on the way.
-    uint32_t current_state() const;
-    bool can_set_tod_instant(uint32_t state) const;
+    [[nodiscard]] uint32_t current_state() const;
+    [[nodiscard]] bool can_set_tod_instant(uint32_t state) const;
 
     lists::KeyMap* dead_objects_; // +0x000 nodes marked permanently dead (value: the manager)
     script::Struct* unknown4_;    // +0x004 made, emptied and freed, never filled
@@ -224,7 +224,7 @@ public:
 
 private:
     // The first system that isn't a sky system (index 2 - past the end - if both are; never checked).
-    int current_system() const;
+    [[nodiscard]] int current_system() const;
 };
 static_assert(offsetof(CtodManager, systems_) == 8 && offsetof(CtodManager, temp_bloom_) == 0x318 &&
                   offsetof(CtodManager, time_multiplier_) == 0x330 && offsetof(CtodManager, params_set_) == 0x33C &&

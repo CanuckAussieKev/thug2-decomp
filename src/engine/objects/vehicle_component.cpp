@@ -43,9 +43,11 @@
 
 namespace objects {
 
+namespace {
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
-static DrivableModule::Contact g_vehicle_contacts[132];
+DrivableModule::Contact g_vehicle_contacts[132];
+} // namespace
 DrivableModule::Contact* DrivableModule::get_contacts() { return g_vehicle_contacts; }
 
 using namespace vehicle;

@@ -22,10 +22,9 @@
 
 namespace render {
 
-// Two triangles of a quad: 0 1 2, 1 3 2.
-static uint16_t g_sprite_quad_indices[6]{0, 1, 2, 1, 3, 2};
-
 namespace {
+// Two triangles of a quad: 0 1 2, 1 3 2.
+uint16_t g_sprite_quad_indices[6]{0, 1, 2, 1, 3, 2};
 
 // The 640x480 layout -> back buffer conversion (set_letterbox) and the back buffer's size.
 float horiz_screen_ratio() { return g_display_factor_x; }

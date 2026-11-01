@@ -19,9 +19,8 @@
 namespace objects {
 
 memory::owner<objects::ProfileRoster*> g_profile_roster;
-static uint32_t g_profile_manager_references;
-
 namespace {
+uint32_t g_profile_manager_references;
 
 // Names.
 constexpr uint32_t kInitProSkaters = 0x28FD0F0A; // init_pro_skaters (a script)

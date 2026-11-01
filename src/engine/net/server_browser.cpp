@@ -81,8 +81,11 @@ constexpr int kPort = 0x1421; // 5153
 constexpr int kMaxRank = 10;
 constexpr auto kServerResponseSize = static_cast<uint16_t>(kServerInfoSize); // (the server info: gamenet_messages.h)
 
-// GameSpy's listing messages (peerListingGamesCallback's msg).
-enum class ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove = 2, kListingClear = 3 };
+// GameSpy's listing messages (peerListingGamesCallback's msg: the SDK's number, as given).
+constexpr int kListingAdd = 0;
+constexpr int kListingUpdate = 1;
+constexpr int kListingRemove = 2;
+constexpr int kListingClear = 3;
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
@@ -353,8 +356,8 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         the_manager()->lobby_service_->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
-    switch (static_cast<ListingMessage>(message)) {
-    case ListingMessage::kListingAdd: {
+    switch (message) {
+    case kListingAdd: {
         ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
         void* block = memory::alloc_zeroed(sizeof(HostListing));
         HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
@@ -394,7 +397,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         ram_stats()->leave_heap_scope();
         break;
     }
-    case ListingMessage::kListingRemove: {
+    case kListingRemove: {
         script::Struct* params = new_params();
         params->put_name_key(kServerId, reinterpret_cast<uint32_t>(sb));
         get_run(kDestroyLobbyServer, params);
@@ -404,12 +407,12 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         get_run(kUpdateServerList);
         break;
     }
-    case ListingMessage::kListingClear:
+    case kListingClear:
         manager->show_no_servers_found(false);
         manager->empty_server_listing();
         get_run(kUpdateServerList);
         break;
-    case ListingMessage::kListingUpdate: {
+    case kListingUpdate: {
         game_spy::server_has_full_keys(sb); // (asked whether it has its full keys: the answer unused here)
         HostListing* server = find_by_sb(manager, sb);
         if (!server)

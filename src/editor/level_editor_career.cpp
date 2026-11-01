@@ -16,8 +16,8 @@ namespace frontend::level_editor::career {
 bool editor_gap(const std::string& name, const std::vector<std::string>& editor_gaps,
                 const std::vector<std::string>& level_gaps)
 {
-    return std::find(editor_gaps.begin(), editor_gaps.end(), name) != editor_gaps.end() &&
-           std::find(level_gaps.begin(), level_gaps.end(), name) == level_gaps.end();
+    return std::ranges::find(editor_gaps, name) != editor_gaps.end() &&
+           std::ranges::find(level_gaps, name) == level_gaps.end();
 }
 
 Checklist for_save(const Checklist& live, const Checklist* baseline, const std::vector<std::string>& editor_gaps,

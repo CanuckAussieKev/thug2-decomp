@@ -34,12 +34,14 @@
 namespace render {
 
 VertexStack g_vertex_stack;
-static uint8_t g_splat_middle20[128];
-static uint8_t g_splat_middle12[128];
-static uint8_t g_splat_middle01[128];
-static uint8_t g_splat_vertex0[128];
-static uint8_t g_splat_vertex1[128];
-static uint8_t g_splat_vertex2[128];
+namespace {
+uint8_t g_splat_middle20[128];
+uint8_t g_splat_middle12[128];
+uint8_t g_splat_middle01[128];
+uint8_t g_splat_vertex0[128];
+uint8_t g_splat_vertex1[128];
+uint8_t g_splat_vertex2[128];
+} // namespace
 
 float g_split_area_limit{82944.0f};
 

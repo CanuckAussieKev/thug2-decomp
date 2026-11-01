@@ -50,21 +50,10 @@ Checks:
   - '-performance-no-int-to-ptr'
   # It knows only gsl::owner; ownership here is memory::owner<> and std::unique_ptr.
   - '-cppcoreguidelines-owning-memory'
-  # It would warn at the original's own call sites that drop results.
-  - '-modernize-use-nodiscard'
-  # Iterator-pair algorithms are as clear here; its fix mishandles pointers to containers.
-  - '-modernize-use-ranges'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
-  # Enums held in the original's int fields keep int's size.
-  - '-performance-enum-size'
   # The original's loop shapes, kept for comparison with the disassembly.
   - '-cppcoreguidelines-avoid-do-while'
-  # The original's constants keep their own digits (3.14159f is not std::numbers::pi_v<float>).
-  - '-modernize-use-std-numbers'
-  # File-local functions are `static` or in an unnamed namespace, either way (misc-use-internal-linkage's fix
-  # writes `static`).
-  - '-misc-use-anonymous-namespace'
 
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']
@@ -75,6 +64,8 @@ CheckOptions:
   # game has no exception handling); the debug runtime's container moves allocate, so every move of a container
   # would otherwise be "may throw". Every other exception still counts.
   bugprone-exception-escape.IgnoredExceptions: 'bad_alloc,bad_array_new_length'
+  # Only a literal that is exactly the constant's value (the original's own digits otherwise stay).
+  modernize-use-std-numbers.DiffThreshold: '0'
   # The rule of five, as the Guidelines' C.21 allows it: a defaulted destructor alone, and classes that only copy
   # (their copies stand in for moves).
   cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true

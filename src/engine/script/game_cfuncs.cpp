@@ -64,9 +64,11 @@ namespace commands {
 
 bool g_trying_to_join;
 char g_node_list_name[128];
-static tasks::Task<void>* g_second_controller_check;
-static int g_view_mode_cfunc;
-static char g_password_stars[32];
+namespace {
+tasks::Task<void>* g_second_controller_check;
+int g_view_mode_cfunc;
+char g_password_stars[32];
+} // namespace
 bool g_got_extra_memory;
 
 namespace {
@@ -250,8 +252,9 @@ bool cfunc_wait_for_async_load_to_finish(script::Struct*, script::Script*)
     return true;
 }
 
+namespace {
 // 0x0059F820
-static void second_pad_watch_tick(tasks::Task<void>*)
+void second_pad_watch_tick(tasks::Task<void>*)
 {
     sio::Hub* devices = sio::manager_instance();
     const sio::InputPort* first = devices->get_pad_at_slot(0);
@@ -261,6 +264,7 @@ static void second_pad_watch_tick(tasks::Task<void>*)
     else
         script::launch_script(kControllerMissing, nullptr, nullptr, false, nullptr);
 }
+} // namespace
 
 // 0x0059F890
 bool make_camera_active(uint32_t id, int viewport, bool take_current_view)

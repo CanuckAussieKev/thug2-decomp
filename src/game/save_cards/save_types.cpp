@@ -188,7 +188,9 @@ int type_version(uint32_t type)
     }
 }
 
-static char g_save_file_name[0x68]; // (the cutscene list's flag follows)
+namespace {
+char g_save_file_name[0x68]; // (the cutscene list's flag follows)
+} // namespace
 
 // 0x005A62A0
 const char* get_type_file_name(uint32_t type, const char* name)

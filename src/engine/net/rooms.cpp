@@ -240,7 +240,9 @@ void RoomManager::init_peer()
     ram_stats()->leave_heap_scope();
 }
 
-static uint32_t g_unknowne430;
+namespace {
+uint32_t g_unknowne430;
+} // namespace
 
 // 0x00541A10
 void RoomManager::start_listing_games()

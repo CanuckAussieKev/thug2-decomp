@@ -283,15 +283,15 @@ bool debug_checks() { return game_config::g_from_cd; }
 
 memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_heap() : memory::top_down_heap(); }
 
-} // namespace
 
 // 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
-static void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
+void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
 {
     if (event == 3) // finished
         static_cast<ArchiveManager*>(manager)->finish_load(reinterpret_cast<int>(file), static_cast<uint8_t*>(data),
                                                            size);
 }
+} // namespace
 
 // 0x005B8EE0
 void ArchiveManager::load_pre(const char* name, bool async, bool report_missing, bool bottom_up)

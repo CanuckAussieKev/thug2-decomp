@@ -517,7 +517,7 @@ std::string fresh_name(const std::vector<Spec>& specs)
     for (int n = 1;; ++n) {
         char name[32];
         std::snprintf(name, sizeof(name), "ed_ground%02d", n);
-        const bool taken = std::any_of(specs.begin(), specs.end(), [&](const Spec& s) { return s.name == name; });
+        const bool taken = std::ranges::any_of(specs, [&](const Spec& s) { return s.name == name; });
         if (!taken)
             return name;
     }

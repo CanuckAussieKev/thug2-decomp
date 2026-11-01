@@ -30,18 +30,19 @@
 
 namespace render {
 
-// The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-static uint32_t g_text_vertex_store[0x1C00];
-static uint16_t g_text_quad_indices[0x100 * 6];
-
-static TypefaceData* g_typeface_head;
-TypefaceData* g_glyph_typeface;
-static TypefaceData* g_texture_font;
-static uint32_t g_text_vertex_count;
-static TextVertex* g_text_vertex_buffer;
-static bool g_quad_indices_made;
-
 namespace {
+// The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
+uint32_t g_text_vertex_store[0x1C00];
+uint16_t g_text_quad_indices[0x100 * 6];
+
+TypefaceData* g_typeface_head;
+} // namespace
+TypefaceData* g_glyph_typeface;
+namespace {
+TypefaceData* g_texture_font;
+uint32_t g_text_vertex_count;
+TextVertex* g_text_vertex_buffer;
+bool g_quad_indices_made;
 
 constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 constexpr float kEffectScale = get_bits(0x38800000); // 0x006487C8, 1 / 16384

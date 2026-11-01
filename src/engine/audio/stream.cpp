@@ -104,13 +104,14 @@ bool prefetch_complete(const StreamSlot& slot)
     return true;
 }
 
+StreamSlot g_stream_slots[3];
 } // namespace
-
-static StreamSlot g_stream_slots[3];
 
 StreamSlot* stream_slots() { return g_stream_slots; }
 
-static StreamSlot g_music_slot;
+namespace {
+StreamSlot g_music_slot;
+} // namespace
 
 StreamSlot& music_slot() { return g_music_slot; }
 

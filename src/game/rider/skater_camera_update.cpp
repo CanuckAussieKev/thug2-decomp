@@ -32,13 +32,11 @@
 
 namespace objects {
 
-static float g_balance_roll_scale{-0.00012783174f};
-static float g_air_tilt_rate{0.011635667f};
-static float g_tilt_recovery{0.046542667f};
-static float g_lip_turn;
-
 namespace {
-
+float g_balance_roll_scale{-0.00012783174f};
+float g_air_tilt_rate{0.011635667f};
+float g_tilt_recovery{0.046542667f};
+float g_lip_turn;
 
 constexpr uint32_t kCamera = 0xC4E311FA;       // Camera (a component)
 constexpr uint32_t kCorePhysics = 0x5BD63B29;  // SkaterCorePhysics (a component)

@@ -19,7 +19,7 @@ class GameEntity;
 class PathFollower : public memory::HeapObject {
 public:
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum FollowPhase : int {
+    enum FollowPhase : uint8_t {
         kStateStart = 0,    // the segment set up on the next update
         kStateStraight = 1, // along the segment
         kStateArc = 2,      // round the corner on the arc

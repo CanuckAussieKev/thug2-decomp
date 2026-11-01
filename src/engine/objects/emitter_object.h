@@ -21,7 +21,7 @@ class KeyMap;
 namespace objects {
 
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum EmitterShape : int {
+enum EmitterShape : uint8_t {
     kEmitterShapeBox = 0,    // the sector's box (Shape 0xE460ABDE)
     kEmitterShapeOther = 1,  // (Shape 0x03F1E5A7: never inside, no nearest point)
     kEmitterShapeSphere = 2, // (the default, and Shape 0xAA069978)

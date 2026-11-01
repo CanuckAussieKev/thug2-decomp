@@ -30,9 +30,9 @@ public:
     ~KeyMap();
 
     // The value stored under `key`, or null. (Inlined at most uses in the original.)
-    void* fetch_entry(uint32_t key) const;
+    [[nodiscard]] void* fetch_entry(uint32_t key) const;
     // 0x00462050: the same, as a function (the key by reference; the second argument, always 1, is unused).
-    void* fetch_entry(const uint32_t& key, bool unused) const;
+    [[nodiscard]] void* fetch_entry(const uint32_t& key, bool unused) const;
 
     // Add an item. Keys aren't checked for duplicates. Always returns true.
     bool store_entry(const uint32_t& key, void* value);

@@ -440,8 +440,10 @@ void Script::run_loop_open()
     innermost_repeat_->headcount_ = 0;
 }
 
+namespace {
 // The loop below the current one (none: null).
-static RepeatFrame* outer_loop(RepeatFrame* loop, RepeatFrame* loops) { return loop == loops ? nullptr : loop - 1; }
+RepeatFrame* outer_loop(RepeatFrame* loop, RepeatFrame* loops) { return loop == loops ? nullptr : loop - 1; }
+} // namespace
 
 // 0x00472AB0: 21 repeat [count]. Its arguments are read the first time only (tokens_end_ is set past them; pc_
 // stays after the 21 - it only moves by jumping back or to tokens_end_). No count: back to the start for ever (until

@@ -70,7 +70,7 @@ constexpr uint16_t kJoinRefusedSize = 10;
 
 // The join's state (join_phase_, 0x005331F0 / 0x00533200).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum EntryPhase : int {
+enum EntryPhase : uint8_t {
     kJoinStateConnecting = 1,
     kJoinStateJoining = 2,
     kJoinStateJoiningWithPassword = 3,
@@ -108,9 +108,9 @@ public:
     // get_map_name's lookup for any level (null if none).
     static const char* level_list_name(uint32_t level);
     // 0x00533F90 (inline here): the server's side of the game (OnServer): flags bit 0.
-    bool get_on_server() const { return (flag_bits_ & 1) != 0; }
+    [[nodiscard]] bool get_on_server() const { return (flag_bits_ & 1) != 0; }
     // 0x00533F80 (inline here): internet play (flags bit 2), not LAN.
-    bool in_internet_mode() const { return (flag_bits_ & 4) != 0; }
+    [[nodiscard]] bool in_internet_mode() const { return (flag_bits_ & 4) != 0; }
 
     // --- gamenet_state.cpp: the manager's small members (0x00532AA0-0x005333F0) ---
     // 0x00532AA0 / 0x00532AC0: how the player joins (join_mode_: 0 to play, 1 to watch - IsObserving). Setting it

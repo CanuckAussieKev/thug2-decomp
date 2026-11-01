@@ -127,7 +127,7 @@ bool read_record(const std::string& line, State* state)
                     !parse_hex8(item.substr(2), &m.id))
                     return false;
                 m.kind = item[0];
-                if (std::find(g.members.begin(), g.members.end(), m) == g.members.end())
+                if (std::ranges::find(g.members, m) == g.members.end())
                     g.members.push_back(m);
             }
         }
@@ -186,7 +186,7 @@ std::string get_label_of(const State& state, uint32_t id)
 
 void set_label(State* state, uint32_t id, const std::string& text)
 {
-    auto it = std::find_if(state->labels.begin(), state->labels.end(), [&](const auto& l) { return l.first == id; });
+    auto it = std::ranges::find_if(state->labels, [&](const auto& l) { return l.first == id; });
     if (text.empty()) {
         if (it != state->labels.end())
             state->labels.erase(it);
@@ -198,14 +198,11 @@ void set_label(State* state, uint32_t id, const std::string& text)
         state->labels.emplace_back(id, text);
 }
 
-bool get_has(const std::vector<uint32_t>& list, uint32_t id)
-{
-    return std::find(list.begin(), list.end(), id) != list.end();
-}
+bool get_has(const std::vector<uint32_t>& list, uint32_t id) { return std::ranges::find(list, id) != list.end(); }
 
 void set_flag(std::vector<uint32_t>* list, uint32_t id, bool on)
 {
-    auto it = std::find(list->begin(), list->end(), id);
+    auto it = std::ranges::find(*list, id);
     if (on && it == list->end())
         list->push_back(id);
     else if (!on && it != list->end())
@@ -411,7 +408,10 @@ struct OrganizeStep : ModuleStep {
     State state;
     explicit OrganizeStep(State s) : state(std::move(s)) {}
     void get_restore() override { g_state = state; }
-    std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<OrganizeStep>(g_state); }
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
+    {
+        return std::make_shared<OrganizeStep>(g_state);
+    }
 };
 
 std::string layouts_folder() { return game_folder_path("thug2-decomp-layouts"); }
@@ -687,8 +687,7 @@ void make_group(const std::string& wanted)
     // (a name of its own: "Group 2" when "Group" is taken)
     const std::string base = name;
     for (int n = 2;; ++n) {
-        const bool taken = std::any_of(g_state.groups.begin(), g_state.groups.end(),
-                                       [&](const GroupSet& o) { return o.name == name; });
+        const bool taken = std::ranges::any_of(g_state.groups, [&](const GroupSet& o) { return o.name == name; });
         if (!taken)
             break;
         name = base + " " + std::to_string(n);
@@ -773,7 +772,7 @@ void add_to_group(int index)
     std::vector<Member>& members = next.groups[index].members;
     auto add = [&](char kind, uint32_t id) {
         const Member m = {kind, id};
-        if (std::find(members.begin(), members.end(), m) == members.end())
+        if (std::ranges::find(members, m) == members.end())
             members.push_back(m);
     };
     for (const uint32_t id : s.objects)
@@ -936,7 +935,7 @@ void select_similar(Similar by)
         std::vector<uint32_t>& out = sectors ? next.sectors : next.objects;
         for (const uint32_t id : sectors ? selectable_sectors() : selectable_objects()) {
             Thing t = thing_of(id, sectors);
-            if (std::any_of(chosen.begin(), chosen.end(), [&](const Thing& c) { return alike(c, t, by); }))
+            if (std::ranges::any_of(chosen, [&](const Thing& c) { return alike(c, t, by); }))
                 out.push_back(id);
         }
         // (the selection's own first: the primary stays)
@@ -1020,7 +1019,7 @@ std::vector<std::string> snapshots()
             names.push_back(name);
     } while (FindNextFileA(find, &found));
     FindClose(find);
-    std::sort(names.begin(), names.end());
+    std::ranges::sort(names);
     return names;
 }
 

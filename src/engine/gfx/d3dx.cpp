@@ -13,12 +13,14 @@ namespace d3dx {
 static_assert(sizeof(D3DXMATRIX) == 64 && sizeof(D3DXVECTOR3) == 12 && sizeof(D3DXVECTOR4) == 16,
               "the D3DX types must be plain floats");
 
-static D3DXMATRIX* get_m(void* p) { return static_cast<D3DXMATRIX*>(p); }
-static const D3DXMATRIX* get_m(const void* p) { return static_cast<const D3DXMATRIX*>(p); }
-static D3DXVECTOR3* v3(float* p) { return reinterpret_cast<D3DXVECTOR3*>(p); }
-static const D3DXVECTOR3* v3(const float* p) { return reinterpret_cast<const D3DXVECTOR3*>(p); }
-static D3DXVECTOR4* v4(float* p) { return reinterpret_cast<D3DXVECTOR4*>(p); }
-static const D3DXVECTOR4* v4(const float* p) { return reinterpret_cast<const D3DXVECTOR4*>(p); }
+namespace {
+D3DXMATRIX* get_m(void* p) { return static_cast<D3DXMATRIX*>(p); }
+const D3DXMATRIX* get_m(const void* p) { return static_cast<const D3DXMATRIX*>(p); }
+D3DXVECTOR3* v3(float* p) { return reinterpret_cast<D3DXVECTOR3*>(p); }
+const D3DXVECTOR3* v3(const float* p) { return reinterpret_cast<const D3DXVECTOR3*>(p); }
+D3DXVECTOR4* v4(float* p) { return reinterpret_cast<D3DXVECTOR4*>(p); }
+const D3DXVECTOR4* v4(const float* p) { return reinterpret_cast<const D3DXVECTOR4*>(p); }
+} // namespace
 
 void vec3_normalize(float* out, const float* v) { D3DXVec3Normalize(v3(out), v3(v)); }
 void vec3_transform(float* out, const float* v, const void* matrix)

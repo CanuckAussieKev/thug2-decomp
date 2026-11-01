@@ -92,7 +92,7 @@ struct ActStep {
 
 // The editor's own actions, in the built-in table's order (an action's index is its Id).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum IdentNo : int {
+enum IdentNo : uint8_t {
     kHelp,
     kPalette,
     kBrowser,

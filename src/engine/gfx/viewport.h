@@ -40,7 +40,7 @@ public:
     virtual int fetch_shown(int unused);
 
     // 0x004A0D20: the screen's aspect times the rectangle's width / height.
-    float fetch_width_over_height() const;
+    [[nodiscard]] float fetch_width_over_height() const;
     // 0x004A0D50: if `camera` is this viewport's, it's marked to be deleted (flag 1) and true returned.
     bool flag_camera_for_removal(gfx::ViewCam* camera);
     // 0x004A0D70: a camera marked for deletion is deleted (its virtual [0]) and let go.

@@ -117,9 +117,9 @@ public:
 
     // --- pad-event priorities ---
     // 0x004AAD80: any priorities.
-    bool has_priorities() const;
+    [[nodiscard]] bool has_priorities() const;
     // 0x004AAD50: whether `type` is a pad event type.
-    bool is_pad_event(uint32_t type) const;
+    [[nodiscard]] bool is_pad_event(uint32_t type) const;
     // 0x004AB7C0: whether the element `id` has the top priority.
     bool has_top_precedence(uint32_t id);
     // 0x004AC570: the element `id` takes a priority slot (a free one, else the lowest if it's at least as high);

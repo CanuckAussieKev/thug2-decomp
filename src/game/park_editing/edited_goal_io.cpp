@@ -22,9 +22,8 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of t
 namespace park_editing {
 
 char g_created_goal_name[24];
-static char g_goal_io_name_buffer[100];
-
 namespace {
+char g_goal_io_name_buffer[100];
 
 constexpr float kDropHeight = 10000.0f; // 0x0064B308
 constexpr uint32_t kStructureArray = 10, kChecksumArray = 13, kIntegerArray = 1;

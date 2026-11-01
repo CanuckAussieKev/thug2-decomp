@@ -115,7 +115,7 @@ bool get_overlay_path(const char* name, char (&path)[260])
     std::memcpy(path, full.c_str(), full.size() + 1);
     // Each file the overlay serves, logged the first time (and how the game asked for it).
     static std::vector<std::string> logged;
-    if (std::find(logged.begin(), logged.end(), full) == logged.end()) {
+    if (std::ranges::find(logged, full) == logged.end()) {
         logged.push_back(full);
         get_log("data overlay: %s read from %s (asked for as %s)", relative, full.c_str(), name);
     }

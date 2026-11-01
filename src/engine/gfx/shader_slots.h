@@ -8,7 +8,7 @@
 namespace render {
 
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum PixelShaderSlot : int {
+enum PixelShaderSlot : uint8_t {
     kPixelShader920,
     kPixelShader924, // (grass)
     kPixelShader928,

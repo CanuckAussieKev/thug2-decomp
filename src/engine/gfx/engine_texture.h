@@ -58,8 +58,8 @@ public:
     virtual bool get_stretch(uint16_t, int, int) { return false; }                                     // [21]
     virtual bool squash(uint16_t, int, int, bool, uint32_t) { return false; }                          // [22]
     virtual bool shift_hue_sat_value(float, float, float, bool) { return false; }                      // [24]
-    virtual uint16_t fetch_breadth() const { return 0; }            // [33] the image's width
-    virtual uint16_t fetch_tallness() const { return 0; }           // [34] its height
+    [[nodiscard]] virtual uint16_t fetch_breadth() const { return 0; }  // [33] the image's width
+    [[nodiscard]] virtual uint16_t fetch_tallness() const { return 0; } // [34] its height
     virtual uint8_t get_depth() { return 0; }                       // [35] bits per pixel
     virtual uint8_t get_unknown_e() { return 0; }                   // [38]
     virtual uint8_t get_unknown_c() { return 0; }                   // [39]

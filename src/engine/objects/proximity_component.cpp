@@ -17,10 +17,9 @@
 
 namespace objects {
 
-static GameEntity* g_proximity_skater;
-static float g_proximity_skater_radius;
-
 namespace {
+GameEntity* g_proximity_skater;
+float g_proximity_skater_radius;
 
 constexpr uint32_t kSkaterId = 0x0AE89B6C; // (its name unknown): the skater's id, for the scripts
 constexpr uint32_t kInactive = 0x742CF11F; // kClockIdle

@@ -31,7 +31,7 @@ namespace {
 
 // qr2's keys (the SDK's standard numbering) and THUG2's own.
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum PeerKey : int {
+enum PeerKey : uint8_t {
     kKeyHostname = 1,
     kKeyGamename = 2,
     kKeyHostport = 4,

@@ -34,7 +34,7 @@ int g_gap_action = -1, g_skate_action = -1, g_ground_action = -1;
 
 // --- the Ground tool ---
 
-enum class Stage { kDisengaged, kFirst, kSecond, kForm };
+enum class Stage : uint8_t { kDisengaged, kFirst, kSecond, kForm };
 Stage g_stage = Stage::kDisengaged;
 bool g_editing; // (the form edits a piece that is there - g_draft.name)
 ground::Spec g_draft;
@@ -392,7 +392,7 @@ void add_overlay(const overlays::Painter& painter)
         float y = g_first.y + 2.0f;
         const V3 c[4] = {{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}};
         for (int i = 0; i < 4; ++i)
-            painter.get_seg(c[i], c[(i + 1) % 4], kRect, 2.0f);
+            (void)painter.get_seg(c[i], c[(i + 1) % 4], kRect, 2.0f);
         char text[64];
         std::snprintf(text, sizeof(text), "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
         painter.draw_label(b, kRect, text);

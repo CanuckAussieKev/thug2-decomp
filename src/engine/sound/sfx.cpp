@@ -20,7 +20,9 @@
 namespace sound {
 
 float g_default_dropoff{1020.0f};
-static float g_volume_scale{100.0f};
+namespace {
+float g_volume_scale{100.0f};
+} // namespace
 SoundWaveSlot g_permanent_waves[256];
 SoundWaveSlot g_level_waves[256];
 PlayingSound g_playing_sounds[48];

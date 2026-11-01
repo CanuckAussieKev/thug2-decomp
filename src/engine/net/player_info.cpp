@@ -96,8 +96,8 @@ JoinerRecord::~JoinerRecord()
 // 0x00543180
 void clear_update_records(PlayerRecord* player)
 {
-    std::fill(std::begin(player->sent_.value68_), std::end(player->sent_.value68_), 0u);
-    std::fill(std::begin(player->sent_.value_6c_), std::end(player->sent_.value_6c_), 0u);
+    std::ranges::fill(player->sent_.value68_, 0u);
+    std::ranges::fill(player->sent_.value_6c_, 0u);
 }
 
 // 0x00543740

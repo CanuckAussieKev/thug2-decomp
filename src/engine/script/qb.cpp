@@ -33,10 +33,9 @@ static_assert(offsetof(StoredRandom, last_) == 0x54 && offsetof(StoredRandom, su
 static_assert(sizeof(StoredRandom) == 0x60, "layout must match the original");
 
 memory::PoolPair g_stored_random_pools;
-static int g_pending_symbol_count;
-static uint32_t g_permanent_strings_free;
-
 namespace {
+int g_pending_symbol_count;
+uint32_t g_permanent_strings_free;
 
 // The table of the .qb files' own checksum names: {checksum, name, next}, the first entry in the bucket.
 struct ScriptChecksumName {

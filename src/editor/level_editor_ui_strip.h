@@ -74,7 +74,7 @@ struct State {
 };
 
 struct Occurrence {
-    enum class Kind {
+    enum class Kind : uint8_t {
         kDeselect, // Fly
         kTool,     // value: 0 move, 1 rotate, 2 scale
         kSpace,    // World / Local switched

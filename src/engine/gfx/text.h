@@ -37,7 +37,7 @@ struct TypefaceData {
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
 
     // The colour "\c<index>" picks: index 1 is colors[0]; the original reads past the table for larger ones.
-    uint32_t get_color(int index) const
+    [[nodiscard]] uint32_t get_color(int index) const
     {
         return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(this) + 0x134 + 4 * index);
     }

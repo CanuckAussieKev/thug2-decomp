@@ -49,7 +49,7 @@ namespace frontend::level_editor::ground {
 
 enum class Ramp : uint8_t { kNone, kKicker, kQuarter };
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum Flank { kMinusX, kPlusX, kMinusZ, kPlusZ };
+enum Flank : uint8_t { kMinusX, kPlusX, kMinusZ, kPlusZ };
 
 struct Spec {
     std::string name; // ed_ground01 (the sector's name)

@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_play.h"
 
+#include <cstdint>
 #include <SDL2/SDL.h>
 
 #include "engine/core/checksums.h"
@@ -45,7 +46,7 @@ int g_resume_load = -1;
 Resume g_resume;
 // After leaving: the pause menu closed a couple of frames later. Back to the editor: waiting for the pause, then
 // for the pause menu.
-enum class Phase { kIdle, kUnpause, kWaitPause, kWaitMenu };
+enum class Phase : uint8_t { kIdle, kUnpause, kWaitPause, kWaitMenu };
 Phase g_phase = Phase::kIdle;
 int g_frames;
 bool g_key_up = true;

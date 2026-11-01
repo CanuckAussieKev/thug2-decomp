@@ -43,11 +43,11 @@ public:
         position_ += bytes;
         return true;
     }
-    bool fits(uint64_t bytes) const { return ok_ && bytes <= size_ - position_; }
-    bool ok() const { return ok_; }
+    [[nodiscard]] bool fits(uint64_t bytes) const { return ok_ && bytes <= size_ - position_; }
+    [[nodiscard]] bool ok() const { return ok_; }
     void fail() { ok_ = false; }
-    size_t position() const { return position_; }
-    file::Hdl file() const { return file_; }
+    [[nodiscard]] size_t position() const { return position_; }
+    [[nodiscard]] file::Hdl file() const { return file_; }
 
 private:
     file::Hdl file_;

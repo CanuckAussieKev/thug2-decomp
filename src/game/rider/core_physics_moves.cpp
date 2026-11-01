@@ -36,9 +36,8 @@ namespace skater {
 
 using namespace physics;
 
-static int g_grind_counter;
-
 namespace {
+int g_grind_counter;
 
 // Physics values, stats, script values and scripts (names not recovered).
 constexpr uint32_t kOverrideStat = 0x2EACDDB3;

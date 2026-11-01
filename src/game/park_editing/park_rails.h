@@ -49,7 +49,7 @@ struct ParkRailString {
     // 0x0058AFC0: `point` on the end.
     void append_spot(ParkRailPoint* point);
     // 0x0058B040: its segments (a loop's points; otherwise one fewer, 0 for a single point).
-    int count_segments() const;
+    [[nodiscard]] int count_segments() const;
     // 0x0058B420: `source`'s points copied in (from its set's pool) - turned by `rot` quarter turns about y, moved by
     // `offset`, each given `cluster`; a climbing rail's headings `angle` plus the turn - then its class, name and
     // flags 0x1 / 0x2.
@@ -78,7 +78,7 @@ struct ParkRailSet {
     // 0x0058B010: `rail` on the end.
     void add_rail(ParkRailString* rail);
     // 0x0058B070: the points of all its rails.
-    int rail_point_total() const;
+    [[nodiscard]] int rail_point_total() const;
     // 0x0058B090: the `index`th (from 0) of its rails named `name`, or null.
     ParkRailString* find_rail(uint32_t name, int index);
     // 0x0058B0C0: named "In set" (`in`) or "Out set", and its pools made: room for `points` points ("<name>

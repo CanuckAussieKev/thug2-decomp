@@ -19,16 +19,17 @@
 
 namespace park_editing {
 
-static double g_park_memory_full_usage{0.95};
-static double g_park_memory_nearly_full_usage{0.9};
-static MemoryStats g_park_memory_stats;
-static memory::Zone* g_park_region;
-memory::Arena* g_park_heap;
-static int g_park_memory_unknown_7c_e_68c;
-static int g_dma_pieces;
-static bool g_counts_dirty;
-
 namespace {
+double g_park_memory_full_usage{0.95};
+double g_park_memory_nearly_full_usage{0.9};
+MemoryStats g_park_memory_stats;
+memory::Zone* g_park_region;
+} // namespace
+memory::Arena* g_park_heap;
+namespace {
+int g_park_memory_unknown_7c_e_68c;
+int g_dma_pieces;
+bool g_counts_dirty;
 
 constexpr uint32_t kPieceDmaTable = 0x9547DA8D; // the global structure of DMA pieces per piece type
 constexpr uint32_t kMemoryValueScript = 0x3CB03619;

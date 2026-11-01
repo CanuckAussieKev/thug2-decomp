@@ -25,15 +25,15 @@ public:
     // Grow the box to include `point` (x, y, z only).
     void append_spot(const Vec4& point);
     // 0x0040B170: whether the boxes overlap (edges touching counts; NaN doesn't rule it out).
-    bool intersects(const BBox& other) const;
+    [[nodiscard]] bool intersects(const BBox& other) const;
     // 0x0040B1D0: whether `other` lies within this box (edges included; NaN rules it out).
-    bool get_holds(const BBox& other) const;
+    [[nodiscard]] bool get_holds(const BBox& other) const;
     // Centre of the box (w = 1).
     Vec4& get_center(Vec4& out) const;
 
     // 1 if min <= point <= max on every axis (edges included; NaN gives 0). Returns int: the original sets
     // all of EAX.
-    int contains_point(const Vec4& point) const;
+    [[nodiscard]] int contains_point(const Vec4& point) const;
     // Number of axes (0-3) on which point lies within the box; `axes` gets a bit per axis (1 = x, 2 = y, 4 = z).
     int count_axes_containing(const Vec4& point, uint32_t& axes) const;
     // Where the segment first enters the box through a face, checking +X, -X, +Y, -Y, +Z, -Z in that order.
@@ -58,7 +58,7 @@ public:
     Capsule(const Seg& line, float radius);
 
     // Sphere volume plus the cylinder along the segment.
-    float get_loudness() const;
+    [[nodiscard]] float get_loudness() const;
 
     // True if `point` is within the capsule. If `offset` is given it receives the point's offset from the
     // closest point on the segment (whether or not the point is inside).

@@ -343,10 +343,12 @@ void TopList::fill_sorted_scores(bool ratings)
     }
 }
 
+namespace {
 // The level checksums the personal stats list their high scores by.
-static uint32_t g_level_checksums[15]{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
-                                      0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C,
-                                      0xCC877C27, 0x0C27CA5E, 0x532C99DE, 0xD4B48511, 0x8C32C761};
+uint32_t g_level_checksums[15]{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
+                               0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C,
+                               0xCC877C27, 0x0C27CA5E, 0x532C99DE, 0xD4B48511, 0x8C32C761};
+} // namespace
 
 // 0x0054DDB0
 void PersonalStats::get_fill()

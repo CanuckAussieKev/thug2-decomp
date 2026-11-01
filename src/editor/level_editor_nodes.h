@@ -47,7 +47,7 @@ Shape shape_of(Family family);
 
 // A restart's restart_types as bits.
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum SpawnPointKind : uint32_t {
+enum SpawnPointKind : uint8_t {
     kPlayer1 = 1,
     kPlayer2 = 2,
     kMultiplayer = 4,

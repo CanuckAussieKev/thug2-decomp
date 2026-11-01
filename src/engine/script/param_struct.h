@@ -114,7 +114,7 @@ struct Component {
     };
     Component* next;
 
-    QbValueKind kind_tag() const { return static_cast<QbValueKind>(type_and_flag_ >> 1); }
+    [[nodiscard]] QbValueKind kind_tag() const { return static_cast<QbValueKind>(type_and_flag_ >> 1); }
 };
 static_assert(sizeof(Component) == 0x10, "layout must match the original");
 

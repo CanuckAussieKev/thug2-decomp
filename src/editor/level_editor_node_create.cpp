@@ -1055,7 +1055,7 @@ bool can_hide(const nodes::Elem& node, const char** why)
 
 bool get_hidden(uint32_t name)
 {
-    return std::any_of(g_hidden.begin(), g_hidden.end(), [&](const HiddenNode& h) { return h.name == name; });
+    return std::ranges::any_of(g_hidden, [&](const HiddenNode& h) { return h.name == name; });
 }
 
 std::vector<uint32_t> hidden_names()
@@ -1074,7 +1074,7 @@ bool conceal(uint32_t name, bool hide)
     script::Struct* node = level_nodes::fetch_vertex(name, false);
     if (!node)
         return false;
-    auto it = std::find_if(g_hidden.begin(), g_hidden.end(), [&](const HiddenNode& h) { return h.name == name; });
+    auto it = std::ranges::find_if(g_hidden, [&](const HiddenNode& h) { return h.name == name; });
     static const uint32_t kLight = name_hash("LevelLight"), kProxim = name_hash("ProximNode"),
                           kEmitter = name_hash("EmitterObject");
     if (hide) {

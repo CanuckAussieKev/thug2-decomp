@@ -24,27 +24,39 @@
 namespace render {
 
 bool g_shaders_available;
-static uint32_t g_blend_mode;
-static uint32_t g_blend_op;
-static uint32_t g_src_blend;
-static uint32_t g_dest_blend;
-static uint32_t g_alpha_blend;
-static uint32_t g_alpha_test;
-static uint32_t g_alpha_test_value;
+namespace {
+uint32_t g_blend_mode;
+uint32_t g_blend_op;
+uint32_t g_src_blend;
+uint32_t g_dest_blend;
+uint32_t g_alpha_blend;
+uint32_t g_alpha_test;
+uint32_t g_alpha_test_value;
+} // namespace
 uint32_t g_specular;
-static uint8_t g_dither;
+namespace {
+uint8_t g_dither;
+} // namespace
 uint8_t g_z_write;
-static uint8_t g_z_test;
+namespace {
+uint8_t g_z_test;
+} // namespace
 uint32_t g_depth_bias;
-static uint32_t g_lighting;
+namespace {
+uint32_t g_lighting;
+} // namespace
 uint32_t g_cull_mode;
 bool g_near_camera;
-static uint32_t g_address_modes[4];
-static uint32_t g_mip_lod_biases[4];
-static uint32_t g_filters[4];
+namespace {
+uint32_t g_address_modes[4];
+uint32_t g_mip_lod_biases[4];
+uint32_t g_filters[4];
+} // namespace
 void* g_textures[4];
 uint32_t g_border_colours[4];
-static uint32_t g_vertex_format;
+namespace {
+uint32_t g_vertex_format;
+} // namespace
 uint32_t g_pixel_shader_locked;
 void* g_current_pixel_shader;
 float g_ps_constant_bank[20];
@@ -54,9 +66,13 @@ uint8_t g_pixel_shader_changed;
 uint32_t g_vertex_format_locked;
 uint32_t g_skipped_passes;
 uint32_t g_submit_locked;
-static uint32_t g_forced_blend;
+namespace {
+uint32_t g_forced_blend;
+} // namespace
 uint32_t g_fog_active;
-static uint8_t g_local_viewer;
+namespace {
+uint8_t g_local_viewer;
+} // namespace
 const float* g_world_transform;
 float g_world_transform_copy[16];
 

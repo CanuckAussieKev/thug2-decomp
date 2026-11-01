@@ -61,7 +61,7 @@ public:
     };
 
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State { kStateAsleep = 0, kStateAwake = 1, kStateDisabled = 2 };
+    enum State : uint8_t { kStateAsleep = 0, kStateAwake = 1, kStateDisabled = 2 };
     // flag_bits_ (+0xF4)
     static constexpr uint32_t kFlagDieUponSettling = 0x1;
     static constexpr uint32_t kFlagNoPlayerCollision = 0x2;

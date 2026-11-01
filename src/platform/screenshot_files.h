@@ -45,7 +45,7 @@ constexpr const char* kSeriesSidecar = "series.txt";
 
 // The back buffer formats the game can run with (the renderer backend maps its own to these). Byte order in memory,
 // little-endian: X8R8G8B8 / A8R8G8B8 B, G, R, X/A; R5G6B5 / X1R5G5B5 16-bit words.
-enum class PixelFormat { kUnknown, kX8r8g8b8, kA8r8g8b8, kR5g6b5, kX1r5g5b5 };
+enum class PixelFormat : uint8_t { kUnknown, kX8r8g8b8, kA8r8g8b8, kR5g6b5, kX1r5g5b5 };
 // Bytes per pixel (0 for Unknown).
 int get_bytes_per_pixel(PixelFormat format);
 const char* format_name(PixelFormat format);

@@ -46,21 +46,22 @@ uint32_t g_object_member_functions[102]{
     0x23A4E5C2, 0x57525413, 0, 0, 0, 0, 0x714937C7, 0x57525413, 0, 0, 0, 0, 0x20D125D7, 0x57525413, 0, 0, 0, 0,
     0x3578E5A9, 0x57525413, 0, 0, 0, 0, 0,          0x57525413, 0, 0, 0, 0};
 
-static int g_composite_mgr_block_header_size{16};
-static int g_coim_integer0{4};
-static int g_coim_integer1{2};
-static int g_coim_a;
-static int g_coim_b;
-static int g_coim_c;
-static memory::owner<memory::Zone*> g_coim_region;
-static memory::Arena* g_coim_heap;
-static uint32_t g_instance_count;
-// (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
-static ObjectModule* g_component_list[objects::EntityHub::kMaxComponentTypes];
-memory::owner<objects::EntityHub*> g_composite_registry;
-static uint32_t g_composite_mgr_references;
-
 namespace {
+int g_composite_mgr_block_header_size{16};
+int g_coim_integer0{4};
+int g_coim_integer1{2};
+int g_coim_a;
+int g_coim_b;
+int g_coim_c;
+memory::owner<memory::Zone*> g_coim_region;
+memory::Arena* g_coim_heap;
+uint32_t g_instance_count;
+// (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
+ObjectModule* g_component_list[objects::EntityHub::kMaxComponentTypes];
+} // namespace
+memory::owner<objects::EntityHub*> g_composite_registry;
+namespace {
+uint32_t g_composite_mgr_references;
 
 constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
 constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (Entity's)

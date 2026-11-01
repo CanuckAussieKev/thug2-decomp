@@ -27,14 +27,13 @@ namespace render {
 int g_scene_light_count;
 LevelLamp g_level_lamps[150]; // (kMaxSceneLights)
 
-static uint32_t* g_queued_nodes;
-static int g_queued_count;
-static int g_queue_done;
-static int g_queue_frames;
-static int g_queue_frame;
-static script::Struct* g_queue_params;
-
 namespace {
+uint32_t* g_queued_nodes;
+int g_queued_count;
+int g_queue_done;
+int g_queue_frames;
+int g_queue_frame;
+script::Struct* g_queue_params;
 
 constexpr int kMaxSceneLights = 150;
 constexpr float kPercent = 0.01f; // 0x0064544C
@@ -98,7 +97,7 @@ struct Sums {
     }
     // A colour's RGB with the sums added (green and blue rounded to floats first, as the original stores them),
     // clamped at 255 and truncated (_ftol: the low byte).
-    uint32_t get_apply(uint32_t colour) const
+    [[nodiscard]] uint32_t get_apply(uint32_t colour) const
     {
         auto* bytes = reinterpret_cast<uint8_t*>(&colour);
         const double sums[3] = {r, static_cast<float>(g), static_cast<float>(b)};

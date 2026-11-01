@@ -32,7 +32,7 @@ public:
     }
     ~ComPtr() { reset(); }
 
-    Interface* get() const noexcept { return pointer_; }
+    [[nodiscard]] Interface* get() const noexcept { return pointer_; }
     Interface* operator->() const noexcept { return pointer_; }
     explicit operator bool() const noexcept { return pointer_ != nullptr; }
 

@@ -5,7 +5,10 @@ namespace frontend::level_editor::ui_layout {
 
 struct Rect2 {
     float x, y, width, height;
-    bool get_holds(float px, float py) const { return px >= x && px < x + width && py >= y && py < y + height; }
+    [[nodiscard]] bool get_holds(float px, float py) const
+    {
+        return px >= x && px < x + width && py >= y && py < y + height;
+    }
 };
 
 // The UI's scale for a window: 1 at 1920 x 1080, the smaller of width / 1920 and height / 1080 rounded down to a quarter

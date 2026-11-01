@@ -25,9 +25,8 @@
 
 namespace script {
 
-static uint32_t g_loading_file;
-
 namespace {
+uint32_t g_loading_file;
 
 // The checksum of the .qb file being loaded (0 outside loading).
 uint32_t& loading_file() { return g_loading_file; }

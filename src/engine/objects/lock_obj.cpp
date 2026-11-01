@@ -18,9 +18,8 @@
 
 namespace objects {
 
-static float g_lock_obj_wobble_step{0.006135923f};
-
 namespace {
+float g_lock_obj_wobble_step{0.006135923f};
 
 constexpr uint32_t kObjLockToObject = 0x785E57C7; // Obj_LockToObject
 constexpr uint32_t kOff = 0xD443A2BC;             // off

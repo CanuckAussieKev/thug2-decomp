@@ -73,7 +73,7 @@ int get_combined(const std::vector<uint16_t>& flags, uint16_t bit)
 
 bool get_click(std::vector<FaceKey>* selection, FaceKey key, bool add)
 {
-    auto it = std::find(selection->begin(), selection->end(), key);
+    auto it = std::ranges::find(*selection, key);
     if (!add) {
         selection->assign(1, key);
         return true;
@@ -152,7 +152,7 @@ bool read_record(std::istringstream& in, SectorFaces* out)
     std::string more;
     if (s.faces.empty() || (in >> more))
         return false;
-    std::sort(s.faces.begin(), s.faces.end());
+    std::ranges::sort(s.faces);
     *out = s;
     return true;
 }
@@ -166,7 +166,7 @@ std::vector<SectorFaces> group_set(const std::vector<Change>& changes)
     }
     std::vector<SectorFaces> out;
     for (auto& entry : by_sector) {
-        std::sort(entry.second.begin(), entry.second.end());
+        std::ranges::sort(entry.second);
         out.push_back({entry.first, entry.second});
     }
     return out;
@@ -289,7 +289,7 @@ struct Step : ModuleStep {
         g_selection = selection;
         view::stale_cache();
     }
-    std::shared_ptr<ModuleStep> get_now() const override
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
         for (const auto& f : flags) {
@@ -373,8 +373,7 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
         hud::get_message(why, 4.0);
         return false;
     }
-    if (add && g_selection.size() >= kMostSelected &&
-        std::find(g_selection.begin(), g_selection.end(), key) == g_selection.end()) {
+    if (add && g_selection.size() >= kMostSelected && std::ranges::find(g_selection, key) == g_selection.end()) {
         hud::get_message("Limit: 8192 faces");
         return false;
     }
@@ -425,7 +424,7 @@ bool select_piece(uint32_t checksum, bool add)
     for (const FaceKey& key : faces) {
         if (g_selection.size() >= kMostSelected)
             break;
-        if (std::find(g_selection.begin(), g_selection.end(), key) == g_selection.end())
+        if (std::ranges::find(g_selection, key) == g_selection.end())
             g_selection.push_back(key);
     }
     return true;
@@ -546,12 +545,10 @@ void tick_frame()
     for (auto& action : queue)
         action();
     // (faces of a level gone: dropped from the selection)
-    g_selection.erase(std::remove_if(g_selection.begin(), g_selection.end(),
-                                     [](const FaceKey& key) {
-                                         uint16_t flags = 0;
-                                         return !get_take_in(key, &flags);
-                                     }),
-                      g_selection.end());
+    std::erase_if(g_selection, [](const FaceKey& key) {
+        uint16_t flags = 0;
+        return !get_take_in(key, &flags);
+    });
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
@@ -617,7 +614,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         uint16_t f = 0;
         if (get_take_in(key, &f))
             flags.push_back(f);
-        if (std::find(pieces.begin(), pieces.end(), key.checksum) == pieces.end())
+        if (std::ranges::find(pieces, key.checksum) == pieces.end())
             pieces.push_back(key.checksum);
     }
     ImGui::PushFont(mono);

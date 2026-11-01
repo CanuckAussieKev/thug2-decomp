@@ -42,9 +42,8 @@ bool change_colour(script::Struct* params, uint8_t (&setting)[4])
 
 bool& loading_screen_shown() { return reinterpret_cast<bool&>(g_loading_screen_shown); }
 
+float g_loading_bar_seconds;
 } // namespace
-
-static float g_loading_bar_seconds;
 
 // 0x00490770
 void set_loading_bar_time(float seconds)

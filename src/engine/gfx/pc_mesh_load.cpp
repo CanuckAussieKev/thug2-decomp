@@ -30,9 +30,11 @@
 
 namespace render {
 
-static float g_unpack_z_scale{0.0019569471f};
-static float g_unpack11_scale{0.0009775171f};
-static uint32_t g_fvf_by_set_count[5]{0, 0x100, 0x200, 0x300, 0x400};
+namespace {
+float g_unpack_z_scale{0.0019569471f};
+float g_unpack11_scale{0.0009775171f};
+uint32_t g_fvf_by_set_count[5]{0, 0x100, 0x200, 0x300, 0x400};
+} // namespace
 uint32_t g_vertex_shaders[6];
 
 namespace {

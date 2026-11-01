@@ -45,7 +45,7 @@ struct VolumeRef {
     // 0x0047B080: the channel with the greatest magnitude (its signed value; the first of equals).
     float find_peak_channel();
 
-    int channel_count() const { return kind_tag_ == kTypeSurround ? 5 : 2; }
+    [[nodiscard]] int channel_count() const { return kind_tag_ == kTypeSurround ? 5 : 2; }
 
     float lanes_[5]{};         // +0x00
     int kind_tag_;             // +0x14

@@ -23,21 +23,21 @@ struct HitTreeNode {
     // 0x00414D70 (not a function in Ghidra: new[]'s constructor): zeroed.
     HitTreeNode();
 
-    bool is_end_node() const { return (axis_tag_ & 3) == 3; }
-    int get_axis() const { return axis_tag_ & 3; }
-    int get_split() const { return axis_tag_ >> 2; }
+    [[nodiscard]] bool is_end_node() const { return (axis_tag_ & 3) == 3; }
+    [[nodiscard]] int get_axis() const { return axis_tag_ & 3; }
+    [[nodiscard]] int get_split() const { return axis_tag_ >> 2; }
     void set_split(int value) { axis_tag_ = (value << 2) | (axis_tag_ & 3); }
-    uint16_t leaf_face_count() const { return reinterpret_cast<const uint16_t*>(this)[1]; }
-    uint16_t* get_leaf_faces() const { return reinterpret_cast<uint16_t*>(chain_link_); }
-    HitTreeNode* get_children() const { return reinterpret_cast<HitTreeNode*>(chain_link_ & ~3u); }
-    HitTreeNode* less_child() const { return get_children() + ((chain_link_ & 1) ? 1 : 0); }
-    HitTreeNode* greater_child() const { return get_children() + ((chain_link_ & 1) ? 0 : 1); }
+    [[nodiscard]] uint16_t leaf_face_count() const { return reinterpret_cast<const uint16_t*>(this)[1]; }
+    [[nodiscard]] uint16_t* get_leaf_faces() const { return reinterpret_cast<uint16_t*>(chain_link_); }
+    [[nodiscard]] HitTreeNode* get_children() const { return reinterpret_cast<HitTreeNode*>(chain_link_ & ~3u); }
+    [[nodiscard]] HitTreeNode* less_child() const { return get_children() + ((chain_link_ & 1) ? 1 : 0); }
+    [[nodiscard]] HitTreeNode* greater_child() const { return get_children() + ((chain_link_ & 1) ? 0 : 1); }
 
     // 0x00415C90 / 0x00415CE0: the nodes in this subtree / the faces in its leaves.
-    int tally_nodes() const;
-    int count_faces() const;
+    [[nodiscard]] int tally_nodes() const;
+    [[nodiscard]] int count_faces() const;
     // 0x00415D30: the lowest of the leaves' face pointers (where their shared array starts).
-    uint16_t* first_face_list() const;
+    [[nodiscard]] uint16_t* first_face_list() const;
     // 0x00415D80: the splits moved by `delta` (each rounded down to a sixteenth, toward zero).
     void get_slide(const maths::Vec4* delta);
     // 0x00415E00: turned by `quarter_turns` (1-3) quarter turns about Y around `centre` (moved there and back
@@ -49,7 +49,7 @@ struct HitTreeNode {
     // (in u16s) into pointers from `face_base`. Returns true.
     static bool relocate(HitTreeNode* node, uint32_t node_base, uint32_t face_base);
     // 0x00416A10: a copy of the tree and its face indices (the argument unused); null if it has no nodes.
-    HitTreeNode* replicate(int unused) const;
+    [[nodiscard]] HitTreeNode* replicate(int unused) const;
 };
 static_assert(sizeof(HitTreeNode) == 8, "the collision file's BSP node (collision_format.h), used in place");
 
@@ -72,7 +72,7 @@ struct TriMeshSource {
                             // triangle object keeps a copy)
 
     // 0x0040B230: vertex `index` (w = 0).
-    maths::Vec4 read_stored_vertex(int index) const;
+    [[nodiscard]] maths::Vec4 read_stored_vertex(int index) const;
     // 0x0040B2D0: the same into `out`.
     void read_stored_vertex(int index, maths::Vec4* out) const;
     // 0x00414EE0: vertex `index` set (compressed: in sixteenths from the box's minimum, toward zero).
@@ -82,12 +82,12 @@ struct TriMeshSource {
     // 0x00415C10: every vertex set from `positions`, the box made from them first.
     void choose_raw_verts(const maths::Vec4* positions);
     // 0x00414D80: face `face`'s normal ((v1 - v0) x (v2 - v0), normalised unless zero; w = 0).
-    maths::Vec4 get_triangle_normal(int face) const;
+    [[nodiscard]] maths::Vec4 get_triangle_normal(int face) const;
     // 0x00415B70: every field copied (the arrays shared). Returns this.
     TriMeshSource* copy_from(const TriMeshSource* other);
     // 0x00416BF0: a copy with its own vertices, faces, vertex bytes and tree (`bsp_argument` passed to the tree's
     // Clone). Null when `need_vertices` and there are none, or an array couldn't be allocated.
-    TriMeshSource* replicate(int bsp_argument, bool need_vertices) const;
+    [[nodiscard]] TriMeshSource* replicate(int bsp_argument, bool need_vertices) const;
     // 0x00416970: the arrays freed, the tree deleted.
     void destruct();
     // 0x00416080: the tree and its face indices freed (false if there was none).
@@ -121,13 +121,13 @@ struct TriMeshSource {
     bool count_faces_behind(const HitTreeNode* node, const maths::Vec4* point, int unused);
 
     // +0x3C as the line tests read it: a float.
-    float rejection_scale() const
+    [[nodiscard]] float rejection_scale() const
     {
         auto scale = std::bit_cast<float>(unknown3c_);
         return scale;
     }
 
-    uint32_t face_vertex(int face, int corner) const
+    [[nodiscard]] uint32_t face_vertex(int face, int corner) const
     {
         return small_faces_ ? faces_[face * 8 + 4 + corner]
                             : reinterpret_cast<const uint16_t*>(faces_ + face * 10 + 4)[corner];

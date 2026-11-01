@@ -37,7 +37,7 @@ using TimedClipEvent = AnimScriptKey;
 class AnimTrack : public AnimTimeline {
 public:
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State { kOff = 0, kFading = 1, kPlaying = 2 };
+    enum State : uint8_t { kOff = 0, kFading = 1, kPlaying = 2 };
 
     // 0x00481EE0 / 0x00482360: the class's operator new / delete (its item pools 0x006F92C8).
     static void* operator new(size_t size);

@@ -43,8 +43,8 @@ public:
     // The x, y or z component with the largest magnitude (ties favour x, then y); `axis` gets 0, 1 or 2.
     float dominant_axis_index(int* axis) const;
 
-    float magnitude_squared() const;
-    float len_of() const;
+    [[nodiscard]] float magnitude_squared() const;
+    [[nodiscard]] float len_of() const;
     // Scales x, y, z to length 1. A zero-length vector is left unchanged.
     Vec4& make_unit();
     // 0x0042BBF0: x, y and z scaled to `length` (left alone at length 0 or not a number). Returns this.

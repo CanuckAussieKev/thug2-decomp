@@ -13,10 +13,9 @@
 
 namespace render {
 
-static float g_gammas[3]{1.0f, 1.0f, 1.0f};
-static uint16_t g_gamma_ramp[768];
-
 namespace {
+float g_gammas[3]{1.0f, 1.0f, 1.0f};
+uint16_t g_gamma_ramp[768];
 
 float* gammas() { return g_gammas; }
 uint16_t* get_ramp() { return g_gamma_ramp; } // red, then green and blue, 256 each

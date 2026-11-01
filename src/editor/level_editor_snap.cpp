@@ -105,7 +105,7 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
         SurfaceHit h;
         if (!get_cast(from, end, &h))
             return false;
-        if (h.checksum == 0 || std::find(skip.begin(), skip.end(), h.checksum) == skip.end()) {
+        if (h.checksum == 0 || std::ranges::find(skip, h.checksum) == skip.end()) {
             *hit = h;
             return true;
         }

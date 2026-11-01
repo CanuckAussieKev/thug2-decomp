@@ -165,7 +165,7 @@ std::string fresh_name(const std::vector<Note>& notes)
     for (int n = 1;; ++n) {
         char name[32];
         std::snprintf(name, sizeof(name), "%s%02d", kStem, n);
-        if (std::none_of(notes.begin(), notes.end(), [&](const Note& note) { return note.name == name; }))
+        if (std::ranges::none_of(notes, [&](const Note& note) { return note.name == name; }))
             return name;
     }
 }
@@ -203,14 +203,14 @@ struct NotesStep : ModuleStep {
         g_notes = notes;
         g_edit_for.clear(); // (the window reads the text again)
     }
-    std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<NotesStep>(g_notes); }
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<NotesStep>(g_notes); }
 };
 
 void push_undo() { push_module_undo(std::make_shared<NotesStep>(g_notes)); }
 
 Note* get_find(const std::string& name)
 {
-    auto it = std::find_if(g_notes.begin(), g_notes.end(), [&](const Note& n) { return n.name == name; });
+    auto it = std::ranges::find_if(g_notes, [&](const Note& n) { return n.name == name; });
     return it == g_notes.end() ? nullptr : &*it;
 }
 
@@ -487,8 +487,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
             if (!get_find(name))
                 return;
             push_undo();
-            g_notes.erase(std::remove_if(g_notes.begin(), g_notes.end(), [&](const Note& n) { return n.name == name; }),
-                          g_notes.end());
+            std::erase_if(g_notes, [&](const Note& n) { return n.name == name; });
             g_selected.clear();
             hud::get_message(("Deleted note " + name).c_str());
         });

@@ -15,8 +15,10 @@
 
 namespace render {
 
-static maths::Vec4 g_scene_light_direction;
-static uint32_t g_scene_light_direction_guard;
+namespace {
+maths::Vec4 g_scene_light_direction;
+uint32_t g_scene_light_direction_guard;
+} // namespace
 float g_light_constants[28];
 
 namespace {

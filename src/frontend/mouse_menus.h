@@ -65,7 +65,7 @@ bool window_to_layout(const ScreenMapping& mapping, float window_x, float window
 // Rotation is ignored.
 struct Rect2 {
     float left, top, right, bottom;
-    bool get_holds(float x, float y) const { return x >= left && x < right && y >= top && y < bottom; }
+    [[nodiscard]] bool get_holds(float x, float y) const { return x >= left && x < right && y >= top && y < bottom; }
 };
 Rect2 element_rect(const frontend::UiWidget* element);
 
@@ -139,7 +139,7 @@ int step_selection(int target, int count, bool wraps, int (*read)(void* context)
 // moment). Once a frame: step_selection again, until the selection is the target; gives up after `kTargetFrames`
 // frames or `kMaxStuckFrames` frames in a row without the selection changing, or when it has none (-1). `wait`:
 // send nothing this frame (the current item is one the menu passes over by itself).
-enum class TargetState { kReached, kMoving, kGaveUp };
+enum class TargetState : uint8_t { kReached, kMoving, kGaveUp };
 struct Target {
     int index; // the item's place in its menu
     int count; // the menu's children

@@ -93,11 +93,10 @@
 
 namespace objects {
 
-static float g_skater_down_light_colour;
-static float g_skater_light_colour;
-static uint32_t g_skater_lights_made;
-
 namespace {
+float g_skater_down_light_colour;
+float g_skater_light_colour;
+uint32_t g_skater_lights_made;
 
 // Names.
 constexpr uint32_t kIsPro = 0xD82F8AC8;               // is_pro

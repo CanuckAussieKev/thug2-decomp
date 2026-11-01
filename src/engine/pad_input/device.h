@@ -18,7 +18,7 @@ class InputPort : public memory::HeapObject {
 public:
     // The states Process steps through while a pad is found.
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : int { kIdle = 0, kDetect = 1, kReady = 2, kSettle = 5 };
+    enum State : uint8_t { kIdle = 0, kDetect = 1, kReady = 2, kSettle = 5 };
     // Capability bits.
     static constexpr uint32_t kHasActuators = 2;
     static constexpr uint32_t kAnalog = 4;
@@ -33,7 +33,7 @@ public:
     // 0x005BDCC0: once a frame. PartyMod's (see device.cpp).
     void work_on(int unused);
     // 0x005BCC60
-    bool is_attached() const { return is_connected_; }
+    [[nodiscard]] bool is_attached() const { return is_connected_; }
     // 0x005BCC70: start looking for a pad, if idle and one is there.
     void acquire();
     // 0x005BD8B0: a pad is there: an analogue pad with two motors (type 7); settle, then ready.

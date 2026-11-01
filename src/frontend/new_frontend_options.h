@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -9,7 +10,7 @@
 namespace frontend::new_frontend::options {
 
 // When a change is seen.
-enum class Apply {
+enum class Apply : uint8_t {
     kLive,     // at once (the feature's switch is set as the ini is written)
     kRelaunch, // the next time the game starts (read once at start-up)
 };

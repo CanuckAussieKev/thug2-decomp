@@ -176,8 +176,8 @@ void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx,
 
 void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) const
 {
-    get_seg(p - V3{size, 0.0f, 0.0f}, p + V3{size, 0.0f, 0.0f}, argb, thickness);
-    get_seg(p - V3{0.0f, 0.0f, size}, p + V3{0.0f, 0.0f, size}, argb, thickness);
+    (void)get_seg(p - V3{size, 0.0f, 0.0f}, p + V3{size, 0.0f, 0.0f}, argb, thickness);
+    (void)get_seg(p - V3{0.0f, 0.0f, size}, p + V3{0.0f, 0.0f, size}, argb, thickness);
 }
 
 float Painter::span_to(V3 p) const
@@ -235,7 +235,8 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         if (g_have_ground) {
             const V3 centre = {std::round(from.x / 100.0f) * 100.0f, g_ground_y, std::round(from.z / 100.0f) * 100.0f};
             for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5f, 1500.0f, 100.0f))
-                painter.get_seg(line.a, line.b, line.major ? 0x70E0E8F0u : 0x38C0C8D0u, line.major ? 1.25f : 1.0f);
+                (void)painter.get_seg(line.a, line.b, line.major ? 0x70E0E8F0u : 0x38C0C8D0u,
+                                      line.major ? 1.25f : 1.0f);
         }
     }
     if (get_shown(kCarryHints) && moving) {
@@ -250,7 +251,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
             static const int kEdges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
             for (const auto& e : kEdges)
-                painter.get_seg(corners[e[0]], corners[e[1]], kCarried, 1.25f);
+                (void)painter.get_seg(corners[e[0]], corners[e[1]], kCarried, 1.25f);
         }
         const std::vector<nodes::Elem>& all = nodes::get_all();
         for (const uint32_t name : carry::carried_nodes()) {

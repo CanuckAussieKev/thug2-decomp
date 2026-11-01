@@ -36,11 +36,10 @@ namespace commands {
 using script::Script;
 using script::Struct;
 
-static float g_render_default_far_plane{12.0f};
-static float g_render_default_near_plane{12000.0f};
-static int g_render_mode;
-
 namespace {
+float g_render_default_far_plane{12.0f};
+float g_render_default_near_plane{12000.0f};
+int g_render_mode;
 
 constexpr uint32_t kIgnore1 = 0xD12347A6;        // "ignore_1"
 constexpr uint32_t kIgnore0 = 0xA6247730;        // "ignore_0"

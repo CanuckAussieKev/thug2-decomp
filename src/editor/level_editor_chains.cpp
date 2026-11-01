@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_chains.h"
 
+#include <algorithm>
 #include <bit>
 #include <algorithm>
 #include <cctype>
@@ -321,7 +322,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
                 return false;
             const std::string key = field.substr(0, equals);
             const std::string value = field.substr(equals + 1);
-            if (std::find(seen.begin(), seen.end(), key) != seen.end())
+            if (std::ranges::find(seen, key) != seen.end())
                 return false;
             seen.push_back(key);
             if (key == "pos") {
@@ -365,7 +366,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
                     return false;
             } // (others: a later version's - skipped)
         }
-        if (std::find(seen.begin(), seen.end(), "pos") == seen.end())
+        if (std::ranges::find(seen, "pos") == seen.end())
             return false;
         for (const Point& q : state->points) {
             if (same_text(q.name, p.name.c_str()))
@@ -393,9 +394,9 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         uint32_t name = 0;
         if (!read_hex_word(in, &name))
             return false;
-        if (std::find(state->dropped.begin(), state->dropped.end(), name) == state->dropped.end()) {
+        if (std::ranges::find(state->dropped, name) == state->dropped.end()) {
             state->dropped.push_back(name);
-            std::sort(state->dropped.begin(), state->dropped.end());
+            std::ranges::sort(state->dropped);
         }
         return true;
     }
@@ -428,9 +429,9 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         uint32_t name = 0;
         if (!read_hex_word(in, &name))
             return false;
-        if (std::find(state->grind_flat_.begin(), state->grind_flat_.end(), name) == state->grind_flat_.end()) {
+        if (std::ranges::find(state->grind_flat_, name) == state->grind_flat_.end()) {
             state->grind_flat_.push_back(name);
-            std::sort(state->grind_flat_.begin(), state->grind_flat_.end());
+            std::ranges::sort(state->grind_flat_);
         }
         return true;
     }
@@ -565,7 +566,7 @@ std::vector<uint32_t> predecessors(const Graph& graph, uint32_t name)
 {
     std::vector<uint32_t> found;
     for (const auto& entry : graph) {
-        if (entry.first != name && std::find(entry.second.begin(), entry.second.end(), name) != entry.second.end())
+        if (entry.first != name && std::ranges::find(entry.second, name) != entry.second.end())
             found.push_back(entry.first);
     }
     return found;
@@ -618,10 +619,10 @@ void drop_out(Graph* graph, uint32_t name)
         if (entry.first == name)
             continue;
         std::vector<uint32_t>& links = entry.second;
-        auto at = std::find(links.begin(), links.end(), name);
+        auto at = std::ranges::find(links, name);
         if (at == links.end())
             continue;
-        const bool already = next && std::find(links.begin(), links.end(), next) != links.end();
+        const bool already = next && std::ranges::find(links, next) != links.end();
         if (next && !already && next != entry.first)
             *at = next;
         else
@@ -665,7 +666,7 @@ std::vector<uint32_t> get_connected(const Graph& graph, uint32_t name)
         for (const uint32_t p : predecessors(graph, at))
             near.push_back(p);
         for (const uint32_t n : near) {
-            if (std::find(found.begin(), found.end(), n) == found.end())
+            if (std::ranges::find(found, n) == found.end())
                 found.push_back(n);
         }
     }
@@ -1212,7 +1213,7 @@ void get_remake(uint32_t name)
     auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
     if (object && !(object->object_flags_ & objects::kObjectFlagDead))
         object->flag_as_dead();
-    if (std::find(g_remake.begin(), g_remake.end(), name) == g_remake.end())
+    if (std::ranges::find(g_remake, name) == g_remake.end())
         g_remake.push_back(name);
     get_log("level editor: %s's path changed - it is made again from its node", object_edit::caption(name).c_str());
 }
@@ -1308,7 +1309,7 @@ void rebuild_rails()
         objects::GrindPoint* node = &nodes[i];
         index.emplace(node->label_, i);
         node->succ_ = node->last_value_ = nullptr;
-        const bool dropped = std::find(g_dropped.begin(), g_dropped.end(), node->label_) != g_dropped.end();
+        const bool dropped = std::ranges::find(g_dropped, node->label_) != g_dropped.end();
         auto was = drop_active().find(node->label_);
         if (dropped) {
             if (was == drop_active().end())
@@ -1322,9 +1323,7 @@ void rebuild_rails()
     }
     // The links, as add_from_node_array makes them: a node's next is its first link (or a DefaultLine one), the linked
     // node's previous likewise. Dropped points take no part.
-    auto is_dropped = [&](uint32_t name) {
-        return std::find(g_dropped.begin(), g_dropped.end(), name) != g_dropped.end();
-    };
+    auto is_dropped = [&](uint32_t name) { return std::ranges::find(g_dropped, name) != g_dropped.end(); };
     for (int i = 0; i < count; ++i) {
         objects::GrindPoint* node = &nodes[i];
         if (is_dropped(node->label_))
@@ -1399,13 +1398,13 @@ State at_hand()
             state.links.push_back({entry.first, now});
     }
     state.dropped = g_dropped;
-    std::sort(state.dropped.begin(), state.dropped.end());
+    std::ranges::sort(state.dropped);
     for (const auto& entry : terrains_state())
         state.terrains.push_back({entry.first, entry.second.terrain});
     for (const auto& entry : facings_state())
         state.facings.push_back({entry.first, entry.second.facing});
     state.grind_flat_ = g_level_flat;
-    std::sort(state.grind_flat_.begin(), state.grind_flat_.end());
+    std::ranges::sort(state.grind_flat_);
     for (const auto& entry : level_speeds())
         state.speeds.push_back({entry.first, entry.second}); // (a map: sorted by name)
     return state;
@@ -1521,7 +1520,7 @@ bool change_phase(const State& target)
     // Dropped points: hidden with phase 3's marker (shown again when no longer dropped).
     std::vector<uint32_t> dropped = target.dropped;
     for (const uint32_t name : std::vector<uint32_t>(g_dropped)) {
-        if (std::find(dropped.begin(), dropped.end(), name) == dropped.end())
+        if (std::ranges::find(dropped, name) == dropped.end())
             node_create::conceal(name, false);
     }
     std::vector<uint32_t> kept;
@@ -1620,7 +1619,7 @@ void refresh_flat(objects::GrindRailHub* rails)
             continue;
         auto extras = extras_state().find(node->label_);
         bool marked = (extras != extras_state().end() && extras->second.grind_flat_) ||
-                      std::find(g_level_flat.begin(), g_level_flat.end(), node->label_) != g_level_flat.end();
+                      std::ranges::find(g_level_flat, node->label_) != g_level_flat.end();
         if (!marked) {
             script::Struct* params = look_up_node_params(node->label_);
             marked = params && params->has_bare_flag(kFlag);
@@ -1925,7 +1924,7 @@ V3 place_of(uint32_t name)
 // A level node's links in the state: an edit, or none when they're as the level had them.
 void set_link_edit(State* state, uint32_t name, const std::vector<uint32_t>& links)
 {
-    auto it = std::find_if(state->links.begin(), state->links.end(), [&](const LinkEdit& l) { return l.name == name; });
+    auto it = std::ranges::find_if(state->links, [&](const LinkEdit& l) { return l.name == name; });
     if (links == level_links_original(name)) {
         if (it != state->links.end())
             state->links.erase(it);
@@ -1955,7 +1954,7 @@ void put_graph(State* state, const Graph& graph)
         std::vector<uint32_t> links = entry.second;
         const nodes::Family family = family_of_name(entry.first);
         for (const uint32_t other : level_links_now(entry.first)) {
-            if (family_of_name(other) != family && std::find(links.begin(), links.end(), other) == links.end())
+            if (family_of_name(other) != family && std::ranges::find(links, other) == links.end())
                 links.push_back(other);
         }
         set_link_edit(state, entry.first, links);
@@ -2014,8 +2013,7 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
                 p.cluster = from;
                 node->read_hash_value(kCluster, &p.cluster, 0);
             }
-            p.grind_flat_ =
-                std::find(state.grind_flat_.begin(), state.grind_flat_.end(), from) != state.grind_flat_.end();
+            p.grind_flat_ = std::ranges::find(state.grind_flat_, from) != state.grind_flat_.end();
         }
     } else if (family == nodes::Family::kRail) {
         // (a new rail: a trick object of the scenery piece the click hit, as the levels name their rails' clusters -
@@ -2045,8 +2043,7 @@ void set_facing(State* state, uint32_t name, float facing)
             return;
         }
     }
-    auto it =
-        std::find_if(state->facings.begin(), state->facings.end(), [&](const FacingEdit& f) { return f.name == name; });
+    auto it = std::ranges::find_if(state->facings, [&](const FacingEdit& f) { return f.name == name; });
     if (same_facing(facing, facing_original(name))) {
         if (it != state->facings.end())
             state->facings.erase(it);
@@ -2075,7 +2072,7 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
                 graph[name_hash(p.name)] = p.links;
         }
         for (const uint32_t point : get_connected(graph, name)) {
-            if (std::find(points.begin(), points.end(), point) == points.end())
+            if (std::ranges::find(points, point) == points.end())
                 points.push_back(point);
         }
     }
@@ -2083,20 +2080,17 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
     case kOpDelete: {
         bool level = false;
         for (uint32_t point : points) {
-            auto added = std::find_if(state.points.begin(), state.points.end(),
-                                      [&](const Point& p) { return name_hash(p.name) == point; });
+            auto added = std::ranges::find_if(state.points, [&](const Point& p) { return name_hash(p.name) == point; });
             if (added != state.points.end()) {
                 state.points.erase(added);
                 continue;
             }
             level = true;
-            if (std::find(state.dropped.begin(), state.dropped.end(), point) == state.dropped.end())
+            if (std::ranges::find(state.dropped, point) == state.dropped.end())
                 state.dropped.push_back(point);
-            state.facings.erase(std::remove_if(state.facings.begin(), state.facings.end(),
-                                               [&](const FacingEdit& f) { return f.name == point; }),
-                                state.facings.end());
+            std::erase_if(state.facings, [&](const FacingEdit& f) { return f.name == point; });
         }
-        std::sort(state.dropped.begin(), state.dropped.end());
+        std::ranges::sort(state.dropped);
         return get_apply(state, message, level ? "Ladder hidden" : "Ladder deleted");
     }
     case kOpTurn: {
@@ -2115,8 +2109,7 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
     case kOpFacingHome: {
         bool any = false;
         for (uint32_t point : points) {
-            auto it = std::find_if(state.facings.begin(), state.facings.end(),
-                                   [&](const FacingEdit& f) { return f.name == point; });
+            auto it = std::ranges::find_if(state.facings, [&](const FacingEdit& f) { return f.name == point; });
             if (it != state.facings.end()) {
                 state.facings.erase(it);
                 any = true;
@@ -2223,16 +2216,12 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         drop_out(&graph, name);
         put_graph(&state, graph);
         if (node.added) {
-            state.points.erase(std::remove_if(state.points.begin(), state.points.end(),
-                                              [&](const Point& p) { return name_hash(p.name) == name; }),
-                               state.points.end());
+            std::erase_if(state.points, [&](const Point& p) { return name_hash(p.name) == name; });
         } else {
             state.dropped.push_back(name);
-            std::sort(state.dropped.begin(), state.dropped.end());
+            std::ranges::sort(state.dropped);
             // (its own links stay as the level has them: it takes no part while dropped)
-            state.links.erase(std::remove_if(state.links.begin(), state.links.end(),
-                                             [&](const LinkEdit& l) { return l.name == name; }),
-                              state.links.end());
+            std::erase_if(state.links, [&](const LinkEdit& l) { return l.name == name; });
         }
         return get_apply(state, message, node.added ? "Point deleted" : "Point hidden");
     }
@@ -2269,8 +2258,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             }
             if (added)
                 continue;
-            auto it = std::find_if(state.terrains.begin(), state.terrains.end(),
-                                   [&](const TerrainEdit& t) { return t.name == point; });
+            auto it = std::ranges::find_if(state.terrains, [&](const TerrainEdit& t) { return t.name == point; });
             if (it != state.terrains.end())
                 it->terrain = terrain;
             else
@@ -2300,12 +2288,12 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         std::vector<uint32_t> rail = chain_of(name);
         uint32_t cluster = 0;
         for (const Point& p : state.points) {
-            if (std::find(rail.begin(), rail.end(), name_hash(p.name)) != rail.end() && !cluster)
+            if (std::ranges::find(rail, name_hash(p.name)) != rail.end() && !cluster)
                 cluster = p.cluster;
         }
         bool any = false;
         for (Point& p : state.points) {
-            if (std::find(rail.begin(), rail.end(), name_hash(p.name)) == rail.end())
+            if (std::ranges::find(rail, name_hash(p.name)) == rail.end())
                 continue;
             if (!cluster)
                 cluster = name_hash(p.name);
@@ -2334,13 +2322,13 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             }
             if (added)
                 continue;
-            auto it = std::find(state.grind_flat_.begin(), state.grind_flat_.end(), point);
+            auto it = std::ranges::find(state.grind_flat_, point);
             if (arg && it == state.grind_flat_.end())
                 state.grind_flat_.push_back(point);
             else if (!arg && it != state.grind_flat_.end())
                 state.grind_flat_.erase(it);
         }
-        std::sort(state.grind_flat_.begin(), state.grind_flat_.end());
+        std::ranges::sort(state.grind_flat_);
         *select = name;
         if (arg)
             get_log("level editor: %s's rail grindable on flat ground - RailClear (0x0057C600) passes it as the park "
@@ -2370,8 +2358,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
                 }
             }
             if (!added) {
-                auto it = std::find_if(state.speeds.begin(), state.speeds.end(),
-                                       [&](const SpeedEdit& e) { return e.name == point; });
+                auto it = std::ranges::find_if(state.speeds, [&](const SpeedEdit& e) { return e.name == point; });
                 if (rate <= 0.0f && it != state.speeds.end())
                     state.speeds.erase(it);
                 else if (rate > 0.0f && it != state.speeds.end())
@@ -2818,8 +2805,8 @@ View view_of(uint32_t name)
                 params->read_hash_value(kCluster, &cluster, 0);
             if (view.trick_object_)
                 view.cluster = object_edit::caption(cluster);
-            view.grind_flat_ = std::find(g_level_flat.begin(), g_level_flat.end(), name) != g_level_flat.end() ||
-                               (params && params->has_bare_flag(kFlag));
+            view.grind_flat_ =
+                std::ranges::find(g_level_flat, name) != g_level_flat.end() || (params && params->has_bare_flag(kFlag));
         }
         if (const objects::GrindPoint* rail = rail_node_named(name)) {
             for (size_t i = 0; i < view.terrains.size(); ++i) {

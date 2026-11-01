@@ -126,7 +126,7 @@ void add_pad_buttons(int port, uint8_t* data);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-enum class Op {
+enum class Op : uint8_t {
     kRun,
     kChoose,
     kFocus,
@@ -145,10 +145,10 @@ enum class Op {
     kTrace,
     kFrontend
 };
-enum class Condition { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
+enum class Condition : uint8_t { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
 
 struct Param {
-    enum class Kind { kBitMark, kInteger, kFloat, kChars, kName } kind{};
+    enum class Kind : uint8_t { kBitMark, kInteger, kFloat, kChars, kName } kind{};
     std::string name; // "" for a flag (its name is `text`)
     std::string text; // a string's / name's text
     int integer{};
@@ -167,7 +167,7 @@ struct OrderCode {
     std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
 };
 
-enum class CommandLineOutcome { kOrderCode, kVacant, kError };
+enum class CommandLineOutcome : uint8_t { kOrderCode, kVacant, kError };
 // One line of the command file. Empty: a blank line or a comment.
 CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::string* error);
 

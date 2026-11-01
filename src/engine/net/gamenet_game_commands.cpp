@@ -119,7 +119,7 @@ memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(n
 PlayerRecord* data_of(const memory::ListNode* node) { return node ? static_cast<PlayerRecord*>(node->data) : nullptr; }
 memory::ListNode* first_player_node(Hub* manager) { return get_next_node(&manager->players_); }
 
-enum class Recipients { kAll, kRemote, kObservers };
+enum class Recipients : uint8_t { kAll, kRemote, kObservers };
 // `desc` through the server to the players (all, those not local, the observers).
 void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* desc, Recipients recipients)
 {

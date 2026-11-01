@@ -634,7 +634,7 @@ namespace {
 
 // How a scan over the events ended: the trigger found; stopped (false, the used marks kept: an event too old, or
 // one that rules the trigger out); or the events ran out (false, the used marks cleared - for most kinds).
-enum class Scan { kFound, kStopped, kIsOver };
+enum class Scan : uint8_t { kFound, kStopped, kIsOver };
 
 // One step of a sequence: an event of `type` (1 pressed, 2 released) of the trigger's button `button` (0-2).
 struct Step {

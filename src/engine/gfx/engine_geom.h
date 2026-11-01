@@ -18,7 +18,7 @@ class Vec4;
 namespace render {
 
 // What a geom is (the level editor only works on the PC's).
-enum class GeomKind {
+enum class GeomKind : uint8_t {
     kEngine, // the engine's base (only stubs)
     kPc,     // PcGeom
 };
@@ -33,7 +33,7 @@ public:
     Geom& operator=(const Geom&) = delete;
 
     // What it is (NOT ORIGINAL: the original compared the vtable).
-    virtual GeomKind kind() const { return GeomKind::kEngine; }
+    [[nodiscard]] virtual GeomKind kind() const { return GeomKind::kEngine; }
 
     // 0x0048DD80: a copy (plat_replicate) - made with `instance` 1, else 2; given this one's collision faces (when it
     // has some), no colours (the low byte of `instance` tested, its whole word passed on). The copy (or null).

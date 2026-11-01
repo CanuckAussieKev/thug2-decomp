@@ -30,11 +30,10 @@
 
 namespace render {
 
-static uint32_t g_particle_random_b{0x12B9B0A1};
-static uint32_t g_particle_random_c{0xAA2FB3F};
-static uint32_t g_particle_random_a;
-
 namespace {
+uint32_t g_particle_random_b{0x12B9B0A1};
+uint32_t g_particle_random_c{0xAA2FB3F};
+uint32_t g_particle_random_a;
 
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 

@@ -215,11 +215,7 @@ bool remove_from_group(organize::State* state, int index, const std::vector<orga
         return false;
     std::vector<organize::Member>& in = state->groups[index].members;
     const size_t before = in.size();
-    in.erase(std::remove_if(in.begin(), in.end(),
-                            [&](const organize::Member& m) {
-                                return std::find(members.begin(), members.end(), m) != members.end();
-                            }),
-             in.end());
+    std::erase_if(in, [&](const organize::Member& m) { return std::ranges::find(members, m) != members.end(); });
     return in.size() != before;
 }
 

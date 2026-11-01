@@ -73,7 +73,7 @@ public:
     void tick_frame() override;
 
     // 0x004AF650: the text's length.
-    int fetch_magnitude() const;
+    [[nodiscard]] int fetch_magnitude() const;
     // 0x004AF670: the first text object (and shadow) in the window's viewport.
     void set_viewports();
     // 0x004AF8C0: a copy of `text` (\\ kept, \_ a space, \m<c> a button glyph), the size from the font (unless

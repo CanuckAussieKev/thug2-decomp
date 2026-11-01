@@ -205,9 +205,11 @@ void draw_2d_with_black_bars()
     }
 }
 
+namespace {
 // Not original - the level editor's ortho views (editor/level_editor_camera.h): the near plane brought up for the
 // editor's camera while draw_viewport draws the world with it (2, the original's, otherwise).
-static float s_near_z = 2.0f;
+float s_near_z = 2.0f;
+} // namespace
 
 // 0x004DB200
 void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, float angle, float aspect, float zoom,

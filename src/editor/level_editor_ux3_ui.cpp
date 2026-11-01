@@ -113,7 +113,7 @@ void get_palette()
         if (score > 0)
             found.emplace_back(score, i);
     }
-    std::stable_sort(found.begin(), found.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+    std::ranges::stable_sort(found, [](const auto& a, const auto& b) { return a.first > b.first; });
     g_highlight = found.empty() ? 0 : std::clamp(g_highlight, 0, static_cast<int>(found.size()) - 1);
     const float row_height = ImGui::GetTextLineHeightWithSpacing();
     ImGui::BeginChild(
@@ -544,7 +544,7 @@ void help_from_registry()
     const std::vector<actions::ActStep>& all = actions::get_all();
     std::vector<std::string> categories;
     for (const actions::ActStep& a : all) {
-        if (std::find(categories.begin(), categories.end(), a.category) == categories.end())
+        if (std::ranges::find(categories, a.category) == categories.end())
             categories.push_back(a.category);
     }
     ImGui::TextDisabled("All commands and their keys");

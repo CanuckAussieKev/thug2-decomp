@@ -27,9 +27,8 @@
 
 namespace park_editing {
 
-static int g_rail_search_start;
-
 namespace {
+int g_rail_search_start;
 
 using script::Array;
 using script::Struct;

@@ -469,7 +469,7 @@ const char* get_button_key_name(int button)
     frontend::ElementPtr element;
     frontend::fetch_part(&element, checksums::hash_from_text("select_skater_hmenu"));
     if (element)
-        element->is_concealed(); // (the result isn't used)
+        (void)element->is_concealed(); // (the result isn't used)
     {
         frontend::ElementPtr found;
         frontend::fetch_part(&found, checksums::hash_from_text("piece_menu_hmenu"));
@@ -484,7 +484,7 @@ const char* get_button_key_name(int button)
         found.get_release();
     }
     if (element)
-        element->is_concealed(); // (the result isn't used)
+        (void)element->is_concealed(); // (the result isn't used)
 
     const bool menu_keys = !piece_menu && menu && !typing;
     const int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);

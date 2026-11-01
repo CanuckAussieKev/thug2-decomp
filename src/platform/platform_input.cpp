@@ -28,9 +28,11 @@ IDirectInputEffect* g_effects[kPorts]; // each joystick's constant-force effect 
 uint32_t g_force_axis_counts[kPorts];
 uint32_t g_force_resolutions[2 * kPorts];
 constexpr int kKeyNameLength = 15;
-static wchar_t g_key_names[256][kKeyNameLength];
-static uint8_t g_keys[256];
-static uint8_t g_last_keys[256];
+namespace {
+wchar_t g_key_names[256][kKeyNameLength];
+uint8_t g_keys[256];
+uint8_t g_last_keys[256];
+} // namespace
 // The joysticks' states: this frame's and the last.
 DIJOYSTATE2 g_joystick_states[2];
 DIJOYSTATE2 g_last_joystick_states[2];

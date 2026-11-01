@@ -47,7 +47,7 @@ Rail rail_of(const Graph& graph, int start)
             }
         }
     }
-    std::sort(rail.points.begin(), rail.points.end());
+    std::ranges::sort(rail.points);
     for (const auto& link : graph.links) {
         if (link.first >= 0 && link.first < graph.count && seen[link.first] && link.second >= 0 &&
             link.second < graph.count && link.first != link.second)
@@ -181,7 +181,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     for (const auto& link : rail.links) {
         const V3 a = positions[link.first];
         const V3 b = positions[link.second];
-        painter.get_seg(a, b, segment_colour, 3.0f);
+        (void)painter.get_seg(a, b, segment_colour, 3.0f);
         const V3 d = b - a;
         const float length = std::sqrt(get_dot(d, d));
         if (length < 1e-3f)
@@ -195,8 +195,8 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         side = make_unit(side);
         const float size = std::clamp(painter.span_to(a + d * 0.5f) * 0.012f, 4.0f, 24.0f);
         for (const V3 tip : chevron_tips(a, b, std::max(kChevronSpacing, size * 4.0f))) {
-            painter.get_seg(tip, tip - along * size + side * size * 0.6f, kChevron, 2.0f);
-            painter.get_seg(tip, tip - along * size - side * size * 0.6f, kChevron, 2.0f);
+            (void)painter.get_seg(tip, tip - along * size + side * size * 0.6f, kChevron, 2.0f);
+            (void)painter.get_seg(tip, tip - along * size - side * size * 0.6f, kChevron, 2.0f);
         }
     }
     for (const int p : rail.points)
@@ -218,7 +218,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             if (get_dot(da, da) > 1.0f || get_dot(db, db) > 1.0f)
                 continue;
             ++speed_ups;
-            painter.get_seg(s.a, s.b, 0xFF40FF70, 5.0f);
+            (void)painter.get_seg(s.a, s.b, 0xFF40FF70, 5.0f);
             char text[48];
             std::snprintf(text, sizeof(text), "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
             painter.draw_label((s.a + s.b) * 0.5f, 0xFF40FF70, text);
@@ -244,7 +244,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             if (distance > kTransferReach)
                 continue;
             ++transfers;
-            painter.get_seg(positions[e], positions[q], 0xC0FF80FF, 1.5f);
+            (void)painter.get_seg(positions[e], positions[q], 0xC0FF80FF, 1.5f);
             painter.get_dot(positions[q], 6.0f, 0xFFFF80FF, false);
             char text[48];
             std::snprintf(text, sizeof(text), "transfer %.0f", distance);

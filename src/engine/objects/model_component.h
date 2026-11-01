@@ -121,7 +121,7 @@ public:
     // 0x004200E0: set_up_mesh_from_profile(profile, true, 0, buildScript) through the vtable, when there's a model.
     void rebuild_from_profile(void* profile, uint32_t build_script);
     // 0x00420100
-    uint32_t get_linked_entity_name() const { return linked_entity_label_; }
+    [[nodiscard]] uint32_t get_linked_entity_name() const { return linked_entity_label_; }
     // 0x00420110: the model's texture `src` replaced by `dest` in `mesh` (All: in every mesh); false without a model.
     bool swap_texture(uint32_t mesh, const char* src, const char* dest);
     // 0x004202A0: geom `name` hidden or shown (sent to the server first when `send` and its player is this machine's).

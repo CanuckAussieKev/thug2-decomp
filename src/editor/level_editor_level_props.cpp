@@ -415,8 +415,8 @@ const std::vector<std::string>& skies()
         if (!there)
             g_skies.emplace_back(sky);
     }
-    std::sort(g_skies.begin(), g_skies.end(),
-              [](const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) < 0; });
+    std::ranges::sort(g_skies,
+                      [](const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) < 0; });
     return g_skies;
 }
 

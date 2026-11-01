@@ -29,15 +29,18 @@
 
 namespace render {
 
-static D3DLIGHT9 g_device_light1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
-static D3DLIGHT9 g_device_light0{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
+namespace {
+D3DLIGHT9 g_device_light1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
+D3DLIGHT9 g_device_light0{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
+} // namespace
 maths::Mat4* g_palette_base;
-static int g_bone_count;
+namespace {
+int g_bone_count;
+} // namespace
 Singleton* g_current_instance;
 const maths::Mat4* g_last_bones;
-static Singleton* g_instances;
-
 namespace {
+Singleton* g_instances;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 Singleton*& instances() { return g_instances; }

@@ -32,14 +32,14 @@
 
 namespace render {
 
-static uint32_t g_projection_batch_count;
-static auto& projection_batches()
+namespace {
+uint32_t g_projection_batch_count;
+auto& projection_batches()
 {
     static ProjectionBatch value[10]; // (kBatchLimit)
     return value;
 }
 
-namespace {
 
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;

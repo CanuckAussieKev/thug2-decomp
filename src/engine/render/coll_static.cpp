@@ -18,10 +18,9 @@
 
 namespace render {
 
-static maths::Vec4 g_shared_origin; // the origin and orientation every static object reports
-static maths::Mat4 g_shared_orientation;
-
 namespace {
+maths::Vec4 g_shared_origin; // the origin and orientation every static object reports
+maths::Mat4 g_shared_orientation;
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
 TriMeshSource* clone_geometry(TriMeshSource* geometry, int a, int b) { return geometry->replicate(a, b != 0); }

@@ -27,7 +27,7 @@ using IoCompletionHook = void (*)(AsyncFileHandle* file, int event, int value, v
 
 // Operations, also the events passed to callbacks.
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
+enum AsyncOperation : uint8_t { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
 
 class AsyncFileHandle : public memory::HeapObject {
 public:

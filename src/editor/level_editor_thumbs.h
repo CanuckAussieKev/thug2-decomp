@@ -40,7 +40,7 @@ struct CellCache {
     std::vector<uint64_t> shown;
     std::vector<uint8_t> drawn; // (its picture is in the atlas)
     explicit CellCache(int cells = kCells) : keys(cells, 0), shown(cells, 0), drawn(cells, 0) {}
-    int get_find(uint64_t key) const;
+    [[nodiscard]] int get_find(uint64_t key) const;
     int get_take(uint64_t key, uint64_t frame);
     void get_clear();
 };

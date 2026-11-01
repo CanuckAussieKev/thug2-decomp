@@ -82,7 +82,7 @@ public:
     // 0x004B2100 (0x004B2170 the deleting one): the window back to the free list (0x004A1670), then UiWidget's.
     ~PanelWidget() override;
     // 0x004B2160: its window.
-    void* fetch_screen_rect() const;
+    [[nodiscard]] void* fetch_screen_rect() const;
     // 0x004B21A0 (slot 10): after a change, the window moved to the element's top left and sized as it.
     void tick_frame() override;
 

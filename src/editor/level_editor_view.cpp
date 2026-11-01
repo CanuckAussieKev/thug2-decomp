@@ -123,7 +123,7 @@ float distance_to_box(V3 point, V3 min, V3 max)
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-bool HiddenSet::get_has(uint32_t id) const { return std::find(ids.begin(), ids.end(), id) != ids.end(); }
+bool HiddenSet::get_has(uint32_t id) const { return std::ranges::find(ids, id) != ids.end(); }
 
 bool HiddenSet::append_one(uint32_t id)
 {
@@ -189,8 +189,7 @@ std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std
 {
     std::vector<uint32_t> others;
     for (const uint32_t id : all) {
-        if (std::find(keep.begin(), keep.end(), id) == keep.end() &&
-            std::find(others.begin(), others.end(), id) == others.end())
+        if (std::ranges::find(keep, id) == keep.end() && std::ranges::find(others, id) == others.end())
             others.push_back(id);
     }
     return others;
@@ -298,7 +297,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
             continue;
         c.points.insert(c.points.end(), p, p + 3);
         c.flags.push_back(*reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10)));
-        c.taken.push_back(std::find(taken.begin(), taken.end(), f) != taken.end() ? 1 : 0);
+        c.taken.push_back(std::ranges::find(taken, f) != taken.end() ? 1 : 0);
         c.index.push_back(f);
     }
     return &c;
@@ -489,8 +488,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             w->found.push_back({checksum, sector, tri, wall || checksum == g_wall ? distance - 1e7f : distance, off});
         },
         &walk);
-    std::sort(walk.found.begin(), walk.found.end(),
-              [](const Candidate& a, const Candidate& b) { return a.order < b.order; });
+    std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.order < b.order; });
 
     struct Polygon {
         float depth;
@@ -624,7 +622,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         g_stats.companions += any ? 1 : 0;
     }
     // Far to near: the nearer faces painted over the farther.
-    std::sort(polygons.begin(), polygons.end(), [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
+    std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     triangles->reserve(triangles->size() + polygons.size() * 2);
     for (const Polygon& p : polygons) {
         triangles->push_back({p.x[0], p.y[0], p.x[1], p.y[1], p.x[2], p.y[2], p.argb});
@@ -690,7 +688,7 @@ std::string describe_wall(uint32_t checksum)
     std::vector<std::pair<uint16_t, int>> counts;
     for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f) {
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
-        auto it = std::find_if(counts.begin(), counts.end(), [&](const auto& c) { return c.first == flags; });
+        auto it = std::ranges::find_if(counts, [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
             counts.emplace_back(flags, 1);
         else
@@ -716,14 +714,12 @@ std::string describe_wall(uint32_t checksum)
 
 bool hidden_sector(uint32_t checksum)
 {
-    return std::any_of(g_hidden_sectors.begin(), g_hidden_sectors.end(),
-                       [&](const HiddenSectorRec& r) { return r.checksum == checksum; });
+    return std::ranges::any_of(g_hidden_sectors, [&](const HiddenSectorRec& r) { return r.checksum == checksum; });
 }
 
 bool hidden_object(uint32_t id)
 {
-    return std::any_of(g_concealed_records.begin(), g_concealed_records.end(),
-                       [&](const HiddenObjectRec& r) { return r.id == id; });
+    return std::ranges::any_of(g_concealed_records, [&](const HiddenObjectRec& r) { return r.id == id; });
 }
 
 int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
@@ -785,7 +781,7 @@ int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& 
 {
     int shown = 0;
     for (auto it = g_hidden_sectors.begin(); it != g_hidden_sectors.end();) {
-        if (std::find(sectors.begin(), sectors.end(), it->checksum) == sectors.end()) {
+        if (std::ranges::find(sectors, it->checksum) == sectors.end()) {
             ++it;
             continue;
         }
@@ -795,7 +791,7 @@ int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& 
         ++shown;
     }
     for (auto it = g_concealed_records.begin(); it != g_concealed_records.end();) {
-        if (std::find(objects.begin(), objects.end(), it->id) == objects.end()) {
+        if (std::ranges::find(objects, it->id) == objects.end()) {
             ++it;
             continue;
         }

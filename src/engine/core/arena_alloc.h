@@ -102,7 +102,7 @@ struct ListNode {
     // A node for `item`, linked to itself.
     void make_node(void* item, int item_priority = 0);
     // Whether this is a list's head.
-    bool is_head() const { return data == reinterpret_cast<void*>(-1); }
+    [[nodiscard]] bool is_head() const { return data == reinterpret_cast<void*>(-1); }
 
     // A node of its own (zeroed from the current heap, then made for `item`; null without memory) and its deleting
     // destructor (out of its list, freed; null-safe).
@@ -115,7 +115,7 @@ static_assert(sizeof(ListNode) == 0x10, "a list node is four words");
 class MemSource {
 public:
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-    enum Direction : int { kGrowUp = 1, kGrowDown = -1 };
+    enum Direction : int8_t { kGrowUp = 1, kGrowDown = -1 };
 
     // A context: an entry in the allocator's stack; heaps keep a free list in each.
     struct CtxInfo {

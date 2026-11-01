@@ -27,13 +27,14 @@
 
 namespace render {
 
-static bool g_billboards_ready;
+namespace {
+bool g_billboards_ready;
+} // namespace
 BillboardSet g_billboard_pool;
 uint8_t g_billboard_flag;
 
-static float g_billboard_constants[12]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-
 namespace {
+float g_billboard_constants[12]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool vertex_shaders() { return g_shaders_available; }

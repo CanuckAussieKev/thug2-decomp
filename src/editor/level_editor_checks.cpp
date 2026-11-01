@@ -110,7 +110,7 @@ uint32_t issue_key(Rule rule, uint32_t subject, const std::string& detail)
 
 void get_sort(std::vector<Issue>* issues)
 {
-    std::stable_sort(issues->begin(), issues->end(), [](const Issue& a, const Issue& b) {
+    std::ranges::stable_sort(*issues, [](const Issue& a, const Issue& b) {
         if (a.severity != b.severity)
             return a.severity < b.severity;
         if (a.level_own_ != b.level_own_)
@@ -241,7 +241,7 @@ std::vector<std::string> carried_lines(const std::vector<std::string>& unresolve
     }
     std::vector<std::string> out;
     for (const std::string& u : unresolved) {
-        if (keys.count(record_key(u)) || std::find(out.begin(), out.end(), u) != out.end())
+        if (keys.count(record_key(u)) || std::ranges::find(out, u) != out.end())
             continue;
         out.push_back(u);
     }
@@ -634,7 +634,7 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
         bool start = a.spec.kind == triggers::Kind::kGapStart, end = a.spec.kind == triggers::Kind::kGapEnd;
         if ((start || end) && triggers::partner(specs, static_cast<int>(i)) < 0) {
             uint32_t gap = triggers::checksum_of(a.spec.gap);
-            const bool found = std::any_of(level.begin(), level.end(), [&](const triggers::LevelTrigger& t) {
+            const bool found = std::ranges::any_of(level, [&](const triggers::LevelTrigger& t) {
                 return t.calls.gap_id_ == gap && (start ? t.calls.end_gap_ : t.calls.start_gap_);
             });
             if (!found) {
@@ -793,8 +793,7 @@ void check_multiplayer(std::vector<Issue>* out)
         issue.rule = Rule::kMultiplayer;
         issue.severity = p.severity;
         issue.text = p.text;
-        issue.level_own_ =
-            std::any_of(shipped.begin(), shipped.end(), [&](const MpProblem& s) { return s.text == p.text; });
+        issue.level_own_ = std::ranges::any_of(shipped, [&](const MpProblem& s) { return s.text == p.text; });
         append_one(out, issue);
     }
 }
@@ -837,7 +836,7 @@ struct NodePlace : ModuleStep {
             nodes::reread(index);
         g_due = get_seconds();
     }
-    std::shared_ptr<ModuleStep> get_now() const override
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         node_edit::Values v = values;
         node_edit::get_take_in(name, &v);
@@ -853,7 +852,10 @@ struct LayoutRecords : ModuleStep {
         g_layout_issues = issues;
         g_due = get_seconds();
     }
-    std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<LayoutRecords>(g_layout_issues); }
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
+    {
+        return std::make_shared<LayoutRecords>(g_layout_issues);
+    }
 };
 
 void fix(const Issue& issue)
@@ -879,9 +881,7 @@ void fix(const Issue& issue)
         break;
     case Rule::kLayoutRecord: {
         push_module_undo(std::make_shared<LayoutRecords>(g_layout_issues));
-        g_layout_issues.erase(std::remove_if(g_layout_issues.begin(), g_layout_issues.end(),
-                                             [&](const Issue& i) { return i.key == issue.key; }),
-                              g_layout_issues.end());
+        std::erase_if(g_layout_issues, [&](const Issue& i) { return i.key == issue.key; });
         hud::get_message("Record removed");
         get_log("level editor: problems - layout record dropped: %s", issue.record.c_str());
         break;
@@ -929,8 +929,7 @@ void note_layout_applied(const layout::FileLoad& file)
         issue.fixable = !issue.record.empty();
         issue.text = what + " not found in the level: " + issue.record;
         issue.key = issue_key(Rule::kLayoutRecord, subject, issue.record);
-        if (std::none_of(g_layout_issues.begin(), g_layout_issues.end(),
-                         [&](const Issue& i) { return i.key == issue.key; }))
+        if (std::ranges::none_of(g_layout_issues, [&](const Issue& i) { return i.key == issue.key; }))
             g_layout_issues.push_back(issue);
     };
     for (const scenery::SectorState& s : file.sectors) {

@@ -42,7 +42,14 @@ uint32_t g_horse_statuses[7]{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
                              0x23DB4AEA, 0xA71DD8EB, 0x00000000}; // (zero-terminated)
 const uint32_t* statuses() { return g_horse_statuses; }
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum StatusIndex { kGotLetter = 0, kTieScore = 1, kBeatScore = 2, kMatchEnded = 3, kIdle = 4, kNoScoreSetStatus = 5 };
+enum StatusIndex : uint8_t {
+    kGotLetter = 0,
+    kTieScore = 1,
+    kBeatScore = 2,
+    kMatchEnded = 3,
+    kIdle = 4,
+    kNoScoreSetStatus = 5
+};
 
 int horse_restarts()
 {

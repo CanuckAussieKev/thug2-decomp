@@ -44,7 +44,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
     // (names taken here, or by what this paste adds)
     std::vector<std::string> used_names;
     auto name_free = [&](const std::string& name) {
-        return std::find(used_names.begin(), used_names.end(), name) == used_names.end() &&
+        return std::ranges::find(used_names, name) == used_names.end() &&
                !(hooks.name_taken_ && hooks.name_taken_(name));
     };
     for (const node_create::Spec& s : into->added)
@@ -74,7 +74,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
             char text[64];
             std::snprintf(text, sizeof(text), "level_editor_copy_%08X_p%u", c.source, ++counter);
             copy.name = fields::hash_of_name(text);
-            if (std::find(used_ids.begin(), used_ids.end(), copy.name) == used_ids.end() &&
+            if (std::ranges::find(used_ids, copy.name) == used_ids.end() &&
                 !(hooks.id_taken_ && hooks.id_taken_(copy.name)))
                 break;
         }
@@ -171,7 +171,7 @@ std::vector<uint32_t> selected_nodes()
     const SelectionIds s = current_selection();
     std::vector<uint32_t> nodes;
     auto add = [&](uint32_t id) {
-        if (id && nodes::get_find(id) >= 0 && std::find(nodes.begin(), nodes.end(), id) == nodes.end())
+        if (id && nodes::get_find(id) >= 0 && std::ranges::find(nodes, id) == nodes.end())
             nodes.push_back(id);
     };
     if (s.node)

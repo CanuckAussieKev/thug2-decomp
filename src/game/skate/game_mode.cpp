@@ -20,9 +20,8 @@
 namespace goals {
 
 goals::MatchRules* g_game_mode;
-static uint32_t g_game_mode_references;
-
 namespace {
+uint32_t g_game_mode_references;
 
 constexpr uint32_t kAccumulateScore = 0xC1F5864B;    // accumulate_score
 constexpr uint32_t kTrackBestCombo = 0xD57C16BA;     // track_best_combo

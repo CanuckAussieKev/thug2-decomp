@@ -34,12 +34,12 @@ public:
     // 0x00412760: the buffer freed if this object owns it, the base.
     ~StaticCollider() override;
 
-    HitMeshKind kind() const override { return HitMeshKind::kStatic; }
+    [[nodiscard]] HitMeshKind kind() const override { return HitMeshKind::kStatic; }
     // (slot 1: the shared "true")
     bool is_triangle_hit() override { return true; }
     // (slots 2, 3)
-    uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
-    uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
+    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
+    [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x004139A0 (slot 12; not a function in Ghidra): an instance (a CollStaticInstance sharing the geometry) or
     // a copy (with a copy of the geometry - 0x00416BF0 - and of the buffer, on the bottom-up heap), by the low byte
     // of `instance`. Null if the geometry couldn't be copied.
@@ -52,7 +52,7 @@ public:
     const maths::Vec4* get_absolute_point() override;
     const maths::Mat4* fetch_facing() override;
     // 0x00410980 (slot 9): the vertex, w = 1.
-    maths::Vec4 read_vertex_point(int index) const override;
+    [[nodiscard]] maths::Vec4 read_vertex_point(int index) const override;
     // 0x00413B50 (slot 14): the line against each face of the geometry in the line's box (get_faces_in_box) that
     // isn't rejected - its rejection byte (the buffer's for 10-byte faces, the face's last byte for 8-byte ones)
     // below the line's distance from the geometry's minimum corner times the rejection scale (none at all past
@@ -106,12 +106,12 @@ public:
     // 0x00412840 (0x00413ED0 the deleting destructor)
     ~CollStaticInstance() override;
 
-    HitMeshKind kind() const override { return HitMeshKind::kStaticInstance; }
+    [[nodiscard]] HitMeshKind kind() const override { return HitMeshKind::kStaticInstance; }
     // (slot 1: the shared "true")
     bool is_triangle_hit() override { return true; }
     // (slots 2, 3)
-    uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
-    uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
+    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
+    [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x00414CD0 (slot 12): a copy sharing the geometry.
     CollStaticInstance* replicate(int argument) override;
     // 0x00411480: the geometry shared (flags 0xC000) and its box taken.
@@ -166,12 +166,12 @@ public:
     // 0x00413070 (0x004143D0 the deleting destructor)
     ~HitMovingTriangles() override = default;
 
-    HitMeshKind kind() const override { return HitMeshKind::kMovingTriangles; }
+    [[nodiscard]] HitMeshKind kind() const override { return HitMeshKind::kMovingTriangles; }
     // (slot 1: the shared "true")
     bool is_triangle_hit() override { return true; }
     // (slots 2, 3)
-    uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
-    uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
+    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
+    [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x00414400 (slot 12): a copy with a copy of the geometry.
     HitMovingTriangles* replicate(int argument) override;
     // 0x00411780 (slot 4): the geometry and the radius from its vertices.

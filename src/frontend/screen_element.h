@@ -124,14 +124,14 @@ public:
     // 0x004A8B80: its parent (a smart pointer into `out`; returns out).
     objects::SharedRef<UiWidget>* get_parent(objects::SharedRef<UiWidget>* out) const;
     // 0x004A8BB0: the nearest window element (type WindowElement) above it, or null.
-    UiWidget* fetch_pane() const;
+    [[nodiscard]] UiWidget* fetch_pane() const;
     // 0x004AA8E0: out of its old parent's children, last among `parent`'s (none: out of the tree), the parent's
     // priority and z_priority + 1 taken over (no parent: z_priority 0). The second argument isn't used.
     void change_owner(const objects::SharedRef<UiWidget>* parent, int unused);
     // 0x004A95E0: its last child (null without children).
-    UiWidget* fetch_youngest() const;
+    [[nodiscard]] UiWidget* fetch_youngest() const;
     // 0x004A9600: how many children.
-    int child_total() const;
+    [[nodiscard]] int child_total() const;
     // 0x004AA2A0: the child with the id `id` (0: the `*index`th; the index found goes to `index` when given) -
     // a smart pointer into `out`.
     objects::SharedRef<UiWidget>* fetch_offspring(objects::SharedRef<UiWidget>* out, uint32_t id, int* index);
@@ -141,21 +141,21 @@ public:
 
     // --- state queries ---
     // 0x004A8F00 / 0x004A8F20 / 0x004A8F40: block_events / priority / hidden, on it or any parent.
-    bool input_suppressed() const;
-    bool has_priority() const;
-    bool is_concealed() const;
+    [[nodiscard]] bool input_suppressed() const;
+    [[nodiscard]] bool has_priority() const;
+    [[nodiscard]] bool is_concealed() const;
     // 0x004A86C0: Priority.
-    int fetch_rank() const;
+    [[nodiscard]] int fetch_rank() const;
     // 0x004A86B0: whether the manager has pad-event priorities.
-    bool manager_uses_priorities() const;
+    [[nodiscard]] bool manager_uses_priorities() const;
     // 0x004A8680: paused (kPauseAsked) or not (both pause bits cleared).
     void set_frozen(bool pause);
     // 0x004A8940: kFocusSent set (1) or cleared (else), with its event, when it changes.
     void set_focus_sent(int sent);
     // 0x004A87A0 / 0x004A87B0: the element's width / height on the 640x480 layout (+0x160 times +0x144, +0x164
     // times +0x148; returned unrounded in ST0, as the original's x87 product - hence double).
-    double get_layout_width() const;
-    double get_layout_height() const;
+    [[nodiscard]] double get_layout_width() const;
+    [[nodiscard]] double get_layout_height() const;
 
     // --- parameter helpers ---
     // 0x004A8C80: a position from Pos (a pair: relative adds the position morphed to, proportional is a fraction

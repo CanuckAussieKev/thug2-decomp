@@ -22,11 +22,10 @@
 
 namespace gfx {
 
-// The shared key tables (256 entries of four shorts), loaded from files at start-up.
-static int16_t g_quat_table[1024];
-static int16_t g_trans_table[1024];
-
 namespace {
+// The shared key tables (256 entries of four shorts), loaded from files at start-up.
+int16_t g_quat_table[1024];
+int16_t g_trans_table[1024];
 
 constexpr double kQuatUnit = 1.0 / 16384.0; // (0x006487C8)
 constexpr double kTransUnit = 1.0 / 32.0;   // (0x006487CC)
@@ -357,7 +356,9 @@ void interpolate_short_trans(float* out, const ShortKey* a, const ShortKey* b, f
 }
 
 float g_tiny_length{0.00001f};
-static uint32_t g_cache_use_counter;
+namespace {
+uint32_t g_cache_use_counter;
+} // namespace
 
 // 0x00483F10
 void interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, float t)

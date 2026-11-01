@@ -96,9 +96,8 @@ std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
     std::vector<size_t> order(n);
     for (size_t i = 0; i < n; ++i)
         order[i] = i;
-    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-        return edge_of(spans[a], Edge::kCentre) < edge_of(spans[b], Edge::kCentre);
-    });
+    std::ranges::stable_sort(
+        order, [&](size_t a, size_t b) { return edge_of(spans[a], Edge::kCentre) < edge_of(spans[b], Edge::kCentre); });
     const Span& first = spans[order.front()];
     const Span& last = spans[order.back()];
     if (!gaps) {
@@ -327,7 +326,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
                     break; // (a closed loop)
             }
             if (pass == 0)
-                std::reverse(chain.begin(), chain.end());
+                std::ranges::reverse(chain);
         }
         // Straight stretches as one segment (a point kept where the run turns more than 2 degrees).
         Run run;
@@ -347,7 +346,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
             runs.push_back(std::move(run));
     }
     // (the longest first: they're the ones wanted most)
-    std::stable_sort(runs.begin(), runs.end(), [](const Run& a, const Run& b) { return a.length > b.length; });
+    std::ranges::stable_sort(runs, [](const Run& a, const Run& b) { return a.length > b.length; });
     return runs;
 }
 
@@ -427,8 +426,8 @@ std::vector<Unit> units_of(const edit::Selected& selection)
     std::vector<uint32_t> shadows;
     for (const uint32_t s : selection.ids) {
         uint32_t caster = 0;
-        if (scenery::is_shadow(s, &caster) &&
-            std::find(selection.ids.begin(), selection.ids.end(), caster) != selection.ids.end() && caster != s) {
+        if (scenery::is_shadow(s, &caster) && std::ranges::find(selection.ids, caster) != selection.ids.end() &&
+            caster != s) {
             shadows.push_back(s);
             continue;
         }
@@ -450,8 +449,7 @@ std::vector<Unit> units_of(const edit::Selected& selection)
                 get_corners(box, &unit.corners);
         }
     }
-    units.erase(std::remove_if(units.begin(), units.end(), [](const Unit& u) { return u.corners.empty(); }),
-                units.end());
+    std::erase_if(units, [](const Unit& u) { return u.corners.empty(); });
     return units;
 }
 
@@ -606,7 +604,7 @@ std::string model_of(uint32_t name)
 
 bool replace_scenery(const edit::Selected& selection, uint32_t source)
 {
-    if (std::find(selection.ids.begin(), selection.ids.end(), source) != selection.ids.end()) {
+    if (std::ranges::find(selection.ids, source) != selection.ids.end()) {
         hud::get_message("Replace: the replacement is part of the selection", 4.0);
         return false;
     }
@@ -766,7 +764,7 @@ struct GatherContext {
 void gather_sector(void* context, uint32_t checksum, render::WorldCell*)
 {
     auto* c = static_cast<GatherContext*>(context);
-    if (std::find(c->skip->begin(), c->skip->end(), checksum) != c->skip->end() || scenery::get_hidden(checksum))
+    if (std::ranges::find(*c->skip, checksum) != c->skip->end() || scenery::get_hidden(checksum))
         return;
     OrientedBox box{};
     if (!scenery::cuboid(checksum, &box))

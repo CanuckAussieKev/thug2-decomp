@@ -47,8 +47,8 @@ public:
     }
     ~UniqueHandle() { reset(); }
 
-    HANDLE get() const noexcept { return handle_; }
-    bool valid() const noexcept { return handle_ != INVALID_HANDLE_VALUE && handle_ != nullptr; }
+    [[nodiscard]] HANDLE get() const noexcept { return handle_; }
+    [[nodiscard]] bool valid() const noexcept { return handle_ != INVALID_HANDLE_VALUE && handle_ != nullptr; }
     explicit operator bool() const noexcept { return valid(); }
 
     // Closes the current handle (if any) and keeps `handle`.

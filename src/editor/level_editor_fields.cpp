@@ -991,7 +991,7 @@ std::vector<Row> rows_of(const nodes::Elem& node)
     }
     std::vector<uint32_t> order;
     for (const TableRow& e : entries) {
-        if (std::find(order.begin(), order.end(), e.key) == order.end())
+        if (std::ranges::find(order, e.key) == order.end())
             order.push_back(e.key);
     }
     const NameLookup names = get_name_of;
@@ -1178,7 +1178,7 @@ std::vector<NodeEdits> get_changed()
         } else {
             edit.removed = true;
         }
-        auto it = std::find_if(out.begin(), out.end(), [&](const NodeEdits& n) { return n.name == t.node; });
+        auto it = std::ranges::find_if(out, [&](const NodeEdits& n) { return n.name == t.node; });
         if (it == out.end()) {
             out.push_back({t.node, {}});
             it = out.end() - 1;

@@ -71,10 +71,9 @@
 namespace modules {
 
 int g_viewport_count;
-static script::Struct* g_cat_info;
-static script::Struct* g_stat_target_info;
-
 namespace {
+script::Struct* g_cat_info;
+script::Struct* g_stat_target_info;
 
 constexpr uint32_t kBailBoard = 0x884EF81B;                     // BailBoard (+ the skater's id)
 constexpr uint32_t kSkaterId = 0x5B24FAAA;                      // SkaterId

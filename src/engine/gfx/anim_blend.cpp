@@ -142,7 +142,9 @@ void blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int b
         std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(Stance));
 }
 
-static uint32_t g_loop_type_checksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}; // the loop types' checksums
+namespace {
+uint32_t g_loop_type_checksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}; // the loop types' checksums
+} // namespace
 
 // 0x0047D580
 void add_timeline_info(AnimTimeline* timeline, script::Struct* info)

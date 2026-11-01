@@ -125,7 +125,7 @@ struct Candidates {
     bool blocked = false; // the first occluding scenery surface (Resolved::block_t_)
     float block_t_ = 0.0f;
 };
-enum class Choice { kNone, kNode, kObject, kScenery, kPassed };
+enum class Choice : uint8_t { kNone, kNode, kObject, kScenery, kPassed };
 // The node first (the caller leaves out gizmos behind the first occluding surface: gizmo_in_front); then, for a plain
 // click, the nearest of the object, the scenery and the occluding surface - an object or a scenery piece taken only
 // when nothing occluding is nearer and the filter lets its kind be clicked: a kind filtered out still occludes, and so

@@ -40,10 +40,9 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat / sprintf 
 
 namespace goals {
 
-static double g_trick_goals_three_quarters{0.75};
-static float g_trick_goals_beat_milliseconds{15000.0f};
-
 namespace {
+double g_trick_goals_three_quarters{0.75};
+float g_trick_goals_beat_milliseconds{15000.0f};
 
 // Names.
 constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;         // testing_goal

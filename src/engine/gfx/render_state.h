@@ -9,7 +9,7 @@ namespace render {
 
 // The renderer's own render state numbering (change_phase's `state`).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum RenderStateId {
+enum RenderStateId : uint8_t {
     kZWrite = 1,         // bool
     kZTest = 2,          // bool: less-equal, else always
     kPhaseAlphaTest = 3, // 0 = alpha test off, else on with this reference

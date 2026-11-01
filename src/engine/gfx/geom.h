@@ -76,7 +76,7 @@ public:
     // 0x004B5EE0 (0x004B5FC0 the scalar deleting destructor): the meshes, then the instance, freed.
     ~PcGeom() override;
 
-    GeomKind kind() const override { return GeomKind::kPc; }
+    [[nodiscard]] GeomKind kind() const override { return GeomKind::kPc; }
 
     // 0x004B5F60: an empty list (its head) for the meshes the load adds, on the top-down heap.
     void start_mesh_list();

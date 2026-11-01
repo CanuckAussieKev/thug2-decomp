@@ -29,13 +29,12 @@
 
 namespace render {
 
+namespace {
 // The rain / snow grid's rows (SWeatherRow, one more than the grid is deep: at most 302) and, right after them, the
 // columns' height indices (a 16-bit offset into them).
 // (the grid, then the rows' spans and their columns - no fixed bound: all the bytes up to the next thing the original
 // refers to, 0x00775B58)
-static uint8_t g_weather_grid[0x11828];
-
-namespace {
+uint8_t g_weather_grid[0x11828];
 
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 

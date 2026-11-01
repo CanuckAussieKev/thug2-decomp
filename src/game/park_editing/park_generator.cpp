@@ -19,9 +19,8 @@
 
 namespace park_editing {
 
-static int g_cloning_piece;
-
 namespace {
+int g_cloning_piece;
 
 // Whether the generator rebuilds its collision (off while every piece is deleted).
 bool& rebuilds_collision() { return g_collision_allowed; }

@@ -23,10 +23,9 @@
 namespace park_editing {
 
 bool g_collision_allowed{true};
-static CellBox g_saved_grid_dims;
-static uint32_t g_saved_grid_guard;
-
 namespace {
+CellBox g_saved_grid_dims;
+uint32_t g_saved_grid_guard;
 
 constexpr uint32_t kCancelFlags = 0x049EC3F9;   // cancel_flags
 constexpr uint32_t kTheme = 0x688A18F7;         // theme

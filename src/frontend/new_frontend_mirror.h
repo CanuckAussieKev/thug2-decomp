@@ -19,7 +19,7 @@
 // This part is pure (the self-tests run it offline): what was read from the screen tree in, what to draw out.
 namespace frontend::new_frontend::mirror {
 
-enum class Kind {
+enum class Kind : uint8_t {
     kNone,      // nothing to restyle (the original as it is, or ours)
     kDialog,    // a dialog box: its title, text and buttons
     kSkaters,   // the skater select: the skaters, the selected one's name and stats (the 3D skater left in view)
@@ -180,9 +180,9 @@ class Tracker {
 public:
     // A frame: what Build said now. Returns whether a view is up.
     bool tick_frame(const View& now, float dt);
-    bool get_up() const { return up_dir_; }
-    const View& get_shown() const { return camera_view_; }
-    float row_amount(int row) const;
+    [[nodiscard]] bool get_up() const { return up_dir_; }
+    [[nodiscard]] const View& get_shown() const { return camera_view_; }
+    [[nodiscard]] float row_amount(int row) const;
     void get_reset();
 
 private:

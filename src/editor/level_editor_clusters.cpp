@@ -194,7 +194,7 @@ struct Step : ModuleStep {
         for (const Membership& m : pieces)
             place_in(m);
     }
-    std::shared_ptr<ModuleStep> get_now() const override
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
         for (const Membership& m : pieces)
@@ -366,9 +366,8 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         now.push_back(get_now(s));
         edited = edited || set_state().count(s);
     }
-    const bool same = std::all_of(now.begin(), now.end(), [&](const Membership& m) {
-        return m.trick == now[0].trick && m.cluster == now[0].cluster;
-    });
+    const bool same = std::ranges::all_of(
+        now, [&](const Membership& m) { return m.trick == now[0].trick && m.cluster == now[0].cluster; });
     ImGui::PushFont(mono);
     if (!same)
         ImGui::TextUnformatted("(mixed)");

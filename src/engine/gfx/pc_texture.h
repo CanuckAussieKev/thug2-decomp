@@ -39,7 +39,7 @@ public:
     // 0x004C9D00 (0x004CAE60 the scalar deleting destructor): an edit ended, the texture destroyed.
     ~PcTexture() override;
 
-    TextureRef* get_texture() const;
+    [[nodiscard]] TextureRef* get_texture() const;
 
     // 0x004C7EF0: its texture (and checksum, the texture's).
     void set_texture(TextureRef* texture);
@@ -95,8 +95,8 @@ public:
     // 0x004CA0D0: a rectangle written in (a palettized texture's by nearest palette entry).
     void write_rect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
     // 0x004C7FB0 / 0x004C7FE0 (slots 33 / 34): the image's width and height (0 without a texture).
-    uint16_t fetch_breadth() const override;
-    uint16_t fetch_tallness() const override;
+    [[nodiscard]] uint16_t fetch_breadth() const override;
+    [[nodiscard]] uint16_t fetch_tallness() const override;
     // 0x004C8010 / 0x004C8030 (slots 35 / 38): its bits per pixel and its +0x0E (0 without one).
     uint8_t get_depth() override;
     uint8_t get_unknown_e() override;

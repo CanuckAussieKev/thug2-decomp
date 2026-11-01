@@ -343,8 +343,8 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
     if (memory.kind == Kind::kNone || kind != memory.kind || selected.empty())
         return false;
     std::vector<uint32_t> a = memory.made, b = selected;
-    std::sort(a.begin(), a.end());
-    std::sort(b.begin(), b.end());
+    std::ranges::sort(a);
+    std::ranges::sort(b);
     if (a != b)
         return false;
     step->offset = pos - memory.source_pos_;

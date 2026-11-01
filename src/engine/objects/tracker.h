@@ -40,7 +40,7 @@ public:
     // 0x00462530 (0x00462550 the deleting destructor): out of its list (linked to itself again).
     void uncouple();
 
-    bool is_head() const { return payload_ == reinterpret_cast<script::Script*>(-1); }
+    [[nodiscard]] bool is_head() const { return payload_ == reinterpret_cast<script::Script*>(-1); }
 
     script::Script* payload_; // the head: -1
     int rank_;                // always 0
@@ -58,7 +58,7 @@ public:
     void drop_out(script::Script* script);
     // (0x00462710, the head's deleting destructor - freeing to the heap, not the pool - is never called.)
 
-    bool is_vacant() const { return preceding_ == this; }
+    [[nodiscard]] bool is_vacant() const { return preceding_ == this; }
 
     // The pool pair 0x006F0FC8's new / delete (delete is 0x004624D0, cdecl).
     static void* operator new(size_t size);
@@ -70,7 +70,7 @@ class SignalTrace {
 public:
     // What an entry records.
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind : int {
+    enum Kind : uint8_t {
         kLaunched = 0, // an event was launched (`script`: whether from a script with a name); the depth goes up
         kHandled = 1,  // it was handled (`script` the handler's name, `how` how: 2 WaitForEvent, 3 by nobody); down
         kRead = 2,     // (0x00462B40)

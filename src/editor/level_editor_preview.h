@@ -65,7 +65,7 @@ constexpr double kTurnWait = 2.5;
 // --- the viewer -------------------------------------------------------------------------------------------------
 
 // What's shown: a scene sector (its checksum) or an object (its id).
-enum class Kind { kNone, kSector, kObject };
+enum class Kind : uint8_t { kNone, kSector, kObject };
 
 // The subject for this frame: a new one starts its orbit again (zoom 1, the default angle).
 void get_show(Kind kind, uint32_t id);

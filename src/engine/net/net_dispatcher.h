@@ -17,7 +17,7 @@ struct Conn;
 
 // What a handler returns.
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum HandlerResult : int {
+enum HandlerResult : uint8_t {
     kResultFailed = 0,   // stop: the rest of the packet is dropped
     kResultPassOn = 1,   // on to the next handler
     kResultStop = 2,     // stop: the rest of the packet is dropped

@@ -817,9 +817,8 @@ void stop_simulation(const char* why)
         const std::vector<uint32_t>& touched = object_edit::get_touched();
         for (const Snapshot& s : g_snapshots) {
             // (one the editor moved while it ran keeps the editor's change)
-            const bool edited_now =
-                std::find(touched.begin(), touched.end(), s.state.id) != touched.end() &&
-                std::find(g_touched_before.begin(), g_touched_before.end(), s.state.id) == g_touched_before.end();
+            const bool edited_now = std::ranges::find(touched, s.state.id) != touched.end() &&
+                                    std::ranges::find(g_touched_before, s.state.id) == g_touched_before.end();
             if (edited_now) {
                 ++kept;
                 continue;
@@ -1043,8 +1042,7 @@ void delete_run(int number)
     if (it == levels().end())
         return;
     std::vector<Run>& runs = it->second.runs;
-    runs.erase(std::remove_if(runs.begin(), runs.end(), [number](const Run& r) { return r.number == number; }),
-               runs.end());
+    std::erase_if(runs, [number](const Run& r) { return r.number == number; });
 }
 
 void set_run_visible(int number, bool visible)

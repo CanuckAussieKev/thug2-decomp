@@ -36,7 +36,9 @@ void EmitterInstance::set_flag(int bit, bool on)
 
 namespace objects {
 
-static float g_particle_update_time{1.0f};
+namespace {
+float g_particle_update_time{1.0f};
+} // namespace
 uint32_t g_flexible_particle_member_functions[156]{
     0x63274395, 0xC5BCEB9E, 0, 0, 0, 0, 0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0, 0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
     0xDB8621F7, 0xC5BCEB9E, 0, 0, 0, 0, 0xE985A9A6, 0xC5BCEB9E, 0, 0, 0, 0, 0xE3309AB5, 0xC5BCEB9E, 0, 0, 0, 0,

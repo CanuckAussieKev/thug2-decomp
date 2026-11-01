@@ -22,10 +22,9 @@ namespace level_nodes {
 using script::Array;
 using script::Struct;
 
-static uint32_t g_node_names[1000];
-static PrefixTables* g_node_prefixes;
-
 namespace {
+uint32_t g_node_names[1000];
+PrefixTables* g_node_prefixes;
 
 constexpr uint32_t kName = 0xA1DC81F9; // name
 constexpr int kGrowBy = 100;           // indices

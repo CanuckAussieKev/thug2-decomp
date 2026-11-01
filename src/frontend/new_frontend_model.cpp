@@ -7,6 +7,8 @@
 #include "engine/core/parse_number.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
@@ -22,7 +24,7 @@ namespace {
 // --- a small JSON reader (the data file only: objects, arrays, strings, numbers, true / false / null) ---
 
 struct Json {
-    enum class Kind { kNull, kBool, kNumber, kChars, kArray, kObject } kind = Kind::kNull;
+    enum class Kind : uint8_t { kNull, kBool, kNumber, kChars, kArray, kObject } kind = Kind::kNull;
     bool boolean = false;
     double number = 0.0;
     std::string text;
@@ -53,7 +55,7 @@ public:
         get_space();
         return look_at_ == text_.size() || get_fail("text after the value");
     }
-    const std::string& get_error() const { return fault_; }
+    [[nodiscard]] const std::string& get_error() const { return fault_; }
 
 private:
     bool get_fail(const char* why)
@@ -585,7 +587,7 @@ void Menu::get_reset(const Catalogue* catalogue, std::vector<SectionView> views,
     if (catalogue_ && !last_level_.empty() && catalogue_->get_find(last_level_, &section, &level) &&
         std::cmp_less(section, views_.size())) {
         const std::vector<int>& rows = views_[section].levels;
-        auto it = std::find(rows.begin(), rows.end(), level);
+        auto it = std::ranges::find(rows, level);
         if (it != rows.end()) {
             section_ = section;
             row_in_section_[section] = static_cast<int>(it - rows.begin());

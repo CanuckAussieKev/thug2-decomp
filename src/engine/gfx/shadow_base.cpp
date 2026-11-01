@@ -32,10 +32,9 @@
 namespace render {
 
 constexpr uint32_t kShadowTriangleBytes = 20480; // the original's triangle buffer (0x00796640)
-static bool g_two_sided_stencil;
-static float g_shadow_viewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
-
 namespace {
+bool g_two_sided_stencil;
+float g_shadow_viewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 lists::KeyMap* get_casters() { return g_shadow_casters; }

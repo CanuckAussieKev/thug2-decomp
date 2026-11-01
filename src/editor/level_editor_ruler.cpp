@@ -194,13 +194,13 @@ void add_overlay(const overlays::Painter& painter)
         else
             end(b, false);
         const Measure m = measure_of(g_a, b);
-        painter.get_seg(g_a, b, kRuler, 2.0f);
+        (void)painter.get_seg(g_a, b, kRuler, 2.0f);
         // (the horizontal gap at the lower end's height, the rise straight up from it)
         const V3 low = g_a.y <= b.y ? g_a : b;
         const V3 high = g_a.y <= b.y ? b : g_a;
         const V3 corner = {high.x, low.y, high.z};
-        painter.get_seg(low, corner, kGap, 1.5f);
-        painter.get_seg(corner, high, kRise, 1.5f);
+        (void)painter.get_seg(low, corner, kGap, 1.5f);
+        (void)painter.get_seg(corner, high, kRise, 1.5f);
         painter.draw_label((g_a + b) * 0.5f, kRuler, arcs::span_to(m.distance));
         painter.draw_label((low + corner) * 0.5f, kGap, "across " + arcs::span_to(m.horizontal), 6.0f, 6.0f);
         if (std::fabs(m.height) > 0.5f)

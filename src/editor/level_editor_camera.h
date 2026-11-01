@@ -53,7 +53,7 @@ float fly_ramp(float held_seconds, int accel_ms);
 
 // Ortho views. `equivalent`: the distance the picture's size matches in perspective (what the zoom changes); the eye
 // is eye_distance(equivalent) back along the view, the lens narrowed by equivalent / eye.
-enum class View { kNone, kTop, kBottom, kMenuSystem, kBack, kRight, kLeft, kDealloc };
+enum class View : uint8_t { kNone, kTop, kBottom, kMenuSystem, kBack, kRight, kLeft, kDealloc };
 float eye_distance(float equivalent);
 float ortho_angle(float base_degrees, float equivalent);
 // The near plane for that eye (the default 2 when not ortho): 40% of the way to the pivot.

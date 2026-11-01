@@ -177,8 +177,8 @@ bool get_matches(const std::string& text, const char* filter)
         return true;
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
     std::string a = text, b = filter;
-    std::transform(a.begin(), a.end(), a.begin(), lower);
-    std::transform(b.begin(), b.end(), b.begin(), lower);
+    std::ranges::transform(a, a.begin(), lower);
+    std::ranges::transform(b, b.begin(), lower);
     return a.find(b) != std::string::npos;
 }
 
@@ -608,7 +608,7 @@ void get_outliner(const ShapeMesh& model)
         // (rows the clipper skips aren't laid out; the selected one is brought into view once)
         int scroll_to = -1;
         if (holds_selected) {
-            auto it = std::find(shown.begin(), shown.end(), selected);
+            auto it = std::ranges::find(shown, selected);
             if (it != shown.end())
                 scroll_to = static_cast<int>(it - shown.begin());
         }

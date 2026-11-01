@@ -53,7 +53,7 @@ bool is_none(const Placement& step);
 bool over_footprint(const OrientedBox& box, V3 p, float margin, float above);
 // Why something is attached to the selection (in this order), from its node's Cluster= (0: none), the names its links
 // name, and what the ground ray below it met first (0: nothing, or not over a footprint).
-enum class Attachment { kNone, kCluster, kLink, kStanding };
+enum class Attachment : uint8_t { kNone, kCluster, kLink, kStanding };
 Attachment attached(uint32_t cluster, const std::vector<uint32_t>& links, uint32_t ground_hit,
                     const std::vector<uint32_t>& members, const std::vector<uint32_t>& member_clusters);
 // A heading turned by a step's quarter turns (radians; the node's angles' y - positive +z towards +x, as get_quarter_turn).

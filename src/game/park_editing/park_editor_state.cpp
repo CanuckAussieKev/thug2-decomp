@@ -20,9 +20,8 @@
 namespace park_editing {
 
 uint32_t g_park_editor_references;
-static uint32_t g_editor_clock;
-
 namespace {
+uint32_t g_editor_clock;
 
 // The display task's code: 0x005480A0, the empty function.
 void draw_nothing(ParkEditorTask* /*task*/) {}

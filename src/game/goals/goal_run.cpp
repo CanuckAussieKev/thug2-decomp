@@ -31,10 +31,9 @@
 
 namespace goals {
 
-static float g_goal_run_minus_milliseconds{-1000.0f};
-static float g_goal_run_inches_to_feet{0.083333336f};
-
 namespace {
+float g_goal_run_minus_milliseconds{-1000.0f};
+float g_goal_run_inches_to_feet{0.083333336f};
 
 using namespace goal_calls;
 using namespace goal_names;
