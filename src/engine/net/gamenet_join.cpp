@@ -147,17 +147,6 @@ tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_t
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
 uint32_t current_local_address() { return crt::get_inet_addr(net_session_slot()->fetch_own_address()); }
 
-// Calls into code that isn't source yet (thiscall).
-template <typename R, typename... A>
-R get_call(uint32_t address, const void* object, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
-}
-template <typename R, typename... A>
-R get_call(void* code, const void* object, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(code)(object, args...);
-}
 // The manager's methods.
 int num_observers(Hub* m) { return m->count_observers(); }
 int max_observers(Hub* m) { return m->get_spectator_limit(); }
@@ -172,13 +161,11 @@ void shuffle_spawn_slots(Hub* m) { m->choose_start_points(); }
 void cancel_join_server(Hub* m) { m->cancel_join(); }
 uint32_t active_ruleset_label()
 {
-    return get_call<uint32_t>(code_address(&goals::MatchRules::get_name_key),
-                              reinterpret_cast<void*>(goals::g_game_mode));
+    return static_cast<goals::MatchRules*>(reinterpret_cast<void*>(goals::g_game_mode))->get_name_key();
 }
 void set_maximum_players(int count)
 {
-    get_call<void>(code_address(&goals::MatchRules::set_rider_ceiling), reinterpret_cast<void*>(goals::g_game_mode),
-                   count);
+    static_cast<goals::MatchRules*>(reinterpret_cast<void*>(goals::g_game_mode))->set_rider_ceiling(count);
 }
 int8_t current_rank(Hub* m) { return static_cast<int8_t>(m->rating_service_->get_rank()); }
 int32_t get_rating(Hub* m)
@@ -791,9 +778,8 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         if (!memory::g_manager_ready)
             memory::ensure_manager();
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceSize, true, nullptr));
-        auto* profile = get_call<objects::RiderIdentity*>(
-            code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
-            skate, static_cast<int>(static_cast<int8_t>(player->entity_key_)));
+        auto* profile = static_cast<modules::Skate*>(skate)->fetch_account(
+            static_cast<int>(static_cast<int8_t>(player->entity_key_)));
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
         player->account_->decode_from_bytes(buffer, kAppearanceSize);
         memory::Hub::get_pull()->dealloc(buffer);
@@ -882,9 +868,8 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     std::strcpy(info->password, join_password());
     int size = 0;
     if (!info->observer) {
-        auto* profile = get_call<objects::RiderIdentity*>(
-            code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
-            reinterpret_cast<void*>(modules::g_skate_module), 0);
+        auto* profile =
+            static_cast<modules::Skate*>(reinterpret_cast<void*>(modules::g_skate_module))->fetch_account(0);
         net::ConnSearch search;
         if (context->receiver_app_->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem)
             narrowband = true; // (a narrowband server gets no face)

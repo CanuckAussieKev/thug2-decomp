@@ -295,7 +295,7 @@ int PlayerRecord::get_flag_team()
 void PlayerRecord::clear_flags() { flag_bits_ &= ~kPlayerCarryingFlags; }
 void PlayerRecord::mark_eliminated()
 {
-    eliminated_time_ = get_call<uint32_t>(code_address(&goals::MatchRules::get_round), get_game_mode());
+    eliminated_time_ = get_game_mode()->get_round();
     flag_bits_ |= kPlayerEliminated;
 }
 bool PlayerRecord::is_eliminated()
@@ -305,9 +305,8 @@ bool PlayerRecord::is_eliminated()
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
     objects::ObjectModule* score = skater_component(skater_, kSkaterScore);
-    return score &&
-           get_call<int>(code_address(&modules::PointTally::get_total_score),
-                         static_cast<objects::RiderPointKeeper*>(score)->points_held_) == 0; // (its score's lives)
+    return score && static_cast<modules::PointTally*>(static_cast<objects::RiderPointKeeper*>(score)->points_held_)
+                            ->get_total_score() == 0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return (flag_bits_ >> 7) & 1; }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl_ : 0; }

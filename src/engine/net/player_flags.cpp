@@ -110,9 +110,9 @@ bool PlayerRecord::is_invulnerable()
         return true;
     if (get_game_type() == kNetFirefight) {
         auto* skater = reinterpret_cast<objects::GameEntity*>(skater_);
-        if (get_call<int>(code_address(&modules::PointTally::get_total_score),
-                          static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_) <=
-            0)
+        if (static_cast<modules::PointTally*>(
+                static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_)
+                ->get_total_score() <= 0)
             return true;
     }
     if (is_eliminated() || (skater_->composite_flags_ >> 2) & 1)

@@ -130,13 +130,6 @@ objects::ObjectHubBase* entity_hub_handle()
     return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
 }
 
-// thiscall calls into code not rewritten yet, by return type.
-template <typename R = void, typename... A>
-R get_call(uint32_t address, const void* object, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
-}
-
 PlayerRecord* by_connection(net::Conn* conn) { return net_link()->find_player_by_sender(conn); }
 PlayerRecord* by_object_id(int id) { return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
 
@@ -1219,7 +1212,7 @@ int SkateNet::handle_toggle_cheat(net::InboundMsgCtx* context)
 int SkateNet::handle_skater_channel(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
-    online::PairMessage message; // (the object id, flipped)
+    online::PairMessage message;              // (the object id, flipped)
     if (!online::read_pair(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
     int id = static_cast<int8_t>(message.first);

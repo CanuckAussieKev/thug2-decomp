@@ -71,14 +71,8 @@ constexpr uint32_t kFlagReady = 0x100; // a player's: its game has ended (messag
 constexpr uint32_t kFlag8000 = 0x8000;
 
 // A goal's stage flags by the skater's id (the original's vtable +0x50 / +0x6C): has `id` done it, done by `id`.
-bool goal_done_by(uint8_t* goal, uint32_t id)
-{
-    return reinterpret_cast<goals::Objective*>(goal)->stage_flag_set(static_cast<int>(id)) != 0;
-}
-void mark_goal_done_by(uint8_t* goal, uint32_t id)
-{
-    reinterpret_cast<goals::Objective*>(goal)->set_stage_flag(static_cast<int>(id));
-}
+bool goal_done_by(goals::Objective* goal, uint32_t id) { return goal->stage_flag_set(static_cast<int>(id)) != 0; }
+void mark_goal_done_by(goals::Objective* goal, uint32_t id) { goal->set_stage_flag(static_cast<int>(id)); }
 
 // The goal attack message to other players: the skater's id, then the goal's name (8 bytes; bytes 1-3 left as the
 // original leaves them - zeroed here).
@@ -88,7 +82,7 @@ void mark_goal_done_by(uint8_t* goal, uint32_t id)
 // 0x0052E060
 int handle_observe_request(net::InboundMsgCtx* context)
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     if (!player || is_observer(player))
@@ -105,8 +99,9 @@ int handle_observe_request(net::InboundMsgCtx* context)
     if (!is_own_player(player)) {
         objects::Entity* skater = player_skater(player);
         manager->evict_player(player, 2); // the player out of the game (2: to observe)
-        get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater); // its skater gone
-        player->flag_bits_ |= 4;                                                         // an observer now
+        static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
+            static_cast<objects::Rider*>(skater)); // its skater gone
+        player->flag_bits_ |= 4;                   // an observer now
         player->skater_ = nullptr;
         if (player->is_host_player()) {
             player->clear_server_player();
@@ -142,7 +137,7 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     handle = context->sender_conn_->hdl_;
     auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
     rail_editor(); // (looked up once for nothing)
-    void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed), rail_editor());
+    void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed();
     app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     if (manager->has_created_goals()) {
         manager->prepare_created_goals(request.level);
@@ -248,7 +243,7 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     if (report.id != manager->get_game_id())
         return kDone;
-    uint8_t* goal = get_goal(objective_board(), report.goal);
+    goals::Objective* goal = get_goal(objective_board(), report.goal);
     if (!goal)
         return kContinue;
     PlayerRecord* sender = find_player_by_sender(manager, context->sender_conn_);
@@ -333,7 +328,7 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
 // 0x0052FCC0
 int on_peer_left_msg(net::InboundMsgCtx* context)
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     Hub* manager = manager_of(context);
     if (PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_)) {
         if (!is_own_player(player)) {
@@ -341,7 +336,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
             bool observer = is_observer(player);
             manager->evict_player(player, 0); // the player out of the game
             if (!observer)
-                get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater);
+                static_cast<modules::Skate*>(skate)->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
         }
         return kKeep;
     }

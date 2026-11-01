@@ -123,7 +123,7 @@ void copy_name(char* dest, const char* source)
 prefs::Preferences* net_game_options(Hub* manager) { return manager->get_online_settings(); }
 
 // A goal running (the original's vtable +0xC).
-bool goal_running(uint8_t* goal) { return reinterpret_cast<goals::Objective*>(goal)->is_operative(); }
+bool goal_running(goals::Objective* goal) { return goal->is_operative(); }
 
 } // namespace
 
@@ -296,7 +296,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         bool observer = is_observer(player);
         manager->evict_player(player, request.kick == 1 ? 3 : 4);
         if (!observer)
-            get_call(code_address(&modules::Skate::drop_skater_from_roster), get_skate(), skater);
+            get_skate()->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
         break;
     }
     case 0x62: {
@@ -315,7 +315,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         uint32_t goal = reader.u32();
         if (!reader.ok())
             return kDone;
-        get_call(code_address(&goals::GoalManager::flip_objective_pick), objective_board(), goal);
+        objective_board()->flip_objective_pick(goal);
         break;
     }
     case 0x65: {
@@ -410,7 +410,7 @@ int handle_start_game(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
     memory::Hub* memory = memory::Hub::get_pull();
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     memory->enter_heap_scope(memory->skater_info_heap_);
     Hub* manager = manager_of(context);
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the original read
@@ -428,9 +428,9 @@ int handle_start_game(net::InboundMsgCtx* context)
             static_cast<objects::Rider*>(player_skater(p))->reset_27c();
         }
     }
-    get_call(code_address(&goals::MatchRules::apply_match_style), get_game_mode(), start.game_type);
-    get_call(code_address(&goals::GoalManager::disengage_every_objective),
-             get_call<void*>(code_address(&modules::Skate::get_objective_board), skate, 0));
+    get_game_mode()->apply_match_style(start.game_type);
+    static_cast<goals::GoalManager*>(static_cast<modules::Skate*>(skate)->get_objective_board())
+        ->disengage_every_objective(false);
     script::Array* types = script::fetch_list(manager->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     // The victory conditions.
     script::Struct* victory = new_params();
@@ -457,14 +457,14 @@ int handle_start_game(net::InboundMsgCtx* context)
     victory->add_component_of_type(kStopAtZero, script::kQbvalInteger, static_cast<uint32_t>(start.stop_at_zero));
     victory->add_component_of_type(kShouldResetScores, script::kQbvalInteger,
                                    static_cast<uint32_t>(start.reset_scores));
-    get_call(code_address(&modules::Skate::set_unknown370), skate, start.time_limit);
-    get_call(code_address(&goals::MatchRules::force_match_settings), get_game_mode(), victory);
-    get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), start.teams);
-    get_call(code_address(&goals::MatchRules::set_goals_mode), get_game_mode(), start.goals);
-    get_call(code_address(&goals::MatchRules::set_team_graffiti_mode), get_game_mode(), start.team_graffiti_mode);
+    static_cast<modules::Skate*>(skate)->set_unknown370(start.time_limit);
+    get_game_mode()->force_match_settings(victory);
+    get_game_mode()->set_num_teams(start.teams);
+    get_game_mode()->set_goals_mode(start.goals);
+    get_game_mode()->set_team_graffiti_mode(start.team_graffiti_mode);
     delete_params(victory);
     get_run(kStartingNewNetGame);
-    get_call(code_address(&modules::Skate::launch_game), skate);
+    static_cast<modules::Skate*>(skate)->launch_game();
     manager->clear_roster();
     manager->match_being_set_up_ = false;
     manager->cheating_noted_ = false;
@@ -518,7 +518,7 @@ int handle_start_game(net::InboundMsgCtx* context)
 int handle_send_game_state(net::InboundMsgCtx* context)
 {
     net::Hub* net = net::Hub::sole();
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     if (!player || (player->flag_bits_ & 0x40))
@@ -529,7 +529,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     // (the message: gamenet_messages.h)
     SessionBrief info;
     info.max_players = static_cast<uint8_t>(manager->get_player_limit());
-    info.round = get_call<uint32_t>(code_address(&goals::MatchRules::get_round), get_game_mode());
+    info.round = get_game_mode()->get_round();
     info.variant = 0;
     net::AppHost* server = manager->host_;
     if (is_own_player(player)) {
@@ -542,14 +542,13 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             info.target_score = 0;
         } else {
             info.game_type = get_game_type();
-            info.time_left =
-                get_call<uint32_t>(code_address(&goals::MatchRules::get_goal_time_left), get_game_mode()) / 1000;
-            info.time_limit = get_call<uint32_t>(code_address(&goals::MatchRules::get_time_limit), get_game_mode());
+            info.time_left = get_game_mode()->get_goal_time_left() / 1000;
+            info.time_limit = get_game_mode()->get_time_limit();
             info.target_score =
                 static_cast<uint32_t>(manager->get_online_settings()->get_setting_value(kTargetScore, kScore));
             if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
                 bool scavenger = get_game_type() == kNetScavengerHunt;
-                uint8_t* goals = objective_board();
+                auto* goals = objective_board();
                 if (goal_running(get_goal(goals, scavenger ? kScavenger : kElimiskate)))
                     info.variant = 0;
                 else if (goal_running(get_goal(goals, scavenger ? kScavengerInterval : kElimiskateInterval)))
@@ -560,7 +559,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         }
         info.game_id = manager->get_game_id();
         info.level = manager->fetch_stage();
-        info.teams = get_call<uint32_t>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
+        info.teams = get_game_mode()->current_num_teams();
         info.goals = manager->get_goals_preference();
         info.team_graffiti_mode = manager->get_team_graffiti_mode();
         info.pro_option_bits = static_cast<uint8_t>(manager->script_flag_bits_);
@@ -608,7 +607,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             item = static_cast<PendingScriptItem*>(node->data);
         }
         if (!is_own_player(player))
-            get_call(code_address(&modules::Skate::send_cheats), skate, player);
+            static_cast<modules::Skate*>(skate)->send_cheats(player);
         if (is_observer(player) && get_game_type() == kNetGraffiti) {
             // An observer of graffiti: the trick objects' state.
             desc = net::NetMessageInfo();
@@ -619,16 +618,16 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.
         desc = net::NetMessageInfo();
-        uint8_t* goals = objective_board();
+        auto* goals = objective_board();
         static uint8_t selected[0x1000];
         selected[0] = 0;
         uint8_t* out = selected + 1;
         int count = reinterpret_cast<goals::GoalManager*>(goals)
                         ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_objective_at), goals, i);
-            if (reinterpret_cast<goals::Objective*>(goal)->is_picked()) {
-                uint32_t name = reinterpret_cast<goals::Objective*>(goal)->get_objective_key();
+            goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
+            if (goal->is_picked()) {
+                uint32_t name = goal->get_objective_key();
                 std::memcpy(out, &name, 4);
                 out += 4;
             }

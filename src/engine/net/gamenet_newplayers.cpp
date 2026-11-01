@@ -89,21 +89,20 @@ void Hub::add_new_player(JoinerRecord* info)
     uint32_t flags = info->flag_bits_;
     if (!(flags & kNewObserver)) {
         bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
-        void* profile = get_call<void*>(
-            code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
-            skate, split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
+        auto* profile = static_cast<modules::Skate*>(skate)->fetch_account(split_screen ? static_cast<int>(obj_id)
+                                                                                        : 0); // the skater's profile
         if (!in_net_game()) {
-            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, profile,
-                                                true, static_cast<int>(obj_id), skater_count(skate));
+            skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id),
+                                                                              skater_count(skate));
         } else if (info->flag_bits_ & kNewLocal) {
-            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, profile,
-                                                true, static_cast<int>(obj_id), 0);
+            skater =
+                static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id), 0);
         } else {
             auto* skaters = reinterpret_cast<modules::Skate*>(skate);
             int count = reinterpret_cast<modules::Skate*>(skate)->get_home_rider() ? skaters->count_riders()
                                                                                    : (skaters->count_riders() + 1) & 7;
-            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate,
-                                                info->account_, false, static_cast<int>(obj_id), count);
+            skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(info->account_, false,
+                                                                              static_cast<int>(obj_id), count);
             if (info->drive_control_mode_) // its vehicle control type
                 static_cast<objects::RiderFrameLog*>(
                     static_cast<objects::GameEntity*>(skater)->fetch_module(kVehicleComponent))
@@ -118,7 +117,7 @@ void Hub::add_new_player(JoinerRecord* info)
             remove_player_record(player);
             player = nullptr;
         }
-        get_call(code_address(&modules::Skate::teleport_to_spawn), skate, skater, 0, 0);
+        static_cast<modules::Skate*>(skate)->teleport_to_spawn(static_cast<objects::Rider*>(skater), 0, 0);
     }
     if (!player) {
         player = new_player(skater, info->conn_, info->flag_bits_ & kNewPlayerFlags);
@@ -183,7 +182,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
                         conn->stamp_last_heard(0); // (the time spent adding them isn't silence)
             }
             for (int i = 0; i < 8; ++i)
-                if (void* skater = get_call<void*>(code_address(&modules::Skate::get_rider_at), skate, i))
+                if (void* skater = static_cast<modules::Skate*>(skate)->get_rider_at(i))
                     static_cast<objects::Rider*>(skater)->reset_27c();
             manager->send_ready_response();
         }
@@ -389,8 +388,8 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     server->send_bulk_message(player_handle(player), kMsgParkMap, kParkMapSize,
                                               park->get_packed_park_data(false), "level data", kGroupGame, false, true);
                     park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
-                    void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed),
-                                                  park_editing::RailAuthoring::sole());
+                    void* rails =
+                        static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
                     server->send_bulk_message(player_handle(player), kMsgRails, kRailsSize, rails, "rail data",
                                               kGroupGame, false, true);
                 }
@@ -399,8 +398,8 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             if (!is_observer(player)) { // its skater; every other player asked whether it's ready
                 int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
                 bool local_conn = player->conn_->is_host_local();
-                auto* skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate,
-                                                          info->account_, local_conn, static_cast<int>(obj_id), count);
+                auto* skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(
+                    info->account_, local_conn, static_cast<int>(obj_id), count);
                 player->bind_rider(static_cast<objects::Rider*>(skater));
                 if (!is_own_player(player))
                     static_cast<objects::Rider*>(skater)->conceal_skater(); // hidden

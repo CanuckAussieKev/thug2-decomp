@@ -244,17 +244,17 @@ bool cfunc_start_network_game(Struct*, Script*)
         // The selected goals: a byte 1, then each selected goal's id (each told first - its slot 29), then 0.
         uint8_t buffer[0x1000];
         net::NetMessageInfo desc;
-        uint8_t* goals = objective_board();
+        auto* goals = objective_board();
         net::AppHost* server = manager->host_;
         buffer[0] = 1;
         uint8_t* end = buffer + 1;
         int count = reinterpret_cast<goals::GoalManager*>(goals)
                         ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
-            uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_objective_at), goals, i);
-            if (reinterpret_cast<goals::Objective*>(goal)->is_picked()) {
-                reinterpret_cast<goals::Objective*>(goal)->un_beat(); // (the original's vtable slot 29)
-                uint32_t id = reinterpret_cast<goals::Objective*>(goal)->get_objective_key();
+            goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
+            if (goal->is_picked()) {
+                goal->un_beat(); // (the original's vtable slot 29)
+                uint32_t id = goal->get_objective_key();
                 std::memcpy(end, &id, 4);
                 end += 4;
             }
@@ -319,7 +319,7 @@ bool cfunc_get_my_team(Struct*, Script* script)
 bool cfunc_set_num_teams(Struct* params, Script*)
 {
     Hub* manager = net_link();
-    uint8_t* skate = detail::get_skate();
+    auto* skate = detail::get_skate();
     PlayerSearch search;
     net::NetMessageInfo desc;
     int teams = 0;
@@ -336,13 +336,13 @@ bool cfunc_set_num_teams(Struct* params, Script*)
         return true;
     }
     if (teams < 1 || is_squad_match()) {
-        get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
+        get_game_mode()->set_num_teams(teams);
     } else {
-        get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
+        get_game_mode()->set_num_teams(teams);
         if (reinterpret_cast<modules::Skate*>(skate)->get_home_rider()) { // the local skater
             get_run(kPrepareSkaterForMove, nullptr, reinterpret_cast<modules::Skate*>(skate)->get_home_rider());
-            get_call(code_address(&modules::Skate::teleport_to_spawn), skate,
-                     reinterpret_cast<modules::Skate*>(skate)->get_home_rider(), 0, 0);
+            static_cast<modules::Skate*>(skate)->teleport_to_spawn(
+                reinterpret_cast<modules::Skate*>(skate)->get_home_rider(), 0, 0);
         }
     }
     net::AppHost* server = manager->host_;

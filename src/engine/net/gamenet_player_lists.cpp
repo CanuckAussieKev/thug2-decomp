@@ -288,7 +288,7 @@ void Hub::set_ready_state(bool ready)
     modules::Skate* skate = modules::g_skate_module;
     unsigned int count = tally_nodes(skate->riders_.list_link_.next);
     for (unsigned int i = 0; i < count; ++i) {
-        auto* skater = get_call<objects::Rider*>(code_address(&modules::Skate::get_rider_at), skate, i);
+        auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(i));
         if (skater) { // (the original's skater slots 12 / 11)
             if (ready)
                 skater->unpause();
@@ -435,7 +435,7 @@ void Hub::launch_queued_scripts()
     auto* sound = sound::g_audio_mixer;
     modules::Skate* skate = modules::g_skate_module;
     memory->enter_heap_scope(memory->bottom_up_heap_);
-    get_call(code_address(&modules::Skate::begin_queued_scripts), skate);
+    static_cast<modules::Skate*>(skate)->begin_queued_scripts();
     float volume = sound::fetch_master_loudness();
     sound->change_master_loudness(0.0f);
     get_run(kPreRunQueuedScripts);
@@ -456,7 +456,7 @@ void Hub::launch_queued_scripts()
     }
     get_run(kPostRunQueuedScripts);
     sound->change_master_loudness(volume);
-    get_call(code_address(&modules::Skate::end_queued_scripts), skate);
+    static_cast<modules::Skate*>(skate)->end_queued_scripts();
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -577,7 +577,7 @@ void Hub::disconnect_clients()
         modules::Skate* skate = modules::g_skate_module;
         unsigned int count = tally_nodes(skate->riders_.list_link_.next);
         for (unsigned int i = 0; i < count; ++i) {
-            auto* skater = get_call<objects::Rider*>(code_address(&modules::Skate::get_rider_at), skate, i);
+            auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(i));
             if (skater)
                 skater->get_freeze(); // (the original's skater slot 11)
         }
@@ -631,9 +631,7 @@ bool Hub::prepare_local_face()
 {
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem)
         return false;
-    auto* profile = get_call<objects::RiderIdentity*>(
-        code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
-        modules::g_skate_module, 0);
+    auto* profile = static_cast<modules::Skate*>(modules::g_skate_module)->fetch_account(0);
     gfx::FaceSkin* face = profile->appearance()->face_skin_; // its face texture (0x00576E60)
     if (!face || !face->is_sound())
         return false;

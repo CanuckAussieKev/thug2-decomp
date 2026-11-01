@@ -72,7 +72,7 @@ void* get_score_of(PlayerRecord* player)
     auto* skater = reinterpret_cast<objects::GameEntity*>(player->skater_);
     return static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
 }
-int points_of(void* score) { return get_call<int>(code_address(&modules::PointTally::get_total_score), score); }
+int points_of(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 
 PlayerRecord* get_first(Hub* manager, PlayerSearch* search) { return start_roster_sweep(manager, search, false); }
 PlayerRecord* get_next(Hub* manager, PlayerSearch* search) { return step_roster_sweep(manager, search, false); }
@@ -122,7 +122,7 @@ int Hub::get_squad_points(int team)
         if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || p->team_ != team)
             continue;
         if (goal_attack && !(local->flag_bits_ & kPlayerObserver))
-            return get_call<int>(code_address(&goals::GoalManager::num_goals_net_beaten_by), objective_board(), team);
+            return objective_board()->num_goals_net_beaten_by(team);
         total += points_of(get_score_of(p));
     }
     return total;
@@ -133,7 +133,7 @@ int Hub::get_entrant_points(uint32_t id)
 {
     PlayerRecord* local = find_own_player_record(this);
     if (get_game_type() == kNetGoalAttack && !(local->flag_bits_ & kPlayerObserver))
-        return get_call<int>(code_address(&goals::GoalManager::count_cleared_by_player), objective_board(), id);
+        return objective_board()->count_cleared_by_player(id);
     auto* player = find_player_slot_by_obj(static_cast<uint16_t>(id));
     return points_of(get_score_of(player));
 }
@@ -151,9 +151,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
     bool scavenger_hunt = false;
     if (get_game_type() == kNetScavengerHunt) {
-        uint8_t* goal =
-            get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), objective_board(), kScavenger, 0);
-        if (goal && reinterpret_cast<goals::Objective*>(goal)->is_operative())
+        goals::Objective* goal = objective_board()->get_goal(kScavenger, 0);
+        if (goal && goal->is_operative())
             scavenger_hunt = true; // (the goal is active)
     }
     uint32_t now = frame_clock::get_time();
@@ -168,8 +167,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     if (not_lobby && manager->show_team_scores()) {
         // A line per team with players: the team's name, its players' marks.
         ScoreEntry* teams[4];
-        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
-             ++team) {
+        for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
             uint32_t name = team < 4 ? kTeamNames[team] : 0;
@@ -200,8 +198,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 teams[p->team_]->flag_bits_ |= flag_bit(p);
             }
         }
-        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
-             ++team) {
+        for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
             ScoreEntry* entry = teams[team];

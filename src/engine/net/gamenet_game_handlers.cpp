@@ -255,7 +255,7 @@ int handle_flag_returned(net::InboundMsgCtx* context)
 // 0x00530E50
 int handle_rails_data(net::InboundMsgCtx* context)
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     Hub* manager = manager_of(context);
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
         memory::Hub* memory = memory::Hub::get_pull();
@@ -263,7 +263,7 @@ int handle_rails_data(net::InboundMsgCtx* context)
         static_cast<park_editing::RailAuthoring*>(get_rail_editor())
             ->set_packed(context->body_, context->body_size_); // the rails read
         park_editing::g_rail_editor_flag = false;
-        get_call(code_address(&park_editing::RailAuthoring::unpack), get_rail_editor());
+        static_cast<park_editing::RailAuthoring*>(get_rail_editor())->unpack();
         park_editing::g_rail_editor_flag = true;
         memory::Hub::get_pull()->leave_heap_scope();
         return kContinue;
@@ -351,16 +351,16 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
 int handle_selected_goals(net::InboundMsgCtx* context)
 {
     const uint8_t* msg = get_message(context);
-    uint8_t* goals = objective_board();
-    get_call(code_address(&goals::GoalManager::unpick_every_objective), goals);
+    auto* goals = objective_board();
+    static_cast<goals::GoalManager*>(goals)->unpick_every_objective();
     // (a byte, then the goals' names up to a 0; NOT ORIGINAL: no further than the message's end - the original read
     // on until it found a 0)
     util::ByteReader reader(context->body_, context->body_size_);
     uint8_t show = reader.u8();
     for (uint32_t goal = reader.u32(); reader.ok() && goal; goal = reader.u32()) {
-        uint8_t* entry = get_goal(goals, goal);
-        reinterpret_cast<goals::Objective*>(entry)->un_beat(); // (the original's vtable +0x74)
-        reinterpret_cast<goals::Objective*>(entry)->choose_one();
+        goals::Objective* entry = get_goal(goals, goal);
+        entry->un_beat(); // (the original's vtable +0x74)
+        entry->choose_one();
     }
     if (show == 1) {
         script::Struct* params = new_params();
@@ -410,8 +410,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
         if (static_cast<int8_t>(msg[1]) != player_team(other))
             same_team = false;
     }
-    if (same_team && others > 0 &&
-        get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()) > 0)
+    if (same_team && others > 0 && get_game_mode()->current_num_teams() > 0)
         get_run(kWarnAllSameTeam);
     return kContinue;
 }
@@ -425,59 +424,57 @@ int handle_goal_completed(net::InboundMsgCtx* context)
         return kDone;
     const uint8_t* msg = &message.id; // (the player's object id)
     Hub* manager = manager_of(context);
-    uint8_t* goals = objective_board();
-    uint8_t* goal = get_goal(goals, message.goal);
-    uint8_t* current = get_call<uint8_t*>(code_address(&goals::GoalManager::get_engaged_objective), goals, 0);
+    auto* goals = objective_board();
+    goals::Objective* goal = get_goal(goals, message.goal);
+    goals::Objective* current = static_cast<goals::GoalManager*>(goals)->get_engaged_objective(0);
     if (!goal)
         return kContinue;
     PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     PlayerRecord* local = find_own_player_record(manager);
-    auto* objective = reinterpret_cast<goals::Objective*>(goal);
+    auto* objective = goal;
     objective->set_net_stage_flag(player_team(player)); // (the original's slot 0x70)
     if (!player_skater(player))
         return kContinue;
     objective->set_stage_flag(static_cast<int>(get_skater_id(player_skater(player)))); // (slot 0x6C)
     if (local == player) {
-        int total = get_call<int>(code_address(&goals::GoalManager::count_picked_objectives), goals);
-        int done = get_call<int>(code_address(&goals::GoalManager::count_objectives_cleared), goals);
+        int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
+        int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
         if (total > done) {
             script::Struct* params = new_params();
             params->put_int(kNumGoalsLeft, total - done);
             get_run(kCompletedGoal, params);
             delete_params(params);
         }
-        get_call(code_address(&goals::ObjectiveNpc::remove_objective_npc),
-                 reinterpret_cast<goals::Objective*>(goal)->ped_);
+        static_cast<goals::ObjectiveNpc*>(goal->ped_)->remove_objective_npc();
         return kContinue;
     }
     if (current) {
-        reinterpret_cast<goals::Objective*>(current)->get_top_objective_key();
-        reinterpret_cast<goals::Objective*>(goal)->get_top_objective_key();
+        current->get_top_objective_key();
+        goal->get_top_objective_key();
     }
     if (!is_squad_match() || player_team(local) != player_team(player))
         return kContinue;
     // A teammate's: the goal (or the last of its chain) ended here too.
-    goals::GoalEdge* next = reinterpret_cast<goals::Objective*>(goal)->sub_nodes_;
+    goals::GoalEdge* next = goal->sub_nodes_;
     if (next->objective_key_) {
-        uint8_t* last = goal;
+        goals::Objective* last = goal;
         while (next && next->objective_key_) {
             last = get_goal(goals, next->objective_key_);
-            next = reinterpret_cast<goals::Objective*>(last)->sub_nodes_;
+            next = last->sub_nodes_;
         }
-        reinterpret_cast<goals::Objective*>(last)->get_win(); // (slot 0x3C)
+        last->get_win(); // (slot 0x3C)
         if (last != current)
-            reinterpret_cast<goals::Objective*>(current)->disengage(false, true); // (slot 0x34)
+            current->disengage(false, true); // (slot 0x34)
     } else {
         objective->get_win();
     }
-    get_call(code_address(&goals::ObjectiveNpc::remove_objective_npc),
-             reinterpret_cast<goals::Objective*>(current)->ped_);
+    static_cast<goals::ObjectiveNpc*>(current->ped_)->remove_objective_npc();
     objective->mark_won(); // (slot 0x68)
-    int total = get_call<int>(code_address(&goals::GoalManager::count_picked_objectives), goals);
-    int done = get_call<int>(code_address(&goals::GoalManager::count_objectives_cleared), goals);
+    int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
+    int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
     if (total > done) {
         const char* text = nullptr;
-        reinterpret_cast<goals::Objective*>(goal)->get_objective_list_caption(&text);
+        goal->get_objective_list_caption(&text);
         script::Struct* params = new_params();
         params->put_int(kNumGoalsLeft, total - done);
         params->append_word(kPlayerName, player_name(player));
@@ -497,14 +494,14 @@ int handle_goal_started(net::InboundMsgCtx* context)
         return kDone;
     const uint8_t* msg = &message.id; // (the player's object id)
     Hub* manager = manager_of(context);
-    uint8_t* goal = get_goal(objective_board(), message.goal);
+    goals::Objective* goal = get_goal(objective_board(), message.goal);
     if (!goal)
         return kContinue;
     const char* text = nullptr;
     PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (player_team(find_own_player_record(manager)) != player_team(player))
         return kContinue;
-    reinterpret_cast<goals::Objective*>(goal)->get_objective_list_caption(&text);
+    goal->get_objective_list_caption(&text);
     script::Struct* params = new_params();
     params->append_word(kPlayerName, player_name(player));
     params->append_word(kGoalText, text);
@@ -526,9 +523,9 @@ int handle_eliminated(net::InboundMsgCtx* context)
     PlayerRecord* player = find_player_slot_by_obj(manager_of(context), static_cast<uint16_t>(id));
     if (!player)
         return kContinue;
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     player->mark_eliminated();
-    get_call(code_address(&modules::Skate::conceal_skater), skate, player_skater(player), 1);
+    static_cast<modules::Skate*>(skate)->conceal_skater(static_cast<objects::Rider*>(player_skater(player)), true);
     if (is_own_player(player)) {
         get_run(kEliminatedYou);
         return kContinue;

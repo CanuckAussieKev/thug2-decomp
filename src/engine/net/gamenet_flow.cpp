@@ -127,9 +127,7 @@ prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Pr
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 prefs::Preferences* game_preferences(Hub* m)
 {
-    return m->in_net_game()
-               ? net_game_options(m)
-               : get_call<prefs::Preferences*>(code_address(&modules::Skate::get_split_view_settings), get_skate());
+    return m->in_net_game() ? net_game_options(m) : get_skate()->get_split_view_settings();
 }
 uint32_t preference_checksum(prefs::Preferences* prefs, uint32_t name, uint32_t field)
 {
@@ -149,11 +147,11 @@ void Hub::reset_to_lobby()
         level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
         teams = get_num_teams();
     } else {
-        teams = get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
+        teams = get_game_mode()->current_num_teams();
     }
     game_type_ = kNetLobby;
-    get_call(code_address(&goals::MatchRules::apply_match_style), get_game_mode(), kNetLobby); // the game mode
-    get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
+    get_game_mode()->apply_match_style(kNetLobby); // the game mode
+    get_game_mode()->set_num_teams(teams);
     match_ended_ = false;
     clear_roster();
     if (PlayerRecord* king = is_crown_rule_active(this))
@@ -322,8 +320,8 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         for (; info && !(info->flag_bits_ & kNewPlayerLocal); info = next_new_player(manager, &search)) {
         }
         if (info && (info->flag_bits_ & kNewPlayerObserver)) { // the local player joined to observe
-            get_call(code_address(&modules::Skate::drop_skater_from_roster), get_skate(),
-                     reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider()); // the local skater removed
+            get_skate()->drop_skater_from_roster(
+                reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider()); // the local skater removed
             manager->spectate_player(nullptr);
         }
         get_run(kEnteredNetworkGame);
@@ -385,7 +383,7 @@ void Hub::start_game_task(tasks::Task<Hub>* task)
 void Hub::connection_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     uint32_t& checked = g_auto_serve_checked; // the link checked last
     if (manager->is_network_game() && frame_clock::get_time() - checked > kLinkCheckInterval) {
         bool net_game = manager->in_net_game();
@@ -422,7 +420,8 @@ void Hub::connection_task(tasks::Task<Hub>* task)
                     bool observer = is_observer(player);
                     manager->evict_player(player, reason);
                     if (!observer)
-                        get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater);
+                        static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
+                            static_cast<objects::Rider*>(skater));
                 }
             }
             player = next;

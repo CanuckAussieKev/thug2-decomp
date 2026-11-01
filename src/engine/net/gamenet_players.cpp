@@ -313,8 +313,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
 {
     char name[kNameSize];
     std::strcpy(name, player_name(player));
-    if (!is_observer(player) &&
-        get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), kShouldModulateColor))
+    if (!is_observer(player) && get_game_mode()->is_true(kShouldModulateColor))
         objects::g_trick_spot_hub->release_player_clusters(
             static_cast<int>(get_skater_id(player_skater(player)))); // its colours off the trick objects
     if (!get_on_server()) {
@@ -438,7 +437,7 @@ void Hub::re_add_pending_players()
 // 0x0053D900
 void Hub::destroy_all_players()
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     PlayerSearch search;
     PlayerRecord* player = start_roster_sweep(this, &search, true);
     while (player) {
@@ -446,7 +445,7 @@ void Hub::destroy_all_players()
         objects::Entity* skater = player_skater(player);
         if (skater && (static_cast<objects::Rider*>(skater)->get_skater_number() != 0 ||
                        !is_own_player(player))) // (not the first local skater)
-            get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater);
+            static_cast<modules::Skate*>(skate)->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
         remove_player_record(player);
         player = next;
     }
@@ -462,7 +461,7 @@ void Hub::remove_players()
 // 0x0053E920
 void Hub::drop_players_not_ready()
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     PlayerSearch search;
     PlayerRecord* player = start_roster_sweep(this, &search, false);
     while (player) {
@@ -470,7 +469,7 @@ void Hub::drop_players_not_ready()
         if (!(player->flag_bits_ & kPlayerFcfsCandidate)) {
             objects::Entity* skater = player_skater(player);
             evict_player(player, kDropLeftOut);
-            get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater);
+            static_cast<modules::Skate*>(skate)->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
         }
         player = next;
     }
@@ -512,7 +511,7 @@ void Hub::flag_returned(PlayerRecord* player)
 // 0x0053E650
 void Hub::enter_observe_mode()
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     tasks::PileUp* tasks = get_logic_tasks();
     pad_input::Hub* input = pad_input::g_input_manager;
     PlayerRecord* local = find_own_player_record(this);
@@ -538,7 +537,7 @@ void Hub::enter_observe_mode()
         local->clear_flags();
     }
     local->flag_bits_ |= 4; // an observer
-    get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, player_skater(local));
+    static_cast<modules::Skate*>(skate)->drop_skater_from_roster(static_cast<objects::Rider*>(player_skater(local)));
     local->skater_ = nullptr;
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_heaps_[0]);

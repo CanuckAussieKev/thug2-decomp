@@ -252,7 +252,7 @@ int handle_keep_alive(net::InboundMsgCtx* context)
 // 0x0052DCC0
 int on_admitted_msg(net::InboundMsgCtx* context)
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
     manager->set_entry_phase(6);
@@ -316,18 +316,18 @@ int handle_game_ended(net::InboundMsgCtx* context)
 // 0x0052F2D0
 int handle_choose_team(net::InboundMsgCtx* context)
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     int teams = static_cast<int8_t>(get_message(context)[0]);
     if (teams <= 0 || is_squad_match()) {
-        get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
+        get_game_mode()->set_num_teams(teams);
         return kContinue;
     }
-    get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
+    get_game_mode()->set_num_teams(teams);
     get_run(kChooseTeamMessage);
     if (reinterpret_cast<modules::Skate*>(skate)->get_home_rider()) { // the local skater
         get_run(kPrepareSkaterForMove, nullptr, reinterpret_cast<modules::Skate*>(skate)->get_home_rider());
-        get_call(code_address(&modules::Skate::teleport_to_spawn), skate,
-                 reinterpret_cast<modules::Skate*>(skate)->get_home_rider(), 0, 0);
+        static_cast<modules::Skate*>(skate)->teleport_to_spawn(
+            reinterpret_cast<modules::Skate*>(skate)->get_home_rider(), 0, 0);
     }
     return kContinue;
 }
@@ -335,10 +335,10 @@ int handle_choose_team(net::InboundMsgCtx* context)
 // 0x0052F370
 int handle_checksum_request(net::InboundMsgCtx* context)
 {
-    uint8_t* skate = get_skate();
+    auto* skate = get_skate();
     net::NetMessageInfo desc;
     char* msg = context->body_;
-    *reinterpret_cast<uint32_t*>(msg + 4) = get_call<uint32_t>(code_address(&modules::Skate::get_cheats), skate);
+    *reinterpret_cast<uint32_t*>(msg + 4) = static_cast<modules::Skate*>(skate)->get_cheats();
     desc.group_id_ = kGroupGame;
     desc.byte_count_ = 8;
     desc.ident_ = kMsgDigest;
@@ -390,8 +390,7 @@ int handle_created_data_request(net::InboundMsgCtx* context)
         int handle = context->sender_conn_->hdl_;
         auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
         rail_editor(); // (looked up once for nothing)
-        void* rails =
-            get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed), rail_editor()); // the rails, packed
+        void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed(); // the rails, packed
         app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->has_created_goals()) {
         int handle = context->sender_conn_->hdl_;

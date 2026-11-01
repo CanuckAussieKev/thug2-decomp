@@ -43,19 +43,6 @@ T& prop(const void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
-// A thiscall into code not rewritten yet.
-template <typename R = void, typename... A>
-R get_call(uint32_t address, const void* object, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
-}
-
-// The same, into code of ours reached through its address (GAME_CODE).
-template <typename R = void, typename... A>
-R get_call(void* code, const void* object, A... args)
-{
-    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(code)(object, args...);
-}
 
 inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content_); }
 inline const uint8_t* get_message(net::InboundMsgCtx* context)
@@ -71,22 +58,13 @@ inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::En
     script::launch_script(name, params, object, false, nullptr);
 }
 
-// The singletons (not rewritten): the skate module, the game mode, the goal manager.
-inline uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-inline uint8_t* get_game_mode() { return reinterpret_cast<uint8_t*>(goals::g_game_mode); }
-inline bool is_squad_match()
-{
-    return get_call<bool>(code_address(&goals::MatchRules::is_squad_match), get_game_mode());
-}
-inline uint32_t get_game_type()
-{
-    return get_call<uint32_t>(code_address(&goals::MatchRules::get_name_key), get_game_mode());
-}
-inline uint8_t* objective_board() { return reinterpret_cast<uint8_t*>(goals::get_objective_board()); }
-inline uint8_t* get_goal(uint8_t* goals, uint32_t name)
-{
-    return get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), goals, name, 1);
-}
+// The singletons: the skate module, the game mode, the goal manager.
+inline modules::Skate* get_skate() { return modules::g_skate_module; }
+inline goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+inline bool is_squad_match() { return get_game_mode()->is_squad_match(); }
+inline uint32_t get_game_type() { return get_game_mode()->get_name_key(); }
+inline goals::GoalManager* objective_board() { return goals::get_objective_board(); }
+inline goals::Objective* get_goal(goals::GoalManager* goals, uint32_t name) { return goals->get_goal(name, 1); }
 
 // The manager's players (online::PlayerRecord, player_info.h) and joining players (JoinerRecord).
 inline PlayerRecord* find_player_by_sender(Hub* manager, net::Conn* conn)

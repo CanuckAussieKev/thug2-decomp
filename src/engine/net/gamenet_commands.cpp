@@ -169,8 +169,7 @@ bool cfunc_set_join_mode(Struct* params, Script*)
 // 0x00535E90: GetNumTeams - the game mode's team count into the script's num_teams.
 bool cfunc_get_num_teams(Struct*, Script* script)
 {
-    script->args_->put_int(kNumTeams,
-                           get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()));
+    script->args_->put_int(kNumTeams, get_game_mode()->current_num_teams());
     return true;
 }
 
@@ -280,8 +279,7 @@ bool cfunc_fcfs_request_change_level(Struct* params, Script*)
         void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
         client->send_bulk_to_host(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
         park_editing::RailAuthoring::sole(); // (the rail editor looked up once for nothing)
-        void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed),
-                                      park_editing::RailAuthoring::sole());
+        void* rails = static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
         client->send_bulk_to_host(kMsgRailsData, kRailsDataSize, rails, kRailsDesc, kGroupGame, true, false);
     }
     send_request(manager, kMsgChangeLevelRequest, &level, 4);

@@ -108,17 +108,11 @@ const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
 
 // The game mode's members (not rewritten): its max_players, the flags accumulate_score / track_best_combo /
 // is_elimiskate, a property set (IsTrue).
-int mode_max_players() { return get_call<int>(code_address(&goals::MatchRules::get_rider_ceiling), get_game_mode()); }
-bool accumulates_score()
-{
-    return get_call<bool>(code_address(&goals::MatchRules::keeps_running_total), get_game_mode());
-}
-bool tracks_best_combo() { return get_call<bool>(code_address(&goals::MatchRules::keeps_best_chain), get_game_mode()); }
-bool is_elimiskate() { return get_call<bool>(code_address(&goals::MatchRules::finish_rules_reached), get_game_mode()); }
-bool mode_is_true(uint32_t property)
-{
-    return get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), property);
-}
+int mode_max_players() { return get_game_mode()->get_rider_ceiling(); }
+bool accumulates_score() { return get_game_mode()->keeps_running_total(); }
+bool tracks_best_combo() { return get_game_mode()->keeps_best_chain(); }
+bool is_elimiskate() { return get_game_mode()->finish_rules_reached(); }
+bool mode_is_true(uint32_t property) { return get_game_mode()->is_true(property); }
 
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 
@@ -283,7 +277,7 @@ bool Hub::send_custom_tag_texture()
 {
     net::ConnSearch search;
     bool on_server = (flag_bits_ & kFlagsServer) != 0;
-    uint8_t* skate = detail::get_skate();
+    auto* skate = detail::get_skate();
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
         return false;
     auto* skater = reinterpret_cast<modules::Skate*>(skate)->get_home_rider(); // the local skater
@@ -295,9 +289,7 @@ bool Hub::send_custom_tag_texture()
 
     net::Conn* server = client_app_->begin_conn_walk(&search);
     if (server->get_link_speed_class() == 0) {
-        void* profile = get_call<void*>(
-            code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
-            detail::get_skate(), 0);
+        void* profile = detail::get_skate()->fetch_account(0);
         uint32_t logos = profile_has_part(profile, kHatLogo) ? 1 : 0;
         if (profile_has_part(profile, kFrontLogo))
             logos |= 2;

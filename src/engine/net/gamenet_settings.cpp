@@ -275,10 +275,10 @@ uint32_t Hub::get_team_graffiti_mode()
 // The preferences of the game being set up: the network game's, else the skate module's (+0x58: split screen's).
 prefs::Preferences* Hub::get_game_preferences()
 {
-    uint8_t* skate = detail::get_skate();
+    auto* skate = detail::get_skate();
     if (in_net_game())
         return get_online_settings();
-    return get_call<prefs::Preferences*>(code_address(&modules::Skate::get_split_view_settings), skate);
+    return static_cast<modules::Skate*>(skate)->get_split_view_settings();
 }
 
 // 0x00535B20

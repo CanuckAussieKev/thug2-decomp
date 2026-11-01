@@ -102,7 +102,7 @@ void level_change_task(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     if (frame_clock::get_time() < g_level_change_time)
         return;
-    get_call(code_address(&modules::Skate::change_level), get_skate(), manager->level_); // the level changed
+    get_skate()->change_level(manager->level_); // the level changed
     if (PlayerRecord* king = is_crown_rule_active(manager))
         king->give_crown(false);
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
