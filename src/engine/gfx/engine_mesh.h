@@ -25,7 +25,8 @@ public:
     // header) relocated to the data after them (the vertices 16-aligned after the objects, then 6 bytes per vertex
     // word, the faces 4-aligned, the face-rejection buffers, the nodes and the face lists - as the scene's), their
     // faces set up, the box grown by each one's. True.
-    bool add_collision(const uint8_t* data);
+    // (not original: `size` - the file's bytes - bounds its reader: collision_format.h)
+    bool add_collision(const uint8_t* data, size_t size);
     // 0x00490AB0 / 0x00490AC0 (folded with other classes' getters): the hierarchy / its count.
     void* fetch_bone_tree();
     uint32_t get_hierarchy_count();

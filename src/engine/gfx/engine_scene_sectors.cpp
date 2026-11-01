@@ -36,10 +36,10 @@ WorldCell* scene_sector(WorldScene* scene, uint32_t name)
     return static_cast<WorldCell*>(scene->look_up_sector(name));
 }
 bool delete_scene_sector(WorldScene* scene, WorldCell* sector) { return scene->remove_scene_sector(sector); }
-bool scene_load_collision_data(WorldScene* scene, const uint8_t* data, int* count, StaticCollider** statics,
-                               uint8_t** objects, maths::BBox* box, int flag)
+bool scene_load_collision_data(WorldScene* scene, const uint8_t* data, size_t size, int* count,
+                               StaticCollider** statics, uint8_t** objects, maths::BBox* box, int flag)
 {
-    return scene->load_collision_data(data, count, statics, objects, box, flag);
+    return scene->load_collision_data(data, size, count, statics, objects, box, flag);
 }
 bool scene_unload_collision(WorldScene* scene) { return scene->unload_collision(); }
 
@@ -225,9 +225,10 @@ uint32_t WorldScene::clone_sector_named(uint32_t section_id, WorldScene* scene, 
 }
 
 // 0x0049D590 (the original's SEH frame around the grid's `new` left out)
-bool WorldScene::add_collision_data(const uint8_t* data, int flag)
+bool WorldScene::add_collision_data(const uint8_t* data, size_t size, int flag)
 {
-    scene_load_collision_data(this, data, &coll_static_count_, &coll_statics_, &collision_blob_, &collision_box_, flag);
+    scene_load_collision_data(this, data, size, &coll_static_count_, &coll_statics_, &collision_blob_, &collision_box_,
+                              flag);
     if (coll_static_count_ > 0) {
         if (builds_collision_grid_) {
             void* memory = memory::alloc(sizeof(CollGrid));
@@ -271,7 +272,7 @@ bool WorldScene::load_collision_file(const char* name, int flag)
     auto* data = static_cast<const uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr));
     if (!data)
         return false;
-    add_collision_data(data, flag);
+    add_collision_data(data, static_cast<size_t>(packs::get_file_size(pip_name_)), flag); // (not original: sized)
     return true;
 }
 
@@ -356,7 +357,8 @@ bool WorldScene::load_add_scene(const char* name)
     std::snprintf(add_pip_name_, sizeof(add_pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
     // (the base's collision file, not the one just named - as the original)
     if (auto* data = static_cast<const uint8_t*>(packs::read_in(pip_name_, false, nullptr, nullptr, nullptr)))
-        scene_load_collision_data(this, data, &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
+        scene_load_collision_data(this, data, static_cast<size_t>(packs::get_file_size(pip_name_)),
+                                  &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
             uint32_t section_id = coll_static_at(add_coll_statics_, i)->checksum_;

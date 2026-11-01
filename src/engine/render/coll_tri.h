@@ -6,6 +6,7 @@
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/collision_format.h"
 
 namespace render {
 
@@ -49,7 +50,7 @@ struct HitTreeNode {
     // 0x00416A10: a copy of the tree and its face indices (the argument unused); null if it has no nodes.
     HitTreeNode* replicate(int unused) const;
 };
-static_assert(sizeof(HitTreeNode) == 8, "layout must match the original");
+static_assert(sizeof(HitTreeNode) == 8, "the collision file's BSP node (collision_format.h), used in place");
 
 // A collision object's geometry (render::TriMeshSource, from a .col file): its vertices (floats, or 16-bit offsets
 // from its box's minimum in sixteenths when "compressed"), faces and BSP tree.
@@ -132,9 +133,13 @@ struct TriMeshSource {
                             : reinterpret_cast<const uint16_t*>(faces_ + face * 10 + 4)[corner];
     }
 };
-static_assert(offsetof(TriMeshSource, compressed_) == 0x0B, "layout must match the original");
-static_assert(offsetof(TriMeshSource, lower_limit_) == 0x10, "layout must match the original");
-static_assert(offsetof(TriMeshSource, vertices_) == 0x30, "layout must match the original");
-static_assert(sizeof(TriMeshSource) == 0x40, "layout must match the original");
+// The collision file's object record, used in place (engine/render/collision_format.h): its layout is the file's.
+static_assert(offsetof(TriMeshSource, num_vertices_) == 0x06 && offsetof(TriMeshSource, tri_count_) == 0x08 &&
+                  offsetof(TriMeshSource, small_faces_) == 0x0A && offsetof(TriMeshSource, compressed_) == 0x0B &&
+                  offsetof(TriMeshSource, faces_) == 0x0C && offsetof(TriMeshSource, lower_limit_) == 0x10 &&
+                  offsetof(TriMeshSource, vertices_) == 0x30 && offsetof(TriMeshSource, bsp_) == 0x34 &&
+                  offsetof(TriMeshSource, vertex_bytes_) == 0x38 &&
+                  sizeof(TriMeshSource) == collision_format::kObjectSize,
+              "the collision file's object record (collision_format.h)");
 
 } // namespace render

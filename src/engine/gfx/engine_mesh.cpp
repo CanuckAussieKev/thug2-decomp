@@ -13,16 +13,9 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
+#include "engine/render/collision_format.h"
 
 namespace render {
-
-namespace {
-
-constexpr uint32_t kObjectSize = 0x40;
-
-uint32_t justify(uint32_t value, uint32_t to) { return (value + to - 1) & ~(to - 1); }
-
-} // namespace
 
 // 0x00490A60
 SubMesh::SubMesh()
@@ -52,24 +45,27 @@ void* SubMesh::fetch_bone_tree() { return hierarchy_; }
 uint32_t SubMesh::get_hierarchy_count() { return hierarchy_count_; }
 
 // 0x00490B80
-bool SubMesh::add_collision(const uint8_t* data)
+bool SubMesh::add_collision(const uint8_t* data, size_t size)
 {
-    auto word = [data](int offset) { return *reinterpret_cast<const uint32_t*>(data + offset); };
-    collision_count_ = static_cast<int>(word(4));
-    hit_shape_ = const_cast<uint8_t*>(data) + 0x20;
-    uint32_t objects = reinterpret_cast<uint32_t>(hit_shape_);
-    uint32_t vertices = justify((static_cast<uint32_t>(collision_count_) << 6) + objects, 16);
-    uint32_t vertex_bytes = vertices + 2 * (3 * (word(0x18) + 2 * word(0x14)));
-    uint32_t faces = justify(word(8) + vertex_bytes, 4);
-    uint32_t after_faces = justify(word(0xC) * 11 + word(0x10) * 8, 4) + faces;
-    uint32_t nodes = after_faces + 4;
-    uint32_t face_lists = *reinterpret_cast<const uint32_t*>(after_faces) + nodes;
-    for (int i = 0; i < static_cast<int>(word(4)); ++i) {
-        auto* object = reinterpret_cast<TriMeshSource*>(hit_shape_ + i * kObjectSize);
-        object->relocate(0, vertices, vertex_bytes, faces, nodes, face_lists);
+    // Laid out through collision_format.h, as the scene's. Not original - a damaged file (its sections, objects or
+    // trees not within it) is refused: no collision objects.
+    collision_format::CollisionHeader header;
+    collision_format::CollisionLayout layout;
+    hit_shape_ = const_cast<uint8_t*>(data) + collision_format::kHeaderSize;
+    if (!collision_format::lay_out_collision(data, size, &header, &layout) ||
+        !collision_format::check_collision_objects(data, header, layout)) {
+        collision_count_ = 0;
+        return true;
+    }
+    collision_count_ = header.object_count;
+    for (int i = 0; i < header.object_count; ++i) {
+        auto* object = reinterpret_cast<TriMeshSource*>(hit_shape_ + i * collision_format::kObjectSize);
+        object->relocate(0, static_cast<uint32_t>(layout.vertices), static_cast<uint32_t>(layout.vertex_bytes),
+                         static_cast<uint32_t>(layout.faces), static_cast<uint32_t>(layout.nodes),
+                         static_cast<uint32_t>(layout.face_lists));
         object->set_up_all_faces();
-        box_.append_spot(*reinterpret_cast<const maths::Vec4*>(hit_shape_ + i * kObjectSize + 0x10));
-        box_.append_spot(*reinterpret_cast<const maths::Vec4*>(hit_shape_ + i * kObjectSize + 0x20));
+        box_.append_spot(object->lower_limit_);
+        box_.append_spot(object->upper_limit_);
     }
     return true;
 }

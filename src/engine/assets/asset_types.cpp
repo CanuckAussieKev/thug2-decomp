@@ -77,9 +77,9 @@ void collision_file_name(char* out, const char* name, uint8_t flag)
     (void)flag; // (not read)
     render::make_collision_file_name(out, name);
 }
-void add_collision(void* scene, void* buffer, uint8_t flag)
+void add_collision(void* scene, void* buffer, uint32_t size, uint8_t flag)
 {
-    static_cast<render::WorldScene*>(scene)->add_collision_data(static_cast<const uint8_t*>(buffer), flag);
+    static_cast<render::WorldScene*>(scene)->add_collision_data(static_cast<const uint8_t*>(buffer), size, flag);
 }
 void* scene_collision(void* scene) { return static_cast<render::WorldScene*>(scene)->fetch_static_collision(0); }
 void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unload_collision(); }
@@ -98,9 +98,9 @@ void unload_skinned_model(void* model, int flag)
 }
 // Skin collision: its file name, added to a model, removed.
 void skin_collision_file_name(char* out, const char* name) { render::skin_collision_file_name(out, name); }
-void add_skin_collision(void* model, void* buffer)
+void add_skin_collision(void* model, void* buffer, uint32_t size)
 {
-    static_cast<render::SubMesh*>(model)->add_collision(static_cast<const uint8_t*>(buffer));
+    static_cast<render::SubMesh*>(model)->add_collision(static_cast<const uint8_t*>(buffer), size);
 }
 void remove_skin_collision(void* model) { static_cast<render::SubMesh*>(model)->detach_hit_mesh(); }
 // Texture dictionaries: the file name, made, unloaded.
@@ -582,7 +582,7 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool use_archive,
 bool SceneCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* scene = group_data(this);
-    add_collision(scene, buffer, args_[4]);
+    add_collision(scene, buffer, size, args_[4]); // (not original: the size)
     change_contents(scene_collision(scene));
     free_load_params(args_);
     args_ = nullptr;
@@ -875,7 +875,7 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool use_archive, 
 bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* model = group_data(this);
-    add_skin_collision(model, buffer);
+    add_skin_collision(model, buffer, size); // (not original: the size)
     change_contents(*reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x8C));
     free_load_params(args_);
     args_ = nullptr;

@@ -4,6 +4,7 @@
 
 #include "engine/gfx/engine_scene.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -19,6 +20,7 @@
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
+#include "engine/render/collision_format.h"
 #include "engine/render/coll_capsule.h"
 #include "engine/render/coll_sphere.h"
 #include "engine/render/coll_rect.h"
@@ -150,28 +152,33 @@ bool WorldScene::delete_sector_named(uint32_t name)
 }
 
 // 0x0049CBB0
-bool WorldScene::load_collision_data(const uint8_t* data, int* count, StaticCollider** statics, uint8_t** objects,
-                                     maths::BBox* box, int)
+bool WorldScene::load_collision_data(const uint8_t* data, size_t size, int* count, StaticCollider** statics,
+                                     uint8_t** objects, maths::BBox* box, int)
 {
-    auto word = [data](int offset) { return *reinterpret_cast<const int*>(data + offset); };
-    auto align = [](uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); };
-    // the data after the header (+4 objects, +8 vertex bytes, +0xC faces, +0x10 nodes, +0x14 / +0x18 vertices) and
-    // the objects (0x40 bytes each)
-    *count = word(4);
-    *objects = const_cast<uint8_t*>(data) + 0x20;
-    uintptr_t vertices =
-        align(reinterpret_cast<uintptr_t>(*objects) + static_cast<uintptr_t>(*count) * kTriDataSize, 16);
-    uintptr_t vertex_bytes = vertices + 6 * static_cast<uintptr_t>(word(0x18) + 2 * word(0x14));
-    uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
-    uintptr_t nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
-    uintptr_t buffer = faces + nodes_at;
-    uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
-    uintptr_t nodes = faces + faces_size + 4;
-    uintptr_t face_lists = nodes + *reinterpret_cast<const uint32_t*>(faces + faces_size);
+    // The header read and the sections laid out through collision_format.h (+4 objects, +8 vertex bytes, +0xC / +0x10
+    // faces, +0x14 / +0x18 vertices; the objects 0x40 bytes each, then the vertices, faces, nodes and face lists).
+    // Not original - a file whose sections, objects or trees aren't within it is refused (no collision; the original
+    // fixed up and read whatever the offsets said). Valid files are laid out as before.
+    collision_format::CollisionHeader header;
+    collision_format::CollisionLayout layout;
+    bool valid = collision_format::lay_out_collision(data, size, &header, &layout) &&
+                 collision_format::check_collision_objects(data, header, layout);
+    if (!valid) {
+        debug::printf("a damaged collision file: not loaded\n");
+        header.object_count = 0;
+    }
+    *count = header.object_count;
+    *objects = const_cast<uint8_t*>(data) + collision_format::kHeaderSize;
+    uintptr_t vertices = layout.vertices;
+    uintptr_t vertex_bytes = layout.vertex_bytes;
+    uintptr_t faces = layout.faces;
+    uintptr_t buffer = layout.face_buffers;
+    uintptr_t nodes = layout.nodes;
+    uintptr_t face_lists = layout.face_lists;
     bool any_vertices = false;
     // the static objects: an array new (the count before them)
-    *statics = new StaticCollider[static_cast<unsigned int>(word(4))];
-    for (int i = 0; i < word(4); ++i) {
+    *statics = new StaticCollider[static_cast<unsigned int>(header.object_count)];
+    for (int i = 0; i < header.object_count; ++i) {
         auto* geometry = reinterpret_cast<TriMeshSource*>(*objects + i * kTriDataSize);
         geometry->relocate(reinterpret_cast<uint32_t>(this), static_cast<uint32_t>(vertices),
                            static_cast<uint32_t>(vertex_bytes), static_cast<uint32_t>(faces),
@@ -180,10 +187,9 @@ bool WorldScene::load_collision_data(const uint8_t* data, int* count, StaticColl
         StaticCollider* object = &(*statics)[i];
         object->assign_shape_data(geometry);
         buffer = reinterpret_cast<uintptr_t>(object->take_buffer(reinterpret_cast<uint8_t*>(buffer), geometry));
-        auto* bytes = reinterpret_cast<uint8_t*>(geometry);
-        if (*reinterpret_cast<uint16_t*>(bytes + 8) > 0) {
-            box->append_spot(*reinterpret_cast<const maths::Vec4*>(bytes + 0x10));
-            box->append_spot(*reinterpret_cast<const maths::Vec4*>(bytes + 0x20));
+        if (geometry->tri_count_ > 0) {
+            box->append_spot(geometry->lower_limit_);
+            box->append_spot(geometry->upper_limit_);
             any_vertices = true;
         }
     }

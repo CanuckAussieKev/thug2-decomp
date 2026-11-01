@@ -19,6 +19,7 @@
 #include "engine/file/pre_format.h"
 #include "engine/gfx/image_format.h"
 #include "engine/gfx/texture_format.h"
+#include "engine/render/collision_format.h"
 #include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "tests/format_check_files.h"
@@ -383,6 +384,47 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
     check(file_size - 3 <= size, name + ": the file loader's bytes within the file");
 }
 
+// --- collision (.col) ----------------------------------------------------------------------------------------------
+
+int g_collision_objects = 0;
+
+void check_collision(const std::string& name, const uint8_t* data, size_t size)
+{
+    // (the game's files are loaded 16-byte aligned: a copy so)
+    std::vector<uint8_t> copy(size + 16);
+    auto* base = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~uintptr_t(15));
+    std::memcpy(base, data, size);
+    collision_format::CollisionHeader header;
+    collision_format::CollisionLayout layout;
+    if (!collision_format::lay_out_collision(base, size, &header, &layout)) {
+        check(false, name + ": collision layout");
+        return;
+    }
+    check(header.version == 10, name + ": version 10");
+    // the original's (WorldScene::load_collision_data) arithmetic
+    auto word = [base](int offset) { return *reinterpret_cast<const int*>(base + offset); };
+    auto align = [](uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); };
+    uintptr_t objects = reinterpret_cast<uintptr_t>(base) + 0x20;
+    uintptr_t vertices = align(objects + static_cast<uintptr_t>(word(4)) * 0x40, 16);
+    uintptr_t vertex_bytes = vertices + 6 * static_cast<uintptr_t>(word(0x18) + 2 * word(0x14));
+    uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
+    uintptr_t nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
+    uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
+    uintptr_t nodes = faces + faces_size + 4;
+    uintptr_t face_lists = nodes + *reinterpret_cast<const uint32_t*>(faces + faces_size);
+    check(layout.objects == objects && layout.vertices == vertices && layout.vertex_bytes == vertex_bytes &&
+              layout.faces == faces && layout.face_buffers == faces + nodes_at && layout.nodes == nodes &&
+              layout.face_lists == face_lists,
+          name + ": the sections as the original's arithmetic");
+    check(collision_format::check_collision_objects(base, header, layout), name + ": every object within its sections");
+    g_collision_objects += header.object_count;
+    // a size short of the tree's: refused
+    collision_format::CollisionHeader again;
+    collision_format::CollisionLayout cut;
+    size_t short_size = static_cast<size_t>(layout.nodes - reinterpret_cast<uintptr_t>(base)) - 1;
+    check(!collision_format::lay_out_collision(base, short_size, &again, &cut), name + ": cut short");
+}
+
 } // namespace
 
 void register_check(const std::string& extension, FileCheck check_function)
@@ -397,6 +439,7 @@ int run(const std::filesystem::path& data)
     register_check(".cut", check_bundle);
     register_check(".tex", check_texture_dictionary);
     register_check(".img", check_image);
+    register_check(".col", check_collision);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -429,6 +472,7 @@ int run(const std::filesystem::path& data)
     std::printf("images: %d (%d palettized, %d plain); the file loader's bytes within %d, the memory loader's %d\n",
                 g_images.files, g_images.palettized, g_images.plain, g_images.file_size_as_loaded,
                 g_images.memory_size_as_loaded);
+    std::printf("collision objects: %d\n", g_collision_objects);
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());
