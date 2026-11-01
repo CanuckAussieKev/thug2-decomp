@@ -2,6 +2,7 @@
 
 #include "engine/objects/control_pad.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -25,12 +26,7 @@ int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // frame_clock::GetTime as the original compares it: unsigned, as a float would hold it.
 double get_now() { return static_cast<double>(frame_clock::get_time()); }
 
-float float_from_bits(uint32_t bits)
-{
-    float f;
-    std::memcpy(&f, &bits, sizeof(f));
-    return f;
-}
+constexpr float float_from_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 
 const float kPi = float_from_bits(0x40490FDB);
 const float kHalfPi = float_from_bits(0x3FC90FDB);

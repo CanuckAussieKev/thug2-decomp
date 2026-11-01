@@ -4,6 +4,7 @@
 
 #include "game/park_editing/rail_editor.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -33,8 +34,7 @@ namespace {
 
 float float_bits(uint32_t bits)
 {
-    float value;
-    std::memcpy(&value, &bits, sizeof(value));
+    float value = std::bit_cast<float>(bits);
     return value;
 }
 

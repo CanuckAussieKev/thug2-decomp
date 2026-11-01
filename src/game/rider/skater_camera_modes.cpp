@@ -1,6 +1,7 @@
 // The skater camera component's (skater_camera_component.h) destructor body, Finalize, the state taken over from
 // another camera, the distances' lerps and its camera modes. From the disassembly of 0x004F9970-0x004F9E7E.
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -35,8 +36,7 @@ constexpr float kPi = 3.14159274f, kHalfPi = 1.57079637f;
 float one_frame()
 {
     uint32_t bits = 0x3C888889; // 0x0064BA64 (1/60)
-    float value;
-    std::memcpy(&value, &bits, sizeof(value));
+    float value = std::bit_cast<float>(bits);
     return value;
 }
 

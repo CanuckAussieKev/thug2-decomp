@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_triggers.h"
 
+#include <bit>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -540,8 +541,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
             put_name(&out, get_checksums(key));
             out.push_back(0x07);
             out.push_back(0x1A);
-            uint32_t bits;
-            std::memcpy(&bits, &value, 4);
+            uint32_t bits = std::bit_cast<uint32_t>(value);
             get_put4(&out, bits);
         };
         put_name(&out, get_checksums("Shatter"));
@@ -569,8 +569,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
         out.push_back(0x07);
         out.push_back(0x1A);
         float seconds = clamp_seconds(spec.seconds);
-        uint32_t bits;
-        std::memcpy(&bits, &seconds, 4);
+        uint32_t bits = std::bit_cast<uint32_t>(seconds);
         get_put4(&out, bits);
         out.push_back(0x01);
         break;

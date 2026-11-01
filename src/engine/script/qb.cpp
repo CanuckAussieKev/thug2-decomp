@@ -482,24 +482,6 @@ void log_script_pool_use(const char* when)
 
 } // namespace script
 
-namespace {
-
-// The per-class pool creators (cdecl: count, name).
-#define POOL_CREATOR(function, pools, itemSize)                                                                        \
-    void function(int count, const char* name) { script::create_pool(script::pools, itemSize, count, name); }
-POOL_CREATOR(create_cache_entry_pool, g_cache_entry_pools, 0x14)
-POOL_CREATOR(create_component_pool, g_component_pools, 0x10)
-POOL_CREATOR(create_struct_pool, g_struct_pools, 0x08)
-POOL_CREATOR(create_vector_pool, g_vector_pools, 0x10)
-POOL_CREATOR(create_pair_pool, g_pair_pools, 0x0C)
-POOL_CREATOR(create_array_pool, g_array_pools, 0x0C)
-POOL_CREATOR(create_symbol_pool, g_symbol_pools, 0x14)
-POOL_CREATOR(create_script_pool, g_script_pools, 0xF4)
-POOL_CREATOR(create_stored_random_pool, g_stored_random_pools, 0x60)
-#undef POOL_CREATOR
-
-} // namespace
-
 // --- symbol bookkeeping for the loader --------------------------------------------------------------------
 
 namespace script {

@@ -3,6 +3,7 @@
 
 #include "engine/objects/object_proximity.h"
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -33,8 +34,7 @@ constexpr float kTwelveInchScale = 12.0f; // 0x0064546C
 float far_away()
 {
     uint32_t bits = 0x55CE224C;
-    float value;
-    std::memcpy(&value, &bits, 4);
+    float value = std::bit_cast<float>(bits);
     return value;
 }
 

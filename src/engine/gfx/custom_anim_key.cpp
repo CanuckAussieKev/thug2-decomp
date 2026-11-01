@@ -1,5 +1,6 @@
 // An animation's custom keys (see custom_anim_key.h). From the disassembly of 0x004860C0-0x00486875.
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -201,8 +202,7 @@ memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
     case 1: {
         uint32_t fov = *data;
         *cursor = reinterpret_cast<const uint8_t*>(data + 1);
-        float field_of_view;
-        std::memcpy(&field_of_view, &fov, sizeof(field_of_view));
+        float field_of_view = std::bit_cast<float>(fov);
         return new CameraFovKey(frame, field_of_view);
     }
     case 2:

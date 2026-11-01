@@ -1,6 +1,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/cscript.h"
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -1124,8 +1125,7 @@ void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
         put_int(name, static_cast<int>(value));
         break;
     case kQbvalFloat: {
-        float number;
-        std::memcpy(&number, &value, 4);
+        float number = std::bit_cast<float>(value);
         push_float(name, number);
         break;
     }
@@ -1321,8 +1321,7 @@ float Array::fetch_float(uint32_t index)
 {
     uint32_t bits = fetch_part(index);
     if (kind_tag_ == kQbvalFloat) {
-        float value;
-        std::memcpy(&value, &bits, 4);
+        float value = std::bit_cast<float>(bits);
         return value;
     }
     return static_cast<float>(static_cast<int32_t>(bits));
@@ -1601,8 +1600,7 @@ bool components_equal(Component* a, Component* b)
     resolve(a, &type_a, &value_a);
     resolve(b, &type_b, &value_b);
     auto as_float = [](uint32_t bits) {
-        float value;
-        std::memcpy(&value, &bits, 4);
+        float value = std::bit_cast<float>(bits);
         return static_cast<double>(value);
     };
     // (integers are compared with floats exactly, as the x87 does)

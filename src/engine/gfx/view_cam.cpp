@@ -1,5 +1,6 @@
 #include "engine/gfx/view_cam.h"
 
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -18,12 +19,7 @@ namespace {
 
 constexpr uint32_t kSetHfovRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians
 
-float float_from_bits(uint32_t bits)
-{
-    float f;
-    std::memcpy(&f, &bits, 4);
-    return f;
-}
+constexpr float float_from_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 // The original's constants (0x00648800 pi / 360, 0x00648804 360 / pi, 0x006453BC 0.5, 0x00645464 pi / 180,
 // 0x00645468 180 / pi).
 const float kDegreesToHalfRadians = float_from_bits(0x3C0EFA35);

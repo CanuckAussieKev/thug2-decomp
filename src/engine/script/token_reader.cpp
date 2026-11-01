@@ -1,5 +1,6 @@
 #include "engine/script/token_reader.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -29,8 +30,7 @@ namespace {
 
 float get_as_float(uint32_t bits)
 {
-    float value;
-    std::memcpy(&value, &bits, 4);
+    float value = std::bit_cast<float>(bits);
     return value;
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -71,8 +72,7 @@ public:
     float f32()
     {
         uint32_t bits = u32();
-        float value;
-        std::memcpy(&value, &bits, sizeof(value));
+        float value = std::bit_cast<float>(bits);
         return value;
     }
 
@@ -201,8 +201,7 @@ public:
     bool i32(int32_t value) { return u32(static_cast<uint32_t>(value)); }
     bool f32(float value)
     {
-        uint32_t bits;
-        std::memcpy(&bits, &value, sizeof(bits));
+        uint32_t bits = std::bit_cast<uint32_t>(value);
         return u32(bits);
     }
     bool bytes(const void* data, size_t count)

@@ -4,6 +4,7 @@
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles, rounded
 // to float only where the original stores them.
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -405,8 +406,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
             skater_object(this)->post_own_event(same ? kFlailRight : kFlailLeft, nullptr);
             if (!on_vehicle_) {
                 // (The original passes the surface byte in a word whose upper bytes are the angle's.)
-                uint32_t angle_bits;
-                std::memcpy(&angle_bits, &angle, 4);
+                uint32_t angle_bits = std::bit_cast<uint32_t>(angle);
                 uint32_t surface = (angle_bits & 0xFFFFFF00u) | feeler_.hit_.terrain;
                 float impact = static_cast<float>(speed / stat_value(object_of(this), kMaxMaxSpeedStat));
                 static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk(impact, static_cast<int>(surface));

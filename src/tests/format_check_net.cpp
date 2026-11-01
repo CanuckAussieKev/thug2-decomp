@@ -15,6 +15,9 @@
 #include "engine/net/skater_messages.h"
 #include "engine/util/byte_stream.h"
 #include "game/park_editing/rail_buffer_format.h"
+#include "platform/compiler.h"
+
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)
 
 namespace format_check_net {
 

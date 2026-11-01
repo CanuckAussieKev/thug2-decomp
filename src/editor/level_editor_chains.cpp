@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_chains.h"
 
+#include <bit>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -529,8 +530,7 @@ std::vector<uint8_t> speed_body(uint32_t original, float rate)
     put_name(&out, checksums::hash_from_text("rate"));
     out.push_back(0x07);
     out.push_back(0x1A);
-    uint32_t bits;
-    std::memcpy(&bits, &rate, 4);
+    uint32_t bits = std::bit_cast<uint32_t>(rate);
     get_put4(&out, bits);
     out.push_back(0x01);
     return out;

@@ -13,6 +13,7 @@
 // On the bike the d-pad is the camera (THAW turns the stick's d-pad off: bike_start's SetAnalogStickActiveForMenus 0),
 // so nothing here reads the d-pad as the stick; on the keyboard the movement keys push the stick all the way.
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -719,8 +720,7 @@ void steer_anim(SkaterPhysicsModule* core)
         } else {
             // (Obj_SetAnimSubsetWeight's blend_to, no blend period: the weight at once)
             float weight = state.steer_in_ * state.steer_blend_;
-            uint32_t bits;
-            std::memcpy(&bits, &weight, sizeof(bits));
+            uint32_t bits = std::bit_cast<uint32_t>(weight);
             channel->blend_to(bits, 0.0f);
         }
     }

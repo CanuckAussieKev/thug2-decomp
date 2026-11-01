@@ -2,6 +2,7 @@
 
 #include "engine/script/struct_buffer.h"
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -31,13 +32,15 @@ constexpr uint8_t kTagZeroF = 0x13;
 
 uint32_t float_bits(float value)
 {
-    uint32_t bits;
-    std::memcpy(&bits, &value, sizeof(bits));
+    uint32_t bits = std::bit_cast<uint32_t>(value);
     return bits;
 }
 
 // The bytes written since `start` (a writer's position).
-uint32_t written_since(const util::ByteWriter& out, size_t start) { return static_cast<uint32_t>(out.position() - start); }
+uint32_t written_since(const util::ByteWriter& out, size_t start)
+{
+    return static_cast<uint32_t>(out.position() - start);
+}
 
 } // namespace
 

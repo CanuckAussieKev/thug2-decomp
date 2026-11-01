@@ -5,6 +5,7 @@
 #include "engine/objects/dynamic_light.h"
 #include "engine/gfx/light_manager.h"
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -131,8 +132,7 @@ void DynamicLightComponent::tick_frame()
     uint32_t from_color = start_color_, to_color = end_color_;
     float from_radius = start_radius_, to_radius = end_radius_;
     float from_intensity = start_intensity_, to_intensity = end_intensity_;
-    uint32_t middle_bits;
-    std::memcpy(&middle_bits, &middle_time_, 4);
+    uint32_t middle_bits = std::bit_cast<uint32_t>(middle_time_);
     if (middle_bits != kNoMiddle) {
         if (t <= middle_time_) {
             to_color = middle_color_;

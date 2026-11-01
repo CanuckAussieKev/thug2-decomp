@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -122,8 +123,7 @@ struct TriMeshSource {
     // +0x3C as the line tests read it: a float.
     float rejection_scale() const
     {
-        float scale;
-        std::memcpy(&scale, &unknown3c_, 4);
+        float scale = std::bit_cast<float>(unknown3c_);
         return scale;
     }
 

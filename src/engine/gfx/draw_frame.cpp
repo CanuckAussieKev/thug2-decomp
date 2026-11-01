@@ -9,6 +9,7 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/wireframe.h"
 
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -146,12 +147,7 @@ float atan2_less_quarter_turn(float y, float x)
     return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)) - kQuarterTurn);
 }
 
-float float_from_bits(uint32_t bits)
-{
-    float f;
-    std::memcpy(&f, &bits, 4);
-    return f;
-}
+constexpr float float_from_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 
 } // namespace
 
