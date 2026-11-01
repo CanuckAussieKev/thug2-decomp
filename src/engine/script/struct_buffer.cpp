@@ -36,34 +36,36 @@ uint32_t float_bits(float value)
     return bits;
 }
 
-uint32_t get_written(const uint8_t* end, const uint8_t* start) { return static_cast<uint32_t>(end - start); }
+// The bytes written since `start` (a writer's position).
+uint32_t written_since(const util::ByteWriter& out, size_t start) { return static_cast<uint32_t>(out.position() - start); }
 
 } // namespace
 
 // 0x00479840
-uint8_t* write_name_and_type(uint8_t* buffer, uint8_t type, uint32_t name)
+void write_name_and_type(util::ByteWriter& out, uint8_t type, uint32_t name)
 {
     Array* short_names = fetch_list(kShortNames);
     for (int i = 0; i < static_cast<int>(short_names->extent_); ++i) {
         if (short_names->fetch_part(i) == name) {
-            buffer[0] = type | 0x80;
-            buffer[1] = static_cast<uint8_t>(i);
-            return buffer + 2;
+            out.u8(type | 0x80);
+            out.u8(static_cast<uint8_t>(i));
+            return;
         }
     }
     Array* medium_names = fetch_list(kMediumNames);
     for (int i = 0; i < static_cast<int>(medium_names->extent_); ++i) {
         if (medium_names->fetch_part(i) == name) {
-            buffer[0] = type | 0x40;
-            return store_word16(buffer + 1, static_cast<uint16_t>(i));
+            out.u8(type | 0x40);
+            out.u16(static_cast<uint16_t>(i));
+            return;
         }
     }
-    buffer[0] = type;
-    return store_word32(buffer + 1, name);
+    out.u8(type);
+    out.u32(name);
 }
 
 // 0x004798F0
-uint32_t emit_int(uint32_t name, int value, uint8_t* buffer, uint32_t size)
+uint32_t emit_int(util::ByteWriter& out, uint32_t name, int value)
 {
     uint8_t type = kQbvalInteger;
     if (value == 0)
@@ -78,258 +80,245 @@ uint32_t emit_int(uint32_t name, int value, uint8_t* buffer, uint32_t size)
         type = kSignedShort;
     // written in a scratch buffer first, then copied if it fits
     uint8_t scratch[0x14];
-    uint8_t* end = write_name_and_type(scratch, type, name);
+    util::ByteWriter component(scratch, sizeof(scratch));
+    write_name_and_type(component, type, name);
     switch (type) {
     case kQbvalInteger:
-        end = store_word32(end, static_cast<uint32_t>(value));
+        component.u32(static_cast<uint32_t>(value));
         break;
     case kSignedByte:
     case kUnsignedByte:
-        *end++ = static_cast<uint8_t>(value);
+        component.u8(static_cast<uint8_t>(value));
         break;
     case kSignedShort:
     case kUnsignedShort:
-        end = store_word16(end, static_cast<uint16_t>(value));
+        component.u16(static_cast<uint16_t>(value));
         break;
     default:
         break;
     }
-    uint32_t length = get_written(end, scratch);
-    if (size < length)
+    auto length = static_cast<uint32_t>(component.position());
+    if (out.remaining() < length)
         return 0;
-    std::memcpy(buffer, scratch, length);
+    out.bytes(scratch, length);
     return length;
 }
 
 // 0x00479A50
-uint32_t emit_real(uint8_t* buffer, uint32_t name, uint32_t size, float value)
+uint32_t emit_real(util::ByteWriter& out, uint32_t name, float value)
 {
+    size_t start = out.position();
     float magnitude = value < 0.0f ? -value : value;
     // (a NaN counts as big)
     if (magnitude < 0.0001) {
-        if (size < 5)
+        if (out.remaining() < 5)
             return 0;
-        return get_written(write_name_and_type(buffer, kTagZeroF, name), buffer);
+        write_name_and_type(out, kTagZeroF, name);
+        return written_since(out, start);
     }
-    if (size < 9)
+    if (out.remaining() < 9)
         return 0;
-    return get_written(store_word32(write_name_and_type(buffer, kQbvalFloat, name), float_bits(value)), buffer);
+    write_name_and_type(out, kQbvalFloat, name);
+    out.u32(float_bits(value));
+    return written_since(out, start);
 }
 
 namespace {
 
-uint32_t write_string_of_type(uint8_t* buffer, const char* string, uint32_t name, uint32_t size, uint8_t type)
+uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_t name, uint8_t type)
 {
-    uint32_t length = static_cast<uint32_t>(std::strlen(string));
-    if (size < length + 6)
+    auto length = static_cast<uint32_t>(std::strlen(string));
+    if (out.remaining() < length + 6) // (room for the longest name form, as the original)
         return 0;
-    uint8_t* p = write_name_and_type(buffer, type, name);
-    for (uint32_t i = 0; i < length; ++i)
-        *p++ = static_cast<uint8_t>(string[i]);
-    *p = 0;
-    return get_written(p, buffer) + 1;
+    size_t start = out.position();
+    write_name_and_type(out, type, name);
+    out.c_string(string);
+    return written_since(out, start);
 }
 
 } // namespace
 
 // 0x00479AC0
-uint32_t write_string(uint8_t* buffer, const char* string, uint32_t name, uint32_t size)
+uint32_t write_string(util::ByteWriter& out, const char* string, uint32_t name)
 {
-    return write_string_of_type(buffer, string, name, size, kQbvalString);
+    return write_string_of_type(out, string, name, kQbvalString);
 }
 
 // 0x00479B20
-uint32_t write_local_string(uint8_t* buffer, const char* string, uint32_t name, uint32_t size)
+uint32_t write_local_string(util::ByteWriter& out, const char* string, uint32_t name)
 {
-    return write_string_of_type(buffer, string, name, size, kQbvalInlineText);
+    return write_string_of_type(out, string, name, kQbvalInlineText);
 }
 
+namespace {
+
+uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, void (*callback)());
+
+} // namespace
+
 // 0x00479B80
-uint32_t write_array_to_buffer(Array* array, uint8_t* buffer, uint32_t size, int assert)
+uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
 {
-    if (size < 3)
+    if (out.remaining() < 3)
         return 0;
+    size_t start = out.position();
     uint8_t type = array->kind_tag_;
     uint32_t count = array->extent_;
-    buffer[0] = type;
-    uint8_t* p = store_word16(buffer + 1, static_cast<uint16_t>(count));
-    uint32_t remaining = size - 3;
+    out.u8(type);
+    out.u16(static_cast<uint16_t>(count));
     switch (type) {
     case kQbvalInteger:
     case kQbvalFloat:
     case kQbvalName: {
-        uint32_t bytes = count * 4;
-        if (bytes > remaining)
+        if (uint64_t{count} * 4 > out.remaining())
             return 0;
         const uint32_t* elements = array->find_array_value();
         for (uint32_t i = 0; i < count; ++i)
-            p = store_word32(p, elements[i]);
-        remaining -= bytes;
+            out.u32(elements[i]);
         break;
     }
     case kQbvalString:
     case kQbvalInlineText: {
         const uint32_t* elements = array->find_array_value();
         for (uint32_t i = 0; i < count; ++i) {
-            for (const char* c = reinterpret_cast<const char*>(elements[i]); *c; ++c) {
-                if (remaining == 0)
-                    return 0;
-                *p++ = static_cast<uint8_t>(*c);
-                --remaining;
-            }
-            if (remaining == 0)
+            if (!out.c_string(reinterpret_cast<const char*>(elements[i])))
                 return 0;
-            *p++ = 0;
-            --remaining;
         }
         break;
     }
     case kQbvalPair: {
-        uint32_t bytes = count * 8;
-        if (bytes > remaining)
+        if (uint64_t{count} * 8 > out.remaining())
             return 0;
         auto** pairs = reinterpret_cast<Pair**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            p = store_word32(p, float_bits(pairs[i]->x));
-            p = store_word32(p, float_bits(pairs[i]->y));
+            out.f32(pairs[i]->x);
+            out.f32(pairs[i]->y);
         }
-        remaining -= bytes;
         break;
     }
     case kQbvalVector: {
-        uint32_t bytes = count * 12;
-        if (bytes > remaining)
+        if (uint64_t{count} * 12 > out.remaining())
             return 0;
         auto** vectors = reinterpret_cast<Vector**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            p = store_word32(p, float_bits(vectors[i]->x));
-            p = store_word32(p, float_bits(vectors[i]->y));
-            p = store_word32(p, float_bits(vectors[i]->z));
+            out.f32(vectors[i]->x);
+            out.f32(vectors[i]->y);
+            out.f32(vectors[i]->z);
         }
-        remaining -= bytes;
         break;
     }
     case kQbvalStruct: {
         auto** structures = reinterpret_cast<Struct**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            uint32_t written = emit_into_buffer(structures[i], p, remaining, assert, nullptr);
-            if (written == 0)
+            if (emit_structure(out, structures[i], assert, nullptr) == 0)
                 return 0;
-            remaining -= written;
-            p += written;
         }
         break;
     }
     case kQbvalArray: {
         auto** arrays = reinterpret_cast<Array**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
-            uint32_t written = write_array_to_buffer(arrays[i], p, remaining, assert);
-            if (written == 0)
+            if (write_array_to_buffer(out, arrays[i], assert) == 0)
                 return 0;
-            remaining -= written;
-            p += written;
         }
         break;
     }
     default:
         break; // (other types: just the type and count)
     }
-    return size - remaining;
+    return written_since(out, start);
 }
 
-// 0x00479E20
-uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)())
+namespace {
+
+// 0x00479E20's body: the structure's components and its terminating zero at the writer (each component's fit tested
+// as the original: room for the longest name form and the value), the bytes written - 0 when they don't fit.
+uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, void (*callback)())
 {
-    uint32_t remaining = size;
-    uint8_t* p = buffer;
+    size_t start = out.position();
     if (structure) {
         for (Component* component = structure->step_to_entry(nullptr); component;
              component = structure->step_to_entry(component)) {
             if (callback)
                 callback();
             uint32_t written;
+            size_t at = out.position();
             switch (component->kind_tag()) {
             case kQbvalInteger:
-                written = emit_int(component->name, component->integer, p, remaining);
+                written = emit_int(out, component->name, component->integer);
                 break;
             case kQbvalFloat:
-                written = emit_real(p, component->name, remaining, component->float_value_);
+                written = emit_real(out, component->name, component->float_value_);
                 break;
             case kQbvalString:
-                written = write_string(p, component->string, component->name, remaining);
+                written = write_string(out, component->string, component->name);
                 break;
             case kQbvalInlineText:
-                written = write_local_string(p, component->string, component->name, remaining);
+                written = write_local_string(out, component->string, component->name);
                 break;
-            case kQbvalPair: {
-                if (remaining < 13)
+            case kQbvalPair:
+                if (out.remaining() < 13)
                     return 0;
-                uint8_t* end = write_name_and_type(p, kQbvalPair, component->name);
-                end = store_word32(end, float_bits(component->pair->x));
-                end = store_word32(end, float_bits(component->pair->y));
-                written = get_written(end, p);
+                write_name_and_type(out, kQbvalPair, component->name);
+                out.f32(component->pair->x);
+                out.f32(component->pair->y);
+                written = written_since(out, at);
                 break;
-            }
-            case kQbvalVector: {
-                if (remaining < 17)
+            case kQbvalVector:
+                if (out.remaining() < 17)
                     return 0;
-                uint8_t* end = write_name_and_type(p, kQbvalVector, component->name);
-                end = store_word32(end, float_bits(component->vector->x));
-                end = store_word32(end, float_bits(component->vector->y));
-                end = store_word32(end, float_bits(component->vector->z));
-                written = get_written(end, p);
+                write_name_and_type(out, kQbvalVector, component->name);
+                out.f32(component->vector->x);
+                out.f32(component->vector->y);
+                out.f32(component->vector->z);
+                written = written_since(out, at);
                 break;
-            }
-            case kQbvalScriptBody: {
+            case kQbvalScriptBody:
                 // (a script can't be sent: a placeholder name instead)
-                if (remaining < 9)
+                if (out.remaining() < 9)
                     return 0;
-                uint8_t* end = write_name_and_type(p, kQbvalName, component->name);
-                written = get_written(store_word32(end, kScriptPlaceholder), p);
+                write_name_and_type(out, kQbvalName, component->name);
+                out.u32(kScriptPlaceholder);
+                written = written_since(out, at);
                 break;
-            }
-            case kQbvalStruct: {
-                if (remaining < 5)
+            case kQbvalStruct:
+                if (out.remaining() < 5)
                     return 0;
-                uint8_t* end = write_name_and_type(p, kQbvalStruct, component->name);
-                uint32_t header = get_written(end, p);
-                uint32_t inner = emit_into_buffer(component->structure, end, remaining - header, assert, nullptr);
-                if (inner == 0)
-                    return 0;
-                written = inner + header;
+                write_name_and_type(out, kQbvalStruct, component->name);
+                written = emit_structure(out, component->structure, assert, nullptr);
                 break;
-            }
-            case kQbvalArray: {
-                if (remaining < 5)
+            case kQbvalArray:
+                if (out.remaining() < 5)
                     return 0;
-                uint8_t* end = write_name_and_type(p, kQbvalArray, component->name);
-                uint32_t header = get_written(end, p);
-                uint32_t inner = write_array_to_buffer(component->array, end, remaining - header, assert);
-                if (inner == 0)
-                    return 0;
-                written = inner + header;
+                write_name_and_type(out, kQbvalArray, component->name);
+                written = write_array_to_buffer(out, component->array, assert);
                 break;
-            }
-            case kQbvalName: {
-                if (remaining < 9)
+            case kQbvalName:
+                if (out.remaining() < 9)
                     return 0;
-                uint8_t* end = write_name_and_type(p, kQbvalName, component->name);
-                written = get_written(store_word32(end, component->checksum), p);
+                write_name_and_type(out, kQbvalName, component->name);
+                out.u32(component->checksum);
+                written = written_since(out, at);
                 break;
-            }
             default:
                 return 0; // (C functions, member functions, pointers...)
             }
-            if (written == 0)
+            if (written == 0 || !out.ok())
                 return 0;
-            remaining -= written;
-            p += written;
         }
     }
-    if (remaining == 0)
+    if (!out.u8(0)) // (the end marker: no room for it - nothing)
         return 0;
-    *p = 0;
-    return size - remaining + 1;
+    return written_since(out, start);
+}
+
+} // namespace
+
+// 0x00479E20
+uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)())
+{
+    util::ByteWriter out(buffer, size);
+    return emit_structure(out, structure, assert, callback);
 }
 
 // 0x0047A070

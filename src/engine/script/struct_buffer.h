@@ -13,24 +13,29 @@
 #include <cstddef>
 #include <cstdint>
 
+namespace util {
+class ByteWriter;
+} // namespace util
+
 namespace script {
 
 class Struct;
 class Array;
 
-// 0x00479840: the type byte and the name (shortened when the name is in one of the two arrays); returns the end.
-uint8_t* write_name_and_type(uint8_t* buffer, uint8_t type, uint32_t name);
-// 0x004798F0: an integer component, in the smallest form for its value. Returns the
-// bytes written - 0 when they don't fit in `size`.
-uint32_t emit_int(uint32_t name, int value, uint8_t* buffer, uint32_t size);
+// The writers below write at a util::ByteWriter (NOT ORIGINAL: the original's took a buffer pointer and the bytes left);
+// each tests its fit as the original did - room for the longest name form (5 bytes) and the value - and returns the
+// bytes written, 0 when they don't fit (the writer's bytes past its start are then not to be used).
+// 0x00479840: the type byte and the name (shortened when the name is in one of the two arrays).
+void write_name_and_type(util::ByteWriter& out, uint8_t type, uint32_t name);
+// 0x004798F0: an integer component, in the smallest form for its value.
+uint32_t emit_int(util::ByteWriter& out, uint32_t name, int value);
 // 0x00479A50: a float component (0x13 with no value for tiny ones).
-uint32_t emit_real(uint8_t* buffer, uint32_t name, uint32_t size, float value);
+uint32_t emit_real(util::ByteWriter& out, uint32_t name, float value);
 // 0x00479AC0 / 0x00479B20: a string / local string component.
-uint32_t write_string(uint8_t* buffer, const char* string, uint32_t name, uint32_t size);
-uint32_t write_local_string(uint8_t* buffer, const char* string, uint32_t name, uint32_t size);
-// 0x00479B80: an array's type, count and elements (strings and nested values included). Returns the bytes
-// written (0: they don't fit).
-uint32_t write_array_to_buffer(Array* array, uint8_t* buffer, uint32_t size, int assert);
+uint32_t write_string(util::ByteWriter& out, const char* string, uint32_t name);
+uint32_t write_local_string(util::ByteWriter& out, const char* string, uint32_t name);
+// 0x00479B80: an array's type, count and elements (strings and nested values included).
+uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert);
 // 0x00479E20: the structure (null: empty), with the terminating zero. `callback` (if any) is called before each
 // component. Returns the bytes written, 0 when they don't fit (or a component can't be written).
 uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)());
