@@ -3,10 +3,12 @@
 
 #include "engine/pad_input/sdl_input.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 #include <SDL2/SDL.h>
 
@@ -133,10 +135,8 @@ uint8_t in_menu_flag() { return g_in_menu_flag; }
 
 // --- controllers and players ----------------------------------------------------------------------------------
 
-// The open controllers (a list that only grows; removed ones shift the rest down).
-int s_controller_count;
-int s_controller_capacity;
-SDL_GameController** s_controllers;
+// The open controllers (removed ones shift the rest down).
+std::vector<SDL_GameController*> s_controllers;
 
 struct PlayerSlot {
     SDL_GameController* controller;
@@ -153,16 +153,7 @@ void attach_controller(int index)
     SDL_GameControllerSetPlayerIndex(controller, -1);
     if (!controller)
         return;
-    if (s_controller_count == s_controller_capacity) {
-        int capacity = s_controller_capacity + 1;
-        auto* grown =
-            static_cast<SDL_GameController**>(std::realloc(s_controllers, sizeof(SDL_GameController*) * capacity));
-        if (!grown)
-            return;
-        s_controller_capacity = capacity;
-        s_controllers = grown;
-    }
-    s_controllers[s_controller_count++] = controller;
+    s_controllers.push_back(controller);
 }
 
 void enroll_player(SDL_GameController* controller)
@@ -201,33 +192,28 @@ void prune_players()
 void detach_anim_driver(SDL_GameController* controller)
 {
     debug_log::printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
-    int i = 0;
-    while (i < s_controller_count && s_controllers[i] != controller)
-        ++i;
-    // (as in PartyMod: when it isn't found this looks one past the last entry, which can be a stale copy)
-    if (s_controllers[i] != controller) {
+    auto found = std::find(s_controllers.begin(), s_controllers.end(), controller);
+    // (PartyMod looked one past the last entry when it wasn't found - past the end of its array when that was full)
+    if (found == s_controllers.end()) {
         debug_log::printf(StageMap::kWarn, "Did not find disconnected controller in list\n");
         return;
     }
-    SDL_GameControllerClose(controller);
+    // (the player index read before the close - PartyMod read it from the closed, freed controller)
     int player = SDL_GameControllerGetPlayerIndex(controller);
+    SDL_GameControllerClose(controller);
     if (player != -1) {
         debug_log::printf(StageMap::kInfo, "Removed player %d\n", player + 1);
         s_players[player].controller = nullptr;
         --s_seats_in_use;
     }
     prune_players();
-    for (; i < s_controller_count - 1; ++i)
-        s_controllers[i] = s_controllers[i + 1];
-    --s_controller_count;
+    s_controllers.erase(found);
 }
 
 void init_controllers()
 {
     debug_log::printf(StageMap::kInfo, "Initializing Controller Input\n");
-    s_controller_count = 0;
-    s_controller_capacity = 1;
-    s_controllers = static_cast<SDL_GameController**>(std::malloc(sizeof(SDL_GameController*) * s_controller_capacity));
+    s_controllers.clear();
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
         if (SDL_IsGameController(i))
             attach_controller(i);
@@ -1087,10 +1073,9 @@ void process_sdl_device(InputPort* device)
 
 void __cdecl set_sdl_actuators(int port, uint16_t high, uint16_t low)
 {
-    for (int i = 0; i < s_controller_count; ++i) {
-        if (SDL_GameControllerGetAttached(s_controllers[i]) &&
-            SDL_GameControllerGetPlayerIndex(s_controllers[i]) == port)
-            SDL_JoystickRumble(SDL_GameControllerGetJoystick(s_controllers[i]), low, high, 0);
+    for (SDL_GameController* controller : s_controllers) {
+        if (SDL_GameControllerGetAttached(controller) && SDL_GameControllerGetPlayerIndex(controller) == port)
+            SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), low, high, 0);
     }
 }
 

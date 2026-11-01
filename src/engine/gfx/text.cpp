@@ -604,17 +604,21 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     if (device_method<CreateTexture>(0x5C)(input_port(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
                                            &font->texture, nullptr) != 0)
         return nullptr;
-    uint8_t* indices = nullptr;
+    // (not original - both buffers owned: the original left them allocated when the texture couldn't be locked)
+    memory::HeapPtr<uint8_t> indices;
+    memory::HeapPtr<uint32_t> game_pixels;
+    std::vector<uint32_t> hd_pixels;
     uint32_t* pixels;
     if (hd_scale != 1) {
         // (not original - HD menu UI: the texels as they are, in a buffer from the C runtime's heap - 4-16 MB, more
         // than the game's heap may have free while the front end loads)
-        pixels = static_cast<uint32_t*>(std::malloc(size * 4));
+        hd_pixels.resize(size);
+        pixels = hd_pixels.data();
         std::memcpy(pixels, texels, size * 4);
     } else {
-        indices = static_cast<uint8_t*>(memory::alloc(size));
+        indices = memory::heap_ptr<uint8_t>(memory::alloc(size));
         uint32_t palette[256];
-        std::memcpy(indices, texels, size);
+        std::memcpy(indices.get(), texels, size);
         std::memcpy(palette, palette_bytes, font_format::kPaletteSize);
         for (uint32_t& color : palette) {
             uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
@@ -622,9 +626,10 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
             alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
             color = alpha << 24 | (argb & 0xFFFFFF);
         }
-        pixels = static_cast<uint32_t*>(memory::alloc(size * 4));
+        game_pixels = memory::heap_ptr<uint32_t>(memory::alloc(size * 4));
+        pixels = game_pixels.get();
         // palette indices -> colours
-        os_layer::expand_palette(pixels, indices, static_cast<int>(size), palette);
+        os_layer::expand_palette(pixels, indices.get(), static_cast<int>(size), palette);
     }
     struct SurfaceLock {
         int pitch;
@@ -635,12 +640,8 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         return nullptr;
     std::memcpy(locked.bits, pixels, size * 4);
     texture_method<long(__stdcall*)(void*, uint32_t)>(font->texture, 0x50)(font->texture, 0);
-    if (indices) {
-        memory::dealloc(indices);
-        memory::dealloc(pixels);
-    } else {
-        std::free(pixels); // (not original - HD menu UI)
-    }
+    indices.reset();
+    game_pixels.reset();
 
     // The glyphs' rectangles: texture coordinates (the right/bottom ones from the unrounded left/top) and sizes.
     // (not original - HD menu UI: an upscaled page's size divided by its scale, the rectangles' own pixels)

@@ -3,8 +3,8 @@
 
 #include "engine/script/patched.h"
 
-#include <cstdlib>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "engine/core/checksums.h"
@@ -47,34 +47,26 @@ struct ScriptPatch {
     const uint8_t* patch;
     size_t patch_size_;
     // The patched script once made, and the checksum of the patch it was made with.
-    bool made;
-    uint32_t made_with_;
-    uint8_t* patched;
-    size_t patched_size_;
-    // The copy returned when the file is loaded again (refreshed from `patched` each time).
-    uint8_t* copy;
+    bool made = false;
+    uint32_t made_with_ = 0;
+    std::vector<uint8_t> patched;
+    // The copy the loader is given (it changes it in place), refreshed from `patched` at each load.
+    std::vector<uint8_t> copy;
 };
 
-std::vector<ScriptPatch>* s_patches = nullptr;
+// (empty offline or before init_script_patches)
+std::vector<ScriptPatch> s_patches;
 
 void register_patch(const char* filename, const uint8_t* patch, size_t size)
 {
-    s_patches->push_back({filename, patch, size, false, 0, nullptr, 0, nullptr});
+    s_patches.push_back({filename, patch, size});
     debug_log::printf(StageMap::kInfo, "Registered patch for %s\n", filename);
-}
-
-uint8_t* get_duplicate(const uint8_t* data, size_t size)
-{
-    auto* copy = static_cast<uint8_t*>(std::malloc(size));
-    std::memcpy(copy, data, size);
-    return copy;
 }
 
 } // namespace
 
 void init_script_patches()
 {
-    s_patches = new std::vector<ScriptPatch>();
     register_patch("scripts\\engine\\menu\\keyboard.qb", kKeyboardPatch, sizeof(kKeyboardPatch));
 }
 
@@ -82,10 +74,8 @@ const uint8_t* load_patched_script(const char* filename)
 {
     auto* data = static_cast<const uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
     int size = packs::get_file_size(checksums::hash_from_text(filename));
-    if (!s_patches) // (offline, or before init_script_patches)
-        return data;
     ScriptPatch* entry = nullptr;
-    for (ScriptPatch& p : *s_patches)
+    for (ScriptPatch& p : s_patches)
         if (std::strcmp(p.filename, filename) == 0)
             entry = &p;
     if (!entry)
@@ -102,33 +92,27 @@ const uint8_t* load_patched_script(const char* filename)
     uint32_t checksum = bps::patch_checksum(entry->patch, entry->patch_size_);
     if (entry->made && entry->made_with_ == checksum) {
         debug_log::printf(StageMap::kInfo, "Using cached patched script for %s\n", filename);
-        if (entry->copy) {
-            std::memcpy(entry->copy, entry->patched, entry->patched_size_); // (back as patched)
-            return entry->copy;
-        }
-        uint8_t* fresh = get_duplicate(entry->patched, entry->patched_size_);
-        entry->copy = get_duplicate(fresh, entry->patched_size_);
-        return fresh;
+        entry->copy = entry->patched; // (back as patched)
+        return entry->copy.data();
     }
     if (entry->made)
         debug_log::printf(StageMap::kInfo, "Cached script checksum %08x didn't match patch %08x\n", entry->made_with_,
                           checksum);
     debug_log::printf(StageMap::kInfo, "Applying patch for %s\n", filename);
-    uint8_t* patched = nullptr;
-    size_t patched_size = 0;
-    if (!bps::get_apply(entry->patch, entry->patch_size_, data, static_cast<size_t>(size), &patched, &patched_size)) {
+    std::vector<uint8_t> patched;
+    if (!bps::get_apply(entry->patch, entry->patch_size_, data, static_cast<size_t>(size), &patched)) {
         debug_log::printf(StageMap::kWarn, "Patch failed! Continuing with original script\n");
         return data;
     }
     debug_log::printf(StageMap::kInfo, "Patch succeeded! Writing to cache...\n");
     entry->made = true;
     entry->made_with_ = checksum;
-    entry->patched = get_duplicate(patched, patched_size);
-    entry->patched_size_ = patched_size;
+    entry->patched = std::move(patched);
     debug_log::printf(StageMap::kInfo, "Done!\n");
-    std::free(entry->copy);
-    entry->copy = get_duplicate(patched, patched_size);
-    return patched;
+    // Not original - the loader is given the entry's copy (PartyMod returned a fresh malloc'd buffer each time it
+    // patched, never freed).
+    entry->copy = entry->patched;
+    return entry->copy.data();
 }
 
 } // namespace script

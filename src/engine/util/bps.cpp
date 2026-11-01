@@ -3,7 +3,6 @@
 
 #include "engine/util/bps.h"
 
-#include <cstdlib>
 #include <cstring>
 
 #include "platform/debug_log.h"
@@ -89,8 +88,8 @@ bool made_for(const uint8_t* patch, size_t patch_size, const uint8_t* input, siz
     return read_word(patch, &crc_at) == crc32(input, input_size);
 }
 
-bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, size_t input_size, uint8_t** output,
-               size_t* output_size)
+bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, size_t input_size,
+               std::vector<uint8_t>* output)
 {
     size_t at = 0;
     char magic[5];
@@ -107,8 +106,8 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
                           expected_input_size, input_size);
         return false;
     }
-    *output_size = static_cast<size_t>(read_number(patch, &at));
-    *output = static_cast<uint8_t*>(std::malloc(*output_size));
+    output->assign(static_cast<size_t>(read_number(patch, &at)), 0);
+    uint8_t* out = output->data();
     at += static_cast<uint32_t>(read_number(patch, &at)); // (the metadata, skipped)
 
     size_t output_at = 0;
@@ -119,23 +118,23 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
         uint32_t length = (head >> 2) + 1;
         switch (head & 3) {
         case 0: // the input's bytes at the same place
-            std::memcpy(*output + output_at, input + output_at, length);
+            std::memcpy(out + output_at, input + output_at, length);
             output_at += length;
             break;
         case 1: // bytes from the patch
-            std::memcpy(*output + output_at, patch + at, length);
+            std::memcpy(out + output_at, patch + at, length);
             at += length;
             output_at += length;
             break;
         case 2: // the input's bytes from elsewhere
             source_at += decode_varint(patch, &at);
-            std::memcpy(*output + output_at, input + source_at, length);
+            std::memcpy(out + output_at, input + source_at, length);
             source_at += length;
             output_at += length;
             break;
         case 3: // the output's own earlier bytes
             target_at += decode_varint(patch, &at);
-            std::memcpy(*output + output_at, *output + target_at, length);
+            std::memcpy(out + output_at, out + target_at, length);
             target_at += length;
             output_at += length;
             break;
@@ -147,9 +146,9 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
         debug_log::printf(StageMap::kError, "INPUT CRC DID NOT MATCH: %x %x\n", input_crc, crc32(input, input_size));
     } else {
         uint32_t output_crc = read_word(patch, &at);
-        if (output_crc != crc32(*output, *output_size)) {
+        if (output_crc != crc32(out, output->size())) {
             debug_log::printf(StageMap::kError, "OUTPUT CRC DID NOT MATCH: %x %x\n", output_crc,
-                              crc32(*output, *output_size));
+                              crc32(out, output->size()));
         } else {
             uint32_t patch_crc = read_word(patch, &at);
             if (patch_crc == crc32(patch, patch_size - 4))
@@ -158,8 +157,7 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
                               crc32(patch, patch_size));
         }
     }
-    std::free(*output);
-    *output = nullptr;
+    output->clear();
     return false;
 }
 

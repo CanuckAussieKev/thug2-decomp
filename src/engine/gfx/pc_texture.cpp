@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <vector>
 
 #include "engine/core/manager.h"
 #include "engine/core/arena_alloc.h"
@@ -766,7 +767,9 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
     }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    auto* part = static_cast<uint32_t*>(crt::alloc_block(part_height * part_width * 4)); // (the C runtime's malloc)
+    // (the C runtime's heap, as the original's malloc)
+    std::vector<uint32_t> part_pixels(static_cast<size_t>(part_height) * static_cast<size_t>(part_width));
+    uint32_t* part = part_pixels.data();
     memory::Hub::get_pull()->leave_heap_scope();
     read_rect(part, static_cast<uint16_t>(from_x), static_cast<uint16_t>(from_y), static_cast<uint16_t>(part_width),
               static_cast<uint16_t>(part_height));
@@ -791,7 +794,6 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
             }
         }
     }
-    crt::dealloc(part); // (the C runtime's free)
     return true;
 }
 

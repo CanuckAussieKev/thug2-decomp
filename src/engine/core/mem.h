@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 
 namespace memory {
 
@@ -32,6 +33,21 @@ struct HeapObject {
     static void* operator new(std::size_t, void* place) noexcept { return place; }
     static void operator delete(void*, void*) noexcept {}
 };
+
+// NOT ORIGINAL - a block from the game's heaps (alloc / alloc_zeroed / alloc_block / carve), owned: given back by
+// dealloc when it goes. A block always goes back to the heap it came from (its header names it), whatever heap scope
+// is current then - so it may be freed outside the scope it was allocated in. Nothing is constructed or destroyed:
+// for plain data (buffers, records).
+struct HeapFree {
+    void operator()(void* block) const noexcept { dealloc(block); }
+};
+template <typename Data>
+using HeapPtr = std::unique_ptr<Data, HeapFree>;
+template <typename Data>
+HeapPtr<Data> heap_ptr(void* block)
+{
+    return HeapPtr<Data>(static_cast<Data*>(block));
+}
 
 // Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this
 // build - both calls go to the empty function at 0x005480A0 (see stubs::do_nothing) - so they do nothing here
