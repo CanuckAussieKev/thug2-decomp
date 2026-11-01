@@ -72,9 +72,9 @@ bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
 }
 
 // 0x004C7F80
-bool PcTexture::load_memory(const uint8_t* data, uint32_t /*size*/, uint32_t, uint32_t, uint32_t)
+bool PcTexture::load_memory(const uint8_t* data, uint32_t size, uint32_t, uint32_t, uint32_t)
 {
-    image_ = load_texture_memory(data);
+    image_ = load_texture_memory(data, size); // (not original: the size passed on as the reader's bound)
     return image_ != nullptr;
 }
 

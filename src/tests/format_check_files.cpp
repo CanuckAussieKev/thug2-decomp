@@ -17,6 +17,7 @@
 #include "engine/core/checksums.h"
 #include "engine/file/bundle_format.h"
 #include "engine/file/pre_format.h"
+#include "engine/gfx/image_format.h"
 #include "engine/gfx/texture_format.h"
 #include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
@@ -330,6 +331,58 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
     check(reader.remaining() == 0, name + ": the textures end at the file's end");
 }
 
+// --- images (.img) -------------------------------------------------------------------------------------------------
+
+struct ImageStats {
+    int files = 0, file_size_as_loaded = 0, memory_size_as_loaded = 0, palettized = 0, plain = 0;
+} g_images;
+
+void check_image(const std::string& name, const uint8_t* data, size_t size)
+{
+    util::ByteReader reader(data, size);
+    image_format::ImageHeader header;
+    if (!image_format::read_image_header(reader, &header)) {
+        check(false, name + ": image header");
+        return;
+    }
+    ++g_images.files;
+    // the original's struct copied in place
+    struct ReferenceHeader {
+        uint32_t id, unknown4, width, height, format, unknown14;
+        uint16_t image_width, image_height;
+        uint32_t palette_size;
+    } reference;
+    static_assert(sizeof(ReferenceHeader) == image_format::kHeaderSize);
+    std::memcpy(&reference, data, sizeof(reference));
+    check(reference.id == header.id && reference.width == header.width && reference.height == header.height &&
+              reference.format == header.format && reference.unknown14 == header.unknown14 &&
+              reference.image_width == header.image_width && reference.image_height == header.image_height &&
+              reference.palette_size == header.palette_size,
+          name + ": header as in place");
+    uint32_t bits;
+    bool palettized;
+    image_format::decode_format(header.format, &bits, &palettized);
+    if (palettized) {
+        ++g_images.palettized;
+        check(header.palette_size <= image_format::kPaletteCapacity, name + ": the palette fits the loaders' 0x400");
+    }
+    bool plain = image_format::stored_plain(header, false);
+    if (plain) {
+        ++g_images.plain;
+        // the plain texels are read into the texture made of the header's sizes
+        check(static_cast<uint32_t>(header.image_width) * header.image_height <= header.width * header.height,
+              name + ": the image within its texture");
+    }
+    size_t file_size = image_format::kHeaderSize + (palettized ? header.palette_size : 0) +
+                       image_format::texel_size(header, plain);
+    size_t memory_size = image_format::kHeaderSize + (palettized ? image_format::kPaletteCapacity : 0) +
+                         image_format::texel_size(header, image_format::stored_plain(header, true));
+    g_images.file_size_as_loaded += file_size <= size;
+    g_images.memory_size_as_loaded += memory_size <= size;
+    // (the texels' padding may be missing at the file's end: fonts/TestTitleFont/testtitle.img's)
+    check(file_size - 3 <= size, name + ": the file loader's bytes within the file");
+}
+
 } // namespace
 
 void register_check(const std::string& extension, FileCheck check_function)
@@ -343,6 +396,7 @@ int run(const std::filesystem::path& data)
 {
     register_check(".cut", check_bundle);
     register_check(".tex", check_texture_dictionary);
+    register_check(".img", check_image);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -372,6 +426,9 @@ int run(const std::filesystem::path& data)
         }
     }
     std::printf("texture levels not of their computed size: %d\n", g_level_size_mismatches);
+    std::printf("images: %d (%d palettized, %d plain); the file loader's bytes within %d, the memory loader's %d\n",
+                g_images.files, g_images.palettized, g_images.plain, g_images.file_size_as_loaded,
+                g_images.memory_size_as_loaded);
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());
