@@ -78,4 +78,11 @@ bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap);
 // The map's checksum: the CRC of all of it past the checksum field.
 uint32_t park_map_checksum(const uint8_t* map);
 
+// The map as the integer array it is saved as (Park_editor_map: its bytes as little-endian words).
+constexpr uint32_t kParkMapWords = kParkMapBytes / 4;
+// The map's words into `words` (kParkMapWords of them).
+void park_map_to_words(const void* map, uint32_t* words);
+// The map from `count` words (at most kParkMapWords; the rest of the map zeroed).
+void park_map_from_words(void* map, const uint32_t* words, uint32_t count);
+
 } // namespace park_editing

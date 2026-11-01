@@ -409,10 +409,8 @@ void ParkLayout::export_to_struct(script::Struct* out)
     flag_bits_ &= ~kMapNotSavedLocal;
     script::Array* memory = script::alloc_script_array();
     script::Array* map = memory ? memory->prepare_all() : nullptr;
-    map->configure_size_kind(0xEA6, script::kQbvalInteger); // (out of memory crashes, as in the original)
-    const auto* words = reinterpret_cast<const uint32_t*>(&map_);
-    for (uint32_t i = 0; i < 0xEA6; ++i)
-        map->set_element(i, words[i]);
+    map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
+    park_map_to_words(&map_, map->find_array_value());
     out->append_array_ref(0x337C5289u, map); // Park_editor_map
     script::Struct* struct_memory = script::spawn_param_bag();
     script::Struct* goals = struct_memory ? struct_memory->prepare_all() : nullptr;

@@ -6,12 +6,15 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "game/park_editing/goal_editor.h"
+#include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
+#include "game/park_editing/park_map_format.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard_cfuncs.h"
 #include "engine/net/gamenet_manager.h"
@@ -353,7 +356,11 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             summary->put_int(kMaxPlayers, max_players);
             script::Array* map = nullptr;
             saved->fetch_list(0x337C5289u, &map, 1); // Park_editor_map
-            add_map_info(reinterpret_cast<const park_editing::CompressedMap*>(map->find_array_value()));
+            // (the map's words into a map of its own: NOT ORIGINAL - the original read the array's storage as
+            // a map, past the end of a short one)
+            auto copy = std::make_unique<park_editing::CompressedMap>();
+            park_editing::park_map_from_words(copy.get(), map->find_array_value(), map->extent_);
+            add_map_info(copy.get());
             break;
         }
         case kSaveCreatedGoals: {
