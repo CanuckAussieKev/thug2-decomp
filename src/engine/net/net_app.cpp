@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <initializer_list>
 
@@ -18,6 +19,8 @@
 #include "engine/net/net_manager.h"
 #include "engine/net/net_metrics.h"
 #include "engine/net/net_messages.h"
+#include "engine/net/net_wire.h"
+#include "engine/util/byte_stream.h"
 #include "platform/stopwatch.h"
 
 namespace net {
@@ -32,7 +35,7 @@ constexpr int kHandleExcludeBroadcast = 0x80; // every connection but handle & 0
 constexpr uint8_t kMsgBulkBegin = 0x0E;
 constexpr uint8_t kMsgBulkChunk = 0x0F;
 constexpr uint8_t kMsgUnreadyOk = 0x09; // default-queue messages that go to a connection that isn't ready
-constexpr int kStreamPieceSize = 0x100;
+constexpr int kStreamPieceSize = static_cast<int>(wire::kStreamPieceSize);
 
 constexpr int kMetricsTaskPriority = -2500;
 constexpr int kReceiveTaskPriority = 1000;
@@ -154,23 +157,18 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_network_heap() { ram_stats()->enter_heap_scope(ram_stats()->network_heap_); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
 
-// The pieces of a streamed message. The start: the description, the total size, the stream's id, a checksum of
-// all the data, the message id and the first 256 bytes.
-struct StreamStart {
-    char desc_[32];
-    int extent_;
-    int stream_id_;
-    uint32_t checksum_;
-    uint8_t msg_id_;
-    uint8_t content_[kStreamPieceSize];
-};
-static_assert(sizeof(StreamStart) == 0x130 && offsetof(StreamStart, content_) == 0x2D, "the original's layout");
-// The start's length is the piece + 0x30 (the struct's size less the unused part of content_): it carries the
-// struct's 3 bytes of padding after a full piece, and 3 bytes past a shorter one.
-constexpr uint16_t kStreamStartOverhead = sizeof(StreamStart) - kStreamPieceSize;
-struct StreamData {
-    int stream_id_;
-    uint8_t content_[kStreamPieceSize];
+// The pieces of a streamed message (net_wire.h): the start (the description, the total size, the stream's id, a
+// checksum of all the data, the message id and the first 256 bytes) and the pieces after it, each built in a buffer
+// of its own.
+struct StreamPieceMessage {
+    uint8_t bytes[wire::kStreamPieceMaxSize];
+    uint16_t size = 0;
+    void build(int stream_id, const void* piece, int length)
+    {
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        wire::write_stream_piece(writer, stream_id, piece, static_cast<size_t>(length));
+        size = static_cast<uint16_t>(writer.position());
+    }
 };
 
 // --- The rest of the library ------------------------------------------------------------------------------
@@ -330,20 +328,22 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void* data, const char* desc,
                                 uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
 {
-    // The original leaves the start message uninitialised on the stack (the 3 bytes sent past a short first
-    // piece, the padding after a full one); it's zeroed here. (NetMessageInfo's constructor sets every field.)
+    // The original leaves the start message uninitialised on the stack (the 3 bytes sent past the first piece);
+    // they're zeros here. (NetMessageInfo's constructor sets every field.)
     NetMessageInfo message = {};
     init_msg_desc(&message);
-    StreamStart start = {};
-    start.extent_ = size;
-    start.stream_id_ = alloc_stream_key(conn);
-    start.msg_id_ = msg_id;
-    start.checksum_ = checksums::generate_crc_from_buffer(data, size);
-    copy_string(start.desc_, desc);
+    wire::StreamStart start;
+    start.total_size = size;
+    start.stream_id = alloc_stream_key(conn);
+    start.msg_id = msg_id;
+    start.checksum = checksums::generate_crc_from_buffer(data, size);
+    std::snprintf(start.desc, sizeof(start.desc), "%s", desc);
     int first = size > kStreamPieceSize ? kStreamPieceSize : size;
-    std::memcpy(start.content_, data, first);
-    message.byte_count_ = static_cast<uint16_t>(first + kStreamStartOverhead);
-    message.content_ = &start;
+    uint8_t start_bytes[wire::kStreamStartMaxSize];
+    util::ByteWriter start_writer(start_bytes, sizeof(start_bytes));
+    wire::write_stream_start(start_writer, start, data, static_cast<size_t>(first));
+    message.byte_count_ = static_cast<uint16_t>(start_writer.position());
+    message.content_ = start_bytes;
     message.group_id_ = group_id;
     message.ident_ = kMsgBulkBegin;
     message.queue_ = NetMessageInfo::kLaneOrdered;
@@ -354,15 +354,14 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
         if (queue_all_pieces) {
             // Every piece now.
             const uint8_t* next = static_cast<const uint8_t*>(data) + first;
-            StreamData piece;
+            StreamPieceMessage piece;
             for (int sent = first; sent < size;) {
                 int length = size - sent;
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
-                piece.stream_id_ = alloc_stream_key(conn);
-                std::memcpy(piece.content_, next, length);
-                message.content_ = &piece;
-                message.byte_count_ = static_cast<uint16_t>(length + 4);
+                piece.build(alloc_stream_key(conn), next, length);
+                message.content_ = piece.bytes;
+                message.byte_count_ = piece.size;
                 message.group_id_ = group_id;
                 message.ident_ = kMsgBulkChunk;
                 message.queue_ = NetMessageInfo::kLaneOrdered;
@@ -528,7 +527,7 @@ void AppHost::pump_stream_traffic()
 {
     NetMessageInfo message = {};
     init_msg_desc(&message);
-    StreamData piece;
+    StreamPieceMessage piece;
     Hub* manager = Hub::sole();
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
@@ -567,12 +566,11 @@ void AppHost::pump_stream_traffic()
                 int length = size - sent;
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
-                piece.stream_id_ = stream->stream_id_;
-                std::memcpy(piece.content_, stream->succ_, length);
+                piece.build(stream->stream_id_, stream->succ_, length);
                 message.ident_ = kMsgBulkChunk;
-                message.byte_count_ = static_cast<uint16_t>(length + 4);
+                message.byte_count_ = piece.size;
                 message.queue_ = NetMessageInfo::kLaneOrdered;
-                message.content_ = &piece;
+                message.content_ = piece.bytes;
                 message.group_id_ = stream->group_id_;
                 message.feed_ = 1;
                 message.fixed_seq_no_ = stream->order_number_++;

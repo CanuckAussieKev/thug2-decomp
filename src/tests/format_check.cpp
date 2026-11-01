@@ -8,6 +8,7 @@
 // same rules as the game's structure writer (engine/script/struct_buffer.cpp). Exit code 0 when everything passes.
 
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -18,6 +19,7 @@
 #include <vector>
 
 #include "engine/core/checksums.h"
+#include "engine/net/net_wire.h"
 #include "engine/util/byte_stream.h"
 #include "game/save_cards/save_file_format.h"
 
@@ -361,11 +363,104 @@ void check_byte_stream()
     check(!strings.c_string() && !strings.ok(), "reader: a string without its terminator fails");
 }
 
+// --- the net layer's own messages ------------------------------------------------------------------------------------
+
+// The stream start as the original built it: a struct on the stack, sent as its first 0x2D bytes, the piece and 3
+// bytes more (zeros: our sender clears the struct).
+struct ReferenceStreamStart {
+    char desc[32];
+    int32_t total_size;
+    int32_t stream_id;
+    uint32_t checksum;
+    uint8_t msg_id;
+    uint8_t content[0x100];
+};
+static_assert(sizeof(ReferenceStreamStart) == 0x130 && offsetof(ReferenceStreamStart, content) == 0x2D,
+              "the wire layout of the original's struct");
+
+void check_wire_messages()
+{
+    std::printf("wire messages\n");
+    for (size_t piece_size : {size_t{0}, size_t{1}, size_t{100}, size_t{0x100}}) {
+        std::vector<uint8_t> piece(piece_size);
+        for (size_t i = 0; i < piece_size; ++i)
+            piece[i] = static_cast<uint8_t>(i * 7 + 3);
+        ReferenceStreamStart reference = {};
+        std::snprintf(reference.desc, sizeof(reference.desc), "%s", "Appearance");
+        reference.total_size = 0x1234;
+        reference.stream_id = 77;
+        reference.checksum = 0xDEADBEEF;
+        reference.msg_id = 0x5A;
+        if (piece_size)
+            std::memcpy(reference.content, piece.data(), piece_size);
+        size_t reference_size = piece_size + 0x30;
+
+        net::wire::StreamStart start;
+        std::snprintf(start.desc, sizeof(start.desc), "%s", "Appearance");
+        start.total_size = 0x1234;
+        start.stream_id = 77;
+        start.checksum = 0xDEADBEEF;
+        start.msg_id = 0x5A;
+        uint8_t bytes[net::wire::kStreamStartMaxSize];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        net::wire::write_stream_start(writer, start, piece.data(), piece_size);
+        std::string what = "stream start, piece " + std::to_string(piece_size);
+        check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes, &reference, reference_size) == 0,
+              what + ": as the original's struct");
+
+        util::ByteReader reader(bytes, writer.position());
+        net::wire::StreamStart back;
+        check(net::wire::read_stream_start(reader, &back) && std::strcmp(back.desc, "Appearance") == 0 &&
+                  back.total_size == 0x1234 && back.stream_id == 77 && back.checksum == 0xDEADBEEF &&
+                  back.msg_id == 0x5A && reader.remaining() == piece_size + 3,
+              what + ": decoded");
+        uint8_t again[net::wire::kStreamStartMaxSize];
+        util::ByteWriter again_writer(again, sizeof(again));
+        net::wire::write_stream_start(again_writer, back, reader.cursor(), piece_size);
+        check(again_writer.position() == writer.position() && std::memcmp(again, bytes, writer.position()) == 0,
+              what + ": encoded again");
+
+        uint8_t piece_bytes[net::wire::kStreamPieceMaxSize];
+        util::ByteWriter piece_writer(piece_bytes, sizeof(piece_bytes));
+        net::wire::write_stream_piece(piece_writer, 77, piece.data(), piece_size);
+        uint8_t reference_piece[4 + 0x100];
+        int32_t id = 77;
+        std::memcpy(reference_piece, &id, 4);
+        if (piece_size)
+            std::memcpy(reference_piece + 4, piece.data(), piece_size);
+        check(piece_writer.position() == piece_size + 4 &&
+                  std::memcmp(piece_bytes, reference_piece, piece_size + 4) == 0,
+              "stream piece " + std::to_string(piece_size) + ": as the original's struct");
+    }
+    // (a description of 32 characters or more: the original overran its field; cut to 32 here)
+    net::wire::StreamStart long_desc;
+    std::memset(long_desc.desc, 'x', 32);
+    uint8_t bytes[net::wire::kStreamStartMaxSize];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    net::wire::write_stream_start(writer, long_desc, nullptr, 0);
+    check(writer.position() == 0x30 && bytes[31] == 'x' && bytes[32] == 0, "stream start: a 32-character description");
+
+    // the sequenced wrapper: group, sequence, id
+    const uint8_t sequenced[] = {0x03, 0x78, 0x56, 0x34, 0x12, 0x2A};
+    util::ByteReader reader(sequenced, sizeof(sequenced));
+    net::wire::SequencedHeader header;
+    check(net::wire::read_sequenced_header(reader, &header) && header.group == 3 && header.sequence == 0x12345678 &&
+              header.id == 0x2A,
+          "sequenced header decoded");
+    uint8_t again[sizeof(sequenced)];
+    util::ByteWriter again_writer(again, sizeof(again));
+    check(net::wire::write_sequenced_header(again_writer, header) &&
+              std::memcmp(again, sequenced, sizeof(sequenced)) == 0,
+          "sequenced header encoded again");
+    util::ByteReader short_reader(sequenced, 5);
+    check(!net::wire::read_sequenced_header(short_reader, &header), "sequenced header: too short fails");
+}
 } // namespace
 
 int main(int argc, char** argv)
 {
     check_byte_stream();
+    check_wire_messages();
     for (int i = 1; i < argc; ++i) {
         std::filesystem::path path(argv[i]);
         if (std::filesystem::is_directory(path)) {

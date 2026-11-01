@@ -13,6 +13,8 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_compress.h"
 #include "engine/net/net_lzham.h"
+#include "engine/net/net_wire.h"
+#include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
 
 namespace net {
@@ -21,12 +23,21 @@ uint32_t g_max_latency{2000};
 
 namespace {
 
-constexpr uint32_t kMaxStreamStartData = 0x100; // the first piece of a stream, in its start message
+constexpr size_t kMaxStreamStartData = wire::kStreamPieceSize; // the first piece of a stream, in its start message
 
 uint32_t get_timestamp(AppHost* app) { return app->clock_; }
 Router* get_dispatcher(AppHost* app) { return &app->dispatcher_; }
 
 void construct_context(InboundMsgCtx* context) { context->make_new(); }
+
+// NOT ORIGINAL: the room left in the packet being built (the writers checked first that the message fits).
+size_t packet_space_left(Conn* conn)
+{
+    return static_cast<size_t>(kMaxPacketSize) - static_cast<size_t>(conn->write_ptr_ - conn->outgoing_bytes_);
+}
+
+// NOT ORIGINAL: a received message's data.
+util::ByteReader body_reader(const InboundMsgCtx* context) { return {context->body_, context->body_size_}; }
 
 // Method 1's decompressor: 0 when it worked; `size` gets the expanded size.
 int decompress(const char* in, int in_size, char* out, int* size)
@@ -98,15 +109,12 @@ bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
     if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->outgoing_bytes_) +
                          reinterpret_cast<uint32_t>(write_ptr)) >= static_cast<int>(kMaxPacketSize))
         return false;
-    *write_ptr++ = static_cast<char>(msg->ident_);
-    if (!(message_flags(static_cast<uint8_t*>(app->supervisor_), msg->ident_) & kMsgNoLength)) {
-        *reinterpret_cast<uint16_t*>(write_ptr) = msg->byte_count_;
-        write_ptr += 2;
-    }
-    if (msg->byte_count_) {
-        std::memcpy(write_ptr, msg->content_, msg->byte_count_);
-        write_ptr += msg->byte_count_;
-    }
+    util::ByteWriter writer(write_ptr, packet_space_left(conn));
+    writer.u8(msg->ident_);
+    if (!(message_flags(static_cast<uint8_t*>(app->supervisor_), msg->ident_) & kMsgNoLength))
+        writer.u16(msg->byte_count_);
+    writer.bytes(msg->content_, msg->byte_count_);
+    write_ptr += writer.position();
     add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
     return true;
 }
@@ -121,17 +129,12 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->outgoing_bytes_) +
                          reinterpret_cast<uint32_t>(write_ptr)) >= static_cast<int>(kMaxPacketSize))
         return false;
-    *write_ptr++ = static_cast<char>(kMsgSequenced);
-    *reinterpret_cast<uint16_t*>(write_ptr) = static_cast<uint16_t>(length + 6);
-    write_ptr += 2;
-    *write_ptr++ = static_cast<char>(link->bundle_id_);
-    *reinterpret_cast<uint32_t*>(write_ptr) = link->order_index_;
-    write_ptr += 4;
-    *write_ptr++ = static_cast<char>(msg->ident_);
-    if (msg->byte_count_) {
-        std::memcpy(write_ptr, msg->content_, msg->byte_count_);
-        write_ptr += msg->byte_count_;
-    }
+    util::ByteWriter writer(write_ptr, packet_space_left(conn));
+    writer.u8(kMsgSequenced);
+    writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
+    wire::write_sequenced_header(writer, {link->bundle_id_, link->order_index_, msg->ident_});
+    writer.bytes(msg->content_, msg->byte_count_);
+    write_ptr += writer.position();
     add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
     return true;
 }
@@ -254,12 +257,14 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
 int AppHost::on_ping_reply_msg(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn_;
-    auto* sent_time = reinterpret_cast<uint32_t*>(context->body_);
-    if (!net::is_host_local(conn)) {
+    util::ByteReader reader = body_reader(context);
+    uint32_t sent_time = reader.u32();
+    // (NOT ORIGINAL: a reply too short for the time is ignored)
+    if (reader.ok() && !net::is_host_local(conn)) {
         uint32_t now = get_timestamp(context->receiver_app_);
-        if (*sent_time == conn->ping_probe_.probe_sent_at_) {
-            conn->ping_probe_.echo_seen_at_ = *sent_time;
-            uint32_t latency = now - *sent_time;
+        if (sent_time == conn->ping_probe_.probe_sent_at_) {
+            conn->ping_probe_.echo_seen_at_ = sent_time;
+            uint32_t latency = now - sent_time;
             if (latency > max_latency())
                 latency = max_latency();
             add_latency(conn, latency);
@@ -273,7 +278,10 @@ int AppHost::on_ping_probe_msg(InboundMsgCtx* context)
 {
     NetMessageInfo desc;
     construct_msg_desc(&desc);
-    uint32_t sent_time = *reinterpret_cast<uint32_t*>(context->body_);
+    util::ByteReader reader = body_reader(context);
+    uint32_t sent_time = reader.u32();
+    if (!reader.ok()) // NOT ORIGINAL: a probe too short for the time is not answered
+        return kResultConsumed;
     desc.content_ = &sent_time;
     desc.byte_count_ = sizeof(sent_time);
     desc.ident_ = kMsgLatencyResponse;
@@ -286,22 +294,23 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
 {
     InboundMsgCtx inner;
     construct_context(&inner);
-    char* msg = context->body_;
     // NOT ORIGINAL: a message too short for its header, or expanding to less than a message's id and length, is
     // dropped (the original reads past them).
-    if (context->body_size_ < 3)
+    util::ByteReader reader = body_reader(context);
+    wire::CompressedHeader header;
+    if (!wire::read_compressed_header(reader, &header))
         return kResultConsumed;
-    int size = *reinterpret_cast<uint16_t*>(msg + 1);
-    uint8_t method = static_cast<uint8_t>(msg[0]);
-    if (size < 3)
+    int size = header.size;
+    uint8_t method = header.method;
+    if (size < static_cast<int>(wire::kMessageHeaderSize))
         return kResultConsumed;
-    const auto* stream = reinterpret_cast<const uint8_t*>(msg + 3);
-    int stream_size = static_cast<int>(context->body_size_) - 3;
+    const uint8_t* stream = reader.cursor();
+    int stream_size = static_cast<int>(reader.remaining());
     auto* data = static_cast<char*>(memory::alloc(size));
     int expected_size = size;
     if (method == 1) {
-        if (!rle_stream_fits(stream, stream_size) || decompress(msg + 3, stream_size, data, &size) != 0 ||
-            expected_size != size) {
+        if (!rle_stream_fits(stream, stream_size) ||
+            decompress(reinterpret_cast<const char*>(stream), stream_size, data, &size) != 0 || expected_size != size) {
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
@@ -310,7 +319,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
-        size = static_cast<int>(reinterpret_cast<char*>(lzss::decode(reinterpret_cast<uint8_t*>(msg + 3),
+        size = static_cast<int>(reinterpret_cast<char*>(lzss::decode(const_cast<uint8_t*>(stream),
                                                                      reinterpret_cast<uint8_t*>(data), stream_size)) -
                                 data);
         if (expected_size != size) {
@@ -334,14 +343,17 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
 
     // The expanded data is one message: id, length, data.
     inner.sender_conn_ = context->sender_conn_;
-    uint8_t id = static_cast<uint8_t>(data[0]);
-    uint16_t length = *reinterpret_cast<uint16_t*>(data + 1);
-    if (length > expected_size - 3) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
+    util::ByteReader expanded(data, static_cast<size_t>(expected_size));
+    wire::MessageHeader inner_header;
+    wire::read_message_header(expanded, &inner_header);
+    uint8_t id = inner_header.id;
+    uint16_t length = inner_header.length;
+    if (length > expanded.remaining()) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
         memory::Hub::get_pull()->dealloc(data);
         return kResultConsumed;
     }
     auto* copy = static_cast<char*>(memory::alloc(length));
-    std::memcpy(copy, data + 3, length);
+    expanded.bytes(copy, length);
     inner.body_ = copy;
     inner.receiver_app_ = context->receiver_app_;
     inner.wire_options_ = context->wire_options_;
@@ -356,21 +368,26 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
 // 0x0045AF10
 int AppHost::on_ordered_msgs(InboundMsgCtx* context)
 {
-    auto* msg = reinterpret_cast<uint8_t*>(context->body_);
     Conn* conn = context->sender_conn_;
     context->acknowledge_ = true;
-    uint32_t sequence = *reinterpret_cast<uint32_t*>(msg + 1);
-    uint8_t group = msg[0];
+    util::ByteReader reader = body_reader(context);
+    wire::SequencedHeader header;
+    if (!wire::read_sequenced_header(reader, &header)) // NOT ORIGINAL: too short for its header - dropped
+        return kResultConsumed;
+    uint32_t sequence = header.sequence;
+    uint8_t group = header.group;
     if (sequence < conn->sequence_numbers_[group])
         return kResultPassOn; // handled already
 
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->network_heap_);
-    uint8_t id = msg[5];
-    auto length = static_cast<uint16_t>(context->body_size_ - 6);
+    uint8_t id = header.id;
+    auto length = static_cast<uint16_t>(reader.remaining());
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
     SeqQueuedMsg* seq_msg =
-        memory ? construct_seq_msg(memory, id, length, reinterpret_cast<char*>(msg + 6), group, false) : nullptr;
+        memory ? construct_seq_msg(memory, id, length, reinterpret_cast<char*>(context->body_) + reader.position(),
+                                   group, false)
+               : nullptr;
     void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
     OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, seq_msg) : nullptr;
     // (a failed allocation crashes here, as in the original)
@@ -396,7 +413,10 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
 // 0x0045B0B0
 int AppHost::on_receipt_msg(InboundMsgCtx* context)
 {
-    auto* packetstamp = reinterpret_cast<uint16_t*>(context->body_);
+    // (a message without a length field: its body_size_ is the previous message's, and the body is a fixed-size copy
+    // of the packet from the stamp on)
+    util::ByteReader reader(context->body_, sizeof(uint16_t));
+    uint16_t packetstamp = reader.u16();
     uint32_t sent_time = 0;
     context->body_size_ = sizeof(uint16_t);
     if (context->wire_options_ & kPacketForeign)
@@ -407,7 +427,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
         ReliableMsgNode* next;
         for (ReliableMsgNode* link = search.head_element(&context->sender_conn_->important_msgs_); link; link = next) {
             next = search.following_item();
-            if (*packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
+            if (packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
                 free_queued_msg(link->shared_msg_);
                 sent_time = link->stamp_ms_;
                 link->teardown(1);
@@ -419,7 +439,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
         OrderedMsgNode* next;
         for (OrderedMsgNode* link = search.head_element(&context->sender_conn_->sequenced_msgs_); link; link = next) {
             next = search.following_item();
-            if (*packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
+            if (packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
                 SeqQueuedMsg* msg = link->shared_msg_;
                 if (--msg->share_count_ == 0) {
                     destroy_queued_msg(msg);
@@ -451,16 +471,24 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
     manager->enter_heap_scope(manager->network_heap_);
     switch (context->type_code_) {
     case kMsgBulkChunk: {
-        // stream id (4 bytes), then the piece
-        char* msg = context->body_;
+        // stream id (4 bytes), then the piece (net_wire.h)
+        util::ByteReader reader = body_reader(context);
+        int stream_id = reader.i32();
+        if (!reader.ok()) // NOT ORIGINAL: too short for the stream id - dropped
+            break;
         lists::Hunt<BulkStreamNode> search;
         for (BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams_); link;
              link = search.following_item()) {
             StreamDesc* desc = link->msg_meta_;
-            if (desc->stream_id_ != *reinterpret_cast<int*>(msg))
+            if (desc->stream_id_ != stream_id)
                 continue;
-            uint32_t size = context->body_size_ - 4;
-            std::memcpy(desc->succ_, msg + 4, size);
+            // NOT ORIGINAL: a piece past the stream's size is cut there (the original copied it all, past the end
+            // of the stream's buffer)
+            size_t size = reader.remaining();
+            size_t room = static_cast<size_t>(desc->extent_) - static_cast<size_t>(desc->succ_ - desc->content_);
+            if (size > room)
+                size = room;
+            reader.bytes(desc->succ_, size);
             desc->succ_ += size;
             if (static_cast<uint32_t>(desc->succ_ - desc->content_) >= static_cast<uint32_t>(desc->extent_))
                 return dispatch_stream(context, link, desc, true);
@@ -468,9 +496,15 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         break;
     }
     case kMsgBulkBegin: {
-        // name (0x20 bytes), size, stream id, checksum, message id, then the first piece
-        char* msg = context->body_;
-        int stream_id = *reinterpret_cast<int*>(msg + 0x24);
+        // name (0x20 bytes), size, stream id, checksum, message id, then the first piece (net_wire.h)
+        util::ByteReader reader = body_reader(context);
+        wire::StreamStart start;
+        // NOT ORIGINAL: a start too short for its fields, or of a negative size, is dropped
+        if (!wire::read_stream_start(reader, &start) || start.total_size < 0) {
+            memory::Hub::get_pull()->leave_heap_scope();
+            return kResultConsumed;
+        }
+        int stream_id = start.stream_id;
         lists::Hunt<BulkStreamNode> search;
         for (BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams_); link;
              link = search.following_item()) {
@@ -481,18 +515,23 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         }
         void* memory = memory::alloc(sizeof(StreamDesc));
         StreamDesc* desc = memory ? construct_stream_desc(memory) : nullptr;
-        for (int i = 0; (desc->desc_[i] = msg[i]) != 0; ++i) // (strcpy: no limit)
-            ;
-        desc->extent_ = *reinterpret_cast<int*>(msg + 0x20);
-        desc->stream_id_ = *reinterpret_cast<int*>(msg + 0x24);
-        desc->checksum_ = *reinterpret_cast<uint32_t*>(msg + 0x28);
-        desc->msg_id_ = static_cast<uint8_t>(msg[0x2C]);
-        desc->content_ = static_cast<uint8_t*>(memory::alloc(*reinterpret_cast<uint32_t*>(msg + 0x20)));
+        // (the original copied the description with no limit: 32 bytes and a terminator here, the field's size)
+        static_assert(sizeof(desc->desc_) == wire::kStreamDescSize);
+        std::memcpy(desc->desc_, start.desc, sizeof(desc->desc_));
+        desc->desc_[sizeof(desc->desc_) - 1] = '\0';
+        desc->extent_ = start.total_size;
+        desc->stream_id_ = start.stream_id;
+        desc->checksum_ = start.checksum;
+        desc->msg_id_ = start.msg_id;
+        desc->content_ = static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(start.total_size)));
         desc->succ_ = desc->content_;
-        int size = *reinterpret_cast<int*>(msg + 0x20);
-        if (size >= static_cast<int>(kMaxStreamStartData))
+        size_t size = static_cast<size_t>(start.total_size);
+        if (size >= kMaxStreamStartData)
             size = kMaxStreamStartData;
-        std::memcpy(desc->content_, msg + 0x2D, size);
+        // NOT ORIGINAL: no more than the message holds (the original copied on past its end)
+        if (size > reader.remaining())
+            size = reader.remaining();
+        reader.bytes(desc->content_, size);
         desc->succ_ += size;
         void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
         BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, desc) : nullptr;

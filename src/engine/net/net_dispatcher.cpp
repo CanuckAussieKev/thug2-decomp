@@ -2,6 +2,7 @@
 
 #include "engine/net/net_dispatcher.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -11,6 +12,7 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app_messages.h"
 #include "engine/net/net_guards.h"
+#include "engine/util/byte_stream.h"
 
 namespace net {
 
@@ -126,21 +128,29 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     char*& read_ptr = conn->read_ptr_;
     void* metrics = &conn->receive_metrics_;
 
-    for (char* p = read_buffer; p < read_ptr; p += context.body_size_) {
-        context.type_code_ = static_cast<uint8_t>(*p++);
+    // (the messages one after another: net_wire.h)
+    util::ByteReader packet(read_buffer, static_cast<size_t>(read_ptr - read_buffer));
+    for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size_)) {
+        context.type_code_ = packet.u8();
         uint8_t* table = fetch_hub(conn->owner_app_);
         bool has_length = !(message_flags(table, context.type_code_) & kMsgNoLength);
         if (has_length) {
-            context.body_size_ = *reinterpret_cast<uint16_t*>(p);
-            p += 2;
+            context.body_size_ = packet.u16();
+            // NOT ORIGINAL: a length past the packet's end ends it (the original copied that much into its buffer)
+            if (!packet.ok() || context.body_size_ > packet.remaining())
+                break;
         } // (else the length stays what the previous message had)
+        const char* p = reinterpret_cast<const char*>(packet.cursor());
         if (context.type_code_ == kMsgSequenced) // counted by the message inside
             add_message_metric(metrics, static_cast<uint8_t>(p[5]), context.body_size_);
         if (has_length) {
             if (context.body_size_)
                 std::memcpy(buffer, p, context.body_size_);
         } else {
-            std::memcpy(buffer, p, kFixedSizeCopy); // a whole buffer's worth, whatever the message's size
+            // a whole buffer's worth, whatever the message's size (NOT ORIGINAL: no further than the packet's end -
+            // the original read on past the connection's receive buffer)
+            size_t copy = packet.remaining() < kFixedSizeCopy ? packet.remaining() : kFixedSizeCopy;
+            std::memcpy(buffer, p, copy);
         }
         if (is_outsider(conn))
             context.wire_options_ |= kPacketForeign;
