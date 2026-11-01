@@ -57,7 +57,6 @@ int g_coim_b;
 int g_coim_c;
 memory::owner<memory::Zone*> g_coim_region;
 memory::Arena* g_coim_heap;
-uint32_t g_instance_count;
 // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
 ObjectModule* g_component_list[objects::EntityHub::kMaxComponentTypes];
 } // namespace
@@ -303,14 +302,15 @@ struct MaterializeNode {
     MaterializeNode* next;
     MaterializeNode* prev;
 };
-MaterializeNode* g_instance_list_head;
-MaterializeNode*& instance_list_head() { return g_instance_list_head; }
-uint32_t& instance_count() { return g_instance_count; }
+// The list itself: its sentinel and its size, one object (the original's 0x006F0DB0 and the count after it - not
+// original: they were two globals here, and the list's code wrote the size past the head's global).
+PointerList g_instance_list;
+MaterializeNode* instance_list_head() { return raw::as<MaterializeNode>(g_instance_list.head); }
+int& instance_count() { return g_instance_list.size; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void erase_instances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
 {
-    raw::as<PointerList>(&g_instance_list_head)
-        ->get_erase(raw::as<PointerListNode*>(result), raw::as<PointerListNode>(first),
+    g_instance_list.get_erase(raw::as<PointerListNode*>(result), raw::as<PointerListNode>(first),
                     raw::as<PointerListNode>(last));
 }
 
@@ -413,6 +413,6 @@ commands::PointerList g_spare_object_list;
 void construct_spare_object_list() { g_spare_object_list.make_new(); }
 
 // 0x00640A10 (a static initialiser): the instance list (its head and the count after it), empty.
-void construct_instance_list() { raw::as<commands::PointerList>(&g_instance_list_head)->make_new(); }
+void construct_instance_list() { raw::as<commands::PointerList>(&g_instance_list)->make_new(); }
 
 } // namespace objects
