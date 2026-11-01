@@ -15,6 +15,8 @@ class Struct;
 namespace objects {
 
 class RiderBoardPhysics;
+class RiderChaseView;
+class ViewpointModule;
 
 class FreeLookModule;
 class FootMovement;
@@ -98,9 +100,8 @@ public:
     maths::Vec4 forced_heading_;         // +0x7C
     float override_rate_;                // +0x8C
     FreeLookModule* free_look_;          // +0x90
-    ObjectModule* viewer_;               // +0x94 (+0x18 its camera)
-    uint8_t* skater_camera_;             // +0x98 (the parameters it shares: +0x74 a matrix, +0xC4, +0xD0, +0xE4, +0xE8,
-                                         // +0x110, +0x12C)
+    ViewpointModule* viewer_;            // +0x94 the object's camera component
+    RiderChaseView* skater_camera_;      // +0x98 (the parameters it shares)
     GameEntity* skater_;                 // +0x9C
     FootMovement* walk_;                 // +0xA0
     RiderBoardPhysics* physics_control_; // +0xA4

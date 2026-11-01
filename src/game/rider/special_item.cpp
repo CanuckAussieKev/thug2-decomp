@@ -18,6 +18,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -68,10 +69,10 @@ void delete_params(script::Struct* params)
 void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 
 // An object's model's data (its model component's +0x208), or null.
-uint8_t* get_model_data(GameEntity* object)
+render::RenderModel* get_model_data(GameEntity* object)
 {
-    ObjectModule* model = object->fetch_module(kModel);
-    return model ? prop<uint8_t*>(model, 0x208) : nullptr;
+    auto* model = static_cast<MeshInstanceModule*>(object->fetch_module(kModel));
+    return model ? model->mesh_instance_ : nullptr;
 }
 
 // A message to the server, in a network game.
@@ -155,13 +156,11 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     delete_params(tags);
 
     // In the object's colour.
-    uint8_t* mine = get_model_data(entity_);
-    uint8_t* its = get_model_data(item);
+    render::RenderModel* mine = get_model_data(entity_);
+    render::RenderModel* its = get_model_data(item);
     if (mine && its) {
-        uint32_t colour[4] = {prop<uint32_t>(mine, 0x1C), prop<uint32_t>(mine, 0x20), prop<uint32_t>(mine, 0x24),
-                              prop<uint32_t>(mine, 0x28)};
-        reinterpret_cast<render::RenderModel*>(its)->change_scale(
-            reinterpret_cast<const maths::Vec4*>(colour)); // (0x00492EE0: four words set)
+        maths::Vec4 colour = mine->size_factor_;
+        its->change_scale(&colour); // (0x00492EE0: four words set)
     }
     return item;
 }

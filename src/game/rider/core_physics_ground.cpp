@@ -51,10 +51,6 @@ constexpr float kFlat = 0.001f;                  // 0x006461D8
 // The state component's flags.
 
 // The pad's buttons (offsets into the input component).
-constexpr uint32_t kBrakeButton = 0x40;
-constexpr uint32_t kLeftButton = 0x60;
-constexpr uint32_t kRightKeyHash = 0x80;
-constexpr uint32_t kKickButton = 0x180;
 
 bool is_crouched(SkaterPhysicsModule* component) { return component->state_->flag(PoseFlag::kCrouched).on != 0; }
 double speed_of(const maths::Vec4& v) { return length_unrounded(v); }
@@ -207,8 +203,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
 // 0x004FE860
 void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
 {
-    uint8_t* settings = reinterpret_cast<uint8_t*>(park_editing::g_park_editor);
-    if (get_at<uint32_t>(settings, 0x40) != kOff && normal.y > 0.0f) {
+    if (park_editing::g_park_editor->cur_phase_ != kOff && normal.y > 0.0f) {
         const maths::Vec4& position = entity_->at_point_;
         maths::Vec4 end;
         end.x = static_cast<float>(static_cast<float>(normal.x * static_cast<double>(kNormalFeeler)) + position.x);

@@ -160,8 +160,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
     } else if (!same_rail()) {
         // Another rail. In a created park, only if its ends are all more than 6 from the last one's (pieces' rails
         // meet end to end).
-        uint8_t* park = reinterpret_cast<uint8_t*>(park_editing::g_park_editor); // (the park editor)
-        if (get_at<uint32_t>(park, 0x40) == kOff || !last->previous || !node->previous) {
+        if (park_editing::g_park_editor->cur_phase_ == kOff || !last->previous || !node->previous) {
             new_rail = true;
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)
@@ -322,7 +321,8 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
     uint32_t dir = 0; // (left as it was on the stack without one, in the original)
     params->read_hash_value(kDir, &dir, 1);
     maths::Mat4 m;
-    m = get_at<maths::Mat4>(static_cast<objects::Rider*>(skater_object(this))->get_skater_camera(), kMatrix);
+    m = static_cast<objects::GameEntity*>(static_cast<objects::Rider*>(skater_object(this))->get_skater_camera())
+            ->basis_frame_;
     switch (dir) {
     case kDownRight:
         m.rotate_y(kEighthTurn);
@@ -525,13 +525,13 @@ void SkaterPhysicsModule::check_side_feelers()
 // 0x005054A0
 bool SkaterPhysicsModule::apply_model_rotations()
 {
-    void* model = skater_object(this)->fetch_module(0x286A8D26); // (Model)
-    if (!get_at<uint8_t>(model, 0xC8) && !get_at<uint8_t>(model, 0x15C) && !get_at<uint8_t>(model, 0x1F0))
+    auto* model = static_cast<objects::MeshInstanceModule*>(skater_object(this)->fetch_module(0x286A8D26)); // (Model)
+    if (!model->twist_rate_[0].active_ && !model->twist_rate_[1].active_ && !model->twist_rate_[2].active_)
         return false;
     objects::GameEntity* object = object_of(this);
     maths::Vec4 axis = object->basis_frame_.row[1];
-    static_cast<objects::MeshInstanceModule*>(model)->get_draw_matrix(&object->basis_frame_);
-    auto* y_rotation = &get_at<objects::ModelSpinAxis>(model, 0xCC);
+    model->get_draw_matrix(&object->basis_frame_);
+    objects::ModelSpinAxis* y_rotation = &model->twist_rate_[1];
     float angle = y_rotation->bearing();
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
@@ -542,9 +542,9 @@ bool SkaterPhysicsModule::apply_model_rotations()
         velocity = *quat->spin_by(&axis, velocity);
     }
     display_matrix_ = entity_->basis_frame_;
-    get_at<objects::ModelSpinAxis>(model, 0x38).get_clear();
+    model->twist_rate_[0].get_clear();
     y_rotation->get_clear();
-    get_at<objects::ModelSpinAxis>(model, 0x160).get_clear();
+    model->twist_rate_[2].get_clear();
     return true;
 }
 

@@ -21,6 +21,8 @@ class Struct;
 // Vtable: 0 Destroy, 3 Finalize, 12 invoke_method_by_name; Update is the shared empty 0x0051B970.
 namespace objects {
 
+class MeshInstanceModule;
+
 class RiderSpinAndFlip final : public ObjectModule {
 public:
     // 0x00511470 (registered by register_component_types): a new one (0 if out of memory): the board not rotated, no
@@ -58,7 +60,7 @@ public:
     bool rotate_after_;                         // +0x1A
     bool board_rotate_after_;                   // +0x1B
     ObjectModule* anim_blender_;                // +0x1C (0x7149B753)
-    uint8_t* mesh_set_;                         // +0x20 Model (0x286A8D26)
+    MeshInstanceModule* mesh_set_;              // +0x20 Model (0x286A8D26)
     skater::SkaterPhysicsModule* core_physics_; // +0x24 SkaterCorePhysics (0x5BD63B29)
 };
 static_assert(offsetof(RiderSpinAndFlip, deck_turned_) == 0x18 &&

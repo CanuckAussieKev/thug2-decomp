@@ -98,10 +98,6 @@ constexpr float kFlipSpinTime = 50.0f;
 // The state component's flags.
 
 // The pad's buttons (offsets into the input component).
-constexpr uint32_t kFlipButton1 = 0x160;
-constexpr uint32_t kFlipButton2 = 0x180;
-constexpr uint32_t kPushOffButton = 0x1A0;
-constexpr uint32_t kJumpButton = 0x1C0;
 
 double get_seconds(uint32_t milliseconds) { return static_cast<double>(milliseconds); }
 objects::GameEntity* get_composite(objects::GameEntity* object) { return static_cast<objects::GameEntity*>(object); }
@@ -245,7 +241,7 @@ double SkaterPhysicsModule::get_gravity()
     bool vert = flags->flag(PoseFlag::kVertAir).on || flags->flag(PoseFlag::kAcidDrop).on;
     float result = static_cast<float>(
         gravity / static_cast<double>(script::fetch_float(vert ? kGravityScaleVert : kGravityScale)));
-    auto* career = get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
+    auto* career = modules::g_skate_module->career_;
     if (career->is_code_on(kMoonCheat)) {
         career->set_global_flag(script::fetch_int_value(kMoonCheat));
         result = static_cast<float>(static_cast<double>(tuning_float_lookup(kMoonGravity, object)) * result);

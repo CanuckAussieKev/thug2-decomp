@@ -252,7 +252,7 @@ bool AttributeTracker::is_operative()
     void* skate = skate_module();
     if (!static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_true(0x1DED1EA4))
         return false;
-    if (!activated_ || prop<uint32_t>(skate, 0x378) == 0xE92ECAFE)
+    if (!activated_ || static_cast<modules::Skate*>(skate)->level_ == 0xE92ECAFE)
         return false;
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = reinterpret_cast<uint32_t>(this);
@@ -405,9 +405,9 @@ void AttributeTracker::tick_frame()
         first_update_ = false;
         return;
     }
-    void* score = point_tally(skater_);
-    points_held_ = truncate(prop<int>(score, 0x14) * static_cast<double>(prop<float>(score, 0x60)));
-    float multiplier = prop<float>(score, 0x60);
+    auto* score = static_cast<modules::PointTally*>(point_tally(skater_));
+    points_held_ = truncate(score->pot_ * static_cast<double>(score->multiplier_));
+    float multiplier = score->multiplier_;
     multiplier_ = multiplier;
     path_vertices_ = multiplier == 0.0f ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
 
@@ -628,7 +628,7 @@ bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Sc
 {
     int index;
     params->fetch_int_value(0u, &index, 1);
-    prop<script::Struct*>(script, 0x14)->put_int(0x84FF9AE3u, goals_[index].cur_standing_);
+    script->args_->put_int(0x84FF9AE3u, goals_[index].cur_standing_);
     return true;
 }
 
@@ -653,7 +653,7 @@ bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 // 0x0051CB70
 bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script)
 {
-    prop<script::Struct*>(script, 0x14)->put_int(0x2D3B766Bu, last_air_combo_score_);
+    script->args_->put_int(0x2D3B766Bu, last_air_combo_score_);
     return true;
 }
 

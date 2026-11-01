@@ -73,16 +73,14 @@ void SkaterPhysicsModule::step_coping_move()
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
     if (balance_->trick_ == kLipKind) {
-        auto career = [] {
-            return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
-        };
+        auto career = [] { return modules::g_skate_module->career_; };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->lip_.lean_ = 0.0f;
             balance_->lip_.lean_speed_ = 0.0f;
             reinterpret_cast<uint8_t&>(online::g_cheat_flag) = 1;
         }
-        reinterpret_cast<objects::Balance*>(reinterpret_cast<uint8_t*>(balance_) + 0xD4)->tick_frame();
+        balance_->lip_.tick_frame();
     }
     if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x_.held_down_)
         set_flag(this, PoseFlag::kCrouched, 1);
@@ -102,7 +100,8 @@ void SkaterPhysicsModule::step_coping_move()
 }
 
 // 0x0050C670
-void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, void* acid_drop)
+void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMovement* grind_from,
+                                         const AcidDrop* acid_drop)
 {
     clear_flags();
     if (on_ground) {
@@ -140,8 +139,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
     last_push_off_ = 0;
     leap_time_ = 0;
     vert_wallplanted_ = 0;
-    if (grind) {
-        auto* rail = const_cast<uint8_t*>(grind);
+    if (grind_from) {
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
         objects::MovingSurfaceModule* ride = ride_;
         if (objects::RideTracker* tracker = ride->ride_) {
@@ -151,14 +149,13 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
             ride->ride_ = nullptr;
             ride->stop_time_ = get_now();
         }
-        if (void* object = get_at<void*>(rail, 0x18))
-            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(static_cast<objects::GameEntity*>(object));
-        start_grind(reinterpret_cast<const maths::Vec4*>(grind), get_at<objects::GrindPoint*>(rail, 0x14),
-                    get_at<objects::GrindRailHub*>(rail, 0x10), true, true);
+        if (objects::GameEntity* object = grind_from->grind_object_)
+            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(object);
+        start_grind(&grind_from->grind_point_, grind_from->grind_node_, grind_from->grind_rails_, true, true);
         safe_pos_ = entity_->at_point_;
         entity_->old_pos_ = safe_pos_;
     } else if (acid_drop) {
-        start_acid_drop(static_cast<const AcidDrop*>(acid_drop));
+        start_acid_drop(acid_drop);
     }
 }
 

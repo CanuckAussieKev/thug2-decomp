@@ -25,6 +25,8 @@ class Struct;
 // invoke_method_by_name 0x0051ADC0 (shared: "not mine").
 namespace objects {
 
+class PadInputModule;
+
 class SkaterVehicleSoundComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x1859F772;
@@ -83,7 +85,7 @@ public:
 
     skater::SkaterPhysicsModule* core_physics_; // +0x18
     ObjectModule* sound_;                       // +0x1C
-    uint8_t* input_;                            // +0x20 (+0x40 the brake held; +0x1C0 a flag)
+    PadInputModule* input_;                     // +0x20
     script::Struct* settings_;                  // +0x24
     bool park_editor_level_;                    // +0x28
     uint8_t pad29[3];

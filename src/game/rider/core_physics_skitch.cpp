@@ -73,7 +73,7 @@ void SkaterPhysicsModule::try_start_skitch()
     objects::GameEntity* found = nullptr;
     for (objects::ObjectModule* skitch = objects::object_hub_slot()->find_first_module_of_kind(kSkitch); skitch;
          skitch = skitch->next_of_type_) {
-        if (!get_at<uint8_t>(skitch, 0x18))
+        if (!static_cast<objects::TowRideHandler*>(skitch)->allowed_)
             continue;
         objects::GameEntity* car = skitch->entity_;
         if (car == object_of(this))
@@ -102,9 +102,9 @@ void SkaterPhysicsModule::try_start_skitch()
 // 0x00501DB0
 void SkaterPhysicsModule::get_skitch()
 {
-    void* rider = ride_->ride_;
+    objects::RideTracker* rider = ride_->ride_;
     objects::PadSnapshot* pad = &input_->pad_primary_;
-    objects::GameEntity* car = rider ? *static_cast<objects::GameEntity**>(rider) : nullptr;
+    objects::GameEntity* car = rider ? rider->entity_.owner_object_ : nullptr;
     if (!car) {
         skater_object(this)->post_own_event(kOffMeterBottom, nullptr);
         return;
@@ -173,7 +173,7 @@ void SkaterPhysicsModule::get_skitch()
         return;
     objects::GameEntity* object = object_of(this);
     object->at_point_.w = 0.0f;
-    maths::Vec4 back = -vector_at(car, kForward);
+    maths::Vec4 back = -static_cast<objects::GameEntity*>(car)->basis_frame_.row[2];
     float offset = script::fetch_float(kSkitchOffset);
     maths::Vec4 target = point + offset * back;
     if (skitch_moving_) {
@@ -197,7 +197,7 @@ void SkaterPhysicsModule::get_skitch()
     } else {
         entity_->at_point_ = target;
     }
-    entity_->basis_frame_ = get_at<maths::Mat4>(car, 0xC0); // (the car's display matrix)
+    entity_->basis_frame_ = static_cast<objects::GameEntity*>(car)->display_matrix_; // (the car's display matrix)
     display_matrix_ = entity_->basis_frame_;
 }
 

@@ -36,6 +36,9 @@
 #include "engine/gfx/model_utils.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "game/skate/point_tally.h"
+#include "game/rider/rider.h"
+#include "game/rider/skater_score.h"
 
 namespace objects {
 
@@ -90,8 +93,7 @@ void free_texture(void*& texture)
 {
     if (!texture)
         return;
-    render::engine::kill_texture_splats_of_texture(
-        static_cast<uint32_t>(reinterpret_cast<uintptr_t>(prop<void*>(texture, 4))));
+    render::engine::kill_texture_splats_of_texture(static_cast<render::BitmapTexture*>(texture)->checksum_);
     static_cast<render::BitmapTexture*>(texture)->pin_resident(false);
     release_texture(texture);
     unload_texture(texture);
@@ -430,7 +432,7 @@ bool TaggingControlComponent::try_tagging()
     auto* core = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     uint32_t bone = core->state_->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
-    if (prop<uint32_t>(entity_, 0x158) == 0xFC3A8D7F)
+    if (static_cast<Rider*>(entity_)->label_ == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
     auto* button = &static_cast<PadInputModule*>(input_)->pad_primary_.button_wedge_;
     bool tapped = button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) < 100u;
@@ -513,8 +515,8 @@ bool TaggingControlComponent::try_tagging()
         countdown_ = 30;
         return true;
     }
-    void* score = prop<void*>(entity_->fetch_module(kSkaterScore), 0x18);
-    int combo_score = get_truncated(prop<int>(score, 0x14) * static_cast<double>(prop<float>(score, 0x60)));
+    modules::PointTally* score = static_cast<RiderPointKeeper*>(entity_->fetch_module(kSkaterScore))->points_held_;
+    int combo_score = get_truncated(score->pot_ * static_cast<double>(score->multiplier_));
     int size = combo_score > 5000 ? 100 : (combo_score > 1000 ? 75 : 50);
     tagging_->place_tag(false, start, end, size, true);
     cooldown_ = script::fetch_float(0xD29DE3D7u);

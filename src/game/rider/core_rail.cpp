@@ -53,10 +53,7 @@ constexpr float kRaiseEnd = 6.1f;    // 0x0064BDA8: its end
 constexpr float kFeelerAhead = 6.0f; // (the feeler past the move: 6 along it)
 constexpr float kTurnFacing = 0.3f;  // (how far the display facing turns to the rail each frame)
 
-bool in_park_editor()
-{
-    return get_at<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) == kParkEditorLevel;
-}
+bool in_park_editor() { return park_editing::g_park_editor->cur_phase_ == kParkEditorLevel; }
 void change_state(SkaterPhysicsModule* component, int state)
 {
     static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
@@ -367,10 +364,8 @@ void SkaterPhysicsModule::update_grind_balance()
 {
     uint32_t kind = balance_->trick_;
     if (kind == kGrind || kind == kSlide) {
-        reinterpret_cast<objects::Balance*>(reinterpret_cast<uint8_t*>(balance_) + 0x7C)->tick_frame();
-        auto career = [] {
-            return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
-        };
+        balance_->grind_.tick_frame();
+        auto career = [] { return modules::g_skate_module->career_; };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->grind_.lean_ = 0.0f;
@@ -522,9 +517,9 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
 void SkaterPhysicsModule::finish_rail()
 {
     floor_normal_ = entity_->basis_frame_.row[1];
-    void* score = score_->points_held_;
-    int time = static_cast<int>(static_cast<double>(rail_adjust_) * get_at<float>(score, 0x154C));
-    static_cast<modules::PointTally*>(score)->tweak_trick(time);
+    modules::PointTally* score = score_->points_held_;
+    int time = static_cast<int>(static_cast<double>(rail_adjust_) * score->robot_factor_);
+    score->tweak_trick(time);
     if (rail_manager_->node_array_) {
         script::Struct* script = level_nodes::fetch_vertex(rail_node_->label_, true);
         // (0x00476EC0: read_hash_value with a bool for its last argument - the wrapper passes it on as 1)

@@ -18,6 +18,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "game/rider/skater_sound.h"
 
 namespace objects {
 
@@ -109,20 +110,19 @@ void RiderPhysicsCommit::tick_frame()
     entity_->display_matrix_ = physics_matrix;
 
     // The sounds: terrain and state.
-    uint8_t* sound = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterSound));
-    prop<uint8_t>(sound, 0x1E) = pose_->flag(PoseFlag::kSlide).on;
-    prop<uint8_t>(sound, 0x1C) = pose_->surface_type_;
-    ObjectModule* looping = entity_->fetch_module(kSkaterLoopingSound);
+    auto* sound = static_cast<RiderSfxPlayer*>(entity_->fetch_module(kSkaterSound));
+    sound->sliding_ = pose_->flag(PoseFlag::kSlide).on;
+    sound->surface_type_ = pose_->surface_type_;
+    auto* looping = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound));
     double x = entity_->vel_.x, z = entity_->vel_.z;
     float speed = static_cast<float>(std::sqrt(x * x + z * z));
     float fraction = static_cast<float>(speed / scaled_physics_value(entity_, kSkaterMaxMaxSpeedStat));
     set_looping_sound_speed(looping, fraction);
-    uint8_t* loop = reinterpret_cast<uint8_t*>(looping);
-    prop<uint8_t>(loop, 0xFF) = pose_->flag(PoseFlag::kBailing).on;
-    uint8_t& changed = prop<uint8_t>(loop, 0xFD);
-    get_note(prop<uint8_t>(loop, 0x100), pose_->flag(PoseFlag::kSlide).on, changed);
-    get_note(prop<uint8_t>(loop, 0x60), pose_->surface_type_, changed);
-    get_note(prop<int>(loop, 0x74), pose_->cur_phase_, changed);
+    looping->no_rail_sound_ = pose_->flag(PoseFlag::kBailing).on;
+    uint8_t& changed = looping->sound_changed_;
+    get_note(looping->sliding_, pose_->flag(PoseFlag::kSlide).on, changed);
+    get_note(looping->surface_type_, pose_->surface_type_, changed);
+    get_note(looping->cur_phase_, pose_->cur_phase_, changed);
 }
 
 } // namespace objects

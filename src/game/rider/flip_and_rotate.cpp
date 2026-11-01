@@ -22,6 +22,8 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
+#include "engine/objects/model_component.h"
+#include "game/rider/rider.h"
 
 namespace objects {
 
@@ -58,7 +60,7 @@ bool is_own_player(online::PlayerRecord* player) { return player->is_own_player(
 int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_view_slot()); }
 net::Guest* client_app(int index) { return static_cast<net::Guest*>(net_session_slot()->fetch_patron(index)); }
 // A client app's +0x08 (passed to the animation blender and to apply_board_turned, which doesn't use it).
-uint32_t app_value8(net::Guest* app) { return prop<uint32_t>(app, 0x08); }
+uint32_t app_value8(net::Guest* app) { return app->clock_; }
 
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
@@ -72,7 +74,7 @@ void flip_anims(ObjectModule* blender, uint32_t object_id, uint32_t flip, uint32
 }
 
 // The skater's index (+0x2BC of the skater object).
-int get_skater_index(GameEntity* skater) { return prop<int>(skater, 0x2BC); }
+int get_skater_index(GameEntity* skater) { return static_cast<Rider*>(skater)->view_slot_; }
 
 } // namespace
 
@@ -95,7 +97,7 @@ RiderSpinAndFlip::~RiderSpinAndFlip() {}
 void RiderSpinAndFlip::seal()
 {
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    mesh_set_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kModel));
+    mesh_set_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
     anim_blender_ = entity_->fetch_module(kAnimBlender);
 }
 
@@ -170,7 +172,7 @@ void RiderSpinAndFlip::do_after_anim()
         apply_board_turned(entity_->ident_, !deck_turned_, app_value8(app), true);
         board_rotate_after_ = false;
     }
-    prop<uint8_t>(mesh_set_, 0x1F4) = 0;
+    mesh_set_->flip_ = false;
 }
 
 // 0x00511600

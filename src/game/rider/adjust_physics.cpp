@@ -21,7 +21,6 @@ namespace {
 
 // The core physics component's fields read here.
 // The skater object's.
-constexpr uint32_t kVelocity = 0xAC;
 // The state component's: the height over the ground the skater stands on.
 
 constexpr uint32_t kUberFrigCurrentHeight = 0x801C9CB6; // uber_frig_current_height (feet)
@@ -87,13 +86,13 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (raise != 0.0f)
         start.y += raise;
     auto* physics = static_cast<skater::SkaterPhysicsModule*>(core);
-    uint8_t* park_editor = reinterpret_cast<uint8_t*>(static_cast<void*>(park_editing::g_park_editor));
+    park_editing::ParkBuilderMode* park_editor = park_editing::g_park_editor;
 
     if (!physics->probe_touches_zone(0x10, 0)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame
         // began (a little off it each try), going the other way; out of the air states, into the air.
         int state = state_of(core);
-        if (!((state == 4 || state == 3) && get_at<uint32_t>(park_editor, 0x40) == kParkEditorTestPlay)) {
+        if (!((state == 4 || state == 3) && park_editor->cur_phase_ == kParkEditorTestPlay)) {
             uber_frigged_ = 1;
             if (uber_frig_tries_ < 5) {
                 const float* offset = kUberFrigOffsets[uber_frig_tries_++];
@@ -128,7 +127,7 @@ void RiderPhysicsTweaks::keep_above_ground()
                 leave = false;
             }
             if (leave)
-                object->vel_ += vector_at(ride_->ride_->entity_.owner_object_, kVelocity);
+                object->vel_ += ride_->ride_->entity_.owner_object_->vel_;
         }
         if (leave)
             ride_->stop_riding();
@@ -146,7 +145,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (state_of(core) != 4)
         get_update_brightness(&core->feeler_);
 
-    if (get_at<uint32_t>(park_editor, 0x40) != kParkEditorTestPlay) {
+    if (park_editor->cur_phase_ != kParkEditorTestPlay) {
         // Under the floor: a feeler from far above down to a unit over the skater (faces flagged 0x800 - "under ok" -
         // passed over) hits a floor. Within 6 of it: onto it. Further, moved this frame: back where the frame began
         // at half the speed the other way (a lip: out of it, into the air, 2 up); hardly moved: onto it.

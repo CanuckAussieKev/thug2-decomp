@@ -504,8 +504,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     if (rail_node_ != node) {
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
         uint32_t index =
-            static_cast<uint32_t>(reinterpret_cast<uint8_t*>(node) -
-                                  reinterpret_cast<uint8_t*>(get_at<objects::GrindPoint*>(manager, 0x40))) /
+            static_cast<uint32_t>(reinterpret_cast<uint8_t*>(node) - reinterpret_cast<uint8_t*>(manager->nodes_)) /
             sizeof(objects::GrindPoint);
         static_cast<modules::PointTally*>(score_->points_held_)->refresh_bot_check(static_cast<int>(index));
     }
@@ -573,11 +572,11 @@ void SkaterPhysicsModule::try_grind(bool always)
     maths::Vec4 now = object->at_point_;
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float min_alignment = 1.0f;
-    if (get_at<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) != kParkEditorLevel &&
+    if (park_editing::g_park_editor->cur_phase_ != kParkEditorLevel &&
         static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_time_)) < static_cast<uint32_t>(rail_wait_))
         min_alignment =
             static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));
-    auto* manager = get_at<objects::GrindRailHub*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x24);
+    auto* manager = modules::g_skate_module->rail_manager_;
     maths::Vec4 point;
     objects::GrindPoint* node;
     if (manager->find_grind_rail(&last, &now, &point, &node, nullptr, min_alignment, 0)) {
@@ -590,7 +589,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     }
     // The rails on moving objects: the move in the object's space.
     for (auto* rails = objects::object_hub_slot()->find_first_module_of_kind(kRailManagerType); rails;
-         rails = get_at<objects::ObjectModule*>(rails, 0x14)) {
+         rails = rails->next_of_type_) {
         auto* object_rails = static_cast<objects::GrindPathLinkModule*>(rails)->get_rail_groups();
         maths::Mat4 world;
         static_cast<objects::GrindPathLinkModule*>(rails)->update_rail_matrix(&world);
@@ -609,9 +608,9 @@ void SkaterPhysicsModule::try_grind(bool always)
             if (!can_grind(this, node, object_rails))
                 return;
             start_grind(&point, node, object_rails, false, false);
-            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(get_at<objects::GameEntity*>(rails, 0xC));
+            reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(rails->entity_);
             ride_->update_contact_point();
-            entity_->vel_ -= vector_at(get_tracker(this)->entity_.owner_object_, kVelocity);
+            entity_->vel_ -= get_tracker(this)->entity_.owner_object_->vel_;
             return;
         }
     }

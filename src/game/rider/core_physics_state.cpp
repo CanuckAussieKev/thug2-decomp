@@ -34,6 +34,7 @@
 #include "game/rider/skater_sound.h"
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"
+#include "game/rider/tagging.h"
 
 namespace skater {
 
@@ -233,8 +234,8 @@ void SkaterPhysicsModule::update_projectiles()
 {
     if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on)
         return;
-    uint8_t* other = reinterpret_cast<uint8_t*>(tagging_component_);
-    if (other[0x1C] || get_at<int>(other, 0x18) || !(get_at<float>(other, 0x20) == 0.0f))
+    objects::TaggingControlComponent* other = tagging_component_;
+    if (other->pending_ || other->countdown_ || !(other->cooldown_ == 0.0f))
         return;
     int& wait = throw_wait_;
     if (wait) {

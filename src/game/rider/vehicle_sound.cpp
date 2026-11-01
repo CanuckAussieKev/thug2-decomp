@@ -21,6 +21,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -133,7 +134,7 @@ SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() {}
 // 0x0051AE60
 void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
 {
-    park_editor_level_ = prop<uint32_t>(static_cast<void*>(park_editing::g_park_editor), 0x40) != kParkEditorOff;
+    park_editor_level_ = park_editing::g_park_editor->cur_phase_ != kParkEditorOff;
 }
 
 // 0x0051B8E0
@@ -141,7 +142,7 @@ void SkaterVehicleSoundComponent::seal()
 {
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     sound_ = entity_->fetch_module(kSound);
-    input_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
+    input_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput));
     read_settings();
 }
 
@@ -185,7 +186,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 {
     float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     float speed = static_cast<float>(get_pace(entity_->vel_) * kToMph);
-    if (!prop<bool>(input_, 0x1C0) || prop<bool>(input_, 0x40))
+    if (!input_->pad_primary_.pos_x_.held_down_ || input_->pad_primary_.btn_down_.held_down_)
         speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
 
     // The speed eased towards the object's, each step limited by the rates (as the original compares them, a step
@@ -266,7 +267,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
-    if (prop<bool>(input_, 0x40) && core_physics_->state_->cur_phase_ == 0) {
+    if (input_->pad_primary_.btn_down_.held_down_ && core_physics_->state_->cur_phase_ == 0) {
         double speed = get_pace(entity_->vel_);
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);

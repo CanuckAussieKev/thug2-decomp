@@ -80,7 +80,7 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 // (shared by both: the original repeats it in each)
 static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
 {
-    reinterpret_cast<maths::Mat4*>(reinterpret_cast<uint8_t*>(self->entity_) + 0xC0)->get_euler_angles(out.angles);
+    self->entity_->display_matrix_.get_euler_angles(out.angles);
     objects::RiderPoseState* core = self->pose_;
     out.state = static_cast<uint8_t>(core->cur_phase_);
     out.value_7c_ = core->surface_type_;
@@ -106,7 +106,7 @@ static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, U
 uint32_t RiderHostSync::fetch_sync_field_mask()
 {
     uint32_t flags = 0;
-    net::AppHost* app = client_app(prop<int>(entity_, 0x2BC));
+    net::AppHost* app = client_app(static_cast<Rider*>(entity_)->view_slot_);
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     bool force = get_on_server() || static_cast<uint32_t>(app->frame_count_) % 15 == 0;
     UpdateState now;
@@ -141,7 +141,7 @@ void RiderHostSync::send_update()
     net::NetMessageInfo desc;
     desc.make_new();
     util::PackedBitBuffer stream;
-    auto* app = static_cast<net::Guest*>(client_app(prop<int>(entity_, 0x2BC)));
+    auto* app = static_cast<net::Guest*>(client_app(static_cast<Rider*>(entity_)->view_slot_));
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     bool on_server = get_on_server();
     if (!on_server && static_cast<uint32_t>(app->frame_count_) % 15 != 0) {

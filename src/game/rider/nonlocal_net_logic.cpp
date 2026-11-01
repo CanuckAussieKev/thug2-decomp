@@ -33,6 +33,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/state_history.h"
 #include "engine/objects/model_component.h"
+#include "engine/gfx/model.h"
 
 namespace objects {
 
@@ -168,8 +169,8 @@ void RiderRemoteSync::update_ground_lighting()
     if (pose_->cur_phase_ != kStateRail && feeler.is_hit_triangle_collision()) {
         // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
         // folded getter 0x00532EB0; else the global).
-        void* model = prop<void*>(mesh_set_, 0x208);
-        void* light = prop<void*>(model, 0x2C);
+        render::RenderModel* model = mesh_set_->mesh_instance_;
+        void* light = model->lights_ptr_;
         if (light)
             static_cast<render::ModelLights*>(light)->move_brightness(static_cast<float>(feeler.get_hit_vertex_value()),
                                                                       kLightTime);

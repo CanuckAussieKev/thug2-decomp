@@ -42,17 +42,11 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
+#include "game/rider/tagging.h"
 
 namespace objects {
 
 namespace {
-
-template <typename T>
-T& get_at(const void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
-}
-maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // The component's fields (offsets).
 
@@ -264,29 +258,29 @@ FootMovement::FootMovement()
 // 0x00529F80
 void FootMovement::update_camera_override()
 {
-    void* camera = walk_camera_;
+    FootView* camera = walk_camera_;
     const maths::Vec4& facing = facing_;
     switch (anim_state_) {
     case kAnimWait: {
-        get_at<bool>(camera, 0x78) = true;
+        camera->override_ = true;
         // (while hang-moving, the hang move's facing)
-        vector_at(camera, 0x7C) = anim_waiting_ ? transition_facing_ : facing;
-        get_at<float>(camera, 0x8C) = kCameraRate;
+        camera->forced_heading_ = anim_waiting_ ? transition_facing_ : facing;
+        camera->override_rate_ = kCameraRate;
         return;
     }
     case kHangMoveRight: {
         // The facing turned 0.95 radians about y (sin / cos stored as floats, the sums rounded once).
         auto sine = static_cast<float>(x87_sin(kHangTurn));
         auto cosine = static_cast<float>(x87_cos(kHangTurn));
-        get_at<bool>(camera, 0x78) = true;
-        maths::Vec4& target = vector_at(camera, 0x7C);
+        camera->override_ = true;
+        maths::Vec4& target = camera->forced_heading_;
         float x = facing.x;
         float z = facing.z;
         target.x = static_cast<float>(static_cast<double>(z) * sine + static_cast<double>(cosine) * x);
         target.y = facing.y;
         target.z = static_cast<float>(-(static_cast<double>(x) * sine) + static_cast<double>(z) * cosine);
         target.w = facing.w;
-        get_at<float>(camera, 0x8C) = kCameraRate;
+        camera->override_rate_ = kCameraRate;
         return;
     }
     case kHangMoveLeft: {
@@ -301,12 +295,12 @@ void FootMovement::update_camera_override()
     case kLadderMoveUp:
     case kLadder:
     case kLadderMoveDown:
-        get_at<bool>(camera, 0x78) = true;
-        vector_at(camera, 0x7C) = facing;
-        get_at<float>(camera, 0x8C) = kCameraRate;
+        camera->override_ = true;
+        camera->forced_heading_ = facing;
+        camera->override_rate_ = kCameraRate;
         return;
     default:
-        get_at<bool>(camera, 0x78) = false;
+        camera->override_ = false;
         return;
     }
 }
@@ -400,7 +394,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
     auto* tracker = ride->ride_;
     maths::Vec4& carried = jump_base_vel_;
     if (tracker && tracker->entity_.get_pull()) {
-        carried = vector_at(tracker->entity_.get_pull(), 0xAC); // its velocity
+        carried = tracker->entity_.get_pull()->vel_; // its velocity
         double heading = static_cast<double>(carried.z) * velocity->z + static_cast<double>(carried.y) * velocity->y +
                          static_cast<double>(carried.x) * velocity->x;
         if (heading > 0.0) {
@@ -480,7 +474,7 @@ void FootMovement::go_to_air_for(void*) { go_to_air(); }
 // 0x0052D4B0
 void FootMovement::tick_frame()
 {
-    if (jump_held_ && !get_at<bool>(input_, 0x100))
+    if (jump_held_ && !input_->pad_primary_.stick_click_left_.held_down_)
         jump_held_ = false;
     uint32_t previous_anim = anim_state_;
     previous_anim_state_ = previous_anim;
@@ -973,7 +967,7 @@ void FootMovement::get_begin(bool on_ground)
     jump_held_ = true;
     critical_point_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
     model_lift_ = 0.0f;
-    get_at<uint32_t>(tagging_, 0x18) = 0;
+    tagging_->countdown_ = 0;
     locked_to_heading_ = false;
 }
 

@@ -21,16 +21,13 @@
 #include "platform/stopwatch.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
+#include "engine/objects/camera_component.h"
+#include "game/rider/skater_camera_component.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
 namespace {
-
-template <typename T>
-T& get_at(void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
-}
 
 constexpr uint32_t kWalkCamera = 0xC7D37EC2;
 constexpr uint32_t kWalk = 0x726E85AA, kSkaterPhysicsControl = 0xD9151D4D, kCameraLookAround = 0x81C7122D,
@@ -152,8 +149,8 @@ void FootView::configure_from_data(script::Struct* params)
 void FootView::seal()
 {
     free_look_ = static_cast<FreeLookModule*>(entity_->fetch_module(kCameraLookAround));
-    viewer_ = entity_->fetch_module(kCamera);
-    skater_camera_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCamera));
+    viewer_ = static_cast<ViewpointModule*>(entity_->fetch_module(kCamera));
+    skater_camera_ = static_cast<RiderChaseView*>(entity_->fetch_module(kSkaterCamera));
 }
 
 // 0x00524C30
@@ -235,10 +232,10 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
     if (instant) {
         aim_point_ = skater_->at_point_;
     } else {
-        float across = static_cast<float>(frame_blend(get_at<float>(skater_camera_, 0xE4),
-                                                      static_cast<float>(frame_clock::get_slomo_frame_seconds())));
-        float up = static_cast<float>(frame_blend(get_at<float>(skater_camera_, 0xE8),
-                                                  static_cast<float>(frame_clock::get_slomo_frame_seconds())));
+        float across = static_cast<float>(
+            frame_blend(skater_camera_->lerp_xz_, static_cast<float>(frame_clock::get_slomo_frame_seconds())));
+        float up = static_cast<float>(
+            frame_blend(skater_camera_->lerp_y_, static_cast<float>(frame_clock::get_slomo_frame_seconds())));
         const maths::Vec4& skater = skater_->at_point_;
         float x = aim_point_.x, y = aim_point_.y, z = aim_point_.z;
         aim_point_.w = 1.0f;
@@ -257,15 +254,15 @@ void FootView::get_zoomed_offsets(float* height, float* distance)
     std::memcpy(&factor_bits, &free_look_->factor_, 4);
     if (free_look_->turning_ && factor_bits != 0x3F800000)
         factor = free_look_->factor_;
-    double zoom = (static_cast<double>(factor) - zoom_) * get_at<float>(skater_camera_, 0x110) + zoom_;
+    double zoom = (static_cast<double>(factor) - zoom_) * skater_camera_->zoom_ease_rate_ + zoom_;
     zoom_ = static_cast<float>(zoom);
-    double behind = zoom * get_at<float>(skater_camera_, 0xC4);
+    double behind = zoom * skater_camera_->behind_;
     *distance = static_cast<float>(behind);
     float tilt = free_look_->lean_angle_;
     if (tilt < 0.0f)
         *distance = static_cast<float>(
             (((static_cast<double>(tilt) + kTiltOffset) * kTiltScale) * kTiltRange + kTiltBase) * behind);
-    float above = get_at<float>(skater_camera_, 0xD0);
+    float above = skater_camera_->above_;
     if (zoom_ < 1.0f)
         *height = static_cast<float>((static_cast<double>(above) - kNearHeight) * zoom_ + kNearHeight);
     else
@@ -290,9 +287,9 @@ void FootView::tick_frame()
     } else {
         instant = snap_next_;
     }
-    get_at<gfx::ViewCam*>(viewer_, 0x18)->remember_prev_pos();
+    viewer_->view_camera_->remember_prev_pos();
     float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    float turn = get_at<float>(entity_->fetch_module(kInput), 0x230);
+    float turn = static_cast<PadInputModule*>(entity_->fetch_module(kInput))->pad_primary_.scaled_stick_[0];
     entity_->basis_frame_ = orientation_;
 
     // Where to look: along the camera's flat facing, swung round to the skater's.
@@ -358,7 +355,7 @@ void FootView::tick_frame()
     look.row[2] = facing;
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Mat4 tilt;
-    maths::make_pitch_matrix(tilt, free_look_->lean_angle_ + get_at<float>(skater_camera_, 0x12C));
+    maths::make_pitch_matrix(tilt, free_look_->lean_angle_ + skater_camera_->lean_angle_);
     matrix_multiply(&look, &tilt, &look);
     look.row[0] = {-look.row[0].x, -look.row[0].y, -look.row[0].z, -look.row[0].w};
     look.row[2] = {-look.row[2].x, -look.row[2].y, -look.row[2].z, -look.row[2].w};
@@ -480,8 +477,8 @@ void FootView::tick_frame()
     target.w = 1.0f;
     entity_->at_point_ = target;
     if (instant)
-        get_at<gfx::ViewCam*>(viewer_, 0x18)->remember_prev_pos();
-    get_at<maths::Mat4>(skater_camera_, 0x74) = matrix;
+        viewer_->view_camera_->remember_prev_pos();
+    skater_camera_->skater_matrix_ = matrix;
 }
 
 } // namespace objects

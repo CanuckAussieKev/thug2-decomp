@@ -173,7 +173,7 @@ public:
     // in the air flag +0xC0, and +0xB0 for +0x1534's +0x9B), the matrices and ground normals from the object, the
     // positions kept, the jump / trick state cleared; then onto a rail (`grind`: a point, +0x10 its manager, +0x14
     // its node, +0x18 an object to ride - the old ride let go) or an acid drop (0x00502F20).
-    void resume_skating(bool on_ground, const uint8_t* grind, void* acid_drop);
+    void resume_skating(bool on_ground, const objects::FootMovement* grind_from, const AcidDrop* acid_drop);
 
     // --- core_rail.cpp: grinding ---
     // 0x0050DDF0: the rail state's update (state 4). Carried along by a moving rail; off the rail when 0x004FFB10

@@ -43,12 +43,6 @@ T& get_at(void* object, uint32_t offset)
 }
 
 // The input's buttons (offsets into the pad).
-constexpr uint32_t kButton20 = 0x20;
-constexpr uint32_t kButton40 = 0x40;
-constexpr uint32_t kButton60 = 0x60;
-constexpr uint32_t kButton80 = 0x80;
-constexpr uint32_t kTrigger1 = 0xC0;
-constexpr uint32_t kTrigger2 = 0x120;
 
 maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
@@ -769,7 +763,7 @@ void SkaterPhysicsModule::land_from_air()
         if (!landed_from_air_vert_ && !landed_from_vert_ && velocity.x == 0.0f && velocity.z == 0.0f &&
             input->pad_primary_.btn_down_.held_down_) {
             // (Landing straight down with button +0x40 held: no bounce.)
-            get_at<uint32_t>(&velocity, 4) = 0;
+            velocity.y = 0.0f; // (the original stores the word 0)
         } else {
             if (!bit_mark(this, PoseFlag::kAcidDrop)) {
                 velocity.flatten_onto_plane(normal);

@@ -46,9 +46,6 @@ void find_module(objects::GameEntity* object, Module*& slot, uint32_t type)
 }
 
 // The component's fields used here.
-constexpr uint32_t kFeelerObject = 0x140;       // (the feeler +0xA8's smart pointer)
-constexpr uint32_t kGroundFeelerObject = 0x1F0; // (the feeler +0x158's)
-constexpr uint32_t kSkitched = 0x364;
 
 // The state component's (+0x1528) flags used here.
 
@@ -57,10 +54,6 @@ enum : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4 };
 objects::RiderPoseState* state_of(SkaterPhysicsModule* component) { return component->state_; }
 uint8_t* sound_of(SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->sound_); }
 objects::MoveExecutor* trick_of(SkaterPhysicsModule* component) { return component->trick_; }
-void release_pointer(SkaterPhysicsModule* component, uint32_t offset)
-{
-    get_at<objects::SharedRef<objects::SharedBase>>(component, offset).get_release();
-}
 
 } // namespace
 
@@ -104,9 +97,9 @@ void SkaterPhysicsModule::set_surface_kind(uint32_t terrain)
 SkaterPhysicsModule::~SkaterPhysicsModule()
 {
     hit_cache_.destruct();
-    release_pointer(this, kSkitched);
-    release_pointer(this, kGroundFeelerObject);
-    release_pointer(this, kFeelerObject);
+    skitch_target_.get_release();
+    floor_feeler_.entity_.get_release();
+    feeler_.entity_.get_release();
 }
 
 // 0x004FC5C0
@@ -220,7 +213,7 @@ void SkaterPhysicsModule::set_physics_state(int state)
         queued_spin_ = 0.0f;
     }
     state_of(this)->change_phase(state);
-    get_at<int>(sound_of(this), 0x18) = state;
+    sound_->cur_phase_ = state;
 }
 
 // 0x004FE120

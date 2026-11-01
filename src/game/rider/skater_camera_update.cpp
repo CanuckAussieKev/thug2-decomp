@@ -27,6 +27,8 @@
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
+#include "engine/objects/camera_component.h"
+#include "game/rider/balance_trick.h"
 
 namespace objects {
 
@@ -118,7 +120,7 @@ void RiderChaseView::tick_frame()
     }
     float seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     update_lerps();
-    auto* camera = get_at<gfx::ViewCam*>(camera_component, 0x18);
+    gfx::ViewCam* camera = static_cast<ViewpointModule*>(camera_component)->view_camera_;
     camera->remember_prev_pos();
     maths::Mat4& view = camera_component->entity_->basis_frame_;
     std::memcpy(&view, orientation_, sizeof(orientation_));
@@ -169,8 +171,8 @@ void RiderChaseView::tick_frame()
     // The roll: on a rail on the skater's model, the balance's lean.
     double roll = 0.0;
     if (physics_state == 4 && rider_ref_->is_local_skater_) {
-        auto* balance = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kBalanceTrick));
-        roll = static_cast<double>(balance_roll_scale()) * get_at<float>(balance, 0xAC);
+        auto* balance = static_cast<RiderTeeterMoves*>(rider_ref_->fetch_module(kBalanceTrick));
+        roll = static_cast<double>(balance_roll_scale()) * balance->grind_.lean_;
     }
     float& roll_now = roll_;
     if (roll_now != roll) {
@@ -505,7 +507,7 @@ void RiderChaseView::tick_frame()
     target.w = 1.0f;
     camera_component->entity_->at_point_ = target;
     if (instant)
-        get_at<gfx::ViewCam*>(camera_component, 0x18)->remember_prev_pos();
+        static_cast<ViewpointModule*>(camera_component)->view_camera_->remember_prev_pos();
 }
 
 } // namespace objects

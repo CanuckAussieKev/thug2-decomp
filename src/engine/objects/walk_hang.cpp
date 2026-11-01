@@ -34,19 +34,11 @@
 #include "engine/objects/wait_and_die.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
+#include "engine/gfx/model.h"
+#include "engine/objects/model_component.h"
+#include "game/rider/tagging.h"
 
 namespace {
-
-template <typename T>
-T& get_at(void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
-}
-template <typename T>
-const T& get_at(const void* object, uint32_t offset)
-{
-    return *reinterpret_cast<const T*>(static_cast<const uint8_t*>(object) + offset);
-}
 
 // --- the walk component's fields (offsets) ---
 
@@ -123,7 +115,6 @@ constexpr uint32_t kAnimLadderOffTop = 0x12521BFB;          // "LadderOffTop"
 objects::GameEntity* object_of(objects::FootMovement* walk) { return walk->entity_; }
 objects::GrindRailHub*& get_rails_of(objects::FootMovement* walk) { return walk->rail_manager_; }
 skater::SkaterPhysicsModule* physics_of(objects::FootMovement* walk) { return walk->core_physics_; }
-maths::Vec4& vector_at(void* walk, uint32_t offset) { return get_at<maths::Vec4>(walk, offset); }
 
 // What find_rail finds (its 0x34-byte record, filled by check_rail): the hang point, the direction to face (out from
 // the wall), how far along, out and up from the rail, the animation, and the rail's node.
@@ -349,11 +340,10 @@ maths::Vec4* __cdecl walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, cons
 }
 
 // 0x0043DA20
-int walk::SkaterTurn::turned_round() const
+int walk::turned_round(const objects::PadSnapshot* pad)
 {
-    const void* skater = this;
-    if (get_at<int>(skater, 0x234) == 0 && get_at<float>(skater, 0x22C) != 0.0f &&
-        3.1415927410125732 - std::fabs(static_cast<double>(get_at<float>(skater, 0x228))) < 0.78539818525314331)
+    if (pad->lock_[1] == 0 && pad->polar_[1].length != 0.0f &&
+        3.1415927410125732 - std::fabs(static_cast<double>(pad->polar_[1].angle)) < 0.78539818525314331)
         return 1;
     return 0;
 }
@@ -377,10 +367,10 @@ double objects::FootMovement::run_speed()
 // 0x0043DC00
 double objects::FootMovement::hang_height_offset()
 {
-    const uint8_t* node = get_at<uint8_t*>(model_, 0x208);
-    if (!(node[0x44] & 8))
+    const render::RenderModel* model = model_->mesh_instance_;
+    if (!(model->flag_bits_ & 8)) // (kModelScaled)
         return 0.0;
-    float fraction = get_at<float>(node, 0x20);
+    float fraction = model->size_factor_.y;
     float offset = get_param(kHangVertOriginOffset);
     return (1.0 - fraction) * offset;
 }
@@ -427,7 +417,7 @@ void objects::FootMovement::end_drop_to_hang()
     change_phase(2);
     tell_physics_rail(this);
     trigger_rail_script(this, kHangEvents);
-    get_at<bool>(object_of(this)->fetch_module(kTaggingControl), 0x1D) = false;
+    static_cast<objects::TaggingControlComponent*>(object_of(this)->fetch_module(kTaggingControl))->blocked_ = false;
 }
 
 // 0x0043DDD0
@@ -675,8 +665,8 @@ bool objects::FootMovement::drop_to_hang()
                     static_cast<double>(velocity.z) * velocity.z;
     if (speed * speed < moving)
         return false;
-    objects::ObjectModule* tagging = object_of(this)->fetch_module(kTaggingControl);
-    if (get_at<bool>(tagging, 0x1C))
+    auto* tagging = static_cast<objects::TaggingControlComponent*>(object_of(this)->fetch_module(kTaggingControl));
+    if (tagging->pending_)
         return false;
     old_pos_.w = 1.0f;
     pos_.w = 1.0f;
@@ -690,7 +680,7 @@ bool objects::FootMovement::drop_to_hang()
     along_ = rail.along;
     rail_out_ = rail.out;
     rail_up_ = rail.up;
-    get_at<bool>(tagging, 0x1D) = true;
+    tagging->blocked_ = true;
     transition_start_ = pos_;
     transition_pos_ = rail.point;
     set_anim_done(this, member_code_address(&objects::FootMovement::end_drop_to_hang));
@@ -1154,7 +1144,7 @@ void objects::FootMovement::update_hang()
             target.y = get_param(kPullUpOffsetUp) + target.y;
             if (pull_up(&target))
                 return;
-        } else if (reinterpret_cast<const walk::SkaterTurn*>(&input->pad_primary_.up_dir_)->turned_round()) {
+        } else if (walk::turned_round(&input->pad_primary_)) {
             // turned round: let go
             change_phase(1);
             object_of(this)->post_own_event(kSkaterExitHang, nullptr);

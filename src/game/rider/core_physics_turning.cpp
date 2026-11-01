@@ -27,6 +27,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"
+#include "game/rider/trick_component.h"
 
 namespace skater {
 
@@ -48,7 +49,6 @@ constexpr uint32_t kAirRampLeanTime = 0x12CD2D14;      // Physics_Air_Ramp_Lean_
 constexpr uint32_t kRecoverRateStat = 0xE7116A96;      // Physics_recover_rate_stat
 constexpr uint32_t kUprightSidewaysSpeed = 0xABD57877; // skater_upright_sideways_speed (degrees a second)
 
-constexpr uint32_t kTrickRotation = 0x13A4; // (in the skater component: the trick's rotation total, degrees)
 
 constexpr float kRadiansPerDegree = 0.0174532924f;       // 0x00645464
 constexpr float kMinusDegreesToRadians = -0.0174532924f; // 0x0064BCCC
@@ -209,10 +209,10 @@ bool SkaterPhysicsModule::turn_down_slope()
 // 0x00504730
 void SkaterPhysicsModule::natas_spin()
 {
-    auto* career = get_at<objects::RiderStoryProgress*>(static_cast<void*>(modules::g_skate_module), 0x20);
+    auto* career = modules::g_skate_module->career_;
     if (career->is_code_on(kPerfectRail)) {
         // (the perfect rail cheat: the balance held)
-        career = get_at<objects::RiderStoryProgress*>(static_cast<void*>(modules::g_skate_module), 0x20);
+        career = modules::g_skate_module->career_;
         career->set_global_flag(script::fetch_int_value(kPerfectRail));
         balance_->lip_.lean_ = 0.0f;
         balance_->lip_.lean_speed_ = 0.0f;
@@ -230,7 +230,7 @@ void SkaterPhysicsModule::natas_spin()
     last_spin_backside_ = rate > 0.0 ? 1 : 0;
     float step = static_cast<float>(rate * frame_length_);
     turn_matrices(this, step);
-    float& total = get_at<float>(trick_, kTrickRotation);
+    float& total = trick_->spin_total_;
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.
     objects::RiderPoseState* flags = state_;
@@ -241,7 +241,7 @@ void SkaterPhysicsModule::natas_spin()
         show = snap <= size;
     }
     if (show) {
-        int shown = static_cast<int>(ftol(get_at<float>(trick_, kTrickRotation)));
+        int shown = static_cast<int>(ftol(trick_->spin_total_));
         void* display = score_->points_held_;
         static_cast<modules::PointTally*>(display)->advance_turn(shown);
     }

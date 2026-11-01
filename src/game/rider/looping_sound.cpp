@@ -63,9 +63,9 @@ double sound_volume(uint8_t* entry, float percent)
     return surface_kind::get_scaled_volume(reinterpret_cast<const surface_kind::SoundInfo*>(entry), percent, false);
 }
 
-uint32_t sound_name_key(uint8_t* entry) { return prop<uint32_t>(entry, 0x68); }
-float full_speed_pitch(uint8_t* entry) { return prop<float>(entry, 0x6C); }
-float rest_pitch(uint8_t* entry) { return prop<float>(entry, 0x70); }
+uint32_t sound_name_key(uint8_t* entry) { return reinterpret_cast<const surface_kind::SoundInfo*>(entry)->checksum; }
+float full_speed_pitch(uint8_t* entry) { return reinterpret_cast<const surface_kind::SoundInfo*>(entry)->max_pitch_; }
+float rest_pitch(uint8_t* entry) { return reinterpret_cast<const surface_kind::SoundInfo*>(entry)->min_pitch_; }
 
 // The air sound's entry (a terrain sound entry of its own: 0x84 bytes, its name, the sound's checksum, the pitches at
 // full speed and at rest).

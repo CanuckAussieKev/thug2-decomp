@@ -44,10 +44,7 @@ constexpr float kMoving = 0.001f;                // 0x006461D8
 constexpr float kSkitchFeelUp = 36.0f;           // 0x0064B9CC
 constexpr float kSkitchFeelDown = 200.0f;        // 0x0064BDB0
 
-objects::RiderStoryProgress* get_career()
-{
-    return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
-}
+objects::RiderStoryProgress* get_career() { return modules::g_skate_module->career_; }
 
 // A cheat that keeps a balance trick perfect: its global flag set, the balance's lean and its speed zeroed.
 void perfect_cheat(uint32_t cheat, objects::Balance& balance)
@@ -147,7 +144,7 @@ void SkaterPhysicsModule::do_ground_physics()
         if (tracker && tracker->entity_.owner_object_) {
             void* skitched = tracker->entity_.owner_object_;
             float match = script::fetch_float(kSkitchSpeedMatch);
-            const maths::Vec4& theirs = vector_at(skitched, kVelocity);
+            const maths::Vec4& theirs = static_cast<objects::GameEntity*>(skitched)->vel_;
             entity_->vel_ = {match * theirs.x, match * theirs.y, match * theirs.z, match * theirs.w};
         }
         step = {0.0f, 0.0f, 0.0f, 1.0f};

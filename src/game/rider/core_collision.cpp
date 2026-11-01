@@ -228,7 +228,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         // A moving object that was hit pushes the skater along (when it's moving into the skater).
         auto& feeler = feeler_;
         if (feeler.hit_object_alive()) {
-            maths::Vec4 carried = vector_at(feeler.get_hit_object(), kVelocity);
+            maths::Vec4 carried = feeler.get_hit_object()->vel_;
             double into =
                 (static_cast<double>(carried.z) * hit_normal->z + static_cast<double>(carried.y) * hit_normal->y) +
                 static_cast<double>(carried.x) * hit_normal->x;

@@ -61,9 +61,10 @@ void freeze_module(ObjectModule* component, bool suspend) { component->hold_off(
 // told it's starting (Begin) / leaving (its model offset cleared), the cameras' state handed over (the skater
 // camera's 0x004FA420 / 0x004F9A40, the walk camera's 0x00524FF0 / 0x00525060).
 void core_leaving(skater::SkaterPhysicsModule* core) { core->leave_skating(); }
-void core_returning(skater::SkaterPhysicsModule* core, bool on_ground, void* hold1, void* hold2)
+void core_returning(skater::SkaterPhysicsModule* core, bool on_ground, const FootMovement* grind_from,
+                    const skater::AcidDrop* acid_drop)
 {
-    core->resume_skating(on_ground, static_cast<const uint8_t*>(hold1), hold2);
+    core->resume_skating(on_ground, grind_from, acid_drop);
 }
 void set_walking(RiderPoseState* state, bool walking) { state->set_physics_mode(walking ? 1 : 0); }
 void walk_starting(ObjectModule* walk, bool from_ground) { static_cast<FootMovement*>(walk)->get_begin(from_ground); }
@@ -185,11 +186,11 @@ void RiderBoardPhysics::remount_board()
     freeze_module(walk_camera, true);
     set_walking(pose_, false);
     freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), false);
-    // The walk's ground state (+0x18 0) and what it holds (+0x748: 1 - its +0x74C -, or 2 - its +0x768).
+    // The walk's ground state (0) and what it leaves for: 1 its grind, 2 its acid drop.
     int hold = walk->leave_for_;
-    void* hold2 = hold == 2 ? reinterpret_cast<uint8_t*>(walk) + 0x768 : nullptr;
-    void* hold1 = hold == 1 ? reinterpret_cast<uint8_t*>(walk) + 0x74C : nullptr;
-    core_returning(core_physics_, walk->state_ == 0, hold1, hold2);
+    const skater::AcidDrop* acid_drop = hold == 2 ? &walk->acid_drop_ : nullptr;
+    const FootMovement* grind_from = hold == 1 ? walk : nullptr;
+    core_returning(core_physics_, walk->state_ == 0, grind_from, acid_drop);
     freeze_module(entity_->fetch_module(kSkaterRotate), false);
     freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), false);
     freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), false);

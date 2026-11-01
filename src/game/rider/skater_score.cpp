@@ -53,7 +53,7 @@ int score_pot(modules::PointTally* score)
 int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-uint8_t* get_career() { return prop<uint8_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20); }
+uint8_t* get_career() { return reinterpret_cast<uint8_t*>(modules::g_skate_module->career_); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.
@@ -150,17 +150,17 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         return score_pot(points_held_) > value ? 1 : 0;
     }
     case kGetSpecialValue:
-        script->args_->put_int(kValue, prop<int>(points_held_, 0x70));
+        script->args_->put_int(kValue, points_held_->special_);
         return 1;
     case kSetSpecialValue: {
         // (no value: the params pointer, as number_parameter's)
         int value = static_cast<int>(reinterpret_cast<uintptr_t>(params));
         params->fetch_int_value(kValue, &value, 0);
-        prop<int>(points_held_, 0x70) = value;
+        points_held_->special_ = value;
         return 1;
     }
     case kGotSpecial:
-        return prop<uint8_t>(points_held_, 0x74) ? 1 : 0;
+        return points_held_->special_active_ ? 1 : 0;
     case kForceSpecial:
         get_score_of(points_held_)->fill_special();
         return 1;

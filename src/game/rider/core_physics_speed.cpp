@@ -14,6 +14,7 @@
 #include "game/rider/core_physics_fields.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/skater_state.h"
+#include "engine/objects/ride_tracker.h"
 
 namespace skater {
 
@@ -141,8 +142,8 @@ void SkaterPhysicsModule::start_riding_hit_object()
     objects::MovingSurfaceModule* ride = ride_;
     if (!static_cast<objects::MovingSurfaceModule*>(ride)->start_riding(&feeler_))
         return;
-    void* ride_object = *reinterpret_cast<void**>(ride_->ride_); // (the smart pointer's object)
-    const maths::Vec4& ride_velocity = vector_at(ride_object, kVelocity);
+    objects::GameEntity* ride_object = ride_->ride_->entity_.owner_object_;
+    const maths::Vec4& ride_velocity = ride_object->vel_;
     maths::Vec4& velocity = entity_->vel_;
     velocity.x -= ride_velocity.x;
     velocity.y -= ride_velocity.y;

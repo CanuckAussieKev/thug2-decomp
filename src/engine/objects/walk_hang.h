@@ -6,6 +6,7 @@
 
 namespace objects {
 class ObjectModule;
+class PadSnapshot;
 class GameEntity;
 } // namespace objects
 
@@ -26,12 +27,9 @@ public:
 
 // 0x0043D990 (cdecl): out = a + (b - a) * t, each component rounded as the original's x87 code does. Returns out.
 maths::Vec4* __cdecl get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t);
-// 0x0043DA20 (thiscall on the skater core physics component, or the walk component's control at +0x1770's +0x20):
-// whether its +0x228 angle is within 45 degrees of a half turn, with nothing at +0x234 and +0x22C not 0. Returns
-// 1 / 0.
-struct SkaterTurn {
-    int turned_round() const;
-};
+// 0x0043DA20 (thiscall on the walk component's pad): whether its second stick's angle is within 45 degrees of a half
+// turn, the stick pushed and no down lock on it. Returns 1 / 0.
+int turned_round(const objects::PadSnapshot* pad);
 
 } // namespace walk
 

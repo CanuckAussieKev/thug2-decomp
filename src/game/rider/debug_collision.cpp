@@ -54,6 +54,9 @@
 #include <windows.h>
 
 #include "game/rider/debug_collision.h"
+#include "engine/render/coll_obj.h"
+#include "engine/render/probe_ray.h"
+#include "game/rider/core_physics.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
@@ -61,12 +64,6 @@
 namespace collision_overlay {
 
 namespace {
-
-template <typename T>
-T& get_at(const void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
-}
 
 int get_mode()
 {
@@ -93,13 +90,16 @@ uintptr_t g_skater_component = 0;
 bool get_skater_position(const void* feeler, float* position)
 {
     uintptr_t self = reinterpret_cast<uintptr_t>(feeler);
-    if (!g_skater_component || (self != g_skater_component + 0xA8 && self != g_skater_component + 0x158))
+    if (!g_skater_component || (self != g_skater_component + offsetof(skater::SkaterPhysicsModule, feeler_) &&
+                                self != g_skater_component + offsetof(skater::SkaterPhysicsModule, floor_feeler_)))
         return false; // (only read while one of the component's own feelers is in use: it's alive)
-    const uint8_t* object = get_at<const uint8_t*>(reinterpret_cast<void*>(g_skater_component), 0x0C);
+    const objects::GameEntity* object =
+        reinterpret_cast<const skater::SkaterPhysicsModule*>(g_skater_component)->entity_;
     if (!object)
         return false;
-    for (int i = 0; i < 3; ++i)
-        position[i] = get_at<float>(object, 0x4C + 4 * i);
+    position[0] = object->at_point_.x;
+    position[1] = object->at_point_.y;
+    position[2] = object->at_point_.z;
     return true;
 }
 
@@ -139,18 +139,19 @@ bool should_log(uintptr_t what, int face)
 
 void log_hit(const void* feeler, uint32_t caller)
 {
-    const float* start = &get_at<float>(feeler, 0x00);
-    const float* end = &get_at<float>(feeler, 0x10);
-    const float* normal = &get_at<float>(feeler, 0x24);
-    const float* point = &get_at<float>(feeler, 0x34);
-    int face = get_at<int>(feeler, 0x44);
-    uint16_t flags = get_at<uint16_t>(feeler, 0x50);
-    uint8_t terrain = get_at<uint8_t>(feeler, 0x52);
-    bool static_hit = get_at<uint8_t>(feeler, 0x6C) != 0;
-    const uint8_t* coll_object = get_at<const uint8_t*>(feeler, 0x54);
-    uint32_t sector = get_at<uint32_t>(feeler, 0x58);
-    void* object = get_at<void*>(feeler, 0x98);
-    uint32_t object_id = get_at<uint32_t>(feeler, 0xA4);
+    const auto* ray = static_cast<const render::ProbeRay*>(feeler);
+    const float* start = &ray->line_.start.x;
+    const float* end = &ray->line_.end.x;
+    const float* normal = &ray->hit_.normal.x;
+    const float* point = &ray->hit_.point.x;
+    int face = static_cast<int>(ray->hit_.face);
+    uint16_t flags = ray->hit_.face_flags_;
+    uint8_t terrain = ray->hit_.terrain;
+    bool static_hit = ray->hit_.hit;
+    const render::HitMesh* coll_object = ray->hit_.object;
+    uint32_t sector = ray->hit_.object_checksum_;
+    void* object = ray->entity_.owner_object_;
+    uint32_t object_id = ray->entity_key_;
 
     bool skater_caller = caller >= 0x004F8000 && caller < 0x00534000;
     if (get_mode() == 1 && (!skater_caller || normal[1] > 0.7f))
@@ -163,7 +164,7 @@ void log_hit(const void* feeler, uint32_t caller)
         std::snprintf(what, sizeof(what), "object %s", get_name_of(object_id, name, sizeof(name)));
     else if (static_hit && coll_object)
         std::snprintf(what, sizeof(what), "sector %s obj flags %04X", get_name_of(sector, name, sizeof(name)),
-                      get_at<uint16_t>(coll_object, 0x08));
+                      coll_object->flag_bits_);
     else
         std::snprintf(what, sizeof(what), "(nothing recorded)");
 
@@ -186,7 +187,7 @@ void note_feeler_query(const void* feeler, int hit, uint32_t caller)
     if (get_mode() == 0)
         return;
     if (caller == 0x005003E0) // the skater's feeler check: this feeler is its core physics component's +0xA8
-        g_skater_component = reinterpret_cast<uintptr_t>(feeler) - 0xA8;
+        g_skater_component = reinterpret_cast<uintptr_t>(feeler) - offsetof(skater::SkaterPhysicsModule, feeler_);
     if (hit)
         log_hit(feeler, caller);
 }

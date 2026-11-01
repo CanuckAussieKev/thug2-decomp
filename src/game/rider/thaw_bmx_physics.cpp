@@ -38,6 +38,8 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
 #include "engine/objects/input_component.h"
+#include "game/rider/skater_score.h"
+#include "game/rider/balance_trick.h"
 
 namespace skater::thaw_bmx {
 
@@ -761,7 +763,7 @@ bool should_brake(SkaterPhysicsModule* core)
 void get_brake(SkaterPhysicsModule* core)
 {
     BikeState& state = *state_of(core, true);
-    bool balance_is_manual = get_at<uint32_t>(core->balance_, 0x18) == kManualKind;
+    bool balance_is_manual = core->balance_->trick_ == kManualKind;
     int choice =
         bike::brake_choice(state.manual, state.nose_manual_, state.front_brake_, state.endo, balance_is_manual);
     if (choice == 0)
@@ -817,7 +819,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
     float rate = bike::ground_turn_rate(get_pace(core), get_stat(kMaxSpeedStat, core),
                                         tuning_float_lookup(kGroundRotation, core), sharp,
                                         pad_axis_x != 0.0f && brake_held(core, state), state.manual, pad_axis_x, held,
-                                        moving_backwards(core), get_at<float>(core->balance_, 0x54));
+                                        moving_backwards(core), core->balance_->manual_.lean_);
     // THAW 0x005D61F0's +0x570: the turn animation's share, every frame on the ground.
     state.steer_blend_ = bike::steer_blend(rate, sharp);
     {
@@ -853,7 +855,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
     if (state.manual) {
         float& total = core->trick_->spin_total_;
         total = step * kDegreesPerRadian + total;
-        void* display = get_at<void*>(core->score_, 0x18);
+        void* display = core->score_->points_held_;
         static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
         return;
     }
@@ -872,7 +874,7 @@ void manual_pitch(SkaterPhysicsModule* core)
 {
     // (THAW returns while its balance trick component's +0x1C is set; THUG2's layout differs there: here, while one
     // of THUG2's balance tricks runs.)
-    if (get_at<uint32_t>(core->balance_, 0x18) != 0)
+    if (core->balance_->trick_ != 0)
         return;
     BikeState& state = *state_of(core, true);
     objects::GameEntity* object = object_of(core);
@@ -1077,7 +1079,7 @@ void air_rotation(SkaterPhysicsModule* core)
             show = snap <= std::fabs(static_cast<double>(total));
         }
         if (show) {
-            void* display = get_at<void*>(core->score_, 0x18);
+            void* display = core->score_->points_held_;
             static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
         }
     }

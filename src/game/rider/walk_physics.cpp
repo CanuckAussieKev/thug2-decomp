@@ -39,6 +39,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "platform/crt.h"
+#include "game/skate/point_tally.h"
+#include "game/rider/skater_score.h"
 
 namespace objects {
 
@@ -238,7 +240,7 @@ void FootMovement::change_phase(int state)
 }
 
 // 0x005260C0
-void FootMovement::clear_model_offset() { get_at<maths::Vec4>(model_, 0x1F8) = {0.0f, 0.0f, 0.0f, 1.0f}; }
+void FootMovement::clear_model_offset() { model_->shift_ = {0.0f, 0.0f, 0.0f, 1.0f}; }
 
 // 0x00524E10
 bool FootMovement::using_dpad()
@@ -293,8 +295,8 @@ maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
 // 0x00528370
 void FootMovement::update_run_adjustment()
 {
-    uint8_t* score = get_at<uint8_t*>(entity_->fetch_module(kSkaterScore), 0x18);
-    if (truncate(static_cast<double>(get_at<int>(score, 0x14)) * get_at<float>(score, 0x60)) > 0) {
+    modules::PointTally* score = static_cast<RiderPointKeeper*>(entity_->fetch_module(kSkaterScore))->points_held_;
+    if (truncate(static_cast<double>(score->pot_) * score->multiplier_) > 0) {
         run_adjustment_ = 1.0f;
         return;
     }

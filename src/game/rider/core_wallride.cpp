@@ -14,6 +14,7 @@
 #include "game/rider/trick_component.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/skater_sound.h"
+#include "game/rider/matrix_queries.h"
 
 namespace skater {
 
@@ -241,8 +242,9 @@ void SkaterPhysicsModule::step_wall_ride()
             s->basis_frame_.row[0] = maths::cross_vec(s->basis_frame_.row[1], s->basis_frame_.row[2]);
             entity_->basis_frame_.row[0].make_unit();
             display_matrix_ = entity_->basis_frame_;
-            auto* queries = static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kMatrixQueries);
-            matrix_at(queries, 0x18) = matrix_at(get_at<void*>(queries, 0xC), kMatrix);
+            auto* queries = static_cast<objects::RiderFrameLookups*>(
+                static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kMatrixQueries));
+            queries->basis_frame_ = queries->entity_->basis_frame_;
             old_normal_ = entity_->basis_frame_.row[1];
             drawn_normal_ = entity_->basis_frame_.row[1];
             floor_normal_ = entity_->basis_frame_.row[1];

@@ -55,7 +55,6 @@ constexpr uint32_t kFlailRight = 0x756A7535;             // FlailRight (an event
 constexpr uint32_t kMaxMaxSpeedStat = 0xCC5F87AA;        // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kVehicleLandSound = 0xD478C96D;       // vehicle_play_land_sound (a script)
 
-constexpr uint32_t kTrickRotation = 0x13A4; // (the skater component's rotation total)
 
 constexpr float kToMilliseconds = 1000.0f;         // 0x006453C0
 constexpr float kFeelerDepth = -200.0f;            // (0xC3480000)
@@ -115,7 +114,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     objects::RiderPoseState* flags = state_;
     if (!flags->flag(PoseFlag::kVertAir).on || !flags->flag(PoseFlag::kJumped).on)
         return false;
-    if (!(get_at<float>(trick_, kTrickRotation) == 0.0f) || vert_wallplanted_)
+    if (!(trick_->spin_total_ == 0.0f) || vert_wallplanted_)
         return false;
     // The wall within reach below the skater's up axis.
     objects::GameEntity* object = object_of(this);

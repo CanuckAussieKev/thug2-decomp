@@ -29,6 +29,8 @@
 #include "game/rider/state_history.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
+#include "game/rider/skater_score.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -119,7 +121,7 @@ bool in_slap_game() { return commands::cfunc_in_slap_game(nullptr, nullptr); }
 GameEntity* skater_by_index(int index) { return static_cast<modules::Skate*>(skater_manager())->get_rider_at(index); }
 const char* get_skater_name(GameEntity* skater) { return static_cast<Rider*>(skater)->fetch_shown_name(); }
 // A skater's score (its +0x278's +0x18).
-void* skater_score(GameEntity* skater) { return prop<void*>(prop<void*>(skater, 0x278), 0x18); }
+void* skater_score(GameEntity* skater) { return static_cast<Rider*>(skater)->score_holder_->points_held_; }
 int get_points_total(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 void set_points_total(void* score, int value) { static_cast<modules::PointTally*>(score)->set_grand_total(value); }
 
@@ -291,12 +293,12 @@ void RiderFrameLog::check_for_collisions(int first)
         online::PlayerRecord* them = find_player_slot_by_obj(static_cast<int>(skater->ident_));
         if (is_observing(them) || is_it(them))
             continue;
-        if (on_a_team(me) && on_a_team(them) && get_team(me) != prop<int>(them, 0x30))
+        if (on_a_team(me) && on_a_team(them) && get_team(me) != them->team_)
             continue;
-        if (is_squad_play() && prop<int>(them, 0x30) == prop<int>(me, 0x30))
+        if (is_squad_play() && them->team_ == me->team_)
             continue;
 
-        auto* their_history = prop<RiderFrameLog*>(skater, 0x27C);
+        RiderFrameLog* their_history = static_cast<Rider*>(skater)->state_history_;
         bool their_driving = their_state->in_vehicle_;
         maths::Vec4 their_pos;
         their_history->fetch_place(&their_pos);
@@ -363,7 +365,7 @@ void RiderFrameLog::check_for_collisions(int first)
             ran_into.id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
             ran_into.push = my_point - their_point;
             if (ObjectModule* input = entity_->fetch_module(kInput))
-                prop<uint8_t>(input, 0x498) = 1;
+                static_cast<PadInputModule*>(input)->disabled_ = true;
             mark_tag_time(me);
             msg.ident_ = kMsgRanInto;
             msg.content_ = &ran_into;
@@ -414,7 +416,7 @@ void RiderFrameLog::check_for_collisions(int first)
             uint8_t tagged[2];
             tagged[0] = static_cast<uint8_t>(skater->ident_);
             tagged[1] = static_cast<uint8_t>(get_team(me));
-            bool same_team = get_team(me) == prop<int>(them, 0x30);
+            bool same_team = get_team(me) == them->team_;
             online::PlayerSearch search;
             for (online::PlayerRecord* player = start_roster_sweep(&search); player;
                  player = step_roster_sweep(&search)) {
@@ -548,7 +550,8 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
             skater->vel_.w = static_cast<float>(wk * kKnockScale);
             skater->vel_.y = kKnockUp;
             RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
-            if (!state->in_vehicle_ && state->physics_mode_ == 0 && !prop<bool>(control, 0x25))
+            if (!state->in_vehicle_ && state->physics_mode_ == 0 &&
+                !static_cast<RiderBoardPhysics*>(control)->force_walk_)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
                 knock_down_walking(skater->fetch_module(kWalk), other);
