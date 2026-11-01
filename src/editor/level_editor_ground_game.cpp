@@ -40,6 +40,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "gpu/vertex_view.h"
 
 namespace frontend::level_editor::ground {
 
@@ -503,10 +504,10 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             const uint16_t b = indices->indices[i + 1];
             if (a == b || a >= mesh->vertex_count_ || b >= mesh->vertex_count_)
                 continue;
-            const auto* pa = raw::field_at<const float>(data, a * mesh->stride);
-            const auto* pb = raw::field_at<const float>(data, b * mesh->stride);
-            const auto* ta = raw::field_at<const float>(data, a * mesh->stride + layout.tex);
-            const auto* tb = raw::field_at<const float>(data, b * mesh->stride + layout.tex);
+            const auto pa = gpu::VertexView(data, mesh->stride).float3(a);
+            const auto pb = gpu::VertexView(data, mesh->stride).float3(b);
+            const auto ta = gpu::VertexView(data, mesh->stride).float2(a, layout.tex);
+            const auto tb = gpu::VertexView(data, mesh->stride).float2(b, layout.tex);
             const double dw = std::sqrt(static_cast<double>(pa[0] - pb[0]) * (pa[0] - pb[0]) +
                                         static_cast<double>(pa[1] - pb[1]) * (pa[1] - pb[1]) +
                                         static_cast<double>(pa[2] - pb[2]) * (pa[2] - pb[2]));
@@ -523,7 +524,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     const render::TriMeshSource* tri = static_of(sector)->geometry_;
     std::map<uint16_t, int> terrains;
     for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f)
-        ++terrains[raw::field_at<const uint16_t>(tri->faces_, f * (tri->small_faces_ ? 8 : 10))[1]];
+        ++terrains[tri->face_terrain(f)];
     int most = -1;
     for (const auto& t : terrains) {
         if (t.second > most)
@@ -561,7 +562,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             const int faces = std::min<int>(tri->tri_count_, 60000);
             for (int f = 0; f < faces && !ground; ++f) {
                 const uint16_t flags =
-                    *raw::field_at<const uint16_t>(tri->faces_, f * (tri->small_faces_ ? 8 : 10));
+                    tri->face_flags(f);
                 if (flags & 0x10)
                     continue;
                 V3 c[3];

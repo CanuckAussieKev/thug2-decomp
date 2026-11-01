@@ -1126,7 +1126,7 @@ void Cover::kickoff(Over over)
 {
     over_ = over;
     clock_ = still_ = 0.0f;
-    screen_ = 0;
+    screen_ = nullptr;
     seen_ = false;
 }
 

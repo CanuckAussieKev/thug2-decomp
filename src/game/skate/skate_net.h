@@ -30,17 +30,17 @@ class SkateNet {
 public:
     // 0x0056E2B0: the two tasks::Task<Skate>s (vtable 0x006476F0, priority -1000, from the default heap) the server
     // adds to the main loop: +0x18 runs 0x00569BB0, +0x1C 0x0056BE10 (null when out of memory).
-    void create_network_tasks();
+    static void create_network_tasks(Skate* skate);
     // 0x00569530: the two deleted (their vtable's scalar deleting destructor).
-    void delete_network_tasks();
+    static void delete_network_tasks(Skate* skate);
     // 0x0056DEE0 (CFunc launch_host): the network manager's server app (0x0053C380; whatever 0x0044E4E0 reports
     // is stopped first, 0x005399F0, and the app made with 0 instead of 1); the tasks into the main loop; the
     // server's handlers (and, when it isn't only local, the ones that relay the clients' messages).
-    void launch_host();
+    static void launch_host(Skate* skate);
     // 0x0056EB50 (JoinServer; a split-screen game's second client): the client's handlers, with the skaters'
     // own (their object updates, the score events...) for the skaters of client `index`; client 0 also gets the
     // scavenger hunt's 0x91 / 0x92 / 0x94.
-    void add_client_handlers(net::AppHost* client, int index);
+    static void add_client_handlers(Skate* skate, net::AppHost* client, int index);
 
     // 0x0056C920 (0x51, 0x56): the server removed us ('Q') or moved on without us ('V'): the dialog, then back
     // to the main menu (2 when one is already on its way, otherwise 3 and the game left).

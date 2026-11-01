@@ -30,6 +30,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "gpu/vertex_view.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -158,10 +159,7 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
         const V3 p = get_rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
-        auto* out = raw::as<float>(data);
-        out[0] = p.x;
-        out[1] = p.y;
-        out[2] = p.z;
+        gpu::VertexWriter(data, stride).set_float3(0, 0, p.x, p.y, p.z);
     }
 }
 
@@ -180,10 +178,7 @@ void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t of
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
         const V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
-        auto* out = raw::field_at<float>(data, offset);
-        out[0] = n.x;
-        out[1] = n.y;
-        out[2] = n.z;
+        gpu::VertexWriter(data, stride).set_float3(0, offset, n.x, n.y, n.z);
     }
 }
 

@@ -31,6 +31,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/maths/shape_tests.h"
 
 namespace frontend {
 
@@ -85,34 +86,33 @@ const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewC
 float camera_angle(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_effective_h_fov(); }
 
 // A geom's bounding box (0x0048DE80, thiscall).
-const maths::Vec4* geometry_bounding_box(void* geometry)
+const maths::BBox* geometry_bounding_box(void* geometry)
 {
-    return raw::as<const maths::Vec4>(static_cast<render::Geom*>(geometry)->fetch_bounds());
+    return static_cast<render::Geom*>(geometry)->fetch_bounds();
 }
 
 // A model's model (the model component's +0x208) and that model's bounding box (min x y z w, max x y z w): the
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
-const maths::Vec4* model_bounding_box(objects::ObjectModule* component)
+const maths::BBox* model_bounding_box(objects::ObjectModule* component)
 {
-    void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
-    void* geometry = static_cast<render::RenderModel*>(model)->get_geom_by_name(0);
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    void* geometry = model->get_geom_by_name(0);
     return geometry_bounding_box(geometry);
 }
 // The same, or null when the model has no geometry yet (the widescreen rule asks every frame, for every element).
-const maths::Vec4* model_bounding_box_if_any(objects::ObjectModule* component)
+const maths::BBox* model_bounding_box_if_any(objects::ObjectModule* component)
 {
-    void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
     if (!model)
         return nullptr;
-    void* geometry = static_cast<render::RenderModel*>(model)->get_geom_by_name(0);
+    void* geometry = model->get_geom_by_name(0);
     if (!geometry)
         return nullptr;
     return geometry_bounding_box(geometry);
 }
 void set_model_viewports(objects::ObjectModule* component, uint32_t mask)
 {
-    void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
-    static_cast<render::RenderModel*>(model)->toggle_shown(mask);
+    core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_->toggle_shown(mask);
 }
 
 // The node `name`'s structure (0x0045C1B0, asserting) and its position (0x0045C050).
@@ -199,13 +199,13 @@ void ModelWidget::scale_to_screen_dims()
         const ShapeMesh& model = models_[i];
         if (!model.object)
             continue;
-        const maths::Vec4* box = model_bounding_box(model.object->fetch_module(kModelModuleName));
-        const double low_x = static_cast<double>(box[0].x) + model.offset.x; // (compared unrounded)
-        const float low_y = box[0].y + model.offset.y;
-        const float low_z = box[0].z + model.offset.z;
-        const float high_x = box[1].x + model.offset.x;
-        const float high_y = box[1].y + model.offset.y;
-        const float high_z = box[1].z + model.offset.z;
+        const maths::BBox* box = model_bounding_box(model.object->fetch_module(kModelModuleName));
+        const double low_x = static_cast<double>(box->min.x) + model.offset.x; // (compared unrounded)
+        const float low_y = box->min.y + model.offset.y;
+        const float low_z = box->min.z + model.offset.z;
+        const float high_x = box->max.x + model.offset.x;
+        const float high_y = box->max.y + model.offset.y;
+        const float high_z = box->max.z + model.offset.z;
         if (i == 0) {
             min_x = static_cast<float>(low_x);
             min_y = low_y;
@@ -604,15 +604,15 @@ void ModelWidget::tick_frame()
                 if (!models_[i].object)
                     continue;
                 objects::ObjectModule* component = models_[i].object->fetch_module(kModelModuleName);
-                const maths::Vec4* box = component ? model_bounding_box_if_any(component) : nullptr;
+                const maths::BBox* box = component ? model_bounding_box_if_any(component) : nullptr;
                 if (!box) {
                     count = 0; // (a model without a box yet: left as it is this frame)
                     break;
                 }
                 for (int c = 0; c < 8; ++c) {
-                    const maths::Vec4 corner = {(c & 1 ? box[1].x : box[0].x) + models_[i].offset.x,
-                                                (c & 2 ? box[1].y : box[0].y) + models_[i].offset.y,
-                                                (c & 4 ? box[1].z : box[0].z) + models_[i].offset.z, 1.0f};
+                    const maths::Vec4 corner = {(c & 1 ? box->max.x : box->min.x) + models_[i].offset.x,
+                                                (c & 2 ? box->max.y : box->min.y) + models_[i].offset.y,
+                                                (c & 4 ? box->max.z : box->min.z) + models_[i].offset.z, 1.0f};
                     const maths::Vec4 e = corner * local;
                     corners[count++] = {e.x * scale.x, e.y * scale.y, e.z * scale.z, 1.0f};
                 }

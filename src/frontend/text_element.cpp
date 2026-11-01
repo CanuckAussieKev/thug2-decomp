@@ -502,7 +502,8 @@ void LabelWidget::change_traits(Struct* params)
         shadow_ = false;
         free_text_objects(true);
     }
-    read_colour_param(params, kShadowRgba, raw::as<uint32_t>(shadow_rgba_));
+    if (uint32_t shadow = 0; read_colour_param(params, kShadowRgba, &shadow))
+        std::memcpy(shadow_rgba_, &shadow, 4); // (RGBA, red the low byte)
     if (params->has_bare_flag(kRememberOverrideRgbaState))
         remembered_override_ = override_rgba_;
     if (params->has_bare_flag(kRestoreOverrideRgbaState))

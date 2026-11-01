@@ -515,7 +515,6 @@ void handle_mouse_event(SDL_Event* event)
 
 void* ui_tree_handle() { return frontend::g_ui_element_hub; }
 UiWidget* root_element(void* manager) { return static_cast<UiTree*>(manager)->tree_root_.get_pull(); }
-void* get_tracker() { return raw::as<void>(objects::g_tracker); }
 
 bool in_park_editor()
 {
@@ -633,7 +632,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
     script::Struct params;
     params.put_int(kDeviceNum, handler->dev_->port_no_);
     params.put_int(kController, 0);
-    static_cast<objects::EventWaitBoard*>(get_tracker())
+    objects::get_tracker()
         ->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
     params.get_clear();
 }

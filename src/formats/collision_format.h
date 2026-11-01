@@ -62,4 +62,40 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
 // isn't. (Not checked when the size isn't known.)
 bool check_collision_objects(const uint8_t* base, const CollisionHeader& header, const CollisionLayout& layout);
 
+// A collision object's faces, used in place: `count` records of 10 bytes (u16 flags, u16 terrain, three u16 vertex
+// indices) or, for "small" objects, of 8 bytes (u16 flags, u16 terrain, three u8 indices and a pad byte).
+class FaceTable {
+public:
+    FaceTable(uint8_t* bytes, bool small_faces) : bytes_(bytes), stride_(small_faces ? 8 : 10), small_(small_faces) {}
+
+    [[nodiscard]] uint16_t flags(int face) const { return word(face, 0); }
+    [[nodiscard]] uint16_t terrain(int face) const { return word(face, 2); }
+    void set_flags(int face, uint16_t flags) { set_word(face, 0, flags); }
+    void set_terrain(int face, uint16_t terrain) { set_word(face, 2, terrain); }
+    // Corner `corner` (0-2)'s vertex index.
+    [[nodiscard]] uint32_t vertex(int face, int corner) const
+    {
+        return small_ ? at(face, 4 + corner)[0] : word(face, 4 + (2 * corner));
+    }
+    void set_vertex(int face, int corner, uint32_t index)
+    {
+        if (small_)
+            at(face, 4 + corner)[0] = static_cast<uint8_t>(index);
+        else
+            set_word(face, 4 + (2 * corner), static_cast<uint16_t>(index));
+    }
+    // A small face's rejection byte (its last; the large faces keep theirs in a buffer of their own).
+    [[nodiscard]] uint8_t small_rejection(int face) const { return at(face, 7)[0]; }
+    [[nodiscard]] int stride() const { return stride_; }
+
+private:
+    [[nodiscard]] uint8_t* at(int face, int offset) const;
+    [[nodiscard]] uint16_t word(int face, int offset) const;
+    void set_word(int face, int offset, uint16_t value) const;
+
+    uint8_t* bytes_;
+    int stride_;
+    bool small_;
+};
+
 } // namespace collision_format

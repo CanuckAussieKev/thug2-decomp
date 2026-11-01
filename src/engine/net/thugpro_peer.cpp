@@ -407,7 +407,7 @@ private:
 // The level structure being played: its `level` (the skate module's +0x380: the structure's name).
 const char* current_level_prefix()
 {
-    auto* skate = raw::bytes(modules::g_skate_module);
+    auto* skate = modules::g_skate_module;
     if (!skate)
         return nullptr;
     script::Struct* structure = script::read_sub_struct(modules::g_skate_module->level_params_);

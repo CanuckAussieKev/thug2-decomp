@@ -92,7 +92,7 @@ constexpr uint32_t kClassTrigger = 0xE594F0A2;        // "Trigger"
 constexpr uint32_t kClassSkater = 0x5B8AB877;         // "skater"
 constexpr uint32_t kClassA0e52802 = 0xA0E52802;       // (name unknown) killed through 0x0048FCA0
 
-uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* get_skate() { return modules::g_skate_module; }
 objects::GrindRailHub* rail_manager() { return modules::g_skate_module->rail_manager_.get(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
@@ -577,7 +577,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
     memory::pop_mem_profile();
     rails->remove_overlaps_if_not_park();
     if (!script::fetch_int_value(kNoGapChecklist))
-        static_cast<goals::GapTally*>(raw::as<modules::Skate>(get_skate())->fetch_gap_list())->get_build();
+        static_cast<goals::GapTally*>(get_skate()->fetch_gap_list())->get_build();
     for (SceneNode* at = first_scene(); at;) {
         SceneNode* next = next_scene(at);
         as_scene(at->scene)->update_super_sectors_if_marked(nullptr);
@@ -758,7 +758,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
 // classes.
 bool shatter_node(uint32_t name)
 {
-    if (get_skate()[0x44])
+    if (get_skate()->running_queued_scripts_)
         return true;
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     if (skips_node(node))
@@ -803,7 +803,7 @@ bool node_command(uint32_t name, int action, script::Script* script, script::Str
     int second_viewport = 0;
     if (script && script->entity_.get_pull() && !game_net->in_net_game() && modules::g_viewport_count == 2 &&
         script->entity_.get_pull() ==
-            raw::as<objects::Entity>(raw::as<modules::Skate>(get_skate())->get_rider_at(1)))
+            raw::as<objects::Entity>(get_skate()->get_rider_at(1)))
         second_viewport = 1;
     switch (action) {
     case 0:

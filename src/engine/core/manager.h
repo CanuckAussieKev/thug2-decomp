@@ -100,7 +100,8 @@ public:
     Arena* cinematic_low_heap_;
     Zone* dev_tools_zone_{};
     Arena* debug_heap_{};
-    uint32_t unknown158_[2]{};
+    Zone* unused_zone_{};    // (never made: its heap, below, is always null)
+    Arena* unused_heap_{};   // (the screen elements' heap 0x03C84A59 names it)
     Zone* skater_regions_[kSkaterSlots]{};
     Arena* skater_heaps_[kSkaterSlots]{};
     Zone* skater_geom_regions_[kSkaterSlots]{};

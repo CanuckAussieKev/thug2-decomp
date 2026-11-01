@@ -38,7 +38,10 @@ public:
     // The element's event listener: its events go to listener_receive. (The original's listener vtables - one per
     // constructor - differ only in the destructor, which nothing calls through the listener.)
     struct MenuListener final : objects::SignalReceiver {
+        explicit MenuListener(WindowedList* list) : list_(list) {}
         void receive(objects::Signal* event) override;
+
+        WindowedList* list_; // the element it belongs to (the original found it 0x178 bytes before the listener)
     };
 
     // 0x004AE2D0: the vmenu (vertical) / hmenu (horizontal) child - the last one - and the window's length (the
@@ -47,7 +50,7 @@ public:
     // 0x004AE450: an item's top left and size in the menu (scaled by the menu's scale).
     void item_place(ElementPtr* item, float* x, float* y, float* w, float* h);
 
-    MenuListener listener_;   // +0x178
+    MenuListener listener_{this}; // +0x178
     UiWidget* menu_;          // +0x194
     uint32_t chosen_item_id_; // +0x198 the item focused
     float inner_align_h_{};   // +0x19C internal_just

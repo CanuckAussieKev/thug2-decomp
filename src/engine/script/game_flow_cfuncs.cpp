@@ -91,8 +91,8 @@ constexpr uint32_t kFlashFlag4 = 0x387C9ED6;
 constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
-modules::Skate* skate_module() { return raw::as<modules::Skate>(get_skate()); }
+modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return get_skate(); }
 objects::Rider* get_rider_at(int index) { return core::down_cast<objects::Rider>(skate_module()->get_rider_at(index)); }
 objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
 
@@ -543,7 +543,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 // (+0x380, 0x16A0B364) in the script's parameters.
 bool cfunc_get_current_level(script::Struct*, script::Script* script)
 {
-    const uint8_t* skate = get_skate();
+    const modules::Skate* skate = get_skate();
     script->args_->add_component_of_type(0x651533EC, script::kQbvalName, modules::g_skate_module->pending_level_);
     script->args_->put_name_key(0x16A0B364, modules::g_skate_module->level_params_);
     return true;

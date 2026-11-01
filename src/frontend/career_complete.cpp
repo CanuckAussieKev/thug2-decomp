@@ -8,6 +8,8 @@
 #include "engine/objects/entity.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/down_cast.h"
+#include "game/rider/stats_manager.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
@@ -35,28 +37,22 @@ constexpr uint32_t kRecord = 0xC22A2B72;
 constexpr uint32_t kCareer = 0x4DA4937B;  // career
 constexpr uint32_t kClassic = 0x4C10DE52; // classic
 
-uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* get_skate() { return modules::g_skate_module; }
 
-// The local skater's stats manager (component 0x4FF8DAC6, the skater's story stat challenges - stats_goals): its 70
-// challenges from +0x1C, 0x24 bytes each, the status at +0x10 of each (0 open, 1 done - the stat point given -,
-// 2 / 3 locked until StatsManager_UnlockAmGoals / unlock_pro_goals; StatsManager_GetGoalStatus 0x0051CB30 reads it,
-// the stats menu counts the done ones: 3 + done = the stat's maximum) and the "just done" byte at +0x0C.
-constexpr int kGoalStatCount = 70;
-constexpr int kStatGoalSize = 0x24;
-constexpr int kStatGoalStatus = 0x1C + 0x10;
-constexpr int kStatGoalJustDone = 0x1C + 0x0C;
-
+// The local skater's stats manager (its story stat challenges - stats_goals): every challenge done (the stat point
+// given; the stats menu counts the done ones: 3 + done = the stat's maximum) and none "just met".
 int complete_stat_goals()
 {
-    objects::GameEntity* skater = raw::as<modules::Skate>(get_skate())->get_home_rider(); // (the local one)
-    auto* stats = skater ? raw::bytes(skater->fetch_module(0x4FF8DAC6)) : nullptr;
+    objects::GameEntity* skater = get_skate()->get_home_rider(); // (the local one)
+    auto* stats = skater ? core::down_cast<objects::AttributeTracker>(skater->fetch_module(objects::AttributeTracker::kType))
+                         : nullptr;
     if (!stats)
         return 0;
-    for (int i = 0; i < kGoalStatCount; ++i) {
-        *raw::field_at<int>(stats, kStatGoalStatus + i * kStatGoalSize) = 1;
-        stats[kStatGoalJustDone + i * kStatGoalSize] = 0;
+    for (objects::AttributeTracker::Goal& goal : stats->goals_) {
+        goal.cur_standing_ = 1;
+        goal.met_ = false;
     }
-    return kGoalStatCount;
+    return objects::AttributeTracker::kGoals;
 }
 
 // One goal put into the goal manager's store of goals that aren't loaded (+0x14) as beaten, as a goal's save writes
@@ -137,12 +133,12 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         get_log("create 100%% cas: off ([features] create_100_cas=0)");
         return false;
     }
-    uint8_t* skate = get_skate();
+    const modules::Skate* skate = get_skate();
     script::Array* levels = nullptr;
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;
-    objects::RiderStoryProgress* career = raw::as<modules::Skate>(skate)->career_.get();
-    const goals::GoalManager* goal_manager = raw::as<modules::Skate>(skate)->goal_manager_.get();
+    objects::RiderStoryProgress* career = skate->career_.get();
+    const goals::GoalManager* goal_manager = skate->goal_manager_.get();
     script::Struct* saved = goal_manager ? goal_manager->goal_data_ : nullptr;
     if (!career || !saved)
         return false;

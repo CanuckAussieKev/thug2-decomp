@@ -51,7 +51,7 @@ void add_shadow_volume(ShadowVolume* volume)
 // The meshes of the model's collision scene: +0x88 their count, +0x8C the array (the volumes' key).
 int get_mesh_count(const uint8_t* asset_data) { return *raw::field_at<const int>(asset_data, 0x88); }
 
-bool get_skipped(const TriMeshSource& mesh) { return (raw::as<const uint16_t>(mesh.faces_)[0] & 0x40) != 0; }
+bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & 0x40) != 0; }
 
 // The edge from `from` to `to` of a face with `normal`: an existing edge the other way round, or the same way, gets
 // its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short,
@@ -124,18 +124,9 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
                 continue;
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
             for (int f = 0; std::cmp_less(f, mesh.tri_count_); ++f) {
-                uint16_t a = 0, b = 0, c = 0;
-                if (mesh.small_faces_) {
-                    const uint8_t* face = mesh.faces_ + f * 8;
-                    a = face[4];
-                    b = face[5];
-                    c = face[6];
-                } else {
-                    const auto* face = raw::field_at<const uint16_t>(mesh.faces_, f * 10);
-                    a = face[2];
-                    b = face[3];
-                    c = face[4];
-                }
+                const auto a = static_cast<uint16_t>(mesh.face_vertex(f, 0));
+                const auto b = static_cast<uint16_t>(mesh.face_vertex(f, 1));
+                const auto c = static_cast<uint16_t>(mesh.face_vertex(f, 2));
                 const maths::Vec4 normal = mesh.get_triangle_normal(f);
                 edges_->last_mesh_ = m;
                 add_edge(edges_, count, a, b, normal);

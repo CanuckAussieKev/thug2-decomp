@@ -41,8 +41,8 @@ maths::Vec4 get_row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 // The local skater (the skate module's 0x00566520; null with none).
 objects::Rider* local_skater()
 {
-    auto* skate = raw::bytes(modules::g_skate_module);
-    return skate ? raw::as<modules::Skate>(skate)->get_home_rider() : nullptr;
+    auto* skate = modules::g_skate_module;
+    return skate ? skate->get_home_rider() : nullptr;
 }
 
 // The game's collision ray (render::ProbeRay: static collision, the nearest hit) from `from` to `to`.

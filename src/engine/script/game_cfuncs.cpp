@@ -93,16 +93,16 @@ constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the objec
 constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the object whose camera is used otherwise
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
-objects::RiderIdentity* fetch_account(int index)
+modules::Skate* get_skate() { return modules::g_skate_module; }
+// The current profile: the skate module's overload taking the params, with none (the original passes a 0 index in
+// the params' place - 0x00564F80; every caller passes 0).
+objects::RiderIdentity* current_account()
 {
-    // (0x00564F80 is the overload taking the params: the original passes the index in its place - 0, no params, the
-    // current profile)
-    return raw::as<modules::Skate>(get_skate())->fetch_account(cell::pointer<script::Struct>(index));
+    return get_skate()->fetch_account(static_cast<script::Struct*>(nullptr));
 }
 objects::Rider* get_rider_at(int index)
 {
-    return core::down_cast<objects::Rider>(raw::as<modules::Skate>(get_skate())->get_rider_at(index));
+    return core::down_cast<objects::Rider>(get_skate()->get_rider_at(index));
 }
 
 // The object manager (0x006F0FB8).
@@ -291,7 +291,7 @@ bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
 // the script's 0xF36C1878.
 bool cfunc_get_custom_skater_filename(script::Struct*, script::Script* script)
 {
-    objects::RiderIdentity* profile = fetch_account(0);
+    objects::RiderIdentity* profile = current_account();
     script->args_->append_word(kCustomSkaterFile, profile->get_string_f_36c_1878());
     return true;
 }
@@ -299,7 +299,7 @@ bool cfunc_get_custom_skater_filename(script::Struct*, script::Script* script)
 // 0x0059F960: SetCustomSkaterFilename ["<name>" ("Unimplemented")]: the first profile's custom skater file name.
 bool cfunc_set_custom_skater_filename(script::Struct* params, script::Script*)
 {
-    objects::RiderIdentity* profile = fetch_account(0);
+    objects::RiderIdentity* profile = current_account();
     const char* name = "Unimplemented"; // "Unimplemented"
     params->fetch_text(0u, &name, 0);
     profile->set_string_f_36c_1878(name);
@@ -778,7 +778,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
 // faces\<file> (read with the C runtime; the script 0x808008EA then runs). False if the file can't be opened.
 bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
 {
-    void* face = word54(fetch_account(0));
+    void* face = word54(current_account());
     const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &name, 1); // "string"
     char path[0x80];
@@ -805,7 +805,7 @@ bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0x67E6859Au, &index, 1);
-    void* profile = raw::as<modules::Skate>(get_skate())->fetch_account(index);
+    void* profile = get_skate()->fetch_account(index);
     return word54(profile) != nullptr;
 }
 

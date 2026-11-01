@@ -264,8 +264,7 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     if (!manager->get_on_server()) {
         for (int i = 0; i < 2; ++i) {
             if (net::AppHost* client = manager->fetch_patron(i))
-                raw::as<modules::SkateNet>(skate)->add_client_handlers(
-                    client, i); // the skate module's handlers for that client
+                modules::SkateNet::add_client_handlers(skate, client, i); // the skate module's handlers for that client
         }
     }
     return kContinue;

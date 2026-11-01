@@ -98,7 +98,7 @@ constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore
 
 // --- the game's state ---
 
-uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* skate_module() { return modules::g_skate_module; }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
@@ -324,12 +324,6 @@ SessionState& session_state()
     return value;
 }
 
-template <typename T>
-T get_at(const void* base, uint32_t offset)
-{
-    return *raw::field_at<const T>(base, offset);
-}
-
 void update_session(float dt)
 {
     const uint32_t level = current_load_state();
@@ -359,16 +353,16 @@ void update_session(float dt)
         session_state().best_combo_ = std::max(session_state().best_combo_, end.points);
     // The gaps (the skate module's checklist: the level's).
     std::vector<level_editor::play_test::GapRead> read;
-    uint8_t* skate = skate_module();
-    if (goals::GapTally* list =
-            skate ? static_cast<goals::GapTally*>(raw::as<modules::Skate>(skate)->fetch_gap_list())
+    modules::Skate* skate = skate_module();
+    if (const goals::GapTally* list =
+            skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list())
                   : nullptr) {
         int guard = 0;
-        for (memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096;
+        for (const memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096;
              node = node->next) {
             if (node->data == memory::ListNode::head_marker())
                 break;
-            auto* gap = raw::as<goals::GapEntry>(node);
+            auto* gap = static_cast<goals::GapEntry*>(node->data);
             read.push_back(
                 {gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
         }
@@ -994,7 +988,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         return read;
     read.found = true;
     read.menu_id_ = id_of_element(menu);
-    read.menu_key_ = cell::address(menu);
+    read.menu_key_ = menu;
     read.vertical = mouse_menus::menu_runs_top_to_bottom(menu);
     read.selected_index_ = mouse_menus::selected_index(menu);
     read.in_dialog_ = in_dialog;
@@ -1215,7 +1209,7 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
     read.found = true;
     read.keyboard = true;
     read.menu_id_ = id_of_element(keys);
-    read.menu_key_ = cell::address(keys);
+    read.menu_key_ = keys;
     read.in_level_ = !in_front_end();
     int row = 0;
     bool entry_read = false;
@@ -1622,7 +1616,7 @@ void update_cover(float dt)
     now.target_ready_ = s_mirror.get_up();
     now.gameplay = !current_load_state() || loading_screen_up() || level_editor::live_now() ||
                    (!in_front_end() && !get_paused() && !active);
-    now.screen = cell::address(active);
+    now.screen = active;
     now.left_original_ = active && !s_mirror_would_restyle;
     const char* why = nullptr;
     if (!s_cover.tick_frame(now, dt, &why))

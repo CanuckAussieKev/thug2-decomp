@@ -129,11 +129,12 @@ struct TriMeshSource {
         return scale;
     }
 
-    [[nodiscard]] uint32_t face_vertex(int face, int corner) const
-    {
-        return small_faces_ ? faces_[face * 8 + 4 + corner]
-                            : raw::field_at<const uint16_t>(faces_, face * 10 + 4)[corner];
-    }
+    // The faces (collision_format::FaceTable: flags, terrain, vertex indices).
+    [[nodiscard]] collision_format::FaceTable face_table() const { return {faces_, small_faces_}; }
+    [[nodiscard]] uint32_t face_vertex(int face, int corner) const { return face_table().vertex(face, corner); }
+    [[nodiscard]] uint16_t face_flags(int face) const { return face_table().flags(face); }
+    [[nodiscard]] uint16_t face_terrain(int face) const { return face_table().terrain(face); }
+    void set_face_flags(int face, uint16_t flags) { face_table().set_flags(face, flags); }
 };
 // The collision file's object record, used in place (formats/collision_format.h): its layout is the file's.
 static_assert(offsetof(TriMeshSource, num_vertices_) == 0x06 && offsetof(TriMeshSource, tri_count_) == 0x08 &&

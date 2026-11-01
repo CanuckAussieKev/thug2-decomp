@@ -118,37 +118,36 @@ std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept 
 // The Inspector's typed cluster name.
 char g_typed[64];
 
-uint8_t* hub() { return raw::bytes(objects::g_trick_spot_hub); }
+objects::TrickSpotHub* hub() { return objects::g_trick_spot_hub; }
 
 script::Struct* node_of(uint32_t sector) { return level_nodes::fetch_vertex(sector, false); }
 
-objects::TrickSpotHub* get_trick_objects(uint8_t* manager) { return raw::as<objects::TrickSpotHub>(manager); }
 // The manager's cluster of that name, null for none.
-uint8_t* cluster_object(uint8_t* manager, uint32_t cluster)
+objects::TrickObjectCluster* cluster_object(objects::TrickSpotHub* manager, uint32_t cluster)
 {
-    return raw::bytes(get_trick_objects(manager)->get_cluster(cluster));
+    return manager->get_cluster(cluster);
 }
 
 // Registered as the load registers a TrickObject node (0x005A37A9-0x005A37C9).
 void enrol(uint32_t name, uint32_t cluster)
 {
-    uint8_t* manager = hub();
+    objects::TrickSpotHub* manager = hub();
     if (!manager || !cluster)
         return;
-    get_trick_objects(manager)->add_cluster(cluster); // (false: there already)
+    manager->add_cluster(cluster); // (false: there already)
     if (cluster_object(manager, cluster))
-        get_trick_objects(manager)->add_object(name, cluster);
+        manager->add_object(name, cluster);
 }
 
 // Taken out: its node unlinked from the cluster's object list (entities_: a circular list, the head a sentinel; each
 // object a TrickSpot with its name) and its name out of the name map (the manager's object_clusters_).
 void unregister(uint32_t name, uint32_t cluster)
 {
-    uint8_t* manager = hub();
+    objects::TrickSpotHub* manager = hub();
     if (!manager || !cluster)
         return;
-    if (uint8_t* object = cluster_object(manager, cluster)) {
-        const memory::ListNode* head = &raw::as<objects::TrickObjectCluster>(object)->entities_;
+    if (const objects::TrickObjectCluster* object = cluster_object(manager, cluster)) {
+        const memory::ListNode* head = &object->entities_;
         memory::ListNode* node = head->next;
         for (int guard = 0; node && node != head && guard < 100000; ++guard) {
             memory::ListNode* next = node->next;
@@ -159,7 +158,7 @@ void unregister(uint32_t name, uint32_t cluster)
             node = next;
         }
     }
-    get_trick_objects(manager)->object_clusters_.erase_entry(name);
+    manager->object_clusters_.erase_entry(name);
 }
 
 // The piece made `to` in the manager, from `from`.

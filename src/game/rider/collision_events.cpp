@@ -206,8 +206,8 @@ std::string level_file_stamp(const std::string& level, const char* kind)
 // The local skater (the skate module's 0x00566520; null with none).
 void* local_skater()
 {
-    auto* module = raw::bytes(modules::g_skate_module);
-    return module ? raw::as<modules::Skate>(module)->get_home_rider() : nullptr;
+    auto* module = modules::g_skate_module;
+    return module ? module->get_home_rider() : nullptr;
 }
 
 float get_horizontal(const float* v, float* direction)

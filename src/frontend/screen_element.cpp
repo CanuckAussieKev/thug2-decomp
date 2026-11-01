@@ -4,6 +4,7 @@
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -589,9 +590,10 @@ void UiWidget::update_layout()
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
         render::ViewRegion* camera = render::fetch_current_view(0);
-        float x = 0.0f, y = 0.0f, z = 0.0f;
-        // (the depth written as an integer into z, as the original)
-        const float scale = camera->project_to_screen(&aim_point_.pos3d, &x, &y, raw::as<int>(&z));
+        float x = 0.0f, y = 0.0f;
+        int depth = 0;
+        // (the depth is an integer the original keeps in the float z: its bits)
+        const float scale = camera->project_to_screen(&aim_point_.pos3d, &x, &y, &depth);
         if (scale < 0.0f) {
             aim_point_.x = -320.0f;
             aim_point_.y = -224.0f;
@@ -599,7 +601,7 @@ void UiWidget::update_layout()
         } else {
             aim_point_.x = x;
             aim_point_.y = y;
-            aim_point_.z = z;
+            aim_point_.z = std::bit_cast<float>(depth);
             if (!(object_flags_ & kKeepScale))
                 change_scale(scale, scale, true, 0);
             object_flags_ &= ~kOffScreen;

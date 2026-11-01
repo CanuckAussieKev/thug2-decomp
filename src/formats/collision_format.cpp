@@ -1,4 +1,6 @@
 #include "formats/collision_format.h"
+
+#include <cstring>
 #include "engine/core/pointer_cell.h"
 
 namespace collision_format {
@@ -138,6 +140,20 @@ bool check_collision_objects(const uint8_t* base, const CollisionHeader& header,
             return false;
     }
     return true;
+}
+
+uint8_t* FaceTable::at(int face, int offset) const { return bytes_ + (static_cast<ptrdiff_t>(face) * stride_) + offset; }
+
+uint16_t FaceTable::word(int face, int offset) const
+{
+    uint16_t value = 0;
+    std::memcpy(&value, at(face, offset), sizeof(value));
+    return value;
+}
+
+void FaceTable::set_word(int face, int offset, uint16_t value) const
+{
+    std::memcpy(at(face, offset), &value, sizeof(value));
 }
 
 } // namespace collision_format

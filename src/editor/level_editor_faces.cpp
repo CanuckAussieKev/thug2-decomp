@@ -201,10 +201,6 @@ render::TriMeshSource* get_geometry(uint32_t checksum)
     return tri && tri->faces_ ? tri : nullptr;
 }
 
-uint16_t* get_raw(render::TriMeshSource* tri, int face)
-{
-    return raw::field_at<uint16_t>(tri->faces_, face * (tri->small_faces_ ? 8 : 10));
-}
 
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
 bool emit_out(FaceKey key, uint16_t flags)
@@ -219,7 +215,7 @@ bool emit_out(FaceKey key, uint16_t flags)
         origins()[key] = origin;
     }
     if (!shared_collision::set_taken_flags(tri, key.face, flags))
-        *get_raw(tri, key.face) = flags;
+        tri->set_face_flags(key.face, flags);
     return true;
 }
 
@@ -433,11 +429,11 @@ bool select_piece(uint32_t checksum, bool add)
 
 bool get_take_in(FaceKey key, uint16_t* flags)
 {
-    render::TriMeshSource* tri = get_geometry(key.checksum);
+    const render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count_)
         return false;
     if (!shared_collision::taken_face(tri, key.face, nullptr, nullptr, flags))
-        *flags = *get_raw(tri, key.face);
+        *flags = tri->face_flags(key.face);
     return true;
 }
 

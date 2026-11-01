@@ -53,7 +53,7 @@ struct ItemRead {
 struct MenuRead {
     bool found = false;
     uint32_t menu_id_ = 0;
-    uintptr_t menu_key_ = 0; // (its address: a new menu is a new screen - the animations start again)
+    const void* menu_key_ = nullptr; // (its address: a new menu is a new screen - the animations start again)
     bool vertical = true;
     int selected_index_ = -1; // the menu's +0x178 (its children's index)
     std::vector<ItemRead> items;
@@ -124,7 +124,7 @@ struct Row {
 
 struct View {
     Kind kind = Kind::kNone;
-    uintptr_t key = 0; // (the menu read: a change restarts the rows' animations)
+    const void* key = nullptr; // (the menu read: a change restarts the rows' animations)
     std::string title;
     std::vector<std::string> lines; // a dialog's text (wrapped by the drawing); a list's other words
     std::vector<Row> rows;

@@ -70,11 +70,7 @@ bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::
     const render::TriMeshSource* geometry = object->geometry_;
     const int face = static_cast<int>(feeler.hit_.face);
     for (int corner = 0; corner < 3; ++corner) {
-        int vertex = 0;
-        if (geometry->small_faces_)
-            vertex = geometry->faces_[face * 8 + 4 + corner];
-        else
-            vertex = *raw::field_at<const uint16_t>(geometry->faces_, face * 10 + 4 + 2 * corner);
+        const auto vertex = static_cast<int>(geometry->face_vertex(face, corner));
         triangle[corner] = vertex_position3(object, vertex);
     }
     *out = feeler.contact_pos_;

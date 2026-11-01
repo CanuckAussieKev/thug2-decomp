@@ -104,7 +104,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
             chosen = memory->top_down_heap_;
             break;
         case kHeap3c84a59:
-            chosen = cell::pointer<memory::MemSource>(memory->unknown158_[1]);
+            chosen = memory->unused_heap_;
             break;
         case kHeapDefault:
             push_heap = false;

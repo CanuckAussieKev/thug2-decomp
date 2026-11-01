@@ -579,15 +579,15 @@ bool save_file(uint32_t scene)
 std::vector<GapRead> read_gaps()
 {
     std::vector<GapRead> out;
-    goals::GapTally* list = get_checklist();
+    const goals::GapTally* list = get_checklist();
     if (!list)
         return out;
     // (the list's nodes: the head's data is -1 - gap_checklist.cpp)
     int guard = 0;
-    for (memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096; node = node->next) {
+    for (const memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096; node = node->next) {
         if (node->data == memory::ListNode::head_marker())
             break;
-        auto* gap = raw::as<goals::GapEntry>(node);
+        auto* gap = static_cast<goals::GapEntry*>(node->data);
         out.push_back({gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
     }
     return out;

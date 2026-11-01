@@ -112,7 +112,10 @@ public:
 
     // The manager's event listener: its events go to listener_receive.
     struct TreeListener final : objects::SignalReceiver {
+        explicit TreeListener(UiTree* tree) : tree_(tree) {}
         void receive(objects::Signal* event) override;
+
+        UiTree* tree_; // the manager it belongs to (the original found it 0x28 bytes before the listener)
     };
 
     // --- pad-event priorities ---
@@ -128,7 +131,7 @@ public:
     // 0x004AB5D0: elements gone leave their slots; the top one is shown.
     void update_priorities();
 
-    TreeListener listener_;                   // +0x28
+    TreeListener listener_{this};             // +0x28
     ElementPtr tree_root_;                    // +0x44
     ElementPtr resolving_;                    // +0x50 resolve_id's element so far
     FocusEntry focus_entries_[kFocusEntries]; // +0x5C

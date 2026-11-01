@@ -34,7 +34,6 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace modules {
@@ -104,8 +103,7 @@ bool& menu_on_screen() { return sio::g_in_menu_flag; } // a menu, dialog box or 
 bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xFB11E6CD next frame
 bool& is_game_halted() { return objects::g_simulation_halted; }
 
-uint8_t* skate_bytes() { return raw::bytes(g_skate_module); } // modules::Skate
-void* get_tracker() { return raw::as<void>(objects::g_tracker); }   // GameObjects::EventWaitBoard
+modules::Skate* skate_module() { return modules::g_skate_module; }
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager; }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
@@ -417,7 +415,6 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
 // 0x0054F380
 void FrontEnd::tick_frame(bool game_paused)
 {
-    const uint8_t* skate = skate_bytes();
     bool in_skateshop = modules::g_skate_module->pending_level_ == 0xE92ECAFE; // (the level / game mode)
     if (skateshop_override())
         in_skateshop = false;
@@ -452,11 +449,11 @@ void FrontEnd::tick_frame(bool game_paused)
     }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
     script::tick_child_scripts();
-    raw::as<modules::Skate>(skate_bytes())->advance_match_flow();
+    skate_module()->advance_match_flow();
     if (pending_script()) {
         pending_script() = false;
         auto* object =
-            static_cast<objects::Entity*>(raw::as<modules::Skate>(skate_bytes())->get_home_rider());
+            static_cast<objects::Entity*>(skate_module()->get_home_rider());
         script::launch_script(0xFB11E6CD, nullptr, object, false, nullptr);
     }
     memory::Hub::get_pull()->leave_heap_scope();
@@ -518,10 +515,10 @@ void FrontEnd::get_pause_game(bool pause)
 {
     if (pause == is_halted_)
         return;
-    uint8_t* skate = skate_bytes();
+    modules::Skate* skate = skate_module();
     auto* devices = sio::g_manager;
     if (pause) {
-        raw::as<modules::Skate>(skate)->get_freeze(true);
+        skate->get_freeze(true);
         devices->pause_devices();
     } else {
         devices->unpause_devices();
@@ -530,12 +527,12 @@ void FrontEnd::get_pause_game(bool pause)
 
     // The skaters: their list's nodes (the head's data is -1; its data read before the null check, as the original).
     uint32_t count = 0;
-    for (const memory::ListNode* node = raw::as<modules::Skate>(skate)->riders_.list_link_.next;
+    for (const memory::ListNode* node = skate->riders_.list_link_.next;
          !node->is_head() && node; node = node->next)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =
-            core::down_cast<objects::Rider>(raw::as<modules::Skate>(skate)->get_rider_at(static_cast<int>(i)));
+            core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (!skater)
             continue;
         if (pause)
@@ -555,10 +552,10 @@ void FrontEnd::get_pause_game(bool pause)
         report_pause_state();
     } else {
         main_loop_manager()->logic_tasks_.skip_bits_ = 0;
-        raw::as<modules::Skate>(skate_bytes())->get_freeze(false);
+        skate_module()->get_freeze(false);
         report_pause_state();
     }
-    if (is_halted_ || !raw::as<modules::Skate>(skate)->get_home_rider())
+    if (is_halted_ || !skate->get_home_rider())
         return;
     // Back in the game with a skater: the camera's view mode back to the global's.
     script::Struct* params = new_params();
@@ -576,8 +573,8 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
     // setting)
     if (handler->ordinal_ == 0)
         mouse_menus::tick_frame(front_end);
-    void* tracker = get_tracker();
-    static_cast<objects::EventWaitBoard*>(tracker)->log_frame();
+    objects::EventWaitBoard* tracker = objects::get_tracker();
+    tracker->log_frame();
     for (int index = 0;; ++index) {
         uint32_t event = 0;
         if (index == 0) {
@@ -605,7 +602,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
         script::Struct params;
         params.put_int(kDeviceNum, handler->dev_->port_no_);
         params.put_int(kController, 0); // (the original loads the mapping, then passes 0)
-        static_cast<objects::EventWaitBoard*>(tracker)->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
+        tracker->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
                                                                      -1.0f);
         params.get_clear();
     }

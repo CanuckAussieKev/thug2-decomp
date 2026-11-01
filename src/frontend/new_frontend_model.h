@@ -314,7 +314,7 @@ public:
         bool target_ready_ = false; // ours shown, or a restyled screen up
         bool gameplay = false; // in a level and playing, a tool's UI (the level editor), a loading screen, no level
         bool left_original_ = false; // the screen up stays the original's (not restyled: the decision says so)
-        uintptr_t screen = 0;        // the menu taking the pad events (0: none) - settled when it stays the same
+        const void* screen = nullptr;      // the menu taking the pad events (0: none) - settled when it stays the same
     };
     void kickoff(Over over);
     void halt() { over_ = Over::kNone; }
@@ -327,7 +327,7 @@ public:
 private:
     Over over_ = Over::kNone;
     float clock_ = 0.0f, still_ = 0.0f;
-    uintptr_t screen_ = 0;
+    const void* screen_ = nullptr;
     bool seen_ = false;
 };
 

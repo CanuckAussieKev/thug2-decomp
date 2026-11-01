@@ -987,7 +987,7 @@ Skate::Skate()
 {
     riders_.list_link_.make_head();
     update_job_ = std::make_unique<tasks::Task<Skate>>(&front_end_tick, this, 0);
-    raw::as<SkateNet>(this)->create_network_tasks();
+    SkateNet::create_network_tasks(this);
     objects::g_profile_roster->reset_templates();
     game_flow_ = std::make_unique<goals::MatchFlow>();
     goal_manager_ = memory::make_zeroed<goals::GoalManager>();
@@ -1033,7 +1033,7 @@ Skate::~Skate()
     memory::destroy_then_clear(object_movies_);
     memory::destroy_then_clear(rail_manager_);
     memory::destroy_then_clear(career_);
-    raw::as<SkateNet>(this)->delete_network_tasks();
+    SkateNet::delete_network_tasks(this);
     memory::destroy_then_clear(game_flow_);
     memory::destroy_then_clear(goal_manager_);
     memory::destroy_then_clear(update_job_);

@@ -173,8 +173,7 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
 // (The original's listener filter is 0x004AE7E0 itself, `this` the listener: the element is 0x178 before it.)
 void WindowedList::MenuListener::receive(objects::Signal* event)
 {
-    auto* self = raw::owner_of<WindowedList>(this, offsetof(WindowedList, listener_));
-    self->listener_receive(event);
+    list_->listener_receive(event);
 }
 
 // 0x004AE7E0

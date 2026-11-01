@@ -682,7 +682,7 @@ using mouse_menus::child_count;
 using mouse_menus::is_menu;
 using mouse_menus::selected_index;
 
-uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* skate_module() { return modules::g_skate_module; }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
@@ -830,8 +830,8 @@ std::string net_refusal()
     if (void* game_net = online::g_online_hub)
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return "a network game runs";
-    if (void* mode = raw::as<void>(goals::g_game_mode)) {
-        const std::string name = get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key());
+    if (goals::MatchRules* mode = goals::g_game_mode) {
+        const std::string name = get_name_of(mode->get_name_key());
         if (name.starts_with("net"))
             return "the game mode is a network one (" + name + ")";
     }
@@ -840,8 +840,8 @@ std::string net_refusal()
 
 std::string active_ruleset_label()
 {
-    void* mode = raw::as<void>(goals::g_game_mode);
-    return mode ? get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key()) : "";
+    goals::MatchRules* mode = goals::g_game_mode;
+    return mode ? get_name_of(mode->get_name_key()) : "";
 }
 
 // The main menu: its menu up and taking pad events, in the front end.
@@ -906,9 +906,8 @@ void trace_frame()
         const int bailing = state ? state->is_on(objects::PoseFlag::kBailing) : -1;
         const int trick = state ? state->in_trick_move_ : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
-        auto* score_component = raw::bytes(skater->fetch_module(kScoreModuleKey));
-        const modules::PointTally* score =
-            score_component ? raw::as<objects::RiderPointKeeper>(score_component)->points_held_ : nullptr;
+        const auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kScoreModuleKey));
+        const modules::PointTally* score = score_component ? score_component->points_held_ : nullptr;
         const int pot = score ? score->pot_ : -1;
         const float multiplier = score ? score->multiplier_ : 0.0f;
         const int landed = score ? score->pot_score_ : -1;

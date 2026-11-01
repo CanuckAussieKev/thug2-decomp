@@ -14,6 +14,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/geom.h"
 #include "engine/core/raw_view.h"
+#include "gpu/vertex_view.h"
 
 namespace frontend::level_editor::snap {
 
@@ -135,7 +136,7 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
         if (!vertices || !vertices->data || mesh->stride < 12)
             continue;
         for (uint32_t v = 0; v < mesh->vertex_count_ && out.size() < limit; ++v) {
-            const auto* p = raw::field_at<const float>(vertices->data, v * mesh->stride);
+            const auto p = gpu::VertexView(vertices->data, mesh->stride).float3(v);
             out.push_back({p[0], p[1], p[2]});
         }
     }

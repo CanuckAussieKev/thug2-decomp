@@ -608,8 +608,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
     const int profile = core::down_cast<objects::Rider>(entity_)->view_slot_;
-    auto* profiles = raw::bytes(modules::g_skate_module);
-    auto_kick_ = profiles[profile * 8 + 0x395];
+    auto_kick_ = modules::g_skate_module->participants_[profile].auto_kick_;
     return 1;
 }
 

@@ -90,7 +90,7 @@ float g_message_y = 40.0f; // (show_notice's lower, clear of the score: 100)
 
 // --- the game's state ---
 
-uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* skate_module() { return modules::g_skate_module; }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool loading_screen_up()
@@ -109,13 +109,13 @@ std::string get_name_of(uint32_t checksum)
 }
 std::string active_ruleset_label()
 {
-    void* mode = raw::as<void>(goals::g_game_mode);
-    return mode ? get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key()) : "";
+    goals::MatchRules* mode = goals::g_game_mode;
+    return mode ? get_name_of(mode->get_name_key()) : "";
 }
 // The local skater (the skate module's 0x00566520; null with none).
 objects::GameEntity* local_skater()
 {
-    return skate_module() ? raw::as<modules::Skate>(skate_module())->get_home_rider() : nullptr;
+    return skate_module() ? skate_module()->get_home_rider() : nullptr;
 }
 
 std::string vec(const float v[3], const char* format = "(%.1f, %.1f, %.1f)")

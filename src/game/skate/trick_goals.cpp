@@ -143,7 +143,7 @@ void complete_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(
 void fail_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(manager)->fail_objective(id); }
 
 // The skate module (0x007CE478): the local skater, its score (modules::PointTally), the tricks the score has seen.
-uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* get_skate() { return modules::g_skate_module; }
 uint8_t* local_skater() { return raw::bytes(modules::Skate::sole()->get_home_rider()); }
 uint8_t* get_score_of(uint8_t* skater)
 {

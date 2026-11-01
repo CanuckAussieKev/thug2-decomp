@@ -440,7 +440,7 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
         const TriMeshSource* geometry = geometry_;
         const uint32_t face = faces[i];
         const uint16_t flags =
-            *raw::field_at<const uint16_t>(geometry->faces_, face * (geometry->small_faces_ ? 8 : 10));
+            geometry->face_flags(static_cast<int>(face));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
         maths::Vec4 v0{}, v1{}, v2{};

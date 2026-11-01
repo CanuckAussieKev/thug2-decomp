@@ -181,7 +181,7 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
         const uint32_t face = faces[i];
-        const uint8_t rejection = geometry->small_faces_ ? geometry->faces_[face * 8 + 7] : octets_[face];
+        const uint8_t rejection = geometry->small_faces_ ? geometry->face_table().small_rejection(static_cast<int>(face)) : octets_[face];
         if (threshold > rejection)
             continue;
         maths::Vec4 v0{}, v1{}, v2{};
@@ -308,7 +308,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
         const uint32_t face = faces[i];
-        if (geometry->small_faces_ && threshold > geometry->faces_[face * 8 + 7])
+        if (geometry->small_faces_ && threshold > geometry->face_table().small_rejection(static_cast<int>(face)))
             continue;
         maths::Vec4 v0{}, v1{}, v2{};
         get_corners(geometry, face, &v0, &v1, &v2);

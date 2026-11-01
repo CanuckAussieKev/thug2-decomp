@@ -212,22 +212,21 @@ void append_listener(net::AppHost* app, int id, uint32_t code, uint32_t flags, v
 } // namespace
 
 // 0x0056E2B0
-void SkateNet::create_network_tasks()
+void SkateNet::create_network_tasks(Skate* skate)
 {
-    auto* skate = raw::as<Skate>(this);
     skate->server_tasks_[0] = new tasks::Task<Skate>(&SkateNet::server_task, skate, -1000);
     skate->server_tasks_[1] = new tasks::Task<Skate>(&SkateNet::score_task, skate, -1000);
 }
 
 // 0x00569530
-void SkateNet::delete_network_tasks()
+void SkateNet::delete_network_tasks(Skate* skate)
 {
-    for (const tasks::Task<Skate>* task : raw::as<Skate>(this)->server_tasks_)
+    for (const tasks::Task<Skate>* task : skate->server_tasks_)
         delete task;
 }
 
 // 0x0056DEE0
-void SkateNet::launch_host()
+void SkateNet::launch_host(Skate* skate)
 {
     frame_loop::Hub* mlp = assets::g_main_loop_manager;
     online::Hub* net = net_session_slot();
@@ -239,25 +238,24 @@ void SkateNet::launch_host()
     auto* server = net->start_host_session(!auto_serving, true);
     if (!server)
         return;
-    auto* skate = raw::bytes(this);
-    mlp->logic_tasks_.queue_job(raw::as<Skate>(skate)->server_tasks_[0]);
-    mlp->logic_tasks_.queue_job(raw::as<Skate>(skate)->server_tasks_[1]);
+    mlp->logic_tasks_.queue_job(skate->server_tasks_[0]);
+    mlp->logic_tasks_.queue_job(skate->server_tasks_[1]);
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
-    append_listener(server, 0x52, handle_combo_score, 0, this);
-    append_listener(server, 0x86, handle_game_stats, 0, this);
+    append_listener(server, 0x52, handle_combo_score, 0, skate);
+    append_listener(server, 0x86, handle_game_stats, 0, skate);
     append_listener(server, 0x4C, handle_relay, 2, nullptr);
     append_listener(server, 0x45, handle_joined, 2, nullptr);
     append_listener(server, 0x23, &SkateNet::handle_client_object_update, 3, nullptr);
-    append_listener(server, 0x8F, handle_scavenger_dropped, 0, this);
-    append_listener(server, 0x90, handle_scavenger_collected, 0, this);
+    append_listener(server, 0x8F, handle_scavenger_dropped, 0, skate);
+    append_listener(server, 0x90, handle_scavenger_collected, 0, skate);
     if (server->is_host_local())
         return;
     // The messages a server relays for its clients.
     append_listener(server, 0x7E, handle_face_texture, 0, nullptr);
-    append_listener(server, 0x97, handle_graffiti_texture, 0, this);
-    append_listener(server, 0x98, handle_graffiti_texture, 0, this);
-    append_listener(server, 0x9A, handle_graffiti_texture, 0, this);
-    append_listener(server, 0x83, handle_relay, 0, this);
+    append_listener(server, 0x97, handle_graffiti_texture, 0, skate);
+    append_listener(server, 0x98, handle_graffiti_texture, 0, skate);
+    append_listener(server, 0x9A, handle_graffiti_texture, 0, skate);
+    append_listener(server, 0x83, handle_relay, 0, skate);
     for (const int id : {0x99, 0x89})
         append_listener(server, id, handle_relay, 0, nullptr);
     append_listener(server, 0x89, handle_player_value48, 0, nullptr);
@@ -277,49 +275,49 @@ void SkateNet::launch_host()
 }
 
 // 0x0056EB50
-void SkateNet::add_client_handlers(net::AppHost* client, int index)
+void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index)
 {
-    append_listener(client, 0x33, on_run_start_msg, 0, this);
-    append_listener(client, 0x23, handle_object_updates, 3, this);
-    append_listener(client, 0x29, handle_skater_messages, 0, this);
-    append_listener(client, 0x7F, handle_toggle_cheat, 0, this);
+    append_listener(client, 0x33, on_run_start_msg, 0, skate);
+    append_listener(client, 0x23, handle_object_updates, 3, skate);
+    append_listener(client, 0x29, handle_skater_messages, 0, skate);
+    append_listener(client, 0x7F, handle_toggle_cheat, 0, skate);
     for (const int id : {0x2B, 0x76, 0x8C, 0x77, 0x78, 0x2A})
-        append_listener(client, id, handle_skater_messages, 0, this);
-    append_listener(client, 0x2C, handle_skater_messages, 0, this, 0xFF);
-    append_listener(client, 0x2C, handle_skater_channel, 0, this);
+        append_listener(client, id, handle_skater_messages, 0, skate);
+    append_listener(client, 0x2C, handle_skater_messages, 0, skate, 0xFF);
+    append_listener(client, 0x2C, handle_skater_channel, 0, skate);
     for (const int id : {0x3C, 0x3D, 0x3E, 0x41})
-        append_listener(client, id, handle_skater_messages, 0, this);
-    append_listener(client, 0x2D, handle_player_left, 2, this);
-    append_listener(client, 0x32, handle_server_quit, 2, this);
-    append_listener(client, 0x35, handle_terrain_sound, 0, this);
-    append_listener(client, 0x36, handle_terrain_sound, 0, this);
-    append_listener(client, 0x37, on_sparks_msg, 0, this);
-    append_listener(client, 0x38, on_sparks_msg, 0, this);
-    append_listener(client, 0x39, handle_look_up_object, 0, this);
-    append_listener(client, 0x3A, handle_look_up_object, 0, this);
-    append_listener(client, 0x40, handle_scores, 2, this);
-    append_listener(client, 0x46, on_level_switch_msg, 0, this);
-    append_listener(client, 0x48, on_remote_script_msg, 2, this);
-    append_listener(client, 0x49, handle_run_script_now, 2, this);
-    append_listener(client, 0x51, handle_server_removed_you, 2, this);
-    append_listener(client, 0x56, handle_server_removed_you, 2, this);
-    append_listener(client, 0x5B, handle_graffiti_objects, 0, this);
-    append_listener(client, 0x5C, handle_graffiti_colors, 0, this);
-    append_listener(client, 0x7E, handle_face_texture, 0, this);
+        append_listener(client, id, handle_skater_messages, 0, skate);
+    append_listener(client, 0x2D, handle_player_left, 2, skate);
+    append_listener(client, 0x32, handle_server_quit, 2, skate);
+    append_listener(client, 0x35, handle_terrain_sound, 0, skate);
+    append_listener(client, 0x36, handle_terrain_sound, 0, skate);
+    append_listener(client, 0x37, on_sparks_msg, 0, skate);
+    append_listener(client, 0x38, on_sparks_msg, 0, skate);
+    append_listener(client, 0x39, handle_look_up_object, 0, skate);
+    append_listener(client, 0x3A, handle_look_up_object, 0, skate);
+    append_listener(client, 0x40, handle_scores, 2, skate);
+    append_listener(client, 0x46, on_level_switch_msg, 0, skate);
+    append_listener(client, 0x48, on_remote_script_msg, 2, skate);
+    append_listener(client, 0x49, handle_run_script_now, 2, skate);
+    append_listener(client, 0x51, handle_server_removed_you, 2, skate);
+    append_listener(client, 0x56, handle_server_removed_you, 2, skate);
+    append_listener(client, 0x5B, handle_graffiti_objects, 0, skate);
+    append_listener(client, 0x5C, handle_graffiti_colors, 0, skate);
+    append_listener(client, 0x7E, handle_face_texture, 0, skate);
     for (const int id : {0x96, 0x97, 0x98, 0x9A})
-        append_listener(client, id, handle_graffiti_texture, 0, this);
-    append_listener(client, 0x82, on_cheat_state_msg, 0, this);
-    append_listener(client, 0x83, on_projectile_msg, 0, this);
-    append_listener(client, 0x8F, handle_scavenger_drop_objects, 0, this);
-    append_listener(client, 0x89, handle_history_value, 0, this);
-    append_listener(client, 0x95, handle_scavenger_hunt, 0, this);
-    append_listener(client, 0x93, handle_scavenger_hunt, 0, this);
-    append_listener(client, 0x90, handle_scavenger_kill_object, 0, this);
-    append_listener(client, 0x99, handle_place_tag, 0, this);
-    // The handlers of this client's own skaters.
+        append_listener(client, id, handle_graffiti_texture, 0, skate);
+    append_listener(client, 0x82, on_cheat_state_msg, 0, skate);
+    append_listener(client, 0x83, on_projectile_msg, 0, skate);
+    append_listener(client, 0x8F, handle_scavenger_drop_objects, 0, skate);
+    append_listener(client, 0x89, handle_history_value, 0, skate);
+    append_listener(client, 0x95, handle_scavenger_hunt, 0, skate);
+    append_listener(client, 0x93, handle_scavenger_hunt, 0, skate);
+    append_listener(client, 0x90, handle_scavenger_kill_object, 0, skate);
+    append_listener(client, 0x99, handle_place_tag, 0, skate);
+    // The handlers of skate client's own skaters.
     for (uint32_t i = 0; i < 8; ++i) {
         auto* skater =
-            core::down_cast<objects::Rider>(raw::as<modules::Skate>(this)->get_rider_at(static_cast<int>(i)));
+            core::down_cast<objects::Rider>(raw::as<modules::Skate>(skate)->get_rider_at(static_cast<int>(i)));
         if (!skater || !skater->is_local_skater_ || skater->get_skater_number() != index)
             continue;
         append_listener(client, 0x3B, &modules::PointTally::on_score_msg, 0, skater);
@@ -331,11 +329,11 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
     }
     if (index == 0) {
         for (const int id : {0x91, 0x92, 0x94})
-            append_listener(client, id, handle_scavenger_hunt, 0, this);
+            append_listener(client, id, handle_scavenger_hunt, 0, skate);
     }
     // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (engine/net/thugpro_peer.h)
     if (online::thugpro::peer_mode())
-        online::thugpro::add_client_handlers(client, this);
+        online::thugpro::add_client_handlers(client, skate);
 }
 
 // 0x0056C920

@@ -33,7 +33,7 @@ constexpr uint32_t kMenuEvent = 0x36B2EE74;    // the pad events' target and sou
 constexpr uint32_t kDeviceNum = 0xC9428A08;    // "device_num"
 constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
-uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
+modules::Skate* skate_module() { return modules::g_skate_module; }
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 
 uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident_; }
@@ -63,10 +63,10 @@ const char* anchor_name(Anchor anchor)
 
 std::string active_ruleset_label()
 {
-    void* mode = raw::as<void>(goals::g_game_mode);
+    goals::MatchRules* mode = goals::g_game_mode;
     if (!mode)
         return {};
-    const uint32_t name = static_cast<goals::MatchRules*>(mode)->get_name_key();
+    const uint32_t name = mode->get_name_key();
     static const char* const kNames[] = {"singlesession", "freeskate", "career",       "classic",   "creategoals",
                                          "net",           "netlobby",  "freeskate_2p", "parkeditor"};
     for (const char* known : kNames)

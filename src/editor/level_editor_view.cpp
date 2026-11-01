@@ -298,7 +298,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
         if (!ok)
             continue;
         c.points.insert(c.points.end(), p, p + 3);
-        c.flags.push_back(*raw::field_at<const uint16_t>(tri->faces_, f * (tri->small_faces_ ? 8 : 10)));
+        c.flags.push_back(tri->face_flags(f));
         c.taken.push_back(std::ranges::find(taken, f) != taken.end() ? 1 : 0);
         c.index.push_back(f);
     }
@@ -614,7 +614,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
                     p[k] = entry.second->get_vertex(static_cast<int>(index));
             }
             FaceFacts facts;
-            facts.flags = *raw::field_at<const uint16_t>(tri.faces_, f * (tri.small_faces_ ? 8 : 10));
+            facts.flags = tri.face_flags(f);
             facts.companion = true;
             const bool drawn = ok && add_face(p, facts);
             if (drawn)
@@ -689,7 +689,7 @@ std::string describe_wall(uint32_t checksum)
     // The faces' flags: each distinct value and how many faces have it.
     std::vector<std::pair<uint16_t, int>> counts;
     for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f) {
-        uint16_t flags = *raw::field_at<const uint16_t>(tri->faces_, f * (tri->small_faces_ ? 8 : 10));
+        uint16_t flags = tri->face_flags(f);
         auto it = std::ranges::find_if(counts, [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
             counts.emplace_back(flags, 1);

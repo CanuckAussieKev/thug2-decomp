@@ -1225,7 +1225,7 @@ void get_remake(uint32_t name)
 // wanted (or of another cluster now) taken out of its name map (the manager's object_clusters_).
 void register_trick_objects()
 {
-    auto* manager = raw::bytes(objects::g_trick_spot_hub);
+    objects::TrickSpotHub* manager = objects::g_trick_spot_hub;
     if (!manager)
         return;
     std::map<uint32_t, uint32_t> want;
@@ -1236,7 +1236,7 @@ void register_trick_objects()
             rail_node_named(name))
             want[name] = extras->second.cluster;
     }
-    lists::KeyMap* objects = &raw::as<objects::TrickSpotHub>(manager)->object_clusters_;
+    lists::KeyMap* objects = &manager->object_clusters_;
     for (const auto& entry : trick_state()) {
         auto it = want.find(entry.first);
         if (it == want.end() || it->second != entry.second)
@@ -1246,9 +1246,8 @@ void register_trick_objects()
         auto it = trick_state().find(entry.first);
         if (it != trick_state().end() && it->second == entry.second)
             continue;
-        auto* trick_objects = raw::as<objects::TrickSpotHub>(manager);
-        trick_objects->add_cluster(entry.second); // (false: there already)
-        trick_objects->add_object_to_cluster(entry.first, entry.second);
+        manager->add_cluster(entry.second); // (false: there already)
+        manager->add_object_to_cluster(entry.first, entry.second);
     }
     if (debug_enabled() && want != trick_state())
         get_log("level editor: %u drawn rail points are trick objects", static_cast<unsigned>(want.size()));

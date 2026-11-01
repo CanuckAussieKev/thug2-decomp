@@ -43,8 +43,8 @@ Checklist g_baseline;
 
 goals::GapTally* current_checklist()
 {
-    void* skate = raw::as<void>(modules::g_skate_module);
-    return skate ? static_cast<goals::GapTally*>(static_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
+    modules::Skate* skate = modules::g_skate_module;
+    return skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
 }
 
 int get_landed(const Checklist& list)

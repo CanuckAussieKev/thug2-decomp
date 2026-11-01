@@ -436,8 +436,7 @@ void UiTree::clear_marks(ElementPtr* element)
 // (The original's listener filter is 0x004ABD40 itself, `this` the listener: the manager is 0x28 before it.)
 void UiTree::TreeListener::receive(objects::Signal* event)
 {
-    auto* manager = raw::owner_of<UiTree>(this, offsetof(UiTree, listener_));
-    manager->listener_receive(event);
+    tree_->listener_receive(event);
 }
 
 // 0x004ABD40

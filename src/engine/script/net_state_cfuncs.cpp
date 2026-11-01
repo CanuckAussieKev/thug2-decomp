@@ -57,9 +57,8 @@ constexpr uint32_t kSlomoComponent = 0x5BD63B29;       // (name unknown) the loc
 constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
 constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the skaters' object type
 
-uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
-modules::SkateNet* skate_net() { return raw::as<modules::SkateNet>(get_skate()); }
-objects::GameEntity* get_home_rider() { return raw::as<modules::Skate>(get_skate())->get_home_rider(); }
+modules::Skate* get_skate() { return modules::g_skate_module; }
+objects::GameEntity* get_home_rider() { return get_skate()->get_home_rider(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
 net::Hub* net_session_slot() { return net::g_net_core; }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
@@ -78,7 +77,7 @@ bool cfunc_start_server(script::Struct*, script::Script*)
     memory::Hub* memory = mem_manager();
     online::Hub* game_net = online_hub_handle();
     memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap_));
-    skate_net()->launch_host();
+    modules::SkateNet::launch_host(get_skate());
     if (!game_net->in_internet_mode())
         game_net->is_local_network_play();
     mem_manager()->leave_heap_scope();
@@ -88,7 +87,7 @@ bool cfunc_start_server(script::Struct*, script::Script*)
 // 0x005A08D0: LeaveServer (0x0056B890).
 bool cfunc_leave_server(script::Struct*, script::Script*)
 {
-    raw::as<modules::Skate>(get_skate())->leave_server();
+    get_skate()->leave_server();
     return true;
 }
 
@@ -107,7 +106,7 @@ bool cfunc_join_server(script::Struct* params, script::Script*)
         for (uint32_t i = 0; i < players; ++i) {
             net::AppHost* client = game_net->start_client_session(false, true, true, static_cast<int>(i));
             game_net->join_server(0, 0, static_cast<int>(i));
-            skate_net()->add_client_handlers(client, static_cast<int>(i));
+            modules::SkateNet::add_client_handlers(get_skate(), client, static_cast<int>(i));
             if (game_net->in_net_game())
                 script::launch_script(kJoinedNetGameScript, nullptr, nullptr, false, nullptr);
         }
@@ -244,7 +243,7 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script*)
     params->fetch_int_value(0u, &enable, 0);
     auto* input = pad_input::g_input_manager;
     for (int i = 0; i < 2; ++i) {
-        if (get_skate()[0x394 + 8 * i]) {
+        if (get_skate()->participants_[i].vibration_) {
             if (enable)
                 input->enable_actuators(i);
             else
@@ -300,7 +299,7 @@ bool cfunc_toggle_player_names(script::Struct*, script::Script*)
 // 0x005A0EF0: SetCurrentGameType (the skate module's 0x00564FD0).
 bool cfunc_set_current_game_type(script::Struct*, script::Script*)
 {
-    raw::as<modules::Skate>(get_skate())->set_current_game_type();
+    get_skate()->set_current_game_type();
     return true;
 }
 

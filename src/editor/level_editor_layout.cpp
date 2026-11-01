@@ -1453,11 +1453,11 @@ ModeFlags current_mode()
                           kIsParkEditor = checksums::hash_from_text("is_parkeditor"),
                           kIsNet = checksums::hash_from_text("is_net");
     ModeFlags flags;
-    void* mode = raw::as<void>(goals::g_game_mode);
+    goals::MatchRules* mode = goals::g_game_mode;
     if (!mode)
         return flags;
     // (0x00553220: the mode's structure's integer `property`, non-zero)
-    auto is = [mode](uint32_t property) { return static_cast<goals::MatchRules*>(mode)->is_true(property); };
+    auto is = [mode](uint32_t property) { return mode->is_true(property); };
     flags.known = true;
     flags.freeskate = is(kIsFreeskate);
     flags.single_session_ = is(kIsSingleSession);
