@@ -13,6 +13,7 @@
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
 #include "engine/gfx/text.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -109,7 +110,7 @@ void PcText::update_settings()
         text->font = static_cast<PcFont*>(typeface_)->font;
     text->pivot_x_ = pivot_x_;
     text->pivot_y_ = pivot_y_;
-    text->effects = reinterpret_cast<const TextEffect*>(effects_);
+    text->effects = raw::as<const TextEffect>(effects_);
     text->angle = angle_;
     text->x = pos_x_;
     text->y = y_;

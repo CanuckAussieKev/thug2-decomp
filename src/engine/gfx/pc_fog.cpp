@@ -13,6 +13,7 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/core/bits_as.h"
 
 namespace render {
 
@@ -42,8 +43,8 @@ void set_fog_distance(float start)
     const double end =
         g_distance_clipping ? static_cast<double>(start) + 7200.0f : static_cast<double>(start) * 3.0f + start;
     g_fog_end = static_cast<float>(end);
-    input_port()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fog_begin_distance));
-    input_port()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fog_end));
+    input_port()->SetRenderState(D3DRS_FOGSTART, memory::bits_as<uint32_t>(g_fog_begin_distance));
+    input_port()->SetRenderState(D3DRS_FOGEND, memory::bits_as<uint32_t>(g_fog_end));
 }
 
 // 0x004B8EE0

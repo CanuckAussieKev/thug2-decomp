@@ -13,6 +13,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/device.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -68,7 +69,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
     input_port()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
-                                reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
+                                raw::as<IDirect3DTexture9*>(&texture), nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
         D3DSURFACE_DESC level_desc;
         get_d3d(source)->GetLevelDesc(level, &level_desc);
@@ -159,8 +160,8 @@ bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new
         get_d3d(this)->Release();
     const HRESULT result =
         input_port()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
-                                    reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
-    get_d3d(this)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&surface));
+                                    raw::as<IDirect3DTexture9*>(&texture), nullptr);
+    get_d3d(this)->GetSurfaceLevel(0, raw::as<IDirect3DSurface9*>(&surface));
     render_target_ = true;
     if (result != D3D_OK)
         return false;
@@ -201,9 +202,9 @@ void restore_render_target_textures()
         if (t->texture || !t->render_target_)
             continue;
         input_port()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
-                                    reinterpret_cast<IDirect3DTexture9**>(&t->texture), nullptr);
+                                    raw::as<IDirect3DTexture9*>(&t->texture), nullptr);
         if (t->texture)
-            get_d3d(t)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&t->surface));
+            get_d3d(t)->GetSurfaceLevel(0, raw::as<IDirect3DSurface9*>(&t->surface));
     }
 }
 

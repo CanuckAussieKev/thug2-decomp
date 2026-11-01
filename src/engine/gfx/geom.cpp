@@ -14,7 +14,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
@@ -23,6 +23,8 @@
 #include "engine/core/stubs.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/core/ints.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -47,14 +49,14 @@ constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
 uint8_t color_offset(const MeshRef* mesh) { return mesh->unknown1c_[0]; }
-void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(reinterpret_cast<float*>(out)); }
+void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(raw::as<float>(out)); }
 MaterialRef* material_of(MeshRef* mesh) { return mesh->material; }
 // A mesh's colour (flag 4) and its vertex shader (its vertex format's place).
 float* mesh_tint_ptr(MeshRef* mesh) { return mesh->color; }
 uint32_t& mesh_vertex_shader(MeshRef* mesh) { return mesh->fvf; }
 
 // The instance's meshes (its mesh list's).
-MeshRef** scene_meshes(SceneRef* scene) { return reinterpret_cast<MeshRef**>(scene->meshes); }
+MeshRef** scene_meshes(SceneRef* scene) { return scene->meshes; }
 
 // A new instance (0x64 bytes from the heap) of its mesh list, transform and bones.
 Singleton* new_instance(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones)
@@ -73,7 +75,7 @@ UvOscillator* new_uv_wibble()
 
 void get_identity(maths::Mat4* m)
 {
-    auto* f = reinterpret_cast<float*>(m);
+    auto* f = raw::as<float>(m);
     for (int i = 0; i < 16; ++i)
         f[i] = (i % 5 == 0) ? 1.0f : 0.0f;
 }
@@ -151,7 +153,7 @@ void PcGeom::make_mesh_table(void* vertex_arena)
 {
     if (meshes)
         return;
-    auto is_head = [](const ListNode* node) { return node->data == reinterpret_cast<void*>(-1); };
+    auto is_head = [](const ListNode* node) { return node->data == memory::ListNode::head_marker(); };
     uint32_t count = 0;
     for (ListNode* node = load_list_->next; !is_head(node) && node; node = node->next)
         ++count;
@@ -180,7 +182,7 @@ void PcGeom::free_mesh_table()
     if (!meshes)
         return;
     if (scene) {
-        if (auto* list = *reinterpret_cast<SceneRef**>(scene + 0x280))
+        if (auto* list = *raw::as<SceneRef*>(scene + 0x280))
             list->detach_meshes(static_cast<int>(mesh_count_), meshes);
     }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
@@ -196,7 +198,7 @@ void PcGeom::free_mesh_table()
 // 0x004B44D0
 bool PcGeom::add_to_mesh_list(bool count)
 {
-    auto* list = *reinterpret_cast<SceneRef**>(scene + 0x280);
+    auto* list = *raw::as<SceneRef*>(scene + 0x280);
     if (count)
         list->mesh_total(static_cast<int>(mesh_count_), meshes);
     else
@@ -232,7 +234,7 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
     if (!share) {
         geom->change_live(true);
         // into the scene's mesh list: its meshes kept aside, room made for these ones too, all added back
-        auto* list = *reinterpret_cast<SceneRef**>(new_scene + 0x280);
+        auto* list = *raw::as<SceneRef*>(new_scene + 0x280);
         MeshRef** kept = list->mesh_count_ > 0 ? static_cast<MeshRef**>(memory::alloc(4 * list->mesh_count_)) : nullptr;
         geom->scene = new_scene;
         for (int i = 0; i < list->mesh_count_; ++i)
@@ -266,9 +268,9 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto* model = static_cast<uint8_t*>(model_bytes);
     auto scene_owner = std::make_unique<PcScene>(10); // (only for the copy)
-    auto* temp_scene = reinterpret_cast<uint8_t*>(scene_owner.get());
+    auto* temp_scene = raw::bytes(scene_owner.get());
     SceneRef* source_list = instance->scene;
-    *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = source_list;
+    *raw::as<SceneRef*>(temp_scene + 0x280) = source_list;
     auto* geom = new PcGeom;
     geom->scene = temp_scene;
     auto count = static_cast<uint32_t>(instance->scene->mesh_count_);
@@ -279,12 +281,12 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
     std::memcpy(&geom->bounds, &bounds, sizeof(bounds));
     SceneRef* list = geom->create_mesh_list();
     // the scene was only for the copy: destroyed without its mesh list
-    *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = nullptr;
+    *raw::as<SceneRef*>(temp_scene + 0x280) = nullptr;
     scene_owner.reset();
     geom->scene = nullptr;
     geom->change_live(true);
     // bones: the model's count (room for one more), each the identity
-    const int bone_count = *reinterpret_cast<int*>(model + 8);
+    const int bone_count = *raw::as<int>(model + 8);
     auto* bones = static_cast<maths::Mat4*>(memory::alloc((bone_count + 1) * sizeof(maths::Mat4)));
     for (int i = 0; i < bone_count; ++i)
         get_identity(&bones[i]);
@@ -301,15 +303,15 @@ bool PcGeom::plat_init_instance(void* mesh_bytes, void* model_bytes, int /*unuse
 {
     auto* mesh = static_cast<uint8_t*>(mesh_bytes);
     auto* model = static_cast<uint8_t*>(model_bytes);
-    const int bone_count = *reinterpret_cast<int*>(model + 8);
+    const int bone_count = *raw::as<int>(model + 8);
     source = mesh;
     maths::Mat4 identity{};
     get_identity(&identity);
     void* memory = memory::alloc(sizeof(Singleton));
     Singleton* inst = nullptr;
     if (memory) {
-        auto* list = *reinterpret_cast<SceneRef**>(*reinterpret_cast<uint8_t**>(mesh + 0xC4) + 0x280);
-        auto* bones = *reinterpret_cast<maths::Mat4**>(model + 0xC); // (the model's bones: 0x00492E50)
+        auto* list = *raw::as<SceneRef*>(*raw::as<uint8_t*>(mesh + 0xC4) + 0x280);
+        auto* bones = *raw::as<maths::Mat4*>(model + 0xC); // (the model's bones: 0x00492E50)
         inst = memory::construct_in<Singleton>(memory, list, &identity, bone_count, bones);
     }
     instance = inst;
@@ -554,7 +556,7 @@ void PcGeom::change_scale(const maths::Vec4* new_scale)
         VertexBuffer* buffer = get_vertex_buffer(mesh, 0);
         uint8_t* vertex = get_lock(buffer, 0);
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride) {
-            auto* p = reinterpret_cast<float*>(vertex);
+            auto* p = raw::as<float>(vertex);
             for (int k = 0; k < 3; ++k) {
                 const double c = (&centre.x)[k];
                 p[k] = static_cast<float>((static_cast<double>(p[k]) - c) * (&new_scale->x)[k] + c);
@@ -601,8 +603,8 @@ void PcGeom::set_bones(maths::Mat4* bones, int count)
 bool PcGeom::break_strips(uint32_t mask)
 {
     if (source)
-        instance->scene->break_strips(mask, *reinterpret_cast<uint32_t**>(source + 0xBC),
-                                      *reinterpret_cast<uint32_t*>(source + 0xC0));
+        instance->scene->break_strips(mask, *raw::as<uint32_t*>(source + 0xBC),
+                                      *raw::as<uint32_t>(source + 0xC0));
     return true;
 }
 
@@ -626,7 +628,7 @@ void PcGeom::get_vertices(maths::Vec4* out)
         MeshRef* mesh = meshes[i];
         uint8_t* vertex = get_lock(get_vertex_buffer(mesh, 0), kReadOnly);
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride, ++out) {
-            auto* p = reinterpret_cast<float*>(vertex);
+            auto* p = raw::as<float>(vertex);
             *out = {p[0], p[1], p[2], 1.0f};
         }
         get_unlock(get_vertex_buffer(mesh, 0));

@@ -16,6 +16,7 @@
 #include "engine/script/cfuncs_engine.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
+#include "engine/core/pointer_cell.h"
 
 namespace render {
 
@@ -137,7 +138,7 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     }
     poly->primitive->unknown14 = (poly->flags >> 1) & 1;
     poly->primitive->get_ready();
-    auto key = reinterpret_cast<uint32_t>(poly);
+    auto key = cell::of(poly);
     spawned_polys()->store_entry(key, poly);
 }
 
@@ -160,7 +161,7 @@ void update_spawned_polys()
             value = next_value(spawned_polys());
             delete poly->primitive;
             poly->primitive = nullptr;
-            auto key = reinterpret_cast<uint32_t>(poly);
+            auto key = cell::of(poly);
             spawned_polys()->erase_entry(key);
             commands::free_spawned_poly_details(poly);
             continue;
@@ -210,7 +211,7 @@ void kill_all_spawned_polys()
         value = next_value(spawned_polys());
         delete poly->primitive;
         poly->primitive = nullptr;
-        auto key = reinterpret_cast<uint32_t>(poly);
+        auto key = cell::of(poly);
         spawned_polys()->erase_entry(key);
         g_spawned_poly_pools.dealloc(poly);
     }

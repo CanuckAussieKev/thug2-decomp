@@ -17,6 +17,9 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -39,8 +42,8 @@ struct BufferNode {
     BufferNode* prev;
     BufferNode* next;
 };
-BufferNode*& vertex_buffers() { return reinterpret_cast<BufferNode*&>(g_vertex_buffer_list); }
-BufferNode*& index_buffers() { return reinterpret_cast<BufferNode*&>(g_index_buffer_list); }
+BufferNode*& vertex_buffers() { return memory::bits_as<BufferNode*>(g_vertex_buffer_list); }
+BufferNode*& index_buffers() { return memory::bits_as<BufferNode*>(g_index_buffer_list); }
 
 void enlist(BufferNode*& head, void* buffer)
 {
@@ -89,7 +92,7 @@ VertexBuffer::VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer
 {
     if (!(buffer_flags & kShared))
         input_port()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
-                                         reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
+                                         raw::as<IDirect3DVertexBuffer9*>(&buffer), nullptr);
     size = bytes;
     usage = usage_flags;
     data = (buffer_flags & kNoCopy) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
@@ -110,7 +113,7 @@ long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint
     lock_size_ = bytes ? bytes : size;
     lock_flags_ = flags_for_lock;
     if (flags_for_lock & D3DLOCK_DISCARD)
-        return d_3d(this)->Lock(offset, bytes, reinterpret_cast<void**>(out), flags_for_lock);
+        return d_3d(this)->Lock(offset, bytes, raw::as<void*>(out), flags_for_lock);
     return 0;
 }
 
@@ -145,7 +148,7 @@ void VertexBuffer::recreate()
         d_3d(this)->AddRef();
     else
         input_port()->CreateVertexBuffer(size, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                         reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
+                                         raw::as<IDirect3DVertexBuffer9*>(&buffer), nullptr);
     if (flags & kNoCopy)
         return;
     void* card = nullptr;
@@ -159,7 +162,7 @@ void VertexBuffer::recreate()
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
 {
     input_port()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
-                                    D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&buffer), nullptr);
+                                    D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer), nullptr);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     size = bytes;
     usage = usage_flags;
@@ -286,7 +289,7 @@ void* pixel_shader_from_index(uint32_t index)
                                        kPixelShader924,
                                        kPixelShader920};
     if (index > 0x12)
-        return reinterpret_cast<void*>(index); // (the original returns the index itself)
+        return cell::pointer<void>(index); // (the original returns the index itself)
     return kShaders[index] >= 0 ? g_pixel_shaders[kShaders[index]] : nullptr;
 }
 

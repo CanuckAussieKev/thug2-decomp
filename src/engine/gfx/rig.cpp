@@ -18,6 +18,8 @@
 #include "engine/gfx/debug_lines.h"
 #include "engine/objects/cutscene.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -98,7 +100,7 @@ maths::Mat4 bone_space(Rig* skeleton, int index)
 } // namespace
 
 // 0x004A2C20
-RigData::RigData() { reinterpret_cast<uint32_t&>(lod_distances_[0]) = 0x7F7FC99E; }
+RigData::RigData() { memory::bits_as<uint32_t>(lod_distances_[0]) = 0x7F7FC99E; }
 
 // 0x004A3950
 RigData::~RigData()
@@ -286,7 +288,7 @@ bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local
         return false;
     bone->scale = *scale;
     // (exactly 1 compared as bit patterns)
-    const auto* bits = reinterpret_cast<const uint32_t*>(scale);
+    const auto* bits = raw::as<const uint32_t>(scale);
     const bool one = bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000;
     bone->flags &= ~(Joint::kScaled | Joint::kScaledLocal);
     if (!one)
@@ -478,7 +480,7 @@ void Rig::tick_frame(const float (*rotations)[4], const float (*translations)[4]
             matrix = *bone.parent;
             continue;
         }
-        quat_to_bone_matrix(&matrix, reinterpret_cast<const maths::Vec4*>(translations[i]), rotations[i], false, false);
+        quat_to_bone_matrix(&matrix, raw::as<const maths::Vec4>(translations[i]), rotations[i], false, false);
         if (bone.flags & Joint::kScaled) {
             matrix.scale_tool(bone.scale);
             if (zero_scale(bone.scale)) {

@@ -21,9 +21,11 @@
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/weather.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
 
 namespace render {
 
@@ -56,7 +58,7 @@ WorldCell* alloc_sector(WorldScene* scene)
 StaticCollider* coll_static_at(StaticCollider* statics, int index) { return &statics[index]; }
 
 // The lists (lists::Foremost / Node): a head ends its list (its data is -1).
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // The node after `node`, or null at the head.
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 // The first node, or null when the list's empty (the original checks the head's next is no head and not null).
@@ -158,7 +160,7 @@ WorldScene::~WorldScene()
     memory::ListNode::destroy(hidden_sectors_);
     memory::ListNode::destroy(add_scene_sectors_);
     if (add_data_)
-        unload_tex_dict(reinterpret_cast<TextureSet*>(add_data_));
+        unload_tex_dict(cell::pointer<TextureSet>(add_data_));
 }
 
 // 0x0049D1A0 (the third count is added twice under the same name, as the original)

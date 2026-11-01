@@ -21,9 +21,12 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/settings.h"
 #include "engine/gfx/window2d.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -41,7 +44,7 @@ bool vertex_shaders() { return g_shaders_available; }
 void toggle_fog(bool on) { engine::enable_fog(on); }
 VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
 
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // The node after `node` (null at the head).
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 // A list's first node (null when empty).
@@ -114,12 +117,12 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         return;
     if (g_distance_clipping && g_fog_setting) { // (fog: its start a quarter back)
         float end = g_camera.far_z_;
-        reinterpret_cast<uint32_t&>(g_fog_begin_distance) = 0;
-        reinterpret_cast<uint32_t&>(g_fog_end) = 0;
+        memory::bits_as<uint32_t>(g_fog_begin_distance) = 0;
+        memory::bits_as<uint32_t>(g_fog_end) = 0;
         auto start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
         toggle_fog(true);
-        input_port()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
-        input_port()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
+        input_port()->SetRenderState(D3DRS_FOGSTART, *raw::as<DWORD>(&start));
+        input_port()->SetRenderState(D3DRS_FOGEND, *raw::as<DWORD>(&end));
     } else {
         toggle_fog(false);
     }
@@ -233,7 +236,7 @@ BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 // 0x004CDAA0
 void BillboardSet::setup_axes()
 {
-    const auto* m = reinterpret_cast<float*>(&g_view_matrix);
+    const auto* m = raw::as<float>(&g_view_matrix);
     const float vz = m[10];
     view[0] = m[2];
     view[1] = m[6];
@@ -366,8 +369,8 @@ void BillboardBatch::render()
     auto multiply = d3dx::matrix_multiply;
     float projection[16], view[16], identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float view_world[16], all[16];
-    transpose(projection, reinterpret_cast<float*>(&g_projection_matrix));
-    transpose(view, reinterpret_cast<float*>(&g_view_matrix));
+    transpose(projection, raw::as<float>(&g_projection_matrix));
+    transpose(view, raw::as<float>(&g_view_matrix));
     view[12] = view[13] = view[14] = 0.0f; // (its last row cleared)
     view[15] = 1.0f;
     multiply(view_world, view, identity);

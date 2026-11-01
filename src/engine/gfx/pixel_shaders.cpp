@@ -21,6 +21,8 @@
 #include "engine/gfx/device.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -56,11 +58,11 @@ uint32_t pass_alpha_flags(const void* material)
 }
 uint32_t pass_count(const void* material)
 {
-    return *reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 8);
+    return *raw::as<const uint32_t>(static_cast<const uint8_t*>(material) + 8);
 }
 uint32_t get_blend_mode(const void* material, uint32_t pass)
 {
-    return reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 0x80)[pass] & 0xFFFFFF;
+    return raw::as<const uint32_t>(static_cast<const uint8_t*>(material) + 0x80)[pass] & 0xFFFFFF;
 }
 
 // The fixed shaders' sources.
@@ -107,16 +109,16 @@ void compile_pixel_shaders()
         hdl(slot) = nullptr;
     if (!g_shaders_available) {
         // No pixel shaders: numbers the stand-in texture stages tell apart.
-        hdl(kPixelShader964) = reinterpret_cast<void*>(1);
-        hdl(kPixelShader960) = reinterpret_cast<void*>(2);
-        hdl(kPixelShader95c) = reinterpret_cast<void*>(3);
-        hdl(kPixelShader958) = reinterpret_cast<void*>(4);
-        hdl(kPixelShader954) = reinterpret_cast<void*>(5);
-        hdl(kPixelShader950) = reinterpret_cast<void*>(6);
-        hdl(kPixelShader94c) = reinterpret_cast<void*>(7);
-        hdl(kPixelShader930) = reinterpret_cast<void*>(8);
-        hdl(kPixelShader92c) = reinterpret_cast<void*>(9);
-        hdl(kPixelShader944) = reinterpret_cast<void*>(10);
+        hdl(kPixelShader964) = cell::pointer<void>(1);
+        hdl(kPixelShader960) = cell::pointer<void>(2);
+        hdl(kPixelShader95c) = cell::pointer<void>(3);
+        hdl(kPixelShader958) = cell::pointer<void>(4);
+        hdl(kPixelShader954) = cell::pointer<void>(5);
+        hdl(kPixelShader950) = cell::pointer<void>(6);
+        hdl(kPixelShader94c) = cell::pointer<void>(7);
+        hdl(kPixelShader930) = cell::pointer<void>(8);
+        hdl(kPixelShader92c) = cell::pointer<void>(9);
+        hdl(kPixelShader944) = cell::pointer<void>(10);
     } else {
         void* shader = nullptr;
         void* errors = nullptr;
@@ -135,7 +137,7 @@ void compile_pixel_shaders()
         for (const Fixed& f : kFixed) {
             assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
             input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
-                                            reinterpret_cast<IDirect3DPixelShader9**>(&hdl(f.handle)));
+                                            raw::as<IDirect3DPixelShader9*>(&hdl(f.handle)));
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(f.handle), f.source);
             if (shader)
@@ -269,7 +271,7 @@ void* generated_pixel_shader(const void* material)
     if (assemble_shader(text.buffer, static_cast<uint32_t>(std::strlen(text.buffer)), &shader, &errors) != 0)
         buffer_pointer(errors); // (the error text, not shown)
     input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
-                                    reinterpret_cast<IDirect3DPixelShader9**>(&handle));
+                                    raw::as<IDirect3DPixelShader9*>(&handle));
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer);
     cache.store_entry(key, handle);
@@ -287,7 +289,7 @@ void material_pixel_shader(const void* material, void** shader)
         *shader = generated_pixel_shader(material);
         return;
     }
-    if (!*reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 0x30)) { // no texture
+    if (!*raw::as<const uint32_t>(static_cast<const uint8_t*>(material) + 0x30)) { // no texture
         *shader = hdl(kPixelShader95c);
         return;
     }

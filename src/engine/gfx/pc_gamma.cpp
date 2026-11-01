@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "engine/gfx/device.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -62,7 +63,7 @@ void set_device_gamma(float r, float g, float b)
     gammas()[1] = static_cast<float>(static_cast<double>(g) + g + 0.5f);
     gammas()[2] = static_cast<float>(static_cast<double>(b) + b + 0.5f);
     build_gamma_ramp();
-    g_d3d_device->SetGammaRamp(0, 0, reinterpret_cast<const D3DGAMMARAMP*>(get_ramp()));
+    g_d3d_device->SetGammaRamp(0, 0, raw::as<const D3DGAMMARAMP>(get_ramp()));
 }
 
 } // namespace render

@@ -139,7 +139,7 @@ void BoneVolumes::get_fill(RigData* data)
             continue;
         for (uint32_t j = 0; j < descriptions->extent_; ++j) {
             uint32_t bone = 0;
-            reinterpret_cast<script::Struct*>(descriptions->fetch_part(j))->read_hash_value(kBone, &bone, 1);
+            descriptions->struct_at(j)->read_hash_value(kBone, &bone, 1);
             if (bone != data->names_[i])
                 continue;
             float radius = kDefaultRadius;
@@ -147,7 +147,7 @@ void BoneVolumes::get_fill(RigData* data)
             if (volume)
                 new (&volume->capsule_) maths::Capsule();
             volumes_[i] = volume;
-            reinterpret_cast<script::Struct*>(descriptions->fetch_part(j))->fetch_float(kRadius, &radius, 1);
+            descriptions->struct_at(j)->fetch_float(kRadius, &radius, 1);
             volumes_[i]->capsule_.radius = radius;
         }
     }

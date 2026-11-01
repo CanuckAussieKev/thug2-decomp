@@ -26,6 +26,8 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -50,7 +52,7 @@ const maths::Mat4* last_bones() { return g_last_bones; }
 void set_last_bones(const maths::Mat4* bones) { g_last_bones = bones; }
 const D3DMATRIX* get_view_world()
 {
-    return reinterpret_cast<D3DMATRIX*>(&g_world_matrix);
+    return raw::as<D3DMATRIX>(&g_world_matrix);
 } // the world transform to put back
 
 constexpr uint32_t kMeshLit = 0x10;       // a mesh's +0x38: it asks for lighting
@@ -70,7 +72,7 @@ uint32_t& mesh_flags_ref(MeshRef* mesh) { return mesh->flags; }
 
 const maths::Vec4* get_position(const Singleton* instance)
 {
-    return reinterpret_cast<const maths::Vec4*>(reinterpret_cast<const float*>(&instance->transform) + 12);
+    return raw::as<const maths::Vec4>(raw::as<const float>(&instance->transform) + 12);
 }
 
 // A colour channel (0-1) as a byte, as the original's _ftol (truncated through 64 bits).
@@ -84,7 +86,7 @@ uint32_t get_channel(float value)
 void refresh_instance_lighting(Singleton* instance)
 {
     ModelLights* lights =
-        instance->model ? *reinterpret_cast<ModelLights**>(static_cast<uint8_t*>(instance->model) + 0x2C) : nullptr;
+        instance->model ? *raw::as<ModelLights*>(static_cast<uint8_t*>(instance->model) + 0x2C) : nullptr;
     if (!lights) {
         reset_lights();
         return;
@@ -166,7 +168,7 @@ Singleton::~Singleton()
 void Singleton::render(uint32_t draw_bits)
 {
     if (skinned_by_shader(this)) {
-        set_world_transform(reinterpret_cast<const float*>(&transform));
+        set_world_transform(raw::as<const float>(&transform));
         if (last_bones() != bones) {
             if (scene_unlit(scene)) {
                 input_port()->SetRenderState(D3DRS_LIGHTING, FALSE);
@@ -177,7 +179,7 @@ void Singleton::render(uint32_t draw_bits)
             }
             set_last_bones(bones);
         }
-        input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
+        input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(&transform));
         g_palette_base = bones;
         g_bone_count = bone_count_;
         g_current_instance = this;
@@ -186,7 +188,7 @@ void Singleton::render(uint32_t draw_bits)
         } else {
             if (flags & 4) {
                 g_instance_colour_on = 1; // the instance's colour on
-                reinterpret_cast<uint32_t&>(g_instance_colour[0]) = *reinterpret_cast<const uint32_t*>(color);
+                std::memcpy(g_instance_colour, color, 4);
             }
             draw_scene(scene, draw_bits | kRenderNoCulling, 0);
             if (flags & 4)
@@ -217,8 +219,8 @@ void Singleton::render(uint32_t draw_bits)
             for (int bone = 0; bone < count; ++bone) {
                 maths::Mat4 world = transform;
                 matrix_multiply(&world, &bones[bone], &world);
-                set_world_transform(reinterpret_cast<const float*>(&world));
-                input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&world));
+                set_world_transform(raw::as<const float>(&world));
+                input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(&world));
                 for (int i = 0; i < scene->mesh_count_; ++i) {
                     MeshRef* mesh = scene->meshes[i];
                     if (static_cast<int8_t>(mesh->unknown1c_[3]) == bone) // (its bone)
@@ -231,8 +233,8 @@ void Singleton::render(uint32_t draw_bits)
             return;
         }
     }
-    set_world_transform(reinterpret_cast<const float*>(&transform));
-    input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
+    set_world_transform(raw::as<const float>(&transform));
+    input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(&transform));
     draw_scene(scene, draw_bits | kRenderNoCulling, 0);
 }
 
@@ -242,8 +244,8 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
     set_last_bones(nullptr);
     if (!instance->active)
         return;
-    set_world_transform(reinterpret_cast<const float*>(&instance->transform));
-    const auto* centre = reinterpret_cast<const maths::Vec4*>(instance->scene->centre);
+    set_world_transform(raw::as<const float>(&instance->transform));
+    const auto* centre = raw::as<const maths::Vec4>(instance->scene->centre);
     if ((flags & 8) ||
         (sphere_in_view(centre, instance->scene->radius) && !sphere_occluded(centre, instance->scene->radius, 1))) {
         if (instance->bones) {
@@ -273,14 +275,14 @@ void draw_instance_batch(uint32_t flags, int viewport)
             if (!((flags & kRenderOpaque) && list->mesh_count_ > list->transparent_count_) &&
                 !((flags & kRenderTransparent) && list->transparent_count_ > 0))
                 continue;
-            const auto* position = reinterpret_cast<const float*>(get_position(instance));
+            const auto* position = raw::as<const float>(get_position(instance));
             for (int k = 0; k < 4; ++k)
                 culling[12 + k] = position[k];
             set_world_transform(culling);
             float radius = instance->scene->radius;
             if (instance->bones && bones_on_device(instance->scene) == 0 && radius < 72.0f)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
-            if (!sphere_occluded(reinterpret_cast<const maths::Vec4*>(instance->scene->centre), radius, 1))
+            if (!sphere_occluded(raw::as<const maths::Vec4>(instance->scene->centre), radius, 1))
                 get_visible()[count++] = instance;
         }
         if (count > 0) {
@@ -305,7 +307,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
             auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
                 Singleton* instance = get_visible()[i];
-                const auto* position = reinterpret_cast<const float*>(get_position(instance));
+                const auto* position = raw::as<const float>(get_position(instance));
                 const double dx = static_cast<double>(position[0]) - camera[0];
                 const double dy = static_cast<double>(position[1]) - camera[1];
                 const double dz = static_cast<double>(position[2]) - camera[2];

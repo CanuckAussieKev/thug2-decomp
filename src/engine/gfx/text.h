@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/gfx/draw2d.h"
+#include "engine/core/raw_view.h"
 
 // Bitmap fonts and the screen text drawn with them (Nx engine, PC). Text can hold escapes: "\\" (a backslash),
 // "\c<d>" colour d of the font's table (0 = the text's own), "\s<d>" special glyph d, "\b<d>" a button (glyph
@@ -39,7 +40,7 @@ struct TypefaceData {
     // The colour "\c<index>" picks: index 1 is colors[0]; the original reads past the table for larger ones.
     [[nodiscard]] uint32_t get_color(int index) const
     {
-        return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(this) + 0x134 + 4 * index);
+        return *raw::as<const uint32_t>(raw::bytes(this) + 0x134 + 4 * index);
     }
 
     // 0x004CECB0: the size `text` would be drawn at (pixels at scale 1): the width of the whole text

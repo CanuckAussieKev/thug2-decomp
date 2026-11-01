@@ -11,6 +11,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -38,7 +39,7 @@ CharEffect* new_effects()
     CharEffect* effects = nullptr;
     if (memory) {
         *memory = kCharEffects;
-        effects = reinterpret_cast<CharEffect*>(memory + 1);
+        effects = raw::as<CharEffect>(memory + 1);
         for (int i = 0; i < kCharEffects; ++i)
             new (&effects[i]) CharEffect;
     }
@@ -46,7 +47,7 @@ CharEffect* new_effects()
     return effects;
 }
 // (their destructor is empty: the compiler's array helper runs 0x005480A0 over them)
-void delete_effects(CharEffect* effects) { memory::dealloc(reinterpret_cast<int*>(effects) - 1); }
+void delete_effects(CharEffect* effects) { memory::dealloc(raw::as<int>(effects) - 1); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 16 bits kept.
 int16_t get_fixed(float value)

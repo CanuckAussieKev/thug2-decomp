@@ -15,6 +15,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/tagging.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -54,8 +55,8 @@ constexpr uint32_t kHeadBoneGroups[4] = {
 
 // The texture dictionaries (0x00700F1C the game's, 0x00700F20 the skater's) and a texture by checksum (0x0049F540),
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
-void* get_textures() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
-void* skater_textures() { return reinterpret_cast<void*>(render::g_particle_texture_dict); }
+void* get_textures() { return raw::as<void>(render::g_game_texture_dict); }
+void* skater_textures() { return raw::as<void>(render::g_particle_texture_dict); }
 render::BitmapTexture* find_texture(void* dictionary, uint32_t name)
 {
     return static_cast<render::TextureSet*>(dictionary)->fetch_skin(name);
@@ -97,7 +98,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     bool translucent = false;
     int last_layer = -1;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* info = reinterpret_cast<Struct*>(layers->fetch_part(i));
+        auto* info = layers->struct_at(i);
         uint32_t texture_id = 0;
         info->read_hash_value(kTextureId, &texture_id, 1);
         render::BitmapTexture* source = find_texture(get_textures(), texture_id);
@@ -252,7 +253,7 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's
     // own component of that name)
-    auto part_of = [&](uint32_t name) { return reinterpret_cast<gfx::ModelLook*>(profile)->get_part_option(name); };
+    auto part_of = [&](uint32_t name) { return raw::as<gfx::ModelLook>(profile)->get_part_option(name); };
     Struct* head = part_of(kSkaterMHead);
     if (!head) {
         head = part_of(kSkaterFHead);

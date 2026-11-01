@@ -20,6 +20,8 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -521,7 +523,7 @@ void set_fixed_function_stages_for_material(void* shader, const void* material)
         set_fixed_function_stages(shader, 0xFFFFFFFF);
         return;
     }
-    const auto* color = reinterpret_cast<const float*>(static_cast<const uint8_t*>(material) + 0x40);
+    const auto* color = raw::as<const float>(static_cast<const uint8_t*>(material) + 0x40);
     const uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(color[0]) * k255));
     const uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(color[1]) * k255));
     const uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(color[2]) * k255));
@@ -590,7 +592,7 @@ void reset_render_state()
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
     for (maths::Mat4* matrix : {&g_world_matrix, &g_view_matrix, &g_projection_matrix}) {
-        auto* m = reinterpret_cast<float*>(matrix);
+        auto* m = raw::as<float>(matrix);
         for (int i = 0; i < 16; ++i)
             m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
     }
@@ -617,11 +619,11 @@ void reset_render_state()
     src_blend() = 0xDEADBABE;
     dest_blend() = 0xDEADBABE;
     g_pending_screen_shot[0] = 0;
-    reinterpret_cast<uint8_t&>(g_screen_shot_name_exact) = 0;
+    memory::bits_as<uint8_t>(g_screen_shot_name_exact) = 0;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    reinterpret_cast<uint32_t&>(g_ps_constant_bank[16]) = 0;
+    memory::bits_as<uint32_t>(g_ps_constant_bank[16]) = 0;
     g_ps_constant_bank[17] = 0.5f;
-    reinterpret_cast<uint32_t&>(g_ps_constant_bank[18]) = 0;
+    memory::bits_as<uint32_t>(g_ps_constant_bank[18]) = 0;
     g_ps_constant_bank[19] = 0.5f;
     pixel_shader_locked() = 0;
     current_pixel_shader() = nullptr;
@@ -641,15 +643,15 @@ void reset_render_state()
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     };
     for (int i = 0; i < 24; ++i)
-        reinterpret_cast<uint32_t&>(g_light_constants[4 + i]) = kLight[i];
-    reinterpret_cast<uint32_t&>(g_light_constants[0]) = 0x3F1624DD; // the ambient colour
-    reinterpret_cast<uint32_t&>(g_light_constants[1]) = 0x3F1624DD;
-    reinterpret_cast<uint32_t&>(g_light_constants[2]) = 0x3F1624DD;
-    reinterpret_cast<uint32_t&>(g_light_constants[3]) = 0x3F800000;
+        memory::bits_as<uint32_t>(g_light_constants[4 + i]) = kLight[i];
+    memory::bits_as<uint32_t>(g_light_constants[0]) = 0x3F1624DD; // the ambient colour
+    memory::bits_as<uint32_t>(g_light_constants[1]) = 0x3F1624DD;
+    memory::bits_as<uint32_t>(g_light_constants[2]) = 0x3F1624DD;
+    memory::bits_as<uint32_t>(g_light_constants[3]) = 0x3F800000;
     get_fog() = 0;
     fog_color() = 0;
-    reinterpret_cast<uint32_t&>(g_fog_begin_distance) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
-    reinterpret_cast<uint32_t&>(g_fog_end) = 0xC6C03000;
+    memory::bits_as<uint32_t>(g_fog_begin_distance) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
+    memory::bits_as<uint32_t>(g_fog_end) = 0xC6C03000;
 }
 
 // 0x004D80D0
@@ -705,8 +707,8 @@ void apply_render_state()
     input_port()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
     input_port()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
     input_port()->SetRenderState(D3DRS_FOGCOLOR, fog_color());
-    input_port()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fog_begin_distance));
-    input_port()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fog_end));
+    input_port()->SetRenderState(D3DRS_FOGSTART, memory::bits_as<uint32_t>(g_fog_begin_distance));
+    input_port()->SetRenderState(D3DRS_FOGEND, memory::bits_as<uint32_t>(g_fog_end));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
     if (g_antialiasing || graphics_options::chosen_samples()) // the antialiasing setting
         input_port()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);

@@ -17,6 +17,7 @@
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/view_mode.h"
 #include "platform/crt.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -71,7 +72,7 @@ struct Lap {
             return true;
         if (!(mesh->viewports & viewport_bit_))
             return false;
-        auto* centre = reinterpret_cast<const maths::Vec4*>(mesh->centre); // (the sphere: centre and radius)
+        auto* centre = raw::as<const maths::Vec4>(mesh->centre); // (the sphere: centre and radius)
         const float radius = mesh->radius;
         if (!sphere_in_view(centre, radius))
             return false;
@@ -161,7 +162,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-            draw_shadows(scene, reinterpret_cast<void* const*>(get_drawn()), pass.drawn);
+            draw_shadows(scene, raw::as<void* const>(get_drawn()), pass.drawn);
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             if (!get_z_write()) {
@@ -213,7 +214,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         }
     }
     if (scene->flags & 0x100)
-        draw_shadows(scene, reinterpret_cast<void* const*>(get_drawn()), pass.drawn);
+        draw_shadows(scene, raw::as<void* const>(get_drawn()), pass.drawn);
     if (flags & kRenderStats)
         count_pass(2);
 }

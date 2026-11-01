@@ -20,6 +20,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/glow.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -105,9 +106,9 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     auto* strip = g_query_point_strip; // (four vertices: position, colour)
     for (int k = 0; k < 4; ++k) {
-        strip[4 * k] = reinterpret_cast<const uint32_t*>(point)[0];
-        strip[4 * k + 1] = reinterpret_cast<const uint32_t*>(point)[1];
-        strip[4 * k + 2] = reinterpret_cast<const uint32_t*>(point)[2];
+        strip[4 * k] = raw::as<const uint32_t>(point)[0];
+        strip[4 * k + 1] = raw::as<const uint32_t>(point)[1];
+        strip[4 * k + 2] = raw::as<const uint32_t>(point)[2];
         strip[4 * k + 3] = 0xFFFFFFFF;
     }
     input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, strip, 0x10);
@@ -127,7 +128,7 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
         float x, y, z, rhw;
         uint32_t colour;
     };
-    auto* strip = reinterpret_cast<Vertex*>(g_query_rect_strip);
+    auto* strip = raw::as<Vertex>(g_query_rect_strip);
     auto depth = static_cast<float>(static_cast<double>(z));
     strip[0] = {x0, y0, depth, 1.0f, 0xFFFFFFFF};
     strip[1] = {x0, y1, depth, 1.0f, 0xFFFFFFFF};

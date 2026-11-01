@@ -14,6 +14,7 @@
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/net/buddy_status.h"
+#include "engine/core/raw_view.h"
 
 namespace render::model_geoms {
 
@@ -38,15 +39,15 @@ inline void set_geom_lights(void* geom, uint8_t* lights) { as_geom(geom)->set_mo
 inline void set_geom_bone_matrices(void* geom, const maths::Mat4* transform, uint8_t* bones, int count, int flag,
                                    int index)
 {
-    as_geom(geom)->upload_skinning_palette(transform, reinterpret_cast<const maths::Mat4*>(bones), count, flag, index);
+    as_geom(geom)->upload_skinning_palette(transform, raw::as<const maths::Mat4>(bones), count, flag, index);
 }
 inline void copy_geom_bones(void* geom, uint8_t* bones, int count)
 {
-    as_geom(geom)->copy_bones(reinterpret_cast<const maths::Mat4*>(bones), count);
+    as_geom(geom)->copy_bones(raw::as<const maths::Mat4>(bones), count);
 }
 inline void set_geom_bones(void* geom, uint8_t* bones, int count)
 {
-    as_geom(geom)->set_bones(reinterpret_cast<maths::Mat4*>(bones), count);
+    as_geom(geom)->set_bones(raw::as<maths::Mat4>(bones), count);
 }
 inline void break_geom_strips(void* geom, uint32_t mask) { as_geom(geom)->break_strips(mask); }
 inline void clean_geom_instance_strips(void* geom) { as_geom(geom)->clean_instance_strips(); }
@@ -58,20 +59,20 @@ inline bool is_geom_multicolor(void* geom) { return as_geom(geom)->multicolour_ 
 // An engine object deleted (0x0048C3C0) / a scene or the model's lights deleted (0x0048C080, cdecl, the generic
 // delete through slot 0: typed here); a texture dictionary unloaded (0x0049EFD0).
 inline void delete_geom_object(void* object) { delete static_cast<Geom*>(object); }
-inline void discard_lights(void* lights) { delete reinterpret_cast<ModelLights*>(lights); }
-inline void discard_scene(void* scene) { delete reinterpret_cast<WorldScene*>(scene); }
+inline void discard_lights(void* lights) { delete static_cast<ModelLights*>(lights); }
+inline void discard_scene(void* scene) { delete static_cast<WorldScene*>(scene); }
 inline void unload_textures(void* textures) { unload_tex_dict(static_cast<TextureSet*>(textures)); }
 
 // A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).
 inline uint8_t* skeleton_bones(uint8_t* skeleton)
 {
-    return reinterpret_cast<uint8_t*>(reinterpret_cast<gfx::Rig*>(skeleton)->matrix_array_);
+    return raw::bytes(raw::as<gfx::Rig>(skeleton)->matrix_array_);
 }
-inline int skeleton_bone_count(uint8_t* skeleton) { return reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones(); }
+inline int skeleton_bone_count(uint8_t* skeleton) { return raw::as<gfx::Rig>(skeleton)->get_num_bones(); }
 
 // The list's first node (none without a head - which the original then reads through anyway).
 inline ModelGeomNode* get_first(const RenderModel* model) { return model->geoms_ ? model->geoms_->next : nullptr; }
-inline ModelGeom* table_row(ModelGeomNode* node) { return reinterpret_cast<ModelGeom*>(node->entry); }
+inline ModelGeom* table_row(ModelGeomNode* node) { return raw::as<ModelGeom>(node->entry); }
 inline void* get_geom(ModelGeomNode* node) { return table_row(node)->geom; }
 
 // A bit of the visible-geoms mask (the original shifts by the index's low five bits).

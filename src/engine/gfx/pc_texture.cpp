@@ -29,6 +29,7 @@
 #include "platform/crt.h"
 #include "engine/core/owner.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -242,7 +243,7 @@ bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t hei
     default:
         break;
     }
-    auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
+    auto** d3d = raw::as<IDirect3DTexture9*>(&texture->texture);
     input_port()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
     D3DSURFACE_DESC desc;
     (*d3d)->GetLevelDesc(0, &desc);
@@ -257,7 +258,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
 {
     const auto* source = static_cast<const PcTexture*>(source_texture);
     const TextureRef* from = source->get_texture();
-    auto** into = reinterpret_cast<IDirect3DTexture9**>(&get_texture()->texture);
+    auto** into = raw::as<IDirect3DTexture9*>(&get_texture()->texture);
     if (*into)
         (*into)->Release();
     auto* from_texture = static_cast<IDirect3DTexture9*>(from->texture);
@@ -332,7 +333,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = 32;
-        auto** kept_d3d = reinterpret_cast<IDirect3DTexture9**>(&kept->texture);
+        auto** kept_d3d = raw::as<IDirect3DTexture9*>(&kept->texture);
         input_port()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
         (*kept_d3d)->GetLevelDesc(0, &desc);
         kept->height = static_cast<uint16_t>(desc.Height);
@@ -400,8 +401,8 @@ void resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height
     const int x_step = ftol(static_cast<double>(static_cast<int>(from_width)) / static_cast<int>(into_width) * 1024.0f);
     const int y_step =
         ftol(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height) * 1024.0f);
-    auto* out = reinterpret_cast<uint32_t*>(into);
-    const auto* image = reinterpret_cast<const uint32_t*>(from);
+    auto* out = raw::as<uint32_t>(into);
+    const auto* image = raw::as<const uint32_t>(from);
     int y = 0;
     for (int row = into_height; row > 0; --row, y += y_step) {
         const int sy = static_cast<int16_t>(y >> 10);
@@ -421,8 +422,8 @@ void zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* i
     int y = ((0x400 - y_step) * static_cast<int>(height)) >> 1;
     const int x_max = width * 1024 - 1024;
     const int y_max = height * 1024 - 1024;
-    auto* out = reinterpret_cast<uint32_t*>(into);
-    const auto* image = reinterpret_cast<const uint32_t*>(from);
+    auto* out = raw::as<uint32_t>(into);
+    const auto* image = raw::as<const uint32_t>(from);
     for (int row = height; row > 0; --row, y += y_step) {
         const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
         const int sy = static_cast<int16_t>(cy >> 10);
@@ -440,7 +441,7 @@ uint8_t PcTexture::nearest_palette_index(uint32_t colour)
     const uint8_t depth = get_depth();
     const int count = 1 << depth;
     const auto* entry =
-        reinterpret_cast<const uint8_t*>(get_texture()->palette_owner()); // (its entries, as the original)
+        raw::bytes(get_texture()->palette_owner()); // (its entries, as the original)
     uint8_t nearest = 0;
     int best = 0x7FFFFFFF;
     const int c0 = static_cast<int>(colour & 0xFF);
@@ -465,10 +466,10 @@ uint8_t PcTexture::nearest_palette_index(uint32_t colour)
 bool PcTexture::modulate(uint32_t colour, bool cumulative)
 {
     // (the edit's fields read without checking it is one, as the original)
-    auto* into = reinterpret_cast<uint8_t*>(get_edit(this)->pixels);
+    auto* into = raw::bytes(get_edit(this)->pixels);
     const uint8_t* from = get_edit(this)->original && !cumulative
-                              ? reinterpret_cast<const uint8_t*>(get_edit(this)->original)
-                              : reinterpret_cast<const uint8_t*>(get_edit(this)->pixels);
+                              ? raw::bytes(get_edit(this)->original)
+                              : raw::bytes(get_edit(this)->pixels);
     const uint32_t red = (colour & 0xFF) * 0xFF >> 7;
     const uint32_t green = (colour >> 8 & 0xFF) * 0xFF >> 7;
     const uint32_t blue = (colour >> 16 & 0xFF) * 0xFF >> 7;
@@ -482,7 +483,7 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
         into[3] = static_cast<uint8_t>(from[3] * alpha >> 7);
     }
     if (get_depth() <= 8 && !cumulative) { // (the palette too, in place)
-        auto* entry = reinterpret_cast<uint8_t*>(get_texture()->palette_owner());
+        auto* entry = raw::bytes(get_texture()->palette_owner());
         const int entries = 1 << get_depth();
         for (int i = 0; i < entries; ++i, entry += 4) {
             entry[0] = static_cast<uint8_t>(entry[0] * blue / 0xFF);
@@ -502,8 +503,8 @@ bool PcTexture::resize_from(const BitmapTexture* source_texture, int /*unused*/)
         return false;
     const TextureRef* into = get_edit(this)->texture;
     const TextureRef* from = get_edit(source)->texture;
-    resize_image(reinterpret_cast<const uint8_t*>(get_edit(source)->pixels), from->image_width_, from->image_height_,
-                 reinterpret_cast<uint8_t*>(get_edit(this)->pixels), into->image_width_, into->image_height_, 32);
+    resize_image(raw::bytes(get_edit(source)->pixels), from->image_width_, from->image_height_,
+                 raw::bytes(get_edit(this)->pixels), into->image_width_, into->image_height_, 32);
     return true;
 }
 
@@ -520,7 +521,7 @@ bool PcTexture::get_zoom(float x_zoom, float y_zoom)
     auto* zoomed = static_cast<uint8_t*>(memory::alloc(bytes));
     std::memset(zoomed, 0, bytes);
     memory::Hub::get_pull()->leave_heap_scope();
-    zoom_image(reinterpret_cast<const uint8_t*>(pixels), static_cast<uint16_t>(width), static_cast<uint16_t>(height),
+    zoom_image(raw::bytes(pixels), static_cast<uint16_t>(width), static_cast<uint16_t>(height),
                zoomed, x_zoom, y_zoom);
     std::memcpy(pixels, zoomed, bytes);
     memory::Hub::get_pull()->dealloc(zoomed);
@@ -542,7 +543,7 @@ void PcTexture::read_rect(uint32_t* out, uint16_t x, uint16_t y, uint16_t width,
     }
     // Palettized: the whole image (not the rectangle's size, as the original), bottom row first.
     const auto* texels = static_cast<const uint8_t*>(get_texture()->get_lock());
-    const auto* palette = reinterpret_cast<const uint32_t*>(get_texture()->palette_owner());
+    const auto* palette = raw::as<const uint32_t>(get_texture()->palette_owner());
     const uint32_t rows = get_texture()->image_height_;
     const uint32_t columns = get_texture()->image_width_;
     const uint8_t* row = texels + x + (static_cast<int>(rows) - y - 1) * static_cast<int>(columns);
@@ -679,10 +680,10 @@ bool PcTexture::get_stretch(uint16_t position, int vertical, int amount)
     auto* stretched = static_cast<uint32_t*>(memory::alloc(static_cast<uint32_t>(new_height) * new_width * 4));
     memory::Hub::get_pull()->leave_heap_scope();
     read_rect(part, read_x, read_y, read_width, read_height);
-    resize_image(reinterpret_cast<const uint8_t*>(part), read_width, read_height, reinterpret_cast<uint8_t*>(stretched),
+    resize_image(raw::bytes(part), read_width, read_height, raw::bytes(stretched),
                  new_width, new_height, 32);
-    copy_sub_image(reinterpret_cast<uint8_t*>(part), 0, 0, read_width, read_height,
-                   reinterpret_cast<const uint8_t*>(stretched + static_cast<uint16_t>(offset)), new_width, new_height,
+    copy_sub_image(raw::bytes(part), 0, 0, read_width, read_height,
+                   raw::bytes(stretched + static_cast<uint16_t>(offset)), new_width, new_height,
                    32);
     write_rect(part, read_x, read_y, read_width, read_height);
     if (part)
@@ -720,7 +721,7 @@ bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
 {
     auto* over = static_cast<PcTexture*>(over_texture);
     const auto* texels = static_cast<const uint8_t*>(over->get_texture()->get_lock());
-    auto* into = reinterpret_cast<uint8_t*>(flag_bits_ & 1 ? get_edit(this)->pixels : nullptr);
+    auto* into = raw::bytes(flag_bits_ & 1 ? get_edit(this)->pixels : nullptr);
     const uint32_t width = over->fetch_breadth();
     const uint32_t height = over->fetch_tallness();
     const uint8_t* row = texels + (height - 1) * width * 4; // (bottom row first, by its alpha)
@@ -743,10 +744,10 @@ bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
 // 0x004CAA20
 bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bool cumulative)
 {
-    auto* into = reinterpret_cast<uint8_t*>(flag_bits_ & 1 ? get_edit(this)->pixels : nullptr);
+    auto* into = raw::bytes(flag_bits_ & 1 ? get_edit(this)->pixels : nullptr);
     const uint8_t* from = nullptr;
     if (flag_bits_ & 1)
-        from = reinterpret_cast<const uint8_t*>(get_edit(this)->original && !cumulative ? get_edit(this)->original
+        from = raw::bytes(get_edit(this)->original && !cumulative ? get_edit(this)->original
                                                                                         : get_edit(this)->pixels);
     const int width = fetch_breadth();
     const int count = fetch_tallness() * width;
@@ -894,14 +895,14 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
     auto* squashed = static_cast<uint32_t*>(crt_malloc(new_height * new_width * 4));
     memory::Hub::get_pull()->leave_heap_scope();
     read_rect(part, read_x, read_y, read_width, read_height);
-    resize_image(reinterpret_cast<const uint8_t*>(part), read_width, read_height, reinterpret_cast<uint8_t*>(squashed),
+    resize_image(raw::bytes(part), read_width, read_height, raw::bytes(squashed),
                  new_width, new_height, 32);
     if (fill) {
         for (int i = 0; i < count; ++i)
             part[i] = colour;
     }
-    copy_sub_image(reinterpret_cast<uint8_t*>(part), into_x, into_y, read_width, read_height,
-                   reinterpret_cast<const uint8_t*>(squashed), new_width, new_height, 32);
+    copy_sub_image(raw::bytes(part), into_x, into_y, read_width, read_height,
+                   raw::bytes(squashed), new_width, new_height, 32);
     write_rect(part, read_x, read_y, read_width, read_height);
     if (!fill) { // (what was uncovered filled with the squashed part's edge column / row)
         if (!vertical) {
@@ -1098,7 +1099,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         format = pixel_layout(texture->unknownf_, texture->depth, format);
         if (texture->height < 4)
             texture->height = 4;
-        auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
+        auto** d3d = raw::as<IDirect3DTexture9*>(&texture->texture);
         bool damaged = false;
         if (header.palette_size) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
@@ -1181,7 +1182,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
         texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout(static_cast<uint8_t>(header.compression), static_cast<uint8_t>(header.depth), format);
-        auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
+        auto** d3d = raw::as<IDirect3DTexture9*>(&texture->texture);
         input_port()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
                                     static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);

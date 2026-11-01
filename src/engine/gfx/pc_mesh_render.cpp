@@ -21,6 +21,8 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -45,7 +47,7 @@ struct SkinVertex {
 };
 static_assert(sizeof(SkinVertex) == 0x4C, "layout must match the original");
 
-const float* skin_matrix_ptr(uint8_t bone) { return reinterpret_cast<float*&>(g_palette_base) + 16 * bone; }
+const float* skin_matrix_ptr(uint8_t bone) { return memory::bits_as<float*>(g_palette_base) + 16 * bone; }
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
@@ -64,7 +66,7 @@ void add_bone(float* blended, const SkinVertex& v, uint8_t bone, float weight)
 // exactly 1 - scaled by it and the others' added (the third's only when its weight isn't 0).
 void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 {
-    const auto* v = reinterpret_cast<const SkinVertex*>(mesh->per_vertex_data_);
+    const auto* v = raw::as<const SkinVertex>(mesh->per_vertex_data_);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i, ++v) {
         float blended[6];
         transform_coord(blended, v->position, skin_matrix_ptr(v->bones[0]));
@@ -76,11 +78,11 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
             if (bones > 2 && !(v->weights[2] == 0.0f))
                 add_bone(blended, *v, v->bones[2], v->weights[2]);
         }
-        auto* vertex = reinterpret_cast<uint32_t*>(out);
+        auto* vertex = raw::as<uint32_t>(out);
         std::memcpy(vertex, blended, sizeof(blended));
         vertex[6] = v->color;
         for (uint32_t k = 0; k < 2 * mesh->unknowna4_; ++k)
-            reinterpret_cast<float*>(vertex)[7 + k] = v->uv[k];
+            raw::as<float>(vertex)[7 + k] = v->uv[k];
         out += mesh->stride;
     }
 }
@@ -89,17 +91,17 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 // original does).
 IdxStore* index_buffer_at(MeshRef* mesh, int level)
 {
-    return *reinterpret_cast<IdxStore**>(reinterpret_cast<uint8_t*>(mesh) + 0x54 + 4 * level);
+    return *raw::as<IdxStore*>(raw::bytes(mesh) + 0x54 + 4 * level);
 }
 uint16_t index_count_at(MeshRef* mesh, int level)
 {
-    return *reinterpret_cast<uint16_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x24 + 2 * level);
+    return *raw::as<uint16_t>(raw::bytes(mesh) + 0x24 + 2 * level);
 }
 
 void count_draw(uint32_t primitives)
 {
-    ++reinterpret_cast<uint32_t&>(g_draw_calls);
-    reinterpret_cast<uint32_t&>(g_drawn_triangles) += primitives;
+    ++memory::bits_as<uint32_t>(g_draw_calls);
+    memory::bits_as<uint32_t>(g_drawn_triangles) += primitives;
 }
 
 } // namespace
@@ -116,12 +118,12 @@ void MeshRef::render()
         return;
     if (g_distance_clipping && g_fog_setting) { // (distance fog)
         float end = g_camera.far_z_;
-        reinterpret_cast<uint32_t&>(g_fog_begin_distance) = 0;
-        reinterpret_cast<uint32_t&>(g_fog_end) = 0;
+        memory::bits_as<uint32_t>(g_fog_begin_distance) = 0;
+        memory::bits_as<uint32_t>(g_fog_end) = 0;
         auto start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
         toggle_fog(true);
-        input_port()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
-        input_port()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
+        input_port()->SetRenderState(D3DRS_FOGSTART, *raw::as<DWORD>(&start));
+        input_port()->SetRenderState(D3DRS_FOGEND, *raw::as<DWORD>(&end));
         input_port()->SetRenderState(D3DRS_FOGCOLOR, g_fog_colour);
     }
     if (!index_counts_[0])
@@ -135,7 +137,7 @@ void MeshRef::render()
     }
     apply_vertex_colors();
     set_vertex_format(fvf);
-    auto* mat = reinterpret_cast<MaterialRef*>(material);
+    auto* mat = material;
     if (pixel_shaders()) {
         mat->hand_in();
         if (!g_instance_colour_on && !(flags & 4))
@@ -159,14 +161,14 @@ void MeshRef::render()
     VertexBuffer* vb = vertex_buffers_[current_vertex_buffer_];
     if (per_vertex_data_ &&
         (unknown9c_ != g_frames_rendered ||
-         unknowna0_ != reinterpret_cast<uint32_t&>(g_current_instance))) { // (once a frame per instance)
+         unknowna0_ != memory::bits_as<uint32_t>(g_current_instance))) { // (once a frame per instance)
         unknown9c_ = g_frames_rendered;
-        unknowna0_ = reinterpret_cast<uint32_t&>(g_current_instance);
+        unknowna0_ = memory::bits_as<uint32_t>(g_current_instance);
         uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
         vb->lock_size_ = vb->size;
         vb->lock_offset_ = 0;
         vb->lock_flags_ = D3DLOCK_DISCARD;
-        static_cast<IDirect3DVertexBuffer9*>(vb->buffer)->Lock(0, 0, reinterpret_cast<void**>(&out), D3DLOCK_DISCARD);
+        static_cast<IDirect3DVertexBuffer9*>(vb->buffer)->Lock(0, 0, raw::as<void*>(&out), D3DLOCK_DISCARD);
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (unknowna8_) {
         case 1:
@@ -186,7 +188,7 @@ void MeshRef::render()
     input_port()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arena_offset_, stride);
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
-        sphere_in_view(reinterpret_cast<const maths::Vec4*>(centre), radius);
+        sphere_in_view(raw::as<const maths::Vec4>(centre), radius);
         const float distance = last_sphere_distance();
         for (; level < 8; ++level) {
             if (!index_buffers_[level]) {

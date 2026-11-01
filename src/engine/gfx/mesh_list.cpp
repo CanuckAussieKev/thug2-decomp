@@ -17,6 +17,7 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/lists/key_map.h"
 #include "platform/crt.h"
+#include "engine/core/pointer_cell.h"
 
 namespace render {
 
@@ -103,11 +104,11 @@ int compare_meshes(const void* a, const void* b)
     if (flag_a != flag_b)
         return flag_a ? 1 : -1;
     // (then by pixel shader, as the original: its address)
-    auto order_a = reinterpret_cast<uint32_t>(mesh_a->pixel_shader_);
-    auto order_b = reinterpret_cast<uint32_t>(mesh_b->pixel_shader_);
+    auto order_a = cell::of(mesh_a->pixel_shader_);
+    auto order_b = cell::of(mesh_b->pixel_shader_);
     if (order_a != order_b)
         return order_b < order_a ? 1 : -1;
-    return reinterpret_cast<uintptr_t>(material_b) < reinterpret_cast<uintptr_t>(material_a) ? 1 : -1;
+    return cell::address(material_b) < cell::address(material_a) ? 1 : -1;
 }
 
 // 0x004DE300

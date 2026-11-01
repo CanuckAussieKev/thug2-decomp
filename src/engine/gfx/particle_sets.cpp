@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/particle_maths.h"
 #include "engine/objects/movie_manager.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -275,7 +276,7 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
                 particle->args_.colour_scale_[i] = shade_[i];
             particle->set_colour_scale(shade_);
         }
-        systems_.splice(systems_.head, reinterpret_cast<void* const*>(&particle));
+        systems_.splice(systems_.head, raw::as<void* const>(&particle));
     }
     return particle;
 }

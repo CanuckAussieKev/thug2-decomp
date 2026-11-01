@@ -19,6 +19,8 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -36,8 +38,8 @@ struct BufferNode {
     BufferNode* prev;
     BufferNode* next;
 };
-BufferNode* vertex_buffer_list() { return reinterpret_cast<BufferNode*>(g_vertex_buffer_list); }
-BufferNode* index_buffer_list() { return reinterpret_cast<BufferNode*>(g_index_buffer_list); }
+BufferNode* vertex_buffer_list() { return static_cast<BufferNode*>(g_vertex_buffer_list); }
+BufferNode* index_buffer_list() { return static_cast<BufferNode*>(g_index_buffer_list); }
 
 // The engine's scenes (a memory::ListNode list: data the scene; the head's data is -1) and a scene's mesh list
 // (+0x280), whose arena vertex buffer is its +0x7C and the buffer's size its +0x80.
@@ -50,12 +52,12 @@ memory::ListNode* next_scene_node(memory::ListNode* node)
 SceneRef* scene_meshes(memory::ListNode* node)
 {
     auto* scene = static_cast<uint8_t*>(node->data);
-    return scene ? *reinterpret_cast<SceneRef**>(scene + 0x280) : nullptr;
+    return scene ? *raw::as<SceneRef*>(scene + 0x280) : nullptr;
 }
 
 IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes)
 {
-    return reinterpret_cast<IDirect3DVertexBuffer9*&>(meshes->com_object_);
+    return memory::bits_as<IDirect3DVertexBuffer9*>(meshes->com_object_);
 }
 
 } // namespace
@@ -107,11 +109,11 @@ long MeshRef::apply_vertex_colors()
     vb->lock_offset_ = 0;
     vb->lock_flags_ = 0;
     uint8_t* out = data + unknown1c_[0];
-    const uint32_t* colors = reinterpret_cast<MaterialRef*>(material)->anim_colors_;
+    const uint32_t* colors = material->anim_colors_;
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         const int index = int{static_cast<int8_t>(per_vertex_bytes_[i])};
         if (index)
-            *reinterpret_cast<uint32_t*>(out) = colors[index - 1];
+            *raw::as<uint32_t>(out) = colors[index - 1];
         out += stride;
     }
     return vertex_buffers_[current_vertex_buffer_]->get_unlock();
@@ -283,7 +285,7 @@ void recreate_buffers()
         if (!ib)
             continue;
         input_port()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
-                                        D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&ib->buffer),
+                                        D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&ib->buffer),
                                         nullptr);
         void* card = nullptr;
         if (static_cast<IDirect3DIndexBuffer9*>(ib->buffer)->Lock(0, 0, &card, 0) >= 0) {

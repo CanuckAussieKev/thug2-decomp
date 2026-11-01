@@ -15,6 +15,7 @@
 #include "engine/gfx/device.h"
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/bits_as.h"
 
 namespace render {
 
@@ -31,7 +32,7 @@ float g_angle_factor{1.0f};
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-auto& blur_available() { return reinterpret_cast<uint32_t&>(g_screen_surfaces[0]); }
+auto& blur_available() { return memory::bits_as<uint32_t>(g_screen_surfaces[0]); }
 auto& screen_blur() { return g_screen_blur; }
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return g_script_screen_blur; }
@@ -44,10 +45,10 @@ float angle_factor_constant() { return g_angle_factor; }
 uint8_t& cinema_bars_on() { return g_camera.letterbox_active_; }
 float& horiz_screen_ratio() { return g_display_factor_x; }
 float& vert_screen_ratio() { return g_display_factor_y; }
-uint32_t& screen_offset_x() { return reinterpret_cast<uint32_t&>(g_screen_offset_x); }
-uint32_t& screen_offset_y() { return reinterpret_cast<uint32_t&>(g_screen_offset_y); }
-uint32_t get_back_buffer_width() { return reinterpret_cast<uint32_t&>(g_back_buffer_width); }
-uint32_t get_back_buffer_height() { return reinterpret_cast<uint32_t&>(g_back_buffer_height); }
+uint32_t& screen_offset_x() { return memory::bits_as<uint32_t>(g_screen_offset_x); }
+uint32_t& screen_offset_y() { return memory::bits_as<uint32_t>(g_screen_offset_y); }
+uint32_t get_back_buffer_width() { return memory::bits_as<uint32_t>(g_back_buffer_width); }
+uint32_t get_back_buffer_height() { return memory::bits_as<uint32_t>(g_back_buffer_height); }
 
 } // namespace
 

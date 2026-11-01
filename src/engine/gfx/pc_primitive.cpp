@@ -21,6 +21,8 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -30,8 +32,8 @@ uint8_t g_primitive_vertex_buffer[0x100];
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
-uint32_t& draw_calls() { return reinterpret_cast<uint32_t&>(g_draw_calls); }
-uint32_t& drawn_triangles() { return reinterpret_cast<uint32_t&>(g_drawn_triangles); }
+uint32_t& draw_calls() { return memory::bits_as<uint32_t>(g_draw_calls); }
+uint32_t& drawn_triangles() { return memory::bits_as<uint32_t>(g_drawn_triangles); }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 // The vertex layouts by flexible vertex format (D3DFVF): XYZ (0x2) and XYZ | DIFFUSE (0x42) - positions and colours -,
@@ -59,11 +61,11 @@ static_assert(sizeof(VertexColour) == 0x10 && sizeof(VertexColourUv) == 0x18 && 
 template <typename V>
 V& vertex_at(uint8_t* vertices, int index)
 {
-    return reinterpret_cast<V*>(vertices)[index];
+    return raw::as<V>(vertices)[index];
 }
 float* position_at(uint8_t* vertices, int stride, int index)
 {
-    return reinterpret_cast<float*>(vertices + stride * index);
+    return raw::as<float>(vertices + stride * index);
 }
 
 // RGBA with red and blue swapped (d_3d's BGRA).
@@ -104,8 +106,8 @@ PcPrimitive::~PcPrimitive()
 void PcPrimitive::set_texture(const uint8_t* texture, int, int)
 {
     // (the engine texture's +0x10: its PC texture, or with flag 1 a pointer to it)
-    uint8_t* pc_texture = texture[8] & 1 ? **reinterpret_cast<uint8_t** const*>(texture + 0x10)
-                                         : *reinterpret_cast<uint8_t* const*>(texture + 0x10);
+    uint8_t* pc_texture = texture[8] & 1 ? **raw::as<uint8_t** const>(texture + 0x10)
+                                         : *raw::as<uint8_t* const>(texture + 0x10);
     material_.pass_flags_[0] = pc_texture ? 4 : 0;
     const int r = get_rand();
     material_.checksum = static_cast<uint32_t>(r * get_rand());

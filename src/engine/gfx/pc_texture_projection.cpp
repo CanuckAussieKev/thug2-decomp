@@ -25,10 +25,13 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/texture_splats.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -56,11 +59,11 @@ void transform_coord(float* out, const float* v, const maths::Mat4* m)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.
-uint8_t* vertex_stack() { return reinterpret_cast<uint8_t*>(&g_vertex_stack); }
-void push_vertex(const uint8_t* vertex) { reinterpret_cast<VertexStack*>(vertex_stack())->stack_on(vertex); }
+uint8_t* vertex_stack() { return raw::bytes(&g_vertex_stack); }
+void push_vertex(const uint8_t* vertex) { raw::as<VertexStack>(vertex_stack())->stack_on(vertex); }
 
-float* get_uv(uint8_t* vertex) { return reinterpret_cast<float*>(vertex + 0x10); }
-uint32_t& get_colour(uint8_t* vertex) { return *reinterpret_cast<uint32_t*>(vertex + 0xC); }
+float* get_uv(uint8_t* vertex) { return raw::as<float>(vertex + 0x10); }
+uint32_t& get_colour(uint8_t* vertex) { return *raw::as<uint32_t>(vertex + 0xC); }
 uint32_t opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
 float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * 0.5f); }
 float from_uv(float uv)
@@ -111,7 +114,7 @@ ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name)
     const int b = get_rand();
     material->checksum = a * b;                                  // a random checksum
     material->pass_count_ = 1;                                   // one pass
-    material->textures[0] = reinterpret_cast<uint8_t*>(texture); // (the texture's key: its PC texture's address)
+    material->textures[0] = cell::pointer<uint8_t>(texture); // (the texture's key: its PC texture's address)
     material->two_sided_ = 1;
     material->depth_bias_ = 4;
     material->blend_modes_[0] = blend_mode_from_name(blend_name);
@@ -140,8 +143,8 @@ void draw_projection_batches()
         batch->material.hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, &batch->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices, 0x18);
-        ++reinterpret_cast<uint32_t&>(g_draw_calls);                              // (the frame's draw calls)
-        reinterpret_cast<uint32_t&>(g_drawn_triangles) += batch->triangle_count_; // (and triangles)
+        ++memory::bits_as<uint32_t>(g_draw_calls);                              // (the frame's draw calls)
+        memory::bits_as<uint32_t>(g_drawn_triangles) += batch->triangle_count_; // (and triangles)
     }
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     batch_count() = 0;
@@ -177,20 +180,20 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     continue;
                 const uint32_t stride = mesh->stride;
                 float t0[3], t1[3], t2[3];
-                transform_coord(t0, reinterpret_cast<const float*>(vertices + stride * ia), &projection_);
-                transform_coord(t1, reinterpret_cast<const float*>(vertices + stride * ib), &projection_);
-                transform_coord(t2, reinterpret_cast<const float*>(vertices + stride * ic), &projection_);
+                transform_coord(t0, raw::as<const float>(vertices + stride * ia), &projection_);
+                transform_coord(t1, raw::as<const float>(vertices + stride * ib), &projection_);
+                transform_coord(t2, raw::as<const float>(vertices + stride * ic), &projection_);
                 if (t0[2] < -1.0f && t1[2] < -1.0f && t2[2] < -1.0f) // (wholly behind)
                     continue;
                 if (!triangle_overlaps_screen(t0[0], t0[1], t1[0], t1[1], t2[0], t2[1]))
                     continue;
                 if (!batch_vertices) {
-                    uint8_t* key = *reinterpret_cast<uint8_t**>(bitmap_ + 0x10);
+                    uint8_t* key = *raw::as<uint8_t*>(bitmap_ + 0x10);
                     if (bitmap_[8] & 1)
-                        key = *reinterpret_cast<uint8_t**>(key);
-                    batch = get_projection_batch(reinterpret_cast<uint32_t>(key), blend_mode_);
+                        key = *raw::as<uint8_t*>(key);
+                    batch = get_projection_batch(cell::of(key), blend_mode_);
                     batch_vertices =
-                        reinterpret_cast<uint8_t*>(batch) + 0x120; // (null: written near null, as the original)
+                        raw::bytes(batch) + 0x120; // (null: written near null, as the original)
                 }
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
                 uint32_t count = batch->triangle_count_;
@@ -207,18 +210,18 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 get_uv(v2)[0] = to_uv(t2[0]);
                 get_uv(v2)[1] = to_uv(t2[1]);
                 const uint32_t colour_offset = mesh->unknown1c_[0];
-                get_colour(v0) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ia + colour_offset));
-                get_colour(v1) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ib + colour_offset));
-                get_colour(v2) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ic + colour_offset));
+                get_colour(v0) = opaque(*raw::as<uint32_t>(vertices + stride * ia + colour_offset));
+                get_colour(v1) = opaque(*raw::as<uint32_t>(vertices + stride * ib + colour_offset));
+                get_colour(v2) = opaque(*raw::as<uint32_t>(vertices + stride * ic + colour_offset));
                 uint8_t whole[3 * 0x18];
                 uint8_t* pieces = nullptr;
                 uint8_t* end = nullptr;
                 uint8_t* format = nullptr;
                 if (fineness_) {
                     // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
-                    const auto* p0 = reinterpret_cast<const float*>(v0);
-                    const auto* p1 = reinterpret_cast<const float*>(v1);
-                    const auto* p2 = reinterpret_cast<const float*>(v2);
+                    const auto* p0 = raw::as<const float>(v0);
+                    const auto* p1 = raw::as<const float>(v1);
+                    const auto* p2 = raw::as<const float>(v2);
                     const double e1z = static_cast<double>(p1[2]) - p0[2];
                     const double e1y = static_cast<double>(p1[1]) - p0[1];
                     const double e1x = static_cast<double>(p1[0]) - p0[0];
@@ -238,11 +241,11 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
                     std::memset(pieces, 0, 0x2000);
                     void* memory = memory::alloc(0xD8);
-                    format = memory ? reinterpret_cast<uint8_t*>(memory::construct_in<MeshRef>(memory)) : nullptr;
+                    format = memory ? raw::bytes(memory::construct_in<MeshRef>(memory)) : nullptr;
                     format[0x1C] = 0x0C; // (no check: written through null, as the original)
                     format[0x1E] = 0x10;
                     end = pieces;
-                    while (split_next_triangle(&end, reinterpret_cast<const SplitFormat*>(format)))
+                    while (split_next_triangle(&end, raw::as<const SplitFormat>(format)))
                         ;
                 } else {
                     std::memcpy(whole, v0, sizeof(whole));
@@ -271,7 +274,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     batch->blend_name_ = blend_mode_;
                 if (fineness_) {
                     if (format) {
-                        reinterpret_cast<MeshRef*>(format)->~MeshRef(); // (its destructor body)
+                        raw::as<MeshRef>(format)->~MeshRef(); // (its destructor body)
                         memory::Hub::get_pull()->dealloc(format);
                     }
                     memory::Hub::get_pull()->dealloc(pieces);

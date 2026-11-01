@@ -1,5 +1,6 @@
 // The D3DX9 calls the game makes (see d3dx.h): Microsoft's D3DX9 through its standard API.
 #include "engine/gfx/d3dx.h"
+#include "engine/core/raw_view.h"
 
 #include <windows.h>
 
@@ -16,10 +17,10 @@ static_assert(sizeof(D3DXMATRIX) == 64 && sizeof(D3DXVECTOR3) == 12 && sizeof(D3
 namespace {
 D3DXMATRIX* get_m(void* p) { return static_cast<D3DXMATRIX*>(p); }
 const D3DXMATRIX* get_m(const void* p) { return static_cast<const D3DXMATRIX*>(p); }
-D3DXVECTOR3* v3(float* p) { return reinterpret_cast<D3DXVECTOR3*>(p); }
-const D3DXVECTOR3* v3(const float* p) { return reinterpret_cast<const D3DXVECTOR3*>(p); }
-D3DXVECTOR4* v4(float* p) { return reinterpret_cast<D3DXVECTOR4*>(p); }
-const D3DXVECTOR4* v4(const float* p) { return reinterpret_cast<const D3DXVECTOR4*>(p); }
+D3DXVECTOR3* v3(float* p) { return raw::as<D3DXVECTOR3>(p); }
+const D3DXVECTOR3* v3(const float* p) { return raw::as<const D3DXVECTOR3>(p); }
+D3DXVECTOR4* v4(float* p) { return raw::as<D3DXVECTOR4>(p); }
+const D3DXVECTOR4* v4(const float* p) { return raw::as<const D3DXVECTOR4>(p); }
 } // namespace
 
 void vec3_normalize(float* out, const float* v) { D3DXVec3Normalize(v3(out), v3(v)); }
@@ -68,8 +69,8 @@ long save_surface_to_jpg(const char* file, IDirect3DSurface9* surface)
 long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)
 {
     // (D3DXAssembleShader's ID3DXBuffer is a COM object with the same vtable the callers use)
-    return D3DXAssembleShader(source, length, nullptr, nullptr, 0, reinterpret_cast<LPD3DXBUFFER*>(shader),
-                              reinterpret_cast<LPD3DXBUFFER*>(errors));
+    return D3DXAssembleShader(source, length, nullptr, nullptr, 0, raw::as<LPD3DXBUFFER>(shader),
+                              raw::as<LPD3DXBUFFER>(errors));
 }
 void* buffer_pointer(void* buffer) { return static_cast<ID3DXBuffer*>(buffer)->GetBufferPointer(); }
 void release_buffer(void* buffer) { static_cast<ID3DXBuffer*>(buffer)->Release(); }

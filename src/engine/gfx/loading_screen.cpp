@@ -26,6 +26,8 @@
 #include "platform/crt.h"
 #include "platform/run_log.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -34,7 +36,7 @@ uint8_t* g_loading_screen_picture;
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-HANDLE screen_mutex() { return reinterpret_cast<HANDLE&>(g_screen_mutex); }
+HANDLE screen_mutex() { return memory::bits_as<HANDLE>(g_screen_mutex); }
 bool& load_screen_shown() { return g_loading_screen_up; }
 uint32_t& bar_timer() { return g_loading_bar_timer; }
 uint32_t fog_render_flag() { return g_fog_active; } // (the renderer's cached D3DRS_FOGENABLE)
@@ -57,18 +59,18 @@ render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 // in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
 const char* picture_name()
 {
-    auto* name = reinterpret_cast<uint8_t*>(g_picture_name);
-    if (*reinterpret_cast<uint32_t*>(name + 0x18) >= 16)
-        return *reinterpret_cast<const char**>(name + 4);
-    return reinterpret_cast<const char*>(name + 4);
+    auto* name = raw::bytes(g_picture_name);
+    if (*raw::as<uint32_t>(name + 0x18) >= 16)
+        return *raw::as<const char*>(name + 4);
+    return raw::chars(name + 4);
 }
 void set_picture_name(const char* text)
 {
     // std::string::assign(const char*) over the layout above (0x004B7880 / 0x004B7750 in the exe).
-    auto* name = reinterpret_cast<uint8_t*>(g_picture_name);
-    uint32_t& size = *reinterpret_cast<uint32_t*>(name + 0x14);
-    uint32_t& capacity = *reinterpret_cast<uint32_t*>(name + 0x18);
-    char*& heap = *reinterpret_cast<char**>(name + 4);
+    auto* name = raw::bytes(g_picture_name);
+    uint32_t& size = *raw::as<uint32_t>(name + 0x14);
+    uint32_t& capacity = *raw::as<uint32_t>(name + 0x18);
+    char*& heap = *raw::as<char*>(name + 4);
     auto length = static_cast<uint32_t>(std::strlen(text));
     if (length > capacity) {
         const uint32_t new_capacity = length | 15;
@@ -79,7 +81,7 @@ void set_picture_name(const char* text)
         heap = grown;
         capacity = new_capacity;
     } else {
-        char* destination = capacity >= 16 ? heap : reinterpret_cast<char*>(name + 4);
+        char* destination = capacity >= 16 ? heap : raw::chars(name + 4);
         std::memmove(destination, text, length + 1);
     }
     size = length;
@@ -162,10 +164,10 @@ void draw_loading_screen_picture()
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
     choose_blend_mode(0);
     set_texture(0, nullptr); // (the original passes a third 0, here and below)
-    uint8_t* texture = *reinterpret_cast<uint8_t**>(picture() + 0x10);
+    uint8_t* texture = *raw::as<uint8_t*>(picture() + 0x10);
     if (picture()[8] & 1)
-        texture = *reinterpret_cast<uint8_t**>(texture);
-    set_texture(0, *reinterpret_cast<void**>(texture + 0x10)); // (and its +0x14)
+        texture = *raw::as<uint8_t*>(texture);
+    set_texture(0, *raw::as<void*>(texture + 0x10)); // (and its +0x14)
     auto width = static_cast<float>(g_back_buffer_width);
     auto height = static_cast<float>(g_back_buffer_height);
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
@@ -226,7 +228,7 @@ void show_progress_bar(float seconds)
     g_total_seconds = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
     update_loading_bar_colors();
     if (!bar_timer())
-        bar_timer() = start_timer(29, reinterpret_cast<LPTIMECALLBACK>(&draw_loading_screen_frame));
+        bar_timer() = start_timer(29, &draw_loading_screen_frame);
 }
 
 // 0x004B78B0
@@ -260,12 +262,12 @@ void show_loading_screen(const char* name, bool keep, bool black)
         } else {
             if (uint8_t* old = picture()) {
                 if (std::strcmp(picture_name(), name) != 0) {
-                    delete reinterpret_cast<render::BitmapTexture*>(old);
+                    delete raw::as<render::BitmapTexture>(old);
                     picture() = nullptr;
                     set_picture_name(name);
                 }
             }
-            picture() = reinterpret_cast<uint8_t*>(static_cast<render::BitmapTexture*>(new render::PcTexture));
+            picture() = raw::bytes(static_cast<render::BitmapTexture*>(new render::PcTexture));
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;
@@ -278,7 +280,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
                 file = localised;
             }
             // (no check: a failed allocation calls through null, as the original)
-            const bool loaded = reinterpret_cast<render::BitmapTexture*>(picture())->load_by_name(file, 1, 1);
+            const bool loaded = raw::as<render::BitmapTexture>(picture())->load_by_name(file, 1, 1);
             if (!loaded) {
                 get_unlock();
                 return;

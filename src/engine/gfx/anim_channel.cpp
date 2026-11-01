@@ -36,9 +36,13 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -99,18 +103,18 @@ bool omit_from_draw() { return render::g_suppress_draw; }
 
 memory::PoolPair& struct_pools() { return script::g_struct_pools; }
 
-float& get_as_float(uint32_t& bits) { return reinterpret_cast<float&>(bits); }
+float& get_as_float(uint32_t& bits) { return memory::bits_as<float>(bits); }
 
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // A list node as the original masks it: null when it's the head.
-AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : reinterpret_cast<AnimTrack*>(node); }
-memory::ListNode* elem(AnimTrack* timeline) { return reinterpret_cast<memory::ListNode*>(timeline); }
+AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : raw::as<AnimTrack>(node); }
+memory::ListNode* elem(AnimTrack* timeline) { return raw::as<memory::ListNode>(timeline); }
 
 // The playing timeline (the list's first), or null.
 AnimTrack* get_first(BlendChannel* channel)
 {
     memory::ListNode* node = channel->timelines_.next;
-    return is_head(node) || !node ? nullptr : reinterpret_cast<AnimTrack*>(node);
+    return is_head(node) || !node ? nullptr : raw::as<AnimTrack>(node);
 }
 
 void uncouple(memory::ListNode* node)
@@ -131,7 +135,7 @@ void delete_all_timelines(memory::ListNode* head)
 
 objects::GameEntity* get_owner(BlendChannel* channel)
 {
-    return reinterpret_cast<objects::GameEntity*>(channel->owner_ptr_);
+    return raw::as<objects::GameEntity>(channel->owner_ptr_);
 }
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
@@ -139,8 +143,7 @@ objects::GameEntity* get_owner(BlendChannel* channel)
 online::Hub* net_session_slot() { return online::g_online_hub; }
 online::PlayerRecord* find_own_player_record(uint32_t object_id)
 {
-    auto* player = reinterpret_cast<online::PlayerRecord*>(
-        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));
+    auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));
     if (!player || !player->is_own_player())
         return nullptr;
     return player;
@@ -189,7 +192,7 @@ bool start_blend_out(AnimTrack* timeline, float period) { return timeline->start
 double current_weight(AnimTrack* timeline) { return timeline->get_weight(); }
 void* new_timeline(uint32_t size) { return AnimTrack::operator new(size); }
 
-int count_list_items(memory::ListNode* head) { return reinterpret_cast<AnimListHead*>(head)->tally_entries(); }
+int count_list_items(memory::ListNode* head) { return raw::as<AnimListHead>(head)->tally_entries(); }
 
 // An animation's frame data in the anim set (render::get_anim_data 0x0048CF50: its first value the length), the range
 // (fetch_anim_durations 0x004877E0 - the original passes the script too, unused) and loop type (get_anim_loop_type 0x00487770)
@@ -205,7 +208,7 @@ void attach_controller(AnimTrack* timeline, Struct* params) { timeline->attach_c
 // The skeleton component's skeleton (the getter folded at 0x005480F0).
 Rig* skeleton_of(objects::ObjectModule* component)
 {
-    return reinterpret_cast<Rig*>(static_cast<objects::BoneRigModule*>(component)->bone_rig_);
+    return raw::as<Rig>(static_cast<objects::BoneRigModule*>(component)->bone_rig_);
 }
 
 } // namespace
@@ -226,7 +229,7 @@ int AnimListHead::tally_entries()
 
 // 0x0047F150
 BlendChannel::BlendChannel(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full)
-    : owner_ptr_(reinterpret_cast<uint8_t*>(object)), blender_(blender)
+    : owner_ptr_(raw::bytes(object)), blender_(blender)
 {
     list_link_.make_node(this);
     timelines_.make_head();
@@ -358,7 +361,7 @@ void BlendChannel::remove_done_timelines()
         return;
     while (node) {
         AnimTrack* next = masked(node->next);
-        if (!reinterpret_cast<AnimTrack*>(node)->is_operative()) {
+        if (!raw::as<AnimTrack>(node)->is_operative()) {
             uncouple(node);
             delete_timeline(node);
         }
@@ -383,7 +386,7 @@ void BlendChannel::push_timeline(float period)
         if (first && start_blend_out(first, period)) {
             float others = 0.0f;
             for (memory::ListNode* node = elem(first)->next; !is_head(node) && node; node = node->next) {
-                auto* timeline = reinterpret_cast<AnimTrack*>(node);
+                auto* timeline = raw::as<AnimTrack>(node);
                 if (timeline->is_fading())
                     others =
                         static_cast<float>(static_cast<double>(timeline->fade_scale_) * timeline->fade_left_ + others);
@@ -434,7 +437,7 @@ void BlendChannel::fetch_pose(int index, void* pose, float* weight)
     if (!is_head(node) && node) {
         for (;;) {
             if (index-- == 0) {
-                timeline = reinterpret_cast<AnimTrack*>(node);
+                timeline = raw::as<AnimTrack>(node);
                 break;
             }
             node = node->next;
@@ -475,7 +478,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
 void BlendChannel::toggle_flipped()
 {
     net::AppHost* app = net_session_slot()->fetch_patron(0);
-    const uint32_t unused = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(app) + 8);
+    const uint32_t unused = *raw::field_at<uint32_t>(app, 8);
     set_flipped(get_owner(this)->ident_, !((flag_bits_ >> 29) & 1), unused, true);
 }
 
@@ -484,7 +487,7 @@ void BlendChannel::advance_clock(float frames)
 {
     memory::ListNode* node = timelines_.next;
     if (!is_head(node) && node)
-        reinterpret_cast<AnimTrack*>(node)->advance_clock(frames);
+        raw::as<AnimTrack>(node)->advance_clock(frames);
 }
 
 // 0x0047E210
@@ -518,7 +521,7 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
             const script::SymbolTableEntry* symbol = script::resolve_symbol(component->checksum);
             if (symbol && symbol->type == script::kQbvalArray) {
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                array = reinterpret_cast<script::Array*>(symbol->raw);
+                array = cell::pointer<script::Array>(symbol->raw);
             } else {
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 if (component->checksum == anim)
@@ -665,7 +668,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         get_first(this)->get_times(&start, &current, &end);
         auto ratio = static_cast<float>(speed / (static_cast<double>(end) - start));
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
-            auto* timeline = reinterpret_cast<AnimTrack*>(node);
+            auto* timeline = raw::as<AnimTrack>(node);
             timeline->get_times(&start, &current, &end);
             timeline->speed_ = static_cast<float>((static_cast<double>(end) - start) * ratio * kSecondsPerFrame);
         }
@@ -675,7 +678,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
             return;
         const float per_frame = speed * kSecondsPerFrame;
         for (; !is_head(node) && node; node = node->next)
-            reinterpret_cast<AnimTrack*>(node)->speed_ = per_frame;
+            raw::as<AnimTrack>(node)->speed_ = per_frame;
     }
 }
 
@@ -729,7 +732,7 @@ void BlendChannel::init_buffers(int blends, int subsets)
         if (poses) {
             for (int i = 0; i < count; ++i) {
                 for (auto& rotation : poses[i].rotations)
-                    reinterpret_cast<objects::IdentityQuat*>(rotation)->assign_value();
+                    raw::as<objects::IdentityQuat>(rotation)->assign_value();
             }
         }
         return poses;
@@ -904,7 +907,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         Struct* controller = script::spawn_param_bag();
         if (controller)
             controller = new (controller) script::Struct;
-        auto id = reinterpret_cast<uint32_t>(script); // (its argument's place reused: the id when there is one)
+        auto id = cell::of(script); // (its argument's place reused: the id when there is one)
         if (params->read_hash_value(0xF0CE9E0F, &id, 0))
             controller->put_name_key(kId, id);
         controller->put_name_key(0x7321A8D6, 0x659BF355); // Type PartialAnim
@@ -942,7 +945,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             memory::ListNode* node = timelines_.next;
             if (!is_head(node) && node)
-                add_timeline_info(reinterpret_cast<AnimTimeline*>(node), script->args_);
+                add_timeline_info(raw::as<AnimTimeline>(node), script->args_);
             return 1;
         }
         for (AnimTrack* timeline = masked(timelines_.next); timeline; timeline = masked(elem(timeline)->next)) {
@@ -980,8 +983,8 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case kObjPlayAnim: {
         play_anim_from_script(params, script, kStockCrossfade);
         memory::ListNode* node = timelines_.next;
-        if (!is_head(node) && node && reinterpret_cast<AnimTrack*>(node)->repeat_mode_ == AnimTimeline::kHold)
-            reinterpret_cast<objects::Entity*>(owner_ptr_)
+        if (!is_head(node) && node && raw::as<AnimTrack>(node)->repeat_mode_ == AnimTimeline::kHold)
+            raw::as<objects::Entity>(owner_ptr_)
                 ->invoke_method_by_name(0xEA6D0EFDu, params,
                                         script); // (the object's own member function: the original's slot 3)
         return 1;
@@ -997,7 +1000,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         float duration = 0.0f;
         params->fetch_float(0x23272E4D, &duration, 1);
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
-            auto* timeline = reinterpret_cast<AnimTrack*>(node);
+            auto* timeline = raw::as<AnimTrack>(node);
             float start = 0.0f, current = 0.0f, end = 0.0f;
             timeline->get_times(&start, &current, &end);
             const float larger = start > end ? start : end;
@@ -1022,7 +1025,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case 0x80FDBDF2: // whether it cycles
         return is_cycling() ? 1 : 0;
     case 0x9069F357: {                                      // AnimExists (the anim set's unnamed checksum)
-        auto anim = reinterpret_cast<uint32_t>(params);     // (its argument's place reused, as the original)
+        auto anim = cell::of(params);     // (its argument's place reused, as the original)
         params->read_hash_value(0u, &anim, 0);
         return has_value(anim) ? 1 : 0;
     }
@@ -1033,7 +1036,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
             static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script);
         return 1;
     case 0x98A32669: {                                                       // flag4C from enabled
-        int enabled = static_cast<int>(reinterpret_cast<uintptr_t>(params)); // (the argument's place, as above)
+        int enabled = static_cast<int>(cell::address(params)); // (the argument's place, as above)
         params->fetch_int_value(0xAF06447B, &enabled, 1);
         flag_4c_ = enabled != 0;
         return 1;
@@ -1129,7 +1132,7 @@ int BlendChannel::time_passed(Struct* params)
 // answer (as true / false), or false without such a timeline.
 int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
 {
-    auto anim = reinterpret_cast<uint32_t>(params); // (the argument's place, as above)
+    auto anim = cell::of(params); // (the argument's place, as above)
     params->read_hash_value(kAnim, &anim, 0);
     if (!has_value(anim)) {
         anim = kDefault;

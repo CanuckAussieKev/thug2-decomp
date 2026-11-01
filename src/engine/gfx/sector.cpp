@@ -13,6 +13,7 @@
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_obj.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -24,7 +25,7 @@ const maths::Vec4* geom_world_position(void* geom) { return geom_of(geom)->get_a
 void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom*>(geom)->choose_tri_source(faces); }
 
 // The collision object's flag byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder.
-uint8_t& coll_flags(HitMesh* coll) { return *reinterpret_cast<uint8_t*>(&coll->flag_bits_); }
+uint8_t& coll_flags(HitMesh* coll) { return *raw::bytes(&coll->flag_bits_); }
 
 
 } // namespace
@@ -122,7 +123,7 @@ void WorldCell::wipe_tint()
 uint8_t* WorldCell::fetch_tint(uint8_t* out)
 {
     if (geom_handle_) {
-        static_cast<Geom*>(geom_handle_)->fetch_tint(reinterpret_cast<uint32_t*>(out));
+        static_cast<Geom*>(geom_handle_)->fetch_tint(raw::as<uint32_t>(out));
         return out;
     }
     out[0] = 0;
@@ -197,7 +198,7 @@ void WorldCell::mark_as_occluder(bool occluder)
 const maths::BBox* WorldCell::fetch_bounds()
 {
     if (geom_handle_)
-        return reinterpret_cast<const maths::BBox*>(geom_of(geom_handle_)->fetch_bounds());
+        return geom_of(geom_handle_)->fetch_bounds();
     return hit_body_->get_world_bounds();
 }
 

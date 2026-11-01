@@ -26,6 +26,8 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/device.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -49,8 +51,8 @@ uint32_t get_argb(const uint8_t* rgba)
 // The frame's draw counts.
 void count_draw(uint32_t primitives)
 {
-    ++reinterpret_cast<uint32_t&>(g_draw_calls);
-    reinterpret_cast<uint32_t&>(g_drawn_triangles) += primitives;
+    ++memory::bits_as<uint32_t>(g_draw_calls);
+    memory::bits_as<uint32_t>(g_drawn_triangles) += primitives;
 }
 
 // The drop slots' order: a linear-feedback step through 0-0x3FF (0 goes to 0x19B first; 0x19B back to 0).
@@ -439,7 +441,7 @@ void PcWeather::render_splashes(float x, float z)
 void PcWeather::tick_grid()
 {
     active_ = false;
-    auto* box = reinterpret_cast<const float*>(get_first_coll_grid()); // (the scene's collision's box)
+    auto* box = raw::as<const float>(get_first_coll_grid()); // (the scene's collision's box)
     if (!box)
         return;
     auto cell = [](float value) {
@@ -514,8 +516,8 @@ void PcWeather::tick_grid()
         }
     }
     // The rows' ground spans (one row past the last, as the original) and their height indices.
-    rows = reinterpret_cast<WeatherRow*>(g_weather_grid);
-    columns = reinterpret_cast<uint8_t*>(rows + depth);
+    rows = raw::as<WeatherRow>(g_weather_grid);
+    columns = raw::bytes(rows + depth);
     uint32_t offset = 0;
     for (int r = 0; r <= depth; ++r) {
         uint16_t first = 0, last = static_cast<uint16_t>(width - 1);
@@ -547,14 +549,14 @@ void PcWeather::tick_grid()
     drops_ = 0;
     next = 0x19B;
     splash_texture_ = nullptr;
-    auto* dictionary = reinterpret_cast<void*>(g_particle_texture_dict);
-    auto* splash = reinterpret_cast<uint8_t*>(static_cast<TextureSet*>(dictionary)->fetch_skin(0x45C7EB0F));
+    auto* dictionary = raw::as<void>(g_particle_texture_dict);
+    auto* splash = raw::bytes(static_cast<TextureSet*>(dictionary)->fetch_skin(0x45C7EB0F));
     if (splash)
         splash_texture_ =
-            splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
-    auto* snow = reinterpret_cast<uint8_t*>(g_particle_texture_dict->fetch_skin(0xC97C5A4C));
+            splash[8] & 1 ? **raw::as<void**>(splash + 0x10) : *raw::as<void*>(splash + 0x10);
+    auto* snow = raw::bytes(g_particle_texture_dict->fetch_skin(0xC97C5A4C));
     if (snow)
-        snow_texture_ = snow[8] & 1 ? **reinterpret_cast<void***>(snow + 0x10) : *reinterpret_cast<void**>(snow + 0x10);
+        snow_texture_ = snow[8] & 1 ? **raw::as<void**>(snow + 0x10) : *raw::as<void*>(snow + 0x10);
     active_ = true;
     std::memset(splash_frames_, 0, sizeof(splash_frames_));
     next_splash_ = 0;

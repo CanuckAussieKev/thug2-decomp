@@ -13,10 +13,11 @@
 #include "game/skate/cas_options.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
 
 namespace gfx {
 
@@ -206,14 +207,14 @@ void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* 
     script::Struct* slot = nullptr;
     if (!structure_.read_sub_struct(part, &slot, 0)) {
         slot = new_temp_struct();
-        structure_.add_component_of_type(part, kOwnedStructure, reinterpret_cast<uint32_t>(slot));
+        structure_.add_component_of_type(part, kOwnedStructure, cell::of(slot));
     }
     slot->get_clear();
     int use_default_hsv = 1;
     params->fetch_int_value(kUseDefaultHsv, &use_default_hsv, 0);
     if (!use_default_hsv) {
         // (asserted; missing, h is what the original's stack slot held - `params` itself - and s / v garbage)
-        int h = static_cast<int>(reinterpret_cast<uintptr_t>(params)), s = 0, v = 0;
+        int h = static_cast<int>(cell::address(params)), s = 0, v = 0;
         params->fetch_int_value(kH, &h, 1);
         params->fetch_int_value(kS, &s, 1);
         params->fetch_int_value(kV, &v, 1);
@@ -229,7 +230,7 @@ void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* 
 // `script` argument's).
 bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    auto slot_of = [](const void* argument) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(argument)); };
+    auto slot_of = [](const void* argument) { return static_cast<uint32_t>(cell::address(argument)); };
     switch (name) {
     case kSetPart: {
         uint32_t part = slot_of(script), descriptor_id = slot_of(params);

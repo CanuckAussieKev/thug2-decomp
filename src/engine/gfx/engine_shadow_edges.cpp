@@ -12,6 +12,8 @@
 #include "engine/lists/key_map.h"
 #include "engine/render/coll_tri.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -47,16 +49,16 @@ void add_shadow_volume(ShadowVolume* volume)
 }
 
 // The meshes of the model's collision scene: +0x88 their count, +0x8C the array (the volumes' key).
-int get_mesh_count(const uint8_t* asset_data) { return *reinterpret_cast<const int*>(asset_data + 0x88); }
+int get_mesh_count(const uint8_t* asset_data) { return *raw::as<const int>(asset_data + 0x88); }
 
-bool get_skipped(const TriMeshSource& mesh) { return (reinterpret_cast<const uint16_t*>(mesh.faces_)[0] & 0x40) != 0; }
+bool get_skipped(const TriMeshSource& mesh) { return (raw::as<const uint16_t>(mesh.faces_)[0] & 0x40) != 0; }
 
 // The edge from `from` to `to` of a face with `normal`: an existing edge the other way round, or the same way, gets
 // its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short,
 // as the original).
 void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const maths::Vec4& normal)
 {
-    auto* all = reinterpret_cast<ShadowSilhouetteEdge*>(edges->edges);
+    auto* all = raw::as<ShadowSilhouetteEdge>(edges->edges);
     int i = 0;
     for (; i < count; ++i) {
         ShadowSilhouetteEdge& edge = all[i];
@@ -89,7 +91,7 @@ void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const 
 void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
 {
     if (asset_data)
-        model_key_ = *reinterpret_cast<uint32_t*>(asset_data + 0x8C);
+        model_key_ = *raw::as<uint32_t>(asset_data + 0x8C);
     edges_ = find_shadow_edges(model_key_);
     if (edges_) {
         ++edges_->users;
@@ -97,7 +99,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
         return;
     }
     edges_ = static_cast<ShadowEdges*>(memory::alloc_zeroed(0x10)); // (not checked, as the original)
-    auto* meshes = reinterpret_cast<TriMeshSource*>(model_key_);
+    auto* meshes = cell::pointer<TriMeshSource>(model_key_);
     // (with a key but no asset data, read through null - as the original)
     int faces = 0, vertices = 0;
     if (model_key_) {
@@ -129,7 +131,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
                     b = face[5];
                     c = face[6];
                 } else {
-                    const auto* face = reinterpret_cast<const uint16_t*>(mesh.faces_ + f * 10);
+                    const auto* face = raw::as<const uint16_t>(mesh.faces_ + f * 10);
                     a = face[2];
                     b = face[3];
                     c = face[4];

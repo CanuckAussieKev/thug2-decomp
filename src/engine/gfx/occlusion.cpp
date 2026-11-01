@@ -12,6 +12,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/settings.h"
 #include "platform/crt.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -39,7 +40,7 @@ constexpr uint32_t kOccluderLimit = 8;
 // The object's transform for culling (set_world_transform), or null: only its position row is used here.
 const float* world_transform() { return g_world_transform; }
 // The view matrix (0x00786BD0) and the view's clip values.
-const void* view_matrix() { return reinterpret_cast<float*>(&g_view_matrix); }
+const void* view_matrix() { return raw::as<float>(&g_view_matrix); }
 float near_plane_depth() { return g_camera.near_z_; }
 float far_clip() { return g_camera.far_z_; }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.
@@ -233,7 +234,7 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     poly.normal[1] = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
     poly.normal[2] = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
     poly.normal[3] = 0.0f;
-    reinterpret_cast<maths::Vec4*>(poly.normal)->make_unit();
+    raw::as<maths::Vec4>(poly.normal)->make_unit();
     ++poly_count();
 }
 

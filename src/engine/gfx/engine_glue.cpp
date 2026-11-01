@@ -37,6 +37,8 @@
 #include "engine/gfx/pc_particles.h"
 #include "engine/objects/particle_component.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -83,9 +85,9 @@ long save_surface_to_file(const char* file, IDirect3DSurface9* surface)
 // A shadow caster's key: the texture's (+0x10, through one more pointer with flag 1 of +0x08).
 uint8_t* caster_key(const uint8_t* texture)
 {
-    uint8_t* key = *reinterpret_cast<uint8_t* const*>(texture + 0x10);
+    uint8_t* key = *raw::as<uint8_t* const>(texture + 0x10);
     if (texture[8] & 1)
-        key = *reinterpret_cast<uint8_t**>(key);
+        key = *raw::as<uint8_t*>(key);
     return key;
 }
 
@@ -205,12 +207,12 @@ void finish_rendering()
 // 0x004B28C0
 void* make_empty_scene(const char* /*name*/, void* /*textures*/, bool with_super_sectors)
 {
-    auto* scene = reinterpret_cast<uint8_t*>(new PcScene(10));
+    auto* scene = raw::bytes(new PcScene(10));
     // (no check: a failed allocation writes through null, as the original)
     scene[0x8C] = with_super_sectors;
     scene[0x8D] = 0;
     void* memory = memory::alloc(sizeof(SceneRef));
-    *reinterpret_cast<SceneRef**>(scene + 0x280) = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
+    *raw::as<SceneRef*>(scene + 0x280) = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
     return scene;
 }
 
@@ -219,8 +221,8 @@ bool unload_scene(void* scene)
 {
     auto* bytes = static_cast<uint8_t*>(scene);
     static_cast<PcScene*>(scene)->unload_sectors();
-    discard_scene(*reinterpret_cast<SceneRef**>(bytes + 0x280));
-    *reinterpret_cast<SceneRef**>(bytes + 0x280) = nullptr;
+    discard_scene(*raw::as<SceneRef*>(bytes + 0x280));
+    *raw::as<SceneRef*>(bytes + 0x280) = nullptr;
     return true;
 }
 
@@ -262,13 +264,13 @@ void aim_texture_shadow_caster(const uint8_t* texture, gfx::ViewCam* camera)
     const maths::Mat4& m = *camera->fetch_mat();
     // the point it looks at: the position plus the matrix's third row
     float target[3] = {m.row[2].x + position[0], m.row[2].y + position[1], m.row[2].z + position[2]};
-    aim_shadow_caster(reinterpret_cast<uint32_t>(caster_key(texture)), position, target);
+    aim_shadow_caster(cell::of(caster_key(texture)), position, target);
 }
 
 // 0x004B2D10
 void remove_texture_shadow_caster(const uint8_t* texture)
 {
-    remove_shadow_caster(reinterpret_cast<uint32_t>(caster_key(texture)));
+    remove_shadow_caster(cell::of(caster_key(texture)));
 }
 
 } // namespace render

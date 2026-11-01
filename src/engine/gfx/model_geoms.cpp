@@ -29,6 +29,8 @@
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -53,16 +55,16 @@ constexpr uint32_t kFaceImage = 0xB00B0DC0; // the face texture's name in the di
 // (0x004ECC30; the result iterator out).
 void insert_geom(RenderModel* model, ModelGeomNode* where, ModelGeom** entry)
 {
-    reinterpret_cast<objects::PointerList*>(&model->geoms_)
-        ->splice(reinterpret_cast<objects::PointerListNode*>(where), reinterpret_cast<void* const*>(entry));
+    raw::as<objects::PointerList>(&model->geoms_)
+        ->splice(raw::as<objects::PointerListNode>(where), raw::as<void* const>(entry));
 }
 void erase_geoms(RenderModel* model, ModelGeomNode* first, ModelGeomNode* last)
 {
     ModelGeomNode* result = nullptr;
-    reinterpret_cast<objects::PointerList*>(&model->geoms_)
-        ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
-                    reinterpret_cast<objects::PointerListNode*>(first),
-                    reinterpret_cast<objects::PointerListNode*>(last));
+    raw::as<objects::PointerList>(&model->geoms_)
+        ->get_erase(raw::as<objects::PointerListNode*>(&result),
+                    raw::as<objects::PointerListNode>(first),
+                    raw::as<objects::PointerListNode>(last));
 }
 
 // A node's memory: from the default heap, or the current one (0x00658555: whether to assert when out of it).
@@ -74,7 +76,7 @@ ModelGeom* new_entry(bool default_heap)
 }
 
 // A scene's texture dictionary (its +4).
-uint8_t* textures_of(uint8_t* scene) { return *reinterpret_cast<uint8_t**>(scene + 4); }
+uint8_t* textures_of(uint8_t* scene) { return *raw::as<uint8_t*>(scene + 4); }
 
 // A geom's own scene deleted with its textures.
 void delete_own_scene(uint8_t* scene)
@@ -95,12 +97,12 @@ uint8_t* load_scene(const char* file_name, void* textures, int tex_dict_offset, 
 {
     return static_cast<uint8_t*>(engine::load_model_file(file_name, textures, tex_dict_offset, shadow_volume));
 }
-void release_bone_volumes(void* volumes) { gfx::release_bone_volumes(reinterpret_cast<uint32_t>(volumes)); }
+void release_bone_volumes(void* volumes) { gfx::release_bone_volumes(cell::of(volumes)); }
 
 // The texture dictionary (0x00700F1C): a texture by checksum (0x0049F540), one taken out (0x0049F500), a texture
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
 // or by a texture (0x0049F800).
-void* get_textures() { return reinterpret_cast<void*>(g_game_texture_dict); }
+void* get_textures() { return raw::as<void>(g_game_texture_dict); }
 void* find_texture(uint32_t checksum) { return static_cast<TextureSet*>(get_textures())->fetch_skin(checksum); }
 void detach_texture(void* texture)
 {
@@ -165,7 +167,7 @@ RenderModel::~RenderModel()
         discard_lights(lights_ptr_);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         if (uint8_t* volumes = table_row(node)->bone_volumes_)
-            release_bone_volumes(*reinterpret_cast<void**>(volumes + 4));
+            release_bone_volumes(*raw::as<void*>(volumes + 4));
     }
     drop_geoms();
     erase_geoms(this, get_first(this), geoms_);
@@ -385,7 +387,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
     case 1:
         if (skeleton)
             // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
-            reinterpret_cast<gfx::Rig*>(skeleton)->blit(matrix, std::bit_cast<uint32_t>(0.5f),
+            raw::as<gfx::Rig>(skeleton)->blit(matrix, std::bit_cast<uint32_t>(0.5f),
                                                         std::bit_cast<uint32_t>(0.5f), std::bit_cast<int>(1.0f));
         break;
     case 2:
@@ -419,10 +421,10 @@ int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t 
         if (!volumes)
             continue;
         float distance = nearest;
-        const int result = static_cast<int>(reinterpret_cast<gfx::BoneVolumes*>(volumes)->segment_hits_bone(
-            reinterpret_cast<const maths::Seg*>(a), reinterpret_cast<gfx::Rig*>(b),
-            reinterpret_cast<const maths::Mat4*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
-            reinterpret_cast<float*>(&extra)));
+        const int result = static_cast<int>(raw::as<gfx::BoneVolumes>(volumes)->segment_hits_bone(
+            cell::pointer<const maths::Seg>(a), cell::pointer<gfx::Rig>(b),
+            cell::pointer<const maths::Mat4>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
+            raw::as<float>(&extra)));
         if (!hit || distance < nearest) {
             nearest = distance;
             hit_extra = extra;
@@ -442,8 +444,8 @@ float RenderModel::get_bone_volume(uint32_t a, uint32_t b, uint32_t bone)
         if (!volumes)
             continue;
         float value = 0.0f;
-        if (reinterpret_cast<gfx::BoneVolumes*>(volumes)->get_bone_volume(
-                reinterpret_cast<gfx::Rig*>(a), reinterpret_cast<const maths::Mat4*>(b), bone, &value))
+        if (raw::as<gfx::BoneVolumes>(volumes)->get_bone_volume(
+                cell::pointer<gfx::Rig>(a), cell::pointer<const maths::Mat4>(b), bone, &value))
             return value;
     }
     return 0.0f;
@@ -465,7 +467,7 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
-            reinterpret_cast<TextureSet*>(entry->textures)->replace_texture_from_file(from, to))
+            raw::as<TextureSet>(entry->textures)->replace_texture_from_file(from, to))
             replaced = true;
     }
     if (!replaced)
@@ -486,7 +488,7 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all) && entry->textures &&
-            reinterpret_cast<TextureSet*>(entry->textures)->swap_texture(from, static_cast<BitmapTexture*>(texture)))
+            raw::as<TextureSet>(entry->textures)->swap_texture(from, static_cast<BitmapTexture*>(texture)))
             replaced = true;
     }
     if (!replaced)
@@ -532,7 +534,7 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
         script::Array* materials = nullptr;
         if (params->fetch_list(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->extent_; ++i) {
-                auto* entry = reinterpret_cast<script::Struct*>(materials->fetch_part(i));
+                auto* entry = materials->struct_at(i);
                 entry->read_hash_value(0u, &material, 1);
                 entry->fetch_int_value(0u, &pass, 1);
                 any |= set_geom_material_color(geom, material, pass, rgba);
@@ -572,7 +574,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
         script::Array* materials = nullptr;
         if (params->fetch_list(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->extent_; ++i) {
-                auto* entry = reinterpret_cast<script::Struct*>(materials->fetch_part(i));
+                auto* entry = materials->struct_at(i);
                 entry->read_hash_value(0u, &material, 1);
                 entry->fetch_int_value(0u, &pass, 1);
                 any |= set_geom_material_color(geom, material, pass, kGray);
@@ -607,16 +609,16 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     // The profile's skin colour (0x004869D0 reads it, 0x004869A0 makes it current) and the overlay (0x004869C0)
     // applied to the image (0x00486F70) with the face's colour parameters.
     uint8_t color[0x30];
-    gfx::read_face_points(reinterpret_cast<gfx::FaceAnchors*>(color), script::read_sub_struct(kSkinColor));
-    gfx::change_face_anchors(reinterpret_cast<const gfx::FaceAnchors*>(color));
+    gfx::read_face_points(raw::as<gfx::FaceAnchors>(color), script::read_sub_struct(kSkinColor));
+    gfx::change_face_anchors(raw::as<const gfx::FaceAnchors>(color));
     gfx::set_face_overlay(static_cast<BitmapTexture*>(overlay));
     uint8_t parameters[0x38];
     auto get_parameters = [face_texture](uint8_t* out) {
-        return reinterpret_cast<uint8_t*>(face_texture->get_points(reinterpret_cast<gfx::FaceAnchors*>(out)));
+        return raw::bytes(face_texture->get_points(raw::as<gfx::FaceAnchors>(out)));
     };
     const uint8_t generate_palette = get_parameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
     gfx::massage_face_texture(static_cast<BitmapTexture*>(image),
-                              reinterpret_cast<const gfx::FaceAnchors*>(get_parameters(parameters)), generate_palette,
+                              raw::as<const gfx::FaceAnchors>(get_parameters(parameters)), generate_palette,
                               false, 0x80808080);
     const bool replaced = replace_texture_with(name, source, texture_hash(image));
     detach_texture(image);

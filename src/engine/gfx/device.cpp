@@ -25,6 +25,9 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -96,7 +99,7 @@ void init_direct_3d()
     g_screen_offset_x = 0;
     g_screen_offset_y = 16;
     g_depth_texture_target = nullptr;
-    reinterpret_cast<uint32_t&>(g_screen_copy_index) = 0;
+    memory::bits_as<uint32_t>(g_screen_copy_index) = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
     //   if (g_show_window_flag) ShowWindow(Pane(), SW_MAXIMIZE);
 
@@ -193,7 +196,7 @@ void init_direct_3d()
     //   if (!pp.Windowed) while (ShowCursor(FALSE) > 0) {}
     load_gamma();
     // the debug font (none on PC: the original calls the shared `return 0` stub)
-    g_debug_font = reinterpret_cast<TypefaceData*>(static_cast<uintptr_t>(stubs::return_zero()));
+    g_debug_font = cell::pointer<TypefaceData>(static_cast<uintptr_t>(stubs::return_zero()));
     frame_clock::change_bits();
 }
 
@@ -329,8 +332,8 @@ void create_render_targets()
         g_border_addressing_supported = true;
     g_blend_factor_supported =
         (caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) && (caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR);
-    reinterpret_cast<uint32_t&>(g_back_buffer_width) = pp.BackBufferWidth;
-    reinterpret_cast<uint32_t&>(g_back_buffer_height) = pp.BackBufferHeight;
+    memory::bits_as<uint32_t>(g_back_buffer_width) = pp.BackBufferWidth;
+    memory::bits_as<uint32_t>(g_back_buffer_height) = pp.BackBufferHeight;
     g_back_buffer_format = pp.BackBufferFormat;
     g_depth_bits = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
     if (screen_surfaces()[0]) {
@@ -349,11 +352,11 @@ void load_gamma()
     if (RegOpenKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0, KEY_READ,
                       &key) == ERROR_SUCCESS) {
         DWORD size = 4;
-        RegQueryValueExA(key, "R", nullptr, nullptr, reinterpret_cast<BYTE*>(&red), &size);
+        RegQueryValueExA(key, "R", nullptr, nullptr, raw::bytes(&red), &size);
         size = 4;
-        RegQueryValueExA(key, "G", nullptr, nullptr, reinterpret_cast<BYTE*>(&green), &size);
+        RegQueryValueExA(key, "G", nullptr, nullptr, raw::bytes(&green), &size);
         size = 4;
-        RegQueryValueExA(key, "B", nullptr, nullptr, reinterpret_cast<BYTE*>(&blue), &size);
+        RegQueryValueExA(key, "B", nullptr, nullptr, raw::bytes(&blue), &size);
         // (the key is left open)
     }
     render::set_device_gamma(red, green, blue); // the gamma ramp

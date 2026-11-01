@@ -27,6 +27,7 @@
 #include "platform/platform_d3d.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -76,7 +77,7 @@ int glyph_for_button_tag(char tag, const char* digit)
     }
     // Originally from PartyMod Fixes (its call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
     // explicit button tags are turned back into the controller's. The original: TextUtil::hex_digit_value(digit).
-    return static_cast<int>(button_for_tag(reinterpret_cast<const uint8_t*>(digit)));
+    return static_cast<int>(button_for_tag(raw::bytes(digit)));
 }
 
 // Whether a button is drawn as a glyph of the button font (otherwise its key's name is spelled out).
@@ -296,7 +297,7 @@ void GlyphRun::draw()
             auto top =
                 static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
-                effects ? reinterpret_cast<const TextEffect*>(reinterpret_cast<const uint8_t*>(effects) + effect)
+                effects ? raw::field_at<const TextEffect>(effects, effect)
                         : nullptr;
             float right = 0.0f, bottom = 0.0f;
             if (e) {
@@ -386,7 +387,7 @@ void set_texture_stage_state(int stage, int type, int value)
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-TextVertex* vertex_store() { return reinterpret_cast<TextVertex*>(g_text_vertex_store); }
+TextVertex* vertex_store() { return raw::as<TextVertex>(g_text_vertex_store); }
 uint16_t* quad_indices() { return g_text_quad_indices; }
 bool& quad_indices_made() { return g_quad_indices_made; }
 constexpr int kQuads = 0x100;

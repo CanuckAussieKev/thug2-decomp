@@ -13,6 +13,8 @@
 #include "engine/objects/walk_hang.h"
 #include "platform/stopwatch.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -65,9 +67,9 @@ uint32_t& caches_built() { return g_caches_built; }
 // A plain key's time: its first short (rotation keys: 15 bits, signed).
 int rotation_key_time(const uint8_t* key)
 {
-    return static_cast<int16_t>(static_cast<int16_t>(*reinterpret_cast<const uint16_t*>(key) << 1) >> 1);
+    return static_cast<int16_t>(static_cast<int16_t>(*raw::as<const uint16_t>(key) << 1) >> 1);
 }
-int translation_key_time(const uint8_t* key) { return *reinterpret_cast<const int16_t*>(key); }
+int translation_key_time(const uint8_t* key) { return *raw::as<const int16_t>(key); }
 
 // The pair of keys of `count` around `time` (each key 8 bytes) and how far between: the last key - itself twice, 0.
 // Without one, `from` / `to` / `fraction` stay as they were.
@@ -118,7 +120,7 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 decode_rotation(rot_keys, key, flag_bits_, key_table_);
                 rotation_to_quat_b(decoded, key);
                 maths::QuatRotation added = rotation;
-                added *= *reinterpret_cast<maths::QuatRotation*>(decoded + 4);
+                added *= *raw::as<maths::QuatRotation>(decoded + 4);
                 maths::QuatRotation to = added;
                 float blended[4];
                 const float* result = interpolate_rotation(blended, &rotation.x, &to.x, weight);
@@ -129,7 +131,7 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 maths::Vec4& translation = translations[i];
                 uint8_t key[8];
                 decode_translation(trans_keys, key, flags);
-                const auto* values = reinterpret_cast<const int16_t*>(key + 2);
+                const auto* values = raw::as<const int16_t>(key + 2);
                 const double x = values[0] * static_cast<double>(kKeyScale);
                 auto y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
                 auto z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
@@ -187,9 +189,9 @@ void JointClipFrames::build_cache(int format)
             cache_slot_ = nullptr;
     }
     AnimCacheEntry* entry =
-        manager->add_row(reinterpret_cast<uint32_t>(this), static_cast<int16_t>(bone_count_),
+        manager->add_row(cell::of(this), static_cast<int16_t>(bone_count_),
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
-    auto* cache = reinterpret_cast<uint8_t*>(entry);
+    auto* cache = raw::bytes(entry);
     if (!cache)
         return;
     auto* rot_offsets = entry->get_rotation_offsets();
@@ -265,7 +267,7 @@ void JointClipFrames::build_cache(int format)
         cursor = decode_translation(cursor, translation, flag_bits_);
         const uint8_t* source = translation;
         if (format >= 3 && format <= 4) {
-            const auto* values = reinterpret_cast<const int16_t*>(translation + 2);
+            const auto* values = raw::as<const int16_t>(translation + 2);
             std::memcpy(key, translation, 2);
             for (int i = 0; i < 3; ++i) {
                 auto value = static_cast<float>(values[i] * static_cast<double>(kKeyScale));
@@ -286,9 +288,9 @@ void JointClipFrames::build_cache(int format)
     }
 
     cache_slot_ = cache;
-    entry->set_release_callback(reinterpret_cast<void (*)(void*)>(&JointClipFrames::forget_cache_entry),
+    entry->set_release_callback([](void* data) { JointClipFrames::forget_cache_entry(static_cast<JointClipFrames*>(data)); },
                                 this); // (the entry's owner and its release callback)
-    uint16_t& cache_flags = *reinterpret_cast<uint16_t*>(cache_slot_ + 0x164);
+    uint16_t& cache_flags = *raw::as<uint16_t>(cache_slot_ + 0x164);
     cache_flags = static_cast<uint16_t>(((flag_bits_ >> 11) & 1) << 13 | (cache_flags & 0xDFFF));
     ++caches_built();
     last_cache_vblank() = frame_clock::fetch_retrace_count();
@@ -328,7 +330,7 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
     if (flags & kCompressed) {
         if (!(flags & kNoAutoCache) && !cache_slot_)
             build_cache(cache_format(cache_manager()));
-        return fetch_pose(reinterpret_cast<float*>(rotations), reinterpret_cast<float*>(translations), arg2, time, arg4,
+        return fetch_pose(raw::as<float>(rotations), raw::as<float>(translations), arg2, time, arg4,
                           static_cast<FrameSource*>(arg5));
     }
     const float frame = time * kFramesPerSecond;
@@ -344,17 +346,17 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
         int rot_count = 0;
         int trans_count = 0;
         if (flag_bits_ & kShortCounts) {
-            rot_count = reinterpret_cast<int16_t*>(key_counts_)[i * 2];
-            trans_count = reinterpret_cast<int16_t*>(key_counts_)[i * 2 + 1];
+            rot_count = raw::as<int16_t>(key_counts_)[i * 2];
+            trans_count = raw::as<int16_t>(key_counts_)[i * 2 + 1];
         } else {
             rot_count = key_counts_[i * 2];
             trans_count = key_counts_[i * 2 + 1];
         }
         find_keys(rot_keys, rot_count, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
-        interpolate_quat(reinterpret_cast<float*>(rotations), rot_from, rot_to, rot_fraction,
+        interpolate_quat(raw::as<float>(rotations), rot_from, rot_to, rot_fraction,
                          (flag_bits_ & kOtherInterpolation) != 0);
         find_keys(trans_keys, trans_count, frame, translation_key_time, trans_from, trans_to, trans_fraction);
-        interpolate_trans(reinterpret_cast<float*>(translations), trans_from, trans_to, trans_fraction,
+        interpolate_trans(raw::as<float>(translations), trans_from, trans_to, trans_fraction,
                           (flag_bits_ & kOtherInterpolation) != 0);
         rot_keys += rot_count * 8;
         rotations++;

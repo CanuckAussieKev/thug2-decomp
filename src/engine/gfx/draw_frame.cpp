@@ -49,6 +49,9 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -82,12 +85,12 @@ void change_fog(bool on) { engine::enable_fog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
-void* input_port() { return reinterpret_cast<void*>(g_d3d_device); }
+void* input_port() { return raw::as<void>(g_d3d_device); }
 
 void set_transform(int type, const maths::Mat4* m)
 {
     static_assert(sizeof(maths::Mat4) == sizeof(D3DMATRIX));
-    g_d3d_device->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), reinterpret_cast<const D3DMATRIX*>(m));
+    g_d3d_device->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), raw::as<const D3DMATRIX>(m));
 }
 void set_render_target(void* surface) { g_d3d_device->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
 void set_depth_stencil_surface(void* surface)
@@ -148,9 +151,9 @@ void set_display_region()
     auto width = static_cast<uint32_t>(g_display_factor_x * 640.0f);
     auto height = static_cast<uint32_t>(g_display_factor_y * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
-    g_device_viewport.x = (reinterpret_cast<uint32_t&>(g_back_buffer_width) - width) / 2;
+    g_device_viewport.x = (memory::bits_as<uint32_t>(g_back_buffer_width) - width) / 2;
     g_device_viewport.width = width;
-    g_device_viewport.y = (reinterpret_cast<uint32_t&>(g_back_buffer_height) - height) / 2;
+    g_device_viewport.y = (memory::bits_as<uint32_t>(g_back_buffer_height) - height) / 2;
     g_device_viewport.height = height;
 }
 
@@ -166,8 +169,8 @@ void draw_2d_with_black_bars()
     if (get_front_end_widescreen())
         return;
 
-    const uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
-    const uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
+    const uint32_t back_buffer_width = memory::bits_as<uint32_t>(g_back_buffer_width);
+    const uint32_t back_buffer_height = memory::bits_as<uint32_t>(g_back_buffer_height);
     const float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
     constexpr uint32_t kBlack = 0xFF000000;
     if (back_buffer_aspect > desired_aspect_ratio()) {
@@ -385,8 +388,8 @@ void draw_screen_blur()
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
     graphics_options::resolve_scene_target(static_cast<IDirect3DTexture9*>(texture));
-    set_render_target(reinterpret_cast<void*>(g_back_buffer));
-    set_depth_stencil_surface(reinterpret_cast<void*>(g_back_depth));
+    set_render_target(raw::as<void>(g_back_buffer));
+    set_depth_stencil_surface(raw::as<void>(g_back_depth));
     const bool fog_colour = g_fog_setting && g_distance_clipping;
     clear_target(fog_colour ? g_fog_colour : g_camera.background_colour_);
     set_render_state(0x11, 0);
@@ -444,13 +447,13 @@ struct SceneNode {
 };
 static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
 
-bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
+bool is_end(const SceneNode* node) { return static_cast<intptr_t>(cell::address(node->scene)) == -1; }
 
 // Calls fn(scene) for every scene in the list (the next node is taken before the call).
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = reinterpret_cast<SceneNode*>(g_scene_list.next);
+    auto* node = raw::as<SceneNode>(g_scene_list.next);
     if (is_end(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
@@ -464,7 +467,7 @@ DeviceViewport& the_viewport() { return g_device_viewport; }
 void set_viewport()
 {
     static_assert(sizeof(DeviceViewport) == sizeof(D3DVIEWPORT9));
-    g_d3d_device->SetViewport(reinterpret_cast<const D3DVIEWPORT9*>(&the_viewport()));
+    g_d3d_device->SetViewport(raw::as<const D3DVIEWPORT9>(&the_viewport()));
 }
 // The device's render state directly (not the renderer's cached one).
 void set_device_render_state(int state, uint32_t value)
@@ -475,7 +478,7 @@ void set_device_render_state(int state, uint32_t value)
 void full_screen_viewport()
 {
     the_viewport() = {
-        0,    0,   reinterpret_cast<uint32_t&>(g_back_buffer_width), reinterpret_cast<uint32_t&>(g_back_buffer_height),
+        0,    0,   memory::bits_as<uint32_t>(g_back_buffer_width), memory::bits_as<uint32_t>(g_back_buffer_height),
         0.0f, 1.0f};
 }
 
@@ -486,7 +489,7 @@ const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewC
 
 void draw_scene_group(Scene* scene, int pass, int viewport)
 {
-    draw_scene(reinterpret_cast<SceneRef*>(scene->group), static_cast<uint32_t>(pass), viewport);
+    draw_scene(raw::as<SceneRef>(scene->group), static_cast<uint32_t>(pass), viewport);
 }
 void set_pass(int pass) { draw_instance_batch(static_cast<uint32_t>(pass), 0); }
 // No world transform (set_world_transform's null: the original passes 0).
@@ -494,7 +497,7 @@ void clear_world_transform() { set_world_transform(nullptr); }
 
 void draw_viewport(int index)
 {
-    const auto* view = reinterpret_cast<const Viewport*>(fetch_current_view(index));
+    const auto* view = raw::as<const Viewport>(fetch_current_view(index));
     void* camera = view->camera;
     if (!camera)
         return;
@@ -526,7 +529,7 @@ void draw_viewport(int index)
     }
     set_viewport();
     clear_world_transform();
-    const float aspect = reinterpret_cast<const ViewRegion*>(view)->fetch_width_over_height();
+    const float aspect = raw::as<const ViewRegion>(view)->fetch_width_over_height();
 
     // Not original - the level editor's ortho views (editor/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
@@ -559,7 +562,7 @@ void draw_viewport(int index)
         if (!(group->flags & 0x100)) {
             group->flags |= 0x100;
             for (int i = 0; i < group->mesh_count_; ++i)
-                reinterpret_cast<MeshRef*>(group->meshes[i])->build_collision();
+                static_cast<MeshRef*>(group->meshes[i])->build_collision();
         }
         draw_scene_group(scene, 0x55, index);
     });
@@ -584,8 +587,8 @@ void draw_viewport(int index)
     const float saved_fog_start = fog_start;
     fog_start = 20.0f;
     fog_end = 21.0f;
-    set_device_render_state(0x24, reinterpret_cast<uint32_t&>(g_fog_begin_distance)); // D3DRS_FOGSTART
-    set_device_render_state(0x25, reinterpret_cast<uint32_t&>(g_fog_end));            // D3DRS_FOGEND
+    set_device_render_state(0x24, memory::bits_as<uint32_t>(g_fog_begin_distance)); // D3DRS_FOGSTART
+    set_device_render_state(0x25, memory::bits_as<uint32_t>(g_fog_end));            // D3DRS_FOGEND
     const bool fog = g_fog_active != 0;
     change_fog(false);
     set_render_state(1, 0);
@@ -612,8 +615,8 @@ void draw_viewport(int index)
     set_render_state(2, 1);
     fog_start = saved_fog_start;
     fog_end = saved_fog_end;
-    set_device_render_state(0x24, reinterpret_cast<uint32_t&>(g_fog_begin_distance));
-    set_device_render_state(0x25, reinterpret_cast<uint32_t&>(g_fog_end));
+    set_device_render_state(0x24, memory::bits_as<uint32_t>(g_fog_begin_distance));
+    set_device_render_state(0x25, memory::bits_as<uint32_t>(g_fog_end));
     change_fog(fog);
 
     // The world again, for the later passes.

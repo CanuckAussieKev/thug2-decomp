@@ -76,7 +76,7 @@ void number_time(Struct* params, uint32_t name, float* time)
 // A model component's object's id and its model.
 uint32_t current_object_id(objects::MeshInstanceModule* component)
 {
-    return reinterpret_cast<objects::Entity*>(component->entity_)->ident_;
+    return static_cast<objects::Entity*>(component->entity_)->ident_;
 }
 bool hideable(objects::MeshInstanceModule* component)
 {
@@ -160,7 +160,7 @@ bool scale_from_args(maths::Vec4* scale, Struct* params)
             scale->w = 1.0f;
             return true;
         }
-        if (params->fetch_vec(kScale, reinterpret_cast<script::VectorValue*>(scale), 0))
+        if (params->fetch_vec(kScale, scale, 0))
             return true;
     }
     const bool x = params->fetch_float(kX, &scale->x, 0);

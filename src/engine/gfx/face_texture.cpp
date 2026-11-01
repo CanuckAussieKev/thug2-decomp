@@ -15,6 +15,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -283,10 +284,10 @@ const uint8_t* FaceSkin::read_from(const uint8_t* buffer, int /*size*/)
 {
     std::memcpy(image_, buffer, kTexelEdge);
     std::memcpy(&path_vertices_, buffer + kTexelEdge, sizeof(path_vertices_));
-    const char* name = reinterpret_cast<const char*>(buffer + kTexelEdge + sizeof(path_vertices_));
+    const char* name = raw::chars(buffer + kTexelEdge + sizeof(path_vertices_));
     const size_t length = std::strlen(name);
     std::memcpy(overlay_name_, name, length + 1);
-    return reinterpret_cast<const uint8_t*>(name) + length + 1;
+    return raw::bytes(name) + length + 1;
 }
 
 // 0x00487510
@@ -322,7 +323,7 @@ void FaceSkin::load_from_structure(Struct* params)
 {
     Array* image = nullptr; // (uninitialised in the original when missing)
     params->fetch_list(kImageData, &image, 1);
-    auto* words = reinterpret_cast<uint32_t*>(image_);
+    auto* words = raw::as<uint32_t>(image_);
     for (uint32_t i = 0; i < image->extent_; ++i)
         words[i] = image->fetch_part(i);
     const char* overlay = nullptr; // (uninitialised in the original when missing)
@@ -338,7 +339,7 @@ void FaceSkin::save_to_structure(Struct* params)
     Array* image = memory ? new (memory) script::Array : nullptr;
     constexpr uint32_t kWords = kTexelEdge / 4;
     image->configure_size_kind(kWords, script::kQbvalName);
-    auto* words = reinterpret_cast<uint32_t*>(image_);
+    auto* words = raw::as<uint32_t>(image_);
     for (uint32_t i = 0; i < kWords; ++i)
         image->set_element(i, words[i]);
     params->append_array_ref(kImageData, image);

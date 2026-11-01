@@ -6,6 +6,7 @@
 #include "engine/core/str.h"
 #include "engine/pad_input/sdl_input.h"
 #include "platform/platform_config.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -60,7 +61,7 @@ uint32_t button_for_tag(const uint8_t* digit)
             break;
         }
     }
-    return static_cast<uint32_t>(text::hex_digit_value(reinterpret_cast<const char*>(digit)));
+    return static_cast<uint32_t>(text::hex_digit_value(raw::chars(digit)));
 }
 
 uint8_t should_use_glyph(uint8_t index)

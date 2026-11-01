@@ -15,6 +15,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -158,7 +159,7 @@ bool CameraKey::work_on(void* object)
     *pos = at_point_;
     float rotation[4] = {orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w};
     const float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    objects::quat_to_matrix(rotation, origin, reinterpret_cast<float*>(matrix));
+    objects::quat_to_matrix(rotation, origin, raw::as<float>(matrix));
     armed_ = true;
     return true;
 }
@@ -194,36 +195,36 @@ bool AnimScriptKey::work_on(void* object)
 // 0x00486680
 memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
 {
-    auto* header = reinterpret_cast<const uint32_t*>(*cursor);
+    auto* header = raw::as<const uint32_t>(*cursor);
     const int frame = static_cast<int>(header[0]);
     const uint32_t kind = header[1];
     const uint32_t size = header[2];
     const uint32_t* data = header + 3;
-    *cursor = reinterpret_cast<const uint8_t*>(data);
+    *cursor = raw::bytes(data);
     switch (kind) {
     case 1: {
         const uint32_t fov = *data;
-        *cursor = reinterpret_cast<const uint8_t*>(data + 1);
+        *cursor = raw::bytes(data + 1);
         auto field_of_view = std::bit_cast<float>(fov);
         return new CameraFovKey(frame, field_of_view);
     }
     case 2:
     case 7: {
-        const maths::Vec4 pos = *reinterpret_cast<const maths::Vec4*>(data);
-        *cursor = reinterpret_cast<const uint8_t*>(data + 4);
-        const maths::QuatRotation rotation = *reinterpret_cast<const maths::QuatRotation*>(data + 4);
-        *cursor = reinterpret_cast<const uint8_t*>(data + 8);
+        const maths::Vec4 pos = *raw::as<const maths::Vec4>(data);
+        *cursor = raw::bytes(data + 4);
+        const maths::QuatRotation rotation = *raw::as<const maths::QuatRotation>(data + 4);
+        *cursor = raw::bytes(data + 8);
         return new CameraKey(frame, &rotation, &pos, kind == 7);
     }
     case 3: {
-        *cursor = reinterpret_cast<const uint8_t*>(data + 8); // (32 bytes skipped)
+        *cursor = raw::bytes(data + 8); // (32 bytes skipped)
         return new MarkerKey(frame);
     }
     case 4:
     case 5:
     case 6: {
         const uint32_t value = *data;
-        *cursor = reinterpret_cast<const uint8_t*>(data + 1);
+        *cursor = raw::bytes(data + 1);
         // (each kind's one word)
         if (kind == 4)
             return new ScriptKey(frame, value);
@@ -232,7 +233,7 @@ memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
         return new KillObjectKey(frame, value);
     }
     default:
-        *cursor = reinterpret_cast<const uint8_t*>(data) + size;
+        *cursor = raw::bytes(data) + size;
         return nullptr;
     }
 }

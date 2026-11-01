@@ -9,6 +9,8 @@
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/model_internal.h"
 #include "engine/gfx/pc_lights.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -27,10 +29,10 @@ ModelGeom* first_entry(RenderModel* model) { return table_row(get_first(model));
 
 // An asset's scene data's +0xB8 / +0xB4 (the folded getters 0x00490AC0 / 0x00490AB0).
 uint32_t scene_b8(void* scene) { return static_cast<SubMesh*>(scene)->get_hierarchy_count(); }
-uint32_t scene_b4(void* scene) { return reinterpret_cast<uint32_t>(static_cast<SubMesh*>(scene)->fetch_bone_tree()); }
+uint32_t scene_b4(void* scene) { return cell::of(static_cast<SubMesh*>(scene)->fetch_bone_tree()); }
 
 // Lights made and deleted (the engine's 0x0048EA80 / 0x0048C080).
-uint8_t* new_lights() { return reinterpret_cast<uint8_t*>(spawn_model_lights()); }
+uint8_t* new_lights() { return raw::bytes(spawn_model_lights()); }
 
 } // namespace
 
@@ -98,7 +100,7 @@ bool RenderModel::change_scale(const maths::Vec4* scale)
 {
     size_factor_ = *scale;
     // (compared as bit patterns)
-    const auto* bits = reinterpret_cast<const uint32_t*>(scale);
+    const auto* bits = raw::as<const uint32_t>(scale);
     const bool scaled = !(bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000);
     flag_bits_ = set_flag(flag_bits_, kModelScaled, scaled);
     return true;
@@ -166,11 +168,11 @@ uint32_t RenderModel::get_strip_break_flags()
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if (entry->scene) {
-            flags |= *reinterpret_cast<uint32_t*>(entry->scene + 0xB0);
+            flags |= *raw::as<uint32_t>(entry->scene + 0xB0);
         } else if (entry->asset_name_) {
             auto* scene = static_cast<uint8_t*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1));
             if (scene)
-                flags |= *reinterpret_cast<uint32_t*>(scene + 0xB0);
+                flags |= *raw::as<uint32_t>(scene + 0xB0);
         }
     }
     return flags;

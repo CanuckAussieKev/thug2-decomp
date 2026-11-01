@@ -12,6 +12,7 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -103,7 +104,7 @@ void Geom::fetch_tints(uint32_t* out)
         manager->enter_heap_scope(manager->front_end_heap_);
         render_colours_ = static_cast<uint32_t*>(memory::alloc_block(count * 4));
         memory::Hub::get_pull()->leave_heap_scope();
-        plat_get_render_colors(reinterpret_cast<uint8_t*>(render_colours_));
+        plat_get_render_colors(raw::bytes(render_colours_));
     }
     std::memcpy(out, render_colours_, count * 4);
 }

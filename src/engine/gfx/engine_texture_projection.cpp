@@ -18,10 +18,11 @@
 #include "engine/render/coll_obj.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/texture_projection_component.h"
 #include "engine/gfx/pc_texture_projection.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -76,7 +77,7 @@ void TextureProjection::plat_project(void**, void**)
 // 0x004A04C0
 void TextureProjection::configure_from_data(script::Struct* params)
 {
-    auto vector = [](maths::Vec4* v) { return reinterpret_cast<script::VectorValue*>(v); };
+    auto vector = [](maths::Vec4* v) { return v; };
     extent_ = 0.0f;
     field_of_view_ = 60.0f;
     aspect_ = 1.0f;
@@ -106,7 +107,7 @@ void TextureProjection::configure_from_data(script::Struct* params)
     int fineness = 0;
     params->fetch_int_value(0x12602598, &fineness, 0);
     fineness_ = static_cast<uint32_t>(fineness);
-    bitmap_ = reinterpret_cast<uint8_t*>(g_particle_texture_dict->fetch_skin(texture));
+    bitmap_ = raw::bytes(g_particle_texture_dict->fetch_skin(texture));
     int flag = 0;
     params->fetch_int_value(0xAF06447B, &flag, 0);
     if (flag)

@@ -21,7 +21,9 @@
 #include "engine/render/coll_grid.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
 
 namespace render {
 
@@ -29,7 +31,7 @@ namespace {
 
 // The list's first node (the head's next; the head itself when the list is empty).
 memory::ListNode* head_of_scene_list() { return g_scene_list.next; }
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // The node after `node` (null at the end).
 memory::ListNode* get_next_node(const memory::ListNode* node)
 {
@@ -121,7 +123,7 @@ void add_shadow_caster(const uint8_t* texture, void* model, WorldScene* scene)
 {
     if (!scene)
         scene = get_main_scene();
-    add_texture_shadow_caster(texture, model, reinterpret_cast<uint32_t>(scene));
+    add_texture_shadow_caster(texture, model, cell::of(scene));
 }
 
 // 0x0048C8F0
@@ -263,7 +265,7 @@ WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_s
     uint32_t vertex_arena[4] = {0, 0, 0, 0};
     void* arena = g_stream_offset_supported ? vertex_arena : nullptr;
     auto* scene = static_cast<WorldScene*>(
-        load_scene_from_file(file, textures, with_super_sectors, is_sky, mesh_flag, reinterpret_cast<int>(arena)));
+        load_scene_from_file(file, textures, with_super_sectors, is_sky, mesh_flag, static_cast<int>(cell::of(arena))));
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);
     return scene;
@@ -296,7 +298,7 @@ WorldScene* add_scene(const char* scene_name, const char* add_name)
     }
     const TextureSet* textures = load_tex_dict(tex_file, 1, 0, 0, 0);
     plat_load_add_scene(scene, file);
-    scene->finish_add(file, reinterpret_cast<uint32_t>(textures));
+    scene->finish_add(file, cell::of(textures));
     return scene;
 }
 

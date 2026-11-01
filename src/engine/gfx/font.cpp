@@ -134,7 +134,7 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
         for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->extent_); ++i) {
             if (i >= 16)
                 break;
-            auto* color = reinterpret_cast<script::Array*>(table->fetch_part(i));
+            auto* color = table->array_at(i);
             uint32_t packed = 0;
             for (int j = 0; j < ints::as_signed(color->extent_); ++j)
                 packed |= (color->fetch_part(j) & 0xFF) << ((8 * j) & 31); // (a 5th byte wraps round, as SHL does)

@@ -8,6 +8,7 @@
 #include "engine/gfx/loading_bar.h"
 #include "engine/gfx/loading_screen.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/bits_as.h"
 
 namespace render {
 
@@ -40,7 +41,7 @@ bool change_colour(script::Struct* params, uint8_t (&setting)[4])
     return true;
 }
 
-bool& loading_screen_shown() { return reinterpret_cast<bool&>(g_loading_screen_shown); }
+bool& loading_screen_shown() { return memory::bits_as<bool>(g_loading_screen_shown); }
 
 float g_loading_bar_seconds;
 } // namespace

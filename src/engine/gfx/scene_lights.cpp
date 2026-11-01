@@ -21,6 +21,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -75,7 +77,7 @@ LevelLamp* find_scene_light(uint32_t name)
 Geom* geom_of(const WorldCell* sector) { return static_cast<Geom*>(sector->geom_handle_); }
 uint32_t get_vertex_count(Geom* geom) { return geom->fetch_vertex_tally(); }
 void get_vertices(Geom* geom, maths::Vec4* out) { geom->get_vertices(out); }
-void set_colours(Geom* geom, const uint32_t* in) { geom->change_colors(reinterpret_cast<const uint8_t*>(in)); }
+void set_colours(Geom* geom, const uint32_t* in) { geom->change_colors(raw::bytes(in)); }
 
 // What a light adds at a vertex: (radius - distance) / radius x its intensity - when the vertex is within its radius
 // (the squared distance rounded to a float first); its colour's bytes times that summed into r, g, b.
@@ -89,7 +91,7 @@ struct Sums {
         if (!(d2 < radius * radius))
             return;
         const double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength_;
-        const auto* colour = reinterpret_cast<const uint8_t*>(&light.shade_);
+        const auto* colour = raw::bytes(&light.shade_);
         r += colour[0] * f;
         g += colour[1] * f;
         b += colour[2] * f;
@@ -99,7 +101,7 @@ struct Sums {
     // clamped at 255 and truncated (_ftol: the low byte).
     [[nodiscard]] uint32_t get_apply(uint32_t colour) const
     {
-        auto* bytes = reinterpret_cast<uint8_t*>(&colour);
+        auto* bytes = raw::bytes(&colour);
         const double sums[3] = {r, static_cast<float>(g), static_cast<float>(b)};
         for (int i = 0; i < 3; ++i) {
             double v = bytes[i] + sums[i];
@@ -134,7 +136,7 @@ LevelLamp* LevelLamp::make_new()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     sectors_ = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
-    auto* colour = reinterpret_cast<uint8_t*>(&shade_);
+    auto* colour = raw::bytes(&shade_);
     colour[0] = 0x80;
     colour[1] = 0x80;
     colour[2] = 0x80;
@@ -159,7 +161,7 @@ void LevelLamp::set_reach(float radius)
 // 0x0048F200
 bool LevelLamp::touches_sector(const WorldCell* sector)
 {
-    return sectors_->fetch_entry(reinterpret_cast<uint32_t>(sector)) != nullptr;
+    return sectors_->fetch_entry(cell::of(sector)) != nullptr;
 }
 
 // 0x0048FFD0
@@ -205,7 +207,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         }
         if (skip)
             continue;
-        auto key = reinterpret_cast<uint32_t>(sector);
+        auto key = cell::of(sector);
         sectors_->store_entry(key, sector);
     }
 }
@@ -486,7 +488,7 @@ void create_light_from_node(script::Struct* node)
     script::Array* colour_array = nullptr;
     node->fetch_list(0x99A9B716u, &colour_array, 0);
     if (colour_array) {
-        auto* bytes = reinterpret_cast<uint8_t*>(&colour);
+        auto* bytes = raw::bytes(&colour);
         bytes[0] = static_cast<uint8_t>(colour_array->fetch_part(0));
         bytes[1] = static_cast<uint8_t>(colour_array->fetch_part(1));
         bytes[2] = static_cast<uint8_t>(colour_array->fetch_part(2));

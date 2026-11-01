@@ -27,6 +27,7 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/engine_scene.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -88,9 +89,9 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     auto* entry = static_cast<uint8_t*>(look_up_texture(dictionary, 0x96D0BF08));
     if (!entry)
         return false;
-    auto* texture = *reinterpret_cast<uint8_t**>(entry + 0x10);
+    auto* texture = *raw::as<uint8_t*>(entry + 0x10);
     if (entry[8] & 1)
-        texture = *reinterpret_cast<uint8_t**>(texture);
+        texture = *raw::as<uint8_t*>(texture);
     std::memcpy(g_grass_texture1, texture, 0x20);
     if ((mesh->stride - mesh->unknown1c_[2]) / 8 == 1) { // (one texture coordinate set: room made for a second)
         VertexBuffer* wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
@@ -115,8 +116,8 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     uint8_t* vertices = nullptr;
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
-        auto* v = reinterpret_cast<float*>(vertices + mesh->stride * i);
-        auto* uv = reinterpret_cast<float*>(vertices + mesh->stride * i + mesh->unknown1c_[2]);
+        auto* v = raw::as<float>(vertices + mesh->stride * i);
+        auto* uv = raw::as<float>(vertices + mesh->stride * i + mesh->unknown1c_[2]);
         const float x = v[0];
         const float z = v[2];
         uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_uv_scale);
@@ -140,7 +141,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         return false;
     if (layers > kMaxLayers)
         layers = kMaxLayers;
-    auto step = static_cast<float>(*reinterpret_cast<const float*>(&m->unknown14) / static_cast<double>(layers));
+    auto step = static_cast<float>(*raw::as<const float>(&m->unknown14) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
         memory::Hub::get_pull()->enter_heap_scope(memory::bottom_up_heap());
         MeshRef* copy = mesh->replicate(false);
@@ -149,7 +150,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         char name[64];
         std::snprintf(name, sizeof(name), "Grass-Grass_Layer%d", layer);
         const uint32_t checksum = checksums::generate_crc_from_buffer(name, static_cast<int>(std::strlen(name)));
-        auto* scene = *reinterpret_cast<SceneRef**>(geom->scene + 0x280);
+        auto* scene = *raw::as<SceneRef*>(geom->scene + 0x280);
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->material = material;
         material_pixel_shader(material, &copy->pixel_shader_);
@@ -162,9 +163,9 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         copy->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked)
         const double lift = static_cast<double>(layer + 1) * step;
         for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
-            auto* v = reinterpret_cast<float*>(vertices + copy->stride * i);
+            auto* v = raw::as<float>(vertices + copy->stride * i);
             v[1] = static_cast<float>(lift + v[1]);
-            auto* uv = reinterpret_cast<float*>(vertices + copy->stride * i + copy->unknown1c_[2]);
+            auto* uv = raw::as<float>(vertices + copy->stride * i + copy->unknown1c_[2]);
             const float x = v[0];
             const float z = v[2];
             uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale);

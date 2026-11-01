@@ -18,10 +18,11 @@
 #include "engine/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
 
 namespace gfx {
 
@@ -163,7 +164,7 @@ void add_colour(script::Struct* slot, int h, int s, int v)
     slot->put_int(kUseDefaultHsv, 0);
 }
 
-uint32_t get_slot_of(const void* argument) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(argument)); }
+uint32_t get_slot_of(const void* argument) { return static_cast<uint32_t>(cell::address(argument)); }
 
 } // namespace
 
@@ -276,7 +277,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         FaceSkin* face = built_appearance()->face_skin_;
         if (!face || !face_texture_is_valid(face) || !built_model())
             return true;
-        const char* source = reinterpret_cast<const char*>(static_cast<uintptr_t>(name));
+        const char* source = cell::pointer<const char>(static_cast<uintptr_t>(name));
         params->fetch_text(kSrc, &source, 1);
         uint32_t in = kAll;
         params->read_hash_value(kIn, &in, 0);
@@ -427,7 +428,7 @@ bool ModelAssembler::swap_texture(uint32_t part)
     script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)
         return false;
-    const char* with = reinterpret_cast<const char*>(static_cast<uintptr_t>(part));
+    const char* with = cell::pointer<const char>(static_cast<uintptr_t>(part));
     for (const uint32_t* names : kReplacements) {
         const char* source = nullptr;
         if (!option->fetch_text(names[0], &source, 0))

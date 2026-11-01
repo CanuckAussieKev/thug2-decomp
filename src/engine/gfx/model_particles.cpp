@@ -16,6 +16,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "platform/crt.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -140,8 +141,8 @@ void ModelParticles::render()
         uint32_t from_colour = 0, to_colour = 0, colour = 0;
         std::memcpy(&from_colour, from, 4);
         std::memcpy(&to_colour, to, 4);
-        colour = *lerp_colour(&colour, reinterpret_cast<const uint8_t*>(&from_colour),
-                              reinterpret_cast<const uint8_t*>(&to_colour), life);
+        colour = *lerp_colour(&colour, raw::bytes(&from_colour),
+                              raw::bytes(&to_colour), life);
         model(static_cast<unsigned int>(p))
             ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
                           static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));

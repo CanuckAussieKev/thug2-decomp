@@ -17,6 +17,8 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/lists/key_map.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -29,7 +31,7 @@ lists::KeyMap& edge_table() { return g_shadow_edge_table; }
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).
 void add_shadow_caster(uint8_t* texture, RenderModel* model, int unused)
 {
-    render::add_shadow_caster(texture, model, reinterpret_cast<WorldScene*>(unused));
+    render::add_shadow_caster(texture, model, cell::pointer<WorldScene>(unused));
 }
 void delete_model(RenderModel* model) { delete model; }
 void add_extension(const char* name, const char* extension, char* out)
@@ -87,7 +89,7 @@ FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance
 FullShadow::~FullShadow()
 {
     remove_texture_shadow_caster(bitmap_);
-    delete reinterpret_cast<BitmapTexture*>(bitmap_);
+    delete raw::as<BitmapTexture>(bitmap_);
     view_camera_.reset();
 }
 

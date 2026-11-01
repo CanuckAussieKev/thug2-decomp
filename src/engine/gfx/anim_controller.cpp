@@ -30,6 +30,8 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/script_startup.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -109,20 +111,20 @@ void* logged_source_frame_of(void* source, uint32_t set, uint32_t anim)
 void release_frame_index(void* frame, int index) { static_cast<JointClipFrames*>(frame)->release_cache_index(index); }
 void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
 {
-    static_cast<JointClipFrames*>(frame)->get_frames(reinterpret_cast<maths::QuatRotation*>(pose),
-                                                     reinterpret_cast<maths::Vec4*>(pose + 0x400), pose + 0x800, time,
+    static_cast<JointClipFrames*>(frame)->get_frames(raw::as<maths::QuatRotation>(pose),
+                                                     raw::as<maths::Vec4>(pose + 0x400), pose + 0x800, time,
                                                      index, source);
 }
 // The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
 void set_bones(void* source, const uint8_t* skeleton)
 {
-    RigData* bones = reinterpret_cast<const Rig*>(skeleton)->payload_;
+    RigData* bones = raw::as<const Rig>(skeleton)->payload_;
     static_cast<render::FrameSource*>(source)->bone_masks_ = bones ? bones->lod_masks_ : nullptr;
 }
 void set_bone_count(void* source, const uint8_t* skeleton)
 {
     static_cast<render::FrameSource*>(source)->mask_bit_ =
-        static_cast<int>(reinterpret_cast<const Rig*>(skeleton)->lod_);
+        static_cast<int>(raw::as<const Rig>(skeleton)->lod_);
 }
 
 // The game clock (ms) plus its offset.
@@ -138,7 +140,7 @@ PlayParams read_play_params(Struct* params)
 {
     // (the anim name goes in the argument's own slot: the params' address if missing)
     PlayParams p;
-    p.anim = reinterpret_cast<uint32_t>(params);
+    p.anim = cell::of(params);
     params->read_hash_value(kAnimName, &p.anim, 1);
     params->fetch_float(kStartTime, &p.start, 1);
     params->fetch_float(kEndTime, &p.end, 1);
@@ -191,7 +193,7 @@ StandardAnimController::~StandardAnimController()
 bool StandardAnimController::fetch_pose(uint8_t* pose)
 {
     if (frame_index_ == -1) {
-        if (*reinterpret_cast<int*>(static_cast<uint8_t*>(frame_source_) + 0x24))
+        if (*raw::as<int>(static_cast<uint8_t*>(frame_source_) + 0x24))
             frame_index_ = frame_index(frame_source_);
         else
             frame_source_ = source_frame(blend_source_, false);
@@ -215,7 +217,7 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         return 1;
     }
     case kNewSource: {
-        auto anim = reinterpret_cast<uint32_t>(params); // (the argument's slot, as above)
+        auto anim = cell::of(params); // (the argument's slot, as above)
         params->read_hash_value(kAnim, &anim, 1);
         if (frame_source_)
             release_frame_index(frame_source_, frame_index_);
@@ -292,8 +294,8 @@ bool WeightedAnimController::fetch_pose(uint8_t* pose)
     set_bones(blend_source_, skeleton());
     set_bone_count(blend_source_, skeleton());
     static_cast<JointClipFrames*>(frame_source_)
-        ->apply_additive_if_compressed(reinterpret_cast<maths::QuatRotation*>(pose),
-                                       reinterpret_cast<maths::Vec4*>(pose + 0x400), pose + 0x800, weight_,
+        ->apply_additive_if_compressed(raw::as<maths::QuatRotation>(pose),
+                                       raw::as<maths::Vec4>(pose + 0x400), pose + 0x800, weight_,
                                        static_cast<const render::FrameSource*>(blend_source_));
     source_frame(blend_source_, true);
     return true;
@@ -304,7 +306,7 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 {
     switch (name) {
     case kPlayAnim: {
-        auto anim = reinterpret_cast<uint32_t>(params); // (the argument's slot: params' address if missing)
+        auto anim = cell::of(params); // (the argument's slot: params' address if missing)
         if (!params->read_hash_value(kWeightedAnim, &anim, 0))
             params->read_hash_value(kAnimName, &anim, 1);
         params->fetch_float(kWeight, &weight_, 0);
@@ -321,7 +323,7 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         return 1;
     }
     case kNewSource: {
-        auto anim = reinterpret_cast<uint32_t>(params);
+        auto anim = cell::of(params);
         params->read_hash_value(kAnim, &anim, 1);
         if (blend_source_) {
             free_source(blend_source_);
@@ -464,7 +466,7 @@ void WobbleDriver::tick_frame()
 // 0x004A5730
 StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    auto* rotations = reinterpret_cast<float*>(stance_);
+    auto* rotations = raw::as<float>(stance_);
     for (int i = 0; i < 64; ++i) {
         rotations[i * 4 + 0] = 0.0f;
         rotations[i * 4 + 1] = 0.0f;

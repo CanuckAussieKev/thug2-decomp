@@ -13,6 +13,7 @@
 #include "engine/objects/walk_hang.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -23,8 +24,8 @@ constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
 // a + (b - a) * t (Walk::Lerp).
 void lerp_vector(float* out, const float* a, const float* b, float t)
 {
-    walk::get_lerp(reinterpret_cast<maths::Vec4*>(out), reinterpret_cast<const maths::Vec4*>(a),
-                   reinterpret_cast<const maths::Vec4*>(b), t);
+    walk::get_lerp(raw::as<maths::Vec4>(out), raw::as<const maths::Vec4>(a),
+                   raw::as<const maths::Vec4>(b), t);
 }
 
 void copy4(float* to, const float* from) { std::memcpy(to, from, 16); }
@@ -190,7 +191,7 @@ bool BlendChannel::has_value(uint32_t offset) { return render::get_anim_data(loo
 // 0x0047D660
 void BlendChannel::clear_flag()
 {
-    if (script::Struct* params = reinterpret_cast<objects::Entity*>(owner_ptr_)->tag_table_)
+    if (script::Struct* params = raw::as<objects::Entity>(owner_ptr_)->tag_table_)
         params->erase_module(0x5DB4115F);
 }
 

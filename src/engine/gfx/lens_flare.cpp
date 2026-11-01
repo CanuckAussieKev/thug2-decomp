@@ -21,6 +21,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
+#include "engine/core/raw_view.h"
 
 namespace sun {
 
@@ -106,7 +107,7 @@ render::ViewRegion* viewport_camera() { return render::fetch_current_view(0); }
 // (the depth is written as an integer into the float, as the original)
 void cast_onto(render::ViewRegion* camera, const maths::Vec4* point, float* x, float* y, float* z)
 {
-    camera->project_to_screen(point, x, y, reinterpret_cast<int*>(z));
+    camera->project_to_screen(point, x, y, raw::as<int>(z));
 }
 uint8_t issue_query(render::ViewRegion* camera, float left, float top, float right, float bottom, int unknown,
                     uint8_t query)
@@ -121,7 +122,7 @@ uint8_t issue_query(render::ViewRegion* camera, float left, float top, float rig
 using Prim = render::PcPrimitive;
 void blit_quad(Prim* quad, const float* corners, const uint8_t* colors, const float* uvs)
 {
-    quad->draw_if_ready(corners, reinterpret_cast<const uint32_t*>(colors), uvs, nullptr);
+    quad->draw_if_ready(corners, raw::as<const uint32_t>(colors), uvs, nullptr);
 }
 // A render state for the primitives (0x0049C700).
 void set_prim_state(int state, int value) { render::set_primitive_state(state, value); }
@@ -140,7 +141,7 @@ struct QueryRequest {
 static_assert(sizeof(QueryRequest) == 0x10, "the original keeps 0x10 bytes for it");
 void add_query(QueryRequest* request)
 {
-    render::request_occlusion_query(reinterpret_cast<render::OcclusionRequest*>(request));
+    render::request_occlusion_query(raw::as<render::OcclusionRequest>(request));
 }
 uint32_t query_result(uint8_t) { return render::occlusion_pixels(); } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
@@ -265,7 +266,7 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
     element_count() = data->extent_;
     get_elements() = static_cast<FlareElement*>(memory::alloc(element_count() * sizeof(FlareElement)));
     for (uint32_t i = 0; i < element_count(); ++i) {
-        auto* item = reinterpret_cast<Struct*>(data->fetch_part(i));
+        auto* item = data->struct_at(i);
         Array* rgba = nullptr;
         FlareElement& element = get_elements()[i];
         item->fetch_float(kPosScale, &element.pos_scale_, 1);
@@ -522,7 +523,7 @@ namespace {
 
 // 0x004426B0: a camera's +0xB4 (written out in the unoptimised lens flare code).
 struct CameraFactor {
-    float get_pull() { return reinterpret_cast<gfx::ViewCam*>(this)->unknownb4_; }
+    float get_pull() { return raw::as<gfx::ViewCam>(this)->unknownb4_; }
 };
 
 } // namespace

@@ -9,6 +9,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport_list.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -30,7 +31,7 @@ void set_sampler_state(int state, int value) { change_phase(state, static_cast<u
 void draw_flash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
-    const auto* view = reinterpret_cast<const float*>(fetch_current_view(flash->viewport));
+    const auto* view = raw::as<const float>(fetch_current_view(flash->viewport));
     const double width = g_back_buffer_width;
     const double height = g_back_buffer_height;
     // (x87: each product is rounded once, each sum to float)
@@ -47,9 +48,9 @@ void draw_flash(const Flash* flash)
                                {left, bottom, z, 1.0f, color, 0.0f, 1.0f}};
     // (without a texture the original leaves u/v unset; they aren't used then)
     if (uint8_t* texture = flash->texture) {
-        uint8_t* image = (texture[8] & 1) ? **reinterpret_cast<uint8_t***>(texture + 0x10)
-                                          : *reinterpret_cast<uint8_t**>(texture + 0x10);
-        set_texture(0, *reinterpret_cast<void**>(image + 0x10)); // (the original also passes 0, unused)
+        uint8_t* image = (texture[8] & 1) ? **raw::as<uint8_t**>(texture + 0x10)
+                                          : *raw::as<uint8_t*>(texture + 0x10);
+        set_texture(0, *raw::as<void*>(image + 0x10)); // (the original also passes 0, unused)
         set_sampler_state(4, 0x10001);
     } else {
         set_texture(0, nullptr);

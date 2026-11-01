@@ -27,6 +27,8 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -50,18 +52,18 @@ void destroy_material(MaterialRef* material) { material->~MaterialRef(); }
 void set_material_states(MaterialRef* material) { material->submit_states(); }
 void change_material_layer(MaterialRef* material, int pass, int flags)
 {
-    material->submit_pass(pass, reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
+    material->submit_pass(pass, cell::pointer<const float>(static_cast<intptr_t>(flags)));
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* find_texture(uint32_t checksum)
 {
-    return reinterpret_cast<const uint8_t*>(g_particle_texture_dict->fetch_skin(checksum));
+    return raw::bytes(g_particle_texture_dict->fetch_skin(checksum));
 }
 // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
 uint8_t* texture_key(const uint8_t* texture)
 {
-    auto* const* key = reinterpret_cast<uint8_t* const*>(texture + 0x10);
-    return texture[8] & 1 ? *reinterpret_cast<uint8_t* const*>(*key) : *key;
+    auto* const* key = raw::as<uint8_t* const>(texture + 0x10);
+    return texture[8] & 1 ? *raw::as<uint8_t* const>(*key) : *key;
 }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).

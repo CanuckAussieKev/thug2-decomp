@@ -23,6 +23,8 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/owner.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -34,8 +36,8 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
 void* default_pixel_shader() { return g_pixel_shaders[kPixelShader964]; }
 // The frame's draw counts: draws, triangles.
-uint32_t& draw_calls() { return reinterpret_cast<uint32_t&>(g_draw_calls); }
-uint32_t& drawn_triangles() { return reinterpret_cast<uint32_t&>(g_drawn_triangles); }
+uint32_t& draw_calls() { return memory::bits_as<uint32_t>(g_draw_calls); }
+uint32_t& drawn_triangles() { return memory::bits_as<uint32_t>(g_drawn_triangles); }
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -80,7 +82,7 @@ uint8_t clamped_byte(double value)
 }
 
 // The colours as the PC code reads them: RGBA words.
-const uint32_t* as_rgba(const uint8_t* colours) { return reinterpret_cast<const uint32_t*>(colours); }
+const uint32_t* as_rgba(const uint8_t* colours) { return raw::as<const uint32_t>(colours); }
 
 // 0x004BD470: the colour `t` of the way from `from` to `to` (RGBA bytes, each channel wrapping as a byte), its red,
 // green and blue then scaled by the colour scale x the brightness (clamped to 0-255) - into *out as a d_3d colour
@@ -144,7 +146,7 @@ ColourSpan colour_span(const EmitterInstance& system, float life)
 uint32_t get_colour(const EmitterInstance& system, uint32_t from, uint32_t to, float t)
 {
     uint32_t colour = 0;
-    lerp_colour(system, &colour, reinterpret_cast<const uint8_t*>(&from), reinterpret_cast<const uint8_t*>(&to), t);
+    lerp_colour(system, &colour, raw::bytes(&from), raw::bytes(&to), t);
     return colour;
 }
 
@@ -915,10 +917,10 @@ void PcRibbonParticles::render()
             for (int k = 0; k < 4; ++k) {
                 const uint32_t colour = colours[k / 2];
                 if (textured) {
-                    reinterpret_cast<QuadVertex*>(out)[k] = {corners[k][0], corners[k][1], corners[k][2],
+                    raw::as<QuadVertex>(out)[k] = {corners[k][0], corners[k][1], corners[k][2],
                                                              colour,        kUv[k][0],     kUv[k][1]};
                 } else {
-                    reinterpret_cast<TrailVertex*>(out)[k] = {corners[k][0], corners[k][1], corners[k][2], colour};
+                    raw::as<TrailVertex>(out)[k] = {corners[k][0], corners[k][1], corners[k][2], colour};
                 }
             }
             out += 4 * stride;
@@ -950,8 +952,8 @@ void PcRibbonParticles::render()
 // scaled by the brightness alone, not clamped (each the low byte).
 uint32_t PcRibbonTrailParticles::head_colour(uint32_t from, uint32_t to, float t)
 {
-    const auto* f = reinterpret_cast<const uint8_t*>(&from);
-    const auto* g = reinterpret_cast<const uint8_t*>(&to);
+    const auto* f = raw::bytes(&from);
+    const auto* g = raw::bytes(&to);
     auto lerp = [&](int k) { return static_cast<uint8_t>(f[k] + truncate(static_cast<double>(g[k] - f[k]) * t)); };
     uint8_t bytes[4] = {lerp(2), lerp(1), lerp(0), lerp(3)};
     for (int k = 0; k < 3; ++k)
@@ -1785,8 +1787,8 @@ void PcStarParticles::render()
 // The colour `t` of the way from `from` to `to` in 4096ths (RGBA bytes in, BGRA out), not scaled.
 uint32_t PcGlowRibbonTrailParticles::fine_colour(uint32_t from, uint32_t to, double t)
 {
-    const auto* f = reinterpret_cast<const uint8_t*>(&from);
-    const auto* g = reinterpret_cast<const uint8_t*>(&to);
+    const auto* f = raw::bytes(&from);
+    const auto* g = raw::bytes(&to);
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(truncate((static_cast<double>(g[k] - f[k]) * t + (f[k] << 12)) * (1.0f / 4096.0f)));
     };

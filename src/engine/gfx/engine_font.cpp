@@ -53,7 +53,7 @@ void unload_font(const char* name)
     }
     const uint32_t key = checksums::hash_from_text(name);
     font_table().erase_entry(key);
-    unload_pc_font(reinterpret_cast<PcFont*>(slots[index].font));
+    unload_pc_font(static_cast<PcFont*>(slots[index].font));
     slots[index].font = nullptr;
 }
 

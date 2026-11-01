@@ -25,6 +25,8 @@
 #include "engine/lists/key_map.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -53,7 +55,7 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (own) {
         void* memory = memory::alloc(0x110);
-        material = memory ? reinterpret_cast<uint8_t*>(memory::construct_in<MaterialRef>(memory)) : nullptr;
+        material = memory ? raw::bytes(memory::construct_in<MaterialRef>(memory)) : nullptr;
     } else {
         material = nullptr;
     }
@@ -64,7 +66,7 @@ PcShatter::~PcShatter()
 {
     memory::Hub::get_pull()->dealloc(vertices);
     if (uint8_t* own = material) {
-        reinterpret_cast<MaterialRef*>(own)->~MaterialRef(); // (the material's destructor body)
+        raw::as<MaterialRef>(own)->~MaterialRef(); // (the material's destructor body)
         memory::Hub::get_pull()->dealloc(own);
     }
     if (positions)
@@ -96,7 +98,7 @@ void kill_all_shatters()
         PcShatter* next = nullptr;
         if (shatters()->step_iterator() && shatters()->iter_item_)
             next = static_cast<PcShatter*>(shatters()->iter_item_->value);
-        auto key = reinterpret_cast<uint32_t>(shatter);
+        auto key = cell::of(shatter);
         shatters()->erase_entry(key);
         delete shatter;
         shatter = next;
@@ -111,7 +113,7 @@ void get_turn(const maths::Mat4& m, double x, double y, double z, float* out)
     for (int k = 0; k < 3; ++k)
         out[k] = static_cast<float>(z * (&m.row[2].x)[k] + y * (&m.row[1].x)[k] + x * (&m.row[0].x)[k]);
 }
-float* get_at(uint8_t* vertex) { return reinterpret_cast<float*>(vertex); }
+float* get_at(uint8_t* vertex) { return raw::as<float>(vertex); }
 
 int get_rand() { return crt::get_rand(); }                          // (the game's C runtime's)
 constexpr double kPerRand = std::bit_cast<float>(0x38000100u);      // 0x00646510 (1 / 32767)
@@ -120,7 +122,7 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930
 // The vertex stack the splitter works from (0x006FC4A0; not rewritten yet: pushed onto).
 void push_vertex(const uint8_t* vertex)
 {
-    reinterpret_cast<VertexStack*>(reinterpret_cast<uint8_t*>(&g_vertex_stack))->stack_on(vertex);
+    raw::as<VertexStack>(raw::bytes(&g_vertex_stack))->stack_on(vertex);
 }
 uint8_t* lock_vertices(VertexBuffer* buffer)
 {
@@ -132,7 +134,7 @@ uint8_t* lock_indices(IdxStore* buffer)
 {
     uint16_t* data = nullptr;
     buffer->get_lock(0, 0, &data, 0x10);
-    return reinterpret_cast<uint8_t*>(data);
+    return raw::bytes(data);
 }
 
 } // namespace
@@ -159,7 +161,7 @@ void update_shatter(PcShatter* shatter, float step)
         get_turn(m, d0[0], d0[1], d0[2], r0);
         get_turn(m, d1[0], d1[1], d1[2], r1);
         get_turn(m, d2[0], d2[1], d2[2], r2);
-        reinterpret_cast<Shatter*>(shatter)->Shatter::get_step(i, step); // (the centre moved)
+        static_cast<Shatter*>(shatter)->Shatter::get_step(i, step); // (the centre moved)
         const maths::Vec4& moved = shatter->centres[i];
         for (int k = 0; k < 3; ++k) {
             get_at(v0)[k] = static_cast<float>(static_cast<double>(r0[k]) + (&moved.x)[k]);
@@ -196,7 +198,7 @@ void shatter_geom(PcGeom* geom)
         g_vertex_stack.vertex_size_ = stride; // (the vertex stack's vertex size)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
         uint8_t* vertices = lock_vertices(vertex_buffer);
-        auto* indices = reinterpret_cast<uint16_t*>(lock_indices(mesh->index_buffers_[0]));
+        auto* indices = raw::as<uint16_t>(lock_indices(mesh->index_buffers_[0]));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
         uint32_t a = indices[0], b = indices[1];
@@ -237,7 +239,7 @@ void shatter_geom(PcGeom* geom)
             continue; // (the buffers left locked, as the original)
         auto* shatter = new PcShatter(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
-        const auto* direction = reinterpret_cast<const float*>(&g_glass_burst_velocity);
+        const auto* direction = raw::as<const float>(&g_glass_burst_velocity);
         const double scale = -static_cast<double>(g_shatter_velocity_scale);
         const double back_x = scale * direction[0];
         auto back_y = static_cast<float>(scale * direction[1]);
@@ -250,10 +252,10 @@ void shatter_geom(PcGeom* geom)
                                static_cast<float>(static_cast<double>(mesh->centre[1]) + back_y),
                                static_cast<float>(static_cast<double>(mesh->centre[2]) + back_z),
                                static_cast<float>(static_cast<double>(back_w) + 1.0f)};
-        auto key = reinterpret_cast<uint32_t>(shatter);
+        auto key = cell::of(shatter);
         g_shatters->store_entry(key, shatter);
         uint8_t* cursor = shatter->vertices;
-        while (split_next_triangle(&cursor, reinterpret_cast<const SplitFormat*>(mesh)))
+        while (split_next_triangle(&cursor, raw::as<const SplitFormat>(mesh)))
             ;
         int j = 0;
         for (uint8_t* t = shatter->vertices; t < cursor; t += 3 * stride, ++j) {

@@ -21,8 +21,10 @@
 #include "engine/gfx/viewport.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -64,12 +66,12 @@ FlexibleParticle* new_particles(int count)
     if (!memory)
         return nullptr;
     *memory = count; // (then the empty constructor run over each: 0x0062388B with 0x005902E0)
-    return reinterpret_cast<FlexibleParticle*>(memory + 1);
+    return raw::as<FlexibleParticle>(memory + 1);
 }
 void delete_particles(FlexibleParticle* particles)
 {
     // (the empty destructor run over each first: 0x0062382B with 0x005480A0)
-    memory::dealloc(reinterpret_cast<int*>(particles) - 1);
+    memory::dealloc(raw::as<int>(particles) - 1);
 }
 
 // The three colour arrays, `count` RGBA colours each (the constructor iterator 0x00401020 runs an empty one over
@@ -410,7 +412,7 @@ void EmitterInstance::set_wants_time(uint8_t on)
         flag_bits_ |= 0x10000u;
     else
         flag_bits_ &= ~0x10000u;
-    reinterpret_cast<uint8_t&>(wants_time_) = on;
+    memory::bits_as<uint8_t>(wants_time_) = on;
 }
 
 // 0x00497AB0

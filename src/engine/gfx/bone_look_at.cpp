@@ -13,11 +13,12 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -188,7 +189,7 @@ void BoneLookAt::tick_frame()
         if (bone.fixed_pos_)
             continue;
         auto* object =
-            reinterpret_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(bone.aim_point_));
+            static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(bone.aim_point_));
         if (!object)
             continue;
         bone.look_goal_.z = bone.shift_.z + object->at_point_.z;
@@ -205,7 +206,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
     objects::GameEntity* object = owner_object_;
     objects::ObjectModule* component = object->fetch_module(kSkeletonModuleName);
     auto* skeleton =
-        component ? reinterpret_cast<Rig*>(static_cast<objects::BoneRigModule*>(component)->bone_rig_) : nullptr;
+        component ? raw::as<Rig>(static_cast<objects::BoneRigModule*>(component)->bone_rig_) : nullptr;
     for (Bone& bone : bones_) {
         if (bone.bone_ == kNoBone)
             continue;
@@ -321,21 +322,21 @@ void BoneLookAt::configure(bool all, int index, Struct* params)
         bone.fixed_pos_ = false;
         bone.shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    if (params->fetch_vec(kAimPointHash, reinterpret_cast<script::VectorValue*>(&bone.look_goal_), 0))
+    if (params->fetch_vec(kAimPointHash, &bone.look_goal_, 0))
         bone.fixed_pos_ = true;
-    if (params->fetch_vec(kOffset, reinterpret_cast<script::VectorValue*>(&bone.shift_), 0))
+    if (params->fetch_vec(kOffset, &bone.shift_, 0))
         bone.fixed_pos_ = false;
     params->fetch_int_value(kAxis, &bone.pivot_dir_, 0);
     params->fetch_float(kWeight, &bone.weight_, 0);
     maths::Vec4 limit;
-    if (params->fetch_vec(kMinAngles, reinterpret_cast<script::VectorValue*>(&limit), 0)) {
+    if (params->fetch_vec(kMinAngles, &limit, 0)) {
         limit.degree_to_radian_conv();
         if (all)
             set_all_min(&limit);
         else
             bone.lower_limit_ = limit;
     }
-    if (params->fetch_vec(kMaxAngles, reinterpret_cast<script::VectorValue*>(&limit), 0)) {
+    if (params->fetch_vec(kMaxAngles, &limit, 0)) {
         limit.degree_to_radian_conv();
         if (all)
             set_all_max(&limit);

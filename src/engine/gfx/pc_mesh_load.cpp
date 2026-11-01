@@ -27,6 +27,8 @@
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -52,7 +54,7 @@ struct ScaledVertex {
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
-bool skin_scaling_on() { return g_skin_scaling_on && reinterpret_cast<float*&>(g_skin_settings[3]); }
+bool skin_scaling_on() { return g_skin_scaling_on && memory::bits_as<float*>(g_skin_settings[3]); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
@@ -61,7 +63,7 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
-    const float* scale = reinterpret_cast<float*&>(g_skin_settings[3]) + 4 * bone;
+    const float* scale = memory::bits_as<float*>(g_skin_settings[3]) + 4 * bone;
     e0 = scale[0];
     e4 = scale[1];
     e8 = scale[2];
@@ -105,7 +107,7 @@ void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertic
         ScaledVertex v{};
         std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
         if (skin_scaling_on())
-            scaled_position(v, reinterpret_cast<float*>(vertices));
+            scaled_position(v, raw::as<float>(vertices));
         vertices += stride;
     }
 }
@@ -142,7 +144,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     if (!body.scaled.empty())
         apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride);
     mesh->fvf = vertex_format(body.vertex_types[0]);
-    *reinterpret_cast<uint32_t*>(mesh->unknown3c_) = vertex_format(body.vertex_types[1]);
+    *raw::as<uint32_t>(mesh->unknown3c_) = vertex_format(body.vertex_types[1]);
     mesh->unknown1c_[1] = body.offsets[0];
     mesh->unknown1c_[0] = body.offsets[1];
     mesh->unknown1c_[2] = body.offsets[2];
@@ -204,7 +206,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
 // 0x004D5940
 void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexArena* arena)
 {
-    const uint32_t sets = reinterpret_cast<MaterialRef*>(material)->pass_count_; // (a texture coordinate set a pass)
+    const uint32_t sets = material->pass_count_; // (a texture coordinate set a pass)
     auto* out = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
     per_vertex_data_ = out;
     uint32_t bones = 1;
@@ -216,8 +218,8 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
         std::memcpy(out, packed, 12); // the position
         if (suspect && i == 0xF7)
             debug::printf("euh");
-        const uint32_t normal = *reinterpret_cast<const uint32_t*>(packed + 0x18);
-        auto* f = reinterpret_cast<float*>(out);
+        const uint32_t normal = *raw::as<const uint32_t>(packed + 0x18);
+        auto* f = raw::as<float>(out);
         f[3] = static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11_scale));
         f[4] = static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11_scale));
         const uint32_t z = normal >> 22;
@@ -225,8 +227,8 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
         std::memcpy(out + 0x18, packed + 0x1C, 4); // the colour
         std::memcpy(out + 0x1C, packed + 0x20, sets * 8);
         for (int k = 0; k < 4; ++k)
-            out[0x3C + k] = static_cast<uint8_t>(*reinterpret_cast<const int16_t*>(packed + 0x10 + 2 * k) / 3);
-        const uint32_t weights = *reinterpret_cast<const uint32_t*>(packed + 0xC);
+            out[0x3C + k] = static_cast<uint8_t>(*raw::as<const int16_t>(packed + 0x10 + 2 * k) / 3);
+        const uint32_t weights = *raw::as<const uint32_t>(packed + 0xC);
         f[16] = static_cast<float>(unpack11(weights) * static_cast<double>(g_unpack11_scale));
         f[17] = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(g_unpack11_scale));
         const uint32_t w = weights >> 22;

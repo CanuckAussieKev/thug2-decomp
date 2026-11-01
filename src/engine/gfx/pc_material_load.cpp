@@ -13,6 +13,7 @@
 #include "formats/scene_format.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/lists/key_map.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -24,9 +25,9 @@ uint8_t* find_texture(const lists::KeyMap* textures, uint32_t checksum)
     auto* entry = static_cast<uint8_t*>(textures->fetch_entry(checksum));
     if (!entry)
         return nullptr;
-    auto* texture = *reinterpret_cast<uint8_t**>(entry + 0x10);
+    auto* texture = *raw::as<uint8_t*>(entry + 0x10);
     if (entry[8] & 1)
-        texture = *reinterpret_cast<uint8_t**>(texture);
+        texture = *raw::as<uint8_t*>(texture);
     return texture;
 }
 

@@ -18,6 +18,7 @@
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -37,7 +38,7 @@ float* glow_quad() { return g_glow_quad; }
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int query_result(uint32_t query, uint32_t* pixels)
 {
-    return os_layer::get_occlusion_result(query, reinterpret_cast<DWORD*>(pixels));
+    return os_layer::get_occlusion_result(query, raw::as<DWORD>(pixels));
 }
 
 Glow* next_glow()
@@ -52,7 +53,7 @@ Glow* next_glow()
 void set_quad(const Glow* glow, const float* u, const float* v, float size, uint32_t colour)
 {
     float* q = glow_quad();
-    auto* colours = reinterpret_cast<uint32_t*>(q);
+    auto* colours = raw::as<uint32_t>(q);
     for (int i = 0; i < 3; ++i) {
         const double across = static_cast<double>(u[i]) * size;
         const double up = static_cast<double>(v[i]) * size;

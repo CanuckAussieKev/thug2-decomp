@@ -39,6 +39,9 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/engine_glue.h"
 #include "frontend/front_end.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -180,7 +183,7 @@ void set_ambient_modulation(float lo, float hi) { render::change_ambient_scale(l
 void set_light_modulation(int index, float lo, float hi) { render::change_diffuse_scale(index, lo, hi); }
 void set_light_direction_vector(int index, const float* direction)
 {
-    render::set_light_direction(index, reinterpret_cast<const maths::Vec4*>(direction));
+    render::set_light_direction(index, raw::as<const maths::Vec4>(direction));
 }
 // The sun: its parameters (theta +0x00, phi +0x04, colour +0x18 as r g b 128, shown +0x40) by mask.
 struct SunParams {
@@ -198,7 +201,7 @@ void set_sun(const SunParams* sun, int mask)
 {
     static_assert(offsetof(SunParams, shown) == offsetof(sun::Settings, shown),
                   "the sun's settings (SetSun reads 0x44 bytes)");
-    sun::set_sun(reinterpret_cast<const sun::Settings*>(sun), static_cast<uint32_t>(mask));
+    sun::set_sun(raw::as<const sun::Settings>(sun), static_cast<uint32_t>(mask));
 }
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
 void set_level_color(const float* color)
@@ -213,7 +216,7 @@ bool is_multiplayer() { return modules::Skate::is_multiplayer() & 1; }
 // The game mode's name (modules::Skate's game mode 0x007CE470).
 uint32_t active_ruleset_label() { return goals::g_game_mode->get_name_key(); }
 // The front end (0x007CE464): +0x30 paused.
-bool is_game_halted() { return reinterpret_cast<uint8_t*&>(modules::g_front_end_instance)[0x30] != 0; }
+bool is_game_halted() { return memory::bits_as<uint8_t*>(modules::g_front_end_instance)[0x30] != 0; }
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.
 void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
 
@@ -224,8 +227,8 @@ struct SceneNode {
     SceneNode* next;
 };
 static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
-SceneNode* first_scene() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
+bool is_end(const SceneNode* node) { return static_cast<intptr_t>(cell::address(node->scene)) == -1; }
+SceneNode* first_scene() { return raw::as<SceneNode>(render::first_scene_node()); }
 render::WorldScene* sky_scene() { return render::get_sky_scene(); }
 // The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
 render::WorldScene* level_scene()
@@ -250,7 +253,7 @@ void set_model_color(objects::ObjectModule* model, uint32_t color)
 TodSystem& system_at(CtodManager* manager, int index)
 {
     // (no bounds check: index 2 is past the end, as in the original)
-    return *reinterpret_cast<TodSystem*>(reinterpret_cast<uint8_t*>(manager->systems_) + index * sizeof(TodSystem));
+    return *raw::field_at<TodSystem>(manager->systems_, index * sizeof(TodSystem));
 }
 
 BloomParams bloom_of(const TodParams& params)
@@ -344,7 +347,7 @@ void CtodManager::read_group(int index)
     script::Array* groups = nullptr;
     system.params->fetch_list(kGroups, &groups, 1);
     system.group_count_ = static_cast<int>(groups->extent_);
-    auto* group = reinterpret_cast<script::Struct*>(groups->fetch_part(static_cast<uint32_t>(system.group)));
+    auto* group = groups->struct_at(static_cast<uint32_t>(system.group));
     group->fetch_int_value(kParts, &system.parts, 1);
     group->fetch_int_value(kWaitFrames, &system.wait_frames_, 1);
     group->read_hash_value(kLightGroup, &system.light_group_, 1);
@@ -987,7 +990,7 @@ void CtodManager::refresh_all(bool temp_state)
         script::Array* groups = nullptr;
         system.params->fetch_list(kGroups, &groups, 1);
         for (int g = 0; g < system.group_count_; ++g) {
-            auto* group = reinterpret_cast<script::Struct*>(groups->fetch_part(static_cast<uint32_t>(g)));
+            auto* group = groups->struct_at(static_cast<uint32_t>(g));
             uint32_t light_group = 0;
             group->read_hash_value(kLightGroup, &light_group, 1);
             uint32_t reset_light_group = 0;

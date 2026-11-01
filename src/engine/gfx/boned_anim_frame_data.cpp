@@ -19,6 +19,8 @@
 #include "engine/maths/vec4.h"
 #include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -59,15 +61,15 @@ float quat_w(float x, float y, float z, uint16_t time, bool nan_to_zero)
 void* frame_cache() { return ClipStore::get_pull(); }
 void cache_remove(void* cache, JointClipFrames* data)
 {
-    static_cast<ClipStore*>(cache)->drop_out(reinterpret_cast<uint32_t>(data));
+    static_cast<ClipStore*>(cache)->drop_out(cell::of(data));
 }
 int cache_acquire(void* cache, JointClipFrames* data)
 {
-    return static_cast<ClipStore*>(cache)->add_user(reinterpret_cast<uint32_t>(data));
+    return static_cast<ClipStore*>(cache)->add_user(cell::of(data));
 }
 void cache_release(void* cache, JointClipFrames* data, int index)
 {
-    static_cast<ClipStore*>(cache)->remove_user(reinterpret_cast<uint32_t>(data), index);
+    static_cast<ClipStore*>(cache)->remove_user(cell::of(data), index);
 }
 // The events' arming and firing.
 void arm_event(UserClipKey* e, bool armed) { e->change_live(armed); }
@@ -769,7 +771,7 @@ bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const a
         return true;
     }
     events_ptr_ = static_cast<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
-    util::ByteReader reader(reinterpret_cast<const uint8_t*>(layout.custom_keys), layout.end - layout.custom_keys);
+    util::ByteReader reader(cell::pointer<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
         UserClipKey* event = create_custom_anim_key(reader);
         if (!event)
@@ -786,16 +788,16 @@ bool JointClipFrames::set_up_compressed(const anim_format::AnimHeader& header, c
     bone_count_ = static_cast<int>(header.bone_count);
     quat_key_count_ = static_cast<int16_t>(header.rotation_key_count);
     trans_key_count_ = static_cast<int16_t>(header.translation_key_count);
-    quat_sizes_ = reinterpret_cast<uint16_t*>(layout.rotation_sizes);
-    trans_sizes_ = reinterpret_cast<uint16_t*>(layout.translation_sizes);
+    quat_sizes_ = cell::pointer<uint16_t>(layout.rotation_sizes);
+    trans_sizes_ = cell::pointer<uint16_t>(layout.translation_sizes);
     bone_labels_ = nullptr;
     if (layout.key_table)
-        key_table_ = reinterpret_cast<uint8_t*>(layout.key_table);
+        key_table_ = cell::pointer<uint8_t>(layout.key_table);
     if (layout.partial_bones)
-        partial_bones_ = reinterpret_cast<uint32_t*>(layout.partial_bones);
+        partial_bones_ = cell::pointer<uint32_t>(layout.partial_bones);
     if (layout.rotation_keys) {
-        quat_keys_ = reinterpret_cast<uint8_t*>(layout.rotation_keys);
-        trans_keys_ = reinterpret_cast<uint8_t*>(layout.translation_keys);
+        quat_keys_ = cell::pointer<uint8_t>(layout.rotation_keys);
+        trans_keys_ = cell::pointer<uint8_t>(layout.translation_keys);
     }
     return read_events(header, layout);
 }
@@ -806,12 +808,12 @@ bool JointClipFrames::set_up_float_keys(const anim_format::AnimHeader& header, c
     bone_count_ = static_cast<int>(header.bone_count);
     quat_key_count_ = static_cast<int16_t>(header.rotation_key_count);
     trans_key_count_ = static_cast<int16_t>(header.translation_key_count);
-    bone_labels_ = reinterpret_cast<uint32_t*>(layout.bone_names); // (null without them)
+    bone_labels_ = cell::pointer<uint32_t>(layout.bone_names); // (null without them)
     if (layout.partial_bones)
-        partial_bones_ = reinterpret_cast<uint32_t*>(layout.partial_bones);
-    key_counts_ = reinterpret_cast<uint8_t*>(layout.key_counts);
-    quat_keys_ = reinterpret_cast<uint8_t*>(layout.rotation_keys);
-    trans_keys_ = reinterpret_cast<uint8_t*>(layout.translation_keys);
+        partial_bones_ = cell::pointer<uint32_t>(layout.partial_bones);
+    key_counts_ = cell::pointer<uint8_t>(layout.key_counts);
+    quat_keys_ = cell::pointer<uint8_t>(layout.rotation_keys);
+    trans_keys_ = cell::pointer<uint8_t>(layout.translation_keys);
     return read_events(header, layout);
 }
 
@@ -832,8 +834,8 @@ bool JointClipFrames::get_float_key_pose(float* rotations, float* translations, 
     for (int bone = 0; bone < bone_count_; ++bone) {
         int quat_count = 0, trans_count = 0;
         if (flag_bits_ & 0x400000) {
-            quat_count = reinterpret_cast<const int16_t*>(key_counts_)[2 * bone];
-            trans_count = reinterpret_cast<const int16_t*>(key_counts_)[2 * bone + 1];
+            quat_count = raw::as<const int16_t>(key_counts_)[2 * bone];
+            trans_count = raw::as<const int16_t>(key_counts_)[2 * bone + 1];
         } else {
             quat_count = key_counts_[2 * bone];
             trans_count = key_counts_[2 * bone + 1];
@@ -887,7 +889,7 @@ namespace {
 // The frame cache's time for a cursor (0x00480590 on the entry): its direction - negative when time went back.
 int16_t cache_direction(uint8_t* entry, int cursor, int time)
 {
-    return reinterpret_cast<AnimCacheEntry*>(entry)->set_slot_time(cursor, static_cast<int16_t>(time));
+    return raw::as<AnimCacheEntry>(entry)->set_slot_time(cursor, static_cast<int16_t>(time));
 }
 
 } // namespace
@@ -906,11 +908,11 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
     const uint32_t mask = source && source->resume_ ? 1u << (source->mask_bit_ & 31) : 0u;
     if (cache_slot_) {
         uint32_t& counter = g_cache_use_counter;
-        *reinterpret_cast<uint32_t*>(cache_slot_ + 4) = counter++;
+        *raw::as<uint32_t>(cache_slot_ + 4) = counter++;
         if (cursor != -1 && cache_direction(cache_slot_, cursor, static_cast<int>(static_cast<int64_t>(time))) < 0)
             forwards = false;
     }
-    auto* entry = reinterpret_cast<FrameCacheEntry*>(cache_slot_);
+    auto* entry = raw::as<FrameCacheEntry>(cache_slot_);
     for (int bone = 0; bone < bone_count_; ++bone) {
         bool skip = mask ? (source->bone_masks_[bone] & mask) != 0 : false;
         if (flag_bits_ & 0x80000)
@@ -935,8 +937,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                         const int from = quat_key_time(first);
                         const int to = quat_key_time(second);
                         if (from == to) {
-                            interpolate_float_quat(rotations, reinterpret_cast<FloatKey*>(first),
-                                                   reinterpret_cast<FloatKey*>(second), 0.0f);
+                            interpolate_float_quat(rotations, raw::as<FloatKey>(first),
+                                                   raw::as<FloatKey>(second), 0.0f);
                         } else {
                             if (quat_frame < static_cast<float>(from))
                                 quat_frame = static_cast<float>(from);
@@ -944,8 +946,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                                 quat_frame = static_cast<float>(to);
                             auto t = static_cast<float>((static_cast<double>(quat_frame) - from) /
                                                         (static_cast<double>(to) - from));
-                            interpolate_float_quat(rotations, reinterpret_cast<FloatKey*>(first),
-                                                   reinterpret_cast<FloatKey*>(second), t);
+                            interpolate_float_quat(rotations, raw::as<FloatKey>(first),
+                                                   raw::as<FloatKey>(second), t);
                         }
                         done = true;
                     }
@@ -968,8 +970,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                             break;
                         }
                         decompress_quat_key(at, &b, flag_bits_, key_table_);
-                        auto from = static_cast<float>(quat_key_time(reinterpret_cast<const uint8_t*>(&a.time)));
-                        auto to = static_cast<float>(quat_key_time(reinterpret_cast<const uint8_t*>(&b.time)));
+                        auto from = static_cast<float>(quat_key_time(raw::bytes(&a.time)));
+                        auto to = static_cast<float>(quat_key_time(raw::bytes(&b.time)));
                         if (quat_frame >= from && quat_frame <= to) {
                             t = static_cast<float>((static_cast<double>(quat_frame) - from) /
                                                    (static_cast<double>(to) - from));
@@ -992,20 +994,20 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                         auto from = static_cast<float>(trans_key_time(first));
                         auto to = static_cast<float>(trans_key_time(second));
                         const bool add = (flag_bits_ & 0x4000) && (flag_bits_ & 0x20000);
-                        const maths::Vec4 before = *reinterpret_cast<maths::Vec4*>(translations);
+                        const maths::Vec4 before = *raw::as<maths::Vec4>(translations);
                         if (from == to) {
-                            interpolate_float_trans(translations, reinterpret_cast<FloatKey*>(first),
-                                                    reinterpret_cast<FloatKey*>(second), 0.0f);
+                            interpolate_float_trans(translations, raw::as<FloatKey>(first),
+                                                    raw::as<FloatKey>(second), 0.0f);
                             if (add)
-                                *reinterpret_cast<maths::Vec4*>(translations) += before;
+                                *raw::as<maths::Vec4>(translations) += before;
                         } else if (trans_frame >= from) { // (before the first key: left as it was)
                             trans_frame = maths::confine(trans_frame, from, to);
                             auto t = static_cast<float>((static_cast<double>(trans_frame) - from) /
                                                         (static_cast<double>(to) - from));
-                            interpolate_float_trans(translations, reinterpret_cast<FloatKey*>(first),
-                                                    reinterpret_cast<FloatKey*>(second), t);
+                            interpolate_float_trans(translations, raw::as<FloatKey>(first),
+                                                    raw::as<FloatKey>(second), t);
                             if (add)
-                                *reinterpret_cast<maths::Vec4*>(translations) += before;
+                                *raw::as<maths::Vec4>(translations) += before;
                         }
                         done = true;
                     }
@@ -1026,12 +1028,12 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                             break;
                         }
                         decompress_trans_key(at, &b);
-                        const int from = trans_key_time(reinterpret_cast<const uint8_t*>(&a.time));
+                        const int from = trans_key_time(raw::bytes(&a.time));
                         if (!(static_cast<float>(from) <= trans_frame)) { // (the frame before this key: this key alone)
                             b = a;
                             break;
                         }
-                        const int to = trans_key_time(reinterpret_cast<const uint8_t*>(&b.time));
+                        const int to = trans_key_time(raw::bytes(&b.time));
                         if (static_cast<float>(to) >= trans_frame) {
                             t = static_cast<float>((static_cast<double>(trans_frame) - from) /
                                                    (static_cast<double>(to) - from));

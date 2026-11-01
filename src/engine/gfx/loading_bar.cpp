@@ -16,6 +16,8 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -66,7 +68,7 @@ Rgb& gradient_end() { return g_gradient_end; }
 int& gradient_width() { return g_gradient_width; }
 uint32_t& border_argb() { return g_border_argb; }
 
-Rgb* gradient_table() { return reinterpret_cast<Rgb*>(s_gradient_buffer); }
+Rgb* gradient_table() { return raw::as<Rgb>(s_gradient_buffer); }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
 float& tick_seconds() { return g_tick_seconds; }
@@ -75,7 +77,7 @@ float& get_total_seconds() { return g_total_seconds; }
 int& get_screen_height() { return g_back_buffer_height; }
 uint32_t& bar_timer() { return g_loading_bar_timer; }     // the timer's id (timeSetEvent)
 bool& load_screen_shown() { return g_loading_screen_up; } // shown (0x004B78B0): the main loop doesn't draw
-HANDLE& screen_mutex() { return reinterpret_cast<HANDLE&>(g_screen_mutex); } // held while the loading screen is drawn
+HANDLE& screen_mutex() { return memory::bits_as<HANDLE>(g_screen_mutex); } // held while the loading screen is drawn
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 struct BarVertex {

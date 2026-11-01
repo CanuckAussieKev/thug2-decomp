@@ -21,6 +21,8 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -34,7 +36,7 @@ float g_environment_matrix[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 float* pass_constants() { return g_ps_constant_bank; } // the pixel shader's colours, 16 bytes a pass
-bool& constants_changed() { return reinterpret_cast<bool&>(g_pixel_shader_changed); }
+bool& constants_changed() { return memory::bits_as<bool>(g_pixel_shader_changed); }
 
 void device_stage_state(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
 {
@@ -128,10 +130,10 @@ void set_border_color(const MaterialRef* material, uint32_t pass, uint32_t stage
 
 void change_bump_map_matrix(uint32_t stage)
 {
-    device_stage_state(stage, D3DTSS_BUMPENVMAT00, reinterpret_cast<uint32_t&>(g_heading_matrix));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT01, reinterpret_cast<uint32_t&>(g_heading_matrix.row[0].z));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT10, reinterpret_cast<uint32_t&>(g_heading_matrix.row[2].x));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT11, reinterpret_cast<uint32_t&>(g_heading_matrix.row[2].z));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT00, *raw::as<uint32_t>(&g_heading_matrix));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT01, memory::bits_as<uint32_t>(g_heading_matrix.row[0].z));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT10, memory::bits_as<uint32_t>(g_heading_matrix.row[2].x));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT11, memory::bits_as<uint32_t>(g_heading_matrix.row[2].z));
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
@@ -277,7 +279,7 @@ void MaterialRef::hand_in()
             set_texture(static_cast<int>(pass), nullptr);
             continue;
         }
-        set_texture(static_cast<int>(pass), *reinterpret_cast<void**>(texture + 0x10));
+        set_texture(static_cast<int>(pass), *raw::as<void*>(texture + 0x10));
         change_phase(kAddressMode0 + static_cast<int>(pass), address_modes_[pass]);
         change_phase(kMipLodBias0 + static_cast<int>(pass), mip_lod_bias_[pass]);
         set_border_color(this, pass, pass);
@@ -291,7 +293,7 @@ void MaterialRef::hand_in()
             matrix[0] = static_cast<float>(reflection_tiling_[pass][0] * 0.5);
             matrix[5] = static_cast<float>(reflection_tiling_[pass][1] * 0.5);
             change_phase(kLocalViewer, 1);
-            input_port()->SetTransform(texture_matrix, reinterpret_cast<const D3DMATRIX*>(matrix));
+            input_port()->SetTransform(texture_matrix, raw::as<const D3DMATRIX>(matrix));
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
         } else if (flags & kPassUvWibble) {
@@ -299,7 +301,7 @@ void MaterialRef::hand_in()
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
             float* matrix = g_wibble_matrix_pass;
             fill_wibble_matrix(matrix, uv_wibble_[pass]);
-            input_port()->SetTransform(texture_matrix, reinterpret_cast<const D3DMATRIX*>(matrix));
+            input_port()->SetTransform(texture_matrix, raw::as<const D3DMATRIX>(matrix));
         } else {
             if (g_billboard_flag) { // (the billboard flag: a static matrix's 2x2 part reset)
                 float* m = g_billboard_uv_matrix;
@@ -342,7 +344,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         if (!texture) {
             set_texture(0, nullptr);
         } else {
-            set_texture(0, *reinterpret_cast<void**>(texture + 0x10));
+            set_texture(0, *raw::as<void*>(texture + 0x10));
             change_phase(kAddressMode0, address_modes_[pass]);
             change_phase(kMipLodBias0, mip_lod_bias_[pass]);
             set_border_color(this, pass, pass);
@@ -362,7 +364,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
                 float* matrix = g_wibble_matrix;
                 fill_wibble_matrix(matrix, uv_wibble_[pass]);
-                input_port()->SetTransform(D3DTS_TEXTURE0, reinterpret_cast<const D3DMATRIX*>(matrix));
+                input_port()->SetTransform(D3DTS_TEXTURE0, raw::as<const D3DMATRIX>(matrix));
             } else {
                 DWORD transform_flags = 0, coordinates = 0;
                 input_port()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
@@ -376,12 +378,12 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                     set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
-                        set_texture(1, *reinterpret_cast<void**>(textures[pass - 1] + 0x10));
+                        set_texture(1, *raw::as<void*>(textures[pass - 1] + 0x10));
                         change_phase(kAddressMode0 + 1, address_modes_[pass - 1]);
                         change_phase(kMipLodBias0 + 1, mip_lod_bias_[pass - 1]);
                     } else {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
-                        set_texture(1, *reinterpret_cast<void**>(textures[pass] + 0x10));
+                        set_texture(1, *raw::as<void*>(textures[pass] + 0x10));
                     }
                 }
             }

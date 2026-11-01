@@ -14,9 +14,11 @@
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -41,9 +43,9 @@ void delete_head(memory::ListNode* head) { memory::ListNode::destroy(head); }
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
 EmitterInstance* system_of(memory::ListNode* node)
 {
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return nullptr;
-    return reinterpret_cast<EmitterInstance*>(reinterpret_cast<uint8_t*>(node) - offsetof(EmitterInstance, list_link_));
+    return raw::owner_of<EmitterInstance>(node, offsetof(EmitterInstance, list_link_));
 }
 EmitterInstance* first_system(memory::ListNode* head) { return head ? system_of(head->next) : nullptr; }
 EmitterInstance* next_system(EmitterInstance* system) { return system_of(system->list_link_.next); }
@@ -77,7 +79,7 @@ FlexibleParticleManager::~FlexibleParticleManager()
     if (systems_ptr_)
         delete_head(systems_ptr_);
     delete_temp_heap();
-    memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(arena_));
+    memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(arena_));
     delete zone_;
 }
 
@@ -86,7 +88,7 @@ void FlexibleParticleManager::delete_temp_heap()
 {
     if (!temp_heap_)
         return;
-    memory::Hub::get_pull()->delete_heap(reinterpret_cast<memory::MemSource*>(temp_heap_));
+    memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(temp_heap_));
     delete temp_region_;
     temp_heap_ = nullptr;
     temp_region_ = nullptr;
@@ -163,7 +165,7 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
                                                           int fixed_alpha, int segments, float unknown, int history,
                                                           int perm, bool use_level_colour, const char* model)
 {
-    memory::Hub::get_pull()->enter_heap_scope(reinterpret_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
+    memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
     EmitterInstance* system = (create_flexible_particles(name, type, particle_cap, max_streams, texture, blend_mode,
                                                          fixed_alpha, segments, unknown, history, model));
     memory::Hub::get_pull()->leave_heap_scope();

@@ -28,13 +28,15 @@
 #include "engine/gfx/viewport.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/particle_component.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
@@ -56,7 +58,7 @@ const char* const kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 
 // The scenes' list (0x006FA7E0: its head, data -1; the first node at +0xC, the last at +0x10).
 memory::ListNode& scene_list() { return g_scene_list; }
-const auto kNoScene = reinterpret_cast<void*>(static_cast<uintptr_t>(0xFFFFFFFF));
+const auto kNoScene = memory::ListNode::head_marker();
 // The node after `node`, null at the end (the head).
 memory::ListNode* next_scene(memory::ListNode* node) { return node->next->data == kNoScene ? nullptr : node->next; }
 // The first node (null when there's none - the original reads the head's data before checking for no list).
@@ -151,7 +153,7 @@ void render_frame()
 void change_entity_hub(void* manager) { g_scene_objects = manager; }
 
 // 0x0048C0B0
-uint32_t* get_collision_scenes() { return reinterpret_cast<uint32_t*>(g_collision_scenes); }
+uint32_t* get_collision_scenes() { return raw::as<uint32_t>(g_collision_scenes); }
 
 // 0x0048C0D0
 void toggle_render_mode()

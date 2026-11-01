@@ -13,6 +13,7 @@
 #include "engine/core/slab_bank.h"
 #include "platform/stopwatch.h"
 #include "engine/script/script_startup.h"
+#include "engine/core/raw_view.h"
 
 namespace gfx {
 
@@ -91,7 +92,7 @@ void vacant(AnimCacheEntry* entry)
 // whose Allocate failed keeps its old, smaller block with the new size: its copy runs into what follows).
 void copy_forwards(uint8_t* to, const uint8_t* from, uint32_t size)
 {
-    __movsd(reinterpret_cast<unsigned long*>(to), reinterpret_cast<const unsigned long*>(from), size / 4);
+    __movsd(raw::as<unsigned long>(to), raw::as<const unsigned long>(from), size / 4);
     __movsb(to + (size & ~3u), from + (size & ~3u), size & 3);
 }
 

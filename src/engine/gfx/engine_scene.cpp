@@ -27,6 +27,8 @@
 #include "engine/render/coll_line.h"
 #include "engine/render/coll_obj.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -181,15 +183,15 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, Sta
     // the static objects: an array new (the count before them)
     *statics = new StaticCollider[static_cast<unsigned int>(header.object_count)];
     for (int i = 0; i < header.object_count; ++i) {
-        auto* geometry = reinterpret_cast<TriMeshSource*>(*objects + i * kTriDataSize);
-        geometry->relocate(reinterpret_cast<uint32_t>(this), static_cast<uint32_t>(vertices),
+        auto* geometry = raw::as<TriMeshSource>(*objects + i * kTriDataSize);
+        geometry->relocate(cell::of(this), static_cast<uint32_t>(vertices),
                            static_cast<uint32_t>(vertex_bytes), static_cast<uint32_t>(faces),
                            static_cast<uint32_t>(nodes), static_cast<uint32_t>(face_lists));
         geometry->set_up_all_faces();
         // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         StaticCollider* object = &(*statics)[i];
         object->assign_shape_data(geometry);
-        buffer = reinterpret_cast<uintptr_t>(object->take_buffer(reinterpret_cast<uint8_t*>(buffer), geometry));
+        buffer = cell::address(object->take_buffer(cell::pointer<uint8_t>(buffer), geometry));
         if (geometry->tri_count_ > 0) {
             box->append_spot(geometry->lower_limit_);
             box->append_spot(geometry->upper_limit_);
@@ -259,7 +261,7 @@ void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int)
     float max_x = box[1].x, max_y = box[1].y, max_z = box[1].z;
     for_each_sector(sectors_, [&](void* sector) {
         const maths::BBox* bounds = sector_box(sector);
-        const auto* f = reinterpret_cast<const float*>(bounds);
+        const auto* f = raw::as<const float>(bounds);
         // (each "not past it": NaN counts as touching)
         if (!(min_x > f[4]) && !(f[0] > max_x) && !(min_z > f[6]) && !(f[2] > max_z) && !(min_y > f[5]) &&
             !(f[1] > max_y))

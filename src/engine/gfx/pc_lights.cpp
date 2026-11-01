@@ -12,6 +12,7 @@
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -189,7 +190,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         if (light->type == 1) {
             const double factor = (1.0 - falloff) * light->intensity * kPer255;
             float* out = light_color_constant(first_dynamic_ + j);
-            const auto* colour = reinterpret_cast<const uint8_t*>(&light->colour); // (its r, g, b bytes)
+            const auto* colour = raw::bytes(&light->colour); // (its r, g, b bytes)
             for (int k = 0; k < 3; ++k)
                 out[k] = static_cast<float>(colour[k] * factor);
         }

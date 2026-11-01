@@ -18,9 +18,10 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/script/script_startup.h"
+#include "engine/core/pointer_cell.h"
 
 namespace gfx {
 
@@ -205,7 +206,7 @@ void AnimTrack::load_events(uint32_t anim)
     events_ptr_ = std::make_unique<TimedClipEvent[]>(
         count); // (default-initialised; the count before the array, as the original's)
     for (uint32_t i = 0; i < event_count_; ++i) {
-        auto* entry = reinterpret_cast<Struct*>(list->fetch_part(i));
+        auto* entry = list->struct_at(i);
         int frame = 0;
         if (!entry->fetch_int_value(kFrame, &frame, 0)) {
             float seconds = 0.0f;
@@ -292,7 +293,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         return 1;
     }
     if (name == kRemoveAnimController) {
-        auto id = reinterpret_cast<uint32_t>(params); // (the argument's own slot: the params' address if missing)
+        auto id = cell::of(params); // (the argument's own slot: the params' address if missing)
         params->read_hash_value(kId, &id, 1);
         if (AnimDriver* controller = find_controller(id))
             detach_anim_driver(controller);

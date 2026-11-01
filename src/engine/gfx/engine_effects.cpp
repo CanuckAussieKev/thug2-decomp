@@ -30,6 +30,8 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -84,7 +86,7 @@ void* get_first_value(lists::KeyMap* table)
 // A value taken out of its table (keyed by its address).
 void drop_out(lists::KeyMap* table, void* value)
 {
-    auto key = reinterpret_cast<uint32_t>(value);
+    auto key = cell::of(value);
     table->erase_entry(key);
 }
 
@@ -295,9 +297,9 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             splats->correction_steps_[i] != splats->correction_steps_[furthest])
             continue;
         const int fade = g_splat_fade;
-        uint8_t* alphas[6] = {reinterpret_cast<uint8_t*>(&splats->base_colors_[i][0]) + 3,
-                              reinterpret_cast<uint8_t*>(&splats->base_colors_[i][1]) + 3,
-                              reinterpret_cast<uint8_t*>(&splats->base_colors_[i][2]) + 3,
+        uint8_t* alphas[6] = {raw::bytes(&splats->base_colors_[i][0]) + 3,
+                              raw::bytes(&splats->base_colors_[i][1]) + 3,
+                              raw::bytes(&splats->base_colors_[i][2]) + 3,
                               splats->vertices[i][0] + 0xF,
                               splats->vertices[i][1] + 0xF,
                               splats->vertices[i][2] + 0xF};
@@ -416,14 +418,14 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
             added->follow = follow;
             added->pos = *from;
             added->time = now;
-            auto key = reinterpret_cast<uint32_t>(added);
+            auto key = cell::of(added);
             recent_splats()->store_entry(key, added);
             return true;
         }
     }
     if (!texture) {
         auto* textures = g_particle_texture_dict; // (the particles' dictionary)
-        texture = reinterpret_cast<uint8_t*>(textures->fetch_skin(checksums::hash_from_text(image_label)));
+        texture = raw::bytes(textures->fetch_skin(checksums::hash_from_text(image_label)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.
     const maths::Seg line(*from, *to);
@@ -479,12 +481,12 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         params.unknown38 = unknown38;
         params.up = recent ? &recent->pos.x : nullptr;
         params.unknown40 = unknown40;
-        TextureSplats* splats = render::create_texture_splat(sectors, reinterpret_cast<int>(objects), &params);
+        TextureSplats* splats = render::create_texture_splat(sectors, static_cast<int>(cell::of(objects)), &params);
         made = splats != nullptr;
         if (!follow && splats) {
             age_texture_splats(splats, frame_milliseconds());
             light_texture_splats(splats);
-            splats->texture = reinterpret_cast<online::FoldedGetters*>(texture)->word04();
+            splats->texture = raw::as<online::FoldedGetters>(texture)->word04();
         }
     }
     if (recent) {
@@ -543,7 +545,7 @@ void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float
     flash->flags = flags;
     flash->texture = nullptr;
     flash->viewport = viewport;
-    auto key = reinterpret_cast<uint32_t>(flash);
+    auto key = cell::of(flash);
     flashes()->store_entry(key, flash);
 }
 

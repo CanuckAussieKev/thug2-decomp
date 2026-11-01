@@ -12,6 +12,7 @@
 #include "engine/file/file_load.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -20,7 +21,7 @@ namespace {
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
 uint8_t* find_texture(uint32_t checksum)
 {
-    return reinterpret_cast<uint8_t*>(g_particle_texture_dict->fetch_skin(checksum));
+    return raw::bytes(g_particle_texture_dict->fetch_skin(checksum));
 }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
 MaterialRef* construct_material(void* memory) { return new (memory) MaterialRef; }
@@ -71,7 +72,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
     uint8_t* texture = nullptr;
     if (uint8_t* entry = find_texture(texture_checksum))
         texture =
-            (entry[8] & 1) ? **reinterpret_cast<uint8_t***>(entry + 0x10) : *reinterpret_cast<uint8_t**>(entry + 0x10);
+            (entry[8] & 1) ? **raw::as<uint8_t**>(entry + 0x10) : *raw::as<uint8_t*>(entry + 0x10);
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
     m->pass_flags_[0] = (texture ? 4 : 0) | 0x40;
@@ -116,7 +117,7 @@ int skip_file_chunk(void* file)
 // 0x004DA710
 int skip_memory_chunk(uint8_t** data)
 {
-    *data = *data + *reinterpret_cast<uint32_t*>(*data + 4) + 8;
+    *data = *data + *raw::as<uint32_t>(*data + 4) + 8;
     return 0;
 }
 

@@ -18,6 +18,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -202,7 +203,7 @@ void get_bloom()
     IDirect3DTexture9* bright = screen_copy(3);
     set_pixel_shader(get_shader(kPixelShader948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
-    const uint8_t* cutoff = reinterpret_cast<uint8_t*>(&g_bloom_cut_off);
+    const uint8_t* cutoff = raw::bytes(&g_bloom_cut_off);
     float constant[4] = {static_cast<float>(cutoff[0] * (1.0 / 128)), static_cast<float>(cutoff[1] * (1.0 / 128)),
                          static_cast<float>(cutoff[2] * (1.0 / 128)), 0.5f};
     input_port()->SetPixelShaderConstantF(0, constant, 1);

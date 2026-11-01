@@ -16,6 +16,7 @@
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/scene_file_stream.h"
 #include "formats/scene_format.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -87,7 +88,7 @@ PcMesh::~PcMesh()
     if (breaks)
         memory::Hub::get_pull()->dealloc(breaks);
     if (scene)
-        engine::unload_scene(reinterpret_cast<WorldScene*>(scene), 1); // (the engine's UnloadScene)
+        engine::unload_scene(raw::as<WorldScene>(scene), 1); // (the engine's UnloadScene)
 }
 
 // 0x004B7B50
@@ -120,7 +121,7 @@ void PcMesh::load_skin(const uint8_t* data, size_t size)
 void PcMesh::choose_scene(uint8_t* new_scene)
 {
     scene = new_scene;
-    auto* list = *reinterpret_cast<SceneRef**>(new_scene + 0x280);
+    auto* list = *raw::as<SceneRef*>(new_scene + 0x280);
     hierarchy_ = list->extra;
     hierarchy_count_ = list->unknown78;
 }

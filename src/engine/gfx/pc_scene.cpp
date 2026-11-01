@@ -31,6 +31,9 @@
 #include "engine/render/coll_movable.h"
 #include "engine/gfx/device.h"
 #include "engine/core/owner.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -125,7 +128,7 @@ void PcScene::post_load(void* arena_word)
     void* sector = first_sector(table);
     if (arena) {
         input_port()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                         reinterpret_cast<IDirect3DVertexBuffer9**>(&arena->buffer), nullptr);
+                                         raw::as<IDirect3DVertexBuffer9*>(&arena->buffer), nullptr);
         static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->Lock(0, 0, &arena->data, 0);
         arena->used = 0;
         meshes->com_object_ = arena->buffer;
@@ -186,14 +189,14 @@ MeshRef* new_mesh()
 void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius, const maths::Vec4* min,
                              const maths::Vec4* max)
 {
-    mesh->change_bound_sphere(centre, radius, static_cast<int>(reinterpret_cast<intptr_t>(min)),
-                              static_cast<int>(reinterpret_cast<intptr_t>(max)));
+    mesh->change_bound_sphere(centre, radius, static_cast<int>(static_cast<intptr_t>(cell::address(min))),
+                              static_cast<int>(static_cast<intptr_t>(cell::address(max))));
 }
 // The rest of a mesh's set-up, the same for both loaders: the scene's box grown, a billboard made, the mesh added.
 void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
                  const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
 {
-    auto* bounds = reinterpret_cast<maths::BBox*>(*reinterpret_cast<uint8_t**>(geom->scene + 0x280) + 0x44);
+    auto* bounds = raw::as<maths::BBox>(*raw::as<uint8_t*>(geom->scene + 0x280) + 0x44);
     bounds->append_spot(*min);
     bounds->append_spot(*max);
     if (sector->flags & 0x800000) {
@@ -203,14 +206,14 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;
     geom->append_mesh(mesh);
-    reinterpret_cast<uint8_t*>(mesh)[0x1F] = light_group;
+    raw::bytes(mesh)[0x1F] = light_group;
     make_grass(geom, mesh);
 }
 // The meshes the load put on the list, counted (to a node that is the head, data -1, or null).
 uint32_t count_loaded_meshes(const PcGeom* geom)
 {
     uint32_t count = 0;
-    for (const memory::ListNode* node = geom->load_list_->next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = geom->load_list_->next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++count;
     return count;
@@ -262,7 +265,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             mesh->flags |= 0x20000;
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->load_index_ = static_cast<uint16_t>(i);
-        if (!load_body(mesh, fields.material, *reinterpret_cast<SceneRef**>(geometry->scene + 0x280))) {
+        if (!load_body(mesh, fields.material, *raw::as<SceneRef*>(geometry->scene + 0x280))) {
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;
         }
@@ -289,7 +292,7 @@ bool PcSector::ingest_from_file(scene_format::FileStream& in, uint32_t unknown)
 {
     return read_sector(this, in, [this, &in, unknown](MeshRef* mesh, uint32_t material, SceneRef* list) {
         // (the vertices given `unknown` unless a billboard; dynamic with the billboard bit, read as a byte: bit 23)
-        auto* arena = reinterpret_cast<VertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown));
+        auto* arena = cell::pointer<VertexArena>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown));
         return mesh->ingest_from_file(in, material, list, arena, ((flags >> 23) & 1) != 0);
     });
 }
