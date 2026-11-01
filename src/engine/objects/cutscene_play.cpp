@@ -1,6 +1,7 @@
 // Cutscenes: loading a cutscene file and playing it (the data's Load / finish_loading / is_loaded / Update / Play,
 // the details' remaining virtuals and both deleting destructors; 0x00467710-0x004680DE). See cutscene.h.
 
+#include <memory>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -107,8 +108,7 @@ bool CinematicTable::finish_loading(int /*unused*/)
     mark_loaded_models();
     add_cutscene_lights();
     memory::Hub::get_pull()->leave_heap_scope();
-    delete bundle_ptr_;
-    bundle_ptr_ = nullptr;
+    bundle_ptr_.reset();
     if (flag_34b_0_ && !ready_) {
         // the music: waiting for its stream to be ready, then started
         for (;;) {
@@ -166,7 +166,7 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const uin
     memory::Arena* file_heap = flag_34b_0_ ? manager->cinematic_low_heap_ : manager->bottom_up_heap_;
     memory::Arena* asset_heap = flag_34b_0_ ? manager->cinematic_high_heap_ : manager->top_down_heap_;
     manager->enter_heap_scope(file_heap);
-    bundle_ptr_ = new file::AssetBundle;
+    bundle_ptr_ = std::make_unique<file::AssetBundle>();
     bundle_ptr_->set_heaps(file_heap, asset_heap);
     memory::Hub::get_pull()->leave_heap_scope();
     memory::Hub::get_pull()->enter_heap_scope(asset_heap);

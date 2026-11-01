@@ -3,6 +3,7 @@
 #include "engine/objects/shadow_component.h"
 #include "engine/gfx/engine_model_lights.h"
 
+#include <memory>
 #include <cstdint>
 
 #include "engine/assets/resource_registry.h"
@@ -85,8 +86,7 @@ GroundShadowModule::GroundShadowModule()
 GroundShadowModule::~GroundShadowModule()
 {
     if (shadow_handle_) {
-        delete shadow_handle_;
-        shadow_handle_ = nullptr;
+        shadow_handle_.reset();
     }
 }
 
@@ -114,7 +114,7 @@ void GroundShadowModule::refresh_shadow()
         shadow_handle_->hide();
         return;
     }
-    switch (shadow_kind_of(shadow_handle_)) {
+    switch (shadow_kind_of(shadow_handle_.get())) {
     case kShadowDetailed: {
         const GameEntity* object = entity_;
         maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
@@ -129,7 +129,7 @@ void GroundShadowModule::refresh_shadow()
         break;
     }
     case kShadowSimple:
-        as_blob(shadow_handle_)->size_factor_ = reinterpret_cast<render::RenderModel*>(model)->size_factor_.x;
+        as_blob(shadow_handle_.get())->size_factor_ = reinterpret_cast<render::RenderModel*>(model)->size_factor_.x;
         [[fallthrough]];
     case kShadowVolume:
         shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
@@ -160,18 +160,18 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     uint8_t* model = model_component ? model_of(model_component) : nullptr;
     switch (type) {
     case kShadowDetailed:
-        shadow_handle_ = new render::FullShadow(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
+        shadow_handle_ = std::make_unique<render::FullShadow>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
         return;
     case kShadowSimple: {
         auto* shadow = new render::BlobShadow();
         // (no shadow - out of memory - is written through regardless, as the original)
         shadow->size_factor_ = reinterpret_cast<render::RenderModel*>(model)->size_factor_.x;
         shadow->load_mesh(model_name);
-        shadow_handle_ = shadow;
+        shadow_handle_.reset(shadow);
         break;
     }
     case kShadowVolume:
-        shadow_handle_ = new render::ShadowVolume(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
+        shadow_handle_ = std::make_unique<render::ShadowVolume>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
         break;
     default:
         return;
@@ -186,8 +186,7 @@ void GroundShadowModule::destroy_shadow()
         return;
     if (mesh_instance_)
         set_model_shadow(model_of(mesh_instance_), false);
-    delete shadow_handle_;
-    shadow_handle_ = nullptr;
+    shadow_handle_.reset();
 }
 
 // 0x004317C0
@@ -223,7 +222,7 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
             build_blob_shadow(kShadowSimple, model);
         float scale = 1.0f;
         params->fetch_float(kBlobSizeFactor, &scale, 0);
-        as_blob(shadow_handle_)->size_factor_ = scale;
+        as_blob(shadow_handle_.get())->size_factor_ = scale;
         shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
         break;
     }
@@ -279,10 +278,10 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
     if (!params->read_hash_value(kShadowType, &type, 0))
         params->put_name_key(kShadowType, kSimple);
     configure_from_data(params);
-    if (shadow_handle_ && shadow_kind_of(shadow_handle_) == kShadowSimple) {
+    if (shadow_handle_.get() && shadow_kind_of(shadow_handle_.get()) == kShadowSimple) {
         float offset = 0.2f; // (read into the name's argument slot)
         params->fetch_float(kOffset, &offset, 0);
-        as_blob(shadow_handle_)->shift_ = offset;
+        as_blob(shadow_handle_.get())->shift_ = offset;
     }
     return 1;
 }

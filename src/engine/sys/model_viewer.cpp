@@ -176,7 +176,7 @@ void Viewer::stop_callback()
 // 0x00576DC0
 Viewer::~Viewer()
 {
-    delete net_handler_; // (deleted directly, not released through the network manager - as the original)
+    net_handler_.reset(); // (deleted directly, not released through the network manager - as the original)
     pad_listener_.reset();
     task_1c_.reset();
     task20_.reset();
@@ -294,7 +294,7 @@ void Viewer::create_viewer_object(void* data)
     manager->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(manager->debug_heap_)
                                                            : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
     drop_viewer_entity();
-    entity_ = new objects::PreviewEntity(net_handler_);
+    entity_ = new objects::PreviewEntity(net_handler_.get());
     entity_->read_in(static_cast<script::Struct*>(data)); // (no memory: a crash, as the original)
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -540,7 +540,7 @@ Viewer::Viewer()
         inet_addr(net->fetch_own_address()); // (unused)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
         int address = static_cast<int>(inet_addr(net->fetch_own_address()));
-        net_handler_ = net->make_server_app(0, "THUG2 Viewer", 4, 10000, address, 0x10);
+        net_handler_.reset(net->make_server_app(0, "THUG2 Viewer", 4, 10000, address, 0x10));
     }
     int controller = script::fetch_int_value(kViewerPadKey);
 

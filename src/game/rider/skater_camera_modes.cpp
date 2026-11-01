@@ -148,7 +148,7 @@ void RiderChaseView::change_regime(int mode, float time)
         above_ = static_cast<float>(static_cast<double>(above) * kFeet);
     }
     // The camera component's camera (+0x18): its field of view (half across a vertical split).
-    gfx::ViewCam* view = static_cast<objects::ViewpointModule*>(camera)->view_camera_;
+    gfx::ViewCam* view = static_cast<objects::ViewpointModule*>(camera)->view_camera_.get();
     view->change_h_fov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
     float heading;
     switch (mode) {

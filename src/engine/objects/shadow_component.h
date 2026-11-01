@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -71,7 +72,7 @@ public:
     // 0x00431360 (not a Ghidra function): the light's direction handed to the shadow (if any).
     void set_light_direction(const maths::Vec4* direction);
 
-    render::ShadowBase* shadow_handle_; // +0x18 the renderer's shadow object
+    std::unique_ptr<render::ShadowBase> shadow_handle_; // +0x18 the renderer's shadow object
     maths::Vec4 at_point_;              // +0x1C where it is
     maths::Vec4 surface_dir_;           // +0x2C the ground's normal under it
     uint32_t shadow_kind_;              // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)

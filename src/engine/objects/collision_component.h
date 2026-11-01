@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/owner.h"
 
 namespace render {
 class HitMesh;
@@ -51,7 +52,7 @@ public:
     // matrix times the object's display matrix; else at the object's position, turned by its display matrix.
     void tick_frame() override;
 
-    render::HitMesh* hit_shape_; // +0x18
+    memory::owner<render::HitMesh*> hit_shape_; // +0x18
 };
 
 } // namespace objects

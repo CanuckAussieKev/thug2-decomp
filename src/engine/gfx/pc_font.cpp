@@ -2,6 +2,7 @@
 
 #include "engine/gfx/pc_font.h"
 
+#include <memory>
 #include <bit>
 #include <cstdint>
 #include <cstring>
@@ -79,7 +80,7 @@ void PcFont::read_string_param(const char* string, float* width, float* height)
 // 0x004B3E70
 PcText::PcText() : GlyphString(nullptr)
 {
-    text = new GlyphRun(0.0f);
+    text = std::make_unique<GlyphRun>(0.0f);
     layer_ = 0.0f;
     update_settings();
     update_priority();
@@ -87,7 +88,7 @@ PcText::PcText() : GlyphString(nullptr)
 }
 
 // 0x004B3D20
-PcText::~PcText() { delete text; }
+PcText::~PcText() { text.reset(); }
 
 // 0x004B3D80
 void PcText::refresh_all()

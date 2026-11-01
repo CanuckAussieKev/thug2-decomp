@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -34,7 +35,7 @@ public:
     void tick_frame() override;
 
     uint32_t texture_;            // +0x178 the texture's checksum
-    render::TexturedQuad* piece_; // +0x17C
+    std::unique_ptr<render::TexturedQuad> piece_; // +0x17C
 };
 
 // SpriteElement (vtable 0x0064A228, 0x184 bytes).
@@ -63,7 +64,7 @@ public:
 
     uint32_t texture_;            // +0x178 the texture's checksum
     bool z_write_;                // +0x17C (no_zwrite clears it)
-    render::BillboardQuad* quad_; // +0x180
+    std::unique_ptr<render::BillboardQuad> quad_; // +0x180
 };
 
 // WindowElement (vtable 0x0064A2C0, 0x17C bytes): the root window and script-made windows.

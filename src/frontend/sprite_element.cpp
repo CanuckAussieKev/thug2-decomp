@@ -2,6 +2,7 @@
 
 #include "frontend/sprite_element.h"
 
+#include <memory>
 #include <cstdint>
 #include <cstring>
 
@@ -79,14 +80,14 @@ void free_window2d(void* window) { render::free_window_2d(static_cast<render::Sc
 TextureElement::TextureElement()
 {
     texture_ = 0;
-    piece_ = new_textured_piece();
+    piece_.reset(new_textured_piece());
     change_species(kTextureElement);
 }
 
 // 0x004AEDF0
 TextureElement::~TextureElement()
 {
-    delete piece_; // (through its vtable in the original: 0x004B4E40's jump, folded)
+    piece_.reset(); // (through its vtable in the original: 0x004B4E40's jump, folded)
 }
 
 // 0x004AEE90
@@ -139,7 +140,7 @@ void TextureElement::tick_frame()
 ImageWidget::ImageWidget()
 {
     texture_ = 0;
-    quad_ = new_sprite(0);
+    quad_.reset(new_sprite(0));
     z_write_ = true;
     change_species(kSpriteElement);
 }
@@ -147,7 +148,7 @@ ImageWidget::ImageWidget()
 // 0x004AF0D0
 ImageWidget::~ImageWidget()
 {
-    delete quad_; // (through its vtable in the original: 0x004B4E40's jump, folded)
+    quad_.reset(); // (through its vtable in the original: 0x004B4E40's jump, folded)
 }
 
 // 0x004AF130 (no texture of that name: the original reads through null)

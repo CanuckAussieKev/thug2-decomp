@@ -3,6 +3,7 @@
 
 #include "engine/gfx/engine_shadows.h"
 
+#include <memory>
 #include <cstdint>
 #include <cstring>
 
@@ -73,10 +74,10 @@ FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance
     reach_ = distance;
     direction_ = direction;
     direction_.make_unit();
-    view_camera_ = new_shadow_camera();
+    view_camera_.reset(new_shadow_camera());
     maths::Vec4 v = direction_;
     v.make_unit();
-    look_along(view_camera_, v);
+    look_along(view_camera_.get(), v);
     model->activate_shadow(1);
 }
 
@@ -85,14 +86,14 @@ FullShadow::~FullShadow()
 {
     remove_texture_shadow_caster(bitmap_);
     delete reinterpret_cast<BitmapTexture*>(bitmap_);
-    delete view_camera_;
+    view_camera_.reset();
 }
 
 // 0x004A1910
 void FullShadow::change_place(maths::Vec4 position)
 {
     view_camera_->change_location(back_along_light(position, direction_, reach_));
-    aim_texture_shadow_caster(bitmap_, view_camera_);
+    aim_texture_shadow_caster(bitmap_, view_camera_.get());
 }
 
 // 0x004A1BA0
@@ -102,9 +103,9 @@ void FullShadow::set_light_direction(const maths::Vec4* direction)
     direction_ = *direction;
     direction_.make_unit();
     view_camera_->change_location(maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
-    look_along(view_camera_, direction_);
+    look_along(view_camera_.get(), direction_);
     view_camera_->change_location(position);
-    aim_texture_shadow_caster(bitmap_, view_camera_);
+    aim_texture_shadow_caster(bitmap_, view_camera_.get());
 }
 
 // 0x004A1750
@@ -178,10 +179,10 @@ ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance) 
     reach_ = distance;
     direction_ = direction;
     direction_.make_unit();
-    view_camera_ = new_shadow_camera();
+    view_camera_.reset(new_shadow_camera());
     maths::Vec4 v = direction_;
     v.make_unit();
-    look_along(view_camera_, v);
+    look_along(view_camera_.get(), v);
     model_key_ = 0;
     edges_ = nullptr;
 }
@@ -189,7 +190,7 @@ ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance) 
 // 0x004A2120
 ShadowVolume::~ShadowVolume()
 {
-    delete view_camera_;
+    view_camera_.reset();
     if (edges_) {
         if (edges_->count) {
             remove_shadow_volume(this);
@@ -212,7 +213,7 @@ void ShadowVolume::set_light_direction(const maths::Vec4* direction)
     direction_ = *direction;
     direction_.make_unit();
     view_camera_->change_location(maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
-    look_along(view_camera_, direction_);
+    look_along(view_camera_.get(), direction_);
     view_camera_->change_location(position);
 }
 

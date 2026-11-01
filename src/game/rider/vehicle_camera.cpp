@@ -45,7 +45,7 @@ constexpr float kDegrees = 0.01745329238474369f;      // 0x00645464 (degrees to 
 // Its Camera component's camera (+0x18).
 gfx::ViewCam* camera_of(GameEntity* object)
 {
-    return static_cast<objects::ViewpointModule*>(object->fetch_module(kCamera))->view_camera_;
+    return static_cast<objects::ViewpointModule*>(object->fetch_module(kCamera))->view_camera_.get();
 }
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).

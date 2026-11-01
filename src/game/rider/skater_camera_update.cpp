@@ -120,7 +120,7 @@ void RiderChaseView::tick_frame()
     }
     float seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     update_lerps();
-    gfx::ViewCam* camera = static_cast<ViewpointModule*>(camera_component)->view_camera_;
+    gfx::ViewCam* camera = static_cast<ViewpointModule*>(camera_component)->view_camera_.get();
     camera->remember_prev_pos();
     maths::Mat4& view = camera_component->entity_->basis_frame_;
     std::memcpy(&view, orientation_, sizeof(orientation_));

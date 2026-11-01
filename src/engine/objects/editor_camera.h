@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -78,7 +79,7 @@ public:
     bool no_wall_check_;        // +0x91 (0xF5680DEF)
     uint8_t pad92[2];
     PadInputModule* input_ptr_;         // +0x94 the Input component
-    render::BlobShadow* shadow_handle_; // +0x98
+    std::unique_ptr<render::BlobShadow> shadow_handle_; // +0x98
 };
 static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
 static_assert(offsetof(EditorViewModule, cursor_) == 0x3C, "m_cursor");

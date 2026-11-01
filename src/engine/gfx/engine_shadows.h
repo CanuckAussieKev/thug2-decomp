@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -66,7 +67,7 @@ public:
     // position kept); the caster aimed.
     void set_light_direction(const maths::Vec4* direction) override;
 
-    gfx::ViewCam* view_camera_; // +0x08
+    std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
     uint8_t* bitmap_;           // +0x0C the render target
     maths::Vec4 direction_;     // +0x10 the light's
     float reach_;               // +0x20
@@ -120,7 +121,7 @@ public:
     // kept) found or built, and this volume put in the volumes' list.
     void change_mesh(RenderModel* model, uint8_t* asset_data) override;
 
-    gfx::ViewCam* view_camera_; // +0x08
+    std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
     maths::Mat4 basis_frame_;   // +0x0C
     uint32_t model_key_;        // +0x4C the asset data's meshes
     maths::Vec4 direction_;     // +0x50

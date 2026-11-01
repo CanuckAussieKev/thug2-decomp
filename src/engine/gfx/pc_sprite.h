@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -27,7 +28,7 @@ public:
     // 0x004C70C0 (slot 4): the 2D sprite's priority from the engine's (when there is a 2D sprite).
     void update_priority() override;
 
-    QuadSprite* sprite; // +0x44
+    std::unique_ptr<QuadSprite> sprite; // +0x44
 };
 static_assert(offsetof(PcSprite, sprite) == 0x44 && sizeof(PcSprite) == 0x48, "layout must match the original");
 

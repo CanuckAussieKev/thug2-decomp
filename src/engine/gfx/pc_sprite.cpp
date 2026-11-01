@@ -2,6 +2,7 @@
 
 #include "engine/gfx/pc_sprite.h"
 
+#include <memory>
 #include <cstdint>
 #include <cstring>
 
@@ -13,10 +14,10 @@
 namespace render {
 
 // 0x004C70E0
-PcSprite::PcSprite() : BillboardQuad(nullptr) { sprite = new QuadSprite(0.0f); }
+PcSprite::PcSprite() : BillboardQuad(nullptr) { sprite = std::make_unique<QuadSprite>(0.0f); }
 
 // 0x004C7050
-PcSprite::~PcSprite() { delete sprite; }
+PcSprite::~PcSprite() { sprite.reset(); }
 
 // (0x004B3D80, the PC text's, folded)
 void PcSprite::refresh_all()

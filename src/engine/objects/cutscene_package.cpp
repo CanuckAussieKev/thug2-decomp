@@ -1,6 +1,7 @@
 // Cutscenes: starting and ending one (the details' configure_from_data / End), the data's assets from the loaded
 // bundle and its destructor (0x00466620-0x00467707). See cutscene.h.
 
+#include <memory>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -264,8 +265,7 @@ void CinematicEntry::stop()
 CinematicTable::~CinematicTable()
 {
     g_cutscene_playing = false;
-    delete bundle_ptr_;
-    bundle_ptr_ = nullptr;
+    bundle_ptr_.reset();
     if (camera_source_)
         delete_source(camera_source_);
     camera_source_ = nullptr;
@@ -301,7 +301,7 @@ CinematicTable::~CinematicTable()
 // 0x00466DD0
 void CinematicTable::load_from_bundle()
 {
-    file::AssetBundle* bundle = bundle_ptr_;
+    file::AssetBundle* bundle = bundle_ptr_.get();
     int count = bundle->num_;
     for (int i = 0; i < count; ++i) {
         file::AssetBundle::TableRow* entry = bundle_ptr_->get_entry(i);

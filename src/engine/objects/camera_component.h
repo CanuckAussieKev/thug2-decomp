@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -40,7 +41,7 @@ public:
     // position and orientation (copies taken first).
     void tick_frame() override;
 
-    gfx::ViewCam* view_camera_; // +0x18
+    std::unique_ptr<gfx::ViewCam> view_camera_; // +0x18
 };
 static_assert(offsetof(ViewpointModule, view_camera_) == 0x18 && sizeof(ViewpointModule) == 0x1C,
               "layout must match the original");

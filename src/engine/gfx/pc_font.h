@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -58,7 +59,7 @@ public:
     // 0x004B3DB0 (slot 4): the priority, and the depth (0 without z_enabled_).
     void update_priority() override;
 
-    GlyphRun* text; // +0x48
+    std::unique_ptr<GlyphRun> text; // +0x48
 };
 static_assert(sizeof(PcText) == 0x4C, "layout must match the original");
 

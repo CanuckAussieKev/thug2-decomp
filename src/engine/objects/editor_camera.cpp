@@ -6,6 +6,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine_shadows.h"
 
+#include <memory>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -197,8 +198,7 @@ EditorViewModule::EditorViewModule()
 // 0x004E5100 (0x004E59A0 the deleting one)
 EditorViewModule::~EditorViewModule()
 {
-    delete shadow_handle_;
-    shadow_handle_ = nullptr;
+    shadow_handle_.reset();
 }
 
 // 0x004E4ED0
@@ -222,7 +222,7 @@ void EditorViewModule::build_blob_shadow()
 {
     if (shadow_handle_)
         return;
-    shadow_handle_ = new render::BlobShadow();
+    shadow_handle_ = std::make_unique<render::BlobShadow>();
     shadow_handle_->size_factor_ = 1.2f; // (no null check)
     shadow_handle_->load_mesh("Ped_Shadow");
 }
@@ -233,8 +233,7 @@ void EditorViewModule::conceal(bool hide)
     if (!hide)
         build_blob_shadow();
     else if (shadow_handle_) {
-        delete shadow_handle_;
-        shadow_handle_ = nullptr;
+        shadow_handle_.reset();
     }
 }
 
@@ -247,8 +246,7 @@ void EditorViewModule::resync_ground_shadow()
     maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
     feeler.change_finish(bottom);
     if (!feeler.get_hit_shape(1, 0)) {
-        delete shadow_handle_;
-        shadow_handle_ = nullptr;
+        shadow_handle_.reset();
         return;
     }
     build_blob_shadow();

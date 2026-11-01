@@ -6,6 +6,7 @@
 // 0x004638B0-0x004644A0 and the details' small virtuals here; the rest (loading, the object updates, the camera,
 // 0x00463AA0-0x004680B0) is still in the game.
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -170,7 +171,7 @@ public:
     void ingest_mesh(int index, file::AssetBundle::TableRow* entry, void* data);
 
     uint32_t unknown4_;
-    file::AssetBundle* bundle_ptr_; // +0x08: the cutscene's loaded bundle
+    std::unique_ptr<file::AssetBundle> bundle_ptr_; // +0x08: the cutscene's loaded bundle
     bool ready_flag_;               // +0x0C
     uint8_t unknownd_[3];
     int camera_parts_;      // +0x10: the camera animation's parts (after the first)

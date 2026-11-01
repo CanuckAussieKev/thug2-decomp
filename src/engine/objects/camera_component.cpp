@@ -31,11 +31,11 @@ ObjectModule* __cdecl ViewpointModule::fabricate() { return new ViewpointModule;
 ViewpointModule::ViewpointModule()
 {
     kind_tag_ = kType;
-    view_camera_ = new gfx::ViewCam;
+    view_camera_ = std::make_unique<gfx::ViewCam>();
 }
 
 // 0x0041B6D0 (0x0041B7C0 the deleting one)
-ViewpointModule::~ViewpointModule() { delete view_camera_; }
+ViewpointModule::~ViewpointModule() { view_camera_.reset(); }
 
 // 0x0041B7F0
 void ViewpointModule::configure_from_data(script::Struct*)
