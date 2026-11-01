@@ -13,6 +13,9 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/device.h"
 #include "platform/compiler.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
 
@@ -76,11 +79,11 @@ HWND game_window()
     return render::g_game_window;
 }
 
-// dinput8.lib's data formats and the constant-force effect's GUID, as the exe has them.
-const DIDATAFORMAT* joystick_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00667204); } // c_dfDIJoystick2
-const DIDATAFORMAT* keyboard_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666FFC); } // c_dfDIKeyboard
-const DIDATAFORMAT* mouse_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666DF4); }    // c_dfDIMouse2
-const GUID& constant_force_guid() { return *reinterpret_cast<const GUID*>(0x00666B54); } // GUID_ConstantForce
+// dinput8.lib's data formats and dxguid.lib's constant-force effect GUID (the original's own copies of them).
+const DIDATAFORMAT* joystick_format() { return &c_dfDIJoystick2; } // c_dfDIJoystick2
+const DIDATAFORMAT* keyboard_format() { return &c_dfDIKeyboard; } // c_dfDIKeyboard
+const DIDATAFORMAT* mouse_format() { return &c_dfDIMouse2; }    // c_dfDIMouse2
+const GUID& constant_force_guid() { return GUID_ConstantForce; } // GUID_ConstantForce
 
 // Any of `count` controls set (not -1).
 bool any_binding(const int32_t* controls, int count)
@@ -403,27 +406,27 @@ void load_registry_options(const char* key)
     // (The size starts at 1, so the first read - "distance" - always fails, setting it to 4: "distance" is
     // read again after "options".)
     DWORD size = 1;
-    if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS)
+    if (RegQueryValueExA(options, "distance", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS)
         place_at_range(value);
-    if (RegQueryValueExA(options, "options", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS) {
+    if (RegQueryValueExA(options, "options", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
         if (value & 1)
             render::g_fog_setting = true;
         if (value & 2)
             render::g_hq_shadows = 1;
         if (value & 4)
-            reinterpret_cast<uint8_t*>(&g_options38_and39)[0] = 1;
+            raw::bytes(&g_options38_and39)[0] = 1;
         if (value & 8)
-            reinterpret_cast<uint8_t*>(&g_options38_and39)[1] = 1;
+            raw::bytes(&g_options38_and39)[1] = 1;
         if (value & 0x10)
             g_option37 = 1;
         if (value & 0x20)
-            reinterpret_cast<uint8_t&>(render::g_antialiasing) = 1;
+            memory::bits_as<uint8_t>(render::g_antialiasing) = 1;
         if (value & 0x100)
             render::g_distance_clipping = true;
     }
-    if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS)
+    if (RegQueryValueExA(options, "distance", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS)
         place_at_range(value);
-    if (RegQueryValueExA(options, "resolution", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
+    if (RegQueryValueExA(options, "resolution", nullptr, &type, raw::bytes(&value), &size) ==
         ERROR_SUCCESS)
         render::g_resolution_setting = value > 3 ? 0 : static_cast<int>(value);
 
@@ -431,11 +434,11 @@ void load_registry_options(const char* key)
     // whatever was there after it).
     char text[0x400];
     size = sizeof(text);
-    if (RegQueryValueExA(options, "pad0", nullptr, &type, reinterpret_cast<BYTE*>(text), &size) == ERROR_SUCCESS)
+    if (RegQueryValueExA(options, "pad0", nullptr, &type, raw::bytes(text), &size) == ERROR_SUCCESS)
         get_controls()[0].joystick = parse_joystick_guid(text, size);
     std::memset(text, 0, sizeof(text));
     size = sizeof(text);
-    if (RegQueryValueExA(options, "pad1", nullptr, &type, reinterpret_cast<BYTE*>(text), &size) == ERROR_SUCCESS)
+    if (RegQueryValueExA(options, "pad1", nullptr, &type, raw::bytes(text), &size) == ERROR_SUCCESS)
         get_controls()[1].joystick = parse_joystick_guid(text, size);
 
     // Each port's keys and joystick controls (the ones not there stay as they are).
@@ -443,7 +446,7 @@ void load_registry_options(const char* key)
         for (int i = 0; i < kBindings; ++i) {
             std::sprintf(text, "k%i_%i", port, i);
             size = 4;
-            if (RegQueryValueExA(options, text, nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
+            if (RegQueryValueExA(options, text, nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)
                 get_controls()[port].keys[i] = static_cast<int32_t>(value);
         }
@@ -452,7 +455,7 @@ void load_registry_options(const char* key)
         for (int i = 0; i < kBindings; ++i) {
             std::sprintf(text, "gp%i_%i", port, i);
             size = 4;
-            if (RegQueryValueExA(options, text, nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
+            if (RegQueryValueExA(options, text, nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)
                 get_controls()[port].gamepad[i] = static_cast<int32_t>(value);
         }

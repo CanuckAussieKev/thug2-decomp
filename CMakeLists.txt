@@ -886,8 +886,9 @@ target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY
                                          "${CMAKE_BINARY_DIR}/editor_fonts")
 # (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them; the generated build_info.h)
 add_dependencies(thug2 editor_fonts build_info)
-# ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats sdl2 ws2_32 dsound ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
+# ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
+# formats and effect GUIDs (platform/platform_input.cpp); d3d9, winmm: platform/crt.h's imports
+target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
 target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /we4150)

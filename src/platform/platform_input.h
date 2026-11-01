@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/raw_view.h"
+
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
@@ -32,7 +34,7 @@ static_assert(offsetof(PortControls, joystick) == 0x60 && offsetof(PortControls,
                   offsetof(PortControls, mouse) == 0xD0 && sizeof(PortControls) == 0x130,
               "layout must match the original");
 extern int32_t g_input_map[0x98];
-inline PortControls* get_controls() { return reinterpret_cast<PortControls*>(g_input_map); }
+inline PortControls* get_controls() { return raw::as<PortControls>(g_input_map); }
 
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
 // [Graphics] in thug2-decomp.ini, engine/gfx/settings.h).
