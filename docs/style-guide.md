@@ -41,14 +41,21 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 ```
 src/
   main.cpp
-  platform/   window, input devices, timers, crash reports, settings
+  platform/   window, input devices, timers, crash reports, settings, code addresses (the Win32 / Direct3D /
+              DirectSound / SDL / GameSpy side)
+  formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
+              sounds, saves, custom parks (library thug2_formats)
+  wire/       the network messages and their framing (library thug2_wire)
+  gpu/        the GPU's vertex and index buffers
   engine/     core, maths, lists, files, assets, script, objects, renderer, 2D, audio, sound, network, pad input
   game/       skating, the rider, goals, parks, saves
   frontend/   menus and screens
   editor/     the level editor
 ```
 
-`engine/` doesn't include `game/`, `frontend/` or `editor/`. One folder is one namespace.
+`engine/` doesn't include `game/`, `frontend/` or `editor/`; `formats/` and `wire/` include nothing of the game but
+`engine/core`'s leaf headers (they build as libraries of their own). One folder is one namespace (formats and wire
+keep the namespaces their headers had). The layers and their rules: docs/architecture.md.
 
 ## Code
 
@@ -66,7 +73,7 @@ src/
 `.clang-tidy` enables the Guidelines' checks (`cppcoreguidelines-*`) with `bugprone-*`, `misc-*`, `modernize-*`,
 `performance-*` and the naming check, and switches off by name, each with its reason, the ones that conflict with
 what the code is: a decompilation that keeps the original's data layouts, constants, formatting and pointer-walking
-loops (magic numbers, pointer arithmetic, `reinterpret_cast` views, C arrays in layouts, non-const globals, printf
+loops (magic numbers, pointer arithmetic, C arrays in layouts, non-const globals, printf
 formatting, trailing return types and a few more). Everything else runs with zero warnings; the places that can't
 keep a check carry a `NOLINT` with their reason:
 
@@ -87,6 +94,15 @@ keep a check carry a `NOLINT` with their reason:
   script, the wire or an SDK, or closed sets still held in the original's integer fields.
 - **The script values' cells** (`engine/script/param_struct.h`): 32-bit unions tagged from outside, read by their
   tag - the script runtime's own files as a whole, single places elsewhere.
+- **No `reinterpret_cast`, no integer-to-pointer cast** anywhere in `src/` (both checks on). Bytes from outside
+  are read by the boundary layer's readers (`formats/`, `wire/`); casts between related classes are `static_cast`;
+  what is left of the original's ways of reaching memory has a name, so it can be counted and removed:
+  `cell::of` / `cell::pointer<T>` / `cell::address` (`engine/core/pointer_cell.h`: a pointer kept in a 32-bit
+  cell - script values, callbacks' user words, addresses used as ids), `raw::as<T>` / `raw::field_at<T>` /
+  `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`engine/core/raw_view.h`: one of the original's in-memory
+  layouts read through another type or at a byte offset), `memory::bits_as<T>` (a field's bits as another type of
+  its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).
+  New code uses none of them: a field gets its member, a pointer its type.
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
 - **Constructor bodies in the original's order**: an assignment stays in the body (not an initialiser) when moving it
