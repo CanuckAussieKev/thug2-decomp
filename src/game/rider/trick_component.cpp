@@ -18,6 +18,10 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/skate/point_tally.h"
+#include "engine/objects/input_component.h"
+#include "game/rider/balance_trick.h"
+#include "game/rider/flip_and_rotate.h"
+#include "game/rider/stats_manager.h"
 
 namespace objects {
 
@@ -99,12 +103,12 @@ void __cdecl MoveExecutor::publish_method_table()
 // 0x0051F2B0
 void MoveExecutor::seal()
 {
-    input_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
-    balance_trick_ = entity_->fetch_module(kSkaterBalanceTrick);
+    input_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput));
+    balance_trick_ = static_cast<RiderTeeterMoves*>(entity_->fetch_module(kSkaterBalanceTrick));
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    flip_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
+    flip_rotate_ = static_cast<RiderSpinAndFlip*>(entity_->fetch_module(kSkaterFlipAndRotate));
     skater_state_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
-    stats_manager_ = entity_->fetch_module(kStatsManager);
+    stats_manager_ = static_cast<AttributeTracker*>(entity_->fetch_module(kStatsManager));
 }
 
 // 0x0051F320
@@ -397,10 +401,10 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
 }
 
 // 0x0051EC40
-uint32_t MoveExecutor::read_trigger(const uint8_t* node, int count, uint32_t* out)
+uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, uint32_t* out)
 {
     for (int i = 0; i < count; ++i) {
-        uint32_t button = prop<uint32_t>(node, 8);
+        uint32_t button = node->checksum;
         if (button == 0x03749393)
             button = button_map_[1];
         else if (button == 0x7473A305)
@@ -408,11 +412,11 @@ uint32_t MoveExecutor::read_trigger(const uint8_t* node, int count, uint32_t* ou
         else if (button == 0x9A7DC229)
             button = button_map_[0];
         out[i] = button;
-        node = prop<const uint8_t*>(node, 0xC);
+        node = node->next;
     }
-    if ((node[0] & 0xFE) == 2)
-        return prop<uint32_t>(node, 8);
-    return static_cast<uint32_t>(script::fetch_int_value(prop<uint32_t>(node, 8)));
+    if ((node->type_and_flag_ & 0xFE) == 2)
+        return node->checksum;
+    return static_cast<uint32_t>(script::fetch_int_value(node->checksum));
 }
 
 // 0x0051ECC0
@@ -683,12 +687,12 @@ bool is_straight_direction(uint32_t button)
 // 0x0051FDA0
 bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, uint32_t mask, bool scaled)
 {
-    if (!trigger || input_[0x498] || input_[0x499])
+    if (!trigger || input_->disabled_ || input_->net_disabled_)
         return false;
     script::Component* kind = trigger->step_to_entry(nullptr);
     if (!kind)
         return false;
-    const auto* node = reinterpret_cast<const uint8_t*>(kind->next);
+    const script::Component* node = kind->next;
     uint32_t buttons[3] = {0, 0, 0};
     // The events marked used get `mark_flags`, the trigger's buttons become the map.
     auto succeed = [&] {
@@ -990,9 +994,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
         return find_press_both(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
     }
     case 0xA8123ECF: { // HoldThree: the three (as named, not mapped) held; nothing marked
-        const auto* second = prop<const uint8_t*>(node, 0xC);
-        uint32_t a = prop<uint32_t>(node, 8), b = prop<uint32_t>(second, 8);
-        uint32_t c = prop<uint32_t>(prop<const uint8_t*>(second, 0xC), 8);
+        const script::Component* second = node->next;
+        uint32_t a = node->checksum, b = second->checksum;
+        uint32_t c = second->next->checksum;
         return is_key_held(a) && is_key_held(b) && is_key_held(c);
     }
     case 0x696E5E66: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,

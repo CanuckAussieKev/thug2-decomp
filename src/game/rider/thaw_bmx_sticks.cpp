@@ -11,6 +11,7 @@
 #include "engine/objects/control_pad.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/trick_component.h"
+#include "engine/objects/input_component.h"
 
 namespace skater::thaw_bmx {
 
@@ -50,8 +51,8 @@ PadSticks& sticks_of(const void* pad)
     return sticks;
 }
 
-// The trick component's pad (the input component's, at its +0x20).
-const void* trick_pad(const objects::MoveExecutor* trick) { return trick->input_ + 0x20; }
+// The trick component's pad (the input component's).
+const void* trick_pad(const objects::MoveExecutor* trick) { return &trick->input_->pad_primary_; }
 
 // The bike state of `trick`'s skater while it rides the bike, else null.
 BikeState* riding_state(const objects::MoveExecutor* trick)

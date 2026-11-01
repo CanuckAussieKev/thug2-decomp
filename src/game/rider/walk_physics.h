@@ -8,6 +8,7 @@
 #include "engine/objects/entity.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
+#include "game/rider/core_physics.h"
 
 namespace script {
 class Script;
@@ -447,10 +448,10 @@ public:
     float facing_y_;            // +0x744 the object's at-row y (before the facing is flattened)
     int leave_for_;             // +0x748 what the walk ends in - 1 a grind, 2 an acid drop
     maths::Vec4 grind_point_;   // +0x74C the rail's point to grind from
-    objects::GrindRailHub* grind_rails_; // +0x75C its rail manager
-    objects::GrindPoint* grind_node_;    // +0x760 and node
-    objects::GameEntity* grind_object_;  // +0x764 the object the rail rides (null: the level's)
-    uint8_t unknown768_[0x28];
+    objects::GrindRailHub* grind_rails_;          // +0x75C its rail manager
+    objects::GrindPoint* grind_node_;             // +0x760 and node
+    objects::GameEntity* grind_object_;           // +0x764 the object the rail rides (null: the level's)
+    skater::AcidDrop acid_drop_;                  // +0x768 the acid drop found (try_acid_drop)
     render::HitMeshCache hit_cache_;              // +0x790
     objects::GameEntity* camera_;                 // +0x175C
     objects::FootView* walk_camera_;              // +0x1760

@@ -36,6 +36,8 @@
 #include "game/rider/walk_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
+#include "game/rider/balance_trick.h"
+#include "engine/objects/vehicle_component.h"
 
 namespace objects {
 
@@ -73,28 +75,25 @@ T& prop(void* object, uint32_t offset)
 }
 
 // A gap in progress (the 0x64-byte TrickListEntry) and a gap trick (the 0x34-byte TrickNameEntry), by their fields.
-uint32_t& get_gap_id(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x14); }
-uint32_t& gap_option_labels(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x18); }
-int& gap_node(TrickListEntry* gap) { return prop<int>(gap, 0x1C); }
-uint32_t& gap_key_combo(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x20); }
-int& gap_trick_count(TrickListEntry* gap)
-{
-    return prop<int>(gap, 0x24);
-} // the score's count of the trick at the start
-uint32_t& gap_trick_script(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x28); }
-uint32_t& gap_trick_text(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x2C); } // (its checksum)
-int& gap_spin(TrickListEntry* gap) { return prop<int>(gap, 0x30); }                 // in half turns
-uint8_t& gap_perfect(TrickListEntry* gap) { return prop<uint8_t>(gap, 0x34); }
-uint32_t& gap_tricks_count(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x38); } // the score's +0x5C then
-int& gap_taps(TrickListEntry* gap) { return prop<int>(gap, 0x3C); }
-maths::Vec4& gap_start_pos(TrickListEntry* gap) { return prop<maths::Vec4>(gap, 0x40); }
-maths::Vec4& gap_start_dir(TrickListEntry* gap) { return prop<maths::Vec4>(gap, 0x50); }
+uint32_t& get_gap_id(TrickListEntry* gap) { return gap->gap_id_; }
+uint32_t& gap_option_labels(TrickListEntry* gap) { return gap->option_labels_; }
+int& gap_node(TrickListEntry* gap) { return gap->node_; }
+uint32_t& gap_key_combo(TrickListEntry* gap) { return gap->lookup_key_; }
+int& gap_trick_count(TrickListEntry* gap) { return gap->trick_count_; } // the score's count of the trick at the start
+uint32_t& gap_trick_script(TrickListEntry* gap) { return gap->trick_script_; }
+uint32_t& gap_trick_text(TrickListEntry* gap) { return gap->trick_text_; }
+int& gap_spin(TrickListEntry* gap) { return gap->spin_; }
+uint8_t& gap_perfect(TrickListEntry* gap) { return reinterpret_cast<uint8_t&>(gap->perfect_); }
+uint32_t& gap_tricks_count(TrickListEntry* gap) { return gap->tricks_count_; }
+int& gap_taps(TrickListEntry* gap) { return gap->taps_; }
+maths::Vec4& gap_start_pos(TrickListEntry* gap) { return gap->start_pos_; }
+maths::Vec4& gap_start_dir(TrickListEntry* gap) { return gap->start_dir_; }
 
-uint32_t& trick_gap_id(TrickNameEntry* trick) { return prop<uint32_t>(trick, 0x20); }
-int& trick_node(TrickNameEntry* trick) { return prop<int>(trick, 0x24); }
-uint32_t& get_trick_script(TrickNameEntry* trick) { return prop<uint32_t>(trick, 0x28); }
-uint8_t& trick_done(TrickNameEntry* trick) { return prop<uint8_t>(trick, 0x2C); }
-uint32_t& trick_frame(TrickNameEntry* trick) { return prop<uint32_t>(trick, 0x30); }
+uint32_t& trick_gap_id(TrickNameEntry* trick) { return trick->gap_id_; }
+int& trick_node(TrickNameEntry* trick) { return trick->node_; }
+uint32_t& get_trick_script(TrickNameEntry* trick) { return trick->trick_script_; }
+uint8_t& trick_done(TrickNameEntry* trick) { return trick->done_; }
+uint32_t& trick_frame(TrickNameEntry* trick) { return trick->frame_; }
 
 // A list's first entry and the one after `node` (null at the head: its data is -1).
 template <typename T>
@@ -130,10 +129,7 @@ void add_to_front(memory::ListNode& head, memory::ListNode* node)
 // The skate module (0x007CE478): the current level's gap checklist (0x005656C0) and the career (+0x20). Not
 // rewritten yet.
 goals::GapTally* gap_tally_ref() { return static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
-RiderStoryProgress* get_career()
-{
-    return *reinterpret_cast<RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20);
-}
+RiderStoryProgress* get_career() { return modules::g_skate_module->career_; }
 
 // The score (modules::PointTally; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
 // 0x00562510 with perfect) or by name (0x005625A0 / 0x005624C0) - with a spin and taps; 0x0049F4C0 (a shared "0"
@@ -201,7 +197,7 @@ void RiderGapTracker::configure_from_data(script::Struct* /*params*/) { tick_ = 
 void RiderGapTracker::seal()
 {
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    balance_trick_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterBalanceTrick));
+    balance_trick_ = static_cast<RiderTeeterMoves*>(entity_->fetch_module(kSkaterBalanceTrick));
     physics_control_ = static_cast<RiderBoardPhysics*>(entity_->fetch_module(kSkaterPhysicsControl));
     walk_ = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
 }
@@ -231,8 +227,8 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
         GameEntity* vehicle = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(kPlayerVehicle));
-        uint8_t* physics = reinterpret_cast<uint8_t*>(vehicle->fetch_module(kVehicle));
-        set(prop<uint32_t>(physics, 0x114) != 0 ? kGapGround : kGapAir);
+        auto* physics = static_cast<DrivableModule*>(vehicle->fetch_module(kVehicle));
+        set(physics->wheels_in_contact_ != 0 ? kGapGround : kGapAir);
         return;
     }
     if (state->physics_mode_ != 0) {
@@ -263,7 +259,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
     objects::RiderPoseState* core_state = get_core_state(core_physics_);
     switch (core_state->cur_phase_) {
     case 0: { // the ground: plain (+0x90 and the balance trick's two clear) or a manual
-        bool balancing = prop<uint32_t>(balance_trick_, 0x18) != 0 || prop<uint8_t>(balance_trick_, 0x1C) != 0;
+        bool balancing = balance_trick_->trick_ != 0 || balance_trick_->started_;
         if (!core_state->flag(PoseFlag::kCancelGround).on && !balancing)
             set(kGapGround);
         if (balancing)
@@ -444,7 +440,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
     bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
-    if (!driving_matters && prop<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) == kOff)
+    if (!driving_matters && park_editing::g_park_editor->cur_phase_ == kOff)
         return;
     uint32_t cancel, require;
     fetch_gap_condition_masks(&cancel, &require);
@@ -518,9 +514,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                 for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;
                      trick = get_next(trick)) {
                     if (trick_gap_id(trick) == get_gap_id(gap)) {
-                        // (0x00578670, trick_lists.h's TrickListEntry::SetFlag: the flag at +0x2C - here the gap
-                        // trick's done)
-                        reinterpret_cast<TrickListEntry*>(trick)->set_flag();
+                        trick->set_flag(); // (0x00578670: the gap trick's done)
                         break;
                     }
                 }

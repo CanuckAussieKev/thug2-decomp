@@ -30,6 +30,10 @@
 #include "engine/objects/camera_lookaround.h"
 #include "platform/crt.h"
 #include "game/rider/skater_state.h"
+#include "engine/objects/input_component.h"
+#include "game/rider/core_physics.h"
+#include "game/skate/point_tally.h"
+#include "engine/objects/rail_manager.h"
 
 namespace objects {
 
@@ -56,17 +60,9 @@ constexpr uint32_t kAltTrigger = 0x68B74085, kDuration = 0x79A07F3F, kParams = 0
                    kNone = 0x806FFF30, kSkaterType = 0xBAF9B341;
 
 // The fields (offsets into the component).
-constexpr uint32_t kFlags1c = 0x1C;       // (+0x74: a flag the special arrays need)
-constexpr uint32_t kInput = 0x20;         // the Input component (+0x1C its button mask)
-constexpr uint32_t kBalanceTrick = 0x24;  // SkaterBalanceTrick
-constexpr uint32_t kCorePhysics = 0x28;   // SkaterCorePhysics
-constexpr uint32_t kFlipAndRotate = 0x2C; // SkaterFlipAndRotate
-constexpr uint32_t kComponent34 = 0x34;   // 0x4FF8DAC6
 // The button buffer: 100 events of 0x18 bytes from +0x38 (+0 the time, +4 1 pressed / 2 released, +8 the button,
 // +0x14 the masks of who used it); +0x998 their count, +0x99A the newest's index.
-constexpr uint32_t kEventRing = 0x38;
 constexpr uint32_t kQueueHead = 0xA2C, kQueueTail = 0xA30;
-constexpr uint32_t kQueue = 0xA34; // 100 entries of 0x14: +0 the array, +4 the index, +0x10 special
 constexpr uint32_t kManualArrayCount = 0x1238, kManualArrays = 0x123C, kManualSpecial = 0x1264;
 constexpr uint32_t kManualArray = 0x126C, kManualIndex = 0x1270, kManualTime = 0x1274, kManualDuration = 0x1278,
                    kManualIsSpecial = 0x127C;
@@ -103,12 +99,8 @@ bool pressed_within(MoveExecutor* self, uint32_t button, int ms, int ignore)
     return self->find_press(button, static_cast<uint32_t>(ms), static_cast<uint32_t>(ignore));
 }
 
-void* get_component(MoveExecutor* self, uint32_t offset) { return get_at<void*>(self, offset); }
 // SkaterFlipAndRotate's do_after_anim (before a trick's script starts).
-void prepare_flip_and_rotate(MoveExecutor* self)
-{
-    static_cast<RiderSpinAndFlip*>(get_component(self, kFlipAndRotate))->do_after_anim();
-}
+void prepare_flip_and_rotate(MoveExecutor* self) { self->flip_rotate_->do_after_anim(); }
 // The state component told a trick started.
 void trick_started(MoveExecutor* self) { self->skater_state_->in_trick_move_ = true; }
 
@@ -155,8 +147,8 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 {
     int index = self->event_head_;
     for (int i = 0; i < self->event_count_; ++i) {
-        uint8_t* event = reinterpret_cast<uint8_t*>(self) + kEventRing + index * 0x18;
-        if (frame_clock::get_time() - get_at<uint32_t>(event, 0) >= period)
+        TrickEvent* event = &self->events_[index];
+        if (frame_clock::get_time() - event->time >= period)
             break;
         visit(event);
         if (--index < 0)
@@ -212,7 +204,7 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 // 0x00521E50
 void MoveExecutor::update_buttons()
 {
-    uint32_t mask = get_at<uint32_t>(get_component(this, kInput), 0x1C);
+    uint32_t mask = input_->events_;
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
     int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
     for (int i = 1; i <= 8; ++i)
@@ -235,11 +227,11 @@ double MoveExecutor::get_bash_speed()
 {
     uint32_t period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
-    for_recent_events(this, period, [&](uint8_t* event) {
-        int kind = get_at<int>(event, 4);
-        if ((kind == 1 || kind == 2) && get_at<uint32_t>(event, 8) != kTriangle) {
+    for_recent_events(this, period, [&](TrickEvent* event) {
+        int kind = event->type;
+        if ((kind == 1 || kind == 2) && event->button != kTriangle) {
             ++mashes;
-            get_at<uint32_t>(event, 0x14) = 0xFFFFFFFF;
+            event->flags = 0xFFFFFFFF;
         }
     });
     float speed = static_cast<float>(static_cast<double>(script::fetch_float(kBashSpeedupFactor)) * mashes);
@@ -252,11 +244,11 @@ double MoveExecutor::count_triangle_bashes()
 {
     uint32_t period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
-    for_recent_events(this, period, [&](uint8_t* event) {
-        int kind = get_at<int>(event, 4);
-        if ((kind == 1 || kind == 2) && get_at<uint32_t>(event, 8) == kTriangle) {
+    for_recent_events(this, period, [&](TrickEvent* event) {
+        int kind = event->type;
+        if ((kind == 1 || kind == 2) && event->button == kTriangle) {
             ++mashes;
-            get_at<uint32_t>(event, 0x14) = 0xFFFFFFFF;
+            event->flags = 0xFFFFFFFF;
         }
     });
     return mashes;
@@ -305,7 +297,7 @@ void MoveExecutor::set_trick_objects(bool on)
         list.get_clear();
         return;
     }
-    list.append_one(get_at<uint32_t>(get_component(this, kCorePhysics), 0x1B0));
+    list.append_one(core_physics_->floor_feeler_.hit_.object_checksum_);
 }
 
 // 0x005232E0
@@ -336,13 +328,13 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     uint32_t script = 0;
     trick->read_hash_value(kScr, &script, 0);
     if (script == kGrind) {
-        uint8_t* rail = get_at<uint8_t*>(get_component(this, kCorePhysics), 0x22C);
-        if (!rail || !get_at<void*>(rail, 0x4C))
+        GrindPoint* rail = core_physics_->rail_node_;
+        if (!rail || !rail->label_)
             return false;
     }
     script::Struct* params;
     if (trick->read_sub_struct(kParams, &params, 0) && !params->has_entry_named(kIsExtra))
-        static_cast<AttributeTracker*>(get_component(this, kComponent34))->total_of(script);
+        stats_manager_->total_of(script);
     if (!script)
         return false;
     ++busy_;
@@ -377,10 +369,10 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     uint32_t index;
     for (;;) {
         int entry = head;
-        uint8_t* queued = reinterpret_cast<uint8_t*>(this) + kQueue + entry * 0x14;
-        array = get_at<uint32_t>(queued, 0);
-        index = get_at<uint32_t>(queued, 4);
-        starting_special_ = get_at<bool>(queued, 0x10);
+        QueuedTrick* queued = &queue_[entry];
+        array = queued->list;
+        index = static_cast<uint32_t>(queued->index);
+        starting_special_ = queued->flag;
         if (entry != -1) {
             if (entry == tail) {
                 tail = -1;
@@ -514,7 +506,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     trick->read_sub_struct(kParams, &trick_params, 0);
     Entity* object = entity_;
     if (object->kind_tag_ == kSkaterType)
-        get_at<uint32_t>(get_component(this, kCorePhysics), 0x3A8) = 0;
+        core_physics_->rail_adjust_ = 0;
     starting_special_ = grind_.is_special_;
     prepare_flip_and_rotate(this);
     object->replace_script(script, trick_params);
@@ -529,7 +521,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 void MoveExecutor::update_manual_tricks()
 {
     uint32_t special = manual_.special_;
-    if (special && get_at<bool>(get_component(this, kFlags1c), 0x74)) {
+    if (special && score_->special_active_) {
         check_manual_tricks(this, special, -5, true);
         if (manual_.pending_)
             return;
@@ -568,7 +560,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
 void MoveExecutor::update_extra_grind_tricks()
 {
     uint32_t special = grind_.special_;
-    if (special && get_at<bool>(get_component(this, kFlags1c), 0x74))
+    if (special && score_->special_active_)
         check_extra_grind_tricks(special, true);
     for (int i = 0; i < grind_.count_; ++i)
         check_extra_grind_tricks(grind_.arrays_[i], false);
@@ -646,7 +638,7 @@ void MoveExecutor::update_extra_tricks()
         return;
     }
     if (uint32_t special = extra_.special_) {
-        if (get_at<bool>(get_component(this, kFlags1c), 0x74)) {
+        if (score_->special_active_) {
             starting_special_ = true;
             if (!try_extra_tricks(special, extra_.special_mask_))
                 starting_special_ = false;
@@ -745,7 +737,7 @@ void MoveExecutor::tick_frame()
         return;
     }
     update_buttons();
-    static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))->get_buttons(&ignored_count_, &ignored_[0]);
+    balance_trick_->get_buttons(&ignored_count_, &ignored_[0]);
     update_extra_tricks();
     queue_all_done_tricks();
     update_manual_tricks();

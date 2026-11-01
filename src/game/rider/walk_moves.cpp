@@ -525,7 +525,7 @@ void FootMovement::tick_frame()
     position.y += curb_offset_;
 
     if (state_ == 0 && static_cast<uint32_t>(get_now() - state_time_) > 500) {
-        reinterpret_cast<skater::Component*>(this)->try_acid_drop(); // (an acid drop)
+        skater::try_acid_drop(this); // (an acid drop)
         if (halted(this))
             return;
     }
@@ -653,7 +653,7 @@ void FootMovement::update_air()
     clear_current_cache();
     if (pad->button_wedge_.held_down_ && try_grind())
         return;
-    if (reinterpret_cast<skater::Component*>(this)->try_walk_acid_drop()) // (an acid drop)
+    if (skater::try_walk_acid_drop(this)) // (an acid drop)
         return;
     check_sticker_slap();
     try_wallplant();

@@ -13,13 +13,18 @@ namespace modules {
 class PointTally;
 }
 namespace script {
+struct Component;
 class Script;
 class Struct;
 } // namespace script
 
 namespace objects {
 
+class AttributeTracker;
+class PadInputModule;
 class RiderPoseState;
+class RiderSpinAndFlip;
+class RiderTeeterMoves;
 
 struct RiderIdentity;
 
@@ -140,7 +145,7 @@ public:
     bool check_release_press(uint32_t button, bool twice, bool set_map);
     // 0x0051EC40: `count` buttons of a trigger (its components from `node`) into `out` (the three generic names
     // mapped through the button map), then the trigger's time: its number, or the global integer it names.
-    uint32_t read_trigger(const uint8_t* node, int count, uint32_t* out);
+    uint32_t read_trigger(const script::Component* node, int count, uint32_t* out);
     // 0x0051ECC0: the button map (+0x99C) set.
     void set_button_map(const uint32_t* buttons);
     // 0x0051ECF0: whether `button` is down.
@@ -281,12 +286,12 @@ public:
 
     int busy_;                                  // +0x18 (counted up and down round a trick's script)
     modules::PointTally* score_;                // +0x1C the skater's score (set by the skater)
-    uint8_t* input_;                            // +0x20 (+0x498 / +0x499: no tricks)
-    ObjectModule* balance_trick_;               // +0x24
+    PadInputModule* input_;                     // +0x20 (its disabled_ / net_disabled_: no tricks)
+    RiderTeeterMoves* balance_trick_;           // +0x24
     skater::SkaterPhysicsModule* core_physics_; // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
-    ObjectModule* flip_rotate_;                 // +0x2C
+    RiderSpinAndFlip* flip_rotate_;             // +0x2C
     RiderPoseState* skater_state_;              // +0x30
-    ObjectModule* stats_manager_;               // +0x34
+    AttributeTracker* stats_manager_;           // +0x34
     TrickEvent events_[kEvents];                // +0x38
     uint16_t event_count_;                      // +0x998
     uint16_t event_head_;                       // +0x99A

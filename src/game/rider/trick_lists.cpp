@@ -23,20 +23,20 @@ void init_node(memory::ListNode& node, void* data)
 } // namespace
 
 // 0x00578670
-void TrickListEntry::set_flag() { flag_2c_ = true; }
+void TrickNameEntry::set_flag() { done_ = true; }
 
 // 0x00578740
 TrickListEntry* TrickListEntry::make_new()
 {
     init_node(list_link_, this);
     lookup_key_ = 0;
-    unknown24_ = 0;
-    unknown30_ = 0;
-    unknown34_ = false;
+    trick_count_ = 0;
+    spin_ = 0;
+    perfect_ = false;
     script::Array* memory = script::alloc_script_array();
     element_list_ = memory ? memory->prepare_all() : nullptr;
-    unknown38_ = 0;
-    unknown3c_ = 0;
+    tricks_count_ = 0;
+    taps_ = 0;
     return this;
 }
 

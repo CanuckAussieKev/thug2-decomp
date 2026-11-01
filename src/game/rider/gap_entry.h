@@ -34,6 +34,7 @@ class Struct;
 namespace objects {
 class FootMovement;
 class RiderBoardPhysics;
+class RiderTeeterMoves;
 
 struct TrickListEntry;
 struct TrickNameEntry;
@@ -93,7 +94,7 @@ public:
     uint32_t tick_;                             // +0x40 counted by Update
     modules::PointTally* points_held_;          // +0x44 the skater's score (set by the skater)
     skater::SkaterPhysicsModule* core_physics_; // +0x48 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* balance_trick_;                    // +0x4C SkaterBalanceTrick (0x589E5FB3)
+    RiderTeeterMoves* balance_trick_;           // +0x4C SkaterBalanceTrick (0x589E5FB3)
     RiderBoardPhysics* physics_control_;        // +0x50 SkaterPhysicsControl (0xD9151D4D)
     FootMovement* walk_;                        // +0x54 Walk (0x726E85AA)
 };
