@@ -23,6 +23,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
+#include "engine/util/unique_handle.h"
 
 namespace objects::thugpro_cas {
 
@@ -164,17 +165,17 @@ bool is_part_list(script::Array* array)
 std::vector<uint8_t> read_whole_file(const std::string& path)
 {
     std::vector<uint8_t> data;
-    HANDLE file = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (file == INVALID_HANDLE_VALUE)
+    util::UniqueHandle file(
+        CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
+    if (!file)
         return data;
-    DWORD size = GetFileSize(file, nullptr);
+    DWORD size = GetFileSize(file.get(), nullptr);
     if (size != INVALID_FILE_SIZE && size < 64u << 20) {
         data.resize(size);
         DWORD read = 0;
-        if (!ReadFile(file, data.data(), size, &read, nullptr) || read != size)
+        if (!ReadFile(file.get(), data.data(), size, &read, nullptr) || read != size)
             data.clear();
     }
-    CloseHandle(file);
     return data;
 }
 

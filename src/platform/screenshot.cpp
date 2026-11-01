@@ -46,6 +46,7 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/util/unique_handle.h"
 
 namespace sys::screenshot {
 
@@ -281,14 +282,12 @@ void emit_out(std::shared_ptr<Job> job)
         job->error = "the PNG couldn't be made";
     } else {
         auto write_new = [](const std::string& path, const void* data, size_t size) {
-            HANDLE file =
-                CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-            if (file == INVALID_HANDLE_VALUE)
+            util::UniqueHandle file(
+                CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
+            if (!file)
                 return false;
             DWORD written = 0;
-            bool ok = WriteFile(file, data, static_cast<DWORD>(size), &written, nullptr) && written == size;
-            CloseHandle(file);
-            return ok;
+            return WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
         };
         std::string png_path = job->folder + job->png, txt_path = job->folder + job->txt;
         if (!write_new(png_path, png.data(), png.size()))
@@ -421,13 +420,12 @@ std::string g_series_result = "none";
 
 bool write_new_file(const std::string& path, const void* data, size_t size)
 {
-    HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE)
+    util::UniqueHandle file(
+        CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!file)
         return false;
     DWORD written = 0;
-    bool ok = WriteFile(file, data, static_cast<DWORD>(size), &written, nullptr) && written == size;
-    CloseHandle(file);
-    return ok;
+    return WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
 }
 
 void write_series_frame(std::shared_ptr<Series> series, TickCycle frame, int number)

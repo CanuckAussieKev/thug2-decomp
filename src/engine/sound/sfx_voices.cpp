@@ -33,6 +33,7 @@
 #include "platform/platform_system.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
+#include "engine/util/unique_handle.h"
 
 namespace sound {
 
@@ -669,7 +670,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     char overlay[260];
     if (frontend::data_overlay::get_overlay_path(file_name, overlay))
         file_name = overlay;
-    FILE* file = _fsopen(file_name, "rb", _SH_DENYNO); // (fopen)
+    util::UniqueFile file(_fsopen(file_name, "rb", _SH_DENYNO)); // (fopen)
     if (!file)
         return false;
     // Not original - the whole file read and its chunks parsed through wave_format.h (the original read the format
@@ -677,14 +678,14 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     // data chunk, and decoded the format's bytes-a-second's worth of samples whatever the data held): a file cut
     // short, without its format or data, or with less data than it decodes is not loaded.
     std::vector<uint8_t> contents;
-    std::fseek(file, 0, SEEK_END);
-    long length = std::ftell(file);
-    std::fseek(file, 0, SEEK_SET);
+    std::fseek(file.get(), 0, SEEK_END);
+    long length = std::ftell(file.get());
+    std::fseek(file.get(), 0, SEEK_SET);
     if (length > 0) {
         contents.resize(static_cast<size_t>(length));
-        contents.resize(std::fread(contents.data(), 1, contents.size(), file));
+        contents.resize(std::fread(contents.data(), 1, contents.size(), file.get()));
     }
-    std::fclose(file);
+    file.reset();
     util::ByteReader reader(contents.data(), contents.size());
     wave_format::Wave wave;
     bool read = wave_format::read_wave(reader, &wave);

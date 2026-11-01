@@ -35,6 +35,7 @@
 #include "game/skate/game_mode.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
+#include "engine/util/unique_handle.h"
 
 namespace frontend::level_editor::layout {
 
@@ -699,12 +700,13 @@ bool write_whole(const char* folder, const char* path, const char* data, size_t 
     if (std::snprintf(temporary, sizeof(temporary), "%s.tmp", path) <= 0)
         return false;
     CreateDirectoryA(folder, nullptr);
-    HANDLE file = CreateFileA(temporary, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE)
+    util::UniqueHandle file(
+        CreateFileA(temporary, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!file)
         return false;
     DWORD written = 0;
-    bool ok = WriteFile(file, data, static_cast<DWORD>(size), &written, nullptr) && written == size;
-    CloseHandle(file);
+    bool ok = WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
+    file.reset(); // (closed before it's moved)
     ok = ok && MoveFileExA(temporary, path, MOVEFILE_REPLACE_EXISTING);
     if (!ok)
         DeleteFileA(temporary);

@@ -15,6 +15,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "engine/util/unique_handle.h"
 
 namespace frontend::new_frontend::paint {
 
@@ -80,18 +81,17 @@ constexpr ImWchar kTextRanges[] = {0x0020, 0x007E, 0x00B7, 0x00B7, 0x00C0, 0x00F
 
 bool read_file(const std::string& path, std::vector<uint8_t>* out)
 {
-    FILE* file = nullptr;
-    if (fopen_s(&file, path.c_str(), "rb") != 0 || !file)
+    util::UniqueFile file = util::open_file(path.c_str(), "rb");
+    if (!file)
         return false;
-    std::fseek(file, 0, SEEK_END);
-    long size = std::ftell(file);
-    std::fseek(file, 0, SEEK_SET);
+    std::fseek(file.get(), 0, SEEK_END);
+    long size = std::ftell(file.get());
+    std::fseek(file.get(), 0, SEEK_SET);
     bool ok = size > 12 && size < 64 * 1024 * 1024;
     if (ok) {
         out->resize(static_cast<size_t>(size));
-        ok = std::fread(out->data(), 1, out->size(), file) == out->size();
+        ok = std::fread(out->data(), 1, out->size(), file.get()) == out->size();
     }
-    std::fclose(file);
     return ok;
 }
 

@@ -8,16 +8,28 @@
 
 // NOT ORIGINAL - owning wrappers for the C runtime's and Win32's handles: closed when they go.
 //
-//   util::UniqueFile file(std::fopen(path, "rb"));          // std::fclose
+//   util::UniqueFile file = util::open_file(path, "rb");    // std::fclose
 //   util::UniqueHandle handle(CreateFileA(path, ...));     // CloseHandle (INVALID_HANDLE_VALUE and null: none)
 namespace util {
 
 struct FileCloser {
     void operator()(std::FILE* file) const noexcept { std::fclose(file); }
 };
-// A FILE* from fopen / fopen_s (`fopen_s(file.put()...)` isn't possible with unique_ptr: open into a local, then
-// reset()).
+// A FILE* from fopen / fopen_s / _fsopen.
 using UniqueFile = std::unique_ptr<std::FILE, FileCloser>;
+
+// std::fopen, owned (empty if it fails). (MSVC's fopen_s where it has it: its std::fopen is "deprecated" - C4996.)
+inline UniqueFile open_file(const char* path, const char* mode)
+{
+#ifdef _MSC_VER
+    std::FILE* file = nullptr;
+    if (fopen_s(&file, path, mode) != 0)
+        return {};
+    return UniqueFile(file);
+#else
+    return UniqueFile(std::fopen(path, mode));
+#endif
+}
 
 // A Win32 kernel handle (a file, an event, a thread...). Both of Win32's "no handle" values count as empty.
 class UniqueHandle {

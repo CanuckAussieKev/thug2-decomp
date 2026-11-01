@@ -49,6 +49,7 @@
 #include "platform/run_log.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
+#include "engine/util/unique_handle.h"
 
 namespace frontend::automation {
 
@@ -851,7 +852,7 @@ bool skater_present() { return objects::find_object(kSkater) != nullptr; }
 // --- trace: the skater frame by frame ---------------------------------------------------------------------------
 
 struct Trace {
-    FILE* file = nullptr;
+    util::UniqueFile file;
     int left = 0;
 };
 Trace& trace_state()
@@ -863,9 +864,7 @@ Trace& trace_state()
 void stop_trace()
 {
     Trace& trace = trace_state();
-    if (trace.file)
-        std::fclose(trace.file);
-    trace.file = nullptr;
+    trace.file.reset();
     trace.left = 0;
 }
 
@@ -873,14 +872,14 @@ std::string start_trace(int frames)
 {
     stop_trace();
     std::string path = game_folder_path("thug2-decomp-trace.txt");
-    FILE* file = _fsopen(path.c_str(), "w", _SH_DENYWR);
+    util::UniqueFile file(_fsopen(path.c_str(), "w", _SH_DENYWR));
     if (!file)
         return "can't write " + path;
     std::fprintf(
-        file,
+        file.get(),
         "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
-    std::fflush(file);
-    trace_state().file = file;
+    std::fflush(file.get());
+    trace_state().file = std::move(file);
     trace_state().left = frames;
     return {};
 }
@@ -909,14 +908,14 @@ void trace_frame()
         auto* core = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysicsComponent));
         unsigned ground_flags = core ? core->floor_feeler_.hit_.face_flags_ : 0;
         unsigned ground_object = core ? core->floor_feeler_.hit_.object_checksum_ : 0;
-        std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
+        std::fprintf(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
                      frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
                      static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),
                      static_cast<double>(skater->vel_.x), static_cast<double>(skater->vel_.y),
                      static_cast<double>(skater->vel_.z), static_cast<double>(skater->basis_frame_.row[1].y), where,
                      physics, bailing, trick, pot, static_cast<double>(multiplier), landed, ground_flags,
                      ground_object);
-        std::fflush(trace.file);
+        std::fflush(trace.file.get());
     }
     if (--trace.left <= 0)
         stop_trace();
@@ -1033,21 +1032,23 @@ void poll_file(Runner& runner)
         runner.queue.clear();
         runner.lines_read_ = runner.lines_done_ = 0;
     }
-    HANDLE file = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE)
+    util::UniqueHandle file(CreateFileA(path.c_str(), GENERIC_READ,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!file)
         return; // (try again next frame)
     LARGE_INTEGER at;
     at.QuadPart = static_cast<LONGLONG>(runner.offset);
     std::string data;
-    if (SetFilePointerEx(file, at, nullptr, FILE_BEGIN) && size > runner.offset && size - runner.offset < (1u << 20)) {
+    if (SetFilePointerEx(file.get(), at, nullptr, FILE_BEGIN) && size > runner.offset &&
+        size - runner.offset < (1u << 20)) {
         data.resize(static_cast<size_t>(size - runner.offset));
         DWORD read = 0;
-        if (!ReadFile(file, &data[0], static_cast<DWORD>(data.size()), &read, nullptr))
+        if (!ReadFile(file.get(), &data[0], static_cast<DWORD>(data.size()), &read, nullptr))
             read = 0;
         data.resize(read);
     }
-    CloseHandle(file);
+    file.reset();
     runner.size = size;
     runner.time = time;
     runner.offset += data.size();
@@ -1461,7 +1462,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         }
         char result[96];
         std::snprintf(result, sizeof(result), "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
-        if (FILE* trace_file = trace_state().file) { // (a trace marks each teleport: the rides it holds)
+        if (FILE* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
             std::fprintf(trace_file, "# %s -> %s\n", runner.text.c_str(), result);
             std::fflush(trace_file);
         }
@@ -1686,13 +1687,13 @@ void write_status(Runner& runner)
     status.frames = frame_loop::frames_run();
     std::string text = status_json(status);
     std::string path = game_folder_path("thug2-decomp-status.json");
-    HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                              nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE)
+    util::UniqueHandle file(CreateFileA(path.c_str(), GENERIC_WRITE,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!file)
         return;
     DWORD written = 0;
-    WriteFile(file, text.data(), static_cast<DWORD>(text.size()), &written, nullptr);
-    CloseHandle(file);
+    WriteFile(file.get(), text.data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
 
 // The command line as the process got it, read at start-up: the game's own parsing cuts the process's command

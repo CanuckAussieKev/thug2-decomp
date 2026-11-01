@@ -72,6 +72,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_score.h"
 #include "game/skate/point_tally.h"
+#include "engine/util/unique_handle.h"
 
 namespace frontend::new_frontend {
 
@@ -190,14 +191,13 @@ paint::FontFiles resolve_fonts()
 
 std::string read_text(const std::string& path)
 {
-    FILE* file = nullptr;
-    if (fopen_s(&file, path.c_str(), "rb") != 0 || !file)
+    util::UniqueFile file = util::open_file(path.c_str(), "rb");
+    if (!file)
         return {};
     std::string text;
     char buffer[4096];
-    for (size_t n; (n = std::fread(buffer, 1, sizeof(buffer), file)) > 0;)
+    for (size_t n; (n = std::fread(buffer, 1, sizeof(buffer), file.get())) > 0;)
         text.append(buffer, n);
-    std::fclose(file);
     return text;
 }
 
@@ -205,12 +205,12 @@ std::string read_text(const std::string& path)
 bool write_atomically(const std::string& path, const std::string& text)
 {
     std::string temporary = path + ".new";
-    FILE* file = nullptr;
-    if (fopen_s(&file, temporary.c_str(), "wb") != 0 || !file)
+    util::UniqueFile file = util::open_file(temporary.c_str(), "wb");
+    if (!file)
         return false;
-    bool ok = std::fwrite(text.data(), 1, text.size(), file) == text.size();
-    ok = std::fflush(file) == 0 && ok;
-    std::fclose(file);
+    bool ok = std::fwrite(text.data(), 1, text.size(), file.get()) == text.size();
+    ok = std::fflush(file.get()) == 0 && ok;
+    file.reset(); // (closed before it's moved)
     if (!ok || !MoveFileExA(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         DeleteFileA(temporary.c_str());
         return false;
