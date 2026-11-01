@@ -84,11 +84,11 @@ void fade_model(void* model, float target)
     static_cast<render::ModelLights*>(fader)->move_brightness(target, 0.02f);
 }
 uint8_t* get_bytes(void* object) { return static_cast<uint8_t*>(object); }
-// An object's two matrices (+0x6C and +0xC0) set to `matrix`.
+// An object's two matrices (its orientation and display matrix) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)
 {
-    std::memcpy(get_bytes(object) + 0x6C, matrix, 64);
-    std::memcpy(get_bytes(object) + 0xC0, matrix, 64);
+    std::memcpy(&object->basis_frame_, matrix, 64);
+    std::memcpy(&object->display_matrix_, matrix, 64);
 }
 float* get_rotations() { return g_cutscene_rotations; }
 float* get_translations() { return g_cutscene_translations; }
@@ -205,7 +205,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
         void* model = model_of(component);
         if (*(get_bytes(model) + 0x44) & 4) // (hidden)
             return;
-        if (get_bytes(component)[0x234]) {
+        if (static_cast<MeshInstanceModule*>(component)->level_object_) {
             // the level object it stands in for: faded out, moved along
             auto* level = static_cast<GameEntity*>(
                 find_object(static_cast<MeshInstanceModule*>(component)->get_linked_entity_name()));
@@ -215,12 +215,12 @@ void CinematicTable::update_stand_in(GameEntity* object)
             static_cast<MeshInstanceModule*>(level_component)->get_update_brightness();
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
             float matrix[16];
-            *reinterpret_cast<maths::Mat4*>(matrix) = *reinterpret_cast<const maths::Mat4*>(get_bytes(object) + 0xC0);
-            std::memcpy(matrix + 12, get_bytes(object) + 0x4C, 16);
+            *reinterpret_cast<maths::Mat4*>(matrix) = object->display_matrix_;
+            std::memcpy(matrix + 12, &object->at_point_, 16);
             static_cast<render::RenderModel*>(level_model)
                 ->render(reinterpret_cast<maths::Mat4*>(matrix), false,
                          static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_);
-            std::memcpy(get_bytes(level) + 0x4C, get_bytes(object) + 0x4C, 16);
+            std::memcpy(&level->at_point_, &object->at_point_, 16);
         } else {
             if (fader_of(model)) {
                 fade_model(model_of(component), 1.0f);
@@ -230,8 +230,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
         }
     }
     if (ObjectModule* matrix = object->fetch_module(kMatrixComponent))
-        static_cast<MatrixComponent*>(matrix)->change_mat(
-            reinterpret_cast<const maths::Mat4*>(get_bytes(object) + 0xC0));
+        static_cast<MatrixComponent*>(matrix)->change_mat(&object->display_matrix_);
 }
 
 // 0x00465C00
@@ -260,7 +259,7 @@ void CinematicTable::update_object_transforms()
         float matrix[16];
         quat_to_matrix(get_rotations() + 4 * j, origin, matrix);
         set_matrices(object, matrix);
-        std::memcpy(get_bytes(object) + 0x4C, get_translations() + 4 * j, 16);
+        std::memcpy(&object->at_point_, get_translations() + 4 * j, 16);
     }
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = entities_[i];
@@ -270,11 +269,11 @@ void CinematicTable::update_object_transforms()
             void* skeleton = static_cast<objects::BoneRigModule*>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
             float bone[4], turned[4];
             static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, reinterpret_cast<maths::Vec4*>(bone));
-            *reinterpret_cast<maths::Vec4*>(turned) = *reinterpret_cast<const maths::Vec4*>(bone) *
-                                                      *reinterpret_cast<const maths::Mat4*>(get_bytes(parent) + 0xC0);
+            *reinterpret_cast<maths::Vec4*>(turned) =
+                *reinterpret_cast<const maths::Vec4*>(bone) * parent->display_matrix_;
             const float* offset = turned;
-            const float* at = reinterpret_cast<const float*>(get_bytes(parent) + 0x4C);
-            auto* position = reinterpret_cast<float*>(get_bytes(object) + 0x4C);
+            const float* at = &parent->at_point_.x;
+            auto* position = &object->at_point_.x;
             position[2] = static_cast<float>(static_cast<double>(at[2]) + offset[2]);
             position[3] = static_cast<float>(static_cast<double>(at[3]) + offset[3]);
             position[0] = static_cast<float>(static_cast<double>(offset[0]) + at[0]);
@@ -283,7 +282,7 @@ void CinematicTable::update_object_transforms()
             float joint_mat[16];
             static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, reinterpret_cast<maths::Mat4*>(joint_mat));
             float owner_mat[16];
-            std::memcpy(owner_mat, get_bytes(parent) + 0xC0, 64);
+            std::memcpy(owner_mat, &parent->display_matrix_, 64);
             std::memcpy(owner_mat + 12, at, 16);
             owner_mat[3] = 0.0f;
             owner_mat[7] = 0.0f;
@@ -302,12 +301,12 @@ void CinematicTable::update_object_transforms()
             float matrix[16];
             quat_to_matrix(get_rotations() + 4 * entry.anim_index_, origin, matrix);
             set_matrices(object, matrix);
-            std::memcpy(get_bytes(object) + 0x4C, get_translations() + 4 * entry.anim_index_, 16);
+            std::memcpy(&object->at_point_, get_translations() + 4 * entry.anim_index_, 16);
             update_stand_in(object);
         }
         if (script::fetch_int_value(kDebugBoxes)) {
             const float box[8] = {1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f};
-            debug_draw_box(get_bytes(object) + 0xC0, get_bytes(object) + 0x4C, box, 0, 1, 0, 0xFF0000C8);
+            debug_draw_box(&object->display_matrix_, &object->at_point_, box, 0, 1, 0, 0xFF0000C8);
         }
     }
 }

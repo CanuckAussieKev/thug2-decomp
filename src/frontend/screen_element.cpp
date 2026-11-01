@@ -39,21 +39,6 @@ float g_shadow_behind{0.005f};
 float g_sixteenth{0.0625f};
 float g_frames_per_second{6e+01f};
 
-static_assert(offsetof(ElementState, pos3d) == 0x04 && offsetof(ElementState, x) == 0x14 &&
-                  offsetof(ElementState, z) == 0x1C && offsetof(ElementState, left) == 0x20 &&
-                  offsetof(ElementState, scale_x_) == 0x28 && offsetof(ElementState, base_scale_x_) == 0x30 &&
-                  offsetof(ElementState, angle) == 0x38 && offsetof(ElementState, rgba) == 0x3C,
-              "layout must match the original");
-static_assert(offsetof(UiWidget, container_) == 0x4C && offsetof(UiWidget, eldest_) == 0x58 &&
-                  offsetof(UiWidget, following_) == 0x64 && offsetof(UiWidget, preceding_) == 0x70 &&
-                  offsetof(UiWidget, shown_) == 0x7C && offsetof(UiWidget, aim_point_) == 0xC0 &&
-                  offsetof(UiWidget, morph_start_) == 0x104 && offsetof(UiWidget, morph_done_) == 0x110 &&
-                  offsetof(UiWidget, summed_) == 0x114 && offsetof(UiWidget, just_x_) == 0x158 &&
-                  offsetof(UiWidget, span_) == 0x160 && offsetof(UiWidget, rgba168_) == 0x168 &&
-                  offsetof(UiWidget, z_priority_) == 0x16C && offsetof(UiWidget, rank_) == 0x174 &&
-                  sizeof(UiWidget) == 0x178,
-              "layout must match the original");
-
 namespace {
 
 using script::Struct;

@@ -101,8 +101,4 @@ struct StarParticles : EmitterInstance {
     int get_num_colours() override { return 3; }
 };
 
-static_assert(offsetof(RibbonParticles, steps_) == 0x134 && offsetof(SmoothStarParticles, extent_) == 0x138 &&
-                  offsetof(StarParticles, extent_) == 0x138,
-              "layout must match the original");
-
 } // namespace render

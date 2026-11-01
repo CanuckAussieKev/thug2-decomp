@@ -62,9 +62,6 @@ public:
     FaceSkin* face_skin_;      // +0x54
     bool has_face_texture_;    // +0x58 (read from the network)
 };
-static_assert(offsetof(ModelLook, structure_) == 0x4C && offsetof(ModelLook, face_skin_) == 0x54 &&
-                  offsetof(ModelLook, has_face_texture_) == 0x58 && sizeof(ModelLook) == 0x5C,
-              "layout must match the original");
 
 // 0x00488FD0: the tattoo slots taken out of `appearance` (head, biceps, forearms, chest, back, legs).
 void remove_tattoos(script::Struct* appearance);

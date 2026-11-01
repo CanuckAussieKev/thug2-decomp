@@ -337,7 +337,7 @@ void BlendChannel::update_blend()
         stop = true;
     } else {
         float start, current, end;
-        reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&start, &current, &end);
+        objects::get_channel_times(this, &start, &current, &end);
         // (forwards: the time reached; backwards - or a range of none - reached the other way; NaN: never)
         if (start <= end && current >= wait_time_)
             stop = true;
@@ -868,7 +868,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     double fraction;
     if (params->has_bare_flag(0x099371AE)) { // SyncToPreviousAnim: as far through as the playing one
         float current, ends;
-        reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&ends, &current, &ends);
+        objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(0x4B4A153A, &playing_length, 0); // (read and not used here)
         float through = static_cast<float>(current / *anim_length(lookup_key_ + playing));
@@ -880,7 +880,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
             fraction = through;
     } else if (params->has_bare_flag(0xFF5AC79E)) { // as far from the end as the playing one
         float current, ends;
-        reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&ends, &current, &ends);
+        objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(0x4B4A153A, &playing_length, 0);
         fraction = maths::confine(static_cast<float>((static_cast<double>(playing_length) - current) / playing_length),
@@ -1079,7 +1079,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
 int BlendChannel::wait_anim(Struct* params)
 {
     float start, current, end;
-    reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&start, &current, &end);
+    objects::get_channel_times(this, &start, &current, &end);
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);
     if (params->has_bare_flag(0x4A07C332) || params->has_bare_flag(0x019176C5)) // Frame, Frames
@@ -1120,7 +1120,7 @@ int BlendChannel::wait_anim(Struct* params)
 int BlendChannel::time_passed(Struct* params)
 {
     float start, current, end;
-    reinterpret_cast<objects::BlendChannelLinks*>(this)->get_times(&start, &current, &end);
+    objects::get_channel_times(this, &start, &current, &end);
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);
     time = time * kSecondsPerFrame;

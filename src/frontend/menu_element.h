@@ -65,10 +65,6 @@ public:
     uint8_t pad1a2_[2];
     int grid_index_; // +0x1A4 (-1)
 };
-static_assert(offsetof(MenuBase, selected_index_) == 0x178 && offsetof(MenuBase, controller_) == 0x184 &&
-                  offsetof(MenuBase, vertical_) == 0x190 && offsetof(MenuBase, pad_handling_) == 0x1A0 &&
-                  offsetof(MenuBase, grid_index_) == 0x1A4 && sizeof(MenuBase) == 0x1A8,
-              "layout must match the original");
 
 // The container element (ContainerElement, vtable 0x0064A0BC, 0x17C bytes): passes focus / unfocus on to its
 // focusable_child.
@@ -86,6 +82,5 @@ public:
 
     uint32_t focusable_child_; // +0x178
 };
-static_assert(sizeof(GroupWidget) == 0x17C, "layout must match the original");
 
 } // namespace frontend

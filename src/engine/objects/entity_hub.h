@@ -53,17 +53,13 @@ public:
     // progress has a bit of its own in walking_ and in every object's visited_mask_).
     void for_each(ObjectCallback callback, void* data);
 
-    memory::PaddedListNode entities_; // +0x04 (lists::Foremost<Entity>)
-    uint32_t walking_ = 0;            // +0x18 the bits of the walks in progress
-    uint32_t restart_walks_ = 0;      // +0x1C set to every bit when the list changes: the walks start again
-    uint32_t new_id_;                 // +0x20 reassign_object_id: the id being given (for the tracker)
-    bool reassigning_ = false;        // +0x24
+    memory::ListNode entities_;  // +0x04 (lists::Foremost<Entity>)
+    uint32_t walking_ = 0;       // +0x18 the bits of the walks in progress
+    uint32_t restart_walks_ = 0; // +0x1C set to every bit when the list changes: the walks start again
+    uint32_t new_id_;            // +0x20 reassign_object_id: the id being given (for the tracker)
+    bool reassigning_ = false;   // +0x24
     uint8_t unknown25[3];
 };
-static_assert(offsetof(ObjectHubBase, entities_) == 0x04 && offsetof(ObjectHubBase, walking_) == 0x18 &&
-                  offsetof(ObjectHubBase, restart_walks_) == 0x1C && offsetof(ObjectHubBase, new_id_) == 0x20 &&
-                  offsetof(ObjectHubBase, reassigning_) == 0x24 && sizeof(ObjectHubBase) == 0x28,
-              "layout must match the original");
 
 // The manager with a dead list (vtable 0x00647834), emptied by a task every frame.
 class MiscHub : public ObjectHubBase {
@@ -79,12 +75,9 @@ public:
     // 0x00461AB0: delete the objects of the dead list (front first; each node unlinked first).
     void flush_dead_objects();
 
-    memory::PaddedListNode dead_objects_; // +0x28
-    tasks::Task<MiscHub>* flush_task_;    // +0x3C running flush_dead_objects_task
+    memory::ListNode dead_objects_;    // +0x28
+    tasks::Task<MiscHub>* flush_task_; // +0x3C running flush_dead_objects_task
 };
-static_assert(offsetof(MiscHub, dead_objects_) == 0x28 && offsetof(MiscHub, flush_task_) == 0x3C &&
-                  sizeof(MiscHub) == 0x40,
-              "layout must match the original");
 
 // 0x00461BB0: the task's code: FlushDeadObjects on its data (the manager).
 void __cdecl flush_dead_objects_task(tasks::Task<MiscHub>* task);

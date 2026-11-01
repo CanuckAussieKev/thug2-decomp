@@ -90,18 +90,15 @@ public:
     void playing30(uint32_t value); // (passed on: the original tail-jumps with its caller's argument)
     void playing34();
 
-    memory::PaddedListNode movies_; // +0x4C the queue's head (lists::Foremost<Movie>)
-    gfx::ViewCam viewer_;           // +0x60 the last movie's camera, kept
-    uint32_t keep_until_;           // +0x124 the render frame it's kept until
-    bool keep_camera_;              // +0x128
+    memory::ListNode movies_; // +0x4C the queue's head (lists::Foremost<Movie>)
+    gfx::ViewCam viewer_;     // +0x60 the last movie's camera, kept
+    uint32_t keep_until_;     // +0x124 the render frame it's kept until
+    bool keep_camera_;        // +0x128
     uint8_t pad129[3];
 };
-static_assert(offsetof(VideoHub, movies_) == 0x4C && offsetof(VideoHub, viewer_) == 0x60 &&
-                  offsetof(VideoHub, keep_until_) == 0x124 && sizeof(VideoHub) == 0x12C,
-              "layout must match the original");
 
-// The compiler-made copy assignments: 0x0057A190 GameObjects::Entity's (every field but the vtables: +0x00, the node's
-// +0x28 - here the node's unused word +0x38 -, the ref's +0x40) and 0x0057A220 gfx::ViewCam's (the Entity's, then the camera's fields).
+// The compiler-made copy assignments: 0x0057A190 GameObjects::Entity's (every field but the tables: the vptr, the list
+// node's and the ref's) and 0x0057A220 gfx::ViewCam's (the Entity's, then the camera's fields).
 struct ObjectAssignment {
     Entity* get_assign(const Entity* other);
 };

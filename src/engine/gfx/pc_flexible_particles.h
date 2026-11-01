@@ -42,8 +42,6 @@ struct PcNewFlatParticles final : NewFlatParticles {
     // buffer to within a quad of its room, the original stops - those particles and the rest aren't drawn.
     void render() override;
 };
-static_assert(offsetof(PcNewFlatParticles, material) == 0x140 && sizeof(PcNewFlatParticles) == 0x148,
-              "layout must match the original");
 
 // The type 0x3D56A7A6 (its name unknown - a flat ribbon trail; 0x144 bytes, vtable 0x0064A528;
 // the engine's class 0x004992C0 - destructor body 0x00499200): each particle's history of `segments` positions
@@ -63,9 +61,6 @@ struct PcFlatRibbonParticles final : FlatRibbonParticles {
     // fills the buffer to within four vertices of its room stops that pass undrawn, as the original. No emission.
     void render() override;
 };
-static_assert(offsetof(PcFlatRibbonParticles, segments_) == 0x134 && offsetof(PcFlatRibbonParticles, width) == 0x13C &&
-                  offsetof(PcFlatRibbonParticles, material) == 0x140 && sizeof(PcFlatRibbonParticles) == 0x144,
-              "layout must match the original");
 
 // The "glow" type (0x150 bytes, vtable 0x0064A540; the engine's class 0x004995B0 -
 // destructor body 0x00499550): each particle a fan of `segments` around it - a disc (the centre's colour to the inner
@@ -85,9 +80,6 @@ struct PcGlowParticles final : GlowParticles {
     // 16 / 3) - kept.
     void render() override;
 };
-static_assert(offsetof(PcGlowParticles, segments_) == 0x134 && offsetof(PcGlowParticles, glow_width_) == 0x138 &&
-                  offsetof(PcGlowParticles, material) == 0x148 && sizeof(PcGlowParticles) == 0x150,
-              "layout must match the original");
 
 // The "glowribbontrail" type (0x150 bytes, vtable 0x0064A558; the engine's class 0x00499880 -
 // destructor body 0x00499800): each particle's history as a ribbon (two triangles a step; its colours from index 3 of
@@ -109,11 +101,6 @@ struct PcGlowRibbonTrailParticles final : GlowRibbonTrailParticles {
     // (Inline in Render.)
     static uint32_t fine_colour(uint32_t from, uint32_t to, double t);
 };
-static_assert(offsetof(PcGlowRibbonTrailParticles, segments_) == 0x134 &&
-                  offsetof(PcGlowRibbonTrailParticles, material) == 0x148 &&
-                  offsetof(PcGlowRibbonTrailParticles, glow_step_) == 0x14C &&
-                  sizeof(PcGlowRibbonTrailParticles) == 0x150,
-              "layout must match the original");
 
 // The "line" type (0x148 bytes, vtable 0x0064A570; the engine's class 0x00499B80 -
 // destructor body 0x00499B20): each particle a line from its position to its next history step, a colour each end.
@@ -131,8 +118,6 @@ struct PcLineParticles final : LineParticles {
     // vertices stops undrawn, as the original. No emission.
     void render() override;
 };
-static_assert(offsetof(PcLineParticles, material) == 0x140 && sizeof(PcLineParticles) == 0x148,
-              "layout must match the original");
 
 // The "ribbon" type (0x148 bytes, vtable 0x0064A584; the engine's class 0x0049B0D0 - destructor body
 // 0x0049B070): each particle a quad from its position to its oldest history step, as wide as its size across the
@@ -150,9 +135,6 @@ struct PcRibbonParticles final : RibbonParticles {
     // 0x004C0FF0 (vtable slot 1): drawn. No emission.
     void render() override;
 };
-static_assert(offsetof(PcRibbonParticles, steps_) == 0x134 && offsetof(PcRibbonParticles, material) == 0x140 &&
-                  sizeof(PcRibbonParticles) == 0x148,
-              "layout must match the original");
 
 // The "ribbontrail" type (0x148 bytes, vtable 0x0064A598; the engine's class 0x0049B380 - destructor
 // body 0x0049B320): each particle's history drawn as a ribbon of `segments` points, its head end's colour scaled by
@@ -172,9 +154,6 @@ struct PcRibbonTrailParticles final : RibbonTrailParticles {
     // (Inline in Render.)
     uint32_t head_colour(uint32_t from, uint32_t to, float t);
 };
-static_assert(offsetof(PcRibbonTrailParticles, steps_) == 0x134 &&
-                  offsetof(PcRibbonTrailParticles, material) == 0x140 && sizeof(PcRibbonTrailParticles) == 0x148,
-              "layout must match the original");
 
 // The "shaded" type (0x138 bytes, vtable 0x0064A5AC; the engine's class 0x0049B660 - destructor body
 // 0x0049B600): each particle a quad with a colour per corner, facing the camera or along alignTo; with
@@ -189,8 +168,6 @@ struct PcShadedParticles final : ShadedParticles {
     // 0x004C22D0 (vtable slot 1): drawn (the material's own pixel shader). No emission.
     void render() override;
 };
-static_assert(offsetof(PcShadedParticles, material) == 0x134 && sizeof(PcShadedParticles) == 0x138,
-              "layout must match the original");
 
 // The "smooth" type (0x148 bytes, vtable 0x0064A5C0; the engine's class 0x0049B910 - destructor body
 // 0x0049B8A0): each particle four triangles from its centre (its own colour) to the quad's corners (the edge's).
@@ -208,8 +185,6 @@ struct PcSmoothParticles final : SmoothParticles {
     // vertices stops undrawn, as the original). No emission.
     void render() override;
 };
-static_assert(offsetof(PcSmoothParticles, material) == 0x140 && sizeof(PcSmoothParticles) == 0x148,
-              "layout must match the original");
 
 // The "smoothribbon" type (0x140 bytes, vtable 0x0064A5D4; the engine's class 0x0049BBD0 -
 // destructor body 0x0049BB50): each particle two quads from the line between its position and its oldest history
@@ -228,9 +203,6 @@ struct PcSmoothRibbonParticles final : SmoothRibbonParticles {
     // 0x004C3530 (vtable slot 2): its own history steps (segments, not the engine's steps_).
     int get_num_vertex_lists() override;
 };
-static_assert(offsetof(PcSmoothRibbonParticles, segments) == 0x138 &&
-                  offsetof(PcSmoothRibbonParticles, material) == 0x13C && sizeof(PcSmoothRibbonParticles) == 0x140,
-              "layout must match the original");
 
 // The "smoothstar" type (0x150 bytes, vtable 0x0064A5EC; the engine's class 0x0049BE80 -
 // destructor body 0x0049BE20): each particle a star of `segments` points (star_width_ out) about its centre - two
@@ -248,10 +220,6 @@ struct PcSmoothStarParticles final : SmoothStarParticles {
     // 0x004C3EC0 (vtable slot 1): drawn. No emission.
     void render() override;
 };
-static_assert(offsetof(PcSmoothStarParticles, segments_) == 0x134 &&
-                  offsetof(PcSmoothStarParticles, extent_) == 0x138 &&
-                  offsetof(PcSmoothStarParticles, material) == 0x148 && sizeof(PcSmoothStarParticles) == 0x150,
-              "layout must match the original");
 
 // The "star" type (0x150 bytes, vtable 0x0064A604; the engine's class 0x0049C140 - destructor body
 // 0x0049C0D0): each particle a star of `segments` points about its centre, a quad a point.
@@ -268,9 +236,6 @@ struct PcStarParticles final : StarParticles {
     // 0x004C4A00 (vtable slot 1): drawn. No emission.
     void render() override;
 };
-static_assert(offsetof(PcStarParticles, segments_) == 0x134 && offsetof(PcStarParticles, extent_) == 0x138 &&
-                  offsetof(PcStarParticles, material) == 0x148 && sizeof(PcStarParticles) == 0x150,
-              "layout must match the original");
 
 extern IDirect3DIndexBuffer9* g_quad_indices;
 

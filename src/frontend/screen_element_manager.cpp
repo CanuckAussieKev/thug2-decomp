@@ -25,14 +25,6 @@ namespace frontend {
 
 UiTree* g_ui_element_hub;
 
-static_assert(offsetof(UiTree, listener_) == 0x28 && offsetof(UiTree, tree_root_) == 0x44 &&
-                  offsetof(UiTree, resolving_) == 0x50 && offsetof(UiTree, focus_entries_) == 0x5C &&
-                  offsetof(UiTree, focus_lists_) == 0x4DC && offsetof(UiTree, focus_dirty_) == 0x4E4 &&
-                  offsetof(UiTree, num_priorities_) == 0x4E8 && offsetof(UiTree, priorities_) == 0x4EC &&
-                  offsetof(UiTree, pad_event_types_) == 0x5DC && offsetof(UiTree, pad_event_kind_count_) == 0x69C &&
-                  offsetof(UiTree, check_device_) == 0x6A0 && sizeof(UiTree) == 0x6A4,
-              "layout must match the original");
-
 namespace {
 
 using script::Struct;

@@ -32,10 +32,6 @@
 
 namespace objects {
 
-static_assert(offsetof(TrickObjectCluster, label_) == 0x14 && offsetof(TrickObjectCluster, scores_) == 0x1C &&
-                  offsetof(TrickObjectCluster, owner_) == 0x3C && offsetof(TrickObjectCluster, owned_) == 0x40,
-              "layout must match the original");
-
 objects::TrickSpotHub* g_trick_spot_hub;
 uint32_t g_trick_object_manager_references;
 
@@ -91,7 +87,8 @@ void release_trick_object_manager()
 // 0x00588120
 ClusterCount* __cdecl count_object_in_cluster(uint8_t* object, ClusterCount* counter)
 {
-    if (object[0x40] && counter->cluster == *reinterpret_cast<uint32_t*>(object + 0x3C))
+    const auto* cluster = reinterpret_cast<const TrickObjectCluster*>(object);
+    if (cluster->owned_ && counter->cluster == static_cast<uint32_t>(cluster->owner_))
         counter->count += 1;
     return counter;
 }

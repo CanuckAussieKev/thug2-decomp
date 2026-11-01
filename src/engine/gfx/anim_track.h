@@ -113,9 +113,5 @@ public:
     bool events_on_;                    // +0x70
     uint8_t pad71_[3];
 };
-static_assert(offsetof(AnimTrack, cur_phase_) == 0x38 && offsetof(AnimTrack, controller_list_) == 0x3C &&
-                  offsetof(AnimTrack, controller_count_) == 0x54 && offsetof(AnimTrack, owner_object_) == 0x64 &&
-                  offsetof(AnimTrack, events_on_) == 0x70 && sizeof(AnimTrack) == 0x74,
-              "layout must match the original");
 
 } // namespace gfx

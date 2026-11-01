@@ -505,7 +505,7 @@ void handle_mouse_event(SDL_Event* event)
 }
 
 void* ui_tree_handle() { return frontend::g_ui_element_hub; }
-UiWidget* root_element(void* manager) { return *reinterpret_cast<UiWidget**>(static_cast<uint8_t*>(manager) + 0x44); }
+UiWidget* root_element(void* manager) { return static_cast<UiTree*>(manager)->tree_root_.get_pull(); }
 void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }
 
 bool in_park_editor()

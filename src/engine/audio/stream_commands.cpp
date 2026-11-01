@@ -305,8 +305,8 @@ uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float
     construct_volume(&stream_volume);
     change_muted(&stream_volume);
     if (use_pos_info) {
-        void* object = *reinterpret_cast<void**>(static_cast<uint8_t*>(component) + 0xC);
-        void* emitter = nearest_emitter(reinterpret_cast<const float*>(static_cast<uint8_t*>(object) + 0x4C));
+        objects::GameEntity* object = static_cast<objects::ObjectModule*>(component)->entity_;
+        void* emitter = nearest_emitter(&object->at_point_.x);
         bool audible = true;
         if (emitter) {
             maths::Vec4 direction;

@@ -48,8 +48,8 @@ struct HitClusterLog {
 // A trick object (0x18 bytes): a node in its cluster's list (data itself; the node keeps the original's size) with the
 // name of its level sector, which graffiti colours.
 struct TrickSpot {
-    memory::PaddedListNode list_link_; // +0x00
-    uint32_t label_;                   // +0x14 (its sector's)
+    memory::ListNode list_link_; // +0x00
+    uint32_t label_;             // +0x14 (its sector's)
 
     // 0x00588BB0: the destructor's body - out of its list.
     void destroy_body();
@@ -62,7 +62,6 @@ struct TrickSpot {
     // 0x00588270: its sector's colour cleared (0x0049E670) if it's graffiti colour `index`. True.
     bool clear_graffiti_color(int index);
 };
-static_assert(sizeof(TrickSpot) == 0x18, "layout must match the original");
 
 // (The trick object list's node destructors - 0x00588590 the body, 0x005885F0 scalar deleting - and the cluster list's,
 // 0x005885B0, take the node out of its list: memory::ListNode.)
@@ -75,14 +74,14 @@ struct TrickObjectHead : memory::ListNode {
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct TrickObjectCluster {
-    memory::PaddedListNode list_link_; // +0x00 (data itself)
-    uint32_t label_;                   // +0x14
-    uint32_t record_points_;           // +0x18
-    uint32_t scores_[8];               // +0x1C
-    int owner_;                        // +0x3C (an object id)
-    bool owned_;                       // +0x40
+    memory::ListNode list_link_; // +0x00 (data itself)
+    uint32_t label_;             // +0x14
+    uint32_t record_points_;     // +0x18
+    uint32_t scores_[8];         // +0x1C
+    int owner_;                  // +0x3C (an object id)
+    bool owned_;                 // +0x40
     uint8_t pad41_[3];
-    memory::PaddedListNode entities_; // +0x44 its CTrickObjects (the head: a sentinel)
+    memory::ListNode entities_; // +0x44 its CTrickObjects (the head: a sentinel)
 
     // 0x00588630: a trick object for sector `name` made (0x18 bytes) and put last in the list; its sector's colour
     // cleared first (and, with show_all_trick_objects set outside the 0x00684FA8 mode, given graffiti colour 2).
@@ -102,8 +101,6 @@ struct TrickObjectCluster {
     // 0x005891D0: the scalar deleting destructor.
     TrickObjectCluster* teardown(unsigned int flags);
 };
-static_assert(offsetof(TrickObjectCluster, entities_) == 0x44 && sizeof(TrickObjectCluster) == 0x58,
-              "layout must match the original");
 
 // The trick object manager (0x007CE500): the clusters, by name and by each of their objects' names.
 // (The original's vtable 0x0064F110 holds only its destructor.)

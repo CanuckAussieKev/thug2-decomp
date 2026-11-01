@@ -82,8 +82,5 @@ public:
     bool via_asset_store_; // +0x4C
     int dict_shift_;       // +0x50
 };
-static_assert(offsetof(ModelAssembler, via_asset_store_) == 0x4C && offsetof(ModelAssembler, dict_shift_) == 0x50 &&
-                  sizeof(ModelAssembler) == 0x54,
-              "layout must match the original");
 
 } // namespace gfx

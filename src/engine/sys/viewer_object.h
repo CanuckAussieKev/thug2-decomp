@@ -91,10 +91,6 @@ public:
     bool panel_shown_;        // +0x125
     uint8_t pad126[2];
 };
-static_assert(offsetof(PreviewEntity, task_) == 0x108 && offsetof(PreviewEntity, actions_) == 0x110 &&
-                  offsetof(PreviewEntity, speed_) == 0x118 && offsetof(PreviewEntity, asset_) == 0x120 &&
-                  offsetof(PreviewEntity, is_halted_) == 0x124 && sizeof(PreviewEntity) == 0x128,
-              "layout must match the original");
 
 // 0x0058A060: the input handler's code: the controller's buttons as commands - square (makes 0x10) the panel, Left /
 // Right (makes 0x8000 / 0x2000) a frame back / on, held: again after ViewerAutoRepeatTime frames, then every

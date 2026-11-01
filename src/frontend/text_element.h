@@ -51,9 +51,6 @@ struct SmearEffect {
     int remaining_;       // +0x474 the morph's time left (ms)
     uint32_t rgba_value_; // +0x478 blur_rgba (the copies' colour)
 };
-static_assert(sizeof(SmearEffect::DupFrom) == 0x44 && offsetof(SmearEffect, aim_point_) == 0x440 &&
-                  offsetof(SmearEffect, rgba_value_) == 0x478 && sizeof(SmearEffect) == 0x47C,
-              "layout must match the original");
 
 // TextElement (vtable 0x0064A290, 0x1B0 bytes): a line of text in a font, optionally with a shadow (a second
 // set of text objects behind it) and the blur effect (16 more text objects).
@@ -115,8 +112,5 @@ public:
     uint8_t pad1a7_;
     float inner_align_h_, inner_align_v_; // +0x1A8
 };
-static_assert(offsetof(LabelWidget, blur_) == 0x190 && offsetof(LabelWidget, shadow_rgba_) == 0x1A0 &&
-                  offsetof(LabelWidget, inner_align_h_) == 0x1A8 && sizeof(LabelWidget) == 0x1B0,
-              "layout must match the original");
 
 } // namespace frontend

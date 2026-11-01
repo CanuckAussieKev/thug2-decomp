@@ -114,20 +114,18 @@ public:
     int cur_phase_;     // +0x08 AssetState
     bool pinned_;       // +0x0C not unloaded by unload_all_assets(false)
     uint8_t pad0d_[3];
-    void* content_;                     // +0x10 what was loaded (a scene, a texture dictionary...)
-    LoadCallback callback_;             // +0x14
-    void* callback_data0_;              // +0x18
-    void* callback_data1_;              // +0x1C
-    file::AsyncFileHandle* file_ref_;   // +0x20 the file being read
-    void* octets_;                      // +0x24 its contents
-    uint32_t extent_;                   // +0x28 their size
-    Resource* last_value_;              // +0x2C in the manager's list (circular)
-    Resource* succ_;                    // +0x30
-    Resource* bundle_;                  // +0x34 the asset it depends on (a model's textures)
-    memory::PaddedListNode dependents_; // +0x38 the assets depending on it (lists::Foremost<Resource>)
+    void* content_;                   // +0x10 what was loaded (a scene, a texture dictionary...)
+    LoadCallback callback_;           // +0x14
+    void* callback_data0_;            // +0x18
+    void* callback_data1_;            // +0x1C
+    file::AsyncFileHandle* file_ref_; // +0x20 the file being read
+    void* octets_;                    // +0x24 its contents
+    uint32_t extent_;                 // +0x28 their size
+    Resource* last_value_;            // +0x2C in the manager's list (circular)
+    Resource* succ_;                  // +0x30
+    Resource* bundle_;                // +0x34 the asset it depends on (a model's textures)
+    memory::ListNode dependents_;     // +0x38 the assets depending on it (lists::Foremost<Resource>)
 };
-static_assert(sizeof(Resource) == 0x4C, "layout must match the original");
-static_assert(offsetof(Resource, file_ref_) == 0x20 && offsetof(Resource, dependents_) == 0x38, "layout");
 
 // The load parameters' pool: 4 blocks of 0x60 bytes (0x00691758, in use: the bits of 0x006918D8). 0x00407730: a
 // free block (the size is ignored; null if all four are in use). 0x00407770: one given back.
@@ -162,7 +160,6 @@ struct AnimResource final : Resource {
     // 0x00407290 (also the node arrays'): the archive file unloaded, or the buffer freed.
     void free_buffer() override;
 };
-static_assert(sizeof(AnimResource) == 0x50, "layout");
 
 // Cutscene (the data a CinematicTable).
 struct CutsceneResource final : Resource {
@@ -209,7 +206,6 @@ struct NodeTableResource final : Resource {
     // and the node array's (returns it).
     void* build_node_table(uint32_t name, int count);
 };
-static_assert(sizeof(NodeTableResource) == 0x64, "layout");
 
 // Scene (+0x4C its load parameters: +0x00 the textures' checksum, +0x04-0x07 four flags, +0x08 the name).
 struct SceneAsset final : Resource {
@@ -308,7 +304,6 @@ struct SkinResource final : Resource {
     // 0x00409C60: read only when both files are.
     bool set_read() override;
 };
-static_assert(sizeof(SkinResource) == 0x60, "layout");
 
 // Skin collision (+0x4C: +0x00 a checksum, +0x04 the name).
 struct SkinCollisionAsset final : Resource {

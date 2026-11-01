@@ -260,8 +260,8 @@ bool __cdecl cfunc_resolve_head_bone_scale(script::Struct* params, script::Scrip
     }
     void* has[4];
     for (int i = 0; i < 4; ++i)
-        has[i] = reinterpret_cast<gfx::ModelLook*>(profile)->get_part(kHeadBoneGroups[i]);
-    auto* appearance = reinterpret_cast<Struct*>(profile->look_data_ + 0x4C);
+        has[i] = profile->appearance()->get_part(kHeadBoneGroups[i]);
+    Struct* appearance = &profile->appearance()->structure_;
     for (int i = 0; i < 4; ++i) {
         if (has[i])
             continue;

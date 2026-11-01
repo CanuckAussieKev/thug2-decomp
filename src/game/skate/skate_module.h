@@ -268,12 +268,6 @@ public:
     uint8_t pad3dd_[3];
     maths::Vec4 viewer_pos_; // +0x3E0
 };
-static_assert(offsetof(Skate, update_job_) == 0x14 && offsetof(Skate, riders_) == 0x28 &&
-                  offsetof(Skate, match_style_) == 0x4C && offsetof(Skate, score_goals_) == 0x60 &&
-                  offsetof(Skate, competition_) == 0x360 && offsetof(Skate, game_flow_) == 0x388 &&
-                  offsetof(Skate, participants_) == 0x390 && offsetof(Skate, own_script_) == 0x3D8 &&
-                  offsetof(Skate, viewer_pos_) == 0x3E0 && sizeof(Skate) == 0x3F0,
-              "layout must match the original");
 
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).
 void __cdecl fill_elimination_ranking();

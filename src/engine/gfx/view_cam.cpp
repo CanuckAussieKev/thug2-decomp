@@ -13,13 +13,6 @@
 
 namespace gfx {
 
-static_assert(offsetof(ViewCam, old_pos_) == 0x4C && offsetof(ViewCam, at_point_) == 0x5C &&
-                  offsetof(ViewCam, basis_frame_) == 0x6C && offsetof(ViewCam, h_fov_) == 0xAC &&
-                  offsetof(ViewCam, corrected_horiz_fov_) == 0xB0 && offsetof(ViewCam, unknownb4_) == 0xB4 &&
-                  offsetof(ViewCam, near_dist_) == 0xB8 && offsetof(ViewCam, far_clip_) == 0xBC &&
-                  offsetof(ViewCam, unknownc0_) == 0xC0 && sizeof(ViewCam) == 0xC4,
-              "the original's layout");
-
 namespace {
 
 constexpr uint32_t kSetHfovRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians

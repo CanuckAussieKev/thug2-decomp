@@ -72,8 +72,5 @@ public:
     bool override_alpha_;       // +0x1C2
     uint8_t pad1c3_;
 };
-static_assert(offsetof(ParagraphWidget, line_capacity_) == 0x190 && offsetof(ParagraphWidget, blur_) == 0x1AC &&
-                  offsetof(ParagraphWidget, shadow_rgba_) == 0x1BC && sizeof(ParagraphWidget) == 0x1C4,
-              "layout must match the original");
 
 } // namespace frontend

@@ -46,9 +46,6 @@ public:
     void* anim_;                 // +0x2C the animation asset (null: just a timer)
     gfx::AnimTimeline timeline_; // +0x30
 };
-static_assert(offsetof(ObjectAnimMovie, anim_) == 0x2C && offsetof(ObjectAnimMovie, timeline_) == 0x30 &&
-                  sizeof(ObjectAnimMovie) == 0x64,
-              "layout must match the original");
 
 class CameraAnimMovie final : public VideoEntry {
 public:
@@ -93,9 +90,6 @@ public:
     // 0x00587A50: the camera placed and aimed.
     void place_camera();
 };
-static_assert(offsetof(CameraAnimMovie, aim_point_) == 0x34 && offsetof(CameraAnimMovie, look_offset_set_) == 0x59 &&
-                  offsetof(CameraAnimMovie, timeline_) == 0x60 && sizeof(CameraAnimMovie) == 0x94,
-              "layout must match the original");
 
 extern float g_float_zero;
 

@@ -6,7 +6,7 @@ namespace lists {
 
 // An intrusive list's head: a node whose data is -1, the list circular through it.
 struct Foremost {
-    memory::PaddedListNode list_link_; // (the original head's size: kept where heads are embedded)
+    memory::ListNode list_link_; // (the original head's size: kept where heads are embedded)
 
     // 0x0045A540 (lists::Foremost<Entity>): `node` goes before the first node whose priority isn't higher (the
     // highest first; equal ones newest first), else at the end. (The walk checks each node's data for -1

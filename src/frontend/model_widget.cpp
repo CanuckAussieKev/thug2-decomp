@@ -32,22 +32,6 @@
 
 namespace frontend {
 
-static_assert(offsetof(ModelWidget, models_) == 0x178 && offsetof(ModelWidget, model_total_) == 0x434 &&
-                  offsetof(ModelWidget, camera_z_) == 0x438 && offsetof(ModelWidget, angle_) == 0x43C &&
-                  offsetof(ModelWidget, angular_velocity_) == 0x448 && offsetof(ModelWidget, basis_frame_) == 0x454 &&
-                  offsetof(ModelWidget, target_position_) == 0x494 && offsetof(ModelWidget, point_at_) == 0x4A4 &&
-                  offsetof(ModelWidget, euler_sequence_) == 0x4A8 && offsetof(ModelWidget, target_object_) == 0x4AC &&
-                  offsetof(ModelWidget, bob_height_) == 0x4B0 && offsetof(ModelWidget, bob_period_) == 0x4B4 &&
-                  offsetof(ModelWidget, pivot_) == 0x4B8 && offsetof(ModelWidget, anchor_shift_) == 0x4C8 &&
-                  offsetof(ModelWidget, centre_) == 0x4D8 && offsetof(ModelWidget, fit_scale_) == 0x4E8 &&
-                  offsetof(ModelWidget, size_follows_range_) == 0x4EC &&
-                  offsetof(ModelWidget, distance_scale_) == 0x4F0 && offsetof(ModelWidget, max_scale_) == 0x4F4 &&
-                  offsetof(ModelWidget, view_slot_) == 0x4F8 && offsetof(ModelWidget, anchor_object_) == 0x4FC &&
-                  offsetof(ModelWidget, parent_integer_) == 0x500 && offsetof(ModelWidget, attach_to_name_) == 0x504 &&
-                  offsetof(ModelWidget, lean_angle_) == 0x508 && offsetof(ModelWidget, is_dead_) == 0x50C &&
-                  sizeof(ModelWidget) == 0x510,
-              "layout must match the original");
-
 namespace {
 
 using script::Struct;

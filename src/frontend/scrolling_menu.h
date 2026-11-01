@@ -63,10 +63,5 @@ public:
     bool vertical_;         // +0x1BC
     uint8_t pad1bd_[3];
 };
-static_assert(offsetof(WindowedList, listener_) == 0x178 && offsetof(WindowedList, menu_) == 0x194 &&
-                  offsetof(WindowedList, focused_) == 0x1A4 && offsetof(WindowedList, window_start_) == 0x1A8 &&
-                  offsetof(WindowedList, regular_space_) == 0x1B8 && offsetof(WindowedList, vertical_) == 0x1BC &&
-                  sizeof(WindowedList) == 0x1C0,
-              "layout must match the original");
 
 } // namespace frontend

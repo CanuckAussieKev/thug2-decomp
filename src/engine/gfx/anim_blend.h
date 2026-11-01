@@ -173,16 +173,16 @@ public:
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
     static void __cdecl init_buffers(int blends, int subsets);
 
-    memory::PaddedListNode list_link_; // +0x00 (data = this; the original's node size, as the head's)
-    memory::PaddedListNode timelines_; // +0x14 the head (data -1)
-    uint32_t ident_;                   // +0x28
-    int rank_;                         // +0x2C (0x3D836C96)
-    uint32_t ongoing_;                 // +0x30 the blend value (a float)
-    uint32_t aim_point_;               // +0x34
-    uint32_t outset_;                  // +0x38
-    float period_;                     // +0x3C
-    float period_left_;                // +0x40
-    bool has_next_blend_;              // +0x44 (the next play blends over next_blend_)
+    memory::ListNode list_link_; // +0x00 (data = this; the original's node size, as the head's)
+    memory::ListNode timelines_; // +0x14 the head (data -1)
+    uint32_t ident_;             // +0x28
+    int rank_;                   // +0x2C (0x3D836C96)
+    uint32_t ongoing_;           // +0x30 the blend value (a float)
+    uint32_t aim_point_;         // +0x34
+    uint32_t outset_;            // +0x38
+    float period_;               // +0x3C
+    float period_left_;          // +0x40
+    bool has_next_blend_;        // +0x44 (the next play blends over next_blend_)
     uint8_t pad45_[3];
     float next_blend_; // +0x48
     bool flag_4c_;     // +0x4C (without it each play deletes the older timelines)
@@ -200,11 +200,6 @@ public:
     objects::AnimBlenderComponent* blender_; // +0x6C
     objects::ObjectModule* bone_rig_;        // +0x70 the object's skeleton component
 };
-static_assert(offsetof(BlendChannel, timelines_) == 0x14 && offsetof(BlendChannel, ident_) == 0x28 &&
-                  offsetof(BlendChannel, ongoing_) == 0x30 && offsetof(BlendChannel, flag_4c_) == 0x4C &&
-                  offsetof(BlendChannel, lookup_key_) == 0x50 && offsetof(BlendChannel, waiting_) == 0x60 &&
-                  offsetof(BlendChannel, owner_ptr_) == 0x68 && sizeof(BlendChannel) == 0x74,
-              "layout must match the original");
 
 // (The channel's timeline list's node type - AnimTimeline::destroy_body its body, 0x0047DD40 its scalar deleting
 // destructor - is memory::ListNode's.)

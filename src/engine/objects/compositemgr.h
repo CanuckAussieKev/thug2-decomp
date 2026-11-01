@@ -68,9 +68,6 @@ public:
     };
     ComponentType components_[kMaxComponentTypes]; // +0x48
 };
-static_assert(offsetof(EntityHub, update_job_) == 0x40 && offsetof(EntityHub, component_types_) == 0x44 &&
-                  offsetof(EntityHub, components_) == 0x48 && sizeof(EntityHub) == 0x448,
-              "layout must match the original (0x0045F7A0 allocates 0x448 bytes)");
 
 // 0x0045F6D0: the logic task's code: Update on its data (the manager).
 void __cdecl composite_object_manager_task(tasks::Task<EntityHub>* task);

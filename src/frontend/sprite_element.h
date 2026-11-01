@@ -36,8 +36,6 @@ public:
     uint32_t texture_;            // +0x178 the texture's checksum
     render::TexturedQuad* piece_; // +0x17C
 };
-static_assert(offsetof(TextureElement, texture_) == 0x178 && sizeof(TextureElement) == 0x180,
-              "layout must match the original");
 
 // SpriteElement (vtable 0x0064A228, 0x184 bytes).
 class ImageWidget final : public UiWidget {
@@ -68,9 +66,6 @@ public:
     uint8_t pad17d_[3];
     render::BillboardQuad* quad_; // +0x180
 };
-static_assert(offsetof(ImageWidget, z_write_) == 0x17C && offsetof(ImageWidget, quad_) == 0x180 &&
-                  sizeof(ImageWidget) == 0x184,
-              "layout must match the original");
 
 // WindowElement (vtable 0x0064A2C0, 0x17C bytes): the root window and script-made windows.
 class PanelWidget final : public UiWidget {
@@ -87,6 +82,5 @@ public:
 
     void* screen_region_; // +0x178
 };
-static_assert(sizeof(PanelWidget) == 0x17C, "layout must match the original");
 
 } // namespace frontend

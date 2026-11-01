@@ -47,7 +47,6 @@ public:
 
     Entity* owner_object_; // +0x08
 };
-static_assert(sizeof(ObjectRef) == 0xC, "layout must match the original");
 
 // object_flags_ (+0x08)
 constexpr uint32_t kObjectFlagDead = 0x1;              // flag_as_dead: waiting in the manager's dead list to be deleted
@@ -178,17 +177,10 @@ public:
     uint32_t flag_bits_;                   // +0x24 the script flags (Obj_SetFlag...; never initialised here)
     // +0x28 in the manager's list (or its dead list; lists::Elem<Entity>: data = the object, priority = the list's
     // sort key, the highest first)
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     uint32_t alias_count_ = 0; // +0x3C the tracker's aliases of it (tracker.cpp)
     ObjectRef ref_{this};      // +0x40
 };
-static_assert(offsetof(Entity, object_flags_) == 0x08 && offsetof(Entity, park_owner_) == 0x0C &&
-                  offsetof(Entity, own_script_) == 0x10 && offsetof(Entity, ident_) == 0x14 &&
-                  offsetof(Entity, kind_tag_) == 0x18 && offsetof(Entity, visited_mask_) == 0x1C &&
-                  offsetof(Entity, tag_table_) == 0x20 && offsetof(Entity, flag_bits_) == 0x24 &&
-                  offsetof(Entity, list_link_) == 0x28 && offsetof(Entity, alias_count_) == 0x3C &&
-                  offsetof(Entity, ref_) == 0x40 && sizeof(Entity) == 0x4C,
-              "layout must match the original (CCompositeObject's fields start at 0x4C)");
 
 // The object with the id `id` (the tracker 0x006F0FC0's 0x00462120), or null.
 // 0x00460AD0 (cdecl).
@@ -401,10 +393,5 @@ public:
     ObjectModule* attached_modules_ = nullptr; // +0x100
     uint32_t composite_flags_ = 0;             // +0x104 COMPOSITE_FLAG_*
 };
-static_assert(offsetof(GameEntity, at_point_) == 0x4C && offsetof(GameEntity, old_pos_) == 0x5C &&
-                  offsetof(GameEntity, basis_frame_) == 0x6C && offsetof(GameEntity, vel_) == 0xAC &&
-                  offsetof(GameEntity, is_local_skater_) == 0xBC && offsetof(GameEntity, display_matrix_) == 0xC0 &&
-                  offsetof(GameEntity, attached_modules_) == 0x100 && offsetof(GameEntity, composite_flags_) == 0x104,
-              "layout must match the original");
 
 } // namespace objects

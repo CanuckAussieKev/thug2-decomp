@@ -11,6 +11,7 @@
 #include "engine/gfx/anim_controller.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/walk_hang.h"
+#include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 
 namespace gfx {
@@ -187,7 +188,7 @@ bool BlendChannel::has_value(uint32_t offset) { return render::get_anim_data(loo
 // 0x0047D660
 void BlendChannel::clear_flag()
 {
-    if (auto* params = *reinterpret_cast<script::Struct**>(owner_ptr_ + 0x20))
+    if (script::Struct* params = reinterpret_cast<objects::Entity*>(owner_ptr_)->tag_table_)
         params->erase_module(0x5DB4115F);
 }
 

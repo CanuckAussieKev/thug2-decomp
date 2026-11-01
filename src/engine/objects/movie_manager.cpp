@@ -79,13 +79,23 @@ void delete_structure(script::Struct* structure)
 // 0x0057A190
 Entity* ObjectAssignment::get_assign(const Entity* other)
 {
-    auto* to = reinterpret_cast<uint32_t*>(this);
-    const auto* from = reinterpret_cast<const uint32_t*>(other);
-    // (the original skipped the vptr, the list node's table word at +0x28 and ref_'s vptr; here the node starts at
-    // +0x28 and its unused word is +0x38)
-    for (int word : {1, 2, 3, 4, 5, 6, 7, 8, 9, 0xA, 0xB, 0xC, 0xD, 0xF, 0x11, 0x12})
-        to[word] = from[word];
-    return reinterpret_cast<Entity*>(this);
+    // Every field but the tables (the vptr, the original's list node table word and ref_'s vptr), the smart pointer
+    // lists and the list node's links copied as they are.
+    auto* to = reinterpret_cast<Entity*>(this);
+    to->smart_pointers_ = other->smart_pointers_;
+    to->object_flags_ = other->object_flags_;
+    to->park_owner_ = other->park_owner_;
+    to->own_script_ = other->own_script_;
+    to->ident_ = other->ident_;
+    to->kind_tag_ = other->kind_tag_;
+    to->visited_mask_ = other->visited_mask_;
+    to->tag_table_ = other->tag_table_;
+    to->flag_bits_ = other->flag_bits_;
+    to->list_link_ = other->list_link_;
+    to->alias_count_ = other->alias_count_;
+    to->ref_.smart_pointers_ = other->ref_.smart_pointers_;
+    to->ref_.owner_object_ = other->ref_.owner_object_;
+    return to;
 }
 
 // 0x0057A220

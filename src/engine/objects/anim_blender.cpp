@@ -186,7 +186,7 @@ void AnimBlenderComponent::configure_from_data(script::Struct* params)
 {
     if (lanes_.prev != &lanes_)
         return;
-    void* memory = memory::alloc_zeroed(0x74);
+    void* memory = memory::alloc_zeroed(sizeof(Channel));
     Channel* channel = memory ? static_cast<Channel*>(memory)->make_new(entity_, this, true) : nullptr;
     get_link(channel)->prev = &lanes_;
     get_link(channel)->next = lanes_.next;
@@ -353,7 +353,7 @@ gfx::BlendChannel* AnimBlenderComponent::find_channel(uint32_t id)
 // 0x00419FD0 (the original first looks for a channel with the id and drops the result)
 gfx::BlendChannel* AnimBlenderComponent::add_channel(uint32_t id, bool at_front)
 {
-    void* memory = memory::alloc_zeroed(0x74);
+    void* memory = memory::alloc_zeroed(sizeof(Channel));
     Channel* channel = memory ? static_cast<Channel*>(memory)->make_new(entity_, this, false) : nullptr;
     ident_no(channel) = id;
     channel->seal();
@@ -575,12 +575,12 @@ void AnimBlenderComponent::get_times(float* start, float* current, float* end)
 }
 
 // 0x00419CF0
-void BlendChannelLinks::get_times(float* start, float* current, float* end)
+void get_channel_times(gfx::BlendChannel* channel, float* start, float* current, float* end)
 {
     *start = 0.0f;
     *current = 0.0f;
     *end = 0.0f;
-    memory::ListNode* timeline = timelines_.next;
+    memory::ListNode* timeline = channel->timelines_.next;
     if (!is_over(timeline))
         static_cast<gfx::AnimTimeline*>(timeline->data)->get_times(start, current, end);
 }

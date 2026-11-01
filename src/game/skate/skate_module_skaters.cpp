@@ -796,13 +796,13 @@ void __cdecl Skate::debug_rails()
     auto* manager = reinterpret_cast<objects::EntityHub*>(entity_hub_handle());
     for (objects::ObjectModule* component = manager->find_first_module_of_kind(kRailManagerType); component;
          component = component->next_of_type_) {
-        uint8_t* object = reinterpret_cast<uint8_t*>(component->entity_);
+        objects::GameEntity* object = component->entity_;
         float matrix[16];
-        std::memcpy(matrix, object + 0x6C, sizeof(matrix));
+        std::memcpy(matrix, &object->basis_frame_, sizeof(matrix));
         matrix[3] = 0.0f;
         matrix[7] = 0.0f;
         matrix[11] = 0.0f;
-        std::memcpy(matrix + 12, object + 0x4C, 12);
+        std::memcpy(matrix + 12, &object->at_point_, 12);
         matrix[15] = 1.0f;
         void* rails = static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
         if (rails)

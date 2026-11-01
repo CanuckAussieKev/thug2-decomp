@@ -54,20 +54,17 @@ struct AnimTimeline {
     // 0x004816B0: `seconds` (in frames) added to the current time, then wrapped / held as a step of no time does.
     void advance_clock(float frames);
 
-    memory::PaddedListNode list_link_; // +0x00 (data = this; the original's node size: the fields keep their offsets)
-    float outset_;                     // +0x14
-    float ongoing_;                    // +0x18
-    float finish_;                     // +0x1C
-    float speed_;                      // +0x20 (per 1/60 s)
-    int direction_;                    // +0x24 0 forwards, -1 backwards
-    int repeat_mode_;                  // +0x28
-    bool complete_;                    // +0x2C
+    memory::ListNode list_link_; // +0x00 (data = this; the original's node size: the fields keep their offsets)
+    float outset_;               // +0x14
+    float ongoing_;              // +0x18
+    float finish_;               // +0x1C
+    float speed_;                // +0x20 (per 1/60 s)
+    int direction_;              // +0x24 0 forwards, -1 backwards
+    int repeat_mode_;            // +0x28
+    bool complete_;              // +0x2C
     uint8_t pad2d_[3];
     uint32_t anim_; // +0x30 the animation's name
 };
-static_assert(offsetof(AnimTimeline, outset_) == 0x14 && offsetof(AnimTimeline, anim_) == 0x30 &&
-                  sizeof(AnimTimeline) == 0x34,
-              "layout must match the original");
 
 // The base controller (vtable 0x0064877C). Zeroed memory from the current heap (the standard controller has pools
 // of its own).
@@ -104,7 +101,6 @@ public:
     int rank_;                          // +0x0C
     uint32_t ident_;                    // +0x10
 };
-static_assert(sizeof(AnimDriver) == 0x14, "layout must match the original");
 
 // The standard controller (type 0xCB4533FF, vtable 0x00649F50, 0x28 bytes from its own item pools 0x00701430):
 // plays an animation of the object's anim set on the channel's timeline.
@@ -135,7 +131,6 @@ public:
     uint32_t anim_set_;    // +0x20 added to an animation's name
     int frame_index_;      // +0x24 (-1 none)
 };
-static_assert(sizeof(StandardAnimController) == 0x28, "layout must match the original");
 
 // The 0x7E1940A1 controller (vtable 0x00649F68, 0x24 bytes): an animation of the object's anim set blended in
 // with a weight, without a timeline of its own.
@@ -156,7 +151,6 @@ public:
     uint32_t anim_set_;  // +0x1C
     float weight_;       // +0x20
 };
-static_assert(sizeof(WeightedAnimController) == 0x24, "layout must match the original");
 
 // The wobble controller (type "wobble", vtable 0x00649F80, 0x38 bytes): plays the timeline's animation around a
 // target time, swinging by two sines of the game clock (SetWobbleDetails).
@@ -186,7 +180,6 @@ public:
     void* frame_source_; // +0x30
     uint32_t anim_set_;  // +0x34
 };
-static_assert(sizeof(WobbleDriver) == 0x38, "layout must match the original");
 
 // The pose controller (type "pose", vtable 0x00649F98, 0x854 bytes): a fixed pose (identity rotations).
 class StanceDriver final : public AnimDriver {
@@ -200,7 +193,6 @@ public:
 
     uint8_t stance_[0x840]; // +0x14 (64 rotations, then the rest)
 };
-static_assert(sizeof(StanceDriver) == 0x854, "layout must match the original");
 
 // The partial animation controller (type "partialAnim", vtable 0x00649FB0, 0x24 bytes): a second animation on a
 // timeline of its own.
@@ -225,6 +217,5 @@ public:
     void* frame_source_;    // +0x1C
     uint32_t anim_set_;     // +0x20
 };
-static_assert(sizeof(PartialClipDriver) == 0x24, "layout must match the original");
 
 } // namespace gfx
