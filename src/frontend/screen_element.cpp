@@ -721,7 +721,6 @@ void UiWidget::update_layout()
 bool UiWidget::read_position_param(script::Struct* params, float* x, float* y)
 {
     script::Pair pair;
-    pair.prepare_all();
     Struct* pos;
     if (params->read_sub_struct(kPos, &pos, 0)) {
         pos->fetch_pair(0, &pair, true);
@@ -797,7 +796,6 @@ void UiWidget::change_traits(script::Struct* params)
 {
     void* manager = park_owner_;
     script::Pair pair;
-    pair.prepare_all();
     script::VectorValue v;
     if (params->fetch_pair(kPos, &pair, false))
         change_location(pair.x, pair.y, 1);
@@ -811,7 +809,6 @@ void UiWidget::change_traits(script::Struct* params)
     if (params->has_bare_flag(kKeepScaleName))
         object_flags_ |= kKeepScale;
     script::Pair dims;
-    dims.prepare_all();
     if (params->fetch_pair(kDims, &dims, false))
         fit_to_size(dims.x, dims.y, 1);
     uint32_t parent_id;
@@ -920,7 +917,7 @@ void UiWidget::get_properties(script::Struct* out)
     std::memcpy(rgba, shown_.rgba, 4);
     script::Array* array = script::alloc_script_array();
     if (array)
-        array = array->prepare_all();
+        array = new (array) script::Array;
     array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 4; ++i)
         array->set_element(i, rgba[i]);
@@ -969,7 +966,6 @@ void UiWidget::blend_towards(script::Struct* params)
     if (params->fetch_float(kScale, &scale, 0))
         change_scale(scale, scale, relative, 0);
     script::Pair pair;
-    pair.prepare_all();
     if (params->fetch_pair(kScale, &pair, false))
         change_scale(pair.x, pair.y, relative, 0);
     float degrees;

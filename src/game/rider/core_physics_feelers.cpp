@@ -303,7 +303,7 @@ int SkaterPhysicsModule::set_ammo(script::Struct* params, script::Script*)
     params->fetch_int_value(uint32_t{0}, &ammo, 0); // (the unnamed integer)
     int change = ammo - before;
     script::Struct* changed = script::spawn_param_bag();
-    changed = changed ? changed->prepare_all() : nullptr;
+    changed = changed ? new (changed) script::Struct : nullptr;
     changed->put_int(kCount, change); // (on a null structure if out of memory, as the original)
     script::end_child_scripts_of_entity_by_name(skater_object(this), kAmmoMeterChange, nullptr);
     skater_object(this)->spawn_script(kAmmoMeterChange, changed, 0, false);

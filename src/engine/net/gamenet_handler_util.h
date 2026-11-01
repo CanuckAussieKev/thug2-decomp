@@ -140,7 +140,7 @@ inline void send_to_server(net::AppHost* app, net::NetMessageInfo* desc)
 inline script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 inline void delete_params(script::Struct* params)
 {

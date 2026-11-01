@@ -543,7 +543,7 @@ void __cdecl FriendsManager::on_buddy_status(void*, const void* argument, Friend
             prefs::Preferences* prefs = net_session_slot()->get_online_settings();
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
             script::Array* memory = script::alloc_script_array();
-            script::Array* buddies = memory ? memory->prepare_all() : nullptr;
+            script::Array* buddies = memory ? new (memory) script::Array : nullptr;
             buddies->configure_size_kind(old->extent_ + 1, script::kQbvalStruct);
             uint32_t i = 0;
             for (; i < old->extent_; ++i) {

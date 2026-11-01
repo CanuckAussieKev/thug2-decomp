@@ -77,7 +77,7 @@ objects::EditorViewModule* view_cam(objects::ObjectModule* camera)
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -319,7 +319,6 @@ void ObjectiveAuthoring::move_cursor_to_current_point()
 void ObjectiveAuthoring::run_cursor_script()
 {
     script::Struct params;
-    params.prepare_all();
     objects::EditorViewModule* camera = view_cam(view_camera_);
     const maths::Vec4& cursor = camera->cursor_;
     params.put_vec3(0x7F261953, cursor.x, cursor.y + camera->level_y_, cursor.z);
@@ -345,7 +344,6 @@ void ObjectiveAuthoring::refresh_cursor()
         model = "gameobjects\\goal_cursor\\goal_cursor.mdl";
     }
     script::Struct params;
-    params.prepare_all();
     goal = active_node_;
     kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
     if (kind == kPointPro)
@@ -467,7 +465,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
     if (!count)
         return;
     script::Array* goals = script::alloc_script_array();
-    goals = goals ? goals->prepare_all() : nullptr;
+    goals = goals ? new (goals) script::Array : nullptr;
     goals->configure_size_kind(count, script::kQbvalStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
@@ -486,7 +484,7 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
     // (sized by the complete goals, filled with every used one: as the original)
     uint32_t count = static_cast<uint32_t>(count_complete_goals(level));
     script::Array* goals = script::alloc_script_array();
-    goals = goals ? goals->prepare_all() : nullptr;
+    goals = goals ? new (goals) script::Array : nullptr;
     goals->configure_size_kind(count, script::kQbvalStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
@@ -613,7 +611,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
     if (!count)
         return true;
     script::Array* goals = script::alloc_script_array();
-    goals = goals ? goals->prepare_all() : nullptr;
+    goals = goals ? new (goals) script::Array : nullptr;
     goals->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {

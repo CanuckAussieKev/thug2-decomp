@@ -280,7 +280,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
     if (bounce_script_) {
         script::Struct* params = script::spawn_param_bag();
         if (params)
-            params = params->prepare_all();
+            params = new (params) script::Struct;
         if (callback_params_ptr_)
             params->merge_structure(callback_params_ptr_); // (out of memory: through null, as the original)
         params->put_vec3(0x43F454D0, script::VectorValue{point->x, point->y, point->z, point->w});

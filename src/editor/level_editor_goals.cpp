@@ -811,7 +811,7 @@ uint32_t current_level()
 // A GoalManager_* script command with name=<goal> (they take no other parameter and don't use the script).
 bool goal_command(Function command, uint32_t goal)
 {
-    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
     params->put_name_key(0xA1DC81F9u, goal); // name
     bool result = command(params, nullptr);
     params->get_clear();

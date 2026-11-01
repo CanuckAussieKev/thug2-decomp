@@ -365,8 +365,6 @@ float Rider::fetch_tally(int index)
 float Rider::get_scaled_value(script::Struct* params)
 {
     script::Pair range, switch_range;
-    range.prepare_all();
-    switch_range.prepare_all();
     params->fetch_pair(0u, &range, false);
     int stat_index;
     double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
@@ -392,7 +390,6 @@ float Rider::get_scaled_value(script::Struct* params)
         ++difficulty;
     if (difficulty != 1) {
         script::Pair diff;
-        diff.prepare_all();
         if (params->fetch_pair(kDiff, &diff, false)) {
             if (difficulty == 0)
                 result = static_cast<float>(static_cast<double>(diff.x) * result);
@@ -837,7 +834,7 @@ template <typename Fill>
 void add_component_from_structure(Rider* skater, Fill fill)
 {
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* params = memory ? memory->prepare_all() : nullptr;
+    script::Struct* params = memory ? new (memory) script::Struct : nullptr;
     fill(params);
     skater->create_component_from_structure(params, nullptr);
     if (params) {
@@ -865,7 +862,7 @@ void Rider::prepare_all(RiderIdentity* profile)
             walk_camera->instant_frames_ = 3;
         } else {
             script::Struct* memory = script::spawn_param_bag();
-            script::Struct* params = memory ? memory->prepare_all() : nullptr;
+            script::Struct* params = memory ? new (memory) script::Struct : nullptr;
             params->put_name_key(0x4C48DA58, ident_);
             params->put_name_key(kNameChecksum, camera_name);
             camera = object_hub_slot()->spawn_entity_from_node(script::fetch_list("skatercam_composite_structure"),
@@ -1043,7 +1040,7 @@ void Rider::run_state_script(bool walk, bool other)
     script::Struct* params = nullptr;
     if (walk || other) {
         script::Struct* memory = script::spawn_param_bag();
-        params = memory ? memory->prepare_all() : nullptr;
+        params = memory ? new (memory) script::Struct : nullptr;
         if (walk)
             params->put_name_key(0u, 0x726E85AA); // Walk
         if (other)
@@ -1074,11 +1071,11 @@ void Rider::switch_to_script(uint32_t name, script::Struct* params)
 void Rider::write_cat_info(script::Struct* save)
 {
     script::Array* memory = script::alloc_script_array();
-    script::Array* tricks = memory ? memory->prepare_all() : nullptr;
+    script::Array* tricks = memory ? new (memory) script::Array : nullptr;
     tricks->configure_size_kind(11, script::kQbvalStruct);
     for (int i = 0; i < 11; ++i) {
         script::Struct* struct_memory = script::spawn_param_bag();
-        script::Struct* trick = struct_memory ? struct_memory->prepare_all() : nullptr;
+        script::Struct* trick = struct_memory ? new (struct_memory) script::Struct : nullptr;
         goals::CreateATrick* info = trick_slots_[i].get();
         trick->put_sub_struct(kOther, info->other_params_);
         trick->append_array_value(kAnimations, info->animations_);
@@ -1092,7 +1089,7 @@ void Rider::write_cat_info(script::Struct* save)
 void Rider::write_list_44b_66a_9f(script::Struct* save)
 {
     script::Array* memory = script::alloc_script_array();
-    script::Array* entries = memory ? memory->prepare_all() : nullptr;
+    script::Array* entries = memory ? new (memory) script::Array : nullptr;
     entries->configure_size_kind(0x46, script::kQbvalInteger);
     for (int i = 0; i < 0x46; ++i)
         entries->set_element(i, static_cast<uint32_t>(static_cast<AttributeTracker*>(stats_)->get_goal_status(i)));
@@ -1187,7 +1184,7 @@ void Rider::launch_projectile()
     }
     // LaunchProjectile from there (at the target, when there is one beyond 100).
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* params = memory ? memory->prepare_all() : nullptr;
+    script::Struct* params = memory ? new (memory) script::Struct : nullptr;
     params->put_vec3("pos", {origin.x, origin.y, origin.z, origin.w});
     if (target && best > 100.0f) {
         params->push_float("ped_dist", best);
@@ -1238,7 +1235,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     physics_control_ = nullptr;
     // Its components, one structure (component = ...) changed for each.
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* params = memory ? memory->prepare_all() : nullptr;
+    script::Struct* params = memory ? new (memory) script::Struct : nullptr;
     auto add = [this, params](uint32_t type) {
         params->put_name_key(kPartHash, type);
         create_component_from_structure(params, nullptr);
@@ -1290,7 +1287,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     add(kSkaterFlipAndRotate);
     // The controls, told its skater number.
     script::Struct* extra_memory = script::spawn_param_bag();
-    script::Struct* extra = extra_memory ? extra_memory->prepare_all() : nullptr;
+    script::Struct* extra = extra_memory ? new (extra_memory) script::Struct : nullptr;
     extra->put_int(0xA2B033FD, skater_number_);
     params->put_name_key(kPartHash, 0x5B512EDC);
     create_component_from_structure(params, extra);
@@ -1330,7 +1327,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
     if (!walking->in_vehicle_ && walking->physics_mode_ == 1) {
         // Walking: back to skating first.
         script::Struct* memory = script::spawn_param_bag();
-        script::Struct* params = memory ? memory->prepare_all() : nullptr;
+        script::Struct* params = memory ? new (memory) script::Struct : nullptr;
         params->put_name_key(0x91D0D784, 0x1DDE4804);
         switch_to_script(0x93A4E402, params);
         if (params) {

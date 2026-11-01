@@ -54,12 +54,12 @@ const uint8_t* skip_end_of_lines_in(const uint8_t* p)
 Struct* new_init_struct()
 {
     Struct* structure = spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 Array* new_init_array()
 {
     Array* array = alloc_script_array();
-    return array ? array->prepare_all() : nullptr;
+    return array ? new (array) script::Array : nullptr;
 }
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
@@ -378,7 +378,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         change_species(out, kQbvalVector);
         uint32_t x = fetch_word32(p), y = fetch_word32(token + 5), z = fetch_word32(token + 9);
         Vector* vector = alloc_script_vector();
-        vector = vector ? vector->prepare_all() : nullptr;
+        vector = vector ? new (vector) script::Vector : nullptr;
         out->vector = vector;
         std::memcpy(&vector->x, &x, 4);
         std::memcpy(&out->vector->y, &y, 4);
@@ -389,7 +389,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         change_species(out, kQbvalPair);
         uint32_t x = fetch_word32(p), y = fetch_word32(token + 5);
         Pair* pair = new_pair();
-        pair = pair ? pair->prepare_all() : nullptr;
+        pair = pair ? new (pair) script::Pair : nullptr;
         out->pair = pair;
         std::memcpy(&pair->x, &x, 4);
         std::memcpy(&out->pair->y, &y, 4);
@@ -785,7 +785,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 p += 4;
             } else if (t == 0x1E) {
                 Vector* vector = alloc_script_vector();
-                vector = vector ? vector->prepare_all() : nullptr;
+                vector = vector ? new (vector) script::Vector : nullptr;
                 uint32_t x = fetch_word32(p), y = fetch_word32(p + 4), z = fetch_word32(p + 8);
                 std::memcpy(&vector->x, &x, 4);
                 std::memcpy(&vector->y, &y, 4);
@@ -800,7 +800,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 p += 4;
             } else if (t == 0x1F) {
                 Pair* pair = new_pair();
-                pair = pair ? pair->prepare_all() : nullptr;
+                pair = pair ? new (pair) script::Pair : nullptr;
                 uint32_t x = fetch_word32(p), y = fetch_word32(p + 4);
                 std::memcpy(&pair->x, &x, 4);
                 std::memcpy(&pair->y, &y, 4);

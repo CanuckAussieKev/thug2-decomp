@@ -235,7 +235,7 @@ bool PadInputModule::is_input_blocked()
     if (frontend::UiWidget* root = find_element(kRootWindow)) {
         script::Struct* tags = script::spawn_param_bag();
         if (tags)
-            tags = tags->prepare_all();
+            tags = new (tags) script::Struct;
         root->copy_tags_to(tags);
         uint32_t state = 0; // (uninitialised in the original: what was on the stack)
         tags->read_hash_value(kMenuState, &state, 0);

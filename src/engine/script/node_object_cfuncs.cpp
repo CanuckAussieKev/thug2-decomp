@@ -600,7 +600,7 @@ bool __cdecl cfunc_re_load_node_array(script::Struct*, script::Script* script)
     assets->discard_loaded_item(assets->obtain_loaded_item(checksums::hash_from_text(loaded_node_list), 0));
     alignas(4) uint8_t storage[8];
     auto* file = reinterpret_cast<script::Struct*>(storage);
-    file->prepare_all();
+    new (file) script::Struct;
     file->append_word(0u, loaded_node_list);
     const char* name = nullptr;
     file->fetch_text(0u, &name, 1);

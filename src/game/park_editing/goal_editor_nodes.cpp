@@ -55,7 +55,7 @@ void __cdecl add_goal_editor_nodes(script::Array* nodes, int* index, memory::Are
                 node = reinterpret_cast<script::Struct*>(nodes->fetch_part(static_cast<uint32_t>(*index)));
             } else {
                 node = script::spawn_param_bag();
-                node = node ? node->prepare_all() : nullptr;
+                node = node ? new (node) script::Struct : nullptr;
             }
             static const uint32_t kKinds[3] = {0x8F0F67D7, 0xC9119673, 0x000B52B3};
             node->append_structure_if_any(script::read_sub_struct(kKinds[which < 2 ? which : 2]));

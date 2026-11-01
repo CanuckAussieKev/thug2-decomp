@@ -101,7 +101,7 @@ const modules::Skate::PlayerSettings& controller_flags(int controller)
 Struct* spawn_param_table()
 {
     Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 void delete_structure(Struct* structure)
 {
@@ -139,7 +139,7 @@ void write_global_info(Struct* global)
 
     Array* controllers = script::alloc_script_array();
     if (controllers)
-        controllers = controllers->prepare_all();
+        controllers = new (controllers) script::Array;
     controllers->configure_size_kind(kControllers, script::kQbvalStruct);
     for (int i = 0; i < kControllers; ++i) {
         Struct* controller = spawn_param_table();

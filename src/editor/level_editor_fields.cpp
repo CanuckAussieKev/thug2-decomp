@@ -791,7 +791,7 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
     case Kind::kNames:
     case Kind::kIntegers:
     case Kind::kFloats: {
-        script::Array* array = script::alloc_script_array()->prepare_all();
+        script::Array* array = new (script::alloc_script_array()) script::Array;
         uint32_t size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
         array->configure_size_kind(size, v.kind == Kind::kNames      ? script::kQbvalName
                                          : v.kind == Kind::kIntegers ? script::kQbvalInteger

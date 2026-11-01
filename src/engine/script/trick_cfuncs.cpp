@@ -118,7 +118,7 @@ uint32_t key_combo_for_cat(Struct* mapping, int cat)
 Array* alloc_script_array()
 {
     Array* array = script::alloc_script_array();
-    return array ? array->prepare_all() : nullptr;
+    return array ? new (array) script::Array : nullptr;
 }
 
 // The profile manager's template table: its count (0x00469490, single::PointerMember::get_pull folded) and the template at

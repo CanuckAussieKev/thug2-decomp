@@ -351,7 +351,7 @@ bool __cdecl cfunc_get_screen_element_children(script::Struct* params, script::S
         return false;
     script::Array* array = script::alloc_script_array();
     if (array)
-        array = array->prepare_all();
+        array = new (array) script::Array;
     array->configure_size_kind(count, script::kQbvalName);
     for (int i = 0; i < count; ++i)
         array->set_element(i, element->find_child_at_slot(i)->ident_);
@@ -493,7 +493,7 @@ bool __cdecl cfunc_create_multiple_text_elements(script::Struct* params, script:
     auto make_element = [&]() {
         Struct* element_params = script::spawn_param_bag();
         if (element_params)
-            element_params = element_params->prepare_all();
+            element_params = new (element_params) script::Struct;
         element_params->append_structure_if_any(params);
         element_params->append_word(kText, line);
         ElementPtr made;

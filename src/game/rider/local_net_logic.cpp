@@ -283,7 +283,7 @@ int __cdecl RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     }
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->prepare_all();
+        params = new (params) script::Struct;
     params->get_clear(); // (on the new structure, as the original)
     params->append_word(kString0, script::kQbvalString, other->fetch_shown_name());
     script::launch_script(script, params, skater, false, nullptr);

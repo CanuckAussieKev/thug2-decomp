@@ -41,7 +41,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 script::Struct* new_params()
 {
     script::Struct* params = script::spawn_param_bag();
-    return params ? params->prepare_all() : nullptr;
+    return params ? new (params) script::Struct : nullptr;
 }
 void delete_params(script::Struct* params)
 {

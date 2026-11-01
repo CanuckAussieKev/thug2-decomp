@@ -505,7 +505,7 @@ const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t t
     }
     Struct* contents = script::spawn_param_bag();
     if (contents)
-        contents = contents->prepare_all();
+        contents = new (contents) script::Struct;
     kept_contents() = contents;
     const uint8_t* end = script::decode_from_bytes(contents, data, size);
     kept_type() = type;

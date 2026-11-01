@@ -66,7 +66,7 @@ constexpr int kLabelPoints = 0x200; // the texts' buffer
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -78,7 +78,7 @@ void delete_structure(script::Struct* structure)
 script::Array* alloc_script_array()
 {
     script::Array* array = script::alloc_script_array();
-    return array ? array->prepare_all() : nullptr;
+    return array ? new (array) script::Array : nullptr;
 }
 // An array a structure has copied, or a temporary one: its contents and itself freed.
 void free_array(script::Array* array)

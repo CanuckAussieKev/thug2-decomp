@@ -717,7 +717,7 @@ uint32_t path_speed_script()
 
 void apply_speed(objects::GameEntity* object, float mph)
 {
-    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
     params->push_float(get_key("speed"), mph);
     script::launch_script(path_speed_script(), params, object, false, nullptr);
     params->get_clear();

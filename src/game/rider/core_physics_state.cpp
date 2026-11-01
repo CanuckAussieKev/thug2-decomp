@@ -294,7 +294,7 @@ void SkaterPhysicsModule::update_special_time()
         return;
     }
     script::Struct* params = script::spawn_param_bag();
-    params = params ? params->prepare_all() : nullptr;
+    params = params ? new (params) script::Struct : nullptr;
     params->put_name_key(kTimeLimit, 1);
     script::launch_script(kKillSpecial, params, skater_object(this), false, nullptr);
     if (params) {

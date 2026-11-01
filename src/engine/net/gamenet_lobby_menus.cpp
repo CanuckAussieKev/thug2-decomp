@@ -83,7 +83,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 script::Array* new_script_array()
 {
     script::Array* memory = script::alloc_script_array();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Array : nullptr;
 }
 void delete_script_array(script::Array* array)
 {

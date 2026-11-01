@@ -700,7 +700,7 @@ void restart_step(modules::FrontEnd* front_end)
         return;
     uint32_t restart = g_restart;
     g_restart = 0;
-    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
     params->put_name_key(checksums::hash_from_text("node_name"), restart);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();

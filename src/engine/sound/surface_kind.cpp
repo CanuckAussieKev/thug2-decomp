@@ -417,7 +417,7 @@ bool __cdecl load_terrain_sounds(uint32_t checksum)
     if (get_terrain_structure(terrain, &terrain_actions, kSoundActions)) {
         Struct* merged = script::spawn_param_bag();
         if (merged)
-            merged->prepare_all();
+            new (merged) script::Struct;
         merged->append_structure_if_any(default_actions);
         merged->append_structure_if_any(terrain_actions);
         for (uint32_t table = 0; table < static_cast<uint32_t>(get_terrain_actions().extent_); ++table)

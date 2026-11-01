@@ -382,7 +382,7 @@ bool __cdecl cfunc_for_each_in(Struct* params, Script* script)
     if (extra) {
         Struct* element_params = script::spawn_param_bag();
         if (element_params)
-            element_params = element_params->prepare_all();
+            element_params = new (element_params) script::Struct;
         for (uint32_t i = 0; i < array->extent_; ++i) {
             element_params->get_clear();
             if (auto* element = reinterpret_cast<Struct*>(array->fetch_part(i)))
@@ -425,7 +425,7 @@ bool __cdecl cfunc_get_element(Struct* params, Script* script)
     case script::kQbvalStruct: {
         Struct* copy = script::spawn_param_bag();
         if (copy)
-            copy = copy->prepare_all();
+            copy = new (copy) script::Struct;
         copy->append_structure_if_any(reinterpret_cast<Struct*>(array->fetch_part(index)));
         script->args_->add_component_of_type(kElement, kTypeStructurePointer, reinterpret_cast<uint32_t>(copy));
         break;
@@ -462,7 +462,7 @@ bool __cdecl cfunc_permute_array(Struct* params, Script* script)
             return false;
         array = script::alloc_script_array();
         if (array)
-            array = array->prepare_all();
+            array = new (array) script::Array;
         copy = array;
         script::duplicate_array(array, source);
     }
@@ -498,7 +498,7 @@ bool __cdecl cfunc_goto_preserve_params(Struct* params, Script* script)
     params->read_hash_value(0u, &name, 0);
     Struct* script_params = script::spawn_param_bag();
     if (script_params)
-        script_params = script_params->prepare_all();
+        script_params = new (script_params) script::Struct;
     script_params->append_structure_if_any(script->args_);
     Struct* extra = nullptr;
     params->read_sub_struct(kParams, &extra, 0);
@@ -518,7 +518,7 @@ bool __cdecl format_printf_text(char* out, Struct* params, Script*)
     if (params->fetch_text(0u, &text, 0)) {
         Struct* format = script::spawn_param_bag();
         if (format)
-            format = format->prepare_all();
+            format = new (format) script::Struct;
         format->put_name_key(kTextName, kPrintfText);
         format->append_structure_if_any(params);
         if (format_text_into(format, format))
@@ -547,7 +547,7 @@ bool __cdecl cfunc_dump(Struct* params, Script* script)
     params->read_hash_value(0u, &name, 1);
     Struct* dump = script::spawn_param_bag();
     if (dump)
-        dump = dump->prepare_all();
+        dump = new (dump) script::Struct;
     char text[0x400];
     Component* component = script->args_->find_component(name);
     if (!component) {
@@ -584,7 +584,7 @@ bool __cdecl cfunc_create_index_array(Struct* params, Script* script)
     params->fetch_int_value(0u, &size, 1);
     Array* indexes = script::alloc_script_array();
     if (indexes)
-        indexes = indexes->prepare_all();
+        indexes = new (indexes) script::Array;
     indexes->configure_size_kind(static_cast<uint32_t>(size), script::kQbvalInteger);
     for (int i = 0; i < size; ++i)
         indexes->set_element(i, static_cast<uint32_t>(i));
@@ -610,7 +610,7 @@ bool __cdecl cfunc_append_struct(Struct* params, Script*)
     params->read_sub_struct(kParams, &field_params, 1);
     Struct* copy = script::spawn_param_bag();
     if (copy)
-        copy = copy->prepare_all();
+        copy = new (copy) script::Struct;
     copy->append_structure_if_any(field_params);
     script::read_sub_struct(block_name)->append_struct_ref(field, copy);
     return true;
@@ -625,7 +625,7 @@ bool __cdecl cfunc_string_to_char_array(Struct* params, Script* script)
     uint32_t length = static_cast<uint32_t>(std::strlen(string));
     Array* characters = script::alloc_script_array();
     if (characters)
-        characters = characters->prepare_all();
+        characters = new (characters) script::Array;
     characters->configure_size_kind(length, script::kQbvalString);
     char one[2];
     one[1] = '\0';

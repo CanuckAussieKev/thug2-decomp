@@ -165,7 +165,7 @@ bool __cdecl cfunc_play_skater_stream(script::Struct* params, script::Script* sc
 
     // the stream numbers 1..count, shuffled
     Array* memory = script::alloc_script_array();
-    Array* order = memory ? memory->prepare_all() : nullptr;
+    Array* order = memory ? new (memory) script::Array : nullptr;
     order->configure_size_kind(count, script::kQbvalInteger);
     for (int i = 0; i < count; ++i)
         order->set_element(i, static_cast<uint32_t>(i + 1));
@@ -211,7 +211,7 @@ bool __cdecl cfunc_play_skater_stream(script::Struct* params, script::Script* sc
         if (!audio::stream_exists(checksums::hash_from_text(stream)))
             continue;
         Struct* struct_memory = script::spawn_param_bag();
-        Struct* stream_params = struct_memory ? struct_memory->prepare_all() : nullptr;
+        Struct* stream_params = struct_memory ? new (struct_memory) script::Struct : nullptr;
         stream_params->put_name_key(kStreamChecksum, checksums::hash_from_text(stream));
         script::launch_script(kSkaterPlayBailStream, stream_params, script->entity_.owner_object_, false, nullptr);
         if (stream_params) {

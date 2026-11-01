@@ -125,7 +125,6 @@ void launch_pad(modules::FrontEnd* front_end, uint32_t type, UiWidget* element)
     if (!element)
         return;
     script::Struct params;
-    params.prepare_all();
     int device = 0;
     if (front_end && front_end->pad_listeners_[0] && front_end->pad_listeners_[0]->dev_)
         device = front_end->pad_listeners_[0]->dev_->port_no_;

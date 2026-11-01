@@ -49,7 +49,7 @@ void* allocate_zeroed(unsigned int size)
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 
 } // namespace

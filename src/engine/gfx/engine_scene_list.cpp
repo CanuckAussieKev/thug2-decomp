@@ -233,14 +233,14 @@ void __cdecl get_scene_debug_info(script::Struct* info)
     if (get_main_scene()) {
         script::Struct* main = script::spawn_param_bag();
         if (main)
-            main->prepare_all();
+            new (main) script::Struct;
         get_main_scene()->fetch_diagnostics(main);
         info->append_struct_ref(0x9B10525Cu, main);
     }
     if (get_sky_scene()) {
         script::Struct* sky = script::spawn_param_bag();
         if (sky)
-            sky->prepare_all();
+            new (sky) script::Struct;
         get_sky_scene()->fetch_diagnostics(sky);
         info->append_struct_ref(0x02C5EA34u, sky);
     }

@@ -164,7 +164,7 @@ void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* d
 Struct* spawn_param_bag()
 {
     void* memory = struct_pools().carve(8);
-    return memory ? static_cast<Struct*>(memory)->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void free_struct(Struct* params)
 {
@@ -909,7 +909,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     if (params->read_hash_value(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
         Struct* controller = script::spawn_param_bag();
         if (controller)
-            controller = controller->prepare_all();
+            controller = new (controller) script::Struct;
         uint32_t id = reinterpret_cast<uint32_t>(script); // (its argument's place reused: the id when there is one)
         if (params->read_hash_value(0xF0CE9E0F, &id, 0))
             controller->put_name_key(kId, id);

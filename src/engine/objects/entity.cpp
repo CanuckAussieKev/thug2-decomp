@@ -53,7 +53,7 @@ void launch_event(uint32_t type, uint32_t target, uint32_t source, Struct* data,
 Struct* new_empty_struct()
 {
     Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 void free_struct(Struct* structure)
 {

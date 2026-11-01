@@ -350,7 +350,7 @@ void GameEntity::create_component_from_structure(Struct* params, Struct* extra)
         return;
     }
     Struct* memory = script::spawn_param_bag();
-    Struct* merged = memory ? memory->prepare_all() : nullptr;
+    Struct* merged = memory ? new (memory) script::Struct : nullptr;
     merged->merge_structure(params);
     merged->merge_structure(extra);
     component->configure_from_data(merged);

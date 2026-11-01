@@ -206,7 +206,7 @@ void change_owner(void* manager, void* parent, void* child)
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -929,7 +929,7 @@ void TrickBeatGoal::reset_clock() { last_time_ = game_clock(); }
 TrickBeatGoal::TrickBeatGoal(script::Struct* params) : Objective(params)
 {
     script::Array* memory = script::alloc_script_array();
-    pattern_ = memory ? memory->prepare_all() : nullptr;
+    pattern_ = memory ? new (memory) script::Array : nullptr;
     pattern_->configure_size_kind(kBeats, script::kQbvalStruct);
     script::Array* pattern;
     params->fetch_list(kBeatPattern, &pattern, 1);

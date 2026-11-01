@@ -482,7 +482,7 @@ TrickSpotHub::TrickSpotHub() : clusters_(8), object_clusters_(8)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->script_heap_);
     script::Struct* params = script::spawn_param_bag();
-    args_ = params ? params->prepare_all() : nullptr;
+    args_ = params ? new (params) script::Struct : nullptr;
     memory->leave_heap_scope();
 }
 

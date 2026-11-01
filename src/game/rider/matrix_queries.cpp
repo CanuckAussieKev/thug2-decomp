@@ -131,7 +131,6 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     }
     case kYawBetween: {
         script::Pair range;
-        range.prepare_all();
         params->fetch_pair(uint32_t{0}, &range, true);
         maths::Vec4 v = entity_->vel_;
         v.align_to_plane(up);

@@ -62,7 +62,7 @@ char* new_initials()
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 
 // A record as a structure: value, number, initials.
@@ -221,7 +221,7 @@ void BestEntryList::decode_from_struct(script::Struct* params)
 void BestEntryList::write_to_structure(script::Struct* params)
 {
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? memory->prepare_all() : nullptr;
+    script::Array* array = memory ? new (memory) script::Array : nullptr;
     array->configure_size_kind(num_, script::kQbvalStruct);
     for (int i = 0; i < num_; ++i)
         array->set_element(i, reinterpret_cast<uint32_t>(record_structure(&records_[i])));
@@ -354,7 +354,7 @@ void BestResults::decode_from_struct(script::Struct* params)
 void BestResults::write_to_structure(script::Struct* params)
 {
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? memory->prepare_all() : nullptr;
+    script::Array* array = memory ? new (memory) script::Array : nullptr;
     array->configure_size_kind(level_count_, script::kQbvalStruct);
     for (int i = 0; i < level_count_; ++i) {
         script::Struct* structure = spawn_param_table();

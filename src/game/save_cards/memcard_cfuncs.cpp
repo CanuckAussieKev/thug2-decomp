@@ -83,7 +83,7 @@ void freeze_stream(int pause) { audio::freeze_stream(pause); }
 script::Struct* new_params()
 {
     script::Struct* params = script::spawn_param_bag();
-    return params ? params->prepare_all() : nullptr;
+    return params ? new (params) script::Struct : nullptr;
 }
 void delete_params(script::Struct* params)
 {

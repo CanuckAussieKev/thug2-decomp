@@ -71,7 +71,7 @@ bool __cdecl cfunc_display_free_mem(script::Struct*, script::Script*)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* params = memory ? memory->prepare_all() : nullptr;
+    script::Struct* params = memory ? new (memory) script::Struct : nullptr;
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region_;
         params->get_clear();
@@ -93,7 +93,6 @@ bool __cdecl cfunc_display_free_mem(script::Struct*, script::Script*)
 bool __cdecl cfunc_test(script::Struct*, script::Script*)
 {
     script::SymbolTableEntry entry;
-    entry.prepare_all();
     std::memset(&entry, 0, sizeof(entry));
     entry.unknown0 = 4;
     entry.type = script::kQbvalStruct;

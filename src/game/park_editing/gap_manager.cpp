@@ -184,7 +184,7 @@ void GapRegistry::fire_gap(int index, script::Script* script)
     for (int i = 0; i < 2; ++i) {
         int half = started_first_[index] ? i : 1 - i;
         script::Struct* memory = script::spawn_param_bag();
-        script::Struct* params = memory ? memory->prepare_all() : nullptr;
+        script::Struct* params = memory ? new (memory) script::Struct : nullptr;
         Gap* gap = gaps_ptr_[index];
         params->put_name_key(kGapId, gap->ids_[half]);
         params->put_int(kScore, gaps_ptr_[index]->details_.points_held_);

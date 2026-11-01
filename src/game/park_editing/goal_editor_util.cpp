@@ -223,7 +223,6 @@ void __fastcall init_edited_goal(uint8_t* goal)
 void __stdcall run_marker_object_script(int index)
 {
     script::Struct params;
-    params.prepare_all();
     char* name = g_goal_name_buffer;
     get_sprintf(name, "GoalEditorMarkerObject%d", index);
     params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name));

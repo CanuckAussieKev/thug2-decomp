@@ -73,7 +73,7 @@ void spawn_script(uint32_t name, script::Struct* params = nullptr)
 script::Struct* new_params()
 {
     script::Struct* params = script::spawn_param_bag();
-    return params ? params->prepare_all() : nullptr;
+    return params ? new (params) script::Struct : nullptr;
 }
 void delete_params(script::Struct* params)
 {

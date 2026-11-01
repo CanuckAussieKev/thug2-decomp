@@ -57,7 +57,7 @@ void run_with_label_id(uint32_t name, uint32_t label_id)
 {
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params->prepare_all();
+        new (params) script::Struct;
     params->put_name_key(kId, label_id);
     script::launch_script(name, params, nullptr, false, nullptr);
     if (params) {
@@ -108,7 +108,7 @@ void RiderOverheadTag::tick_frame()
     float height = find_own_player_record() == player ? kLocalHeight : kOtherHeight;
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params->prepare_all();
+        new (params) script::Struct;
     params->put_name_key(kId, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
     uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team_) : entity_->ident_;

@@ -236,10 +236,10 @@ int __cdecl get_memory_value(const char* name, int index)
 {
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params->prepare_all();
+        new (params) script::Struct;
     script::Struct* results = script::spawn_param_bag();
     if (results)
-        results->prepare_all();
+        new (results) script::Struct;
     int value = 0;
     params->put_name_key(kValueName, checksums::hash_from_text(name));
     if (index > -1)

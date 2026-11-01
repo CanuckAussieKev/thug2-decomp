@@ -120,7 +120,7 @@ void ImpactDestructModule::tick_frame()
                 maths::Vec4 point = feeler.contact_pos_;
                 script::Struct* params = script::spawn_param_bag();
                 if (params)
-                    params->prepare_all();
+                    new (params) script::Struct;
                 params->put_vec3(kPos, *reinterpret_cast<script::VectorValue*>(&point));
                 params->put_vec3(kVel, *reinterpret_cast<script::VectorValue*>(&vel_));
                 params->push_float(kScale, size_factor_);

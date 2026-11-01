@@ -154,7 +154,6 @@ bool __cdecl cfunc_set_viewer_lod_dist(script::Struct* params, script::Script*)
     if (!viewer)
         return true;
     script::Pair pair;
-    pair.prepare_all();
     if (!params->fetch_pair(0u, &pair, false))
         return false;
     if (objects::PreviewEntity* object = viewer_target(viewer)) {
@@ -821,7 +820,7 @@ constexpr uint32_t kFirstRestartId = 123456; // the restart items' ids, from her
 script::Struct* spawn_param_table()
 {
     auto* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {

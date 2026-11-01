@@ -116,7 +116,6 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         for (int i = 0; i < set->entry_total_; ++i) {
             uint32_t checksum = set->entries_[i].checksum;
             script::Struct params;
-            params.prepare_all();
             params.put_name_key(kMetapieceId, checksum);
             if (clipboards) {
                 if (i < clipboard_count)
@@ -132,7 +131,6 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
                     launch_script(kMakePieceMenuItem, &params);
                 } else {
                     script::Array sectors;
-                    sectors.prepare_all();
                     get_sector_names(meta, &sectors);
                     params.append_array_value(kSectors, &sectors);
                     launch_script(kMakePieceMenuItem, &params);
@@ -144,7 +142,6 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         }
         launch_script(kMakeSetMenu);
         script::Struct params;
-        params.prepare_all();
         params.put_int(kSetNumber, family_number);
         params.put_int(kLastSetNumber, set_number_);
         launch_script(kLockMenus, &params);

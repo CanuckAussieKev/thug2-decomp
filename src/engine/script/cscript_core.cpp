@@ -39,7 +39,7 @@ memory::PoolPair& script_pools() { return g_script_pools; }
 Struct* new_empty_struct()
 {
     Struct* structure = spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 // `delete structure` (its destructor is Clear).
 void free_struct(Struct* structure)

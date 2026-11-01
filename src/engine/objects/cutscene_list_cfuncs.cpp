@@ -57,7 +57,7 @@ void delete_entry(CutsceneDestroyEntry* entry)
 Struct* new_params()
 {
     Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_params(Struct* params)
 {

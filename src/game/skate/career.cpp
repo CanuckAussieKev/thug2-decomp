@@ -323,14 +323,14 @@ constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 script::Array* alloc_script_array(uint32_t size, script::QbValueKind type)
 {
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? memory->prepare_all() : nullptr;
+    script::Array* array = memory ? new (memory) script::Array : nullptr;
     array->configure_size_kind(size, type);
     return array;
 }
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 
 } // namespace
@@ -535,9 +535,9 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                          static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->get_name_key());
     // (both made first, then sized, as the original)
     script::Array* cash_memory = script::alloc_script_array();
-    script::Array* cash = cash_memory ? cash_memory->prepare_all() : nullptr;
+    script::Array* cash = cash_memory ? new (cash_memory) script::Array : nullptr;
     script::Array* amount_memory = script::alloc_script_array();
-    script::Array* amounts = amount_memory ? amount_memory->prepare_all() : nullptr;
+    script::Array* amounts = amount_memory ? new (amount_memory) script::Array : nullptr;
     cash->configure_size_kind(kLevels, script::kQbvalInteger);
     amounts->configure_size_kind(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level) {

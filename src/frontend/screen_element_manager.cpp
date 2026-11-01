@@ -50,7 +50,7 @@ void set_flag_property(UiWidget* element, uint32_t flag)
 {
     Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->prepare_all();
+        params = new (params) script::Struct;
     params->put_name_key(0u, flag);
     element->change_traits(params);
     if (params) {
@@ -589,7 +589,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
         // the top one shown: the new one hidden unless it is the new top, then the old top is
         Struct* params = script::spawn_param_bag();
         if (params)
-            params = params->prepare_all();
+            params = new (params) script::Struct;
         params->put_name_key(0u, kHide);
         if (priority > highest)
             priorities_[highest_slot].element.owner_object_->change_traits(params);

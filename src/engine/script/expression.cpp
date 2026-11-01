@@ -57,7 +57,7 @@ Pair* new_result_pair()
 {
     set_result_type(kQbvalPair);
     Pair* pair = new_pair();
-    pair = pair ? pair->prepare_all() : nullptr;
+    pair = pair ? new (pair) script::Pair : nullptr;
     get_result().pair = pair;
     return pair;
 }
@@ -65,7 +65,7 @@ Vector* new_result_vector()
 {
     set_result_type(kQbvalVector);
     Vector* vector = alloc_script_vector();
-    vector = vector ? vector->prepare_all() : nullptr;
+    vector = vector ? new (vector) script::Vector : nullptr;
     get_result().vector = vector;
     return vector;
 }
@@ -73,7 +73,7 @@ Struct* new_result_structure()
 {
     set_result_type(kQbvalStruct);
     Struct* structure = spawn_param_bag();
-    structure = structure ? structure->prepare_all() : nullptr;
+    structure = structure ? new (structure) script::Struct : nullptr;
     get_result().structure = structure;
     return structure;
 }
@@ -116,7 +116,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
     case kQbvalPair: {
         auto* from = reinterpret_cast<const Pair*>(array->fetch_part(index));
         Pair* pair = new_pair();
-        pair = pair ? pair->prepare_all() : nullptr;
+        pair = pair ? new (pair) script::Pair : nullptr;
         to->pair = pair;
         pair->x = from->x;
         to->pair->y = from->y;
@@ -125,7 +125,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
     case kQbvalVector: {
         auto* from = reinterpret_cast<const Vector*>(array->fetch_part(index));
         Vector* vector = alloc_script_vector();
-        vector = vector ? vector->prepare_all() : nullptr;
+        vector = vector ? new (vector) script::Vector : nullptr;
         to->vector = vector;
         vector->x = from->x;
         to->vector->y = from->y;
@@ -138,7 +138,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
             to->raw = array->fetch_part(index);
         } else {
             Struct* structure = spawn_param_bag();
-            to->structure = structure ? structure->prepare_all() : nullptr;
+            to->structure = structure ? new (structure) script::Struct : nullptr;
             to->structure->append_structure_if_any(reinterpret_cast<Struct*>(array->fetch_part(index)));
         }
         break;
@@ -148,7 +148,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
             to->raw = array->fetch_part(index);
         } else {
             Array* copy = alloc_script_array();
-            to->array = copy ? copy->prepare_all() : nullptr;
+            to->array = copy ? new (copy) script::Array : nullptr;
             duplicate_array(to->array, reinterpret_cast<Array*>(array->fetch_part(index)));
         }
         break;
@@ -538,7 +538,7 @@ void ValueResolver::execute()
                 break;
             }
             Array* array = alloc_script_array();
-            array = array ? array->prepare_all() : nullptr;
+            array = array ? new (array) script::Array : nullptr;
             set_result_type(kQbvalArray);
             result.array = array;
             uint32_t size_a = a->array->extent_;

@@ -606,7 +606,6 @@ std::string get_skater_name()
     if (!is_script(script))
         return {};
     script::Struct results;
-    results.prepare_all();
     script::run_script_once(script, nullptr, nullptr, &results);
     const char* name = nullptr;
     std::string out;
@@ -623,7 +622,6 @@ void get_sound(const char* script, const char* flag = nullptr)
     if (!is_script(name))
         return;
     script::Struct params;
-    params.prepare_all();
     if (flag)
         params.put_name_key(0u, name_hash(flag));
     script::launch_script(name, &params, nullptr, false, script);
@@ -1677,7 +1675,7 @@ void Do(modules::FrontEnd* front_end, const ActStep& action)
             // (the pause menu's change of level, as its level select does it)
             get_log("new front end: change level to %s", action.load.c_str());
             hide_root(false);
-            script::Struct* params = script::spawn_param_bag()->prepare_all();
+            script::Struct* params = new (script::spawn_param_bag()) script::Struct;
             params->put_name_key(name_hash("level"), name_hash(action.load.c_str()));
             script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false,
                                  false);

@@ -162,7 +162,7 @@ script::Struct* new_params()
 {
     Struct* structure = script::spawn_param_bag();
     if (structure)
-        structure->prepare_all();
+        new (structure) script::Struct;
     return structure;
 }
 void free_params(Struct* structure)

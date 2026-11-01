@@ -104,7 +104,7 @@ bool read_point(Struct* params, uint32_t name, int* point)
 Array* new_point_array(const int* point)
 {
     Array* memory = script::alloc_script_array();
-    Array* array = memory ? memory->prepare_all() : nullptr;
+    Array* array = memory ? new (memory) script::Array : nullptr;
     array->configure_size_kind(2, script::kQbvalInteger);
     array->set_element(0, static_cast<uint32_t>(point[0]));
     array->set_element(1, static_cast<uint32_t>(point[1]));
@@ -336,7 +336,7 @@ void FaceSkin::load_from_structure(Struct* params)
 void FaceSkin::save_to_structure(Struct* params)
 {
     Array* memory = script::alloc_script_array();
-    Array* image = memory ? memory->prepare_all() : nullptr;
+    Array* image = memory ? new (memory) script::Array : nullptr;
     constexpr uint32_t kWords = kTexelEdge / 4;
     image->configure_size_kind(kWords, script::kQbvalName);
     auto* words = reinterpret_cast<uint32_t*>(image_);

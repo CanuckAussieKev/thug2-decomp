@@ -361,7 +361,7 @@ void __cdecl queue_scene_lights(const uint32_t* nodes, int count, int frames, sc
     clear_scene_light_queue();
     script::Struct* copy = script::spawn_param_bag();
     if (copy)
-        copy->prepare_all();
+        new (copy) script::Struct;
     queue_params() = copy;
     copy->append_structure_if_any(params);
     if (count) {

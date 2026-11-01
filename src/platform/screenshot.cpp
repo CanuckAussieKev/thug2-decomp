@@ -240,7 +240,7 @@ void show_message(const std::string& text)
     if (!current_load_state() || !script::script_exists(kScript))
         return;
     auto crc = [](const char* name) { return checksums::hash_from_text(name); };
-    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
     params->append_word(crc("text"), text.c_str());
     params->put_name_key(crc("id"), crc("thug2_decomp_screenshot_message"));
     params->insert_pair(crc("pos"), 320.0f, g_message_y);

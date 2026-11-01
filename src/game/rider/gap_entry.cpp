@@ -471,7 +471,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         if (params->has_entry_named(kNeedsCleanLanding)) {
             script::Struct* results = script::spawn_param_bag();
             if (results)
-                results = results->prepare_all();
+                results = new (results) script::Struct;
             script::run_script_once(kDoPerfectCheck2, nullptr, entity_, results);
             int perfect = 0; // (not initialised in the original: fetch_int_value asserts it's there)
             results->fetch_int_value(kPerfect, &perfect, 1);

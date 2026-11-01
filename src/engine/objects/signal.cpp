@@ -45,7 +45,7 @@ void tracker_log_event_read(Signal* event, uint32_t how, uint32_t script)
 Struct* new_empty_struct()
 {
     Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 Struct* new_struct_copy(Struct* source)
 {

@@ -86,7 +86,7 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_params(script::Struct* params)
 {

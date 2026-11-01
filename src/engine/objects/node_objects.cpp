@@ -64,7 +64,7 @@ void run_creation_script(GameEntity* object, script::Struct* params)
     uint32_t name = level_nodes::get_node_name(params);
     script::Struct* data = script::spawn_param_bag();
     if (data)
-        data->prepare_all();
+        new (data) script::Struct;
     data->put_name_key(kName, name);
     data->put_int(kCreationValue, value);
     script::launch_script(kCreationScript, data, object, false, nullptr);
@@ -172,7 +172,7 @@ void VideoEntry::configure_from_data(script::Struct* params)
 {
     if (!args_) {
         script::Struct* created = script::spawn_param_bag();
-        args_ = created ? created->prepare_all() : nullptr;
+        args_ = created ? new (created) script::Struct : nullptr;
     }
     args_->get_clear();
     if (params->read_hash_value(0x1A005041, &label_, 0)) {
@@ -194,7 +194,7 @@ script::Struct* VideoEntry::get_settings()
 {
     script::Struct* settings = script::spawn_param_bag();
     if (settings)
-        settings = settings->prepare_all();
+        settings = new (settings) script::Struct;
     settings->put_int(0x8DDE72C0, flag19_);
     settings->put_int(0xB8CA12C5, flag_1c_);
     return settings;

@@ -553,7 +553,7 @@ script::Struct* get_build(const Spec& spec)
     script::Struct* node = script::spawn_param_bag();
     if (!node)
         return nullptr;
-    node->prepare_all();
+    new (node) script::Struct;
     // A chain point drawn on from another copies that one's fields (its own name, place and links aside; not a trick
     // object of the other's cluster) - level_editor_chains.h.
     script::Struct* like = spec.like && hub() ? level_nodes::fetch_vertex(spec.like, false) : nullptr;
@@ -597,7 +597,7 @@ script::Struct* get_build(const Spec& spec)
             script::Array* array = script::alloc_script_array();
             if (!array)
                 break;
-            array->prepare_all();
+            new (array) script::Array;
             bool names = f.type == Prop::kNames;
             uint32_t count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
             array->configure_size_kind(count, names ? script::kQbvalName : script::kQbvalInteger);
@@ -630,7 +630,7 @@ void write_links(script::Struct* node, const std::vector<uint32_t>& links)
     script::Array* array = script::alloc_script_array();
     if (!array)
         return;
-    array->prepare_all();
+    new (array) script::Array;
     array->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
     for (size_t i = 0; i < links.size(); ++i)
         array->set_element(static_cast<uint32_t>(i), links[i]);
@@ -660,7 +660,7 @@ bool get_sync()
         g_array = script::alloc_script_array();
         if (!g_array)
             return false;
-        g_array->prepare_all();
+        new (g_array) script::Array;
         script::SymbolTableEntry* symbol = script::create_symbol(name);
         symbol->type = script::kQbvalArray;
         symbol->raw = reinterpret_cast<uint32_t>(g_array);

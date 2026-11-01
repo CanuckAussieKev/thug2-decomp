@@ -41,7 +41,7 @@ void change_caption(const std::string& id, const std::string& full)
         return;
     g_shown[id] = text;
     alignas(4) uint8_t memory[8];
-    script::Struct* params = reinterpret_cast<script::Struct*>(memory)->prepare_all();
+    script::Struct* params = new (memory) script::Struct;
     params->put_name_key(kId, checksums::hash_from_text(id.c_str()));
     params->append_word(kText, text.c_str());
     script::launch_script("level_editor_hud_set", params, nullptr, false);
@@ -89,7 +89,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         return;
     if (!g_panel || g_panel_x != x || g_panel_y != y || g_panel_width != width || g_panel_lines != lines.size()) {
         alignas(4) uint8_t memory[8];
-        script::Struct* params = reinterpret_cast<script::Struct*>(memory)->prepare_all();
+        script::Struct* params = new (memory) script::Struct;
         float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
         params->insert_pair(checksums::hash_from_text("pos"), x, y);
         params->insert_pair(checksums::hash_from_text("scale"), width / kSpriteUnit, height / kSpriteUnitDown);

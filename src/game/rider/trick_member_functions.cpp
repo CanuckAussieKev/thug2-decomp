@@ -108,7 +108,7 @@ void exit_combo(MoveExecutor* self)
         return;
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->prepare_all();
+        params = new (params) script::Struct;
     params->put_name_key(kSkaterId, self->entity_->ident_);
     self->entity_->announce(kSkaterExitCombo, params, 0.0f);
     if (params) {

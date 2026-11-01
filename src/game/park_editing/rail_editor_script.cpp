@@ -64,12 +64,12 @@ objects::ControlButton* get_button(void* input, uint32_t offset)
 script::Struct* spawn_param_bag()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 script::Array* alloc_script_array()
 {
     script::Array* array = script::alloc_script_array();
-    return array ? array->prepare_all() : nullptr;
+    return array ? new (array) script::Array : nullptr;
 }
 void free_struct(script::Struct* structure)
 {

@@ -63,7 +63,7 @@ GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -314,7 +314,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
         return false;
     }
     script::Array* memory = script::alloc_script_array();
-    script::Array* list = memory ? memory->prepare_all() : nullptr;
+    script::Array* list = memory ? new (memory) script::Array : nullptr;
     list->configure_size_kind(count, script::kQbvalStruct);
     int got = 0;
     int index = 0;

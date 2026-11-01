@@ -141,7 +141,7 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? made->prepare_all() : nullptr;
+    return made ? new (made) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -923,7 +923,7 @@ void Skate::run_frame_logic()
             unplugged_frames_ = 0;
             script::Struct* params = script::spawn_param_bag();
             if (params)
-                params = params->prepare_all();
+                params = new (params) script::Struct;
             online::Hub* net = net_session_slot();
             if (net->in_net_game()) {
                 goals::GoalManager* goals = goals::get_objective_board();

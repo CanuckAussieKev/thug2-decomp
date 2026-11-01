@@ -58,7 +58,7 @@ bool fire_event(TimedClipEvent* e, objects::GameEntity* object) { return e->proc
 Struct* new_params()
 {
     Struct* params = script::spawn_param_bag();
-    return params ? params->prepare_all() : nullptr;
+    return params ? new (params) script::Struct : nullptr;
 }
 void delete_params(Struct* params)
 {

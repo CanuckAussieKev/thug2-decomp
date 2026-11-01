@@ -55,7 +55,7 @@ void make_face_texture(RiderIdentity* p) { reinterpret_cast<gfx::ModelLook*>(p)-
 script::Struct* new_empty_struct()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void free_struct(script::Struct* s)
 {
@@ -379,10 +379,10 @@ bool RiderIdentity::get_reset(script::Struct* params)
     mine->get_clear();
     script::Struct* memory = script::spawn_param_bag();
     mine->add_component_of_type(kTrickStyle, kOwnedStructure,
-                                reinterpret_cast<uint32_t>(memory ? memory->prepare_all() : nullptr));
+                                reinterpret_cast<uint32_t>(memory ? new (memory) script::Struct : nullptr));
     memory = script::spawn_param_bag();
     mine->add_component_of_type(kSpecials, kOwnedStructure,
-                                reinterpret_cast<uint32_t>(memory ? memory->prepare_all() : nullptr));
+                                reinterpret_cast<uint32_t>(memory ? new (memory) script::Struct : nullptr));
     pop_heap();
     if (!params)
         return true;
@@ -445,7 +445,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
 RiderIdentity::RiderIdentity()
 {
     new (look_data_) gfx::ModelLook; // the appearance
-    details_params()->prepare_all();
+    new (details_params()) script::Struct;
     get_reset(nullptr);
 }
 

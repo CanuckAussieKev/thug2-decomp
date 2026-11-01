@@ -583,7 +583,7 @@ void RiderRemoteSync::play_history_events()
                 GameEntity* item = items->create_item(msg->item_slot_, structure);
                 script::Struct* params = script::spawn_param_bag();
                 if (params)
-                    params = params->prepare_all();
+                    params = new (params) script::Struct;
                 params->put_name_key(kItemName, msg->bone_);
                 params->put_name_key(kItemOwner, entity_->ident_);
                 item->fetch_module(kItemComponent)->configure_from_data(params);

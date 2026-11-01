@@ -259,11 +259,7 @@ PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original
     seen_.num_ = 0;
     seen_.first_ = nullptr;
     seen_.cursor_ = nullptr;
-    for (script::Pair& arrow : arrows_)
-        arrow.prepare_all();
-    meter_offset_.prepare_all();
-    for (script::Pair& bar : bars_)
-        bar.prepare_all();
+    // (arrows_, meter_offset_, bars_: their constructors)
     last_no_spin_ = -1;
     spin_trick_ = -1;
     rider_no_ = 0;

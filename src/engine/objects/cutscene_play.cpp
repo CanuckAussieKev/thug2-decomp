@@ -59,7 +59,7 @@ void get_run(uint32_t script, script::Struct* params = nullptr)
 script::Struct* make_struct()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 
 // The vblank count since a time, in seconds (the x87's unsigned 64-bit conversion).

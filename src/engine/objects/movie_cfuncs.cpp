@@ -76,7 +76,7 @@ CutsceneDestroyEntry::CutsceneDestroyEntry()
     label_ = 0;
     destroy_script_ = 0;
     script::Struct* memory = script::spawn_param_bag();
-    args_ = memory ? memory->prepare_all() : nullptr;
+    args_ = memory ? new (memory) script::Struct : nullptr;
 }
 
 // 0x005AD830: PlaySkaterCamAnim [SkaterId= | skater=] name=<anim> ... - the skater's (a local one) camera animation

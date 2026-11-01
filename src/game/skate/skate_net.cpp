@@ -142,7 +142,7 @@ uint8_t* objective_board() { return reinterpret_cast<uint8_t*>(goals::get_object
 Struct* spawn_param_table()
 {
     Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_structure(Struct* structure)
 {
@@ -154,7 +154,7 @@ void delete_structure(Struct* structure)
 Array* new_array_init()
 {
     Array* memory = script::alloc_script_array();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Array : nullptr;
 }
 void get_run(uint32_t name, Struct* params = nullptr, objects::Entity* object = nullptr)
 {

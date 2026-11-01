@@ -1482,7 +1482,7 @@ void panel_message(const char* text)
     static const uint32_t kScript = checksums::hash_from_text("create_panel_message");
     if (!text || !*text || render::current_level() == 0 || !script::script_exists(kScript))
         return;
-    script::Struct* params = script::spawn_param_bag()->prepare_all();
+    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
     params->append_word(checksums::hash_from_text("text"), text);
     params->put_name_key(checksums::hash_from_text("id"), checksums::hash_from_text("level_editor_refused_message"));
     params->insert_pair(checksums::hash_from_text("pos"), 320.0f, 70.0f);
@@ -1681,7 +1681,7 @@ bool __cdecl cfunc_edited_levels(script::Struct*, script::Script* script)
             std::string named;
             if (saved_props(level->second.scene, &props))
                 named = props.name;
-            script::Struct* copy = script::spawn_param_bag()->prepare_all();
+            script::Struct* copy = new (script::spawn_param_bag()) script::Struct;
             copy->merge_structure(entry);
             for (const char* flag : kDropped)
                 copy->remove_flag(checksums::hash_from_text(flag));
@@ -1693,7 +1693,7 @@ bool __cdecl cfunc_edited_levels(script::Struct*, script::Script* script)
     }
     if (entries.empty())
         return false;
-    script::Array* array = script::alloc_script_array()->prepare_all();
+    script::Array* array = new (script::alloc_script_array()) script::Array;
     array->configure_size_kind(static_cast<uint32_t>(entries.size()), script::kQbvalStruct);
     for (size_t i = 0; i < entries.size(); ++i)
         array->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entries[i]));

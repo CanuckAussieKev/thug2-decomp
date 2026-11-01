@@ -430,12 +430,12 @@ void* NodeTableResource::build_node_table(uint32_t name, int count)
 {
     script::Array* array = script::alloc_script_array();
     if (array)
-        array->prepare_all();
+        new (array) script::Array;
     array->configure_size_kind(count, script::kQbvalStruct);
     for (int i = 0; i < count; ++i) {
         Struct* node = script::spawn_param_bag();
         if (node)
-            node->prepare_all();
+            new (node) script::Struct;
         array->set_element(i, reinterpret_cast<uint32_t>(node));
     }
     if (script::SymbolTableEntry* old = script::find_symbol(name))

@@ -381,7 +381,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
 
     // SkaterAcidDropTriggered with DropHeight (how far above the hit's height the skater is).
     script::Struct* params = script::spawn_param_bag();
-    params = params ? params->prepare_all() : nullptr;
+    params = params ? new (params) script::Struct : nullptr;
     params->push_float(kDropHeight, static_cast<float>(entity_->at_point_.y - static_cast<double>(drop->hit_height_)));
     skater_object(this)->start_script_task(kAcidDropTriggered, -1, false, false, params);
     if (params) {

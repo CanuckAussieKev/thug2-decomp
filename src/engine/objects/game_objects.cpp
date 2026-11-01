@@ -73,7 +73,7 @@ void update_model(ObjectModule* model) { static_cast<MeshInstanceModule*>(model)
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {

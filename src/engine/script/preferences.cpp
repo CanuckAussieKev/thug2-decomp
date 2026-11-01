@@ -7,7 +7,7 @@
 namespace prefs {
 
 // 0x0046C470
-Preferences::Preferences() { top_entry_.prepare_all(); }
+Preferences::Preferences() = default; // (the top entry's constructor)
 
 // 0x0046C490 (0x0046C680 the deleting one)
 Preferences::~Preferences() { top_entry_.get_clear(); }

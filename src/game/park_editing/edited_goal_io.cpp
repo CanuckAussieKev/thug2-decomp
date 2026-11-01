@@ -38,12 +38,12 @@ char* created_goal_name() { return g_created_goal_name; } // the shared CreatedG
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 script::Array* new_array_of(uint32_t size, uint32_t type)
 {
     script::Array* array = script::alloc_script_array();
-    array = array ? array->prepare_all() : nullptr;
+    array = array ? new (array) script::Array : nullptr;
     array->configure_size_kind(size, static_cast<script::QbValueKind>(type));
     return array;
 }
@@ -81,7 +81,6 @@ void EditedGoal::place_points_on_ground()
     for (int i = 0; i < vertex_total_; ++i) {
         drop_point_to_ground(i);
         script::Struct params;
-        params.prepare_all();
         uint32_t node = 0;
         if (i == 0) {
             get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
@@ -113,7 +112,7 @@ bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, float height,
     run_marker_object_script(current_point_);
     if (current_point_ == 0) {
         script::Struct* params = script::spawn_param_bag();
-        params = params ? params->prepare_all() : nullptr;
+        params = params ? new (params) script::Struct : nullptr;
         params->put_name_key(0u, 0x7F1538E0u);
         script::launch_script(0xD066A889, params, nullptr, false, nullptr);
         if (params) {
@@ -383,7 +382,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         // The win message's dialog: a copy of the global template array with the text and the pro's node.
         script::Array* source = script::fetch_list(0x8070C110);
         script::Array* dialog = script::alloc_script_array();
-        dialog = dialog ? dialog->prepare_all() : nullptr;
+        dialog = dialog ? new (dialog) script::Array : nullptr;
         script::duplicate_array(dialog, source);
         structure_element(dialog, 0)->append_word(0xA7AB3B6D, win_message_);
         name[0] = '\0';

@@ -69,7 +69,7 @@ ParamBag* new_script_struct()
     int current = script::g_struct_pools.current;
     memory::SlabBank* pool = script::g_struct_pools.pools[current];
     void* memory = pool ? pool->carve() : memory::alloc(8);
-    return memory ? static_cast<ParamBag*>(memory)->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_script_struct(ParamBag* s)
 {
@@ -277,7 +277,7 @@ void __cdecl keyboard_task(tasks::Task<Hub>* /*task*/)
         // never freed: the original leaks them, 8 bytes a time.)
         script::Struct* params = script::spawn_param_bag();
         if (params)
-            params = params->prepare_all();
+            params = new (params) script::Struct;
         params->put_name_key(kId, 0x31631B98);
         if (object_exists(params))
             return;
@@ -321,7 +321,7 @@ void __cdecl keyboard_task(tasks::Task<Hub>* /*task*/)
         return;
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->prepare_all();
+        params = new (params) script::Struct;
     params->put_name_key(kTauntName, taunt);
     run_script_with(kTauntScript, params);
     if (params) {

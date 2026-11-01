@@ -671,7 +671,7 @@ void remove_steer_channel(objects::AnimBlenderComponent* blender)
     script::Struct* params = script::spawn_param_bag();
     if (!params)
         return;
-    params = params->prepare_all();
+    params = new (params) script::Struct;
     params->put_name_key(kSubsetId, checksums::hash_from_text(kSteerSubset));
     blender->remove_channel(kSubsetRemove, params, nullptr);
     params->get_clear();

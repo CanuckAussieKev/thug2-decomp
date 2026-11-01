@@ -34,7 +34,7 @@ TrickListEntry::TrickListEntry()
     spin_ = 0;
     perfect_ = false;
     script::Array* memory = script::alloc_script_array();
-    element_list_ = memory ? memory->prepare_all() : nullptr;
+    element_list_ = memory ? new (memory) script::Array : nullptr;
     tricks_count_ = 0;
     taps_ = 0;
 }

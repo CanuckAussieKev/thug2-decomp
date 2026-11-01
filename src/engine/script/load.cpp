@@ -71,14 +71,14 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
     case 0x03: {
         symbol->type = kQbvalStruct;
         Struct* structure = spawn_param_bag();
-        structure = structure ? structure->prepare_all() : nullptr;
+        structure = structure ? new (structure) script::Struct : nullptr;
         symbol->structure = structure;
         return parse_structure(structure, token, nullptr);
     }
     case 0x05: {
         symbol->type = kQbvalArray;
         Array* array = alloc_script_array();
-        array = array ? array->prepare_all() : nullptr;
+        array = array ? new (array) script::Array : nullptr;
         symbol->raw = reinterpret_cast<uint32_t>(array);
         return parse_array(array, token, nullptr);
     }

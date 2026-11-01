@@ -440,7 +440,7 @@ void load_once()
         script::Array* theirs = script::alloc_script_array();
         if (!theirs)
             break;
-        theirs->prepare_all();
+        new (theirs) script::Array;
         script::parse_array(theirs, target.theirs, nullptr);
         std::vector<uint32_t> picked = pick_new(target.ours, theirs, get_found);
         int their_new = 0;

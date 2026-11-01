@@ -68,7 +68,7 @@ memory::PoolPair& source_pools() { return render::g_frame_source_pools; }
 script::Struct* make_struct()
 {
     void* memory = struct_pools().carve(8);
-    return memory ? static_cast<script::Struct*>(memory)->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void free_struct(script::Struct* s)
 {

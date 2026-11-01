@@ -394,7 +394,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
         case kQbvalStruct: {
             Struct* inner = spawn_param_bag();
             if (inner)
-                inner->prepare_all();
+                new (inner) script::Struct;
             decode_structure(inner, reader);
             structure->append_struct_ref(name, inner);
             break;
@@ -402,7 +402,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
         case kQbvalArray: {
             Array* inner = alloc_script_array();
             if (inner)
-                inner->prepare_all();
+                new (inner) script::Array;
             decode_array(inner, reader);
             structure->append_array_ref(name, inner);
             break;
@@ -465,7 +465,7 @@ void decode_array(Array* array, util::ByteReader& reader)
         for (uint32_t i = 0; i < count; ++i) {
             Pair* pair = new_pair();
             if (pair)
-                pair->prepare_all();
+                new (pair) script::Pair;
             pair->x = reader.f32();
             pair->y = reader.f32();
             array->set_element(i, reinterpret_cast<uint32_t>(pair));
@@ -475,7 +475,7 @@ void decode_array(Array* array, util::ByteReader& reader)
         for (uint32_t i = 0; i < count; ++i) {
             Vector* vector = alloc_script_vector();
             if (vector)
-                vector->prepare_all();
+                new (vector) script::Vector;
             vector->x = reader.f32();
             vector->y = reader.f32();
             vector->z = reader.f32();
@@ -486,7 +486,7 @@ void decode_array(Array* array, util::ByteReader& reader)
         for (uint32_t i = 0; i < count; ++i) {
             Struct* inner = spawn_param_bag();
             if (inner)
-                inner->prepare_all();
+                new (inner) script::Struct;
             decode_structure(inner, reader);
             array->set_element(i, reinterpret_cast<uint32_t>(inner));
         }
@@ -495,7 +495,7 @@ void decode_array(Array* array, util::ByteReader& reader)
         for (uint32_t i = 0; i < count; ++i) {
             Array* inner = alloc_script_array();
             if (inner)
-                inner->prepare_all();
+                new (inner) script::Array;
             decode_array(inner, reader);
             array->set_element(i, reinterpret_cast<uint32_t>(inner));
         }

@@ -40,7 +40,7 @@ void ProximityComponent::launch_script(uint32_t script, Entity* skater)
 {
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->prepare_all();
+        params = new (params) script::Struct;
     params->put_name_key(kSkaterId, skater->ident_);
     if (call_args_)
         params->merge_structure(call_args_);

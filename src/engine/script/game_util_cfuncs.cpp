@@ -111,7 +111,7 @@ bool array_has(Array* array, uint32_t name)
 bool __cdecl cfunc_interpolate_parameters(script::Struct* params, script::Script* script)
 {
     Struct* memory = script::spawn_param_bag();
-    Struct* result = memory ? memory->prepare_all() : nullptr;
+    Struct* result = memory ? new (memory) script::Struct : nullptr;
     Struct* a = nullptr;
     params->read_sub_struct(kA, &a, 1);
     Struct* b = nullptr;
@@ -365,7 +365,7 @@ bool __cdecl cfunc_set_preferences_from_ui(script::Struct* params, script::Scrip
     const char* field;
     params->fetch_text("field", &field, 1);
     Struct* memory = script::spawn_param_bag();
-    Struct* value = memory ? memory->prepare_all() : nullptr;
+    Struct* value = memory ? new (memory) script::Struct : nullptr;
     value->append_word(kUiString, script::kQbvalString, string);
     uint32_t checksum = 0;
     params->read_hash_value("checksum", &checksum, 0);

@@ -104,7 +104,7 @@ script::Struct* copy_of(script::Struct* source)
 {
     script::Struct* copy = script::spawn_param_bag();
     if (copy)
-        copy->prepare_all();
+        new (copy) script::Struct;
     copy->merge_structure(source); // (out of memory: through null, as the original)
     return copy;
 }

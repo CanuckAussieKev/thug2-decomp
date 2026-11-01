@@ -87,7 +87,7 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 Array* new_colour_array(Array* source)
 {
     Array* memory = script::alloc_script_array();
-    Array* colour = memory ? memory->prepare_all() : nullptr;
+    Array* colour = memory ? new (memory) script::Array : nullptr;
     if (source->extent_ == 4) {
         colour->configure_size_kind(4, script::kQbvalInteger);
         colour->set_element(3, source->fetch_part(3));

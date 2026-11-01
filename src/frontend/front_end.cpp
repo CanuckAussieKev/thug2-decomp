@@ -148,7 +148,7 @@ script::Struct* new_params()
 {
     script::Struct* params = script::spawn_param_bag();
     if (params)
-        params = params->prepare_all();
+        params = new (params) script::Struct;
     return params;
 }
 void delete_params(script::Struct* params)
@@ -343,7 +343,6 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
 bool __cdecl cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*script*/)
 {
     script::Pair times;
-    times.prepare_all();
     params->fetch_pair(0, &times, true);
     FrontEnd* front_end = front_end_instance();
     int rate = ftol(static_cast<double>(times.y) * 1000.0);
@@ -602,7 +601,6 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
         if (front_end->pad_mappings_[handler->ordinal_].mapping_ == 0 || front_end->block_menu_input_)
             continue;
         script::Struct params;
-        params.prepare_all();
         params.put_int(kDeviceNum, handler->dev_->port_no_);
         params.put_int(kController, 0); // (the original loads the mapping, then passes 0)
         static_cast<objects::EventWaitBoard*>(tracker)->launch_event(event, kMenuEvent, kMenuEvent, &params, false,

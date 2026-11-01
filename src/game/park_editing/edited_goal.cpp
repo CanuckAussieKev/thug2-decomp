@@ -203,7 +203,6 @@ void EditedGoal::set_countdown_seconds(int seconds)
 void EditedGoal::place_goal_marker(int index)
 {
     script::Struct params;
-    params.prepare_all();
     switch (path_vertices_[index].kind) {
     case kPointPro:
         params.put_name_key(0x7321A8D6, 0x061A741E);

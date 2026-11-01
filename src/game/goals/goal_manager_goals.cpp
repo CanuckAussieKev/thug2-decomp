@@ -73,7 +73,7 @@ bool in_multiplayer_game() { return static_cast<uint8_t>(commands::cfunc_in_mult
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? made->prepare_all() : nullptr;
+    return made ? new (made) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -85,7 +85,7 @@ void delete_structure(script::Struct* structure)
 script::Array* alloc_script_array()
 {
     script::Array* made = script::alloc_script_array();
-    return made ? made->prepare_all() : nullptr;
+    return made ? new (made) script::Array : nullptr;
 }
 void free_array(script::Array* array)
 {

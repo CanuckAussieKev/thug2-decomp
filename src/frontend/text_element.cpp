@@ -202,17 +202,16 @@ void SmearEffect::set_target(const Settings* target, int ms)
 SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
 {
     script::Pair pair;
-    pair.prepare_all();
     if (params->fetch_pair(kBlurAlphaPair, &pair, false)) {
         aim_point_.alpha[0] = pair.x;
         aim_point_.alpha[1] = pair.y;
     }
-    pair.prepare_all();
+    pair = script::Pair{};
     if (params->fetch_pair(kBlurBottomScales, &pair, false)) {
         aim_point_.bottom_scales_[0] = pair.x;
         aim_point_.bottom_scales_[1] = pair.y;
     }
-    pair.prepare_all();
+    pair = script::Pair{};
     if (params->fetch_pair(kBlurMaxDisplacement, &pair, false)) {
         aim_point_.max_displacement_[0] = pair.x;
         aim_point_.max_displacement_[1] = pair.y;
@@ -492,7 +491,6 @@ void LabelWidget::change_traits(Struct* params)
     if (read_colour_param(params, kHaloColor, &rgba) && blur_)
         blur_->rgba_value_ = rgba;
     script::Pair offset;
-    offset.prepare_all();
     if (params->fetch_pair(kShadowOffs, &offset, false)) {
         shadow_x_ = offset.x;
         shadow_y_ = offset.y;

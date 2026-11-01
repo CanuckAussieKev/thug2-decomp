@@ -622,7 +622,6 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
     if (not_sent)
         return;
     script::Struct params;
-    params.prepare_all();
     params.put_int(kDeviceNum, handler->dev_->port_no_);
     params.put_int(kController, 0);
     static_cast<objects::EventWaitBoard*>(get_tracker())

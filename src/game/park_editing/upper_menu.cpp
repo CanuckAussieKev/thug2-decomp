@@ -46,7 +46,6 @@ void TopBarMenus::turn_on()
         if (!set.is_displayed_)
             continue;
         script::Struct params;
-        params.prepare_all();
         params.append_word(0x341B6370, set.label_); // set_name
         run_menu_script(0xA4F522E9, &params);       // parked_make_set_menu_item
         params.get_clear();

@@ -503,7 +503,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
 {
     script::Struct* result = script::spawn_param_bag();
     if (result)
-        result = result->prepare_all();
+        result = new (result) script::Struct;
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
     const ParticleParams* own = &effect_handle_->args_;
@@ -514,7 +514,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     for (script::Array*& array : colours) {
         array = script::alloc_script_array();
         if (array)
-            array = array->prepare_all();
+            array = new (array) script::Array;
     }
     uint8_t colour[3][4];
     std::memcpy(colour, own->shade_, sizeof(colour));

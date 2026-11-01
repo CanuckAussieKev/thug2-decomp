@@ -118,7 +118,7 @@ script::Struct* table_row(script::Array* list, uint32_t index)
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_params(script::Struct* params)
 {

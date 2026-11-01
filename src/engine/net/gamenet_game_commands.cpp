@@ -483,7 +483,7 @@ bool __cdecl cfunc_fill_player_list_menu(Struct*, Script*)
         // The colour: grey (128, 128, 128, 128); a GameSpy buddy's (128, 128, 0, 128); another logged-in player's
         // with a profile (0, 128, 0, 128).
         script::Array* array_memory = script::alloc_script_array();
-        script::Array* rgba = array_memory ? array_memory->prepare_all() : nullptr;
+        script::Array* rgba = array_memory ? new (array_memory) script::Array : nullptr;
         rgba->configure_size_kind(4, script::kQbvalInteger);
         uint32_t blue;
         int profile = player->profile_id_;

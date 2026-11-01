@@ -847,7 +847,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
     script::Array* array = script::alloc_script_array();
     if (!array)
         return;
-    array->prepare_all();
+    new (array) script::Array;
     array->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
     for (size_t i = 0; i < links.size(); ++i)
         array->set_element(static_cast<uint32_t>(i), links[i]);

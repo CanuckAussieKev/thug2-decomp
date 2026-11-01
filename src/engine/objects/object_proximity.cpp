@@ -114,7 +114,7 @@ void ObjectProximityComponent::tick_frame()
     auto event = [this](uint32_t type, script::Struct* data) { entity_->post_own_event(type, data); };
     auto new_data = []() {
         script::Struct* data = script::spawn_param_bag();
-        return data ? data->prepare_all() : nullptr;
+        return data ? new (data) script::Struct : nullptr;
     };
     auto delete_data = [](script::Struct* data) {
         if (data) {

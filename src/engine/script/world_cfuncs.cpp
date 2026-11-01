@@ -115,7 +115,7 @@ bool __cdecl cfunc_launch_viewer(Struct*, Script*)
 
     Struct* node_data = script::spawn_param_bag();
     if (node_data)
-        node_data = node_data->prepare_all();
+        node_data = new (node_data) script::Struct;
     node_data->put_name_key("name", kViewerCam);
     objects::GameEntity* camera = objects::object_hub_slot()->spawn_entity_from_node(
         script::fetch_list("viewercam_composite_structure"), node_data, true);

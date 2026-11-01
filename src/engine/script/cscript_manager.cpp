@@ -173,7 +173,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
     if (callback) {
         script->on_finish_script_ = callback;
         Struct* copy = spawn_param_bag();
-        copy = copy ? copy->prepare_all() : nullptr;
+        copy = copy ? new (copy) script::Struct : nullptr;
         script->callback_params_ = copy;
         if (callback_params)
             copy->merge_structure(callback_params);

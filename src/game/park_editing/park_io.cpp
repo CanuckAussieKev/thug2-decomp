@@ -385,7 +385,7 @@ void ParkLayout::update_percent_bar()
     else if (full > 1.0f)
         percent = 1.0f;
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* params = memory ? memory->prepare_all() : nullptr;
+    script::Struct* params = memory ? new (memory) script::Struct : nullptr;
     params->push_float(0x6D6C056Du, percent);  // park_percent (out of memory crashes, as in the original)
     if (get_attributes().max_usage_ >= 1.0f)   // (0x007CE644: the park memory stats' largest usage)
         params->put_name_key(0u, 0x97A8E59Cu); // park_full
@@ -408,12 +408,12 @@ void ParkLayout::export_to_struct(script::Struct* out)
         write_compressed_map();
     flag_bits_ &= ~kMapNotSavedLocal;
     script::Array* memory = script::alloc_script_array();
-    script::Array* map = memory ? memory->prepare_all() : nullptr;
+    script::Array* map = memory ? new (memory) script::Array : nullptr;
     map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
     park_map_to_words(&map_, map->find_array_value());
     out->append_array_ref(0x337C5289u, map); // Park_editor_map
     script::Struct* struct_memory = script::spawn_param_bag();
-    script::Struct* goals = struct_memory ? struct_memory->prepare_all() : nullptr;
+    script::Struct* goals = struct_memory ? new (struct_memory) script::Struct : nullptr;
     // the goal editor (module GoalEditor, 0x004E8470) writes the park's goals (level Load_Sk5Ed)
     ObjectiveAuthoring::get_pull()->write_level_goals(0xE8B4B836, goals);
     out->append_struct_ref(0xD8EB825Eu, goals); // Park_editor_goals

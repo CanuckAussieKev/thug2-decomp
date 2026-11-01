@@ -51,7 +51,7 @@ Struct* new_empty_struct()
 {
     Struct* structure = spawn_param_bag();
     if (structure)
-        structure->prepare_all();
+        new (structure) script::Struct;
     return structure;
 }
 

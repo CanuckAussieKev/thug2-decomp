@@ -216,7 +216,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
     const uint8_t* token = cache->fetch_script(script);
     Struct* params = nullptr;
     if (void* memory = script::spawn_param_bag())
-        params = static_cast<Struct*>(memory)->prepare_all();
+        params = new (memory) script::Struct;
     token = script::skip_to_end_of_statement(token); // (past the script's first line)
     for (;;) {
         const uint8_t* call = token;

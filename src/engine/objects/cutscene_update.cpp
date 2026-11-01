@@ -106,11 +106,11 @@ bool __stdcall objects_from_table(script::Struct* params, const uint32_t* table)
     int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
     script::Array* memory = script::alloc_script_array();
-    script::Array* objects = memory ? memory->prepare_all() : nullptr;
+    script::Array* objects = memory ? new (memory) script::Array : nullptr;
     objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     for (int i = 0; i < count; ++i, entry += 5) {
         script::Struct* block = script::spawn_param_bag();
-        script::Struct* object = block ? block->prepare_all() : nullptr;
+        script::Struct* object = block ? new (block) script::Struct : nullptr;
         object->put_name_key(kName, entry[0]);
         object->put_name_key(kModel, entry[1]);
         object->put_name_key(kSkeleton, entry[2]);
@@ -329,7 +329,7 @@ CinematicEntry::CinematicEntry(const uint32_t* settings)
     content_ = nullptr;
     asset_ = 0;
     script::Struct* block = script::spawn_param_bag();
-    args_ = block ? block->prepare_all() : nullptr;
+    args_ = block ? new (block) script::Struct : nullptr;
     std::memcpy(settings_, settings, 12);
     owns_data_ = static_cast<uint8_t>(settings_[2] & 0xFF);
     flag_5d_ = false;

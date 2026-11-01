@@ -368,7 +368,7 @@ private:
     static script::Struct* new_params()
     {
         script::Struct* params = script::spawn_param_bag();
-        return params ? params->prepare_all() : nullptr;
+        return params ? new (params) script::Struct : nullptr;
     }
     static void delete_params(script::Struct* params)
     {

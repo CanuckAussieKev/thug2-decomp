@@ -201,7 +201,7 @@ bool __cdecl cfunc_restore_all_swapped_object_models(script::Struct*, script::Sc
                 continue;
             any = true;
             Struct* memory = script::spawn_param_bag();
-            Struct* swap = memory ? memory->prepare_all() : nullptr;
+            Struct* swap = memory ? new (memory) script::Struct : nullptr;
             swap->put_name_key(kObj1, entry.id);
             swap->put_name_key(kObj2, entry.current);
             cfunc_swap_object_models(swap, script);

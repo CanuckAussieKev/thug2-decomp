@@ -130,7 +130,7 @@ Array* new_array_of(script::QbValueKind type, uint32_t value)
 {
     Array* array = script::alloc_script_array();
     if (array)
-        array->prepare_all();
+        new (array) script::Array;
     array->configure_size_kind(1, type);
     array->set_element(0, value);
     return array;

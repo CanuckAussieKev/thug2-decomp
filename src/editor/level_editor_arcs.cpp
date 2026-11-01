@@ -296,7 +296,6 @@ bool stat_value(script::Struct* physics, uint32_t name, float stat, float* value
     if (!params)
         return false;
     script::Pair pair;
-    pair.prepare_all();
     if (!params->fetch_pair(0u, &pair, false))
         return false;
     float limit = 0.0f;

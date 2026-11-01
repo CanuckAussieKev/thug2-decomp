@@ -1099,7 +1099,7 @@ bool get_timed_out(const Runner& runner, int seconds)
 
 script::Struct* make_params(const std::vector<Param>& params)
 {
-    script::Struct* out = script::spawn_param_bag()->prepare_all();
+    script::Struct* out = new (script::spawn_param_bag()) script::Struct;
     for (const Param& param : params) {
         switch (param.kind) {
         case Param::kBitMark:

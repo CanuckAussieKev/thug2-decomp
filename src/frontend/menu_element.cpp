@@ -56,7 +56,6 @@ ElementPtr* get_look_up(void* manager, ElementPtr* out, uint32_t id, int assert)
 void send_focus(uint32_t id, int controller, int grid_index)
 {
     Struct data;
-    data.prepare_all();
     data.put_int(kController, controller);
     if (grid_index != -1)
         data.put_int(kGridIndex, grid_index);
@@ -432,7 +431,6 @@ bool GroupWidget::pass_event_to_script(objects::Signal* event)
     if (event->kind_tag_ == kFocus || event->kind_tag_ == kUnfocus) {
         if (focusable_child_) {
             Struct data;
-            data.prepare_all();
             data.put_int(kController, objects::event_controller(event));
             get_launch(event->kind_tag_, focusable_child_, &data);
             data.get_clear();

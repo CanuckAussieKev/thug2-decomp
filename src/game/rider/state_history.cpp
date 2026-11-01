@@ -165,7 +165,6 @@ void send_event(GameEntity* skater, uint32_t type, const char* name, uint32_t fl
                 const script::VectorValue* push)
 {
     script::Struct params;
-    params.prepare_all();
     params.append_word(0xA4B08520, name); // name
     if (push)
         params.put_vec3(0xA6F5352F, *push);

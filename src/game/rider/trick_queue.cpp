@@ -110,7 +110,7 @@ script::Script* object_script(MoveExecutor* self) { return self->entity_->own_sc
 script::Struct* make_struct()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? structure->prepare_all() : nullptr;
+    return structure ? new (structure) script::Struct : nullptr;
 }
 script::Struct* new_struct_copy(script::Struct* source)
 {

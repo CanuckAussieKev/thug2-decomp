@@ -85,7 +85,7 @@ bool add_copy_node(script::Struct* node)
     if (index < 0) {
         if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays))
             return false;
-        g_copy_nodes = script::alloc_script_array()->prepare_all();
+        g_copy_nodes = new (script::alloc_script_array()) script::Array;
         g_copy_node_list.clear();
         index = static_cast<int>(manager->num_);
         manager->arrays_[index].label_ = name;
@@ -458,7 +458,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         script::note_qb_name(name, (caption(source) + " copy").c_str());
     // The node's structure copied, named and placed anew, made a node (add_copy_node), then created from it as the
     // level's objects are (CreateFromStructure's 0x005A2E50).
-    script::Struct* copy = script::spawn_param_bag()->prepare_all();
+    script::Struct* copy = new (script::spawn_param_bag()) script::Struct;
     copy->merge_structure(node);
     copy->erase_module(kName);
     copy->put_name_key(kName, name);

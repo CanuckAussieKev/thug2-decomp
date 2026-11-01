@@ -40,7 +40,7 @@ enum QbValueKind : uint8_t {
 // A script array: `size` elements of one type. A single element is kept in place of the pointer.
 class Array {
 public:
-    Array* prepare_all();
+    Array();
     void get_clear();
     // The elements (for one element, the value stored in the array itself).
     uint32_t* find_array_value();
@@ -74,14 +74,14 @@ static_assert(sizeof(Array) == 0xC, "layout must match the original");
 // Pair and vector values are separate objects; the coordinates start at +4.
 // Their constructors clear only byte 0 of the first word.
 struct Pair {
-    Pair* prepare_all();
+    Pair();
 
     uint32_t unknown0;
     float x;
     float y;
 };
 struct Vector {
-    Vector* prepare_all();
+    Vector();
 
     uint32_t unknown0;
     float x;
@@ -114,7 +114,7 @@ struct Component {
 static_assert(sizeof(Component) == 0x10, "layout must match the original");
 
 struct SymbolTableEntry {
-    SymbolTableEntry* prepare_all();
+    SymbolTableEntry();
 
     uint8_t unknown0; // bit 0: in use
     QbValueKind type;
@@ -211,7 +211,7 @@ struct VectorValue {
 
 class Struct {
 public:
-    Struct* prepare_all();
+    Struct();
     // Initialise as a copy of `source` (the copy constructor).
     Struct* init_copy(Struct* source);
     bool is_vacant();

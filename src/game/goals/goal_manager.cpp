@@ -101,7 +101,7 @@ GoalManager::GoalManager()
     backer_ = 0;
     for (script::Struct** structure : {&team_, &goal_data_, &args_}) {
         script::Struct* made = script::spawn_param_bag();
-        *structure = made ? made->prepare_all() : nullptr;
+        *structure = made ? new (made) script::Struct : nullptr;
     }
     for (int& unlocked : group_unlocked_)
         unlocked = 0;

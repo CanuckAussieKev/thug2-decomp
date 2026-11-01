@@ -172,7 +172,7 @@ PointTally* get_score_of(objects::Rider* skater) { return static_cast<PointTally
 Struct* spawn_param_table()
 {
     Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_structure(Struct* structure)
 {

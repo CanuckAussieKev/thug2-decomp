@@ -353,13 +353,11 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
                 made->at_point_ = node->at_point_;
                 node->entities_ |= 1u << object->ident_;
                 script::Struct params;
-                params.prepare_all();
                 if (node->sector_)
                     params.put_name_key(kOwnerSectorKey, node->label_);
                 made->build_modules_from_list(script::fetch_list("proximobj_composite_structure"), &params);
                 made->seal();
                 script::Struct script_params;
-                script_params.prepare_all();
                 made->replace_script(node->own_script_, &script_params);
                 script_params.get_clear();
                 params.get_clear();

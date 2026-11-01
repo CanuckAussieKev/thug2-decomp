@@ -338,7 +338,6 @@ bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/
     float height = 0.0f, angle = 0.0f;
     active_node_->get_current_point(&pos, &height, &angle);
     script::Struct cursor;
-    cursor.prepare_all();
     cursor.put_vec3(0x7F261953, pos.x, pos.y + height, pos.z);
     cursor.push_float(0xFF7EBAF6, angle);
     script::launch_script(0xDEA7FE56, &cursor, nullptr, false, nullptr);

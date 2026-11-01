@@ -412,7 +412,7 @@ bool __cdecl cfunc_get_metrics(Struct*, Script* script)
 {
     Struct* metrics = script::spawn_param_bag();
     if (metrics)
-        metrics = metrics->prepare_all();
+        metrics = new (metrics) script::Struct;
     render::get_scene_debug_info(metrics);
     script->args_->put_sub_struct(kMetrics, metrics);
     if (metrics) {

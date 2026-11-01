@@ -311,7 +311,7 @@ void FootMovement::update_anim_speed()
     // The animation component's member function 0xBD4EDD44 with speed = `speed`.
     auto tell = [animation](float speed) {
         script::Struct* params = script::spawn_param_bag();
-        params = params ? params->prepare_all() : nullptr;
+        params = params ? new (params) script::Struct : nullptr;
         params->push_float(kSpeedName, speed);
         reinterpret_cast<ObjectModule*>(animation)->invoke_method_by_name(kSetAnimSpeed, params, nullptr);
         if (params) {

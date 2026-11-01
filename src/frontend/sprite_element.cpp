@@ -115,7 +115,7 @@ void TextureElement::get_properties(Struct* out)
     std::memcpy(rgba, summed_.rgba, 4);
     script::Array* array = script::alloc_script_array();
     if (array)
-        array = array->prepare_all();
+        array = new (array) script::Array;
     array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 4; ++i)
         array->set_element(i, rgba[i]);

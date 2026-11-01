@@ -115,7 +115,7 @@ KinematicsModule* get_motion(GameEntity* object)
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 
 

@@ -454,7 +454,7 @@ void RiderRemoteSync::tick_frame()
     if ((driving && steer_kind) || (!driving && was_driving_)) {
         script::Struct* params = script::spawn_param_bag();
         if (params)
-            params = params->prepare_all();
+            params = new (params) script::Struct;
         params->put_name_key(kSkaterId, entity_->ident_);
         uint32_t script = kStopDrivingScript;
         if (driving) {

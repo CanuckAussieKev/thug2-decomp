@@ -75,11 +75,10 @@ SymbolTableEntry* resolve_symbol(uint32_t name)
 }
 
 // 0x00476410
-Struct* Struct::prepare_all()
+Struct::Struct()
 {
     head_ = nullptr;
     unknown1_ = 0;
-    return this;
 }
 
 // 0x00476420
@@ -585,13 +584,12 @@ void delete_array(Array* array) { array_pools().dealloc(array); }
 void free_component(Component* component) { component_pools().dealloc(component); }
 
 // 0x0046CAA0
-Array* Array::prepare_all()
+Array::Array()
 {
     kind_tag_ = kQbvalNone;
     elements_ = nullptr;
     extent_ = 0;
     unknown0_ = 0;
-    return this;
 }
 
 // 0x0046CAB0
@@ -762,7 +760,7 @@ void duplicate_component(Component* dest, Component* source, int reference)
         }
         Struct* structure = spawn_param_bag();
         if (structure)
-            structure->prepare_all();
+            new (structure) script::Struct;
         dest->structure = structure;
         if (source->structure != structure) {
             structure->get_clear();
@@ -774,7 +772,7 @@ void duplicate_component(Component* dest, Component* source, int reference)
         if (!reference) {
             Array* array = alloc_script_array();
             if (array)
-                array->prepare_all();
+                new (array) script::Array;
             dest->array = array;
             duplicate_array(array, source->array);
             break;
@@ -1091,7 +1089,7 @@ void Struct::put_sub_struct(uint32_t name, Struct* value)
     Component* component = new_typed_component(name, kQbvalStruct);
     Struct* copy = spawn_param_bag();
     if (copy)
-        copy->prepare_all();
+        new (copy) script::Struct;
     component->structure = copy;
     if (value != copy) {
         copy->get_clear();
@@ -1232,22 +1230,20 @@ Pair* new_pair() { return g_pair_pools.allocate<Pair>(); }
 Vector* alloc_script_vector() { return g_vector_pools.allocate<Vector>(); }
 
 // 0x0047AC00
-Pair* Pair::prepare_all()
+Pair::Pair()
 {
     y = 0.0f;
     x = 0.0f;
     reinterpret_cast<uint8_t*>(this)[0] = 0;
-    return this;
 }
 
 // 0x0047ABF0
-Vector* Vector::prepare_all()
+Vector::Vector()
 {
     z = 0.0f;
     y = 0.0f;
     x = 0.0f;
     reinterpret_cast<uint8_t*>(this)[0] = 0;
-    return this;
 }
 
 // 0x0046CC50
@@ -1351,7 +1347,7 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
             if (element) {
                 auto* from = reinterpret_cast<const Pair*>(element);
                 Pair* pair = new_pair();
-                pair = pair ? pair->prepare_all() : nullptr;
+                pair = pair ? new (pair) script::Pair : nullptr;
                 pair->x = from->x;
                 pair->y = from->y;
                 dest[i] = reinterpret_cast<uint32_t>(pair);
@@ -1361,7 +1357,7 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
             if (element) {
                 auto* from = reinterpret_cast<const Vector*>(element);
                 Vector* vector = alloc_script_vector();
-                vector = vector ? vector->prepare_all() : nullptr;
+                vector = vector ? new (vector) script::Vector : nullptr;
                 vector->x = from->x;
                 vector->y = from->y;
                 vector->z = from->z;
@@ -1373,7 +1369,7 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
                 auto* from = reinterpret_cast<Struct*>(element);
                 Struct* structure = spawn_param_bag();
                 if (structure)
-                    structure->prepare_all();
+                    new (structure) script::Struct;
                 if (from != structure) {
                     structure->get_clear();
                     structure->merge_structure(from);
@@ -1385,7 +1381,7 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
             if (element) {
                 Array* array = alloc_script_array();
                 if (array)
-                    array = array->prepare_all();
+                    array = new (array) script::Array;
                 duplicate_array(array, reinterpret_cast<Array*>(element));
                 dest[i] = reinterpret_cast<uint32_t>(array);
             }
@@ -1485,7 +1481,7 @@ void create_symbol_table()
 }
 
 // 0x004790F0
-SymbolTableEntry* SymbolTableEntry::prepare_all()
+SymbolTableEntry::SymbolTableEntry()
 {
     unknown0 &= 0xF8;
     name = 0;
@@ -1493,14 +1489,13 @@ SymbolTableEntry* SymbolTableEntry::prepare_all()
     raw = 0;
     next = nullptr;
     unknown8 = 0;
-    return this;
 }
 
 // 0x00479110
 SymbolTableEntry* create_symbol(uint32_t name)
 {
     void* memory = g_symbol_pools.carve(sizeof(SymbolTableEntry));
-    SymbolTableEntry* entry = memory ? static_cast<SymbolTableEntry*>(memory)->prepare_all() : nullptr;
+    SymbolTableEntry* entry = memory ? new (memory) script::SymbolTableEntry : nullptr;
     entry->name = name;
     entry->unknown0 |= 1;
     link_symbol(entry);
@@ -1656,7 +1651,7 @@ void Struct::append_array_value(uint32_t name, Array* value)
     Component* component = new_typed_component(name, kQbvalArray);
     Array* array = alloc_script_array();
     if (array)
-        array = array->prepare_all();
+        array = new (array) script::Array;
     component->array = array;
     duplicate_array(array, value);
     attach_module(component);

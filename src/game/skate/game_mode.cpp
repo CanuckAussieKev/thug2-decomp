@@ -170,7 +170,6 @@ void MatchRules::get_release()
 // 0x00553D30
 MatchRules::MatchRules()
 {
-    args_.prepare_all();
     conditions_.condition_ = kHeadMarker;
     conditions_.rank_ = 0;
     conditions_.succ_ = &conditions_;

@@ -199,7 +199,7 @@ uint32_t color_from_array(script::Array* array)
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? memory->prepare_all() : nullptr;
+    return memory ? new (memory) script::Struct : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -826,7 +826,7 @@ void add_bloom_params(int on, int bloom1, int bloom2, uint32_t strength, uint32_
     out->put_int(kBloom1, bloom1);
     out->put_int(kBloom2, bloom2);
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? memory->prepare_all() : nullptr;
+    script::Array* array = memory ? new (memory) script::Array : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
     array->set_element(0, strength & 0xFF);
     array->set_element(1, strength >> 8 & 0xFF);
@@ -1362,7 +1362,7 @@ bool __cdecl cfunc_tod_manager_get_current_tod_params(script::Struct* params, sc
     out->put_int(kBloom1, p.bloom1);
     out->put_int(kBloom2, p.bloom2);
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? memory->prepare_all() : nullptr;
+    script::Array* array = memory ? new (memory) script::Array : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
     array->set_element(0, p.bloom_strength_ & 0xFF);
     array->set_element(1, p.bloom_strength_ >> 8 & 0xFF);

@@ -308,12 +308,12 @@ bool get_save_info(Struct* params, Script* script)
     params->read_hash_value(0x7321A8D6u, &type, 0); // type
     Struct* contents = script::spawn_param_bag();
     if (contents)
-        contents = contents->prepare_all();
+        contents = new (contents) script::Struct;
     write_save_contents(contents, type);
     int main_size = static_cast<int>(script::measure_buffer_bytes(contents, 100000));
     Struct* summary = script::spawn_param_bag();
     if (summary)
-        summary = summary->prepare_all();
+        summary = new (summary) script::Struct;
     write_summary(contents, summary, type);
     int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
     Struct* results = result_params(script);
@@ -441,7 +441,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             continue;
         Struct* entry = script::spawn_param_bag();
         if (entry)
-            entry = entry->prepare_all();
+            entry = new (entry) script::Struct;
         entry->put_name_key(0xFADDC0B8u, type);     // file_type
         entry->put_int(0x7F8C98FEu, listed);        // index
         entry->put_int(0x447D8CC8u, file->year_);   // year
@@ -477,7 +477,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             } else {
                 Struct* summary = script::spawn_param_bag();
                 if (summary)
-                    summary = summary->prepare_all();
+                    summary = new (summary) script::Struct;
                 script::decode_from_bytes(summary, listed_summary, reader.remaining());
                 entry->append_structure_if_any(summary);
                 if (summary) {
@@ -522,7 +522,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         } while (swapped);
         script::Array* listing = script::alloc_script_array();
         if (listing)
-            listing = listing->prepare_all();
+            listing = new (listing) script::Array;
         listing->configure_size_kind(static_cast<uint32_t>(listed), script::kQbvalStruct);
         for (int j = 0; j < listed; ++j)
             listing->set_element(static_cast<uint32_t>(j), reinterpret_cast<uint32_t>(entries[j]));
@@ -574,14 +574,14 @@ bool save_to_memory_card(Struct* params, Script*)
     }
     Struct* contents = script::spawn_param_bag();
     if (contents)
-        contents = contents->prepare_all();
+        contents = new (contents) script::Struct;
     if (vault_data)
         contents->append_structure_if_any(g_kept_params);
     else
         write_save_contents(contents, type);
     Struct* summary = script::spawn_param_bag();
     if (summary)
-        summary = summary->prepare_all();
+        summary = new (summary) script::Struct;
     write_summary(contents, summary, type);
     summary->append_word("filename", name);
 

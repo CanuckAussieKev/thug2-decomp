@@ -86,7 +86,6 @@ void BuildPointer::toggle_shown(bool visible)
 void BuildPointer::on_mode_changed()
 {
     script::Struct params;
-    params.prepare_all();
     uint32_t mode;
     if (mode_sel_ == kModeGapAdjust)
         mode = 0xE75A3A17; // gap_adjust
