@@ -318,6 +318,7 @@ bool MoveExecutor::check_spin_sequence(const uint32_t* buttons, bool any)
             failed = true;
             return false;
         }
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (state) {
         case 0:
             if (!(e.flags & 0x100) && e.type == 1 && e.button == buttons[1]) {

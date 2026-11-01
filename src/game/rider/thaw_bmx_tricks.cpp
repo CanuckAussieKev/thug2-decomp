@@ -338,6 +338,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         // over the deck; phase 4 took the down itself)
         maths::Vec4 down = {-up.x, 0.0f, -up.z, -up.w};
         down.make_unit();
+        // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
         for (float depth = kTapSearchStart; depth > kTapSearchEnd; depth -= kTapSearchStep) {
             maths::Vec4 from = position + depth * down;
             maths::Vec4 to = {from.x, from.y - kTapDrop, from.z, from.w};

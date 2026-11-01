@@ -137,6 +137,7 @@ Vec4& Vec4::make_unit()
 Vec4& Vec4::turn_quarter_about_y(int quarter_turns)
 {
     float old_x = x;
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (quarter_turns) {
     case 1:
         x = z;

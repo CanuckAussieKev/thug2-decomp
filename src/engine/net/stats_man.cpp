@@ -542,9 +542,11 @@ void RankingsManager::read_skill_ratings(char* text)
         TopEntry* entry = new_entry();
         get_append(&top_lists_[4].entries_, &entry->list_link_);
         entry->points_held_ = std::atol(token);
+        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, ":")))
             break;
         entry->skill_points_ = std::atol(token);
+        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, "\n")))
             break;
         text_tools::dup_from(entry->label_, token);
@@ -580,9 +582,11 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
             TopEntry* entry = new_entry();
             get_append(&scores->entries_, &entry->list_link_);
             entry->points_held_ = std::atol(token);
+            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             if (!(token = text_tools::get_token(nullptr, ":")))
                 break;
             entry->skill_points_ = std::atol(token);
+            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             if (!(token = text_tools::get_token(nullptr, "\n")))
                 break;
             text_tools::dup_from(entry->label_, token);

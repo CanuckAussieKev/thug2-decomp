@@ -5554,6 +5554,7 @@ void tick_frame()
     // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
     if (g_cancel_requested) {
         g_cancel_requested = false;
+        // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
         if (ux8::get_cancel()) {
             // (UX8: a pie menu closed)
         } else if (!g_dragging && ux9::get_cancel()) {
@@ -6269,6 +6270,7 @@ void tick_frame()
         // (UX9: the gap wizard's / the ground tool's pick - level_editor_ux9.h)
         note_action("ux9 tool click");
     } else if (input.left_presses_ && have_ray && !g_dragging && arrange::edge_picking() &&
+               // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
                arrange::edge_click(back_x, back_y)) {
         // (F7: a rail along the edge clicked - level_editor_arrange.h)
     } else if (input.left_presses_ && have_ray && !g_dragging && g_browser.open && g_hover_axis < 0 && !ctrl && !alt &&

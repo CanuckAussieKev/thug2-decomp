@@ -265,6 +265,7 @@ bool BuildPointer::change_gap(int turn, int left, int right)
     int* m_reach_left = &copy.reach_left_[half];
     int* m_reach_right = &copy.reach_right_[half];
     // Each extent is kept inside the park: the one behind the gap's start, the other past its end.
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (copy.quarter_turns_[half]) {
     case 0:
     case 2: {

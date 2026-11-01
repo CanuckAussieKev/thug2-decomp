@@ -135,6 +135,7 @@ void PieceGroup::set_quarter_turns(int rot)
             along = size.l;
             across = size.w;
         }
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (turn) {
         case 0:
             to->x = from->x;

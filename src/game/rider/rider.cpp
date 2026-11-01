@@ -341,6 +341,7 @@ float Rider::fetch_tally(int index)
         auto* player =
             reinterpret_cast<online::PlayerRecord*>(net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_)));
         if (!player)
+            // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
             stat = 10.0f;
         else if (player->holds_crown())
             stat = 1.0f;

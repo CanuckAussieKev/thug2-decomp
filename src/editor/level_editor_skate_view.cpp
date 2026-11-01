@@ -39,6 +39,7 @@ Kind get_classify(uint16_t flags, float normal_y, float threshold, int trigger)
     bool skatable;
     bool vert = (flags & 0x08) != 0;
     if (flags & 0x01)
+        // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
         skatable = true;
     else if (flags & 0x02)
         return Kind::kNotSkatable;

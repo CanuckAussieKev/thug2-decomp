@@ -63,6 +63,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
     HRESULT hr = device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back);
     if (FAILED(hr) || !back)
         return fail("no back buffer", hr);
+    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization): Direct3D's structure zeroed, as D3D allows
     D3DSURFACE_DESC desc = {};
     back->GetDesc(&desc);
     sys::screenshot::PixelFormat format = get_map(desc.Format);

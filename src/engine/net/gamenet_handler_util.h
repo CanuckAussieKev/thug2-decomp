@@ -141,6 +141,7 @@ inline void team_name_key(char* out, int team)
         digits[length++] = static_cast<char>('0' + value % 10);
         value /= 10;
     } while (value);
+    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(out, "team_", 5);
     char* p = out + 5;
     if (negative)

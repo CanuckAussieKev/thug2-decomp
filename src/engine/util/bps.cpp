@@ -116,6 +116,7 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     while (at < patch_size - 12) {
         auto head = static_cast<uint32_t>(read_number(patch, &at));
         uint32_t length = (head >> 2) + 1;
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (head & 3) {
         case 0: // the input's bytes at the same place
             std::memcpy(out + output_at, input + output_at, length);

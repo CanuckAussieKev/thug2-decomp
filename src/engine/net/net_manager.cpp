@@ -1,5 +1,6 @@
 // The network library's manager (NetLink::Hub): its settings getters and setters. See net_manager.h.
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname, inet_ntoa: what the game uses
 
 #include "engine/net/net_manager.h"

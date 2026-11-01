@@ -26,6 +26,7 @@ const char* s_gamestats_host = nullptr;
 char* get_host_name(const char* format, const char* domain)
 {
     size_t size = std::strlen(format) + std::strlen(domain) + 1; // (enough)
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
     auto* name = static_cast<char*>(std::malloc(size));
     std::snprintf(name, size, format, domain);
     debug_log::printf(debug_log::StageMap::kTrace, "ALLOC'D STRING %s\n", name);

@@ -467,6 +467,7 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
         if (total_score(score) < mine)
             ++worse;
         if (lowest == -1)
+            // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
             lowest = total_score(score);
         else if (total_score(score) < lowest)
             lowest = total_score(score);

@@ -35,6 +35,7 @@ constexpr uint32_t kFloatKeys = 0x10000000;
 
 constexpr size_t kHeaderSize = 0xC;
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimHeader {
     uint32_t version = 0;
     uint32_t flags = 0;
@@ -47,8 +48,10 @@ struct AnimHeader {
     uint32_t rotation_size = 0;    // compressed only
     uint32_t translation_size = 0; // compressed only
 };
+// NOLINTEND(readability-identifier-naming)
 
 // The sections as addresses in the animation loaded at its base (0: not there).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimLayout {
     uintptr_t keys_header = 0;
     uintptr_t rotation_sizes = 0;    // compressed
@@ -62,6 +65,7 @@ struct AnimLayout {
     uintptr_t custom_keys = 0;
     uintptr_t end = 0; // the animation's end
 };
+// NOLINTEND(readability-identifier-naming)
 
 // The headers read and the sections laid out as the frame data lays them out. `size`: the animation's bytes (0: not
 // known - nothing checked past the headers). False when it is neither float keys nor compressed, a count is negative

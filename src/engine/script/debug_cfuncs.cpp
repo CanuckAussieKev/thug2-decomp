@@ -93,6 +93,7 @@ bool cfunc_display_free_mem(script::Struct*, script::Script*)
 bool cfunc_test(script::Struct*, script::Script*)
 {
     script::SymbolTableEntry entry;
+    // NOLINTNEXTLINE(bugprone-raw-memory-call-on-non-trivial-type): the original's layout test zeroes the record
     std::memset(&entry, 0, sizeof(entry));
     entry.unknown0 = 4;
     entry.type = script::kQbvalStruct;

@@ -588,6 +588,7 @@ void ModelWidget::tick_frame()
     maths::Vec4 scale = {scale_x, static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), scale_x,
                          1.0f};
     void* camera = nullptr;
+    // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
     if (size_follows_range_ && (camera = viewport_camera(view_slot_)) != nullptr) {
         maths::Vec4 away = basis_frame_.row[3] - *viewer_location(camera);
         double distance = std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +

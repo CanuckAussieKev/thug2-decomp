@@ -7,6 +7,7 @@
 #include "engine/gfx/particle_types.h"
 #include "engine/maths/vec4.h"
 
+// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
 struct IDirect3DIndexBuffer9;
 
 // The PC flexible particle systems (Nx engine; the particle manager's 0x0049AC60 makes them by type: the flexible

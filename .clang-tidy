@@ -1,8 +1,96 @@
-# The project's checks (docs/style-guide.md): C++ Core Guidelines, with the house naming rules.
+# The project's checks (docs/style-guide.md): the C++ Core Guidelines' checks and the bug-finding, modernising and
+# performance groups, with the house naming rules. Zero warnings is the rule; a place that can't keep a check says so
+# with `// NOLINT(<check>): <reason>` (or NOLINTBEGIN / NOLINTEND around a listed record) - docs/style-guide.md
+# "Exceptions". Every check switched off is listed below with its reason.
 # Run: clang-tidy -p out/build/<preset> --extra-arg=--target=i686-pc-windows-msvc <file>
-Checks: >
-  -*,
-  readability-identifier-naming
+Checks:
+  - '-*'
+  - 'bugprone-*'
+  - 'cppcoreguidelines-*'
+  - 'misc-*'
+  - 'modernize-*'
+  - 'performance-*'
+  - 'readability-identifier-naming'
+
+  # --- off: they conflict with the project's decisions ---
+  # The project writes `int f()`; trailing return types are a style, not a Guideline.
+  - '-modernize-use-trailing-return-type'
+  # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
+  # invent names the binary doesn't give. Constants get names where their meaning is known.
+  - '-cppcoreguidelines-avoid-magic-numbers'
+  # `const` on every local that could have it: churn across the whole tree for little gain (Con.4 kept by review).
+  - '-misc-const-correctness'
+  # The engine walks its vertex streams, script token streams, pools and packed records by pointer; std::span
+  # belongs with the renderer's move to OpenGL and the script runtime's replacement.
+  - '-cppcoreguidelines-pro-bounds-pointer-arithmetic'
+  # The tables mirror the original's data positionally (script commands, member tables, key maps).
+  - '-modernize-use-designated-initializers'
+  # The engine's classes are data layouts shared between subsystems, as the original's were.
+  - '-misc-non-private-member-variables-in-classes'
+  # No include-what-you-use mapping for the Windows / DirectX / SDL headers: its advice there is wrong.
+  - '-misc-include-cleaner'
+  # C APIs (the C runtime's string functions, Win32, Direct3D, SDL) take arrays as pointers.
+  - '-cppcoreguidelines-pro-bounds-array-to-pointer-decay'
+  # Fixed-size members of the original's layouts and C-API buffers; std::array where code is rewritten.
+  - '-cppcoreguidelines-avoid-c-arrays'
+  - '-modernize-avoid-c-arrays'
+  # Byte-level views: file and wire formats after their readers' checks, COM / Win32 handles, the script values'
+  # pointer cells.
+  - '-cppcoreguidelines-pro-type-reinterpret-cast'
+  # Both need gsl::at; the project uses no GSL.
+  - '-cppcoreguidelines-pro-bounds-constant-array-index'
+  - '-cppcoreguidelines-pro-bounds-avoid-unchecked-container-access'
+  # The game's globals are the original's state (g_ names).
+  - '-cppcoreguidelines-avoid-non-const-global-variables'
+  # The game's printf-style formatting is kept for its exact output (std::format would change it).
+  - '-cppcoreguidelines-pro-type-vararg'
+  - '-modernize-avoid-variadic-functions'
+  # The original's signatures (x, y, z / width, height); strong types would be a redesign.
+  - '-bugprone-easily-swappable-parameters'
+  # The class hierarchy dispatches on its own type tags; the original has no RTTI.
+  - '-cppcoreguidelines-pro-type-static-cast-downcast'
+  # 32-bit fields of the original's layouts and the script values carry pointers (x86 only, by design).
+  - '-performance-no-int-to-ptr'
+  # It knows only gsl::owner; ownership here is memory::owner<> and std::unique_ptr.
+  - '-cppcoreguidelines-owning-memory'
+  # std::cmp_less would change the result where the original compares mixed-sign values as written.
+  - '-modernize-use-integer-sign-comparison'
+  # It would warn at the original's own call sites that drop results.
+  - '-modernize-use-nodiscard'
+  # Iterator-pair algorithms are as clear here; its fix mishandles pointers to containers.
+  - '-modernize-use-ranges'
+  # std::string / container globals; the game doesn't use exceptions, an allocation failure at start-up is fatal.
+  - '-bugprone-throwing-static-initialization'
+  - '-bugprone-exception-escape'
+  # The script interpreter, the screen element tree and the scene walks recurse by design.
+  - '-misc-no-recursion'
+  # Enums held in the original's int fields keep int's size.
+  - '-performance-enum-size'
+  # The original's loop shapes, kept for comparison with the disassembly.
+  - '-cppcoreguidelines-avoid-do-while'
+  # The original's constants keep their own digits (3.14159f is not std::numbers::pi_v<float>).
+  - '-modernize-use-std-numbers'
+  # The original sign-extends its signed byte fields (file, wire and cursor values) on purpose.
+  - '-bugprone-signed-char-misuse'
+  # atoi / atol: 0 for text that isn't a number is what the code relies on (as the original's).
+  - '-bugprone-unchecked-string-to-number-conversion'
+  # File-local functions are `static` or in an unnamed namespace, either way (misc-use-internal-linkage's fix
+  # writes `static`).
+  - '-misc-use-anonymous-namespace'
+  # memcpy / memset / free of pointer arrays and pointer-sized slots: the C API's void* is meant.
+  - '-bugprone-multi-level-implicit-pointer-conversion'
+
+  # --- off for now: being worked through (they need a look at each place) ---
+  - '-cppcoreguidelines-narrowing-conversions'
+  - '-bugprone-narrowing-conversions'
+  - '-cppcoreguidelines-init-variables'
+  - '-cppcoreguidelines-pro-type-member-init'
+  - '-cppcoreguidelines-prefer-member-initializer'
+  - '-cppcoreguidelines-special-member-functions'
+  - '-cppcoreguidelines-pro-type-union-access'
+  - '-cppcoreguidelines-use-enum-class'
+  - '-misc-use-internal-linkage'
+  - '-cppcoreguidelines-pro-type-const-cast'
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']
 WarningsAsErrors: ''

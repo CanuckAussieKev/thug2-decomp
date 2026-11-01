@@ -141,6 +141,7 @@ void GoalManager::reset_goal_data(uint32_t flag)
     script::Component* component = goal_data_->step_to_entry(nullptr);
     while (component) {
         script::Component* next = goal_data_->step_to_entry(component);
+        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (!flag) {
             goal_data_->erase_module(component->name);
         } else if (component->name == kGoalManagerParams) {

@@ -280,6 +280,7 @@ void MaterialRef::hand_in()
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
         if (g_skipped_passes & (1u << (pass & 31)))
             continue;
+        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         if (!constants_changed() && std::memcmp(pass_color_[pass], pass_constants() + 4 * pass, 16) != 0)
             constants_changed() = true;
         uint8_t* texture = textures[pass];
@@ -407,7 +408,9 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     bool alpha_from_texture = (pass_flags_[pass] & kPassTextureAlpha) != 0;
     bool blends_with_previous = blend_modes_[pass] == 0xC || blend_modes_[pass] == 0xD;
     const uint32_t half = 0x3F000000; // 0.5: the colour unchanged
+    // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
     if (std::memcmp(&own[0], &half, 4) == 0 && std::memcmp(&own[1], &half, 4) == 0 &&
+        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         std::memcmp(&own[2], &half, 4) == 0 && !color) {
         if (!blends_with_previous) {
             device_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);

@@ -42,9 +42,13 @@ THUG2_MSVC_WARNING(pop)
 // Host-name overrides the SDK keeps without declaring them in a header (pt/ptMain.c), and the one the build adds
 // (Peer/peerOperations.c, patched by cmake/gamespy_sdk.cmake: the chat server's name was a constant).
 extern "C" {
+// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char gPTAVercheckURL[];
+// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char gPTAMOTDURL[];
+// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char peerChatServerAddress[64];
+// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char* Matchup3Hostname; // (natneg.c; natneg.h declares only the first two)
 }
 // (gsPlatform.h maps snprintf to the old _snprintf, which doesn't always end the string: ours is the standard one)
@@ -447,19 +451,23 @@ void stats_generate_auth(const char* challenge, const char* password, char* resp
 }
 void set_server_int_bucket(void* game, const char* key, int value)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
     BucketIntOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, value, bl_server, 0);
 }
 void set_server_string_bucket(void* game, const char* key, const char* value)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
     BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value), bl_server,
                    0);
 }
 void set_player_int_bucket(void* game, const char* key, int value, int player)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
     BucketIntOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, value, bl_player, player);
 }
 void set_player_string_bucket(void* game, const char* key, const char* value, int player)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): the GameSpy SDK's macro casts
     BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value), bl_player,
                    player);
 }

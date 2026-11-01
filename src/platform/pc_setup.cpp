@@ -39,6 +39,7 @@ void init_pc_setup()
     script::init_script_patches();
     os_layer::init_events();
     // the music shuffle's randomness (audio::shuffle_random)
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): the original's seed / a test's fixed sequence
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     debug_log::printf(StageMap::kInfo, "Patch Initialized\n");
 

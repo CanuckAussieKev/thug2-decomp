@@ -7,6 +7,7 @@ namespace {
 uintptr_t align(uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); }
 
 // An object's fields as stored (the TriMeshSource view's offsets).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct StoredObject {
     uint16_t vertex_count;
     uint16_t face_count;
@@ -17,6 +18,7 @@ struct StoredObject {
     uint32_t tree;
     uint32_t vertex_bytes;
 };
+// NOLINTEND(readability-identifier-naming)
 
 StoredObject read_object(const uint8_t* object)
 {

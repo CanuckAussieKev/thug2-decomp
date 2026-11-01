@@ -176,6 +176,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     bool done = false;
     if (!state_->in_trick_move_ && !bit_mark(this, PoseFlag::kBailing)) {
         if (!motoskateboard_ && wall_plant(false, false, false))
+            // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
             done = true;
         else if (start_wall_ride())
             done = true;

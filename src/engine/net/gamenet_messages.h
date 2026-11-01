@@ -48,6 +48,7 @@ constexpr int kServerInfoPlayers = 8;
 constexpr size_t kServerInfoNameSize = 16;
 constexpr size_t kServerInfoTextSize = 32;
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ServerInfo {
     int8_t num_players = 0;
     int8_t max_players = 0;
@@ -65,9 +66,11 @@ struct ServerInfo {
     uint32_t time = 0;
     char players[kServerInfoPlayers][kServerInfoNameSize + 1] = {};
 };
+// NOLINTEND(readability-identifier-naming)
 bool read_server_info(util::ByteReader& reader, ServerInfo* message);
 bool write_server_info(util::ByteWriter& writer, const ServerInfo& message);
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SessionBrief {
     uint8_t crown_start_slot = 0;
     bool not_lan = false;
@@ -86,9 +89,11 @@ struct SessionBrief {
     uint32_t round = 0;
     uint8_t variant = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 bool read_session_brief(util::ByteReader& reader, SessionBrief* message);
 bool write_session_brief(util::ByteWriter& writer, const SessionBrief& message);
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct StartGame {
     uint32_t game_type = 0;
     uint32_t time_limit = 0;
@@ -103,6 +108,7 @@ struct StartGame {
     int8_t crown_start_slot = 0;
     uint32_t start_points[kStartPoints] = {};
 };
+// NOLINTEND(readability-identifier-naming)
 bool read_start_game(util::ByteReader& reader, StartGame* message);
 bool write_start_game(util::ByteWriter& writer, const StartGame& message);
 
@@ -200,6 +206,7 @@ constexpr size_t kLevelSwitchSize = 8;
 // Fields the THUGPRO guards (net_guards.cpp) check in place.
 constexpr uint32_t kLevelSwitchLevelAt = 0;
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct PlayerArrived {
     int32_t profile_id = 0;
     int32_t rating = 0;
@@ -212,6 +219,7 @@ struct PlayerArrived {
     int32_t drive_scheme = 0;
     char name[kNameSize + 1] = {}; // (terminated here)
 };
+// NOLINTEND(readability-identifier-naming)
 bool read_player_arrived(util::ByteReader& reader, PlayerArrived* message);
 bool write_player_arrived(util::ByteWriter& writer, const PlayerArrived& message);
 
@@ -225,6 +233,7 @@ struct HudNotice {
 bool read_hud_notice(util::ByteReader& reader, HudNotice* message);
 bool write_hud_notice(util::ByteWriter& writer, const HudNotice& message);
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct StartRequest {
     uint32_t game_type = 0;
     uint32_t time_limit = 0;
@@ -239,6 +248,7 @@ struct StartRequest {
     uint32_t goals = 0;
     uint32_t team_graffiti_mode = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 bool read_start_request(util::ByteReader& reader, StartRequest* message);
 bool write_start_request(util::ByteWriter& writer, const StartRequest& message);
 
@@ -287,6 +297,7 @@ bool write_chat(util::ByteWriter& writer, const Chat& message);
 // --- The news (motd.dat, downloaded by the server list's news thread; each byte ^ 0x6D) ---
 //   the text's caseless CRC (u32), the size of what follows (i32), the message of the day (NUL-ended, padded to a
 //   word), then the rest of the data (pending_data_)
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct News {
     uint32_t checksum = 0;
     int32_t size = 0;
@@ -294,6 +305,7 @@ struct News {
     const char* motd = nullptr;    // (= data: ended inside them)
     int32_t motd_size = 0;         // (with its NUL, padded to a word; at most `size`)
 };
+// NOLINTEND(readability-identifier-naming)
 // (fails when the size is negative or past the end, or the text has no NUL within it)
 bool read_news(util::ByteReader& reader, News* news);
 

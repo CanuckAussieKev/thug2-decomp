@@ -90,6 +90,7 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
     if (length_a + length_b + 1 > 200)
         return false;
     char joined[200];
+    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(joined, a, length_a);
     std::memcpy(joined + length_a, b, length_b + 1);
     set_result_type(type);

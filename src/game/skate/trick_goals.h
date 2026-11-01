@@ -47,6 +47,7 @@ public:
     explicit FallingTricksGoal(script::Struct* params);
     ~FallingTricksGoal() override;
     // 0x0056F2E0: ready to start (trick_time copied to the current interval, the first trick soon).
+    // NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): the original's non-virtual method of the same name
     void prepare_all();
     // 0x0056F130: every trick cleared (the slots left in use) and the single combo's added flag; 0x0056F5B0: the
     // slots freed and the stack's menu destroyed.
@@ -121,6 +122,7 @@ public:
     // 0x00574990: every trick cleared (and the added flag).
     void clear_tricks();
     // 0x00574A10: ready to start.
+    // NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): the original's non-virtual method of the same name
     void prepare_all();
     // 0x00574AB0: a trick landed (its params): in the beat window, the matching tricks marked landed and faded.
     void trick_landed(script::Struct* trick);

@@ -135,6 +135,7 @@ void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
         if (hide) {
             if (count++ == 0)
                 change_live(sector, false);
+            // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): counted down and tested in one step, on purpose
         } else if (count > 0 && --count == 0) {
             change_live(sector, true);
         }
@@ -473,6 +474,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
         }
         uint32_t colour = 0;
         for (int k = 0; k < 4; ++k)
+            // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
             colour |= static_cast<uint32_t>(sum[k] / mesh->vertex_count_ + 0.5) << (8 * k);
         spec->colour = colour;
     }

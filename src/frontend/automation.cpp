@@ -1781,6 +1781,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!is_switched_on())
         return;
     trace_frame();
+    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): counted down and tested in one step, on purpose
     if (runner.hold_frames_ > 0 && --runner.hold_frames_ == 0)
         runner.hold_button_ = nullptr;
     poll_file(runner);

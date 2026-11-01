@@ -104,6 +104,7 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
         case 0x1A4E0EF9:   // rebuilt as a new park
         case 0x2A907CBC: { // rebuilt from the saved map
             ParkLayout* manager = ParkLayout::singleton();
+            // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
             switch (command) {
             case 0x1A4E0EF9:
                 BuildPointer::teardown();

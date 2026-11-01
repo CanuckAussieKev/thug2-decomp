@@ -96,6 +96,7 @@ void ParkLayout::set_up_abstract_metas()
             meta->name_key_ = name;
             uint32_t special;                                     // (left unset if there's none, as in the original)
             if (desc->read_hash_value(0xF176A9FD, &special, 0)) { // special_type
+                // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
                 switch (special) {
                 case 0x2813AB8A: // gap_placement
                     meta->flag_bits_ |= PieceGroup::kGap;
@@ -481,6 +482,7 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         int along_x = 0;
         float x = at.x;
         double z = at.z;
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (gap->quarter_turns_[half]) {
         case 0:
             along_x = 1;

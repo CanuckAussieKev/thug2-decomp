@@ -1,5 +1,6 @@
 // The online profile and buddy list (online::FriendsManager). See buddy_man.h.
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_ntoa: what the game uses
 
 #include "engine/net/buddy_man.h"
@@ -217,7 +218,9 @@ void parse_location(Buddy* buddy, char* location, bool checked)
 {
     char* name = std::strchr(location, ':');
     if (checked) {
+        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (name && (name = std::strchr(name + 1, ':')) && (name = std::strchr(name + 1, ':')) &&
+            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             (name = std::strchr(name + 1, ':')))
             ++name;
     } else {

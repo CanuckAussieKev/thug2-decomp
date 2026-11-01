@@ -9,6 +9,7 @@
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_level_props.h"
 
+// NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 union SDL_Event;
 struct ImFont;
 namespace frontend::level_editor::ux8 {

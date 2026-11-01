@@ -166,6 +166,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
             get_ask(requests, chains::kOpSpeed,
+                    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                     on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Speed up the skater while grinding uphill");
@@ -178,6 +179,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                                  "+%.1f%% / frame", ImGuiSliderFlags_AlwaysClamp))
                 s_percent = percent;
             if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0f) {
+                // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                 get_ask(requests, chains::kOpSpeed, static_cast<uint32_t>(s_percent * 100.0f + 0.5f));
                 s_percent = -1.0f;
             } else if (!ImGui::IsItemActive()) {
@@ -187,6 +189,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                 ImGui::SetTooltip("Speed gain per frame (typical: 2-10%%)");
             ImGui::SameLine();
             if (ImGui::SmallButton("Whole rail"))
+                // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                 get_ask(requests, chains::kOpSpeedRail, static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f));
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Apply to the whole rail");

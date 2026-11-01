@@ -116,6 +116,7 @@ void init_direct_3d()
         return;
 
     D3DPRESENT_PARAMETERS& pp = present_parameters();
+    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization): Direct3D's structure zeroed, as D3D allows
     pp = {};
     pp.hDeviceWindow = pane();
     // Originally from PartyMod Fixes (its byte at 0x004D8720, written when its Windowed setting is on). The original: always full screen.

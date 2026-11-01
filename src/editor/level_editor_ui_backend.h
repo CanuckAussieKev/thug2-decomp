@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+// NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 union SDL_Event;
 
 // NOT ORIGINAL - the level editor's UI layer, its backend (ours; see level_editor_ui.h): the one file that ties Dear

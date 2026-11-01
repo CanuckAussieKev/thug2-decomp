@@ -414,6 +414,7 @@ bool VideoHub::tick_frame()
     if (!movie)
         return false;
     if (!g_simulation_halted || g_view_mode != 0) // (not paused, or the view mode)
+        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         movie->tick_frame();
     else if (!movie->flag_1b_)
         movie->tick_frame();

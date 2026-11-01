@@ -58,6 +58,7 @@ Script* Script::make_new()
     entity_.owner_object_ = nullptr;
     new (&shared_base_) objects::SharedBase;
     // Then all of it is zeroed - shared_base_'s vptr too (an original quirk, kept: nothing calls through it).
+    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(this, 0, sizeof(Script));
     following_ = script_list_head();
     if (script_list_head())

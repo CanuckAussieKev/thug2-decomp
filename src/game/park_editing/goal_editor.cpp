@@ -554,6 +554,7 @@ void ObjectiveAuthoring::tick_frame()
         objects::EditorViewModule* camera = view_cam(view_camera_);
         maths::Vec4 pos = camera->cursor_;
         float height = camera->level_y_, angle = camera->heading_;
+        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (near_other_goals(this, pos, height)) {
             script::launch_script(0xAEBC7020, nullptr, entity_, false, nullptr);
         } else if (active_node_->place_point(pos, height, angle)) {

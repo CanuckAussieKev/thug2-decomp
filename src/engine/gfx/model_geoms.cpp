@@ -113,6 +113,7 @@ uint32_t texture_hash(void* texture) { return static_cast<online::FoldedGetters*
 // A colour channel (0-1) as a byte: x * 255 + 0.5, truncated (the original's x87 and _ftol).
 uint32_t color_byte(float value)
 {
+    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
     return static_cast<uint8_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0 + 0.5));
 }
 uint32_t rgba_from_hsv(float h, float s, float v)

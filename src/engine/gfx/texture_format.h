@@ -23,6 +23,7 @@ struct DictionaryHeader {
     int32_t count = 0;
 };
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct TextureHeader {
     uint32_t checksum = 0;
     uint32_t width = 0;
@@ -33,6 +34,7 @@ struct TextureHeader {
     uint32_t compression = 0;
     uint32_t palette_size = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 // False if cut short or the count is negative.
 bool read_dictionary_header(util::ByteReader& reader, DictionaryHeader* out);

@@ -208,6 +208,7 @@ void note_shader_source(void* shader, const char* source)
 
 void forget_shaders()
 {
+    // NOLINTNEXTLINE(bugprone-nondeterministic-pointer-iteration-order): each one released: order doesn't matter
     for (auto& entry : g_twins) {
         if (entry.second.tried && entry.second.shader && entry.second.shader != entry.first)
             static_cast<IDirect3DPixelShader9*>(entry.second.shader)->Release();

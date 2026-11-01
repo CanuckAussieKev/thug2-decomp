@@ -469,6 +469,7 @@ void check_byte_stream()
 
 // The stream start as the original built it: a struct on the stack, sent as its first 0x2D bytes, the piece and 3
 // bytes more (zeros: our sender clears the struct).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceStreamStart {
     char desc[32];
     int32_t total_size;
@@ -477,6 +478,7 @@ struct ReferenceStreamStart {
     uint8_t msg_id;
     uint8_t content[0x100];
 };
+// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceStreamStart) == 0x130 && offsetof(ReferenceStreamStart, content) == 0x2D,
               "the wire layout of the original's struct");
 
@@ -562,6 +564,7 @@ void check_wire_messages()
 
 // The scores message as the original built it (a packed struct, sent as its first (count + 2) * 5 bytes).
 #pragma pack(push, 1)
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceScores {
     uint32_t time_left;
     uint32_t cheats;
@@ -572,10 +575,12 @@ struct ReferenceScores {
         int32_t score;
     } entries[52];
 };
+// NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
 static_assert(sizeof(ReferenceScores) == 0x10E, "the wire layout of the original's struct");
 
 // The session messages as the original built them (structs on the stack, sent whole; padding zeroed here).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceSessionBrief {
     uint8_t crown_start_slot, not_lan, game_id, pro_option_bits, max_players, pad5[3];
     uint32_t time_left, game_type, level, teams, goals, team_graffiti_mode, time_limit, target_score;
@@ -583,8 +588,10 @@ struct ReferenceSessionBrief {
     uint32_t round;
     uint8_t variant, pad4d[3];
 };
+// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceSessionBrief) == 0x50 && offsetof(ReferenceSessionBrief, start_points) == 0x28 &&
               offsetof(ReferenceSessionBrief, variant) == 0x4C);
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceStartGame {
     uint32_t game_type, time_limit, target_score, fireball_level, unused10;
     int8_t stop_at_zero, reset_scores;
@@ -594,11 +601,13 @@ struct ReferenceStartGame {
     uint8_t unused25[3];
     uint32_t start_points[8];
 };
+// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceStartGame) == 0x48 && offsetof(ReferenceStartGame, stop_at_zero) == 0x14 &&
               offsetof(ReferenceStartGame, crown_start_slot) == 0x24 &&
               offsetof(ReferenceStartGame, start_points) == 0x28);
 
 #pragma pack(push, 1)
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceServerInfo {
     int8_t num_players, max_players, num_observers, max_observers;
     uint8_t password, in_game, host_mode, logged_in;
@@ -607,6 +616,7 @@ struct ReferenceServerInfo {
     uint32_t time;
     char players[8][16];
 };
+// NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
 static_assert(sizeof(ReferenceServerInfo) == 0xE0 && offsetof(ReferenceServerInfo, time) == 0x5C);
 

@@ -55,6 +55,7 @@ struct MessageHeader {
 };
 bool read_message_header(util::ByteReader& reader, MessageHeader* header);
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct StreamStart {
     char desc[kStreamDescSize + 1] = {}; // (terminated here; on the wire 32 bytes, possibly without a terminator)
     int32_t total_size = 0;
@@ -62,6 +63,7 @@ struct StreamStart {
     uint32_t checksum = 0;
     uint8_t msg_id = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 // The start message's fields; the reader is left at the first piece.
 bool read_stream_start(util::ByteReader& reader, StreamStart* start);
 // The start message: the fields, the first piece (`piece_size` <= kStreamPieceSize) and the trailer.

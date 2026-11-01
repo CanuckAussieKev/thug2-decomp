@@ -23,12 +23,15 @@ constexpr size_t kHeaderSize = 12;
 constexpr size_t kFileHeaderSize = 16;
 constexpr size_t kPatchHeaderSize = 8;
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ArchiveHeader {
     uint32_t total_size = 0;
     uint32_t version = 0;
     int32_t file_count = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct FileRecord {
     int32_t size = 0;
     int32_t compressed_size = 0; // 0: stored
@@ -41,6 +44,7 @@ struct FileRecord {
 
     uint32_t stored_size() const { return static_cast<uint32_t>(compressed_size ? compressed_size : size); }
 };
+// NOLINTEND(readability-identifier-naming)
 
 // The header; false if the archive is shorter or its count negative.
 bool read_archive_header(util::ByteReader& reader, ArchiveHeader* out);
@@ -48,10 +52,12 @@ bool read_archive_header(util::ByteReader& reader, ArchiveHeader* out);
 // negative or the name has no terminator within its size.
 bool read_file_record(util::ByteReader& reader, FileRecord* out);
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct PatchHeader {
     uint32_t patched_size = 0;
     uint32_t record_count = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 bool read_patch_header(util::ByteReader& reader, PatchHeader* out);
 // Apply a patch's records to `archive` (`capacity` bytes). False at the first record past the patch's end or past
 // the archive's capacity (the records before it applied).

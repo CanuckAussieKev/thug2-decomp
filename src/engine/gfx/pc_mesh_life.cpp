@@ -350,6 +350,7 @@ MeshRef::~MeshRef()
         dealloc(triangles);
     if (positions)
         dealloc(positions);
+    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(this, 0, sizeof(*this));
 }
 

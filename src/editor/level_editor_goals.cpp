@@ -246,9 +246,8 @@ std::string point_suffix(KindTag type, int index)
         return "start";
     if (index >= 2 && index < 7 && type == KindTag::kSkate) {
         std::string letter = kSkateLetters[index - 2];
-        return std::string(
-            1, static_cast<char>(letter[0] - 'A' +
-                                 'a')); // NOLINT(modernize-return-braced-init-list): {1, c} would be two characters
+        // NOLINTNEXTLINE(modernize-return-braced-init-list): {1, c} would be the two characters 1 and c
+        return std::string(1, static_cast<char>(letter[0] - 'A' + 'a'));
     }
     if (index >= 2 && index < 7 && type == KindTag::kCombo)
         return kComboSuffixes[index - 2];

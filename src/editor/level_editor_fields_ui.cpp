@@ -482,6 +482,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::ColorEdit3("##ambientcolour", colour, ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
+                // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                 props.ambient[i] = level_props::get_channel(static_cast<int>(colour[i] * 255.0f + 0.5f));
             send_props(requests, props, false);
         }
@@ -511,6 +512,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
                               ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB |
                                   ImGuiColorEditFlags_AlphaBar)) {
             for (int i = 0; i < 4; ++i)
+                // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                 props.fog[i] = level_props::get_channel(static_cast<int>(fog_colour[i] * 255.0f + 0.5f));
             changed = true;
         }

@@ -11,6 +11,7 @@ void* code_address(F f)
 {
     static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
     void* p;
+    // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken as an integer, on purpose
     std::memcpy(&p, &f, sizeof(p));
     return p;
 }

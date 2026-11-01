@@ -67,6 +67,7 @@ bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
 {
     char path[0x100];
     size_t length = std::strlen(name); // (unchecked, as the original)
+    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(path, name, length);
     std::memcpy(path + length, ".img.xbx", 9);
     image_ = read_texture_file(path);

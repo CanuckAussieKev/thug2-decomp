@@ -1,5 +1,6 @@
 // The viewer module, 0x00576CB0-0x00577F20. See model_viewer.h.
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr: what the game uses
 #include <memory>
 #include <winsock2.h>
@@ -537,6 +538,7 @@ Viewer::Viewer()
     shift_makes_ = 0;
     if (!debug_checks()) {
         net::Hub* net = net::Hub::sole();
+        // NOLINTNEXTLINE(bugprone-unused-return-value): the original's call; its result unused, as there
         static_cast<void>(inet_addr(net->fetch_own_address())); // (unused)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
         int address = static_cast<int>(inet_addr(net->fetch_own_address()));

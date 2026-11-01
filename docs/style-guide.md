@@ -61,6 +61,31 @@ src/
 - Where a rule can't be kept (for example a layout a file format fixes), the code says so with a
   `// NOLINT(<check>)` naming the rule and a reason; the list of such places is kept short.
 
+## Exceptions
+
+`.clang-tidy` enables the Guidelines' checks (`cppcoreguidelines-*`) with `bugprone-*`, `misc-*`, `modernize-*`,
+`performance-*` and the naming check, and switches off by name, each with its reason, the ones that conflict with
+what the code is: a decompilation that keeps the original's data layouts, constants, formatting and pointer-walking
+loops (magic numbers, pointer arithmetic, `reinterpret_cast` views, C arrays in layouts, non-const globals, printf
+formatting, trailing return types and a few more). Everything else runs with zero warnings; the places that can't
+keep a check carry a `NOLINT` with their reason:
+
+- **Plain records** of file and network formats (`*_format.h`, the message structs, the format checks' own records)
+  name their fields as plain data, without the member suffix (`NOLINTBEGIN(readability-identifier-naming)` around
+  each record).
+- **Outside names**: forward declarations of SDL, Win32 and Winsock types, the GameSpy SDK's globals, Winsock's
+  `_WINSOCK_DEPRECATED_NO_WARNINGS`; `memory::owner` is named as the Guidelines' `gsl::owner` it stands for.
+- **The original's behaviour, kept as written**: integer divisions where it divides integers, bitwise compares of
+  floats (`memcmp`), repeated branches, assignments and increments inside conditions, switches that ignore other
+  values, its random seed and `rand()`.
+- **The scene's collider arrays** (`StaticCollider[n]`): indexed as arrays of exactly that type.
+- **COM interfaces** (forward-declared Direct3D types): released, never deleted, so no virtual destructor.
+- **The C runtime's allocator** where a library or the original's file reader wants `malloc` / `free`.
+- **Macros**: libraries' configuration macros (`DIRECTINPUT_VERSION`) and `src/platform/compiler.h`, the one place
+  for compiler specifics.
+- Checks still being worked through are listed as such in `.clang-tidy` (narrowing conversions, member and variable
+  initialisation, the rule of five, the script values' unions, plain enums, internal linkage, `const_cast`).
+
 ## Tools
 
 ```

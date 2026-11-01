@@ -102,6 +102,7 @@ Glyph glyph_of(const std::string& token)
 namespace {
 
 struct Builder {
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
     const KeyText& key_of_;
     std::vector<Hint> out;
     void get_raw(const std::string& keys, const std::string& what)

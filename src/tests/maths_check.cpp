@@ -19,6 +19,7 @@
 
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <cfloat>
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define THUG2_X87_REFERENCE 1
 #endif
 
@@ -906,7 +907,9 @@ void skin_memory(const fresh::Skin& v, float* out)
 {
     float e0_0 = v.e0[0], e0_4 = v.e0[1], e0_8 = v.e0[2], e1_0 = v.e1[0], e1_4 = v.e1[1], e1_8 = v.e1[2];
     float e2_0 = v.e2[0], e2_4 = v.e2[1], e2_8 = v.e2[2];
+    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
     float ax_ = v.a[0], ay = v.a[1], az = v.a[2], bx_ = v.b[0], by = v.b[1], bz = v.b[2];
+    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
     float cx_ = v.c[0], cy = v.c[1], cz = v.c[2];
     float px = v.p[0], py = v.p[1], pz = v.p[2], qx = v.q[0], qy = v.q[1], qz = v.q[2];
     float rx = v.r[0], ry = v.r[1], rz = v.r[2];
@@ -1022,7 +1025,9 @@ void skin_file(const fresh::Skin& v, float* out)
     float e0_0 = v.e0[0], e0_4 = v.e0[1], e0_8 = v.e0[2], e0_c = v.e0[3], e1_0 = v.e1[0], e1_4 = v.e1[1],
           e1_8 = v.e1[2], e1_c = v.e1[3];
     float e2_0 = v.e2[0], e2_4 = v.e2[1], e2_8 = v.e2[2], e2_c = v.e2[3];
+    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
     float ax_ = v.a[0], ay = v.a[1], az = v.a[2], aw = v.a[3], bx_ = v.b[0], by = v.b[1], bz = v.b[2], bw = v.b[3];
+    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
     float cx_ = v.c[0], cy = v.c[1], cz = v.c[2], cw = v.c[3];
     float px = v.p[0], py = v.p[1], pz = v.p[2], pw = v.p[3], qx = v.q[0], qy = v.q[1], qz = v.q[2], qw = v.q[3];
     float rx = v.r[0], ry = v.r[1], rz = v.r[2], rw = v.r[3];
@@ -1189,6 +1194,7 @@ uint64_t ulps(float a, float b)
     return static_cast<uint64_t>(ia > ib ? static_cast<int64_t>(ia) - ib : static_cast<int64_t>(ib) - ia);
 }
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Tally {
     const char* name;
     const char* unit; // "d" double ulps, "f" float ulps, "b" disagreeing booleans, "u" differing integers
@@ -1215,6 +1221,7 @@ struct Tally {
                     static_cast<unsigned long long>(max_ulps), max_abs, worst_input);
     }
 };
+// NOLINTEND(readability-identifier-naming)
 
 template <typename T>
 void compare(Tally& tally, T fresh_value, T ref_value, double input)
@@ -1435,6 +1442,7 @@ int main(int argc, char** argv)
 {
 #ifdef THUG2_X87_REFERENCE
     const int count = argc > 1 ? std::atoi(argv[1]) : 200000;
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): the original's seed / a test's fixed sequence
     std::mt19937_64 random(20261101);
     std::printf("x87 at 53 bits (the default control word)\n");
     run(count, random);

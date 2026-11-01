@@ -1555,6 +1555,7 @@ bool underway() { return g_running; }
 int preview_pixels()
 {
     float scale = g_scale > 0.0f ? g_scale : 1.0f;
+    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
     return std::clamp(static_cast<int>(256.0f * scale + 0.5f), 256, 512);
 }
 

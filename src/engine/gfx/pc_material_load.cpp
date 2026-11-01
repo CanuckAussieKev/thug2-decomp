@@ -69,8 +69,11 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         m->pass_flags_[pass] = in.flags;
         std::memcpy(m->pass_color_[pass], in.color, sizeof(in.color));
         const uint32_t half = 0x3F000000;
+        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         if (all_half && (std::memcmp(&m->pass_color_[pass][0], &half, 4) != 0 ||
+                         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
                          std::memcmp(&m->pass_color_[pass][1], &half, 4) != 0 ||
+                         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
                          std::memcmp(&m->pass_color_[pass][2], &half, 4) != 0))
             all_half = false;
         m->blend_modes_[pass] = (in.blend_mode & 0xFFFFFF) | in.fixed_alpha << 24;

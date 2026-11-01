@@ -1,6 +1,7 @@
 // The GameSpy lobby's script commands: NAT negotiation started / cancelled, leaving the lobby, a cancelled connect,
 // the quiet mode, whether this player may host (0x005403E0-0x00540750). See gamenet_lobby.h.
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // (inet_addr: the original's own call)
 #include <winsock2.h>
 

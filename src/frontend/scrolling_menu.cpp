@@ -75,6 +75,7 @@ void WindowedList::find_menu()
         child.assign_value(eldest_.owner_object_);
         while (child) {
             if (child->kind_tag_ == v_menu_type() && vertical_)
+                // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
                 menu_ = child.owner_object_;
             else if (child->kind_tag_ == h_menu_type() && !vertical_)
                 menu_ = child.owner_object_;
@@ -221,6 +222,7 @@ void WindowedList::tick_frame()
         // keep the selection in the middle of the shown items when it can be
         int half = num_items_to_show_ / 2;
         if (index >= half)
+            // NOLINTNEXTLINE(bugprone-integer-division): as the original
             before = static_cast<float>(static_cast<double>((num_items_to_show_ - 1) / 2) * regular_space_);
         if (index < count - half)
             after = static_cast<float>(static_cast<double>(half) * regular_space_);

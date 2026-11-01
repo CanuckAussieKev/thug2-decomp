@@ -230,6 +230,7 @@ private:
         return get_fail("an unexpected character");
     }
 
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
     const std::string& text_;
     size_t look_at_ = 0;
     std::string fault_;

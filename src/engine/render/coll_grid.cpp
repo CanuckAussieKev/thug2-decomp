@@ -209,9 +209,11 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
     };
     // how many each cell gets
     for (int i = 0; i < count; ++i) {
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         if (statics[i].geometry_->tri_count_ == 0)
             continue;
         int x0, x1, z0, z1;
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         cells_of(&statics[i], x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
@@ -230,12 +232,15 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
     std::memset(filled, 0, kSize * kSize * sizeof(int));
     memory::leave_heap_scope();
     for (int i = 0; i < count; ++i) {
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         if (statics[i].geometry_->tri_count_ == 0)
             continue;
         int x0, x1, z0, z1;
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         cells_of(&statics[i], x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
+                // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
                 cells_[x][z].objects[filled[x * kSize + z]++] = &statics[i];
         }
     }
@@ -289,6 +294,7 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
             if (cell.count != 0) {
                 uint32_t size = static_cast<uint32_t>(cell.count) * 4;
                 cell.objects = static_cast<HitMesh**>(memory::alloc_block(size));
+                // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken as an integer, on purpose
                 std::memcpy(cell.objects, old, size);
             } else {
                 cell.objects = nullptr;

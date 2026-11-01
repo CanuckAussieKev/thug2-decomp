@@ -128,6 +128,7 @@ struct PoolInfo {
     const char* name;
     const char* where;
 };
+// NOLINTNEXTLINE(cppcoreguidelines-interfaces-global-init): the table holds functions, called after start-up
 const PoolInfo kPools[] = {
     {[]() -> memory::PoolPair& { return script::g_struct_pools; }, "Script structures (CStruct)",
      "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},

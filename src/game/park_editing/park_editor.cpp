@@ -316,6 +316,7 @@ void ParkBuilderMode::Listener::receive(objects::Signal* event)
     if (editor->cur_phase_ != kStateEdit || !have_cursor() || (editor->flag_bits_ & kFlagPaused) ||
         event->aim_point_ != kRootWindow)
         return;
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (event->kind_tag_) {
     case kPadUp:
         editor->actions_ |= kCommandPreviousSet;

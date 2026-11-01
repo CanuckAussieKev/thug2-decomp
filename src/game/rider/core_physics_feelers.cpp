@@ -118,6 +118,7 @@ bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
     hit_wall_ = 0;
     hit_vert_ = (flags & kFaceVert) ? 1 : 0;
     bool skatable;
+    // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
     if (flags & kFaceSkatable) {
         skatable = true;
     } else if (flags & kFaceNotSkatable) {

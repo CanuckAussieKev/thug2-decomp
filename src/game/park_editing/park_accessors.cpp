@@ -86,6 +86,7 @@ void ParkLayout::set_park_name(const char* name)
 void ParkLayout::rebuild_park_geometry(int how)
 {
     // ParkAssembler's three updates
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (how) {
     case 0:
         builder_->clean_up_out_refs(); // take out the removed pieces

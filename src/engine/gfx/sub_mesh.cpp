@@ -191,6 +191,7 @@ MeshRef* MeshRef::replicate(bool share)
 {
     void* memory = memory::alloc(sizeof(MeshRef));
     auto* copy = memory ? new (memory) MeshRef : nullptr; // (constructor)
+    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memcpy(copy, this, sizeof(MeshRef));
     if (share) {
         copy->flags |= 1;

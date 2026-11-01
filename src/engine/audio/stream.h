@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Win32's own name
 struct _OVERLAPPED;
 
 namespace render {

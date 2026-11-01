@@ -84,15 +84,18 @@ Value take(Stream& in)
 
 // --- materials ---
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ColorAnimTrack {
     uint32_t key_count = 0;
     int phase = 0;
     std::vector<uint8_t> keys; // key_count keys of kColorKeySize bytes
 };
+// NOLINTEND(readability-identifier-naming)
 struct TextureFrame {
     int time = 0;
     uint32_t texture = 0; // checksum
 };
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct MaterialPass {
     uint32_t texture = 0; // checksum (with a texture animation, its first key's; 0: none)
     uint32_t flags = 0;
@@ -109,6 +112,8 @@ struct MaterialPass {
     std::vector<TextureFrame> texture_keys;
     float mip_lod_bias = 0.0f; // with a texture
 };
+// NOLINTEND(readability-identifier-naming)
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Material {
     uint32_t checksum = 0, name_hash = 0, pass_count = 0, alpha_ref = 0;
     uint8_t sort_flag = 0;
@@ -122,6 +127,7 @@ struct Material {
     MaterialPass passes[kMaxPasses];
     std::vector<ColorAnimTrack> color_anims; // pass 0's, with kPassColorAnims
 };
+// NOLINTEND(readability-identifier-naming)
 
 // False if cut short, or more than kMaxPasses passes.
 template <typename Stream>
@@ -202,6 +208,7 @@ bool read_material(Stream& in, Material* m)
 
 // --- sectors ---
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Sector {
     uint32_t checksum = 0, light_group = 0, flags = 0, mesh_count = 0;
     float box[6] = {};
@@ -209,13 +216,16 @@ struct Sector {
     uint32_t billboard_type = 0; // with kBillboard
     float billboard_unused[3] = {}, pivot[3] = {}, axis[3] = {};
 };
+// NOLINTEND(readability-identifier-naming)
 // A sector's mesh's own fields (before its body).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SectorMesh {
     float centre[3] = {};
     float radius = 0.0f;
     float min[3] = {}, max[3] = {};
     uint32_t flags = 0, material = 0, index_lists = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 // False if cut short (or the meshes, at least their fields each, can't be there).
 template <typename Stream>
@@ -260,6 +270,7 @@ bool read_sector_mesh(Stream& in, SectorMesh* mesh)
 
 // --- mesh bodies ---
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct MeshBody {
     uint16_t index_counts[kIndexBuffers] = {};
     std::vector<uint16_t> indices[kIndexBuffers];
@@ -276,6 +287,7 @@ struct MeshBody {
     std::vector<uint32_t> levels; // when level_count > 1
     uint32_t shader = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 // False if cut short, more than kMaxVertexBuffers buffers, or the scaled positions don't fit their buffer (each a
 // stride apart, 12 bytes written).
@@ -372,10 +384,12 @@ inline bool offsets_fit(const MeshBody& body)
 
 // --- skins (.cas) ---
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Skin {
     uint32_t version = 0, bone_count = 0, break_count = 0;
     std::vector<uint8_t> breaks; // break_count records of kStripBreakSize bytes
 };
+// NOLINTEND(readability-identifier-naming)
 
 template <typename Stream>
 bool read_skin(Stream& in, Skin* skin)
@@ -394,10 +408,12 @@ bool read_skin(Stream& in, Skin* skin)
 
 // --- a whole scene (the format check's walk; the loaders build as they read) ---
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SceneCounts {
     uint32_t materials = 0, sectors = 0, meshes = 0, hierarchy = 0;
     uint64_t indices = 0, vertex_bytes = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 template <typename Stream>
 bool walk_scene(Stream& in, SceneCounts* counts)

@@ -161,6 +161,7 @@ void BodyDynamicsModule::apply_springs()
 void BodyDynamicsModule::debug_draw()
 {
     uint32_t colour = 0;
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (cur_phase_) {
     case kStateAsleep:
         colour = 0xFFC80000;

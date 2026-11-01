@@ -318,6 +318,7 @@ bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
     for (int i = 1; i < stream->queue_count_; ++i)
         stream->queue[i - 1] = stream->queue[i];
     int count = --stream->queue_count_;
+    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
     if (stream->queue_position_ >= 0 && --stream->queue_position_ < 0) {
         stream->queue_position_ = count - 1;
         if (stream->priority >= 0)

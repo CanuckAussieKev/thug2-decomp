@@ -147,6 +147,7 @@ void set_letterbox(bool letterbox)
         auto height = static_cast<uint32_t>(vert_screen_ratio() * 480.0f);
         screen_offset_x() = 0;
         screen_offset_y() = static_cast<uint32_t>(16.0f * vert_screen_ratio() +
+                                                  // NOLINTNEXTLINE(bugprone-integer-division): as the original
                                                   static_cast<float>((get_back_buffer_height() - height) / 2));
     }
     cinema_bars_on() = letterbox;

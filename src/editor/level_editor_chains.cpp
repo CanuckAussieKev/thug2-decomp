@@ -684,6 +684,7 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
                                       {kHalf, 0.0f, -kHalf}, {0.0f, 0.0f, -1.0f},  {-kHalf, 0.0f, -kHalf},
                                       {-1.0f, 0.0f, 0.0f},   {-kHalf, 0.0f, kHalf}};
     for (const V3& dir : kDirections) {
+        // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
         for (float t = kStep; t <= reach; t += kStep) {
             V3 probe = hit + dir * t;
             float ground = 0.0f;

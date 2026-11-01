@@ -698,6 +698,7 @@ bool load_wave(const char* path, uint32_t /*checksum*/, PcWave** slot, int load_
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
     char* file_name = g_wave_file_name;
     size_t length = std::strlen(path);
+    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(file_name + 12, path, length);
     std::memcpy(file_name + 12 + length, ".snd", 5);
     auto* wave = static_cast<PcWave*>(memory::alloc(sizeof(PcWave)));

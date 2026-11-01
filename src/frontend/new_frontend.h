@@ -2,6 +2,7 @@
 
 #include <string>
 
+// NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 union SDL_Event;
 namespace modules {
 struct FrontEnd;

@@ -23,6 +23,7 @@ namespace collision_format {
 constexpr size_t kHeaderSize = 0x20;
 constexpr size_t kObjectSize = 0x40;
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct CollisionHeader {
     uint32_t version = 0;
     int32_t object_count = 0;
@@ -33,10 +34,12 @@ struct CollisionHeader {
     uint32_t packed_vertex_count = 0;
     uint32_t unknown1c = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 bool read_collision_header(util::ByteReader& reader, CollisionHeader* out);
 
 // The sections' addresses in the file as loaded at `base` (each aligned as the game aligns them).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct CollisionLayout {
     uintptr_t objects = 0;
     uintptr_t vertices = 0;
@@ -48,6 +51,7 @@ struct CollisionLayout {
     uintptr_t face_lists = 0;
     uintptr_t end = 0; // the file's end
 };
+// NOLINTEND(readability-identifier-naming)
 
 // The header read and the sections laid out from `base`. `size`: the file's bytes, or 0 /
 // util::ByteReader::kUnknownSize when not known (then nothing past the header is checked). False if the header or a

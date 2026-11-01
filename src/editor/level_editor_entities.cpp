@@ -1093,11 +1093,14 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         o.from = origin ? origin->pos : pos;
         o.from_yaw_ = origin ? origin->angles.y : angles.y;
         script::VectorValue v;
+        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
         if ((o.emitter.has_mid_ = node->fetch_vec(kMid, &v, 0)))
             o.emitter.mid = {v.x, v.y, v.z};
+        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
         if ((o.emitter.has_end_ = node->fetch_vec(kEnd, &v, 0)))
             o.emitter.end = {v.x, v.y, v.z};
         for (int i = 0; i < 3; ++i) {
+            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
             if ((o.emitter.has_box_[i] = node->fetch_vec(kBoxes[i], &v, 0)))
                 o.emitter.box[i] = {v.x, v.y, v.z};
         }

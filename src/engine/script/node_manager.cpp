@@ -117,6 +117,7 @@ struct Walk {
             small = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
     }
     bool big;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
     NodeSlot& small;
 };
 

@@ -23,12 +23,14 @@ constexpr size_t kPaletteSize = 0x400;
 constexpr int kMaxGlyphs = 256;      // the glyph indexes are bytes (and the original's buffer held 256 rectangles)
 constexpr int kSpecialGlyphs = 0x20; // the special map's entries
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Header {
     uint8_t format = 0;
     int glyph_count = 0;
     uint32_t height = 0;
     uint32_t base = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 struct GlyphEntry {
     uint16_t baseline = 0;
@@ -36,10 +38,12 @@ struct GlyphEntry {
     int16_t code() const { return static_cast<int16_t>(codes[0] | codes[1] << 8); }
 };
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Page {
     uint32_t width = 0, height = 0;
     uint32_t hd_mark = 0, hd_scale = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 struct GlyphRect {
     uint16_t x = 0, y = 0, w = 0, h = 0;

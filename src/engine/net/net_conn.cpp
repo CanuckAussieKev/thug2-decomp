@@ -153,6 +153,7 @@ bool Conn::is_off_machine() { return (flag_bits_ & kFlagRemote) != 0; }
 void Conn::set_link_speed_class(int type)
 {
     link_class_ = type;
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (type) {
     case kBandwidthBroadband:
         link_speed_ = kBroadbandBandwidth;

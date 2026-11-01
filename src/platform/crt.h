@@ -24,7 +24,9 @@ const char* get_inet_ntoa(uint32_t address); // inet_ntoa (the address in networ
 void* get_host_by_name(const char* name);    // gethostbyname (a hostent*)
 
 // --- The C runtime: its heap, files and exit ---
+// NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
 inline void* alloc_block(size_t size) { return std::malloc(size); }
+// NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
 inline void dealloc(void* memory) { std::free(memory); }
 THUG2_MSVC_WARNING(suppress : 4996) // (std::fopen: MSVC calls it unsafe)
 inline FILE* get_fopen(const char* path, const char* mode) { return std::fopen(path, mode); }

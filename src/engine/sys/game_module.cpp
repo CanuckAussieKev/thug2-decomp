@@ -111,6 +111,7 @@ void Hub::tick_modules(tasks::Task<Hub>* task)
     PartUnit* next = search.head_element(&manager->modules_);
     while (PartUnit* module = next) {
         next = search.following_item();
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (module->cur_phase_) {
         case PartUnit::kStopped:
             if (module->queued_op_ == PartUnit::kStart || module->queued_op_ == PartUnit::kRestart) {

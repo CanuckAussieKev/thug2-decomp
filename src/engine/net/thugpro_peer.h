@@ -27,6 +27,7 @@ struct InboundMsgCtx;
 } // namespace net
 
 namespace online {
+// NOLINTNEXTLINE(bugprone-forward-declaration-namespace): online::Hub, defined with the online code
 class Hub;
 }
 

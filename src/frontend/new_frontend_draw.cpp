@@ -41,6 +41,7 @@ uint32_t get_mix(uint32_t a, uint32_t b, float t)
     uint32_t out = 0;
     for (int shift = 0; shift < 32; shift += 8) {
         auto x = static_cast<float>((a >> shift) & 0xFF), y = static_cast<float>((b >> shift) & 0xFF);
+        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
         out |= static_cast<uint32_t>(x + (y - x) * t + 0.5f) << shift;
     }
     return out;
@@ -390,8 +391,11 @@ std::string pad2(int n)
 
 struct Ctx {
     ImDrawList* dl;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
     const TickCycle& f;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
     const Menu& menu;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
     const Extras& extras;
     std::vector<Hit>* hits;
     void get_hit(Hit::Kind kind, int index, float x0, float y0, float x1, float y1)
@@ -1278,7 +1282,9 @@ ImU32 skater_col(float hue, float sat, float val)
 {
     float rgb[3];
     mirror::skater_colour(hue, sat, val, rgb);
+    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
     return IM_COL32(static_cast<int>(rgb[0] * 255.0f + 0.5f), static_cast<int>(rgb[1] * 255.0f + 0.5f),
+                    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                     static_cast<int>(rgb[2] * 255.0f + 0.5f), 255);
 }
 
@@ -1407,7 +1413,9 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         Style d = mono12(kMuted, false);
         d.css = 12.0f;
         char numbers[48];
+        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
         std::snprintf(numbers, sizeof(numbers), "H %d  S %d  V %d", static_cast<int>(v.hue + 0.5f),
+                      // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                       static_cast<int>(v.sat + 0.5f), static_cast<int>(v.val + 0.5f));
         draw_text(c.dl, d, c.f, c.f.get_x(left + 76.0f), datum(d, c.f, c.f.get_y(swatch_top + 8.0f), 1.3f), numbers);
         bottom = swatch_top - 12.0f;

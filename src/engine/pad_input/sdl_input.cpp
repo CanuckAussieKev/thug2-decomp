@@ -718,6 +718,7 @@ void key_pressed(SDL_Keycode key)
     }
     int typed;
     if (key == SDLK_RETURN)
+        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         typed = '\r';
     else if (key == SDLK_BACKSPACE)
         typed = '\b';

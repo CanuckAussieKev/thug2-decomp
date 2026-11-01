@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
 struct IDirect3DSurface9;
 
 namespace d3dx {

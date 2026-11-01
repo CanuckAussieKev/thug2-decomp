@@ -236,6 +236,7 @@ void PcParticleSystem::initialise()
 
     void* memory = memory::alloc(sizeof(MaterialRef));
     material = memory ? construct_material(memory) : nullptr;
+    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(material, 0, sizeof(MaterialRef));
     material->pass_flags_[0] = 0x44; // (its flags)
     material->pass_count_ = 1;       // (a pass)

@@ -248,6 +248,7 @@ void Hub::get_main_loop()
         // A frame more than half a frame late isn't drawn - but never more than four in a row, and never while
         // the window is inactive.
         bool active = app_active();
+        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (skipped_in_a_row() >= 4 && active) {
             skipped_in_a_row() = 0;
         } else if (elapsed < frame_ticks + (frame_ticks >> 1) && active) {

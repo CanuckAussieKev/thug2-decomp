@@ -143,6 +143,7 @@ void Script::parse_function_params()
 uint32_t Script::read_name()
 {
     uint32_t name = 0;
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (*pc_) {
     case 0x16:
         ++pc_;
@@ -181,6 +182,7 @@ uint32_t Script::read_name()
 // The arguments are parsed into stmt_args_ (they may refer to args_).
 bool Script::execute_command()
 {
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (*pc_) {
     case 0x44: {
         ++pc_;

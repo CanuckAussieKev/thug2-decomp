@@ -507,6 +507,7 @@ void FootMovement::tick_frame()
     update_camera_override();
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_focus_button();
     int& countdown = unknown710_;
+    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
     if (countdown > 0 && --countdown == 0)
         locked_to_heading_ = false;
 }
@@ -945,6 +946,7 @@ void FootMovement::get_jump()
     // How high: on the ground or in the air by how long jump has been held (from min_jump_factor up to 1 at
     // hold_time_for_max_jump); off a hang or a ladder hang_jump_factor.
     float factor = 0.0f;
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (state_) {
     case 0:
     case 1: {
@@ -972,6 +974,7 @@ void FootMovement::get_jump()
 
     maths::Vec4& heading = leap_heading_;
     const maths::Vec4& facing = facing_;
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (state_) {
     case 0:
     case 1: {

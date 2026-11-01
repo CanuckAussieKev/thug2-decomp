@@ -509,6 +509,7 @@ void SkaterPhysicsModule::do_air_physics()
         objects::GameEntity* object = object_of(this);
         if (rider) {
             if (*rider == 0)
+                // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
                 stop_riding(ride);
             else if (!reinterpret_cast<objects::RideTracker*>(rider)->tick_frame(&object->at_point_))
                 stop_riding(ride);

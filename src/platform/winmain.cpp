@@ -1,6 +1,7 @@
 // The program's entry point and its command line.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname: what the game uses
 #include "platform/winmain.h"
 #include "engine/net/gamespy.h"
@@ -136,6 +137,7 @@ bool g_app_active;
 // 0x004E16B0
 LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (message) {
     case WM_DESTROY:
     case WM_CLOSE:

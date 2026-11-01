@@ -10,6 +10,7 @@
 namespace memory {
 
 template <typename Pointer>
+// NOLINTNEXTLINE(readability-identifier-naming): named as the Guidelines' gsl::owner it stands for
 using owner = Pointer;
 
 } // namespace memory

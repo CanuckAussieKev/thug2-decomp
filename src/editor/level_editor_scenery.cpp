@@ -159,6 +159,7 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
     uint32_t colour = 0;
     for (int shift = 0; shift < 32; shift += 8) {
         double a = (low >> shift) & 0xFF, b = (high >> shift) & 0xFF;
+        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
         colour |= static_cast<uint32_t>(a + (b - a) * mix + 0.5) << shift;
     }
     return colour;

@@ -177,6 +177,7 @@ void HostEnd::poll_input_sinks()
     int type = control[1] >> 4;
     uint32_t buttons = ((control[2] << 8) | control[3]) ^ 0xFFFF; // (the bits are 0 when down)
     set_buttons(content_, buttons | (static_cast<uint32_t>(control[0x14]) << 16));
+    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (type) {
     case 4: // digital
         content_.digital_as_stick();

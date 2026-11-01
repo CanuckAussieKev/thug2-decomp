@@ -500,6 +500,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                 if (gap_key_combo(gap) &&
                     gap_trick_count(gap) < key_combo_count(points_held_, gap_key_combo(gap), gap_spin(gap),
                                                            gap_perfect(gap), gap_taps(gap)))
+                    // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
                     done = true;
                 else if (gap_trick_text(gap) &&
                          gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),

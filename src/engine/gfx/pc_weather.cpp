@@ -120,6 +120,7 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
     int frames = rain_on_ ? rain_frames_ : snow_frames_;
     float rate = rain_on_ ? rain_rate_ : snow_rate_;
     float& due = rain_on_ ? rain_due_ : snow_due_;
+    // NOLINTNEXTLINE(bugprone-integer-division): as the original
     auto most = static_cast<float>(0x400 / frames); // (no more than the slots free up)
     double amount = rate > most ? most : rate;
     float before = due;

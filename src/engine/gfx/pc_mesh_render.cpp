@@ -167,6 +167,7 @@ void MeshRef::render()
         vb->lock_offset_ = 0;
         vb->lock_flags_ = D3DLOCK_DISCARD;
         static_cast<IDirect3DVertexBuffer9*>(vb->buffer)->Lock(0, 0, reinterpret_cast<void**>(&out), D3DLOCK_DISCARD);
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (unknowna8_) {
         case 1:
             skin_one_bone(out);

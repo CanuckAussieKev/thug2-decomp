@@ -194,6 +194,7 @@ void DormancyModule::refresh_shown_state()
     bool visible = false;
     if (!(entity_->object_flags_ & kEntityHiddenBit)) {
         uint8_t* model = model_of(mesh_instance_);
+        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (reinterpret_cast<const uint32_t*>(lod_distances_)[2] == kNoLodBits[2]) {
             visible = true;
         } else if (modules::g_viewport_count > 1) {

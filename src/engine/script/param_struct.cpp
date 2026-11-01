@@ -359,6 +359,7 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
         if (component->name == name) {
             if (component->kind_tag() == kQbvalName) {
                 SymbolTableEntry* symbol = nullptr;
+                // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
                 if (name != 0 || !(symbol = resolve_symbol(component->checksum)) || symbol->type != kQbvalStruct) {
                     *out = component->checksum;
                     found = true;
@@ -1631,6 +1632,7 @@ bool components_equal(Component* a, Component* b)
         auto* vb = reinterpret_cast<const Vector*>(value_b);
         return va->x == vb->x && va->y == vb->y && va->z == vb->z;
     }
+    // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
     case kQbvalScriptBody:
     case kQbvalName:
         return type_b == type_a && value_a == value_b;

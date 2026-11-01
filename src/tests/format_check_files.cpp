@@ -61,6 +61,7 @@ std::string lower(std::string text)
 
 // The original's walk of an archive in place (ArchiveFile's constructor before stage 5): the count at +8, the first
 // file at +12, each next one past its 16-byte header, its name and its data padded to 4.
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceRow {
     int size;
     int compressed_size;
@@ -68,8 +69,10 @@ struct ReferenceRow {
     uint16_t use_count;
     uint32_t checksum;
 };
+// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceRow) == 16);
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct WalkedFile {
     size_t offset;
     int size;
@@ -77,6 +80,7 @@ struct WalkedFile {
     uint32_t checksum;
     std::string name;
 };
+// NOLINTEND(readability-identifier-naming)
 
 std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
 {
@@ -358,9 +362,11 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
 
 // --- images (.img) -------------------------------------------------------------------------------------------------
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ImageStats {
     int files = 0, file_size_as_loaded = 0, memory_size_as_loaded = 0, palettized = 0, plain = 0;
 } g_images;
+// NOLINTEND(readability-identifier-naming)
 
 void check_image(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -372,11 +378,13 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
     }
     ++g_images.files;
     // the original's struct copied in place
+    // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
     struct ReferenceHeader {
         uint32_t id, unknown4, width, height, format, unknown14;
         uint16_t image_width, image_height;
         uint32_t palette_size;
     } reference;
+    // NOLINTEND(readability-identifier-naming)
     static_assert(sizeof(ReferenceHeader) == image_format::kHeaderSize);
     std::memcpy(&reference, data, sizeof(reference));
     check(reference.id == header.id && reference.width == header.width && reference.height == header.height &&
@@ -472,7 +480,9 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
         same = words[3 + i] == skeleton->names[i] && words[3 + count + i] == skeleton->parents[i] &&
                words[3 + 2 * count + i] == skeleton->mirrors[i];
         const auto* bind = reinterpret_cast<const float*>(words + 3 + 3 * count) + i * 8;
+        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         same = same && std::memcmp(bind, skeleton->poses[i].rotation, 16) == 0 &&
+               // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
                std::memcmp(bind + 4, skeleton->poses[i].translation, 16) == 0;
     }
     check(same, name + ": as read in place");
@@ -491,17 +501,21 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
 
 // --- scenes, models, skinned models (.scn / .mdl / .skin) and skins (.cas) ----------------------------------------
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SceneStats {
     int files = 0, materials = 0, sectors = 0, meshes = 0, skinned_meshes = 0, trailing = 0, skins = 0, breaks = 0;
 } g_scenes;
+// NOLINTEND(readability-identifier-naming)
 
 // The original's reading in place (the old loaders' pointer arithmetic, from memory): where the scene ends and what
 // it counted. False if the walk ran past `limit` (the copy is padded past the file).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceScene {
     size_t end = 0;
     uint32_t materials = 0, sectors = 0, meshes = 0, hierarchy = 0;
     uint64_t indices = 0, vertex_bytes = 0;
 };
+// NOLINTEND(readability-identifier-naming)
 
 bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
 {
@@ -707,9 +721,11 @@ void check_skin(const std::string& name, const uint8_t* data, size_t size)
 
 // --- fonts (.fnt) -------------------------------------------------------------------------------------------------
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct FontStats {
     int files = 0, glyphs = 0, specials = 0, specials_past_map = 0, hd_pages = 0;
 } g_fonts;
+// NOLINTEND(readability-identifier-naming)
 
 void check_font(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -764,10 +780,12 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
 
 // --- sound effects (.snd) -----------------------------------------------------------------------------------------
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct WaveStats {
     int files = 0, looping = 0, short_data = 0, long_format = 0;
     std::map<uint32_t, int> format_sizes;
 } g_waves;
+// NOLINTEND(readability-identifier-naming)
 
 void check_wave(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -817,9 +835,11 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
 
 // --- animations (.ska) ---------------------------------------------------------------------------------------------
 
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimStats {
     int files = 0, float_keys = 0, compressed = 0, custom_keys = 0, neither = 0;
 } g_anims;
+// NOLINTEND(readability-identifier-naming)
 
 uint8_t* reference_aligned(uint8_t* p)
 {

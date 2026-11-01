@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
 struct IDirect3DDevice9;
 
 namespace render {

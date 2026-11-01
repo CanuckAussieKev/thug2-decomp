@@ -99,6 +99,7 @@ void WorldScene::print_coll_statics()
 }
 
 // 0x0049C9F0
+// NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
 StaticCollider* WorldScene::fetch_static_collision(int index) { return &coll_statics_[index]; }
 
 // 0x0049CA10
@@ -185,6 +186,7 @@ bool WorldScene::load_collision_data(const uint8_t* data, size_t size, int* coun
                            static_cast<uint32_t>(vertex_bytes), static_cast<uint32_t>(faces),
                            static_cast<uint32_t>(nodes), static_cast<uint32_t>(face_lists));
         geometry->set_up_all_faces();
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         StaticCollider* object = &(*statics)[i];
         object->assign_shape_data(geometry);
         buffer = reinterpret_cast<uintptr_t>(object->take_buffer(reinterpret_cast<uint8_t*>(buffer), geometry));

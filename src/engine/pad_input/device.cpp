@@ -5,6 +5,7 @@
 #include "game/goals/objective.h"
 #include "engine/net/buddy_status.h"
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define DIRECTINPUT_VERSION 0x0800
 #include <memory>
 #include <windows.h>
@@ -76,6 +77,7 @@ InputPort::InputPort(int index, int port, int slot)
     align_data_[1] = 1;
     std::memset(control_data_, 0, sizeof(control_data_));
     octets_ = (buffer_raw_ + 63) & ~63u; // (buffer_raw_ is never set: as in the original)
+    // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
     reconnect_delay_ = std::rand() & 63;
 }
 
@@ -188,6 +190,7 @@ void InputPort::pause_actuators()
 // 0x005BDBD0
 void InputPort::unpause_actuators()
 {
+    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
     if (pause_count_ == 0 || --pause_count_ != 0)
         return;
     if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {

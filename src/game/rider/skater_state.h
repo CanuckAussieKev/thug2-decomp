@@ -28,10 +28,12 @@ class Struct;
 namespace objects {
 
 // A flag of the skater's state and the time it last changed (the game clock plus g_clock_offset).
+// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct TimedFlag {
     uint8_t on;
     int changed_at; // +4
 };
+// NOLINTEND(readability-identifier-naming)
 
 // The skater's state flags (RiderPoseState::timed_flags_), by what sets them.
 enum class PoseFlag : int {

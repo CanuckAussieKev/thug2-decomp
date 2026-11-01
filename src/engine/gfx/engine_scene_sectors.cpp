@@ -52,6 +52,7 @@ WorldCell* alloc_sector(WorldScene* scene)
     return sector;
 }
 
+// NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
 StaticCollider* coll_static_at(StaticCollider* statics, int index) { return &statics[index]; }
 
 // The lists (lists::Foremost / Node): a head ends its list (its data is -1).
