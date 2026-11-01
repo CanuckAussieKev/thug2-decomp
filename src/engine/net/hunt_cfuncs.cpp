@@ -199,13 +199,12 @@ bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 {
     std::array<char, 256> typed{};
     if (sio::get_keyboard_chars(typed.data()) > 0 && core::at(typed, 0) == ' ') {
-        Struct* check = script::new_struct();
+        const script::StructPtr check = script::make_struct();
         check->put_name_key(kId, kKeyboardAnchor);
-        if (!objects::cfunc_object_exists(check, nullptr)) {
+        if (!objects::cfunc_object_exists(check.get(), nullptr)) {
             script::launch_script(kLobbyEnterKbChat, nullptr, nullptr, false, nullptr);
             sio::clear_keyboard_chars();
         }
-        script::free_struct(check);
     }
     return true;
 }

@@ -94,10 +94,9 @@ void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 // "No servers found" (the lobby list is empty).
 void show_no_servers()
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->append_word(kText, script::kQbvalString, script::fetch_text(0x4AF78404));
-    launch_script(0x43D52414, params);
-    script::free_struct(params);
+    launch_script(0x43D52414, params.get());
 }
 
 // Done: state 2, and this task stops.
@@ -159,12 +158,11 @@ void service_task(tasks::Task<online::Hub>* task)
         if (count == 0) {
             spawn_script(0xBDA86A12);
         } else {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             std::array<char, 256> text{};
             std::snprintf(text.data(), sizeof(text), "(%d) %s", count, script::fetch_text(0x78D25623));
             params->append_word(kText, script::kQbvalString, text.data());
-            spawn_script(0xC072AC4E, params);
-            script::free_struct(params);
+            spawn_script(0xC072AC4E, params.get());
         }
         manager->service_state_ = 0;
         manager->service_wake_at_ = 0;
@@ -200,10 +198,10 @@ void service_task(tasks::Task<online::Hub>* task)
         break;
     case 9: { // show the message of the day
         ghttp_cleanup();
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->append_word(kText, raw::chars(manager->motd_text_));
-        launch_script(0xF17B894C, params);
-        script::free_struct(params);
+        launch_script(0xF17B894C, params.get());
+        params.reset();
         manager->service_state_ = 0;
         manager->service_wake_at_ = 0;
         break;

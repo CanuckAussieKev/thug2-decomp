@@ -366,10 +366,9 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         if (transfer == kDownload || transfer == kDownload6) {
             std::array<char, 16> text{};
             std::snprintf(text.data(), sizeof(text), "%d%%", vault->progress_);
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->append_word(get_checksums("text"), script::kQbvalString, text.data());
-            get_run(vault->progress_script_, params);
-            script::free_struct(params);
+            get_run(vault->progress_script_, params.get());
         }
         return;
     }
@@ -383,13 +382,12 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         vault->task_->drop_out();
         vault->transfer_ = kNone;
         if (vault->outcome_val_ == 1) {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->put_name_key("type", vault->kind_tag_);
             if (transfer == kUpload)
-                get_run("LaunchUploadCompleteDialog", params);
+                get_run("LaunchUploadCompleteDialog", params.get());
             else
-                get_run(vault->done_script_, params);
-            script::free_struct(params);
+                get_run(vault->done_script_, params.get());
         } else {
             get_run(vault->fault_ == kErrorScriptResult ? vault->error_script_ : vault->fail_script_);
         }
@@ -476,11 +474,10 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             // All in: the menu.
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
             vault->task_->drop_out();
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->append_word("category", vault->category_->label_.data());
             params->put_name_key("type", vault->kind_tag_);
-            get_run("net_vault_menu_create", params);
-            script::free_struct(params);
+            get_run("net_vault_menu_create", params.get());
         }
         pop_heap();
         return;

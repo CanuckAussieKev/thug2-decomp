@@ -353,12 +353,11 @@ void Hub::stop_server_list()
 // 0x005456B0
 void Hub::show_no_servers_found(bool refocus)
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     if (refocus)
         params->put_name_key(kRefocus, kRefocus);
-    get_run(kDestroyServerChildren, params);
-    get_run(kNoServersFound, params);
-    script::free_struct(params);
+    get_run(kDestroyServerChildren, params.get());
+    get_run(kNoServersFound, params.get());
 }
 
 // 0x00546010
@@ -395,7 +394,7 @@ void Hub::show_server_in_menu(void* item, int index)
     if (num_servers_in_menu() == 0)
         get_run(kDestroyServerChildren);
     get_run(kPrepareServerMenu);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->append_word(kText, server->label_.data());
     params->append_word(kMode, server->mode_sel_.data());
     debug::printf("The game mode is: %s\n", server->mode_sel_.data());
@@ -404,14 +403,14 @@ void Hub::show_server_in_menu(void* item, int index)
     params->put_name_key(kParent, kServerListMenu);
     params->put_name_key(kPadChooseScript, kChooseSelectedServer);
     params->put_name_key(kFocusScript, kDescribeSelectedServer);
-    script::Struct* id_params = script::new_struct();
+    script::StructPtr id_params = script::make_struct();
     id_params->put_name_key(kId, id);
-    params->put_sub_struct(kPadChooseParams, id_params);
-    params->put_sub_struct(kFocusParams, id_params);
-    get_run(kAddMenuItem, params);
+    params->put_sub_struct(kPadChooseParams, id_params.get());
+    params->put_sub_struct(kFocusParams, id_params.get());
+    get_run(kAddMenuItem, params.get());
     server->in_menu_ = true;
-    script::free_struct(params);
-    script::free_struct(id_params);
+    params.reset();
+    id_params.reset();
     ram_stats()->leave_heap_scope();
 }
 

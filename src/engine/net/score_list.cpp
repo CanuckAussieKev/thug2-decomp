@@ -282,7 +282,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                          entry->priority);
         }
         const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->append_word(kText, script::kQbvalString, text.data());
         params->add_component_of_type(kId, script::kQbvalName, id);
         frontend::UiWidget* element = nullptr;
@@ -292,9 +292,9 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             element = found.owner_object_;
         }
         if (element)
-            element->change_traits(params);
-        get_run(kUpdateScore, params);
-        script::free_struct(params);
+            element->change_traits(params.get());
+        get_run(kUpdateScore, params.get());
+        params.reset();
         entry->teardown(1); // (deleted: out of the list)
         entry = following;
     }

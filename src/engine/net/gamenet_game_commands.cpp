@@ -455,7 +455,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     if (_stricmp(player_name(player), name) != 0)
         return true;
     player->flag_bits_ |= kRemoveMark;
-    Struct* dialog = script::new_struct();
+    script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id_;
     if ((manager->flag_bits_ & kFlagsInternet) && profile && mark_friend_online(manager)) {
         dialog->put_int(kProfile, player->profile_id_);
@@ -463,8 +463,8 @@ bool cfunc_create_player_options(Struct* params, Script*)
         dialog->put_name_key(0u, is_buddy(manager, player->profile_id_) ? kAllowRemoveHomie : kAllowAddHomie);
     }
     dialog->append_word(kName, script::kQbvalString, name);
-    get_run(kCreatePlayerOptionsDialog, dialog);
-    script::free_struct(dialog);
+    get_run(kCreatePlayerOptionsDialog, dialog.get());
+    dialog.reset();
     return true;
 }
 
@@ -507,23 +507,23 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         }
         rgba->set_element(2, blue);
         rgba->set_element(3, 0x80);
-        Struct* item = script::new_struct();
+        script::StructPtr item = script::make_struct();
         item->append_word(kText, player_name(player));
         item->put_name_key(kCentered, kCentered);
         item->put_name_key(kId, static_cast<uint32_t>(index + kPlayerMenuIdBase));
         item->put_name_key(kPadChooseScript, kChooseSelectedPlayer);
-        Struct* unfocus = script::new_struct();
+        script::StructPtr unfocus = script::make_struct();
         unfocus->append_array_value(kRgba, rgba);
         item->append_array_value(kRgba, rgba);
-        item->put_sub_struct(kUnfocusParams, unfocus);
-        Struct* choose = script::new_struct();
+        item->put_sub_struct(kUnfocusParams, unfocus.get());
+        script::StructPtr choose = script::make_struct();
         choose->put_int(kIndex, index);
         choose->append_word(kName, player_name(player));
-        item->put_sub_struct(kPadChooseParams, choose);
-        get_run(kThemeMenuAddItem, item);
-        script::free_struct(item);
-        script::free_struct(choose);
-        script::free_struct(unfocus);
+        item->put_sub_struct(kPadChooseParams, choose.get());
+        get_run(kThemeMenuAddItem, item.get());
+        item.reset();
+        choose.reset();
+        unfocus.reset();
         if (rgba) {
             rgba->get_clear();
             script::delete_array(rgba);

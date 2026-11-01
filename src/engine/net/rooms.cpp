@@ -159,11 +159,10 @@ void update_rank(LobbyPlayer* player, const char* value)
     int shown = static_cast<int>(rank); // (truncated, as _ftol)
     if (shown > kMaxRank)
         shown = kMaxRank;
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->put_name_key(kId, checksums::hash_from_text(player->nick_.data()));
     params->put_int(kRank, shown);
-    get_run(kUpdateRank, params);
-    script::free_struct(params);
+    get_run(kUpdateRank, params.get());
 }
 
 // "<nick> <text>" to the console, with the flag `kind` (by name).
@@ -171,7 +170,7 @@ void console_message(const char* nick, uint32_t text_name, bool by_name)
 {
     std::array<char, 1024> line{};
     std::sprintf(line.data(), "%s %s", nick, script::fetch_text(text_name));
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     if (by_name) {
         params->append_word("text", line.data());
         params->put_name_key("join", 0);
@@ -179,8 +178,7 @@ void console_message(const char* nick, uint32_t text_name, bool by_name)
         params->append_word(kText, line.data());
         params->put_name_key(kLeft, 0);
     }
-    get_run(kConsoleMessage, params);
-    script::free_struct(params);
+    get_run(kConsoleMessage, params.get());
 }
 
 // A task running `code` for the lobby (priority 0; null if out of memory).
@@ -393,11 +391,11 @@ void RoomManager::player_left_callback(void* peer, int room_type, const char* ni
     (void)room_type;
     (void)reason;
     if (LobbyPlayer* player = find_player(lobby, nick)) {
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_name_key(kUserId, checksums::hash_from_text(nick));
-        get_run(kDestroyUser, params);
+        get_run(kDestroyUser, params.get());
         memory::ListNode::destroy(&player->list_link_); // (0x00541AC0)
-        script::free_struct(params);
+        params.reset();
         get_run(kUpdatePlayerList);
     }
     console_message(nick, kStatusLeft, false);

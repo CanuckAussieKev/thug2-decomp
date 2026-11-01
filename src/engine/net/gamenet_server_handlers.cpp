@@ -380,11 +380,11 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         const int team = player->get_flag_team();
         std::array<char, 64> name{};
         team_name_key(name.data(), team);
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_int(kTeam, team);
         params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
-        get_run(kFlagReturned, params);
-        script::free_struct(params);
+        get_run(kFlagReturned, params.get());
+        params.reset();
         std::array<uint8_t, 2> returned = {{static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(team)}};
         if (is_own_player(player))
             get_run(kDestroyCtfPanelMessage);
@@ -431,10 +431,10 @@ int handle_checksum_response(net::InboundMsgCtx* context)
     const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     if ((message_word(context, 0) ^ 0xDEADFACE) == message_word(context, 4) || manager->cheating_noted())
         return kContinue;
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->append_word(kString0, player_name(player));
-    get_run(kNotifyClientCheating, params);
-    script::free_struct(params);
+    get_run(kNotifyClientCheating, params.get());
+    params.reset();
     manager->note_cheating();
     return kContinue;
 }

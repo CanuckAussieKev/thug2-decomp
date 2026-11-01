@@ -331,10 +331,9 @@ bool cfunc_reset_pro_set_flags(Struct*, Script*)
 {
     const Hub* manager = net_link();
     for (int bit = 0; bit < kProSetCount; ++bit) {
-        Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->put_int(kFlag, script::fetch_int_value(kFirstProSetFlag) + bit);
-        get_run((manager->script_flag_bits_ & (1u << bit)) ? kSetFlag : kUnSetFlag, params);
-        script::free_struct(params);
+        get_run((manager->script_flag_bits_ & (1u << bit)) ? kSetFlag : kUnSetFlag, params.get());
     }
     return true;
 }

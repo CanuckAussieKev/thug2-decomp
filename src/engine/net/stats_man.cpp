@@ -262,10 +262,9 @@ void TopList::fill_level_scores()
         if (!level)
             break;
         if (total_of(&level->entries_) > 0) {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->append_word(0xC4745838, RankingsManager::get_level_name(level->level_));
-            get_run(0x1AADEE21, params);
-            script::free_struct(params);
+            get_run(0x1AADEE21, params.get());
         }
         int shown = 0;
         for (memory::ListNode* line = get_next_node(&level->entries_); line && shown < kLevelBest;
@@ -273,22 +272,21 @@ void TopList::fill_level_scores()
             auto* entry = static_cast<TopEntry*>(line->data);
             if (!entry)
                 break;
-            script::Struct* params = script::new_struct();
+            script::StructPtr params = script::make_struct();
             params->put_int(0x2776D9DD, entry->skill_points_);
             params->put_int(0xCD66C8AE, entry->points_held_);
             // (here the rating is read as unsigned)
             params->put_int(0x7786171A, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points_))));
             params->append_word(0xA1DC81F9, entry->label_.data());
             params->append_word(0x651533EC, RankingsManager::get_level_name(level->level_));
-            get_run(0x19F7BC28, params);
-            script::free_struct(params);
+            get_run(0x19F7BC28, params.get());
+            params.reset();
             ++shown;
         }
     }
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->append_word(0xC4745838, script::fetch_text(0xC2283319u));
-    get_run(0x1AADEE21, params);
-    script::free_struct(params);
+    get_run(0x1AADEE21, params.get());
 }
 
 // 0x0054E4A0
@@ -331,18 +329,18 @@ void TopList::fill_sorted_scores(bool ratings)
         auto* line = static_cast<SortEntry*>(node->data);
         if (!line || line->points_held_ == 0 || shown == kMaxSorted)
             break;
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_int(0x2776D9DD, line->skill_points_);
         params->put_int(0xCD66C8AE, line->points_held_);
         params->put_int(0x7786171A, current_rank(static_cast<double>(line->skill_points_)));
         params->append_word(0xA1DC81F9, line->label_.data());
         if (ratings) {
-            get_run(0x0AC09E3B, params);
+            get_run(0x0AC09E3B, params.get());
         } else {
             params->append_word(0x651533EC, RankingsManager::get_level_name(line->level_));
-            get_run(0x19F7BC28, params);
+            get_run(0x19F7BC28, params.get());
         }
-        script::free_struct(params);
+        params.reset();
         ++shown;
     }
 }

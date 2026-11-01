@@ -157,24 +157,23 @@ void PlayerRecord::score_flag_capture(int team)
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
     const PlayerRecord* local = get_local(the_manager());
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         params->put_int(kTeam, team);
-        get_run(kCapturedFlagYou, params);
+        get_run(kCapturedFlagYou, params.get());
     } else if (!(local->flag_bits_ & kPlayerObserver) && local->team_ == team) {
         params->append_word(kString0, script::kQbvalString, label_.data());
         params->put_int(kTeam, team);
         get_run(kHideCtfArrow);
-        get_run(kCapturedYourFlag, params);
+        get_run(kCapturedYourFlag, params.get());
     } else {
         params->append_word(kString0, script::kQbvalString, label_.data());
         params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
         params->put_int(kTeam, team);
-        get_run(kCapturedFlagOther, params);
+        get_run(kCapturedFlagOther, params.get());
     }
     flag_bits_ &= ~kPlayerCarryingFlags;
-    script::free_struct(params);
 }
 
 // 0x00543C70
@@ -183,18 +182,18 @@ void PlayerRecord::note_flag_steal(int team)
     Hub* manager = the_manager();
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     PlayerRecord* local = get_local(manager);
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
-        get_run(kStoleFlagYou, params);
+        get_run(kStoleFlagYou, params.get());
     } else {
         params->append_word(kString0, script::kQbvalString, label_.data());
         params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
         const bool from_local = !(local->flag_bits_ & kPlayerObserver) && local->get_flag_team() == team;
-        get_run(from_local ? kStoleFlagFromYou : kStoleFlagOther, params);
+        get_run(from_local ? kStoleFlagFromYou : kStoleFlagOther, params.get());
     }
-    script::free_struct(params);
+    params.reset();
     take_flag_from_carriers(manager, team, false);
     flag_bits_ |= flag_of(team);
 }
@@ -205,24 +204,24 @@ void PlayerRecord::note_flag_pickup(int team)
     Hub* manager = the_manager();
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     const PlayerRecord* local = get_local(manager);
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
-        get_run(kTookFlagYou, params);
+        get_run(kTookFlagYou, params.get());
     } else if (!(local->flag_bits_ & kPlayerObserver) && team == local->team_) {
-        script::Struct* arrow = script::new_struct();
+        script::StructPtr arrow = script::make_struct();
         arrow->put_int(kTeam, local->team_);
-        get_run(kShowCtfArrow, arrow);
-        script::free_struct(arrow);
+        get_run(kShowCtfArrow, arrow.get());
+        arrow.reset();
         params->append_word(kString0, script::kQbvalString, label_.data());
-        get_run(kTookFlagYours, params);
+        get_run(kTookFlagYours, params.get());
     } else {
         params->append_word(kString0, script::kQbvalString, label_.data());
         params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
-        get_run(kTookFlagOther, params);
+        get_run(kTookFlagOther, params.get());
     }
-    script::free_struct(params);
+    params.reset();
     flag_bits_ |= flag_of(team);
 }
 
@@ -259,11 +258,10 @@ void PlayerRecord::give_crown(bool king)
         if (!(flag_bits_ & kPlayerKing))
             return;
         if ((flag_bits_ & kPlayerLocal) && (get_game_type() == kNetKing || get_game_type() == kKing)) {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->put_name_key(kPlayer1, kPlayer1);
             params->put_name_key(kPlayer2, kPlayer2);
-            get_run(kShowCrownArrow, params);
-            script::free_struct(params);
+            get_run(kShowCrownArrow, params.get());
         }
         flag_bits_ &= ~kPlayerKing;
         return;
@@ -273,26 +271,24 @@ void PlayerRecord::give_crown(bool king)
     if (!(flag_bits_ & kPlayerKing)) {
         flag_bits_ |= kPlayerKing;
         if (flag_bits_ & kPlayerLocal) {
-            script::Struct* params = script::new_struct();
+            script::StructPtr params = script::make_struct();
             const uint32_t player = rider()->get_skater_number() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
             params->put_name_key(player, player);
-            get_run(kHideCrownArrow, params);
-            script::free_struct(params);
+            get_run(kHideCrownArrow, params.get());
+            params.reset();
             get_run(kNewKingYou);
         } else {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->put_name_key(kPlayer1, kPlayer1);
-            get_run(kShowCrownArrow, params);
+            get_run(kShowCrownArrow, params.get());
             params->append_word(kString0, label_.data());
-            get_run(kNewKingOther, params);
-            script::free_struct(params);
+            get_run(kNewKingOther, params.get());
         }
         // Split screen: the other screen's player is told too.
         if (!manager->in_net_game() && manager->find_player_slot_by_obj(get_skater_id(skater_) == 0 ? 1 : 0)) {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->append_word(kString0, rider()->fetch_shown_name()); // (its display name)
-            get_run(kNewKingOther, params);
-            script::free_struct(params);
+            get_run(kNewKingOther, params.get());
         }
         flag_bits_ |= kPlayerKing;
     }

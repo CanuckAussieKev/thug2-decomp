@@ -75,10 +75,9 @@ void show_connection_metrics(net::Conn* conn, int index)
     const int resends = conn->get_highest_resend_count();
     std::array<char, 1024> line{};
     std::sprintf(line.data(), "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->append_word(kText, line.data());
-    get_run(kUpdateNetMetrics, params);
-    script::free_struct(params);
+    get_run(kUpdateNetMetrics, params.get());
 }
 
 // Each connection of `app` that isn't local.

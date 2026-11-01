@@ -110,13 +110,12 @@ template <typename F>
 void info_line(uint32_t title, F value)
 {
     std::array<char, 128> text{};
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     std::sprintf(text.data(), "%s:", script::fetch_text(title));
     params->append_word(kName, text.data());
     if (const char* shown = value(text.data()))
         params->append_word(kValue, shown);
-    get_run(kAddInfoItem, params);
-    script::free_struct(params);
+    get_run(kAddInfoItem, params.get());
 }
 const char* no_value(char*) { return nullptr; }
 
@@ -219,21 +218,20 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
         });
     }
     std::array<char, 128> value{};
-    script::Struct* title = script::new_struct();
+    script::StructPtr title = script::make_struct();
     std::sprintf(value.data(), ": %d/%d", server->num_players_, server->max_players_);
     title->append_word(kText, value.data());
-    get_run(kUpdatePlayerTitle, title);
-    script::free_struct(title);
+    get_run(kUpdatePlayerTitle, title.get());
+    title.reset();
     for (int i = 0; i < server->num_players_; ++i) {
         const int rank = rank_of(server->get_entrant_rank(i));
-        script::Struct* player = script::new_struct();
+        const script::StructPtr player = script::make_struct();
         std::sprintf(value.data(), "%d:", i + 1);
         player->put_int(kRank, rank);
         player->append_word(kName, value.data());
         std::sprintf(value.data(), "%s", server->get_entrant_name(i));
         player->append_word(kValue, value.data());
-        get_run(kInfoAddPlayerText, player);
-        script::free_struct(player);
+        get_run(kInfoAddPlayerText, player.get());
     }
     ram_stats()->leave_heap_scope();
     return true;
@@ -258,12 +256,12 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         if (server->num_observers_ >= server->max_observers_)
             refused = kReasonFullObservers;
     }
-    script::Struct* reply = script::new_struct();
+    script::StructPtr reply = script::make_struct();
     if (refused) {
         reply->put_name_key(kReason, refused);
         reply->put_name_key(kJustDialog, 0);
         manager->join_phase_job_->drop_out();
-        get_run(kJoinRefusedDialog, reply);
+        get_run(kJoinRefusedDialog, reply.get());
     } else {
         if (manager->presence_service_->authenticated_) // (0x005480B0: logged in to presence)
             manager->lobby_service_->change_host_name(server->label_.data());
@@ -273,9 +271,9 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         reply->add_component_of_type(0, script::kQbvalInteger, server->port_no_);
         reply->append_word(0, script::kQbvalString, ip);
         reply->put_int(kMaxPlayers, server->max_players_);
-        get_run(kChosenJoinServer, reply);
+        get_run(kChosenJoinServer, reply.get());
     }
-    script::free_struct(reply);
+    reply.reset();
     return true;
 }
 
@@ -403,10 +401,10 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         break;
     }
     case kListingRemove: {
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_name_key(kServerId, cell::of(sb));
-        get_run(kDestroyLobbyServer, params);
-        script::free_struct(params);
+        get_run(kDestroyLobbyServer, params.get());
+        params.reset();
         if (HostListing* server = find_by_sb(manager, sb))
             server->teardown(1);
         get_run(kUpdateServerList);
@@ -437,10 +435,9 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         if (!server->detailed_ && game_spy::server_has_full_keys(sb)) {
             server->detailed_ = true;
             if (server->chosen_) {
-                script::Struct* params = script::new_struct();
+                const script::StructPtr params = script::make_struct();
                 params->put_name_key(kId, cell::of(sb));
-                get_run(kDescribeSelectedServer, params);
-                script::free_struct(params);
+                get_run(kDescribeSelectedServer, params.get());
             }
         }
         break;

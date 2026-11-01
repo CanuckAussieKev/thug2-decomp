@@ -375,10 +375,9 @@ void FriendsManager::remove_buddy(int profile)
         }
     }
     gp_delete_buddy(this, profile);
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->put_name_key("id", get_checksums("first_lobby_buddy") + profile);
-    get_run("removed_buddy", params);
-    script::free_struct(params);
+    get_run("removed_buddy", params.get());
 }
 
 // 0x005499A0
@@ -431,19 +430,18 @@ void FriendsManager::fill_prospective_buddy_list()
         if (detail::is_own_player(player) || profile == 0 || is_buddy(profile))
             continue;
         const char* name = detail::player_name(player);
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->append_word("text", name);
         params->put_name_key("id", static_cast<uint32_t>(profile));
         params->put_name_key("pad_choose_script", get_checksums("add_buddy"));
         params->put_name_key("parent_menu_id", get_checksums("lobby_buddy_list_menu"));
-        script::Struct* choose = script::new_struct();
+        const script::StructPtr choose = script::make_struct();
         choose->put_int("profile", profile);
         choose->append_word("nick", name);
-        params->put_sub_struct("pad_choose_params", choose);
+        params->put_sub_struct("pad_choose_params", choose.get());
         params->push_float("scale", 1.1f);
-        get_run("make_text_sub_menu_item", params);
-        script::free_struct(params);
-        script::free_struct(choose);
+        get_run("make_text_sub_menu_item", params.get());
+        params.reset();
     }
     pop_heap();
 }
@@ -452,7 +450,7 @@ void FriendsManager::fill_prospective_buddy_list()
 void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove)
 {
     push_top_down();
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     // (the original uses the nick as sprintf's format: a '%' in a nick would be expanded)
     std::array<char, 1024> nick{};
     std::snprintf(nick.data(), sizeof(nick), "%s", buddy->nick_.data());
@@ -490,8 +488,8 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     params->put_name_key("parent_menu_id", get_checksums("lobby_buddy_list_menu"));
     if (allow_join)
         params->push_float("scale", 1.1f);
-    get_run("homie_list_add_item", params);
-    script::free_struct(params);
+    get_run("homie_list_add_item", params.get());
+    params.reset();
     pop_heap();
 }
 
@@ -542,10 +540,10 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
         }
         if (buddy->pending_) {
             // An answer to our request: a buddy now, kept in the buddy_array preference too.
-            script::Struct* params = script::new_struct();
+            script::StructPtr params = script::make_struct();
             params->append_word("net_name", buddy->nick_.data());
-            get_run("added_buddy", params);
-            script::free_struct(params);
+            get_run("added_buddy", params.get());
+            params.reset();
             buddy->pending_ = false;
             prefs::Preferences* prefs = net_session_slot()->get_online_settings();
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
@@ -565,14 +563,14 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             buddies->set_cell(i, script::Cell::of(entry));
             prefs->change_option_list(get_checksums("buddy_array"), buddies);
         }
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->append_word(get_checksums("name"), script::kQbvalString, buddy->nick_.data());
         params->append_word(get_checksums("status"), script::kQbvalString, buddy->status_text_.data());
         params->append_word(get_checksums("location"), script::kQbvalString, buddy->location_.data());
         params->add_component_of_type(get_checksums("id"), script::kQbvalName,
                                       get_checksums("first_lobby_buddy") + buddy->account_);
-        get_run("update_buddy_status", params);
-        script::free_struct(params);
+        get_run("update_buddy_status", params.get());
+        params.reset();
         pop_heap();
         return;
     }
@@ -716,12 +714,12 @@ bool set_unique_id(script::Struct*, script::Script*)
 {
     const uint32_t now = frame_clock::get_time();
     prefs::Preferences* prefs = net_session_slot()->get_online_settings();
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     std::array<char, 32> text{};
     std::snprintf(text.data(), sizeof(text), "%d", static_cast<int>(now));
     params->append_word("ui_string", text.data());
-    prefs->change_setting(get_checksums("unique_id"), params);
-    script::free_struct(params);
+    prefs->change_setting(get_checksums("unique_id"), params.get());
+    params.reset();
     return true;
 }
 
@@ -758,7 +756,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     push_top_down();
     gp_set_status(man, kStatusPlaying, text, status.data());
     pop_heap();
-    script::Struct* join = script::new_struct();
+    script::StructPtr join = script::make_struct();
     in_addr address{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Winsock's in_addr (an API union)
     address.S_un.S_addr = static_cast<uint32_t>(ip);
@@ -767,8 +765,8 @@ bool join_buddy(script::Struct* params, script::Script*)
     join->append_word(0, script::kQbvalString, dotted);
     if (!same_address)
         join->add_component_of_type(0x751F4599, script::kQbvalName, static_cast<uint32_t>(maths::rnd(0xFFFF)));
-    get_run("net_chosen_join_server", join);
-    script::free_struct(join);
+    get_run("net_chosen_join_server", join.get());
+    join.reset();
     return true;
 }
 

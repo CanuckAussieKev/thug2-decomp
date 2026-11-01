@@ -376,7 +376,7 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
             host_->put_on_outbox(player_handle(player), &desc);
         return;
     }
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     const char* format = script::fetch_text(text);
     std::array<char, 256> copy{};
     std::array<char, 256> line{};
@@ -393,8 +393,7 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
     params->append_word(kText, script::kQbvalString, shown);
     params->add_component_of_type(kId, script::kQbvalName, kNetPanelMsg);
     params->put_int(kMsgTime, time);
-    get_run(kCreateNetPanelMessage, params);
-    script::free_struct(params);
+    get_run(kCreateNetPanelMessage, params.get());
 }
 
 // 0x00537A10

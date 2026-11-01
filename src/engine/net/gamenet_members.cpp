@@ -188,10 +188,9 @@ void Hub::build_team_flag_set(int num_teams)
     get_run(kKillTeamFlags);
     if (!num_teams)
         return;
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->put_int(kNumTeams, num_teams);
-    get_run(kCreateTeamFlags, params);
-    script::free_struct(params);
+    get_run(kCreateTeamFlags, params.get());
 }
 
 // 0x00534090
