@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <new>
 
 #include "engine/core/manager.h"
@@ -270,7 +271,8 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
 {
     bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto* model = static_cast<uint8_t*>(model_bytes);
-    auto* temp_scene = reinterpret_cast<uint8_t*>(new PcScene(10));
+    auto scene_owner = std::make_unique<PcScene>(10); // (only for the copy)
+    auto* temp_scene = reinterpret_cast<uint8_t*>(scene_owner.get());
     SceneRef* source_list = instance->scene;
     *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = source_list;
     auto* geom = new PcGeom;
@@ -284,7 +286,7 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
     SceneRef* list = geom->create_mesh_list();
     // the scene was only for the copy: destroyed without its mesh list
     *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = nullptr;
-    delete reinterpret_cast<PcScene*>(temp_scene);
+    scene_owner.reset();
     geom->scene = nullptr;
     geom->change_live(true);
     // bones: the model's count (room for one more), each the identity
