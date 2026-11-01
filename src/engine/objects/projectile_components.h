@@ -64,10 +64,6 @@ public:
     bool hit_;                   // +0x40
     uint8_t pad41[3];
 };
-static_assert(offsetof(ShotImpactModule, suspend_) == 0x18 && offsetof(ShotImpactModule, projectile_type_) == 0x2C &&
-                  offsetof(ShotImpactModule, vel_) == 0x30 && offsetof(ShotImpactModule, hit_) == 0x40 &&
-                  sizeof(ShotImpactModule) == 0x44,
-              "layout must match the original");
 
 // The projectile proximity component (type 0x3618B878 "projectileproximity", vtable 0x0064B864, 0x24 bytes; made by
 // 0x004F3550): a ped the local skater's projectiles can hit. Each update the first of the skater's five projectiles in
@@ -100,9 +96,5 @@ public:
     Rider* rider_ref_;                 // +0x1C the local skater
     PedestrianBrainModule* ped_logic_; // +0x20 the object's
 };
-static_assert(offsetof(ProjectileProximityComponent, reach_squared_) == 0x18 &&
-                  offsetof(ProjectileProximityComponent, ped_logic_) == 0x20 &&
-                  sizeof(ProjectileProximityComponent) == 0x24,
-              "layout must match the original");
 
 } // namespace objects

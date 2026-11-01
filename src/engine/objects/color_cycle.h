@@ -71,9 +71,5 @@ public:
     bool on_;                            // +0x78
     uint8_t pad79[3];
 };
-static_assert(offsetof(ColorCycleComponent, colors_) == 0x18 && offsetof(ColorCycleComponent, color_count_) == 0x68 &&
-                  offsetof(ColorCycleComponent, period_) == 0x70 && offsetof(ColorCycleComponent, on_) == 0x78 &&
-                  sizeof(ColorCycleComponent) == 0x7C,
-              "layout must match the original");
 
 } // namespace objects

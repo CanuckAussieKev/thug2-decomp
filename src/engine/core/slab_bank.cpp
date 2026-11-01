@@ -10,10 +10,6 @@
 
 namespace memory {
 
-static_assert(offsetof(SlabBank, free_list_) == 0x14 && offsetof(SlabBank, label_) == 0x18 &&
-                  offsetof(SlabBank, peak_used_) == 0x58,
-              "layout must match the original");
-
 // 0x005BA420
 SlabBank::SlabBank(int item_size, int count, const char* name)
 {

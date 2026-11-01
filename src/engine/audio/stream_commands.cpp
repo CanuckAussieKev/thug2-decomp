@@ -39,11 +39,11 @@ bool streams_blocked() { return g_streams_blocked; }
 
 Stream* get_streams() { return g_streams; }
 constexpr int kStreams = 3;
-// The stream components that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
+// The stream components that started each stream (null: none); they note the stream's id.
 void** get_owners() { return g_stream_owners; }
 uint32_t& owner_id(void* owner, int stream)
 {
-    return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner) + 0x18 + 4 * stream);
+    return static_cast<objects::AudioStreamModule*>(owner)->streams_[stream];
 }
 // The stream PlayStream started last.
 int& last_stream() { return g_last_stream; }

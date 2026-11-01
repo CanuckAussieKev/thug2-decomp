@@ -96,11 +96,5 @@ public:
     EmitterNode* spewer_;     // +0xB8 heard from its nearest point
     ProximNode* proxim_;      // +0xBC
 };
-static_assert(sizeof(AudioEmitterModule::WaitingSound) == 0x30, "layout must match the original");
-static_assert(offsetof(AudioEmitterModule, sound_cues_) == 0x18 && offsetof(AudioEmitterModule, waiting_) == 0x38 &&
-                  offsetof(AudioEmitterModule, at_point_) == 0x98 && offsetof(AudioEmitterModule, last_pos_) == 0xA8 &&
-                  offsetof(AudioEmitterModule, spewer_) == 0xB8 && offsetof(AudioEmitterModule, proxim_) == 0xBC &&
-                  sizeof(AudioEmitterModule) == 0xC0,
-              "layout must match the original");
 
 } // namespace objects

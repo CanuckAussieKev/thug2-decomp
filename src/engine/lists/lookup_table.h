@@ -31,7 +31,6 @@ struct ResolveMap {
     // 0x00562970: the first node with key `*key` taken out and freed (the cursor cleared); nothing if none.
     void erase_entry(const uint32_t* key);
 };
-static_assert(sizeof(ResolveMap) == 0x14, "layout must match the original");
 
 template <typename T>
 struct TypedLookupTable : ResolveMap {

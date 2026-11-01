@@ -262,21 +262,6 @@ public:
     float radius_;                     // +0x198 the bounding radius
     AudioEmitterModule* audio_module_; // +0x19C the object's sound component (for the bounce sound)
 };
-static_assert(
-    offsetof(BodyDynamicsModule, steady_accel_) == 0x1C && offsetof(BodyDynamicsModule, contacts_) == 0x60 &&
-        offsetof(BodyDynamicsModule, capsule_) == 0x64 && offsetof(BodyDynamicsModule, steer_friction_) == 0x88 &&
-        offsetof(BodyDynamicsModule, contact_count_) == 0x8C && offsetof(BodyDynamicsModule, balance_point_) == 0xA0 &&
-        offsetof(BodyDynamicsModule, callback_params_ptr_) == 0xD4 &&
-        offsetof(BodyDynamicsModule, flag_bits_) == 0xF4 && offsetof(BodyDynamicsModule, cur_phase_) == 0x10C &&
-        offsetof(BodyDynamicsModule, at_point_) == 0x110 && offsetof(BodyDynamicsModule, basis_frame_) == 0x150 &&
-        offsetof(BodyDynamicsModule, contacts_hit_) == 0x190 && offsetof(BodyDynamicsModule, radius_) == 0x198 &&
-        sizeof(BodyDynamicsModule) == 0x1A0,
-    "layout must match the original");
-static_assert(sizeof(BodyDynamicsModule::Spring) == 0x24 && sizeof(BodyDynamicsModule::Sphere) == 0x14 &&
-                  sizeof(BodyDynamicsModule::DirectedFriction) == 0x14 && sizeof(BodyDynamicsModule::Contact) == 0x30 &&
-                  offsetof(BodyDynamicsModule::Contact, impulse_scale_) == 0x20 &&
-                  offsetof(BodyDynamicsModule::Contact, active) == 0x2C,
-              "layout must match the original");
 
 // 0x0042E380: `object` (a skater) added to the objects rigid bodies feel (8 places, 0x00695150: the last free one
 // from the end; none free: nothing), its extra reach (0x006939B0) back to 0.

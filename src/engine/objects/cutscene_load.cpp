@@ -281,7 +281,7 @@ void CinematicTable::add_objects(script::Struct* params)
                             static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
                                 reinterpret_cast<maths::Vec4*>(saved)));
                         std::memcpy(lent_2c_, settings, 16);
-                        uint8_t flags = *(static_cast<uint8_t*>(model2) + 0x44);
+                        uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
                         lent_3c_ = flags >> 2 & 1;
                         lent_3d_ = flags >> 3 & 1;
                         lent_pos_ = level->at_point_;

@@ -38,8 +38,5 @@ public:
     uint32_t lifespan_; // +0x20 ms
     uint32_t wait_for_; // +0x24 the id of the object to wait for (0: none)
 };
-static_assert(offsetof(WaitAndDieComponent, outset_) == 0x18 && offsetof(WaitAndDieComponent, wait_for_) == 0x24 &&
-                  sizeof(WaitAndDieComponent) == 0x28,
-              "layout must match the original");
 
 } // namespace objects

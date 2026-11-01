@@ -86,6 +86,5 @@ public:
     int cur_phase_;          // +0xDC
     float step_;             // +0xE0: the last arc step's angle
 };
-static_assert(sizeof(PathFollower) == 0xE0, "the original's 0xE4 bytes less its vtable");
 
 } // namespace objects

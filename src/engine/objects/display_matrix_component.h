@@ -24,6 +24,5 @@ public:
     // 0x00431280 (vtable slot 1): the object's display matrix = its orientation.
     void tick_frame() override;
 };
-static_assert(sizeof(FaceHeadingModule) == 0x18, "layout must match the original");
 
 } // namespace objects

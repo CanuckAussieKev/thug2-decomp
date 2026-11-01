@@ -2,6 +2,7 @@
 // 0x0041B910-0x0041C1ED. The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps
 // on the FPU stack are worked in double.
 
+#include "engine/objects/path_follower.h"
 #include "engine/objects/car_physics.h"
 #include "engine/gfx/d3dx.h"
 #include "engine/gfx/model.h"
@@ -87,9 +88,9 @@ int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
 float motion_speed(uint8_t* motion) { return reinterpret_cast<KinematicsModule*>(motion)->path_speed_; }
-uint8_t* motion_path_follower(uint8_t* motion)
+PathFollower* motion_path_follower(uint8_t* motion)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    return static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
 }
 
 // The suspend component (no source yet): suspended (+0x30, the getter 0x00433E90), and whether its object should be
@@ -181,16 +182,17 @@ void AutomobileDynamicsModule::update_angles()
         wheel_spin_ = static_cast<float>(turned);
     }
     // The steering.
-    uint8_t* follower = motion_path_follower(motion);
+    PathFollower* follower = motion_path_follower(motion);
     if (!follower) {
         steer_ = 0.0f;
     } else {
-        float turn = *reinterpret_cast<float*>(follower + 0xE0);
+        // (the original's +0xE0 / +0x04 / +0xB0: the follower's last arc step, its position and the arc's centre)
+        float turn = follower->step_;
         if (turn == 0.0f) {
             target_steer_ = 0.0f;
         } else {
-            const float* point = reinterpret_cast<const float*>(follower + 0x04);
-            const float* from = reinterpret_cast<const float*>(follower + 0xB0);
+            const float* point = &follower->at_point_.x;
+            const float* from = &follower->center_.x;
             double dx = static_cast<double>(point[0]) - from[0];
             double dy = static_cast<double>(point[1]) - from[1];
             double dz = static_cast<double>(point[2]) - from[2];

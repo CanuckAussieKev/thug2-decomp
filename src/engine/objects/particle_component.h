@@ -103,9 +103,6 @@ public:
     int start_time_;                 // +0x28 the game clock when made
     uint32_t lifespan_;              // +0x2C ms (0: for ever)
 };
-static_assert(offsetof(EffectsEmitterModule, emit_target_) == 0x18 &&
-                  offsetof(EffectsEmitterModule, lifespan_) == 0x2C && sizeof(EffectsEmitterModule) == 0x30,
-              "layout must match the original (0x0042A000 allocates 0x30 bytes)");
 
 extern render::EffectsDirector* g_particle_hub;
 

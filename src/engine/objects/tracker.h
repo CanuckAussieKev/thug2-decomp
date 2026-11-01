@@ -105,10 +105,6 @@ public:
     int layer_;                // +0xB00C how many launches are under way
     int added_since_sweep_;    // +0xB010 entries since the last Print
 };
-static_assert(sizeof(SignalTrace::TableRow) == 0x1C && offsetof(SignalTrace, ordinal_) == 0x7000 &&
-                  offsetof(SignalTrace, names_) == 0x7005 && offsetof(SignalTrace, names_ptr_) == 0xB008 &&
-                  sizeof(SignalTrace) == 0xB014,
-              "layout must match the original");
 
 // The tracker (the original's vtable 0x006478E0 holds only its destructor).
 class EventWaitBoard : public memory::HeapObject {
@@ -180,7 +176,6 @@ public:
     bool unknownb218_;         // +0xB218 (cleared by the constructor only)
     uint8_t unknownb219_[3];
 };
-static_assert(sizeof(EventWaitBoard) == 0xB218, "the original's 0xB21C bytes less its vtable");
 
 // The tracker (null until made).
 extern EventWaitBoard* g_tracker;

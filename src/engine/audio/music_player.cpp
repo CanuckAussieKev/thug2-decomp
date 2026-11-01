@@ -21,6 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
+#include "engine/objects/stream_component.h"
 
 namespace audio {
 
@@ -521,7 +522,7 @@ void __cdecl tick_frame()
     for (int i = 0; i < kStreams; ++i) {
         uint32_t*& owner = stream_owners()[i];
         if (owner && !update_stream_volume(i)) { // (false: the stream is over)
-            owner[6 + i] = 0;
+            reinterpret_cast<objects::AudioStreamModule*>(owner)->streams_[i] = 0;
             owner = nullptr;
         }
     }

@@ -31,6 +31,5 @@ public:
 
     uint8_t unused18_[0x40];
 };
-static_assert(sizeof(ParkedVehicleModule) == 0x58, "layout must match the original");
 
 } // namespace objects

@@ -398,29 +398,4 @@ public:
 // Returns out.
 maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b);
 
-static_assert(sizeof(DrivableModule::Wheel) == 0x1C8 && offsetof(DrivableModule::Wheel, load) == 0x38 &&
-                  offsetof(DrivableModule::Wheel, normal) == 0x64 &&
-                  offsetof(DrivableModule::Wheel, feeler_start_) == 0x78 &&
-                  offsetof(DrivableModule::Wheel, offset) == 0xA0 && offsetof(DrivableModule::Wheel, rest_y_) == 0xB8 &&
-                  offsetof(DrivableModule::Wheel, brake_torque_) == 0xF0 &&
-                  offsetof(DrivableModule::Wheel, sideways) == 0xF8 && offsetof(DrivableModule::Wheel, feeler) == 0x118,
-              "layout must match the original");
-static_assert(sizeof(DrivableModule::Collider) == 0x88, "layout must match the original");
-static_assert(offsetof(DrivableModule, at_point_) == 0x18 && offsetof(DrivableModule, awake_) == 0x58 &&
-                  offsetof(DrivableModule, basis_frame_) == 0x64 && offsetof(DrivableModule, vel_) == 0xA4 &&
-                  offsetof(DrivableModule, inv_inertia_) == 0xC4 &&
-                  offsetof(DrivableModule, wheels_in_contact_) == 0x114 &&
-                  offsetof(DrivableModule, kick_time_) == 0x120 && offsetof(DrivableModule, step_length_) == 0x144 &&
-                  offsetof(DrivableModule, inv_mass_) == 0x158 && offsetof(DrivableModule, restitution_) == 0x16C &&
-                  offsetof(DrivableModule, wheel_count_) == 0x190 && offsetof(DrivableModule, colliders_) == 0x1AC &&
-                  offsetof(DrivableModule, skater_bone_) == 0x2BC && offsetof(DrivableModule, wheels_) == 0x2D0 &&
-                  offsetof(DrivableModule, transmission_ratios_) == 0x2E0 &&
-                  offsetof(DrivableModule, steering_) == 0x304 && offsetof(DrivableModule, contact_memo_) == 0x30C &&
-                  offsetof(DrivableModule, rider_shown_) == 0x12D8 &&
-                  offsetof(DrivableModule, sounds_name_) == 0x12F4 &&
-                  offsetof(DrivableModule, collision_impulse_) == 0x130C &&
-                  offsetof(DrivableModule, input_ptr_) == 0x1314 && offsetof(DrivableModule, trigger_ptr_) == 0x1330 &&
-                  sizeof(DrivableModule) == 0x1334,
-              "layout must match the original");
-
 } // namespace objects

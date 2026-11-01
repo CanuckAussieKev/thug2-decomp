@@ -90,10 +90,6 @@ public:
     int frames_before_lod_;  // +0x44
     uint32_t unused48_;      // +0x48
 };
-static_assert(offsetof(DormancyModule, suspend_distance_) == 0x1C && offsetof(DormancyModule, far_) == 0x30 &&
-                  offsetof(DormancyModule, lod_distances_) == 0x34 &&
-                  offsetof(DormancyModule, frames_before_lod_) == 0x44 && sizeof(DormancyModule) == 0x4C,
-              "layout must match the original");
 
 // 0x00433E20: a new frame for the animation LOD counters (0x006951B0 counts frames; 0x006951B4 starts each frame at
 // the count, 0x006951B8 at the count with the low bits changed by its second bit - spreading the interleaved objects

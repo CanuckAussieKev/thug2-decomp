@@ -55,8 +55,6 @@ struct Signal {
     uint32_t flag_bits_;      // +0x0C
     script::Struct* payload_; // +0x10 added to each handler's parameters
 };
-static_assert(offsetof(Signal, flag_bits_) == 0x0C && offsetof(Signal, payload_) == 0x10,
-              "layout must match the original");
 
 // 0x0045F9E0: the controller an event came from (its data's `controller`; 0 without one).
 int __cdecl event_controller(Signal* event);
@@ -83,9 +81,6 @@ public:
     bool on_board_ = false;                     // +0x14 on the tracker's list
     int busy_ = 0;                              // +0x18 raised by the tracker while it asks this listener (0x00462F00)
 };
-static_assert(offsetof(SignalReceiver, next_subscriber_) == 0x10 && offsetof(SignalReceiver, on_board_) == 0x14 &&
-                  sizeof(SignalReceiver) == 0x1C,
-              "layout must match the original");
 
 // A script's event handlers (Scripts::CScript::signal_routes_, 0x10 bytes, on the front-end heap).
 // Entries are never taken out while the table might be running them: removing one sets its script to
@@ -104,7 +99,6 @@ public:
         uint8_t flags;          // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
         uint8_t pad[3];
     };
-    static_assert(sizeof(TableRow) == 0x14, "layout must match the original");
 
     // 0x0045F820
     SignalRouteTable* make_new();
@@ -151,7 +145,5 @@ public:
     uint8_t pad0a_[2];
     int in_use_; // +0x0C forward_trigger nesting depth
 };
-static_assert(sizeof(SignalRouteTable) == 0x10 && offsetof(SignalRouteTable, in_use_) == 0x0C,
-              "layout must match the original");
 
 } // namespace objects

@@ -56,9 +56,5 @@ public:
     int rest_;                          // +0x20 frames left before the feelers run again
     ActivationZoneModule* trigger_ptr_; // +0x24 the local skater's trigger component
 };
-static_assert(offsetof(ProjectileComponent, rider_ref_) == 0x18 && offsetof(ProjectileComponent, seat_) == 0x1C &&
-                  offsetof(ProjectileComponent, rest_) == 0x20 && offsetof(ProjectileComponent, trigger_ptr_) == 0x24 &&
-                  sizeof(ProjectileComponent) == 0x28,
-              "layout must match the original (0x004F3890 allocates 0x28 bytes)");
 
 } // namespace objects

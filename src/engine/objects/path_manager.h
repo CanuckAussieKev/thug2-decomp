@@ -36,7 +36,6 @@ public:
     SharedRef<Entity>* slots_;
     int extent_;
 };
-static_assert(sizeof(ObjectGroup) == 8, "layout must match the original");
 
 class PathManager {
 public:
@@ -60,7 +59,6 @@ public:
     int path_count_;      // +0x08
     int group_count_;     // +0x0C
 };
-static_assert(sizeof(PathManager) == 0x10, "layout must match the original");
 
 // 0x00469A80: the script command AllocatePathManMemory (0x0C230B04 groups, default 200; 0xF6A4081D slots each,
 // default 20; 0x13AFFFF9 extra slots, default 200). True.

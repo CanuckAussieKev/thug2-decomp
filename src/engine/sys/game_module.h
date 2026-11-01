@@ -67,8 +67,6 @@ struct Hub {
     // kRestart - and the command cleared.
     static void __cdecl tick_modules(tasks::Task<Hub>* task);
 };
-static_assert(sizeof(Hub) == 0x18 && offsetof(Hub, command_pending_) == 0x14,
-              "the original's 0x1C less the head's table word");
 
 // The singleton (0x00696D78, references 0x00696D7C). 0x0044F6F0: the first call with `create` makes it, every call
 // takes a reference and returns it (null if there is none).

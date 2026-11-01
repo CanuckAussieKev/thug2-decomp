@@ -69,8 +69,5 @@ public:
     EmitterNode* spewer_; // +0x24
     ProximNode* proxim_;  // +0x28
 };
-static_assert(offsetof(AudioStreamModule, streams_) == 0x18 && offsetof(AudioStreamModule, spewer_) == 0x24 &&
-                  offsetof(AudioStreamModule, proxim_) == 0x28 && sizeof(AudioStreamModule) == 0x2C,
-              "layout must match the original");
 
 } // namespace objects

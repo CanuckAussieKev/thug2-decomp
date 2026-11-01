@@ -203,7 +203,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
 {
     if (ObjectModule* component = object->fetch_module(kModelModuleName)) {
         void* model = model_of(component);
-        if (*(get_bytes(model) + 0x44) & 4) // (hidden)
+        if (static_cast<render::RenderModel*>(model)->flag_bits_ & 4) // (hidden)
             return;
         if (static_cast<MeshInstanceModule*>(component)->level_object_) {
             // the level object it stands in for: faded out, moved along

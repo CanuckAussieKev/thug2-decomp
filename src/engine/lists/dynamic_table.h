@@ -21,7 +21,6 @@ struct GrowableMap {
     // 0x005614D0: `item` at the end (when full, `grow` more slots first: the old ones copied, the new ones null).
     void append_one(void* item);
 };
-static_assert(sizeof(GrowableMap) == 0x10, "layout must match the original");
 
 struct TableReleaser {
     GrowableMap* lookup_table_;

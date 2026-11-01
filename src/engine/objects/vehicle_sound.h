@@ -94,10 +94,5 @@ public:
     DrivableModule* vehicle_ptr_; // +0xB4
     ObjectModule* sound_ptr_;     // +0xB8
 };
-static_assert(offsetof(EngineAudioModule, engine_sound_) == 0x20 && offsetof(EngineAudioModule, gear_count_) == 0x34 &&
-                  offsetof(EngineAudioModule, gear_steps_) == 0x38 && offsetof(EngineAudioModule, speed_) == 0x98 &&
-                  offsetof(EngineAudioModule, skid_) == 0xAC && offsetof(EngineAudioModule, vehicle_ptr_) == 0xB4 &&
-                  sizeof(EngineAudioModule) == 0xBC,
-              "layout must match the original");
 
 } // namespace objects

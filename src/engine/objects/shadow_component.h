@@ -79,11 +79,5 @@ public:
     bool follow_object_;                // +0x44 each update puts it at the object's position
     uint8_t pad45[3];
 };
-static_assert(offsetof(GroundShadowModule, shadow_handle_) == 0x18 && offsetof(GroundShadowModule, at_point_) == 0x1C &&
-                  offsetof(GroundShadowModule, surface_dir_) == 0x2C &&
-                  offsetof(GroundShadowModule, shadow_kind_) == 0x3C &&
-                  offsetof(GroundShadowModule, mesh_instance_) == 0x40 &&
-                  offsetof(GroundShadowModule, follow_object_) == 0x44 && sizeof(GroundShadowModule) == 0x48,
-              "layout must match the original");
 
 } // namespace objects

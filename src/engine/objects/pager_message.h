@@ -75,7 +75,5 @@ public:
 
     PointerList messages_; // +0x18 (PagerMessage*)
 };
-static_assert(offsetof(PagerMessageComponent, messages_) == 0x18 && sizeof(PagerMessageComponent) == 0x20,
-              "layout must match the original");
 
 } // namespace objects

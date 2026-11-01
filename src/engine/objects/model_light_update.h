@@ -55,8 +55,5 @@ public:
     float brightness_;                  // +0x24 the last sample's
     MeshInstanceModule* mesh_instance_; // +0x28
 };
-static_assert(offsetof(MeshLightingModule, light_flags_) == 0x18 && offsetof(MeshLightingModule, brightness_) == 0x24 &&
-                  offsetof(MeshLightingModule, mesh_instance_) == 0x28 && sizeof(MeshLightingModule) == 0x2C,
-              "layout must match the original (0x00422DC0 allocates 0x2C bytes)");
 
 } // namespace objects

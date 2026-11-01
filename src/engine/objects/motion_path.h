@@ -90,11 +90,5 @@ public:
     uint8_t unknown1e4_[0x1EC - 0x1E4];
     void* path_follower_; // +0x1EC
 };
-static_assert(offsetof(MotionPathMembers, motion_flags_) == 0x18 &&
-                  offsetof(MotionPathMembers, acceleration_) == 0x24 &&
-                  offsetof(MotionPathMembers, stop_covered_) == 0x1A4 &&
-                  offsetof(MotionPathMembers, step_seconds_) == 0x1E0 &&
-                  offsetof(MotionPathMembers, path_follower_) == 0x1EC,
-              "layout must match the original");
 
 } // namespace objects

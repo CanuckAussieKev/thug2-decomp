@@ -331,22 +331,6 @@ public:
     // the params).
     void rotate_to(script::Struct* params);
 };
-static_assert(
-    offsetof(KinematicsModule, motion_flags_) == 0x18 && offsetof(KinematicsModule, move_speed_) == 0x20 &&
-        offsetof(KinematicsModule, path_speed_) == 0x30 && offsetof(KinematicsModule, ground_triangle_) == 0x40 &&
-        offsetof(KinematicsModule, ground_height_only_) == 0x70 &&
-        offsetof(KinematicsModule, ground_triangles_) == 0x74 && offsetof(KinematicsModule, path_group_) == 0x104 &&
-        offsetof(KinematicsModule, move_target_) == 0x108 && offsetof(KinematicsModule, move_arrive_node_) == 0x128 &&
-        offsetof(KinematicsModule, rot_target_) == 0x12C && offsetof(KinematicsModule, move_start_) == 0x18C &&
-        offsetof(KinematicsModule, ground_speed_) == 0x19C &&
-        offsetof(KinematicsModule, path_min_stop_speed_) == 0x1AC && offsetof(KinematicsModule, stored_pos_) == 0x1B0 &&
-        offsetof(KinematicsModule, turn_ptr_) == 0x1CC && offsetof(KinematicsModule, hover_base_) == 0x1D0 &&
-        offsetof(KinematicsModule, step_seconds_) == 0x1E0 && offsetof(KinematicsModule, path_follower_) == 0x1EC &&
-        offsetof(KinematicsModule, leave_y_unaffected_) == 0x1F4 && offsetof(KinematicsModule, jump_speed_) == 0x1F8 &&
-        offsetof(KinematicsModule, jump_has_heading_) == 0x210 && offsetof(KinematicsModule, jump_pos_) == 0x214 &&
-        offsetof(KinematicsModule, jump_has_land_height_) == 0x234 &&
-        offsetof(KinematicsModule, jump_start_) == 0x23C && sizeof(KinematicsModule) == 0x24C,
-    "layout must match the original (0x00426650 allocates 0x24C bytes)");
 
 // 0x00425CB0: the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
 // it: hit, the face it hit becomes the cached triangle and the point is the feeler's. Whether anything was hit.

@@ -31,6 +31,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
+#include "game/rider/rotate_component.h"
 
 namespace skater {
 
@@ -475,9 +476,9 @@ void SkaterPhysicsModule::do_air_physics()
     if (bike)
         thaw_bmx::tire_tap(this);
     {
-        uint8_t* other = reinterpret_cast<uint8_t*>(rotate_);
-        if (!bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop) && !other[0x28] &&
-            !other[0x50] && !(bike && thaw_bmx::tire_tapping(this)))
+        // (the rotate component's turns about x and z)
+        if (!bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop) && !rotate_->turns_[0].active &&
+            !rotate_->turns_[2].active && !(bike && thaw_bmx::tire_tapping(this)))
             keep_upright();
     }
     if (special_friction_time_ != 0.0f)
@@ -665,9 +666,8 @@ void SkaterPhysicsModule::do_air_physics()
     }
 
     {
-        uint8_t* other = reinterpret_cast<uint8_t*>(rotate_);
         if (!bit_mark(this, PoseFlag::kVertAir) || bit_mark(this, PoseFlag::kAcidDrop) || model_rotating_ ||
-            other[0x28] || other[0x50])
+            rotate_->turns_[0].active || rotate_->turns_[2].active)
             display_matrix_ = entity_->basis_frame_;
         else
             update_ground_normal();

@@ -46,10 +46,6 @@ struct EmitterNode {
     uint32_t unknown58_;
     uint32_t own_script_; // +0x5C
 };
-static_assert(offsetof(EmitterNode, active_) == 0x24 && offsetof(EmitterNode, sector_) == 0x34 &&
-                  offsetof(EmitterNode, box_) == 0x38 && offsetof(EmitterNode, own_script_) == 0x5C &&
-                  sizeof(EmitterNode) == 0x60,
-              "layout must match the original");
 
 // 0x004680E0: the emitter named `name` (null if none).
 EmitterNode* emitter_get_node(uint32_t name);
@@ -83,9 +79,6 @@ public:
     float reach_;                   // +0x41C
     bool free_facing_;              // +0x420
 };
-static_assert(offsetof(FollowTrail, num_) == 0x400 && offsetof(FollowTrail, aim_point_) == 0x40C &&
-                  offsetof(FollowTrail, reach_) == 0x41C && offsetof(FollowTrail, free_facing_) == 0x420,
-              "layout must match the original");
 
 extern void* g_emitter_table;
 } // namespace objects

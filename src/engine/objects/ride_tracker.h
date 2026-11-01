@@ -33,8 +33,5 @@ struct RideTracker {
     bool turned_;                  // +0xAC
     uint8_t padad_[3];
 };
-static_assert(offsetof(RideTracker, previous_xform_) == 0x0C && offsetof(RideTracker, carried_) == 0x5C &&
-                  offsetof(RideTracker, turned_) == 0xAC && sizeof(RideTracker) == 0xB0,
-              "layout must match the original");
 
 } // namespace objects

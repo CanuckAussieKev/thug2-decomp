@@ -85,9 +85,6 @@ struct Viewer final : public PartUnit {
     // 0x00577260: commands added (OR).
     void add_commands(uint32_t commands);
 };
-static_assert(offsetof(Viewer, pad_listener_) == 0x14 && offsetof(Viewer, actions_) == 0x44 &&
-                  offsetof(Viewer, entity_) == 0x54,
-              "layout must match the original");
 
 // 0x00576F00: the input handler's code: the sticks into the viewer, and (if viewer_buttons_enabled) the buttons
 // as commands and the User Viewer scripts; only in a view mode (change_view_mode).

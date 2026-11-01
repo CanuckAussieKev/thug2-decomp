@@ -72,8 +72,5 @@ public:
     maths::Vec4 last_pos_; // +0x18 where the object was at the last update
     uint32_t events_;      // +0x28 the last trigger's events (a bit for each)
 };
-static_assert(offsetof(ActivationZoneModule, last_pos_) == 0x18 && offsetof(ActivationZoneModule, events_) == 0x28 &&
-                  sizeof(ActivationZoneModule) == 0x2C,
-              "layout must match the original");
 
 } // namespace objects

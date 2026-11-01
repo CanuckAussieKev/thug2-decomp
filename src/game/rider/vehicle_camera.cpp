@@ -21,6 +21,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_component.h"
+#include "engine/objects/vehicle_component.h"
 
 namespace objects {
 
@@ -119,7 +120,7 @@ bool CarView::vehicle_camera_reset(script::Struct* params, script::Script* /*scr
 // 0x00524550
 void CarView::update_target_direction()
 {
-    const float* velocity = reinterpret_cast<const float*>(vehicle_ + 0xA4);
+    const float* velocity = &reinterpret_cast<const objects::DrivableModule*>(vehicle_)->vel_.x;
     float x = -velocity[0];
     float y = 0.0f;
     float z = -velocity[2];
@@ -132,7 +133,7 @@ void CarView::update_target_direction()
         y = static_cast<float>(0.0f * inverse);
         z = static_cast<float>(z * inverse);
     }
-    if (*reinterpret_cast<int*>(vehicle_ + 0x114) < 2) {
+    if (reinterpret_cast<const objects::DrivableModule*>(vehicle_)->wheels_in_contact_ < 2) {
         if (!(speed < kMinFlatSpeed))
             target_direction_ = {x, y, z, w};
         return;

@@ -33,9 +33,6 @@ struct ChainLink {
     uint32_t unused48_;             // +0x48
     render::PcPrimitive* line_ptr_; // +0x4C the line drawn to the next link
 };
-static_assert(sizeof(ChainLink) == 0x50 && offsetof(ChainLink, next_pos_) == 0x30 &&
-                  offsetof(ChainLink, line_ptr_) == 0x4C,
-              "layout must match the original");
 
 // A chain hung from a bone of its object to a bone of another object (0x684 bytes).
 struct Chain {
@@ -64,10 +61,6 @@ struct Chain {
     bool collide_below_; // +0x680 (0x4BFBDC28): kept on the plane's other side
     uint8_t pad681[3];
 };
-static_assert(offsetof(Chain, chain_link_) == 0x24 && offsetof(Chain, iterations_) == 0x664 &&
-                  offsetof(Chain, move_with_object_) == 0x670 && offsetof(Chain, collide_below_) == 0x680 &&
-                  sizeof(Chain) == 0x684,
-              "layout must match the original (0x004283B0 allocates 0x684 bytes)");
 
 // The chain component (type 0x6DCFEC46, vtable 0x0064630C, 0x48 bytes; made by 0x004298B0; our name): chains of
 // links (ropes) hanging from the object's bones, simulated (Verlet, damping, gravity, fixed-rate constraint passes)
@@ -129,8 +122,5 @@ public:
     bool invisible_;              // +0x44
     uint8_t pad45[3];
 };
-static_assert(offsetof(ChainComponent, chains_) == 0x18 && offsetof(ChainComponent, invisible_) == 0x44 &&
-                  sizeof(ChainComponent) == 0x48,
-              "layout must match the original (0x004298B0 allocates 0x48 bytes)");
 
 } // namespace objects

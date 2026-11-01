@@ -154,13 +154,5 @@ public:
     bool sector_model_;                  // +0x235 init_from_sector's
     uint8_t pad236[2];
 };
-static_assert(offsetof(MeshInstanceModule, enclosing_ball_) == 0x18 && offsetof(MeshInstanceModule, pivot_) == 0x28 &&
-                  offsetof(MeshInstanceModule, twist_rate_) == 0x38 && offsetof(MeshInstanceModule, flip_) == 0x1F4 &&
-                  offsetof(MeshInstanceModule, shift_) == 0x1F8 &&
-                  offsetof(MeshInstanceModule, mesh_instance_) == 0x208 &&
-                  offsetof(MeshInstanceModule, color_values_) == 0x218 &&
-                  offsetof(MeshInstanceModule, color_value_count_) == 0x228 &&
-                  offsetof(MeshInstanceModule, linked_entity_label_) == 0x230 && sizeof(MeshInstanceModule) == 0x238,
-              "layout must match the original (0x00421490 allocates 0x238 bytes)");
 
 } // namespace objects

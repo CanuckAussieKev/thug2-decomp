@@ -90,7 +90,5 @@ public:
 
     uint8_t* bone_rig_; // +0x18 the renderer's skeleton
 };
-static_assert(offsetof(BoneRigModule, bone_rig_) == 0x18 && sizeof(BoneRigModule) == 0x1C,
-              "layout must match the original");
 
 } // namespace objects

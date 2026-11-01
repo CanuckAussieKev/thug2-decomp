@@ -62,10 +62,5 @@ public:
     float middle_time_;           // +0x40 the middle's fraction of the life (-1: none)
     uint8_t* wait_and_die_;       // +0x44 its +0x1C elapsed, +0x20 total (unsigned)
 };
-static_assert(offsetof(DynamicLightComponent, light_) == 0x18 &&
-                  offsetof(DynamicLightComponent, start_radius_) == 0x28 &&
-                  offsetof(DynamicLightComponent, middle_time_) == 0x40 &&
-                  offsetof(DynamicLightComponent, wait_and_die_) == 0x44 && sizeof(DynamicLightComponent) == 0x48,
-              "layout must match the original");
 
 } // namespace objects

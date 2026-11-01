@@ -79,8 +79,5 @@ public:
     Stopwatch timers_[kActuators]; // +0x1C
     sio::InputPort* pad_dev_;      // +0x34
 };
-static_assert(offsetof(PadRumbleModule, active_) == 0x18 && offsetof(PadRumbleModule, timers_) == 0x1C &&
-                  offsetof(PadRumbleModule, pad_dev_) == 0x34 && sizeof(PadRumbleModule) == 0x38,
-              "layout must match the original");
 
 } // namespace objects

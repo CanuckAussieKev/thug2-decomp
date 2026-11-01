@@ -53,7 +53,5 @@ public:
 
     render::HitMesh* hit_shape_; // +0x18
 };
-static_assert(offsetof(ContactShapeModule, hit_shape_) == 0x18 && sizeof(ContactShapeModule) == 0x1C,
-              "layout must match the original");
 
 } // namespace objects

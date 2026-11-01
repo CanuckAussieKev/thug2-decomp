@@ -15,6 +15,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
+#include "game/rider/walk_physics.h"
 
 namespace objects {
 
@@ -88,7 +89,7 @@ void RiderRunClock::fetch_diagnostics(script::Struct* params)
 void RiderRunClock::tick_frame()
 {
     if (cur_phase_ == kClockTicking) {
-        int walk_state = *reinterpret_cast<int*>(walk_ + 0x18);
+        int walk_state = reinterpret_cast<const objects::FootMovement*>(walk_)->state_;
         double elapsed;
         if (walk_state >= 2 && walk_state <= 4) {
             float adjustment = script::fetch_float(kHangSpeedAdjustment);

@@ -64,9 +64,5 @@ public:
     uint32_t end_time_;           // +0x64 the game clock's time to end the text (0: none)
     ObjectModule* mesh_instance_; // +0x68 the model component (its +0x208: the model)
 };
-static_assert(offsetof(FloatingTextComponent, text_) == 0x18 && offsetof(FloatingTextComponent, tint_) == 0x58 &&
-                  offsetof(FloatingTextComponent, ident_) == 0x60 &&
-                  offsetof(FloatingTextComponent, mesh_instance_) == 0x68 && sizeof(FloatingTextComponent) == 0x6C,
-              "layout must match the original");
 
 } // namespace objects

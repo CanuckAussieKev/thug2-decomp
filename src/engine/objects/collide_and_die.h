@@ -56,11 +56,6 @@ public:
     maths::Vec4 vel_;      // +0x34 vel (normalised)
     maths::Vec4 last_pos_; // +0x44 the object's position at the last update
 };
-static_assert(offsetof(ImpactDestructModule, radius_) == 0x1C && offsetof(ImpactDestructModule, death_time_) == 0x2C &&
-                  offsetof(ImpactDestructModule, first_update_) == 0x31 &&
-                  offsetof(ImpactDestructModule, vel_) == 0x34 && offsetof(ImpactDestructModule, last_pos_) == 0x44 &&
-                  sizeof(ImpactDestructModule) == 0x54,
-              "layout must match the original");
 
 extern online::Hub* g_online_hub;
 

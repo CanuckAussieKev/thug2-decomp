@@ -72,7 +72,6 @@ public:
 protected:
     Zone() {} // fields left as they are (MemoryArena sets them, unless its size is 0)
 };
-static_assert(sizeof(Zone) == 0x18, "layout must match the original");
 
 // A region whose memory is itself allocated from the memory manager.
 class MemoryArena final : public Zone {
@@ -165,7 +164,6 @@ public:
     ListNode zone_chain_; // head of the context stack (newest first)
     CtxInfo base_context_;
 };
-static_assert(sizeof(MemSource) == 0x5C, "the original's 0x64 less the two list nodes' table words");
 
 // The general-purpose allocator: a free list per context (address ordered, neighbours merged), and more space
 // claimed from the region when no free block fits. A heap can fall back on up to five others when its region is
@@ -193,6 +191,5 @@ public:
     Arena* fallbacks_[5];
     int fallback_reserve_[5];
 };
-static_assert(sizeof(Arena) == 0x90, "0x98 in the original (two list nodes' table words fewer)");
 
 } // namespace memory

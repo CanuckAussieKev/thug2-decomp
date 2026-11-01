@@ -23,6 +23,7 @@
 #include "engine/gfx/weather.h"
 #include "engine/objects/particle_component.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/gfx/particle_sets.h"
 
 namespace commands {
 
@@ -82,12 +83,10 @@ void destroy_particle_group(void* manager, uint32_t group)
     static_cast<render::FlexibleParticleManager*>(manager)->destroy_group(group);
 }
 
-// A particle component's group id: its particle system's +0x0C.
+// A particle component's group id: its particle system's (its parameters').
 uint32_t particle_group(objects::ObjectModule* component)
 {
-    auto* system =
-        reinterpret_cast<const uint8_t*>(static_cast<objects::EffectsEmitterModule*>(component)->effect_handle_);
-    return *reinterpret_cast<const uint32_t*>(system + 0x0C);
+    return static_cast<objects::EffectsEmitterModule*>(component)->effect_handle_->args_.group_id_;
 }
 
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).

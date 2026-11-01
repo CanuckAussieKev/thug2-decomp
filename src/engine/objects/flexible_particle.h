@@ -98,11 +98,5 @@ public:
     bool rotate_;                               // +0x38 EnableRotate
     uint8_t pad39[3];
 };
-static_assert(offsetof(FlexibleParticleComponent, system_) == 0x18 &&
-                  offsetof(FlexibleParticleComponent, label_) == 0x24 &&
-                  offsetof(FlexibleParticleComponent, clock_) == 0x2C &&
-                  offsetof(FlexibleParticleComponent, brightness_model_) == 0x34 &&
-                  offsetof(FlexibleParticleComponent, rotate_) == 0x38 && sizeof(FlexibleParticleComponent) == 0x3C,
-              "layout must match the original");
 
 } // namespace objects

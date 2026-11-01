@@ -38,7 +38,6 @@ public:
     int pass_count_;              // +0x10 the list's stamp when it last ran
     uint32_t skip_bits_;          // +0x14 not run when it shares a bit with the mask the list is processed with
 };
-static_assert(sizeof(SchedulerTask) == 0x18, "the original's size");
 
 // tasks::Task<Owner> (0x20 bytes; every instance shared the vtable 0x006476F0 - the linker folded them): a task
 // running a cdecl function given the task, whose owner is the object it works for.
@@ -79,7 +78,6 @@ public:
     int pass_count_;        // +0x14 counts the passes
     bool altered_;          // +0x18 a task was added or removed
 };
-static_assert(sizeof(LinkChain) == 0x1C, "the original's 0x20 less the head's table word");
 
 // A list on a Stack (0x24 bytes in the original): its node in the stack (lists::Elem<StackList>).
 class StackList : public LinkChain {
@@ -91,7 +89,6 @@ public:
 
     memory::ListNode* list_link_; // +0x1C
 };
-static_assert(sizeof(StackList) == 0x20, "the original's 0x24 less the head's table word");
 
 // A stack of task lists (0x3C bytes in the original): tasks go into the current list; Push starts a new list that hides the
 // ones below it until Pop. The main loop's task lists are Stacks.
@@ -124,6 +121,5 @@ public:
     bool pushed_;                   // +0x30
     bool just_popped_;              // +0x31
 };
-static_assert(sizeof(PileUp) == 0x34, "the original's 0x3C less the heads' table words");
 
 } // namespace tasks

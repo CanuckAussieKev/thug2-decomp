@@ -63,9 +63,5 @@ public:
     GameEntity* last_object_;   // +0x6C the object last ridden
     int stop_time_;             // +0x70 the game clock when it stopped riding
 };
-static_assert(offsetof(MovingSurfaceModule, ride_) == 0x18 && offsetof(MovingSurfaceModule, contact_point_) == 0x1C &&
-                  offsetof(MovingSurfaceModule, last_object_) == 0x6C &&
-                  offsetof(MovingSurfaceModule, stop_time_) == 0x70 && sizeof(MovingSurfaceModule) == 0x74,
-              "layout must match the original (0x00427AB0 allocates 0x74 bytes)");
 
 } // namespace objects

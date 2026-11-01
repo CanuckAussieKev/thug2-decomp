@@ -16,6 +16,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/wait_and_die.h"
 
 namespace render {
 
@@ -129,8 +130,8 @@ void DynamicLightComponent::tick_frame()
         light_->holder_key_ = entity_->ident_;
     }
     // The life's fraction.
-    double t = Unsigned(*reinterpret_cast<uint32_t*>(wait_and_die_ + 0x1C)) /
-               Unsigned(*reinterpret_cast<uint32_t*>(wait_and_die_ + 0x20));
+    const auto* life = reinterpret_cast<const WaitAndDieComponent*>(wait_and_die_);
+    double t = Unsigned(life->elapsed_) / Unsigned(life->lifespan_);
     uint32_t from_color = start_color_, to_color = end_color_;
     float from_radius = start_radius_, to_radius = end_radius_;
     float from_intensity = start_intensity_, to_intensity = end_intensity_;

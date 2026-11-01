@@ -1,6 +1,7 @@
 // The Avoid component (GameObjects::ObstacleDodgeModule): see avoid.h. From the disassembly of 0x004E3270-0x004E3F50 (the
 // member functions 0x004E37D0, 0x004E3810, 0x004E3BD0 and 0x004E3EC0 aren't Ghidra functions).
 
+#include "engine/objects/path_follower.h"
 #include "engine/objects/avoid.h"
 #include "engine/gfx/d3dx.h"
 #include "game/rider/rider.h"
@@ -77,10 +78,10 @@ void flip_anims(ObjectModule* blender, uint32_t object_id, bool flip, int a, int
     get_blender(blender)->any_channel(object_id, flip ? 1u : 0u, static_cast<uint32_t>(a), static_cast<uint32_t>(b));
 }
 bool anim_complete(ObjectModule* blender) { return get_blender(blender)->is_clip_done(); }
-// The motion component's (0x0A015E17) path follower, 0x00423510 (null, or something with a point at +0x74).
-uint8_t* motion_path(ObjectModule* motion)
+// The motion component's (0x0A015E17) path follower, 0x00423510 (or null).
+PathFollower* motion_path(ObjectModule* motion)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
+    return static_cast<PathFollower*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
 }
 uint32_t& motion_flags(ObjectModule* motion) { return reinterpret_cast<MotionPathMembers*>(motion)->path_flags_; }
 
@@ -343,7 +344,7 @@ bool ObstacleDodgeModule::store_target(script::Struct* /*params*/, script::Scrip
     const maths::Vec4* point = &entity_->at_point_;
     ObjectModule* motion = entity_->fetch_module(kMotion);
     if (motion && motion_path(motion))
-        point = reinterpret_cast<const maths::Vec4*>(motion_path(motion) + 0x74);
+        point = &motion_path(motion)->end_point_; // (the original's +0x74: the node headed for)
     aim_point_ = *point;
     return true;
 }

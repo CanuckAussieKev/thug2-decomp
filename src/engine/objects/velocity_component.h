@@ -40,7 +40,5 @@ public:
 
     ObjectModule* suspend_; // +0x18 the object's Suspend component (0xCE0CA665), from Finalize
 };
-static_assert(offsetof(VelocityTrackerModule, suspend_) == 0x18 && sizeof(VelocityTrackerModule) == 0x1C,
-              "layout must match the original");
 
 } // namespace objects

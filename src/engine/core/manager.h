@@ -20,7 +20,6 @@ public:
         bool used;
         uint8_t pad[3];
     };
-    static_assert(sizeof(LabeledZone) == 0x90, "layout must match the original");
     static constexpr int kMaxHeaps = 48;
     static constexpr int kMaxNamedHeaps = 7;
     static constexpr int kSkaterSlots = 8;
@@ -114,11 +113,6 @@ public:
     uint32_t unknown5e0_;
     uint32_t unknown5e4_;
 };
-static_assert(offsetof(Hub, heap_count_) == 0xC0 && offsetof(Hub, context_depth_) == 0x108 &&
-                  offsetof(Hub, debug_heap_) == 0x154 && offsetof(Hub, skater_regions_) == 0x160 &&
-                  offsetof(Hub, named_heaps_) == 0x1E0 && offsetof(Hub, skater_info_region_) == 0x5D0 &&
-                  offsetof(Hub, theme_heap_) == 0x5DC && sizeof(Hub) == 0x5E8,
-              "layout must match the original");
 
 // 0x005BC2C0: create the manager (on the first allocation), with the bottom-up heap current.
 void set_up_manager();

@@ -18,6 +18,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
+#include "engine/objects/suspend_component.h"
 
 namespace objects {
 
@@ -80,7 +81,7 @@ void ImpactDestructModule::seal() { suspend_ = reinterpret_cast<uint8_t*>(entity
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
 {
-    if (!g_online_hub->in_net_game() && suspend_[0x30])
+    if (!g_online_hub->in_net_game() && reinterpret_cast<DormancyModule*>(suspend_)->far_)
         return;
     int& offset = g_clock_offset;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
