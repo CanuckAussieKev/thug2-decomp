@@ -3,8 +3,8 @@
 //   node tools/pipeline/game/crop_compare.ts <before.png> <after.png> <x,y,w,h> <out.png> [--zoom 3]
 import * as fs from "node:fs";
 import { parseCli } from "../lib/cli.ts";
+import { decodePng, encodePng } from "../lib/frame_diff.ts";
 import { isMain, print, runMain } from "../lib/py.ts";
-import { decodePng, encodePng } from "./frame_diff.ts";
 
 const USAGE = "usage: crop_compare.ts before.png after.png x,y,w,h out.png [--zoom N]";
 
