@@ -191,19 +191,19 @@ bool ContestObjective::get_win()
             record_points_ = place;
         }
     }
-    script::Struct* rewards = script::new_struct();
+    script::StructPtr rewards = script::make_struct();
     if (!has_won()) {
-        script::Struct* own = script::new_struct();
-        get_prize_struct(own);
-        rewards->append_structure_if_any(own);
-        script::free_struct(own);
+        script::StructPtr own = script::make_struct();
+        get_prize_struct(own.get());
+        rewards->append_structure_if_any(own.get());
+        own.reset();
         open_up_prize_objectives();
     } else {
         args_->erase_module(kRewardParams);
     }
-    args_->put_sub_struct(kRewardParams, rewards);
+    args_->put_sub_struct(kRewardParams, rewards.get());
     invoke_hook_script(kSuccessScript);
-    script::free_struct(rewards);
+    rewards.reset();
     if (!has_won())
         mark_won();
     return true;
@@ -349,19 +349,18 @@ void HuntGapsObjective::scan_for_gaps()
     args_->put_int(kNumberCollected, count);
     if (!found_new)
         return;
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->put_name_key(kGoalIdChecksum, get_objective_key());
-    script::launch_script(kFindGapsFoundGap, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(kFindGapsFoundGap, params.get(), nullptr, false, nullptr);
 }
 
 // 0x00552D20
 bool HuntGapsObjective::activate()
 {
     args_->erase_module(kGapsFound);
-    script::Struct* found = script::new_struct();
-    args_->put_sub_struct(kGapsFound, found);
-    script::free_struct(found);
+    script::StructPtr found = script::make_struct();
+    args_->put_sub_struct(kGapsFound, found.get());
+    found.reset();
     args_->put_int(kNumGapsFound, 0);
     args_->put_int(kNumberCollected, 0);
     int to_find = 0;

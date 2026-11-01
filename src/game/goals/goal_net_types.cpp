@@ -284,7 +284,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
             zero_objective_bits();
             return advance_race_gate(id);
         }
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_name_key(kGoalIdChecksum, id);
         if (i == 0 && laps_ > 1)
             params->put_int(kStartLap, lap_);
@@ -311,9 +311,9 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         std::array<char, 0x100> script_name{};
         std::snprintf(script_name.data(), sizeof(script_name), "%s_next_waypoint_script_id",
                       goal_name); // "%s_next_waypoint_script_id"
-        script::spawn_script(kRaceNextWaypoint, params, 0, nullptr, 0, checksums::hash_from_text(script_name.data()), false,
+        script::spawn_script(kRaceNextWaypoint, params.get(), 0, nullptr, 0, checksums::hash_from_text(script_name.data()), false,
                              false, false, false);
-        script::free_struct(params);
+        params.reset();
         return true;
     }
     return true;

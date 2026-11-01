@@ -54,14 +54,13 @@ void SkateLineGoal::next_cluster()
     int time = 0;
     if (cluster->fetch_int_value(kTime, &time, 1))
         set_seconds_remaining(time);
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->append_structure_if_any(args_);
     params->append_structure_if_any(cluster);
     params->put_int(kGoalObjectsIndex, num_flags_set_);
     if (num_flags_set_ == 1)
         params->put_sub_struct(kFirstSpotParams, objects->struct_at(0));
-    script::launch_script(kNextCluster, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(kNextCluster, params.get(), nullptr, false, nullptr);
 }
 
 // 0x00569410 (vtable +0x4C)

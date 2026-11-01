@@ -171,7 +171,7 @@ void GoalManager::append_objective_list_entries()
             continue;
         if (goal->is_online_objective())
             continue;
-        script::Struct* item = script::new_struct();
+        const script::StructPtr item = script::make_struct();
         item->put_name_key(kGoalIdChecksum, goal->get_objective_key());
         item->append_word(kText, text);
         if (goal->has_won()) {
@@ -208,8 +208,7 @@ void GoalManager::append_objective_list_entries()
                 }
             }
         }
-        script::launch_script(kViewGoalsMenuAddItem, item, nullptr, false, nullptr);
-        script::free_struct(item);
+        script::launch_script(kViewGoalsMenuAddItem, item.get(), nullptr, false, nullptr);
     }
     script::release_array_storage(ordered);
     script::release_array_storage(unordered);

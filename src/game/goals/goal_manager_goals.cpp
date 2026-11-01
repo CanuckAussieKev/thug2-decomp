@@ -149,10 +149,9 @@ void GoalManager::retry_previous_objective()
     script::stop_scripts_targeting(kSk3KillSkaterFinish);
     script::launch_script(kKillBlur, nullptr, nullptr, false, nullptr);
     if (!goal->has_won() || goal->fetch_args()->has_bare_flag(kDontKillTriggerOnSuccess)) {
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->put_name_key("goal_id", goal->get_objective_key()); // "goal_id"
-        script::launch_script(kResetGoalTrigger, params, nullptr, false, nullptr);
-        script::free_struct(params);
+        script::launch_script(kResetGoalTrigger, params.get(), nullptr, false, nullptr);
     }
     goal->activate();
     goal->unset_quick_start();
@@ -163,18 +162,17 @@ void GoalManager::level_unload()
 {
     if (net_session_slot()->in_net_game())
         return;
-    script::Struct* own = script::new_struct();
+    script::StructPtr own = script::make_struct();
     own->put_sub_struct(kSkillTiers, args_);
-    goal_data_->put_sub_struct(kGoalManagerParams, own);
-    script::free_struct(own);
+    goal_data_->put_sub_struct(kGoalManagerParams, own.get());
+    own.reset();
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->fetch_args()->has_bare_flag(kNullGoal) || goal->is_user_made_objective())
             continue;
-        script::Struct* data = script::new_struct();
-        goal->capture_save_block(data);
-        goal_data_->put_sub_struct(goal->get_objective_key(), data);
-        script::free_struct(data);
+        const script::StructPtr data = script::make_struct();
+        goal->capture_save_block(data.get());
+        goal_data_->put_sub_struct(goal->get_objective_key(), data.get());
     }
 }
 
@@ -215,15 +213,14 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
             continue;
         if (edited_only && !goal->is_edited_goal2())
             continue;
-        script::Struct* choice = script::new_struct();
+        const script::StructPtr choice = script::make_struct();
         choice->put_name_key(kGoalIdChecksum, goal->get_objective_key());
         choice->put_name_key(kParent, kCurrentMenu);
         choice->append_word(kText, text);
         choice->put_name_key(kFont, kSmall);
         choice->put_int(kScale, 0);
-        script::launch_script(selected_only ? kViewSelectedGoalsMenuSetEvents : kChooseGoalsMenuSetEvents, choice,
+        script::launch_script(selected_only ? kViewSelectedGoalsMenuSetEvents : kChooseGoalsMenuSetEvents, choice.get(),
                               nullptr, false, nullptr);
-        script::free_struct(choice);
     }
 }
 
@@ -233,21 +230,21 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
     script::Struct* params = goals_.get_pull(id)->fetch_args();
     script::Array* key_combos = nullptr;
     params->fetch_list(kButtonSequences, &key_combos, 1);
-    script::Array* key_texts = script::new_array();
-    script::Array* trick_texts = script::new_array();
+    script::ArrayPtr key_texts = script::make_array();
+    script::ArrayPtr trick_texts = script::make_array();
     const uint32_t count = key_combos->extent_;
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
     int premade = -1; // (the created trick's number, with create_a_trick)
     if (params->has_bare_flag(kCreateATrick))
         params->fetch_int_value(kTrickName, &premade, 1);
-    const bool done = Objective::build_trick_texts(key_combos, key_texts, trick_texts, premade);
+    const bool done = Objective::build_trick_texts(key_combos, key_texts.get(), trick_texts.get(), premade);
     if (done)
-        Objective::replace_trick_tokens(text, out, key_texts, trick_texts, size);
-    script::release_array_storage(key_texts);
-    script::release_array_storage(trick_texts);
-    free_array(key_texts);
-    free_array(trick_texts);
+        Objective::replace_trick_tokens(text, out, key_texts.get(), trick_texts.get(), size);
+    script::release_array_storage(key_texts.get());
+    script::release_array_storage(trick_texts.get());
+    key_texts.reset();
+    trick_texts.reset();
     return done;
 }
 

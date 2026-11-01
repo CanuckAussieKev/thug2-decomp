@@ -75,12 +75,11 @@ RiderIdentity* current_profile() { return objects::g_profile_roster->fetch_activ
 // 0x005565C0
 void Objective::no_combo_sequence_left()
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     uint32_t id = 0;
     args_->read_hash_value(kGoalIdName, &id, 1);
     params->put_name_key(kGoalIdChecksum, id);
-    script::launch_script(kGoalNoValidKeyCombos, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(kGoalNoValidKeyCombos, params.get(), nullptr, false, nullptr);
 }
 
 // 0x005568B0
@@ -231,14 +230,13 @@ bool Objective::swap_move_caption()
         args_->append_word(kGoalDescription, text);
     } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
         const uint32_t size = lines->extent_;
-        script::Array* replaced = script::new_array();
+        const script::ArrayPtr replaced = script::make_array();
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
             replace_trick_tokens(lines->find_inline_text(i), buffer.data(), key_texts, trick_texts, kLabelPoints);
             replaced->set_text(i, script::spawn_text(buffer.data()));
         }
-        args_->append_array_value(kGoalDescription, replaced);
-        free_array(replaced);
+        args_->append_array_value(kGoalDescription, replaced.get());
     }
     for (const Original& kept : kKept) {
         if (args_->fetch_text(kept.original, &text, 0)) {
@@ -368,12 +366,11 @@ bool Objective::award_special_trick()
         keys = free->step_to_entry(nullptr)->value.word();
         profile->add_max_specials(1);
         if (cat) {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->put_name_key(kTrickslot, keys);
             params->put_int(kIndex, premade);
             params->put_int(kSpecialTrickIndex, slots);
-            script::launch_script(kLoadPremadeCat, params, nullptr, false, nullptr);
-            script::free_struct(params);
+            script::launch_script(kLoadPremadeCat, params.get(), nullptr, false, nullptr);
         } else {
             RiderIdentity::SpecialTrick special;
             special.trick = trick;

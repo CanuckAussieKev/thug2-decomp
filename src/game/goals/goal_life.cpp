@@ -401,10 +401,9 @@ bool Objective::get_win()
             objects::RiderStoryProgress* career = skate_calls::get_career();
             if (skate_calls::game_mode_is_true(kIsCareer)) {
                 career->deposit_money(get_reward_points());
-                script::Struct* params = script::new_struct();
+                const script::StructPtr params = script::make_struct();
                 params->put_int(kRewardPointsName, get_reward_points());
-                script::launch_script(kCheckChapterAdvancement, params, nullptr, false, nullptr);
-                script::free_struct(params);
+                script::launch_script(kCheckChapterAdvancement, params.get(), nullptr, false, nullptr);
             } else if (skate_calls::game_mode_is_true(kIsClassic)) {
                 career->increment_counter();
             }
@@ -558,10 +557,9 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
         const uint32_t id = get_objective_key();
         complete_objective(goals, id);
     } else if (!sub && args_->has_bare_flag(kGaps) && !args_->has_bare_flag(kNoGapMessages)) {
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->append_structure_if_any(args_);
-        script::launch_script(kGoalGapsGotGap, params, nullptr, false, nullptr);
-        script::free_struct(params);
+        script::launch_script(kGoalGapsGotGap, params.get(), nullptr, false, nullptr);
     }
     return changed;
 }
@@ -581,7 +579,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 auto* entry = flags->struct_at(static_cast<uint32_t>(i));
                 uint32_t skater = 0;
                 entry->read_hash_value(kSkater, &skater, 1);
-                script::Struct* own = script::new_struct();
+                const script::StructPtr own = script::make_struct();
                 script::Array* names = nullptr;
                 entry->fetch_list(kGoalFlags, &names, 1);
                 const int count = static_cast<int>(names->extent_);
@@ -589,8 +587,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
                     own->put_int(names->fetch_part(static_cast<uint32_t>(k)), 0);
                 own->put_int(kNumFlags, count);
                 own->put_int(kNumFlagsSet, 0);
-                goal_flags_->put_sub_struct(skater, own);
-                script::free_struct(own);
+                goal_flags_->put_sub_struct(skater, own.get());
             }
         } else {
             for (uint32_t i = 0; i < flags->extent_; ++i) {

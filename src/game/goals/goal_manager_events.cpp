@@ -77,10 +77,9 @@ int total_with_pending(void* score)
 // goal_lose_next_frame spawned for `goal`.
 void lose_next_frame(Objective* goal)
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     params->put_name_key(kGoalIdChecksum, goal->get_objective_key());
-    script::spawn_script(kGoalLoseNextFrame, params, 0, nullptr, 0, 0, false, false, false, false);
-    script::free_struct(params);
+    script::spawn_script(kGoalLoseNextFrame, params.get(), 0, nullptr, 0, 0, false, false, false, false);
 }
 
 } // namespace
@@ -106,11 +105,10 @@ void GoalManager::land()
             auto* score = skater->get_points_total();
             if (score->pot_score_ <= 0)
                 continue;
-            script::Struct* check = script::new_struct();
+            const script::StructPtr check = script::make_struct();
             check->put_name_key(kGoalIdChecksum, goal->get_objective_key());
             check->put_int(kLastScoreLanded, score->pot_score_);
-            script::launch_script(kHighComboCheckScore, check, nullptr, false, nullptr);
-            script::free_struct(check);
+            script::launch_script(kHighComboCheckScore, check.get(), nullptr, false, nullptr);
         } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
             if (!skater)
@@ -185,7 +183,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         script::Struct* params = goal->fetch_args();
         const char* text = nullptr;
         params->fetch_text(kViewGoalsText, &text, 1);
-        script::Struct* entry = script::new_struct();
+        script::StructPtr entry = script::make_struct();
         entry->put_name_key(kGoalIdChecksum, id);
         entry->put_int(kBeaten, beaten);
         entry->put_int(kLocked, locked);
@@ -208,14 +206,13 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         if (cameras)
             entry->append_array_value(kViewGoalsCameras, cameras);
         if (!by_pro->has_entry_named(pro)) {
-            script::Struct* empty = script::new_struct();
-            by_pro->put_sub_struct(pro, empty);
-            script::free_struct(empty);
+            const script::StructPtr empty = script::make_struct();
+            by_pro->put_sub_struct(pro, empty.get());
         }
         script::Struct* goals = nullptr;
         by_pro->read_sub_struct(pro, &goals, 1);
-        goals->put_sub_struct(id, entry);
-        script::free_struct(entry);
+        goals->put_sub_struct(id, entry.get());
+        entry.reset();
         int number = 0;
         goals->fetch_int_value(kNumGoals, &number, 0);
         goals->put_int(kNumGoals, ++number);
@@ -319,7 +316,7 @@ bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script*
 bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
-    script::Array* list = script::new_array();
+    script::ArrayPtr list = script::make_array();
     list->configure_size_kind(static_cast<uint32_t>(manager->goals_.num_), script::kQbvalStruct);
     for (int i = 0; i < manager->goals_.num_; ++i) {
         Objective* goal = manager->goals_.get_by_index(i);
@@ -328,8 +325,8 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
         entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
         list->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
-    script->args_->append_array_value(kGoalList, list);
-    free_array(list);
+    script->args_->append_array_value(kGoalList, list.get());
+    list.reset();
     return true;
 }
 

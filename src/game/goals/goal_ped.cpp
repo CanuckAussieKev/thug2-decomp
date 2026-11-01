@@ -352,12 +352,12 @@ void ObjectiveNpc::unload_anim_bank()
     if (anim_object_) {
         objects::GameEntity* object = object_named(anim_object_);
         script::stop_scripts_using_object_that_refer_to(object, kGoalPlayStream);
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_name_key(kType, kPartialAnim);
         params->put_name_key(kId, kJawRotation);
         if (object)
-            object->fetch_module(kAnimBlender)->invoke_method_by_name(kRemoveAnimController, params, nullptr);
-        script::free_struct(params);
+            object->fetch_module(kAnimBlender)->invoke_method_by_name(kRemoveAnimController, params.get(), nullptr);
+        params.reset();
         anim_object_ = 0;
     }
     assets::ResourceRegistry* assets = assets::asset_manager();
@@ -378,16 +378,15 @@ void ObjectiveNpc::conceal(bool hide)
         return;
     if (auto* object = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(trigger)))
         object->conceal(hide);
-    script::Struct* arrow = script::new_struct();
+    const script::StructPtr arrow = script::make_struct();
     arrow->put_name_key(kGoalIdChecksum, objective_key_);
     if (hide) {
-        script::launch_script(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
+        script::launch_script(kGoalPedKillArrow, arrow.get(), nullptr, false, nullptr);
     } else {
         Objective* goal = hub()->get_goal(objective_key_, 0);
         if (!goal || !goal->has_won())
-            script::launch_script(kGoalAddPedArrow, arrow, nullptr, false, nullptr);
+            script::launch_script(kGoalAddPedArrow, arrow.get(), nullptr, false, nullptr);
     }
-    script::free_struct(arrow);
 }
 
 // 0x0055F710
@@ -415,7 +414,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     objects::GameEntity* object = object_named(id);
     if (!object)
         return;
-    script::Struct* play_params = script::new_struct();
+    const script::StructPtr play_params = script::make_struct();
     play_params->put_name_key(kStreamChecksum, stream);
     if (!no_anim) {
         play_params->put_int(kUsePosInfo, 0);
@@ -432,9 +431,8 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
         }
     }
     script::Script* script =
-        script::spawn_script(kGoalPlayStream, play_params, 0, nullptr, 0, 0, false, false, false, false);
+        script::spawn_script(kGoalPlayStream, play_params.get(), 0, nullptr, 0, 0, false, false, false, false);
     script->entity_.assign_object(object);
-    script::free_struct(play_params);
 }
 
 // 0x0055F960
