@@ -230,7 +230,7 @@ ParkRailPoint* ParkRailSet::append_rail_vertex()
 {
     memory::PoolPair& pair = point_pools();
     lend_pool(pair, point_pool_);
-    auto* point = static_cast<ParkRailPoint*>(pair.carve(sizeof(ParkRailPoint)));
+    auto* point = pair.allocate<ParkRailPoint>();
     if (point) {
         point->at_point_ = {0.0f, 0.0f, 0.0f, 0.0f};
         point->following_ = nullptr;
@@ -244,7 +244,7 @@ ParkRailString* ParkRailSet::get_new_rail()
 {
     memory::PoolPair& pair = string_pools();
     lend_pool(pair, rail_pool_);
-    auto* string = static_cast<ParkRailString*>(pair.carve(sizeof(ParkRailString)));
+    auto* string = pair.allocate<ParkRailString>();
     if (string) {
         string->flag_bits_ =
             static_cast<uint8_t>((string->flag_bits_ & ~ParkRailString::kLoop) | ParkRailString::kClimbable);

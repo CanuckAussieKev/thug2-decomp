@@ -201,7 +201,7 @@ void __cdecl free_spawned_poly_details(void* details) { spawned_poly_pools().dea
 // Always true.
 bool __cdecl cfunc_spawn_poly(Struct* params, Script*)
 {
-    auto* details = static_cast<SpawnedPolyDetails*>(spawned_poly_pools().carve(sizeof(SpawnedPolyDetails)));
+    auto* details = spawned_poly_pools().allocate<SpawnedPolyDetails>();
     if (details)
         details = reinterpret_cast<SpawnedPolyDetails*>(reinterpret_cast<render::SpawnedPoly*>(details)->make_new());
     // (a failed allocation writes through null below, as in the original)

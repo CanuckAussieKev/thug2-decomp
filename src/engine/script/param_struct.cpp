@@ -576,10 +576,10 @@ void free_string(const char* string)
 }
 
 // 0x00409030 / 0x00409070
-Struct* spawn_param_bag() { return static_cast<Struct*>(struct_pools().carve(sizeof(Struct))); }
+Struct* spawn_param_bag() { return struct_pools().allocate<Struct>(); }
 void delete_struct(Struct* structure) { struct_pools().dealloc(structure); }
 // 0x00408F90 / 0x00408FD0
-Array* alloc_script_array() { return static_cast<Array*>(array_pools().carve(sizeof(Array))); }
+Array* alloc_script_array() { return array_pools().allocate<Array>(); }
 void delete_array(Array* array) { array_pools().dealloc(array); }
 void free_component(Component* component) { component_pools().dealloc(component); }
 
@@ -715,7 +715,7 @@ void duplicate_component(Component* dest, Component* source, int reference)
         dest->string = spawn_text(source->string);
         break;
     case kQbvalPair: {
-        auto* pair = static_cast<Pair*>(pair_pools().carve(sizeof(Pair)));
+        auto* pair = pair_pools().allocate<Pair>();
         if (pair) {
             // (the constructor: only the first byte of the first word is cleared)
             pair->y = 0.0f;
@@ -728,7 +728,7 @@ void duplicate_component(Component* dest, Component* source, int reference)
         break;
     }
     case kQbvalVector: {
-        auto* vector = static_cast<Vector*>(vector_pools().carve(sizeof(Vector)));
+        auto* vector = vector_pools().allocate<Vector>();
         if (vector) {
             vector->z = 0.0f;
             vector->y = 0.0f;
@@ -1011,7 +1011,7 @@ void Struct::put_name_key(const char* name, uint32_t value) { put_name_key(check
 void Struct::put_vec3(uint32_t name, float x, float y, float z)
 {
     Component* component = new_typed_component(name, kQbvalVector);
-    auto* vector = static_cast<Vector*>(vector_pools().carve(sizeof(Vector)));
+    auto* vector = vector_pools().allocate<Vector>();
     if (vector) {
         vector->z = 0.0f;
         vector->y = 0.0f;
@@ -1044,7 +1044,7 @@ void Struct::put_vec3(const char* name, VectorValue value)
 void Struct::insert_pair(uint32_t name, float x, float y)
 {
     Component* component = new_typed_component(name, kQbvalPair);
-    auto* pair = static_cast<Pair*>(pair_pools().carve(sizeof(Pair)));
+    auto* pair = pair_pools().allocate<Pair>();
     if (pair) {
         pair->y = 0.0f;
         pair->x = 0.0f;
@@ -1227,8 +1227,8 @@ int& struct_copy_peak() { return g_struct_copy_peak; }
 } // namespace
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
-Pair* new_pair() { return static_cast<Pair*>(g_pair_pools.carve(sizeof(Pair))); }
-Vector* alloc_script_vector() { return static_cast<Vector*>(g_vector_pools.carve(sizeof(Vector))); }
+Pair* new_pair() { return g_pair_pools.allocate<Pair>(); }
+Vector* alloc_script_vector() { return g_vector_pools.allocate<Vector>(); }
 
 // 0x0047AC00
 Pair* Pair::prepare_all()

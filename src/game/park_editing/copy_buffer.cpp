@@ -387,7 +387,7 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
     memory::SlabBank* pool = pools.pools[pools.current]; // (not null-checked: as the original)
     if (pool->taken_count_ == pool->num_)
         return false;
-    auto* entry = static_cast<ClipboardEntry*>(pools.carve(sizeof(ClipboardEntry)));
+    auto* entry = pools.allocate<ClipboardEntry>();
     if (entry) {
         entry->piece_group_ = nullptr;
         entry->preview_ = nullptr;

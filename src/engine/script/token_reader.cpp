@@ -135,7 +135,7 @@ StoredRandom* new_stored_random()
         if (newer)
             newer->succ_ = nullptr;
     }
-    auto* stored = static_cast<StoredRandom*>(g_stored_random_pools.carve(sizeof(StoredRandom)));
+    auto* stored = g_stored_random_pools.allocate<StoredRandom>();
     if (stored) {
         ++stored_random_count();
         stored->succ_ = nullptr;

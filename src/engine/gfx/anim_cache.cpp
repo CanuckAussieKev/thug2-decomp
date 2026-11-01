@@ -204,7 +204,7 @@ int AnimCacheEntry::new_slot()
     for (int i = 0; i < kSlots; ++i) {
         if (slots_ptr_[i])
             continue;
-        auto* slot = static_cast<AnimCacheSlot*>(slot_pools().carve(sizeof(AnimCacheSlot)));
+        auto* slot = slot_pools().allocate<AnimCacheSlot>();
         if (slot)
             slot->clock_ = 0x8000;
         slots_ptr_[i] = slot;

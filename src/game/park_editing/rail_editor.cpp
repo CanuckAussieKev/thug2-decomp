@@ -282,7 +282,7 @@ EditedRailPoint* EditedRail::append_rail_vertex()
     memory::PoolPair& pools = point_pools();
     if (pools.pools[pools.current]->taken_count_ == RailAuthoring::kMaxPoints)
         return nullptr;
-    auto* point = static_cast<EditedRailPoint*>(pools.carve(sizeof(EditedRailPoint)));
+    auto* point = pools.allocate<EditedRailPoint>();
     if (point) {
         point->at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
         point->has_post_ = false;

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <new>
+#include <utility>
 
 namespace memory {
 
@@ -61,6 +63,31 @@ struct PoolPair {
 
     void* carve(unsigned int size);
     void dealloc(void* item);
+
+    // NOT ORIGINAL - the typed interface (callers don't cast or size the memory themselves).
+    // Memory for one `Item`, not constructed (as the game's pooled items: plain data, or set up by their own
+    // make_new); null when the pool is full and the heap too.
+    template <typename Item>
+    Item* allocate()
+    {
+        return static_cast<Item*>(carve(sizeof(Item)));
+    }
+    // One `Item` constructed in the pool's memory (null, nothing constructed, when there's none).
+    template <typename Item, typename... Args>
+    Item* create(Args&&... args)
+    {
+        void* memory = carve(sizeof(Item));
+        return memory ? new (memory) Item(std::forward<Args>(args)...) : nullptr;
+    }
+    // An item made by create(): destroyed and given back (null: nothing).
+    template <typename Item>
+    void destroy(Item* item)
+    {
+        if (!item)
+            return;
+        item->~Item();
+        dealloc(item);
+    }
 };
 
 } // namespace memory

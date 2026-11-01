@@ -281,7 +281,7 @@ bool BuildPointer::copy_area_to_clipboard()
     if (count == kClipboardLimit)
         remove_oldest_clipboard();
 
-    auto* memory = static_cast<Clipboard*>(clipboard_pools().carve(sizeof(Clipboard)));
+    auto* memory = clipboard_pools().allocate<Clipboard>();
     Clipboard* copy = memory ? memory->make_new() : nullptr;
     // Without room for the copy, the oldest clipboards go one by one.
     while (!copy->copy_picked_to_clipboard(area) && copy_buffers_) {

@@ -41,7 +41,7 @@ int scroll_offset(uint32_t flags, int current, int height)
 
 MapListNode* MapListNode::fabricate()
 {
-    auto* node = static_cast<MapListNode*>(node_pools().carve(sizeof(MapListNode)));
+    auto* node = node_pools().allocate<MapListNode>();
     if (node) {
         node->dy_ = 0;
         node->piece_group_ = nullptr;
