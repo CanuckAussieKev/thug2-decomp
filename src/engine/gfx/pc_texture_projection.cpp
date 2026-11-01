@@ -61,8 +61,7 @@ void transform_coord(float* out, const float* v, const maths::Mat4* m)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.
-uint8_t* vertex_stack() { return raw::bytes(&g_vertex_stack); }
-void push_vertex(const uint8_t* vertex) { raw::as<VertexStack>(vertex_stack())->stack_on(vertex); }
+void push_vertex(const uint8_t* vertex) { g_vertex_stack.stack_on(vertex); }
 
 float* get_uv(uint8_t* vertex) { return raw::field_at<float>(vertex, 0x10); }
 uint32_t& get_colour(uint8_t* vertex) { return *raw::field_at<uint32_t>(vertex, 0xC); }
@@ -234,7 +233,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     const double cx = e2z * e1y - e2y * e1z;
                     const double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));
-                    new (vertex_stack()) VertexStack; // (emptied)
+                    g_vertex_stack = VertexStack{}; // (emptied)
                     g_vertex_stack.vertex_size_ = 0x18;
                     push_vertex(v0);
                     push_vertex(v1);

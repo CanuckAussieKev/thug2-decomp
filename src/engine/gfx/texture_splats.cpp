@@ -81,10 +81,9 @@ uint32_t to_argb(uint32_t rgba)
 }
 
 // The vertex stack (0x006FC4A0: +0 what's on it, +4 a vertex's size; not rewritten yet): popped into / pushed from.
-uint8_t* vertex_stack() { return raw::bytes(&g_vertex_stack); }
 uint32_t get_vertex_size() { return g_vertex_stack.vertex_size_; }
-void pop_vertex(uint8_t* out) { raw::as<VertexStack>(vertex_stack())->stack_off(out); }
-void push_vertex(uint8_t* vertex) { raw::as<VertexStack>(vertex_stack())->stack_on(vertex); }
+void pop_vertex(uint8_t* out) { g_vertex_stack.stack_off(out); }
+void push_vertex(uint8_t* vertex) { g_vertex_stack.stack_on(vertex); }
 
 // A byte channel's midpoint as the original computes it: a + (b - a) / 2, the division rounding towards 0.
 uint8_t byte_midpoint(uint8_t a, uint8_t b) { return static_cast<uint8_t>(a + (static_cast<int>(b) - a) / 2); }
@@ -260,7 +259,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 // 0x004B8220
 bool split_next_triangle(uint8_t** out, const SplitFormat* format)
 {
-    if (!*raw::as<uint32_t>(&g_vertex_stack))
+    if (!g_vertex_stack.used)
         return false;
     uint8_t* v2 = g_splat_vertex2.data(); // (the three popped, last pushed first)
     uint8_t* v1 = g_splat_vertex1.data();
@@ -569,7 +568,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     g_split_area_limit = static_cast<float>(
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
                 }
-                new (vertex_stack()) VertexStack; // (emptied)
+                g_vertex_stack = VertexStack{}; // (emptied)
                 g_vertex_stack.vertex_size_ = 0x18;
                 push_vertex(v0);
                 push_vertex(v1);

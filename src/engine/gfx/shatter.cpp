@@ -124,7 +124,7 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930
 // The vertex stack the splitter works from (0x006FC4A0; not rewritten yet: pushed onto).
 void push_vertex(const uint8_t* vertex)
 {
-    raw::as<VertexStack>(raw::bytes(&g_vertex_stack))->stack_on(vertex);
+    g_vertex_stack.stack_on(vertex);
 }
 uint8_t* lock_vertices(VertexBuffer* buffer)
 {
