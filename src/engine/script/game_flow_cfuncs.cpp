@@ -59,6 +59,8 @@
 #include "engine/net/play_messages.h"
 #include "platform/compiler.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace commands {
 
 uint32_t g_last_broadcasted_omnigon;
@@ -828,3 +830,4 @@ bool cfunc_spawn_skater_script(script::Struct* params, script::Script* script)
 }
 
 } // namespace commands
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

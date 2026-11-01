@@ -46,6 +46,7 @@ using namespace detail;
 namespace {
 
 // qr2's keys (the SDK's standard numbering).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
 enum Qr2Key : int {
     kKeyHostname = 1,
     kKeyGamename = 2,

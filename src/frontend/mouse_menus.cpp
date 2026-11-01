@@ -328,8 +328,10 @@ bool item_passed_over(const UiWidget* item)
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
     script::Struct* tags = as_object(item)->tag_table_;
     for (script::Component* c = tags ? tags->head_ : nullptr; c; c = c->next) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == 0 && c->kind_tag() == script::kQbvalName && c->checksum == kTagBlank)
             return true;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == kTagActive && c->kind_tag() == script::kQbvalInteger && c->integer == 0)
             return true;
     }

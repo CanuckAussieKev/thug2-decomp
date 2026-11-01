@@ -32,6 +32,8 @@ class PadInputModule;
 // 12 invoke_method_by_name; the rest the base's / shared.
 class EditorViewModule final : public ObjectModule {
 public:
+    EditorViewModule(const EditorViewModule&) = delete;
+    EditorViewModule& operator=(const EditorViewModule&) = delete;
     // 0x004E5940 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // 0x004E5060: the points (0, 0, 0, 1), everything else 0.

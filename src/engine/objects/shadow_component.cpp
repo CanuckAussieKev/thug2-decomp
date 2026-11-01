@@ -37,6 +37,7 @@ constexpr uint32_t kOffset = 0xA6F5352F;           // offset
 constexpr uint32_t kCastNoShadow = 0xAAF6E513;     // Obj_ShadowOff
 constexpr uint32_t kEnableShadowCast = 0xF272C43A; // Obj_ShadowOn
 
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum ShadowKind { kShadowDetailed = 1, kShadowSimple = 2, kShadowVolume = 3 };
 
 // The detailed and Volume shadows are cast along this over this distance.

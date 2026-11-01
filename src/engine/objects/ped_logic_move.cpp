@@ -145,6 +145,7 @@ public:
     Feeler(const maths::Vec4* start, const maths::Vec4* end) : ray_(start, end) {}
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
+    ~Feeler() = default;
     render::ProbeRay* feeler() { return &ray_; }
 
 private:

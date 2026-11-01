@@ -47,6 +47,8 @@ maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize, 12 invoke_method_by_name.
 class FootView final : public ObjectModule {
 public:
+    FootView(const FootView&) = delete;
+    FootView& operator=(const FootView&) = delete;
     // 0x00525DC0: a new one (0 if out of memory): the base's constructor, its vtable and type, the target (0, 0,
     // 0, 1).
     static memory::owner<ObjectModule*> fabricate();

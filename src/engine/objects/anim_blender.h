@@ -26,6 +26,8 @@ namespace objects {
 
 class AnimBlenderComponent final : public ObjectModule {
 public:
+    AnimBlenderComponent(const AnimBlenderComponent&) = delete;
+    AnimBlenderComponent& operator=(const AnimBlenderComponent&) = delete;
     static constexpr uint32_t kType = 0x7149B753;
 
     // 0x0041A5B0: a new one (zeroed memory, Construct). 0x00419690 (not a Ghidra function; registered with Create):

@@ -39,6 +39,7 @@ struct KeyComboSet {
     uint8_t tap_total_;        // +0x3
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum EditedGoalPointKind { kPointPro = 1, kPointStart = 2, kPointObject = 3, kPointCheckpoint = 4 };
 
 // The goal types (their names' checksums).
@@ -193,6 +194,8 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
 // 0x004EBC40; the rest shared.
 class ObjectiveAuthoring final : public objects::ObjectModule {
 public:
+    ObjectiveAuthoring(const ObjectiveAuthoring&) = delete;
+    ObjectiveAuthoring& operator=(const ObjectiveAuthoring&) = delete;
     // 0x004EB7F0: a new one (0 if out of memory).
     static memory::owner<objects::ObjectModule*> fabricate();
     // 0x004E6FB0 (not a Ghidra function): its script member functions (the table at 0x00684270) registered.

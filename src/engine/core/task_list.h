@@ -84,6 +84,8 @@ public:
 // A list on a Stack (0x24 bytes in the original): its node in the stack (lists::Elem<StackList>).
 class StackList : public LinkChain {
 public:
+    StackList(const StackList&) = delete;
+    StackList& operator=(const StackList&) = delete;
     // 0x00406D60 (a null node if the allocation fails)
     StackList();
     // 0x00406C30: the node deleted, then the list's own destructor.

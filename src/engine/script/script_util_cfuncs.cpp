@@ -18,6 +18,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace commands {
 
 namespace {
@@ -705,3 +707,4 @@ bool cfunc_set_array_element(Struct* params, Script* script)
 }
 
 } // namespace commands
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

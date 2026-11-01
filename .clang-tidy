@@ -85,15 +85,17 @@ Checks:
   - '-bugprone-narrowing-conversions'
   - '-cppcoreguidelines-pro-type-member-init'
   - '-cppcoreguidelines-prefer-member-initializer'
-  - '-cppcoreguidelines-special-member-functions'
-  - '-cppcoreguidelines-pro-type-union-access'
-  - '-cppcoreguidelines-use-enum-class'
   - '-cppcoreguidelines-pro-type-const-cast'
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*[/\\]src[/\\](platform|engine|game|frontend|editor)[/\\].*'
 CheckOptions:
+  # The rule of five, as the Guidelines' C.21 allows it: a defaulted destructor alone, and classes that only copy
+  # (their copies stand in for moves).
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
   readability-identifier-naming.NamespaceCase: lower_case
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase

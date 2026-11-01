@@ -71,6 +71,8 @@ struct Chain {
 // invoke_method_by_name.
 class ChainComponent final : public ObjectModule {
 public:
+    ChainComponent(const ChainComponent&) = delete;
+    ChainComponent& operator=(const ChainComponent&) = delete;
     static constexpr uint32_t kType = 0x6DCFEC46;
 
     // The list of chains (std::list<Chain*>: a head node of 0xC bytes, and the count).

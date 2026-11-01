@@ -20,6 +20,8 @@ namespace pre {
 // One loaded archive.
 class ArchiveFile {
 public:
+    ArchiveFile(const ArchiveFile&) = delete;
+    ArchiveFile& operator=(const ArchiveFile&) = delete;
     // One file inside the archive. Also the "file handle" the FileLoad:: calls get for it.
     struct FileInfo {
         int compressed_size_; // 0 if stored uncompressed

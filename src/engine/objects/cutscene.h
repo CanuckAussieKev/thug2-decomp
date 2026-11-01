@@ -230,6 +230,8 @@ public:
 // The cutscene kind of the movie manager's movies (vtable 0x00647920).
 class CinematicEntry final : public VideoEntry {
 public:
+    CinematicEntry(const CinematicEntry&) = delete;
+    CinematicEntry& operator=(const CinematicEntry&) = delete;
     // 0x00466490: the movie's constructor, then the cutscene's: no data, a parameters structure, the three settings
     // (the third's low byte: whether it owns its data).
     explicit CinematicEntry(const uint32_t* settings);

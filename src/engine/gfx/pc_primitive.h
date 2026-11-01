@@ -15,6 +15,8 @@ namespace render {
 // The PC primitive drawer (0x158 bytes, vtable 0x0064A628).
 class PcPrimitive final : public Primitive {
 public:
+    PcPrimitive(const PcPrimitive&) = delete;
+    PcPrimitive& operator=(const PcPrimitive&) = delete;
     // 0x004C5230: the engine's constructor with `own`, then the material made and set up untextured with the default
     // blend mode, the 0x2 layout, no vertices, grey.
     explicit PcPrimitive(int own);

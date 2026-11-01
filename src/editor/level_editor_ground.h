@@ -48,6 +48,7 @@ namespace frontend::level_editor::ground {
 // --- the pure parts (tools/pipeline/game/ground_pieces.ts is their port) -------------------------------------------------------
 
 enum class Ramp : uint8_t { kNone, kKicker, kQuarter };
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum Flank { kMinusX, kPlusX, kMinusZ, kPlusZ };
 
 struct Spec {

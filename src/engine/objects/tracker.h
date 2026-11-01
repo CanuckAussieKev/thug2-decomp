@@ -69,6 +69,7 @@ public:
 class SignalTrace {
 public:
     // What an entry records.
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum Kind : int {
         kLaunched = 0, // an event was launched (`script`: whether from a script with a name); the depth goes up
         kHandled = 1,  // it was handled (`script` the handler's name, `how` how: 2 WaitForEvent, 3 by nobody); down

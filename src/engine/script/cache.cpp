@@ -15,6 +15,8 @@
 #include "engine/util/lzss.h"
 #include "engine/core/owner.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 static_assert(offsetof(ScriptCacheEntry, older) == 0xC && offsetof(ScriptCacheEntry, newer) == 0x10,
@@ -224,3 +226,4 @@ void release_script_cache()
 }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

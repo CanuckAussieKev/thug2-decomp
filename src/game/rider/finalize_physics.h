@@ -21,6 +21,8 @@ class RiderPoseState;
 
 class RiderPhysicsCommit final : public ObjectModule {
 public:
+    RiderPhysicsCommit(const RiderPhysicsCommit&) = delete;
+    RiderPhysicsCommit& operator=(const RiderPhysicsCommit&) = delete;
     // 0x00511280 (registered by register_component_types): a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

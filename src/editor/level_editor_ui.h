@@ -64,6 +64,7 @@ struct BrowserItem {
 };
 
 // The Outliner's markers: what the editor has done to a row's node, its object or its scenery.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
 enum Mark : uint8_t {
     kMarkMoved = 1,         // moved / turned / scaled (scenery, objects, nodes, rail points, walls)
     kMarkAdded = 2,         // added by the editor (a node of the overlay)
@@ -268,6 +269,7 @@ struct Overlay {
 
 // What the user asked for on the panels, for the editor to do in its next Update.
 struct Request {
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum Kind {
         kUndo,
         kRedo,

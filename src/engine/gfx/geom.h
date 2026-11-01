@@ -69,6 +69,8 @@ int compare_instances(const void* a, const void* b);
 // destructor body 0x0048E130 - for its first 0x14 bytes).
 class PcGeom final : public Geom {
 public:
+    PcGeom(const PcGeom&) = delete;
+    PcGeom& operator=(const PcGeom&) = delete;
     // 0x004B4460: no meshes, no instance, active, visible to all, scale 1.
     PcGeom();
     // 0x004B5EE0 (0x004B5FC0 the scalar deleting destructor): the meshes, then the instance, freed.

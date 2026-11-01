@@ -663,6 +663,7 @@ bool get_sync()
         new (g_array) script::Array;
         script::SymbolTableEntry* symbol = script::create_symbol(name);
         symbol->type = script::kQbvalArray;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         symbol->raw = reinterpret_cast<uint32_t>(g_array);
     }
     if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {

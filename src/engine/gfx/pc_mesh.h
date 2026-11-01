@@ -27,6 +27,8 @@ int compare_strip_breaks(const void* a, const void* b);
 // The PC mesh (0xC8 bytes, vtable 0x0064A490; the engine's SubMesh - its hierarchy the scene's, SHierarchyNode).
 class PcMesh final : public SubMesh {
 public:
+    PcMesh(const PcMesh&) = delete;
+    PcMesh& operator=(const PcMesh&) = delete;
     // 0x004B7B30
     PcMesh() = default;
     // 0x004B7D50: for a model file: a "skin" one has its skin file (".cas.xbx" in place of ".skin.xbx", lower case)

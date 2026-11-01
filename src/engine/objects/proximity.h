@@ -17,6 +17,7 @@ namespace objects {
 class Entity;
 
 // The node's shape (its Shape checksum, 0x22CF0027).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum ProximShape : int {
     kProximShapeSphere = 0,    // within Radius of the node
     kProximShapeBox = 1,       // the sector's box (axis-aligned, in the world)

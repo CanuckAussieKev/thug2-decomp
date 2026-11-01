@@ -28,6 +28,8 @@ namespace objects {
 
 class PadRumbleModule final : public ObjectModule {
 public:
+    PadRumbleModule(const PadRumbleModule&) = delete;
+    PadRumbleModule& operator=(const PadRumbleModule&) = delete;
     static constexpr uint32_t kType = 0x404EB936;
     static constexpr int kActuators = 2;
 

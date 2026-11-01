@@ -12,6 +12,8 @@ namespace goals {
 
 class SkateLineGoal final : public Objective {
 public:
+    SkateLineGoal(const SkateLineGoal&) = delete;
+    SkateLineGoal& operator=(const SkateLineGoal&) = delete;
     // 0x005691F0: the constructor (Objective's). 0x00569210 / 0x00569290 (vtable +0x00): the destructor
     // body / the scalar deleting destructor.
     explicit SkateLineGoal(script::Struct* params);

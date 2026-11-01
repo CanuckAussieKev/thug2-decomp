@@ -52,6 +52,8 @@
 #include "engine/gfx/loading_console.h"
 #include "platform/run_log.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 namespace {
@@ -598,3 +600,4 @@ ScriptOutcome Script::tick_frame()
 }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

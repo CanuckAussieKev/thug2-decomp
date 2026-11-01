@@ -109,6 +109,7 @@ static_assert(sizeof(PersonalStats) == 0x7C, "layout must match the original");
 class RankingsManager {
 public:
     // cur_phase_.
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum State : int {
         kNone = 0,
         kLoggingIn = 1, // the login thread runs

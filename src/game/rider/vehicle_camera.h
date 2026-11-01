@@ -27,6 +27,8 @@ class FreeLookModule;
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize; the base's others.
 class CarView final : public ObjectModule {
 public:
+    CarView(const CarView&) = delete;
+    CarView& operator=(const CarView&) = delete;
     // 0x005248C0: a new one (0 if out of memory): the base's constructor, its vtable and type, height 60,
     // distance 144, lerp 3.
     static memory::owner<ObjectModule*> fabricate();

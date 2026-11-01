@@ -41,6 +41,7 @@ void tick_frame();
 void get_queue(std::function<void()> task);
 
 // The windows (each opened / closed by its action or its toolbar button).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum Pane : int { kPaletteWindow, kHistoryWindow, kChangesWindow, kKeysWindow, kSnapshotsWindow, kWindowCount };
 bool& unseal(Pane window);
 // Asked for by the keys (Shift+G, Ctrl+G): the Select similar menu, the group name.

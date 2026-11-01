@@ -24,6 +24,8 @@ class RiderPoseState;
 
 class RiderHostSync final : public ObjectModule {
 public:
+    RiderHostSync(const RiderHostSync&) = delete;
+    RiderHostSync& operator=(const RiderHostSync&) = delete;
     // 0x00513630 (registered by register_component_types): a new one (0 if out of memory): nothing sent yet (the state
     // and +0x35 0xFF, so the first update sends them).
     static memory::owner<ObjectModule*> fabricate();

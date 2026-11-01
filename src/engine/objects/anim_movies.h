@@ -17,6 +17,8 @@ namespace objects {
 
 class ObjectAnimMovie final : public VideoEntry {
 public:
+    ObjectAnimMovie(const ObjectAnimMovie&) = delete;
+    ObjectAnimMovie& operator=(const ObjectAnimMovie&) = delete;
     // 0x005871B0: no asset, an empty timeline.
     ObjectAnimMovie();
     // 0x00587210 (0x00587370 the deleting one): the timeline's, then the base's.
@@ -49,6 +51,8 @@ public:
 
 class CameraAnimMovie final : public VideoEntry {
 public:
+    CameraAnimMovie(const CameraAnimMovie&) = delete;
+    CameraAnimMovie& operator=(const CameraAnimMovie&) = delete;
     // 0x005873F0: no asset, an empty timeline, no target, the script's field of view.
     CameraAnimMovie();
     // 0x005872C0 (0x00587450 the deleting one): the timeline's, then the base's.

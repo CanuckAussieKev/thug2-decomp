@@ -29,6 +29,8 @@ struct TextureEdit {
 // The PC texture (0x14 bytes, vtable 0x0064A770).
 class PcTexture final : public BitmapTexture {
 public:
+    PcTexture(const PcTexture&) = delete;
+    PcTexture& operator=(const PcTexture&) = delete;
     // 0x004C7ED0: no texture.
     PcTexture() = default;
     // 0x004C8450: a copy of `source`: its texture copied, and an edit's copy of the pixels and kept texture (never its

@@ -31,6 +31,8 @@ class ActivationZoneModule;
 
 class ProjectileComponent final : public ObjectModule {
 public:
+    ProjectileComponent(const ProjectileComponent&) = delete;
+    ProjectileComponent& operator=(const ProjectileComponent&) = delete;
     static constexpr uint32_t kType = 0x7E747547;
 
     // 0x004F3890 (registered by register_component_types): a new one (0 if out of memory): the feelers not resting;

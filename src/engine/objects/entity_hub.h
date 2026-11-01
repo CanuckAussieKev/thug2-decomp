@@ -64,6 +64,8 @@ public:
 // The manager with a dead list (vtable 0x00647834), emptied by a task every frame.
 class MiscHub : public ObjectHubBase {
 public:
+    MiscHub(const MiscHub&) = delete;
+    MiscHub& operator=(const MiscHub&) = delete;
     // 0x00461BF0: empty lists, and a task (priority 1000, on the main loop's system task list) that deletes the
     // dead objects every frame.
     MiscHub();

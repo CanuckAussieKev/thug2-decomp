@@ -30,6 +30,8 @@ struct ProximNode;
 // (shared); 12 invoke_method_by_name; 13 0x0048D090 (empty, RET 0xC: told of each sound before it's played).
 class AudioEmitterModule final : public ObjectModule {
 public:
+    AudioEmitterModule(const AudioEmitterModule&) = delete;
+    AudioEmitterModule& operator=(const AudioEmitterModule&) = delete;
     static constexpr uint32_t kType = 0x07713C7B;
 
     // A looping sound waiting to be heard: its play parameters and when to look again (frame_clock::GetTime).

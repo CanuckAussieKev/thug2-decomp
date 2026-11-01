@@ -143,6 +143,8 @@ static_assert(offsetof(Sparkle, args_) == 0x4 && offsetof(Sparkle, extent_box_) 
 // The particle component's particle manager (0x1C bytes, vtable 0x006493A0); one, at 0x006FA7C4 - the PC's,
 // PcParticleManager.
 struct EffectsDirector : memory::HeapObject {
+    EffectsDirector(const EffectsDirector&) = delete;
+    EffectsDirector& operator=(const EffectsDirector&) = delete;
     // 0x00496770: an empty list, white.
     EffectsDirector();
     // 0x004967D0: the list emptied (twice, as the original) and its sentinel freed. (0x00496860 the scalar deleting

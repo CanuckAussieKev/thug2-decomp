@@ -477,6 +477,8 @@ struct GridList {
         }
     }
     GridList(const GridList&) = delete;
+    GridList& operator=(const GridList&) = delete;
+    ~GridList() = default;
 };
 
 // The grid brought up to date for these objects (the top-down heap current, as UpdateSuperSectors has it).

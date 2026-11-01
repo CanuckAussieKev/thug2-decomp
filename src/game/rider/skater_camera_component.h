@@ -35,6 +35,8 @@ struct WalkCameraState;
 // 3 Finalize (0x004F9A20), 12 invoke_method_by_name (0x004FA680).
 class RiderChaseView final : public ObjectModule {
 public:
+    RiderChaseView(const RiderChaseView&) = delete;
+    RiderChaseView& operator=(const RiderChaseView&) = delete;
     // 0x004FA800: a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // 0x004FA4B0: its type, the interpolator (0x98 bytes), the zooms and rates at
@@ -150,6 +152,8 @@ public:
 // by 0x004FBE20): each frame the skater's shadow and light follow it (Rider::update_shadow_light).
 class RiderStateReset final : public ObjectModule {
 public:
+    RiderStateReset(const RiderStateReset&) = delete;
+    RiderStateReset& operator=(const RiderStateReset&) = delete;
     // 0x004FBE20: a new one (the constructor inlined: the base's, its vtable and type; 0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

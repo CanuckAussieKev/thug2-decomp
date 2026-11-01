@@ -32,6 +32,7 @@ namespace script {
 class Script;
 
 // What Update returns.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum ScriptOutcome : int {
     kScriptOutcomeFinished = 0,  // no code left (the script has ended or was never set)
     kScriptOutcomeBlocked = 1,   // waiting with kSuspendOnBlock or kWaitTypeRealTimer
@@ -41,6 +42,7 @@ enum ScriptOutcome : int {
 };
 
 // suspend_reason_: what the script waits for before its next statement (checked by update_wait, 0x00473050).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum BlockReason : uint32_t {
     kSuspendOnNothing = 0,
     kSuspendOnCount = 1,    // suspend_frames_left_ more Updates (Wait n frames: 0x00472BD0)

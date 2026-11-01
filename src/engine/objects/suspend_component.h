@@ -31,6 +31,8 @@ namespace objects {
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
 class DormancyModule final : public ObjectModule {
 public:
+    DormancyModule(const DormancyModule&) = delete;
+    DormancyModule& operator=(const DormancyModule&) = delete;
     static constexpr uint32_t kType = 0xCE0CA665;
 
     // 0x00434290 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

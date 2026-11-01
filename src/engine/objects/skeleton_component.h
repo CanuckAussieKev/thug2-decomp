@@ -26,6 +26,8 @@ namespace objects {
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
 class BoneRigModule final : public ObjectModule {
 public:
+    BoneRigModule(const BoneRigModule&) = delete;
+    BoneRigModule& operator=(const BoneRigModule&) = delete;
     static constexpr uint32_t kType = 0x222756D5;
 
     // 0x00431F60 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the

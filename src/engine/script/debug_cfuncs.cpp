@@ -24,6 +24,8 @@
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace commands {
 
 uint32_t g_level_qb_files[15];
@@ -208,3 +210,4 @@ bool cfunc_reset_engine(script::Struct*, script::Script*)
 }
 
 } // namespace commands
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

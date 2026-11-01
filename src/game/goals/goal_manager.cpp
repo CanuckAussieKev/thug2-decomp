@@ -145,8 +145,11 @@ void GoalManager::reset_goal_data(uint32_t flag)
         if (!flag) {
             goal_data_->erase_module(component->name);
         } else if (component->name == kGoalManagerParams) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             component->structure->get_clear();
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             component->structure->put_sub_struct(kSkillTiers, args_);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         } else if (component->structure && component->structure->has_bare_flag(flag)) {
             goal_data_->erase_module(component->name);
         }
@@ -452,10 +455,12 @@ void GoalManager::restore_goal_data()
         script::Component* next = goal_data_->step_to_entry(component);
         if (component->name == kGoalManagerParams) {
             script::Struct* levels = nullptr;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             component->structure->read_sub_struct(kSkillTiers, &levels, 1);
             args_->get_clear();
             args_->append_structure_if_any(levels);
         } else if (Objective* goal = goals_.get_pull(component->name)) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             goal->restore_save_block(component->structure);
         }
         component = next;

@@ -29,6 +29,7 @@ namespace gfx {
 // animation's, the movies'), an AnimTrack in the blend channels' lists - so the slots are plain methods (AnimTrack
 // has its own get_reset / tick_frame / teardown).
 struct AnimTimeline {
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum RepeatMode : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
 
     // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
@@ -108,6 +109,8 @@ public:
 // plays an animation of the object's anim set on the channel's timeline.
 class StandardAnimController final : public AnimDriver {
 public:
+    StandardAnimController(const StandardAnimController&) = delete;
+    StandardAnimController& operator=(const StandardAnimController&) = delete;
     // 0x004A4500: on `timeline`; a frame source of its own (0x0048BFC0), the object's anim set (the blender's
     // 0x00419AB0); no frame, no frame index (-1).
     explicit StandardAnimController(AnimTimeline* timeline);
@@ -138,6 +141,8 @@ public:
 // with a weight, without a timeline of its own.
 class WeightedAnimController final : public AnimDriver {
 public:
+    WeightedAnimController(const WeightedAnimController&) = delete;
+    WeightedAnimController& operator=(const WeightedAnimController&) = delete;
     // 0x004A5010: on `timeline`; the object is the channel's (or `object` without a timeline).
     WeightedAnimController(AnimTimeline* timeline, objects::GameEntity* object);
     // 0x004A4820
@@ -158,6 +163,8 @@ public:
 // target time, swinging by two sines of the game clock (SetWobbleDetails).
 class WobbleDriver final : public AnimDriver {
 public:
+    WobbleDriver(const WobbleDriver&) = delete;
+    WobbleDriver& operator=(const WobbleDriver&) = delete;
     // 0x004A49F0
     explicit WobbleDriver(AnimTimeline* timeline);
     // 0x004A4A80
@@ -186,6 +193,8 @@ public:
 // The pose controller (type "pose", vtable 0x00649F98, 0x854 bytes): a fixed pose (identity rotations).
 class StanceDriver final : public AnimDriver {
 public:
+    StanceDriver(const StanceDriver&) = delete;
+    StanceDriver& operator=(const StanceDriver&) = delete;
     // 0x004A5730
     explicit StanceDriver(AnimTimeline* timeline);
     // 0x004A4D20
@@ -200,6 +209,8 @@ public:
 // timeline of its own.
 class PartialClipDriver final : public AnimDriver {
 public:
+    PartialClipDriver(const PartialClipDriver&) = delete;
+    PartialClipDriver& operator=(const PartialClipDriver&) = delete;
     // 0x004A5350
     explicit PartialClipDriver(AnimTimeline* timeline);
     // 0x004A4D50

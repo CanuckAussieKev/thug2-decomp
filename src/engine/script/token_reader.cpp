@@ -16,6 +16,8 @@
 #include "engine/gfx/movie.h"
 #include "engine/sys/startup_init.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 float g_parse_nudge{0.1f};
@@ -1021,3 +1023,4 @@ namespace script {
 void construct_evaluator() { g_evaluator.prepare_all(); }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

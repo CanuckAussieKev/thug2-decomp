@@ -30,6 +30,8 @@ namespace objects {
 // 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 / 10 0x005BAB90).
 class FlexibleParticleComponent final : public ObjectModule {
 public:
+    FlexibleParticleComponent(const FlexibleParticleComponent&) = delete;
+    FlexibleParticleComponent& operator=(const FlexibleParticleComponent&) = delete;
     static constexpr uint32_t kType = 0xC5BCEB9E;
 
     // 0x0041E1E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

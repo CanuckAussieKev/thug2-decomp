@@ -28,6 +28,7 @@ static_assert(offsetof(AnimCacheSlot, clock_) == 0x1E0 && sizeof(AnimCacheSlot) 
 
 // One cached animation (0x168 bytes).
 struct AnimCacheEntry {
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
     enum Flags : uint16_t {
         kUserMask = 0x1FFF, // how many play it
         kKeep = 0x2000,     // never given back as the oldest

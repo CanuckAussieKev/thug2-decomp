@@ -54,6 +54,8 @@ static_assert(offsetof(Shatter, rotations) == 0x10 && offsetof(Shatter, triangle
 // settings it was made with - and the triangles' vertices).
 class PcShatter final : public Shatter {
 public:
+    PcShatter(const PcShatter&) = delete;
+    PcShatter& operator=(const PcShatter&) = delete;
     // 0x004B8120: for `count` triangles of `mesh`.
     PcShatter(int count, MeshRef* mesh, uint32_t own_material);
     // 0x004B8FA0 (0x004B9A30 the scalar deleting destructor): its vertices, material and positions freed, then the

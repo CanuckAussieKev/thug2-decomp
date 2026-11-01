@@ -25,6 +25,8 @@ using Movie = VideoEntry;
 
 class VideoHub final : public Entity {
 public:
+    VideoHub(const VideoHub&) = delete;
+    VideoHub& operator=(const VideoHub&) = delete;
     // 0x0057A4B0: an Entity (vtable 0x0064ED34), the empty queue, the camera.
     VideoHub();
     // 0x0057B1A0 (0x0057B220 the deleting one): the queue cleared, the camera's destructor, the queue's head unlinked,

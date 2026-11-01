@@ -28,6 +28,8 @@ namespace objects {
 // entry's member function, else slot 12), 12 invoke_method_by_name (0x0042AEE0).
 class EffectsEmitterModule final : public ObjectModule {
 public:
+    EffectsEmitterModule(const EffectsEmitterModule&) = delete;
+    EffectsEmitterModule& operator=(const EffectsEmitterModule&) = delete;
     static constexpr uint32_t kType = 0xA9DB601E;
 
     // 0x0042A000 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).

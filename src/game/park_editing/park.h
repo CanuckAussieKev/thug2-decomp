@@ -596,6 +596,7 @@ static_assert(sizeof(GapRegistry::Gap) == 0xEC && offsetof(GapRegistry::Gap, det
 
 // A restart point of the park generator (0x24 bytes).
 struct RestartPoint {
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
     enum KindTag {
         kFree = 0,
         kPlayer1 = 1,
@@ -1081,6 +1082,7 @@ extern BuildPointer* g_cursor;
 
 class BuildPointer {
 public:
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum Mode {
         kModeNone = 0,
         kModeRegular = 1,

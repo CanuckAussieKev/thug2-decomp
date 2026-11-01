@@ -30,6 +30,8 @@ EmitterInstance* create_flexible_particles(uint32_t name, uint32_t type, int par
 // The "newflat" type (0x148 bytes, vtable 0x0064A514; the engine's class 0x00499010 -
 // destructor body 0x00498FB0): each particle a quad, its size and colour through its life.
 struct PcNewFlatParticles final : NewFlatParticles {
+    PcNewFlatParticles(const PcNewFlatParticles&) = delete;
+    PcNewFlatParticles& operator=(const PcNewFlatParticles&) = delete;
     uint8_t unknown134_[0xC];
     SimpleMaterial* material; // +0x140
     float emitted;            // +0x144: particles owed, a fraction
@@ -49,6 +51,8 @@ struct PcNewFlatParticles final : NewFlatParticles {
 // drawn as a ribbon (its width across the camera and the path), its colours per segment, then a head quad of five
 // times the width at the particle.
 struct PcFlatRibbonParticles final : FlatRibbonParticles {
+    PcFlatRibbonParticles(const PcFlatRibbonParticles&) = delete;
+    PcFlatRibbonParticles& operator=(const PcFlatRibbonParticles&) = delete;
     uint8_t unknown138_[4];
     float width;              // +0x13C
     SimpleMaterial* material; // +0x140
@@ -68,6 +72,8 @@ struct PcFlatRibbonParticles final : FlatRibbonParticles {
 // ring's) and a ring of `glowWidth` times its size beyond (to the outer colour), in the camera's plane - written to a
 // buffer on the stack and drawn with DrawPrimitiveUP (0x7FF words a draw). No emission.
 struct PcGlowParticles final : GlowParticles {
+    PcGlowParticles(const PcGlowParticles&) = delete;
+    PcGlowParticles& operator=(const PcGlowParticles&) = delete;
     uint8_t unknown13c_[0xC];
     SimpleMaterial* material; // +0x148
     uint8_t unknown14c_[4];
@@ -88,6 +94,8 @@ struct PcGlowParticles final : GlowParticles {
 // second time, as the original) - all the particles locked at once and drawn in one DrawPrimitive with alpha
 // blending off; positions as stored (the emitter's not added). Colours in 4096ths, not scaled.
 struct PcGlowRibbonTrailParticles final : GlowRibbonTrailParticles {
+    PcGlowRibbonTrailParticles(const PcGlowRibbonTrailParticles&) = delete;
+    PcGlowRibbonTrailParticles& operator=(const PcGlowRibbonTrailParticles&) = delete;
     uint8_t unknown13c_[0xC];
     SimpleMaterial* material; // +0x148
     float glow_step_;         // +0x14C: degrees between the glow's points
@@ -106,6 +114,8 @@ struct PcGlowRibbonTrailParticles final : GlowRibbonTrailParticles {
 // The "line" type (0x148 bytes, vtable 0x0064A570; the engine's class 0x00499B80 -
 // destructor body 0x00499B20): each particle a line from its position to its next history step, a colour each end.
 struct PcLineParticles final : LineParticles {
+    PcLineParticles(const PcLineParticles&) = delete;
+    PcLineParticles& operator=(const PcLineParticles&) = delete;
     uint8_t unknown138_[8];
     SimpleMaterial* material; // +0x140
     uint8_t unknown144_[4];
@@ -124,6 +134,8 @@ struct PcLineParticles final : LineParticles {
 // 0x0049B070): each particle a quad from its position to its oldest history step, as wide as its size across the
 // camera and the path - textured when the material has a texture.
 struct PcRibbonParticles final : RibbonParticles {
+    PcRibbonParticles(const PcRibbonParticles&) = delete;
+    PcRibbonParticles& operator=(const PcRibbonParticles&) = delete;
     uint8_t unknown138_[8];
     SimpleMaterial* material; // +0x140
     uint8_t unknown144_[4];
@@ -141,6 +153,8 @@ struct PcRibbonParticles final : RibbonParticles {
 // body 0x0049B320): each particle's history drawn as a ribbon of `segments` points, its head end's colour scaled by
 // the brightness alone (the others by lerp_colour).
 struct PcRibbonTrailParticles final : RibbonTrailParticles {
+    PcRibbonTrailParticles(const PcRibbonTrailParticles&) = delete;
+    PcRibbonTrailParticles& operator=(const PcRibbonTrailParticles&) = delete;
     uint8_t unknown138_[8];
     SimpleMaterial* material; // +0x140
     uint8_t unknown144_[4];
@@ -160,6 +174,8 @@ struct PcRibbonTrailParticles final : RibbonTrailParticles {
 // 0x0049B600): each particle a quad with a colour per corner, facing the camera or along alignTo; with
 // UseRandomUVQuadrants (flags 0x4000) a quarter of the texture by the particle's index.
 struct PcShadedParticles final : ShadedParticles {
+    PcShadedParticles(const PcShadedParticles&) = delete;
+    PcShadedParticles& operator=(const PcShadedParticles&) = delete;
     SimpleMaterial* material; // +0x134
 
     // 0x004C21A0
@@ -173,6 +189,8 @@ struct PcShadedParticles final : ShadedParticles {
 // The "smooth" type (0x148 bytes, vtable 0x0064A5C0; the engine's class 0x0049B910 - destructor body
 // 0x0049B8A0): each particle four triangles from its centre (its own colour) to the quad's corners (the edge's).
 struct PcSmoothParticles final : SmoothParticles {
+    PcSmoothParticles(const PcSmoothParticles&) = delete;
+    PcSmoothParticles& operator=(const PcSmoothParticles&) = delete;
     uint8_t unknown134_[0xC];
     SimpleMaterial* material; // +0x140
     uint8_t unknown144_[4];
@@ -191,6 +209,8 @@ struct PcSmoothParticles final : SmoothParticles {
 // destructor body 0x0049BB50): each particle two quads from the line between its position and its oldest history
 // step out to either side, four colours.
 struct PcSmoothRibbonParticles final : SmoothRibbonParticles {
+    PcSmoothRibbonParticles(const PcSmoothRibbonParticles&) = delete;
+    PcSmoothRibbonParticles& operator=(const PcSmoothRibbonParticles&) = delete;
     int segments;             // +0x138: history steps
     SimpleMaterial* material; // +0x13C
 
@@ -209,6 +229,8 @@ struct PcSmoothRibbonParticles final : SmoothRibbonParticles {
 // destructor body 0x0049BE20): each particle a star of `segments` points (star_width_ out) about its centre - two
 // quads a point: centre, tip, the next outer point and the inner one; three colours.
 struct PcSmoothStarParticles final : SmoothStarParticles {
+    PcSmoothStarParticles(const PcSmoothStarParticles&) = delete;
+    PcSmoothStarParticles& operator=(const PcSmoothStarParticles&) = delete;
     uint8_t unknown13c_[0xC];
     SimpleMaterial* material; // +0x148
     uint8_t unknown14c_[4];
@@ -225,6 +247,8 @@ struct PcSmoothStarParticles final : SmoothStarParticles {
 // The "star" type (0x150 bytes, vtable 0x0064A604; the engine's class 0x0049C140 - destructor body
 // 0x0049C0D0): each particle a star of `segments` points about its centre, a quad a point.
 struct PcStarParticles final : StarParticles {
+    PcStarParticles(const PcStarParticles&) = delete;
+    PcStarParticles& operator=(const PcStarParticles&) = delete;
     uint8_t unknown13c_[0xC];
     SimpleMaterial* material; // +0x148
     uint8_t unknown14c_[4];

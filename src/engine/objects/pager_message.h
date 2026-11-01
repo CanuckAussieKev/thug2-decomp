@@ -43,6 +43,8 @@ struct PagerMessage {
 // running is killed).
 class PagerMessageComponent final : public ObjectModule {
 public:
+    PagerMessageComponent(const PagerMessageComponent&) = delete;
+    PagerMessageComponent& operator=(const PagerMessageComponent&) = delete;
     // 0x004ECF20: a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // 0x004EC960 (not a Ghidra function): its script member functions (the table at 0x006831A8) registered.

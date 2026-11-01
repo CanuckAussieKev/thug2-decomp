@@ -25,6 +25,8 @@
 #include "game/skate/point_tally.h"
 #include "engine/gfx/cag_cfuncs.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace commands {
 
 static float g_game_util_whole_turn{360.0f};
@@ -392,3 +394,4 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
 }
 
 } // namespace commands
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

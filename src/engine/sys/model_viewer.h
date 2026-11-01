@@ -39,6 +39,8 @@ using ViewerInputHandler = pad_input::Responder<Viewer>;
 using ViewerTask = tasks::Task<Viewer>;
 
 struct Viewer final : public PartUnit {
+    Viewer(const Viewer&) = delete;
+    Viewer& operator=(const Viewer&) = delete;
     // The commands the pad gives (actions_ bits).
     static constexpr uint32_t kCommandShoulderA = 0x2;
     static constexpr uint32_t kCommandShoulderB = 0x4;

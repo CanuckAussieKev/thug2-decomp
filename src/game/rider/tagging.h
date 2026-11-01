@@ -25,6 +25,8 @@ class FootMovement;
 // Vtable: 0 Destroy, 1 Update 0x0051B970 (shared: suspends itself), 2 configure_from_data, 12 invoke_method_by_name.
 class TaggingComponent final : public ObjectModule {
 public:
+    TaggingComponent(const TaggingComponent&) = delete;
+    TaggingComponent& operator=(const TaggingComponent&) = delete;
     static constexpr uint32_t kType = 0x5B512EDC;
 
     // 0x0051DA80 (registered with the composite object manager): a new one (0 if out of memory).
@@ -61,6 +63,8 @@ public:
 // Vtable: 0 Destroy, 1 Update (0x0051EA30, a jump to 0x0051E390), 3 Finalize, 12 invoke_method_by_name.
 class TaggingControlComponent final : public ObjectModule {
 public:
+    TaggingControlComponent(const TaggingControlComponent&) = delete;
+    TaggingControlComponent& operator=(const TaggingControlComponent&) = delete;
     static constexpr uint32_t kType = 0x380D909A;
 
     // 0x0051E280 (registered with the composite object manager): a new one (0 if out of memory).

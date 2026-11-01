@@ -20,6 +20,8 @@ namespace frontend {
 // TextureElement (vtable 0x0064A1F8, 0x180 bytes).
 class TextureElement final : public UiWidget {
 public:
+    TextureElement(const TextureElement&) = delete;
+    TextureElement& operator=(const TextureElement&) = delete;
     // 0x004AED90: no texture, a new textured piece (0x0048BF40); type
     // TextureElement.
     TextureElement();
@@ -41,6 +43,8 @@ public:
 // SpriteElement (vtable 0x0064A228, 0x184 bytes).
 class ImageWidget final : public UiWidget {
 public:
+    ImageWidget(const ImageWidget&) = delete;
+    ImageWidget& operator=(const ImageWidget&) = delete;
     // 0x004AF1A0: no texture, a new sprite (0x0048BF30), z writes on; type
     // SpriteElement.
     ImageWidget();
@@ -70,6 +74,8 @@ public:
 // WindowElement (vtable 0x0064A2C0, 0x17C bytes): the root window and script-made windows.
 class PanelWidget final : public UiWidget {
 public:
+    PanelWidget(const PanelWidget&) = delete;
+    PanelWidget& operator=(const PanelWidget&) = delete;
     // 0x004B2060: type WindowElement, a window of 640x448 at 0, 0 (0x004A1620),
     // justified top left at 0, 0, its size 640x448.
     PanelWidget();

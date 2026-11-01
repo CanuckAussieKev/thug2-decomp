@@ -21,6 +21,8 @@ namespace objects {
 
 class PickupItemHandler final : public ObjectModule {
 public:
+    PickupItemHandler(const PickupItemHandler&) = delete;
+    PickupItemHandler& operator=(const PickupItemHandler&) = delete;
     static constexpr uint32_t kType = 0xF27A294D;
     static constexpr int kItems = 2;
 

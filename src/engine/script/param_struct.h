@@ -18,6 +18,7 @@ class Struct;
 struct ParamScript;
 
 // The types of components and symbols.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
 enum QbValueKind : uint8_t {
     kQbvalNone = 0,
     kQbvalInteger = 1,

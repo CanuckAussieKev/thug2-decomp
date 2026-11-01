@@ -18,6 +18,8 @@ namespace objects {
 // distance from it. Its script member functions are the table at 0x00682620 (filled at start-up).
 class ObjectProximityComponent final : public ObjectModule {
 public:
+    ObjectProximityComponent(const ObjectProximityComponent&) = delete;
+    ObjectProximityComponent& operator=(const ObjectProximityComponent&) = delete;
     // 0x004EC420: a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // 0x004EC220 (not a Ghidra function): its script member functions (the table at 0x00682620) registered.

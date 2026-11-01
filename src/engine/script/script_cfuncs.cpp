@@ -17,6 +17,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/tod_manager.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace commands {
 
 static float g_script_frame_milliseconds{16.666666f};
@@ -649,3 +651,4 @@ bool cfunc_get_script_string(script::Struct* params, script::Script* script)
 }
 
 } // namespace commands
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

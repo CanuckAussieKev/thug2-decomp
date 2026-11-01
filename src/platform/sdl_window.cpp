@@ -116,6 +116,7 @@ void create_sdl_window()
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(s_window, &info);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     game_window() = info.info.win.window;
     get_focused() = true;
 

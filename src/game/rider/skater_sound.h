@@ -21,6 +21,8 @@ namespace objects {
 
 class RiderSfxPlayer final : public ObjectModule {
 public:
+    RiderSfxPlayer(const RiderSfxPlayer&) = delete;
+    RiderSfxPlayer& operator=(const RiderSfxPlayer&) = delete;
     // 0x00518E20 (registered by register_component_types): a new one (0 if out of memory): full speed 1, volume_mult 1,
     // not sliding.
     static memory::owner<ObjectModule*> fabricate();

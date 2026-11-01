@@ -137,13 +137,17 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
     for (script::Component* c = part->step_to_entry(nullptr); c; c = part->step_to_entry(c)) {
         switch (c->kind_tag()) {
         case script::kQbvalString:
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             if (c->string && is_path(c->string))
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 out->push_back(c->string);
             break;
         case script::kQbvalStruct:
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             collect_paths(c->structure, out, depth + 1);
             break;
         case script::kQbvalArray:
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             collect_array_paths(c->array, out, depth + 1);
             break;
         default:

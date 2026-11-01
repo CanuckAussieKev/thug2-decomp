@@ -20,6 +20,8 @@ namespace objects {
 
 class WaitAndDieComponent final : public ObjectModule {
 public:
+    WaitAndDieComponent(const WaitAndDieComponent&) = delete;
+    WaitAndDieComponent& operator=(const WaitAndDieComponent&) = delete;
     static constexpr uint32_t kType = 0x03AC8065;
 
     // (0x0043D930's inlined constructor: create_wait_and_die_component) Its type.

@@ -55,6 +55,8 @@ public:
 // The detailed shadow (0x24 bytes, vtable 0x00649E98).
 class FullShadow final : public ShadowBase {
 public:
+    FullShadow(const FullShadow&) = delete;
+    FullShadow& operator=(const FullShadow&) = delete;
     // 0x004A19C0: a 256 x 256 render target (depth 16) the model's shadow caster draws into; the light's direction
     // (normalised) and the camera's distance; the camera made (at the origin, looking along the light) and the model
     // told it casts a shadow.
@@ -77,6 +79,8 @@ static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24
 // The simple shadow (0x14 bytes, vtable 0x00649EB8).
 class BlobShadow final : public ShadowBase {
 public:
+    BlobShadow(const BlobShadow&) = delete;
+    BlobShadow& operator=(const BlobShadow&) = delete;
     // 0x004A1750: no model yet, scale and offset 1.
     BlobShadow();
     // 0x004A1780 / 0x004A1990: the model deleted.
@@ -107,6 +111,8 @@ struct ShadowEdges {
 // The shadow volume (0x68 bytes, vtable 0x00649ED8).
 class ShadowVolume final : public ShadowBase {
 public:
+    ShadowVolume(const ShadowVolume&) = delete;
+    ShadowVolume& operator=(const ShadowVolume&) = delete;
     // 0x004A1F80: as the detailed shadow's camera (no texture); no model or edges yet.
     ShadowVolume(RenderModel* model, maths::Vec4 direction, float distance);
     // 0x004A2120 / 0x004A22C0: the camera deleted; with edges (and some), taken out of the volumes' list and released.

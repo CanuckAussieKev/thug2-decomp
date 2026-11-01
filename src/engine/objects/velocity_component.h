@@ -22,6 +22,8 @@ namespace objects {
 
 class VelocityTrackerModule final : public ObjectModule {
 public:
+    VelocityTrackerModule(const VelocityTrackerModule&) = delete;
+    VelocityTrackerModule& operator=(const VelocityTrackerModule&) = delete;
     static constexpr uint32_t kType = 0x41272956;
 
     // 0x0043D430 (registered with the composite object manager): a new one (0 if out of memory).

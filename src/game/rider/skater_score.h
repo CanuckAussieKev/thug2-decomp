@@ -24,6 +24,8 @@ namespace objects {
 
 class RiderPointKeeper final : public ObjectModule {
 public:
+    RiderPointKeeper(const RiderPointKeeper&) = delete;
+    RiderPointKeeper& operator=(const RiderPointKeeper&) = delete;
     // 0x00518B60 (registered by register_component_types): a new one (0 if out of memory), no score yet.
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

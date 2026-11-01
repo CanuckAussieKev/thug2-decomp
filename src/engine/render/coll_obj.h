@@ -36,6 +36,7 @@ enum class HitMeshKind {
 // Allocated from the current heap (the scene's static objects with an array new: the count before them).
 class HitMesh : public memory::HeapObject {
 public:
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
     enum Flags : uint16_t {
         kOwnsGeometry = 0x8000, // the geometry is deleted with the object (unless kSharedGeometry)
         kSharedGeometry = 0x4000,
@@ -144,6 +145,7 @@ public:
     HitMeshGroup();
     // 0x00411D10: a copy (sharing the children's list).
     HitMeshGroup(const HitMeshGroup& other);
+    HitMeshGroup& operator=(const HitMeshGroup&) = delete;
     // 0x00411B10 (0x00413460 the deleting destructor): the children deleted (each child and its node), the list, out
     // of the caches, the base.
     ~HitMeshGroup() override;

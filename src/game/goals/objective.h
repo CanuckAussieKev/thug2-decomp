@@ -43,6 +43,7 @@ struct GoalEdge {
 class Objective : public memory::HeapObject {
 public:
     // +0x6C (flag_bits_)
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
     enum Flags : uint8_t {
         kFlagInitialized = 0x01,  // Init / Uninitialize
         kFlagSeen = 0x02,         // the player has started it (hasSeen)
@@ -54,6 +55,7 @@ public:
         kFlagEndOfRunStarted = 0x80, // the skater's end of run started by the goal (has_run_out)
     };
     // +0x6D (cur_phase_)
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum State : uint8_t {
         kStateActive = 0x01,
         kState02 = 0x02, // (read by 0x005543E0, never set in this range)

@@ -44,6 +44,8 @@ void spawn_automobile(script::Struct* params);
 // update).
 class CrownObject final : public GameEntity {
 public:
+    CrownObject(const CrownObject&) = delete;
+    CrownObject& operator=(const CrownObject&) = delete;
     // 0x00578240: its base components (0x0057B250), type 0xD2156C50, id crown_object, not worn.
     CrownObject();
     // 0x005782F0 (0x00578460 the deleting one): not worn, then GameEntity's.

@@ -168,6 +168,8 @@ void stretch_rail_sector(uint32_t source, const maths::Vec4* from, const maths::
 // Suspend, 11 the base's member function table entry 0x0045D720).
 class RailAuthoring final : public objects::ObjectModule {
 public:
+    RailAuthoring(const RailAuthoring&) = delete;
+    RailAuthoring& operator=(const RailAuthoring&) = delete;
     static constexpr uint32_t kType = 0x5B509AD3;
     static constexpr int kMaxPoints = 400;
     static constexpr int kMaxRails = 200;

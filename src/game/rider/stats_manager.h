@@ -27,6 +27,8 @@ class RiderBoardPhysics;
 
 class AttributeTracker final : public ObjectModule {
 public:
+    AttributeTracker(const AttributeTracker&) = delete;
+    AttributeTracker& operator=(const AttributeTracker&) = delete;
     static constexpr uint32_t kType = 0x4FF8DAC6;
     static constexpr int kGoals = 70;
 

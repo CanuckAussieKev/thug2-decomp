@@ -76,6 +76,8 @@ protected:
 // A region whose memory is itself allocated from the memory manager.
 class MemoryArena final : public Zone {
 public:
+    MemoryArena(const MemoryArena&) = delete;
+    MemoryArena& operator=(const MemoryArena&) = delete;
     // 0x005BC620: rounded down to 16 bytes.
     explicit MemoryArena(uint32_t size);
     // 0x005BC6B0: its memory given back.
@@ -112,6 +114,7 @@ static_assert(sizeof(ListNode) == 0x10, "a list node is four words");
 
 class MemSource {
 public:
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
     enum Direction : int { kGrowUp = 1, kGrowDown = -1 };
 
     // A context: an entry in the allocator's stack; heaps keep a free list in each.

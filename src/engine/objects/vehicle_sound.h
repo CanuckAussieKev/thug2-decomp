@@ -26,6 +26,8 @@ class DrivableModule;
 
 class EngineAudioModule final : public ObjectModule {
 public:
+    EngineAudioModule(const EngineAudioModule&) = delete;
+    EngineAudioModule& operator=(const EngineAudioModule&) = delete;
     static constexpr uint32_t kType = 0x28C97F3C;
     static constexpr int kMaxGears = 6;
 

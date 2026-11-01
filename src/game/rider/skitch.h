@@ -24,6 +24,8 @@ namespace objects {
 
 class TowRideHandler final : public ObjectModule {
 public:
+    TowRideHandler(const TowRideHandler&) = delete;
+    TowRideHandler& operator=(const TowRideHandler&) = delete;
     static constexpr uint32_t kType = 0x3506CE64;
 
     // 0x0051BA10 (registered with the composite object manager): a new one, skitching allowed (0 if out of memory).

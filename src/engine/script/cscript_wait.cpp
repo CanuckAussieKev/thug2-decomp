@@ -23,6 +23,8 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 namespace {
@@ -393,3 +395,4 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
 }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

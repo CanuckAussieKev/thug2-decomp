@@ -24,6 +24,8 @@ class PadInputModule;
 // entry, 12 invoke_method_by_name.
 class FreeLookModule final : public ObjectModule {
 public:
+    FreeLookModule(const FreeLookModule&) = delete;
+    FreeLookModule& operator=(const FreeLookModule&) = delete;
     // 0x004E42E0: a new one (0 if out of memory): the base's constructor, its vtable and type.
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

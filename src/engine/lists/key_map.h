@@ -12,6 +12,8 @@ namespace lists {
 // written once here over void*.
 class KeyMap {
 public:
+    KeyMap(const KeyMap&) = delete;
+    KeyMap& operator=(const KeyMap&) = delete;
     struct Item {
         uint32_t key;
         void* value;

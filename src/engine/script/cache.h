@@ -41,6 +41,8 @@ static_assert(sizeof(ScriptCacheEntry) == 0x14, "allocated as 0x14 bytes by the 
 // nothing - the empty 0x005480A0).
 class ScriptStore final : public modules::PartUnit {
 public:
+    ScriptStore(const ScriptStore&) = delete;
+    ScriptStore& operator=(const ScriptStore&) = delete;
     // 0x00475DD0
     ScriptStore();
     // 0x00476090 / 0x004761E0: every entry and its code is freed, then the table.

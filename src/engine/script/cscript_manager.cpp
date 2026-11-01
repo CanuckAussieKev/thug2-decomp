@@ -36,6 +36,8 @@
 #include "engine/util/byte_stream.h"
 #include "engine/net/play_messages.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 namespace {
@@ -430,3 +432,4 @@ void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t n
 }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

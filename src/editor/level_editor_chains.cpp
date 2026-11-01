@@ -816,9 +816,12 @@ std::vector<uint32_t> own_links(script::Struct* node)
         return links;
     for (script::Component* c = node->head_; c; c = c->next) {
         if (c->name == kLinks &&
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->array) {
             links.clear();
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             for (uint32_t i = 0; i < c->array->extent_; ++i)
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 links.push_back(c->array->fetch_part(i));
         }
     }
@@ -831,6 +834,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
     script::Component* own = nullptr;
     for (script::Component* c = node->head_; c; c = c->next) {
         if (c->name == kLinks &&
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->array)
             own = c;
     }
@@ -840,8 +844,10 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
         return;
     }
     if (own) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         own->array->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
         for (size_t i = 0; i < links.size(); ++i)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             own->array->set_element(static_cast<uint32_t>(i), links[i]);
         return;
     }
@@ -860,12 +866,16 @@ void write_pos(script::Struct* node, V3 pos)
 {
     script::Component* own = nullptr;
     for (script::Component* c = node->head_; c; c = c->next) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == kPos && c->kind_tag() == script::kQbvalVector && c->vector)
             own = c;
     }
     if (own) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         own->vector->x = pos.x;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         own->vector->y = pos.y;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         own->vector->z = pos.z;
     } else {
         node->put_vec3(kPos, pos.x, pos.y, pos.z);
@@ -878,12 +888,16 @@ void write_angles(script::Struct* node, V3 angles)
     constexpr uint32_t kAngles = 0x9D2D0915; // angles
     script::Component* own = nullptr;
     for (script::Component* c = node->head_; c; c = c->next) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == kAngles && c->kind_tag() == script::kQbvalVector && c->vector)
             own = c;
     }
     if (own) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         own->vector->x = angles.x;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         own->vector->y = angles.y;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         own->vector->z = angles.z;
     } else {
         node->put_vec3(kAngles, angles.x, angles.y, angles.z);

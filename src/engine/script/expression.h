@@ -24,6 +24,7 @@ bool greater_than(Component* a, Component* b);
 void copy_array_element_to_component(Array* array, uint32_t index, Component* to, int reference);
 
 // The operators (the token values the parser gives them).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
 enum Operator : int {
     kOperatorNone = 0,
     kOperatorArrayElement = 5, // a[i]

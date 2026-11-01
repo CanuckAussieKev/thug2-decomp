@@ -26,6 +26,8 @@ class MeshInstanceModule;
 
 class RiderSpinAndFlip final : public ObjectModule {
 public:
+    RiderSpinAndFlip(const RiderSpinAndFlip&) = delete;
+    RiderSpinAndFlip& operator=(const RiderSpinAndFlip&) = delete;
     // 0x00511470 (registered by register_component_types): a new one (0 if out of memory): the board not rotated, no
     // components yet. The "after" flags aren't initialised.
     static memory::owner<ObjectModule*> fabricate();

@@ -16,6 +16,8 @@ namespace objects {
 // invoke_method_by_name 0x0051ADC0.
 class MatrixComponent final : public ObjectModule {
 public:
+    MatrixComponent(const MatrixComponent&) = delete;
+    MatrixComponent& operator=(const MatrixComponent&) = delete;
     static constexpr uint32_t kType = 0x208353AC;
 
     // 0x0041CB20 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

@@ -156,6 +156,7 @@ public:
     CollisionFeeler() = default;
     CollisionFeeler(const CollisionFeeler&) = delete;
     CollisionFeeler& operator=(const CollisionFeeler&) = delete;
+    ~CollisionFeeler() = default;
     maths::Vec4& kickoff() { return ray_.line_.start; }
     maths::Vec4& get_end() { return ray_.line_.end; }
     bool get_hit_shape(bool a, bool b) { return ray_.get_hit_shape(a, b) != 0; }

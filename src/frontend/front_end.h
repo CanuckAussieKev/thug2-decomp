@@ -40,6 +40,8 @@ using FrontEndTask = tasks::Task<FrontEnd>;
 using FrontEndInputHandler = pad_input::Responder<FrontEnd>;
 
 struct FrontEnd final : public PartUnit {
+    FrontEnd(const FrontEnd&) = delete;
+    FrontEnd& operator=(const FrontEnd&) = delete;
     // The menu's pad events.
     static constexpr uint32_t kPadStart = 0x2E6EF8E7;  // "pad_start"
     static constexpr uint32_t kPadBack = 0x7EE0FD2A;   // "pad_back"

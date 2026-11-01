@@ -889,6 +889,7 @@ struct FieldUndo {
     fields::Own own;
 };
 struct UndoStep {
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum Kind {
         kObjects,
         kScenery,

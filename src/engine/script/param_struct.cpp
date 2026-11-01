@@ -14,6 +14,8 @@
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 static int g_struct_copy_peak{18000};
@@ -1683,3 +1685,4 @@ template <typename R, typename... A>
 using Routine = R (*)(A...);
 
 } // namespace
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

@@ -388,6 +388,7 @@ bool Objective::award_special_trick()
         free->remove_flag(special.keys);
     }
     if (!had) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         keys = free->step_to_entry(nullptr)->raw;
         profile->add_max_specials(1);
         if (cat) {

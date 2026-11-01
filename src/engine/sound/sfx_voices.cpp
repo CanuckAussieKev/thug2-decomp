@@ -16,6 +16,9 @@
 
 #include <windows.h>
 
+#include <mmsystem.h>
+#include <dsound.h>
+
 #include "engine/core/manager.h"
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
@@ -79,13 +82,11 @@ void*& get_listener() { return g_listener; }
 void* input_port() { return audio::g_sound_device; }
 float voice_volume() { return g_voice_volume; }
 
-// COM calls by vtable slot.
-template <typename R, typename... A>
-R com(void* object, int offset, A... args)
-{
-    void** vtable = *static_cast<void***>(object);
-    return reinterpret_cast<R(__stdcall*)(void*, A...)>(vtable[offset / 4])(object, args...);
-}
+// The DirectSound objects the voices hold as void* (the original's layout).
+IDirectSound* sound_device() { return static_cast<IDirectSound*>(input_port()); }
+IDirectSoundBuffer* buffer_of(void* buffer) { return static_cast<IDirectSoundBuffer*>(buffer); }
+IDirectSound3DBuffer* buffer_3d_of(void* buffer) { return static_cast<IDirectSound3DBuffer*>(buffer); }
+IDirectSound3DListener* listener() { return static_cast<IDirectSound3DListener*>(get_listener()); }
 
 // Cameras (not rewritten yet).
 void* nearest_camera(const maths::Vec4* position, float* distance)
@@ -540,7 +541,7 @@ int group_count() { return -1; }
 void stop_voice(int voice)
 {
     if (void* buffer = get_voices()[voice].buffer)
-        com<long>(buffer, 0x48); // Stop
+        buffer_of(buffer)->Stop();
 }
 
 // 0x0047C7C0
@@ -563,7 +564,7 @@ void update_voice_states()
         if (!voice.playing || !voice.buffer)
             continue;
         DWORD status = 0;
-        if (com<long>(voice.buffer, 0x24, &status) == 0 && !(status & 1)) { // GetStatus: not playing
+        if (buffer_of(voice.buffer)->GetStatus(&status) == DS_OK && !(status & DSBSTATUS_PLAYING)) {
             --playing_voices();
             voice.playing = false;
         }
@@ -581,16 +582,17 @@ void init_voices(AudioMixer* manager)
         get_voices()[i].wave = nullptr;
         get_voices()[i].playing = false;
     }
-    uint32_t caps[0x18] = {};
-    caps[0] = 0x60;
-    long result = com<long>(input_port(), 0x10, caps); // GetCaps
+    static_assert(sizeof(DSCAPS) == 0x60);
+    DSCAPS caps{};
+    caps.dwSize = sizeof(caps);
+    HRESULT result = sound_device()->GetCaps(&caps);
     has_3d() = false;
-    if (result != 0) {
+    if (result != DS_OK) {
         voice_count() = 0x30;
         return;
     }
-    has_3d() = caps[0x38 / 4] > 0;    // free 3D hardware buffers
-    uint32_t mixing = caps[0x20 / 4]; // free hardware mixing buffers
+    has_3d() = caps.dwFreeHw3DAllBuffers > 0;
+    uint32_t mixing = caps.dwFreeHwMixingAllBuffers;
     if (mixing <= 0x10) {
         voice_count() = 0x30;
     } else {
@@ -601,14 +603,15 @@ void init_voices(AudioMixer* manager)
     if (!has_3d())
         return;
     // the primary buffer's listener
-    uint32_t desc[9] = {};
-    desc[0] = 0x24;
-    desc[1] = 0x11; // DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRL3D
-    void* primary = nullptr;
-    com<long>(input_port(), 0xC, desc, &primary, nullptr);            // CreateSoundBuffer
-    com<long>(primary, 0, &g_iid_sound_3d_listener, &get_listener()); // IDirectSound3DListener
-    com<long>(get_listener(), 0x38, 0.0f, 0.0f, 0.0f, 0u);            // change_place
-    com<long>(primary, 8);                                            // Release
+    static_assert(sizeof(DSBUFFERDESC) == 0x24);
+    DSBUFFERDESC desc{};
+    desc.dwSize = sizeof(desc);
+    desc.dwFlags = DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRL3D;
+    IDirectSoundBuffer* primary = nullptr;
+    sound_device()->CreateSoundBuffer(&desc, &primary, nullptr);
+    primary->QueryInterface(g_iid_sound_3d_listener, &get_listener());
+    listener()->SetPosition(0.0f, 0.0f, 0.0f, DS3D_IMMEDIATE);
+    primary->Release();
 }
 
 // 0x0047CBD0
@@ -618,7 +621,7 @@ void stop_all_voices()
     audio::halt_streams(-1);
     for (int i = 0; i < voice_count(); ++i) {
         if (void* buffer = get_voices()[i].buffer)
-            com<long>(buffer, 0x48); // Stop
+            buffer_of(buffer)->Stop();
     }
 }
 
@@ -739,19 +742,20 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         maths::Vec4 relative = volume->anchor_point_ - *viewer_location(camera);
         if (camera != viewport && viewport) {
             maths::Vec4 front = -cam_orientation(viewport)->row[2];
-            com<long>(get_listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // change_facing
+            listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
             maths::Vec4 heard = -cam_orientation(camera)->row[2];
             maths::Vec4 seen = -cam_orientation(viewport)->row[2];
             double angle = maths::read_turn_angle(heard, seen);
             relative.rotate_about_y(static_cast<float>(angle * 0.017453292f));
         } else {
             maths::Vec4 front = -cam_orientation(camera)->row[2];
-            com<long>(get_listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // change_facing
+            listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
         }
         float range = volume->dropoff_;
-        com<long>(voice.buffer_3d_, 0x40, range, 1u);                              // SetMaxDistance
-        com<long>(voice.buffer_3d_, 0x44, 90.0f, 1u);                              // SetMinDistance
-        com<long>(voice.buffer_3d_, 0x4C, relative.x, relative.y, relative.z, 1u); // change_place
+        IDirectSound3DBuffer* buffer_3d = buffer_3d_of(voice.buffer_3d_);
+        buffer_3d->SetMaxDistance(range, DS3D_DEFERRED);
+        buffer_3d->SetMinDistance(90.0f, DS3D_DEFERRED);
+        buffer_3d->SetPosition(relative.x, relative.y, relative.z, DS3D_DEFERRED);
         int attenuation = -10000;
         double level = static_cast<double>(voice_volume()) * 0.0099999998f;
         if (level > 0.0) {
@@ -762,10 +766,10 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
                 attenuation = 0;
         }
         bool audible = volume->lanes_[0] > 0.0f || volume->lanes_[1] > 0.0f;
-        com<long>(voice.buffer, 0x3C,
-                  output_attenuation(audible ? attenuation : -10000)); // change_loudness (NOT ORIGINAL: mute_audio)
+        buffer_of(voice.buffer)
+            ->SetVolume(output_attenuation(audible ? attenuation : -10000)); // (NOT ORIGINAL: mute_audio)
         if (get_listener())
-            com<long>(get_listener(), 0x44); // CommitDeferredSettings
+            listener()->CommitDeferredSettings();
         return;
     }
     // stereo: the louder channel's level and the balance between the two as decibels
@@ -793,8 +797,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
                 attenuation = 0;
         }
     }
-    com<long>(voice.buffer, 0x3C, output_attenuation(attenuation)); // change_loudness (NOT ORIGINAL: mute_audio)
-    com<long>(voice.buffer, 0x40, pan);                             // SetPan
+    buffer_of(voice.buffer)->SetVolume(output_attenuation(attenuation)); // (NOT ORIGINAL: mute_audio)
+    buffer_of(voice.buffer)->SetPan(pan);
     if (pitch == 0.0f)
         return;
     int frequency = 0;
@@ -810,7 +814,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
         if (static_cast<bool>(render::g_set_frequency_allowed))
-            com<long>(voice.buffer, 0x44, frequency); // SetFrequency
+            buffer_of(voice.buffer)->SetFrequency(static_cast<DWORD>(frequency));
     }
 }
 
@@ -825,40 +829,45 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
         return -1;
     Voice& voice = get_voices()[index];
     if (voice.playing && voice.buffer)
-        com<long>(voice.buffer, 0x48); // Stop
+        buffer_of(voice.buffer)->Stop();
     if (wave != voice.wave) {
         if (voice.buffer_3d_)
-            com<long>(voice.buffer_3d_, 8); // Release
+            buffer_3d_of(voice.buffer_3d_)->Release();
         voice.buffer_3d_ = nullptr;
         if (voice.buffer)
-            com<long>(voice.buffer, 8);
+            buffer_of(voice.buffer)->Release();
         voice.buffer = nullptr;
         voice.wave = nullptr;
         bool three_d = has_3d() && volume->kind_tag_ == VolumeRef::kType3d;
         wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
         std::memcpy(wave->desc_3d_algorithm_, &g_default_3d_algorithm, 16);
-        if (com<long>(input_port(), 0xC, &wave->desc_size_, &voice.buffer, nullptr) != 0) // CreateSoundBuffer
+        // (the wave's DSBUFFERDESC is in place at +0x14, sfx.h)
+        const auto* desc = reinterpret_cast<const DSBUFFERDESC*>(&wave->desc_size_);
+        IDirectSoundBuffer* created = nullptr;
+        HRESULT made = sound_device()->CreateSoundBuffer(desc, &created, nullptr);
+        voice.buffer = created;
+        if (made != DS_OK)
             return -1;
         if (has_3d() && volume->kind_tag_ == VolumeRef::kType3d)
-            com<long>(voice.buffer, 0, &g_iid_sound_3d_buffer, &voice.buffer_3d_);
+            created->QueryInterface(g_iid_sound_3d_buffer, &voice.buffer_3d_);
         void* first = nullptr;
         DWORD first_bytes = 0;
         void* second = nullptr;
         DWORD second_bytes = 0;
-        if (com<long>(voice.buffer, 0x2C, 0u, wave->desc_bytes_, &first, &first_bytes, &second, &second_bytes, 2u) ==
-            0) { // Lock (the entire buffer)
+        if (created->Lock(0, wave->desc_bytes_, &first, &first_bytes, &second, &second_bytes, DSBLOCK_ENTIREBUFFER) ==
+            DS_OK) {
             std::memcpy(first, wave->data, first_bytes);
             if (second)
                 std::memcpy(second, wave->data + first_bytes, second_bytes);
-            com<long>(voice.buffer, 0x4C, first, first_bytes, second, second_bytes); // Unlock
+            created->Unlock(first, first_bytes, second, second_bytes);
         }
         voice.wave = wave;
     }
     voice.base_frequency_ = static_cast<int>(wave->samples_per_second_);
     voice.frequency = 0;
     apply_voice_settings(index, volume, pitch);
-    com<long>(voice.buffer, 0x34, 0u); // SetCurrentPosition
-    long result = com<long>(voice.buffer, 0x30, 0u, 0u, reinterpret_cast<uint8_t*>(slot)[4] ? 1u : 0u); // Play
+    buffer_of(voice.buffer)->SetCurrentPosition(0);
+    HRESULT result = buffer_of(voice.buffer)->Play(0, 0, reinterpret_cast<uint8_t*>(slot)[4] ? DSBPLAY_LOOPING : 0u);
     ++playing_voices();
     voice.playing = true;
     return result == 0 ? index : -1;

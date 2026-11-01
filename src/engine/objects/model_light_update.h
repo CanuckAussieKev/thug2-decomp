@@ -27,6 +27,8 @@ constexpr uint32_t kModelLightSampled = 0x2; // the first sample taken
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize; the rest the base's / shared.
 class MeshLightingModule final : public ObjectModule {
 public:
+    MeshLightingModule(const MeshLightingModule&) = delete;
+    MeshLightingModule& operator=(const MeshLightingModule&) = delete;
     static constexpr uint32_t kType = 0xE3FCA939;
 
     // 0x00422DC0 (registered with the composite object manager): a new one (the constructor inlined: the base's, its

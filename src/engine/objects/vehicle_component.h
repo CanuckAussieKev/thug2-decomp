@@ -36,10 +36,13 @@ class PadInputModule;
 
 class DrivableModule final : public ObjectModule {
 public:
+    DrivableModule(const DrivableModule&) = delete;
+    DrivableModule& operator=(const DrivableModule&) = delete;
     static constexpr uint32_t kType = 0xE47F1B79;
     static constexpr int kMaxGears = 6;
 
     // The wheels' grip states (Wheel::state).
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum WheelState : int {
         kWheelOnGround = 0, // touching, grip not worked out yet this step
         kWheelInAir = 1,

@@ -53,6 +53,8 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 
 // The ranking's list (lists::Foremost<ScoreEntry>): highest priority (score) first.
 struct RankingList {
+    RankingList(const RankingList&) = delete;
+    RankingList& operator=(const RankingList&) = delete;
     memory::ListNode head_;
     RankingList() { head_.make_head(); }
     ~RankingList()

@@ -128,6 +128,8 @@ static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x3
 // passes it while armed.
 class AnimScriptKey final : public UserClipKey {
 public:
+    AnimScriptKey(const AnimScriptKey&) = delete;
+    AnimScriptKey& operator=(const AnimScriptKey&) = delete;
     // 0x00481A20: no parameters (the frame and the flag left as they are).
     AnimScriptKey() = default;
     // 0x00486560 / 0x00481DB0: the structure freed.

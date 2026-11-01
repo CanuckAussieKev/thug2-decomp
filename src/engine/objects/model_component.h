@@ -67,6 +67,8 @@ static_assert(sizeof(ModelSpinAxis) == 0x94, "layout must match the original");
 // Teleport, 12 invoke_method_by_name, 13 set_up_mesh_from_profile, 14 change_mesh; the rest the base's / shared.
 class MeshInstanceModule final : public ObjectModule {
 public:
+    MeshInstanceModule(const MeshInstanceModule&) = delete;
+    MeshInstanceModule& operator=(const MeshInstanceModule&) = delete;
     static constexpr uint32_t kType = 0x286A8D26;
 
     // 0x00421490 (registered with the composite object manager): a new one (Construct; 0 if out of memory).

@@ -7,6 +7,8 @@
 #include "engine/script/qb.h"
 #include "engine/util/byte_stream.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 namespace {
@@ -211,3 +213,4 @@ struct ArrayAdapter {
     }
 };
 } // namespace
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

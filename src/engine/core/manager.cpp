@@ -170,6 +170,7 @@ bool Hub::release_labeled_zone(uint32_t name, int /*unused*/)
 namespace {
 
 // The standard heaps' name checksums.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum HeapName : uint32_t {
     kTopDownHeap = 0x8FDB68AF,
     kBottomUpHeap = 0x0C7800B0,

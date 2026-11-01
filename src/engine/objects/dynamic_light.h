@@ -26,6 +26,8 @@ namespace objects {
 // 0x0045D720).
 class DynamicLightComponent final : public ObjectModule {
 public:
+    DynamicLightComponent(const DynamicLightComponent&) = delete;
+    DynamicLightComponent& operator=(const DynamicLightComponent&) = delete;
     static constexpr uint32_t kType = 0xD8BFC9F7;
 
     // 0x0041D0F0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the

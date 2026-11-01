@@ -13,6 +13,8 @@ struct SmearEffect;
 // line a text element child. Its blur, shadow and colour overrides are passed on to the lines.
 class ParagraphWidget final : public UiWidget {
 public:
+    ParagraphWidget(const ParagraphWidget&) = delete;
+    ParagraphWidget& operator=(const ParagraphWidget&) = delete;
     // 0x004B0810: no font, internal_scale and line_spacing 1, shadow colour black at
     // half alpha, no blur, no lines; type TextBlockElement.
     ParagraphWidget();

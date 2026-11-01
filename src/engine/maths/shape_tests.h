@@ -21,8 +21,7 @@ public:
     // A zero-size box at `point`.
     explicit BBox(const Vec4& point);
 
-    // 0x0040AB00 (defaulted in the class: BBox stays trivially copyable)
-    BBox& operator=(const BBox& other) = default;
+    // (0x0040AB00: the copy assignment - the implicit one; BBox stays trivially copyable)
     // Grow the box to include `point` (x, y, z only).
     void append_spot(const Vec4& point);
     // 0x0040B170: whether the boxes overlap (edges touching counts; NaN doesn't rule it out).

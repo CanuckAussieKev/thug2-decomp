@@ -60,6 +60,8 @@ struct StateHistoryMessage {
 
 class RiderFrameLog final : public ObjectModule {
 public:
+    RiderFrameLog(const RiderFrameLog&) = delete;
+    RiderFrameLog& operator=(const RiderFrameLog&) = delete;
     static constexpr uint32_t kType = 0x18223FD6;
     static constexpr int kEntries = 20;
 

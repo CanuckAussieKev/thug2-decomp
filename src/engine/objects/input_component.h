@@ -24,6 +24,8 @@ namespace objects {
 // 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 11 0x0042BB20, 12 0x0051ADC0).
 class PadInputModule final : public ObjectModule {
 public:
+    PadInputModule(const PadInputModule&) = delete;
+    PadInputModule& operator=(const PadInputModule&) = delete;
     static constexpr uint32_t kType = 0x27D7CD28;
 
     // Its input handlers (the ordinal: which of the two).

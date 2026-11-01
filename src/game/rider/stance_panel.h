@@ -24,6 +24,8 @@ namespace objects {
 
 class RiderStanceDisplay final : public ObjectModule {
 public:
+    RiderStanceDisplay(const RiderStanceDisplay&) = delete;
+    RiderStanceDisplay& operator=(const RiderStanceDisplay&) = delete;
     // 0x005193B0 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

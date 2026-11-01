@@ -17,6 +17,8 @@ namespace objects {
 // 11 the base's member function table entry 0x0045D720; 12 invoke_method_by_name 0x0051ADC0 (none of its own).
 class ParkedVehicleModule final : public ObjectModule {
 public:
+    ParkedVehicleModule(const ParkedVehicleModule&) = delete;
+    ParkedVehicleModule& operator=(const ParkedVehicleModule&) = delete;
     static constexpr uint32_t kType = 0x9649D4F9;
 
     // 0x00433690 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

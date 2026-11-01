@@ -25,6 +25,8 @@ namespace objects {
 
 class RiderFrameLookups final : public ObjectModule {
 public:
+    RiderFrameLookups(const RiderFrameLookups&) = delete;
+    RiderFrameLookups& operator=(const RiderFrameLookups&) = delete;
     // 0x00514430 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

@@ -18,6 +18,8 @@ namespace render {
 // intensity - with the model's own colours and directions).
 class PcModelLights final : public ModelLights {
 public:
+    PcModelLights(const PcModelLights&) = delete;
+    PcModelLights& operator=(const PcModelLights&) = delete;
     // 0x004B6270: nothing overridden, every direction (0, 1, 0).
     PcModelLights();
     // 0x004B6360 (0x004B67B0 the scalar deleting destructor): the colours and directions freed, then the engine's.

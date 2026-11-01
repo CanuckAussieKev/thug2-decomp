@@ -756,6 +756,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     pop_heap();
     script::Struct* join = new_params();
     in_addr address;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     address.S_un.S_addr = static_cast<uint32_t>(ip);
     const char* dotted = inet_ntoa(address);
     join->add_component_of_type(0, script::kQbvalInteger, static_cast<uint32_t>(port));

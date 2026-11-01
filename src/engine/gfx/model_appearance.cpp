@@ -154,18 +154,22 @@ void ModelLook::resolve_random_parts()
             continue;
         uint32_t part = component->name;
         script::Struct* option = nullptr;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (component->structure->has_bare_flag(kRandomizedDescId)) {
             option = random_cas_option(part, random_set);
         } else {
             int index = 0;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             if (!component->structure->fetch_int_value(kShuffleIndex, &index, 0))
                 continue;
             option = cas_option_at(part, index, random_set);
         }
         option->read_hash_value(kRandomSet, &random_set, 0);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         component->structure->get_clear();
         uint32_t descriptor_id = 0;
         option->read_hash_value(kDescId, &descriptor_id, 0);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         component->structure->put_name_key(kDescId, descriptor_id);
     }
 }

@@ -148,6 +148,7 @@ enum class Op {
 enum class Condition { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
 
 struct Param {
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum Kind { kBitMark, kInteger, kFloat, kChars, kName } kind;
     std::string name; // "" for a flag (its name is `text`)
     std::string text; // a string's / name's text

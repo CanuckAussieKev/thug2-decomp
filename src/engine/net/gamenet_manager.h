@@ -54,6 +54,7 @@ struct JoinerRecord;
 // (the join messages: engine/net/gamenet_messages.h - ConnectInfo, JoinRequestBlock, ProceedInfo)
 
 // Join refused (message 71, 10 bytes): the reason; with kRefusedCdKey, the host's CD-key challenge after it.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
 enum JoinRefusedReason : int8_t {
     kRefusedFull = 0,
     kRefusedPassword = 1,
@@ -68,6 +69,7 @@ enum JoinRefusedReason : int8_t {
 constexpr uint16_t kJoinRefusedSize = 10;
 
 // The join's state (join_phase_, 0x005331F0 / 0x00533200).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum EntryPhase : int {
     kJoinStateConnecting = 1,
     kJoinStateJoining = 2,

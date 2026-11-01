@@ -25,6 +25,8 @@ namespace frontend {
 
 class ModelWidget final : public UiWidget {
 public:
+    ModelWidget(const ModelWidget&) = delete;
+    ModelWidget& operator=(const ModelWidget&) = delete;
     // A model's object and where it sits in the element (w = 1).
     struct ShapeMesh {
         objects::SharedRef<objects::GameEntity> object;

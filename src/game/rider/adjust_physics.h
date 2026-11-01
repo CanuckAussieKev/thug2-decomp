@@ -29,6 +29,8 @@ class RiderPoseState;
 
 class RiderPhysicsTweaks final : public ObjectModule {
 public:
+    RiderPhysicsTweaks(const RiderPhysicsTweaks&) = delete;
+    RiderPhysicsTweaks& operator=(const RiderPhysicsTweaks&) = delete;
     static constexpr uint32_t kType = 0x9F9CC949;
 
     // 0x004F80E0 (registered by register_component_types): a new one (0 if out of memory): no components, not frigged.

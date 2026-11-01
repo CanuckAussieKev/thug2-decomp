@@ -26,6 +26,8 @@ class AnimBlenderComponent;
 
 class RiderTeeterMoves final : public ObjectModule {
 public:
+    RiderTeeterMoves(const RiderTeeterMoves&) = delete;
+    RiderTeeterMoves& operator=(const RiderTeeterMoves&) = delete;
     static constexpr uint32_t kType = 0x589E5FB3;
     // The balance trick types (trick_).
     static constexpr uint32_t kManual = 0xEF24413B, kNoseManual = 0x0AC90769, kGrind = 0x255ED86F, kSlide = 0x8D10119D,

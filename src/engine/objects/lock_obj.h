@@ -34,6 +34,8 @@ constexpr uint8_t kLockFlagNoRotate = 0x8;
 // destructor body is 0x0041F400. Construction, destruction and the lock's update: lock_obj_update.cpp.
 class PinnedObjectModule final : public ObjectModule {
 public:
+    PinnedObjectModule(const PinnedObjectModule&) = delete;
+    PinnedObjectModule& operator=(const PinnedObjectModule&) = delete;
     static constexpr uint32_t kType = 0x5CB5CB7E;
 
     // 0x0041FF20 (registered with the composite object manager): a new one (Construct on zeroed memory; 0 if out of

@@ -27,6 +27,8 @@ struct ProximNode;
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
 class AudioStreamModule final : public ObjectModule {
 public:
+    AudioStreamModule(const AudioStreamModule&) = delete;
+    AudioStreamModule& operator=(const AudioStreamModule&) = delete;
     static constexpr uint32_t kType = 0x0F1641E3;
 
     // 0x00433D90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

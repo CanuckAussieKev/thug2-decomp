@@ -246,6 +246,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
     // pro's array alone (the first pro's).
     for (script::Component* component = by_pro->step_to_entry(nullptr); component;) {
         script::Component* next_pro = by_pro->step_to_entry(component);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         script::Struct* goals = component->structure;
         int number = 0;
         goals->fetch_int_value(kNumGoals, &number, 1);
@@ -256,6 +257,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         for (script::Component* element = goals->step_to_entry(nullptr); element;) {
             script::Component* next = goals->step_to_entry(element);
             script::Struct* copy = spawn_param_table();
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             copy->append_structure_if_any(element->structure);
             list->set_element(index++, reinterpret_cast<uint32_t>(copy));
             element = next;

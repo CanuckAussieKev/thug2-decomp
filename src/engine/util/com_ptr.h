@@ -13,6 +13,7 @@
 namespace util {
 
 template <typename Interface>
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): operator=(ComPtr) by value assigns copies and moves
 class ComPtr {
 public:
     ComPtr() = default;

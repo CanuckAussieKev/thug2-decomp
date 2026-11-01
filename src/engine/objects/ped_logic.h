@@ -59,6 +59,8 @@ constexpr uint32_t kPedFlagBoardHidden = 0x20000; // its board is hidden
 // no-move update 0x004ED4A0.
 class PedestrianBrainModule final : public ObjectModule {
 public:
+    PedestrianBrainModule(const PedestrianBrainModule&) = delete;
+    PedestrianBrainModule& operator=(const PedestrianBrainModule&) = delete;
     static constexpr uint32_t kType = 0x6EFDDFB8;
 
     // 0x004F0B10 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

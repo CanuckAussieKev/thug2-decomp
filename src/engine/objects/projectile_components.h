@@ -31,6 +31,8 @@ class Rider;
 // 0x005BAB90, 6 0x0048DCD0, 7 0x0045D760, 10 0x005144C0, 11 0x0045D720, 12 0x0051ADC0).
 class ShotImpactModule final : public ObjectModule {
 public:
+    ShotImpactModule(const ShotImpactModule&) = delete;
+    ShotImpactModule& operator=(const ShotImpactModule&) = delete;
     static constexpr uint32_t kType = 0x7767D6D7;
     static constexpr uint32_t kFireball = 0xD039432C; // projectile_type fireball
 
@@ -78,6 +80,8 @@ public:
 // 0x0051ADC0).
 class ProjectileProximityComponent final : public ObjectModule {
 public:
+    ProjectileProximityComponent(const ProjectileProximityComponent&) = delete;
+    ProjectileProximityComponent& operator=(const ProjectileProximityComponent&) = delete;
     static constexpr uint32_t kType = 0x3618B878;
 
     // 0x004F3550 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

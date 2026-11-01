@@ -37,6 +37,8 @@ class AudioEmitterModule;
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
 class BodyDynamicsModule final : public ObjectModule {
 public:
+    BodyDynamicsModule(const BodyDynamicsModule&) = delete;
+    BodyDynamicsModule& operator=(const BodyDynamicsModule&) = delete;
     static constexpr uint32_t kType = 0xFFB39248;
 
     // A spring (0x24 bytes): its point on the body (w 0), where it's held (+0x10, world), and whether it's on.
@@ -58,6 +60,7 @@ public:
         uint8_t pad11[3];
     };
 
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum State { kStateAsleep = 0, kStateAwake = 1, kStateDisabled = 2 };
     // flag_bits_ (+0xF4)
     static constexpr uint32_t kFlagDieUponSettling = 0x1;

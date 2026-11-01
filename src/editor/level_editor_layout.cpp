@@ -748,6 +748,8 @@ bool get_capture(FileLoad* file)
 {
     // (an object the editor's preview is moving along its path: read where it stands - level_editor_entities.h)
     struct PreviewHold {
+        PreviewHold(const PreviewHold&) = delete;
+        PreviewHold& operator=(const PreviewHold&) = delete;
         PreviewHold() { entities::preview_suspend(); }
         ~PreviewHold() { entities::preview_resume(); }
     } hold;
@@ -1261,16 +1263,21 @@ std::unordered_map<uint32_t, LevelInfo> levels_by_load()
                           kQb = checksums::hash_from_text("qb");
     std::unordered_map<uint32_t, LevelInfo> levels;
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (e->type != script::kQbvalStruct || !e->structure)
             continue;
         uint32_t load = 0;
         const char* level = nullptr;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (!e->structure->read_hash_value(kLoadScript, &load, 0) || !e->structure->fetch_text(kLevel, &level, 0))
             continue;
         const char* title = nullptr;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         e->structure->fetch_text(kName, &title, 0);
         const char* qb = nullptr;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         e->structure->fetch_text(kQb, &qb, 0);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         levels.emplace(load, LevelInfo{scene_of_level_text(level), title ? title : "", e->structure,
                                        qb && *qb ? level_nodes::node_array_checksum(qb) : 0});
     }

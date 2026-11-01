@@ -100,6 +100,7 @@ public:
     Feeler() = default;
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
+    ~Feeler() = default;
     maths::Vec4& kickoff() { return ray_.line_.start; }
     maths::Vec4& get_end() { return ray_.line_.end; }
     bool get_hit_shape(int a, int b) { return ray_.get_hit_shape(a != 0, b != 0) != 0; }

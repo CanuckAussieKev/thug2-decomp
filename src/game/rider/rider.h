@@ -50,6 +50,8 @@ class SkaterVehicleSoundComponent;
 // those are plain methods here.
 class Rider final : public GameEntity {
 public:
+    Rider(const Rider&) = delete;
+    Rider& operator=(const Rider&) = delete;
     // 0x0057FE30: stat `index`'s override (+0x290), kept within 0-10 when 0x005A1180 says so.
     void set_stat_override(int index, float value);
     // 0x00580490: stat `index` (the override, the default stats if none, the skate module's forced value; online

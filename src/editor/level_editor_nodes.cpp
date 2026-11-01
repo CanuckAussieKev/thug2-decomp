@@ -571,26 +571,37 @@ std::string value_text(script::Component* c, int depth)
     char buffer[96];
     switch (c->kind_tag()) {
     case script::kQbvalInteger:
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         std::snprintf(buffer, sizeof(buffer), "%d", c->integer);
         return buffer;
     case script::kQbvalFloat:
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         std::snprintf(buffer, sizeof(buffer), "%g", c->float_value_);
         return buffer;
     case script::kQbvalString:
     case script::kQbvalInlineText:
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         return std::string("\"") + (c->string ? c->string : "") + "\"";
     case script::kQbvalPair:
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->pair)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             std::snprintf(buffer, sizeof(buffer), "(%g, %g)", c->pair->x, c->pair->y);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         return c->pair ? buffer : "()";
     case script::kQbvalVector:
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->vector)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             std::snprintf(buffer, sizeof(buffer), "(%.2f, %.2f, %.2f)", c->vector->x, c->vector->y, c->vector->z);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         return c->vector ? buffer : "()";
     case script::kQbvalName:
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         return get_name_text(c->checksum);
     case script::kQbvalArray:
     case script::kEsymboltypeArraypointer:
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         return array_text(c->array, depth + 1);
     case script::kQbvalStruct:
     case script::kQbvalStructRef:
@@ -609,11 +620,15 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
     for (script::Component* c = s->head_; c; c = c->next) {
         if (c->name == 0 && c->kind_tag() == script::kQbvalName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             script::SymbolTableEntry* symbol = script::resolve_symbol(c->checksum);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             if (symbol && symbol->type == script::kQbvalStruct && symbol->structure) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 add_fields(symbol->structure, true, depth + 1, out);
                 continue;
             }
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             out->push_back({get_name_text(c->checksum), "(flag)", included});
             continue;
         }

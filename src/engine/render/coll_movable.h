@@ -45,6 +45,9 @@ protected:
     HitMovingMesh();
     // 0x00412660: a copy.
     HitMovingMesh(const HitMovingMesh& other);
+
+public:
+    HitMovingMesh& operator=(const HitMovingMesh&) = delete;
 };
 static_assert(sizeof(HitMovingMesh) == 0xA4 && offsetof(HitMovingMesh, inverse_) == 0x60, "layout must match");
 
@@ -61,6 +64,7 @@ public:
     HitMovingBox();
     // 0x00413700: a copy.
     HitMovingBox(const HitMovingBox& other);
+    HitMovingBox& operator=(const HitMovingBox&) = delete;
     // 0x004125F0 (0x004136D0 the deleting destructor)
     ~HitMovingBox() override = default;
 
@@ -125,6 +129,9 @@ protected:
     CollScaled();
     // 0x00413F80: a copy.
     CollScaled(const CollScaled& other);
+
+public:
+    CollScaled& operator=(const CollScaled&) = delete;
 };
 static_assert(sizeof(CollScaled) == 0xA0 && offsetof(CollScaled, inverse_) == 0x60, "layout must match");
 

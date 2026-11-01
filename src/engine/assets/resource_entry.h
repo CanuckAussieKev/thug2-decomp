@@ -16,6 +16,7 @@ class AsyncFileHandle;
 namespace assets {
 
 // The asset types (each file extension maps to one, 0x0067C650).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
 enum ResourceKind : int {
     kBinary = 1,         // .BIN
     kScene = 2,          // .SCN, .GEOM
@@ -31,6 +32,7 @@ enum ResourceKind : int {
 };
 
 // The load states (+0x08).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum AssetState : int {
     kUnloaded = 0,
     kLoading = 1, // the file is being read

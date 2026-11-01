@@ -34,6 +34,8 @@ namespace objects {
 // 0x0045D760, 8 / 10 0x005BAB90, 11 0x0045D720).
 class FloatingTextComponent final : public ObjectModule {
 public:
+    FloatingTextComponent(const FloatingTextComponent&) = delete;
+    FloatingTextComponent& operator=(const FloatingTextComponent&) = delete;
     static constexpr uint32_t kType = 0xEADA1621;
 
     // 0x0041E3C0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the

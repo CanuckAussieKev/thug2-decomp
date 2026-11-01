@@ -127,6 +127,7 @@ script::Component* own_vector(script::Struct* node, uint32_t name)
 {
     script::Component* found = nullptr;
     for (script::Component* c = node->head_; c; c = c->next) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == name && c->kind_tag() == script::kQbvalVector && c->vector)
             found = c;
     }
@@ -136,8 +137,11 @@ script::Component* own_vector(script::Struct* node, uint32_t name)
 void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 {
     if (script::Component* c = own_vector(node, name)) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         c->vector->x = value.x;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         c->vector->y = value.y;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         c->vector->z = value.z;
         return;
     }

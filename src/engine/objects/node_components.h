@@ -30,6 +30,8 @@ class GrindRailHub;
 // hook and rail managers).
 class WaypointListModule final : public ObjectModule {
 public:
+    WaypointListModule(const WaypointListModule&) = delete;
+    WaypointListModule& operator=(const WaypointListModule&) = delete;
     static constexpr uint32_t kType = 0xC472ECC5;
 
     // 0x00428010 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
@@ -57,6 +59,8 @@ static_assert(sizeof(WaypointListModule) == 0x1C, "layout must match the origina
 // Vtable: as the node array's, with 0 Destroy, 2 configure_from_data, 5 0x004E3F90.
 class HookPointRegistryModule final : public ObjectModule {
 public:
+    HookPointRegistryModule(const HookPointRegistryModule&) = delete;
+    HookPointRegistryModule& operator=(const HookPointRegistryModule&) = delete;
     static constexpr uint32_t kType = 0x27443708;
 
     // 0x00428130 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
@@ -82,6 +86,8 @@ static_assert(sizeof(HookPointRegistryModule) == 0x1C,
 // Vtable: as the node array's, with 0 Destroy, 2 configure_from_data, 5 0x004E3F90.
 class GrindPathLinkModule final : public ObjectModule {
 public:
+    GrindPathLinkModule(const GrindPathLinkModule&) = delete;
+    GrindPathLinkModule& operator=(const GrindPathLinkModule&) = delete;
     static constexpr uint32_t kType = 0x1CDFB2A3;
 
     // 0x0042B920 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).

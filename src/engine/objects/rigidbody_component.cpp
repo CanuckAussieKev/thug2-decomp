@@ -634,6 +634,7 @@ bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, scri
 // 0x0042E020
 bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, script::Script* /*script*/)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     uint32_t id = params->step_to_entry(nullptr)->checksum;
     auto* other = reinterpret_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
     bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment

@@ -61,6 +61,8 @@ constexpr uint32_t kNoObjectType = 0;
 
 class Entity : public SharedBase {
 public:
+    Entity(const Entity&) = delete;
+    Entity& operator=(const Entity&) = delete;
     // 0x00460B80: vtable 0x006477E8, no id, no type, no manager, no script, no tags. flag_bits_ (+0x24) is not
     // initialised.
     Entity();
@@ -300,6 +302,8 @@ constexpr uint32_t kCompositeFlagDestroying = 0x80; // its destructor is running
 // skater 0x0064EF48, the viewer object 0x0064F138) keep slots 5, 8 and 9 as they are.
 class GameEntity : public Entity {
 public:
+    GameEntity(const GameEntity&) = delete;
+    GameEntity& operator=(const GameEntity&) = delete;
     // 0x0045E510: at the origin (w = 1), identity matrices, no velocity, no components, no flags;
     // kObjectFlagHasPosition. (old_pos_ isn't initialised.)
     GameEntity();

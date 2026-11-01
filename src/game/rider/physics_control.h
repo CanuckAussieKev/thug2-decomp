@@ -27,6 +27,8 @@ class RiderPoseState;
 
 class RiderBoardPhysics final : public ObjectModule {
 public:
+    RiderBoardPhysics(const RiderBoardPhysics&) = delete;
+    RiderBoardPhysics& operator=(const RiderBoardPhysics&) = delete;
     // 0x00517830 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

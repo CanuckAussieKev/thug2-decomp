@@ -16,6 +16,8 @@ namespace gfx {
 
 class ModelLook final : public objects::Entity {
 public:
+    ModelLook(const ModelLook&) = delete;
+    ModelLook& operator=(const ModelLook&) = delete;
     // 0x00488EA0: an Entity with its own vtable, an empty structure, no face texture.
     ModelLook();
     // 0x004890F0 (0x00489370 the deleting one): the face texture freed, the structure cleared, Entity's.

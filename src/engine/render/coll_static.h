@@ -26,6 +26,8 @@ struct CapsuleHits;
 // array new (0x0049CE00 the vector deleting destructor).
 class StaticCollider final : public HitMesh {
 public:
+    StaticCollider(const StaticCollider&) = delete;
+    StaticCollider& operator=(const StaticCollider&) = delete;
     // 0x00412730 (as `new StaticCollider[n]` builds each): no flags, geometry or buffer, +0x14 0 (the checksum and
     // the grid mark left as they were).
     StaticCollider() = default;
@@ -100,6 +102,7 @@ public:
     CollStaticInstance() = default;
     // 0x00414C30: a copy.
     CollStaticInstance(const CollStaticInstance& other) = default;
+    CollStaticInstance& operator=(const CollStaticInstance&) = delete;
     // 0x00412840 (0x00413ED0 the deleting destructor)
     ~CollStaticInstance() override;
 
@@ -159,6 +162,7 @@ public:
     explicit HitMovingTriangles(TriMeshSource* geometry);
     // 0x00413080: a copy.
     HitMovingTriangles(const HitMovingTriangles& other);
+    HitMovingTriangles& operator=(const HitMovingTriangles&) = delete;
     // 0x00413070 (0x004143D0 the deleting destructor)
     ~HitMovingTriangles() override = default;
 

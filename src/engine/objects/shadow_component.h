@@ -31,6 +31,8 @@ namespace objects {
 // 10 the empty 0x005BAB90; 11 the base's member function table entry 0x0045D720; 12 invoke_method_by_name.
 class GroundShadowModule final : public ObjectModule {
 public:
+    GroundShadowModule(const GroundShadowModule&) = delete;
+    GroundShadowModule& operator=(const GroundShadowModule&) = delete;
     static constexpr uint32_t kType = 0x8A897DD2;
 
     // 0x00431800 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

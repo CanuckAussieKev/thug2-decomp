@@ -23,6 +23,7 @@
 // Also here: Painter, which the overlay modules draw with (world lines, labels and dots projected to the view).
 namespace frontend::level_editor::overlays {
 
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
 enum Bit : uint32_t {
     kLabels = 1u << 0,        // texts over the view (gizmo labels, trigger names, the feature map's numbers)
     kLegend = 1u << 1,        // the collision's legend (bottom left)

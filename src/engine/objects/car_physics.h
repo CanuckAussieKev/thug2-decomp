@@ -24,6 +24,8 @@ namespace objects {
 // / 9 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 11 0x0042BB20, 12 0x0051ADC0).
 class AutomobileDynamicsModule final : public ObjectModule {
 public:
+    AutomobileDynamicsModule(const AutomobileDynamicsModule&) = delete;
+    AutomobileDynamicsModule& operator=(const AutomobileDynamicsModule&) = delete;
     static constexpr uint32_t kType = 0xC695136D;
 
     // A bone of the model's skeleton description (0x50 bytes each; the model's 0x00493040).

@@ -67,6 +67,8 @@ namespace objects {
 
 class FootMovement final : public ObjectModule {
 public:
+    FootMovement(const FootMovement&) = delete;
+    FootMovement& operator=(const FootMovement&) = delete;
     // Its states (+0x18; the names are the table at 0x0064C618): 0 WALKING_GROUND, 1 WALKING_AIR, 2 / 3 / 4 the
     // hanging and climbing ones.
 

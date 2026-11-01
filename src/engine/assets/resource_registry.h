@@ -28,6 +28,8 @@ namespace assets {
 // 0x006918E0).
 class ResourceRegistry : public modules::PartUnit {
 public:
+    ResourceRegistry(const ResourceRegistry&) = delete;
+    ResourceRegistry& operator=(const ResourceRegistry&) = delete;
     // 0x00407F80: the hash table (10 bits) and the task running process_pending_assets.
     ResourceRegistry();
     // 0x00408930 / 0x00408A10: every asset unloaded, the hash table and the task deleted.

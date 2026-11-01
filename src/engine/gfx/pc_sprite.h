@@ -14,6 +14,8 @@ namespace render {
 // The PC sprite (0x48 bytes, vtable 0x0064A744; made by build_sprite_quad 0x004B2A80).
 class PcSprite final : public BillboardQuad {
 public:
+    PcSprite(const PcSprite&) = delete;
+    PcSprite& operator=(const PcSprite&) = delete;
     // 0x004C70E0: the engine's (no window), and the 2D sprite made with priority 0 (none without memory).
     PcSprite();
     // 0x004C7050 (0x004C7180 the scalar deleting destructor): the 2D sprite destroyed, then the engine's.

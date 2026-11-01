@@ -26,6 +26,7 @@ class AsyncFileHandle;
 using IoCompletionHook = void (*)(AsyncFileHandle* file, int event, int value, void* arg0, void* arg1);
 
 // Operations, also the events passed to callbacks.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
 
 class AsyncFileHandle : public memory::HeapObject {
@@ -87,6 +88,8 @@ bool& async_use_overlapped_io();
 // another reference taken) by create_async_loader_module, released by destroy_async_loader_module.
 class AsyncLoaderModule final : public modules::PartUnit {
 public:
+    AsyncLoaderModule(const AsyncLoaderModule&) = delete;
+    AsyncLoaderModule& operator=(const AsyncLoaderModule&) = delete;
     // 0x005B6BC0
     AsyncLoaderModule();
     // 0x005B6660 / 0x005B6940

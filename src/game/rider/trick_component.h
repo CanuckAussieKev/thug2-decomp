@@ -96,6 +96,8 @@ struct QueuedTrick {
 // Vtable: 0 the scalar deleting destructor, 1 Update, 3 Finalize (0x0051F2B0), 12 invoke_method_by_name.
 class MoveExecutor final : public ObjectModule {
 public:
+    MoveExecutor(const MoveExecutor&) = delete;
+    MoveExecutor& operator=(const MoveExecutor&) = delete;
     static constexpr uint32_t kType = 0x270F56E1;
     static constexpr int kEvents = 100;
     static constexpr int kButtons = 22;

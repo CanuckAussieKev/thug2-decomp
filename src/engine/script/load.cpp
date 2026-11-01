@@ -20,6 +20,8 @@
 #include "engine/util/byte_stream.h"
 #include "engine/sys/game_config.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 static uint32_t g_loading_file;
@@ -321,3 +323,4 @@ struct ScriptAdapter {
     bool refers_to(uint32_t name) { return script::script_refers_to(reinterpret_cast<script::Script*>(this), name); }
 };
 } // namespace
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

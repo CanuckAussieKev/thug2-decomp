@@ -22,6 +22,8 @@ namespace objects {
 // 9 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 11 0x0042BB20, 12 0x0051ADC0).
 class FamComponent final : public ObjectModule {
 public:
+    FamComponent(const FamComponent&) = delete;
+    FamComponent& operator=(const FamComponent&) = delete;
     static constexpr uint32_t kType = 0x0301D67C;
 
     // 0x0041D200 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the

@@ -19,6 +19,7 @@ namespace {
 // --- a small JSON reader (the data file only: objects, arrays, strings, numbers, true / false / null) ---
 
 struct Json {
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum Kind { kNull, kBool, kNumber, kChars, kArray, kObject } kind = kNull;
     bool boolean = false;
     double number = 0.0;

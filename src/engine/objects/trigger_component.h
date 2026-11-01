@@ -30,6 +30,8 @@ namespace objects {
 
 class ActivationZoneModule final : public ObjectModule {
 public:
+    ActivationZoneModule(const ActivationZoneModule&) = delete;
+    ActivationZoneModule& operator=(const ActivationZoneModule&) = delete;
     static constexpr uint32_t kType = 0xE594F0A2;
 
     // 0x00434B90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the

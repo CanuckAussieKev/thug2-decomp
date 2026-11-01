@@ -27,6 +27,8 @@ namespace objects {
 
 class RiderRemoteSync final : public ObjectModule {
 public:
+    RiderRemoteSync(const RiderRemoteSync&) = delete;
+    RiderRemoteSync& operator=(const RiderRemoteSync&) = delete;
     static constexpr int kHistory = 20;
 
     // 0x005147F0 (registered by register_component_types): a new one (0 if out of memory).

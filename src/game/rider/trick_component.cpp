@@ -412,6 +412,7 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
 uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, uint32_t* out)
 {
     for (int i = 0; i < count; ++i) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         uint32_t button = node->checksum;
         if (button == 0x03749393)
             button = button_map_[1];
@@ -423,7 +424,9 @@ uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, ui
         node = node->next;
     }
     if ((node->type_and_flag_ & 0xFE) == 2)
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         return node->checksum;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     return static_cast<uint32_t>(script::fetch_int_value(node->checksum));
 }
 
@@ -714,6 +717,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     };
     auto finish = [&](Scan scan) { return scan == Scan::kFound ? succeed() : scan == Scan::kStopped ? false : fail(); };
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     switch (kind->checksum) {
     case 0x823B8342: { // Press: the button pressed (the event gets the flags itself, nothing marked)
         uint32_t ms = read_trigger(node, 1, buttons);
@@ -1003,7 +1007,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     }
     case 0xA8123ECF: { // HoldThree: the three (as named, not mapped) held; nothing marked
         const script::Component* second = node->next;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         uint32_t a = node->checksum, b = second->checksum;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         uint32_t c = second->next->checksum;
         return is_key_held(a) && is_key_held(b) && is_key_held(c);
     }

@@ -36,6 +36,8 @@ struct FlexibleParticle {
 // component's): a SharedBase. Its list node at +0x0C (the particle manager's list; the original's node had a table of
 // its own, the "second vtable" - the node here keeps its size: the types' fields are at the original's offsets).
 struct EmitterInstance : objects::SharedBase {
+    EmitterInstance(const EmitterInstance&) = delete;
+    EmitterInstance& operator=(const EmitterInstance&) = delete;
     // On the current heap, zeroed, with the particle manager's assert flag (g_alloc_assert_flag); null when it's full.
     static void* operator new(std::size_t size) noexcept;
     static void operator delete(void* memory);
@@ -202,6 +204,8 @@ struct NewFlatParticles : EmitterInstance {
 
 // The flat ribbon (0x3D56A7A6; vtable 0x00649450): history + 1 positions each, a colour a segment and three more.
 struct FlatRibbonParticles : EmitterInstance {
+    FlatRibbonParticles(const FlatRibbonParticles&) = delete;
+    FlatRibbonParticles& operator=(const FlatRibbonParticles&) = delete;
     int segments_; // +0x134: history + 1
 
     // 0x004992C0
@@ -260,6 +264,8 @@ struct LineParticles : EmitterInstance {
 // The model type (0x286A8D26; vtable 0x006494A0; constructed by 0x0049A0C0): models as particles - the one engine type
 // made without a PC class.
 struct ModelParticles final : EmitterInstance {
+    ModelParticles(const ModelParticles&) = delete;
+    ModelParticles& operator=(const ModelParticles&) = delete;
     unsigned int model_count_;  // +0x134
     unsigned int drawn_models_; // +0x138: the models Render goes through (the same count)
     void*

@@ -756,6 +756,7 @@ bool struct_denied(script::Struct* params, int depth)
         return false;
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (checksum_denied(component->name) || value_denied(component->kind_tag(), component->raw, depth))
             return true;
     }

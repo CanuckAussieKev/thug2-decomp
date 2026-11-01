@@ -118,6 +118,7 @@ int script_integer(const std::string& name)
     if (name.empty())
         return -1;
     script::SymbolTableEntry* symbol = script::resolve_symbol(name_hash(name.c_str()));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     return symbol && symbol->type == script::kQbvalInteger ? symbol->integer : -1;
 }
 

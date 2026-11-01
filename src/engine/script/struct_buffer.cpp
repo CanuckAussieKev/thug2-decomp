@@ -12,6 +12,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/util/byte_stream.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 namespace {
@@ -527,3 +529,4 @@ const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer, size_
 }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

@@ -54,6 +54,8 @@ namespace modules {
 
 class Skate final : public PartUnit {
 public:
+    Skate(const Skate&) = delete;
+    Skate& operator=(const Skate&) = delete;
     // A skater slot's settings (+0x390, 8 of them).
     struct PlayerSettings {
         int unknown0_;   // +0 (the player's index, set by the constructor)

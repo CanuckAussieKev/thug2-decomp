@@ -59,6 +59,8 @@ constexpr uint32_t kMotion2LevelHeading = 0x400;   // the path's heading kept le
 // 0x00423130; the member function pointers filled in by the dynamic initialiser 0x00640E30).
 class KinematicsModule final : public ObjectModule {
 public:
+    KinematicsModule(const KinematicsModule&) = delete;
+    KinematicsModule& operator=(const KinematicsModule&) = delete;
     static constexpr uint32_t kType = 0x0A015E17;
 
     // --- life ---

@@ -201,6 +201,7 @@ void read_save_header(Struct* global, Script* script)
         uint32_t soundtrack = 0xFFFFFFFF;
         sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             symbol->checksum = soundtrack;
         Struct* change = spawn_param_table();
         change->put_name_key(0x8C465905u, soundtrack);                       // trackchecksum

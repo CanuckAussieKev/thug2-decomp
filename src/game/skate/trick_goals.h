@@ -34,6 +34,8 @@ struct StackedTrickEntry {
 // Skatetris (vtable 0x0064E8A0, 0x458 bytes).
 class FallingTricksGoal final : public Objective {
 public:
+    FallingTricksGoal(const FallingTricksGoal&) = delete;
+    FallingTricksGoal& operator=(const FallingTricksGoal&) = delete;
     static constexpr int kMaxTricks = 30;
 
     StackedTrickEntry tricks_[kMaxTricks]; // +0x70
@@ -96,6 +98,8 @@ struct BeatTrick {
 // TrickBeat (vtable 0x0064E9B8, 0x47C bytes).
 class TrickBeatGoal final : public Objective {
 public:
+    TrickBeatGoal(const TrickBeatGoal&) = delete;
+    TrickBeatGoal& operator=(const TrickBeatGoal&) = delete;
     static constexpr int kMaxTricks = 30;
     static constexpr int kBeats = 16;
 
@@ -150,6 +154,8 @@ public:
 // TimedScoreRun (vtable 0x0064E938, 0x70 bytes).
 class TimedScoreRunGoal final : public Objective {
 public:
+    TimedScoreRunGoal(const TimedScoreRunGoal&) = delete;
+    TimedScoreRunGoal& operator=(const TimedScoreRunGoal&) = delete;
     // 0x005710B0 / 0x005710D0 / 0x00571110
     explicit TimedScoreRunGoal(script::Struct* params);
     ~TimedScoreRunGoal() override;
@@ -161,6 +167,8 @@ static_assert(sizeof(TimedScoreRunGoal) == 0x70, "the size the goal manager allo
 // TrickObjects (vtable 0x0064EA30, 0x70 bytes).
 class TrickObjectsGoal final : public Objective {
 public:
+    TrickObjectsGoal(const TrickObjectsGoal&) = delete;
+    TrickObjectsGoal& operator=(const TrickObjectsGoal&) = delete;
     // 0x005763A0 / 0x005763C0 / 0x005763D0
     explicit TrickObjectsGoal(script::Struct* params);
     ~TrickObjectsGoal() override;

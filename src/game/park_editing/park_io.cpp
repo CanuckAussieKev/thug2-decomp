@@ -142,6 +142,7 @@ void ParkLayout::set_up_abstract_metas()
             meta->commission(static_cast<int>(pieces->extent_));
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(pieces->fetch_part(i));
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 uint32_t name = entry->step_to_entry(nullptr)->checksum; // the piece's name comes first
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1); // its unnamed [x y z (rot)]
@@ -166,6 +167,7 @@ void ParkLayout::set_up_abstract_metas()
             meta->commission(static_cast<int>(pieces->extent_));
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(pieces->fetch_part(i));
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 uint32_t name = entry->step_to_entry(nullptr)->checksum;
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1);

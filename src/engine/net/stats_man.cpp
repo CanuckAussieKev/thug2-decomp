@@ -176,6 +176,8 @@ SortEntry* new_sort_entry()
 }
 // A local sorted list (lists::Foremost<SortEntry>, highest priority first), emptied and unlinked as the original does.
 struct SortedList {
+    SortedList(const SortedList&) = delete;
+    SortedList& operator=(const SortedList&) = delete;
     memory::ListNode head;
     SortedList() { head.make_head(); }
     void append_one(SortEntry* entry) { reinterpret_cast<lists::Foremost*>(&head)->append_vertex(&entry->list_link_); }

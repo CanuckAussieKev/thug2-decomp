@@ -49,6 +49,8 @@ struct AcidDrop {
 
 class SkaterPhysicsModule final : public objects::ObjectModule {
 public:
+    SkaterPhysicsModule(const SkaterPhysicsModule&) = delete;
+    SkaterPhysicsModule& operator=(const SkaterPhysicsModule&) = delete;
     // --- rotation.cpp: turning in the air ---
     // 0x00504060: spin in the air. Tap mode (+0x2DA): each tap of the left / right spin button (L1/R1: input
     // +0xA0 / +0x100) queues half a turn (+0x30C), turned off at the skater's spin speed. Otherwise holding one

@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <cstring>
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 static_assert(offsetof(ValueResolver, value_top_) == 0x140, "layout must match the original");
@@ -905,3 +907,4 @@ struct ComponentAdapters {
 };
 
 } // namespace
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

@@ -28,6 +28,8 @@ using ViewerObjectInputHandler = pad_input::Responder<PreviewEntity>;
 
 class PreviewEntity final : public GameEntity {
 public:
+    PreviewEntity(const PreviewEntity&) = delete;
+    PreviewEntity& operator=(const PreviewEntity&) = delete;
     // The commands (actions_ bits) the input handler sets and own_update carries out.
     static constexpr uint32_t kCommandFaster = 0x40;        // the speed up by 0.25 (Square... - makes 0x4)
     static constexpr uint32_t kCommandSlower = 0x80;        // down by 0.25 (makes 0x1)

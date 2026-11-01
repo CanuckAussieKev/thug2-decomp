@@ -516,11 +516,13 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case 0x130618A0:
         case 0x2820E997:
         case 0x562E3ECD:
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             sent->append_word(c->name, script::kQbvalString, c->string);
             break;
         case kStance:
         case kPushStyle:
         case kName:
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             sent->add_component_of_type(c->name, script::kQbvalName, c->checksum);
             break;
         case 0x9B65D7B8:
@@ -536,6 +538,7 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kIsPro:
         case 0xEDF5DB70:
         case 0xF73A13E3:
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             sent->add_component_of_type(c->name, script::kQbvalInteger, c->raw);
             break;
         default:

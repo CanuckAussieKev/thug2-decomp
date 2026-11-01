@@ -104,6 +104,7 @@ static_assert(sizeof(DownloadRequest) == 0x118, "built in the callers' stack fra
 class VaultMan {
 public:
     // What transfer_ is doing.
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
     enum Transfer : int {
         kNone = 0,
         kCategories = 1, // the directory list (dir_list.txt of the folder)

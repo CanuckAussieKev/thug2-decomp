@@ -23,6 +23,8 @@ namespace objects {
 // function table entry 0x0045D720; 12 invoke_method_by_name 0x0051ADC0 (none by name).
 class TextureProjectionComponent final : public ObjectModule {
 public:
+    TextureProjectionComponent(const TextureProjectionComponent&) = delete;
+    TextureProjectionComponent& operator=(const TextureProjectionComponent&) = delete;
     static constexpr uint32_t kType = 0x7505D7CC;
 
     // 0x00434870 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the

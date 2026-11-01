@@ -24,6 +24,8 @@ namespace objects {
 
 class RiderTurning final : public ObjectModule {
 public:
+    RiderTurning(const RiderTurning&) = delete;
+    RiderTurning& operator=(const RiderTurning&) = delete;
     // A turn about one axis over time.
     struct Turn {
         float remaining; // +0x00 the angle to turn (radians, positive)

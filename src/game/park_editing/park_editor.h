@@ -42,7 +42,10 @@ extern uint32_t g_park_editor_references;
 // The park editor module (vtable 0x0064F234).
 class ParkBuilderMode final : public modules::PartUnit {
 public:
+    ParkBuilderMode(const ParkBuilderMode&) = delete;
+    ParkBuilderMode& operator=(const ParkBuilderMode&) = delete;
     // cur_phase_
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
     enum State : uint32_t {
         kStateOff = 0xD443A2BC,         // off
         kStateEdit = 0x7ECA21E5,        // edit

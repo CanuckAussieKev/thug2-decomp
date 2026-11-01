@@ -21,6 +21,8 @@
 #include "engine/script/cscript.h"
 #include "platform/run_log.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 static_assert(offsetof(StoredRandom, num_) == 8, "layout must match the original");
@@ -600,3 +602,4 @@ void process_pending_symbols()
 }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

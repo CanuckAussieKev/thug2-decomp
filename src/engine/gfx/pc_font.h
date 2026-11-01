@@ -18,6 +18,8 @@ class GlyphRun;
 // The PC font (0xC bytes, vtable 0x0064A328; the engine's Typeface with the bitmap font at +8).
 class PcFont final : public Typeface {
 public:
+    PcFont(const PcFont&) = delete;
+    PcFont& operator=(const PcFont&) = delete;
     // 0x004B3BB0: no font yet.
     PcFont() { font = nullptr; }
     // 0x004B3E00 (0x004B4060 the scalar deleting destructor): the font unloaded if there is one, then the engine's.
@@ -46,6 +48,8 @@ static_assert(sizeof(PcFont) == 0xC, "layout must match the original");
 // +0x48).
 class PcText final : public GlyphString {
 public:
+    PcText(const PcText&) = delete;
+    PcText& operator=(const PcText&) = delete;
     // 0x004B3E70: the engine's (no window), a screen text of its own (priority 0), then everything sent to it.
     PcText();
     // 0x004B3D20 (0x004B3F20 the scalar deleting destructor): the screen text destroyed, then the engine's.

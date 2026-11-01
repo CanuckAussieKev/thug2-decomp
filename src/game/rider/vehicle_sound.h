@@ -30,6 +30,8 @@ class PadInputModule;
 
 class SkaterVehicleSoundComponent final : public ObjectModule {
 public:
+    SkaterVehicleSoundComponent(const SkaterVehicleSoundComponent&) = delete;
+    SkaterVehicleSoundComponent& operator=(const SkaterVehicleSoundComponent&) = delete;
     static constexpr uint32_t kType = 0x1859F772;
     static constexpr int kMaxGears = 6;
 

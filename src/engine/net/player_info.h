@@ -25,6 +25,7 @@ class SchedulerTask;
 namespace online {
 
 // The player's flags (PlayerRecord::flag_bits_).
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
 enum PlayerFlag : uint32_t {
     kPlayerLocal = 0x1,      // this machine's player
     kPlayerJustJoined = 0x2, // (with join_time_) still settling in - see IsVulnerable

@@ -67,6 +67,7 @@ struct Contest {
     // 0x0054FFF0: the leaders' names destroyed, last first (the implicit destructor).
     Contest(const Contest&) = delete;
     Contest& operator=(const Contest&) = delete;
+    ~Contest() = default;
     // 0x00550010: copies of `params`' components added to the competition's parameters (if any).
     void rewrite_args(script::Struct* params);
     // 0x00550020: a run starts.

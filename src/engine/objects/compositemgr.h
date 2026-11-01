@@ -26,6 +26,8 @@ using ComponentRegisterFunction = void (*)();
 
 class EntityHub : public MiscHub {
 public:
+    EntityHub(const EntityHub&) = delete;
+    EntityHub& operator=(const EntityHub&) = delete;
     static constexpr int kMaxComponentTypes = 0x80;
     static constexpr int kLogicTaskPriority = -900; // the main loop's logic tasks (the front end's: -2000)
 

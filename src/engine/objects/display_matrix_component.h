@@ -14,6 +14,8 @@ namespace objects {
 // function table entry 0x0045D720; 12 invoke_method_by_name 0x0051ADC0 (none of its own).
 class FaceHeadingModule final : public ObjectModule {
 public:
+    FaceHeadingModule(const FaceHeadingModule&) = delete;
+    FaceHeadingModule& operator=(const FaceHeadingModule&) = delete;
     static constexpr uint32_t kType = 0x1BBF844D;
 
     // 0x004312A0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).

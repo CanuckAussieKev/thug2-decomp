@@ -24,6 +24,8 @@ extern UiTree* g_ui_element_hub; // the singleton
 
 class UiTree final : public objects::ObjectHubBase {
 public:
+    UiTree(const UiTree&) = delete;
+    UiTree& operator=(const UiTree&) = delete;
     // A focused element of one controller's list (0x18 bytes).
     struct FocusEntry {
         ElementPtr element; // +0x00 (null: a free entry)

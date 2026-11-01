@@ -18,6 +18,8 @@ namespace goals {
 // modules::Contest), the best place its record.
 class ContestObjective final : public Objective {
 public:
+    ContestObjective(const ContestObjective&) = delete;
+    ContestObjective& operator=(const ContestObjective&) = delete;
     bool is_halted_;        // +0x70: paused by the competition (freeze_contest)
     bool has_top_prize_;    // +0x71
     bool has_second_place_; // +0x72
@@ -59,6 +61,8 @@ public:
 // checkpoints).
 class ShootVideoObjective final : public Objective {
 public:
+    ShootVideoObjective(const ShootVideoObjective&) = delete;
+    ShootVideoObjective& operator=(const ShootVideoObjective&) = delete;
     bool recording_shot_; // +0x70 (StartFilming)
     uint8_t pad71_[3];
     uint32_t shot_hold_time_; // +0x74 ms
@@ -87,6 +91,8 @@ public:
 // num_gaps_to_find of the level's gaps.
 class HuntGapsObjective final : public Objective {
 public:
+    HuntGapsObjective(const HuntGapsObjective&) = delete;
+    HuntGapsObjective& operator=(const HuntGapsObjective&) = delete;
     uint32_t unused70_; // +0x70
     // 0x00552B30: the constructor. 0x00552B50 / 0x00552B60 (vtable +0x00): the destructor body /
     // the scalar deleting destructor.

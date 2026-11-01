@@ -57,6 +57,7 @@ constexpr uint32_t kRide = 0x152C;       // +0x18: the ride tracker (GameObjects
 
 // The timed flags' state (+0x18): what the skater is doing.
 // (kBikeStall: not original - THAW's stall state, only on THAW's bike: game/rider/thaw_bmx.h)
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum State : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4, kWallplant = 5, kBikeStall = 6 };
 
 // The object's fields.

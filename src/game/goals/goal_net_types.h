@@ -13,6 +13,8 @@ namespace goals {
 // A HORSE goal (vtable 0x0064E0D8, 0x70 bytes): skate to each horse spot and beat its score.
 class LetterGameObjective final : public Objective {
 public:
+    LetterGameObjective(const LetterGameObjective&) = delete;
+    LetterGameObjective& operator=(const LetterGameObjective&) = delete;
     // 0x005608C0: the constructor (Objective's). 0x005608E0 / 0x00560980 (vtable +0x00): the destructor
     // body / the scalar deleting destructor.
     explicit LetterGameObjective(script::Struct* params);
@@ -31,6 +33,8 @@ static_assert(sizeof(LetterGameObjective) == 0x70, "the size the goal manager al
 // A network game mode's goal (vtable 0x0064E150, 0x74 bytes).
 class OnlineObjective final : public Objective {
 public:
+    OnlineObjective(const OnlineObjective&) = delete;
+    OnlineObjective& operator=(const OnlineObjective&) = delete;
     bool is_prepared_; // +0x70 (Update initializes it once)
     uint8_t pad71_[3];
 
@@ -62,6 +66,8 @@ static_assert(sizeof(OnlineObjective) == 0x74, "the size the goal manager alloca
 // A race (vtable 0x0064E1C8, 0x7C bytes): laps of race_waypoints.
 class RaceObjective final : public Objective {
 public:
+    RaceObjective(const RaceObjective&) = delete;
+    RaceObjective& operator=(const RaceObjective&) = delete;
     int laps_;      // +0x70 (race_total_laps; 1)
     int lap_;       // +0x74 (from 1)
     bool add_time_; // +0x78 (the 0xA4038EC9 component: each waypoint's time added)

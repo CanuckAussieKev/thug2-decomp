@@ -56,6 +56,8 @@ struct SmearEffect {
 // set of text objects behind it) and the blur effect (16 more text objects).
 class LabelWidget final : public UiWidget {
 public:
+    LabelWidget(const LabelWidget&) = delete;
+    LabelWidget& operator=(const LabelWidget&) = delete;
     // 0x004B0920: no text / font / blur / shadow, shadow colour black at half
     // alpha, one text object; type TextElement.
     LabelWidget();

@@ -441,6 +441,7 @@ void* NodeTableResource::build_node_table(uint32_t name, int count)
     if (script::SymbolTableEntry* old = script::find_symbol(name))
         script::clean_up_and_remove_symbol(old);
     script::SymbolTableEntry* symbol = script::create_symbol(name);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     symbol->raw = reinterpret_cast<uint32_t>(array);
     symbol->type = script::kQbvalArray;
     array_name_ = name;

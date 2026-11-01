@@ -11,6 +11,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/cfuncs_scene.h"
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
+
 namespace script {
 
 static char g_checksum_name_buffer[100];
@@ -196,3 +198,4 @@ void fill_member_function_code(uint32_t* records, void* const* code, int count)
 }
 
 } // namespace script
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

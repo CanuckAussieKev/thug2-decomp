@@ -224,6 +224,7 @@ std::string show_all_text(const State& s)
 }
 
 // The controls, in the order they sit; their slots, and how each is drawn.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum ItemId {
     kMode,
     kTools,

@@ -27,6 +27,8 @@ class RiderBoardPhysics;
 
 class RiderRollingAudio final : public ObjectModule {
 public:
+    RiderRollingAudio(const RiderRollingAudio&) = delete;
+    RiderRollingAudio& operator=(const RiderRollingAudio&) = delete;
     // 0x00513AD0 (registered by register_component_types): a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // 0x00513860 (registered with Create): its script member functions (the table at 0x00684A68) registered.

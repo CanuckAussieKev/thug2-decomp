@@ -42,6 +42,8 @@ struct TrickNameEntry;
 
 class RiderGapTracker final : public ObjectModule {
 public:
+    RiderGapTracker(const RiderGapTracker&) = delete;
+    RiderGapTracker& operator=(const RiderGapTracker&) = delete;
     // 0x00512C60 (registered by register_component_types): a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // 0x005122A0: its type, two empty lists, no core physics or balance trick yet.

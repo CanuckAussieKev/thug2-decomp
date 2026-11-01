@@ -80,6 +80,7 @@ public:
     Companion(uint32_t checksum, const std::vector<FaceCopy>& faces);
     Companion(const Companion&) = delete;
     Companion& operator=(const Companion&) = delete;
+    ~Companion() = default;
 
     void get_place(const Placement& placement);
     // The vertices where they are now become the base (a placement of none leaves them).

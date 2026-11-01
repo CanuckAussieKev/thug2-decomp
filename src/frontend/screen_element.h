@@ -41,6 +41,8 @@ struct ElementState {
 
 class UiWidget : public objects::Entity {
 public:
+    UiWidget(const UiWidget&) = delete;
+    UiWidget& operator=(const UiWidget&) = delete;
     // object_flags_ (+0x08) - the element's own bits, beside Entity's.
     static constexpr uint32_t kMorphCurve = 0x300;     // Anim: 0x100 0xF5B95CE4 (ease out), 0x200 fast_in, 0x300 gentle
     static constexpr uint32_t kDirty = 0x400;          // changed since the layout pass looked

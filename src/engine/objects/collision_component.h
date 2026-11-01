@@ -29,6 +29,8 @@ namespace objects {
 // 13 set_up_hit_shape.
 class ContactShapeModule final : public ObjectModule {
 public:
+    ContactShapeModule(const ContactShapeModule&) = delete;
+    ContactShapeModule& operator=(const ContactShapeModule&) = delete;
     static constexpr uint32_t kType = 0xA432DC41;
 
     // 0x0041C920 (registered with the composite object manager by 0x004E4860): a new one, without collision (0 if

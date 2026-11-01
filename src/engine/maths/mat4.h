@@ -39,8 +39,7 @@ public:
     // product of the other two; with two or three of them short, the identity. Whether anything was repaired.
     bool restore_right_angles();
 
-    // 0x00404090: the four rows copied (defaulted: Mat4 stays trivially copyable)
-    Mat4& operator=(const Mat4& other) = default;
+    // (0x00404090: the copy assignment, the four rows - the implicit one; Mat4 stays trivially copyable)
     // 0x00416D80: all 16 values equal (NaN never is).
     bool operator==(const Mat4& other) const;
     Vec4& operator[](int index);

@@ -74,6 +74,7 @@ struct KeyBinds {
 };
 
 // SDL_GameControllerButton, plus the two triggers.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum PadButton : int {
     kUnbound = -1,
     kButtonA = SDL_CONTROLLER_BUTTON_A,
@@ -94,6 +95,7 @@ enum PadButton : int {
     kLeftTrigger = 22,
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum PadStick : int { kStickUnbound = -1, kStickLeft = 0, kStickRight = 1 };
 
 struct PadBinds {

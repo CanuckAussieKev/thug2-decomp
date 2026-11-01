@@ -29,6 +29,8 @@ constexpr uint32_t kEndRunFlag20 = 0x20;      // cleared by Goal_EndOfRunDone an
 
 class RiderSessionEnd final : public ObjectModule {
 public:
+    RiderSessionEnd(const RiderSessionEnd&) = delete;
+    RiderSessionEnd& operator=(const RiderSessionEnd&) = delete;
     // 0x00510F90 (registered by register_component_types): a new one (0 if out of memory).
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).

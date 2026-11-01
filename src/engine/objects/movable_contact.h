@@ -23,6 +23,8 @@ struct RideTracker;
 // 0x004E3F90, 6 0x0048DCD0, 7 the base's Suspend, 11 the base's 0x0045D720, 12 0x0051ADC0 (shared).
 class MovingSurfaceModule final : public ObjectModule {
 public:
+    MovingSurfaceModule(const MovingSurfaceModule&) = delete;
+    MovingSurfaceModule& operator=(const MovingSurfaceModule&) = delete;
     static constexpr uint32_t kType = 0x408D2AA9;
 
     // 0x00427AB0 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined: the base's,

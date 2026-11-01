@@ -20,6 +20,8 @@ namespace objects {
 
 class RiderOverheadTag final : public ObjectModule {
 public:
+    RiderOverheadTag(const RiderOverheadTag&) = delete;
+    RiderOverheadTag& operator=(const RiderOverheadTag&) = delete;
     // 0x00511810 (registered by register_component_types): a new one (0 if out of memory). The label's id isn't set.
     static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
