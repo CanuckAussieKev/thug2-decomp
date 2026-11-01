@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "engine/core/checksums.h"
+#include "engine/file/bundle_format.h"
 #include "engine/file/pre_format.h"
 #include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
@@ -129,9 +130,19 @@ std::map<std::string, FileCheck>& file_checks()
 }
 std::map<std::string, int> g_checked_by_extension;
 
+// The format's extension: the last, or the one before a platform's ".xbx" ("x.scn.xbx": ".scn").
+std::string format_extension(const std::string& name)
+{
+    std::filesystem::path path(lower(name));
+    std::string extension = path.extension().string();
+    if (extension == ".xbx")
+        extension = path.stem().extension().string();
+    return extension;
+}
+
 void check_file(const std::string& name, const uint8_t* data, size_t size)
 {
-    std::string extension = lower(std::filesystem::path(name).extension().string());
+    std::string extension = format_extension(name);
     auto found = file_checks().find(extension);
     if (found == file_checks().end())
         return;
@@ -233,6 +244,36 @@ void check_patch(const std::filesystem::path& patch_path, const std::filesystem:
     check_archive(name + " (patched)", archive, false);
 }
 
+// --- asset bundles (.cut) ----------------------------------------------------------------------------------------
+
+void check_bundle(const std::string& name, const uint8_t* data, size_t size)
+{
+    util::ByteReader reader(data, size);
+    std::vector<bundle_format::Entry> table(450);
+    int count = 0;
+    bool ok = bundle_format::read_bundle_table(reader, table.data(), 450, &count);
+    check(ok, name + ": bundle table");
+    // the original's in-place reading: the count at +4, the entries from +8
+    const auto* words = reinterpret_cast<const uint32_t*>(data);
+    check(size >= 8 && words[0] == 1 && words[1] == static_cast<uint32_t>(count), name + ": version 1, the count");
+    for (int i = 0; ok && i < count; ++i) {
+        const uint32_t* row = words + 2 + i * 4;
+        const bundle_format::Entry& entry = table[static_cast<size_t>(i)];
+        check(row[0] == entry.offset && row[1] == entry.size && row[2] == entry.name && row[3] == entry.type,
+              name + ": entry " + std::to_string(i) + " as in place");
+        check(entry.offset >= bundle_format::kHeaderSize + static_cast<size_t>(count) * bundle_format::kEntrySize,
+              name + ": entry " + std::to_string(i) + " past the table");
+    }
+    // cut short: refused
+    util::ByteReader cut(data, bundle_format::kHeaderSize + static_cast<size_t>(count) * bundle_format::kEntrySize - 1);
+    int cut_count = 0;
+    check(count == 0 || !bundle_format::read_bundle_table(cut, table.data(), 450, &cut_count), name + ": cut short");
+    // too many for the table: refused
+    util::ByteReader again(data, size);
+    check(count == 0 || !bundle_format::read_bundle_table(again, table.data(), count - 1, &cut_count),
+          name + ": a count past the capacity refused");
+}
+
 } // namespace
 
 void register_check(const std::string& extension, FileCheck check_function)
@@ -244,6 +285,7 @@ void fail(const std::string& what) { check(false, what); }
 
 int run(const std::filesystem::path& data)
 {
+    register_check(".cut", check_bundle);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -266,7 +308,7 @@ int run(const std::filesystem::path& data)
     for (const auto& entry : std::filesystem::recursive_directory_iterator(data)) {
         if (!entry.is_regular_file() || lower(entry.path().parent_path().filename().string()) == "pre")
             continue;
-        std::string extension = lower(entry.path().extension().string());
+        std::string extension = format_extension(entry.path().filename().string());
         if (file_checks().count(extension)) {
             std::vector<uint8_t> file = read_whole(entry.path());
             check_file(std::filesystem::relative(entry.path(), data).string(), file.data(), file.size());

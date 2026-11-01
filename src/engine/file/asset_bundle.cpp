@@ -6,7 +6,9 @@
 
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
+#include "engine/file/bundle_format.h"
 #include "engine/file/packs.h"
+#include "engine/util/byte_stream.h"
 
 namespace file {
 
@@ -60,18 +62,19 @@ bool AssetBundle::get_split(int /*unused*/, int size)
         async_close(file_ref_);
         file_ref_ = nullptr;
     }
-    uint8_t* end = loaded_data_ + size;
-    auto* header = reinterpret_cast<uint32_t*>(loaded_data_);
-    auto* entries = loaded_data_ + 8;
-    if (entries > end)
+    // Not original - the table read through bundle_format's reader: the count at most kBundleCapacity, each asset
+    // within the file. The original copied `count` entries into its 450 before checking the table against the file
+    // (a count past 450 wrote past the table) and never checked the assets' offsets / sizes.
+    util::ByteReader reader(loaded_data_, size > 0 ? static_cast<size_t>(size) : 0);
+    bundle_format::Entry table[kBundleCapacity];
+    int count = 0;
+    bool ok = bundle_format::read_bundle_table(reader, table, kBundleCapacity, &count);
+    num_ = 0;
+    if (!ok)
         return false;
-    num_ = static_cast<int>(header[1]);
-    // The entries are copied before the table is checked against the file size (and the count against
-    // kBundleCapacity is never checked) - as in the original.
-    uint32_t table_size = static_cast<uint32_t>(num_) * sizeof(TableRow);
-    std::memcpy(entries_, entries, table_size);
-    if (entries + table_size > end)
-        return false;
+    num_ = count;
+    for (int i = 0; i < num_; ++i)
+        entries_[i] = {table[i].offset, table[i].size, table[i].name, table[i].type};
 
     for (int i = 0; i < num_; ++i)
         assets_[i] = loaded_data_ + entries_[i].offset;

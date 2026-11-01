@@ -1,0 +1,29 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include "engine/util/byte_stream.h"
+
+// NOT ORIGINAL - the asset bundle format (the cutscenes' .cut files, file::AssetBundle), read through
+// util::ByteReader.
+//
+// A bundle (little-endian): u32 version (1), u32 entry count, then each entry {u32 offset of the asset from the
+// start of the file, u32 size, u32 name checksum, u32 type checksum}, then the assets' data.
+namespace bundle_format {
+
+constexpr size_t kHeaderSize = 8;
+constexpr size_t kEntrySize = 16;
+
+struct Entry {
+    uint32_t offset = 0;
+    uint32_t size = 0;
+    uint32_t name = 0;
+    uint32_t type = 0;
+};
+
+// The table: the count (false past `capacity`) and the entries into `out` - each asset within the file (false at
+// the first that isn't). `*count` gets the entry count read.
+bool read_bundle_table(util::ByteReader& reader, Entry* out, int capacity, int* count);
+
+} // namespace bundle_format

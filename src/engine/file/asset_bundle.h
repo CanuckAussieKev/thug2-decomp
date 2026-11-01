@@ -11,8 +11,8 @@ class AsyncFileHandle;
 // A level's bundle of asset files, loaded as one file and then split into one allocation per asset (created
 // by the level loader, 0x004678A0, which walks the entries by type).
 //
-// File format: a header {uint32 unknown, uint32 count}, then `count` entries {offset from the start of the
-// file, size, name checksum, type checksum}, then the asset data.
+// The file format: engine/file/bundle_format.h (read through its reader; TableRow is the bundle's own copy of
+// an entry).
 class AssetBundle : public memory::HeapObject {
 public:
     struct TableRow {

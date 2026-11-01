@@ -307,7 +307,8 @@ void CinematicTable::load_from_bundle()
         switch (type) {
         case kTypeStructure:
             call_args_->get_clear();
-            script::decode_from_bytes(call_args_, static_cast<const uint8_t*>(data));
+            // (not original: bounded by the asset's size)
+            script::decode_from_bytes(call_args_, static_cast<const uint8_t*>(data), entry->size);
             break;
         case kTypeQb:
             if (flag_34b_0_) {
