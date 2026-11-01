@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// NOT ORIGINAL - received skater appearances made safe (register: thug2-level-converter-core/compat/thugpro/README.md "Run time", TP-R9). A skater's appearance is a structure of CAS slots - {skater_m_head =
+// NOT ORIGINAL - received skater appearances made safe (register: thug2-thugpro-compat/thugpro/README.md "Run time", TP-R9). A skater's appearance is a structure of CAS slots - {skater_m_head =
 // {desc_id = ...} board = {desc_id = ...} ...}; the model is built by looking each desc_id up in the global array named
 // after its slot (0x00485CF0 / 0x00489050), and THUG2 never checks the answer. A THUGPRO player's appearance can name
 // parts THUG2 hasn't (THUGPRO's extra heads, pros, boards: ~110 of them) or slots it hasn't. Every appearance read from

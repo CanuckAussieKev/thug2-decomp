@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const PACKAGES = /^thug2-(level-converter-core|[a-z0-9]+-level-converter)$/;
+const PACKAGES = /^thug2-(level-converter-core|[a-z0-9]+-level-converter|[a-z0-9]+-compat)$/;
 
 function tests(dir: string): string[] {
     const out: string[] = [];

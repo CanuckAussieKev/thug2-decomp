@@ -150,7 +150,7 @@ counts across all levels:
 
 ## 5. THPS4
 
-- The skate shop's door is open (2026-10-19, the user's request): port changes PC-THPS4-1 / PC-THPS4-2 (thug2-level-converter-core/compat/thugpro/thps4_levels.json port_changes) leave out the shop-side face of InvisColl01, the invisible box THPS4 put round the skate park outside its menu shop, and the shop's (Object10's) two invisible faces that closed the doorway (the fence's gap at the end of the halfpipe stays closed); the fence piece there, SSO_Fence05, is created at the start (port change PC-THPS4-3: THPS4's menu killed it and its practice run created it again); the street is skateable collision, its far edges may have no walls.
+- The skate shop's door is open (2026-10-19, the user's request): port changes PC-THPS4-1 / PC-THPS4-2 (thug2-thugpro-compat/thugpro/thps4_levels.json port_changes) leave out the shop-side face of InvisColl01, the invisible box THPS4 put round the skate park outside its menu shop, and the shop's (Object10's) two invisible faces that closed the doorway (the fence's gap at the end of the halfpipe stays closed); the fence piece there, SSO_Fence05, is created at the start (port change PC-THPS4-3: THPS4's menu killed it and its practice run created it again); the street is skateable collision, its far edges may have no walls.
 
 **Rendering**: vertex colours halved (THPS4's PC files are 255 = full, THUG2's 128). Without it every level drew twice
 as bright.
@@ -256,7 +256,7 @@ and VC's SJ kill zone (trp_death_SJ) kills, sending you to TRG_Restart_SJ.
 - The Mall: an invisible story blocker across the entrance doors removed (Z_MA_Mall_First_Rail_Blocker).
 - Node flags (pieces THAW makes from `CreatedFromVariable=NODEFLAG_...`): THAW's non-story values, **except 30 flags
   set as THUGPRO's table has them, for online play with THUGPRO - so these areas differ from the real THAW** (TP-40,
-  thug2-level-converter-core/compat/thugpro/README.md): Skate Ranch has the dino head instead of its bare mound, the telescope, the crane's
+  thug2-thugpro-compat/thugpro/README.md): Skate Ranch has the dino head instead of its bare mound, the telescope, the crane's
   top and the camper corner's props; Oil Rig has its derrick and grate pieces before they were taken (not the
   wrecked derrick and the grate's 16 grind rails); Beverly Hills' exit to Skate Ranch is fenced and blocked and
   Rodeo's awning rails are gone; Downtown's Chinatown green is unbroken (no "after" rails); East LA has the roof

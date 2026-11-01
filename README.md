@@ -37,7 +37,8 @@ source is a trustworthy base. On top of that base:
   [thug2-level-converter-core](https://github.com/CanuckAussieKev/thug2-level-converter-core) and on the converters of
   the games their game is built on - Project 8's on THAW's, Proving Ground's on Project 8's): THPS2, THPS3, THPS4,
   THUG, THAW, Project 8 and Proving Ground levels, generated from your own copies of those games - plus THAW's BMX,
-  rideable in any level.
+  rideable in any level. What makes them agree with THUGPRO's levels for online play is
+  [thug2-thugpro-compat](https://github.com/CanuckAussieKev/thug2-thugpro-compat) (the register and its data).
 
 ## Status
 
@@ -71,7 +72,7 @@ supported first milestone and remaining work.
 | THUG (PC) | Porting THUG's levels | `C:\Games\THUG1` | `Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
 | THAW (PC, version 1.01) | Porting THAW's levels and its BMX | `C:\Games\THAW` | `data\worlds\worldzones\`, `data\pak\`, `data\skies\` |
 | Tony Hawk's Project 8 (Xbox 360 data) | Porting Project 8's levels | `C:\Games\THP8` | `game\DATA\` (`ZONES\`, `PAK\`) |
-| THUGPRO (optional) | THUGPRO's additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`thug2-level-converter-core/compat/thugpro`) |
+| THUGPRO (optional) | THUGPRO's additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`thug2-thugpro-compat/thugpro`) |
 
 Every folder you give a tool (`--thug2`, `--thps3`, `--thps4`, `--thug1`, `--thaw`, `--game`, CMake's `THUG2_GAME_DIR`)
 may be the install root, with the game in a `Game` subfolder, or the game folder itself; the tools find either
@@ -173,7 +174,7 @@ node tools\pipeline\menu_level\make_menu_level.ts --game C:\Games\THUG2
 
 THPS4 must be converted before `make_menu_level.ts` for the playable skate shop. Each
 converter's README (`thug2-<game>-level-converter`: its `<game>_levels/README.md`) lists its switches; the THUGPRO compatibility register is
-explained in `thug2-level-converter-core/compat/thugpro/README.md`. `make_menu_level.ts` empties and rebuilds the overlay each run.
+explained in `thug2-thugpro-compat/thugpro/README.md`. `make_menu_level.ts` empties and rebuilds the overlay each run.
 `docs/level-port-compromises.md` lists what the ports do differently from the originals. Optional: Anteara Mod
 (`tools/anteara/README.md`).
 
@@ -306,7 +307,7 @@ Online goes through OpenSpy (`OnlineDomain=openspy.net`), the community replacem
 default the game uses THUG2's own identity and lobby. `OnlineGameName=thugpro` (key left empty) joins THUGPRO's lobbies
 instead; joining THUGPRO players' sessions may not work, as their scripts and DLL differ. The ported levels keep online
 parity with THUGPRO's ports where both players must agree (spawns, crowns, flags, gaps, geometry they collide with):
-that's what the compatibility register in `thug2-level-converter-core/compat/thugpro` records, edit by edit. Level editor edits and
+that's what the compatibility register in `thug2-thugpro-compat/thugpro` records, edit by edit. Level editor edits and
 edited levels are never used online. Online play is only ever tested by hand: no tool, script or automation joins,
 hosts or enters a lobby.
 

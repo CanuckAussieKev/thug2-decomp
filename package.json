@@ -17,7 +17,8 @@
     "zfight-raster": "node tools/pipeline/run.ts level_port/zfight_raster.ts"
   },
   "dependencies": {
-    "thug2-level-converter-core": "git+https://git@github.com/CanuckAussieKev/thug2-level-converter-core.git#265d9857e3cb880f66899a0880a11d95ec9fa569"
+    "thug2-level-converter-core": "git+https://git@github.com/CanuckAussieKev/thug2-level-converter-core.git#6eb0072c42246017bbff6a441d1266485310b032",
+    "thug2-thugpro-compat": "git+https://git@github.com/CanuckAussieKev/thug2-thugpro-compat.git#60a096a71d28dc7419ac91e98d79a9335ca80c65"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // NOT ORIGINAL - agreeing with THUGPRO (Morten1337's THUG2 mod) in network games, at run time (register:
-// thug2-level-converter-core/compat/thugpro/README.md, "Run time"). Ideas from Morten1337's
+// thug2-thugpro-compat/thugpro/README.md, "Run time"). Ideas from Morten1337's
 // thugpro_proxy, used with his permission and written here in this project's own way.
 //
 // TP-R6 - big levels: a skater's position travels as three 16-bit integers (the skater updates, message 0x23: the
@@ -11,7 +11,7 @@
 // HandleObjectUpdates 0x0056E470). THUG2 sends x and z in half units and y in quarter units: +-16384 / +-8192 units.
 // THUGPRO's THUGPRO_SetBigLevel (run from its load_level in network games) sends whole units instead in a level with
 // IsBigLevel (x and z: its The Mall, z_ma) or IsTallLevel (y). Ours: the same, decided by the level select's entry for
-// the current level (tools/pipeline/menu_level/level_select.ts marks the levels named in thug2-level-converter-core/compat/thugpro/thaw_levels.json
+// the current level (tools/pipeline/menu_level/level_select.ts marks the levels named in thug2-thugpro-compat/thugpro/thaw_levels.json
 // "net_position_scale"); off outside network games.
 namespace GameNet::Thugpro {
 

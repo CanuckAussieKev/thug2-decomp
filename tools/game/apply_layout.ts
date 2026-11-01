@@ -81,13 +81,12 @@
 //     first mesh's format and material, the game's generated vertices, a strip drawing each face both ways) and
 //     collision object (its faces, flags and terrain), named after the piece; a pit's floor tiles (hides=) left out;
 //   anything else (a later record kind): "unsupported record", listed.
-// THUGPRO parity: a level shared with THUGPRO (a ported level in thug2-level-converter-core/compat/thugpro's register, or THUG2's own -
+// THUGPRO parity: a level shared with THUGPRO (a ported level in thug2-thugpro-compat/thugpro's register, or THUG2's own -
 // THUGPRO players have those as shipped) gets a warning for every edit that changes spawns, crowns (King of the Hill),
 // flags / CTF / team nodes, gaps or geometry: "this breaks online parity".
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { profileFolder } from "thug2-level-converter-core/compat/compat.ts";
 import {
     checksum,
     Local,
@@ -116,6 +115,7 @@ import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
 import { NEVER_WRITTEN, WORK } from "thug2-level-converter-core/lib/decomp.ts";
 import { Float, hex8, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 import { f32 } from "thug2-level-converter-core/lib/struct.ts";
+import { profileFolder } from "thug2-thugpro-compat/profile.ts";
 import { backUp, listBackups, restoreLatest } from "./bake_backup.ts";
 import { resolveGameFolder } from "./edit_level.ts";
 import { groundSector } from "./ground_pieces.ts";
@@ -1087,8 +1087,8 @@ export interface Shared {
     why: string; // "a ported THPS3 level in THUGPRO's register" / "THUG2's own level"
 }
 
-// The ported levels the THUGPRO register names (thug2-level-converter-core/compat/thugpro/<game>_levels.json: every section's level keys).
-export function registerLevels(folder: string = profileFolder("thugpro")): Map<string, string> {
+// The ported levels the THUGPRO register names (thug2-thugpro-compat/thugpro/<game>_levels.json: every section's level keys).
+export function registerLevels(folder: string = profileFolder()): Map<string, string> {
     const out = new Map<string, string>();
     if (!fs.existsSync(folder)) return out;
     for (const file of fs.readdirSync(folder)) {
@@ -2053,7 +2053,7 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     const shared: Shared | null = portedGame
         ? {
               level: name,
-              why: `a ported ${portedGame} level in THUGPRO's register (thug2-level-converter-core/compat/thugpro)`,
+              why: `a ported ${portedGame} level in THUGPRO's register (thug2-thugpro-compat/thugpro)`,
           }
         : own
           ? { level: name, why: "THUG2's own level - THUGPRO players have it as shipped" }
