@@ -9,6 +9,11 @@
 
 #include "engine/maths/shape_tests.h"
 
+namespace scene_format {
+class MemoryStream;
+class FileStream;
+} // namespace scene_format
+
 // The PC scene and sector (Nx engine), and the PC screen effects object's setters.
 namespace render {
 
@@ -35,11 +40,12 @@ public:
     void plat_set_shatter(bool on) override;
     // 0x004C65C0 (slot 3): a new sector (the arguments unused). Null if no memory.
     PcSector* plat_clone(int instance, void* scene) override;
-    // 0x004C6650: loaded from a scene file in memory (moved past it): its checksum, flags, box, billboard and
-    // meshes (each made, its vertices loaded by 0x004D5CC0, its index lists read and dropped). True.
-    bool read_from_ram_block(uint8_t** cursor);
-    // 0x004C6B10: the same from a file (the vertices by 0x004D6100, given `unknown` unless a billboard). True.
-    bool ingest_from_file(void* file, uint32_t unknown);
+    // 0x004C6650: loaded from a scene in memory (scene_format.h; the stream moved past it): its checksum, flags,
+    // box, billboard and meshes (each made, its vertices loaded by 0x004D5CC0, its index lists read and dropped).
+    // False (the stream failed; the meshes made so far kept) if a record is damaged.
+    bool read_from_ram_block(scene_format::MemoryStream& in);
+    // 0x004C6B10: the same from a file (the vertices by 0x004D6100, given `unknown` unless a billboard).
+    bool ingest_from_file(scene_format::FileStream& in, uint32_t unknown);
     // 0x004C64E0 (slot 9, never called): an empty box (a static one, made the first time).
     static const maths::BBox* fetch_empty_bounds();
 

@@ -9,31 +9,14 @@
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
+#include "engine/gfx/scene_file_stream.h"
+#include "engine/gfx/scene_format.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/lists/key_map.h"
 
 namespace render {
 
 namespace {
-
-// The passes a material holds (its per-pass arrays).
-constexpr uint32_t kMaxPasses = 4;
-
-// The records come through one of these: from memory (a cursor moved on) or from a file.
-struct MemoryReader {
-    uint8_t* cursor;
-    void TakeIn(void* out, int size, int count)
-    {
-        std::memcpy(out, cursor, static_cast<size_t>(size) * count);
-        cursor += size * count;
-    }
-    void Skip(int bytes) { cursor += bytes; }
-};
-struct FileReader {
-    file::Hdl file;
-    void TakeIn(void* out, int size, int count) { file::get_take_in(out, size, count, file); }
-    void Skip(int bytes) { file::seek_to(file, bytes, 1); }
-};
 
 // A texture table's entry for the checksum (its texture at +0x10, or behind it with flag 1), or null.
 uint8_t* find_texture(const lists::KeyMap* textures, uint32_t checksum)
@@ -45,14 +28,6 @@ uint8_t* find_texture(const lists::KeyMap* textures, uint32_t checksum)
     if (entry[8] & 1)
         texture = *reinterpret_cast<uint8_t**>(texture);
     return texture;
-}
-
-template <typename T>
-T get_pull(auto& reader, int size = sizeof(T))
-{
-    T value{};
-    reader.TakeIn(&value, size, 1);
-    return value;
 }
 
 // The table's size: 2^bits buckets, from 4 up to 4096, at least twice the count.
@@ -67,125 +42,119 @@ int table_bits(uint32_t count)
     return bits;
 }
 
-template <typename Reader>
-lists::KeyMap* read_materials(Reader& reader, const lists::KeyMap* textures)
+// A material made from its record (the original's reads, in order, into the same fields).
+MaterialRef* make_material(const scene_format::Material& record, const lists::KeyMap* textures)
 {
-    uint32_t count = get_pull<uint32_t>(reader);
+    void* at = memory::alloc(sizeof(MaterialRef));
+    MaterialRef* m = at ? static_cast<MaterialRef*>(at)->make_new() : nullptr;
+    m->checksum = record.checksum;
+    m->name_hash_ = record.name_hash;
+    m->pass_count_ = record.pass_count;
+    m->alpha_ref_ = static_cast<uint8_t>(record.alpha_ref);
+    m->sort_flag_ = record.sort_flag;
+    m->sort_key_ = record.sort_key;
+    bool keep_culling = record.keep_culling != 0; // (else a blended pass 0 turns culling off)
+    m->two_sided_ = record.two_sided;
+    m->depth_bias_ = static_cast<uint8_t>(record.depth_bias > 0x10 ? 0x10 : record.depth_bias);
+    if (record.has_extra) {
+        m->unknown14 = record.extra[0];
+        m->unknown18 = record.extra[1];
+    }
+    m->specular_power_ = record.specular_power;
+    if (m->specular_power_ > 0.0f)
+        std::memcpy(m->specular, record.specular, sizeof(m->specular));
+    bool all_half = true;
+    for (uint32_t pass = 0; pass < m->pass_count_; ++pass) {
+        const scene_format::MaterialPass& in = record.passes[pass];
+        m->pass_flags_[pass] = in.flags;
+        std::memcpy(m->pass_color_[pass], in.color, sizeof(in.color));
+        const uint32_t half = 0x3F000000;
+        if (all_half && (std::memcmp(&m->pass_color_[pass][0], &half, 4) != 0 ||
+                         std::memcmp(&m->pass_color_[pass][1], &half, 4) != 0 ||
+                         std::memcmp(&m->pass_color_[pass][2], &half, 4) != 0))
+            all_half = false;
+        m->blend_modes_[pass] = (in.blend_mode & 0xFFFFFF) | in.fixed_alpha << 24;
+        m->pass_color_[pass][3] =
+            static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0f / 128)); // the fixed alpha
+        if (pass == 0 && !keep_culling && (m->blend_modes_[0] & 0xFFFFFF))
+            m->two_sided_ = 1;
+        m->address_modes_[pass] = in.address_v << 16 | in.address_u;
+        std::memcpy(m->reflection_tiling_[pass], in.reflection_tiling, sizeof(in.reflection_tiling));
+        m->unknownc0_[pass] = in.unknown_c0;
+        if (in.flags & scene_format::kPassUvWibble) {
+            m->has_uv_wibble_ = true;
+            void* w = memory::alloc(sizeof(UvOscillator));
+            UvOscillator* wibble = w ? static_cast<UvOscillator*>(w)->make_new() : nullptr;
+            m->uv_wibble_[pass] = wibble;
+            std::memcpy(wibble, in.uv_wibble, sizeof(in.uv_wibble));
+        }
+        if (pass == 0 && (in.flags & scene_format::kPassColorAnims)) {
+            auto anims = static_cast<uint32_t>(record.color_anims.size());
+            m->color_anim_count_ = anims;
+            m->color_anims_ = static_cast<ColorAnim*>(memory::alloc(anims * sizeof(ColorAnim)));
+            m->anim_colors_ = static_cast<uint32_t*>(memory::alloc(anims * 4));
+            for (uint32_t i = 0; i < anims; ++i) {
+                const scene_format::ColorAnimTrack& track = record.color_anims[i];
+                m->color_anims_[i].key_count_ = track.key_count;
+                m->color_anims_[i].phase = track.phase;
+                m->color_anims_[i].keys = static_cast<ColorKey*>(memory::alloc(track.key_count * sizeof(ColorKey)));
+                std::memcpy(m->color_anims_[i].keys, track.keys.data(), track.keys.size());
+            }
+        }
+        if (in.flags & scene_format::kPassTextureAnim) {
+            if (!m->texture_anim_) {
+                m->texture_anim_ = static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim)));
+                std::memset(m->texture_anim_, 0, sizeof(TextureAnim));
+                m->has_texture_anim_ = true;
+            }
+            int keys = in.texture_key_count;
+            m->texture_anim_->key_counts_[pass] = static_cast<uint32_t>(keys);
+            m->texture_anim_->phases[pass] = in.texture_phase;
+            m->texture_anim_->loops[pass] = in.texture_loops;
+            m->texture_anim_->keys[pass] = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * 8));
+            for (int k = 0; k < keys; ++k) {
+                const scene_format::TextureFrame& frame = in.texture_keys[static_cast<size_t>(k)];
+                TextureKey& key = m->texture_anim_->keys[pass][k];
+                key.time = frame.time;
+                key.texture = find_texture(textures, frame.texture);
+            }
+        }
+        if (!in.texture) { // (with a texture animation, its first key's)
+            m->textures[pass] = nullptr;
+            continue;
+        }
+        m->textures[pass] = find_texture(textures, in.texture);
+        double lod = static_cast<double>(in.mip_lod_bias) + 8.0f;
+        float stored = static_cast<float>(lod);
+        std::memcpy(&m->mip_lod_bias_[pass], &stored, 4);
+        if (lod > 0.0)
+            m->mip_lod_bias_[pass] = 0; // (no more than 0)
+    }
+    if (all_half)
+        m->pass_flags_[0] |= 0x10000000; // (no pass changes its colour)
+    if (m->specular_power_ > 0.0f)
+        m->pass_flags_[0] |= 0x100;
+    return m;
+}
+
+template <typename Stream>
+lists::KeyMap* read_materials(Stream& in, const lists::KeyMap* textures)
+{
+    uint32_t count = scene_format::take<uint32_t>(in);
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     auto* table = memory ? new (memory) lists::KeyMap(table_bits(count)) : nullptr;
+    scene_format::Material record;
     for (uint32_t index = 0; index < count; ++index) {
-        void* at = memory::alloc(sizeof(MaterialRef));
-        MaterialRef* m = at ? static_cast<MaterialRef*>(at)->make_new() : nullptr;
-        reader.TakeIn(&m->checksum, 4, 1);
-        reader.TakeIn(&m->name_hash_, 4, 1);
-        reader.TakeIn(&m->pass_count_, 4, 1);
-        // Not original - at most the material's 4 passes (its arrays' size: the original wrote further passes past
-        // them). A file with more is damaged; what follows is read as it comes.
-        if (m->pass_count_ > kMaxPasses) {
-            debug::printf("material %08x: %u passes, more than %u\n", m->checksum, m->pass_count_, kMaxPasses);
-            m->pass_count_ = kMaxPasses;
+        // Not original - each record read whole and checked first (scene_format.h): one cut short, with more than
+        // the 4 passes the material holds (the original wrote further passes past its arrays) or with animations past
+        // the end ends the list, the stream failed.
+        if (!scene_format::read_material(in, &record)) {
+            debug::printf("scene materials damaged: material %u of %u (%08x) cut short or doesn't fit\n", index, count,
+                          record.checksum);
+            in.fail();
+            break;
         }
-        m->alpha_ref_ = static_cast<uint8_t>(get_pull<uint32_t>(reader));
-        reader.TakeIn(&m->sort_flag_, 1, 1);
-        reader.TakeIn(&m->sort_key_, 4, 1);
-        uint8_t keep_culling = get_pull<uint8_t>(reader); // (else a blended pass 0 turns culling off)
-        reader.TakeIn(&m->two_sided_, 1, 1);
-        int bias = get_pull<int>(reader);
-        m->depth_bias_ = static_cast<uint8_t>(bias > 0x10 ? 0x10 : bias);
-        if (get_pull<uint8_t>(reader)) {
-            reader.TakeIn(&m->unknown14, 4, 1);
-            reader.TakeIn(&m->unknown18, 4, 1);
-        }
-        reader.TakeIn(&m->specular_power_, 4, 1);
-        if (m->specular_power_ > 0.0f)
-            reader.TakeIn(m->specular, 12, 1);
-        bool all_half = true;
-        for (uint32_t pass = 0; pass < m->pass_count_; ++pass) {
-            uint32_t texture_checksum = get_pull<uint32_t>(reader);
-            reader.TakeIn(&m->pass_flags_[pass], 4, 1);
-            get_pull<uint8_t>(reader);
-            reader.TakeIn(m->pass_color_[pass], 12, 1);
-            const uint32_t half = 0x3F000000;
-            if (all_half && (std::memcmp(&m->pass_color_[pass][0], &half, 4) != 0 ||
-                             std::memcmp(&m->pass_color_[pass][1], &half, 4) != 0 ||
-                             std::memcmp(&m->pass_color_[pass][2], &half, 4) != 0))
-                all_half = false;
-            uint32_t blend[2];
-            reader.TakeIn(blend, 8, 1);
-            m->blend_modes_[pass] = (blend[0] & 0xFFFFFF) | blend[1] << 24;
-            m->pass_color_[pass][3] =
-                static_cast<float>(static_cast<double>(blend[1]) * (1.0f / 128)); // the fixed alpha
-            if (pass == 0 && !keep_culling && (m->blend_modes_[0] & 0xFFFFFF))
-                m->two_sided_ = 1;
-            uint32_t u = get_pull<uint32_t>(reader);
-            uint32_t v = get_pull<uint32_t>(reader);
-            m->address_modes_[pass] = v << 16 | u;
-            reader.TakeIn(m->reflection_tiling_[pass], 8, 1);
-            reader.TakeIn(&m->unknownc0_[pass], 4, 1);
-            if (m->pass_flags_[pass] & 1) {
-                m->has_uv_wibble_ = true;
-                void* w = memory::alloc(sizeof(UvOscillator));
-                UvOscillator* wibble = w ? static_cast<UvOscillator*>(w)->make_new() : nullptr;
-                m->uv_wibble_[pass] = wibble;
-                reader.TakeIn(wibble, 0x20, 1);
-            }
-            if (pass == 0 && (m->pass_flags_[0] & 2)) {
-                uint32_t anims = get_pull<uint32_t>(reader);
-                m->color_anim_count_ = anims;
-                m->color_anims_ = static_cast<ColorAnim*>(memory::alloc(anims * sizeof(ColorAnim)));
-                m->anim_colors_ = static_cast<uint32_t*>(memory::alloc(anims * 4));
-                for (uint32_t i = 0; i < anims; ++i) {
-                    uint32_t keys = get_pull<uint32_t>(reader);
-                    int phase = get_pull<int>(reader);
-                    m->color_anims_[i].key_count_ = keys;
-                    m->color_anims_[i].phase = phase;
-                    m->color_anims_[i].keys = static_cast<ColorKey*>(memory::alloc(keys * sizeof(ColorKey)));
-                    reader.TakeIn(m->color_anims_[i].keys, 8, static_cast<int>(keys));
-                }
-            }
-            if (m->pass_flags_[pass] & 0x800) {
-                if (!m->texture_anim_) {
-                    m->texture_anim_ = static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim)));
-                    std::memset(m->texture_anim_, 0, sizeof(TextureAnim));
-                    m->has_texture_anim_ = true;
-                }
-                int keys = get_pull<int>(reader);
-                get_pull<uint32_t>(reader);
-                int loops = get_pull<int>(reader);
-                uint32_t phase = get_pull<uint32_t>(reader);
-                m->texture_anim_->key_counts_[pass] = static_cast<uint32_t>(keys);
-                m->texture_anim_->phases[pass] = phase;
-                m->texture_anim_->loops[pass] = loops;
-                m->texture_anim_->keys[pass] = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * 8));
-                for (int k = 0; k < keys; ++k) {
-                    TextureKey& key = m->texture_anim_->keys[pass][k];
-                    reader.TakeIn(&key.time, 4, 1);
-                    uint32_t checksum = get_pull<uint32_t>(reader);
-                    if (k == 0)
-                        texture_checksum = checksum; // (the pass's own texture: the first key's)
-                    key.texture = find_texture(textures, checksum);
-                }
-            }
-            if (!texture_checksum) {
-                m->textures[pass] = nullptr;
-                reader.Skip(0x10);
-                continue;
-            }
-            m->textures[pass] = find_texture(textures, texture_checksum);
-            get_pull<uint32_t>(reader);
-            get_pull<uint32_t>(reader);
-            float lod_bias = get_pull<float>(reader);
-            get_pull<uint32_t>(reader);
-            double lod = static_cast<double>(lod_bias) + 8.0f;
-            float stored = static_cast<float>(lod);
-            std::memcpy(&m->mip_lod_bias_[pass], &stored, 4);
-            if (lod > 0.0)
-                m->mip_lod_bias_[pass] = 0; // (no more than 0)
-        }
-        if (all_half)
-            m->pass_flags_[0] |= 0x10000000; // (no pass changes its colour)
-        if (m->specular_power_ > 0.0f)
-            m->pass_flags_[0] |= 0x100;
+        MaterialRef* m = make_material(record, textures);
         if (!table->fetch_entry(m->checksum))
             table->store_entry(m->checksum, m);
     }
@@ -195,19 +164,15 @@ lists::KeyMap* read_materials(Reader& reader, const lists::KeyMap* textures)
 } // namespace
 
 // 0x004D2CB0
-lists::KeyMap* __cdecl read_materials_from_buffer(uint8_t** cursor, const lists::KeyMap* textures)
+lists::KeyMap* __cdecl read_materials_from_buffer(scene_format::MemoryStream& in, const lists::KeyMap* textures)
 {
-    MemoryReader reader{*cursor};
-    lists::KeyMap* table = read_materials(reader, textures);
-    *cursor = reader.cursor;
-    return table;
+    return read_materials(in, textures);
 }
 
 // 0x004D3390
-lists::KeyMap* __cdecl load_materials_from_file(file::Hdl file, const lists::KeyMap* textures)
+lists::KeyMap* __cdecl load_materials_from_file(scene_format::FileStream& in, const lists::KeyMap* textures)
 {
-    FileReader reader{file};
-    return read_materials(reader, textures);
+    return read_materials(in, textures);
 }
 
 } // namespace render

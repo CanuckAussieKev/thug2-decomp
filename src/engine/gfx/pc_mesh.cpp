@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
@@ -13,6 +14,8 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/mesh_list.h"
+#include "engine/gfx/scene_file_stream.h"
+#include "engine/gfx/scene_format.h"
 
 namespace render {
 
@@ -23,6 +26,31 @@ StripBreak* new_breaks(uint32_t count) { return static_cast<StripBreak*>(memory:
 void sort_breaks(StripBreak* breaks, uint32_t count)
 {
     std::qsort(breaks, count, sizeof(StripBreak), &compare_strip_breaks);
+}
+
+// The skin's strip breaks (scene_format.h) into the mesh, sorted. Not original - a skin cut short, or with more
+// breaks than are there, is dropped (none: the original read on past its end).
+template <typename Stream>
+bool read_breaks(PcMesh* mesh, Stream& in)
+{
+    scene_format::Skin skin;
+    if (!scene_format::read_skin(in, &skin)) {
+        debug::printf("skin damaged: %u strip breaks, cut short\n", skin.break_count);
+        return false;
+    }
+    if (skin.version >= 2)
+        mesh->bone_count_ = skin.bone_count;
+    mesh->break_count_ = skin.break_count;
+    if (mesh->break_count_) {
+        mesh->breaks = new_breaks(mesh->break_count_);
+        for (uint32_t i = 0; i < mesh->break_count_; ++i) {
+            std::memcpy(&mesh->breaks[i], skin.breaks.data() + i * scene_format::kStripBreakSize,
+                        scene_format::kStripBreakSize);
+            mesh->breaks[i].strip_index_ = 0;
+        }
+        sort_breaks(mesh->breaks, mesh->break_count_);
+    }
+    return mesh->break_count_ != 0;
 }
 
 } // namespace
@@ -66,49 +94,26 @@ PcMesh::~PcMesh()
 bool PcMesh::load_skin_file(const char* name)
 {
     file::Hdl file = file::unseal(name, "rb");
-    uint32_t version;
-    file::get_take_in(&version, 4, 1, file);
-    if (version >= 2)
-        file::get_take_in(&bone_count_, 4, 1, file);
-    file::get_take_in(&break_count_, 4, 1, file);
-    if (break_count_) {
-        breaks = new_breaks(break_count_);
-        for (uint32_t i = 0; i < break_count_; ++i) {
-            file::get_take_in(&breaks[i], 12, 1, file);
-            breaks[i].strip_index_ = 0;
-        }
-        sort_breaks(breaks, break_count_);
-    }
+    if (!file)
+        return false; // Not original - no file (the original read through null)
+    scene_format::FileStream in(file);
+    bool found = read_breaks(this, in);
     file::shut(file);
-    return break_count_ != 0;
+    return found;
 }
 
 // 0x004B7C60
-bool PcMesh::load_skin_from_memory(const uint8_t** data)
+bool PcMesh::load_skin_from_memory(const uint8_t* data, size_t size)
 {
-    const uint32_t* p = reinterpret_cast<const uint32_t*>(*data);
-    uint32_t version = *p++;
-    if (version >= 2)
-        bone_count_ = *p++;
-    break_count_ = *p++;
-    if (break_count_) {
-        breaks = new_breaks(break_count_);
-        for (uint32_t i = 0; i < break_count_; ++i) {
-            std::memcpy(&breaks[i], p, 12);
-            p += 3;
-            breaks[i].strip_index_ = 0;
-        }
-        sort_breaks(breaks, break_count_);
-    }
-    *data = reinterpret_cast<const uint8_t*>(p);
-    return break_count_ != 0;
+    scene_format::MemoryStream in(data, size);
+    return read_breaks(this, in);
 }
 
 // 0x004B7EB0
-void PcMesh::load_skin(const uint8_t* data)
+void PcMesh::load_skin(const uint8_t* data, size_t size)
 {
     if (data)
-        load_skin_from_memory(&data);
+        load_skin_from_memory(data, size);
 }
 
 // 0x004B7ED0

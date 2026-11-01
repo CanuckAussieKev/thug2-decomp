@@ -48,9 +48,9 @@ IdleFunction __cdecl get_idle_function();
 // 0x0048BFE0: `name` copied to `base` without a ".skin" (then a ".mdl") in it. Whether it had ".skin".
 bool __cdecl split_skin_name(const char* name, char* base);
 // 0x0048C030: a model from geometry in memory (load_mesh_from_memory, under the "model_data_buffer" profile). The last
-// three arguments aren't used.
-void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, void* skin, void* textures,
-                                     int unused5, uint32_t unused6, uint32_t unused7);
+// three arguments aren't used. `skin_size`: the skin's bytes (not the original's).
+void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin,
+                                     size_t skin_size, void* textures, int unused5, uint32_t unused6, uint32_t unused7);
 // 0x0048C390: a level's scene file name, "levels\<name>\<name>.scn.<platform>". The third argument isn't used.
 void __cdecl build_scene_file_path(char* out, const char* name, uint32_t unused);
 // 0x0048C3D0: a model's mesh loaded from "<name>.skin.<platform>" (a name with ".skin") or "<name>.mdl.<platform>"

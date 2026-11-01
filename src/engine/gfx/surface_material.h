@@ -119,14 +119,18 @@ static_assert(offsetof(MaterialRef, pass_flags_) == 0x20 && offsetof(MaterialRef
 namespace lists {
 class KeyMap;
 }
+namespace scene_format {
+class MemoryStream;
+class FileStream;
+} // namespace scene_format
 
 namespace render {
 
-// 0x004D2CB0 / 0x004D3390: a scene's materials (a count, then each one's record: its passes, wibbles, animations)
-// from memory (the cursor moved past them) or from a file, into a new table by checksum (the first of a checksum
-// kept); the textures by checksum from `textures`.
-lists::KeyMap* __cdecl read_materials_from_buffer(uint8_t** cursor, const lists::KeyMap* textures);
-lists::KeyMap* __cdecl load_materials_from_file(void* file, const lists::KeyMap* textures);
+// 0x004D2CB0 / 0x004D3390: a scene's materials (a count, then each one's record: its passes, wibbles, animations -
+// scene_format.h) from memory or from a file (the stream moved past them), into a new table by checksum (the first of
+// a checksum kept); the textures by checksum from `textures`. A damaged record ends the list (the stream failed).
+lists::KeyMap* __cdecl read_materials_from_buffer(scene_format::MemoryStream& in, const lists::KeyMap* textures);
+lists::KeyMap* __cdecl load_materials_from_file(scene_format::FileStream& in, const lists::KeyMap* textures);
 
 // Which of a material's passes a checksum names, given the pass asked for: the material's own name checksum - that
 // pass; the name plus d (1-0x7F) - with d's low three bits set, they must be the pass + 1 and name pass 0; else

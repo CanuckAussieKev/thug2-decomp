@@ -5,6 +5,11 @@
 
 #include "engine/maths/vec4.h"
 
+namespace scene_format {
+class MemoryStream;
+class FileStream;
+} // namespace scene_format
+
 // A scene mesh (Nx engine, PC): what its vertex and index buffers hold and the operations on it that live here -
 // moving and turning it in place, copying it, making it a billboard. Most of its code (drawing, the buffers
 // themselves) is elsewhere and not rewritten yet.
@@ -149,13 +154,16 @@ struct MeshRef {
     // matrix (+0x98), its colours, vertex format and material (shaders, or pass by pass), skinned once a frame per
     // instance, its next vertex buffer, its level of detail by distance (+0x48), counted (0x00786EBC / C0).
     void render();
-    // 0x004D5CC0 / 0x004D6100: loaded from a scene file (the cursor moved on) / read from a file: its eight index
+    // 0x004D5CC0 / 0x004D6100: loaded from a scene in memory / read from a file (scene_format.h): its eight index
     // buffers, its vertex buffers (their positions moved by the skin scaling where flagged), vertex formats, the
     // offsets in a vertex, per-vertex colour bytes (dynamic, no arena share), levels of detail, its material from
     // `scene` and its pixel shader; the first vertex buffer made (or, without a format, unpacked for skinning).
-    // `dynamic` (the file's only): its buffers dynamic.
-    void read_from_ram_block(uint8_t** cursor, uint32_t material_checksum, SceneRef* scene, VertexArena* arena);
-    void ingest_from_file(void* file, uint32_t material_checksum, SceneRef* scene, VertexArena* arena, bool dynamic);
+    // `dynamic` (the file's only): its buffers dynamic. False (nothing made, the stream failed) if the record is
+    // damaged.
+    bool read_from_ram_block(scene_format::MemoryStream& in, uint32_t material_checksum, SceneRef* scene,
+                             VertexArena* arena);
+    bool ingest_from_file(scene_format::FileStream& in, uint32_t material_checksum, SceneRef* scene,
+                          VertexArena* arena, bool dynamic);
     // 0x004D5940: the packed skinned vertices unpacked into per_vertex_data_ (normals and weights in 11/11/10 bits,
     // bones / 3), the bones a vertex counted, its format, stride and a vertex buffer without a copy made for them.
     void set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena* arena);
@@ -196,11 +204,6 @@ static_assert(offsetof(MeshRef, material) == 0x14 && offsetof(MeshRef, vertex_bu
                   offsetof(MeshRef, extra_buffers_) == 0xBC && sizeof(MeshRef) == 0xD8,
               "layout must match the original");
 
-// 0x004D47F0 / 0x004D4350: a vertex buffer's positions from records of three weighted bones each (a bone's position
-// and the vertex's offset from it, scaled by the skin scaling's bone scales) - only while the scaling is on; the
-// records are read past either way.
-void __cdecl load_scaled_positions_from_memory(uint8_t** cursor, uint8_t* vertices, uint32_t stride);
-void __cdecl load_scaled_positions_from_file(void* file, uint8_t* vertices, uint32_t stride);
 // 0x004D5760: a new vertex buffer (from the C runtime's heap; null if none).
 VertexBuffer* __cdecl new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags);
 // 0x004D67F0 / 0x004D68C0: before / after a device reset - every vertex buffer's, scene arena's and index buffer's

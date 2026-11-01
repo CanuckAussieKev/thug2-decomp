@@ -272,12 +272,13 @@ WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with
 }
 
 // 0x0048CD80
-WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, TextureSet* textures,
-                                                 bool with_super_sectors, bool is_sky, bool mesh_flag, int unused)
+WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, size_t size,
+                                                 TextureSet* textures, bool with_super_sectors, bool is_sky,
+                                                 bool mesh_flag, int unused)
 {
     memory::push_mem_profile("Scene Processing");
-    auto* scene =
-        static_cast<WorldScene*>(render::load_scene_from_memory(data, textures, with_super_sectors, is_sky, mesh_flag));
+    auto* scene = static_cast<WorldScene*>(
+        render::load_scene_from_memory(data, size, textures, with_super_sectors, is_sky, mesh_flag));
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, nullptr, unused);
     return scene;

@@ -8,6 +8,7 @@
 #include <new>
 
 #include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
@@ -20,6 +21,8 @@
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/render_state.h"
+#include "engine/gfx/scene_file_stream.h"
+#include "engine/gfx/scene_format.h"
 #include "engine/gfx/sector.h"
 
 namespace render {
@@ -99,6 +102,46 @@ uint8_t* build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, S
 // The mesh made around a loaded scene: the scene (+0xC4) and its hierarchy (+0xB4, +0xB8); the textures at +0x04.
 void set_mesh_scene(PcMesh* mesh, uint8_t* scene) { mesh->choose_scene(scene); }
 
+// The texture dictionary's table of textures by checksum (+0x0C).
+const lists::KeyMap* texture_table(void* textures)
+{
+    return static_cast<const lists::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC));
+}
+
+// What both of the original's scene loaders do after the materials (0x004B3490 from memory, 0x004B36D0 from a file -
+// the same records, scene_format.h): the sectors (each loaded by `load_sector`), the hierarchy.
+// Not original - a damaged record ends the scene there (the sectors loaded so far kept, no hierarchy read); a sector
+// count past what is there reads none, a hierarchy past the end isn't read (the original read on past the scene's
+// end).
+template <typename Stream, typename LoadSector>
+uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool flag_8d, LoadSector load_sector)
+{
+    int sectors = scene_format::take<int>(in);
+    if (sectors < 0 || !in.fits(uint64_t(sectors) * 0x38)) // (each sector at least its fields)
+        sectors = 0;
+    uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
+    for (int i = sectors; i > 0 && in.ok(); --i) {
+        WorldCell* sector = spawn_sector(scene);
+        uint8_t* geom = new_sector_geom(scene);
+        choose_geom(sector, geom);
+        prepare_geometry(geom);
+        load_sector(static_cast<PcSector*>(sector)); // (a damaged one keeps the meshes it made)
+        insert_sector(scene, sector);
+    }
+    list->update_sphere();
+    int nodes = scene_format::take<int>(in);
+    if (nodes > 0 && in.fits(uint64_t(nodes) * sizeof(HierarchyNode))) {
+        HierarchyNode* hierarchy = new_hierarchy(nodes);
+        list->extra = reinterpret_cast<uint8_t*>(hierarchy);
+        // (no check: a failed allocation reads into null, as the original)
+        in.take(hierarchy, nodes * sizeof(HierarchyNode));
+        list->unknown78 = static_cast<uint32_t>(nodes);
+    }
+    if (!in.ok())
+        debug::printf("scene damaged: cut short or doesn't fit (%d sectors)\n", sectors);
+    return scene;
+}
+
 } // namespace
 
 // 0x004B2D30
@@ -114,36 +157,15 @@ HierarchyNode* HierarchyNode::make_new()
 }
 
 // 0x004B3490
-void* __cdecl load_scene_from_memory(const uint8_t* data, void* textures, bool with_super_sectors, bool flag_8d,
-                                     bool mesh_flag)
+void* __cdecl load_scene_from_memory(const uint8_t* data, size_t size, void* textures, bool with_super_sectors,
+                                     bool flag_8d, bool mesh_flag)
 {
     SceneRef* list = new_mesh_list(mesh_flag);
-    const uint8_t* p = data + 0xC; // (past the header)
-    list->materials = read_materials_from_buffer(
-        const_cast<uint8_t**>(&p),
-        static_cast<const lists::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
-    int sectors = *reinterpret_cast<const int*>(p);
-    p += 4;
-    uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
-    for (int i = sectors; i > 0; --i) {
-        WorldCell* sector = spawn_sector(scene);
-        uint8_t* geom = new_sector_geom(scene);
-        choose_geom(sector, geom);
-        prepare_geometry(geom);
-        if (static_cast<PcSector*>(sector)->read_from_ram_block(const_cast<uint8_t**>(&p)))
-            insert_sector(scene, sector);
-    }
-    list->update_sphere();
-    int nodes = *reinterpret_cast<const int*>(p);
-    p += 4;
-    if (nodes > 0) {
-        HierarchyNode* hierarchy = new_hierarchy(nodes);
-        list->extra = reinterpret_cast<uint8_t*>(hierarchy);
-        // (no check: a failed allocation copies to null, as the original)
-        std::memcpy(hierarchy, p, nodes * sizeof(HierarchyNode));
-        list->unknown78 = static_cast<uint32_t>(nodes);
-    }
-    return scene;
+    scene_format::MemoryStream in(data, size);
+    in.skip(scene_format::kHeaderSize);
+    list->materials = read_materials_from_buffer(in, texture_table(textures));
+    return read_sectors(in, list, with_super_sectors, flag_8d,
+                        [&in](PcSector* sector) { return sector->read_from_ram_block(in); });
 }
 
 // 0x004B36D0
@@ -154,32 +176,12 @@ void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_s
     file::Hdl file = file::unseal(name, "rb");
     if (!file)
         return nullptr; // (the mesh list isn't freed, as the original)
-    uint32_t header[3];
-    file::get_take_in(&header[0], 4, 1, file);
-    file::get_take_in(&header[1], 4, 1, file);
-    file::get_take_in(&header[2], 4, 1, file);
-    list->materials = load_materials_from_file(
-        file, static_cast<const lists::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
-    int sectors;
-    file::get_take_in(&sectors, 4, 1, file);
-    uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
-    for (int i = 0; i < sectors; ++i) {
-        WorldCell* sector = spawn_sector(scene);
-        uint8_t* geom = new_sector_geom(scene);
-        choose_geom(sector, geom);
-        prepare_geometry(geom);
-        if (static_cast<PcSector*>(sector)->ingest_from_file(file, static_cast<uint32_t>(sector_flags)))
-            insert_sector(scene, sector);
-    }
-    list->update_sphere();
-    int nodes;
-    file::get_take_in(&nodes, 4, 1, file);
-    if (nodes > 0) {
-        HierarchyNode* hierarchy = new_hierarchy(nodes);
-        list->extra = reinterpret_cast<uint8_t*>(hierarchy);
-        file::get_take_in(hierarchy, sizeof(HierarchyNode), nodes, file); // (null when out of memory, as the original)
-        list->unknown78 = static_cast<uint32_t>(nodes);
-    }
+    scene_format::FileStream in(file);
+    in.skip(scene_format::kHeaderSize); // (the header's three words: not used)
+    list->materials = load_materials_from_file(in, texture_table(textures));
+    uint8_t* scene = read_sectors(in, list, with_super_sectors, flag_8d, [&in, sector_flags](PcSector* sector) {
+        return sector->ingest_from_file(in, static_cast<uint32_t>(sector_flags));
+    });
     file::shut(file);
     return scene;
 }
@@ -202,16 +204,17 @@ void* __cdecl load_mesh_file(const char* name, void* textures)
 }
 
 // 0x004B3AD0
-void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, int /*unused*/, void* skin, void* textures)
+void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin,
+                                    size_t skin_size, void* textures)
 {
     char name[16];
     std::snprintf(name, sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
-    auto* scene = static_cast<uint8_t*>(load_scene_from_memory(data, textures, false, false, false));
+    auto* scene = static_cast<uint8_t*>(load_scene_from_memory(data, size, textures, false, false, false));
     *reinterpret_cast<uint32_t*>(scene + 0x84) = checksums::hash_from_text(name);
     *reinterpret_cast<void**>(scene + 0x88) = textures;
     set_up_sectors(scene, name);
     auto* mesh = new PcMesh;
-    mesh->load_skin(static_cast<const uint8_t*>(skin));
+    mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);
     clear_screen_clip();
     set_mesh_scene(mesh, scene);
     mesh->textures_ = textures;

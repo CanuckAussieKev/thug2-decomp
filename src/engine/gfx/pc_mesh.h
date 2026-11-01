@@ -42,10 +42,10 @@ public:
 
     // 0x004B7B50: the skin file read (opened "rb"). Whether it had breaks.
     bool load_skin_file(const char* name);
-    // 0x004B7C60: the same from memory (*data moved past it).
-    bool load_skin_from_memory(const uint8_t** data);
+    // 0x004B7C60: the same from memory (`size` bytes; scene_format.h's skin).
+    bool load_skin_from_memory(const uint8_t* data, size_t size);
     // 0x004B7EB0: load_skin_from_memory when there is data.
-    void load_skin(const uint8_t* data);
+    void load_skin(const uint8_t* data, size_t size);
     // 0x004B7ED0: its scene, and the scene's hierarchy.
     void choose_scene(uint8_t* scene);
 };

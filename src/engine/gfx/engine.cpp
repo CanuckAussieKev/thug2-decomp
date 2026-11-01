@@ -190,11 +190,11 @@ bool __cdecl split_skin_name(const char* name, char* base)
 }
 
 // 0x0048C030
-void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, void* skin, void* textures, int,
-                                     uint32_t, uint32_t)
+void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin,
+                                     size_t skin_size, void* textures, int, uint32_t, uint32_t)
 {
     memory::push_mem_profile("model_data_buffer");
-    void* model = load_mesh_from_memory(checksum, data, size, skin, textures);
+    void* model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
     memory::pop_mem_profile();
     return model;
 }

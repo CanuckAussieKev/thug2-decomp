@@ -32,8 +32,9 @@ static_assert(offsetof(HierarchyNode, bone_slot_) == 0xA && offsetof(HierarchyNo
 // textures), the sector count, each sector (a PC geom of its own; kept when it loads), the hierarchy (count and
 // nodes). The scene's hash table has 2^n entries for twice the sectors (n 1-12). `with_super_sectors` / `flag_8d` go
 // to the scene's +0x8C / +0x8D, `mesh_flag` to its mesh list's +0x40.
-void* __cdecl load_scene_from_memory(const uint8_t* data, void* textures, bool with_super_sectors, bool flag_8d,
-                                     bool mesh_flag);
+// The scene's `size` bytes are read through scene_format::MemoryStream (scene_format.h): a damaged record ends it.
+void* __cdecl load_scene_from_memory(const uint8_t* data, size_t size, void* textures, bool with_super_sectors,
+                                     bool flag_8d, bool mesh_flag);
 // 0x004B36D0: the same from a file (opened "rb"; null if there's none) - the header's three words read and not
 // used; `sector_flags` passed to each sector's load.
 void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_super_sectors, bool flag_8d,
@@ -44,8 +45,10 @@ void* __cdecl create_frame_source();
 // texture dictionary (+0x88), its sectors set up (0x0049C910) and the 2D clip turned off.
 void* __cdecl load_mesh_file(const char* name, void* textures);
 // 0x004B3AD0: a mesh from geometry in memory, the scene named by `checksum` as a decimal number and a line feed; the skin data, when
-// there is any, loaded into the mesh first (0x004B7EB0). `unused` isn't.
-void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, int unused, void* skin, void* textures);
+// there is any, loaded into the mesh first (0x004B7EB0). `size` / `skin_size`: their bytes (the original's `size`
+// went unused).
+void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin,
+                                    size_t skin_size, void* textures);
 
 extern memory::PoolPair g_frame_source_pools;
 } // namespace render

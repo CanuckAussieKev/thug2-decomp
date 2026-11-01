@@ -269,8 +269,8 @@ struct SkinParams {
     uint8_t flag0; // +0x00
     uint8_t pad01[3];
     int value;       // +0x04
-    void* cas_data_; // +0x08 the .cas file's contents
-    uint32_t unknown0c_;
+    void* cas_data_;    // +0x08 the .cas file's contents
+    uint32_t cas_size_; // +0x0C (unused in the original) Not original - the .cas contents' size, set where they are read
     uint8_t has_cas_; // +0x10
     uint8_t on_heap_; // +0x11 (cleared by Load; a pop of the heap context when set)
     uint8_t pad12[2];

@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -20,6 +21,8 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/pixel_shaders.h"
 #include "engine/gfx/render_state.h"
+#include "engine/gfx/scene_file_stream.h"
+#include "engine/gfx/scene_format.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
@@ -34,27 +37,6 @@ uint32_t g_vertex_shaders[6];
 namespace {
 
 void* alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
-
-// What the loaders read from: memory (a cursor moved on) or a file.
-struct MemoryReader {
-    uint8_t* cursor;
-    void TakeIn(void* out, int size, int count)
-    {
-        std::memcpy(out, cursor, static_cast<size_t>(size) * count);
-        cursor += size * count;
-    }
-    int SkipChunk() { return skip_memory_chunk(&cursor); }
-    void LoadScaled(uint8_t* vertices, uint32_t stride)
-    {
-        load_scaled_positions_from_memory(&cursor, vertices, stride);
-    }
-};
-struct FileReader {
-    file::Hdl file;
-    void TakeIn(void* out, int size, int count) { file::get_take_in(out, size, count, file); }
-    int SkipChunk() { return skip_file_chunk(file); }
-    void LoadScaled(uint8_t* vertices, uint32_t stride) { load_scaled_positions_from_file(file, vertices, stride); }
-};
 
 // A vertex's bone-scaled position record (0x84 bytes): 12 bytes unused, the three bones' weights, then each bone's
 // position (P, Q, R) and the vertex's offset from it (A, B, C), four floats each, and the three bones (-1: none).
@@ -345,14 +327,6 @@ void scaled_position_in_file(ScaledVertex v, float* out)
     out[2] = out_z;
 }
 
-template <typename Reader>
-uint32_t read_u32(Reader& reader)
-{
-    uint32_t value = 0;
-    reader.TakeIn(&value, 4, 1);
-    return value;
-}
-
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).
 uint32_t vertex_format(uint32_t type)
 {
@@ -362,125 +336,113 @@ uint32_t vertex_format(uint32_t type)
     return type ? g_vertex_shaders[6 - type] : 0;
 }
 
-// What both mesh loaders share (their reads in the same order; the file one reads the counted things in one call).
-template <typename Reader>
-void read_mesh_from_file(MeshRef* mesh, Reader& reader, uint32_t material_checksum, SceneRef* scene, VertexArena* arena,
-                         bool dynamic)
+// The bone-scaled positions written into a vertex buffer (0x004D47F0 / 0x004D4350: the memory loader's and the file loader's: their arithmetic differs in what x87 keeps in
+// registers) - only while the skin scaling is on.
+void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertices, uint32_t stride, bool in_memory)
 {
-    for (int i = 0; i < 8; ++i) {
-        reader.TakeIn(&mesh->index_counts_[i], 2, 1);
-        uint16_t count = mesh->index_counts_[i];
+    size_t count = records.size() / scene_format::kScaledVertexSize;
+    for (size_t i = 0; i < count; ++i) {
+        ScaledVertex v;
+        std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
+        if (skin_scaling_on()) {
+            if (in_memory)
+                scaled_position_in_memory(v, reinterpret_cast<float*>(vertices));
+            else
+                scaled_position_in_file(v, reinterpret_cast<float*>(vertices));
+        }
+        vertices += stride;
+    }
+}
+
+// The mesh made from its body record (scene_format.h), as both of the original's loaders do; `in_memory` picks the
+// memory loader's arithmetic for the scaled positions. False if the stream failed (nothing is made).
+template <typename Stream>
+bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* scene, VertexArena* arena, bool dynamic)
+{
+    // Not original - the body read whole and checked first: index lists, vertex buffers, scaled positions,
+    // per-vertex bytes and levels past the end, more than 3 vertex buffers (the original's arrays), or scaled
+    // positions past their buffer end the load (the original read and wrote past them).
+    scene_format::MeshBody body;
+    if (!scene_format::read_mesh_body(in, &body)) {
+        debug::printf("scene mesh damaged: cut short or doesn't fit\n");
+        in.fail();
+        return false;
+    }
+    for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
+        mesh->index_counts_[i] = body.index_counts[i];
+        uint16_t count = body.index_counts[i];
         if (!count)
             continue;
         void* memory = alloc_block(sizeof(IdxStore));
         IdxStore* ib = memory ? static_cast<IdxStore*>(memory)->make_new(count * 2u, 0, D3DFMT_INDEX16) : nullptr;
         mesh->index_buffers_[i] = ib;
-        reader.TakeIn(ib->indices, 2, count);
+        std::memcpy(ib->indices, body.indices[i].data(), count * 2u);
         ib->get_unlock();
     }
-    reader.TakeIn(&mesh->stride, 1, 1);
-    reader.TakeIn(&mesh->vertex_count_, 2, 1);
-    reader.TakeIn(&mesh->vertex_buffer_count_, 1, 1);
-    uint32_t sizes[3] = {};
-    uint8_t* data[3] = {};
-    uint8_t scaled = 0;
-    for (uint32_t v = 0; v < mesh->vertex_buffer_count_; ++v) {
-        reader.TakeIn(&scaled, 1, 1);
-        reader.TakeIn(&sizes[v], 4, 1);
-        data[v] = static_cast<uint8_t*>(memory::alloc(sizes[v]));
-        reader.TakeIn(data[v], static_cast<int>(sizes[v]), 1);
-        if (scaled)
-            reader.LoadScaled(data[v], mesh->stride);
-    }
-    mesh->fvf = vertex_format(read_u32(reader));
-    *reinterpret_cast<uint32_t*>(mesh->unknown3c_) = vertex_format(read_u32(reader));
-    reader.TakeIn(&mesh->unknown1c_[1], 1, 1);
-    reader.TakeIn(&mesh->unknown1c_[0], 1, 1);
-    reader.TakeIn(&mesh->unknown1c_[2], 1, 1);
-    uint8_t has_vertex_bytes = 0;
-    reader.TakeIn(&has_vertex_bytes, 1, 1);
+    mesh->stride = body.stride;
+    mesh->vertex_count_ = body.vertex_count;
+    mesh->vertex_buffer_count_ = body.vertex_buffer_count;
+    if (!body.scaled.empty())
+        apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride, Stream::kInMemory);
+    mesh->fvf = vertex_format(body.vertex_types[0]);
+    *reinterpret_cast<uint32_t*>(mesh->unknown3c_) = vertex_format(body.vertex_types[1]);
+    mesh->unknown1c_[1] = body.offsets[0];
+    mesh->unknown1c_[0] = body.offsets[1];
+    mesh->unknown1c_[2] = body.offsets[2];
     mesh->buffer_usage_ = 0;
     mesh->buffer_flags_ = 0;
-    if (has_vertex_bytes) {
+    if (body.has_vertex_bytes) {
         mesh->per_vertex_bytes_ = static_cast<uint8_t*>(memory::alloc(mesh->vertex_count_));
-        reader.TakeIn(mesh->per_vertex_bytes_, 1, mesh->vertex_count_);
+        std::memcpy(mesh->per_vertex_bytes_, body.vertex_bytes.data(), body.vertex_bytes.size());
         mesh->buffer_flags_ |= 2;
         arena = nullptr; // (written each frame: a buffer of its own)
         mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
     }
     if (dynamic)
         mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
-    int levels = static_cast<int>(read_u32(reader));
-    if (levels > 1) {
-        mesh->unknown48 = memory::alloc(static_cast<uint32_t>(levels) * 4);
-        reader.TakeIn(mesh->unknown48, 4, levels);
+    if (body.level_count > 1) {
+        mesh->unknown48 = memory::alloc(static_cast<uint32_t>(body.level_count) * 4);
+        std::memcpy(mesh->unknown48, body.levels.data(), body.levels.size() * 4);
     }
     auto* material = static_cast<MaterialRef*>(scene->find_material(material_checksum));
     mesh->material = material;
     if (material && (material->pass_flags_[0] & 0x10))
         mesh->flags |= 0x100;
     mesh->vertex_buffer_count_ = 1;
-    if (mesh->fvf) {
-        mesh->create_vertex_buffer(data[0], sizes[0], arena);
-    } else {
-        mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
-        mesh->set_up_skinning(data[0], sizes[0], nullptr);
+    // Not original - the vertices the mesh draws (or, without a vertex format, unpacks) within its buffer: a count
+    // past them is cut to what is there (the original read past the buffer).
+    uint32_t sets = material ? material->pass_count_ : 0;
+    uint32_t vertex_bytes = mesh->fvf ? mesh->stride : 0x20 + sets * 8;
+    if (!scene_format::vertices_fit(body, vertex_bytes)) {
+        uint32_t fit = 0;
+        if (body.vertices.size() >= vertex_bytes)
+            fit = mesh->stride ? static_cast<uint32_t>((body.vertices.size() - vertex_bytes) / mesh->stride) + 1 : 0;
+        debug::printf("scene mesh damaged: %u vertices, %u fit their buffer\n", mesh->vertex_count_, fit);
+        mesh->vertex_count_ = static_cast<uint16_t>(fit);
     }
-    uint32_t shader = read_u32(reader);
-    if (shader == 1) {
-        mesh->pixel_shader_ = reinterpret_cast<void*>(reader.SkipChunk());
+    auto size = static_cast<uint32_t>(body.vertices.size());
+    if (mesh->fvf) {
+        mesh->create_vertex_buffer(body.vertices.data(), size, arena);
+    } else if (material) {
+        mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
+        mesh->set_up_skinning(body.vertices.data(), size, nullptr);
+    } else {
+        // Not original - no material to unpack with (the original read it through null).
+        debug::printf("scene mesh damaged: a skinned mesh without its material %08x\n", material_checksum);
+        mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
+        mesh->vertex_count_ = 0;
+    }
+    if (body.shader == 1) {
+        mesh->pixel_shader_ = nullptr; // (the chunk skipped)
         if (g_shaders_available)
             material_pixel_shader(material, &mesh->pixel_shader_);
     } else {
-        mesh->pixel_shader_ = pixel_shader_from_index(shader);
+        mesh->pixel_shader_ = pixel_shader_from_index(body.shader);
     }
-    for (uint32_t v = 0; v < mesh->vertex_buffer_count_; ++v) // (only the first: the count is 1 by now)
-        memory::Hub::get_pull()->dealloc(data[v]);
+    return true;
 }
 
 } // namespace
-
-// 0x004D47F0
-void __cdecl load_scaled_positions_from_memory(uint8_t** cursor, uint8_t* vertices, uint32_t stride)
-{
-    int count = 0;
-    std::memcpy(&count, *cursor, 4);
-    *cursor += 4;
-    for (int i = 0; i < count; ++i) {
-        ScaledVertex v;
-        std::memcpy(&v, *cursor, sizeof(v));
-        *cursor += sizeof(v);
-        if (skin_scaling_on())
-            scaled_position_in_memory(v, reinterpret_cast<float*>(vertices));
-        vertices += stride;
-    }
-}
-
-// 0x004D4350
-void __cdecl load_scaled_positions_from_file(void* file, uint8_t* vertices, uint32_t stride)
-{
-    int count = 0;
-    file::get_take_in(&count, 4, 1, file);
-    for (int i = 0; i < count; ++i) {
-        ScaledVertex v;
-        file::get_take_in(&v.unused[0], 4, 1, file);
-        file::get_take_in(&v.unused[1], 4, 1, file);
-        file::get_take_in(&v.unused[2], 4, 1, file);
-        file::get_take_in(v.weights, 4, 3, file);
-        file::get_take_in(v.p, 16, 1, file);
-        file::get_take_in(v.q, 16, 1, file);
-        file::get_take_in(v.r, 16, 1, file);
-        file::get_take_in(v.a, 16, 1, file);
-        file::get_take_in(v.b, 16, 1, file);
-        file::get_take_in(v.c, 16, 1, file);
-        file::get_take_in(&v.bones[0], 4, 1, file);
-        file::get_take_in(&v.bones[1], 4, 1, file);
-        file::get_take_in(&v.bones[2], 4, 1, file);
-        if (skin_scaling_on())
-            scaled_position_in_file(v, reinterpret_cast<float*>(vertices));
-        vertices += stride;
-    }
-}
 
 // 0x004D5940
 void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexArena* arena)
@@ -531,19 +493,17 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
 }
 
 // 0x004D5CC0
-void MeshRef::read_from_ram_block(uint8_t** cursor, uint32_t material_checksum, SceneRef* scene, VertexArena* arena)
+bool MeshRef::read_from_ram_block(scene_format::MemoryStream& in, uint32_t material_checksum, SceneRef* scene,
+                                  VertexArena* arena)
 {
-    MemoryReader reader{*cursor};
-    read_mesh_from_file(this, reader, material_checksum, scene, arena, false);
-    *cursor = reader.cursor;
+    return read_mesh(this, in, material_checksum, scene, arena, false);
 }
 
 // 0x004D6100
-void MeshRef::ingest_from_file(void* file, uint32_t material_checksum, SceneRef* scene, VertexArena* arena,
-                               bool dynamic)
+bool MeshRef::ingest_from_file(scene_format::FileStream& in, uint32_t material_checksum, SceneRef* scene,
+                               VertexArena* arena, bool dynamic)
 {
-    FileReader reader{file};
-    read_mesh_from_file(this, reader, material_checksum, scene, arena, dynamic);
+    return read_mesh(this, in, material_checksum, scene, arena, dynamic);
 }
 
 // 0x004D6530

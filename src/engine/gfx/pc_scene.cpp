@@ -11,6 +11,7 @@
 #include <cstring>
 #include <new>
 
+#include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
@@ -20,6 +21,8 @@
 #include "engine/gfx/geom.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_grass.h"
+#include "engine/gfx/scene_file_stream.h"
+#include "engine/gfx/scene_format.h"
 #include "engine/gfx/screen_effects.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/sub_mesh.h"
@@ -48,9 +51,6 @@ uint32_t g_screen_effect_unknown990{0x80808080};
 uint32_t g_screen_effect_unknown994{0x80808080};
 
 namespace {
-
-// A mesh's index lists as the sector loaders keep them (read and dropped).
-constexpr uint32_t kMaxIndexLists = 8;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 PcGeom* geometry_of(void* sector)
@@ -212,164 +212,82 @@ uint32_t count_loaded_meshes(const PcGeom* geom)
     return count;
 }
 
+// What both of the original's sector loaders do (0x004C6650 from memory, 0x004C6B10 from a file - the same
+// records, scene_format.h): its checksum, flags, box and billboard, then each mesh made, its vertices loaded by
+// `load_body`. False if a record is damaged (the stream failed; the meshes made so far kept).
+template <typename Stream, typename LoadBody>
+bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
+{
+    auto* geometry = static_cast<PcGeom*>(sector->geom_handle_);
+    scene_format::Sector record;
+    // Not original - each record read and checked first: a sector, mesh or index list cut short (or a mesh count
+    // past what is there) ends the scene (the original read on past its end).
+    bool read = scene_format::read_sector(in, &record);
+    change_sector_key(sector, record.checksum);
+    sector->flags = record.flags;
+    geometry->mesh_count_ = read ? record.mesh_count : 0;
+    // (the box's corners kept: the meshes' are read over them, their w still 1)
+    maths::Vec4 min = {record.box[0], record.box[1], record.box[2], 1.0f};
+    maths::Vec4 max = {record.box[3], record.box[4], record.box[5], 1.0f};
+    geometry->bounds.min = min;
+    geometry->bounds.max = max;
+    uint32_t billboard_type = record.billboard_type;
+    maths::Vec4 pivot = {record.pivot[0], record.pivot[1], -record.pivot[2], 0.0f};
+    maths::Vec4 axis = {record.axis[0], record.axis[1], record.axis[2], 0.0f};
+    if (!read) {
+        debug::printf("scene sector %08x damaged: cut short\n", record.checksum);
+        in.fail();
+        geometry->mesh_count_ = count_loaded_meshes(geometry);
+        return false;
+    }
+    float centre[4] = {}; // (its w not read)
+    scene_format::SectorMesh fields;
+    for (uint32_t i = 0; i < geometry->mesh_count_; ++i) {
+        if (!scene_format::read_sector_mesh(in, &fields)) {
+            debug::printf("scene sector %08x damaged: mesh %u cut short\n", record.checksum, i);
+            in.fail();
+            break;
+        }
+        MeshRef* mesh = new_mesh();
+        std::memcpy(centre, fields.centre, sizeof(fields.centre));
+        std::memcpy(&min, fields.min, sizeof(fields.min));
+        std::memcpy(&max, fields.max, sizeof(fields.max));
+        if (fields.flags & 0x400)
+            mesh->flags |= 2;
+        if (fields.flags & 0x20000)
+            mesh->flags |= 0x20000;
+        // (the index lists: read and dropped - the PC's are built from the vertices' own)
+        mesh->load_index_ = static_cast<uint16_t>(i);
+        if (!load_body(mesh, fields.material, *reinterpret_cast<SceneRef**>(geometry->scene + 0x280))) {
+            memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
+            break;
+        }
+        set_mesh_sphere_and_box(mesh, centre, fields.radius, &min, &max);
+        finish_mesh(sector, geometry, mesh, billboard_type, &pivot, &axis, &min, &max,
+                    static_cast<uint8_t>(record.light_group));
+    }
+    geometry->mesh_count_ = count_loaded_meshes(geometry);
+    return in.ok();
+}
+
 } // namespace
 
 // 0x004C6650
-bool PcSector::read_from_ram_block(uint8_t** cursor)
+bool PcSector::read_from_ram_block(scene_format::MemoryStream& in)
 {
-    auto* geometry = static_cast<PcGeom*>(geom_handle_);
-    auto* p = reinterpret_cast<const uint32_t*>(*cursor);
-    change_sector_key(this, *p++);
-    uint32_t light_group = *p++;
-    flags = *p++;
-    geometry->mesh_count_ = *p++;
-    float box[6];
-    std::memcpy(box, p, sizeof(box));
-    p += 6;
-    geometry->bounds.min = {box[0], box[1], box[2], 1.0f};
-    geometry->bounds.max = {box[3], box[4], box[5], 1.0f};
-    p += 4; // (a bounding sphere, not kept)
-    uint32_t billboard_type = 0;
-    maths::Vec4 pivot, axis; // (their w not set, as the original)
-    if (flags & 0x800000) {
-        billboard_type = p[0];
-        p += 4; // (the type and a vector not kept)
-        std::memcpy(&pivot, p, 12);
-        p += 3;
-        pivot.z = -pivot.z;
-        std::memcpy(&axis, p, 12);
-        p += 3;
-    }
-    float centre[4] = {0, 0, 0, box[3]}; // (its w the box's last value, as the original's stack has it)
-    for (uint32_t i = 0; i < geometry->mesh_count_; ++i) {
-        MeshRef* mesh = new_mesh();
-        std::memcpy(centre, p, 12);
-        p += 3;
-        float radius;
-        std::memcpy(&radius, p++, 4);
-        maths::Vec4 min, max;
-        std::memcpy(&min, p, 12);
-        p += 3;
-        std::memcpy(&max, p, 12);
-        p += 3;
-        uint32_t mesh_flags = *p++;
-        if (mesh_flags & 0x400)
-            mesh->flags |= 2;
-        if (mesh_flags & 0x20000)
-            mesh->flags |= 0x20000;
-        uint32_t material = *p++;
-        uint32_t lists = *p++;
-        // The index lists: read and dropped (the PC's are built from the vertices' own).
-        uint16_t* indices[kMaxIndexLists] = {};
-        uint32_t counts[kMaxIndexLists] = {};
-        for (uint32_t j = 0; j < lists; ++j) {
-            uint32_t count = *p++;
-            uint32_t bytes = count * 2;
-            // Not original - lists past the 8 the arrays hold are skipped (the original wrote them past the arrays).
-            if (j < kMaxIndexLists) {
-                counts[j] = count;
-                memory::Hub* manager = memory::Hub::get_pull();
-                manager->enter_heap_scope(manager->top_down_heap_);
-                indices[j] = static_cast<uint16_t*>(memory::alloc(bytes));
-                memory::Hub::get_pull()->leave_heap_scope();
-                std::memcpy(indices[j], p, bytes);
-            }
-            p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p) + bytes);
-        }
-        mesh->load_index_ = static_cast<uint16_t>(i);
-        auto* at = reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(p));
-        mesh->read_from_ram_block(&at, material, *reinterpret_cast<SceneRef**>(geometry->scene + 0x280),
-                                  nullptr); // (the vertices)
-        p = reinterpret_cast<const uint32_t*>(at);
-        set_mesh_sphere_and_box(mesh, centre, radius, &min, &max);
-        finish_mesh(this, geometry, mesh, billboard_type, &pivot, &axis, &min, &max, static_cast<uint8_t>(light_group));
-        for (uint16_t* list : indices)
-            memory::Hub::get_pull()->dealloc(list);
-    }
-    geometry->mesh_count_ = count_loaded_meshes(geometry);
-    *cursor = reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(p));
-    return true;
+    return read_sector(this, in, [&in](MeshRef* mesh, uint32_t material, SceneRef* list) {
+        return mesh->read_from_ram_block(in, material, list, nullptr);
+    });
 }
 
 // 0x004C6B10
-bool PcSector::ingest_from_file(file::Hdl file, uint32_t unknown)
+bool PcSector::ingest_from_file(scene_format::FileStream& in, uint32_t unknown)
 {
-    auto* geometry = static_cast<PcGeom*>(geom_handle_);
-    auto read = [file](void* into, int size, int count) { file::get_take_in(into, size, count, file); };
-    uint32_t checksum;
-    read(&checksum, 4, 1);
-    change_sector_key(this, checksum);
-    uint32_t light_group;
-    read(&light_group, 4, 1);
-    read(&flags, 4, 1);
-    read(&geometry->mesh_count_, 4, 1);
-    float box[6];
-    read(box, 4, 6);
-    // (the box's corners kept: the meshes' are read over them, their w still 1)
-    maths::Vec4 min = {box[0], box[1], box[2], 1.0f}, max = {box[3], box[4], box[5], 1.0f};
-    geometry->bounds.min = min;
-    geometry->bounds.max = max;
-    uint32_t sphere[4];
-    read(sphere, 4, 4); // (not kept)
-    uint32_t billboard_type = 0;
-    maths::Vec4 unused, pivot, axis;
-    if (flags & 0x800000) {
-        read(&billboard_type, 4, 1);
-        read(&unused, 0xC, 1);
-        read(&pivot, 0xC, 1);
-        read(&axis, 0xC, 1);
-        unused.z = -unused.z;
-        unused.w = 0.0f;
-        pivot.w = 0.0f;
-        axis.w = 0.0f;
-        pivot.z = -pivot.z;
-    }
-    float centre[4] = {}; // (its w never read in: zero here)
-    for (uint32_t i = 0; i < geometry->mesh_count_; ++i) {
-        MeshRef* mesh = new_mesh();
-        read(centre, 4, 3);
-        float radius;
-        read(&radius, 4, 1);
-        read(&min, 4, 3);
-        read(&max, 4, 3);
-        uint32_t mesh_flags;
-        read(&mesh_flags, 4, 1);
-        if (mesh_flags & 0x400)
-            mesh->flags |= 2;
-        if (mesh_flags & 0x20000)
-            mesh->flags |= 0x20000;
-        uint32_t material, lists;
-        read(&material, 4, 1);
-        read(&lists, 4, 1);
-        uint16_t* indices[kMaxIndexLists] = {};
-        uint32_t counts[kMaxIndexLists] = {};
-        for (uint32_t j = 0; j < lists; ++j) { // (read and dropped)
-            uint32_t count = 0;
-            read(&count, 4, 1);
-            memory::Hub* manager = memory::Hub::get_pull();
-            manager->enter_heap_scope(manager->top_down_heap_);
-            auto* list = static_cast<uint16_t*>(memory::alloc(count * 2));
-            memory::Hub::get_pull()->leave_heap_scope();
-            read(list, 2, static_cast<int>(count));
-            // Not original - lists past the 8 the arrays hold are freed at once (the original wrote them past).
-            if (j < kMaxIndexLists) {
-                counts[j] = count;
-                indices[j] = list;
-            } else {
-                memory::Hub::get_pull()->dealloc(list);
-            }
-        }
-        mesh->load_index_ = static_cast<uint16_t>(i);
-        mesh->ingest_from_file(file, material, *reinterpret_cast<SceneRef**>(geometry->scene + 0x280),
-                               reinterpret_cast<VertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown)),
-                               ((flags >> 23) & 1) != 0); // (the vertices; read as a byte: bit 23)
-        set_mesh_sphere_and_box(mesh, centre, radius, &min, &max);
-        finish_mesh(this, geometry, mesh, billboard_type, &pivot, &axis, &min, &max, static_cast<uint8_t>(light_group));
-        for (uint16_t* list : indices)
-            memory::Hub::get_pull()->dealloc(list);
-    }
-    geometry->mesh_count_ = count_loaded_meshes(geometry);
-    return true;
+    return read_sector(this, in, [this, &in, unknown](MeshRef* mesh, uint32_t material, SceneRef* list) {
+        // (the vertices given `unknown` unless a billboard; dynamic with the billboard bit, read as a byte: bit 23)
+        auto* arena = reinterpret_cast<VertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown));
+        return mesh->ingest_from_file(in, material, list, arena, ((flags >> 23) & 1) != 0);
+    });
 }
 
 } // namespace render

@@ -20,6 +20,7 @@
 #include "engine/file/pre_format.h"
 #include "engine/gfx/anim_format.h"
 #include "engine/gfx/image_format.h"
+#include "engine/gfx/scene_format.h"
 #include "engine/gfx/skeleton_format.h"
 #include "engine/gfx/texture_format.h"
 #include "engine/render/collision_format.h"
@@ -81,8 +82,8 @@ std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
     for (int i = 0; i < count && offset + sizeof(ReferenceRow) <= archive.size(); ++i) {
         const auto* row = reinterpret_cast<const ReferenceRow*>(archive.data() + offset);
         int stored = row->compressed_size ? row->compressed_size : row->size;
-        files.push_back({offset, row->size, row->compressed_size, row->checksum,
-                         reinterpret_cast<const char*>(row + 1)});
+        files.push_back(
+            {offset, row->size, row->compressed_size, row->checksum, reinterpret_cast<const char*>(row + 1)});
         offset += static_cast<size_t>(((stored + 3) & ~3) + row->name_size + static_cast<int>(sizeof(ReferenceRow)));
     }
     return files;
@@ -321,8 +322,7 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
                 check(false, what + ": level " + std::to_string(level));
                 return;
             }
-            check(*p == level_bytes && reinterpret_cast<const uint8_t*>(p + 1) == texels,
-                  what + ": level as in place");
+            check(*p == level_bytes && reinterpret_cast<const uint8_t*>(p + 1) == texels, what + ": level as in place");
             p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p + 1) + level_bytes);
             if (level_bytes != texture_format::level_size(texture, level)) {
                 if (g_level_size_mismatches++ < 5)
@@ -377,8 +377,8 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
         check(static_cast<uint32_t>(header.image_width) * header.image_height <= header.width * header.height,
               name + ": the image within its texture");
     }
-    size_t file_size = image_format::kHeaderSize + (palettized ? header.palette_size : 0) +
-                       image_format::texel_size(header, plain);
+    size_t file_size =
+        image_format::kHeaderSize + (palettized ? header.palette_size : 0) + image_format::texel_size(header, plain);
     size_t memory_size = image_format::kHeaderSize + (palettized ? image_format::kPaletteCapacity : 0) +
                          image_format::texel_size(header, image_format::stored_plain(header, true));
     g_images.file_size_as_loaded += file_size <= size;
@@ -465,6 +465,219 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
     }
     util::ByteReader cut(data, size - 1);
     check(!skeleton_format::read_skeleton(cut, skeleton.get()), name + ": cut short");
+}
+
+// --- scenes, models, skinned models (.scn / .mdl / .skin) and skins (.cas) ----------------------------------------
+
+struct SceneStats {
+    int files = 0, materials = 0, sectors = 0, meshes = 0, skinned_meshes = 0, trailing = 0, skins = 0, breaks = 0;
+} g_scenes;
+
+// The original's reading in place (the old loaders' pointer arithmetic, from memory): where the scene ends and what
+// it counted. False if the walk ran past `limit` (the copy is padded past the file).
+struct ReferenceScene {
+    size_t end = 0;
+    uint32_t materials = 0, sectors = 0, meshes = 0, hierarchy = 0;
+    uint64_t indices = 0, vertex_bytes = 0;
+};
+
+bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
+{
+    const uint8_t* p = data + 0xC;
+    const uint8_t* end = data + limit;
+    auto word = [&p](size_t bytes) {
+        uint32_t v = 0;
+        std::memcpy(&v, p, bytes);
+        p += bytes;
+        return v;
+    };
+    uint32_t materials = word(4);
+    for (uint32_t m = 0; m < materials && p < end; ++m) {
+        p += 8;
+        uint32_t passes = word(4);
+        p += 4 + 1 + 4 + 1 + 1 + 4;
+        if (word(1))
+            p += 8;
+        float specular;
+        std::memcpy(&specular, p, 4);
+        p += 4;
+        if (specular > 0.0f)
+            p += 12;
+        for (uint32_t pass = 0; pass < passes && p < end; ++pass) {
+            p += 4;
+            uint32_t flags = word(4);
+            p += 1 + 12 + 8 + 8 + 8 + 4;
+            if (flags & 1)
+                p += 0x20;
+            if (pass == 0 && (flags & 2)) {
+                uint32_t anims = word(4);
+                for (uint32_t a = 0; a < anims && p < end; ++a) {
+                    uint32_t keys = word(4);
+                    p += 4 + static_cast<size_t>(keys) * 8;
+                }
+            }
+            if (flags & 0x800) {
+                int keys = static_cast<int>(word(4));
+                p += 12 + static_cast<size_t>(keys) * 8;
+            }
+            p += 16; // (four words with a texture, sixteen bytes skipped without)
+        }
+        ++out->materials;
+    }
+    uint32_t sectors = word(4);
+    for (uint32_t s = 0; s < sectors && p < end; ++s) {
+        p += 8;
+        uint32_t flags = word(4);
+        uint32_t meshes = word(4);
+        p += 24 + 16;
+        if (flags & 0x800000)
+            p += 4 + 12 + 12 + 12;
+        for (uint32_t i = 0; i < meshes && p < end; ++i) {
+            p += 12 + 4 + 12 + 12 + 4 + 4;
+            uint32_t lists = word(4);
+            for (uint32_t j = 0; j < lists && p < end; ++j)
+                p += static_cast<size_t>(word(4)) * 2;
+            for (int k = 0; k < 8; ++k) {
+                uint32_t count = word(2);
+                out->indices += count;
+                p += count * 2;
+            }
+            p += 1;
+            uint32_t vertex_count = word(2);
+            uint32_t buffers = word(1);
+            for (uint32_t v = 0; v < buffers && p < end; ++v) {
+                uint32_t scaled = word(1);
+                uint32_t size = word(4);
+                if (v == 0)
+                    out->vertex_bytes += size;
+                p += size;
+                if (scaled)
+                    p += static_cast<size_t>(static_cast<int>(word(4))) * 0x84;
+            }
+            p += 4 + 4 + 3;
+            if (word(1))
+                p += vertex_count;
+            int levels = static_cast<int>(word(4));
+            if (levels > 1)
+                p += static_cast<size_t>(levels) * 4;
+            if (word(4) == 1) {
+                p += 4;
+                p += word(4);
+            }
+            ++out->meshes;
+        }
+        ++out->sectors;
+    }
+    if (p >= end)
+        return false;
+    int nodes = static_cast<int>(word(4));
+    if (nodes > 0) {
+        p += static_cast<size_t>(nodes) * 0x50;
+        out->hierarchy = static_cast<uint32_t>(nodes);
+    }
+    out->end = static_cast<size_t>(p - data);
+    return p <= end;
+}
+
+void check_scene(const std::string& name, const uint8_t* data, size_t size)
+{
+    ++g_scenes.files;
+    // the new readers, record by record (as the loaders read them)
+    scene_format::MemoryStream in(data, size);
+    in.skip(scene_format::kHeaderSize);
+    uint32_t materials = scene_format::take<uint32_t>(in);
+    std::map<uint32_t, uint32_t> passes; // a material's pass count by checksum (the first kept, as the table)
+    scene_format::Material material;
+    for (uint32_t i = 0; i < materials; ++i) {
+        if (!scene_format::read_material(in, &material)) {
+            check(false, name + ": material " + std::to_string(i));
+            return;
+        }
+        passes.emplace(material.checksum, material.pass_count);
+    }
+    uint32_t sectors = scene_format::take<uint32_t>(in);
+    scene_format::Sector sector;
+    scene_format::SectorMesh mesh;
+    scene_format::MeshBody body;
+    uint32_t meshes = 0;
+    uint64_t indices = 0, vertex_bytes = 0;
+    for (uint32_t i = 0; i < sectors; ++i) {
+        if (!scene_format::read_sector(in, &sector)) {
+            check(false, name + ": sector " + std::to_string(i));
+            return;
+        }
+        for (uint32_t j = 0; j < sector.mesh_count; ++j) {
+            if (!scene_format::read_sector_mesh(in, &mesh) || !scene_format::read_mesh_body(in, &body)) {
+                check(false, name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j));
+                return;
+            }
+            ++meshes;
+            for (uint16_t count : body.index_counts)
+                indices += count;
+            vertex_bytes += body.vertices.size();
+            // the vertices the loader draws or unpacks are within the first buffer
+            uint32_t vertex_size = body.stride;
+            if (!body.vertex_types[0]) {
+                ++g_scenes.skinned_meshes;
+                auto found = passes.find(mesh.material);
+                check(found != passes.end(), name + ": a skinned mesh's material is in the scene");
+                vertex_size = 0x20 + (found != passes.end() ? found->second : 0) * 8;
+            }
+            check(scene_format::vertices_fit(body, vertex_size),
+                  name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j) + "'s vertices fit");
+        }
+    }
+    int nodes = scene_format::take<int>(in);
+    if (nodes > 0)
+        in.skip(static_cast<size_t>(nodes) * scene_format::kHierarchyNodeSize);
+    if (!in.ok()) {
+        check(false, name + ": scene cut short");
+        return;
+    }
+    g_scenes.materials += static_cast<int>(materials);
+    g_scenes.sectors += static_cast<int>(sectors);
+    g_scenes.meshes += static_cast<int>(meshes);
+    if (in.position() != size)
+        ++g_scenes.trailing;
+    // as the original read it
+    std::vector<uint8_t> copy(size + 0x10000);
+    std::memcpy(copy.data(), data, size);
+    ReferenceScene reference;
+    bool walked = reference_scene(copy.data(), size, &reference);
+    check(walked && reference.end == in.position() && reference.materials == materials &&
+              reference.sectors == sectors && reference.meshes == meshes && reference.indices == indices &&
+              reference.vertex_bytes == vertex_bytes &&
+              reference.hierarchy == static_cast<uint32_t>(nodes > 0 ? nodes : 0),
+          name + ": as read in place");
+    // the whole-scene walk agrees, and refuses the scene cut short
+    scene_format::MemoryStream again(data, size);
+    scene_format::SceneCounts counts;
+    check(scene_format::walk_scene(again, &counts) && again.position() == in.position() && counts.meshes == meshes,
+          name + ": walk_scene");
+    scene_format::MemoryStream cut(data, in.position() - 1);
+    check(!scene_format::walk_scene(cut, &counts), name + ": cut short");
+}
+
+void check_skin(const std::string& name, const uint8_t* data, size_t size)
+{
+    ++g_scenes.skins;
+    scene_format::MemoryStream in(data, size);
+    scene_format::Skin skin;
+    if (!scene_format::read_skin(in, &skin)) {
+        check(false, name + ": skin");
+        return;
+    }
+    g_scenes.breaks += static_cast<int>(skin.break_count);
+    // the original's reading in place: version, bone count from version 2, break count, the breaks
+    const auto* words = reinterpret_cast<const uint32_t*>(data);
+    size_t at = words[0] >= 2 ? 2 : 1;
+    uint32_t breaks = words[at];
+    check(breaks == skin.break_count && std::memcmp(words + at + 1, skin.breaks.data(), skin.breaks.size()) == 0 &&
+              in.position() == (at + 1) * 4 + breaks * 12,
+          name + ": as read in place");
+    check(in.position() == size, name + ": the breaks end at the file's end");
+    scene_format::MemoryStream cut(data, in.position() - 1);
+    check(!scene_format::read_skin(cut, &skin), name + ": cut short");
 }
 
 // --- animations (.ska) ---------------------------------------------------------------------------------------------
@@ -575,6 +788,10 @@ int run(const std::filesystem::path& data)
     register_check(".col", check_collision);
     register_check(".ske", check_skeleton);
     register_check(".ska", check_animation);
+    register_check(".scn", check_scene);
+    register_check(".mdl", check_scene);
+    register_check(".skin", check_scene);
+    register_check(".cas", check_skin);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -611,6 +828,10 @@ int run(const std::filesystem::path& data)
     std::printf("skeleton bones: %d\n", g_bones);
     std::printf("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", g_anims.files,
                 g_anims.float_keys, g_anims.compressed, g_anims.neither, g_anims.custom_keys);
+    std::printf("scenes: %d (%d materials, %d sectors, %d meshes - %d skinned; %d with bytes past the hierarchy); "
+                "skins %d (%d strip breaks)\n",
+                g_scenes.files, g_scenes.materials, g_scenes.sectors, g_scenes.meshes, g_scenes.skinned_meshes,
+                g_scenes.trailing, g_scenes.skins, g_scenes.breaks);
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());

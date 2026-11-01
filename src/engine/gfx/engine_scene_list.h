@@ -64,9 +64,10 @@ WorldScene* __cdecl build_world_scene(const char* name, TextureSet* textures, bo
 // is set) and registered (0x0048C560 - `unused` passed on, and not used there).
 WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky,
                                bool mesh_flag, int unused);
-// 0x0048CD80: a scene loaded from geometry in memory and registered under `name` (the same way).
-WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, TextureSet* textures,
-                                                 bool with_super_sectors, bool is_sky, bool mesh_flag, int unused);
+// 0x0048CD80: a scene loaded from geometry in memory (`size` bytes) and registered under `name` (the same way).
+WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, size_t size,
+                                                 TextureSet* textures, bool with_super_sectors, bool is_sky,
+                                                 bool mesh_flag, int unused);
 // 0x0048CDD0: the scene "levels\<add>\<add>.scn.<ext>" added over the scene `scene_name` (that scene's added scene
 // let go of first, with its texture dictionary, if it's this one), with its texture dictionary ("levels\<add>\
 // <add>.tex"). The scene.

@@ -62,9 +62,10 @@ void build_scene_file_path(char* out, const char* name, uint8_t flag)
 {
     render::engine::build_scene_file_path(out, name, flag);
 }
-void* make_scene(const char* name, void* buffer, void* textures, uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+void* make_scene(const char* name, void* buffer, uint32_t size, void* textures, uint8_t a, uint8_t b, uint8_t c,
+                 uint8_t d)
 {
-    return render::load_named_scene_from_memory(name, static_cast<const uint8_t*>(buffer),
+    return render::load_named_scene_from_memory(name, static_cast<const uint8_t*>(buffer), size,
                                                 static_cast<render::TextureSet*>(textures), a != 0, b != 0, c != 0, d);
 }
 void unload_scene(void* scene, int flag)
@@ -85,11 +86,11 @@ void* scene_collision(void* scene) { return static_cast<render::WorldScene*>(sce
 void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unload_collision(); }
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
 bool split_skin_name(const char* name, char* base) { return render::engine::split_skin_name(name, base); }
-void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, void* textures, int value,
-                         uint8_t has_cas, uint8_t flag)
+void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, uint32_t cas_size, void* textures,
+                         int value, uint8_t has_cas, uint8_t flag)
 {
     return render::engine::load_model_from_memory(checksum, static_cast<const uint8_t*>(buffer), static_cast<int>(size),
-                                                  cas, textures, value, has_cas, flag);
+                                                  cas, cas_size, textures, value, has_cas, flag);
 }
 void unload_skinned_model(void* model, int flag)
 {
@@ -508,7 +509,7 @@ bool SceneAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
     change_contents(
-        make_scene(reinterpret_cast<char*>(args_ + 8), buffer, textures, args_[4], args_[5], args_[6], args_[7]));
+        make_scene(reinterpret_cast<char*>(args_ + 8), buffer, size, textures, args_[4], args_[5], args_[6], args_[7]));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -671,6 +672,7 @@ SkinParams* SkinParams::get_clear()
     flag0 = 0;
     value = 0;
     cas_data_ = nullptr;
+    cas_size_ = 0; // (Not original: the original left +0x0C)
     has_cas_ = 0;
     on_heap_ = 0;
     return this;
@@ -742,6 +744,7 @@ int SkinResource::read_in(const char* name, bool async, bool use_archive, void* 
         uint32_t cas_size = static_cast<uint32_t>(cas_file_->get_file_size());
         cas_buffer_ = memory::alloc_block(cas_size);
         args_->cas_data_ = cas_buffer_;
+        args_->cas_size_ = cas_size;
         start_reading(this, cas_file_, cas_buffer_, cas_size, async);
     }
     if (args_->on_heap_)
@@ -762,7 +765,8 @@ bool SkinResource::finish_loading(void* buffer, uint32_t size)
     void* textures = group_data(this);
     SkinParams* p = args_;
     change_contents(
-        make_skinned_model(checksum_, buffer, size, p->cas_data_, textures, p->value, p->has_cas_, p->flag0));
+        make_skinned_model(checksum_, buffer, size, p->cas_data_, p->cas_size_, textures, p->value, p->has_cas_,
+                           p->flag0));
     if (args_->on_heap_ && octets_)
         free_buffer();
     free_load_params(args_);
