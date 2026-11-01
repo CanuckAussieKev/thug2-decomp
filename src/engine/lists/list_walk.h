@@ -18,7 +18,7 @@ public:
     T* following_item()
     {
         memory::ListNode* next = list_link_->next;
-        list_link_ = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+        list_link_ = next->data == memory::ListNode::head_marker() ? nullptr : next;
         return list_link_ ? static_cast<T*>(list_link_->data) : nullptr;
     }
 

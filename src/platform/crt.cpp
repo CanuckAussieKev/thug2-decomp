@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "platform/crt.h"
+#include "platform/code_address.h"
 
 #include <climits>
 #include <cstdarg>
@@ -17,7 +18,7 @@ void* library_function(const char* dll, const char* name)
     HMODULE module = GetModuleHandleA(dll);
     if (!module)
         module = LoadLibraryA(dll);
-    return module ? reinterpret_cast<void*>(GetProcAddress(module, name)) : nullptr;
+    return module ? code_address(GetProcAddress(module, name)) : nullptr;
 }
 
 namespace {

@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "engine/file/file_load.h"
+#include "engine/core/pointer_cell.h"
 
 namespace memory {
 
@@ -29,7 +30,7 @@ void dump_text(const char* text)
     int length = static_cast<int>(std::strlen(text));
     char* position = dump_write_cursor();
     // Flushed when the text won't fit (checked before newlines become CR LF: they can run past the end).
-    if (reinterpret_cast<int>(position + length) > reinterpret_cast<int>(dump_buffer_end()) &&
+    if (static_cast<int>(cell::of(position + length)) > static_cast<int>(cell::of(dump_buffer_end())) &&
         position != dump_buffer()) {
         file::emit_out(dump_buffer(), static_cast<int>(position - dump_buffer()), 1, dump_file());
         position = dump_buffer();

@@ -11,6 +11,7 @@
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
 
 namespace memory {
 
@@ -101,7 +102,7 @@ void Hub::enter_heap_scope(MemSource* heap)
 void Hub::leave_heap_scope()
 {
     --context_depth_;
-    alloc_source_stack_[context_depth_] = reinterpret_cast<MemSource*>(-1);
+    alloc_source_stack_[context_depth_] = cell::pointer<MemSource>(-1);
     ongoing_ = context_depth_ ? &alloc_source_stack_[context_depth_ - 1] : nullptr;
 }
 
@@ -491,8 +492,8 @@ Hub::Hub()
     const uint8_t* end = g_heap_block_limit;
     void* region = get_clear(sizeof(Zone), kMainRegionStorage);
     primary_zone_ = region ? memory::construct_in<Zone>(
-                                 region, reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
-                                 reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
+                                 region, cell::pointer<uint8_t>((cell::address(block) + 15) & ~15u),
+                                 cell::pointer<uint8_t>(cell::address(end) & ~15u))
                            : nullptr;
     void* top = get_clear(sizeof(Arena), kTopDownStorage);
     top_down_heap_ = top ? memory::construct_in<Arena>(top, primary_zone_, MemSource::kGrowDown, "Top Down") : nullptr;

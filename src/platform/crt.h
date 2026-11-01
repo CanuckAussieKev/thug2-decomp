@@ -7,6 +7,7 @@
 #include <climits>
 #include <ctime>
 
+#include "platform/code_address.h"
 #include "platform/compiler.h"
 
 // The C runtime and the system libraries (Windows, DirectX, Winsock, Bink) the game calls: the linked library, or -
@@ -18,6 +19,12 @@ namespace crt {
 
 // A DLL's exported function by name (the DLL loaded on first use; null if either is missing).
 void* library_function(const char* dll, const char* name);
+// The same as a function of type F.
+template <typename F>
+F library_function(const char* dll, const char* name)
+{
+    return function_at<F>(library_function(dll, name));
+}
 
 // --- Winsock ---
 uint32_t get_inet_addr(const char* address); // inet_addr

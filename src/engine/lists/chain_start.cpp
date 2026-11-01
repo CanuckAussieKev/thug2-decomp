@@ -1,6 +1,7 @@
 // Intrusive list heads (lists::Foremost<T>). See chain_start.h.
 
 #include "engine/lists/chain_start.h"
+#include "engine/core/arena_alloc.h"
 
 namespace lists {
 
@@ -31,7 +32,7 @@ void Foremost::append_vertex(memory::ListNode* node)
 {
     const int priority = node->priority;
     for (memory::ListNode* next = list_link_.next;; next = next->next) {
-        if (next->data == reinterpret_cast<void*>(-1) || !next)
+        if (next->data == memory::ListNode::head_marker() || !next)
             break;
         if (next->priority <= priority) {
             insert_before(next, node);
@@ -46,7 +47,7 @@ bool Foremost::insert_by_unique_order(memory::ListNode* node)
 {
     const int priority = node->priority;
     for (memory::ListNode* next = list_link_.next;; next = next->next) {
-        if (next->data == reinterpret_cast<void*>(-1) || !next)
+        if (next->data == memory::ListNode::head_marker() || !next)
             break;
         if (next->priority == priority)
             return false;
@@ -64,7 +65,7 @@ void Foremost::append_node(memory::ListNode* node)
 {
     const int priority = node->priority;
     for (memory::ListNode* prev = list_link_.prev;; prev = prev->prev) {
-        if (prev->data == reinterpret_cast<void*>(-1) || !prev)
+        if (prev->data == memory::ListNode::head_marker() || !prev)
             break;
         if (prev->priority >= priority) {
             insert_after(prev, node);

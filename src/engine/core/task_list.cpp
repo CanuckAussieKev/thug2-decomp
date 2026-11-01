@@ -8,12 +8,14 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/chain_start.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace tasks {
 
 namespace {
 
-void* const kHeadData = reinterpret_cast<void*>(-1);
+void* const kHeadData = memory::ListNode::head_marker();
 
 // A node's links taken out of its list and pointed at itself.
 void uncouple(memory::ListNode* node)
@@ -82,7 +84,7 @@ void LinkChain::mark_changed() { altered_ = true; }
 void LinkChain::queue_job(SchedulerTask* task)
 {
     ++lock_;
-    reinterpret_cast<lists::Foremost*>(&head_)->append_vertex(task->list_link_);
+    raw::as<lists::Foremost>(&head_)->append_vertex(task->list_link_);
     task->sequence_ = this;
     task->pass_count_ = pass_count_ - 1;
     altered_ = true;

@@ -118,7 +118,7 @@ void ListNode::uncouple()
     prev = this;
 }
 
-void ListNode::make_head() { make_node(reinterpret_cast<void*>(-1)); }
+void ListNode::make_head() { make_node(memory::ListNode::head_marker()); }
 
 void ListNode::make_node(void* item, int item_priority)
 {
@@ -136,7 +136,7 @@ ListNode* ListNode::create(void* item, int item_priority)
     return node;
 }
 
-ListNode* ListNode::create_head() { return create(reinterpret_cast<void*>(-1)); }
+ListNode* ListNode::create_head() { return create(memory::ListNode::head_marker()); }
 
 // 0x005BA100 / 0x005BA230 (the node's and the head's scalar deleting destructors, flag 1)
 void ListNode::destroy(ListNode* node)
@@ -200,7 +200,7 @@ void MemSource::leave_heap_scope()
         memory::dealloc(context);
     }
     const ListNode* next = zone_chain_.next;
-    context_ = next->data != reinterpret_cast<void*>(-1) && next ? static_cast<CtxInfo*>(next->data) : nullptr;
+    context_ = next->data != memory::ListNode::head_marker() && next ? static_cast<CtxInfo*>(next->data) : nullptr;
 }
 
 } // namespace memory

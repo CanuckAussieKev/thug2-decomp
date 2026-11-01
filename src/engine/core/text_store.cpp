@@ -4,6 +4,7 @@
 #include <new>
 
 #include "engine/core/mem.h"
+#include "engine/core/raw_view.h"
 
 namespace text {
 
@@ -120,7 +121,7 @@ struct StringAdapter {
     Chars* make_new() { return new (this) Chars(); }
     Chars* construct_from_text(const char* text) { return new (this) Chars(text); }
     Chars* construct_copy(const Chars& other) { return new (this) Chars(other); }
-    void teardown() { reinterpret_cast<Chars*>(this)->~Chars(); }
+    void teardown() { raw::as<Chars>(this)->~Chars(); }
 };
 
 // copy_range is private; this gives the replacement table access to it.

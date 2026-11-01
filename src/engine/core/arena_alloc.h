@@ -3,6 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
+
 // The lowest layer of the memory manager: regions of memory, the allocators that carve them up from either
 // end, and the header in front of every allocated block.
 //
@@ -26,7 +29,7 @@ struct ChunkPrefix {
     static ChunkPrefix* get_of(void* block) { return static_cast<ChunkPrefix*>(block) - 1; }
     void* gate_off() { return this + 1; }
     // While a block is on a heap's free list, the first field links the list instead.
-    ChunkPrefix*& next_free() { return *reinterpret_cast<ChunkPrefix**>(this); }
+    ChunkPrefix*& next_free() { return *raw::as<ChunkPrefix*>(this); }
 };
 constexpr uint32_t kBlockHeaderSize = sizeof(ChunkPrefix);
 
@@ -89,6 +92,9 @@ public:
 // deleting destructor: out of the list, freed); here a node is plain data and whoever owns it says how it goes -
 // destroy() for a node of its own, the owner's destructor for a node inside an object.
 struct ListNode {
+    // What a list's head keeps as its item: -1.
+    static void* head_marker() noexcept { return cell::pointer<void>(0xFFFFFFFFu); }
+
     void* data;
     int priority;
     ListNode* next;
@@ -102,7 +108,7 @@ struct ListNode {
     // A node for `item`, linked to itself.
     void make_node(void* item, int item_priority = 0);
     // Whether this is a list's head.
-    [[nodiscard]] bool is_head() const { return data == reinterpret_cast<void*>(-1); }
+    [[nodiscard]] bool is_head() const { return data == head_marker(); }
 
     // A node of its own (zeroed from the current heap, then made for `item`; null without memory) and its deleting
     // destructor (out of its list, freed; null-safe).

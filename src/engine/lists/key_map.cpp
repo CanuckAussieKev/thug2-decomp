@@ -6,6 +6,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/core/raw_view.h"
 
 namespace lists {
 
@@ -152,7 +153,7 @@ namespace {
 
 struct HashTableAdapter {
     lists::KeyMap* make_new(int bits) { return new (this) lists::KeyMap(bits); }
-    void teardown() { reinterpret_cast<lists::KeyMap*>(this)->~KeyMap(); }
+    void teardown() { raw::as<lists::KeyMap>(this)->~KeyMap(); }
 };
 
 } // namespace

@@ -8,11 +8,13 @@
 #include <cstring>
 
 #include "engine/core/checksums.h"
+#include "engine/core/pointer_cell.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -432,7 +434,7 @@ using script::VectorValue;
 
 // The overloads taking the assert flag as a bool (they pass it on as 0 or 1).
 struct BoolAssertGetters {
-    Struct* get_self() { return reinterpret_cast<Struct*>(this); }
+    Struct* get_self() { return raw::as<Struct>(this); }
     bool fetch_text(uint32_t name, const char** out, bool assert) { return get_self()->fetch_text(name, out, assert); }
     bool get_string_named(const char* name, const char** out, bool assert)
     {
@@ -634,22 +636,22 @@ void release_array_storage(Array* array)
         switch (type) {
         case kQbvalString:
         case kQbvalInlineText:
-            free_string(reinterpret_cast<char*>(element));
+            free_string(cell::pointer<char>(element));
             break;
         case kQbvalPair:
-            delete_pair(reinterpret_cast<Pair*>(element));
+            delete_pair(cell::pointer<Pair>(element));
             break;
         case kQbvalVector:
-            delete_vector(reinterpret_cast<Vector*>(element));
+            delete_vector(cell::pointer<Vector>(element));
             break;
         case kQbvalStruct: {
-            auto* structure = reinterpret_cast<Struct*>(element);
+            auto* structure = cell::pointer<Struct>(element);
             structure->get_clear();
             delete_struct(structure);
             break;
         }
         case kQbvalArray: {
-            auto* inner = reinterpret_cast<Array*>(element);
+            auto* inner = cell::pointer<Array>(element);
             release_array_storage(inner);
             inner->get_clear();
             delete_array(inner);
@@ -682,7 +684,7 @@ void release_component(Component* component)
         break;
     case kQbvalScriptBody:
         if (component->raw)
-            memory::free_malloc(reinterpret_cast<void*>(component->raw));
+            memory::free_malloc(cell::pointer<void>(component->raw));
         component->unknown2 = 0; // the script's size
         break;
     case kQbvalStruct:
@@ -723,7 +725,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
             // (the constructor: only the first byte of the first word is cleared)
             pair->y = 0.0f;
             pair->x = 0.0f;
-            reinterpret_cast<uint8_t*>(pair)[0] = 0;
+            raw::bytes(pair)[0] = 0;
         }
         dest->pair = pair;
         pair->x = source->pair->x;
@@ -736,7 +738,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
             vector->z = 0.0f;
             vector->y = 0.0f;
             vector->x = 0.0f;
-            reinterpret_cast<uint8_t*>(vector)[0] = 0;
+            raw::bytes(vector)[0] = 0;
         }
         dest->vector = vector;
         vector->x = source->vector->x;
@@ -747,11 +749,11 @@ void duplicate_component(Component* dest, const Component* source, int reference
     case kQbvalScriptBody: {
         // The compiled script, `unknown2` bytes.
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-        dest->raw = reinterpret_cast<uint32_t>(memory::alloc_block(source->unknown2));
+        dest->raw = cell::of(memory::alloc_block(source->unknown2));
         dest->unknown2 = source->unknown2;
         memory::leave_heap_scope();
-        auto* from = reinterpret_cast<const uint8_t*>(source->raw);
-        auto* to = reinterpret_cast<uint8_t*>(dest->raw);
+        auto* from = cell::pointer<const uint8_t>(source->raw);
+        auto* to = cell::pointer<uint8_t>(dest->raw);
         for (uint32_t i = 0; i < source->unknown2; ++i)
             to[i] = from[i];
         break;
@@ -1019,7 +1021,7 @@ void Struct::put_vec3(uint32_t name, float x, float y, float z)
         vector->z = 0.0f;
         vector->y = 0.0f;
         vector->x = 0.0f;
-        reinterpret_cast<uint8_t*>(vector)[0] = 0;
+        raw::bytes(vector)[0] = 0;
     }
     component->vector = vector;
     vector->x = x;
@@ -1051,7 +1053,7 @@ void Struct::insert_pair(uint32_t name, float x, float y)
     if (pair) {
         pair->y = 0.0f;
         pair->x = 0.0f;
-        reinterpret_cast<uint8_t*>(pair)[0] = 0;
+        raw::bytes(pair)[0] = 0;
     }
     component->pair = pair;
     pair->x = x;
@@ -1115,7 +1117,7 @@ void Struct::append_script(uint32_t name, const uint8_t* code, uint32_t size)
     memory::leave_heap_scope();
     for (uint32_t i = 0; i < size; ++i)
         copy[i] = code[i];
-    component->raw = reinterpret_cast<uint32_t>(copy);
+    component->raw = cell::of(copy);
     attach_module(component);
 }
 
@@ -1132,10 +1134,10 @@ void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
         break;
     }
     case 11:
-        append_struct_ref(name, reinterpret_cast<Struct*>(value));
+        append_struct_ref(name, cell::pointer<Struct>(value));
         break;
     case kQbvalArray:
-        append_array_ref(name, reinterpret_cast<Array*>(value));
+        append_array_ref(name, cell::pointer<Array>(value));
         break;
     case kQbvalName:
         put_name_key(name, value);
@@ -1201,7 +1203,7 @@ void delete_component_adapter(script::Component* component) { script::free_compo
 // 0x0044C130: operator new (the size is always 16)
 void* new_component_memory(unsigned int size) { return script::g_component_pools.carve(size); }
 struct ComponentAdapter {
-    script::Component* make_new() { return script::construct_component(reinterpret_cast<script::Component*>(this)); }
+    script::Component* make_new() { return script::construct_component(raw::as<script::Component>(this)); }
 };
 
 } // namespace
@@ -1232,10 +1234,10 @@ Pair* new_pair() { return g_pair_pools.allocate<Pair>(); }
 Vector* alloc_script_vector() { return g_vector_pools.allocate<Vector>(); }
 
 // 0x0047AC00
-Pair::Pair() { reinterpret_cast<uint8_t*>(this)[0] = 0; }
+Pair::Pair() { raw::bytes(this)[0] = 0; }
 
 // 0x0047ABF0
-Vector::Vector() { reinterpret_cast<uint8_t*>(this)[0] = 0; }
+Vector::Vector() { raw::bytes(this)[0] = 0; }
 
 // 0x0046CC50
 void Array::configure_size_kind(uint32_t size, QbValueKind type)
@@ -1301,10 +1303,16 @@ void Array::change_float(uint32_t index, float value)
 uint32_t Array::fetch_part(uint32_t index) { return extent_ == 1 ? single_ : elements_[index]; }
 
 // 0x0046CBB0
-const char* Array::fetch_text(uint32_t index) { return reinterpret_cast<const char*>(fetch_part(index)); }
+const char* Array::fetch_text(uint32_t index) { return cell::pointer<const char>(fetch_part(index)); }
 
 // 0x0046CB70
-char* Array::find_inline_text(uint32_t index) { return reinterpret_cast<char*>(fetch_part(index)); }
+char* Array::find_inline_text(uint32_t index) { return cell::pointer<char>(fetch_part(index)); }
+
+Struct* Array::struct_at(uint32_t index) { return cell::pointer<Struct>(fetch_part(index)); }
+Array* Array::array_at(uint32_t index) { return cell::pointer<Array>(fetch_part(index)); }
+Pair* Array::pair_at(uint32_t index) { return cell::pointer<Pair>(fetch_part(index)); }
+Vector* Array::vector_at(uint32_t index) { return cell::pointer<Vector>(fetch_part(index)); }
+void Array::set_pointer(uint32_t index, const void* value) { set_element(index, cell::of(value)); }
 
 // 0x0046CBF0
 float Array::fetch_float(uint32_t index)
@@ -1331,32 +1339,32 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
         case kQbvalString:
         case kQbvalInlineText:
             if (element)
-                dest[i] = reinterpret_cast<uint32_t>(spawn_text(reinterpret_cast<const char*>(element)));
+                dest[i] = cell::of(spawn_text(cell::pointer<const char>(element)));
             break;
         case kQbvalPair:
             if (element) {
-                auto* from = reinterpret_cast<const Pair*>(element);
+                auto* from = cell::pointer<const Pair>(element);
                 Pair* pair = new_pair();
                 pair = pair ? new (pair) script::Pair : nullptr;
                 pair->x = from->x;
                 pair->y = from->y;
-                dest[i] = reinterpret_cast<uint32_t>(pair);
+                dest[i] = cell::of(pair);
             }
             break;
         case kQbvalVector:
             if (element) {
-                auto* from = reinterpret_cast<const Vector*>(element);
+                auto* from = cell::pointer<const Vector>(element);
                 Vector* vector = alloc_script_vector();
                 vector = vector ? new (vector) script::Vector : nullptr;
                 vector->x = from->x;
                 vector->y = from->y;
                 vector->z = from->z;
-                dest[i] = reinterpret_cast<uint32_t>(vector);
+                dest[i] = cell::of(vector);
             }
             break;
         case kQbvalStruct:
             if (element) {
-                auto* from = reinterpret_cast<Struct*>(element);
+                auto* from = cell::pointer<Struct>(element);
                 Struct* structure = spawn_param_bag();
                 if (structure)
                     new (structure) script::Struct;
@@ -1364,7 +1372,7 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
                     structure->get_clear();
                     structure->merge_structure(from);
                 }
-                dest[i] = reinterpret_cast<uint32_t>(structure);
+                dest[i] = cell::of(structure);
             }
             break;
         case kQbvalArray:
@@ -1372,8 +1380,8 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
                 Array* array = alloc_script_array();
                 if (array)
                     array = new (array) script::Array;
-                duplicate_array(array, reinterpret_cast<Array*>(element));
-                dest[i] = reinterpret_cast<uint32_t>(array);
+                duplicate_array(array, cell::pointer<Array>(element));
+                dest[i] = cell::of(array);
             }
             break;
         default:
@@ -1552,19 +1560,19 @@ uint32_t get_symbol_value(const char* name) { return get_symbol_value(checksums:
 const char* fetch_text(uint32_t name)
 {
     const SymbolTableEntry* entry = resolve_symbol(name);
-    return entry ? reinterpret_cast<const char*>(entry->raw) : empty_string();
+    return entry ? cell::pointer<const char>(entry->raw) : empty_string();
 }
 const char* fetch_text(const char* name) { return fetch_text(checksums::hash_from_text(name)); }
 // 0x00479020 / 0x00479040
 Struct* read_sub_struct(uint32_t name)
 {
-    return reinterpret_cast<Struct*>(symbol_value_of_type(resolve_symbol(name), kQbvalStruct));
+    return cell::pointer<Struct>(symbol_value_of_type(resolve_symbol(name), kQbvalStruct));
 }
 Struct* read_sub_struct(const char* name) { return read_sub_struct(checksums::hash_from_text(name)); }
 // 0x00479070 / 0x00479090
 Array* fetch_list(uint32_t name)
 {
-    return reinterpret_cast<Array*>(symbol_value_of_type(resolve_symbol(name), kQbvalArray));
+    return cell::pointer<Array>(symbol_value_of_type(resolve_symbol(name), kQbvalArray));
 }
 Array* fetch_list(const char* name) { return fetch_list(checksums::hash_from_text(name)); }
 
@@ -1603,19 +1611,19 @@ bool components_equal(Component* a, Component* b)
     case kQbvalString:
     case kQbvalInlineText:
         return type_b == type_a &&
-               std::strcmp(reinterpret_cast<const char*>(value_a), reinterpret_cast<const char*>(value_b)) == 0;
+               std::strcmp(cell::pointer<const char>(value_a), cell::pointer<const char>(value_b)) == 0;
     case kQbvalPair: {
         if (type_b != kQbvalPair)
             return false;
-        auto* pa = reinterpret_cast<const Pair*>(value_a);
-        auto* pb = reinterpret_cast<const Pair*>(value_b);
+        auto* pa = cell::pointer<const Pair>(value_a);
+        auto* pb = cell::pointer<const Pair>(value_b);
         return pa->x == pb->x && pa->y == pb->y;
     }
     case kQbvalVector: {
         if (type_b != kQbvalVector)
             return false;
-        auto* va = reinterpret_cast<const Vector*>(value_a);
-        auto* vb = reinterpret_cast<const Vector*>(value_b);
+        auto* va = cell::pointer<const Vector>(value_a);
+        auto* vb = cell::pointer<const Vector>(value_b);
         return va->x == vb->x && va->y == vb->y && va->z == vb->z;
     }
     // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
@@ -1661,7 +1669,7 @@ const char* get_type_name() { return "(Hey, don't use GetTypeName on the CD!)"; 
 struct ComponentEqualsAdapter {
     bool get_equals(script::Component* other)
     {
-        return script::components_equal(reinterpret_cast<script::Component*>(this), other);
+        return script::components_equal(raw::as<script::Component>(this), other);
     }
 };
 

@@ -2,9 +2,8 @@
 
 #include <cstdint>
 #include "engine/core/slab_bank.h"
-
-#include "engine/core/slab_bank.h"
 #include "engine/core/owner.h"
+#include "engine/maths/vec4.h"
 
 // The script system's data: structures of named components (Scripts::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
@@ -15,6 +14,8 @@ namespace script {
 
 class Array;
 class Struct;
+struct Pair;
+struct Vector;
 struct ParamScript;
 
 // The types of components and symbols.
@@ -60,6 +61,14 @@ public:
     char* find_inline_text(uint32_t index);
     // An integer array's elements are converted.
     float fetch_float(uint32_t index);
+    // The element as the pointer its 32-bit cell holds, by the array's type (a structure / array / pair / vector
+    // array's element).
+    Struct* struct_at(uint32_t index);
+    Array* array_at(uint32_t index);
+    Pair* pair_at(uint32_t index);
+    Vector* vector_at(uint32_t index);
+    // Store a pointer in the element's cell.
+    void set_pointer(uint32_t index, const void* value);
 
     uint8_t unknown0_{0};
     QbValueKind kind_tag_{kQbvalNone};
@@ -210,10 +219,8 @@ memory::owner<Component*> new_component();
 // Construct an empty component in place (leaves the second byte alone).
 Component* construct_component(Component* component);
 
-// A 4-component vector as scripts' vectors are returned (w = 1).
-struct VectorValue {
-    float x, y, z, w;
-};
+// A 4-component vector as scripts' vectors are returned (w = 1): the engine's vector.
+using VectorValue = maths::Vec4;
 
 class Struct {
 public:

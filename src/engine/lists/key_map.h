@@ -20,6 +20,14 @@ public:
         Item* next;
     };
     using HookFn = void (*)(void* value, void* data);
+    // A typed hook's value and data types.
+    template <typename F>
+    struct HookTypes;
+    template <typename R, typename V, typename D>
+    struct HookTypes<R (*)(V*, D*)> {
+        using Value = V;
+        using Data = D;
+    };
 
     explicit KeyMap(int bits);
     // A table as the exe's static storage starts: all zero (no buckets). The exe's static initialiser then makes it
@@ -42,6 +50,17 @@ public:
     void empty_table();
     // Call `callback(value, data)` for every item.
     void run_hook(HookFn callback, void* data);
+    // The same with a typed callback `Hook` (value and data as its own pointer types; what it returns is dropped).
+    template <auto Hook>
+    void run_hook(typename HookTypes<decltype(Hook)>::Data* data)
+    {
+        using Types = HookTypes<decltype(Hook)>;
+        run_hook(
+            [](void* value, void* hook_data) {
+                (void)Hook(static_cast<typename Types::Value*>(value), static_cast<typename Types::Data*>(hook_data));
+            },
+            data);
+    }
 
     // Iteration: set iter_bucket_ = -1 and iter_item_ = null, then each step_iterator() that returns true
     // leaves the next item in iter_item_.

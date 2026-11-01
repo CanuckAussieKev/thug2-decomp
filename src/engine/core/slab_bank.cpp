@@ -9,6 +9,7 @@
 
 #include "engine/core/mem.h"
 #include "platform/run_log.h"
+#include "engine/core/raw_view.h"
 
 namespace memory {
 
@@ -27,7 +28,7 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
     // Link every item to the next; the last one ends the list.
     uint8_t* item = block;
     for (int i = 0; i < num_; ++i, item += slot_bytes_)
-        *reinterpret_cast<void**>(item) = i < num_ - 1 ? item + slot_bytes_ : nullptr;
+        *raw::as<void*>(item) = i < num_ - 1 ? item + slot_bytes_ : nullptr;
 
     // The original copies with no length limit, like strcpy.
     const char* source = name ? name : "unnamed";
