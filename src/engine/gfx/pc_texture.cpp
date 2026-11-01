@@ -16,11 +16,14 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/maths.h"
 #include "engine/gfx/device.h"
+#include "engine/gfx/texture_format.h"
+#include "engine/util/byte_stream.h"
 #include "platform/crt.h"
 
 namespace render {
@@ -1027,47 +1030,60 @@ lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* 
     file::Hdl file = file::unseal(name, "rb");
     if (!file)
         return table;
-    auto read = [file](void* into, int size, int count) { file::get_take_in(into, size, count, file); };
-    uint32_t version;
-    read(&version, 4, 1);
-    int count;
-    read(&count, 4, 1);
+    // The file read in order; its headers through texture_format's reader (read into a buffer first). Not original
+    // - a level larger than its texture's (texture_format::level_size), or a file cut short, stops the dictionary
+    // there: the original read any size into the surface.
+    auto read = [file](void* into, int size, int count) {
+        return file::get_take_in(into, size, count, file) == size * count; // (bytes read)
+    };
+    uint8_t bytes[texture_format::kTextureHeaderSize];
+    texture_format::DictionaryHeader dictionary;
+    util::ByteReader dictionary_reader(bytes, texture_format::kDictionaryHeaderSize);
+    if (!read(bytes, texture_format::kDictionaryHeaderSize, 1) ||
+        !texture_format::read_dictionary_header(dictionary_reader, &dictionary)) {
+        file::shut(file);
+        return table;
+    }
+    int count = dictionary.count;
     if (remake)
         table = remake_table(table, static_cast<uint32_t>(count));
     uint32_t format = 0; // (the original's is whatever its stack held until a texture sets it)
     for (int i = 0; i < count; ++i) {
+        texture_format::TextureHeader header;
+        util::ByteReader header_reader(bytes, sizeof(bytes));
+        if (!read(bytes, sizeof(bytes), 1) || !texture_format::read_texture_header(header_reader, &header)) {
+            debug::printf("%s: cut short at texture %d of %d\n", name, i, count);
+            break;
+        }
         TextureRef* texture = new_engine_texture();
-        read(&texture->checksum, 4, 1); // (no check, as the original)
-        uint32_t width, height, levels, depth, palette_depth, compression, palette_size;
-        read(&width, 4, 1);
-        read(&height, 4, 1);
-        read(&levels, 4, 1);
-        read(&depth, 4, 1);
-        read(&palette_depth, 4, 1);
-        read(&compression, 4, 1);
-        read(&palette_size, 4, 1);
-        texture->width = static_cast<uint16_t>(width);
-        texture->height = static_cast<uint16_t>(height);
-        texture->levels = static_cast<uint8_t>(levels);
-        texture->depth = static_cast<uint8_t>(depth);
-        texture->unknowne_ = static_cast<uint8_t>(palette_depth);
-        texture->unknownf_ = static_cast<uint8_t>(compression);
+        texture->checksum = header.checksum; // (no check, as the original)
+        texture->width = static_cast<uint16_t>(header.width);
+        texture->height = static_cast<uint16_t>(header.height);
+        texture->levels = static_cast<uint8_t>(header.levels);
+        texture->depth = static_cast<uint8_t>(header.depth);
+        texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
+        texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout(texture->unknownf_, texture->depth, format);
         if (texture->height < 4)
             texture->height = 4;
         auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
-        if (palette_size) {
+        bool damaged = false;
+        if (header.palette_size) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
             // texels left as they are, as the original).
             texture->depth = 32;
             format = D3DFMT_A8R8G8B8;
             input_port()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
                                         D3DPOOL_MANAGED, d3d, nullptr);
-            void* palette = memory::alloc(palette_size);
-            read(palette, static_cast<int>(palette_size), 1);
-            for (uint32_t level = 0; level < texture->levels; ++level) {
-                uint32_t size;
+            void* palette = memory::alloc(header.palette_size);
+            read(palette, static_cast<int>(header.palette_size), 1);
+            for (uint32_t level = 0; level < texture->levels && !damaged; ++level) {
+                uint32_t size = 0;
                 read(&size, 4, 1);
+                if (size > texture_format::level_size(header, level)) {
+                    damaged = true;
+                    break;
+                }
                 D3DLOCKED_RECT rect;
                 (*d3d)->LockRect(level, &rect, nullptr, 0);
                 D3DSURFACE_DESC desc;
@@ -1083,8 +1099,12 @@ lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* 
                                         static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
             texture->palette = nullptr;
             for (uint32_t level = 0; level < texture->levels; ++level) {
-                uint32_t size;
+                uint32_t size = 0;
                 read(&size, 4, 1);
+                if (size > texture_format::level_size(header, level)) {
+                    damaged = true;
+                    break;
+                }
                 D3DLOCKED_RECT rect;
                 (*d3d)->LockRect(level, &rect, nullptr, 0);
                 read(rect.pBits, static_cast<int>(size), 1);
@@ -1092,47 +1112,70 @@ lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* 
             }
         }
         add_to_table(table, texture);
+        if (damaged) {
+            debug::printf("%s: texture %08x has a level larger than its size\n", name, header.checksum);
+            break;
+        }
     }
     file::shut(file);
     return table;
 }
 
 // 0x004CB420
-lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, lists::KeyMap* table, bool remake)
+lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, size_t size, lists::KeyMap* table,
+                                                 bool remake)
 {
-    const auto* p = reinterpret_cast<const uint32_t*>(*cursor); // (the cursor not moved on, as the original)
-    int count = static_cast<int>(p[1]);
-    p += 2;
+    // Read through texture_format's reader, bounded by `size` (the cursor not moved on, as the original). Not
+    // original - a texture or level past the end, or a level larger than its texture's, stops the dictionary there.
+    util::ByteReader reader(*cursor, size);
+    texture_format::DictionaryHeader dictionary;
+    if (!texture_format::read_dictionary_header(reader, &dictionary))
+        return table;
+    int count = dictionary.count;
     if (remake)
         table = remake_table(table, static_cast<uint32_t>(count));
     uint32_t format = 0; // (as the file loader's)
     for (int i = count; i > 0; --i) {
+        texture_format::TextureHeader header;
+        if (!texture_format::read_texture_header(reader, &header)) {
+            debug::printf("texture dictionary: cut short\n");
+            break;
+        }
         TextureRef* texture = new_engine_texture();
-        texture->checksum = *p++;
-        uint32_t width = *p++, height = *p++, levels = *p++, depth = *p++, palette_depth = *p++, compression = *p++;
-        uint32_t palette_size = *p++;
-        texture->levels = static_cast<uint8_t>(levels);
-        texture->width = static_cast<uint16_t>(width);
-        texture->height = static_cast<uint16_t>(height);
-        texture->depth = static_cast<uint8_t>(depth);
-        texture->unknowne_ = static_cast<uint8_t>(palette_depth);
-        texture->unknownf_ = static_cast<uint8_t>(compression);
-        format = pixel_layout(static_cast<uint8_t>(compression), static_cast<uint8_t>(depth), format);
+        texture->checksum = header.checksum;
+        texture->levels = static_cast<uint8_t>(header.levels);
+        texture->width = static_cast<uint16_t>(header.width);
+        texture->height = static_cast<uint16_t>(header.height);
+        texture->depth = static_cast<uint8_t>(header.depth);
+        texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
+        texture->unknownf_ = static_cast<uint8_t>(header.compression);
+        format = pixel_layout(static_cast<uint8_t>(header.compression), static_cast<uint8_t>(header.depth), format);
         auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
-        input_port()->CreateTexture(static_cast<uint16_t>(width), static_cast<uint16_t>(height),
-                                    static_cast<uint8_t>(levels), 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED,
-                                    d3d, nullptr);
-        if (!palette_size)
+        input_port()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
+                                    static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
+                                    D3DPOOL_MANAGED, d3d, nullptr);
+        // (no palette read: the memory loader expects none, as the original)
+        if (!header.palette_size)
             texture->palette = nullptr;
+        bool damaged = false;
         for (uint32_t level = 0; level < texture->levels; ++level) {
-            uint32_t size = *p++;
+            const uint8_t* texels = nullptr;
+            uint32_t level_bytes = 0;
+            if (!texture_format::read_level(reader, &texels, &level_bytes) ||
+                level_bytes > texture_format::level_size(header, level)) {
+                damaged = true;
+                break;
+            }
             D3DLOCKED_RECT rect;
-            (*reinterpret_cast<IDirect3DTexture9**>(&texture->texture))->LockRect(level, &rect, nullptr, 0);
-            std::memcpy(rect.pBits, p, size);
-            p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p) + size);
-            (*reinterpret_cast<IDirect3DTexture9**>(&texture->texture))->UnlockRect(level);
+            (*d3d)->LockRect(level, &rect, nullptr, 0);
+            std::memcpy(rect.pBits, texels, level_bytes);
+            (*d3d)->UnlockRect(level);
         }
         add_to_table(table, texture);
+        if (damaged) {
+            debug::printf("texture dictionary: texture %08x damaged\n", header.checksum);
+            break;
+        }
     }
     return table;
 }
@@ -1167,15 +1210,15 @@ bool PcTexDict::ingest_file(const char* name)
 }
 
 // 0x004CB7C0
-bool PcTexDict::load_memory(const uint8_t* data)
+bool PcTexDict::load_memory(const uint8_t* data, size_t size)
 {
     auto* table = textures_;
     if (!table) {
-        load_textures_from_memory(&data, nullptr, false);
+        load_textures_from_memory(&data, size, nullptr, false);
     } else if (!has_textures(table)) {
-        textures_ = load_textures_from_memory(&data, table, true);
+        textures_ = load_textures_from_memory(&data, size, table, true);
     } else {
-        load_textures_from_memory(&data, table, false);
+        load_textures_from_memory(&data, size, table, false);
     }
     return true;
 }
@@ -1187,10 +1230,10 @@ PcTexDict::PcTexDict(const char* name) : TextureSet(name, true) { ingest_file(na
 PcTexDict* __cdecl load_tex_dict_file(const char* name) { return new PcTexDict(name); }
 
 // 0x004C72E0
-PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data)
+PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
 {
     auto* dict = new PcTexDict(checksum);
-    dict->load_memory(data); // (called on null without memory, as the original)
+    dict->load_memory(data, size); // (called on null without memory, as the original)
     return dict;
 }
 

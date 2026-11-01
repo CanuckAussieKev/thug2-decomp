@@ -17,6 +17,7 @@
 #include "engine/core/checksums.h"
 #include "engine/file/bundle_format.h"
 #include "engine/file/pre_format.h"
+#include "engine/gfx/texture_format.h"
 #include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "tests/format_check_files.h"
@@ -274,6 +275,61 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
           name + ": a count past the capacity refused");
 }
 
+// --- texture dictionaries (.tex) -----------------------------------------------------------------------------------
+
+int g_level_size_mismatches = 0;
+
+void check_texture_dictionary(const std::string& name, const uint8_t* data, size_t size)
+{
+    util::ByteReader reader(data, size);
+    texture_format::DictionaryHeader header;
+    if (!texture_format::read_dictionary_header(reader, &header)) {
+        check(false, name + ": dictionary header");
+        return;
+    }
+    // the original memory loader's walk in place: the count at +4, eight words a texture, each level {size, texels}
+    const auto* p = reinterpret_cast<const uint32_t*>(data);
+    check(static_cast<int>(p[1]) == header.count, name + ": the count as in place");
+    p += 2;
+    for (int i = 0; i < header.count; ++i) {
+        texture_format::TextureHeader texture;
+        if (!texture_format::read_texture_header(reader, &texture)) {
+            check(false, name + ": texture " + std::to_string(i) + " header");
+            return;
+        }
+        std::string what = name + ": texture " + std::to_string(i);
+        check(p[0] == texture.checksum && p[1] == texture.width && p[2] == texture.height && p[3] == texture.levels &&
+                  p[4] == texture.depth && p[5] == texture.palette_depth && p[6] == texture.compression &&
+                  p[7] == texture.palette_size,
+              what + ": header as in place");
+        p += 8;
+        // (the memory loader skips no palette: dictionaries with one are only read by the file loader)
+        if (!reader.skip(texture.palette_size)) {
+            check(false, what + ": palette");
+            return;
+        }
+        p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p) + texture.palette_size);
+        for (uint32_t level = 0; level < texture.levels; ++level) {
+            const uint8_t* texels = nullptr;
+            uint32_t level_bytes = 0;
+            if (!texture_format::read_level(reader, &texels, &level_bytes)) {
+                check(false, what + ": level " + std::to_string(level));
+                return;
+            }
+            check(*p == level_bytes && reinterpret_cast<const uint8_t*>(p + 1) == texels,
+                  what + ": level as in place");
+            p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p + 1) + level_bytes);
+            if (level_bytes != texture_format::level_size(texture, level)) {
+                if (g_level_size_mismatches++ < 5)
+                    std::printf("  note %s level %u: %u bytes, %ux%u depth %u compression %u expects %u\n",
+                                what.c_str(), level, level_bytes, texture.width, texture.height, texture.depth,
+                                texture.compression, texture_format::level_size(texture, level));
+            }
+        }
+    }
+    check(reader.remaining() == 0, name + ": the textures end at the file's end");
+}
+
 } // namespace
 
 void register_check(const std::string& extension, FileCheck check_function)
@@ -286,6 +342,7 @@ void fail(const std::string& what) { check(false, what); }
 int run(const std::filesystem::path& data)
 {
     register_check(".cut", check_bundle);
+    register_check(".tex", check_texture_dictionary);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -314,6 +371,7 @@ int run(const std::filesystem::path& data)
             check_file(std::filesystem::relative(entry.path(), data).string(), file.data(), file.size());
         }
     }
+    std::printf("texture levels not of their computed size: %d\n", g_level_size_mismatches);
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());

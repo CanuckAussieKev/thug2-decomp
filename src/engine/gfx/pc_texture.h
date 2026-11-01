@@ -119,7 +119,8 @@ public:
     // 0x004CB380 / 0x004CB7C0: the textures of a .tex file / image in memory added - the table remade to fit when it
     // has none yet. True.
     bool ingest_file(const char* name);
-    bool load_memory(const uint8_t* data);
+    // (not original: `size` - the image's bytes, the bound for its reader)
+    bool load_memory(const uint8_t* data, size_t size);
     // 0x004C9AF0 (0x004C9F60 the scalar deleting destructor): a jump to the engine's.
     ~PcTexDict() override = default;
     // 0x004C9B00 (vtable slot 1): a new texture loaded from a file (the engine's 0x0049F220 with 1). Returns it.
@@ -147,12 +148,15 @@ static_assert(sizeof(PcTexDict) == 0x14, "layout must match the original");
 // filled (its palette and levels read and dropped, as the original); the memory loader reads no palette and
 // leaves the cursor where it was.
 lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* table, bool remake);
-lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, lists::KeyMap* table, bool remake);
+// (Not original: read through texture_format.h's reader - the memory loader bounded by `size`; a level larger than
+// its surface, or a count / level past the end, stops the dictionary there instead of writing / reading past.)
+lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, size_t size, lists::KeyMap* table,
+                                                 bool remake);
 
 // 0x004C7270: a dictionary loaded from a file. 0x004C72E0: one made with a checksum and loaded from memory (called
 // on null without memory, as the original). 0x004C7360: an empty one.
 PcTexDict* __cdecl load_tex_dict_file(const char* name);
-PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data);
+PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
 PcTexDict* __cdecl create_tex_dict(uint32_t checksum);
 
 // 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it (`bits_per_pixel` 4 copies half bytes).

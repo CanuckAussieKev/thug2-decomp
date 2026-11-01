@@ -287,15 +287,16 @@ TextureSet* __cdecl load_tex_dict(const char* path, int /*level*/, uint32_t offs
 }
 
 // 0x0049F050
-TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t /*size*/,
+TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t size,
                                               uint32_t /*a3*/, uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
 {
     memory::push_mem_profile("TEX_data_buffer"); // "TEX_data_buffer"
     uint32_t key = checksum + offset;
     TextureSet* dict = find_tex_dict(key);
     if (!dict) {
-        // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone)
-        dict = load_tex_dict_memory(key, data);
+        // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone - and,
+        // not original, the size as its reader's bound)
+        dict = load_tex_dict_memory(key, data, size);
         dict->checksum_ = key;
         loaded_tex_dicts().store_entry(key, dict);
     }
