@@ -20,6 +20,11 @@ class Entity;
 // (params, script) and return whether the script's `if` should be taken.
 namespace commands {
 
+// The network names (net_state_cfuncs.cpp; the command line sets them, winmain.cpp).
+extern char g_network_id[16];
+extern char g_network_password[12];
+extern char g_hosted_game_name[16];
+
 // --- the viewer, controllers, node arrays, preferences (game_cfuncs.cpp) --------------------------------------
 
 bool cfunc_set_viewer_anim(script::Struct* params, script::Script* script);               // 0x0059F610

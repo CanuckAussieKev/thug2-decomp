@@ -99,3 +99,8 @@ float avoid_distance(float angle, script::Struct* params);
 bool line_collides(const maths::Vec4& start, const maths::Vec4& end);
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_avoid_member_functions[54];
+} // namespace objects

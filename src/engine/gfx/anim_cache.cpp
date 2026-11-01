@@ -12,6 +12,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "platform/stopwatch.h"
+#include "engine/script/script_startup.h"
 
 namespace gfx {
 

@@ -900,3 +900,8 @@ void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 extern maths::Vec4 g_acid_hold;
 
 } // namespace skater
+
+namespace skater {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_core_member_functions[660];
+} // namespace skater

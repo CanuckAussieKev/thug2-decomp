@@ -1,5 +1,9 @@
 #pragma once
 
+#include "engine/objects/anim_movies.h"
+#include "engine/script/math_cfuncs.h"
+#include "game/skate/contest.h"
+
 // The front end's (and the animation controller's) float constants from the original's read-only data, by name.
 // The first group is defined in screen_element.cpp; the second are defined where their other users are.
 
@@ -22,21 +26,18 @@ extern float g_frames_per_second; // 0x00645EA0
 
 namespace commands {
 extern float g_degree_to_radian_ratio;    // 0x00645464, defined with its other users
-extern float g_script_radians_to_degrees; // 0x00645468, defined with its other users
 } // namespace commands
 namespace goals {
 extern float g_goal_life_seconds_per_millisecond; // 0x006461D8, defined with its other users
 } // namespace goals
 namespace objects {
 extern float g_float_zero;                    // 0x0066D520, defined with its other users
-extern float g_anim_movies_seconds_per_frame; // 0x006463B8, defined with its other users
 extern float g_anim_movies_one;               // 0x006453A8, defined with its other users
 } // namespace objects
 namespace render {
 extern float g_one_percent; // 0x0064544C, defined with its other users
 } // namespace render
 namespace modules {
-extern float g_competition_tiny; // 0x006453D4, defined with its other users
 } // namespace modules
 namespace gfx {
 extern float g_half;     // 0x006453BC, defined with its other users

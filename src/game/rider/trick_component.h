@@ -338,3 +338,8 @@ bool is_direction(uint32_t button);
 bool cfunc_do_next_trick(script::Struct* params, script::Script* script);
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_trick_component_member_functions[24];
+} // namespace objects

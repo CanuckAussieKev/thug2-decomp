@@ -100,3 +100,8 @@ public:
 };
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_flexible_particle_member_functions[156];
+} // namespace objects

@@ -37,6 +37,10 @@ struct ImFont;
 //     game's collision ray) - W A S D walk (the fly keys), Space / E jump, Shift runs, the mouse looks; Shift+` or Esc
 //     stops (the camera stays). For judging a level's scale without a test run.
 // Every key is the registry's (level_editor_actions.h: rebindable; registered here with Actions::enrol).
+namespace frontend::level_editor::ux8::pie {
+struct State;
+}
+
 namespace frontend::level_editor::ux8 {
 
 // --- the editor's hooks (level_editor.cpp) --------------------------------------------------------------------------
@@ -139,5 +143,8 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
               float max_width = 0.0f);
 // The preferences window's section (controller mode).
 void prefs_section();
+// The pie menu's state, and the view's centre on screen (where the pie opens).
+const pie::State& pie_now();
+void note_view_centre(float x, float y);
 
 } // namespace frontend::level_editor::ux8

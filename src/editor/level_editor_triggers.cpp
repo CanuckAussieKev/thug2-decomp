@@ -779,7 +779,7 @@ int partner(const std::vector<Spec>& specs, int index)
     if (index < 0 || index >= static_cast<int>(specs.size()))
         return -1;
     const Spec& s = specs[index];
-    Kind other;
+    Kind other{};
     if (s.kind == Kind::kGapStart)
         other = Kind::kGapEnd;
     else if (s.kind == Kind::kGapEnd)

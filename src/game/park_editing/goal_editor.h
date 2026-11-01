@@ -359,3 +359,8 @@ static_assert(offsetof(ObjectiveAuthoring, goals_) == 0x18 && offsetof(Objective
               "layout must match the original");
 
 } // namespace park_editing
+
+namespace park_editing {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_goal_editor_member_functions[216];
+} // namespace park_editing

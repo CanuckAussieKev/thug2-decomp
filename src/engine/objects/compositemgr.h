@@ -101,3 +101,9 @@ extern memory::owner<objects::EntityHub*> g_composite_registry;
 
 extern float g_pi;
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_composite_object_member_functions[186];
+extern uint32_t g_object_member_functions[102];
+} // namespace objects

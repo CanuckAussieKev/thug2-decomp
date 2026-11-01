@@ -161,3 +161,8 @@ struct VectorAt1c {
 static_assert(offsetof(VectorAt1c, vector_) == 0x1C, "layout must match the original");
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_anim_blender_member_functions[180];
+} // namespace objects

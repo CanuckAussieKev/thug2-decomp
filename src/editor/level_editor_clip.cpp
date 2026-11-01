@@ -87,7 +87,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
     for (const node_create::Spec& s : fragment.added) {
         node_create::Spec spec = s;
         if (!name_free(spec.name)) {
-            node_create::Kind kind;
+            node_create::Kind kind{};
             bool fixed = node_create::kind_of(spec, &kind) &&
                          (node_create::is_lobby_flag(spec.name) || spec.name.starts_with("TRG_CTF_"));
             if (fixed || !node_create::kind_of(spec, &kind)) {
@@ -126,7 +126,7 @@ objects::GameEntity* live_object(uint32_t id)
 // A level's own point node as a new node of its kind (false: not a kind the editor makes).
 bool spec_of_level_node(const nodes::Elem& n, node_create::Spec* spec)
 {
-    node_create::Kind kind;
+    node_create::Kind kind{};
     switch (n.family) {
     case nodes::Family::kSpawn:
         kind = (n.restart_types_ & nodes::kCtf) ? node_create::Kind::kTeamSpawn : node_create::Kind::kSpawn;
@@ -243,7 +243,7 @@ bool dup_from(std::string* message)
                 }
             }
             for (const node_create::Spec& spec : node_create::at_hand()) {
-                node_create::Kind kind;
+                node_create::Kind kind{};
                 if (!done && node_create::name_hash(spec.name) == s.node && !spec.owned &&
                     node_create::kind_of(spec, &kind)) {
                     fragment.added.push_back(spec);

@@ -48,4 +48,7 @@ public:
     uint8_t host_sock_addr_[0x10]; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
 };
 
+// The app's task (net_client.cpp; the server uses it too).
+void construct_app_task(AppHost* app);
+
 } // namespace net

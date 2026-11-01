@@ -286,3 +286,8 @@ extern bool g_rigid_body_draw_shape;
 extern bool g_rigid_body_draw_details;
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_rigid_body_member_functions[78];
+} // namespace objects

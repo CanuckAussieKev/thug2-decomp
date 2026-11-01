@@ -79,3 +79,8 @@ public:
 };
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_vehicle_camera_member_functions[12];
+} // namespace objects

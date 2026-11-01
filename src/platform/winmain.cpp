@@ -35,19 +35,10 @@
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/movie.h"
+#include "engine/script/game_cfuncs.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
-namespace online {
-extern char g_command_line_email[256];
-extern char g_command_line_password[16];
-extern char g_pending_password[10];
-} // namespace online
-namespace commands {
-extern char g_network_id[16];
-extern char g_network_password[12];
-extern char g_hosted_game_name[16];
-} // namespace commands
 
 namespace sys {
 

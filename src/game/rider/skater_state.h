@@ -168,3 +168,8 @@ struct SkaterStateHistoryFrame {
 };
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_skater_state_member_functions[114];
+} // namespace objects

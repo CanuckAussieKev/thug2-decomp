@@ -24,3 +24,8 @@ void register_vehicle_member_functions();
 void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params);
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_vehicle_wheel_member_functions[60];
+} // namespace objects

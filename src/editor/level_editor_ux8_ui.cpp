@@ -16,10 +16,6 @@
 
 namespace frontend::level_editor::ux8 {
 
-// (level_editor_ux8.cpp)
-const pie::State& pie_now();
-void note_view_centre(float x, float y);
-
 namespace {
 
 const ImU32 kCap = IM_COL32(60, 63, 68, 255);

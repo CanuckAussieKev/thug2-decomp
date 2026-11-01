@@ -95,4 +95,6 @@ struct Contest {
     bool is_ended();
 };
 
+extern float g_competition_tiny; // 0x006453D4
+
 } // namespace modules

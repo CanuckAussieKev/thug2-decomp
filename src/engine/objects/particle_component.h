@@ -108,3 +108,8 @@ public:
 extern memory::owner<render::EffectsDirector*> g_particle_hub;
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_particle_component_member_functions[126];
+} // namespace objects

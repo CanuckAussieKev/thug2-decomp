@@ -110,3 +110,8 @@ static_assert(offsetof(AutomobileDynamicsModule::BoneDesc, parent) == 0x08 &&
               "layout must match the original");
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_car_physics_member_functions[18];
+} // namespace objects

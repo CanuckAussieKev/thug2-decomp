@@ -21,6 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/compositemgr.h"
 #include "game/park_editing/piece_menu.h"
+#include "engine/script/script_startup.h"
 
 namespace objects {
 

@@ -43,48 +43,9 @@
 #include "game/rider/walk_physics.h"
 #include "engine/script/names.h"
 #include "engine/core/code_address.h"
-
-namespace park_editing {
-extern uint32_t g_goal_editor_member_functions[216];
-} // namespace park_editing
-
-namespace objects {
-extern uint32_t g_motion_path_member_functions[294];
-extern uint32_t g_anim_blender_member_functions[180];
-extern uint32_t g_object_proximity_member_functions[42];
-extern uint32_t g_sound_component_member_functions[12];
-extern uint32_t g_trick_component_member_functions[24];
-extern uint32_t g_pager_message_member_functions[36];
-extern uint32_t g_balance_trick_member_functions[12];
-extern uint32_t g_composite_object_member_functions[186];
-extern uint32_t g_object_member_functions[102];
-extern uint32_t g_fam_member_functions[18];
-extern uint32_t g_ped_logic_member_functions[174];
-extern uint32_t g_avoid_member_functions[54];
-extern uint32_t g_flexible_particle_member_functions[156];
-extern uint32_t g_particle_component_member_functions[126];
-extern uint32_t g_rigid_body_member_functions[78];
-extern uint32_t g_vehicle_wheel_member_functions[60];
-extern uint32_t g_vehicle_camera_member_functions[12];
-extern uint32_t g_stats_manager_member_functions[60];
-extern uint32_t g_color_cycle_member_functions[30];
-extern uint32_t g_vehicle_sound_member_functions[24];
-extern uint32_t g_car_physics_member_functions[18];
-extern uint32_t g_physics_control_member_functions[66];
-extern uint32_t g_walk_member_functions[114];
-extern uint32_t g_run_timer_member_functions[42];
-extern uint32_t g_looping_sound_member_functions[6];
-extern uint32_t g_skater_state_member_functions[114];
-extern uint32_t g_suspend_component_member_functions[12];
-extern uint32_t g_input_component_member_functions[90];
-extern uint32_t g_skeleton_component_member_functions[36];
-extern uint32_t g_stream_component_member_functions[30];
-extern uint32_t g_vibration_component_member_functions[12];
-} // namespace objects
-
-namespace skater {
-extern uint32_t g_core_member_functions[660];
-} // namespace skater
+#include "game/rider/looping_sound.h"
+#include "engine/objects/vehicle_wheel.h"
+#include "engine/objects/compositemgr.h"
 
 namespace script {
 

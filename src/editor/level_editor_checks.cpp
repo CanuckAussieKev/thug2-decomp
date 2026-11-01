@@ -564,7 +564,7 @@ void check_limits(std::vector<Issue>* out)
     for (const budget::Meter& m : budget::get_meters()) {
         if (m.limit <= 0.0 || m.bytes)
             continue;
-        Severity severity;
+        Severity severity{};
         if (m.used > m.limit)
             severity = Severity::kError;
         else if (m.used >= 0.9 * m.limit)

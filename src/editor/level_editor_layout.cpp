@@ -264,7 +264,7 @@ std::string emit_out(const FileLoad& file)
             for (size_t i = 0; i < a.types.size(); ++i)
                 out << (i ? "," : "") << a.types[i];
         }
-        node_create::Kind kind;
+        node_create::Kind kind{};
         if (node_create::kind_of(a, &kind) && kind == node_create::Kind::kLight) {
             out << " color=" << a.colour[0] << ',' << a.colour[1] << ',' << a.colour[2];
             char text[96];

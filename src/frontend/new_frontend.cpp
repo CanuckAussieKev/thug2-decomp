@@ -2520,7 +2520,7 @@ std::string automation_command(const std::string& line, bool* done)
             return "error: fe " + verb + " <screen>/<item> [seconds]";
         std::string screen_name = words[1].substr(0, words[1].find('/'));
         std::string item = words[1].substr(words[1].find('/') + 1);
-        Screen screen;
+        Screen screen{};
         if (!screen_from_name(screen_name, &screen))
             return "error: no screen " + screen_name;
         if (get_refused(screen, item))
@@ -2575,7 +2575,7 @@ bool automation_screen_up(const std::string& name)
     if (is_switched_on() && !showing() && s_mirror.get_up() &&
         _stricmp(name.c_str(), mirror::kind_name(s_mirror.get_shown().kind)) == 0)
         return true;
-    Screen screen;
+    Screen screen{};
     return is_switched_on() && screen_from_name(name, &screen) && shown_and_idle(screen);
 }
 

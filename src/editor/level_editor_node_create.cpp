@@ -324,7 +324,7 @@ std::vector<Prop> get_fields(const Spec& spec)
         fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (a ledge's HangLeft / HangRight)
         return fields;
     }
-    Kind kind;
+    Kind kind{};
     if (!kind_of(spec, &kind)) {
         fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (another module's node)
         return fields;
@@ -439,7 +439,7 @@ void put_back(LinkChain* list, const Spec& spec, int index)
 namespace {
 bool is_crown(const Spec& s)
 {
-    Kind kind;
+    Kind kind{};
     return kind_of(s, &kind) && kind == Kind::kCrown;
 }
 } // namespace
@@ -686,7 +686,7 @@ bool get_sync()
 // What the game would have made for the node at the level's load (cfunc_parse_node_array), made now.
 void make_live(const Spec& spec, script::Struct* node)
 {
-    Kind kind;
+    Kind kind{};
     if (!kind_of(spec, &kind))
         return;
     uint32_t name = name_hash(spec.name);
@@ -717,7 +717,7 @@ void make_live(const Spec& spec, script::Struct* node)
 
 void kill_live(const Spec& spec)
 {
-    Kind kind;
+    Kind kind{};
     if (!kind_of(spec, &kind))
         return;
     uint32_t name = name_hash(spec.name);

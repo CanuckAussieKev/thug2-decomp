@@ -245,7 +245,7 @@ Filter parse_filter(const std::string& search)
         size_t colon = word.find(':');
         if (colon != std::string::npos && colon > 0) {
             std::string key = get_lower(word.substr(0, colon)), value = word.substr(colon + 1);
-            nodes::Family family;
+            nodes::Family family{};
             if (key == "group") {
                 filter.group = value;
                 // ("group:Name With Spaces" - the rest of the words up to the next filter belong to it)

@@ -20,6 +20,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/code_address.h"
 #include "engine/core/stubs.h"
+#include "engine/script/script_startup.h"
 
 namespace gfx {
 

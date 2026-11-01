@@ -815,7 +815,8 @@ void check_rails()
 
 } // namespace
 
-int run() // (format_check.cpp declares it)
+// NOLINTNEXTLINE(misc-use-internal-linkage): format_check.cpp declares it
+int run()
 {
     std::printf("game messages (batch 9 on)\n");
     check_skater_messages();

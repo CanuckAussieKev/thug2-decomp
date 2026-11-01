@@ -305,3 +305,8 @@ static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(Pedestr
 const char* profile_voice();
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_ped_logic_member_functions[174];
+} // namespace objects

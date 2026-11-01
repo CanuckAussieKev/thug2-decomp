@@ -93,4 +93,6 @@ public:
 extern float g_float_zero;
 
 extern float g_anim_movies_one;
+extern float g_anim_movies_seconds_per_frame; // 0x006463B8
+
 } // namespace objects

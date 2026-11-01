@@ -13,7 +13,6 @@
 
 namespace net {
 
-void construct_app_task(AppHost* app); // net_client.cpp
 
 namespace {
 

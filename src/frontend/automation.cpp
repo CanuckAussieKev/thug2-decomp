@@ -477,7 +477,7 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         command.target = get_rest(line);
     } else if (keyword == "crash") {
         command.op = Op::kCrash;
-        TestFault fault;
+        TestFault fault{};
         if (count != 2 || !parse_test_fault(tokens[1], &fault))
             return fail(std::string("crash <kind>: ") + test_fault_names());
         command.target = test_fault_name(fault);

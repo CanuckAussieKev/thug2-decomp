@@ -72,3 +72,8 @@ static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == 0x18 
               "layout must match the original");
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_object_proximity_member_functions[42];
+} // namespace objects

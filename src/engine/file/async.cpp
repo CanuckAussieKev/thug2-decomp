@@ -384,8 +384,6 @@ constexpr DWORD kStatusPending = 0x103; // OVERLAPPED.Internal while the I/O is 
 // Overlapped (truly asynchronous, unbuffered) reads are used on Windows NT 6 (Vista) and later.
 bool& use_overlapped_io() { return g_use_overlapped_io; }
 
-} // namespace
-
 class PcAsyncFileHandle final : public AsyncFileHandle {
 public:
     // 0x005B9B80's construction: the base's, then no staging buffer and no file.
@@ -416,6 +414,8 @@ public:
     HANDLE file_ref_;
     OVERLAPPED async_ctl_;
 };
+
+} // namespace
 static_assert(offsetof(PcAsyncFileHandle, file_ref_) == 0x88 && sizeof(PcAsyncFileHandle) == 0xA0,
               "layout must match the original");
 

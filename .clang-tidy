@@ -88,7 +88,6 @@ Checks:
   - '-cppcoreguidelines-special-member-functions'
   - '-cppcoreguidelines-pro-type-union-access'
   - '-cppcoreguidelines-use-enum-class'
-  - '-misc-use-internal-linkage'
   - '-cppcoreguidelines-pro-type-const-cast'
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']

@@ -65,3 +65,8 @@ static_assert(offsetof(FamComponent, fam_) == 0x18 && offsetof(FamComponent, fee
               "layout must match the original");
 
 } // namespace objects
+
+namespace objects {
+// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+extern uint32_t g_fam_member_functions[18];
+} // namespace objects

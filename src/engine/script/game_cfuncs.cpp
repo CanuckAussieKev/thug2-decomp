@@ -56,6 +56,7 @@
 #include "engine/gfx/movie.h"
 #include "platform/crt.h"
 #include "platform/compiler.h"
+#include "engine/script/cfuncs_scene.h"
 
 namespace commands {
 

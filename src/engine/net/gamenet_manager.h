@@ -730,4 +730,10 @@ extern bool g_game_posted;
 extern int g_queued_count;
 extern bool g_cheat_flag;
 
+// The command line's login (-email / -password, buddy_status.cpp) and a session's password to join with
+// (-PASSWORD, gamenet_join.cpp) - set by winmain.cpp.
+extern char g_command_line_email[256];
+extern char g_command_line_password[16];
+extern char g_pending_password[10];
+
 } // namespace online

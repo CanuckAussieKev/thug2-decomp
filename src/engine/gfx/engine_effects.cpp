@@ -381,11 +381,15 @@ void kill_texture_splats_of_texture(uint32_t texture)
 }
 
 // A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (frame_clock::GetTime).
+namespace {
+
 struct RecentSplat {
     maths::Vec4 pos;
     uint32_t follow; // +0x10
     uint32_t time;   // +0x14
 };
+
+} // namespace
 
 // 0x004928A0
 bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,

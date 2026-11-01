@@ -4193,7 +4193,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
         if (node_create::name_hash(list[i].name) == g_node_name)
             at = i;
     }
-    node_create::Kind kind;
+    node_create::Kind kind{};
     if (at < 0 || list[at].owned || list[at].like || !list[at].links.empty() ||
         !node_create::kind_of(list[at], &kind) || kind == node_create::Kind::kFlagSet) {
         hud::get_message("Only added nodes can be duplicated");

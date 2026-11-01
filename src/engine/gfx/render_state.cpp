@@ -436,7 +436,7 @@ void choose_blend_mode(uint32_t mode)
 void set_fixed_function_stages(void* shader, uint32_t factor)
 {
     // The last stage-0 state each one sets, then stage 1 off.
-    D3DTEXTURESTAGESTATETYPE last_type;
+    D3DTEXTURESTAGESTATETYPE last_type{};
     DWORD last_value = 0;
     if (shader == get_shader(kPixelShader964)) {
         set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE4X);

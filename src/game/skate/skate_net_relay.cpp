@@ -57,10 +57,7 @@
 #include "game/skate/skate_net_messages.h"
 #include "engine/net/skater_messages.h"
 #include "engine/net/play_messages.h"
-
-namespace gfx {
-extern float g_one_over255; // 0x00645D70 (defined in tod_manager.cpp)
-} // namespace gfx
+#include "engine/gfx/tod_manager.h"
 
 namespace modules {
 

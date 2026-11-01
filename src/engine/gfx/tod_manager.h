@@ -289,4 +289,6 @@ bool cfunc_tod_manager_advance_tod_state(script::Struct* params, script::Script*
 extern float g_thousand;
 extern float g_hundred;
 extern float g_two_to32;
+extern float g_one_over255; // 0x00645D70: 1 / 255
+
 } // namespace gfx

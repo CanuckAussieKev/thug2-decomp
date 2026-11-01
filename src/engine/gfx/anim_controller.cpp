@@ -29,6 +29,7 @@
 #include "frontend/screen_constants.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/script/script_startup.h"
 
 namespace gfx {
 
