@@ -534,8 +534,8 @@ bool get_snipping_takes_print_screen()
 
 bool is_switched_on()
 {
-    static const bool on = config_int("features", "screenshots", 1) != 0;
-    return on;
+    static const bool kEnabled = config_int("features", "screenshots", 1) != 0;
+    return kEnabled;
 }
 
 int get_key() { return g_key; }

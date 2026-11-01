@@ -317,7 +317,7 @@ void RiderGapTracker::clear_gaps()
 void RiderGapTracker::start_gap_trick(script::Struct* params, script::Script* script)
 {
     void* memory = memory::alloc_zeroed(sizeof(TrickNameEntry));
-    auto* trick = memory ? new (memory) TrickNameEntry : nullptr;
+    auto* trick = memory ? memory::construct_in<TrickNameEntry>(memory) : nullptr;
     add_to_front(gap_move_chain_, &trick->list_link_);
     trick_node(trick) = script->list_link_;
     trick_done(trick) = 0;
@@ -370,7 +370,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
         gap = next;
     }
     void* memory = memory::alloc_zeroed(sizeof(TrickListEntry));
-    auto* gap = memory ? new (memory) TrickListEntry : nullptr;
+    auto* gap = memory ? memory::construct_in<TrickListEntry>(memory) : nullptr;
     add_to_front(gaps_, &gap->list_link_);
     get_gap_id(gap) = gap_id;
     gap_node(gap) = script->list_link_;

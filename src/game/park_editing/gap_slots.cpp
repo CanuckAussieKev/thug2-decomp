@@ -5,6 +5,8 @@
 // The manager (0xA8 bytes, park.h) keeps up to 32 slots; a whole gap takes two - its first end's and its second end's -
 // both pointing at the same GapRegistry::Gap.
 
+#include "engine/core/str.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -93,10 +95,7 @@ GapDetails* GapRegistry::get_gap_info(int index, int* half)
         return nullptr;
     *half = get_half(this, index);
     // The name copied over the text (unbounded: as the original's inline strcpy).
-    char* to = gaps_ptr_[index]->details_.text_;
-    const char* from = gaps_ptr_[index]->label_;
-    while ((*to++ = *from++) != '\0') {
-    }
+    text::copy_unbounded(gaps_ptr_[index]->details_.text_, gaps_ptr_[index]->label_);
     return &gaps_ptr_[index]->details_;
 }
 

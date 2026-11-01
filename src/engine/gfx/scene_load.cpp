@@ -86,7 +86,7 @@ HierarchyNode* new_hierarchy(int count)
 SceneRef* new_mesh_list(bool mesh_flag)
 {
     void* memory = memory::alloc(sizeof(SceneRef));
-    SceneRef* list = memory ? new (memory) SceneRef : nullptr;
+    SceneRef* list = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
     list->unknown40 = mesh_flag;
     return list;
 }
@@ -175,7 +175,7 @@ void* load_scene_from_file(const char* name, void* textures, bool with_super_sec
     scene_format::FileStream in(file);
     in.skip(scene_format::kHeaderSize); // (the header's three words: not used)
     list->materials = load_materials_from_file(in, texture_table(textures));
-    uint8_t* scene = read_sectors(in, list, with_super_sectors, flag_8d, [&in, sector_flags](PcSector* sector) {
+    void* scene = read_sectors(in, list, with_super_sectors, flag_8d, [&in, sector_flags](PcSector* sector) {
         return sector->ingest_from_file(in, static_cast<uint32_t>(sector_flags));
     });
     file::shut(file);

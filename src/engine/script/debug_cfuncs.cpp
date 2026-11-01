@@ -73,7 +73,7 @@ bool cfunc_display_free_mem(script::Struct*, script::Script*)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* params = memory ? new (memory) script::Struct : nullptr;
+    script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region_;
         params->get_clear();

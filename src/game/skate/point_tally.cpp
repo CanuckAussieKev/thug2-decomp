@@ -73,7 +73,7 @@ int g_spin_multiplier[6]{2, 3, 4, 5, 6, 7};
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? new (made) script::Struct : nullptr;
+    return made ? memory::construct_in<script::Struct>(made) : nullptr;
 }
 
 void delete_structure(script::Struct* structure)

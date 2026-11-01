@@ -64,7 +64,7 @@ void uncouple(memory::ListNode* node)
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {

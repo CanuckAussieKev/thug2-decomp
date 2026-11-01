@@ -172,7 +172,7 @@ PileUp::~PileUp()
 void PileUp::stack_on()
 {
     void* memory = memory::alloc_zeroed(sizeof(StackList));
-    auto* list = memory ? new (memory) StackList : nullptr;
+    auto* list = memory ? memory::construct_in<StackList>(memory) : nullptr;
     top_side_ = list;
     insert_front(&lists_, list->list_link_); // (a failed allocation crashes here, as in the original)
     pushed_ = true;

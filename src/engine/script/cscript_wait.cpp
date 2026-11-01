@@ -45,7 +45,7 @@ using objects::SignalRouteTable;
 SignalRouteTable* new_event_handler_table()
 {
     void* memory = memory::alloc(sizeof(SignalRouteTable));
-    return memory ? new (memory) SignalRouteTable : nullptr;
+    return memory ? memory::construct_in<SignalRouteTable>(memory) : nullptr;
 }
 
 // A new, empty structure.

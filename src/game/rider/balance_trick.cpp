@@ -52,7 +52,7 @@ Rider* skater_of(GameEntity* object) { return static_cast<Rider*>(object); }
 script::Struct* spawn_param_bag()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
+    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
 }
 
 } // namespace

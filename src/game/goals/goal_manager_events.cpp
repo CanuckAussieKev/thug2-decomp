@@ -64,7 +64,7 @@ const char* const kNoDescription = "Define <goal_description> for this goal and 
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? new (made) script::Struct : nullptr;
+    return made ? memory::construct_in<script::Struct>(made) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -76,7 +76,7 @@ void delete_structure(script::Struct* structure)
 script::Array* alloc_script_array()
 {
     script::Array* made = script::alloc_script_array();
-    return made ? new (made) script::Array : nullptr;
+    return made ? memory::construct_in<script::Array>(made) : nullptr;
 }
 void free_array(script::Array* array)
 {

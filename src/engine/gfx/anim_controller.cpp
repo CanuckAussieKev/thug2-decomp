@@ -492,7 +492,7 @@ PartialClipDriver::PartialClipDriver(AnimTimeline* timeline) : AnimDriver(timeli
     frame_source_ = source_frame(blend_source_, false);
     anim_set_ = current_anim_set(object_of(this));
     void* memory = memory::alloc_zeroed(sizeof(AnimTimeline));
-    partial_ = memory ? new (memory) AnimTimeline : nullptr;
+    partial_ = memory ? memory::construct_in<AnimTimeline>(memory) : nullptr;
     frame_source_ = nullptr;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }

@@ -262,7 +262,7 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
     void* block = memory::alloc_zeroed(kPlayerInfoSize);
-    PlayerRecord* player = block ? new (block) PlayerRecord(flags) : nullptr;
+    PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, flags) : nullptr;
     player->skater_ = static_cast<objects::Rider*>(skater); // (out of memory: written through null, as the original)
     player->conn_ = conn;
     if (is_own_player(player)) {

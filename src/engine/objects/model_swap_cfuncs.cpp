@@ -136,9 +136,9 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     void* memory = memory::alloc(0x1C);
-    uint8_t* temp =
-        memory ? reinterpret_cast<uint8_t*>(new (memory) gfx::Rig(*reinterpret_cast<gfx::RigData**>(skeleton_a + 8)))
-               : nullptr;
+    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(memory::construct_in<gfx::Rig>(
+                                 memory, *reinterpret_cast<gfx::RigData**>(skeleton_a + 8)))
+                           : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     copy_skeleton(temp, skeleton_a);
     copy_skeleton(skeleton_a, skeleton_b);

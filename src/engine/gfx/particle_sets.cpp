@@ -30,7 +30,7 @@ bool is_game_halted() { return objects::g_simulation_halted; }
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
+    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
 }
 
 maths::Vec4* min_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out) { return min_vector(out, a, b); }

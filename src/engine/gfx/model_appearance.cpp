@@ -84,7 +84,7 @@ FaceSkin* construct_face_texture(void* memory) { return new (memory) FaceSkin; }
 script::Struct* new_temp_struct()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_temp_struct(script::Struct* s)
 {

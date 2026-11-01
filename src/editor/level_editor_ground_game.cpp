@@ -78,7 +78,7 @@ render::IdxStore* new_index_buffer(uint32_t bytes)
     void* memory = crt::alloc_block(0x18);
     if (!memory)
         return nullptr;
-    return new (memory) render::IdxStore(bytes, 0, 0x65);
+    return memory::construct_in<render::IdxStore>(memory, bytes, 0, 0x65);
 }
 void upload_indices(render::IdxStore* buffer)
 {

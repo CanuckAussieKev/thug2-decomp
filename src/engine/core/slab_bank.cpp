@@ -1,5 +1,7 @@
 #include "engine/core/slab_bank.h"
 
+#include "engine/core/str.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
@@ -29,9 +31,7 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
 
     // The original copies with no length limit, like strcpy.
     const char* source = name ? name : "unnamed";
-    char* out = label_;
-    while ((*out++ = *source++) != '\0') {
-    }
+    text::copy_unbounded(label_, source);
 }
 
 // 0x005BA3D0
@@ -101,7 +101,7 @@ void set_up(int index, int count)
     if (index != 0)
         return;
     void* memory = alloc(sizeof(SlabBank));
-    pool_at(0) = memory ? new (memory) SlabBank(12, count, "HashItem") : nullptr;
+    pool_at(0) = memory ? memory::construct_in<SlabBank>(memory, 12, count, "HashItem") : nullptr;
 }
 
 // 0x005BC450

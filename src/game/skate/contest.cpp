@@ -83,7 +83,7 @@ bool competition_goal_active() { return goals::get_objective_board()->get_active
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
+    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -95,7 +95,7 @@ void delete_structure(script::Struct* structure)
 script::Array* alloc_script_array()
 {
     script::Array* array = script::alloc_script_array();
-    return array ? new (array) script::Array : nullptr;
+    return array ? memory::construct_in<script::Array>(array) : nullptr;
 }
 // An array handed to a structure (which copied it): its contents and itself freed.
 void free_array(script::Array* array)

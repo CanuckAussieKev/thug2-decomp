@@ -63,7 +63,7 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
     if (!memory::g_manager_ready)
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(sizeof(memory::SlabBank), 1, nullptr);
-    memory::SlabBank* pool = memory ? new (memory) memory::SlabBank(item_size, count, name) : nullptr;
+    memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
     pools.pools[pools.current] = pool;
     reinterpret_cast<uint8_t*>(&pools.unknown4)[pools.current] = 1;
 }

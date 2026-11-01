@@ -91,7 +91,7 @@ uint32_t active_ruleset_label()
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
+    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -124,7 +124,7 @@ void uncouple(memory::ListNode* node)
 ObjectiveNpc* new_goal_ped(script::Struct* params)
 {
     void* memory = memory::alloc(sizeof(ObjectiveNpc));
-    return memory ? new (memory) ObjectiveNpc(params) : nullptr;
+    return memory ? memory::construct_in<ObjectiveNpc>(memory, params) : nullptr;
 }
 inline void destroy_goal_ped_body(ObjectiveNpc*) {}
 

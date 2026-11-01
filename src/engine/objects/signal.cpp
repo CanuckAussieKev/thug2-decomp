@@ -319,10 +319,12 @@ void SignalRouteTable::compact()
     TableRow* out = entries;
     for (int i = 0; i < num_; ++i) {
         TableRow& entry = entries_[i];
-        if (entry.script != kNullScript)
-            *out++ = entry;
-        else
+        if (entry.script != kNullScript) {
+            *out = entry;
+            ++out;
+        } else {
             free_params(entry);
+        }
     }
     memory::Hub::get_pull()->dealloc(entries_);
     num_ = live;

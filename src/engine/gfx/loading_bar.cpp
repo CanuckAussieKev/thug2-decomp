@@ -163,7 +163,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     if (render::select_picture_up()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
         // safety yellow rule on top, a little wider and taller than the bar's frame.
-        const float pad_x = static_cast<float>(x_scale * 18.0);
+        const auto pad_x = static_cast<float>(x_scale * 18.0);
         const float pad_y = y_scale * 14.0f;
         const float rule = y_scale * 2.0f;
         draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, bottom_f + pad_y, 0xFF0A0A0A, 0xFF0A0A0A);

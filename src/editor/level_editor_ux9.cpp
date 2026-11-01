@@ -139,10 +139,10 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         d.x0 = rect[0], d.z0 = rect[1], d.x1 = rect[2], d.z1 = rect[3];
     }
     ImGui::DragFloat("Ground at", &d.base, 1.0f, 0.0f, 0.0f, "%.1f");
-    static const char* g_sides[4] = {"-X side", "+X side", "-Z side", "+Z side"};
+    static const char* const kSideNames[4] = {"-X side", "+X side", "-Z side", "+Z side"};
     for (int side = 0; side < 4; ++side) {
         ImGui::PushID(side);
-        if (ImGui::BeginCombo(g_sides[side], ramp_name(d.ramps[side]))) {
+        if (ImGui::BeginCombo(kSideNames[side], ramp_name(d.ramps[side]))) {
             for (int r = 0; r < 3; ++r) {
                 auto ramp = static_cast<ground::Ramp>(r);
                 if (ImGui::Selectable(ramp_name(ramp), d.ramps[side] == ramp))

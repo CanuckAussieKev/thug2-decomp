@@ -1472,7 +1472,7 @@ SymbolTableEntry::SymbolTableEntry()
 SymbolTableEntry* create_symbol(uint32_t name)
 {
     void* memory = g_symbol_pools.carve(sizeof(SymbolTableEntry));
-    SymbolTableEntry* entry = memory ? new (memory) script::SymbolTableEntry : nullptr;
+    SymbolTableEntry* entry = memory ? memory::construct_in<script::SymbolTableEntry>(memory) : nullptr;
     entry->name = name;
     entry->unknown0 |= 1;
     link_symbol(entry);

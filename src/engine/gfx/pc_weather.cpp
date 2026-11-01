@@ -494,7 +494,8 @@ void PcWeather::tick_grid()
             } else {
                 grid[index] = static_cast<uint8_t>(levels);
                 ++levels;
-                *level++ = height;
+                *level = height;
+                ++level;
             }
         }
     }

@@ -121,7 +121,7 @@ void StreamSlot::fabricate(int type, bool unknown, int plays)
 {
     if (type == 0) {
         void* memory = memory::alloc_zeroed(sizeof(WadStream));
-        wad = memory ? new (memory) WadStream(unknown) : nullptr;
+        wad = memory ? memory::construct_in<WadStream>(memory, unknown) : nullptr;
     } else if (type == 1) {
         void* memory = memory::alloc_zeroed(sizeof(BinkStream));
         bink = memory ? construct_bink_stream(memory, unknown, plays) : nullptr;

@@ -69,7 +69,7 @@ ParamBag* new_script_struct()
     const int current = script::g_struct_pools.current;
     memory::SlabBank* pool = script::g_struct_pools.pools[current];
     void* memory = pool ? pool->carve() : memory::alloc(8);
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_script_struct(ParamBag* s)
 {

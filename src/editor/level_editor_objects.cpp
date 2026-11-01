@@ -158,13 +158,13 @@ void count_one(objects::Entity* object, void* data)
     if (!model_box(composite, &box)) {
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
-            render::RenderModel* model =
+            const render::RenderModel* model =
                 component ? static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_ : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                     "(flags %02X)",
                     caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
                     composite->at_point_.z, composite->composite_flags_, static_cast<void*>(component),
-                    static_cast<void*>(model), model ? model->flag_bits_ : 0);
+                    static_cast<const void*>(model), model ? model->flag_bits_ : 0);
         }
         return;
     }

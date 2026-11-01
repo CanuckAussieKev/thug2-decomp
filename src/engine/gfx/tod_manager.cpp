@@ -157,7 +157,7 @@ uint32_t color_from_array(script::Array* array)
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -781,7 +781,7 @@ void add_bloom_params(int on, int bloom1, int bloom2, uint32_t strength, uint32_
     out->put_int(kBloom1, bloom1);
     out->put_int(kBloom2, bloom2);
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? new (memory) script::Array : nullptr;
+    script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
     array->set_element(0, strength & 0xFF);
     array->set_element(1, strength >> 8 & 0xFF);
@@ -861,7 +861,7 @@ void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, u
 CtodManager::CtodManager() : unknown4_(spawn_param_table())
 {
     void* table = memory::alloc(sizeof(lists::KeyMap));
-    dead_objects_ = table ? new (table) lists::KeyMap(8) : nullptr;
+    dead_objects_ = table ? memory::construct_in<lists::KeyMap>(table, 8) : nullptr;
     for (TodSystem& system : systems_)
         system.params = spawn_param_table();
     get_reset();
@@ -1181,7 +1181,7 @@ CtodManager* create_tod_manager(bool create)
     CtodManager*& manager = tod_manager();
     if (!manager && create) {
         void* memory = memory::alloc_zeroed(sizeof(CtodManager), nullptr, 1);
-        manager = memory ? new (memory) CtodManager : nullptr;
+        manager = memory ? memory::construct_in<CtodManager>(memory) : nullptr;
     }
     ++ref_tally();
     return manager;
@@ -1317,7 +1317,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     out->put_int(kBloom1, p.bloom1);
     out->put_int(kBloom2, p.bloom2);
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? new (memory) script::Array : nullptr;
+    script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
     array->set_element(0, p.bloom_strength_ & 0xFF);
     array->set_element(1, p.bloom_strength_ >> 8 & 0xFF);

@@ -55,7 +55,7 @@ T& prop(const void* object, uint32_t offset)
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_params(script::Struct* params)
 {

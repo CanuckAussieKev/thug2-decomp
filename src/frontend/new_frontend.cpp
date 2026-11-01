@@ -777,13 +777,13 @@ bool get_visible(const UiWidget* element)
 
 uint32_t text_type()
 {
-    static const uint32_t type = name_hash("TextElement");
-    return type;
+    static const uint32_t kType = name_hash("TextElement");
+    return kType;
 }
 uint32_t sprite_type()
 {
-    static const uint32_t type = name_hash("SpriteElement");
-    return type;
+    static const uint32_t kType = name_hash("SpriteElement");
+    return kType;
 }
 
 UiWidget* root_element()
@@ -1156,13 +1156,13 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
 
 uint32_t v_menu_type()
 {
-    static const uint32_t type = name_hash("VMenu");
-    return type;
+    static const uint32_t kType = name_hash("VMenu");
+    return kType;
 }
 uint32_t h_menu_type()
 {
-    static const uint32_t type = name_hash("HMenu");
-    return type;
+    static const uint32_t kType = name_hash("HMenu");
+    return kType;
 }
 
 // The on-screen keyboard around `menu` (a row of keys - an HMenu - in a VMenu of such rows): the VMenu, else null.

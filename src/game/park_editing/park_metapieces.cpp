@@ -288,7 +288,7 @@ void PieceGroup::get_piece_list(script::Array* out)
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
         script::Struct* memory = script::spawn_param_bag();
-        script::Struct* piece = memory ? new (memory) script::Struct : nullptr;
+        script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         piece->put_name_key(0u,
                             reinterpret_cast<uint32_t>(entry->piece)); // (out of memory crashes, as in the original)
         maths::Vec4 position;

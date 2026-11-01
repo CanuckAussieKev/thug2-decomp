@@ -6,8 +6,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "engine/net/gamenet_messages.h"
@@ -37,7 +39,8 @@ void check(bool condition, const std::string& what)
 // `needed` bytes (default: all of them) fails.
 template <typename Message, typename Reference>
 void check_message(const std::string& what, const Message& message, const Reference& reference,
-                   bool (*write)(util::ByteWriter&, const Message&), bool (*read)(util::ByteReader&, Message*),
+                   const std::type_identity_t<std::function<bool(util::ByteWriter&, const Message&)>>& write,
+                   const std::type_identity_t<std::function<bool(util::ByteReader&, Message*)>>& read,
                    size_t needed = sizeof(Reference))
 {
     constexpr size_t kSize = sizeof(Reference);
@@ -49,7 +52,7 @@ void check_message(const std::string& what, const Message& message, const Refere
           what + ": as the original's");
     util::ByteReader reader(bytes.data(), kSize);
     Message back{};
-    bool read_ok = read(reader, &back);
+    const bool read_ok = read(reader, &back);
     std::vector<uint8_t> again(kSize + 16, 0xCD);
     util::ByteWriter again_writer(again.data(), again.size());
     write(again_writer, back);

@@ -210,7 +210,8 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
             rotation.reset_to_identity();
         none = false;
         maths::Mat4 turn;
-        matrix_multiply(&rotation, &rotation, &kCreate[axis](turn, angle * kRadiansPerDegree));
+        const CreateFn create = kCreate[axis];
+        matrix_multiply(&rotation, &rotation, &create(turn, angle * kRadiansPerDegree));
     }
     maths::Vec4 shift = {0.0f, 0.0f, 0.0f, 0.0f};
     if (!none) {

@@ -84,7 +84,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 script::Array* new_script_array()
 {
     script::Array* memory = script::alloc_script_array();
-    return memory ? new (memory) script::Array : nullptr;
+    return memory ? memory::construct_in<script::Array>(memory) : nullptr;
 }
 void delete_script_array(script::Array* array)
 {
@@ -269,7 +269,7 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->internet_bottom_up_heap_);
     void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
-    auto* room = block ? new (block) LobbyRoom : nullptr;
+    auto* room = block ? memory::construct_in<LobbyRoom>(block) : nullptr;
     std::strncpy(room->label_, name, sizeof(room->label_) - 1);
     room->label_[sizeof(room->label_) - 1] = '\0';
     room->num_players_ = num_games;

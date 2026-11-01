@@ -475,7 +475,7 @@ TrickSpotHub::TrickSpotHub() : clusters_(8), object_clusters_(8)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->script_heap_);
     script::Struct* params = script::spawn_param_bag();
-    args_ = params ? new (params) script::Struct : nullptr;
+    args_ = params ? memory::construct_in<script::Struct>(params) : nullptr;
     memory->leave_heap_scope();
 }
 
@@ -705,7 +705,7 @@ bool TrickSpotHub::add_cluster(uint32_t name)
         park_editing::RailAuthoring::sole()->clear_cluster_colours(name);
     }
     void* memory = memory::alloc_zeroed(sizeof(TrickObjectCluster));
-    clusters_.store_entry(name, memory ? new (memory) TrickObjectCluster(name) : nullptr);
+    clusters_.store_entry(name, memory ? memory::construct_in<TrickObjectCluster>(memory, name) : nullptr);
     ++cluster_count_;
     object_clusters_.store_entry(name, get_cluster(name));
     return true;

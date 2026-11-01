@@ -33,7 +33,7 @@ ImposterGroup* first_group(lists::KeyMap* table)
 ImposterManager::ImposterManager()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    groups_ptr_ = memory ? new (memory) lists::KeyMap(8) : nullptr;
+    groups_ptr_ = memory ? memory::construct_in<lists::KeyMap>(memory, 8) : nullptr;
 }
 
 // 0x0048E260

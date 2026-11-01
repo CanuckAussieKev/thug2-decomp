@@ -2,6 +2,8 @@
 
 #include "engine/script/node_manager.h"
 
+#include "engine/core/str.h"
+
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -407,9 +409,7 @@ bool make_node_array_name(const char* path, char* out)
     while (*p != '\\' && *p != '/') // (no check for the start of the string)
         --p;
     ++p;
-    char* d = out;
-    while ((*d++ = *p++) != '\0') {
-    }
+    text::copy_unbounded(out, p);
     char* extension = out;
     while (*extension && *extension != '.')
         ++extension;
@@ -440,7 +440,7 @@ NodeManager* create_node_manager(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(NodeManager), nullptr, 1);
-        sole() = memory ? new (memory) NodeManager : nullptr;
+        sole() = memory ? memory::construct_in<NodeManager>(memory) : nullptr;
         // NOT ORIGINAL: its name hash bigger than the original's (memory::sizes::node_hash_slots - see BigSlot).
         if (sole() && memory::sizes::node_hash_slots() > static_cast<uint32_t>(NodeManager::kSlots))
             use_big_name_hash(sole(), memory::sizes::node_hash_slots());

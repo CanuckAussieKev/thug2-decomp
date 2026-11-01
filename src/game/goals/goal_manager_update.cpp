@@ -43,7 +43,7 @@ online::Hub* net_session_slot() { return online::g_online_hub; }
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? new (made) script::Struct : nullptr;
+    return made ? memory::construct_in<script::Struct>(made) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -55,7 +55,7 @@ void delete_structure(script::Struct* structure)
 script::Array* alloc_script_array()
 {
     script::Array* made = script::alloc_script_array();
-    return made ? new (made) script::Array : nullptr;
+    return made ? memory::construct_in<script::Array>(made) : nullptr;
 }
 
 // The active list's nodes, counted (as get_engaged_objective walks them).

@@ -36,6 +36,36 @@ struct HeapObject {
     static void operator delete(void*, void*) noexcept {}
 };
 
+// NOT ORIGINAL - an `Object` constructed in `block` (not null): placement new as a call - `new (block) Object` with
+// no arguments (default-initialised, as that spelling is), `new (block) Object(args...)` with them. The caller's
+// pointer is passed as writable memory (clang-tidy's misc-const-correctness doesn't count a bare placement new as a
+// write through it).
+template <typename Object, typename... Args>
+Object* construct_in(void* block, Args&&... args)
+{
+    if constexpr (sizeof...(Args) == 0) {
+        return new (block) Object;
+    } else {
+        return new (block) Object(std::forward<Args>(args)...);
+    }
+}
+// `new (block) Object()`: value-initialised.
+template <typename Object>
+Object* construct_value_in(void* block)
+{
+    return new (block) Object();
+}
+// The same with the global placement new (`::new (block) Object`), past a class's own operator new.
+template <typename Object, typename... Args>
+Object* construct_global_in(void* block, Args&&... args)
+{
+    if constexpr (sizeof...(Args) == 0) {
+        return ::new (block) Object;
+    } else {
+        return ::new (block) Object(std::forward<Args>(args)...);
+    }
+}
+
 // NOT ORIGINAL - a block from the game's heaps (alloc / alloc_zeroed / alloc_block / carve), owned: given back by
 // dealloc when it goes. A block always goes back to the heap it came from (its header names it), whatever heap scope
 // is current then - so it may be freed outside the scope it was allocated in. Nothing is constructed or destroyed:
@@ -81,7 +111,11 @@ template <typename Object, typename... Args>
 HeapUnique<Object> make_zeroed(Args&&... args)
 {
     void* block = alloc_zeroed(static_cast<unsigned int>(sizeof(Object)));
-    return HeapUnique<Object>(block ? new (block) Object(std::forward<Args>(args)...) : nullptr);
+    if constexpr (sizeof...(Args) == 0) {
+        return HeapUnique<Object>(block ? construct_value_in<Object>(block) : nullptr);
+    } else {
+        return HeapUnique<Object>(block ? construct_in<Object>(block, std::forward<Args>(args)...) : nullptr);
+    }
 }
 
 // Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this

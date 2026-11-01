@@ -48,8 +48,8 @@ uint32_t scripts_hash()
 {
     if (g_hash_override)
         return g_hash_override;
-    static const uint32_t hash = read_scripts_hash();
-    return hash;
+    static const uint32_t kScriptsHash = read_scripts_hash();
+    return kScriptsHash;
 }
 
 void set_scripts_hash_override(uint32_t hash) { g_hash_override = hash; }

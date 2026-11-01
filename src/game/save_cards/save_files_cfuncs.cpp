@@ -2,6 +2,8 @@
 
 #include "game/save_cards/save_files_cfuncs.h"
 
+#include "engine/core/str.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -616,10 +618,7 @@ bool save_to_memory_card(Struct* params, Script*)
         case 4:
         case 7: {
             path[0] = '\0';
-            const char* type_name = get_type_file_name(type, name);
-            char* out = path;
-            while ((*out++ = *type_name++) != '\0') {
-            }
+            text::copy_unbounded(path, get_type_file_name(type, name));
             break;
         }
         default:

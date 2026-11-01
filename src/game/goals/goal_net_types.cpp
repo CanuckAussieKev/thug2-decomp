@@ -60,7 +60,7 @@ using PlayerSearch = online::PlayerSearch;
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? new (made) script::Struct : nullptr;
+    return made ? memory::construct_in<script::Struct>(made) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {

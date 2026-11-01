@@ -308,18 +308,18 @@ bool typed_value(const Typed& typed, float* value)
 
 std::string describe(Mode mode, const Typed& typed, int default_axis)
 {
-    static const char* g_axis[3] = {"X", "Y", "Z"};
+    static const char* const kAxisNames[3] = {"X", "Y", "Z"};
     const int axis = typed.axis >= 0 ? typed.axis : default_axis;
     std::string text;
     switch (mode) {
     case Mode::kShiftBy:
-        text = std::string("Move along ") + g_axis[axis >= 0 && axis < 3 ? axis : 0];
+        text = std::string("Move along ") + kAxisNames[axis >= 0 && axis < 3 ? axis : 0];
         break;
     case Mode::kSpinBy:
         text = "Turn (degrees of heading)";
         break;
     case Mode::kScale:
-        text = axis >= 0 && axis < 3 ? std::string("Scale along ") + g_axis[axis] : std::string("Scale (all axes)");
+        text = axis >= 0 && axis < 3 ? std::string("Scale along ") + kAxisNames[axis] : std::string("Scale (all axes)");
         break;
     }
     text += ": ";

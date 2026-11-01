@@ -2,6 +2,8 @@
 
 #include "engine/objects/cutscene.h"
 
+#include "engine/core/str.h"
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -40,10 +42,7 @@ const char* cutscene_name_from_path(const char* path)
     for (int i = static_cast<int>(std::strlen(path)); i >= 0; --i) {
         if (path[i] == '\\' || path[i] == '/') {
             // (copied forwards a byte at a time, as the original)
-            const char* from = path + i + 1;
-            char* to = name;
-            while ((*to++ = *from++) != '\0') {
-            }
+            text::copy_unbounded(name, path + i + 1);
             break;
         }
     }

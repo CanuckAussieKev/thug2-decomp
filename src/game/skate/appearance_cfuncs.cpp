@@ -145,7 +145,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
     bool made = false;
     if (!script->args_->read_sub_struct(kCurrentFacePoints, &points, 0)) {
         script::Struct* memory = script::spawn_param_bag();
-        points = memory ? new (memory) script::Struct : nullptr;
+        points = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         made = true;
     }
     FacePoints scratch{};
@@ -338,7 +338,7 @@ bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
     if (reinterpret_cast<uintptr_t>(profile) + 0x4C == 0) // (the original's check of the structure's address)
         return false;
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* copy = memory ? new (memory) script::Struct : nullptr;
+    script::Struct* copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     copy->append_structure_if_any(appearance_structure(profile));
     script->args_->append_struct_ref("profile", copy);
     return true;
@@ -377,7 +377,7 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script*)
     script::Struct* slot = appearance_part(profile, part);
     if (!slot) {
         script::Struct* memory = script::spawn_param_bag();
-        slot = memory ? new (memory) script::Struct : nullptr;
+        slot = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         appearance_structure(profile)->append_struct_ref(part, slot);
     }
     float value = 0.0f;

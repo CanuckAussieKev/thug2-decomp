@@ -25,7 +25,7 @@ constexpr uint32_t kNextCluster = 0x918C00F2;      // goal_skate_the_line_next_c
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? new (made) script::Struct : nullptr;
+    return made ? memory::construct_in<script::Struct>(made) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {

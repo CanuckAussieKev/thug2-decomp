@@ -163,25 +163,28 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
         case PixelFormat::kX8r8g8b8:
         case PixelFormat::kA8r8g8b8:
             for (int x = 0; x < frame.width; ++x, row += 4) {
-                *out++ = row[2];
-                *out++ = row[1];
-                *out++ = row[0];
+                out[0] = row[2];
+                out[1] = row[1];
+                out[2] = row[0];
+                out += 3;
             }
             break;
         case PixelFormat::kR5g6b5:
             for (int x = 0; x < frame.width; ++x, row += 2) {
                 const unsigned v = row[0] | (row[1] << 8);
-                *out++ = widen5(v >> 11);
-                *out++ = widen6((v >> 5) & 0x3F);
-                *out++ = widen5(v & 0x1F);
+                out[0] = widen5(v >> 11);
+                out[1] = widen6((v >> 5) & 0x3F);
+                out[2] = widen5(v & 0x1F);
+                out += 3;
             }
             break;
         case PixelFormat::kX1r5g5b5:
             for (int x = 0; x < frame.width; ++x, row += 2) {
                 const unsigned v = row[0] | (row[1] << 8);
-                *out++ = widen5((v >> 10) & 0x1F);
-                *out++ = widen5((v >> 5) & 0x1F);
-                *out++ = widen5(v & 0x1F);
+                out[0] = widen5((v >> 10) & 0x1F);
+                out[1] = widen5((v >> 5) & 0x1F);
+                out[2] = widen5(v & 0x1F);
+                out += 3;
             }
             break;
         default:

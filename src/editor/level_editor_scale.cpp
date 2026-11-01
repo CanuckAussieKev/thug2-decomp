@@ -417,7 +417,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                 if (copy.normal_offset_ >= 0)
                     std::memcpy(&normals[3u * v], vertex + copy.normal_offset_, 12);
             }
-            copy.buffers.push_back(buffer);
+            copy.buffers.emplace_back(buffer);
             copy.data.push_back(buffer->data);
             copy.positions.push_back(std::move(positions));
             copy.normals.push_back(std::move(normals));

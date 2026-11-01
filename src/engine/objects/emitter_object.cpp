@@ -140,7 +140,7 @@ void emitter_init()
         return;
     }
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    get_table() = memory ? new (memory) lists::KeyMap(4) : nullptr;
+    get_table() = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
 }
 
 // 0x00468450

@@ -251,8 +251,8 @@ void run_bike_script(const SkaterPhysicsModule* core, const char* name, script::
 
 bool wheels_on()
 {
-    static const bool on = config_int("features", "thaw_bmx_wheels", 1) != 0;
-    return on;
+    static const bool kEnabled = config_int("features", "thaw_bmx_wheels", 1) != 0;
+    return kEnabled;
 }
 
 void turn_velocity(maths::Vec4& velocity, float angle)

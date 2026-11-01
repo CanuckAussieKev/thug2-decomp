@@ -2,6 +2,8 @@
 
 #include "engine/gfx/engine_text.h"
 
+#include "engine/core/str.h"
+
 #include <bit>
 #include <cstdint>
 #include <cstring>
@@ -166,9 +168,7 @@ void GlyphString::change_text(const char* string)
 {
     if (!text_buffer_)
         text_buffer_ = static_cast<char*>(front_end_new(kTextLength));
-    char* out = text_buffer_;
-    while ((*out++ = *string++) != '\0') {
-    }
+    text::copy_unbounded(text_buffer_, string);
     update_settings();
 }
 

@@ -68,7 +68,7 @@ int free_memory(memory::Arena* heap) { return heap->region_->free_byte_count() +
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
 {
     void* memory = memory::alloc(sizeof(memory::SlabBank));
-    memory::SlabBank* pool = memory ? new (memory) memory::SlabBank(item_size, count, name) : nullptr;
+    memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
     pair.pools[pair.current] = pool;
     pool_made_here(pair) = 1;
 }
@@ -368,8 +368,8 @@ void prepare_all(uint32_t level)
     void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
     memory::MemoryArena* region = nullptr;
     if (memory) {
-        int size = get_memory_value("park_heap_size", -1); // "park_heap_size"
-        region = new (memory) memory::MemoryArena(static_cast<uint32_t>(size));
+        const int size = get_memory_value("park_heap_size", -1); // "park_heap_size"
+        region = memory::construct_in<memory::MemoryArena>(memory, static_cast<uint32_t>(size));
     }
     park_region() = region;
     park_heap() = manager->add_heap(region, direction, name);

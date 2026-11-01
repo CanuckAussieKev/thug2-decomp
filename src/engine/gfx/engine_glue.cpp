@@ -210,7 +210,7 @@ void* make_empty_scene(const char* /*name*/, void* /*textures*/, bool with_super
     scene[0x8C] = with_super_sectors;
     scene[0x8D] = 0;
     void* memory = memory::alloc(sizeof(SceneRef));
-    *reinterpret_cast<SceneRef**>(scene + 0x280) = memory ? new (memory) SceneRef : nullptr;
+    *reinterpret_cast<SceneRef**>(scene + 0x280) = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
     return scene;
 }
 
@@ -241,7 +241,7 @@ void* create_render_target(int width, int height, uint8_t depth, int unused)
 {
     auto* target = new PcTexture;
     void* memory = memory::alloc(sizeof(TextureRef));
-    TextureRef* texture = memory ? new (memory) TextureRef : nullptr;
+    TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
     target->set_texture(texture);
     // (no check: a failed allocation calls through null, as the original)
     texture->create_render_target(width, height, depth, unused);

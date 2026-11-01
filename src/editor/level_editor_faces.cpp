@@ -654,7 +654,8 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         ImGui::SameLine();
         if (ImGui::Button("Select All Faces"))
             g_queue.emplace_back([] {
-                const std::vector<uint32_t> sectors = scenery::get_selection();
+                // (a copy: selecting changes the selection)
+                const auto sectors = std::vector<uint32_t>(scenery::get_selection());
                 bool any = false;
                 for (const unsigned int sector : sectors)
                     any = select_piece(sector, any) || any;

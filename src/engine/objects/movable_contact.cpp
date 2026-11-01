@@ -159,7 +159,7 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
         ride_ = nullptr;
         return true;
     }
-    ride_ = new (memory) RideTracker(feeler->get_hit_object());
+    ride_ = memory::construct_in<RideTracker>(memory, feeler->get_hit_object());
     return true;
 }
 

@@ -39,7 +39,7 @@ char* created_goal_name() { return g_created_goal_name; } // the shared CreatedG
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
+    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
 }
 script::Array* new_array_of(uint32_t size, uint32_t type)
 {

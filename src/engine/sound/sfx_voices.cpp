@@ -489,7 +489,7 @@ void create_manager(bool create)
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(8, nullptr, 1);
         if (memory) {
-            sole() = new (memory) AudioMixer;
+            sole() = memory::construct_in<AudioMixer>(memory);
             ++ref_tally();
             return;
         }

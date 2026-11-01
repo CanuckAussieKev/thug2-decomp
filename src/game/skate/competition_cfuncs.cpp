@@ -103,7 +103,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_params(script::Struct* params)
 {

@@ -127,7 +127,7 @@ WorldScene::WorldScene(int bits)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     coll_grid_ = nullptr;
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    sectors_ = memory ? new (memory) lists::KeyMap(bits) : nullptr;
+    sectors_ = memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;
     label_[0] = '\0';
     pip_name_[0] = '\0';
     coll_grid_ = nullptr;
@@ -224,7 +224,8 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
     if (coll_static_count_ > 0) {
         if (builds_collision_grid_) {
             void* memory = memory::alloc(sizeof(CollGrid));
-            CollGrid* grid = memory ? new (memory) CollGrid : nullptr; // (its box and cells constructed)
+            CollGrid* grid =
+                memory ? memory::construct_in<CollGrid>(memory) : nullptr; // (its box and cells constructed)
             coll_grid_ = grid;
             grid->prepare_all(&collision_box_);
             coll_grid_->get_fill(coll_statics_, coll_static_count_);

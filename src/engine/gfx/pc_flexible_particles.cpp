@@ -257,7 +257,9 @@ PcNewFlatParticles::PcNewFlatParticles(uint32_t name, int particle_cap, uint32_t
     : NewFlatParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segments, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 1, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
+    material =
+        memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 1, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
 }
 
 // 0x004BD610
@@ -417,8 +419,8 @@ PcFlatRibbonParticles::PcFlatRibbonParticles(uint32_t name, int particle_cap, ui
     : FlatRibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, ribbon_width, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory)
-                            SimpleMaterial(particle_cap, 0xB, texture, blend_mode, fixed_alpha, segment_count, history)
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 0xB, texture, blend_mode,
+                                                             fixed_alpha, segment_count, history)
                       : nullptr;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     width = ribbon_width;
@@ -627,7 +629,8 @@ PcGlowParticles::PcGlowParticles(uint32_t name, int particle_cap, uint32_t textu
     : GlowParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 4, texture, blend_mode, fixed_alpha, segment_count, 0)
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 4, texture, blend_mode, fixed_alpha,
+                                                             segment_count, 0)
                       : nullptr;
 }
 
@@ -763,7 +766,9 @@ PcLineParticles::PcLineParticles(uint32_t name, int particle_cap, uint32_t textu
     : LineParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 0, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
+    material =
+        memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 0, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
 }
 
 // 0x004C0AC0
@@ -823,7 +828,8 @@ PcRibbonParticles::PcRibbonParticles(uint32_t name, int particle_cap, uint32_t t
     : RibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 7, texture, blend_mode, fixed_alpha, segment_count, 0)
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 7, texture, blend_mode, fixed_alpha,
+                                                             segment_count, 0)
                       : nullptr;
 }
 
@@ -961,8 +967,8 @@ PcRibbonTrailParticles::PcRibbonTrailParticles(uint32_t name, int particle_cap, 
     : RibbonTrailParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory)
-                            SimpleMaterial(particle_cap, 9, texture, blend_mode, fixed_alpha, segment_count, history)
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 9, texture, blend_mode, fixed_alpha,
+                                                             segment_count, history)
                       : nullptr;
 }
 
@@ -1093,7 +1099,9 @@ PcShadedParticles::PcShadedParticles(uint32_t name, int particle_cap, uint32_t t
     : ShadedParticles(name, particle_cap, texture, blend_mode, fixed_alpha, 0, 0, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 2, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
+    material =
+        memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 2, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
 }
 
 // 0x004C2260
@@ -1230,7 +1238,9 @@ PcSmoothParticles::PcSmoothParticles(uint32_t name, int particle_cap, uint32_t t
     : SmoothParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 3, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
+    material =
+        memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 3, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
 }
 
 // 0x004C2C00
@@ -1335,7 +1345,9 @@ PcSmoothRibbonParticles::PcSmoothRibbonParticles(uint32_t name, int particle_cap
     : SmoothRibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 8, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
+    material =
+        memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 8, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
 }
 
 // 0x004C3620
@@ -1457,7 +1469,8 @@ PcSmoothStarParticles::PcSmoothStarParticles(uint32_t name, int particle_cap, ui
     : SmoothStarParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 6, texture, blend_mode, fixed_alpha, segment_count, 0)
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 6, texture, blend_mode, fixed_alpha,
+                                                             segment_count, 0)
                       : nullptr;
 }
 
@@ -1629,7 +1642,8 @@ PcStarParticles::PcStarParticles(uint32_t name, int particle_cap, uint32_t textu
     : StarParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 5, texture, blend_mode, fixed_alpha, segment_count, 0)
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 5, texture, blend_mode, fixed_alpha,
+                                                             segment_count, 0)
                       : nullptr;
 }
 
@@ -1789,8 +1803,8 @@ PcGlowRibbonTrailParticles::PcGlowRibbonTrailParticles(uint32_t name, int partic
     : GlowRibbonTrailParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory)
-                            SimpleMaterial(particle_cap, 10, texture, blend_mode, fixed_alpha, segment_count, history)
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 10, texture, blend_mode, fixed_alpha,
+                                                             segment_count, history)
                       : nullptr;
 }
 

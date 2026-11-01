@@ -62,7 +62,8 @@ uint8_t& get_owned(memory::PoolPair& pair, int which) { return reinterpret_cast<
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
 {
     void* memory = memory::alloc(sizeof(memory::SlabBank));
-    pair.pools[pair.current] = memory ? new (memory) memory::SlabBank(item_size, count, name) : nullptr;
+    pair.pools[pair.current] =
+        memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
     get_owned(pair, pair.current) = 1;
 }
 
@@ -364,7 +365,7 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
         } else {
             if (first) {
                 void* memory = RailAuthoring::new_rail_memory(sizeof(EditedRail));
-                auto* rail = memory ? new (memory) EditedRail : nullptr;
+                auto* rail = memory ? memory::construct_in<EditedRail>(memory) : nullptr;
                 rail->following_ = list;
                 list = rail;
                 rail->add_point_copy(first);
@@ -470,7 +471,7 @@ void RailAuthoring::get_clear()
 EditedRail* RailAuthoring::get_new_rail()
 {
     void* memory = new_rail_memory(sizeof(EditedRail));
-    EditedRail* rail = memory ? new (memory) EditedRail : nullptr;
+    EditedRail* rail = memory ? memory::construct_in<EditedRail>(memory) : nullptr;
     // (out of rails: a crash here, as in the original)
     rail->following_ = rail_groups_;
     rail->preceding_ = nullptr;
@@ -736,7 +737,8 @@ void RailAuthoring::get_pack()
         uint16_t points = 0;
         for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
             ++points;
-        *count++ = points;
+        *count = points;
+        ++count;
         const EditedRailPoint* p = rail->point_chain_;
         if (!p)
             continue;

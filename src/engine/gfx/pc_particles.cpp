@@ -143,7 +143,7 @@ Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float 
     auto w1_end = static_cast<float>(static_cast<double>(w1) * end);
     auto dx2_mid = static_cast<float>(static_cast<double>(dx2f) * mid);
     auto w2_mid = static_cast<float>(static_cast<double>(w2) * mid);
-    const float cx = static_cast<float>(static_cast<double>(dx2_mid) - dx1_end);
+    const auto cx = static_cast<float>(static_cast<double>(dx2_mid) - dx1_end);
     float cy = 0.0f;
     double cz = 0.0;
     if (spread_rounding) {

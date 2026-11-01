@@ -547,7 +547,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             prefs::Preferences* prefs = net_session_slot()->get_online_settings();
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
             script::Array* memory = script::alloc_script_array();
-            script::Array* buddies = memory ? new (memory) script::Array : nullptr;
+            script::Array* buddies = memory ? memory::construct_in<script::Array>(memory) : nullptr;
             buddies->configure_size_kind(old->extent_ + 1, script::kQbvalStruct);
             uint32_t i = 0;
             for (; i < old->extent_; ++i) {
@@ -618,7 +618,7 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
     push_top_down();
     const size_t length = std::strlen(arg->message);
     void* memory = memory::alloc_zeroed(sizeof(FriendNote));
-    FriendNote* message = memory ? new (memory) FriendNote : nullptr;
+    FriendNote* message = memory ? memory::construct_in<FriendNote>(memory) : nullptr;
     message->account_ = arg->profile;
     const char* text = text_tools::get_token(arg->message, "\n");
     if (length == std::strlen(text)) {

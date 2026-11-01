@@ -52,7 +52,7 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (own) {
         void* memory = memory::alloc(0x110);
-        material = memory ? reinterpret_cast<uint8_t*>(new (memory) MaterialRef) : nullptr;
+        material = memory ? reinterpret_cast<uint8_t*>(memory::construct_in<MaterialRef>(memory)) : nullptr;
     } else {
         material = nullptr;
     }

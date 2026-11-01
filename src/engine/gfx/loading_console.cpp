@@ -361,8 +361,8 @@ void on_log_line(const char* line)
 
 bool is_switched_on()
 {
-    static const bool on = config_int("features", "loading_console", 1) != 0;
-    return on;
+    static const bool kEnabled = config_int("features", "loading_console", 1) != 0;
+    return kEnabled;
 }
 
 bool live_now() { return g_active; }

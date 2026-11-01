@@ -690,7 +690,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         return net::kResultStop;
     }
     void* memory = memory::alloc_zeroed(kPlayerInfoSize);
-    auto* player = memory ? new (memory) JoinerRecord : nullptr;
+    auto* player = memory ? memory::construct_in<JoinerRecord>(memory) : nullptr;
     std::strncpy(player->label_, msg->name, kNameSize - 1);
     player->label_[kNameSize - 1] = '\0';
     player->entity_key_ = static_cast<uint8_t>(manager->reserve_obj_id_for_player());

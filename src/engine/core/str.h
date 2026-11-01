@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include <cstring>
+
 namespace text {
 
 // Convert ASCII letters in place; other bytes are left alone.
@@ -24,5 +27,22 @@ int hex_digit_value(const char* digit);
 // Escapes: "\_" becomes a space, "\n" ends the line, any other "\x" is copied as-is.
 // Returns 0 for a word, 1 at an end-of-line escape, 2 at the end of the text.
 int next_word(char* out, const char*& cursor);
+
+// NOT ORIGINAL - the original's inline strcpy: `source` copied into `dest` up to and including its terminator, with
+// no length limit (the destination is the original's buffer, sized as it was). Returns `dest`.
+inline char* copy_unbounded(char* dest, const char* source)
+{
+    for (std::size_t i = 0;; ++i) {
+        dest[i] = source[i];
+        if (source[i] == '\0')
+            return dest;
+    }
+}
+// The original's inline strcat: `source` copied onto the end of `dest`'s text, with no length limit.
+inline char* append_unbounded(char* dest, const char* source)
+{
+    copy_unbounded(dest + std::strlen(dest), source);
+    return dest;
+}
 
 } // namespace text

@@ -449,7 +449,7 @@ void BuildPointer::spawn_occurrence()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(editor_arena());
     void* memory = memory::alloc(sizeof(BuildPointer));
-    sole() = memory ? new (memory) BuildPointer : nullptr;
+    sole() = memory ? memory::construct_in<BuildPointer>(memory) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

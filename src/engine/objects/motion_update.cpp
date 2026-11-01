@@ -333,7 +333,7 @@ void KinematicsModule::trail_behind_lead(script::Struct* params)
     static_cast<PinnedObjectModule*>(entity_->fetch_module(kLockObj))->lock_flags_ &= ~kLockFlagLocked;
     if (!trail_) {
         void* memory = memory::alloc_zeroed(sizeof(FollowTrail));
-        trail_ = memory ? new (memory) FollowTrail : nullptr;
+        trail_ = memory ? memory::construct_in<FollowTrail>(memory) : nullptr;
     }
     trail_->get_reset();
     float distance = 0.0f;

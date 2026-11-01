@@ -184,6 +184,8 @@ void skin(const Skin& v, float* out)
 
 // --- the removed assembly ----------------------------------------------------------------------------------------
 
+// NOLINTBEGIN(misc-const-correctness): the locals the inline x87 assembly reads and writes - clang-tidy doesn't
+// see __asm blocks' operands, so it takes every one of them for unchanged
 namespace ref {
 
 const unsigned char kCrtHalfPi[10] = {0x35, 0xC2, 0x68, 0x21, 0xA2, 0xDA, 0x0F, 0xC9, 0xFF, 0x3F};
@@ -1164,6 +1166,7 @@ void skin_file(const fresh::Skin& v, float* out)
 }
 
 } // namespace ref
+// NOLINTEND(misc-const-correctness)
 
 // --- the comparison ----------------------------------------------------------------------------------------------
 
@@ -1419,7 +1422,7 @@ void run(int count, std::mt19937_64& random)
     }
     // The edges: +-1, 0, NaN, outside [-1, 1] for asin / acos.
     const double edges[] = {1.0, -1.0, 0.0, -0.0, 1.0000001, -1.5, 2.0, NAN, INFINITY, -static_cast<double>(INFINITY)};
-    for (double e : edges) {
+    for (const double e : edges) {
         compare(t_asin, fresh::asin(e), ref::asin(e), e);
         compare(t_acos, fresh::acos(e), ref::acos(e), e);
     }

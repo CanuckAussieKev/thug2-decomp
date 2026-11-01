@@ -489,14 +489,15 @@ Hub::Hub()
     g_heap_block_limit = block + block_size;
     const uint8_t* end = g_heap_block_limit;
     void* region = get_clear(sizeof(Zone), kMainRegionStorage);
-    primary_zone_ = region ? new (region)
-                                 Zone(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
-                                      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
+    primary_zone_ = region ? memory::construct_in<Zone>(
+                                 region, reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
+                                 reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
                            : nullptr;
     void* top = get_clear(sizeof(Arena), kTopDownStorage);
-    top_down_heap_ = top ? new (top) Arena(primary_zone_, MemSource::kGrowDown, "Top Down") : nullptr;
+    top_down_heap_ = top ? memory::construct_in<Arena>(top, primary_zone_, MemSource::kGrowDown, "Top Down") : nullptr;
     void* bottom = get_clear(sizeof(Arena), kBottomUpStorage);
-    bottom_up_heap_ = bottom ? new (bottom) Arena(primary_zone_, MemSource::kGrowUp, "BottomUp") : nullptr;
+    bottom_up_heap_ =
+        bottom ? memory::construct_in<Arena>(bottom, primary_zone_, MemSource::kGrowUp, "BottomUp") : nullptr;
     heaps_[1] = bottom_up_heap_;
     heaps_[0] = top_down_heap_;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
@@ -654,7 +655,7 @@ void set_up_manager()
     if (Hub::get_pull())
         return;
     void* memory = get_clear(sizeof(Hub), kManagerStorage);
-    Hub* manager = memory ? new (memory) Hub : nullptr;
+    Hub* manager = memory ? memory::construct_in<Hub>(memory) : nullptr;
     Hub::sole() = manager;
     manager->enter_heap_scope(manager->bottom_up_heap_);
 }

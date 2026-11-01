@@ -215,7 +215,7 @@ void PathManager::carve(int groups, int group_size, int extra_size)
     for (int i = 0; i < group_count_; ++i)
         groups_[i].prepare_all(group_size);
     void* block = memory::alloc(sizeof(ObjectGroup));
-    ObjectGroup* extra = block ? new (block) ObjectGroup : nullptr;
+    ObjectGroup* extra = block ? memory::construct_in<ObjectGroup>(block) : nullptr;
     extra_ = extra;
     extra->prepare_all(extra_size);
     memory::Hub::get_pull()->leave_heap_scope();

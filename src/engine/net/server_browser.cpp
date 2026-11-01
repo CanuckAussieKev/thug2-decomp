@@ -314,7 +314,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
         return kDone;
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     void* block = memory::alloc_zeroed(sizeof(HostListing));
-    HostListing* server = block ? new (block) HostListing : nullptr;
+    HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
     std::snprintf(server->label_, sizeof(server->label_), "%s", reply->name);
     server->remote_ip_ = context->sender_conn_->remote_ip_;
     server->ping_ = static_cast<int>(frame_clock::get_time() - reply->time);
@@ -357,7 +357,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     case ListingMessage::kListingAdd: {
         ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
         void* block = memory::alloc_zeroed(sizeof(HostListing));
-        HostListing* server = block ? new (block) HostListing : nullptr;
+        HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
         server->sb_server_ = sb;
         std::strncpy(server->label_, name, 15);
         server->label_[15] = '\0';

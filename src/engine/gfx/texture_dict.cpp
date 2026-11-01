@@ -63,7 +63,7 @@ BitmapTexture* insert_texture(TextureSet* dict, BitmapTexture* texture, bool per
 lists::KeyMap* new_texture_table()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    return memory ? new (memory) lists::KeyMap(5) : nullptr;
+    return memory ? memory::construct_in<lists::KeyMap>(memory, 5) : nullptr;
 }
 
 } // namespace

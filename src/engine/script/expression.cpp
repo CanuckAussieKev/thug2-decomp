@@ -1,5 +1,7 @@
 #include "engine/script/expression.h"
 
+#include "engine/core/mem.h"
+
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -142,7 +144,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
             to->raw = array->fetch_part(index);
         } else {
             Struct* structure = spawn_param_bag();
-            to->structure = structure ? new (structure) script::Struct : nullptr;
+            to->structure = structure ? memory::construct_in<script::Struct>(structure) : nullptr;
             to->structure->append_structure_if_any(reinterpret_cast<Struct*>(array->fetch_part(index)));
         }
         break;
@@ -152,7 +154,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
             to->raw = array->fetch_part(index);
         } else {
             Array* copy = alloc_script_array();
-            to->array = copy ? new (copy) script::Array : nullptr;
+            to->array = copy ? memory::construct_in<script::Array>(copy) : nullptr;
             duplicate_array(to->array, reinterpret_cast<Array*>(array->fetch_part(index)));
         }
         break;

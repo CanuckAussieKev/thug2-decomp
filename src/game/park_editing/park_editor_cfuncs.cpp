@@ -525,7 +525,7 @@ bool cfunc_switch_to_park_editor_camera(script::Struct*, script::Script*)
     if (!objects->look_up_entity(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
         script::Struct* memory = script::spawn_param_bag();
-        script::Struct* params = memory ? new (memory) script::Struct : nullptr;
+        script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         params->put_name_key("name", kParkedCam);
         auto* composites = objects::g_composite_registry;
         composites->spawn_entity_from_node(script::fetch_list("parkedcam_composite_structure"), params, true);

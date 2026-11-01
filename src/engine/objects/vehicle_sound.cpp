@@ -312,7 +312,7 @@ void EngineAudioModule::update_collide_sound()
 
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* event = memory ? new (memory) script::Struct : nullptr;
+    script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->push_float(0x29461E27, level);
     vehicle_ptr_->rider_ref_->post_own_event(0xC4A60423, event);

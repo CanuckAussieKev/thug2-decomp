@@ -755,7 +755,8 @@ bool get_capture(FileLoad* file)
         PreviewHold& operator=(const PreviewHold&) = delete;
         PreviewHold() { entities::preview_suspend(); }
         ~PreviewHold() { entities::preview_resume(); }
-    } hold;
+    };
+    const PreviewHold hold;
     render::WorldScene* scene = scenery::main_scene();
     if (render::current_level() == 0 || !scene)
         return false;
@@ -1017,7 +1018,8 @@ void reset_to_level(const FileLoad& keep)
         if (const object_edit::State* origin = object_edit::get_origin(id))
             object_edit::get_restore(*origin);
     }
-    const std::vector<object_edit::DupFrom> copies = object_edit::get_copies();
+    // (a copy: removing a copy changes the list)
+    const auto copies = std::vector<object_edit::DupFrom>(object_edit::get_copies());
     for (const object_edit::DupFrom& copy : copies) {
         bool kept = false;
         for (const CopyRecord& record : keep.copies)

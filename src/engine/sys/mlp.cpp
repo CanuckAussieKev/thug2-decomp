@@ -152,7 +152,7 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = new (memory) Hub;
+            sole() = memory::construct_in<Hub>(memory);
             ++ref_tally();
             return sole();
         }

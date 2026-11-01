@@ -407,7 +407,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         if (line) {
             do {
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
-                VaultCategory* category = memory ? new (memory) VaultCategory : nullptr;
+                VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
                 prepend(&vault->categories_, &category->list_link_);
                 text_tools::dup_from(category->label_, line);
                 line = text_tools::get_token(nullptr, "\r\n");
@@ -436,7 +436,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? new (memory) VaultItem : nullptr;
+            VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
             char* rest = line;
             char file[1024];
@@ -487,7 +487,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? new (memory) VaultItem : nullptr;
+            VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
             std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s", vault->folder_,
                           line);
@@ -766,7 +766,7 @@ bool download_directory_list(script::Struct* params, script::Script*)
     }
     push_bottom_up();
     void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
-    VaultCategory* category = memory ? new (memory) VaultCategory : nullptr;
+    VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
     category->skip_ = true;
     prepend(&vault->categories_, &category->list_link_);
     std::memcpy(category->label_, "Uploads", 8);

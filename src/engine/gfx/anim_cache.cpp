@@ -471,7 +471,8 @@ int ClipStore::defragment()
         if (entry->payload_) {
             copy_forwards(to, entry->payload_, entry->allocated_);
             to += entry->allocated_;
-            *old++ = entry->payload_;
+            *old = entry->payload_;
+            ++old;
         }
     }
     // ...every entry's freed and its slots cleared, then allocated again (lowest first)...

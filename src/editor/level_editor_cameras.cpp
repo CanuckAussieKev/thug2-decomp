@@ -272,8 +272,9 @@ void keep_offsets(const ViewCam& c)
     struct Key {
         uint32_t key;
         V3 value;
-    } keys[2] = {{fields::hash_of_name("targetOffset"), target_of(c.pos, c.angles, c.distance)},
-                 {fields::hash_of_name("positionOffset"), position_offset(c.pos, c.angles, c.distance)}};
+    };
+    const Key keys[2] = {{fields::hash_of_name("targetOffset"), target_of(c.pos, c.angles, c.distance)},
+                         {fields::hash_of_name("positionOffset"), position_offset(c.pos, c.angles, c.distance)}};
     for (const Key& k : keys) {
         const fields::Own own = fields::own_in(node, k.key, false);
         const bool same = own.present && own.value.kind == fields::Kind::kVec4 && own.value.numbers[0] == k.value.x &&

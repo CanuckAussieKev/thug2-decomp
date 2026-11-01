@@ -431,7 +431,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         const char* own_time = level.have_defaults_ && own.time == 0 ? "(original: no)" : "(original: yes)";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : own_time)) {
-            const char* labels[] = {own_time, "no", "yes"};
+            const char* const labels[] = {own_time, "no", "yes"};
             for (int i = -1; i <= 1; ++i) {
                 if (ImGui::Selectable(labels[i + 1], props.time == i)) {
                     props.time = i;

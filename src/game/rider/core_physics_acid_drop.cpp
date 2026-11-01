@@ -161,7 +161,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const float x = sx + base.x;
         const float y = base.y + sy;
         const float z = base.z + sz;
-        const float w = static_cast<float>(sw + base.w);
+        const auto w = static_cast<float>(sw + base.w);
         feeler.line_.start = {x, y + lift, z, w};
         feeler.line_.end = {x, static_cast<float>(y - static_cast<double>(kFeelerDepth)), z, w};
         if (feeler.get_hit_shape(true, false) && (feeler.hit_.face_flags_ & 8) &&

@@ -285,7 +285,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
     case script::kQbvalStruct: {
         entry->type = script::kQbvalStruct;
         script::Struct* memory = script::spawn_param_bag();
-        script::Struct* structure = memory ? new (memory) script::Struct : nullptr;
+        script::Struct* structure = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         entry->structure = structure;
         structure->append_structure_if_any(copy.structure);
         break;
@@ -293,7 +293,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
     case script::kQbvalArray: {
         entry->type = script::kQbvalArray;
         script::Array* memory = script::alloc_script_array();
-        script::Array* array = memory ? new (memory) script::Array : nullptr;
+        script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
         entry->raw = reinterpret_cast<uint32_t>(array);
         script::duplicate_array(array, copy.array);
         break;

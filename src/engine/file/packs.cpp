@@ -352,8 +352,10 @@ void load_pre(const char* name)
             std::memcpy(target, from.data, static_cast<size_t>(from.size));
             end = target + from.size;
         }
-        for (auto pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
-            *end++ = 0;
+        for (auto pad = static_cast<uint32_t>(to->size); pad & 3; ++pad) {
+            *end = 0;
+            ++end;
+        }
         to = next_entry(to);
     }
     new_header->total_size_ = static_cast<int>(reinterpret_cast<uint8_t*>(to) - reinterpret_cast<uint8_t*>(new_header));

@@ -18,8 +18,6 @@ Checks:
   # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
-  # `const` on every local that could have it: churn across the whole tree for little gain (Con.4 kept by review).
-  - '-misc-const-correctness'
   # The engine walks its vertex streams, script token streams, pools and packed records by pointer; std::span
   # belongs with the renderer's move to OpenGL and the script runtime's replacement.
   - '-cppcoreguidelines-pro-bounds-pointer-arithmetic'

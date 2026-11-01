@@ -1560,7 +1560,7 @@ void walk::MovableContact::start_riding(objects::GameEntity* object)
     let_go_of_ride(reinterpret_cast<objects::MovingSurfaceModule*>(this));
     void* memory = memory::alloc(sizeof(objects::RideTracker));
     reinterpret_cast<objects::MovingSurfaceModule*>(this)->ride_ =
-        memory ? new (memory) objects::RideTracker(object) : nullptr;
+        memory ? memory::construct_in<objects::RideTracker>(memory, object) : nullptr;
 }
 
 namespace objects {

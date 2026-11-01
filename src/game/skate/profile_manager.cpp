@@ -58,7 +58,7 @@ uint32_t& ref_tally() { return g_profile_manager_references; }
 RiderIdentity* new_profile()
 {
     void* memory = memory::alloc_zeroed(sizeof(RiderIdentity));
-    return memory ? new (memory) RiderIdentity : nullptr;
+    return memory ? memory::construct_in<RiderIdentity>(memory) : nullptr;
 }
 
 // The face texture object of a model appearance (its +0x54; 0x00576E60, folded with modules::Viewer's getter), told a
@@ -325,7 +325,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
         stats[i] = profile->fetch_tally(kStats[i]);
     const int max_specials = profile->get_max_specials();
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* specials = memory ? new (memory) script::Struct : nullptr;
+    script::Struct* specials = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     specials->append_structure_if_any(profile->get_specials());
     script::Struct* info = nullptr;
     custom->read_sub_struct(kInfo, &info, 0);
@@ -351,7 +351,7 @@ ProfileRoster* ProfileRoster::fabricate(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(ProfileRoster), nullptr, 1);
-        sole() = memory ? new (memory) ProfileRoster : nullptr;
+        sole() = memory ? memory::construct_in<ProfileRoster>(memory) : nullptr;
     }
     ++ref_tally();
     return sole();

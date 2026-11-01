@@ -4,6 +4,8 @@
 
 #include "game/skate/skate_module.h"
 
+#include "engine/core/str.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -83,7 +85,7 @@ void delete_entry(online::ScoreEntry* entry) { entry->teardown(1); }
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? new (made) script::Struct : nullptr;
+    return made ? memory::construct_in<script::Struct>(made) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -157,10 +159,7 @@ void fill_elimination_ranking()
          player = net->step_player_walk(&search, false)) {
         online::PlayerRecord* info = as_player(player);
         online::ScoreEntry* entry = new_entry();
-        const char* name = info->skater_->fetch_shown_name();
-        char* out = entry->text_;
-        while ((*out++ = *name++) != 0) {
-        }
+        text::copy_unbounded(entry->text_, info->skater_->fetch_shown_name());
         entry->team_score_ =
             reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
         entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
@@ -257,10 +256,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             online::PlayerRecord* info = as_player(player);
             const uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();
-            const char* name = info->skater_->fetch_shown_name();
-            char* out = entry->text_;
-            while ((*out++ = *name++) != 0) {
-            }
+            text::copy_unbounded(entry->text_, info->skater_->fetch_shown_name());
             entry->priority = static_cast<int>(score);
             reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry);
         }

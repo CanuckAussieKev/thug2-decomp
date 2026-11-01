@@ -630,7 +630,7 @@ std::vector<objects::GameEntity*> selected_objects()
     std::vector<Picked> kept;
     for (const Picked& picked : g_objects) {
         if (objects::GameEntity* object = get_live(picked)) {
-            live.push_back(object);
+            live.emplace_back(object);
             kept.push_back(picked);
         }
     }
@@ -4131,7 +4131,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             state.id = copy->ident_;
             state.pos = copy->at_point_;
             object_edit::get_restore(state);
-            made.push_back(copy);
+            made.emplace_back(copy);
             sources.push_back(source);
             g_duplicate_pairs.emplace_back(object->ident_, copy->ident_);
         }

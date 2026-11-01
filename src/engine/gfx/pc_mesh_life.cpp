@@ -132,7 +132,7 @@ void MeshRef::fetch_place(float* out) const
 VertexBuffer* new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
     void* memory = alloc_block(sizeof(VertexBuffer));
-    return memory ? new (memory) VertexBuffer(bytes, usage, flags) : nullptr;
+    return memory ? memory::construct_in<VertexBuffer>(memory, bytes, usage, flags) : nullptr;
 }
 
 // 0x004D57D0

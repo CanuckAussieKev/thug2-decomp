@@ -134,7 +134,7 @@ double offset_squared_zyx(const float* p, const maths::Vec4& l)
 LevelLamp* LevelLamp::make_new()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    sectors_ = memory ? new (memory) lists::KeyMap(4) : nullptr;
+    sectors_ = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
     auto* colour = reinterpret_cast<uint8_t*>(&shade_);
     colour[0] = 0x80;
     colour[1] = 0x80;

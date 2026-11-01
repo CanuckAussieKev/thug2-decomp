@@ -94,7 +94,7 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
     params->read_sub_struct(kDestroyParams, &destroy_params, 0);
     // (the original walks the list to its end first, finding nothing)
     void* memory = memory::alloc_zeroed(sizeof(CutsceneDestroyEntry));
-    auto* entry = memory ? new (memory) CutsceneDestroyEntry : nullptr;
+    auto* entry = memory ? memory::construct_in<CutsceneDestroyEntry>(memory) : nullptr;
     entry->label_ = name;
     entry->destroy_script_ = destroy_script;
     if (destroy_params)

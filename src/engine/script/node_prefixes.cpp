@@ -59,7 +59,7 @@ void PrefixNodes::append_one(uint16_t index)
 PrefixTable::PrefixTable()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    slot_table_ = memory ? new (memory) lists::KeyMap(8) : nullptr;
+    slot_table_ = memory ? memory::construct_in<lists::KeyMap>(memory, 8) : nullptr;
 }
 
 // 0x0045CD30
@@ -128,7 +128,7 @@ void PrefixTables::add_node_array(uint32_t name)
 {
     // (The original first walks to the end of the list, and does nothing with it.)
     void* memory = memory::alloc_zeroed(sizeof(PrefixTable));
-    PrefixTable* table = memory ? new (memory) PrefixTable : nullptr;
+    PrefixTable* table = memory ? memory::construct_in<PrefixTable>(memory) : nullptr;
     table->following_ = first_ptr_;
     first_ptr_ = table;
     table->node_array_ = name;

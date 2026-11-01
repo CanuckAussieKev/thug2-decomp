@@ -35,7 +35,7 @@ TrickListEntry::TrickListEntry()
     spin_ = 0;
     perfect_ = false;
     script::Array* memory = script::alloc_script_array();
-    element_list_ = memory ? new (memory) script::Array : nullptr;
+    element_list_ = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     tricks_count_ = 0;
     taps_ = 0;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)

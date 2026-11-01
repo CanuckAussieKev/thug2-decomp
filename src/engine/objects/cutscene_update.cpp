@@ -92,11 +92,11 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
     const int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
     script::Array* memory = script::alloc_script_array();
-    script::Array* objects = memory ? new (memory) script::Array : nullptr;
+    script::Array* objects = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     for (int i = 0; i < count; ++i, entry += 5) {
         script::Struct* block = script::spawn_param_bag();
-        script::Struct* object = block ? new (block) script::Struct : nullptr;
+        script::Struct* object = block ? memory::construct_in<script::Struct>(block) : nullptr;
         object->put_name_key(kName, entry[0]);
         object->put_name_key(kModel, entry[1]);
         object->put_name_key(kSkeleton, entry[2]);
@@ -313,7 +313,7 @@ void CinematicTable::restart_objects()
 CinematicEntry::CinematicEntry(const uint32_t* settings)
 {
     script::Struct* block = script::spawn_param_bag();
-    args_ = block ? new (block) script::Struct : nullptr;
+    args_ = block ? memory::construct_in<script::Struct>(block) : nullptr;
     std::memcpy(settings_, settings, 12);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     owns_data_ = static_cast<uint8_t>(settings_[2] & 0xFF);

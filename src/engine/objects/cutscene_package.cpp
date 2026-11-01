@@ -98,7 +98,7 @@ memory::owner<void*> new_anim_source() { return new render::FrameSource; }
 script::Struct* make_struct()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void free_struct(script::Struct* s)
 {

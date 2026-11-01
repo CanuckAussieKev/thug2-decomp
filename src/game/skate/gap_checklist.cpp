@@ -63,7 +63,7 @@ GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -130,7 +130,7 @@ void GapTally::register_gap_entry(const char* name, int count, int score)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     void* memory = memory::alloc_zeroed(sizeof(GapEntry));
-    GapEntry* gap = memory ? new (memory) GapEntry : nullptr;
+    GapEntry* gap = memory ? memory::construct_in<GapEntry>(memory) : nullptr;
     gap->num_ = 0;
     gap->label_ = name;
     gap->num_ = count;
@@ -301,7 +301,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
         return false;
     }
     script::Array* memory = script::alloc_script_array();
-    script::Array* list = memory ? new (memory) script::Array : nullptr;
+    script::Array* list = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     list->configure_size_kind(count, script::kQbvalStruct);
     int got = 0;
     int index = 0;

@@ -219,7 +219,7 @@ void HostListing::enroll_player(const char* name, int rating)
                                       ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap_)
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap_));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
-    PlayerRecord* player = block ? new (block) PlayerRecord(0) : nullptr;
+    PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
     player->skill_points_ = rating;
     std::strncpy(player->label_, name, 15);
     player->label_[15] = '\0';

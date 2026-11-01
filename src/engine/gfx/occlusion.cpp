@@ -213,7 +213,7 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     poly.in_use_ = 0;
     poly.enabled = 1;
     poly.checksum = checksum;
-    const maths::Vec4* corners[4] = {p0, p1, p2, p3};
+    const maths::Vec4* const corners[4] = {p0, p1, p2, p3};
     for (int i = 0; i < 4; ++i) {
         poly.corners[i][0] = corners[i]->x;
         poly.corners[i][1] = corners[i]->y;

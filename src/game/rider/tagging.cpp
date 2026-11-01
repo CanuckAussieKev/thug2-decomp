@@ -117,7 +117,7 @@ online::Hub* net_session_slot() { return online::g_online_hub; }
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_params(script::Struct* params)
 {
@@ -479,7 +479,7 @@ bool TaggingControlComponent::try_tagging()
         feeler.line_.start = {joint_world.x - back_x, joint_world.y, joint_world.z - back_z,
                               static_cast<float>(joint_world.w - 12.0)};
         const float ahead_z = dz * distance;
-        const float ahead_y = static_cast<float>(distance * 0.0);
+        const auto ahead_y = static_cast<float>(distance * 0.0);
         const float ahead_x = dx * distance;
         feeler.line_.end = {joint_world.x + ahead_x, joint_world.y + ahead_y, joint_world.z + ahead_z,
                             static_cast<float>(static_cast<double>(distance) + joint_world.w)};

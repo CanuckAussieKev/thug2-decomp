@@ -164,7 +164,7 @@ void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* d
 Struct* spawn_param_bag()
 {
     void* memory = struct_pools().carve(8);
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void free_struct(Struct* params)
 {
@@ -392,7 +392,7 @@ void BlendChannel::push_timeline(float period)
         }
     }
     void* memory = new_timeline(sizeof(AnimTrack));
-    AnimTrack* timeline = memory ? ::new (memory) AnimTrack(get_owner(this)) : nullptr;
+    AnimTrack* timeline = memory ? memory::construct_global_in<AnimTrack>(memory, get_owner(this)) : nullptr;
     memory::ListNode* node = elem(timeline); // (null: a crash, as the original)
     node->prev = &timelines_;
     node->next = timelines_.next;

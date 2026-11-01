@@ -251,7 +251,7 @@ SuspendTaskHolder::SuspendTaskHolder()
 void create_suspend_task()
 {
     void* memory = memory::alloc_zeroed(sizeof(SuspendTaskHolder));
-    g_suspend_task_holder = memory ? new (memory) SuspendTaskHolder : nullptr;
+    g_suspend_task_holder = memory ? memory::construct_in<SuspendTaskHolder>(memory) : nullptr;
 }
 
 // 0x00434420

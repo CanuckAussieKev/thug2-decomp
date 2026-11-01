@@ -57,7 +57,7 @@ void unpack_file(const ArchiveFile::FileInfo& info, uint8_t* out)
 ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up) : block_(block), bottom_up_heap_(bottom_up)
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    files_ = memory ? new (memory) lists::KeyMap(4) : nullptr;
+    files_ = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
 
     // Not original - read through pre_format's reader, bounded by the block: a count or size past the end stops
     // at the damage (the original walked on past the block). Valid archives give the same files.
@@ -233,7 +233,7 @@ ArchiveManager* sole() { return instance_slot(); }
 ArchiveManager::ArchiveManager()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    pres_ = memory ? new (memory) lists::KeyMap(4) : nullptr;
+    pres_ = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
     manager_slot() = this;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     open_entry_key_ = nullptr;
@@ -248,7 +248,7 @@ ArchiveManager* create_manager(bool create)
 {
     if (!instance_slot() && create) {
         void* memory = memory::alloc_zeroed(sizeof(ArchiveManager), nullptr, 1);
-        instance_slot() = memory ? new (memory) ArchiveManager() : nullptr;
+        instance_slot() = memory ? memory::construct_value_in<ArchiveManager>(memory) : nullptr;
     }
     ++instance_refs();
     return instance_slot();
@@ -399,7 +399,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
 
     debug::printf("load time for file %s size %d is %d ms\n", name, size, time_milliseconds() - start);
     void* memory = memory::alloc_zeroed(sizeof(ArchiveFile), load_heap(bottom_up), 1);
-    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, block_size, bottom_up) : nullptr;
+    ArchiveFile* pre = memory ? memory::construct_in<ArchiveFile>(memory, data, block_size, bottom_up) : nullptr;
     pres_->store_entry(checksums::hash_from_text(name), pre);
 }
 
@@ -491,7 +491,8 @@ void ArchiveManager::finish_load(int handle, uint8_t* data, int size)
     void* memory = memory::alloc_zeroed(sizeof(ArchiveFile), memory::top_down_heap(), 1);
     // (`size`: the bytes the read brought in - the file's)
     ArchiveFile* pre =
-        memory ? new (memory) ArchiveFile(data, size > 0 ? static_cast<size_t>(size) : 0, false) : nullptr;
+        memory ? memory::construct_in<ArchiveFile>(memory, data, size > 0 ? static_cast<size_t>(size) : 0, false)
+               : nullptr;
     pres_->store_entry(checksums::hash_from_text(pending_[i].name), pre);
     --queued_archive_count_;
     pending_[i] = pending_[queued_archive_count_]; // the last pending load takes this one's place

@@ -238,7 +238,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         uint32_t id = 0;
         description->read_hash_value(kChainId, &id, 1);
         void* memory = carve(sizeof(Chain));
-        Chain* chain = memory ? new (memory) Chain : nullptr;
+        Chain* chain = memory ? memory::construct_in<Chain>(memory) : nullptr;
         int value = 0;
         chain->ident_ = id;
         chain->links_ = segments + 1;

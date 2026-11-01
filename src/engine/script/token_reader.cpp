@@ -56,12 +56,12 @@ const uint8_t* skip_end_of_lines_in(const uint8_t* p)
 Struct* new_init_struct()
 {
     Struct* structure = spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
+    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
 }
 Array* new_init_array()
 {
     Array* array = alloc_script_array();
-    return array ? new (array) script::Array : nullptr;
+    return array ? memory::construct_in<script::Array>(array) : nullptr;
 }
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
@@ -243,7 +243,7 @@ const uint8_t* skip_value(const uint8_t* token)
     case 0x03:
     case 0x05: {
         const uint8_t open = *token;
-        const uint8_t close = static_cast<uint8_t>(open + 1);
+        const auto close = static_cast<uint8_t>(open + 1);
         int depth = 1;
         do {
             token = step_over_token(token);
@@ -727,7 +727,8 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x03) {
                 Struct* structure = new_init_struct();
                 p = parse_structure(structure, p, args);
-                *element++ = reinterpret_cast<uint32_t>(structure);
+                *element = reinterpret_cast<uint32_t>(structure);
+                ++element;
             }
             break;
         case kQbvalArray:
@@ -737,7 +738,8 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x05) {
                 Array* array = new_init_array();
                 p = parse_array(array, p - 1, args);
-                *element++ = reinterpret_cast<uint32_t>(array);
+                *element = reinterpret_cast<uint32_t>(array);
+                ++element;
             }
             break;
         case kQbvalInteger:
@@ -745,7 +747,8 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                *element++ = fetch_word32(p);
+                *element = fetch_word32(p);
+                ++element;
                 p += 4;
             }
             break;
@@ -755,10 +758,12 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
                 auto value = static_cast<float>(static_cast<int32_t>(fetch_word32(p)));
-                std::memcpy(element++, &value, 4);
+                std::memcpy(element, &value, 4);
+                ++element;
                 p += 4;
             } else if (t == 0x1A) {
-                *element++ = fetch_word32(p);
+                *element = fetch_word32(p);
+                ++element;
                 p += 4;
             }
             break;
@@ -767,7 +772,8 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x16) {
-                *element++ = fetch_word32(p);
+                *element = fetch_word32(p);
+                ++element;
                 p += 4;
             }
             break;
@@ -779,7 +785,8 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == (type == kQbvalString ? 0x1B : 0x1C)) {
                 const uint32_t length = fetch_word32(p);
                 p += 4;
-                *element++ = reinterpret_cast<uint32_t>(spawn_text(reinterpret_cast<const char*>(p)));
+                *element = reinterpret_cast<uint32_t>(spawn_text(reinterpret_cast<const char*>(p)));
+                ++element;
                 p += length;
             }
             break;
@@ -795,7 +802,8 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&vector->y, &y, 4);
                 std::memcpy(&vector->z, &z, 4);
                 p += 12;
-                *element++ = reinterpret_cast<uint32_t>(vector);
+                *element = reinterpret_cast<uint32_t>(vector);
+                ++element;
             }
             break;
         case kQbvalPair:
@@ -809,7 +817,8 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&pair->x, &x, 4);
                 std::memcpy(&pair->y, &y, 4);
                 p += 8;
-                *element++ = reinterpret_cast<uint32_t>(pair);
+                *element = reinterpret_cast<uint32_t>(pair);
+                ++element;
             }
             break;
         default:
@@ -929,7 +938,8 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);
-                    value.raw = reinterpret_cast<Routine>(symbol->raw)(params, script);
+                    const auto routine = reinterpret_cast<Routine>(symbol->raw);
+                    value.raw = routine(params, script);
                     if (params) {
                         params->get_clear();
                         delete_struct(params);

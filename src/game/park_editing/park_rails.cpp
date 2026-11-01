@@ -200,7 +200,8 @@ void ParkRailSet::prepare_all(int points, int strings, bool in)
     std::snprintf(point_name, sizeof(point_name), "%s RailPoint", label_);
     std::snprintf(string_name, sizeof(string_name), "%s RailString", label_);
     void* memory = memory::alloc(sizeof(memory::SlabBank));
-    point_pool_ = memory ? new (memory) memory::SlabBank(sizeof(ParkRailPoint), points, point_name) : nullptr;
+    point_pool_ =
+        memory ? memory::construct_in<memory::SlabBank>(memory, sizeof(ParkRailPoint), points, point_name) : nullptr;
     memory = memory::alloc(sizeof(memory::SlabBank));
     rail_pool_ = memory ? new (memory) memory::SlabBank(sizeof(ParkRailString), strings, string_name) : nullptr;
 }

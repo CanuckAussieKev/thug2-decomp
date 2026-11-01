@@ -973,7 +973,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
         return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value)));
     };
     const uint8_t value_7c = entry.value_7c_;
-    const uint8_t state = static_cast<uint8_t>(entry.state);
+    const auto state = static_cast<uint8_t>(entry.state);
     const uint8_t flag74 = entry.flag74;
     const uint8_t flag75 = entry.flag75;
     const uint8_t flag76 = entry.flag76;

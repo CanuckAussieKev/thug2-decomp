@@ -95,7 +95,7 @@ objects::GameEntity* object_named(uint32_t id)
 script::Struct* spawn_param_table()
 {
     script::Struct* made = script::spawn_param_bag();
-    return made ? new (made) script::Struct : nullptr;
+    return made ? memory::construct_in<script::Struct>(made) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {
@@ -107,7 +107,7 @@ void delete_structure(script::Struct* structure)
 script::Array* alloc_script_array()
 {
     script::Array* made = script::alloc_script_array();
-    return made ? new (made) script::Array : nullptr;
+    return made ? memory::construct_in<script::Array>(made) : nullptr;
 }
 void free_array(script::Array* array)
 {
@@ -261,8 +261,8 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
         append_format(base, sizeof(base), kSuccess);
     }
     // The candidates in order (the camera animation's first when there's one); for each its _lip version first.
-    const char* candidates[8] = {base,           base_difficulty, base_suffix, base_difficulty_suffix,
-                                 cam_difficulty, cam_base,        cam_suffix,  cam_difficulty_suffix};
+    const char* const candidates[8] = {base,           base_difficulty, base_suffix, base_difficulty_suffix,
+                                       cam_difficulty, cam_base,        cam_suffix,  cam_difficulty_suffix};
     uint32_t found = 0;
     bool lip = false;
     for (int i = index >= 0 ? 4 : 0; i < 8; ++i) {

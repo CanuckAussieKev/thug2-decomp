@@ -2,6 +2,8 @@
 
 #include "engine/script/skate_cfuncs.h"
 
+#include "engine/core/str.h"
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -186,9 +188,7 @@ bool cfunc_load_node_array(script::Struct* params, script::Script*)
     script::kill_all_child_scripts();
     const char* name = nullptr;
     params->fetch_text(0u, &name, 0);
-    char* out = node_table_key_text(); // (no length limit, like strcpy)
-    for (const char* in = name; (*out++ = *in++) != '\0';) {
-    }
+    text::copy_unbounded(node_table_key_text(), name); // (no length limit, as the original)
     script::load_qb_file(name, 0);
     level_nodes::get_last_node_array();
     memory::pop_mem_profile();

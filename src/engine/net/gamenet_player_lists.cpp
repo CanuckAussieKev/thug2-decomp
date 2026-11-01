@@ -686,7 +686,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
-    auto* record = record_memory ? new (record_memory) JoinerRecord : nullptr;
+    auto* record = record_memory ? memory::construct_in<JoinerRecord>(record_memory) : nullptr;
     std::strcpy(record->label_, info->label_);
     record->conn_ = info->conn_;
     record->entity_key_ = info->entity_key_;

@@ -89,7 +89,7 @@ double get_distance_squared(const float* a, const float* b)
 lists::KeyMap* new_hash_table(int bits)
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    return memory ? new (memory) lists::KeyMap(bits) : nullptr;
+    return memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;
 }
 void delete_hash_table(lists::KeyMap* table)
 {

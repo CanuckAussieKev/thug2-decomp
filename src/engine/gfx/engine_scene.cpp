@@ -212,7 +212,7 @@ bool WorldScene::init_collision_grid(const maths::BBox* box)
         return false;
     collision_box_ = *box;
     void* block = memory::alloc(sizeof(CollGrid));
-    CollGrid* grid = block ? new (block) CollGrid : nullptr; // (its box and cells constructed)
+    CollGrid* grid = block ? memory::construct_in<CollGrid>(block) : nullptr; // (its box and cells constructed)
     coll_grid_ = grid;
     grid->prepare_all(&collision_box_); // (no check, as the original)
     return true;

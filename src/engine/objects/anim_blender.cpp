@@ -185,7 +185,7 @@ void AnimBlenderComponent::configure_from_data(script::Struct* params)
     if (lanes_.prev != &lanes_)
         return;
     void* memory = memory::alloc_zeroed(sizeof(Channel));
-    Channel* channel = memory ? new (memory) gfx::BlendChannel(entity_, this, true) : nullptr;
+    Channel* channel = memory ? memory::construct_in<gfx::BlendChannel>(memory, entity_, this, true) : nullptr;
     get_link(channel)->prev = &lanes_;
     get_link(channel)->next = lanes_.next;
     lanes_.next->prev = get_link(channel);
@@ -352,7 +352,7 @@ gfx::BlendChannel* AnimBlenderComponent::find_channel(uint32_t id)
 gfx::BlendChannel* AnimBlenderComponent::add_channel(uint32_t id, bool at_front)
 {
     void* memory = memory::alloc_zeroed(sizeof(Channel));
-    Channel* channel = memory ? new (memory) gfx::BlendChannel(entity_, this, false) : nullptr;
+    Channel* channel = memory ? memory::construct_in<gfx::BlendChannel>(memory, entity_, this, false) : nullptr;
     ident_no(channel) = id;
     channel->seal();
     memory::ListNode* link = get_link(channel);

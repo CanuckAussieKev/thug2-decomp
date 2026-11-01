@@ -640,7 +640,7 @@ void check_server_info()
     std::snprintf(info.mode, sizeof(info.mode), "%s", "Trick Attack");
     reference.skill_level = info.skill_level = 4;
     reference.time = info.time = 123456;
-    const char* names[3] = {"one", "fifteen_chars__", "x"};
+    const char* const names[3] = {"one", "fifteen_chars__", "x"};
     for (int i = 0; i < 3; ++i) {
         std::snprintf(reference.players[i], sizeof(reference.players[i]), "%s", names[i]);
         std::snprintf(info.players[i], sizeof(info.players[i]), "%s", names[i]);

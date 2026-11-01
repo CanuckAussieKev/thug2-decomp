@@ -88,7 +88,7 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
     if (points_held_)
         return;
     void* memory = memory::alloc_zeroed(0x1550);
-    points_held_ = memory ? new (memory) modules::PointTally : nullptr; // (its constructor)
+    points_held_ = memory ? memory::construct_in<modules::PointTally>(memory) : nullptr; // (its constructor)
     get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity_->ident_));
 }
 

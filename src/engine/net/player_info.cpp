@@ -63,7 +63,7 @@ objects::RiderIdentity* new_profile()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
     void* block = memory::alloc_zeroed(sizeof(objects::RiderIdentity));
-    return block ? new (block) objects::RiderIdentity : nullptr;
+    return block ? memory::construct_in<objects::RiderIdentity>(block) : nullptr;
 }
 
 // A node's unlinking, as lists::Elem's destructor does it (the node linked to itself after).

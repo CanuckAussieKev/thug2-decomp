@@ -74,7 +74,7 @@ uint32_t movie_key_from_params(script::Struct* params, int assert)
 CutsceneDestroyEntry::CutsceneDestroyEntry()
 {
     script::Struct* memory = script::spawn_param_bag();
-    args_ = memory ? new (memory) script::Struct : nullptr;
+    args_ = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
 // 0x005AD830: PlaySkaterCamAnim [SkaterId= | skater=] name=<anim> ... - the skater's (a local one) camera animation

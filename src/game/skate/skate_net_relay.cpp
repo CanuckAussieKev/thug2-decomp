@@ -690,7 +690,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
 {
     const online::Hub* net = net_link();
     void* memory = memory::alloc_zeroed(0x449C);
-    void* texture = memory ? reinterpret_cast<void*>(new (memory) gfx::FaceSkin) : nullptr;
+    void* texture = memory ? reinterpret_cast<void*>(memory::construct_in<gfx::FaceSkin>(memory)) : nullptr;
     auto* data = reinterpret_cast<uint8_t*>(context->body_);
     uint32_t size = context->body_size_;
     PlayerRecord* player = nullptr;

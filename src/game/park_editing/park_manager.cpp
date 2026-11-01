@@ -36,7 +36,7 @@ ParkLayout::ParkLayout()
     for (CellBox& area : blocked_areas_)
         area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     void* memory = memory::alloc(0x4A4);
-    builder_ = memory ? new (memory) ParkAssembler : nullptr;
+    builder_ = memory ? memory::construct_in<ParkAssembler>(memory) : nullptr;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     concrete_metas_ = nullptr;
     abstract_metas_ = nullptr;
@@ -71,7 +71,7 @@ ParkLayout::ParkLayout()
 void ParkLayout::spawn_occurrence()
 {
     void* memory = memory::alloc(sizeof(ParkLayout));
-    sole() = memory ? new (memory) ParkLayout : nullptr;
+    sole() = memory ? memory::construct_in<ParkLayout>(memory) : nullptr;
 }
 
 // 0x00599C70

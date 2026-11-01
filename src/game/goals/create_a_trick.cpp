@@ -46,7 +46,7 @@ script::Struct* get_results(script::Script* script) { return script->args_; }
 script::Array* alloc_script_array()
 {
     script::Array* array = script::alloc_script_array();
-    return array ? new (array) script::Array : nullptr;
+    return array ? memory::construct_in<script::Array>(array) : nullptr;
 }
 
 } // namespace
@@ -57,7 +57,7 @@ CreateATrick::CreateATrick()
     debug::printf("creating a CCreateATrick\n");                               // "creating a CCreateATrick\n"
     script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
     script::Struct* params = script::spawn_param_bag();
-    other_params_ = params ? new (params) script::Struct : nullptr;
+    other_params_ = params ? memory::construct_in<script::Struct>(params) : nullptr;
     other_params_->append_structure_if_any(other);
     script::Array* rotations = script::fetch_list("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order

@@ -116,7 +116,7 @@ void prepare_all(uint32_t text_pool_size)
     memory::pop_mem_profile();
     memory::push_mem_profile("CImposterManager");
     void* memory = memory::alloc(8);
-    imposter_manager() = memory ? new (memory) ImposterManager : nullptr;
+    imposter_manager() = memory ? memory::construct_in<ImposterManager>(memory) : nullptr;
     memory::pop_mem_profile();
     memory::push_mem_profile("MiscFXInitialize");
     init_effects();

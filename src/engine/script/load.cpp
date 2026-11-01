@@ -298,8 +298,10 @@ void unload_qb(uint32_t file_checksum)
         memory::leave_heap_scope();
         SymbolTableEntry** next = symbols;
         for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
-            if (symbol->unknown8 == file_checksum)
-                *next++ = symbol;
+            if (symbol->unknown8 == file_checksum) {
+                *next = symbol;
+                ++next;
+            }
         }
         for (int i = 0; i < count; ++i)
             clean_up_and_remove_symbol(symbols[i]);

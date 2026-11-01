@@ -103,7 +103,7 @@ bool PcTexture::end_edit()
 {
     // (the edit's fields read whether or not it is one, as the original)
     auto* edit = get_edit(this);
-    TextureRef* texture = flag_bits_ & 1 ? edit->texture : static_cast<TextureRef*>(image_);
+    void* texture = flag_bits_ & 1 ? edit->texture : image_;
     if (edit->pixels) {
         memory::Hub::get_pull()->dealloc(edit->pixels);
         get_edit(this)->pixels = nullptr;
@@ -211,7 +211,7 @@ bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t hei
     if (old && old->texture) // (released, the old texture itself kept)
         static_cast<IUnknown*>(old->texture)->Release();
     void* memory = memory::alloc(sizeof(TextureRef));
-    TextureRef* texture = memory ? new (memory) TextureRef : nullptr;
+    TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
     checksum_ = new_checksum;
     image_ = texture;                 // (an edit's place too)
     texture->checksum = new_checksum; // (no check, as the original)
@@ -325,7 +325,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     }
     if (keep_texture) {
         void* memory = memory::alloc(sizeof(TextureRef));
-        get_edit(this)->kept = memory ? new (memory) TextureRef : nullptr;
+        get_edit(this)->kept = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
         TextureRef* kept = get_edit(this)->kept; // (no check, as the original)
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
@@ -619,8 +619,9 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
         for (uint32_t column = width; column; --column, x += xx_step, y += xy_step) {
             const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
             const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
-            *out++ = sample_at(pixels, static_cast<int>(width), static_cast<int>(height),
-                               static_cast<int16_t>(cx >> 10), static_cast<int16_t>(cy >> 10), cx & 0x3FF, cy & 0x3FF);
+            *out = sample_at(pixels, static_cast<int>(width), static_cast<int>(height), static_cast<int16_t>(cx >> 10),
+                             static_cast<int16_t>(cy >> 10), cx & 0x3FF, cy & 0x3FF);
+            ++out;
         }
     }
     std::memcpy(pixels, rotated, bytes);
@@ -1011,7 +1012,7 @@ lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
     }
     memory::Hub::get_pull()->enter_heap_scope(heap);
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    auto* remade = memory ? new (memory) lists::KeyMap(static_cast<int>(bits)) : nullptr;
+    auto* remade = memory ? memory::construct_in<lists::KeyMap>(memory, static_cast<int>(bits)) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     return remade;
 }
@@ -1048,7 +1049,7 @@ void add_to_table(lists::KeyMap* table, TextureRef* texture)
 TextureRef* new_engine_texture()
 {
     void* memory = memory::alloc(sizeof(TextureRef));
-    return memory ? new (memory) TextureRef : nullptr;
+    return memory ? memory::construct_in<TextureRef>(memory) : nullptr;
 }
 
 } // namespace

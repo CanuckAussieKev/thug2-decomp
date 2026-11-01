@@ -1,6 +1,8 @@
 // Script-loaded fonts (LoadFont), with PartyMod's button glyph style (engine/gfx/glyphs.h) built in.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
+#include "engine/core/str.h"
+
 #include <cstdint>
 #include <new>
 
@@ -90,10 +92,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
             set_color_table(slot.font, colors);
         flag_button_font(slot.font, button_font);
         // The original copies the name with no length limit, like strcpy.
-        const char* source = name;
-        char* out = slot.name;
-        while ((*out++ = *source++) != '\0') {
-        }
+        text::copy_unbounded(slot.name, name);
         const uint32_t key = checksums::hash_from_text(name);
         font_table().store_entry(key, slot.name);
     }

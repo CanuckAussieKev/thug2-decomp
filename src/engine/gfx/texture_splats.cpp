@@ -361,7 +361,7 @@ TextureSplats* get_texture_splats(uint32_t texture)
             return splats;
     }
     void* memory = memory::alloc(sizeof(MaterialRef));
-    MaterialRef* material = memory ? new (memory) MaterialRef : nullptr;
+    MaterialRef* material = memory ? memory::construct_in<MaterialRef>(memory) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     material->pass_flags_[0] = texture ? 4 : 0; // (the pass's flags)
     const int a = get_rand();
@@ -533,8 +533,8 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                                           ? 0x7FFFFFFF
                                           : get_milliseconds(params->lifetime);
                 // texture coordinates from the projection (0-1 over the square)
-                const float* t[3] = {t0, t1, t2};
-                uint8_t* v[3] = {v0, v1, v2};
+                const float* const t[3] = {t0, t1, t2};
+                uint8_t* const v[3] = {v0, v1, v2};
                 for (int k = 0; k < 3; ++k) {
                     get_uv(v[k])[0] = static_cast<float>((static_cast<double>(t[k][0]) + 1.0f) * 0.5f);
                     get_uv(v[k])[1] = static_cast<float>((static_cast<double>(t[k][1]) + 1.0f) * 0.5f);
@@ -572,7 +572,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                 auto* pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
                 std::memset(pieces, 0, 0x2000);
                 void* memory = memory::alloc(0xD8);
-                auto* format = memory ? reinterpret_cast<uint8_t*>(new (memory) MeshRef) : nullptr;
+                auto* format = memory ? reinterpret_cast<uint8_t*>(memory::construct_in<MeshRef>(memory)) : nullptr;
                 format[0x1C] = 0x0C;
                 format[0x1E] = 0x10;
                 uint8_t* cursor = pieces;

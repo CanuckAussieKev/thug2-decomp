@@ -128,7 +128,7 @@ constexpr float kRadiansPerDegree = 0.017453292f;             // 0x00645464
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {

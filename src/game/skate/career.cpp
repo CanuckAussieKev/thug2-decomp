@@ -323,14 +323,14 @@ constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 script::Array* alloc_script_array(uint32_t size, script::QbValueKind type)
 {
     script::Array* memory = script::alloc_script_array();
-    script::Array* array = memory ? new (memory) script::Array : nullptr;
+    script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(size, type);
     return array;
 }
 script::Struct* spawn_param_table()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
 } // namespace
@@ -340,7 +340,7 @@ RiderStoryProgress::RiderStoryProgress()
 {
     for (int level = 0; level < kLevels; ++level) {
         void* memory = memory::alloc(sizeof(goals::GapTally));
-        gaps_[level] = memory ? new (memory) goals::GapTally : nullptr;
+        gaps_[level] = memory ? memory::construct_in<goals::GapTally>(memory) : nullptr;
         visited_[level] = false;
     }
     details_ = spawn_param_table();
@@ -534,9 +534,9 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->put_name_key(0x2CC06F5E, goals::g_game_mode->get_name_key());
     // (both made first, then sized, as the original)
     script::Array* cash_memory = script::alloc_script_array();
-    script::Array* cash = cash_memory ? new (cash_memory) script::Array : nullptr;
+    script::Array* cash = cash_memory ? memory::construct_in<script::Array>(cash_memory) : nullptr;
     script::Array* amount_memory = script::alloc_script_array();
-    script::Array* amounts = amount_memory ? new (amount_memory) script::Array : nullptr;
+    script::Array* amounts = amount_memory ? memory::construct_in<script::Array>(amount_memory) : nullptr;
     cash->configure_size_kind(kLevels, script::kQbvalInteger);
     amounts->configure_size_kind(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level) {

@@ -59,7 +59,7 @@ void get_run(uint32_t script, script::Struct* params = nullptr)
 script::Struct* make_struct()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
 // The vblank count since a time, in seconds (the count as an unsigned 64-bit number).

@@ -809,10 +809,10 @@ void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* s
         UiWidget* element = entry->element.get_pull();
         if (!element)
             continue;
-        focused->push_back(element);
+        focused->emplace_back(element);
         if (is_menu(element))
             if (UiWidget* item = child_at(element, selected_index(element)))
-                selected->push_back(item);
+                selected->emplace_back(item);
     }
 }
 

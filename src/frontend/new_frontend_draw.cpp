@@ -1768,7 +1768,7 @@ bool build_fonts(const FontFiles& files, float scale)
         b = Baked{};
     g_condense = std::clamp(files.condense, 0.5f, 1.5f);
     g_bold = std::clamp(files.bold, 0.0f, 0.1f);
-    const std::string* paths[3] = {&files.display, &files.mono, &files.body};
+    const std::string* const paths[3] = {&files.display, &files.mono, &files.body};
     bool all = true;
     for (int i = 0; i < 3; ++i) {
         FaceLayout& face = g_faces[i];

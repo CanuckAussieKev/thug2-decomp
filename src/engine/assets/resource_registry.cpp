@@ -130,7 +130,7 @@ void join_group(ResourceRegistry* manager, Resource* asset, uint32_t group)
 ResourceRegistry::ResourceRegistry()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    assets_ = memory ? new (memory) lists::KeyMap(10) : nullptr;
+    assets_ = memory ? memory::construct_in<lists::KeyMap>(memory, 10) : nullptr;
     task_ = std::make_unique<tasks::Task<ResourceRegistry>>(&process_task, this, 0);
 }
 

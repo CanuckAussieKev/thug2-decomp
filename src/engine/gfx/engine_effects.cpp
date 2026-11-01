@@ -110,7 +110,7 @@ void compiled_out() {}
 lists::KeyMap* new_table()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    return memory ? new (memory) lists::KeyMap(4) : nullptr;
+    return memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
 }
 
 } // namespace

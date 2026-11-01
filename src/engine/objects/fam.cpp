@@ -49,7 +49,7 @@ assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
 script::Struct* new_params()
 {
     script::Struct* params = script::spawn_param_bag();
-    return params ? new (params) script::Struct : nullptr;
+    return params ? memory::construct_in<script::Struct>(params) : nullptr;
 }
 void delete_params(script::Struct* params)
 {

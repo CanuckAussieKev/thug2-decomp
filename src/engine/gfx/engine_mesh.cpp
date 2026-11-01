@@ -3,6 +3,8 @@
 
 #include "engine/gfx/engine_mesh.h"
 
+#include "engine/core/str.h"
+
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -67,17 +69,12 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
 // 0x00490AD0
 void skin_collision_file_name(char* out, const char* name)
 {
-    char* end = out;
-    while ((*end++ = *name++) != '\0') { // (no length limit, as the original)
-    }
+    text::copy_unbounded(out, name); // (no length limit, as the original)
     char* extension = std::strstr(out, ".");
     if (!extension)
         extension = out + std::strlen(out);
     std::memcpy(extension, ".col.", 6);
-    const char* platform = platform_suffix();
-    end = out + std::strlen(out);
-    while ((*end++ = *platform++) != '\0') {
-    }
+    text::append_unbounded(out, platform_suffix());
 }
 
 // 0x00490CD0

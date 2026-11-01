@@ -58,7 +58,7 @@ int truncate(double value) { return static_cast<int>(value); }
 script::Struct* spawn_param_table()
 {
     script::Struct* structure = script::spawn_param_bag();
-    return structure ? new (structure) script::Struct : nullptr;
+    return structure ? memory::construct_in<script::Struct>(structure) : nullptr;
 }
 void delete_structure(script::Struct* structure)
 {

@@ -65,7 +65,7 @@ void store_beaten_goal(script::Struct* saved, uint32_t name, int level, uint32_t
     if (saved->read_sub_struct(name, &old, 0) && old)
         old->fetch_int_value(kRecord, &record, 0);
     script::Struct* memory = script::spawn_param_bag();
-    script::Struct* goal = memory ? new (memory) script::Struct : nullptr;
+    script::Struct* goal = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     if (!goal)
         return;
     goal->put_int(kLevelNum, level);

@@ -128,7 +128,7 @@ int truncate(double value)
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
-    return memory ? new (memory) script::Struct : nullptr;
+    return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_params(script::Struct* params)
 {
@@ -540,10 +540,10 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
         bool unused = false;
         const float turn = std::fabs(maths::acos_f(dot, 0.0f, &unused));
         if (!(static_cast<double>(step_seconds_) * kTurnPerSecond >= turn)) {
-            static const float g_max_turn = 0.69813174f; // (40 degrees)
+            static const float kMaxTurn = 0.69813174f; // (40 degrees)
             float t = kTurnTime;
-            if (turn > g_max_turn)
-                t = static_cast<float>(static_cast<double>(turn) / g_max_turn * kTurnTime);
+            if (turn > kMaxTurn)
+                t = static_cast<float>(static_cast<double>(turn) / kMaxTurn * kTurnTime);
             m.row[2] = *walk::get_lerp(&pos, &heading, &moved, t);
             m.row[2].make_unit();
         } else {

@@ -444,7 +444,7 @@ void BillboardSet::append_mesh(MeshRef* mesh)
     BillboardBatch* batch = get_find(mesh->material);
     if (!batch) {
         void* memory = memory::alloc(sizeof(BillboardBatch));
-        batch = memory ? new (memory) BillboardBatch(mesh->material) : nullptr;
+        batch = memory ? memory::construct_in<BillboardBatch>(memory, mesh->material) : nullptr;
         batches[count] = batch;
         ++count;
         order_batches(this);

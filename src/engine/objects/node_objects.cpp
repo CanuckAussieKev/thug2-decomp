@@ -170,7 +170,7 @@ void VideoEntry::configure_from_data(script::Struct* params)
 {
     if (!args_) {
         script::Struct* created = script::spawn_param_bag();
-        args_ = created ? new (created) script::Struct : nullptr;
+        args_ = created ? memory::construct_in<script::Struct>(created) : nullptr;
     }
     args_->get_clear();
     if (params->read_hash_value(0x1A005041, &label_, 0)) {

@@ -476,18 +476,19 @@ bool read_record(const std::string& text, Goal* out)
             struct IntKey {
                 const char* key;
                 int* field;
-            } ints[] = {{"time", &g.time},
-                        {"score", &g.score},
-                        {"laps", &g.laps},
-                        {"cptime", &g.checkpoint_time_},
-                        {"spin", &g.spin},
-                        {"accel", &g.accel_interval_},
-                        {"tricktime", &g.combo_time_},
-                        {"stopat", &g.stop_at_},
-                        {"maxtricks", &g.max_tricks_},
-                        {"combo", &g.combo_size_},
-                        {"block", &g.block_size_},
-                        {"towin", &g.to_win_}};
+            };
+            const IntKey ints[] = {{"time", &g.time},
+                                   {"score", &g.score},
+                                   {"laps", &g.laps},
+                                   {"cptime", &g.checkpoint_time_},
+                                   {"spin", &g.spin},
+                                   {"accel", &g.accel_interval_},
+                                   {"tricktime", &g.combo_time_},
+                                   {"stopat", &g.stop_at_},
+                                   {"maxtricks", &g.max_tricks_},
+                                   {"combo", &g.combo_size_},
+                                   {"block", &g.block_size_},
+                                   {"towin", &g.to_win_}};
             bool known = false;
             for (const IntKey& k : ints) {
                 if (key == k.key) {

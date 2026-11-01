@@ -142,7 +142,7 @@ void compile_pixel_shaders()
         }
     }
     void* table = memory::alloc(sizeof(lists::KeyMap));
-    g_shadow_casters = table ? new (table) lists::KeyMap(8) : nullptr; // the shadow casters
+    g_shadow_casters = table ? memory::construct_in<lists::KeyMap>(table, 8) : nullptr; // the shadow casters
 }
 
 // 0x004DD2C0

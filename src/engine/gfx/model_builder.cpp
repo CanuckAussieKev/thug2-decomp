@@ -179,7 +179,7 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
     built_skeleton() = skeleton;
     const memory::Hub* manager = memory::Hub::get_pull();
     void* memory = memory::alloc_zeroed(sizeof(ModelLook), manager->top_down_heap_, 1);
-    built_appearance() = new (memory) ModelLook; // (null without memory)
+    built_appearance() = memory::construct_in<ModelLook>(memory); // (null without memory)
     built_appearance()->get_reset();             // (no memory: a crash, as the original)
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
     built_appearance()->copy_from(appearance);

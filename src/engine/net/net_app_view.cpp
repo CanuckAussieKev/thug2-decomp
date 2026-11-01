@@ -184,7 +184,7 @@ SeqQueuedMsg* AppHost::new_queued_msg(uint8_t id, uint16_t length, const void* d
     if (!memory)
         return nullptr;
     // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
-    return new (memory) SeqQueuedMsg(id, length, data, arg4, arg5);
+    return memory::construct_in<SeqQueuedMsg>(memory, id, length, data, arg4, arg5);
 }
 
 // 0x00456E20

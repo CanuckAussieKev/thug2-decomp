@@ -93,7 +93,7 @@ GoalManager::GoalManager()
     active_goals_.list_link_.make_head();
     for (script::Struct** structure : {&team_, &goal_data_, &args_}) {
         script::Struct* made = script::spawn_param_bag();
-        *structure = made ? new (made) script::Struct : nullptr;
+        *structure = made ? memory::construct_in<script::Struct>(made) : nullptr;
     }
     for (int& unlocked : group_unlocked_)
         unlocked = 0;

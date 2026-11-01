@@ -118,7 +118,7 @@ Hub::Hub()
     motd_received_ = false;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     void* memory = carve(sizeof(RoomManager));
-    lobby_service_.reset(memory ? new (memory) RoomManager : nullptr);
+    lobby_service_.reset(memory ? memory::construct_in<RoomManager>(memory) : nullptr);
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
     vault_man_.reset(memory ? new (memory) VaultMan : nullptr);
     memory = carve(sizeof(FriendsManager));
@@ -143,7 +143,7 @@ Hub* Hub::fabricate(bool create)
     Hub*& instance = g_online_hub;
     if (!instance && create) {
         void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1);
-        instance = memory ? new (memory) Hub : nullptr;
+        instance = memory ? memory::construct_in<Hub>(memory) : nullptr;
     }
     ++g_game_net_references; // (the references)
     return instance;

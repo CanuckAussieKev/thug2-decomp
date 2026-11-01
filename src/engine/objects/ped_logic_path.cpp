@@ -294,7 +294,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
         auto ax = static_cast<float>(speed_across * direction.x), ay = static_cast<float>(speed_across * direction.y),
              az = static_cast<float>(speed_across * direction.z);
         const double aw = speed_across * direction.w;
-        const float up_x = static_cast<float>(static_cast<double>(up_speed) * 0.0f);
+        const auto up_x = static_cast<float>(static_cast<double>(up_speed) * 0.0f);
         const float up_z = up_x;
         const double vx = static_cast<double>(up_x) + ax;
         const double vy = static_cast<double>(up_speed) + ay;

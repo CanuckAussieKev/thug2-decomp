@@ -1,5 +1,7 @@
 // The park editor's cursor: clipboards, area selection, the gap being built, keeping it in the park.
 
+#include "engine/core/str.h"
+
 #include <cstdint>
 
 #include "game/park_editing/park.h"
@@ -37,9 +39,7 @@ void BuildPointer::set_gap_label_and_points(const char* name, int score)
             gap_.text_[0] = 'x';
             gap_.text_[1] = '\0';
         } else {
-            char* to = gap_.text_;
-            while ((*to++ = *name++) != '\0') { // (no length limit, as in the original)
-            }
+            text::copy_unbounded(gap_.text_, name); // (no length limit, as in the original)
         }
     }
     if (score >= 0)

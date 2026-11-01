@@ -3,6 +3,8 @@
 
 #include "engine/gfx/texture_cfuncs.h"
 
+#include "engine/core/str.h"
+
 #include <cstdint>
 #include <cstring>
 
@@ -435,9 +437,7 @@ bool cfunc_set_park_name(Struct* params, Script*)
 {
     const char* name = ""; // ""
     params->fetch_text(0u, &name, 0);
-    char* park_name = g_park_name;
-    while ((*park_name++ = *name++) != '\0') { // (no length limit, as in the original)
-    }
+    text::copy_unbounded(g_park_name, name); // (no length limit, as in the original)
     return false;
 }
 

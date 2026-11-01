@@ -3,6 +3,8 @@
 
 #include "engine/script/game_cfuncs.h"
 
+#include "engine/core/str.h"
+
 #include <windows.h>
 
 #include <cstddef>
@@ -348,9 +350,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
-    char* out = g_node_list_name;
-    for (const char* in = file; (*out++ = *in++) != '\0';) {
-    }
+    text::copy_unbounded(g_node_list_name, file);
     assets::asset_manager()->load_asset(file, 11, 0, 0, false, false, false, nullptr, 0);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;

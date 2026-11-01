@@ -70,8 +70,8 @@ namespace {
 
 int get_mode()
 {
-    static const int mode = config_int("features", "debug_collision", 0);
-    return mode;
+    static const int kMode = config_int("features", "debug_collision", 0);
+    return kMode;
 }
 
 const char* get_name_of(uint32_t checksum, char* buffer, size_t size)

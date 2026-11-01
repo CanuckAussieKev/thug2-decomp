@@ -141,16 +141,16 @@ bool peer_mode()
 {
     if (g_override >= 0)
         return g_override != 0;
-    static const bool mode = read_peer_mode();
-    return mode;
+    static const bool kPeerMode = read_peer_mode();
+    return kPeerMode;
 }
 
 void set_peer_mode_override(int mode) { g_override = mode; }
 
 uint32_t get_machine_id()
 {
-    static const uint32_t id = read_machine_id();
-    return id;
+    static const uint32_t kMachineId = read_machine_id();
+    return kMachineId;
 }
 
 // --- Layouts ---
@@ -368,7 +368,7 @@ private:
     static script::Struct* new_params()
     {
         script::Struct* params = script::spawn_param_bag();
-        return params ? new (params) script::Struct : nullptr;
+        return params ? memory::construct_in<script::Struct>(params) : nullptr;
     }
     static void delete_params(script::Struct* params)
     {
