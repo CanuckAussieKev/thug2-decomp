@@ -8,6 +8,7 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <new>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -108,33 +109,18 @@ void render_frame_letterboxed()
 
 namespace {
 
-// The task lists (Lst-style lists of tasks, 0x3C bytes each).
-void construct_task_list(tasks::PileUp& list) { list.make_new(); }
-void destroy_task_list(tasks::PileUp& list) { list.destruct(); }
-
 Hub*& sole() { return assets::g_main_loop_manager; }
 uint32_t& ref_tally() { return g_mlp_references; }
 
 } // namespace
 
 // 0x0044EDC0
-Hub* Hub::make_new()
+// (the three task lists - 0x3C bytes each in the original - made first by their constructors)
+Hub::Hub()
 {
-    construct_task_list(logic_tasks_);
-    construct_task_list(display_tasks_);
-    construct_task_list(system_tasks_);
     unknownb8_ = 0;
     unknownbc_ = 0;
     is_finished_ = false;
-    return this;
-}
-
-// 0x0044EE30
-void Hub::destroy_body()
-{
-    destroy_task_list(system_tasks_);
-    destroy_task_list(display_tasks_);
-    destroy_task_list(logic_tasks_);
 }
 
 // 0x0044EE90
@@ -171,7 +157,7 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = static_cast<Hub*>(memory)->make_new();
+            sole() = new (memory) Hub;
             ++ref_tally();
             return sole();
         }
@@ -189,7 +175,7 @@ void release_manager()
         return;
     }
     if (Hub* manager = sole()) {
-        manager->destroy_body();
+        manager->~Hub();
         memory::Hub::get_pull()->dealloc(manager);
     }
     sole() = nullptr;

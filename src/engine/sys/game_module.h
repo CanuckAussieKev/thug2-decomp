@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/task_list.h"
@@ -45,14 +46,16 @@ static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
               offsetof(PartUnit, list_link_) == 0x10);
 
 struct Hub {
-    memory::owner<tasks::Task<Hub>*> task_;   // priority -1000, running tick_modules
+    std::unique_ptr<tasks::Task<Hub>> task_; // priority -1000, running tick_modules
     memory::ListNode modules_; // +0x04: the list's head (lists::Foremost<Module>)
     bool command_pending_;     // +0x14 (the original's +0x18): a module was given a command since the task last ran
 
-    // 0x0044F5E0: the empty list and the task (not added to a task list here). Returns this.
-    Hub* make_new();
+    // 0x0044F5E0: the empty list and the task (not added to a task list here).
+    Hub();
     // 0x0044F680: every module stopped (halt_every_module), the task deleted, the list's head unlinked.
-    void destroy_body();
+    ~Hub();
+    Hub(const Hub&) = delete;
+    Hub& operator=(const Hub&) = delete;
 
     // 0x0044F3C0: `module` onto the end of the list.
     void enrol_unit(PartUnit* module);

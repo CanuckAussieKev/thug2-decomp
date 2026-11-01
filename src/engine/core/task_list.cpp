@@ -1,6 +1,7 @@
 // Tasks, task lists and task list stacks (Tsk).
 
 #include <cstdint>
+#include <new>
 
 #include "engine/core/task_list.h"
 
@@ -71,17 +72,16 @@ void SchedulerTask::drop_out()
 bool SchedulerTask::is_on_task_list() const { return list_link_->prev != list_link_; }
 
 // 0x00406A50
-LinkChain* LinkChain::make_new()
+LinkChain::LinkChain()
 {
     lock_ = 0;
     head_.make_head();
     pass_count_ = 0;
     altered_ = false;
-    return this;
 }
 
 // 0x00406A20
-void LinkChain::destruct() { head_.uncouple(); }
+LinkChain::~LinkChain() { head_.uncouple(); }
 
 // 0x004069B0
 void LinkChain::mark_changed() { altered_ = true; }
@@ -139,22 +139,13 @@ void LinkChain::clear_job_list()
 }
 
 // 0x00406D60
-StackList* StackList::make_new()
-{
-    LinkChain::make_new();
-    list_link_ = memory::ListNode::create(this);
-    return this;
-}
+StackList::StackList() { list_link_ = memory::ListNode::create(this); }
 
-// 0x00406C30
-void StackList::destruct()
-{
-    memory::ListNode::destroy(list_link_); // (0x00406D20)
-    LinkChain::destruct();
-}
+// 0x00406C30 (then the list's own destructor)
+StackList::~StackList() { memory::ListNode::destroy(list_link_); } // (0x00406D20)
 
 // 0x00406E80
-PileUp* PileUp::make_new()
+PileUp::PileUp()
 {
     lock_ = 0;
     lists_.make_head();
@@ -165,11 +156,10 @@ PileUp* PileUp::make_new()
     ongoing_ = top_side_;
     pushed_ = false;
     just_popped_ = false;
-    return this;
 }
 
 // 0x004070E0
-void PileUp::destruct()
+PileUp::~PileUp()
 {
     // (the original counts the lists each time round)
     for (;;) {
@@ -187,7 +177,7 @@ void PileUp::destruct()
 void PileUp::stack_on()
 {
     void* memory = memory::alloc_zeroed(sizeof(StackList));
-    auto* list = memory ? static_cast<StackList*>(memory)->make_new() : nullptr;
+    auto* list = memory ? new (memory) StackList : nullptr;
     top_side_ = list;
     insert_front(&lists_, list->list_link_); // (a failed allocation crashes here, as in the original)
     pushed_ = true;
@@ -207,7 +197,7 @@ void PileUp::stack_off()
     }
     if (lock_ == 0) {
         if (old) {
-            old->destruct();
+            old->~StackList();
             memory::Hub::get_pull()->dealloc(old);
         }
     } else {
@@ -244,7 +234,7 @@ void PileUp::delete_popped_lists()
         if (!node || !node->data)
             break;
         auto* list = static_cast<StackList*>(node->data);
-        list->destruct(); // (inlined; deleting the node takes it out of the popped lists)
+        list->~StackList(); // (inlined; deleting the node takes it out of the popped lists)
         memory::Hub::get_pull()->dealloc(list);
     }
 }

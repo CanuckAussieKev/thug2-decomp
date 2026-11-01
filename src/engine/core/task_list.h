@@ -58,10 +58,12 @@ public:
 // A list of tasks (0x20 bytes in the original), highest priority first.
 class LinkChain {
 public:
-    // 0x00406A50: empty (returns this).
-    LinkChain* make_new();
+    // 0x00406A50: empty.
+    LinkChain();
     // 0x00406A20: the head unlinked.
-    void destruct();
+    ~LinkChain();
+    LinkChain(const LinkChain&) = delete;
+    LinkChain& operator=(const LinkChain&) = delete;
     // 0x00406A80: in by priority (it runs in the current pass too, if one is going on).
     void queue_job(SchedulerTask* task);
     // 0x00406AC0: run each enabled task once whose mask has no bit of `mask` (the first argument is unused).
@@ -82,10 +84,10 @@ public:
 // A list on a Stack (0x24 bytes in the original): its node in the stack (lists::Elem<StackList>).
 class StackList : public LinkChain {
 public:
-    // 0x00406D60 (returns this; a null node if the allocation fails)
-    StackList* make_new();
+    // 0x00406D60 (a null node if the allocation fails)
+    StackList();
     // 0x00406C30: the node deleted, then the list's own destructor.
-    void destruct();
+    ~StackList();
 
     memory::ListNode* list_link_; // +0x1C
 };
@@ -94,10 +96,12 @@ public:
 // ones below it until Pop. The main loop's task lists are Stacks.
 class PileUp {
 public:
-    // 0x00406E80: one list pushed (returns this). The mask (+0x04) isn't set.
-    PileUp* make_new();
+    // 0x00406E80: one list pushed. The mask (+0x04) isn't set.
+    PileUp();
     // 0x004070E0: every list popped, the popped lists deleted, the heads unlinked.
-    void destruct();
+    ~PileUp();
+    PileUp(const PileUp&) = delete;
+    PileUp& operator=(const PileUp&) = delete;
     // 0x00406DE0: a new list on top. The current list stays where tasks are added until the next Process.
     void stack_on();
     // 0x00406FB0: the top list taken off (deleted at once, or after the pass if the stack is being run).

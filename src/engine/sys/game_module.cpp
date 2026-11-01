@@ -3,6 +3,8 @@
 #include "engine/sys/game_module.h"
 
 #include <cstdint>
+#include <memory>
+#include <new>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -39,19 +41,18 @@ PartUnit::~PartUnit()
 }
 
 // 0x0044F5E0
-Hub* Hub::make_new()
+Hub::Hub()
 {
     modules_.make_head();
-    task_ = new tasks::Task<Hub>(&tick_modules, this, -1000);
+    task_ = std::make_unique<tasks::Task<Hub>>(&tick_modules, this, -1000);
     command_pending_ = false;
-    return this;
 }
 
 // 0x0044F680
-void Hub::destroy_body()
+Hub::~Hub()
 {
     halt_every_module();
-    delete task_;
+    task_.reset();
     modules_.uncouple(); // (0x0044F360: the head's destructor is the node's)
 }
 
@@ -138,7 +139,7 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = static_cast<Hub*>(memory)->make_new();
+            sole() = new (memory) Hub;
             ++ref_tally();
             return sole();
         }
@@ -156,7 +157,7 @@ void release_manager()
         return;
     }
     if (Hub* manager = sole()) {
-        manager->destroy_body();
+        manager->~Hub();
         free_memory(manager);
     }
     sole() = nullptr;

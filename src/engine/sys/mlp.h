@@ -21,10 +21,12 @@ struct Hub {
     int profile_frames_; // +0xAC (+0xC4): frames still to profile (announced, counted down)
     int profiling_;      // +0xB0 (+0xC8): this frame is being profiled (passed to the task lists)
 
-    // 0x0044EDC0: the three task lists (0x00406E80 each), the +0xB8/+0xBC words and is_finished_ cleared. Returns this.
-    Hub* make_new();
-    // 0x0044EE30: the task lists destroyed (0x004070E0), the last first.
-    void destroy_body();
+    // 0x0044EDC0: the three task lists (0x00406E80 each), the +0xB8/+0xBC words and is_finished_ cleared.
+    Hub();
+    // 0x0044EE30: the task lists destroyed (0x004070E0), the last first (the members' destructors).
+    ~Hub() = default;
+    Hub(const Hub&) = delete;
+    Hub& operator=(const Hub&) = delete;
     // 0x0044EE90 (also reached by the jump at 0x0044F250): after the device was lost (0x00786AB4), once
     // TestCooperativeLevel no longer says D3DERR_DEVICELOST: the default-pool objects released, the device Reset
     // and, if that worked, the objects made again and the flag cleared. (Doesn't use a manager.)

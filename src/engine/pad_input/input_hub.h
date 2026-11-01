@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/task_list.h"
 #include "engine/core/owner.h"
@@ -114,14 +115,13 @@ struct HostEnd {
     PadFrameRecord* data_out_;      // +0x7C: the recording made (null: none)
     PadFrameRecord* out_buf_limit_; // +0x80
 
-    // 0x0044E9E0: the handler list and everything cleared (but dev_, makes_ and breaks_). Returns this.
-    HostEnd* make_new();
+    // 0x0044E9E0: the handler list and everything cleared (but dev_, makes_ and breaks_).
+    HostEnd();
     // 0x0044EAA0: a frame - the data from the recording played back (if any), else from the device (if it has
     // a pad: nothing at all when it has none), recorded if recording; the buttons noted for the device's index
     // (0x00696D48 / 50 / 58); then the handlers run.
     void poll_input_sinks();
-    // 0x0044E520: the destructor: the handler list destroyed (0x004070E0).
-    void destruct();
+    // 0x0044E520: the destructor: the handler list destroyed (0x004070E0) - the implicit one.
 };
 static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == 0x40 &&
               offsetof(HostEnd, out_buf_limit_) == 0x80);
@@ -129,7 +129,7 @@ static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 &&
 struct Hub {
     enum { kNumServers = 2 };
 
-    memory::owner<tasks::Task<Hub>*> task_;     // priority 2000, running the servers (service_task)
+    std::unique_ptr<tasks::Task<Hub>> task_; // priority 2000, running the servers (service_task)
     HostEnd hosts_[kNumServers]; // +0x04
     bool stick_replaces_pad_;    // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;
@@ -137,11 +137,12 @@ struct Hub {
     int unknown110_[2]; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
 
     // 0x0044E700: the servers, the task, each server's device (by index), the stick working the d-pad on.
-    // Returns this.
-    Hub* make_new();
+    Hub();
     // 0x0044E530: the destructor: the task deleted (its virtual scalar deleting destructor), the servers destroyed
     // (the last first).
-    void destruct();
+    ~Hub();
+    Hub(const Hub&) = delete;
+    Hub& operator=(const Hub&) = delete;
     // 0x0044E5D0 / 0x0044E5F0: server `index`'s device (if any) stops and refuses vibration / allows it again.
     void stop_rumble(int index);
     void enable_actuators(int index);

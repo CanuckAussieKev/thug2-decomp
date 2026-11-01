@@ -182,9 +182,9 @@ int __cdecl game_main(int argc, char** argv)
         memory::pop_mem_profile();
 
         memory::push_mem_profile("Resgistering and starting modules");
-        queue_job(mlp->system_tasks_, mdl->task_);
+        queue_job(mlp->system_tasks_, mdl->task_.get());
         queue_job(mlp->system_tasks_, sio->task_.get());
-        queue_job(mlp->logic_tasks_, input->task_);
+        queue_job(mlp->logic_tasks_, input->task_.get());
         enrol_unit(mdl, script_cache);
         enrol_unit(mdl, park_editor);
         enrol_unit(mdl, front_end);

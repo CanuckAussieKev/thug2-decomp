@@ -142,9 +142,9 @@ void Payload::pad_follows_stick()
 }
 
 // 0x0044E9E0
-HostEnd* HostEnd::make_new()
+HostEnd::HostEnd()
 {
-    handlers_.make_new();
+    // (the handler list made first by its constructor)
     std::memset(content_.incident_, 0, sizeof(content_.incident_));
     content_.buttons_ = 0;
     content_.ongoing_ = 0;
@@ -154,7 +154,6 @@ HostEnd* HostEnd::make_new()
     data_out_ = nullptr;
     in_buf_limit_ = nullptr;
     out_buf_limit_ = nullptr;
-    return this;
 }
 
 // 0x0044EAA0
@@ -216,12 +215,11 @@ void HostEnd::poll_input_sinks()
 }
 
 // 0x0044E700
-Hub* Hub::make_new()
+Hub::Hub()
 {
-    for (HostEnd& server : hosts_)
-        server.make_new();
+    // (the servers made first by their constructors)
     sio::Hub* devices = sio::g_manager;
-    task_ = new tasks::Task<Hub>(&Hub::service_task, this, 2000);
+    task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, 2000);
     for (int i = 0; i < kNumServers; ++i)
         hosts_[i].dev_ = devices->get_pad_at_slot(i);
     stick_replaces_pad_ = true;
@@ -229,7 +227,6 @@ Hub* Hub::make_new()
     unknown110_[0] = -1;
     unknown110_[1] = -1;
     unknown110_[0] = 0;
-    return this;
 }
 
 // 0x0044E7F0
@@ -237,7 +234,7 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = static_cast<Hub*>(memory)->make_new();
+            sole() = new (memory) Hub;
             ++ref_tally();
             return sole();
         }
@@ -255,25 +252,18 @@ void release_manager()
         return;
     }
     if (Hub* manager = sole()) {
-        manager->destruct();
+        manager->~Hub();
         memory::Hub::get_pull()->dealloc(manager);
     }
     sole() = nullptr;
     ref_tally() = 0;
 }
 
-// 0x0044E520
-void HostEnd::destruct() { handlers_.destruct(); }
-
 // 0x0044E530
-void Hub::destruct()
+Hub::~Hub()
 {
-    if (task_) {
-        delete task_;
-    }
-    // (the C runtime's eh vector destructor iterator: the last first)
-    for (int i = kNumServers - 1; i >= 0; --i)
-        hosts_[i].destruct();
+    task_.reset();
+    // (then the servers by their destructors - 0x0044E520, the handler list destroyed -, the last first)
 }
 
 // 0x0044E5D0
