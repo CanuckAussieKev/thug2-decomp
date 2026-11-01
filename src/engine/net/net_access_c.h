@@ -17,13 +17,6 @@
 
 namespace net {
 
-// An object's field by offset (the tests' stand-in objects use it with offsetof).
-template <typename T, typename O>
-T& prop(O* object, uint32_t offset)
-{
-    return *raw::field_at<T>(object, offset);
-}
-
 // The network manager (NetLink::Hub, App +0x1440) keeps a flags byte per message id (at +0x28).
 // Bit 0: the message is sent without its length (fixed size).
 constexpr uint8_t kMsgNoLength = 1;

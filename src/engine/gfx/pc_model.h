@@ -26,7 +26,7 @@ public:
 
     uint32_t unknown4c_ = 0; // +0x4C
 };
-static_assert(offsetof(PcModel, geoms_) == 0x10 && offsetof(PcModel, geom_total_) == 0x46 && sizeof(PcModel) == 0x50,
+static_assert(offsetof(PcModel, geom_ring_) == 0x10 && offsetof(PcModel, geom_total_) == 0x46 && sizeof(PcModel) == 0x50,
               "layout must match the original");
 
 } // namespace render

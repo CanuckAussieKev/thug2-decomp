@@ -17,6 +17,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
+#include "platform/sockets.h"
 
 namespace net {
 
@@ -65,13 +66,13 @@ bool Guest::prepare_all()
 // 0x00459F40
 bool Guest::dial_server(uint32_t ip, uint16_t port)
 {
-    auto& address = *raw::as<sockaddr_in>(host_sock_addr_.data());
-    std::memset(&address, 0, sizeof(address));
+    sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
     address.sin_addr.s_addr = ip;
     std::memset(std::data(address.sin_zero), 0, sizeof(address.sin_zero));
-    while (connect(sock_, raw::as<sockaddr>(&address), sizeof(address)) == SOCKET_ERROR) {
+    std::memcpy(host_sock_addr_.data(), &address, sizeof(address));
+    while (sockets::connect_to(sock_, address) == SOCKET_ERROR) {
         if (WSAGetLastError() != WSAEWOULDBLOCK) {
             report_socket_error(this);
             return false;
@@ -109,16 +110,17 @@ void Guest::pull_inbound()
         const SOCKET socket = sock_;
         if (!linked_up_)
             received =
-                recvfrom(socket, buffer, kReceiveBufferSize, 0, raw::as<sockaddr>(&from), &from_length);
+                sockets::receive_bytes_from(socket, buffer, kReceiveBufferSize, 0, &from, &from_length);
         else
-            received = recv(socket, buffer, kReceiveBufferSize, 0);
+            received = sockets::receive_bytes(socket, buffer, kReceiveBufferSize, 0);
         if (received < 0) {
             WSAGetLastError();
             return;
         }
         inbound_byte_total_ += received;
         const int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
-        auto& server = *raw::as<sockaddr_in>(host_sock_addr_.data());
+        sockaddr_in server{};
+        std::memcpy(&server, host_sock_addr_.data(), sizeof(server));
         if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& read_ptr = conn->read_ptr_;
             if (read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
@@ -129,7 +131,7 @@ void Guest::pull_inbound()
                     if (time > conn->last_heard_from_)
                         conn->last_heard_from_ = time;
                 } else if (auto handler = unknown_packet_sink_) {
-                    handler(buffer, received, raw::as<sockaddr>(&from));
+                    handler(buffer, received, sockets::generic(&from));
                 }
             }
         } else if (!linked_up_) {
@@ -141,7 +143,7 @@ void Guest::pull_inbound()
                     mark_new_connection(fresh);
                 } else {
                     if (auto handler = unknown_packet_sink_)
-                        handler(buffer, received, raw::as<sockaddr>(&from));
+                        handler(buffer, received, sockets::generic(&from));
                     destroy_conn(fresh);
                     memory::Hub::get_pull()->dealloc(fresh);
                 }

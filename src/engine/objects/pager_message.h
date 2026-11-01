@@ -6,6 +6,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include "engine/lists/pointer_ring.h"
 
 namespace script {
 class Script;
@@ -13,23 +14,6 @@ class Struct;
 } // namespace script
 
 namespace objects {
-
-// The game's std::list of pointers (its allocator: the memory manager): a sentinel node and a count.
-struct PointerListNode {
-    void* data;            // +0x0
-    PointerListNode* next; // +0x4
-    PointerListNode* prev; // +0x8
-};
-struct PointerList {
-    PointerListNode* head; // +0x0 the sentinel
-    int size;              // +0x4
-    // 0x004ECC30 (shared by every such list): the nodes from `first` up to `last` unlinked and freed (the sentinel
-    // never); `*out` = `last`. Returns out.
-    PointerListNode** get_erase(PointerListNode** out, PointerListNode* first, PointerListNode* last);
-    // 0x004964A0 (shared by every such list; gfx/particles.cpp): a new node holding *value before `position`. Out of
-    // memory, the original goes on through the null node (and crashes) - kept.
-    void splice(PointerListNode* position, void* const* value);
-};
 
 // A pager message: its parameters (owned) and whether it has been read (8 bytes).
 struct PagerMessage {
@@ -77,7 +61,7 @@ public:
     // 0x004ECDF0 [ClearPagerMessages]
     bool clear_pager_messages(script::Struct* params, script::Script* script);
 
-    PointerList messages_{}; // +0x18 (PagerMessage*)
+    lists::PointerRing<PagerMessage> messages_{}; // +0x18
 };
 
 } // namespace objects

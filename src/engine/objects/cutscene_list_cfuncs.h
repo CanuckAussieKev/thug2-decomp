@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "engine/lists/pointer_ring.h"
 
 namespace script {
 class Struct;
@@ -13,21 +14,10 @@ class Script;
 // static lists share. The commands are cdecl (params, script) and return whether the script's `if` should be taken.
 namespace commands {
 
-// A std::list<T*> as MSVC 7.1 lays it out: the head node (allocated, linked to itself when empty) and the size.
-struct PointerList {
-    struct Elem {
-        void* value;
-        Elem* next;
-        Elem* prev;
-    };
-    Elem* head_;
-    uint32_t extent_;
-
-    // 0x005B4650: the constructor (no elements: a new head node linked to itself, null if out of memory). Returns
-    // this. (Used for 0x006F0DA8, the COIM instance list 0x006F0DB0 and the cutscene destroy list.)
-    PointerList* make_new();
-};
-static_assert(sizeof(PointerList) == 8, "layout must match the original");
+struct CutsceneDestroyEntry;
+// The cutscene destroy list (lists::PointerRing: its constructor 0x005B4650 is shared with 0x006F0DA8 and the COIM
+// instance list 0x006F0DB0).
+using CutsceneDestroyList = lists::PointerRing<CutsceneDestroyEntry>;
 
 bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* script);
 bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* script);

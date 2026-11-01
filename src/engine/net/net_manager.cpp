@@ -16,6 +16,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "platform/sockets.h"
 
 namespace net {
 
@@ -148,7 +149,7 @@ const char* Hub::fetch_own_address()
     // has used it, as the original does.)
     if (!host)
         host = localhost;
-    return inet_ntoa(*raw::as<in_addr>(host->h_addr_list[0]));
+    return sockets::first_address_text(host);
 }
 
 // 0x004549C0

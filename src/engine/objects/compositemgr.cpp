@@ -26,6 +26,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/lists/pointer_ring.h"
 
 namespace objects {
 
@@ -293,22 +294,17 @@ public:
     virtual ~CoimInstance() = default;
 };
 
-// The instance list (a std::list of objects): its head node and size.
-struct MaterializeNode {
-    CoimInstance* object;
-    MaterializeNode* next;
-    MaterializeNode* prev;
-};
-// The list itself: its sentinel and its size, one object (the original's 0x006F0DB0 and the count after it - not
-// original: they were two globals here, and the list's code wrote the size past the head's global).
-PointerList g_instance_list;
-MaterializeNode* instance_list_head() { return raw::as<MaterializeNode>(g_instance_list.head); }
+// The instance list (a std::list of objects): its sentinel and its size, one object (the original's 0x006F0DB0 and
+// the count after it - not original: they were two globals here, and the list's code wrote the size past the head's
+// global).
+lists::PointerRing<CoimInstance> g_instance_list;
+using MaterializeNode = lists::PointerRing<CoimInstance>::Node;
+MaterializeNode* instance_list_head() { return g_instance_list.head; }
 int& instance_count() { return g_instance_list.size; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void erase_instances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
 {
-    g_instance_list.get_erase(raw::as<PointerListNode*>(result), raw::as<PointerListNode>(first),
-                    raw::as<PointerListNode>(last));
+    *result = g_instance_list.erase(first, last);
 }
 
 std::unique_ptr<memory::Zone>& coim_region() { return g_coim_region; }
@@ -330,9 +326,9 @@ void destroy_coim_heap()
         MaterializeNode* node = head ? head->next : nullptr;
         if (node != head) {
             do {
-                if (node->object) {
-                    delete node->object;
-                    node->object = nullptr;
+                if (node->value) {
+                    delete node->value;
+                    node->value = nullptr;
                 }
                 MaterializeNode* next = node->next;
                 if (node != instance_list_head()) {
@@ -402,14 +398,14 @@ namespace objects {
 namespace {
 
 // A list (std::list<T*>) nothing uses but its static initialiser and exit function: an empty head node.
-commands::PointerList g_spare_object_list;
+lists::PointerRing<void> g_spare_object_list;
 
 } // namespace
 
 // 0x006409F0 (a static initialiser)
-void construct_spare_object_list() { g_spare_object_list.make_new(); }
+void construct_spare_object_list() { g_spare_object_list.make(); }
 
 // 0x00640A10 (a static initialiser): the instance list (its head and the count after it), empty.
-void construct_instance_list() { raw::as<commands::PointerList>(&g_instance_list)->make_new(); }
+void construct_instance_list() { g_instance_list.make(); }
 
 } // namespace objects

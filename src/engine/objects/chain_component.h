@@ -7,6 +7,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include "engine/lists/pointer_ring.h"
 
 namespace render {
 class PcPrimitive;
@@ -77,17 +78,10 @@ public:
     static constexpr uint32_t kType = 0x6DCFEC46;
 
     // The list of chains (std::list<Chain*>: a head node of 0xC bytes, and the count).
-    struct Elem {
-        Chain* chain;
-        Elem* next;
-        Elem* prev;
-    };
-    struct ChainList {
+    using Elem = lists::PointerRing<Chain>::Node;
+    struct ChainList : lists::PointerRing<Chain> {
         // 0x004296B0: the list's destructor (its nodes erased, the head freed).
         void teardown();
-
-        Elem* head;
-        int size;
     };
 
     // 0x004298B0 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).

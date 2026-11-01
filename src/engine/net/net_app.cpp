@@ -122,7 +122,7 @@ OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
 
 // BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
 BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream) { return new (memory) BulkStreamNode(stream); }
-StreamDesc* stream_of(ListNode* link) { return raw::as<BulkStreamNode>(link)->msg_meta_; }
+StreamDesc* stream_of(const ListNode* link) { return static_cast<BulkStreamNode*>(link->data)->msg_meta_; }
 StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
 void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }

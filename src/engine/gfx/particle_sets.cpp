@@ -243,13 +243,7 @@ void Sparkle::set_emit_script(uint32_t script, uint32_t object_id)
 // 0x00496770
 EffectsDirector::EffectsDirector()
 {
-    systems_.size = 0;
-    auto* head = static_cast<objects::PointerListNode*>(memory::alloc(sizeof(objects::PointerListNode)));
-    if (head) {
-        head->next = head;
-        head->prev = head;
-    }
-    systems_.head = head;
+    systems_.make();
     for (float& c : shade_)
         c = 1.0f;
 }
@@ -257,11 +251,8 @@ EffectsDirector::EffectsDirector()
 // 0x004967D0
 EffectsDirector::~EffectsDirector()
 {
-    objects::PointerListNode* result = nullptr;
-    for (int pass = 0; pass < 2; ++pass) {
-        objects::PointerListNode* head = systems_.head;
-        systems_.get_erase(&result, head ? head->next : nullptr, head);
-    }
+    for (int pass = 0; pass < 2; ++pass)
+        systems_.erase(systems_.first(), systems_.head);
     memory::dealloc(systems_.head);
 }
 
@@ -276,7 +267,7 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
                 core::at(particle->args_.colour_scale_, i) = core::at(shade_, i);
             particle->set_colour_scale(shade_.data());
         }
-        systems_.splice(systems_.head, raw::as<void* const>(&particle));
+        systems_.push_back(particle);
     }
     return particle;
 }
@@ -288,15 +279,15 @@ void EffectsDirector::retire_particle(Sparkle* particle)
         script::stop_scripts_by_tag(particle->args_.emit_script_);
         particle->args_.emit_script_ = 0;
     }
-    objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr;
+    auto* node = systems_.first();
     if (node == systems_.head)
         return;
-    while (static_cast<Sparkle*>(node->data)->args_.label_ != particle->args_.label_) {
+    while (node->value->args_.label_ != particle->args_.label_) {
         node = node->next;
         if (node == systems_.head)
             return;
     }
-    auto* found = static_cast<Sparkle*>(node->data);
+    auto* found = node->value;
     found->get_release();
     delete found;
     if (node != systems_.head) {
@@ -312,25 +303,25 @@ void EffectsDirector::draw_particles()
 {
     if (!systems_.size)
         return;
-    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head;
          node = node->next)
-        static_cast<Sparkle*>(node->data)->render(!is_game_halted());
+        node->value->render(!is_game_halted());
 }
 
 // 0x00496680
 void EffectsDirector::tick_particles()
 {
-    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head;
          node = node->next)
-        static_cast<Sparkle*>(node->data)->tick_frame();
+        node->value->tick_frame();
 }
 
 // 0x004966B0
 void EffectsDirector::change_colour(const float* rgba)
 {
-    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head;
          node = node->next)
-        static_cast<Sparkle*>(node->data)->set_colour_scale(rgba);
+        node->value->set_colour_scale(rgba);
     for (int i = 0; i < 4; ++i)
         core::at(shade_, i) = rgba[i];
 }
@@ -338,33 +329,14 @@ void EffectsDirector::change_colour(const float* rgba)
 // 0x00496700
 void EffectsDirector::kill_every_particle()
 {
-    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head;
          node = node->next) {
-        auto* particle = static_cast<Sparkle*>(node->data);
+        auto* particle = node->value;
         particle->get_release();
         delete particle;
     }
-    objects::PointerListNode* result = nullptr;
-    objects::PointerListNode* head = systems_.head;
-    systems_.get_erase(&result, head ? head->next : nullptr, head);
+    systems_.erase(systems_.first(), systems_.head);
 }
 
 } // namespace render
 
-namespace objects {
-
-// 0x004964A0
-void PointerList::splice(PointerListNode* position, void* const* value)
-{
-    auto* node = static_cast<PointerListNode*>(memory::alloc(sizeof(PointerListNode)));
-    if (node) {
-        node->data = *value;
-        node->prev = position->prev;
-        node->next = position;
-    }
-    ++size;
-    position->prev = node;
-    node->prev->next = node; // (with no node, the original reads through null here)
-}
-
-} // namespace objects

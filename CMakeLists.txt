@@ -809,6 +809,7 @@ add_executable(thug2 WIN32
     src/platform/platform_config.cpp
     src/platform/crt.cpp
     src/platform/bink.cpp
+    src/platform/sockets.cpp
     src/platform/debug_log.cpp
     src/platform/pc_setup.cpp
     src/platform/sdl_events.cpp

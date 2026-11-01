@@ -35,30 +35,7 @@ constexpr uint32_t kPagerScript = 0xE8DA4931;
 void dealloc(void* block) { memory::Hub::get_pull()->dealloc(block); }
 
 
-// std::list<PagerMessage*>::push_back (0x004964A0, the game's: inserts before the sentinel).
-void get_push_back(PointerList* list, PagerMessage** message)
-{
-    list->splice(list->head, raw::as<void* const>(message));
-}
-
 } // namespace
-
-// 0x004ECC30
-PointerListNode** PointerList::get_erase(PointerListNode** out, PointerListNode* first, PointerListNode* last)
-{
-    while (first != last) {
-        PointerListNode* node = first;
-        first = node->next;
-        if (node != head) {
-            node->prev->next = first;
-            first->prev = node->prev;
-            dealloc(node);
-            --size;
-        }
-    }
-    *out = first;
-    return out;
-}
 
 // 0x004ECF20
 gsl::owner<ObjectModule*> PagerMessageComponent::fabricate() { return new PagerMessageComponent; }
@@ -72,13 +49,7 @@ void PagerMessageComponent::publish_method_table()
 // 0x004ECE10
 PagerMessageComponent::PagerMessageComponent()
 {
-    messages_.size = 0;
-    auto* sentinel = static_cast<PointerListNode*>(memory::alloc(sizeof(PointerListNode)));
-    if (sentinel) {
-        sentinel->next = sentinel;
-        sentinel->prev = sentinel;
-    }
-    messages_.head = sentinel;
+    messages_.make();
     kind_tag_ = kPagerMessage;
 }
 
@@ -86,10 +57,7 @@ PagerMessageComponent::PagerMessageComponent()
 PagerMessageComponent::~PagerMessageComponent()
 {
     clear_messages(nullptr);
-    PointerListNode* head = messages_.head;
-    PointerListNode* end = nullptr;
-    messages_.get_erase(&end, head ? head->next : nullptr, head);
-    dealloc(messages_.head);
+    messages_.destroy();
 }
 
 // 0x004ECC80
@@ -98,14 +66,14 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
     int keep = 0;
     if (params)
         params->fetch_int_value(0x340FB7F4, &keep, 0);
-    PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    auto* node = messages_.first();
     while (messages_.size > keep) {
-        if (auto* message = static_cast<PagerMessage*>(node->data)) {
+        if (PagerMessage* message = node->value) {
             script::free_struct(message->params);
             dealloc(message);
-            node->data = nullptr;
+            node->value = nullptr;
         }
-        PointerListNode* next = node->next;
+        auto* next = node->next;
         if (node != messages_.head) {
             node->prev->next = next;
             next->prev = node->prev;
@@ -130,7 +98,7 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     message->params = script::new_struct();
     message->params->merge_structure(params);
     message->read = false;
-    get_push_back(&messages_, &message);
+    messages_.push_back(message);
     script::Struct* data = script::new_struct();
     data->put_name_key(0x34406F14, 1u);
     if (message->params->has_bare_flag(0x8E6DFA5D))
@@ -147,12 +115,12 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
     int number = 1;
     params->fetch_int_value(0x0A89DA7D, &number, 0);
     const int index = number - 1;
-    const PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    const auto* node = messages_.first();
     for (int i = 0; i < index && i < messages_.size; ++i)
         node = node->next;
-    auto* message = static_cast<PagerMessage*>(node->data);
+    PagerMessage* message = node->value;
     script->args_->put_sub_struct(kPagerMessage, message->params);
-    static_cast<PagerMessage*>(node->data)->read = true;
+    message->read = true;
     return true;
 }
 
@@ -166,12 +134,12 @@ bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, 
 // 0x004ECBD0
 bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*params*/, script::Script* script)
 {
-    const PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    const auto* node = messages_.first();
     const int count = messages_.size;
     int index = 0;
     if (count != 0) {
         for (; index < count; ++index) {
-            if (!static_cast<PagerMessage*>(node->data)->read)
+            if (!node->value->read)
                 break;
             node = node->next;
         }

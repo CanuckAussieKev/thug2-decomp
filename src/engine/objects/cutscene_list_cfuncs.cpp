@@ -17,10 +17,10 @@ namespace commands {
 
 namespace {
 bool g_cutscene_list_flushing;
-PointerList g_cutscene_destroy_list;
+CutsceneDestroyList g_cutscene_destroy_list;
 
 using script::Struct;
-using Elem = PointerList::Elem;
+using Elem = CutsceneDestroyList::Node;
 
 constexpr uint32_t kName = 0xA1DC81F9;               // "name"
 constexpr uint32_t kDestroyFunc = 0x589B2282;        // "destroy_func"
@@ -34,11 +34,11 @@ constexpr uint32_t kPermanent = 0x23627FD7;          // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
 constexpr uint32_t kKillSpawnedScript = 0xD7034230;  // "cutscene_kill_spawned_script"
 
-PointerList& free_node_chain() { return g_cutscene_destroy_list; }
+CutsceneDestroyList& free_node_chain() { return g_cutscene_destroy_list; }
 // Set while the list is flushed (RemoveFromCutsceneDestroyList does nothing then).
 bool& flushing() { return g_cutscene_list_flushing; }
 
-CutsceneDestroyEntry* entry_of(Elem* node) { return static_cast<CutsceneDestroyEntry*>(node->value); }
+CutsceneDestroyEntry* entry_of(const Elem* node) { return node->value; }
 
 // `delete entry` (inlined): its parameters deleted, then the entry freed.
 void delete_entry(CutsceneDestroyEntry* entry)
@@ -57,18 +57,6 @@ void delete_entry(CutsceneDestroyEntry* entry)
 
 } // namespace
 
-// 0x005B4650
-PointerList* PointerList::make_new()
-{
-    extent_ = 0;
-    auto* node = static_cast<Elem*>(memory::alloc(sizeof(Elem))); // (operator new inlined)
-    if (node) {
-        node->next = node;
-        node->prev = node;
-    }
-    head_ = node;
-    return this;
-}
 
 // 0x005B5320: AddToCutsceneDestroyList name=<object> destroy_func=<script> [destroy_params={...}]: an entry (with its
 // own copy of the parameters) added at the end of the list. Always true.
@@ -89,15 +77,15 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
         entry->args_->append_structure_if_any(destroy_params);
 
     // push_back
-    PointerList& list = free_node_chain();
-    Elem* head = list.head_;
+    CutsceneDestroyList& list = free_node_chain();
+    Elem* head = list.head;
     auto* node = static_cast<Elem*>(memory::alloc(sizeof(Elem))); // (operator new inlined)
     if (node) {
         node->value = entry;
         node->next = head;
         node->prev = head->prev;
     }
-    ++list.extent_;
+    ++list.size;
     head->prev = node;
     node->prev->next = node;
     return true;
@@ -111,8 +99,8 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
         return false;
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    PointerList& list = free_node_chain();
-    const Elem* head = list.head_;
+    CutsceneDestroyList& list = free_node_chain();
+    const Elem* head = list.head;
     Elem* node = head ? head->next : nullptr;
     for (; node != head; node = node->next)
         if (entry_of(node)->label_ == name)
@@ -120,11 +108,11 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
     if (node == head)
         return false;
     delete_entry(entry_of(node));
-    if (node != list.head_) {
+    if (node != list.head) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
         memory::Hub::get_pull()->dealloc(node);
-        --list.extent_;
+        --list.size;
     }
     return true;
 }
@@ -171,19 +159,15 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
 // entry deleted, then the list emptied (std::list::erase, 0x004ECC30). Always true.
 bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
 {
-    PointerList& list = free_node_chain();
+    CutsceneDestroyList& list = free_node_chain();
     flushing() = true;
-    const Elem* head = list.head_;
-    for (Elem* node = head ? head->next : nullptr; node != head; node = node->next) {
+    const Elem* head = list.head;
+    for (const Elem* node = head ? head->next : nullptr; node != head; node = node->next) {
         const CutsceneDestroyEntry* entry = entry_of(node);
         script::launch_script(entry->destroy_script_, entry->args_, nullptr, false, nullptr);
         delete_entry(entry_of(node));
     }
-    Elem* result = nullptr;
-    raw::as<objects::PointerList>(&list)->get_erase(
-        raw::as<objects::PointerListNode*>(&result),
-        raw::as<objects::PointerListNode>(list.head_ ? list.head_->next : nullptr),
-        raw::as<objects::PointerListNode>(list.head_));
+    list.erase(list.first(), list.head);
     flushing() = false;
     return true;
 }
@@ -193,6 +177,6 @@ bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
 namespace commands {
 
 // 0x00644A00 (a static initialiser): the cutscene destroy list, empty.
-void construct_cutscene_destroy_list() { g_cutscene_destroy_list.make_new(); }
+void construct_cutscene_destroy_list() { g_cutscene_destroy_list.make(); }
 
 } // namespace commands

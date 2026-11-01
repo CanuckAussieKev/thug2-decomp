@@ -9,6 +9,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/pager_message.h"
+#include "engine/lists/pointer_ring.h"
 
 // The engine's particle systems of the particle component (Nx; the PC class over them is PcParticleSystem,
 // pc_particles.h): a system made from a block of parameters, its bounding box and sphere worked out from the
@@ -154,7 +155,7 @@ struct EffectsDirector : memory::HeapObject {
     // Vtable slot 1: a new system (the engine's: none).
     virtual Sparkle* create_system() { return nullptr; }
 
-    objects::PointerList systems_{}; // +0x04: Sparkle*
+    lists::PointerRing<Sparkle> systems_{}; // +0x04
     std::array<float, 4> shade_{};               // +0x0C: given to the systems that take it
 
     // 0x00496510: a new system (create_system) made from `params`, given the manager's colour if it takes it, onto

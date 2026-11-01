@@ -26,6 +26,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "platform/sockets.h"
 
 namespace net {
 
@@ -162,23 +163,25 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
     // INADDR_ANY already either way.)
     if (static_cast<Hub*>(supervisor_)->get_net_link_kind() != Hub::kConnectionModem)
         local.sin_addr.s_addr = INADDR_ANY;
-    if (bind(sock_, raw::as<sockaddr>(&local), sizeof(local)) < 0) {
+    if (sockets::bind_to(sock_, local) < 0) {
         if (WSAGetLastError() != WSAEADDRINUSE) {
             raise_fault();
             return false;
         }
         raise_fault();
         local.sin_port = htons(0);
-        if (bind(sock_, raw::as<sockaddr>(&local), sizeof(local)) < 0) {
+        if (sockets::bind_to(sock_, local) < 0) {
             raise_fault();
             return false;
         }
     }
     int length = sizeof(sockaddr_in);
-    if (getsockname(sock_, raw::as<sockaddr>(local_address_.data()), &length) < 0) {
+    sockaddr_in bound{};
+    if (sockets::name_of(sock_, &bound, &length) < 0) {
         raise_fault();
         return false;
     }
+    std::memcpy(local_address_.data(), &bound, sizeof(bound));
     return true;
 }
 
@@ -202,11 +205,9 @@ bool AppHost::transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int l
     int result = 0;
     if (flag_bits_ & kSecure) {
         encrypt(data, scrambled_.data(), length, &length);
-        result = sendto(sock_, raw::chars(scrambled_.data()), length, flags,
-                        raw::as<sockaddr>(&to), sizeof(to));
+        result = sockets::send_bytes_to(sock_, scrambled_.data(), length, flags, to);
     } else {
-        result = sendto(sock_, raw::chars(data), length, flags, raw::as<sockaddr>(&to),
-                        sizeof(to));
+        result = sockets::send_bytes_to(sock_, data, length, flags, to);
     }
     if (result == SOCKET_ERROR) {
         const int error = WSAGetLastError();
@@ -223,9 +224,9 @@ bool AppHost::post_out(const uint8_t* data, int length, int flags)
         return false;
     if (flag_bits_ & kSecure) {
         encrypt(data, scrambled_.data(), length, &length);
-        return send(sock_, raw::chars(scrambled_.data()), length, flags) != SOCKET_ERROR;
+        return sockets::send_bytes(sock_, scrambled_.data(), length, flags) != SOCKET_ERROR;
     }
-    return send(sock_, raw::chars(data), length, flags) != SOCKET_ERROR;
+    return sockets::send_bytes(sock_, data, length, flags) != SOCKET_ERROR;
 }
 
 // 0x00457110
@@ -244,7 +245,7 @@ bool AppHost::prepare_all()
             raise_fault();
             return false;
         }
-        if ((flag_bits_ & kBroadcast) && setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, raw::chars(&on),
+        if ((flag_bits_ & kBroadcast) && sockets::set_option(sock_, SOL_SOCKET, SO_BROADCAST, &on,
                                                     sizeof(on)) == SOCKET_ERROR) {
             raise_fault();
             return false;
@@ -458,12 +459,12 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
         return;
     }
     // The link's message (each queue's link type keeps it at its own place).
-    auto message_of = [queue](TimedMsgNode* link) -> void* {
+    auto message_of = [queue](const TimedMsgNode* link) -> void* {
         if (queue == 0)
-            return raw::as<MsgNormalLink>(link)->shared_msg_;
+            return static_cast<MsgNormalLink*>(link->data)->shared_msg_;
         if (queue == 1)
-            return raw::as<ReliableMsgNode>(link)->shared_msg_;
-        return raw::as<OrderedMsgNode>(link)->shared_msg_;
+            return static_cast<ReliableMsgNode*>(link->data)->shared_msg_;
+        return static_cast<OrderedMsgNode*>(link->data)->shared_msg_;
     };
     lists::Hunt<TimedMsgNode> search;
     for (TimedMsgNode *link = search.head_element(list), *next = nullptr; link; link = next) {

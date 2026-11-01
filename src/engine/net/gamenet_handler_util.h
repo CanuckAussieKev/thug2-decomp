@@ -44,12 +44,6 @@ constexpr int kKeep = net::kHandlerKeep;
 
 constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
-template <typename T>
-T& prop(const void* object, uint32_t offset)
-{
-    return *cell::pointer<T>(cell::address(object) + offset);
-}
-
 inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content_); }
 inline const uint8_t* get_message(net::InboundMsgCtx* context)
 {

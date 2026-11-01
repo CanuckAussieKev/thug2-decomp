@@ -12,7 +12,7 @@ namespace render {
 
 namespace {
 
-void* geom_of(const ModelGeomNode* node) { return *node->entry; }
+void* geom_of(const ModelGeomNode* node) { return node->value->geom; }
 
 // The engine's CGeom calls (jumps through the geom's vtable).
 maths::Vec4* get_geom_bounding_sphere(void* geom, maths::Vec4* out)
@@ -29,7 +29,7 @@ void set_geom_bounding_sphere(void* geom, const maths::Vec4* sphere)
 // 0x004BADF0
 void PcModel::plat_set_bounding_sphere(const maths::Vec4* sphere)
 {
-    const ModelGeomNode* head = geoms_;
+    const ModelGeomNode* head = geom_ring_.head;
     for (const ModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next)
         set_geom_bounding_sphere(geom_of(node), sphere);
 }
@@ -41,7 +41,7 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
         *out = {0.0f, 0.0f, 0.0f, 0.0f};
         return out;
     }
-    const ModelGeomNode* head = geoms_;
+    const ModelGeomNode* head = geom_ring_.head;
     const ModelGeomNode* node = head ? head->next : nullptr;
     maths::Vec4 scratch;
     maths::Vec4 sphere = *get_geom_bounding_sphere(geom_of(node), &scratch);

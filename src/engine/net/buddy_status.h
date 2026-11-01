@@ -18,19 +18,8 @@ namespace online {
 // 0x00548470 only reset their tables - not kept; lists::Elem<Buddy>'s 0x005484A0 / 0x005484E0 and
 // lists::Elem<FriendNote>'s 0x005484C0 / 0x00548520 take the node out of its list (and free it): memory::ListNode.)
 
-// The getters folded at one address each (4 bytes: source only), named for an object with the field.
-struct FoldedGetters {
-    // 0x005480B0: the byte at +0x10 (FriendsManager's logged-in flag, ...).
-    bool byte10();
-    // 0x005480C0: the word at +0x04 (FriendsManager's profile, the network manager's server app, a park's ..., 203 callers).
-    uint32_t word04();
-    // 0x005480F0: the word at +0x18 (a skeleton component's skeleton, a node component's node array, a sector's
-    // collision, ...).
-    uint32_t word18();
-    // 0x00553E90 (folded with goals::Objective::fetch_args): the word at +0x1C (the profile roster's current skater,
-    // a model component's texture, the tagging goal's ...).
-    uint32_t word1c();
-};
+// (The getters folded at 0x005480B0 / 0x005480C0 / 0x005480F0 / 0x00553E90 - the byte at +0x10, the words at +0x04,
+// +0x18, +0x1C of whatever object called them - are each object's member read directly.)
 
 // The script commands.
 bool profile_logged_in(script::Struct* params, script::Script* script);  // 0x00548360

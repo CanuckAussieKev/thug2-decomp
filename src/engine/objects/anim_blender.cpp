@@ -92,12 +92,7 @@ void AnimBlenderComponent::publish_method_table()
 AnimBlenderComponent::AnimBlenderComponent()
 {
     lanes_.make_head();
-    auto* sentinel = static_cast<void**>(memory::alloc(0xC));
-    if (sentinel) {
-        sentinel[1] = static_cast<void*>(sentinel);
-        sentinel[2] = static_cast<void*>(sentinel);
-    }
-    observers_ = static_cast<void*>(sentinel);
+    observers_.make();
     kind_tag_ = kType;
 }
 
@@ -105,21 +100,12 @@ AnimBlenderComponent::AnimBlenderComponent()
 AnimBlenderComponent::~AnimBlenderComponent()
 {
     lists::delete_each<Channel>(&lanes_, [](Channel* channel) { channel->teardown(1); }); // (0x0057A2F0)
-    auto* const* sentinel = static_cast<void**>(observers_);
-    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr;
-         static_cast<const void*>(node) != observers_; node = static_cast<void**>(node[1])) {
-        delete static_cast<BlendObserver*>(node[0]);
-    }
+    for (const auto* node = observers_.first(); node != observers_.head; node = node->next)
+        delete node->value;
     // the list emptied (std::list::erase(begin, end), 0x004ECC30) - twice, as the original
-    for (int pass = 0; pass < 2; ++pass) {
-        auto** head = static_cast<void**>(observers_);
-        void* result = nullptr;
-        raw::as<objects::PointerList>(&observers_)
-            ->get_erase(raw::as<objects::PointerListNode*>(&result),
-                        raw::as<objects::PointerListNode>(head ? head[1] : nullptr),
-                        raw::as<objects::PointerListNode>(head));
-    }
-    memory::Hub::get_pull()->dealloc(observers_);
+    for (int pass = 0; pass < 2; ++pass)
+        observers_.erase(observers_.first(), observers_.head);
+    memory::Hub::get_pull()->dealloc(observers_.head);
     lanes_.uncouple(); // (0x00419D70)
 }
 
@@ -375,10 +361,8 @@ gfx::BlendChannel* AnimBlenderComponent::add_channel(uint32_t id, bool at_front)
 // 0x0041A220
 void AnimBlenderComponent::notify_observers(gfx::Stance* pose)
 {
-    auto* const* sentinel = static_cast<void**>(observers_);
-    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr;
-         static_cast<const void*>(node) != observers_; node = static_cast<void**>(node[1]))
-        static_cast<BlendObserver*>(node[0])->on_pose(pose);
+    for (const auto* node = observers_.first(); node != observers_.head; node = node->next)
+        node->value->on_pose(pose);
 }
 
 // 0x004199C0

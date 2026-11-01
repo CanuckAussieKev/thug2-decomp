@@ -117,14 +117,6 @@ void FriendsManager::change_standing(int status, const char* text, const char* l
     ram_stats()->leave_heap_scope();
 }
 
-// --- The folded getters ---
-
-// 0x005480B0 / 0x005480C0 / 0x005480F0
-bool FoldedGetters::byte10() { return prop<bool>(this, 0x10); }
-uint32_t FoldedGetters::word04() { return prop<uint32_t>(this, 0x04); }
-uint32_t FoldedGetters::word18() { return prop<uint32_t>(this, 0x18); }
-uint32_t FoldedGetters::word1c() { return prop<uint32_t>(this, 0x1C); }
-
 // --- The script commands ---
 
 // 0x00548360: whether we're logged in to presence.

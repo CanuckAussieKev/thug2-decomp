@@ -80,7 +80,7 @@ maths::Mat4* RenderModel::fetch_skinning_palette() { return skin_palette_; }
 void RenderModel::upload_skinning_palette(maths::Mat4* matrices)
 {
     skin_palette_ = matrices;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         set_geom_bones(get_geom(node), skin_palette_, bone_total_);
 }
 
@@ -123,7 +123,7 @@ maths::Vec4* RenderModel::fetch_bound_sphere(maths::Vec4* out)
 // 0x00492F90
 void RenderModel::set_bone_volumes(gfx::BoneVolumes* volumes)
 {
-    if (!geom_list_size_)
+    if (!geom_ring_.size)
         return;
     ModelGeom* first = first_entry(this);
     if (first && !first->bone_volumes_)
@@ -133,7 +133,7 @@ void RenderModel::set_bone_volumes(gfx::BoneVolumes* volumes)
 // 0x00492FC0
 gfx::BoneVolumes* RenderModel::get_bone_volumes()
 {
-    if (!geom_list_size_)
+    if (!geom_ring_.size)
         return nullptr;
     const ModelGeom* first = first_entry(this);
     return first ? first->bone_volumes_ : nullptr;
@@ -158,7 +158,7 @@ HierarchyNode* RenderModel::get_asset_hierarchy()
 // 0x00493410
 bool RenderModel::copy_bones(gfx::Rig* skeleton)
 {
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         copy_geom_bones(get_geom(node), skeleton_bones(skeleton), skeleton_bone_count(skeleton));
     return true;
 }
@@ -167,7 +167,7 @@ bool RenderModel::copy_bones(gfx::Rig* skeleton)
 uint32_t RenderModel::get_strip_break_flags()
 {
     uint32_t flags = 0;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if (entry->scene) {
             flags |= entry->scene->bone_count_;
@@ -182,14 +182,14 @@ uint32_t RenderModel::get_strip_break_flags()
 // 0x00493B90
 void RenderModel::break_strips(uint32_t mask)
 {
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         break_geom_strips(get_geom(node), mask);
 }
 
 // 0x00494700
 void RenderModel::clean_instance_strips()
 {
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         clean_geom_instance_strips(get_geom(node));
 }
 
@@ -197,7 +197,7 @@ void RenderModel::clean_instance_strips()
 bool RenderModel::break_own_strips()
 {
     const uint32_t mask = get_strip_break_flags();
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         break_geom_strips(get_geom(node), mask);
     return true;
 }
@@ -206,7 +206,7 @@ bool RenderModel::break_own_strips()
 bool RenderModel::create_lights()
 {
     lights_ptr_ = new_lights();
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         set_geom_lights(get_geom(node), lights_ptr_);
     return true;
 }
@@ -216,7 +216,7 @@ bool RenderModel::destroy_lights()
 {
     discard_lights(lights_ptr_);
     lights_ptr_ = nullptr;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         set_geom_lights(get_geom(node), nullptr);
     return true;
 }
@@ -227,7 +227,7 @@ bool RenderModel::change_live(uint8_t active)
     if ((flag_bits_ & kModelHidden) && active)
         return false;
     if (((flag_bits_ >> 1) & 1) != active) {
-        for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+        for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
             set_geom_active(get_geom(node), active);
         flag_bits_ = set_flag(flag_bits_, kModelEnabledBit, active & 1);
     }
@@ -244,7 +244,7 @@ bool RenderModel::conceal(uint8_t hide)
 // 0x00493CD0
 void* RenderModel::get_geom_by_name(uint32_t name)
 {
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         if (name == table_row(node)->name)
             return get_geom(node);
     }
@@ -255,7 +255,7 @@ void* RenderModel::get_geom_by_name(uint32_t name)
 void* RenderModel::fetch_geom(int index)
 {
     int i = 0;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++i) {
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++i) {
         if (index == i)
             return get_geom(node);
     }
@@ -266,7 +266,7 @@ void* RenderModel::fetch_geom(int index)
 uint32_t RenderModel::fetch_part_label(int index)
 {
     int i = 0;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++i) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++i) {
         if (index == i)
             return table_row(node)->name;
     }
@@ -277,7 +277,7 @@ uint32_t RenderModel::fetch_part_label(int index)
 TextureSet* RenderModel::get_geom_textures(int index)
 {
     int i = 0;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++i) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++i) {
         if (index == i)
             return table_row(node)->textures;
     }
@@ -289,7 +289,7 @@ bool RenderModel::clear_geom_color(uint32_t name)
 {
     const bool all = name == kAllGeoms;
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         if (name == table_row(node)->name || all) {
             model_geoms::clear_geom_color(get_geom(node));
             any = true;
@@ -302,7 +302,7 @@ bool RenderModel::clear_geom_color(uint32_t name)
 bool RenderModel::choose_uv_shift(uint32_t material, int pass, float u, float v)
 {
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         any |= as_geom(get_geom(node))->set_material_uv_wibble_offsets(material, pass, u, v);
     return any;
 }
@@ -311,7 +311,7 @@ bool RenderModel::choose_uv_shift(uint32_t material, int pass, float u, float v)
 bool RenderModel::choose_uv_matrix(uint32_t material, int pass, const maths::Mat4* matrix)
 {
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         any |= as_geom(get_geom(node))->choose_uv_matrix(material, pass, matrix);
     return any;
 }
@@ -320,7 +320,7 @@ bool RenderModel::choose_uv_matrix(uint32_t material, int pass, const maths::Mat
 bool RenderModel::create_uv_anim_params(uint32_t material, int pass)
 {
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         any |= as_geom(get_geom(node))->create_uv_anim_params(material, pass);
     return any;
 }
@@ -331,7 +331,7 @@ bool RenderModel::conceal_mesh(uint32_t name, bool hide)
     const bool all = name == kAllGeoms;
     bool any = false;
     int index = 0;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++index) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++index) {
         if (name == table_row(node)->name || all) {
             if (hide)
                 visible_geoms_ &= ~geom_bit(index);
@@ -348,7 +348,7 @@ bool RenderModel::is_part_concealed(uint32_t name)
 {
     bool hidden = true;
     int index = 0;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++index) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++index) {
         if (name == table_row(node)->name && (visible_geoms_ & geom_bit(index)))
             hidden = false;
     }
@@ -360,7 +360,7 @@ bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     const uint32_t rgba =
         r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         set_geom_color(get_geom(node), rgba);
     return true;
 }
@@ -369,7 +369,7 @@ bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 uint32_t RenderModel::fetch_shown()
 {
     uint32_t mask = 0;
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         mask |= get_geom_visibility(get_geom(node));
     return mask;
 }
@@ -377,7 +377,7 @@ uint32_t RenderModel::fetch_shown()
 // 0x00494970
 bool RenderModel::toggle_shown(uint32_t mask)
 {
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         set_geom_visibility(get_geom(node), mask);
     return true;
 }
@@ -386,7 +386,7 @@ bool RenderModel::toggle_shown(uint32_t mask)
 void RenderModel::activate_shadow(uint8_t on)
 {
     flag_bits_ = set_flag(flag_bits_, kModelShadow, on & 1);
-    for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         set_geom_shadow(get_geom(node), on);
 }
 

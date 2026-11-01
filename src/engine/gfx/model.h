@@ -6,6 +6,7 @@
 #include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/lists/pointer_ring.h"
 
 namespace script {
 class Struct;
@@ -28,14 +29,9 @@ class PcMesh;
 class TextureSet;
 class ModelLights;
 
-// A node of a model's geom list (12 bytes, a ring with a head of its own): what it holds, the next and the previous
-// node. What it holds starts with the geom.
-struct ModelGeomNode {
-    void** entry; // the entry (its first word the geom)
-    ModelGeomNode* next;
-    ModelGeomNode* prev;
-};
-static_assert(sizeof(ModelGeomNode) == 0xC, "layout must match the original");
+struct ModelGeom;
+// A node of a model's geom list (a ring with a head of its own: std::list<ModelGeom*>).
+using ModelGeomNode = lists::PointerRing<ModelGeom>::Node;
 
 // One of a model's geoms (0x18 bytes; what a node of the model's geom list holds).
 struct ModelGeom {
@@ -208,8 +204,7 @@ public:
     int display_mode_;           // +0x04
     int bone_total_;             // +0x08
     maths::Mat4* skin_palette_;  // +0x0C: the bones' matrices
-    ModelGeomNode* geoms_;       // +0x10: the list's head (a ring of nodes: std::list)
-    uint32_t geom_list_size_{0}; // +0x14
+    lists::PointerRing<ModelGeom> geom_ring_{}; // +0x10: the geoms (a std::list) and their count
     uint32_t visible_geoms_{};   // +0x18: a bit per geom (in list order, modulo 32)
     maths::Vec4 size_factor_{};  // +0x1C
     ModelLights* lights_ptr_;    // +0x2C
@@ -221,7 +216,7 @@ public:
     int16_t num_file_geoms_{};  // +0x48: geoms with a scene of their own
     int16_t num_asset_geoms_{}; // +0x4A: geoms with the asset manager's scene
 };
-static_assert(offsetof(RenderModel, geoms_) == 0x10 && offsetof(RenderModel, size_factor_) == 0x1C &&
+static_assert(offsetof(RenderModel, geom_ring_) == 0x10 && offsetof(RenderModel, size_factor_) == 0x1C &&
                   offsetof(RenderModel, lights_ptr_) == 0x2C && offsetof(RenderModel, enclosing_ball_) == 0x34 &&
                   offsetof(RenderModel, flag_bits_) == 0x44 && offsetof(RenderModel, num_asset_geoms_) == 0x4A &&
                   sizeof(RenderModel) == 0x4C,

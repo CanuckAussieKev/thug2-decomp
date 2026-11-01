@@ -42,7 +42,13 @@ uint8_t* copy_data(uint8_t* id, uint16_t* length, const void* data, uint8_t comp
     return copy;
 }
 
-void init_node(memory::ListNode* node) { node->make_node(node); }
+// A link's node: its data is the link (the node is the link's first member, so the original's node-as-data is the
+// same address).
+template <typename Link>
+void init_node(Link* link)
+{
+    link->list_link_.make_node(link);
+}
 
 } // namespace
 
@@ -84,16 +90,16 @@ SeqQueuedMsg::~SeqQueuedMsg()
 // --- Links -----------------------------------------------------------------------------------------------------
 
 // 0x004555F0
-MsgNormalLink::MsgNormalLink(PendingMsg* msg) : shared_msg_(msg) { init_node(&list_link_); }
+MsgNormalLink::MsgNormalLink(PendingMsg* msg) : shared_msg_(msg) { init_node(this); }
 
 // 0x00455620
-ReliableMsgNode::ReliableMsgNode(PendingMsg* msg) : shared_msg_(msg) { init_node(&list_link_); }
+ReliableMsgNode::ReliableMsgNode(PendingMsg* msg) : shared_msg_(msg) { init_node(this); }
 
 // 0x00455650
-OrderedMsgNode::OrderedMsgNode(SeqQueuedMsg* msg) : shared_msg_(msg) { init_node(&list_link_); }
+OrderedMsgNode::OrderedMsgNode(SeqQueuedMsg* msg) : shared_msg_(msg) { init_node(this); }
 
 // 0x00455680
-BulkStreamNode::BulkStreamNode(StreamDesc* desc) : msg_meta_(desc) { init_node(&list_link_); }
+BulkStreamNode::BulkStreamNode(StreamDesc* desc) : msg_meta_(desc) { init_node(this); }
 
 // 0x004557C0
 MsgNormalLink* MsgNormalLink::teardown(unsigned int flags)
