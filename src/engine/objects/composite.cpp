@@ -92,13 +92,14 @@ void get_orientation_from_structure(Struct* params, maths::Mat4* matrix) { level
 Struct* fetch_vertex(uint32_t name, int assert) { return level_nodes::fetch_vertex(name, assert != 0); }
 // Quaternions (x, y, z, w): to a rotation matrix (0x0042BC40, on the quaternion), from one (0x0042E1F0, constructing
 // the quaternion).
-void quat_to_matrix(const float* quat, maths::Mat4* matrix)
+void quat_to_matrix(const std::array<float, 4>& quat, maths::Mat4* matrix)
 {
-    raw::as<const maths::QuatRotation>(quat)->fetch_mat(matrix);
+    maths::quat_to_matrix({core::at(quat, 0), core::at(quat, 1), core::at(quat, 2), core::at(quat, 3)}, matrix);
 }
-void matrix_to_quat(float* quat, const maths::Mat4* matrix)
+void matrix_to_quat(std::array<float, 4>& quat, const maths::Mat4* matrix)
 {
-    raw::as<maths::QuatRotation>(quat)->from_matrix(*matrix);
+    const maths::Vec4 q = maths::quat_from_matrix(*matrix);
+    quat = {{q.x, q.y, q.z, q.w}};
 }
 // A manager's object list.
 memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->fetch_object_set(); }
@@ -732,8 +733,8 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
     if (params->fetch_vec(kQuat, &value, 0)) {
         double sum = static_cast<double>(value.z) * value.z + static_cast<double>(value.y) * value.y;
         sum += static_cast<double>(value.x) * value.x;
-        std::array<float, 4> quat = {{value.x, value.y, value.z, static_cast<float>(std::sqrt(1.0 - sum))}};
-        quat_to_matrix(quat.data(), &basis_frame_);
+        const std::array<float, 4> quat = {{value.x, value.y, value.z, static_cast<float>(std::sqrt(1.0 - sum))}};
+        quat_to_matrix(quat, &basis_frame_);
         display_matrix_ = basis_frame_;
         return true;
     }
@@ -757,7 +758,7 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
 bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
 {
     std::array<float, 4> quat{};
-    matrix_to_quat(quat.data(), &basis_frame_);
+    matrix_to_quat(quat, &basis_frame_);
     if (core::at(quat, 3) < 0.0f) {
         core::at(quat, 0) = -core::at(quat, 0);
         core::at(quat, 1) = -core::at(quat, 1);

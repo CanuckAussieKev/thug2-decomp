@@ -93,7 +93,7 @@ const char* const kStringSlot = "%s0"; // "%s0"
 memory::ListNode* player_list(Hub* manager) { return &manager->players_; }
 memory::ListNode* new_player_list(Hub* manager) { return &manager->joiners_; }
 memory::ListNode* queued_script_list(Hub* manager) { return &manager->queued_scripts_; }
-bool is_head(const memory::ListNode* node) { return static_cast<intptr_t>(cell::address(node->data)) == -1; }
+bool is_head(const memory::ListNode* node) { return node->is_head(); }
 // The node after `node`; null at the list's end (the head).
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 template <typename T>

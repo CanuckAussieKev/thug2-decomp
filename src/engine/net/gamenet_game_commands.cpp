@@ -118,7 +118,7 @@ uint32_t& last_team_request() { return g_last_team_request; }
 uint32_t& net_game_start_time() { return g_net_game_start_time; }
 uint8_t& game_reported() { return g_game_reported; } // GameSpy told a game is on
 
-bool is_head(const memory::ListNode* node) { return static_cast<intptr_t>(cell::address(node->data)) == -1; }
+bool is_head(const memory::ListNode* node) { return node->is_head(); }
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 PlayerRecord* data_of(const memory::ListNode* node) { return node ? static_cast<PlayerRecord*>(node->data) : nullptr; }
 memory::ListNode* first_player_node(Hub* manager) { return get_next_node(&manager->players_); }

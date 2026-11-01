@@ -431,7 +431,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     const char* folder = save_folder();
     const int folder_length = static_cast<int>(std::strlen(folder));
     int file_count = 0;
-    for (const memory::ListNode* node = head.next; static_cast<intptr_t>(cell::address(node->data)) != -1 && node;
+    for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++file_count;
     debug::printf(
@@ -504,7 +504,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         --struct_pools().current;
     }
     // the list's nodes deleted (each file is its own node)
-    for (const memory::ListNode* node = head.next; static_cast<intptr_t>(cell::address(node->data)) != -1;) {
+    for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker();) {
         const memory::ListNode* next = node->next;
         const memory::ListNode* following = static_cast<intptr_t>(cell::address(next->data)) == -1 ? nullptr : next;
         static_cast<FileLoad*>(node->data)->teardown(1);

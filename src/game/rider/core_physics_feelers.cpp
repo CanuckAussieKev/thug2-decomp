@@ -544,8 +544,8 @@ bool SkaterPhysicsModule::apply_model_rotations()
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
         maths::Vec4& velocity = entity_->vel_;
-        alignas(16) std::array<uint8_t, 0x10> rotation{}; // (a quaternion, it seems)
-        auto* quat = raw::as<maths::QuatRotation>(rotation.data());
+        maths::QuatRotation rotation{};
+        maths::QuatRotation* quat = &rotation;
         quat->init_from_axis_angle(axis, angle);
         velocity = *quat->spin_by(&axis, velocity);
     }

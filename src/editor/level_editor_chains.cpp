@@ -1143,16 +1143,14 @@ maths::Vec4 climb_of(float facing)
     core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     const maths::Vec4 angles = {0.0f, facing, 0.0f, 1.0f};
     const maths::Mat4* built = &matrix.init_from_angles(angles);
-    maths::Vec4 quat = {};
-    raw::as<maths::QuatRotation>(&quat)->from_matrix(*built);
-    return quat;
+    return maths::quat_from_matrix(*built);
 }
 
 // The heading of a climbing node's orientation: its at row, flat.
 float heading_of_climb(const maths::Vec4& climb)
 {
     maths::Mat4 matrix;
-    raw::as<const maths::QuatRotation>(&climb)->fetch_mat(&matrix);
+    maths::quat_to_matrix(climb, &matrix);
     return std::atan2(core::at(matrix.row, 2).x, core::at(matrix.row, 2).z);
 }
 

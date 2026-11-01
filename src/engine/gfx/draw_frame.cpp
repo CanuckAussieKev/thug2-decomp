@@ -443,25 +443,21 @@ static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D &&
               "scene layout");
 
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
-struct SceneNode {
-    Scene* scene; // +0x00 (memory::ListNode's data)
-    int priority;
-    SceneNode* next; // +0x08
-};
-static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-
-bool is_end(const SceneNode* node) { return static_cast<intptr_t>(cell::address(node->scene)) == -1; }
+// A node of the scene list (memory::ListNode): its scene, and whether it is the list's head.
+using SceneNode = memory::ListNode;
+Scene* scene_of(const SceneNode* node) { return static_cast<Scene*>(node->data); }
+bool is_end(const SceneNode* node) { return node->is_head(); }
 
 // Calls fn(scene) for every scene in the list (the next node is taken before the call).
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = raw::as<SceneNode>(g_scene_list.next);
+    auto* node = (g_scene_list.next);
     if (is_end(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
         SceneNode* next = is_end(node->next) ? nullptr : node->next;
-        fn(node->scene);
+        fn(scene_of(node));
         node = next;
     }
 }

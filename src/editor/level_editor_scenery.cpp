@@ -180,22 +180,19 @@ constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject
 
 // The scenes (0x006FA7EC's list: nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1), skies left
 // out (+0x8D: drawn in the sky pass).
-struct SceneNode {
-    render::WorldScene* scene;
-    int priority;
-    SceneNode* next;
-};
-static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-bool is_end(const SceneNode* node) { return static_cast<intptr_t>(cell::address(node->scene)) == -1; }
+// A node of the scene list (memory::ListNode): its scene, and whether it is the list's head.
+using SceneNode = memory::ListNode;
+render::WorldScene* scene_of(const SceneNode* node) { return static_cast<render::WorldScene*>(node->data); }
+bool is_end(const SceneNode* node) { return node->is_head(); }
 
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = raw::as<SceneNode>(render::g_scene_list.next);
+    auto* node = (render::g_scene_list.next);
     for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
-        if (node->scene && !node->scene->is_sky_)
-            fn(node->scene);
+        if (scene_of(node) && !scene_of(node)->is_sky_)
+            fn(scene_of(node));
         node = next;
     }
 }
@@ -1874,13 +1871,13 @@ int get_moved_count()
 void log_census()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    auto* node = raw::as<SceneNode>(render::g_scene_list.next);
+    auto* node = (render::g_scene_list.next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         const bool end = is_end(node);
-        const render::WorldScene* scene = end ? nullptr : node->scene;
+        const render::WorldScene* scene = end ? nullptr : scene_of(node);
         const lists::KeyMap* table = scene ? scene->sectors_ : nullptr;
         get_log("level editor: scene list node %d %p: scene %p%s, sky byte %d, name %08X, sector table %p (bits %u)", i,
-                static_cast<void*>(node), static_cast<void*>(node->scene), end ? " (end)" : "",
+                static_cast<void*>(node), static_cast<void*>(scene_of(node)), end ? " (end)" : "",
                 scene ? static_cast<int>(scene->is_sky_) : -1, scene ? scene->checksum_ : 0,
                 static_cast<const void*>(table), table ? static_cast<unsigned>(table->bits_) : 0u);
         if (end)

@@ -16,7 +16,7 @@ int Skate::count_riders()
 {
     const memory::ListNode* node = riders_.list_link_.next;
     int count = 0;
-    while (static_cast<intptr_t>(cell::address(node->data)) != -1 && node) {
+    while (node->data != memory::ListNode::head_marker() && node) {
         node = node->next;
         ++count;
     }

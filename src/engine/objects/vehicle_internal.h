@@ -38,22 +38,10 @@ inline void trigger_rect(ObjectModule* trigger, const int* events, render::BoxPr
 
 // Quaternions: 0x0042BC40 a quaternion's rotation matrix (its 3x3), 0x0042E1F0 a matrix's
 // quaternion, 0x0042E310 normalised to a length, 0x00420140 *=.
-inline void quat_to_matrix(const maths::Vec4* quat, maths::Mat4* matrix)
-{
-    raw::as<const maths::QuatRotation>(quat)->fetch_mat(matrix);
-}
-inline void matrix_to_quat(maths::Vec4* quat, const maths::Mat4* matrix)
-{
-    raw::as<maths::QuatRotation>(quat)->from_matrix(*matrix);
-}
-inline void quat_normalize(maths::Vec4* quat, float length)
-{
-    raw::as<maths::QuatRotation>(quat)->make_unit(length);
-}
-inline void quat_multiply(maths::Vec4* a, const maths::Vec4* b)
-{
-    *raw::as<maths::QuatRotation>(a) *= *raw::as<const maths::QuatRotation>(b);
-}
+inline void quat_to_matrix(const maths::Vec4* quat, maths::Mat4* matrix) { maths::quat_to_matrix(*quat, matrix); }
+inline void matrix_to_quat(maths::Vec4* quat, const maths::Mat4* matrix) { *quat = maths::quat_from_matrix(*matrix); }
+inline void quat_normalize(maths::Vec4* quat, float length) { maths::quat_make_unit(quat, length); }
+inline void quat_multiply(maths::Vec4* a, const maths::Vec4* b) { maths::quat_multiply(a, *b); }
 
 // D3DXMatrixMultiply (linked library code; stdcall).
 inline void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)

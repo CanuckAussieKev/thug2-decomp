@@ -60,9 +60,9 @@ NodeManager* hub() { return node_manager_instance().get(); }
 VectorValue* as_value(maths::Vec4* v) { return v; }
 
 // A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, maths::QuatRotation::fetch_mat).
-void quat_to_matrix(const float* quat, maths::Mat4* matrix)
+void quat_to_matrix(const std::array<float, 4>& quat, maths::Mat4* matrix)
 {
-    raw::as<const maths::QuatRotation>(quat)->fetch_mat(matrix);
+    maths::quat_to_matrix({core::at(quat, 0), core::at(quat, 1), core::at(quat, 2), core::at(quat, 3)}, matrix);
 }
 
 } // namespace
@@ -144,7 +144,7 @@ void fetch_facing(Struct* node, maths::Mat4* out)
     if (sum > 1.0)
         sum = 1.0;
     const std::array<float, 4> quat = {{v.x, v.y, v.z, static_cast<float>(std::sqrt(1.0 - sum))}};
-    quat_to_matrix(quat.data(), out);
+    quat_to_matrix(quat, out);
 }
 
 // 0x0045C1B0

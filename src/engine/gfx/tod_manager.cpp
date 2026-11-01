@@ -212,14 +212,11 @@ bool is_game_halted() { return memory::bits_as<uint8_t*>(modules::g_front_end_in
 void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
 
 // The scenes (render::CEngine's list 0x006FA7EC): nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1.
-struct SceneNode {
-    render::WorldScene* scene;
-    int priority;
-    SceneNode* next;
-};
-static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-bool is_end(const SceneNode* node) { return static_cast<intptr_t>(cell::address(node->scene)) == -1; }
-SceneNode* first_scene() { return raw::as<SceneNode>(render::first_scene_node()); }
+// A node of the scene list (memory::ListNode): its scene, and whether it is the list's head.
+using SceneNode = memory::ListNode;
+render::WorldScene* scene_of(const SceneNode* node) { return static_cast<render::WorldScene*>(node->data); }
+bool is_end(const SceneNode* node) { return node->is_head(); }
+SceneNode* first_scene() { return (render::first_scene_node()); }
 render::WorldScene* sky_scene() { return render::get_sky_scene(); }
 // The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
 render::WorldScene* level_scene()
@@ -669,7 +666,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
     const bool whole_level = light_group == kOutdoor || light_group == 0;
     for (const SceneNode* node = first_scene(); node;) {
         const SceneNode* next = is_end(node->next) ? nullptr : node->next;
-        render::WorldScene* scene = node->scene;
+        render::WorldScene* scene = scene_of(node);
         if (!scene->is_sky_) {
             apply_color_to_scene(scene, color, light_group, reset_light_group, start_percent, end_percent);
             if (whole_level && !part_only)

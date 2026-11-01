@@ -351,7 +351,7 @@ bool cfunc_found_servers(Struct*, Script*)
     const memory::ListNode* node = net_link()->servers_.next; // (the list's first node)
     int count = 0;
     // (the head's mark tested before a null node, as in the original)
-    while (static_cast<intptr_t>(cell::address(node->data)) != -1 && node) {
+    while (node->data != memory::ListNode::head_marker() && node) {
         node = node->next;
         ++count;
     }

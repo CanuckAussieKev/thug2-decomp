@@ -400,7 +400,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
 maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* node)
 {
     maths::Mat4 local;
-    raw::as<const maths::QuatRotation>(&node->climb_)->fetch_mat(&local); // the quaternion's
+    maths::quat_to_matrix(node->climb_, &local); // the quaternion's
     core::at(local.row, 0).w = 0.0f;
     core::at(local.row, 1).w = 0.0f;
     core::at(local.row, 2).w = 0.0f;
@@ -459,9 +459,7 @@ void GrindRailHub::append_vertex(uint32_t name, script::Struct* params)
         level_nodes::read_turn_angles(params, &angles);
         maths::Mat4 matrix;
         const maths::Mat4* built = &matrix.init_from_angles(angles);
-        maths::Vec4 quat;
-        raw::as<maths::QuatRotation>(&quat)->from_matrix(*built);
-        node->climb_ = quat;
+        node->climb_ = maths::quat_from_matrix(*built);
     } else {
         node->surface_type_ = 0;
         uint32_t terrain = 0; // (the original's: its params argument's slot, the low byte the climbing flag)
