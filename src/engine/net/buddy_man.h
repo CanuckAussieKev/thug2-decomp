@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/owner.h"
@@ -62,11 +63,12 @@ class FriendsManager {
 public:
     // 0x0054A480: GP set up (product 0x2880) with this as the connection and the callbacks (error, buddy request -
     // 0x00548100, buddy status, buddy message; two ignored), on the network heap; the task (buddy_task, not added
-    // yet). Returns this.
-    FriendsManager* make_new();
-    // 0x005488B0 (destructor body): the task deleted, the two list heads unlinked (the buddies themselves aren't
-    // freed).
-    void destroy_body();
+    // yet).
+    FriendsManager();
+    // 0x005488B0: the task deleted, the two list heads unlinked (the buddies themselves aren't freed).
+    ~FriendsManager();
+    FriendsManager(const FriendsManager&) = delete;
+    FriendsManager& operator=(const FriendsManager&) = delete;
 
     // 0x0054A1A0: log into the profile: logged off first, state 2, a thread (0x00548140) connects; the task joins
     // the main loop's logic tasks (once). Starts the 10 s login timer (0x007CE458).
@@ -136,7 +138,7 @@ public:
     void* connection_;           // +0x00 GPConnection (this object is passed as its address)
     int account_;                // +0x04 the logged-in profile id
     int cur_phase_;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
-    memory::owner<tasks::SchedulerTask*> task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
+    std::unique_ptr<tasks::SchedulerTask> task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
     bool authenticated_;         // +0x10
     memory::ListNode friends_;   // +0x14 lists::Foremost<Buddy>
     memory::ListNode messages_;  // +0x28 lists::Foremost<FriendNote>

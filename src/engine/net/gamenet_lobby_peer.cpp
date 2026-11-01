@@ -351,7 +351,7 @@ void RoomManager::start_hosting()
     g_last_report_time = now; // reported last
     g_not_posted_shown = false;
     g_game_posted = false;
-    tasks->queue_job(hosting_task_);
+    tasks->queue_job(hosting_task_.get());
     hosting_ = true;
 }
 
@@ -434,7 +434,7 @@ void __cdecl RoomManager::hole_punch_result_fn(void*, int cookie, void*)
     }
     auto* lobby = manager->lobby_service_;
     if (lobby->negotiations_ == 0)
-        tasks->queue_job(lobby->nat_task_);
+        tasks->queue_job(lobby->nat_task_.get());
     ++lobby->negotiations_;
     pop_heap();
 }

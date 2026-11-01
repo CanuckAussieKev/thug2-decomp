@@ -117,13 +117,13 @@ Hub* Hub::make_new()
     join_mode_ = 0;
     motd_received_ = false;
     void* memory = carve(sizeof(RoomManager));
-    lobby_service_ = memory ? static_cast<RoomManager*>(memory)->make_new() : nullptr;
+    lobby_service_ = memory ? new (memory) RoomManager : nullptr;
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
-    vault_man_ = memory ? static_cast<VaultMan*>(memory)->make_new() : nullptr;
+    vault_man_ = memory ? new (memory) VaultMan : nullptr;
     memory = carve(sizeof(FriendsManager));
-    presence_service_ = memory ? static_cast<FriendsManager*>(memory)->make_new() : nullptr;
+    presence_service_ = memory ? new (memory) FriendsManager : nullptr;
     memory = carve(sizeof(RankingsManager));
-    rating_service_ = memory ? static_cast<RankingsManager*>(memory)->make_new() : nullptr;
+    rating_service_ = memory ? new (memory) RankingsManager : nullptr;
     game_spy::cd_key_init(kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
     crt::get_srand(crt::get_instant());

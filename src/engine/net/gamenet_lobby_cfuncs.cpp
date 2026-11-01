@@ -97,9 +97,9 @@ bool __cdecl cfunc_start_nat_negotiation(script::Struct* params, script::Script*
         pop_heap();
         return false;
     }
-    tasks->queue_job(lobby->nat_task_);
+    tasks->queue_job(lobby->nat_task_.get());
     client->set_outside_packet_hook(reinterpret_cast<net::UnknownPacketCallback>(&RoomManager::queue_packet));
-    tasks->queue_job(lobby->hosting_task_);
+    tasks->queue_job(lobby->hosting_task_.get());
     for (int i = 0; i < queued_count(); ++i)
         crt::dealloc(get_queue()[i].data); // (the game's C runtime free)
     queued_count() = 0;

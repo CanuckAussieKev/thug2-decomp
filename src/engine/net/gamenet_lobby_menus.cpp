@@ -311,10 +311,11 @@ void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, 
 // --- the destructors ---
 
 // 0x00540D50
-void RoomManager::destroy_body()
+RoomManager::~RoomManager()
 {
-    for (tasks::SchedulerTask* task : {think_task_, nat_task_, hosting_task_})
-        delete task;
+    think_task_.reset();
+    nat_task_.reset();
+    hosting_task_.reset();
     participants_.uncouple();
     rooms_.uncouple(); // (its own base: the room list's head)
 }

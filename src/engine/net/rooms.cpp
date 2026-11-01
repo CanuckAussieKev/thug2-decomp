@@ -178,9 +178,9 @@ void console_message(const char* nick, uint32_t text_name, bool by_name)
 }
 
 // A task running `code` for the lobby (priority 0; null if out of memory).
-memory::owner<tasks::SchedulerTask*> new_task(RoomManager* lobby, tasks::Task<RoomManager>::Code code)
+std::unique_ptr<tasks::SchedulerTask> new_task(RoomManager* lobby, tasks::Task<RoomManager>::Code code)
 {
-    return new tasks::Task<RoomManager>(code, lobby, 0);
+    return std::make_unique<tasks::Task<RoomManager>>(code, lobby, 0);
 }
 
 } // namespace
@@ -196,7 +196,7 @@ LobbyRoom* LobbyRoom::make_new()
 }
 
 // 0x00541870
-RoomManager* RoomManager::make_new()
+RoomManager::RoomManager()
 {
     rooms_.make_head();
     participants_.make_head();
@@ -216,7 +216,6 @@ RoomManager* RoomManager::make_new()
     game_spy::call_qr2_register_key(0x37, "hostmode");
     game_spy::call_qr2_register_key(0x38, "ranked");
     game_spy::call_qr2_register_key(0x39, "rating_");
-    return this;
 }
 
 // 0x00542DF0
@@ -521,8 +520,8 @@ bool __cdecl cfunc_lobby_disconnect(script::Struct* params, script::Script* scri
     }
     manager->lobby_service_->clear_lobbies();
     manager->lobby_service_->clear_players();
-    static_cast<tasks::SchedulerTask*>(manager->lobby_service_->think_task_)->drop_out();
-    static_cast<tasks::SchedulerTask*>(manager->lobby_service_->nat_task_)->drop_out();
+    manager->lobby_service_->think_task_->drop_out();
+    manager->lobby_service_->nat_task_->drop_out();
     lobby = manager->lobby_service_;
     lobby->in_group_room_ = false;
     lobby->drop_is_expected_ = true;
@@ -621,7 +620,7 @@ bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script)
         manager->lobby_service_, CREATE_SUSPENDED, &thread_id);
     manager->set_room_id(thread_id);
     ResumeThread(thread);
-    logic->queue_job(static_cast<tasks::SchedulerTask*>(manager->lobby_service_->think_task_));
+    logic->queue_job(manager->lobby_service_->think_task_.get());
     ram_stats()->leave_heap_scope();
     return true;
 }

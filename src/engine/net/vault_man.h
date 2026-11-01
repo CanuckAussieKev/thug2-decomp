@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/owner.h"
@@ -111,11 +112,12 @@ public:
         kDownload6 = 6, // (treated as a download; never set in this range)
     };
 
-    // 0x0054C1D0: no categories, the task (vault_task, not in a list), the semaphore (1 of 10). Returns this.
-    VaultMan* make_new();
-    // 0x0054B470 (destructor body): the semaphore released once more, the task deleted, the search and the
-    // categories' head reset.
-    void destroy_body();
+    // 0x0054C1D0: no categories, the task (vault_task, not in a list), the semaphore (1 of 10).
+    VaultMan();
+    // 0x0054B470: the semaphore released once more, the task deleted, the search and the categories' head reset.
+    ~VaultMan();
+    VaultMan(const VaultMan&) = delete;
+    VaultMan& operator=(const VaultMan&) = delete;
 
     // 0x0054A910 (thiscall; the manager's object is used, not `this`): download `request`'s file on a thread
     // (download_thread); the task joins the logic tasks.
@@ -155,7 +157,7 @@ public:
     static int __cdecl on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length,
                                           VaultMan* vault);
 
-    memory::owner<tasks::SchedulerTask*> task_;  // +0x000 tasks::Task<VaultMan> (vault_task)
+    std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<VaultMan> (vault_task)
     int transfer_;                // +0x004 Transfer
     int progress_;                // +0x008 percent; 100 = finished
     int outcome_val_;             // +0x00C 0 running, 1 done, 2 failed

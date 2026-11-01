@@ -227,15 +227,14 @@ LevelScores* LevelScores::teardown(unsigned int flags)
 // --- the top lists ---
 
 // 0x0054D8B0
-TopList* TopList::make_new()
+TopList::TopList()
 {
     levels_.make_head();
     entries_.make_head();
-    return this;
 }
 
 // 0x0054D5C0
-void TopList::destroy_body()
+TopList::~TopList()
 {
     entries_.uncouple();
     levels_.uncouple();
@@ -375,29 +374,26 @@ void PersonalStats::get_fill()
 // --- the stats manager ---
 
 // 0x0054DBD0
-RankingsManager* RankingsManager::make_new()
+// (the five top lists made first by their constructors)
+RankingsManager::RankingsManager()
 {
     personal_.skill_points_ = 0;
     std::memset(personal_.high_scores_, 0, sizeof(personal_.high_scores_));
     std::memset(personal_.high_combos_, 0, sizeof(personal_.high_combos_));
-    for (TopList& list : top_lists_)
-        list.make_new();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
-    task_ = new tasks::Task<RankingsManager>(&stats_task, this, 0);
+    task_ = std::make_unique<tasks::Task<RankingsManager>>(&stats_task, this, 0);
     authenticated_ = false;
     cur_phase_ = kNone;
     game_ = nullptr;
     need_top_stats_ = true;
     pop_heap();
-    return this;
 }
 
 // 0x0054D610
-void RankingsManager::destroy_body()
+RankingsManager::~RankingsManager()
 {
-    delete task_;
-    for (int i = 4; i >= 0; --i)
-        top_lists_[i].destroy_body();
+    task_.reset();
+    // (then the top lists by their destructors, the last first)
 }
 
 // 0x0054CBE0
@@ -412,7 +408,7 @@ void RankingsManager::log_in()
     net_session_slot()->set_room_id(id);
     ResumeThread(thread); // (never closed)
     if (!task_->is_on_task_list())
-        get_logic_tasks()->queue_job(task_);
+        get_logic_tasks()->queue_job(task_.get());
     pop_heap();
 }
 

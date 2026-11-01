@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/owner.h"
@@ -60,9 +61,11 @@ struct TopList {
     char title_[0x20];         // +0x20 the file's first line (the lists of combos)
 
     // 0x0054D8B0: two empty heads.
-    TopList* make_new();
-    // 0x0054D5C0 (destructor body): the heads unlinked.
-    void destroy_body();
+    TopList();
+    // 0x0054D5C0: the heads unlinked.
+    ~TopList();
+    TopList(const TopList&) = delete;
+    TopList& operator=(const TopList&) = delete;
     // 0x0054E920: every level's scores and every entry deleted.
     void dealloc();
     // 0x0054E0D0: for each level with scores: its name (script 0x1AADEE21), then its best three (script 0x19F7BC28:
@@ -117,10 +120,12 @@ public:
     };
 
     // 0x0054DBD0: no stats, five empty top lists, the task (stats_task) on the network heap; the top stats are
-    // needed. Returns this.
-    RankingsManager* make_new();
-    // 0x0054D610 (destructor body): the task deleted, the top lists' heads unlinked (last first).
-    void destroy_body();
+    // needed.
+    RankingsManager();
+    // 0x0054D610: the task deleted, the top lists' heads unlinked (last first).
+    ~RankingsManager();
+    RankingsManager(const RankingsManager&) = delete;
+    RankingsManager& operator=(const RankingsManager&) = delete;
 
     // 0x0054CBE0: log in on a thread (log_in_thread; state 1, script 0x23343580, 10 s from now); the task joins the
     // logic tasks (once).
@@ -169,7 +174,7 @@ public:
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.
     static void __stdcall generate_auth(const char* challenge, const char* password, char* response);
 
-    memory::owner<tasks::SchedulerTask*> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
+    std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
     bool authenticated_;         // +0x004
     uint8_t pad5_[3];
     int cur_phase_;          // +0x008 State

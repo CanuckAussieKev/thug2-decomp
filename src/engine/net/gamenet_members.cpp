@@ -447,19 +447,19 @@ void Hub::destroy_body()
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
     if (auto* lobby = lobby_service_) {
-        lobby->destroy_body();
+        lobby->~RoomManager();
         memory::Hub::get_pull()->dealloc(lobby);
     }
     if (auto* vault = vault_man_) {
-        vault->destroy_body();
+        vault->~VaultMan();
         memory::Hub::get_pull()->dealloc(vault);
     }
     if (auto* buddies = presence_service_) {
-        buddies->destroy_body();
+        buddies->~FriendsManager();
         memory::Hub::get_pull()->dealloc(buddies);
     }
     if (auto* stats = rating_service_) {
-        stats->destroy_body();
+        stats->~RankingsManager();
         memory::Hub::get_pull()->dealloc(stats);
     }
     // The tasks, in the original's order.

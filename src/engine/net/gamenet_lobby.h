@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 
@@ -121,14 +122,16 @@ public:
     static void __cdecl group_room_callback(void* peer, int success, int group_id, void* server, const char* name,
                                             int num_waiting, int max_waiting, int num_games, int num_playing,
                                             void* param);
-    // 0x00540D50: the destructor body: the three tasks deleted, the node at +0x14 and its own node unlinked.
-    void destroy_body();
+    // 0x00540D50: the destructor: the three tasks deleted, the node at +0x14 and its own node unlinked.
+    ~RoomManager();
+    RoomManager(const RoomManager&) = delete;
+    RoomManager& operator=(const RoomManager&) = delete;
 
     // --- rooms.cpp (0x00541870-0x00543010) ---
     // 0x00541870: the empty lobby and player lists, no peer, its three tasks (tasks::Task<RoomManager>, priority 0:
     // 0x00540040, 0x005400B0, 0x005400E0) and the server-browsing keys registered with GameSpy's qr2 (0x005FF660:
     // 0x33 numobservers, 0x34 maxobservers, 0x35 skilllevel, 0x36 started, 0x37 hostmode, 0x38 ranked, 0x39 rating_).
-    RoomManager* make_new();
+    RoomManager();
 
     // 0x00542DF0: the GameSpy peer made (0x005FCE60) with the lobby's callbacks, not in a lobby.
     void init_peer();
@@ -201,9 +204,9 @@ public:
     int negotiations_;              // +0x13C NAT negotiations going on (the server's)
     void* remote_;                  // +0x140
     int nat_cookie_;                // +0x144 (a client's)
-    tasks::SchedulerTask* think_task_;   // +0x148 think_task
-    tasks::SchedulerTask* nat_task_;     // +0x14C nat_negotiation_task
-    tasks::SchedulerTask* hosting_task_; // +0x150 query_task
+    std::unique_ptr<tasks::SchedulerTask> think_task_;   // +0x148 think_task
+    std::unique_ptr<tasks::SchedulerTask> nat_task_;     // +0x14C nat_negotiation_task
+    std::unique_ptr<tasks::SchedulerTask> hosting_task_; // +0x150 query_task
 };
 
 // The lobby's rooms and players are their own list nodes (data = the item; the node keeps the original's size). Their

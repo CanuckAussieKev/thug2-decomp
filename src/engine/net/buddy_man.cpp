@@ -263,7 +263,7 @@ FriendNote* FriendNote::teardown(unsigned int flags)
 }
 
 // 0x0054A480
-FriendsManager* FriendsManager::make_new()
+FriendsManager::FriendsManager()
 {
     friends_.make_head();
     messages_.make_head();
@@ -275,18 +275,17 @@ FriendsManager* FriendsManager::make_new()
     gp_set_callback(this, 3, reinterpret_cast<const void*>(&on_buddy_message), this);
     gp_set_callback(this, 4, reinterpret_cast<const void*>(&stubs::do_nothing), this);
     gp_set_callback(this, 5, reinterpret_cast<const void*>(&stubs::do_nothing), this);
-    task_ = new tasks::Task<FriendsManager>(&buddy_task, this, 0);
+    task_ = std::make_unique<tasks::Task<FriendsManager>>(&buddy_task, this, 0);
     authenticated_ = false;
     cur_phase_ = 0;
     account_ = 0;
     pop_heap();
-    return this;
 }
 
 // 0x005488B0
-void FriendsManager::destroy_body()
+FriendsManager::~FriendsManager()
 {
-    delete task_;
+    task_.reset();
     messages_.uncouple();
     friends_.uncouple();
 }
@@ -305,7 +304,7 @@ void FriendsManager::log_in()
     net_session_slot()->set_room_id(id);
     ResumeThread(thread); // (the handle is never closed)
     if (!task_->is_on_task_list())
-        get_logic_tasks()->queue_job(task_);
+        get_logic_tasks()->queue_job(task_.get());
     pop_heap();
 }
 
@@ -321,7 +320,7 @@ void FriendsManager::spawn_account()
     HANDLE thread = CreateThread(nullptr, 0x8000, &create_profile_thread, this, CREATE_SUSPENDED, &id);
     net_session_slot()->set_room_id(id);
     ResumeThread(thread);
-    get_logic_tasks()->queue_job(task_); // (not checked for being in the list already, unlike LogIn)
+    get_logic_tasks()->queue_job(task_.get()); // (not checked for being in the list already, unlike LogIn)
     pop_heap();
 }
 
