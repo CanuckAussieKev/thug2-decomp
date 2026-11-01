@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/file/packs.h"
+#include "engine/gfx/frame_source.h"
 #include "engine/script/load.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
@@ -135,7 +136,7 @@ void create_boned_anim_controller_pool(int count, const char* name)
 }
 void create_anim_lookup_pool(int count, const char* name)
 {
-    create_pool_of(render::g_frame_source_pools, 0x214, count, name);
+    create_pool_of(render::g_frame_source_pools, sizeof(render::FrameSource), count, name);
 }
 void create_spawned_poly_details_pool(int count, const char* name)
 {

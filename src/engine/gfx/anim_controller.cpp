@@ -123,17 +123,15 @@ void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
                                                      reinterpret_cast<maths::Vec4*>(pose + 0x400), pose + 0x800, time,
                                                      index, source);
 }
-// The frame source told where the skeleton's bones are (its +0x20C, from the skeleton's +0x08) and how many
-// (+0x210, from the skeleton's +0x0C).
+// The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
 void set_bones(void* source, const uint8_t* skeleton)
 {
     RigData* bones = reinterpret_cast<const Rig*>(skeleton)->payload_;
-    *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(source) + 0x20C) =
-        bones ? reinterpret_cast<uint8_t*>(bones->lod_masks_) : nullptr; // (the bones' LOD masks)
+    static_cast<render::FrameSource*>(source)->bone_masks_ = bones ? bones->lod_masks_ : nullptr;
 }
 void set_bone_count(void* source, const uint8_t* skeleton)
 {
-    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(source) + 0x210) = reinterpret_cast<const Rig*>(skeleton)->lod_;
+    static_cast<render::FrameSource*>(source)->mask_bit_ = static_cast<int>(reinterpret_cast<const Rig*>(skeleton)->lod_);
 }
 
 // The game clock (ms) plus its offset.
@@ -301,7 +299,7 @@ bool WeightedAnimController::fetch_pose(uint8_t* pose)
     static_cast<JointClipFrames*>(frame_source_)
         ->apply_additive_if_compressed(reinterpret_cast<maths::QuatRotation*>(pose),
                                        reinterpret_cast<maths::Vec4*>(pose + 0x400), pose + 0x800, weight_,
-                                       static_cast<uint8_t*>(blend_source_));
+                                       static_cast<const render::FrameSource*>(blend_source_));
     source_frame(blend_source_, true);
     return true;
 }

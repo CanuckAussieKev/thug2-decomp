@@ -30,18 +30,12 @@ void FrameSource::operator delete(void* source)
         objects::anim_source_free(source);
 }
 
-// 0x0048CF70
-FrameSource::FrameSource()
-{
-    std::memset(reinterpret_cast<uint8_t*>(this) + 8, 0, sizeof(FrameSource) - 8);
-    is_finished_ = false;
-    anim_ = 0;
-}
+// 0x0048CF70: FrameSource() (frame_source.h: every member zero)
 
 // 0x0048CFA0
 void* FrameSource::set_done(bool done)
 {
-    is_finished_ = done;
+    resume_ = done;
     if (done)
         return nullptr;
     return get_anim_data(anim_, 1);
@@ -51,7 +45,7 @@ void* FrameSource::set_done(bool done)
 void* FrameSource::play_clip(uint32_t anim)
 {
     anim_ = anim;
-    is_finished_ = false;
+    resume_ = false;
     get_anim_data(anim, 1); // (looked up twice, the first result not used)
     return get_anim_data(anim_, 1);
 }

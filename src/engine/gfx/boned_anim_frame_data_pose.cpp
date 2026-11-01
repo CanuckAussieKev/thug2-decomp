@@ -99,15 +99,15 @@ void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const 
 
 // 0x00484EB0
 bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4* translations, void*, float weight,
-                                     uint8_t* mask)
+                                     const FrameSource* mask)
 {
     uint8_t* rot_keys = quat_keys_;
     uint8_t* trans_keys = trans_keys_;
     uint16_t* rot_sizes = quat_sizes_;
     uint16_t* trans_sizes = trans_sizes_;
-    uint32_t mask_bit = mask && mask[0x208] ? 1u << (*reinterpret_cast<uint32_t*>(mask + 0x210) & 31) : 0u;
+    uint32_t mask_bit = mask && mask->resume_ ? 1u << (mask->mask_bit_ & 31) : 0u;
     for (int i = 0; i < bone_count_; ++i) {
-        bool skip = mask_bit ? ((*reinterpret_cast<uint32_t**>(mask + 0x20C))[i] & mask_bit) != 0 : false;
+        bool skip = mask_bit ? (mask->bone_masks_[i] & mask_bit) != 0 : false;
         if (flag_bits_ & kBoneBits)
             skip = !(partial_bones_[1 + i / 32] & (1u << (i % 32)));
         if (!skip) {
@@ -159,7 +159,7 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
 
 // 0x00485250
 bool JointClipFrames::apply_additive_if_compressed(maths::QuatRotation* rotations, maths::Vec4* translations,
-                                                   void* unused, float weight, uint8_t* mask)
+                                                   void* unused, float weight, const FrameSource* mask)
 {
     if (!(flag_bits_ & kCompressed))
         return false;

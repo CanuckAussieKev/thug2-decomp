@@ -324,13 +324,13 @@ void CinematicTable::update_object_poses()
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
         uint8_t* skeleton = static_cast<objects::BoneRigModule*>(component)->bone_rig_;
-        auto* source = static_cast<uint8_t*>(entry.animation->source);
+        auto* source = static_cast<render::FrameSource*>(entry.animation->source);
         void* animation = entry.animation->data;
         reinterpret_cast<gfx::Rig*>(skeleton)->set_lod(0.0f);
         auto* rig = reinterpret_cast<gfx::Rig*>(skeleton);
         gfx::RigData* data = rig->payload_;
-        *reinterpret_cast<uint8_t**>(source + 0x20C) = data ? reinterpret_cast<uint8_t*>(data->lod_masks_) : nullptr;
-        *reinterpret_cast<uint32_t*>(source + 0x210) = rig->lod_;
+        source->bone_masks_ = data ? data->lod_masks_ : nullptr;
+        source->mask_bit_ = static_cast<int>(rig->lod_);
         const auto* base_pose = reinterpret_cast<const uint8_t*>(rig->payload_->bind_translations_);
         uint32_t count =
             reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);

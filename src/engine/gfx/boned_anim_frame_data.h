@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include "engine/gfx/anim_format.h"
+#include "engine/gfx/frame_source.h"
 
 namespace maths {
 class QuatRotation;
@@ -78,17 +79,7 @@ void __cdecl interpolate_float_trans(float* out, const FloatKey* a, const FloatK
 
 // A frame source (made by 0x0048BFC0 for an animation controller; the fields used here): where each bone's key
 // decompression got to, and which bones the skeleton's level of detail leaves out.
-struct FrameSource {
-    uint32_t unknown00_[2];
-    const uint8_t* quat_at_[64];  // +0x008
-    const uint8_t* trans_at_[64]; // +0x108
-    bool resume_;                 // +0x208 start each bone's search where it last ended
-    uint8_t pad209_[3];
-    const uint32_t* bone_masks_; // +0x20C (a word for each bone)
-    int mask_bit_;               // +0x210
-};
-static_assert(offsetof(FrameSource, trans_at_) == 0x108 && offsetof(FrameSource, mask_bit_) == 0x210,
-              "layout must match the original");
+using FrameSource = render::FrameSource; // (its search cursors and bone masks: frame_source.h)
 
 // An entry of the frame cache (0x006F92B0, 50 of them; its code isn't rewritten here - only the key searches): an
 // animation's keys decompressed into float keys, quaternions then translations in one block, with search cursors
@@ -163,15 +154,15 @@ public:
     // The events after the keys (the header's custom key count), then their count - not when one fails.
     bool read_events(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout);
 
-    // 0x00484EB0: an additive pose: each bone not masked out - by `mask` (a skeleton's bone mask: +0x208 on, +0x20C the
-    // bones' masks, +0x210 the bit) or by the frames' own bit array (flag 0x80000) - gets its first rotation key added
+    // 0x00484EB0: an additive pose: each bone not masked out - by `mask` (a frame source: with resume_, its bone masks
+    // at its level of detail) or by the frames' own bit array (flag 0x80000) - gets its first rotation key added
     // (pose rotation * key, then slerped there by `weight`) and its first translation key (a weight of the way to
     // the translation plus the key - with flags 0x4000 and 0x20000, twice the translation). True. (`unused` isn't.)
     bool apply_additive(maths::QuatRotation* rotations, maths::Vec4* translations, void* unused, float weight,
-                        uint8_t* mask);
+                        const FrameSource* mask);
     // 0x00485250: the same for compressed frames (flag 0x800000; a tail jump), else false.
     bool apply_additive_if_compressed(maths::QuatRotation* rotations, maths::Vec4* translations, void* unused,
-                                      float weight, uint8_t* mask);
+                                      float weight, const FrameSource* mask);
     // 0x00485270: the compressed keys decoded into an animation cache entry in `format` (3 and 4: rotations as
     // quaternions - two decoders -, translations as floats; others as they come) - at most 10 a frame (the vblank
     // count 0x006FA2E0 and the count 0x006FA2D8). Older entries are freed first when the cache is short of room.
