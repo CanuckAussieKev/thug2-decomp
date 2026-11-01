@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/audio/stream_index_format.h"
 #include "engine/core/checksums.h"
 #include "engine/file/bundle_format.h"
 #include "engine/file/pre_format.h"
@@ -900,6 +901,35 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
               name + ": cut short");
 }
 
+// --- the streamed sounds' index (streams/pcm/pcm.dat) ------------------------------------------------------------
+
+void check_stream_index(const std::filesystem::path& data)
+{
+    std::filesystem::path index = data / "streams" / "pcm" / "pcm.dat";
+    std::filesystem::path wad = data / "streams" / "pcm" / "pcm.wad";
+    if (!std::filesystem::exists(index))
+        return;
+    std::vector<uint8_t> file = read_whole(index);
+    uint64_t wad_size = std::filesystem::exists(wad) ? std::filesystem::file_size(wad) : 0;
+    util::ByteReader reader(file.data(), file.size());
+    uint32_t count = 0;
+    check(stream_index_format::read_count(reader, &count), "pcm.dat: the count");
+    int outside = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        stream_index_format::Entry entry;
+        check(stream_index_format::read_entry(reader, &entry), "pcm.dat: entry " + std::to_string(i));
+        outside += !stream_index_format::within(entry, wad_size);
+        // the original's reading in place: the entries from +4, 12 bytes each
+        check(std::memcmp(file.data() + 4 + i * 12, &entry, 12) == 0, "pcm.dat: entry as in place");
+    }
+    check(outside == 0, "pcm.dat: every stream within pcm.wad");
+    check(reader.remaining() == 0, "pcm.dat: the entries end at the file's end");
+    util::ByteReader cut(file.data(), file.size() - 1);
+    check(!stream_index_format::read_count(cut, &count), "pcm.dat: cut short");
+    std::printf("pcm.dat: %u streams (%d outside pcm.wad's %llu bytes)\n", count, outside,
+                static_cast<unsigned long long>(wad_size));
+}
+
 } // namespace
 
 void register_check(const std::string& extension, FileCheck check_function)
@@ -941,6 +971,7 @@ int run(const std::filesystem::path& data)
         if (std::filesystem::exists(archive))
             check_patch(entry.path(), archive);
     }
+    check_stream_index(data);
     // the loose files (outside pre\)
     for (const auto& entry : std::filesystem::recursive_directory_iterator(data)) {
         if (!entry.is_regular_file() || lower(entry.path().parent_path().filename().string()) == "pre")

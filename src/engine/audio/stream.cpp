@@ -7,8 +7,12 @@
 
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
+#include "engine/core/dbg.h"
 #include "engine/core/mem.h"
+#include "engine/audio/stream_index_format.h"
+#include "engine/util/byte_stream.h"
 #include "engine/audio/stream_commands.h"
 #include "engine/sys/startup_init.h"
 
@@ -229,11 +233,39 @@ void __cdecl init_platform()
     HANDLE index = CreateFileA("data\\streams\\pcm\\pcm.dat", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     if (index != INVALID_HANDLE_VALUE) {
-        DWORD read;
-        ReadFile(index, &wad_entry_count(), 4, &read, nullptr);
-        wad_entries() = static_cast<WadEntry*>(memory::alloc(wad_entry_count() * sizeof(WadEntry)));
-        ReadFile(index, wad_entries(), wad_entry_count() * sizeof(WadEntry), &read, nullptr);
+        // Not original - the index read whole and through stream_index_format.h: a count past the entries the file
+        // holds is cut to them (the original took it as it came and read short, the rest of the table left as it
+        // was), and an entry outside pcm.wad is dropped (it would be streamed from past the file).
+        DWORD size = GetFileSize(index, nullptr);
+        std::vector<uint8_t> contents(size == INVALID_FILE_SIZE ? 0 : size);
+        DWORD read = 0;
+        if (!contents.empty() && !ReadFile(index, contents.data(), size, &read, nullptr))
+            read = 0;
         CloseHandle(index);
+        contents.resize(read);
+        util::ByteReader reader(contents.data(), contents.size());
+        uint32_t count = 0;
+        if (!stream_index_format::read_count(reader, &count)) {
+            debug::printf("pcm.dat damaged: %u entries, %u fit\n", count,
+                          static_cast<uint32_t>(reader.remaining() / stream_index_format::kEntrySize));
+            count = static_cast<uint32_t>(reader.remaining() / stream_index_format::kEntrySize);
+            reader = util::ByteReader(contents.data(), contents.size());
+            reader.skip(4);
+        }
+        LARGE_INTEGER wad_size{};
+        if (get_wad_file() == INVALID_HANDLE_VALUE || !GetFileSizeEx(get_wad_file(), &wad_size))
+            wad_size.QuadPart = 0;
+        wad_entries() = static_cast<WadEntry*>(memory::alloc(count * sizeof(WadEntry)));
+        wad_entry_count() = 0;
+        for (uint32_t i = 0; i < count; ++i) {
+            stream_index_format::Entry entry;
+            stream_index_format::read_entry(reader, &entry);
+            if (!stream_index_format::within(entry, static_cast<uint64_t>(wad_size.QuadPart))) {
+                debug::printf("pcm.dat: stream %08x outside pcm.wad, dropped\n", entry.checksum);
+                continue;
+            }
+            wad_entries()[wad_entry_count()++] = WadEntry{entry.checksum, entry.offset, entry.size};
+        }
     }
     // Sorted by checksum for find_wad_entry (an exchange sort).
     WadEntry* entries = wad_entries();
