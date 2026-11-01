@@ -6,6 +6,7 @@
 #include <cstring>
 #include <new>
 
+#include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/surface_material.h"
@@ -14,6 +15,9 @@
 namespace render {
 
 namespace {
+
+// The passes a material holds (its per-pass arrays).
+constexpr uint32_t kMaxPasses = 4;
 
 // The records come through one of these: from memory (a cursor moved on) or from a file.
 struct MemoryReader {
@@ -75,6 +79,12 @@ lists::KeyMap* read_materials(Reader& reader, const lists::KeyMap* textures)
         reader.TakeIn(&m->checksum, 4, 1);
         reader.TakeIn(&m->name_hash_, 4, 1);
         reader.TakeIn(&m->pass_count_, 4, 1);
+        // Not original - at most the material's 4 passes (its arrays' size: the original wrote further passes past
+        // them). A file with more is damaged; what follows is read as it comes.
+        if (m->pass_count_ > kMaxPasses) {
+            debug::printf("material %08x: %u passes, more than %u\n", m->checksum, m->pass_count_, kMaxPasses);
+            m->pass_count_ = kMaxPasses;
+        }
         m->alpha_ref_ = static_cast<uint8_t>(get_pull<uint32_t>(reader));
         reader.TakeIn(&m->sort_flag_, 1, 1);
         reader.TakeIn(&m->sort_key_, 4, 1);

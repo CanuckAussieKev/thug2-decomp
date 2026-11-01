@@ -49,6 +49,9 @@ uint32_t g_screen_effect_unknown994{0x80808080};
 
 namespace {
 
+// A mesh's index lists as the sector loaders keep them (read and dropped).
+constexpr uint32_t kMaxIndexLists = 8;
+
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 PcGeom* geometry_of(void* sector)
 {
@@ -257,16 +260,20 @@ bool PcSector::read_from_ram_block(uint8_t** cursor)
         uint32_t material = *p++;
         uint32_t lists = *p++;
         // The index lists: read and dropped (the PC's are built from the vertices' own).
-        uint16_t* indices[8] = {};
-        uint32_t counts[8] = {};
+        uint16_t* indices[kMaxIndexLists] = {};
+        uint32_t counts[kMaxIndexLists] = {};
         for (uint32_t j = 0; j < lists; ++j) {
-            counts[j] = *p++;
-            memory::Hub* manager = memory::Hub::get_pull();
-            manager->enter_heap_scope(manager->top_down_heap_);
-            uint32_t bytes = counts[j] * 2;
-            indices[j] = static_cast<uint16_t*>(memory::alloc(bytes));
-            memory::Hub::get_pull()->leave_heap_scope();
-            std::memcpy(indices[j], p, bytes);
+            uint32_t count = *p++;
+            uint32_t bytes = count * 2;
+            // Not original - lists past the 8 the arrays hold are skipped (the original wrote them past the arrays).
+            if (j < kMaxIndexLists) {
+                counts[j] = count;
+                memory::Hub* manager = memory::Hub::get_pull();
+                manager->enter_heap_scope(manager->top_down_heap_);
+                indices[j] = static_cast<uint16_t*>(memory::alloc(bytes));
+                memory::Hub::get_pull()->leave_heap_scope();
+                std::memcpy(indices[j], p, bytes);
+            }
             p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p) + bytes);
         }
         mesh->load_index_ = static_cast<uint16_t>(i);
@@ -334,15 +341,23 @@ bool PcSector::ingest_from_file(file::Hdl file, uint32_t unknown)
         uint32_t material, lists;
         read(&material, 4, 1);
         read(&lists, 4, 1);
-        uint16_t* indices[8] = {};
-        uint32_t counts[8] = {};
+        uint16_t* indices[kMaxIndexLists] = {};
+        uint32_t counts[kMaxIndexLists] = {};
         for (uint32_t j = 0; j < lists; ++j) { // (read and dropped)
-            read(&counts[j], 4, 1);
+            uint32_t count = 0;
+            read(&count, 4, 1);
             memory::Hub* manager = memory::Hub::get_pull();
             manager->enter_heap_scope(manager->top_down_heap_);
-            indices[j] = static_cast<uint16_t*>(memory::alloc(counts[j] * 2));
+            auto* list = static_cast<uint16_t*>(memory::alloc(count * 2));
             memory::Hub::get_pull()->leave_heap_scope();
-            read(indices[j], 2, static_cast<int>(counts[j]));
+            read(list, 2, static_cast<int>(count));
+            // Not original - lists past the 8 the arrays hold are freed at once (the original wrote them past).
+            if (j < kMaxIndexLists) {
+                counts[j] = count;
+                indices[j] = list;
+            } else {
+                memory::Hub::get_pull()->dealloc(list);
+            }
         }
         mesh->load_index_ = static_cast<uint16_t>(i);
         mesh->ingest_from_file(file, material, *reinterpret_cast<SceneRef**>(geometry->scene + 0x280),
