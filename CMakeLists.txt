@@ -190,6 +190,7 @@ add_executable(thug2 WIN32
     src/game/park_editing/park_floor.cpp
     src/game/park_editing/park_manager.cpp
     src/game/park_editing/park_map.cpp
+    src/game/park_editing/park_map_format.cpp
     src/game/park_editing/park_rails.cpp
     src/game/park_editing/rail_editor.cpp
     src/game/park_editing/rail_editor_draw.cpp
@@ -868,7 +869,8 @@ add_executable(thug2_format_check
     src/engine/core/checksums.cpp
     src/game/save_cards/save_file_format.cpp
     src/engine/net/net_wire.cpp
-    src/game/skate/skate_net_messages.cpp)
+    src/game/skate/skate_net_messages.cpp
+    src/game/park_editing/park_map_format.cpp)
 target_include_directories(thug2_format_check PRIVATE src)
 target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 

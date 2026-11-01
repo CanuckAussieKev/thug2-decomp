@@ -2,6 +2,8 @@
 // map itself, and a new empty park.
 
 #include "game/park_editing/park.h"
+#include "game/park_editing/park_map_format.h"
+#include "engine/util/byte_stream.h"
 #include "game/park_editing/park_editor.h"
 
 #include <cstdint>
@@ -195,50 +197,55 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     shell_size_ = map_.shell_size_;
     set_theme(map_.style_set_);
     builder_->set_player_cap(map_.max_players_);
-    const int8_t* heights = map_.floor_heights_;
     for (int x = 0; x < kFloorSize; ++x) {
         for (int z = 0; z < kFloorSize; ++z) {
-            floor_[x][z].level_y_ = *heights++;
+            floor_[x][z].level_y_ = map_.floor_heights_[x * kFloorSize + z];
             floor_[x][z].heights_used_ = 0;
         }
     }
 
-    // The metapieces (8 bytes each): the name's index, x, z; the height and rotation.
-    auto* entry = reinterpret_cast<const uint32_t*>(heights);
-    for (int i = 0; i < map_.composite_count_; ++i, entry += 2) {
-        uint32_t where = entry[0];
-        uint32_t how = entry[1];
-        uint32_t checksum = names->fetch_part(where & 0x3FF);
+    // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
+    // (the original read on past it for counts too big)
+    util::ByteReader in(&map_, sizeof(map_));
+    in.seek(kParkMapRecordsStart);
+    // The metapieces: the name's index, x, z; the height and rotation.
+    for (int i = 0; i < map_.composite_count_; ++i) {
+        ParkMapPiece piece;
+        if (!read_park_map_piece(in, &piece))
+            break;
+        uint32_t checksum = names->fetch_part(piece.name_index);
         if (checksum == (current ? kDeadPiece : kOldDeadPiece))
             continue;
         PieceGroup* meta = make_placed_piece(find_piece_template(checksum), 0);
         CellBox pos = CellBox::get_make(0, 0, 0, 0, 0, 0);
-        pos.x = static_cast<uint8_t>(where >> 10);
-        pos.z = static_cast<uint8_t>(where >> 18);
-        pos.y = static_cast<int8_t>(((how >> 2) & 0x1F) - 16);
-        meta->set_quarter_turns(how & 3);
+        pos.x = piece.x;
+        pos.z = piece.z;
+        pos.y = piece.y;
+        meta->set_quarter_turns(piece.quarter_turns);
         place_meta_piece_in_park(pos, meta);
     }
 
     // The gaps (0x30 bytes each, 0x2C in older parks): both ends, their sides, the name and score.
-    auto* gap = reinterpret_cast<const uint8_t*>(entry);
-    int gap_size = current ? 0x30 : 0x2C;
-    for (int i = 0; i < map_.num_gaps_; ++i, gap += gap_size) {
+    for (int i = 0; i < map_.num_gaps_; ++i) {
+        ParkMapGap record;
+        if (!read_park_map_gap(in, &record, current))
+            break;
         GapDetails info = {};
         for (int end = 0; end < 2; ++end) {
             info.at_point_[end] = CellBox::get_make(0, 0, 0, 0, 0, 0);
-            info.at_point_[end].x = gap[end];
-            info.at_point_[end].y = static_cast<int8_t>(gap[2 + end] - 8);
-            info.at_point_[end].z = gap[4 + end];
-            info.quarter_turns_[end] = (gap[8] >> (end * 4)) & 0xF;
-            info.reach_left_[end] = gap[6 + end] >> 4;
-            info.reach_right_[end] = gap[6 + end] & 0xF;
+            info.at_point_[end].x = record.ends[end].x;
+            info.at_point_[end].y = record.ends[end].y;
+            info.at_point_[end].z = record.ends[end].z;
+            info.quarter_turns_[end] = record.ends[end].quarter_turns;
+            info.reach_left_[end] = record.ends[end].reach_left;
+            info.reach_right_[end] = record.ends[end].reach_right;
         }
-        copy_string(info.text_, reinterpret_cast<const char*>(gap + 0xA));
-        info.points_held_ = *reinterpret_cast<const uint16_t*>(gap + 0x2A);
+        // (the name cut to the field: the original copied up to a terminator, past 32 bytes when there was none)
+        std::snprintf(info.text_, sizeof(info.text_), "%s", record.text);
+        info.points_held_ = record.points;
         info.halves_placed_ = 2;
         if (current)
-            info.cancel_flags_ = *reinterpret_cast<const uint32_t*>(gap + 0x2C);
+            info.cancel_flags_ = record.cancel_flags;
         register_gap_entry(&info);
     }
     flag_bits_ = (flag_bits_ & ~kMapSaved) | kMapUpToDate;

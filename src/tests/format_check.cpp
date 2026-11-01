@@ -21,6 +21,7 @@
 #include "engine/core/checksums.h"
 #include "engine/net/net_wire.h"
 #include "engine/util/byte_stream.h"
+#include "game/park_editing/park_map_format.h"
 #include "game/save_cards/save_file_format.h"
 #include "game/skate/skate_net_messages.h"
 
@@ -256,10 +257,12 @@ void write_array(util::ByteWriter& writer, const ArrayValue& array)
 }
 
 // A structure decoded from `bytes` and encoded again: byte for byte the same, and its size returned (0 on failure).
-size_t check_structure_round_trip(const uint8_t* bytes, size_t size, const std::string& what)
+size_t check_structure_round_trip(const uint8_t* bytes, size_t size, const std::string& what,
+                                  Structure* decoded = nullptr)
 {
     util::ByteReader reader(bytes, size);
-    Structure tree;
+    Structure local;
+    Structure& tree = decoded ? *decoded : local;
     bool read = read_structure(reader, &tree);
     check(read, what + ": decoded");
     if (!read)
@@ -271,6 +274,85 @@ size_t check_structure_round_trip(const uint8_t* bytes, size_t size, const std::
     check(writer.ok() && writer.position() == used && std::memcmp(again.data(), bytes, used) == 0,
           what + ": encoded again byte for byte (" + std::to_string(used) + " bytes)");
     return used;
+}
+
+// --- park maps -------------------------------------------------------------------------------------------------------
+
+constexpr uint32_t kParkEditorMap = 0x337C5289; // "Park_editor_map"
+
+void find_park_maps(const Structure& structure, std::vector<const ArrayValue*>* found)
+{
+    for (const auto& [name, value] : structure.components) {
+        if (name.form == 0 && name.value == kParkEditorMap && value->type == kArray)
+            found->push_back(&value->array);
+        else if (value->type == kStruct)
+            find_park_maps(value->structure, found);
+    }
+}
+
+// A park map (an integer array of its words): its checksum, and the header and records decoded and encoded again -
+// byte for byte, zeros after them.
+void check_park_map(const ArrayValue& array, const std::string& what)
+{
+    using namespace park_editing;
+    std::printf("  park map in %s\n", what.c_str());
+    check(array.type == kInteger && array.elements.size() * 4 == kParkMapBytes, what + ": park map size");
+    if (array.elements.size() * 4 != kParkMapBytes)
+        return;
+    std::vector<uint8_t> map(kParkMapBytes);
+    util::ByteWriter words(map.data(), map.size());
+    for (const auto& element : array.elements)
+        words.u32(element->bits);
+    util::ByteReader reader(map.data(), map.size());
+    ParkMapHeader header;
+    check(read_park_map_header(reader, &header), what + ": park map header");
+    check(park_map_checksum(map.data()) == header.checksum, what + ": park map CRC");
+    std::vector<uint8_t> again(kParkMapBytes);
+    util::ByteWriter writer(again.data(), again.size());
+    write_park_map_header(writer, header);
+    check(std::memcmp(again.data(), map.data(), kParkMapHeaderSize) == 0, what + ": park map header encoded again");
+    std::memcpy(again.data() + kParkMapHeaderSize, map.data() + kParkMapHeaderSize, kParkMapFloorCells);
+    reader.seek(kParkMapRecordsStart);
+    writer.seek(kParkMapRecordsStart);
+    bool current = header.version == kParkMapVersion;
+    for (int i = 0; i < header.piece_count; ++i) {
+        ParkMapPiece piece;
+        read_park_map_piece(reader, &piece);
+        write_park_map_piece(writer, piece);
+    }
+    for (int i = 0; i < header.gap_count; ++i) {
+        ParkMapGap gap;
+        read_park_map_gap(reader, &gap, current);
+        if (current) {
+            write_park_map_gap(writer, gap);
+        } else {
+            // (no writer for the old layout: its bytes copied)
+            writer.bytes(map.data() + writer.position(), kOldParkMapGapSize);
+        }
+    }
+    check(reader.ok() && writer.ok() && reader.position() == header.extent && writer.position() == header.extent,
+          what + ": park map records end at its size (" + std::to_string(header.piece_count) + " pieces, " +
+              std::to_string(header.gap_count) + " gaps)");
+    check(std::memcmp(again.data(), map.data(), kParkMapBytes) == 0, what + ": park map encoded again byte for byte");
+}
+
+void check_park_maps_in(const Structure& structure, const std::string& what)
+{
+    std::vector<const ArrayValue*> maps;
+    find_park_maps(structure, &maps);
+    for (const ArrayValue* map : maps)
+        check_park_map(*map, what);
+}
+
+// A bare structure file (Data/CustomParks/custom<n>.prk): decoded and encoded again, its park map checked.
+void check_structure_file(const std::filesystem::path& path, const std::vector<uint8_t>& file)
+{
+    std::printf("structure file %s\n", path.string().c_str());
+    std::string name = path.filename().string();
+    Structure tree;
+    size_t used = check_structure_round_trip(file.data(), file.size(), name, &tree);
+    check(used == file.size(), name + ": the structure is the whole file");
+    check_park_maps_in(tree, name);
 }
 
 // --- save files ----------------------------------------------------------------------------------------------------
@@ -290,20 +372,21 @@ bool is_save_file(const std::filesystem::path& path)
 
 void check_save_file(const std::filesystem::path& path)
 {
-    std::printf("save %s\n", path.string().c_str());
     std::ifstream in(path, std::ios::binary);
     std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     std::string name = path.filename().string();
-    int failures_before = g_failures;
 
     util::ByteReader reader(file.data(), file.size());
     save_cards::SaveFileHeader header;
-    check(save_cards::read_save_file_header(reader, &header), name + ": header read");
-    check(header.size >= static_cast<int>(save_cards::kSaveFileHeaderSize) &&
-              header.size <= static_cast<int>(file.size()),
-          name + ": size in the file");
-    if (g_failures != failures_before)
+    bool save = save_cards::read_save_file_header(reader, &header) &&
+                header.size >= static_cast<int>(save_cards::kSaveFileHeaderSize) &&
+                header.size <= static_cast<int>(file.size()) && header.summary_size >= 0 &&
+                header.summary_size <= save_cards::kMaxSummarySize;
+    if (!save) { // (not a save: a bare structure, as the custom parks)
+        check_structure_file(path, file);
         return;
+    }
+    std::printf("save %s\n", path.string().c_str());
     auto size = static_cast<size_t>(header.size);
     check(save_cards::save_file_checksum(file.data(), size) == header.checksum, name + ": file CRC");
     check(header.summary_size <= save_cards::kMaxSummarySize, name + ": summary size");
@@ -327,7 +410,9 @@ void check_save_file(const std::filesystem::path& path)
         for (uint8_t& b : contents)
             b = static_cast<uint8_t>(b - save_cards::kSaveFileMask);
     }
-    size_t contents_used = check_structure_round_trip(contents.data(), contents.size(), name + " contents");
+    Structure tree;
+    size_t contents_used = check_structure_round_trip(contents.data(), contents.size(), name + " contents", &tree);
+    check_park_maps_in(tree, name);
     check(contents_used == contents.size(), name + ": contents end at the header's size");
     for (size_t i = size; i < file.size(); ++i) {
         if (file[i] != save_cards::kSaveFileMask) {

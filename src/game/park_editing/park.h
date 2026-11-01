@@ -498,7 +498,9 @@ struct FloorCell {
 static_assert(sizeof(FloorCell) == 16, "grid cell");
 
 // The park as saved (0x3A98 bytes): a header, the floor heights, then the metapieces (8 bytes each: name index,
-// cell, height, turn) and the gaps (0x30 bytes each).
+// cell, height, turn) and the gaps (0x30 bytes each) - park_map_format.h, whose readers / writers do the records.
+// The park layout keeps the map as these bytes (saved as an integer array, sent to the other players as they are):
+// a view of the file format, its asserts the format's.
 struct CompressedMap {
     uint32_t checksum_;   // +0x00: CRC of everything after it
     uint16_t extent_;     // +0x04: bytes used
@@ -519,7 +521,8 @@ struct CompressedMap {
 };
 static_assert(offsetof(CompressedMap, composite_count_) == 0x10 && offsetof(CompressedMap, label_) == 0x1C &&
                   offsetof(CompressedMap, floor_heights_) == 0x5C && sizeof(CompressedMap) == 0x3A98,
-              "layout must match the original");
+              "the park map's file format (park_map_format.h)");
+static_assert(kFloorSize * kFloorSize == 58 * 58, "park_map_format.h's kParkMapFloorCells");
 
 // The gap manager (the singleton 0x007CE5D4; the park manager keeps it at +0x177C4): the gaps placed in the park.
 class GapRegistry;

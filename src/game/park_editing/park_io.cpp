@@ -2,6 +2,8 @@
 // form (the map that's saved and sent), the gaps attached to pieces, and the memory bar.
 
 #include "game/park_editing/park.h"
+#include "game/park_editing/park_map_format.h"
+#include "engine/util/byte_stream.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -245,10 +247,13 @@ void ParkLayout::write_compressed_map()
     char* to = map.label_;
     for (const char* from = park_name_; (*to++ = *from++) != '\0';) {
     }
-    auto* out = reinterpret_cast<uint8_t*>(map.floor_heights_);
     for (int x = 0; x < kFloorSize; ++x)
         for (int z = 0; z < kFloorSize; ++z)
-            *out++ = static_cast<uint8_t>(floor_[x][z].level_y_);
+            map.floor_heights_[x * kFloorSize + z] = static_cast<int8_t>(floor_[x][z].level_y_);
+    // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
+    // (the original wrote on past it)
+    util::ByteWriter out(&map, sizeof(map));
+    out.seek(kParkMapRecordsStart);
 
     int num_metas = 0;
     for (MapListNode* node = concrete_metas_; node; node = node->following_) {
@@ -262,11 +267,14 @@ void ParkLayout::write_compressed_map()
             ++index;
         if (index >= name_total)
             continue;
-        auto* words = reinterpret_cast<uint32_t*>(out);
-        words[0] = ((static_cast<uint32_t>(at.z) << 8 | at.x) << 10) | (index & 0x3FF);
-        words[1] = ((static_cast<uint32_t>(static_cast<uint8_t>(at.y)) - 0x10) & 0x1F) << 2 |
-                   (static_cast<uint32_t>(meta->quarter_turns_) & 3);
-        out += 8;
+        ParkMapPiece piece;
+        piece.name_index = index;
+        piece.x = at.x;
+        piece.z = at.z;
+        piece.y = at.y;
+        piece.quarter_turns = static_cast<uint8_t>(meta->quarter_turns_);
+        if (!write_park_map_piece(out, piece))
+            break;
         ++num_metas;
     }
     map.composite_count_ = static_cast<uint16_t>(num_metas);
@@ -279,29 +287,29 @@ void ParkLayout::write_compressed_map()
         if (gap && half == 0 && gap->halves_placed_ == 2)
             gaps[num_gaps++] = gap;
     }
-    map.num_gaps_ = static_cast<uint16_t>(num_gaps);
+    int gaps_written = 0;
     for (int i = 0; i < num_gaps; ++i) {
         const GapDetails* gap = gaps[i];
-        out[8] = 0;
-        out[0] = gap->at_point_[0].x;
-        out[2] = static_cast<uint8_t>(gap->at_point_[0].y + 8);
-        out[4] = gap->at_point_[0].z;
-        out[8] |= static_cast<uint8_t>(gap->quarter_turns_[0]);
-        out[6] = static_cast<uint8_t>(gap->reach_left_[0] << 4);
-        out[6] = static_cast<uint8_t>((gap->reach_right_[0] & 0xF) | (gap->reach_left_[0] << 4));
-        out[1] = gap->at_point_[1].x;
-        out[3] = static_cast<uint8_t>(gap->at_point_[1].y + 8);
-        out[5] = gap->at_point_[1].z;
-        out[8] |= static_cast<uint8_t>(gap->quarter_turns_[1] << 4);
-        out[7] = static_cast<uint8_t>((gap->reach_right_[1] & 0xF) | (gap->reach_left_[1] << 4));
-        char* text = reinterpret_cast<char*>(out + 0xA);
-        for (const char* from = gap->text_; (*text++ = *from++) != '\0';) {
+        ParkMapGap record;
+        for (int end = 0; end < 2; ++end) {
+            record.ends[end].x = gap->at_point_[end].x;
+            record.ends[end].y = gap->at_point_[end].y;
+            record.ends[end].z = gap->at_point_[end].z;
+            record.ends[end].quarter_turns = static_cast<uint8_t>(gap->quarter_turns_[end]);
+            record.ends[end].reach_left = static_cast<uint8_t>(gap->reach_left_[end]);
+            record.ends[end].reach_right = static_cast<uint8_t>(gap->reach_right_[end]);
         }
-        *reinterpret_cast<uint16_t*>(out + 0x2A) = static_cast<uint16_t>(gap->points_held_);
-        *reinterpret_cast<uint32_t*>(out + 0x2C) = gap->cancel_flags_;
-        out += 0x30;
+        // (the name cut to its 32 bytes: the original's copy ran on into the points, written after it)
+        std::memcpy(record.text, gap->text_, sizeof(gap->text_));
+        record.text[sizeof(gap->text_)] = '\0';
+        record.points = static_cast<uint16_t>(gap->points_held_);
+        record.cancel_flags = gap->cancel_flags_;
+        if (!write_park_map_gap(out, record))
+            break;
+        ++gaps_written;
     }
-    map.extent_ = static_cast<uint16_t>(out - reinterpret_cast<uint8_t*>(&map));
+    map.num_gaps_ = static_cast<uint16_t>(gaps_written);
+    map.extent_ = static_cast<uint16_t>(out.position());
     if (!(flag_bits_ & (kMapValid | kMapNewerThanPark)))
         flag_bits_ |= kMapNotSavedLocal;
     flag_bits_ = (flag_bits_ & ~kMapNewerThanPark) | kMapValid | kMapInSync;

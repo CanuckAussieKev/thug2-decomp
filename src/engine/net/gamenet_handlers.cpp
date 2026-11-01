@@ -288,6 +288,9 @@ int __cdecl handle_ready_to_play(net::InboundMsgCtx* context)
 // 0x0052EB70
 int __cdecl handle_park_map(net::InboundMsgCtx* context)
 {
+    // NOT ORIGINAL: a map shorter than a map is dropped (the original copied a whole map's worth from it)
+    if (context->body_size_ < static_cast<uint32_t>(kParkMapSize))
+        return kContinue;
     park_editing::ParkBuilderMode::sole()->set_packed_park_data(
         reinterpret_cast<const park_editing::CompressedMap*>(context->body_), true);
     void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
