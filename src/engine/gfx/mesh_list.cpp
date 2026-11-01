@@ -23,6 +23,7 @@
 #include "engine/gfx/pc_mesh.h"
 #include <d3d9.h>
 #include <span>
+#include <functional>
 
 namespace render {
 
@@ -108,12 +109,11 @@ int compare_meshes(const void* a, const void* b)
     const bool flag_b = (core::at(material_b->pass_flags_, 0) & 0x10) != 0;
     if (flag_a != flag_b)
         return flag_a ? 1 : -1;
-    // (then by pixel shader, as the original: its address)
-    auto order_a = cell::of(mesh_a->pixel_shader_);
-    auto order_b = cell::of(mesh_b->pixel_shader_);
-    if (order_a != order_b)
-        return order_b < order_a ? 1 : -1;
-    return cell::address(material_b) < cell::address(material_a) ? 1 : -1;
+    // (then by pixel shader, as the original: its address; then by the material's address)
+    constexpr std::less<const void*> kBefore{};
+    if (mesh_a->pixel_shader_ != mesh_b->pixel_shader_)
+        return kBefore(mesh_b->pixel_shader_, mesh_a->pixel_shader_) ? 1 : -1;
+    return kBefore(material_b, material_a) ? 1 : -1;
 }
 
 // 0x004DE300

@@ -38,6 +38,7 @@ namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 void*& hdl(int slot) { return core::at(g_pixel_shaders, slot); }
+std::array<uint8_t, 10> g_shader_stand_ins{};
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
 lists::KeyMap g_shader_cache{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 lists::KeyMap& get_cache() { return g_shader_cache; }
@@ -58,13 +59,10 @@ uint32_t pass_alpha_flags(const void* material)
 {
     return static_cast<const MaterialRef*>(material)->texture_alpha_passes();
 }
-uint32_t pass_count(const void* material)
-{
-    return *raw::field_at<const uint32_t>(static_cast<const uint8_t*>(material), 8);
-}
+uint32_t pass_count(const void* material) { return static_cast<const MaterialRef*>(material)->pass_count_; }
 uint32_t get_blend_mode(const void* material, uint32_t pass)
 {
-    return raw::field_at<const uint32_t>(static_cast<const uint8_t*>(material), 0x80)[pass] & 0xFFFFFF;
+    return core::at(static_cast<const MaterialRef*>(material)->blend_modes_, pass) & 0xFFFFFF;
 }
 
 // The fixed shaders' sources.
@@ -108,17 +106,14 @@ void compile_pixel_shaders()
     for (int slot = kPixelShader920; slot < kPixelShaderCount; ++slot)
         hdl(slot) = nullptr;
     if (!g_shaders_available) {
-        // No pixel shaders: numbers the stand-in texture stages tell apart.
-        hdl(kPixelShader964) = cell::pointer<void>(1);
-        hdl(kPixelShader960) = cell::pointer<void>(2);
-        hdl(kPixelShader95c) = cell::pointer<void>(3);
-        hdl(kPixelShader958) = cell::pointer<void>(4);
-        hdl(kPixelShader954) = cell::pointer<void>(5);
-        hdl(kPixelShader950) = cell::pointer<void>(6);
-        hdl(kPixelShader94c) = cell::pointer<void>(7);
-        hdl(kPixelShader930) = cell::pointer<void>(8);
-        hdl(kPixelShader92c) = cell::pointer<void>(9);
-        hdl(kPixelShader944) = cell::pointer<void>(10);
+        // No pixel shaders: stand-ins the fixed-function stages tell apart (the original's numbers 1-10; here the
+        // addresses of markers of their own - only compared, never given to the device).
+        static constexpr auto kStandIns = std::to_array<int>({kPixelShader964, kPixelShader960, kPixelShader95c,
+                                                              kPixelShader958, kPixelShader954, kPixelShader950,
+                                                              kPixelShader94c, kPixelShader930, kPixelShader92c,
+                                                              kPixelShader944});
+        for (size_t i = 0; i < kStandIns.size(); ++i)
+            hdl(core::at(kStandIns, i)) = &core::at(g_shader_stand_ins, i);
     } else {
         void* shader = nullptr;
         void* errors = nullptr;
@@ -136,8 +131,9 @@ void compile_pixel_shaders()
         });
         for (const Fixed& f : kFixed) {
             assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
-            input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
-                                            raw::as<IDirect3DPixelShader9*>(&hdl(f.handle)));
+            IDirect3DPixelShader9* made = nullptr;
+            input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
+            hdl(f.handle) = made;
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(f.handle), f.source);
             if (shader)
@@ -267,11 +263,10 @@ void* generated_pixel_shader(const void* material)
 
     void* shader = nullptr;
     void* errors = nullptr;
-    void* handle = nullptr;
+    IDirect3DPixelShader9* handle = nullptr;
     if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) != 0)
         buffer_pointer(errors); // (the error text, not shown)
-    input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
-                                    raw::as<IDirect3DPixelShader9*>(&handle));
+    input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);
@@ -289,7 +284,7 @@ void material_pixel_shader(const void* material, void** shader)
         *shader = generated_pixel_shader(material);
         return;
     }
-    if (!*raw::field_at<const uint32_t>(static_cast<const uint8_t*>(material), 0x30)) { // no texture
+    if (!core::at(static_cast<const MaterialRef*>(material)->textures, 0)) { // no texture
         *shader = hdl(kPixelShader95c);
         return;
     }
