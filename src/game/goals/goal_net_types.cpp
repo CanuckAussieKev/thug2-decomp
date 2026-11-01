@@ -19,6 +19,7 @@
 #include "game/skate/victory_conditions.h"
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
+#include "engine/net/player_info.h"
 
 namespace goals {
 
@@ -214,10 +215,9 @@ bool OnlineObjective::wants_to_end()
         return true;
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
-        auto* skater = *reinterpret_cast<objects::GameEntity**>(static_cast<uint8_t*>(player) + 0x14);
+        objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->skater_;
         auto* end_run = static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
-        if (!end_run->run_done() && !reinterpret_cast<uint8_t*>(skater)[0x320] && run_ending_ != 2 &&
-            seconds_remaining_ <= 0) {
+        if (!end_run->run_done() && !skater->is_halted_ && run_ending_ != 2 && seconds_remaining_ <= 0) {
             flag_bits_ |= kFlagEndOfRunStarted;
             end_run->end_run(false);
         }

@@ -16,6 +16,7 @@
 #include "engine/core/stubs.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/car_physics.h"
+#include "game/rider/flip_and_rotate.h"
 
 namespace objects {
 
@@ -52,7 +53,7 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
     void* bones = *reinterpret_cast<void**>(skeleton + 8);
     auto* object = fetch_subject();
     ObjectModule* flip_and_rotate = object->fetch_module(0x488AF07A);
-    if (flip_and_rotate && reinterpret_cast<uint8_t*>(flip_and_rotate)[0x18]) {
+    if (flip_and_rotate && static_cast<RiderSpinAndFlip*>(flip_and_rotate)->deck_turned_) {
         int bone = reinterpret_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
             auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);

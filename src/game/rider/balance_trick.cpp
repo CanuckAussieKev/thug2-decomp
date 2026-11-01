@@ -18,6 +18,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/skater_score.h"
 
 namespace objects {
 
@@ -248,8 +249,7 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     switch (name) {
     case kSwitchOffBalanceMeter: {
         auto* score = entity_->fetch_module(kSkaterScore);
-        modules::PointTally* display =
-            *reinterpret_cast<modules::PointTally**>(reinterpret_cast<uint8_t*>(score) + 0x18);
+        modules::PointTally* display = static_cast<RiderPointKeeper*>(score)->points_held_;
         display->set_teeter_gauge(false, 0.0f);
         display->set_wheelie_gauge(false, 0.0f);
         manual_.hide_display();

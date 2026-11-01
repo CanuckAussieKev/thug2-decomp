@@ -175,7 +175,7 @@ void MeshInstanceModule::tick_frame()
         model->copy_bones(reinterpret_cast<uint8_t*>(skeleton_of(skeleton)));
         return;
     }
-    uint8_t model_flags = mesh_instance_ ? reinterpret_cast<uint8_t*>(mesh_instance_)[0x44] : 0;
+    uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits_ : 0;
     if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4))
         return; // (not active, or hidden)
     get_draw_matrix(&matrix);

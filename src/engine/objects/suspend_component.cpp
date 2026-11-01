@@ -197,7 +197,7 @@ void DormancyModule::refresh_shown_state()
             visible = true;
         } else if (modules::g_viewport_count > 1) {
             visible = true;
-        } else if (reinterpret_cast<uint8_t*>(mesh_instance_)[0x234]) { // (the model component's)
+        } else if (static_cast<MeshInstanceModule*>(mesh_instance_)->level_object_) {
             visible = true;
         } else {
             double lod = lod_distances_[1];

@@ -114,7 +114,7 @@ void SkaterPhysicsModule::do_ground_physics()
                 push_off();
         }
     } else if (kind == kSkitch) {
-        reinterpret_cast<objects::Balance*>(reinterpret_cast<uint8_t*>(balance_) + 0x12C)->tick_frame();
+        balance_->skitch_.tick_frame();
         perfect_cheat(kPerfectSkitch, balance_->skitch_);
     } else if (kind == kNoseManual || kind == kManual) {
         braking_ = 0;
@@ -123,7 +123,7 @@ void SkaterPhysicsModule::do_ground_physics()
             if (can_push_off())
                 push_off();
         }
-        reinterpret_cast<objects::Balance*>(reinterpret_cast<uint8_t*>(balance_) + 0x24)->tick_frame();
+        balance_->manual_.tick_frame();
         static_cast<objects::MoveExecutor*>(trick_)->set_trick_objects(true);
         perfect_cheat(kPerfectManual, balance_->manual_);
     }

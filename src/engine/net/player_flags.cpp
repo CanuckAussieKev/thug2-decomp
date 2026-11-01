@@ -30,6 +30,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
+#include "game/rider/state_history.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -102,7 +103,7 @@ bool PlayerRecord::is_invulnerable()
 {
     if (!(conn_->cur_standing_ & net::Conn::kConnReady) || !skater_->get_flag_2c_4())
         return true;
-    if (prop<int>(prop<void*>(skater_, 0x27C), 0x18) < 10) // (its state history's frames)
+    if (skater_->state_history_->state_count_ < 10) // (its state history's frames)
         return true;
     if (frame_clock::get_time() - join_time_ < kJoinSettleTime)
         return true;

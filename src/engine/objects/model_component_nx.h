@@ -41,7 +41,7 @@ inline void* rig_definition(void* skeleton)
 // hidden).
 inline void* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
 inline uint32_t model_file_checksum(render::RenderModel* model) { return model->source_path_; }
-inline uint8_t get_model_flags(render::RenderModel* model) { return reinterpret_cast<uint8_t*>(model)[0x44]; }
+inline uint8_t get_model_flags(render::RenderModel* model) { return model->flag_bits_; }
 
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
 inline void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }

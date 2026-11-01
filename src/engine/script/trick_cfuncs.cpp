@@ -93,7 +93,7 @@ pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
 objects::GameEntity* local_skater() { return get_skate()->get_home_rider(); }
 // Whether a skater is a local one (its byte at +0xBC, as 0x00566520 reads it).
-bool is_local_skater(objects::GameEntity* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
+bool is_local_skater(objects::GameEntity* skater) { return skater->is_local_skater_ != 0; }
 // The skater's score (0x00580480: its score component's object).
 void* skater_score(objects::GameEntity* skater) { return static_cast<objects::Rider*>(skater)->get_points_total(); }
 

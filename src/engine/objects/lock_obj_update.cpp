@@ -71,7 +71,7 @@ void compose_object_transform(ObjectModule* model, maths::Mat4* out)
 // Whether the target's model is to be followed: a model with its +0x234 set, or a skater.
 bool follow_model(ObjectModule* model, GameEntity* target)
 {
-    return (model && reinterpret_cast<uint8_t*>(model)[0x234]) || target->ident_ < kFirstNonSkaterId;
+    return (model && static_cast<MeshInstanceModule*>(model)->level_object_) || target->ident_ < kFirstNonSkaterId;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).

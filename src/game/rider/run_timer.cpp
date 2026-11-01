@@ -40,10 +40,7 @@ constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 // The state names cur_phase_ shows as (0x0064C080).
 const uint32_t* mode_label_keys() { return g_run_timer_state_names; }
 
-uint32_t get_skater_index(GameEntity* skater)
-{
-    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC);
-}
+uint32_t get_skater_index(GameEntity* skater) { return static_cast<uint32_t>(static_cast<Rider*>(skater)->view_slot_); }
 uint32_t timer_script_id(GameEntity* skater) { return get_skater_index(skater) + kRunTimerScriptId; }
 
 // The skater's physics value `name`.

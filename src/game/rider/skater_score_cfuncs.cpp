@@ -32,7 +32,7 @@ constexpr uint32_t kPlayer = 0x67E6859A;       // "player"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::Rider* get_skater_at(int index) { return static_cast<objects::Rider*>(get_skate()->get_rider_at(index)); }
-bool is_host_local(objects::Rider* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
+bool is_host_local(objects::Rider* skater) { return skater->is_local_skater_ != 0; }
 
 // The skater's score (the SkaterScore component's object): 0x00564A10 resets it, 0x00561B40 / 0x00561A80 get and set
 // its total, 0x00564860 resets its pot (bail style or not). None has source yet.

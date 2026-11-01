@@ -20,6 +20,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
+#include "engine/objects/camera_component.h"
 
 namespace objects {
 
@@ -43,7 +44,7 @@ constexpr float kDegrees = 0.01745329238474369f;      // 0x00645464 (degrees to 
 // Its Camera component's camera (+0x18).
 gfx::ViewCam* camera_of(GameEntity* object)
 {
-    return *reinterpret_cast<gfx::ViewCam**>(reinterpret_cast<uint8_t*>(object->fetch_module(kCamera)) + 0x18);
+    return static_cast<objects::ViewpointModule*>(object->fetch_module(kCamera))->view_camera_;
 }
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).

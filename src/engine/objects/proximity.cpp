@@ -323,7 +323,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->active_ = true;
     int id = 0;
     for (Entity* skater = entity_for_id(0); skater && id < kSkaterSlots; skater = entity_for_id(++id)) {
-        if (reinterpret_cast<uint8_t*>(skater)[0xBC])
+        if (static_cast<GameEntity*>(skater)->is_local_skater_)
             node->is_within_ |= 1u << id;
     }
     node->change_live(false);

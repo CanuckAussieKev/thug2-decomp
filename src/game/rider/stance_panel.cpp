@@ -63,7 +63,7 @@ int RiderStanceDisplay::get_stance()
 {
     auto* core = reinterpret_cast<ObjectModule*>(core_physics_);
     uint8_t flip = core_physics_->state_->flag(PoseFlag::kFlipped).on;
-    bool reversed = reinterpret_cast<uint8_t*>(core->entity_)[0x110] != 0;
+    bool reversed = static_cast<Rider*>(core->entity_)->goofy_ != 0;
     bool flipped = reversed ? flip != 0 : flip == 0;
     if (press_amount_)
         return flipped ? 3 : 4;
