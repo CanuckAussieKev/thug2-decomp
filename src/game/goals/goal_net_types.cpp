@@ -20,6 +20,7 @@
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
 #include "engine/net/player_info.h"
+#include "game/skate/point_tally.h"
 
 namespace goals {
 
@@ -120,8 +121,9 @@ void LetterGameObjective::land()
     }
     if (i == count)
         return;
-    int landed = *reinterpret_cast<int*>(
-        static_cast<uint8_t*>(static_cast<objects::Rider*>(skate_calls::get_home_rider())->get_points_total()) + 0x20);
+    int landed = static_cast<modules::PointTally*>(
+                     static_cast<objects::Rider*>(skate_calls::get_home_rider())->get_points_total())
+                     ->pot_score_;
     if (landed > 0) {
         uint32_t id = get_objective_key();
         GoalManager* manager = get_objective_board();

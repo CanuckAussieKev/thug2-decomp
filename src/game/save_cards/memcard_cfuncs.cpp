@@ -26,11 +26,11 @@
 namespace save_cards {
 
 // PartyMod's free space (code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md): with a card
-// (its +0x0C flag), the disk's free 16 KB blocks, clamped to 0x7FFE0001 so that scripts can add to it without
+// (its present flag), the disk's free 16 KB blocks, clamped to 0x7FFE0001 so that scripts can add to it without
 // overflowing (the original's count, card->get_free_blocks(), is unclamped).
 int32_t __fastcall free_disk_blocks(SaveCard* card)
 {
-    if (!reinterpret_cast<const uint8_t*>(card)[0xC])
+    if (!card->present_)
         return 0;
     ULARGE_INTEGER free_space;
     ULARGE_INTEGER total_space;

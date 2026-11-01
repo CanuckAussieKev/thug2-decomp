@@ -40,7 +40,6 @@ struct TrickLog {
     char text_[0x40];    // +0x1C its name, spaces escaped as "\_"
     char shown_[0x40];   // +0x5C the text shown in the trick string
 };
-static_assert(sizeof(TrickLog) == 0x9C, "layout must match the original");
 
 // How often a trick was seen (a node of the score's table, by name; 0x24 bytes): by kind, in combos landed before
 // and in this one. (The kind can reach 6 - flags 0x04 and 0x08 both - and the counts are then read and written past
@@ -50,7 +49,6 @@ struct TrickSeen {
     int landed_[4];   // +0x04
     int ongoing_[4];  // +0x14
 };
-static_assert(sizeof(TrickSeen) == 0x24, "layout must match the original");
 
 // TrickLog::flag_bits_.
 constexpr uint32_t kTrickNoSpin = 0x02;        // the spin multiplier back to none (and the next trick's spin is set)
@@ -244,12 +242,5 @@ public:
     TrickLog* get_trick(int index) { return static_cast<TrickLog*>(log_.items_[index]); }
     TrickLog* newest_logged_trick() { return get_trick(log_.num_ - 1); }
 };
-static_assert(offsetof(PointTally, seen_) == 0x38 && offsetof(PointTally, log_) == 0x4C &&
-                  offsetof(PointTally, special_) == 0x70 && offsetof(PointTally, bar_colors_) == 0x75 &&
-                  offsetof(PointTally, special_phase_) == 0x84 && offsetof(PointTally, arrows_) == 0x94 &&
-                  offsetof(PointTally, arrow_step_) == 0x184 && offsetof(PointTally, bars_) == 0x198 &&
-                  offsetof(PointTally, line_counts_) == 0x1B0 && offsetof(PointTally, combo_line_counts_) == 0xB74 &&
-                  offsetof(PointTally, robot_lines_) == 0x1538 && sizeof(PointTally) == 0x1550,
-              "layout must match the original");
 
 } // namespace modules

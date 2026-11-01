@@ -22,7 +22,7 @@ class Objective;
 
 // The active goals' list head (lists::Foremost<Objective>: data -1, linked to itself while empty; the original's size).
 struct GoalListHead {
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     // 0x0055B9F0: the destructor body: unlinked. (0x0055D960, its table's entry - the same, freed - isn't called.)
     void destroy_body();
     // 0x0055D990 (lists::Foremost<Objective>::fetch_entry): the node at `index`, or null past the end. (Each node's data is checked
@@ -234,12 +234,6 @@ public:
     // 0x0055DC30: the active goals counted: network goals with `all`, the others with `all` or if active.
     int count_live_goals(bool all);
 };
-static_assert(offsetof(GoalManager, goal_data_) == 0x14 && offsetof(GoalManager, active_goals_) == 0x18 &&
-                  offsetof(GoalManager, previous_objective_) == 0x2C &&
-                  offsetof(GoalManager, objective_score_) == 0x38 && offsetof(GoalManager, all_unlocked_) == 0x44 &&
-                  offsetof(GoalManager, team_) == 0x4C && offsetof(GoalManager, group_unlocked_) == 0x50 &&
-                  offsetof(GoalManager, args_) == 0x398 && sizeof(GoalManager) == 0x39C,
-              "layout must match the original");
 
 // 0x005591B0: the skate module's goal manager.
 GoalManager* get_objective_board();

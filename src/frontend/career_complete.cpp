@@ -8,6 +8,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "game/goals/goal_manager.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
@@ -138,8 +139,8 @@ bool __cdecl cfunc_apply(script::Struct* params, script::Script*)
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;
     objects::RiderStoryProgress* career = reinterpret_cast<modules::Skate*>(skate)->career_;
-    auto* goal_manager = reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(skate)->goal_manager_);
-    script::Struct* saved = goal_manager ? *reinterpret_cast<script::Struct**>(goal_manager + 0x14) : nullptr;
+    goals::GoalManager* goal_manager = reinterpret_cast<modules::Skate*>(skate)->goal_manager_;
+    script::Struct* saved = goal_manager ? goal_manager->goal_data_ : nullptr;
     if (!career || !saved)
         return false;
     int goal_count = 0, classic_count = 0, gap_levels = 0, gap_count = 0;

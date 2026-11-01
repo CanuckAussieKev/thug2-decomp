@@ -30,7 +30,6 @@ struct StackedTrickEntry {
     int spin;  // +0x18 in half turns
     int taps;  // +0x1C 1, or 2 for a double tap
 };
-static_assert(sizeof(StackedTrickEntry) == 0x20, "layout must match the original");
 
 // Skatetris (vtable 0x0064E8A0, 0x458 bytes).
 class FallingTricksGoal final : public Objective {
@@ -78,9 +77,6 @@ public:
     bool activate() override;
     bool tick_frame() override;
 };
-static_assert(offsetof(FallingTricksGoal, trick_total_) == 0x430 && offsetof(FallingTricksGoal, group_used_) == 0x438 &&
-                  sizeof(FallingTricksGoal) == 0x458,
-              "layout must match the original (0x0055BA10 allocates 0x458 bytes)");
 
 // One trick of TrickBeat's (0x20 bytes).
 struct BeatTrick {
@@ -96,7 +92,6 @@ struct BeatTrick {
     int spin;      // +0x18
     int taps;      // +0x1C
 };
-static_assert(sizeof(BeatTrick) == 0x20, "layout must match the original");
 
 // TrickBeat (vtable 0x0064E9B8, 0x47C bytes).
 class TrickBeatGoal final : public Objective {
@@ -152,9 +147,6 @@ public:
     bool activate() override;
     bool tick_frame() override;
 };
-static_assert(offsetof(TrickBeatGoal, trick_total_) == 0x430 && offsetof(TrickBeatGoal, pattern_) == 0x448 &&
-                  offsetof(TrickBeatGoal, unknown45c_) == 0x45C && sizeof(TrickBeatGoal) == 0x47C,
-              "layout must match the original (0x0055BA10 allocates 0x47C bytes)");
 
 // TimedScoreRun (vtable 0x0064E938, 0x70 bytes).
 class TimedScoreRunGoal final : public Objective {

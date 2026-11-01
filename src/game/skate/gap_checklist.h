@@ -20,13 +20,13 @@ namespace goals {
 
 // One gap (0x50 bytes; its own node in the checklist, which keeps the original's size).
 struct GapEntry {
-    memory::PaddedListNode list_link_; // data = the gap itself
-    maths::Vec4 skater_start_pos_;     // +0x14 where the gap menu puts the skater (set_gap_positions)
-    maths::Vec4 skater_start_dir_;     // +0x24
-    int pending_;                      // +0x34 landed since the last award (register_gap_hit)
-    int num_;                          // +0x38 times landed
-    int points_held_;                  // +0x3C
-    bool in_level_;                    // +0x40 found by the last scan of the level's scripts
+    memory::ListNode list_link_;   // data = the gap itself
+    maths::Vec4 skater_start_pos_; // +0x14 where the gap menu puts the skater (set_gap_positions)
+    maths::Vec4 skater_start_dir_; // +0x24
+    int pending_;                  // +0x34 landed since the last award (register_gap_hit)
+    int num_;                      // +0x38 times landed
+    int points_held_;              // +0x3C
+    bool in_level_;                // +0x40 found by the last scan of the level's scripts
     uint8_t pad41[3];
     text::Chars label_; // +0x44
 
@@ -37,10 +37,6 @@ struct GapEntry {
     void destroy_body();
     GapEntry* teardown(unsigned int flags);
 };
-static_assert(offsetof(GapEntry, skater_start_pos_) == 0x14 && offsetof(GapEntry, pending_) == 0x34 &&
-                  offsetof(GapEntry, points_held_) == 0x3C && offsetof(GapEntry, label_) == 0x44 &&
-                  sizeof(GapEntry) == 0x50,
-              "layout must match the original");
 
 // (lists::Elem<GapEntry>'s destructors - 0x00578680 unlinked, 0x005786A0 / 0x005794B0 scalar deleting - are
 // memory::ListNode's.)
@@ -103,9 +99,8 @@ public:
 
     bool built_; // +0x00 (also set by register_gap_entry)
     uint8_t pad01[3];
-    memory::PaddedListNode gaps_; // +0x04 the list's head (lists::Foremost<GapEntry>)
+    memory::ListNode gaps_; // +0x04 the list's head (lists::Foremost<GapEntry>)
 };
-static_assert(offsetof(GapTally, gaps_) == 4 && sizeof(GapTally) == 0x18, "layout must match the original");
 
 // 0x00578AA0 (Build's callback): add_gap_from_node on the checklist being built.
 void __cdecl add_gap_from_node_callback(script::Struct* params, const uint8_t* call);

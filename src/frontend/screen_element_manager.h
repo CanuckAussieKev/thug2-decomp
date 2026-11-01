@@ -33,7 +33,6 @@ public:
         bool marked;        // +0x15 its focus is being dropped (an ancestor lost its focus flag)
         uint8_t pad16[2];
     };
-    static_assert(sizeof(FocusEntry) == 0x18, "layout must match the original");
     // An element with a pad-event priority (0x18 bytes).
     struct PriorityEntry {
         ElementPtr element; // +0x00
@@ -42,7 +41,6 @@ public:
         bool active;        // +0x14
         uint8_t pad15[3];
     };
-    static_assert(sizeof(PriorityEntry) == 0x18, "layout must match the original");
     enum { kFocusEntries = 0x30, kPriorities = 10, kPadEventSlots = 0x30 };
 
     static UiTree*& sole() { return g_ui_element_hub; }

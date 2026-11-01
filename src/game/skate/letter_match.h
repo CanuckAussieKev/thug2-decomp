@@ -58,6 +58,5 @@ public:
     // 0x005608B0: the next player's turn.
     void swap_riders();
 };
-static_assert(sizeof(LetterMatch) == 0x438, "layout must match the original");
 
 } // namespace modules

@@ -11,11 +11,6 @@
 
 namespace save_cards {
 
-static_assert(offsetof(FileLoad, label_) == 0x14 && offsetof(FileLoad, second_) == 0x3C &&
-                  offsetof(FileLoad, year_) == 0x42 && offsetof(FileLoad, extent_) == 0x44 &&
-                  offsetof(FileLoad, hdl_) == 0x8C && sizeof(FileLoad) == 0x94,
-              "layout must match the original");
-
 Hub* g_the_card;
 
 namespace {

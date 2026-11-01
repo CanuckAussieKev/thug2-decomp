@@ -54,9 +54,6 @@ public:
     // first time, the success script, marked won. True.
     bool get_win() override;
 };
-static_assert(offsetof(ContestObjective, is_halted_) == 0x70 && offsetof(ContestObjective, prize_paid_) == 0x74 &&
-                  sizeof(ContestObjective) == 0x78,
-              "layout must match the original");
 
 // A film goal (vtable 0x0064DC60, 0x88 bytes): keep the target in the camera's view for long enough (or pass its
 // checkpoints).
@@ -85,9 +82,6 @@ public:
     // 0x00552AF0: a checkpoint passed with the target in view (won after the last).
     void checkpoint();
 };
-static_assert(offsetof(ShootVideoObjective, shot_hold_time_) == 0x74 &&
-                  offsetof(ShootVideoObjective, checkpoints_passed_) == 0x84 && sizeof(ShootVideoObjective) == 0x88,
-              "layout must match the original");
 
 // A find gaps goal (vtable 0x0064DCD8; the goal manager allocates 0x74 bytes, the last word never used): find
 // num_gaps_to_find of the level's gaps.

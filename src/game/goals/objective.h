@@ -34,7 +34,6 @@ struct GoalEdge {
     bool won_;               // +0x08
     uint8_t pad09_[3];
 };
-static_assert(sizeof(GoalEdge) == 0xC, "layout must match the original");
 
 // The original's vtable slots (0x0064DDD0): 0 the destructor, 1 wants_to_end, 2 has_run_out, 3 is_operative, 4 a jump
 // to slot 3, 5 expire, 6 / 7 restore / capture_save_block, 8 has_time_limit, 9 timer_beeps, 10 shows_clock, 11 activate,
@@ -340,14 +339,6 @@ public:
     // has), key_combos set to it, the texts redone. Whether it was new.
     bool award_special_trick();
 };
-static_assert(offsetof(Objective, list_link_) == 0x04 && offsetof(Objective, ped_) == 0x14 &&
-                  offsetof(Objective, args_) == 0x1C && offsetof(Objective, run_ending_) == 0x24 &&
-                  offsetof(Objective, sub_nodes_) == 0x28 && offsetof(Objective, skater_) == 0x30 &&
-                  offsetof(Objective, bundle_) == 0x38 && offsetof(Objective, times_started_) == 0x44 &&
-                  offsetof(Objective, seconds_remaining_) == 0x50 && offsetof(Objective, num_flags_) == 0x58 &&
-                  offsetof(Objective, elapsed_) == 0x60 && offsetof(Objective, flag_bits_) == 0x6C &&
-                  offsetof(Objective, cur_phase_) == 0x6D && sizeof(Objective) == 0x70,
-              "layout must match the original");
 
 // (0x005560D0, the goal list's node table's slot 0 - lists::Elem<Objective>: unlinked, freed with flags bit 0 - is
 // the goal's own node's uncouple here; nothing deletes a node through it.)

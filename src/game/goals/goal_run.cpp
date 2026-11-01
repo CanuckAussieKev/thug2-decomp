@@ -65,11 +65,6 @@ bool game_mode_timer_beeps()
 {
     return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->clock_beeps_near_end();
 }
-// A field at `offset`.
-float float_at(const void* object, uint32_t offset)
-{
-    return *reinterpret_cast<const float*>(static_cast<const uint8_t*>(object) + offset);
-}
 // How often the score (modules::PointTally) has seen trick `trick` with no spin, not perfect, one tap (0x005624C0).
 int get_trick_count(void* score, uint32_t trick)
 {
@@ -219,10 +214,10 @@ bool Objective::tick_frame()
     if (args_->has_bare_flag(kRequireCombo) && !args_->has_bare_flag(kChainActiveFlag)) {
         objects::GameEntity* skater = local_skater();
         if (skater) {
-            const auto* score = static_cast<const uint8_t*>(static_cast<objects::Rider*>(skater)->get_points_total());
+            const auto* score =
+                static_cast<const modules::PointTally*>(static_cast<objects::Rider*>(skater)->get_points_total());
             // (the combo's points: its base score times its multiplier)
-            if (score &&
-                truncate(*reinterpret_cast<const int*>(score + 0x14) * static_cast<double>(float_at(score, 0x60))) > 0)
+            if (score && truncate(score->pot_ * static_cast<double>(score->multiplier_)) > 0)
                 args_->put_name_key(kNoName, kChainActiveFlag);
         }
     }

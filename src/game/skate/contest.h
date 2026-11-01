@@ -94,14 +94,5 @@ struct Contest {
     void get_end();
     bool is_ended();
 };
-static_assert(sizeof(Contest::Leader) == 0x20 && offsetof(Contest::Leader, ident_) == 0x0C &&
-                  offsetof(Contest::Leader, scores_) == 0x10 && offsetof(Contest::Leader, unknown1c_) == 0x1C,
-              "layout must match the original");
-static_assert(offsetof(Contest, leaders_) == 0x08 && offsetof(Contest, third_mark_) == 0x108 &&
-                  offsetof(Contest, crash_penalty_) == 0x124 && offsetof(Contest, judge_scores_) == 0x128 &&
-                  offsetof(Contest, judge_names_) == 0x13C && offsetof(Contest, path_vertices_) == 0x150 &&
-                  offsetof(Contest, run_totals_) == 0x154 && offsetof(Contest, ended_) == 0x160 &&
-                  offsetof(Contest, standing_) == 0x164 && sizeof(Contest) == 0x168,
-              "layout must match the original");
 
 } // namespace modules

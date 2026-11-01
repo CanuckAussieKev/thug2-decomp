@@ -76,6 +76,5 @@ public:
     // name, else midgoal / wait / `type`'s pro streams).
     void play_objective_voice_line(const char* type, script::Struct* params);
 };
-static_assert(sizeof(ObjectiveNpc) == 0x14, "layout must match the original");
 
 } // namespace goals

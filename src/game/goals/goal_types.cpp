@@ -345,8 +345,8 @@ void HuntGapsObjective::scan_for_gaps()
     args_->read_sub_struct(kGapsFound, &found, 1);
     int count;
     args_->fetch_int_value(kNumGapsFound, &count, 1);
-    auto* score = static_cast<uint8_t*>(skater->get_points_total());
-    int gaps = *reinterpret_cast<int*>(score + 0x5C);
+    auto* score = static_cast<modules::PointTally*>(skater->get_points_total());
+    int gaps = score->tricks_;
     bool found_new = false;
     for (int i = 0; i < gaps; ++i) {
         // (modules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)

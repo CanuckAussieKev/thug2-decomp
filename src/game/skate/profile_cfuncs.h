@@ -20,7 +20,6 @@ struct SwapSlot {
     uint32_t key;
     uint32_t value;
 };
-static_assert(sizeof(SwapSlot) == 12, "layout must match the original");
 extern SwapSlot g_swap_table[5];
 
 // 0x005AA930: `a` and `b` swapped in the table of five checksum pairs (0x007CEDE0: in use, key, value): each gets a

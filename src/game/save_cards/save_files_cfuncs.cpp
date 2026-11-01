@@ -421,7 +421,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         return true;
 
     // the card's files (a lists::Foremost<File> on the stack)
-    memory::PaddedListNode head;
+    memory::ListNode head;
     head.make_head();
     card->list_save_files("*", reinterpret_cast<FileLoad*>(&head));
 

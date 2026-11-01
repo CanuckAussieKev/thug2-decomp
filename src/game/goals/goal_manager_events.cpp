@@ -91,10 +91,9 @@ void free_array(script::Array* array)
 // multiplier +0x60, truncated - _ftol).
 int total_with_pending(void* score)
 {
-    auto* bytes = static_cast<uint8_t*>(score);
-    int pending = static_cast<int>(static_cast<double>(*reinterpret_cast<int*>(bytes + 0x14)) *
-                                   *reinterpret_cast<float*>(bytes + 0x60));
-    return static_cast<modules::PointTally*>(score)->get_total_score() + pending;
+    auto* tally = static_cast<modules::PointTally*>(score);
+    int pending = static_cast<int>(static_cast<double>(tally->pot_) * tally->multiplier_);
+    return tally->get_total_score() + pending;
 }
 
 // goal_lose_next_frame spawned for `goal`.
@@ -126,12 +125,12 @@ void GoalManager::land()
             auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
             if (!skater)
                 continue;
-            auto* score = static_cast<uint8_t*>(skater->get_points_total());
-            if (*reinterpret_cast<int*>(score + 0x20) <= 0)
+            auto* score = static_cast<modules::PointTally*>(skater->get_points_total());
+            if (score->pot_score_ <= 0)
                 continue;
             script::Struct* check = spawn_param_table();
             check->put_name_key(kGoalIdChecksum, goal->get_objective_key());
-            check->put_int(kLastScoreLanded, *reinterpret_cast<int*>(score + 0x20));
+            check->put_int(kLastScoreLanded, score->pot_score_);
             script::launch_script(kHighComboCheckScore, check, nullptr, false, nullptr);
             delete_structure(check);
         } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {

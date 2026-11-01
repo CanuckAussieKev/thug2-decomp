@@ -990,7 +990,7 @@ Skate::Skate()
     reinterpret_cast<SkateNet*>(this)->create_network_tasks();
     objects::g_profile_roster->reset_templates();
     game_flow_ = new goals::MatchFlow;
-    void* memory = memory::alloc_zeroed(0x39C);
+    void* memory = memory::alloc_zeroed(sizeof(goals::GoalManager));
     goal_manager_ = memory ? static_cast<goals::GoalManager*>(memory)->make_new() : nullptr;
     render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry));
     career_ = new objects::RiderStoryProgress;
@@ -1003,9 +1003,9 @@ Skate::Skate()
     match_style_ = kFreeskate;
     splitscreen_preferences_ = new prefs::Preferences;
     splitscreen_preferences_->read_in(kDefaultSplitscreenPreferences);
-    memory = memory::alloc_zeroed(0x168);
+    memory = memory::alloc_zeroed(sizeof(Contest));
     competition_ = memory ? static_cast<Contest*>(memory)->make_new(0) : nullptr;
-    memory = memory::alloc_zeroed(0x438);
+    memory = memory::alloc_zeroed(sizeof(LetterMatch));
     horse_ = memory ? static_cast<LetterMatch*>(memory)->make_new() : nullptr;
     movies_ = new objects::VideoHub;
     object_movies_ = new objects::VideoHub;

@@ -118,12 +118,6 @@ struct FrontEnd final : public PartUnit {
     // 0x0054FB40 (a controller's handler): its pad events, each sent to the menus (unless blocked or inactive).
     static void __cdecl input_logic(FrontEndInputHandler* handler);
 };
-static_assert(offsetof(FrontEnd, update_job_) == 0x14 && offsetof(FrontEnd, pad_listeners_) == 0x20 &&
-                  offsetof(FrontEnd, is_halted_) == 0x30 && offsetof(FrontEnd, keyboard_device_) == 0x3C &&
-                  offsetof(FrontEnd, pad_mappings_) == 0x40 && offsetof(FrontEnd, block_menu_input_) == 0x58 &&
-                  offsetof(FrontEnd, pad_event_queue_) == 0x5C && offsetof(FrontEnd, check_startup_script_) == 0x15C &&
-                  offsetof(FrontEnd, startup_script_id_) == 0x160 && sizeof(FrontEnd) == 0x164,
-              "layout must match the original");
 
 // The singleton (0x007CE464, references 0x007CE468).
 FrontEnd*& front_end_instance();

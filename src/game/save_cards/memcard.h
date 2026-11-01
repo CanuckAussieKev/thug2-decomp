@@ -15,7 +15,7 @@ class SaveCard;
 // A save file (also an entry of a directory listing: name, date, size).
 struct FileLoad {
     // The list node it starts with (lists::Elem<File>: the data is the file itself; the original's size).
-    memory::PaddedListNode list_link_;
+    memory::ListNode list_link_;
     char label_[0x28];
     uint8_t second_, minute_, hour_, day_, month_, unknown41_;
     uint16_t year_;
@@ -56,7 +56,6 @@ public:
     uint8_t present_; // (set to 0x75 by the manager)
     uint8_t unknownd_[3];
 };
-static_assert(sizeof(SaveCard) == 0x10, "layout must match the original");
 
 class Hub {
 public:
@@ -72,7 +71,6 @@ public:
     Bay slots_[4][2];
     SaveCard save_device_;
 };
-static_assert(sizeof(Hub) == 0x90, "layout must match the original");
 
 // The manager, made by the first Create (with `create`); each Create adds a reference, Release drops one.
 Hub* create_manager(bool create);

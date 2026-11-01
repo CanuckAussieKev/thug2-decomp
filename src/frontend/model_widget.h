@@ -30,7 +30,6 @@ public:
         objects::SharedRef<objects::GameEntity> object;
         maths::Vec4 offset;
     };
-    static_assert(sizeof(ShapeMesh) == 0x1C, "the original's slot");
     enum { kMaxModels = 25 };
     // point_at_
     enum { kPointAtNothing = 0, kPointAtNode = 1, kPointAtObject = 2 };

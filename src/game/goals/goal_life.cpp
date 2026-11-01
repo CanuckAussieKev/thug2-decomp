@@ -123,7 +123,7 @@ void uncouple(memory::ListNode* node)
 // is empty (0x005480A0).
 ObjectiveNpc* new_goal_ped(script::Struct* params)
 {
-    void* memory = memory::alloc(0x14);
+    void* memory = memory::alloc(sizeof(ObjectiveNpc));
     return memory ? static_cast<ObjectiveNpc*>(memory)->make_new(params) : nullptr;
 }
 inline void destroy_goal_ped_body(ObjectiveNpc*) {}
@@ -364,7 +364,7 @@ bool Objective::get_win()
                 better = record > record_points_;
             } else {
                 void* score = get_score_of(skate_calls::get_home_rider());
-                record = args_->has_bare_flag(kHighCombo) ? *reinterpret_cast<int*>(static_cast<uint8_t*>(score) + 0x20)
+                record = args_->has_bare_flag(kHighCombo) ? static_cast<modules::PointTally*>(score)->pot_score_
                                                           : total_score(score);
                 better = record > record_points_;
             }

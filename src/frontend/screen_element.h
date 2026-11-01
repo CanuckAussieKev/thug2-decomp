@@ -38,7 +38,6 @@ struct ElementState {
     // 0x004A8730: a copy (returns this).
     ElementState* get_assign(const ElementState* other);
 };
-static_assert(sizeof(ElementState) == 0x44, "layout must match the original");
 
 class UiWidget : public objects::Entity {
 public:

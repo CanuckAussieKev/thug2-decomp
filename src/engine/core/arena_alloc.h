@@ -111,14 +111,6 @@ struct ListNode {
 };
 static_assert(sizeof(ListNode) == 0x10, "a list node is four words");
 
-// A list node inside a structure that is still read by byte offset elsewhere: the node, then an unused word where
-// the original's node had its table, so that the fields after it keep the original's offsets. (Stage 5: a plain
-// ListNode once the structure's readers are typed.)
-struct PaddedListNode : ListNode {
-    uint32_t unused_;
-};
-static_assert(sizeof(PaddedListNode) == 0x14, "the original node's size");
-
 class MemSource {
 public:
     enum Direction : int { kGrowUp = 1, kGrowDown = -1 };
