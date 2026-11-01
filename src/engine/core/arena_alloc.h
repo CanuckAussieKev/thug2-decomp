@@ -93,13 +93,9 @@ public:
 // deleting destructor: out of the list, freed); here a node is plain data and whoever owns it says how it goes -
 // destroy() for a node of its own, the owner's destructor for a node inside an object.
 struct ListNode {
-    // What a list's head keeps as its item (the original's -1; here the address of a marker of its own - only ever
-    // compared).
-    static void* head_marker() noexcept
-    {
-        static char marker = 0;
-        return &marker;
-    }
+    // What a list's head keeps as its item: -1 (some heads are filled with 0xFF bytes rather than made: the value,
+    // not just the marker, is what they compare).
+    static void* head_marker() noexcept { return cell::pointer<void>(0xFFFFFFFFu); }
 
     void* data;
     int priority;
