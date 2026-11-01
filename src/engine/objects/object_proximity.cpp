@@ -21,6 +21,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "game/rider/rider.h"
 
 namespace objects {
 
@@ -79,7 +80,7 @@ ObjectProximityComponent::~ObjectProximityComponent() = default;
 // 0x004EC3C0
 double ObjectProximityComponent::local_skater_distance_squared(uint32_t* skater_id)
 {
-    auto* skater = raw::as<GameEntity>(modules::Skate::sole()->get_home_rider());
+    auto* skater = modules::Skate::sole()->get_home_rider();
     if (!skater || skater == entity_)
         return far_away();
     *skater_id = skater->ident_;

@@ -10,6 +10,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/raw_view.h"
+#include "game/rider/rider.h"
 
 namespace objects {
 class GameEntity;
@@ -31,11 +32,11 @@ inline objects::GameEntity* get_rider_at(int index) { return modules::Skate::sol
 inline objects::GameEntity* get_home_rider()
 {
     // (a Rider is a GameEntity: the same pointer)
-    return raw::as<objects::GameEntity>(modules::Skate::sole()->get_home_rider());
+    return modules::Skate::sole()->get_home_rider();
 }
 inline objects::GameEntity* get_rider_by_number(uint32_t id)
 {
-    return raw::as<objects::GameEntity>(modules::Skate::sole()->get_rider_by_number(id));
+    return modules::Skate::sole()->get_rider_by_number(id);
 }
 // 0x00564FC0: the profile manager's profile `index`. 0x00564F80: the profile `params`' integer `skater` names (none,
 // or no params: the current one).

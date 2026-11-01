@@ -152,7 +152,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
             ride->stop_time_ = get_now();
         }
         if (objects::GameEntity* object = grind_from->grind_object_)
-            raw::as<walk::MovableContact>(ride_)->start_riding(object);
+            ride_->ride_on(object);
         start_grind(&grind_from->grind_point_, grind_from->grind_node_, grind_from->grind_rails_, true, true);
         safe_pos_ = entity_->at_point_;
         entity_->old_pos_ = safe_pos_;

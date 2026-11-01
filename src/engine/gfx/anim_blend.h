@@ -195,7 +195,7 @@ public:
     float prev_timeline_pos_{};              // +0x5C the playing timeline's time last frame
     bool waiting_{};                         // +0x60 a time waited for
     float wait_time_{};                      // +0x64
-    uint8_t* owner_ptr_;                     // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
+    objects::GameEntity* owner_ptr_;         // +0x68 the object
     objects::AnimBlenderComponent* blender_; // +0x6C
     objects::ObjectModule* bone_rig_{};      // +0x70 the object's skeleton component
 };
@@ -203,11 +203,8 @@ public:
 // (The channel's timeline list's node type - AnimTimeline::destroy_body its body, 0x0047DD40 its scalar deleting
 // destructor - is memory::ListNode's.)
 
-// A list's head (lists::Foremost; the channel's timelines, a server list): 0x0047DD10, how many items it has.
-struct AnimListHead {
-    int tally_entries();
-    memory::ListNode head_;
-};
+// 0x0047DD10: how many items a list (lists::Foremost: the channel's timelines, a server list) has after its head.
+int count_list_items(const memory::ListNode* head);
 
 // The blend's shared buffers: the weights, the bone set of each channel, the pose.
 extern Stance* g_blend_buffer;

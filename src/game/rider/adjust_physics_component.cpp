@@ -99,7 +99,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     const maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
-        raw::as<walk::MovableContact>(ride_)->start_riding(feeler.get_hit_object());
+        ride_->ride_on(feeler.get_hit_object());
     if (core_ptr_->state_->cur_phase_ == 4) {
         change_phase(core_ptr_, 1);
         entity_->post_own_event(kUnderTheFloor, nullptr);

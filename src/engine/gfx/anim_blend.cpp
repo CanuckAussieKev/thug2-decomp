@@ -193,7 +193,7 @@ bool BlendChannel::has_value(uint32_t offset) { return render::get_anim_data(loo
 // 0x0047D660
 void BlendChannel::clear_flag()
 {
-    if (script::Struct* params = raw::as<objects::Entity>(owner_ptr_)->tag_table_)
+    if (script::Struct* params = owner_ptr_->tag_table_)
         params->erase_module(0x5DB4115F);
 }
 

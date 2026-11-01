@@ -289,7 +289,7 @@ bool cfunc_edit_player_appearance(script::Struct* params, script::Script*)
     params->read_hash_value(kTarget, &target, 1);
     script::Struct* target_params = nullptr;
     params->read_sub_struct(kDestArgs, &target_params, 0);
-    script::launch_script(target, target_params, raw::as<objects::Entity>(profile), false, nullptr);
+    script::launch_script(target, target_params, profile->appearance(), false, nullptr);
     return true;
 }
 

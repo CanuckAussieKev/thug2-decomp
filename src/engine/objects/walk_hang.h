@@ -19,13 +19,6 @@ namespace walk {
 
 // A composite object's movable contact component (the walk component's +0x1784, the skater core's +0x152C): what the
 // skater rides on.
-class MovableContact {
-public:
-    // 0x0043EB80: riding `object` from now: an old ride let go (its object kept at +0x6C, the time at +0x70), a new
-    // ride tracker (GameObjects::RideTracker) made for it.
-    void start_riding(objects::GameEntity* object);
-};
-
 // 0x0043D990 (cdecl): out = a + (b - a) * t, each component rounded as the original's x87 code does. Returns out.
 maths::Vec4* get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t);
 // 0x0043DA20 (thiscall on the walk component's pad): whether its second stick's angle is within 45 degrees of a half

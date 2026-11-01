@@ -108,14 +108,16 @@ memory::PoolPair& struct_pools() { return script::g_struct_pools; }
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // A list node as the original masks it: null when it's the head.
-AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : raw::as<AnimTrack>(node); }
-memory::ListNode* elem(AnimTrack* timeline) { return raw::as<memory::ListNode>(timeline); }
+// A timeline's list node holds the timeline (its data).
+AnimTrack* track_of(memory::ListNode* node) { return core::down_cast<AnimTrack>(static_cast<AnimTimeline*>(node->data)); }
+AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : track_of(node); }
+memory::ListNode* elem(AnimTrack* timeline) { return &timeline->list_link_; }
 
 // The playing timeline (the list's first), or null.
 AnimTrack* get_first(BlendChannel* channel)
 {
     memory::ListNode* node = channel->timelines_.next;
-    return is_head(node) || !node ? nullptr : raw::as<AnimTrack>(node);
+    return is_head(node) || !node ? nullptr : track_of(node);
 }
 
 void uncouple(memory::ListNode* node)
@@ -136,7 +138,7 @@ void delete_all_timelines(memory::ListNode* head)
 
 objects::GameEntity* get_owner(BlendChannel* channel)
 {
-    return raw::as<objects::GameEntity>(channel->owner_ptr_);
+    return channel->owner_ptr_;
 }
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
@@ -186,8 +188,6 @@ bool start_blend_out(AnimTrack* timeline, float period) { return timeline->start
 double current_weight(AnimTrack* timeline) { return timeline->get_weight(); }
 void* new_timeline(uint32_t size) { return AnimTrack::operator new(size); }
 
-int count_list_items(memory::ListNode* head) { return raw::as<AnimListHead>(head)->tally_entries(); }
-
 // An animation's frame data in the anim set (render::get_anim_data 0x0048CF50: its first value the length), the range
 // (fetch_anim_durations 0x004877E0 - the original passes the script too, unused) and loop type (get_anim_loop_type 0x00487770)
 // a play's parameters ask for, and a controller added to a track (0x00481FB0).
@@ -208,9 +208,9 @@ Rig* skeleton_of(objects::ObjectModule* component)
 } // namespace
 
 // 0x0047DD10
-int AnimListHead::tally_entries()
+int count_list_items(const memory::ListNode* head)
 {
-    const memory::ListNode* node = head_.next;
+    const memory::ListNode* node = head->next;
     int count = 0;
     while (!is_head(node) && node) {
         node = node->next;
@@ -223,7 +223,7 @@ int AnimListHead::tally_entries()
 
 // 0x0047F150
 BlendChannel::BlendChannel(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full)
-    : owner_ptr_(raw::bytes(object)), blender_(blender)
+    : owner_ptr_(object), blender_(blender)
 {
     list_link_.make_node(this);
     timelines_.make_head();
@@ -354,7 +354,7 @@ void BlendChannel::remove_done_timelines()
         return;
     while (node) {
         AnimTrack* next = masked(node->next);
-        if (!raw::as<AnimTrack>(node)->is_operative()) {
+        if (!track_of(node)->is_operative()) {
             uncouple(node);
             delete_timeline(node);
         }
@@ -379,7 +379,7 @@ void BlendChannel::push_timeline(float period)
         if (first && start_blend_out(first, period)) {
             float others = 0.0f;
             for (memory::ListNode* node = elem(first)->next; !is_head(node) && node; node = node->next) {
-                auto* timeline = raw::as<AnimTrack>(node);
+                auto* timeline = track_of(node);
                 if (timeline->is_fading())
                     others =
                         static_cast<float>(static_cast<double>(timeline->fade_scale_) * timeline->fade_left_ + others);
@@ -430,7 +430,7 @@ void BlendChannel::fetch_pose(int index, void* pose, float* weight)
     if (!is_head(node) && node) {
         for (;;) {
             if (index-- == 0) {
-                timeline = raw::as<AnimTrack>(node);
+                timeline = track_of(node);
                 break;
             }
             node = node->next;
@@ -480,7 +480,7 @@ void BlendChannel::advance_clock(float frames)
 {
     memory::ListNode* node = timelines_.next;
     if (!is_head(node) && node)
-        raw::as<AnimTrack>(node)->advance_clock(frames);
+        track_of(node)->advance_clock(frames);
 }
 
 // 0x0047E210
@@ -657,7 +657,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         get_first(this)->get_times(&start, &current, &end);
         auto ratio = static_cast<float>(speed / (static_cast<double>(end) - start));
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
-            auto* timeline = raw::as<AnimTrack>(node);
+            auto* timeline = track_of(node);
             timeline->get_times(&start, &current, &end);
             timeline->speed_ = static_cast<float>((static_cast<double>(end) - start) * ratio * kSecondsPerFrame);
         }
@@ -667,7 +667,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
             return;
         const float per_frame = speed * kSecondsPerFrame;
         for (; !is_head(node) && node; node = node->next)
-            raw::as<AnimTrack>(node)->speed_ = per_frame;
+            track_of(node)->speed_ = per_frame;
     }
 }
 
@@ -972,8 +972,8 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case kObjPlayAnim: {
         play_anim_from_script(params, script, kStockCrossfade);
         memory::ListNode* node = timelines_.next;
-        if (!is_head(node) && node && raw::as<AnimTrack>(node)->repeat_mode_ == AnimTimeline::kHold)
-            raw::as<objects::Entity>(owner_ptr_)
+        if (!is_head(node) && node && track_of(node)->repeat_mode_ == AnimTimeline::kHold)
+            owner_ptr_
                 ->invoke_method_by_name(0xEA6D0EFDu, params,
                                         script); // (the object's own member function: the original's slot 3)
         return 1;
@@ -989,7 +989,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         float duration = 0.0f;
         params->fetch_float(0x23272E4D, &duration, 1);
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
-            auto* timeline = raw::as<AnimTrack>(node);
+            auto* timeline = track_of(node);
             float start = 0.0f, current = 0.0f, end = 0.0f;
             timeline->get_times(&start, &current, &end);
             const float larger = start > end ? start : end;

@@ -60,7 +60,7 @@ Hub* the_manager() { return g_online_hub; }
 
 objects::ObjectModule* skater_component(objects::Rider* skater, uint32_t type)
 {
-    return raw::as<objects::GameEntity>(skater)->fetch_module(type);
+    return skater->fetch_module(type);
 }
 
 // A new skater profile on the skater info heap (null if out of memory).

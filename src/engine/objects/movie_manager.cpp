@@ -68,11 +68,10 @@ void uncouple(memory::ListNode* node)
 } // namespace
 
 // 0x0057A190
-Entity* ObjectAssignment::get_assign(const Entity* other)
+Entity* assign_object_fields(Entity* to, const Entity* other)
 {
     // Every field but the tables (the vptr, the original's list node table word and ref_'s vptr), the smart pointer
     // lists and the list node's links copied as they are.
-    auto* to = raw::as<Entity>(this);
     to->smart_pointers_ = other->smart_pointers_;
     to->object_flags_ = other->object_flags_;
     to->park_owner_ = other->park_owner_;
@@ -90,10 +89,9 @@ Entity* ObjectAssignment::get_assign(const Entity* other)
 }
 
 // 0x0057A220
-gfx::ViewCam* CameraAssignment::get_assign(const gfx::ViewCam* other)
+gfx::ViewCam* assign_camera_fields(gfx::ViewCam* camera, const gfx::ViewCam* other)
 {
-    auto* camera = raw::as<gfx::ViewCam>(this);
-    raw::as<ObjectAssignment>(this)->get_assign(other);
+    assign_object_fields(camera, other);
     camera->old_pos_ = other->old_pos_;
     camera->at_point_ = other->at_point_;
     camera->basis_frame_ = other->basis_frame_;
@@ -156,7 +154,7 @@ void VideoHub::keep_camera(Movie* movie)
         return;
     if (modules::g_skate_module->level_ == 0xE92ECAFE)
         return;
-    raw::as<CameraAssignment>(&viewer_)->get_assign(movie->viewer_);
+    assign_camera_fields(&viewer_, movie->viewer_);
     keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;
     keep_camera_ = true;
 }

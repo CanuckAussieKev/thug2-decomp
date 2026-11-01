@@ -220,7 +220,7 @@ void SkaterPhysicsModule::begin_skitch()
     auto* object = skitch_target_.owner_object_;
     if (!object)
         return;
-    raw::as<walk::MovableContact>(ride_)->start_riding(object);
+    ride_->ride_on(object);
     set_flag(this, PoseFlag::kSkitching, 1);
     skitch_moving_ = 1;
     get_skitch();

@@ -100,12 +100,8 @@ public:
 
 // The compiler-made copy assignments: 0x0057A190 GameObjects::Entity's (every field but the tables: the vptr, the list
 // node's and the ref's) and 0x0057A220 gfx::ViewCam's (the Entity's, then the camera's fields).
-struct ObjectAssignment {
-    Entity* get_assign(const Entity* other);
-};
-struct CameraAssignment {
-    gfx::ViewCam* get_assign(const gfx::ViewCam* other);
-};
+Entity* assign_object_fields(Entity* to, const Entity* other);
+gfx::ViewCam* assign_camera_fields(gfx::ViewCam* to, const gfx::ViewCam* other);
 
 // A movie's name: its +0x20 (VideoEntry::value20_, set by set_value20). No address of its own: the original reads it
 // through the getter folded at 0x00543150 (online::PlayerRecord::get_accumulated_score).

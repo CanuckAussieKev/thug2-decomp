@@ -57,6 +57,9 @@ public:
     // 0x00427CD0: riding what `feeler` hit - false (no longer riding) when that's gone; false when already riding
     // it; else a new ride tracker on it (from the manager: none made still counts) and true.
     bool start_riding(render::ProbeRay* feeler);
+    // 0x0043EB80 (walk_hang.cpp): riding `object` from now: an old ride let go (its object kept as the last ridden,
+    // the time noted), a new ride tracker made for it.
+    void ride_on(GameEntity* object);
     // 0x00427DD0: the contact point kept relative to the object ridden (or the last one ridden): its own position
     // less the object's, through the object's inverted orientation.
     void update_contact_point();

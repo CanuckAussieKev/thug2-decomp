@@ -640,7 +640,7 @@ void FootMovement::update_air()
     const maths::Vec4 bottom = entity_->at_point_ - up;
     feeler->change_finish(&bottom);
     if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive())
-        raw::as<walk::MovableContact>(ride_)->start_riding(feeler->get_hit_object());
+        ride_->ride_on(feeler->get_hit_object());
     vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     vertical = 0.0f;
     collide_air_move(&position, &start);

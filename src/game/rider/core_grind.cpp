@@ -614,7 +614,7 @@ void SkaterPhysicsModule::try_grind(bool always)
             if (!can_grind(this, node, object_rails))
                 return;
             start_grind(&point, node, object_rails, false, false);
-            raw::as<walk::MovableContact>(ride_)->start_riding(rails->entity_);
+            ride_->ride_on(rails->entity_);
             ride_->update_contact_point();
             entity_->vel_ -= get_tracker(this)->entity_.owner_object_->vel_;
             return;

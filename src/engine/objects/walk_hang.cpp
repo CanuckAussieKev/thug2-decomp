@@ -188,7 +188,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
         towards = direction(walk, &buffer);
         snap = script::fetch_float(margin);
         if (get_rails_of(walk)->find_rail(&local_start, &local_end, towards, walk, record, snap)) {
-            raw::as<walk::MovableContact>(walk->ride_)->start_riding(component->entity_);
+            walk->ride_->ride_on(component->entity_);
             return true;
         }
     }
@@ -1559,12 +1559,11 @@ void objects::FootMovement::update_ladder()
 }
 
 // 0x0043EB80
-void walk::MovableContact::start_riding(objects::GameEntity* object)
+void objects::MovingSurfaceModule::ride_on(GameEntity* object)
 {
-    let_go_of_ride(raw::as<objects::MovingSurfaceModule>(this));
-    void* memory = memory::alloc(sizeof(objects::RideTracker));
-    raw::as<objects::MovingSurfaceModule>(this)->ride_ =
-        memory ? memory::construct_in<objects::RideTracker>(memory, object) : nullptr;
+    let_go_of_ride(this);
+    void* memory = memory::alloc(sizeof(RideTracker));
+    ride_ = memory ? memory::construct_in<RideTracker>(memory, object) : nullptr;
 }
 
 namespace objects {

@@ -394,7 +394,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         memory::ListNode* list = &manager->servers_;
         get_append(list, server);
         if (game_spy::server_has_basic_keys(sb)) {                                       // (it has its basic keys)
-            const int index = raw::as<gfx::AnimListHead>(list)->tally_entries() - 1; // (the list's count)
+            const int index = gfx::count_list_items(list) - 1; // (the list's count)
             manager->show_server_in_menu(server, index);
             get_run(kUpdateServerList);
             server->in_list_ = true;

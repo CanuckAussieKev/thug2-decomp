@@ -289,7 +289,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         const bool riding = ride_->is_riding();
         if (!riding || *raw::as<void*>(ride_->ride_) != feeler->get_hit_object()) {
             ride_->stop_riding();
-            raw::as<walk::MovableContact>(ride_)->start_riding(feeler->get_hit_object());
+            ride_->ride_on(feeler->get_hit_object());
         }
     }
     if (!walking) {
