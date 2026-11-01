@@ -20,6 +20,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/gfx/settings.h"
 #include "engine/core/raw_view.h"
+#include "platform/registry.h"
 
 namespace commands {
 
@@ -178,9 +179,9 @@ void write_gamma(float red, float green, float blue)
     if (RegCreateKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0,
                         nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
-    RegSetValueExA(key, "R", 0, REG_DWORD, raw::bytes(&red), 4);
-    RegSetValueExA(key, "G", 0, REG_DWORD, raw::bytes(&green), 4);
-    RegSetValueExA(key, "B", 0, REG_DWORD, raw::bytes(&blue), 4);
+    sys::set_registry_value(key, "R", REG_DWORD, &red, 4);
+    sys::set_registry_value(key, "G", REG_DWORD, &green, 4);
+    sys::set_registry_value(key, "B", REG_DWORD, &blue, 4);
     RegCloseKey(key);
 }
 

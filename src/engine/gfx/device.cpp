@@ -30,6 +30,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "platform/registry.h"
 
 namespace render {
 
@@ -354,11 +355,11 @@ void load_gamma()
     if (RegOpenKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0, KEY_READ,
                       &key) == ERROR_SUCCESS) {
         DWORD size = 4;
-        RegQueryValueExA(key, "R", nullptr, nullptr, raw::bytes(&red), &size);
+        sys::query_registry_value(key, "R", nullptr, &red, &size);
         size = 4;
-        RegQueryValueExA(key, "G", nullptr, nullptr, raw::bytes(&green), &size);
+        sys::query_registry_value(key, "G", nullptr, &green, &size);
         size = 4;
-        RegQueryValueExA(key, "B", nullptr, nullptr, raw::bytes(&blue), &size);
+        sys::query_registry_value(key, "B", nullptr, &blue, &size);
         // (the key is left open)
     }
     render::set_device_gamma(red, green, blue); // the gamma ramp

@@ -10,4 +10,9 @@ namespace sys {
 // writes the value into it.
 void write_default_setting(const char* name, uint32_t value);
 
+// RegQueryValueExA / RegSetValueExA over the value's own bytes: `data` holds `*size` bytes (the value's size comes
+// back there); `type` may be null; `key` an open HKEY. The Win32 result (ERROR_SUCCESS: 0).
+long query_registry_value(void* key, const char* name, unsigned long* type, void* data, unsigned long* size);
+long set_registry_value(void* key, const char* name, unsigned long type, const void* data, unsigned long size);
+
 } // namespace sys

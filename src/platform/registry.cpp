@@ -16,6 +16,16 @@ constexpr auto kSettingsKey = std::to_array(R"(Software\Activision\Tony Hawk's U
 } // namespace
 
 // 0x004E1810
+long query_registry_value(void* key, const char* name, DWORD* type, void* data, DWORD* size)
+{
+    return RegQueryValueExA(static_cast<HKEY>(key), name, nullptr, type, raw::bytes(data), size);
+}
+
+long set_registry_value(void* key, const char* name, DWORD type, const void* data, DWORD size)
+{
+    return RegSetValueExA(static_cast<HKEY>(key), name, 0, type, raw::bytes(data), size);
+}
+
 void write_default_setting(const char* name, uint32_t value)
 {
     HKEY key = nullptr;

@@ -50,6 +50,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
+#include "platform/registry.h"
 
 namespace online {
 
@@ -91,10 +92,10 @@ void get_cd_key(char* key)
     DWORD size = sizeof(value);
     DWORD type = 0;
     HKEY handle = nullptr;
-    auto query = [&] { RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value.data()), &size); };
+    auto query = [&] { sys::query_registry_value(handle, "key", &type, value.data(), &size); };
     bool opened = false;
     if (RegCreateKeyA(HKEY_CURRENT_USER, kPath.data(), &handle) == ERROR_SUCCESS &&
-        RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value.data()), &size) == ERROR_SUCCESS) {
+        sys::query_registry_value(handle, "key", &type, value.data(), &size) == ERROR_SUCCESS) {
         opened = true;
     } else {
         // (an opened HKEY_CURRENT_USER key without the value is left open: the original's)

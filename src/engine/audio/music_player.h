@@ -13,7 +13,7 @@ namespace audio {
 // A playlist (0xCB0 bytes; three at 0x00698098, the current one's index at 0x0069BA9C): up to 80 tracks, and
 // 128-bit masks of the tracks switched off (in the music menu) and those already played this round.
 struct Playlist {
-    std::array<std::array<uint8_t, 40>, 80> tracks; // a track's name first (the rest unknown)
+    std::array<std::array<char, 40>, 80> tracks; // a track's name first (the rest unknown)
     int count;
     uint32_t unknownc84_;
     std::array<uint64_t, 2> off; // tracks 0-63, 64-127

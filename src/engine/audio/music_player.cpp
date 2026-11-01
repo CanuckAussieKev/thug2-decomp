@@ -107,7 +107,7 @@ bool is_off(const Playlist& list, int track)
 // The track's start: the stream played, and the script told which track it is.
 void start_track(Playlist& list, int track)
 {
-    play_track(raw::chars(core::at(list.tracks, track).data()), false);
+    play_track(core::at(list.tracks, track).data(), false);
     current_track() = track;
     script::Struct* params = script::spawn_param_bag();
     params = params ? new (params) script::Struct : nullptr;
@@ -205,7 +205,7 @@ void queue_track(const char* name, int list, const char* title)
     Playlist& playlist = core::at(get_playlists(), list);
     if (playlist.count >= 80)
         return;
-    char* track = raw::chars(core::at(playlist.tracks, playlist.count).data());
+    char* track = core::at(playlist.tracks, playlist.count).data();
     THUG2_MSVC_WARNING(suppress : 4996) // (the slot is 40 bytes; names are shorter)
     std::strcpy(track, name);
     for (size_t i = 0; i < std::strlen(track); ++i) {
@@ -285,7 +285,7 @@ bool is_track_playing(int list, int track)
         return false;
     if (track >= core::at(get_playlists(), list).count)
         return false;
-    const uint32_t name = checksums::hash_from_text(raw::chars(core::at(core::at(get_playlists(), list).tracks, track).data()));
+    const uint32_t name = checksums::hash_from_text(core::at(core::at(get_playlists(), list).tracks, track).data());
     return checksums::hash_from_text(static_cast<const char*>(special_track())) == name;
 }
 
@@ -296,11 +296,11 @@ int track_total(int list) { return music_on() ? core::at(get_playlists(), list).
 const char* track_label_at(int track, int list)
 {
     if (!music_on()) {
-        char* first = raw::chars(core::at(core::at(get_playlists(), 0).tracks, 0).data());
+        char* first = core::at(core::at(get_playlists(), 0).tracks, 0).data();
         std::memcpy(first, "Empty.", 7); // "Empty."
         return first;
     }
-    const char* name = raw::chars(core::at(core::at(get_playlists(), list).tracks, track).data());
+    const char* name = core::at(core::at(get_playlists(), list).tracks, track).data();
     const char* file = name;
     const int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i)
@@ -378,7 +378,7 @@ void play_track(const char* name, bool loop)
     // It doesn't play: switch it off.
     Playlist& playlist = core::at(get_playlists(), list);
     for (int i = 0; i < playlist.count; ++i) {
-        const uint32_t crc = checksums::hash_from_text(raw::chars(core::at(playlist.tracks, i).data()));
+        const uint32_t crc = checksums::hash_from_text(core::at(playlist.tracks, i).data());
         if (checksums::hash_from_text(name) == crc) {
             change_track_state(i, true, list);
             return;
@@ -411,7 +411,7 @@ void play_next_track()
     if (current_playlist() == 1) {
         const int track = script::fetch_int_value(0xF18AB1F9u);
         if (track < core::at(get_playlists(), 1).count)
-            play_track(raw::chars(core::at(core::at(get_playlists(), 1).tracks, track).data()), false);
+            play_track(core::at(core::at(get_playlists(), 1).tracks, track).data(), false);
         return;
     }
     if (get_looping()) {
