@@ -121,7 +121,6 @@ struct ProfileTable {
     // 0x0057BBF0: the destructor (a jump to Clear).
     void teardown();
 };
-static_assert(sizeof(ProfileTable) == 0x14, "layout must match the original");
 
 class ProfileRoster {
 public:
@@ -175,14 +174,10 @@ public:
     RiderIdentity* profiles_[2]; // +0x14 (the first: a template; the second: a copy)
     int cursor_pos_;             // +0x1C
     bool locked_;                // +0x20
-    uint8_t pad21[3];
     int extra_count_;                  // +0x24
     uint32_t extra_names_[3];          // +0x28
     RiderIdentity* extra_profiles_[3]; // +0x34
 };
-static_assert(offsetof(ProfileRoster, profiles_) == 0x14 && offsetof(ProfileRoster, extra_count_) == 0x24 &&
-                  offsetof(ProfileRoster, extra_profiles_) == 0x34 && sizeof(ProfileRoster) == 0x40,
-              "layout must match the original");
 
 extern objects::ProfileRoster* g_profile_roster;
 

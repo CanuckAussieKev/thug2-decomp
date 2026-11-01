@@ -2,6 +2,7 @@
 
 #include "game/skate/profile_manager.h"
 
+#include <cstddef>
 #include <cstdint>
 
 #include "engine/core/dbg.h"
@@ -83,6 +84,11 @@ void RiderIdentity::erase_one()
 }
 
 // The lookup table's generic code.
+// (ProfileTable is run as lists::ResolveMap: its functions are that map's - the same fields)
+static_assert(sizeof(ProfileTable) == sizeof(lists::ResolveMap) && offsetof(ProfileTable, cursor_index_) ==
+                                                                   offsetof(lists::ResolveMap, cursor_index_),
+              "a view of lists::ResolveMap");
+
 RiderIdentity* ProfileTable::get_by_index(int index, uint32_t* key)
 {
     return static_cast<RiderIdentity*>(reinterpret_cast<lists::ResolveMap*>(this)->fetch_entry_at(&index, key));

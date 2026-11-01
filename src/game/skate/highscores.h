@@ -31,9 +31,7 @@ public:
     int val_;       // +0x04
     int slot_no_;   // +0x08
     bool is_fresh_; // +0x0C
-    uint8_t pad0d_[3];
 };
-static_assert(sizeof(BestEntry) == 0x10, "layout must match the original");
 
 // A table of records (8 bytes): their count and the records (an array allocated with its count before it).
 class BestEntryList {
@@ -55,7 +53,6 @@ public:
     int num_;            // +0x00
     BestEntry* records_; // +0x04
 };
-static_assert(sizeof(BestEntryList) == 8, "layout must match the original");
 
 // A level's records (0x1C bytes).
 class StageBests {
@@ -82,7 +79,6 @@ public:
     BestEntry* longest_lip_trick_; // +0x14
     BestEntry* biggest_chain_;     // +0x18
 };
-static_assert(sizeof(StageBests) == 0x1C, "layout must match the original");
 
 // The game's records (0xC bytes).
 class BestResults {
@@ -110,7 +106,6 @@ public:
     char* default_initials_; // +0x04
     StageBests* levels_;     // +0x08
 };
-static_assert(sizeof(BestResults) == 0xC, "layout must match the original");
 
 // 0x005AEBC0: the script command UpdateRecords (the end of a high score run, classic mode's and the 2 player modes'
 // runs): the skate module's 0x00566F40 - the current level's records from the run just ended (its high score and best

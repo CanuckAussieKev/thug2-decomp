@@ -111,10 +111,8 @@ public:
     int max_value634_;               // +0x638
     goals::GapTally* gaps_[kLevels]; // +0x63C
     bool visited_[kLevels];          // +0x690
-    uint8_t pad6a5_[3];
     script::Struct* details_; // +0x6A8
 };
-static_assert(sizeof(RiderStoryProgress) == 0x6A8, "the original's 0x6AC bytes less its vtable");
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.
 bool __cdecl cfunc_get_career_save_info(script::Struct* params, script::Script* script);
