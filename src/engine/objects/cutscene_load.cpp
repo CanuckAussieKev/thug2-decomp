@@ -84,11 +84,8 @@ uint32_t stand_in_id(ObjectModule* model) { return static_cast<MeshInstanceModul
 } // namespace
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
-void* __fastcall model_fader(void* model) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x2C); }
-void* __fastcall appearance_face(void* appearance)
-{
-    return *reinterpret_cast<void**>(static_cast<uint8_t*>(appearance) + 0x54);
-}
+void* __fastcall model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr_; }
+void* __fastcall appearance_face(void* appearance) { return static_cast<gfx::ModelLook*>(appearance)->face_skin_; }
 
 namespace {
 

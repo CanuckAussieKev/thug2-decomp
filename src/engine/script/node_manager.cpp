@@ -6,6 +6,7 @@
 #include <cstring>
 #include <vector>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -285,7 +286,8 @@ void NodeManager::set_owner(void* owner) { owner_ptr_ = owner; }
 // 0x0045D470
 uint32_t NodeManager::get_owner_value58()
 {
-    return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner_ptr_) + 0x58);
+    // (the owner is a node table asset: its script array)
+    return reinterpret_cast<uint32_t>(static_cast<assets::NodeTableResource*>(owner_ptr_)->nodes_);
 }
 
 // 0x0045D270
