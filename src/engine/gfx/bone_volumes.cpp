@@ -88,7 +88,7 @@ double capsule_volume(const maths::Capsule& capsule)
 BoneVolume** new_volume_array(uint32_t count)
 {
     auto* volumes = static_cast<BoneVolume**>(memory::alloc(count * 4));
-    std::memset(volumes, 0, count * 4);
+    std::memset(static_cast<void*>(volumes), 0, count * 4);
     return volumes;
 }
 

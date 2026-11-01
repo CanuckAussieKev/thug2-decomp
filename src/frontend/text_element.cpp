@@ -426,13 +426,13 @@ void LabelWidget::free_text_objects(bool only_shadow)
     if (shadows_) {
         for (int i = 0; i < num_; ++i)
             free_text_object(shadows_[i]);
-        memory::dealloc(shadows_);
+        memory::dealloc(static_cast<void*>(shadows_));
         shadows_ = nullptr;
     }
     if (!only_shadow) {
         for (int i = 0; i < num_; ++i)
             free_text_object(texts_[i]);
-        memory::dealloc(texts_);
+        memory::dealloc(static_cast<void*>(texts_));
         num_ = 0;
     }
 }

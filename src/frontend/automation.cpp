@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "engine/core/checksums.h"
+#include "engine/core/parse_number.h"
 #include "frontend/front_end.h"
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend.h"
@@ -141,7 +142,7 @@ bool read_count(const std::string& text, int low, int high, int* out)
 {
     if (!is_integer(text) || text.size() > 9)
         return false;
-    const int value = std::atoi(text.c_str());
+    const int value = text::to_int(text.c_str());
     if (value < low || value > high)
         return false;
     *out = value;
@@ -155,7 +156,7 @@ bool read_numbers(const std::vector<std::string>& tokens, size_t first, std::vec
     for (size_t i = first; i < tokens.size(); ++i) {
         if (!is_integer(tokens[i]) && !is_float(tokens[i]))
             return false;
-        out->push_back(static_cast<float>(std::atof(tokens[i].c_str())));
+        out->push_back(static_cast<float>(text::to_double(tokens[i].c_str())));
     }
     return true;
 }
@@ -233,9 +234,9 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
     else if (value.find('"') != std::string::npos)
         return *error = "not a parameter: " + token, false;
     else if (is_integer(value) && value.size() <= 10)
-        *out = {Param::Kind::kInteger, name, value, std::atoi(value.c_str()), 0.0f};
+        *out = {Param::Kind::kInteger, name, value, text::to_int(value.c_str()), 0.0f};
     else if (is_float(value))
-        *out = {Param::Kind::kFloat, name, value, 0, static_cast<float>(std::atof(value.c_str()))};
+        *out = {Param::Kind::kFloat, name, value, 0, static_cast<float>(text::to_double(value.c_str()))};
     else if (is_id(value))
         *out = {Param::Kind::kName, name, value, 0, 0.0f};
     else

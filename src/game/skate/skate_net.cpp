@@ -873,7 +873,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             value80 = prev.value80;
         cur.value68 = value68;
         cur.value_6c_ = value_6c;
-        cur.state = static_cast<int8_t>(state);
+        cur.state = int{static_cast<int8_t>(state)};
         cur.value_7c_ = value_7c;
         cur.flag74 = flag74;
         cur.flag76 = flag76;
@@ -1095,7 +1095,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     cur.value68 = value68;
     cur.value_6c_ = value_6c;
     cur.value_7c_ = value_7c;
-    cur.state = static_cast<int8_t>(state);
+    cur.state = int{static_cast<int8_t>(state)};
     cur.value80 = value80;
     cur.flag76 = flag76;
     cur.flag75 = flag75;

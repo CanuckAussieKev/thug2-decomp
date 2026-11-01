@@ -332,7 +332,7 @@ void BodyDynamicsModule::resolve_contacts()
     // Impulses along the normals until nothing approaches.
     for (int round = 0;;) {
         bool done = true;
-        for (int i = contacts_hit_; i != 0;) {
+        for (int i = int{contacts_hit_}; i != 0;) {
             Contact& c = contacts[--i];
             if (!c.active)
                 continue;
@@ -386,7 +386,7 @@ void BodyDynamicsModule::resolve_contacts()
 
     // Friction: across the normal (along the directed friction where there is one), at most the normal impulse
     // times the friction.
-    for (int i = contacts_hit_; i != 0;) {
+    for (int i = int{contacts_hit_}; i != 0;) {
         const Contact& c = contacts[--i];
         if (!c.active)
             continue;
@@ -451,7 +451,7 @@ void BodyDynamicsModule::resolve_contacts()
 
     // Pushed out of the world by each contact's depth.
     const float dt = get_narrow(frame_clock::get_slomo_frame_seconds());
-    for (int i = contacts_hit_; i != 0;) {
+    for (int i = int{contacts_hit_}; i != 0;) {
         const Contact& c = contacts[--i];
         if (!c.active)
             continue;
@@ -476,7 +476,7 @@ void BodyDynamicsModule::resolve_contacts()
     }
 
     // The bounce, at the last active contact.
-    for (int i = contacts_hit_; i != 0;) {
+    for (int i = int{contacts_hit_}; i != 0;) {
         const Contact& c = contacts[--i];
         if (c.active) {
             const maths::Vec4 point = {append_one(c.offset.x, at_point_.x), append_one(c.offset.y, at_point_.y),

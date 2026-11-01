@@ -424,7 +424,7 @@ JointClipFrames::~JointClipFrames()
         delete events_ptr_[i];
     }
     if (events_ptr_)
-        memory::free_malloc(events_ptr_);
+        memory::free_malloc(static_cast<void*>(events_ptr_));
     if (cache_slot_) {
         if (void* cache = frame_cache())
             cache_remove(cache, this);

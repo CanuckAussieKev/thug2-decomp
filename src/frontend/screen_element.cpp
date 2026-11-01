@@ -918,7 +918,7 @@ void UiWidget::blend_towards(script::Struct* params)
 {
     // (read_position_param may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
     float x = 0.0f, y = 0.0f;
-    std::memcpy(&y, &params, sizeof(y));
+    std::memcpy(&y, static_cast<const void*>(&params), sizeof(y));
     if (read_position_param(params, &x, &y))
         change_location(x, y, 0);
     if (params->has_bare_flag(kRestoreAlpha)) {

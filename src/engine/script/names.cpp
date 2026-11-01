@@ -37,7 +37,7 @@ HashedLabel* get_bucket(uint32_t checksum) { return name_table() + (checksum & 0
 // A hex digit's value (anything else counts as its character code, as in the original).
 int hex_digit(char c)
 {
-    const int value = c;
+    const int value = int{c};
     if (value >= '0' && value <= '9')
         return value - '0';
     if (value >= 'a' && value <= 'f')

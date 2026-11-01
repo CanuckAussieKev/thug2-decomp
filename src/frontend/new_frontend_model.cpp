@@ -4,6 +4,7 @@
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
 #include "engine/core/ints.h"
+#include "engine/core/parse_number.h"
 
 #include <algorithm>
 #include <cctype>
@@ -418,7 +419,7 @@ std::vector<std::pair<std::string, int>> parse_art_choices(const std::string& te
         const std::string number = get_trim(line.substr(gap));
         if (number.empty() || number.find_first_not_of("0123456789") != std::string::npos || number.size() > 3)
             continue;
-        out.emplace_back(load, std::atoi(number.c_str()));
+        out.emplace_back(load, text::to_int(number.c_str()));
     }
     return out;
 }

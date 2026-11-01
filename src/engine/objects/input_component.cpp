@@ -401,7 +401,8 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
     uint32_t name = 0;
     params->read_hash_value(kButton, &name, 1);
     float time = 0.0f;
-    std::memcpy(&time, &params, sizeof(time)); // (the original's slot for it: the params argument)
+    std::memcpy(&time, static_cast<const void*>(&params),
+                sizeof(time)); // (the original's slot for it: the params argument)
     params->fetch_float(0u, &time, 1);
     double scaled = time;
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))

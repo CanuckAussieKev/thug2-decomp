@@ -44,6 +44,7 @@
 #include "engine/gfx/weather.h"
 #include "engine/net/gamenet_messages.h"
 #include "engine/util/byte_stream.h"
+#include "engine/core/parse_number.h"
 
 namespace script {
 class Struct;
@@ -743,7 +744,7 @@ bool handle_chat_command(const char* text)
     }
     // /option n on|off, /proset n on|off: here now, to the players with the next game's server info (THUGPRO
     // changes them in a game through its own flag broadcast, which THUG2's scripts don't have).
-    const int n = std::atoi(first);
+    const int n = text::to_int(first);
     bool on = false;
     if (words < 3 || n < 1 || n > 8 || !on_off(second, &on)) {
         get_say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");

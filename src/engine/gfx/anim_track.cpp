@@ -300,7 +300,8 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         uint32_t anim = 0; // (the original's is left as it was found on the stack when missing - an assert)
         params->read_hash_value(kAnim, &anim, 1);
         float duration = 0.0f;
-        std::memcpy(&duration, &params, sizeof(duration)); // (the argument's own slot, as above)
+        std::memcpy(&duration, static_cast<const void*>(&params),
+                    sizeof(duration)); // (the argument's own slot, as above)
         params->fetch_float(kDuration, &duration, 1);
         const bool sync = params->has_bare_flag(kSync);
         anim_ = anim;

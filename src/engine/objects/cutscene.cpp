@@ -113,7 +113,7 @@ void CinematicTable::update_subtitles()
         // (a subtitle without a time leaves the local as it was: the original's holds this object's address)
         float time = 0.0f;
         const CinematicTable* self = this;
-        std::memcpy(&time, &self, sizeof(time));
+        std::memcpy(&time, static_cast<const void*>(&self), sizeof(time));
         next->fetch_float(kTime, &time, 1);
         next_subtitle_time_ = time;
     }

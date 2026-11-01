@@ -347,9 +347,9 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
                     above.stretch_vertically();
                     const MapListHolder metas(get_intersecting_metas(above, 0, nullptr, true));
                     if (!metas.list && cell.level_y_ > dims.y)
-                        cell.level_y_ = dims.y;
+                        cell.level_y_ = int{dims.y};
                 }
-                for (int level = dims.y; level < dims.h + dims.y; ++level) {
+                for (int level = int{dims.y}; level < dims.h + dims.y; ++level) {
                     const uint32_t bit = 1u << ((level + 0x11) & 31);
                     if (add)
                         cell.heights_used_ |= bit;

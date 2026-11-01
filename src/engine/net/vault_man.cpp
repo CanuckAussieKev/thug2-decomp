@@ -29,6 +29,7 @@
 #include "engine/assets/resource_registry.h"
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/parse_number.h"
 
 namespace online {
 
@@ -179,7 +180,7 @@ int number_field(char** rest)
 {
     char number[128];
     text_tools::dup_from(number, prop(rest));
-    return std::atol(number);
+    return text::to_int(number);
 }
 
 } // namespace

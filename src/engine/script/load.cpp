@@ -306,7 +306,7 @@ void unload_qb(uint32_t file_checksum)
         }
         for (int i = 0; i < count; ++i)
             clean_up_and_remove_symbol(symbols[i]);
-        memory::free_malloc(symbols);
+        memory::free_malloc(static_cast<void*>(symbols));
     }
     // Scripts left running code that's gone are stopped.
     for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {

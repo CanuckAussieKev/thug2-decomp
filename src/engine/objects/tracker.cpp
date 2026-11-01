@@ -553,7 +553,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
                     pointers[i].get_release(); // (the destructors, last first)
                 memory::dealloc(block);
             }
-            memory::dealloc(scripts);
+            memory::dealloc(static_cast<void*>(scripts));
         }
     }
 

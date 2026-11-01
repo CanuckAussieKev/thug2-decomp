@@ -135,7 +135,7 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     info->entity_key_ = static_cast<uint8_t>(arrived.object_id); // the object id
     info->conn_ = nullptr;                                       // the connection
     info->flag_bits_ = arrived.flags;                            // flags
-    info->team_ = arrived.team;                                  // the team
+    info->team_ = int{arrived.team};                             // the team
     info->profile_id_ = arrived.profile_id;
     info->skill_points_ = arrived.rating;
     info->accumulated_score_ = arrived.accumulated_score;
@@ -384,7 +384,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
     PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (!player)
         return kContinue;
-    player->team_ = static_cast<int8_t>(msg[1]);
+    player->team_ = int{static_cast<int8_t>(msg[1])};
     char name[64];
     team_name_key(name, static_cast<int8_t>(msg[1]));
     script::Struct* params = new_params();

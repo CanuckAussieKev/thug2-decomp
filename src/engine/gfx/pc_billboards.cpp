@@ -53,7 +53,7 @@ memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 
 void order_batches(BillboardSet* manager)
 {
-    crt::get_qsort(manager->batches, static_cast<uint32_t>(manager->count), 4,
+    crt::get_qsort(static_cast<void*>(manager->batches), static_cast<uint32_t>(manager->count), 4,
                    compare_batches); // (the C runtime's qsort)
 }
 
@@ -175,7 +175,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         std::memcpy(into, out, 0xC);
         into += 0xC;
         if (table) {
-            auto index = static_cast<uint32_t>(static_cast<int8_t>(mesh->per_vertex_bytes_[i]));
+            auto index = static_cast<uint32_t>(int{static_cast<int8_t>(mesh->per_vertex_bytes_[i])});
             uint32_t value = 0;
             if (index)
                 value = table[index - 1];

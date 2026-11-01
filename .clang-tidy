@@ -66,15 +66,9 @@ Checks:
   - '-cppcoreguidelines-avoid-do-while'
   # The original's constants keep their own digits (3.14159f is not std::numbers::pi_v<float>).
   - '-modernize-use-std-numbers'
-  # The original sign-extends its signed byte fields (file, wire and cursor values) on purpose.
-  - '-bugprone-signed-char-misuse'
-  # atoi / atol: 0 for text that isn't a number is what the code relies on (as the original's).
-  - '-bugprone-unchecked-string-to-number-conversion'
   # File-local functions are `static` or in an unnamed namespace, either way (misc-use-internal-linkage's fix
   # writes `static`).
   - '-misc-use-anonymous-namespace'
-  # memcpy / memset / free of pointer arrays and pointer-sized slots: the C API's void* is meant.
-  - '-bugprone-multi-level-implicit-pointer-conversion'
 
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']

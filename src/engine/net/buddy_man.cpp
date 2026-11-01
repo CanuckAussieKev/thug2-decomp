@@ -48,6 +48,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/parse_number.h"
 
 namespace online {
 
@@ -230,9 +231,9 @@ void parse_location(Buddy* buddy, char* location, bool checked)
     }
     text_tools::dup_from(buddy->location_, name);
     text_tools::get_token(location, ":"); // "10thug211"
-    buddy->join_ip_ = static_cast<uint32_t>(std::atol(text_tools::get_token(nullptr, ":")));
-    buddy->join_private_ip_ = static_cast<uint32_t>(std::atol(text_tools::get_token(nullptr, ":")));
-    buddy->join_port_ = std::atol(text_tools::get_token(nullptr, ":"));
+    buddy->join_ip_ = static_cast<uint32_t>(text::to_int(text_tools::get_token(nullptr, ":")));
+    buddy->join_private_ip_ = static_cast<uint32_t>(text::to_int(text_tools::get_token(nullptr, ":")));
+    buddy->join_port_ = text::to_int(text_tools::get_token(nullptr, ":"));
 }
 
 } // namespace

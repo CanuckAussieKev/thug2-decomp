@@ -42,6 +42,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
+#include "engine/core/parse_number.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy, kept)
 
@@ -149,7 +150,7 @@ void delete_all(memory::ListNode* head)
 // A player's rating from a room key and its rank, told to the player list.
 void update_rank(LobbyPlayer* player, const char* value)
 {
-    player->skill_points_ = std::atol(value);
+    player->skill_points_ = text::to_int(value);
     const double rank = static_cast<double>(player->skill_points_) * g_rank_scale * render::g_float_ten;
     int shown = static_cast<int>(rank); // (truncated, as _ftol)
     if (shown > kMaxRank)

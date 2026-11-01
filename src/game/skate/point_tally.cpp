@@ -34,7 +34,7 @@ GrowableMap::GrowableMap(int capacity, int grow)
 }
 
 // 0x005614C0
-void GrowableMap::destroy_body() { memory::free_malloc(items_); }
+void GrowableMap::destroy_body() { memory::free_malloc(static_cast<void*>(items_)); }
 
 // 0x005614D0
 void GrowableMap::append_one(void* item)
@@ -46,7 +46,7 @@ void GrowableMap::append_one(void* item)
             items[i] = items_[i];
         for (int i = capacity_; i < capacity; ++i)
             items[i] = nullptr;
-        memory::free_malloc(items_);
+        memory::free_malloc(static_cast<void*>(items_));
         items_ = items;
         capacity_ = capacity;
     }

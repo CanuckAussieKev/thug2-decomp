@@ -31,6 +31,7 @@
 #include "engine/gfx/loading_bar.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/parse_number.h"
 
 namespace online {
 
@@ -545,11 +546,11 @@ void RankingsManager::read_skill_ratings(char* text)
     for (const char* token = text_tools::get_token(text, ":"); token; token = text_tools::get_token(nullptr, ":")) {
         TopEntry* entry = new_entry();
         get_append(&top_lists_[4].entries_, &entry->list_link_);
-        entry->points_held_ = std::atol(token);
+        entry->points_held_ = text::to_int(token);
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, ":")))
             break;
-        entry->skill_points_ = std::atol(token);
+        entry->skill_points_ = text::to_int(token);
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, "\n")))
             break;
@@ -573,7 +574,7 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
         const char* value = text_tools::get_token(nullptr, "\n");
         if (!value)
             break;
-        const int level = std::atol(value);
+        const int level = text::to_int(value);
         auto* scores = static_cast<LevelScores*>(memory::alloc_zeroed(sizeof(LevelScores)));
         if (scores) {
             scores->list_link_.make_node(scores);
@@ -585,11 +586,11 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
         while (token && text::compare_caseless(token, "Level") != 0) {
             TopEntry* entry = new_entry();
             get_append(&scores->entries_, &entry->list_link_);
-            entry->points_held_ = std::atol(token);
+            entry->points_held_ = text::to_int(token);
             // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             if (!(token = text_tools::get_token(nullptr, ":")))
                 break;
-            entry->skill_points_ = std::atol(token);
+            entry->skill_points_ = text::to_int(token);
             // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             if (!(token = text_tools::get_token(nullptr, "\n")))
                 break;
@@ -674,19 +675,19 @@ void RankingsManager::on_personal_stats(int, int, int, int index, int success, u
     int* values = &stats->personal_.skill_points_; // (index 0 the rating, then the high scores; combos 15 further)
     if (index == 0) {
         if (text_tools::get_token(data, "\\")) // "THUG2Rating"
-            values[0] = std::atol(text_tools::get_token(nullptr, "\\"));
+            values[0] = text::to_int(text_tools::get_token(nullptr, "\\"));
         return;
     }
     const char* key = text_tools::get_token(data, "\\");
     if (key) {
         if (text::compare_caseless(key, "THUG2HighScore") == 0) {
             if (const char* value = text_tools::get_token(nullptr, "\\"))
-                values[index] = std::atol(value);
+                values[index] = text::to_int(value);
             key = text_tools::get_token(nullptr, "\\");
         }
         if (text::compare_caseless(key, "THUG2HighCombo") == 0) { // (null key: a crash, as in the original)
             if (const char* value = text_tools::get_token(nullptr, "\\"))
-                values[index + 15] = std::atol(value);
+                values[index + 15] = text::to_int(value);
         }
     }
     if (index == 14) {

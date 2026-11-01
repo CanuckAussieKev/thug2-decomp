@@ -453,7 +453,7 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
         for (int z = area.z; z < area.z + area.l; ++z) {
             for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following_) {
                 const PieceGroup* meta = node->get_piece_group()->get_cast();
-                int y = meta->cell_footprint_.y;
+                int y = int{meta->cell_footprint_.y};
                 if (meta->name_key_ == kRiserBelow)
                     y += 15;
                 else if (meta->name_key_ == kRiserFloor)

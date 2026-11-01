@@ -129,7 +129,7 @@ bool read_structure(util::ByteReader& reader, Structure* out)
         switch (kind) {
         case kSignedByte:
             value->type = kInteger;
-            value->bits = static_cast<uint32_t>(reader.i8());
+            value->bits = static_cast<uint32_t>(int{reader.i8()});
             break;
         case kSignedShort:
             value->type = kInteger;

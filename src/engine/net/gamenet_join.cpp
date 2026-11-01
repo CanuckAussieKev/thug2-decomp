@@ -825,7 +825,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content_);
     const char* msg = context->body_;
-    const int reason = static_cast<int8_t>(msg[0]);
+    const int reason = int{static_cast<int8_t>(msg[0])};
     switch (reason) {
     case kRefusedBanned:
         manager->refused_reason_ = kReasonBanned;

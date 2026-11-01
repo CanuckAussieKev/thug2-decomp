@@ -954,7 +954,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         message = new_message(get_history(target), online::kMsgCreateSpecialItem);
         message->object_id_ = sent.object_id;
         message->bone_ = sent.bone;
-        message->item_slot_ = sent.slot;
+        message->item_slot_ = int{sent.slot};
         message->name_ = sent.params;
         break;
     }
@@ -967,7 +967,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
             return 1;
         message = new_message(get_history(target), online::kMsgDestroySpecialItem);
         message->object_id_ = sent.object_id;
-        message->item_slot_ = sent.slot;
+        message->item_slot_ = int{sent.slot};
         break;
     }
     default:
@@ -984,8 +984,8 @@ int SkateNet::handle_player_left(net::InboundMsgCtx* context)
     online::Hub* net = net_link();
     // (the message: engine/net/play_messages.h - the object id, the reason)
     util::ByteReader reader(context->body_, context->body_size_);
-    const int id = reader.i8();
-    const int reason = reader.i8();
+    const int id = int{reader.i8()};
+    const int reason = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
     PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(id));
@@ -1062,7 +1062,7 @@ int SkateNet::handle_place_tag(net::InboundMsgCtx* context)
 int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
-    const int id = reader.i8();
+    const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
     auto* object = reinterpret_cast<objects::Rider*>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
@@ -1080,7 +1080,7 @@ int SkateNet::handle_look_up_object(net::InboundMsgCtx* context)
 {
     // (the object looked up, nothing done with it)
     util::ByteReader reader(context->body_, context->body_size_);
-    const int id = reader.i8();
+    const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
     entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id));
@@ -1213,7 +1213,7 @@ int SkateNet::handle_skater_channel(net::InboundMsgCtx* context)
     online::PairMessage message;              // (the object id, flipped)
     if (!online::read_pair(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    const int id = static_cast<int8_t>(message.first);
+    const int id = int{static_cast<int8_t>(message.first)};
     objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id));
     if (!object)
         return 1;

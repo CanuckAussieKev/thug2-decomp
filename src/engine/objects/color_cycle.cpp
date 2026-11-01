@@ -144,7 +144,8 @@ int ColorCycleComponent::disengaged(script::Struct*, script::Script*)
 int ColorCycleComponent::set_period_from_script(script::Struct* params, script::Script*)
 {
     float period = 0.0f;
-    std::memcpy(&period, &params, sizeof(period)); // (the original's slot for it: the params argument)
+    std::memcpy(&period, static_cast<const void*>(&params),
+                sizeof(period)); // (the original's slot for it: the params argument)
     params->fetch_float(0u, &period, 1);
     period_ = period;
     return 1;

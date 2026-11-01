@@ -74,6 +74,7 @@
 #include "game/rider/skater_score.h"
 #include "game/skate/point_tally.h"
 #include "engine/util/unique_handle.h"
+#include "engine/core/parse_number.h"
 
 namespace frontend::new_frontend {
 
@@ -182,8 +183,8 @@ paint::FontFiles resolve_fonts()
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     const bool bahnschrift = lower.find("bahnschrift") != std::string::npos;
     files.condense =
-        static_cast<float>(std::atoi(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0f;
-    files.bold = std::atoi(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? 0.022f : 0.0f;
+        static_cast<float>(text::to_int(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0f;
+    files.bold = text::to_int(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? 0.022f : 0.0f;
     get_log("new front end: fonts - display %s (condensed %.0f%%%s), mono %s, body %s",
             files.display.empty() ? "(none)" : files.display.c_str(), files.condense * 100.0f,
             files.bold > 0 ? ", heavier" : "", files.mono.empty() ? "(none)" : files.mono.c_str(),
@@ -2478,7 +2479,7 @@ void blit()
         extras.levels_missing_ = !s_catalogue_ok;
         extras.restart_pending_ = s_restart_pending;
         extras.options_note_ = s_options_note;
-        static const bool kShowIniKeys = std::atoi(ini_string("show_ini_keys", "0").c_str()) != 0;
+        static const bool kShowIniKeys = text::to_int(ini_string("show_ini_keys", "0").c_str()) != 0;
         extras.show_ini_keys_ = kShowIniKeys;
         if (s_menu.over_pause()) {
             const paint::Extras pause = pause_extras();

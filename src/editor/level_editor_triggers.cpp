@@ -50,6 +50,7 @@
 #include "platform/run_log.h"
 #include "engine/core/owner.h"
 #include "engine/core/ints.h"
+#include "engine/core/parse_number.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -1966,7 +1967,7 @@ void register_gap_entry()
     start.spec.size = {300.0f, 300.0f, 60.0f};
     start.spec.gap = gap;
     start.spec.flags = {"CANCEL_GROUND"};
-    const int number = std::atoi(gap.c_str() + 6);
+    const int number = text::to_int(gap.c_str() + 6);
     char text[32];
     std::snprintf(text, sizeof(text), "Editor Gap %d", number > 0 ? number : 1);
     start.spec.text = text;

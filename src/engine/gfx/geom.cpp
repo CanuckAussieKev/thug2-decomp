@@ -189,7 +189,7 @@ void PcGeom::free_mesh_table()
             memory::Hub::get_pull()->dealloc(mesh);
         }
     }
-    memory::Hub::get_pull()->dealloc(meshes);
+    memory::Hub::get_pull()->dealloc(static_cast<void*>(meshes));
     meshes = nullptr;
 }
 
@@ -238,13 +238,13 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
         for (int i = 0; i < list->mesh_count_; ++i)
             kept[i] = list->meshes[i];
         const int kept_count = list->mesh_count_;
-        memory::Hub::get_pull()->dealloc(list->meshes);
+        memory::Hub::get_pull()->dealloc(static_cast<void*>(list->meshes));
         list->meshes = nullptr;
         list->mesh_total(static_cast<int>(mesh_count_), meshes); // (this one's)
         list->allocate_mesh_list();
         for (int i = 0; i < kept_count; ++i)
             list->meshes[i] = kept[i];
-        memory::Hub::get_pull()->dealloc(kept);
+        memory::Hub::get_pull()->dealloc(static_cast<void*>(kept));
         list->append_meshes(static_cast<int>(geom->mesh_count_), geom->meshes);
         list->order_meshes();
     } else {

@@ -239,7 +239,7 @@ objects::CrownObject* Hub::get_crown_holder() { return crown_; }
 void Hub::clear_crown() { crown_ = nullptr; }
 
 // 0x00533230
-void Hub::set_crown_start_spot(char point) { crown_start_ = point; }
+void Hub::set_crown_start_spot(char point) { crown_start_ = int{point}; }
 
 // 0x00533240
 void Hub::set_room_id(uint32_t id) { room_id_ = id; }

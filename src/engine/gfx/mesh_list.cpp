@@ -134,7 +134,7 @@ void SceneRef::destroy_body()
         }
     }
     if (meshes)
-        memory::Hub::sole()->dealloc(meshes);
+        memory::Hub::sole()->dealloc(static_cast<void*>(meshes));
     if (extra) // (delete[]: the records' destructor is empty)
         memory::Hub::sole()->dealloc(extra - 4);
     if (com_object_)
@@ -223,7 +223,8 @@ void SceneRef::detach_meshes(int count, MeshRef* const* list)
         if (j >= mesh_count_)
             continue;
         if (j < n - 1)
-            std::memmove(&meshes[j], &meshes[j + 1], (n - j - 1) * sizeof(meshes[0]));
+            std::memmove(static_cast<void*>(&meshes[j]), static_cast<const void*>(&meshes[j + 1]),
+                         (n - j - 1) * sizeof(meshes[0]));
         --removed;
         --mesh_count_;
         --filled;
@@ -234,7 +235,7 @@ void SceneRef::detach_meshes(int count, MeshRef* const* list)
 // 0x004DDFA0
 void SceneRef::order_meshes()
 {
-    get_qsort(meshes, mesh_count_, sizeof(meshes[0]), &compare_meshes);
+    get_qsort(static_cast<void*>(meshes), mesh_count_, sizeof(meshes[0]), &compare_meshes);
     recount();
 }
 

@@ -36,6 +36,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/movie.h"
 #include "engine/script/game_cfuncs.h"
+#include "engine/core/parse_number.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -76,7 +77,7 @@ long get_number(const char* from)
 {
     while (*from == ' ')
         ++from;
-    return std::atol(from);
+    return text::to_int(from);
 }
 
 // --- WinMain's callees -------------------------------------------------------------------------------------------

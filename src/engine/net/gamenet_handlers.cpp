@@ -317,7 +317,7 @@ int handle_game_ended(net::InboundMsgCtx* context)
 int handle_choose_team(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
-    const int teams = static_cast<int8_t>(get_message(context)[0]);
+    const int teams = int{static_cast<int8_t>(get_message(context)[0])};
     if (teams <= 0 || is_squad_match()) {
         get_game_mode()->set_num_teams(teams);
         return kContinue;

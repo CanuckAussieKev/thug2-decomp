@@ -103,7 +103,7 @@ constexpr SavedRange kSaved[] = {
     {[]() -> void* { return &render::g_device_viewport; }, sizeof(render::DeviceViewport)},
     {[]() -> void* { return &render::g_camera; }, sizeof(render::RenderCamera)},
     {[]() -> void* { return &render::g_view_shape; }, sizeof(render::ViewShape)}, // (the view's shape: culling)
-    {[]() -> void* { return &render::g_world_transform; },
+    {[]() -> void* { return static_cast<void*>(&render::g_world_transform); },
      sizeof(void*)}, // (the culling world matrix: none or the copy)
     {[]() -> void* { return &render::g_world_transform_copy; }, sizeof(float[16])},
 };

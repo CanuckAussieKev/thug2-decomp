@@ -140,7 +140,8 @@ void FlexibleParticleManager::render_systems(bool force)
     }
     if (!count)
         return;
-    crt::get_qsort(systems, static_cast<size_t>(count), sizeof(systems[0]), &compare_distance); // (the game's qsort)
+    crt::get_qsort(static_cast<void*>(systems), static_cast<size_t>(count), sizeof(systems[0]),
+                   &compare_distance); // (the game's qsort)
     const bool always = force || is_game_halted();
     for (int i = 0; i < count; ++i)
         systems[i]->render_if_visible(always);

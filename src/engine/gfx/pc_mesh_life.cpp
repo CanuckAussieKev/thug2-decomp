@@ -109,7 +109,7 @@ long MeshRef::apply_vertex_colors()
     uint8_t* out = data + unknown1c_[0];
     const uint32_t* colors = reinterpret_cast<MaterialRef*>(material)->anim_colors_;
     for (uint32_t i = 0; i < vertex_count_; ++i) {
-        const int index = static_cast<int8_t>(per_vertex_bytes_[i]);
+        const int index = int{static_cast<int8_t>(per_vertex_bytes_[i])};
         if (index)
             *reinterpret_cast<uint32_t*>(out) = colors[index - 1];
         out += stride;

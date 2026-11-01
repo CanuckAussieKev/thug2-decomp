@@ -320,13 +320,13 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     server->ping_ = static_cast<int>(frame_clock::get_time() - reply->time);
     std::snprintf(server->level_, sizeof(server->level_), "%s", reply->level);
     std::snprintf(server->mode_sel_, sizeof(server->mode_sel_), "%s", reply->mode);
-    server->max_players_ = reply->max_players;
-    server->num_players_ = reply->num_players;
-    server->max_observers_ = reply->max_observers;
-    server->num_observers_ = reply->num_observers;
+    server->max_players_ = int{reply->max_players};
+    server->num_players_ = int{reply->num_players};
+    server->max_observers_ = int{reply->max_observers};
+    server->num_observers_ = int{reply->num_observers};
     server->password_ = reply->password;
     server->started_ = reply->in_game;
-    server->host_mode_ = static_cast<int8_t>(reply->host_mode);
+    server->host_mode_ = int{static_cast<int8_t>(reply->host_mode)};
     server->ranked_ = reply->logged_in;
     server->skill_level_ = static_cast<int8_t>(reply->skill_level);
     server->port_no_ = kPort;

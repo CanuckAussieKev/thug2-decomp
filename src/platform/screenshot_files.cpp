@@ -3,6 +3,7 @@
 
 #include "platform/screenshot_files.h"
 #include "platform/compiler.h"
+#include "engine/core/parse_number.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -30,7 +31,7 @@ int parse_key(const std::string& text, int fallback, const std::function<int(con
     if (key.find_first_not_of("0123456789") == std::string::npos) {
         if (key.size() > 4)
             return fallback;
-        code = std::atoi(key.c_str());
+        code = text::to_int(key.c_str());
     } else if (by_name) {
         code = by_name(key);
     }

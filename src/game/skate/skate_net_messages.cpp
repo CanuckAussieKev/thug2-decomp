@@ -11,7 +11,7 @@ bool read_scores(util::ByteReader& reader, ScoresMessage* message)
     message->time_left = reader.u32();
     message->cheats = reader.u32();
     message->final = reader.u8() != 0;
-    message->count = reader.i8();
+    message->count = int{reader.i8()};
     for (int i = 0; i < message->count; ++i) {
         message->entries[i].id = reader.i8();
         message->entries[i].score = reader.i32();

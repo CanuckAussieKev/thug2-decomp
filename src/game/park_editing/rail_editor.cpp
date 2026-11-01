@@ -692,7 +692,7 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
     // the slot held), the point unset (here zero: what a cleared stack holds).
     maths::Vec4 nearest = {0.0f, 0.0f, 0.0f, 0.0f};
     float distance = 0.0f;
-    std::memcpy(&distance, &index, sizeof(distance));
+    std::memcpy(&distance, static_cast<const void*>(&index), sizeof(distance));
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
         int i = 0;
         if (rail->find_nearest_point(position, &nearest, &distance, &i, rail->ident_ == skip_rail ? bypass_idx : -1) &&

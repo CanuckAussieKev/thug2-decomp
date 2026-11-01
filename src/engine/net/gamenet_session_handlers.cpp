@@ -337,7 +337,7 @@ int handle_host_options(net::InboundMsgCtx* context)
     }
     case 0x66: {
         // The number of teams.
-        const int teams = reader.i8();
+        const int teams = int{reader.i8()};
         if (!reader.ok())
             return kDone;
         script::Struct* count = new_params();
@@ -420,7 +420,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     StartGame start;
     read_start_game(reader, &start);
     manager->set_start_info_words(start.start_points);
-    manager->crown_start_ = start.crown_start_slot; // the crown's spawn point
+    manager->crown_start_ = int{start.crown_start_slot}; // the crown's spawn point
     manager->awaiting_start_ = false;
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
          p = step_roster_sweep(manager, &search, false)) {

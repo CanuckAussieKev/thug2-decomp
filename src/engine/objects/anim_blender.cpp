@@ -90,10 +90,10 @@ AnimBlenderComponent::AnimBlenderComponent()
     lanes_.make_head();
     auto* sentinel = static_cast<void**>(memory::alloc(0xC));
     if (sentinel) {
-        sentinel[1] = sentinel;
-        sentinel[2] = sentinel;
+        sentinel[1] = static_cast<void*>(sentinel);
+        sentinel[2] = static_cast<void*>(sentinel);
     }
-    observers_ = sentinel;
+    observers_ = static_cast<void*>(sentinel);
     kind_tag_ = kType;
 }
 
@@ -102,8 +102,8 @@ AnimBlenderComponent::~AnimBlenderComponent()
 {
     lists::delete_each<Channel>(&lanes_, [](Channel* channel) { channel->teardown(1); }); // (0x0057A2F0)
     auto* const* sentinel = static_cast<void**>(observers_);
-    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
-         node = static_cast<void**>(node[1])) {
+    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr;
+         static_cast<const void*>(node) != observers_; node = static_cast<void**>(node[1])) {
         delete static_cast<BlendObserver*>(node[0]);
     }
     // the list emptied (std::list::erase(begin, end), 0x004ECC30) - twice, as the original
@@ -374,8 +374,8 @@ gfx::BlendChannel* AnimBlenderComponent::add_channel(uint32_t id, bool at_front)
 void AnimBlenderComponent::notify_observers(gfx::Stance* pose)
 {
     auto* const* sentinel = static_cast<void**>(observers_);
-    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
-         node = static_cast<void**>(node[1]))
+    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr;
+         static_cast<const void*>(node) != observers_; node = static_cast<void**>(node[1]))
         static_cast<BlendObserver*>(node[0])->on_pose(pose);
 }
 

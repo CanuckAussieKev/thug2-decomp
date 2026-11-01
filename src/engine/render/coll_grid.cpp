@@ -117,11 +117,13 @@ struct CellUpdate {
         const int count = cell->count + delta;
         const uint32_t size = static_cast<uint32_t>(count) * 4;
         if (delta < 0) {
-            if (!cell->objects || !memory::Hub::get_pull()->trim_block_end(size, cell->objects, nullptr))
-                cell->objects = static_cast<HitMesh**>(memory::regrow(cell->objects, size));
+            if (!cell->objects ||
+                !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell->objects), nullptr))
+                cell->objects = static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects), size));
         } else if (delta > 0) {
-            if (!cell->objects || !memory::Hub::get_pull()->extend_block_upward(size, cell->objects, nullptr))
-                cell->objects = static_cast<HitMesh**>(memory::regrow(cell->objects, size));
+            if (!cell->objects ||
+                !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell->objects), nullptr))
+                cell->objects = static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects), size));
             int at = cell->count;
             if (!is_head(pending->next)) {
                 for (memory::ListNode* node = pending->next; node;) {
@@ -147,7 +149,7 @@ CollGridCell::~CollGridCell()
     if (unknown28)
         memory::Hub::get_pull()->dealloc(unknown28);
     if (objects)
-        memory::free_malloc(objects);
+        memory::free_malloc(static_cast<void*>(objects));
 }
 
 // 0x00418440 (the corners are kept in double precision from one cell to the next and rounded where stored)
@@ -177,7 +179,7 @@ void CollGrid::get_clear()
     for (auto& column : cells_) {
         for (CollGridCell& cell : column) {
             if (cell.objects) {
-                memory::free_malloc(cell.objects);
+                memory::free_malloc(static_cast<void*>(cell.objects));
                 cell.objects = nullptr;
             }
             cell.count = 0;
@@ -291,11 +293,11 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
                 const uint32_t size = static_cast<uint32_t>(cell.count) * 4;
                 cell.objects = static_cast<HitMesh**>(memory::alloc_block(size));
                 // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken as an integer, on purpose
-                std::memcpy(cell.objects, old, size);
+                std::memcpy(static_cast<void*>(cell.objects), static_cast<const void*>(old), size);
             } else {
                 cell.objects = nullptr;
             }
-            memory::free_malloc(old);
+            memory::free_malloc(static_cast<void*>(old));
         }
     }
     pending.prev->next = pending.next;

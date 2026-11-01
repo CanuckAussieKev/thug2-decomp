@@ -50,7 +50,7 @@ void get_refresh(render::Sparkle* particle) { particle->tick_frame(); }
 float unnamed_float(script::Struct* params)
 {
     float value = 0.0f;
-    std::memcpy(&value, &params, 4);
+    std::memcpy(&value, static_cast<const void*>(&params), 4);
     params->fetch_float(0u, &value, 1);
     return value;
 }

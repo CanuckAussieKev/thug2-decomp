@@ -910,6 +910,12 @@ add_executable(thug2_maths_check src/tests/maths_check.cpp)
 target_include_directories(thug2_maths_check PRIVATE src)
 target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 
+# NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (engine/core/
+# parse_number.h) compared with the C runtime's over many texts (src/tests/parse_check.cpp).
+add_executable(thug2_parse_check src/tests/parse_check.cpp)
+target_include_directories(thug2_parse_check PRIVATE src)
+target_compile_options(thug2_parse_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
+
 # THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
 # (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
 # install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as thug2-level-converter-core/lib/install.ts).

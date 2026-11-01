@@ -275,7 +275,7 @@ PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original
 PointTally::~PointTally()
 {
     get_reset();
-    memory::free_malloc(log_.items_);
+    memory::free_malloc(static_cast<void*>(log_.items_));
     reinterpret_cast<objects::ProfileTable*>(&seen_)->get_clear(); // (the lookup table's shared destructor)
 }
 

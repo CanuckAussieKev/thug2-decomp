@@ -226,7 +226,7 @@ void ParagraphWidget::change_caption(const char** texts, int count)
             first = 0;
     }
     memory::dealloc(lines_[0]);
-    memory::dealloc(lines_);
+    memory::dealloc(static_cast<void*>(lines_));
     set_focus_sent(1);
     object_flags_ |= kVisibleNow;
 }

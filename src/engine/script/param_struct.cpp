@@ -214,7 +214,8 @@ bool Struct::is_subset_of(Struct* other)
 bool Struct::fetch_text(uint32_t name, const char** out, int assert)
 {
     const char* value = nullptr;
-    if (!get_hunt(name, kQbvalString, &value) && !get_hunt(name, kQbvalInlineText, &value)) {
+    if (!get_hunt(name, kQbvalString, static_cast<void*>(&value)) &&
+        !get_hunt(name, kQbvalInlineText, static_cast<void*>(&value))) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -271,7 +272,7 @@ bool Struct::fetch_float(const char* name, float* out, int assert)
 bool Struct::fetch_pair(uint32_t name, float* x, float* y, int assert)
 {
     Pair* pair = nullptr;
-    if (!get_hunt(name, kQbvalPair, &pair)) {
+    if (!get_hunt(name, kQbvalPair, static_cast<void*>(&pair))) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -285,7 +286,7 @@ bool Struct::fetch_pair(uint32_t name, float* x, float* y, int assert)
 bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
 {
     Pair* pair = nullptr;
-    if (get_hunt(name, kQbvalPair, &pair)) {
+    if (get_hunt(name, kQbvalPair, static_cast<void*>(&pair))) {
         out->x = pair->x;
         out->y = pair->y;
         return true;
@@ -301,7 +302,7 @@ bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
 bool Struct::read_sub_struct(uint32_t name, Struct** out, int assert)
 {
     Struct* value = nullptr;
-    if (!get_hunt(name, kQbvalStruct, &value)) {
+    if (!get_hunt(name, kQbvalStruct, static_cast<void*>(&value))) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -320,7 +321,7 @@ bool Struct::read_sub_struct(const char* name, Struct** out, int assert)
 bool Struct::fetch_list(uint32_t name, Array** out, int assert)
 {
     Array* value = nullptr;
-    if (!get_hunt(name, kQbvalArray, &value)) {
+    if (!get_hunt(name, kQbvalArray, static_cast<void*>(&value))) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -339,7 +340,7 @@ bool Struct::fetch_list(const char* name, Array** out, int assert)
 bool Struct::fetch_script(uint32_t name, ParamScript* out, int assert)
 {
     const uint8_t* code = nullptr;
-    if (!get_hunt(name, kQbvalScriptBody, &code)) {
+    if (!get_hunt(name, kQbvalScriptBody, static_cast<void*>(&code))) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -395,7 +396,7 @@ bool Struct::hash_from_name_or_text(uint32_t name, uint32_t* out, int assert)
 bool Struct::fetch_vec(uint32_t name, VectorValue* out, int assert)
 {
     Vector* vector = nullptr;
-    if (!get_hunt(name, kQbvalVector, &vector)) {
+    if (!get_hunt(name, kQbvalVector, static_cast<void*>(&vector))) {
         if (assert)
             dump_to_log(this);
         return false;

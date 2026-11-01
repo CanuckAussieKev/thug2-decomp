@@ -272,7 +272,7 @@ void ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int type)
                   heap_size >> 10); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<ClipStore*>(memory::alloc_zeroed(sizeof(ClipStore)));
     if (cache) {
-        std::memset(cache->slot_array_, 0, sizeof(cache->slot_array_));
+        std::memset(static_cast<void*>(cache->slot_array_), 0, sizeof(cache->slot_array_));
         cache->taken_count_ = 0;
         cache->granularity_ = 0;
         cache->kind_tag_ = 0;
@@ -505,7 +505,7 @@ int ClipStore::defragment()
         }
     }
     memory::dealloc(copy);
-    memory::dealloc(old_data);
+    memory::dealloc(static_cast<void*>(old_data));
     return 0;
 }
 

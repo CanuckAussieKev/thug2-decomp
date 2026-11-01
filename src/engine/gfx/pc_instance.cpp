@@ -281,7 +281,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
                 get_visible()[count++] = instance;
         }
         if (count > 0) {
-            crt::get_qsort(get_visible(), static_cast<uint32_t>(count), 4,
+            crt::get_qsort(static_cast<void*>(get_visible()), static_cast<uint32_t>(count), 4,
                            compare_instances); // (the C runtime's qsort)
             change_phase(kStateLighting, 1);
             input_port()->SetRenderState(D3DRS_COLORVERTEX, TRUE);

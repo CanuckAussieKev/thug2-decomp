@@ -240,7 +240,7 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
     const CellBox& cells = cell_footprint_;
     const int x_start = area.x;
     const int x_end = area.x + area.w;
-    const int y_start = area.y;
+    const int y_start = int{area.y};
     const int y_end = area.y + area.h;
     const int z_start = area.z;
     const int z_end = area.z + area.l;

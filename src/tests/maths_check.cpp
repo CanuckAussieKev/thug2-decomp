@@ -16,6 +16,7 @@
 #include <random>
 
 #include "engine/maths/trig.h"
+#include "engine/core/parse_number.h"
 
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <cfloat>
@@ -1446,7 +1447,7 @@ void run(int count, std::mt19937_64& random)
 int main(int argc, char** argv)
 {
 #ifdef THUG2_X87_REFERENCE
-    const int count = argc > 1 ? std::atoi(argv[1]) : 200000;
+    const int count = argc > 1 ? text::to_int(argv[1]) : 200000;
     // NOLINTNEXTLINE(bugprone-random-generator-seed): the original's seed / a test's fixed sequence
     std::mt19937_64 random(20261101);
     std::printf("x87 at 53 bits (the default control word)\n");
