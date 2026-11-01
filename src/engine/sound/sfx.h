@@ -34,8 +34,8 @@ struct VolumeRef {
         kType3d = 3,       // the voice's 3D buffer places it (never silent)
     };
 
-    // 0x0047B030 (returns this): the manager's default type, every channel 0.
-    VolumeRef* prepare_all();
+    // 0x0047B030: the manager's default type, every channel 0.
+    VolumeRef();
     // 0x0047B070 (returns this)
     VolumeRef* change_species(int type);
     // 0x0047AC50: every channel scaled by `percent` percent.

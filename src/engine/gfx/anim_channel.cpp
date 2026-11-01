@@ -225,7 +225,7 @@ int AnimListHead::tally_entries()
 // --- making and destroying ---
 
 // 0x0047F150
-BlendChannel* BlendChannel::make_new(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full)
+BlendChannel::BlendChannel(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full)
 {
     list_link_.make_node(this);
     timelines_.make_head();
@@ -244,7 +244,6 @@ BlendChannel* BlendChannel::make_new(objects::GameEntity* object, objects::AnimB
     aim_point_ = value;
     outset_ = value;
     get_reset();
-    return this;
 }
 
 // 0x0047EE90

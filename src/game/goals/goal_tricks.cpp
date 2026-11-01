@@ -298,7 +298,6 @@ void Objective::remove_reward_trick()
             profile->get_special_trick(&special, i);
             if (special.trick == trick) {
                 RiderIdentity::SpecialTrick empty;
-                empty.make_new();
                 empty.trick = kUnassigned;
                 empty.keys = kUnassigned;
                 profile->set_special_trick(i, &empty, true);
@@ -400,7 +399,6 @@ bool Objective::award_special_trick()
             delete_structure(params);
         } else {
             RiderIdentity::SpecialTrick special;
-            special.make_new();
             special.trick = trick;
             special.keys = keys;
             profile->set_special_trick(slots, &special, true);

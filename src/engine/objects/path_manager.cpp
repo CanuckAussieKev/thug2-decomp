@@ -45,7 +45,7 @@ void release_slot(SharedRef<Entity>* slot)
 } // namespace
 
 // 0x004694A0
-void ObjectGroup::destruct()
+ObjectGroup::~ObjectGroup()
 {
     if (!slots_)
         return;
@@ -183,7 +183,7 @@ void PathManager::dealloc()
         groups_[i].release_all();
     if (ObjectGroup* groups = groups_) {
         for (int i = element_total(groups) - 1; i >= 0; --i)
-            groups[i].destruct();
+            groups[i].~ObjectGroup();
         delete_array(groups);
     }
     ObjectGroup* extra = extra_;
@@ -208,19 +208,14 @@ void PathManager::carve(int groups, int group_size, int extra_size)
     memory->enter_heap_scope(memory->bottom_up_heap_);
     auto* made = static_cast<ObjectGroup*>(alloc_script_array(group_count_, sizeof(ObjectGroup)));
     if (made) {
-        for (int i = 0; i < group_count_; ++i) {
-            made[i].slots_ = nullptr; // (0x00414D70)
-            made[i].extent_ = 0;
-        }
+        for (int i = 0; i < group_count_; ++i)
+            new (&made[i]) ObjectGroup;
     }
     groups_ = made;
     for (int i = 0; i < group_count_; ++i)
         groups_[i].prepare_all(group_size);
-    auto* extra = static_cast<ObjectGroup*>(memory::alloc(sizeof(ObjectGroup)));
-    if (extra) {
-        extra->slots_ = nullptr;
-        extra->extent_ = 0;
-    }
+    void* block = memory::alloc(sizeof(ObjectGroup));
+    ObjectGroup* extra = block ? new (block) ObjectGroup : nullptr;
     extra_ = extra;
     extra->prepare_all(extra_size);
     memory::Hub::get_pull()->leave_heap_scope();

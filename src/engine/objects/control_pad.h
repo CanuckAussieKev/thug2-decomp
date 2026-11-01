@@ -44,7 +44,7 @@ static_assert(sizeof(ControlButton) == 0x20, "layout must match the original");
 class PadSnapshot {
 public:
     // 0x0046B940: the buttons' names; no locks.
-    PadSnapshot* prepare_all();
+    PadSnapshot();
     // 0x0046BB50: every button updated as released (pressure 0), the sticks zeroed.
     void get_reset();
     // 0x0046BC60: Reset, and the buttons' events taken - except, as the original, R2's release and R3's press

@@ -77,7 +77,7 @@ void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
 // set below). VolumeRef's destructor is empty.
 sound::AudioMixer* sound_manager() { return sound::g_audio_mixer; }
 using Loudness = sound::VolumeRef;
-void construct_volume(Loudness* volume) { volume->prepare_all(); }
+void construct_volume(Loudness* volume) { new (volume) sound::VolumeRef; }
 void change_muted(Loudness* volume) { volume->change_muted(); }
 float peak_channel_index(Loudness* volume) { return volume->find_peak_channel(); }
 inline void destroy_volume(Loudness*) {} // (0x005480A0)

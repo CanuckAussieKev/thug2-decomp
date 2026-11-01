@@ -21,9 +21,13 @@ class Entity;
 // A fixed number of slots for objects (8 bytes; the slots are an array new[] of smart pointers).
 class ObjectGroup {
 public:
-    // 0x004694A0 (not a Ghidra function: only the array helpers point at it): the destructor - the slots'
-    // smart pointers let go (last first) and the array freed.
-    void destruct();
+    // 0x00414D70: no slots.
+    ObjectGroup() : slots_(nullptr), extent_(0) {}
+    // 0x004694A0 (not a Ghidra function: only the array helpers point at it): the slots' smart pointers let go
+    // (last first) and the array freed.
+    ~ObjectGroup();
+    ObjectGroup(const ObjectGroup&) = delete;
+    ObjectGroup& operator=(const ObjectGroup&) = delete;
     // 0x004698C0: `size` empty slots (from the current heap).
     void prepare_all(int size);
     // 0x00469540: every slot let go.

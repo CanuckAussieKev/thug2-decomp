@@ -179,7 +179,6 @@ bool __cdecl cfunc_bind_trick_to_key_combo(script::Struct* params, script::Scrip
         if (!params->fetch_int_value("index", &index, 0))
             return false;
         RiderIdentity::SpecialTrick trick;
-        trick.make_new();
         trick.keys = key_combo;
         trick.trick = is_number ? static_cast<uint32_t>(trick_number) : trick_name;
         trick.flag = params->has_bare_flag(kCat);
@@ -658,7 +657,6 @@ bool __cdecl cfunc_set_special_trick_info(script::Struct* params, script::Script
     if (!profile)
         return false;
     RiderIdentity::SpecialTrick trick;
-    trick.make_new();
     trick.trick = name;
     trick.keys = keys;
     profile->set_special_trick(slot, &trick, false);

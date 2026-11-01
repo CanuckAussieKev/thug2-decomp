@@ -122,8 +122,6 @@ void __cdecl PadInputModule::publish_method_table()
 // 0x0041E850
 PadInputModule::PadInputModule()
 {
-    pad_primary_.prepare_all();
-    pad_secondary_.prepare_all();
     kind_tag_ = kType;
     handler_ = nullptr;
     unknown49c_ = 0;

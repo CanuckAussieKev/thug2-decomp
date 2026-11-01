@@ -70,7 +70,7 @@ struct RiderIdentity {
         bool flag;
         uint8_t pad9[3];
         // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
-        SpecialTrick* make_new();
+        SpecialTrick();
         bool is_vacant();
     };
     // 0x00586630: special trick slot `index` (returned through `out`). 0x00586710: set (an empty one stored as

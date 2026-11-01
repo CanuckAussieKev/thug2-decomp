@@ -46,7 +46,7 @@ sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
 // A stereo volume of the manager's default type: left and right.
 void set_stereo(sound::VolumeRef& volume, float left, float right)
 {
-    volume.prepare_all();
+    new (&volume) sound::VolumeRef;
     volume.change_muted();
     volume.lanes_[0] = left;
     volume.lanes_[1] = right;

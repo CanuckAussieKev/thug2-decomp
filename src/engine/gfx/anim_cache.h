@@ -36,7 +36,7 @@ struct AnimCacheEntry {
     };
 
     // The constructor (inlined into 0x004809F0): empty, the flags' 0xA000 bits kept.
-    void make_new();
+    AnimCacheEntry();
     // 0x00480810: room for `rotation_keys` rotation and `translation_keys` translation keys of the cache's `type` (2: 8
     // bytes each, 3: 16 each, 4: 20 / 16, others nothing), rounded up past the cache's granularity, allocated on
     // the AnimHeap (zeroed); the animation `key`, `bones`. The size allocated, or 0 (not in use) when the heap

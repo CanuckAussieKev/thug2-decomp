@@ -138,8 +138,8 @@ struct QueryRequest {
     bool unknownc_;
     uint8_t padd_[3];
 
-    // 0x004426C0 (returns this)
-    QueryRequest* prepare_all();
+    // 0x004426C0
+    QueryRequest();
 };
 static_assert(sizeof(QueryRequest) == 0x10, "the original keeps 0x10 bytes for it");
 void add_query(QueryRequest* request)
@@ -187,12 +187,11 @@ void corner_colors(uint8_t colors[4][4], double scale)
 } // namespace
 
 // 0x004426C0
-QueryRequest* QueryRequest::prepare_all()
+QueryRequest::QueryRequest()
 {
     callback = nullptr;
     data = nullptr;
     unknownc_ = false;
-    return this;
 }
 
 // 0x00442680
@@ -475,7 +474,6 @@ void __cdecl render(gfx::ViewCam* camera)
     build_sun_quad(camera, &sun, &sun_pos, corners);
     blit_quad(&sun, corners, &colors[0][0], uvs);
     QueryRequest request;
-    request.prepare_all();
     request.callback = query_sun_visibility;
     request.data = nullptr;
     add_query(&request);

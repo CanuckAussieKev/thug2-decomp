@@ -246,7 +246,6 @@ void SkaterVehicleSoundComponent::tick_engine()
     float rpm = get_fraction((static_cast<double>(rpm_) - low_rpm) / (static_cast<double>(high_rpm) - low_rpm));
 
     sound::VolumeRef volume;
-    volume.prepare_all();
     sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
                         nullptr);
@@ -279,7 +278,6 @@ void SkaterVehicleSoundComponent::update_skid()
     float level = get_fraction(static_cast<double>(skid_) / loudest_at);
 
     sound::VolumeRef volume;
-    volume.prepare_all();
     sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
     float loudest = get_setting(settings_, 0x42EA5746);

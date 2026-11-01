@@ -372,7 +372,6 @@ bool __cdecl cfunc_set_stream_params(Struct* params, Script*)
     bool ok = true;
     if (got_volume) {
         sound::VolumeRef volume;
-        volume.prepare_all();
         volume.change_muted();
         volume.lanes_[0] = left;
         volume.lanes_[1] = right;
@@ -427,7 +426,7 @@ bool __cdecl cfunc_start_pre_loaded_stream(Struct* params, Script*)
     params->fetch_float(kVolume, &level, 0);
     auto* volume = static_cast<sound::VolumeRef*>(memory::alloc(sizeof(sound::VolumeRef)));
     if (volume)
-        volume = volume->prepare_all();
+        volume = new (volume) sound::VolumeRef;
     volume->lanes_[0] = level;
     volume->lanes_[1] = level;
     bool started = audio::start_pre_loaded_stream(stream, volume, 100.0f, 0);

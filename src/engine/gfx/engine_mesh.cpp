@@ -104,7 +104,7 @@ int SplatSlots::oldest_slot(uint32_t count)
 }
 
 // 0x00490D20
-void VertexStack::make_new()
+VertexStack::VertexStack()
 {
     used = 0;
     vertex_size_ = 0;

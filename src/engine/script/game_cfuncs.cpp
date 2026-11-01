@@ -322,7 +322,6 @@ bool __cdecl cfunc_get_analogue_info(script::Struct* params, script::Script* scr
     params->fetch_int_value(kController, &controller, 0);
     modules::FrontEndInputHandler* handler = front_end->pad_listeners_[controller].get();
     objects::PadSnapshot pad;
-    pad.prepare_all();
     pad.tick_frame(reinterpret_cast<const uint8_t*>(handler->control_data_));
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)

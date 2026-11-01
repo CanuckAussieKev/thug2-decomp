@@ -151,8 +151,6 @@ void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
 
 ParkAssembler::ParkAssembler()
 {
-    source_rails_.make_new();
-    rails_.make_new();
     for (RestartPoint& restart : restarts_)
         restart.edit_span_.assign_value(0, 0, 0, 0, 0, 0);
     new (node_array_) assets::NodeTableResource;

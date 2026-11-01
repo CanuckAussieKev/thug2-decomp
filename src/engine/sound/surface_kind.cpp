@@ -378,7 +378,6 @@ void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec
         client->send_to_host(&desc);
     }
     sound::VolumeRef volume;
-    volume.prepare_all();
     sounds->fetch_loudness(&volume, position, sounds->get_dropoff_distance(info.checksum), 0, nullptr, nullptr);
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
@@ -395,7 +394,6 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
         return;
     sound::AudioMixer* sounds = sound_manager();
     sound::VolumeRef volume;
-    volume.prepare_all();
     sounds->fetch_loudness(&volume, position, sounds->get_dropoff_distance(info.checksum), 0, nullptr, nullptr);
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {

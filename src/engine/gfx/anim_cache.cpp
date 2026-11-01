@@ -120,7 +120,7 @@ void AnimCacheSlot::get_clear()
 
 // --- an entry ---
 
-void AnimCacheEntry::make_new()
+AnimCacheEntry::AnimCacheEntry()
 {
     flag_bits_ &= 0xA000;
     rotation_keys_ptr_ = nullptr;
@@ -321,7 +321,7 @@ void ClipStore::prepare_all(uint32_t granularity, int type)
     for (AnimCacheEntry*& entry : slot_array_) {
         entry = static_cast<AnimCacheEntry*>(memory::alloc_zeroed(sizeof(AnimCacheEntry)));
         if (entry)
-            entry->make_new();
+            new (entry) gfx::AnimCacheEntry;
     }
     granularity_ = granularity;
     kind_tag_ = type;

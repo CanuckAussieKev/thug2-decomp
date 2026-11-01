@@ -102,7 +102,6 @@ void __cdecl RiderRollingAudio::publish_method_table()
 // 0x005138E0
 RiderRollingAudio::RiderRollingAudio()
 {
-    prev_levels_.prepare_all();
     sound_changed_ = 1;
     cur_phase_ = kStateAir;
     on_ = 1;
@@ -203,7 +202,6 @@ void RiderRollingAudio::tick_frame()
         return;
     }
     LoopingSoundVolume volume;
-    volume.prepare_all();
     // Not original: THAW's BMX (game/rider/thaw_bmx.h; THAW 0x0046A097 / 0x0046A0D3) - on the bike its roll and grind
     // (BIKE_ROLL, BIKE_GRIND) on every terrain, nothing in the air or sliding; chosen every frame, and again from the
     // terrain once off the bike.

@@ -220,7 +220,6 @@ const char* RiderIdentity::fetch_shown_name()
 RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out, int index)
 {
     SpecialTrick trick;
-    trick.make_new();
     script::Struct* specials;
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots;
@@ -271,10 +270,9 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
 }
 
 // 0x00587100 / 0x00587110
-RiderIdentity::SpecialTrick* RiderIdentity::SpecialTrick::make_new()
+RiderIdentity::SpecialTrick::SpecialTrick()
 {
     flag = false;
-    return this;
 }
 bool RiderIdentity::SpecialTrick::is_vacant() { return trick == kEmptyTrick; }
 

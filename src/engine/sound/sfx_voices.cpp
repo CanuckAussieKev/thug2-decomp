@@ -408,7 +408,6 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
         return 0;
     auto* given = static_cast<float*>(params); // {pitch, volume, dropoff, falloff}
     VolumeRef volume;
-    volume.prepare_all();
     maths::Vec4 at = *object_position(object);
     void* camera = nearest_camera(&at, nullptr);
     if (camera) {
@@ -892,7 +891,6 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
 void silence_voices()
 {
     VolumeRef volume;
-    volume.prepare_all();
     volume.change_muted();
     for (int i = 0; i < voice_count(); ++i) {
         if (get_voices()[i].playing && get_voices()[i].buffer)

@@ -341,7 +341,6 @@ bool __cdecl update_stream_volume(int slot)
         return false;
     StreamFields* stream = stream_at(index);
     sound::VolumeRef volume;
-    volume.prepare_all();
     sound::AudioMixer* manager = sound_manager();
     if (stream->positional) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)

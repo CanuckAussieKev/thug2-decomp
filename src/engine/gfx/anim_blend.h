@@ -69,8 +69,8 @@ public:
 
     // --- 0x0047DC40-0x0047F24E ---
     // 0x0047F150: on `object` / `blender`, no timelines, events on, the blend value 1 (with `full`) or 0; the
-    // rest as Reset (it reads +0x60 before setting it, as the original). Returns this.
-    BlendChannel* make_new(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full);
+    // rest as Reset (it reads +0x60 before setting it, as the original).
+    BlendChannel(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full);
     // 0x0047EE90: its timelines deleted, the head and its own node unlinked.
     // 0x0047F230 (slot 0): that, then freed.
     void destroy_body();

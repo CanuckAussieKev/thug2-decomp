@@ -186,12 +186,11 @@ constexpr PadButtonName kPadButtons[] = {
 } // namespace
 
 // 0x0046B940
-PadSnapshot* PadSnapshot::prepare_all()
+PadSnapshot::PadSnapshot()
 {
     for (const PadButtonName& entry : kPadButtons)
         (this->*entry.button).change_title(entry.name);
     lock_[0] = lock_[1] = 0;
-    return this;
 }
 
 // 0x0046BB50: every button let go (a held one records its release), the sticks centred.

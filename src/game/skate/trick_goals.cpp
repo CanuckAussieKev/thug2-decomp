@@ -1045,7 +1045,7 @@ void TrickBeatGoal::update_beat()
                 pitch = static_cast<float>(static_cast<double>(pitch) * slomo);
                 SoundVolume level;
                 auto* volume_of = reinterpret_cast<sound::VolumeRef*>(&level);
-                volume_of->prepare_all();
+                new (volume_of) sound::VolumeRef;
                 volume_of->change_muted();
                 level.channels[0] = volume;
                 level.channels[1] = volume;

@@ -75,8 +75,8 @@ struct ParkRailSet {
     memory::SlabBank* rail_pool_;  // +0x10 (0x20-byte items)
     char label_[0x20];             // +0x14: "In set" / "Out set"
 
-    // 0x0058AFF0: no rails, no pools (the last rail isn't cleared). Returns this.
-    ParkRailSet* make_new();
+    // 0x0058AFF0: no rails, no pools (the last rail isn't cleared).
+    ParkRailSet();
     // 0x0058B010: `rail` on the end.
     void add_rail(ParkRailString* rail);
     // 0x0058B070: the points of all its rails.

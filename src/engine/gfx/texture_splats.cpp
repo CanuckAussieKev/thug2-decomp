@@ -575,7 +575,7 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
                     g_split_area_limit = static_cast<float>(
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
                 }
-                reinterpret_cast<VertexStack*>(vertex_stack())->make_new(); // (emptied)
+                new (vertex_stack()) VertexStack; // (emptied)
                 g_vertex_stack.vertex_size_ = 0x18;
                 push_vertex(v0);
                 push_vertex(v1);

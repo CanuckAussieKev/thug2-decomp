@@ -223,7 +223,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     double cx = e2z * e1y - e2y * e1z;
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));
-                    reinterpret_cast<VertexStack*>(vertex_stack())->make_new(); // (emptied)
+                    new (vertex_stack()) VertexStack; // (emptied)
                     g_vertex_stack.vertex_size_ = 0x18;
                     push_vertex(v0);
                     push_vertex(v1);

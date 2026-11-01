@@ -26,7 +26,7 @@ struct VertexStack {
     // 0x00490D80: the top vertex popped into `out`.
     void stack_off(uint8_t* out);
     // 0x00490D20 (engine_mesh.cpp): empty, no vertex size, the data filled with 3s.
-    void make_new();
+    VertexStack();
     // 0x00490D50 (engine_mesh.cpp): a vertex pushed (vertexSize bytes).
     void stack_on(const uint8_t* in);
 };

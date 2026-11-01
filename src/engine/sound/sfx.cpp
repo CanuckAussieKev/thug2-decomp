@@ -88,12 +88,11 @@ int falloff_from_checksum(uint32_t checksum)
 }
 
 // 0x0047B030
-VolumeRef* VolumeRef::prepare_all()
+VolumeRef::VolumeRef()
 {
     AudioMixer* manager = g_audio_mixer;
     kind_tag_ = manager ? manager->fallback_channel_mode_ : kTypeStereo;
     change_muted();
-    return this;
 }
 
 // 0x0047B070
